@@ -102,26 +102,38 @@ html, body {
   z-index: 0;
 }
 
-/* BACKGROUND LAYER */
+/* BACKGROUND LAYER
+   Scoped to the board frame ONLY -- this is the "game/play area" background,
+   never the application shell. It lives inside #board-layer (which is never
+   wiped by Board's innerHTML re-renders -- only #asoc-board's contents are),
+   sized to fill exactly that frame's bounds and clipped by its own
+   overflow:hidden below. The app shell around it stays neutral gunmetal via
+   html/body and #main-content's own opaque background (see above). */
 #background-layer {
-  position: fixed;
-  top: 0;
-  left: 0;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   opacity: 0.6;
   filter: brightness(0.7) contrast(1.1);
   transition: opacity 0.5s ease, filter 0.5s ease;
-  z-index: -1;
+  z-index: 0;
 }
 
 #background-layer.loaded {
   opacity: 0.55;
 }
 
-/* BOARD FRAME */
+/* BOARD FRAME
+   The containing block for the game background above -- position:relative +
+   overflow:hidden guarantee the selected background can never bleed past
+   the board's own rectangle, regardless of image size, aspect mismatch, or
+   letterboxing. */
 #board-layer {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
   width: 100%;
   max-width: var(--canvas-width);
   max-height: var(--canvas-height);
@@ -133,6 +145,8 @@ html, body {
 }
 
 .asoc-board {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(5, 1fr) auto;
@@ -141,7 +155,7 @@ html, body {
   border: 2px solid var(--board-border);
   border-radius: 8px;
   padding: 8px;
-  box-shadow: 
+  box-shadow:
     0 0 40px rgba(0, 0, 0, 0.6),
     inset 0 0 60px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(138, 143, 158, 0.15);

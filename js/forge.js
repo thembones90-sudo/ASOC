@@ -644,7 +644,12 @@ const Forge = {
         this.renderCreator();
         this.updatePreviewBackground();
       }
-      if (status) status.textContent = `Added: ${res.filename}`;
+      // renderCreator() above rebuilds the whole creator panel via
+      // innerHTML, which replaces the #upload-status node -- re-query it
+      // so the success message lands on the element actually in the
+      // document, not the one that render call just destroyed.
+      const liveStatus = document.getElementById('upload-status');
+      if (liveStatus) liveStatus.textContent = `Added: ${res.filename}`;
     } catch (e) {
       if (status) status.textContent = 'Upload failed: ' + e.message;
       alert('Background upload failed: ' + e.message);

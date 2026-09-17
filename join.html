@@ -144,10 +144,16 @@
       display: flex;
     }
 
+    /* Scoped to the board frame ONLY -- this is the "game/play area"
+       background, never the application shell. #public-board's own
+       innerHTML is fully replaced on every render (see player.js
+       renderBoard()), so the background layer lives in the stable
+       .public-board-frame wrapper instead, sized to that frame's exact
+       bounds and clipped by its overflow:hidden below. The app shell
+       around it (#game-screen) stays neutral gunmetal regardless. */
     #background-layer {
-      position: fixed;
-      top: 0;
-      left: 0;
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
@@ -169,11 +175,25 @@
       z-index: 1;
     }
 
-    .public-board {
+    /* The actual framed play area -- exact same aspect-ratio box the old
+       .public-board rules used to size, now the containing block for the
+       background layer so it can never bleed into #board-layer's own
+       letterboxed centering space above/below it. */
+    .public-board-frame {
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
       width: 100%;
       max-width: var(--canvas-width);
       max-height: var(--canvas-height);
       aspect-ratio: var(--board-aspect);
+    }
+
+    .public-board {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
     }
@@ -500,9 +520,11 @@
   </div>
 
   <div id="game-screen">
-    <img id="background-layer" alt="Game background">
     <div id="board-layer">
-      <div id="public-board" class="public-board"></div>
+      <div id="public-board-frame" class="public-board-frame">
+        <img id="background-layer" alt="Game background">
+        <div id="public-board" class="public-board"></div>
+      </div>
     </div>
     <div id="player-leaderboard-strip" class="player-leaderboard-strip" style="display: none;">
       <div id="player-leaderboard-list" class="player-leaderboard-list"></div>

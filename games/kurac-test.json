@@ -1,0 +1,51 @@
+{
+  "id": "asoc-mu5wyenj-kjje",
+  "title": "kurac test",
+  "theme": "",
+  "background": "assets/backgrounds/_default.svg",
+  "difficulty": "GREEN",
+  "columns": {
+    "A": {
+      "clues": [
+        "CROWN",
+        "THRONE",
+        "MONARCH",
+        "RULER"
+      ],
+      "solution": "KING"
+    },
+    "B": {
+      "clues": [
+        "ORBIT",
+        "SATELLITE",
+        "MOON",
+        "SPACE"
+      ],
+      "solution": "COSMOS"
+    },
+    "C": {
+      "clues": [
+        "STATIC",
+        "SIGNAL",
+        "RADIO",
+        "WAVE"
+      ],
+      "solution": "FREQUENCY"
+    },
+    "D": {
+      "clues": [
+        "ASH",
+        "EMBER",
+        "FLAME",
+        "FIRE"
+      ],
+      "solution": "BURN"
+    }
+  },
+  "finalSolution": "EMPIRE",
+  "story": "",
+  "gmNotes": "",
+  "hints": [],
+  "created": "2026-09-17",
+  "modified": "2026-09-17T19:19:33.239Z"
+}
