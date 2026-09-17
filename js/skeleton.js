@@ -35,6 +35,53 @@ const Skeleton = (() => {
   const H = 1267;
   const PNG = 'assets/ui/asoc-skeleton.png';
 
+  // ---------------------------------------------------------------------
+  // DIFFICULTY-REACTIVE LOGO (Sep 2026)
+  //
+  // The skeleton PNG has the ASOC logo baked in at a fixed spot (measured
+  // the same way the pill slots above were: from the master art, in this
+  // 1900x1267 canvas). LOGO_SLOT is that exact footprint -- source of
+  // truth for where ANY logo variant is drawn. It never changes.
+  //
+  // A same-size, same-position <img> (LOGO_MAP[difficulty]) is layered on
+  // top of the skeleton at exactly LOGO_SLOT, on an opaque backing that
+  // matches the panel so the baked-in logo underneath is fully hidden --
+  // the machine's silhouette is identical across every asset in LOGO_MAP,
+  // only the eye/core color differs, so the overlay reads as "the same
+  // logo, different eye color," never as a resized or shifted graphic.
+  // object-fit: contain guarantees no stretching even if an asset's own
+  // aspect ratio isn't pixel-identical to LOGO_SLOT's.
+  //
+  // Canonical difficulty scale is GameData.DIFFICULTY_VALUES: GREEN,
+  // YELLOW, RED, PURPLE, BLACK. This is the ONLY place that scale maps to
+  // a logo asset -- nowhere else in the app should branch on difficulty
+  // to pick an image.
+  const LOGO_SLOT = { x: 665, y: 975, w: 605, h: 185 };
+
+  const LOGO_MAP = {
+    GREEN:  'assets/ui/logo/asoc-logo-green.png',
+    YELLOW: 'assets/ui/logo/asoc-logo-yellow.png',
+    RED:    'assets/ui/logo/asoc-logo-red.png',
+    PURPLE: 'assets/ui/logo/asoc-logo-purple.png',
+    BLACK:  'assets/ui/logo/asoc-logo-black.png'
+  };
+  const LOGO_FALLBACK = LOGO_MAP.RED;
+
+  // Missing, unknown, or malformed difficulty -> canonical red (locked
+  // fallback; never silently falls back to green/default).
+  function logoPath(difficulty) {
+    return LOGO_MAP[difficulty] || LOGO_FALLBACK;
+  }
+
+  function logoOverlayStyle() {
+    return [
+      'left:' + ((LOGO_SLOT.x / W) * 100).toFixed(3) + '%',
+      'top:' + ((LOGO_SLOT.y / H) * 100).toFixed(3) + '%',
+      'width:' + ((LOGO_SLOT.w / W) * 100).toFixed(3) + '%',
+      'height:' + ((LOGO_SLOT.h / H) * 100).toFixed(3) + '%'
+    ].join(';') + ';';
+  }
+
   const slots = {
     A1: { x: 65,  y: 140, w: 427, h: 60 },
     A2: { x: 148, y: 231, w: 439, h: 61 },
@@ -123,8 +170,11 @@ const Skeleton = (() => {
     ].join(';') + ';';
   }
 
-  function skeletonHTML() {
-    return `<img class="skeleton-img" src="${PNG}" alt="">`;
+  function skeletonHTML(difficulty) {
+    return `<img class="skeleton-img" src="${PNG}" alt="">` +
+      `<div class="asoc-logo-mask" style="${logoOverlayStyle()}">` +
+      `<img class="asoc-logo-dynamic" src="${logoPath(difficulty)}" alt="">` +
+      `</div>`;
   }
 
   function fit(container) {
@@ -236,7 +286,10 @@ const Skeleton = (() => {
     cellStyle,
     skeletonHTML,
     attach,
-    fit
+    fit,
+    LOGO_SLOT,
+    LOGO_MAP,
+    logoPath
   };
 })();
 

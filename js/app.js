@@ -94,7 +94,29 @@ const App = {
         <span class="difficulty-badge diff-${game.difficulty.toLowerCase()}">${this.escapeHtml(game.difficulty)}</span>
         <span class="cg-theme">${this.escapeHtml(game.theme || '')}</span>
       </div>
+      <div class="difficulty-picker" id="difficulty-picker">
+        ${GameData.DIFFICULTY_VALUES.map(d => `
+          <button class="diff-swatch diff-swatch-${d.toLowerCase()} ${d === game.difficulty ? 'active' : ''}"
+                  data-difficulty="${d}" title="${d}" aria-label="Set difficulty ${d}"></button>
+        `).join('')}
+      </div>
     `;
+  },
+
+  // Live, decorative-only difficulty change: updates the GM's own view
+  // immediately (like applyBackground) and, in multiplayer, broadcasts it
+  // to players via the setDifficulty command. Not saved back to the game
+  // file -- a session-level override, same as a live background swap.
+  setDifficulty(difficulty) {
+    if (!GameData.currentGame || GameData.currentGame.difficulty === difficulty) return;
+    GameData.currentGame.difficulty = difficulty;
+    this.updateGameInfo();
+    this.updatePublicView();
+    Board.updateLogo(difficulty);
+
+    if (this.mode === 'multiplayer' && this.roomCode) {
+      this.sendCommand('setDifficulty', { difficulty });
+    }
   },
 
   setupEventListeners() {
@@ -150,6 +172,11 @@ const App = {
         if (action === 'reveal') this.sendCommand('revealColumn', { column: col });
         else if (action === 'hide') this.sendCommand('hideColumn', { column: col });
         this.updatePublicView();
+      }
+
+      const diffBtn = e.target.closest('.diff-swatch');
+      if (diffBtn) {
+        this.setDifficulty(diffBtn.dataset.difficulty);
       }
 
       if (e.target.closest('.gm-verdict-btn')) {
@@ -836,9 +863,10 @@ const App = {
       <div class="public-header">
         <div class="public-title">${this.escapeHtml(game.title)}</div>
         <div class="public-theme">${this.escapeHtml(game.theme)}</div>
+        ${game.difficulty ? `<span class="difficulty-badge public-difficulty diff-${game.difficulty.toLowerCase()}">${this.escapeHtml(game.difficulty)}</span>` : ''}
       </div>
       <div class="asoc-board">
-        ${Skeleton.skeletonHTML()}
+        ${Skeleton.skeletonHTML(game.difficulty)}
     `;
 
     for (let row = 1; row <= 4; row++) {

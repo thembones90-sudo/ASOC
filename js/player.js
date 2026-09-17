@@ -224,9 +224,10 @@ const PlayerApp = {
       <div class="public-header">
         <div class="public-title">${this.escapeHtml(state.title)}</div>
         <div class="public-theme">${this.escapeHtml(state.theme)}</div>
+        ${state.difficulty ? `<span class="difficulty-badge public-difficulty diff-${state.difficulty.toLowerCase()}">${this.escapeHtml(state.difficulty)}</span>` : ''}
       </div>
       <div class="asoc-board">
-        ${Skeleton.skeletonHTML()}
+        ${Skeleton.skeletonHTML(state.difficulty)}
     `;
 
     for (let row = 1; row <= 4; row++) {
