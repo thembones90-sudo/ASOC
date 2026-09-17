@@ -1,0 +1,53 @@
+{
+  "id": "sample-001",
+  "title": "Sample ASOC Game",
+  "theme": "Mystery",
+  "background": "assets/backgrounds/sample-bg.svg",
+  "difficulty": "GREEN",
+  "columns": {
+    "A": {
+      "clues": [
+        "First clue for column A",
+        "Second clue for column A",
+        "Third clue for column A",
+        "Fourth clue for column A"
+      ],
+      "solution": "Column A Solution"
+    },
+    "B": {
+      "clues": [
+        "First clue for column B",
+        "Second clue for column B",
+        "Third clue for column B",
+        "Fourth clue for column B"
+      ],
+      "solution": "Column B Solution"
+    },
+    "C": {
+      "clues": [
+        "First clue for column C",
+        "Second clue for column C",
+        "Third clue for column C",
+        "Fourth clue for column C"
+      ],
+      "solution": "Column C Solution"
+    },
+    "D": {
+      "clues": [
+        "First clue for column D",
+        "Second clue for column D",
+        "Third clue for column D",
+        "Fourth clue for column D"
+      ],
+      "solution": "Column D Solution"
+    }
+  },
+  "finalSolution": "THE FINAL ANSWER",
+  "story": "A mysterious case awaits solving...",
+  "gmNotes": "This is a sample game for testing the ASOC engine.",
+  "hints": [
+    "Think about the connections between columns",
+    "The final solution combines all column solutions"
+  ],
+  "created": "2026-09-17"
+}

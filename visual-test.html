@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASOC Visual Test — Canonical Pill Placement</title>
+<link rel="stylesheet" href="css/asoc.css">
+<style>
+  /* TEMPORARY visual verification page (not part of the game UI). */
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: var(--font-body, sans-serif);
+    background: #22262e url('assets/backgrounds/visual-test-bg.png') center / cover no-repeat fixed;
+  }
+  #app { min-height: 100%; display: flex; flex-direction: column; box-sizing: border-box; padding: 10px; }
+
+  .test-banner {
+    text-align: center;
+    color: #dfe3ea;
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: rgba(10, 12, 16, 0.55);
+    padding: 6px 12px;
+    border-radius: 6px;
+    margin: 0 auto 8px;
+  }
+  .toolbar {
+    text-align: center;
+    margin: 8px 0 0;
+  }
+  .toolbar button {
+    font: 600 0.8rem var(--font-body, sans-serif);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #0a0c10;
+    background: #d4a843;
+    border: 0;
+    border-radius: 6px;
+    padding: 8px 22px;
+    margin: 0 6px;
+    cursor: pointer;
+  }
+  .toolbar button:hover { filter: brightness(1.1); }
+
+  /* Board stage: exact 1900:1267 aspect, colorful background shows through. */
+  .stage-wrap { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  #board-stage {
+    width: min(96vw, calc(96vh * 1900 / 1267));
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.75) !important;
+    border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="test-banner">ASOC visual test — canonical pill placement · background shows through the skeleton · no debug labels</div>
+  <div class="stage-wrap">
+    <div id="board-stage" class="asoc-board"></div>
+  </div>
+  <div class="toolbar">
+    <button onclick="Board.revealAll()">Reveal all</button>
+    <button onclick="Board.hideAll()">Hide all</button>
+  </div>
+</div>
+
+<script src="js/skeleton.js"></script>
+<script src="js/board.js"></script>
+<script>
+  (function () {
+    window.GameData = {
+      currentGame: {
+        id: 'visual-test',
+        title: 'Visual Test',
+        theme: 'Cannonical placement verification', 
+        difficulty: 3,
+        columns: {
+          A: { clues: ['SECURITY', 'INSURE', 'PROTOCOL', 'HAZARD'], solution: 'SAFETY' },
+          B: { clues: ['OVERLAND', 'EXOTIC', 'PILGRIM', 'AGENCY'], solution: 'TRAVEL' },
+          C: { clues: ['NET', 'ENTANGLE', 'WEAVE', 'BASKETBALL'], solution: 'HAUL' },
+          D: { clues: ['TICKET', 'COIN', 'SHOW', 'HELL'], solution: 'HEAVEN' }
+        },
+        finalSolution: 'CIRCUS'
+      }
+    };
+    Board.init('#board-stage');
+    Board.revealAll();
+  })();
+</script>
+</body>
+</html>

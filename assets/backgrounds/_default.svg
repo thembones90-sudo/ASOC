@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1267" viewBox="0 0 1900 1267">
+  <defs>
+    <radialGradient id="core" cx="50%" cy="46%" r="62%">
+      <stop offset="0%" stop-color="#1c2030" stop-opacity="0.9"/>
+      <stop offset="40%" stop-color="#14161f" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#07080c" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4a4f6a" stop-opacity="0.28"/>
+      <stop offset="45%" stop-color="#23263a" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="vein" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#10131c" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#2a3048" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#10131c" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1900" height="1267" fill="url(#core)"/>
+  <rect width="1900" height="1267" fill="url(#glow)"/>
+  <g opacity="0.18">
+    <ellipse cx="950" cy="560" rx="700" ry="430" fill="none" stroke="#3a4160" stroke-width="1"/>
+    <ellipse cx="950" cy="560" rx="520" ry="310" fill="none" stroke="#3a4160" stroke-width="1"/>
+    <ellipse cx="950" cy="560" rx="360" ry="210" fill="none" stroke="#3a4160" stroke-width="0.8"/>
+  </g>
+  <line x1="0" y1="200" x2="1900" y2="200" stroke="url(#vein)" stroke-width="1"/>
+  <line x1="0" y1="700" x2="1900" y2="700" stroke="url(#vein)" stroke-width="1"/>
+  <line x1="0" y1="1100" x2="1900" y2="1100" stroke="url(#vein)" stroke-width="1"/>
+</svg>

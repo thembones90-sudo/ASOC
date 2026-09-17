@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASOC Engine</title>
+  <link rel="stylesheet" href="css/asoc.css">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Initializing ASOC Engine</div>
+  </div>
+
+  <div id="app-layout">
+    <main id="main-content">
+      <img id="background-layer" alt="Game background">
+      <div id="board-layer">
+        <div id="asoc-board" class="asoc-board"></div>
+      </div>
+    </main>
+
+    <aside id="gm-panel">
+      <header class="gm-header">
+        <div>
+          <div class="gm-title">Gamemaster</div>
+          <div class="gm-subtitle">ASOC Control Panel</div>
+        </div>
+      </header>
+
+      <div class="gm-content">
+        <section class="gm-section">
+          <h3 class="gm-section-title">Game</h3>
+          <div id="current-game-info" class="current-game">
+            <div class="cg-title">—</div>
+            <div class="cg-meta"></div>
+          </div>
+          <div class="gm-global-controls" style="grid-template-columns: 1fr 1fr;">
+            <button class="gm-global-btn" id="library-btn">LIBRARY</button>
+            <button class="gm-global-btn primary" id="new-game-btn">NEW GAME</button>
+          </div>
+        </section>
+
+        <section class="gm-section">
+          <h3 class="gm-section-title">Clue Grid</h3>
+          <div class="gm-grid" id="gm-clue-grid"></div>
+        </section>
+
+        <section class="gm-section">
+          <h3 class="gm-section-title">Column Controls</h3>
+          <div class="gm-column-controls" id="gm-column-controls"></div>
+        </section>
+
+        <section class="gm-section">
+          <h3 class="gm-section-title">Global Actions</h3>
+          <div class="gm-global-controls">
+            <button class="gm-global-btn undo-btn" id="undo-btn" disabled>UNDO LAST</button>
+            <button class="gm-global-btn reset-btn" id="reset-board-btn">RESET BOARD</button>
+          </div>
+          <div class="gm-global-controls">
+            <button class="gm-global-btn primary" id="reveal-all-btn">REVEAL ALL</button>
+            <button class="gm-global-btn" id="hide-all-btn">HIDE ALL</button>
+          </div>
+        </section>
+
+        <section class="gm-section">
+          <h3 class="gm-section-title">Background</h3>
+          <div class="background-selector">
+            <label class="bg-label">Select Background</label>
+            <select class="bg-select" id="bg-select"></select>
+          </div>
+        </section>
+
+        <section class="gm-section">
+          <div class="gm-chat-panel">
+            <div class="gm-chat-header">
+              <span class="gm-chat-title">GUESSES</span>
+              <span class="gm-chat-solved" id="gm-chat-solved-count">SOLVED: 0/5</span>
+            </div>
+            <div id="gm-chat-messages" class="gm-chat-messages"></div>
+          </div>
+        </section>
+
+        <section class="gm-section">
+          <h3 class="gm-section-title">Multiplayer</h3>
+          <div class="multiplayer-status" id="multiplayer-status">
+            <div class="mp-row">
+              <span class="mp-label">MODE</span>
+              <span class="mp-value" id="mp-mode">LOCAL</span>
+            </div>
+            <div class="mp-row" id="mp-room-row" style="display: none;">
+              <span class="mp-label">ROOM</span>
+              <span class="mp-value mp-code" id="mp-room-code">—</span>
+            </div>
+            <div class="mp-row" id="mp-status-row" style="display: none;">
+              <span class="mp-label">STATUS</span>
+              <span class="mp-value" id="mp-status">—</span>
+            </div>
+            <div class="mp-row" id="mp-players-row" style="display: none;">
+              <span class="mp-label">PLAYERS</span>
+              <span class="mp-value" id="mp-players-count">0</span>
+            </div>
+            <div id="mp-player-list" style="margin-top: 8px; display: none;"></div>
+            <button class="gm-global-btn primary" id="host-room-btn" style="width: 100%; margin-top: 12px;">HOST ROOM</button>
+            <button class="gm-global-btn" id="next-game-btn" style="width: 100%; margin-top: 8px; display: none;">NEXT GAME</button>
+            <button class="gm-global-btn" id="close-room-btn" style="width: 100%; margin-top: 8px; display: none;">CLOSE ROOM</button>
+          </div>
+        </section>
+      </div>
+
+      <footer class="gm-footer">
+        <button class="toolbar-btn primary" id="public-view-btn" style="width: 100%;">PUBLIC VIEW</button>
+        <button class="toolbar-btn" id="library-btn-footer" style="width: 100%; margin-top: 8px;">GAME LIBRARY</button>
+      </footer>
+    </aside>
+  </div>
+
+  <div id="forge-overlay" class="forge-overlay">
+    <div class="forge-shell" id="forge-shell"></div>
+  </div>
+
+  <div id="public-view">
+    <div id="public-board" class="public-board"></div>
+    <div style="margin-top: 20px; text-align: center;">
+      <button class="toolbar-btn" id="back-to-gm-btn">BACK TO GAMEMASTER</button>
+    </div>
+  </div>
+
+  <script src="js/skeleton.js"></script>
+  <script src="js/game-data.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/forge.js"></script>
+</body>
+</html>
