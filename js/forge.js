@@ -39,9 +39,13 @@ const Forge = {
         this.openCreator(null, true);
         return;
       }
+      if (e.target.closest('[data-forge-import-xlsx]')) {
+        document.getElementById('forge-xlsx-input')?.click();
+        return;
+      }
       if (e.target.closest('[data-forge-back-library]')) {
         if (this.dirty && !confirm('Discard unsaved changes and return to library?')) return;
-        this.openLibrary();
+        this.renderLibrary();
         return;
       }
       if (e.target.closest('[data-forge-save]')) {
@@ -121,6 +125,12 @@ const Forge = {
         this.uploadBackground(upload.files[0]);
         upload.value = '';
       }
+
+      const xlsxInput = e.target.closest('#forge-xlsx-input');
+      if (xlsxInput && xlsxInput.files && xlsxInput.files[0]) {
+        this.importXlsxFile(xlsxInput.files[0]);
+        xlsxInput.value = '';
+      }
     });
   },
 
@@ -132,7 +142,7 @@ const Forge = {
     this.isOpen = true;
     document.getElementById('forge-overlay').classList.add('active');
     await this.reloadLibrary();
-    this.openLibrary();
+    this.renderLibrary();
   },
 
   close() {
@@ -196,6 +206,8 @@ const Forge = {
       </div>
       <div class="forge-toolbar">
         <button class="forge-btn primary" data-forge-new>NEW GAME</button>
+        <button class="forge-btn" data-forge-import-xlsx>IMPORT FROM EXCEL</button>
+        <input type="file" id="forge-xlsx-input" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display: none;">
         <button class="forge-btn ghost" data-forge-close>CLOSE</button>
       </div>
       <div class="forge-toolbar-row">
@@ -601,6 +613,21 @@ const Forge = {
       this.renderLibraryBody();
     } catch (e) {
       alert('Delete failed: ' + e.message);
+    }
+  },
+
+  async importXlsxFile(file) {
+    try {
+      const res = await GameData.importXlsx(file);
+      if (res.warnings && res.warnings.length) {
+        alert('Imported with notes:\n\n' + res.warnings.join('\n'));
+      }
+      // Opens straight into the creator/preview view, exactly like NEW GAME —
+      // nothing is written to the library until the user hits SAVE GAME there,
+      // so a typo or wrong background can still be fixed before it's kept.
+      this.openCreator(res.game, true);
+    } catch (e) {
+      alert('Could not import this file:\n\n' + e.message);
     }
   },
 

@@ -161,6 +161,13 @@ const GameData = {
     });
   },
 
+  async importXlsx(file) {
+    return this.apiFetch(`api/games/import-xlsx?filename=${encodeURIComponent(file.name)}`, {
+      method: 'POST',
+      body: file
+    });
+  },
+
   getCellKey(column, row) {
     return `${column}${row}`;
   },

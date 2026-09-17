@@ -861,6 +861,26 @@ function handleApiRequest(req, res) {
     return;
   }
 
+  if (url.pathname === '/api/games/import-xlsx' && method === 'POST') {
+    const filename = (url.searchParams.get('filename') || 'game.xlsx').replace(/\\/g, '/').split('/').pop();
+    readRawBody(req, (err, buffer) => {
+      if (err) return sendJson(res, 400, { error: 'Upload failed' });
+      if (!buffer || buffer.length === 0) return sendJson(res, 400, { error: 'Empty file received.' });
+      gameStore.importXlsx(buffer, filename)
+        .then(result => {
+          if (result.errors && result.errors.length) {
+            return sendJson(res, 422, { errors: result.errors });
+          }
+          return sendJson(res, 200, { success: true, game: result.game, warnings: result.warnings || [] });
+        })
+        .catch(e => {
+          console.error('XLSX import error:', e);
+          return sendJson(res, 400, { error: 'Could not read the uploaded file: ' + e.message });
+        });
+    });
+    return;
+  }
+
   return sendJson(res, 404, { error: 'Not found' });
 }
 

@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const ExcelJS = require('exceljs');
 
 const GAMES_DIR = path.join(__dirname, 'games');
 const BACKGROUNDS_DIR = path.join(__dirname, 'assets', 'backgrounds');
@@ -291,6 +292,184 @@ function saveBackgroundUpload(filename, buffer) {
   return { filename: name, path: `assets/backgrounds/${name}` };
 }
 
+/*
+ * Excel import — ASOC FOREVER SHEET format.
+ *
+ * Historical ASOC convention (confirmed against the real reference workbook):
+ *   A1:D4 = four clues per column, in reveal-priority order (row 1 = hardest,
+ *           row 4 = easiest) — this is transcribed as-is into `clues[]`,
+ *           never reordered, so it stays compatible with both the current
+ *           coordinate-based board AND the locked (not yet built) Progressive
+ *           Clue Queue, which reads that same array as a reveal queue.
+ *   A5:D5 = the four column solutions.
+ *   A6:D6 = exactly ONE populated cell anywhere in the row = the final
+ *           solution. Which of the four columns it sits under is not
+ *           meaningful and is not fixed to any one coordinate.
+ *
+ * This function only transcribes and validates — it never invents, sorts, or
+ * rearranges content the workbook didn't contain.
+ */
+function importXlsxCellText(sheet, col, row) {
+  const coord = `${col}${row}`;
+  const cell = sheet.getCell(coord);
+  let raw = cell.value;
+  let usedFormula = false;
+  let formulaError = null;
+
+  if (raw && typeof raw === 'object' && !(raw instanceof Date)) {
+    if (Array.isArray(raw.richText)) {
+      raw = raw.richText.map(rt => rt.text).join('');
+    } else if ('result' in raw || 'formula' in raw || 'sharedFormula' in raw) {
+      usedFormula = true;
+      if (raw.error) {
+        formulaError = raw.error;
+        raw = '';
+      } else {
+        raw = raw.result;
+      }
+    } else if (raw.text !== undefined) {
+      raw = raw.text;
+    } else if (raw.hyperlink !== undefined) {
+      raw = raw.text || raw.hyperlink;
+    } else {
+      raw = '';
+    }
+  }
+
+  const text = (raw === null || raw === undefined) ? '' : String(raw).trim();
+  return { text, usedFormula, formulaError, coord };
+}
+
+function deriveTitleFromFilename(filename) {
+  if (!filename) return '';
+  const base = String(filename).replace(/\.[^.]+$/, '');
+  const cleaned = base.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return cleaned;
+}
+
+async function importXlsx(buffer, sourceFilename) {
+  const errors = [];
+  const warnings = [];
+
+  let workbook;
+  try {
+    workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+  } catch (e) {
+    return { errors: ['Could not read this file as an Excel workbook (.xlsx). ' + e.message] };
+  }
+
+  if (!workbook.worksheets.length) {
+    return { errors: ['The workbook contains no worksheets.'] };
+  }
+
+  const sheetsWithData = workbook.worksheets.filter(ws => ws.actualRowCount > 0 && ws.actualColumnCount > 0);
+  let sheet;
+  if (sheetsWithData.length > 1) {
+    return { errors: [`Workbook contains multiple sheets with data (${sheetsWithData.map(w => w.name).join(', ')}). Put the ASOC board in a single sheet.`] };
+  } else if (sheetsWithData.length === 1) {
+    sheet = sheetsWithData[0];
+    if (workbook.worksheets.length > 1) {
+      warnings.push(`Using sheet "${sheet.name}" (${workbook.worksheets.length - 1} other empty sheet(s) were ignored).`);
+    }
+  } else {
+    sheet = workbook.worksheets[0];
+  }
+
+  // Stray data outside the expected A1:D6 board.
+  const strayCells = [];
+  sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      if (rowNumber > 6 || colNumber > 4 || colNumber < 1) {
+        const { text } = importXlsxCellText(sheet, cell.address.replace(/[0-9]+$/, ''), rowNumber);
+        if (text) strayCells.push(cell.address);
+      }
+    });
+  });
+  if (strayCells.length) {
+    const shown = strayCells.slice(0, 5).join(', ') + (strayCells.length > 5 ? ', …' : '');
+    warnings.push(`Data found outside the expected A1:D6 range (${shown}) was ignored.`);
+  }
+
+  const colKeys = ['A', 'B', 'C', 'D'];
+  const columns = {};
+  const formulaCells = [];
+  const formulaErrorCells = [];
+
+  colKeys.forEach(col => {
+    const clues = [];
+    for (let r = 1; r <= 4; r++) {
+      const info = importXlsxCellText(sheet, col, r);
+      if (info.formulaError) formulaErrorCells.push(`${info.coord} (${info.formulaError})`);
+      else if (info.usedFormula) formulaCells.push(info.coord);
+      clues.push(info.text);
+    }
+
+    const solutionInfo = importXlsxCellText(sheet, col, 5);
+    if (solutionInfo.formulaError) formulaErrorCells.push(`${solutionInfo.coord} (${solutionInfo.formulaError})`);
+    else if (solutionInfo.usedFormula) formulaCells.push(solutionInfo.coord);
+
+    const filledCount = clues.filter(Boolean).length;
+    if (filledCount === 0) {
+      errors.push(`Column ${col} has no clues. Expected 4 clues in ${col}1:${col}4.`);
+    } else if (filledCount < 4) {
+      errors.push(`Column ${col} contains only ${filledCount} clue${filledCount === 1 ? '' : 's'}. Expected 4 clues in ${col}1:${col}4.`);
+    }
+
+    if (!solutionInfo.text) {
+      errors.push(`Column ${col} solution is empty (${col}5).`);
+    }
+
+    columns[col] = { clues, solution: solutionInfo.text };
+  });
+
+  const finalCandidates = [];
+  colKeys.forEach(col => {
+    const info = importXlsxCellText(sheet, col, 6);
+    if (info.formulaError) formulaErrorCells.push(`${info.coord} (${info.formulaError})`);
+    if (info.text) finalCandidates.push(info);
+  });
+
+  let finalSolution = '';
+  if (finalCandidates.length === 0) {
+    errors.push('No final solution found. Expected exactly one populated cell in A6:D6.');
+  } else if (finalCandidates.length > 1) {
+    errors.push(`Multiple final solutions found (${finalCandidates.map(c => c.coord).join(' and ')}). Only one cell in row 6 may contain a value.`);
+  } else {
+    finalSolution = finalCandidates[0].text;
+    if (finalCandidates[0].usedFormula) formulaCells.push(finalCandidates[0].coord);
+  }
+
+  if (formulaCells.length) {
+    warnings.push(`${formulaCells.length === 1 ? 'Cell' : 'Cells'} ${formulaCells.join(', ')} contained a formula; using the last calculated value.`);
+  }
+  if (formulaErrorCells.length) {
+    warnings.push(`${formulaErrorCells.length === 1 ? 'Cell' : 'Cells'} ${formulaErrorCells.join(', ')} contained a formula error and were treated as empty.`);
+  }
+
+  // Duplicate words across clues/solutions are legitimate puzzle design —
+  // never flagged, never deduped.
+
+  if (errors.length) return { errors };
+
+  const game = {
+    id: generateGameId(),
+    title: deriveTitleFromFilename(sourceFilename),
+    theme: '',
+    background: DEFAULT_BACKGROUND,
+    difficulty: 'GREEN',
+    columns,
+    finalSolution,
+    story: '',
+    gmNotes: '',
+    hints: [],
+    created: today(),
+    modified: nowISO()
+  };
+
+  return { game, warnings };
+}
+
 module.exports = {
   GAMES_DIR,
   BACKGROUNDS_DIR,
@@ -304,6 +483,7 @@ module.exports = {
   deleteGame,
   listBackgrounds,
   saveBackgroundUpload,
+  importXlsx,
   validateGame,
   findGameFile,
   safeName,

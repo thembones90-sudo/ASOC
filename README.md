@@ -444,6 +444,16 @@ GM-only tools for managing games and backgrounds entirely in-app. No manual JSON
 - **LIVE PREVIEW** renders the board with the same renderer as the real board (always hidden state)
 - SAVE validates server-side and shows the specific error list if invalid
 
+### Excel Import ("ASOC FOREVER SHEET" format)
+- **GAME LIBRARY → IMPORT FROM EXCEL** uploads a `.xlsx` file authored in the historical ASOC FOREVER SHEET layout and turns it directly into a game draft, no manual re-entry required
+- Expected layout (first worksheet with data):
+  - `A1:D4` — the 4 clues for each of columns A–D, in **reveal-priority order** (row 1 = hardest/first clue shown, row 4 = easiest/last clue shown) — this is logical reveal order, not board position
+  - `A5:D5` — each column's solution word
+  - `A6:D6` — the puzzle's final solution, in **exactly one** of the four cells (position doesn't matter; leading/trailing whitespace is trimmed automatically)
+- The importer opens the result directly in **the Game Creator** with **LIVE PREVIEW**, exactly like a manually-built game — nothing is saved until you press SAVE
+- Duplicate words across clues are allowed and are never treated as errors
+- Malformed workbooks are rejected with a specific error, e.g.: `INVALID ASOC GAME. Column C contains only 3 clues. Expected 4 clues in C1:C4.`
+
 ### Backgrounds
 - Dropdown to pick any background in `assets/backgrounds/`
 - **ADD BACKGROUND** uploads PNG / JPG / JPEG / WEBP / SVG (max 10 MB) directly from the browser
@@ -469,6 +479,7 @@ The GM token is obtained automatically on page load (`api/gm/token`, localhost o
 | DELETE | `/api/games/:id` | Delete game file (sample protected) |
 | GET | `/api/backgrounds` | List backgrounds with size info |
 | POST | `/api/backgrounds/upload?filename=` | Upload background image (max 10 MB) |
+| POST | `/api/games/import-xlsx?filename=` | Parse an "ASOC FOREVER SHEET"-format `.xlsx` into a game draft (validated; not saved until `POST /api/games`) |
 
 Statically serving `/games/*.json` is **blocked (403)** — the browser never reads game files directly.
 
@@ -619,6 +630,7 @@ Fixed canonical geometry (1900 × 1267) is kept. The Forge creator includes a li
 
 Use **The Forge** (GAME LIBRARY → NEW GAME) — no manual JSON editing needed.
 For advanced users, a game JSON may still be dropped into `games/` following the canonical format; it will appear in the library on the server's next scan (page reload or library open).
+Already have the puzzle authored in Excel? Use **GAME LIBRARY → IMPORT FROM EXCEL** instead — see "Excel Import" above for the expected `.xlsx` layout.
 
 ## Adding Backgrounds
 
