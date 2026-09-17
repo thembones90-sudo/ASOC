@@ -57,9 +57,8 @@
             <button class="gm-global-btn undo-btn" id="undo-btn" disabled>UNDO LAST</button>
             <button class="gm-global-btn reset-btn" id="reset-board-btn">RESET BOARD</button>
           </div>
-          <div class="gm-global-controls">
-            <button class="gm-global-btn primary" id="reveal-all-btn">REVEAL ALL</button>
-            <button class="gm-global-btn" id="hide-all-btn">HIDE ALL</button>
+          <div class="gm-global-controls" style="grid-template-columns: 1fr;">
+            <button class="gm-global-btn primary" id="reveal-hide-all-btn">REVEAL ALL</button>
           </div>
         </section>
 
@@ -68,6 +67,14 @@
           <div class="background-selector">
             <label class="bg-label">Select Background</label>
             <select class="bg-select" id="bg-select"></select>
+            <div class="upload-zone">
+              <label class="upload-label">
+                ADD BACKGROUND
+                <input type="file" class="upload-input" id="gm-bg-upload-input" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml">
+              </label>
+              <span class="upload-note">PNG · JPG · WEBP · SVG — max 10 MB</span>
+              <span class="upload-status" id="gm-bg-upload-status"></span>
+            </div>
           </div>
         </section>
 

@@ -101,6 +101,11 @@ const App = {
     document.getElementById('public-view-btn').addEventListener('click', () => this.togglePublicView());
     document.getElementById('back-to-gm-btn').addEventListener('click', () => this.togglePublicView(false));
     document.getElementById('bg-select').addEventListener('change', (e) => this.applyBackground(e.target.value));
+    document.getElementById('gm-bg-upload-input').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) this.uploadLiveBackground(file);
+      e.target.value = '';
+    });
     document.getElementById('reset-board-btn').addEventListener('click', () => this.confirmReset());
     document.getElementById('undo-btn').addEventListener('click', () => this.handleUndo());
 
@@ -169,12 +174,12 @@ const App = {
       }
     });
 
-    document.getElementById('reveal-all-btn').addEventListener('click', () => {
-      this.sendCommand('revealAll', {});
-    });
-
-    document.getElementById('hide-all-btn').addEventListener('click', () => {
-      this.sendCommand('hideAll', {});
+    document.getElementById('reveal-hide-all-btn').addEventListener('click', () => {
+      if (Board.isAllRevealed()) {
+        this.sendCommand('hideAll', {});
+      } else {
+        this.sendCommand('revealAll', {});
+      }
     });
   },
 
@@ -770,6 +775,31 @@ const App = {
     }
   },
 
+  // Upload a background image directly from the live GM panel, without
+  // going through the Forge creator. Behaves like picking an existing
+  // option from #bg-select: it's a live-session visual override (and
+  // broadcasts to players via applyBackground's changeBackground command
+  // in multiplayer), not a save to the underlying game file.
+  // populateBackgroundSelector() below only replaces #bg-select's own
+  // innerHTML, never this status span, so a single reference to it is
+  // safe to reuse across the whole upload (no re-render-wipes-it risk).
+  async uploadLiveBackground(file) {
+    const status = document.getElementById('gm-bg-upload-status');
+    if (status) status.textContent = 'Uploading...';
+    try {
+      const res = await GameData.uploadBackground(file);
+      await GameData.loadBackgroundList();
+      this.populateBackgroundSelector();
+      const select = document.getElementById('bg-select');
+      if (select) select.value = res.path;
+      this.applyBackground(res.path);
+      if (status) status.textContent = `Added: ${res.filename}`;
+    } catch (e) {
+      if (status) status.textContent = 'Upload failed: ' + e.message;
+      alert('Background upload failed: ' + e.message);
+    }
+  },
+
   togglePublicView(force = null) {
     const publicView = document.getElementById('public-view');
     const gmPanel = document.getElementById('gm-panel');
@@ -924,12 +954,21 @@ const App = {
 
     let colHtml = '';
     columns.forEach(col => {
+      const colRevealed = Board.isColumnRevealed(col);
+      const action = colRevealed ? 'hide' : 'reveal';
+      const label = colRevealed ? `HIDE ${col}` : `REVEAL ${col}`;
       colHtml += `
-        <button class="gm-col-btn" data-column="${col}" data-action="reveal">REVEAL ${col}</button>
-        <button class="gm-col-btn" data-column="${col}" data-action="hide">HIDE ${col}</button>
+        <button class="gm-col-btn ${colRevealed ? 'revealed' : ''}" data-column="${col}" data-action="${action}">${label}</button>
       `;
     });
     gmColumnControls.innerHTML = colHtml;
+
+    const revealHideAllBtn = document.getElementById('reveal-hide-all-btn');
+    if (revealHideAllBtn) {
+      const allRevealed = Board.isAllRevealed();
+      revealHideAllBtn.textContent = allRevealed ? 'HIDE ALL' : 'REVEAL ALL';
+      revealHideAllBtn.classList.toggle('revealed', allRevealed);
+    }
   },
 
   renderGMChat() {

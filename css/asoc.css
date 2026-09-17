@@ -177,11 +177,19 @@ html, body {
   z-index: 0;
 }
 
-/* CLUE CELLS */
+/* CLUE CELLS -- text-only overlay, same treatment the FINAL cell already
+   used (see below): the skeleton PNG's own chrome pill art is the visual
+   container (per skeleton.js: "the silver/chrome pill slots ARE the text
+   containers"), so no separate rectangle, border, or glow is drawn on top
+   of it here. Position/size are untouched (still set by cellStyle()/the
+   grid) -- only the painted chrome is gone. The hidden/revealed mechanic
+   now lives purely in .cell-content's opacity/visibility below, not in a
+   visible box. */
 .board-cell {
-  background: var(--cell-bg);
-  border: 1px solid var(--cell-border);
-  border-radius: 4px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -190,7 +198,6 @@ html, body {
   text-align: center;
   min-height: 0;
   position: relative;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .board-cell::before {
@@ -206,45 +213,18 @@ html, body {
   pointer-events: none;
 }
 
-/* HIDDEN STATE */
-.board-cell.hidden {
-  background: var(--hidden-bg);
-  border-color: #3a3f4e;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
+/* HIDDEN STATE -- the word itself is what's hidden; the pill graphic
+   underneath (part of the skeleton poster) is unaffected either way. */
 .board-cell.hidden .cell-content {
   opacity: 0;
   visibility: hidden;
 }
 
-/* REVEALED STATE */
-.board-cell.revealed {
-  background: var(--revealed-bg);
-  border-color: var(--board-border);
-  box-shadow: 
-    inset 0 0 20px rgba(212, 168, 67, 0.1),
-    0 0 12px rgba(184, 188, 200, 0.1);
-}
-
-/* SOLUTION CELLS A5-D5 */
-.board-cell.solution-cell {
-  border-color: var(--accent-gold);
-  background: linear-gradient(135deg, rgba(212, 168, 67, 0.08), rgba(20, 22, 28, 0.9));
-  box-shadow: 
-    inset 0 1px 0 rgba(212, 168, 67, 0.1),
-    0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
+/* SOLUTION CELLS A5-D5 -- corner label stays gold to mark the slot as a
+   column solution; no separate rectangle/border/glow drawn over the pill. */
 .board-cell.solution-cell::before {
   color: var(--accent-gold);
   opacity: 1;
-}
-
-.board-cell.solution-cell.revealed {
-  box-shadow: 
-    inset 0 0 30px rgba(212, 168, 67, 0.2),
-    0 0 15px rgba(212, 168, 67, 0.15);
 }
 
 /* FINAL SOLUTION — text-only overlay; the skeleton PNG carries the full
@@ -343,11 +323,6 @@ html, body {
   .asoc-board .board-cell::before {
     top: 4px;
     left: 6px;
-  }
-
-  .asoc-board .board-cell.solution-cell {
-    border-width: 2px;
-    background: linear-gradient(135deg, rgba(212, 168, 67, 0.14), rgba(12, 14, 18, 0.84));
   }
 
   .asoc-board .board-cell.final-solution {
@@ -547,6 +522,12 @@ html, body {
   transform: scale(0.97);
 }
 
+.gm-col-btn.revealed {
+  background: rgba(212, 168, 67, 0.2);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
 /* GM GLOBAL CONTROLS */
 .gm-global-controls {
   display: grid;
@@ -598,6 +579,12 @@ html, body {
 .gm-global-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.gm-global-btn.revealed {
+  background: rgba(212, 168, 67, 0.2);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
 }
 
 /* GM FOOTER */
@@ -1496,7 +1483,6 @@ html, body {
 
 .creator-preview-stage {
   flex: 1;
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1504,6 +1490,27 @@ html, body {
   padding: 16px;
   overflow: hidden;
   min-height: 400px;
+}
+
+/* The actual framed play area within the preview -- hugs exactly the
+   title+board group's own canonical-aspect box, same pattern as
+   .public-board-frame in join.html. .creator-preview-stage above fills
+   the whole sidebar height and centers this frame within it, which left
+   real letterbox space above/below the board; the background image was
+   previously sized to that whole stage (bleeding into the letterbox),
+   not to this frame. */
+.creator-preview-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  width: 100%;
+  max-width: var(--canvas-width);
+  max-height: var(--canvas-height);
+  aspect-ratio: var(--board-aspect);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .creator-bg {

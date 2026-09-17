@@ -424,11 +424,13 @@ const Forge = {
         <div class="creator-preview">
           <div class="creator-preview-header">LIVE PREVIEW</div>
           <div class="creator-preview-stage">
-            <img class="creator-bg" id="creator-bg" alt="Preview background">
-            <div class="public-header creator-preview-title">
-              <div class="public-title"></div>
+            <div class="creator-preview-frame">
+              <img class="creator-bg" id="creator-bg" alt="Preview background">
+              <div class="public-header creator-preview-title">
+                <div class="public-title"></div>
+              </div>
+              <div class="asoc-board" id="creator-board"></div>
             </div>
-            <div class="asoc-board" id="creator-board"></div>
           </div>
         </div>
       </div>

@@ -37,6 +37,18 @@ const Board = {
     return this.sessionState.finalSolution === true;
   },
 
+  isColumnRevealed(column) {
+    for (let row = 1; row <= 5; row++) {
+      if (!this.isRevealed(column, row)) return false;
+    }
+    return true;
+  },
+
+  isAllRevealed() {
+    const columns = ['A', 'B', 'C', 'D'];
+    return columns.every(col => this.isColumnRevealed(col)) && this.isFinalRevealed();
+  },
+
   setRevealed(column, row, revealed) {
     const key = this.getCellKey(column, row);
     const prevState = this.sessionState.cells[key];
