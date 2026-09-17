@@ -5,3 +5,9 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Player profile / lifetime scoring data -- generated at runtime, grows with
+# play, and is personal to whoever's machine is running the engine. Treated
+# like local state, not source, the same way games/ (your authored puzzles)
+# is committed but this isn't.
+players.json

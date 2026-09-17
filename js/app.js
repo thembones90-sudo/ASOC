@@ -16,6 +16,8 @@ const App = {
   pendingVerdict: null,
   _reconnectPending: false,
   _hostingInFlight: false,
+  finalRevealed: false,
+  _lastAnnouncedStreak: {},
 
   async init() {
     this.showLoading(true);
@@ -109,6 +111,9 @@ const App = {
 
     document.getElementById('host-room-btn').addEventListener('click', () => this.hostRoom());
     document.getElementById('close-room-btn').addEventListener('click', () => this.closeRoom());
+
+    document.getElementById('declare-final-failed-btn').addEventListener('click', () => this.declareFinalFailed());
+    document.getElementById('alltime-toggle-btn').addEventListener('click', () => this.toggleAllTimeView());
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.currentView === 'public') {
@@ -304,6 +309,12 @@ const App = {
         if (message.game) {
           GameData.currentGame = GameData.normalizeGameData(message.game);
           Board.setSessionState({ cells: {}, finalSolution: false });
+          // A new board -- clear per-board announcement/streak dedupe state
+          // and re-arm the Failed Final action (session score itself is
+          // untouched; that lives server-side in room.scoring.players).
+          this.finalRevealed = false;
+          this._lastAnnouncedStreak = {};
+          this.updateFailFinalButtonVisibility();
           this.buildGMControls();
           this.updateGameInfo();
           this.populateBackgroundSelector();
@@ -323,6 +334,30 @@ const App = {
 
       case 'players:update':
         this.updatePlayerList(message.players);
+        break;
+
+      case 'score:event':
+        this.showScoreToast(message);
+        break;
+
+      case 'score:streak':
+        this.showStreakBanner(message.activeStreak);
+        break;
+
+      case 'score:finalReveal':
+        this.showFinalReveal(message);
+        break;
+
+      case 'score:finalResults':
+        this.revealFinalResults(message);
+        break;
+
+      case 'score:warning':
+        this.showScoreWarning(message.message);
+        break;
+
+      case 'leaderboard:allTime':
+        this.renderAllTimeLeaderboard(message.players || []);
         break;
 
       case 'chat:update':
@@ -372,6 +407,9 @@ const App = {
   },
 
   applyServerState(state) {
+    this.finalRevealed = state.finalSolution?.revealed === true;
+    this.updateFailFinalButtonVisibility();
+
     const newSessionState = {
       cells: {},
       finalSolution: state.finalSolution?.revealed === true
@@ -412,6 +450,8 @@ const App = {
     document.getElementById('host-room-btn').style.display = isMultiplayer ? 'none' : 'block';
     document.getElementById('close-room-btn').style.display = isMultiplayer ? 'block' : 'none';
     document.getElementById('next-game-btn').style.display = isMultiplayer ? 'block' : 'none';
+    document.getElementById('scoring-section').style.display = isMultiplayer ? 'block' : 'none';
+    this.updateFailFinalButtonVisibility();
 
     if (isMultiplayer) {
       document.getElementById('mp-room-code').textContent = this.roomCode;
@@ -435,6 +475,172 @@ const App = {
         </span>
       </div>
     `).join('');
+
+    this.renderSessionLeaderboard(players);
+    document.getElementById('scoring-section').style.display = this.mode === 'multiplayer' ? 'block' : 'none';
+  },
+
+  // ---------------------------------------------------------------------
+  // SCORING / PLAYER PROFILES (session leaderboard, all-time records,
+  // streak announcements, Final success/failure sequence)
+  // ---------------------------------------------------------------------
+
+  renderSessionLeaderboard(players) {
+    const el = document.getElementById('session-leaderboard');
+    if (!el) return;
+    const ranked = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
+    el.innerHTML = ranked.map((p, i) => `
+      <div class="leaderboard-row ${i === 0 && (p.score || 0) > 0 ? 'leaderboard-lead' : ''}">
+        <span class="lb-rank">${i + 1}</span>
+        <span class="lb-name">${this.escapeHtml(p.name)}</span>
+        <span class="lb-score">${p.score || 0}</span>
+      </div>
+    `).join('') || '<div class="leaderboard-empty">No players yet</div>';
+  },
+
+  requestAllTimeLeaderboard() {
+    this.send({ type: 'leaderboard:getAllTime' });
+  },
+
+  toggleAllTimeView() {
+    const panel = document.getElementById('alltime-leaderboard');
+    const showing = panel.style.display !== 'none';
+    if (showing) {
+      panel.style.display = 'none';
+    } else {
+      this.requestAllTimeLeaderboard();
+      panel.style.display = 'block';
+      panel.innerHTML = '<div class="leaderboard-empty">Loading…</div>';
+    }
+  },
+
+  renderAllTimeLeaderboard(players) {
+    const panel = document.getElementById('alltime-leaderboard');
+    if (!panel || panel.style.display === 'none') return;
+    panel.innerHTML = players.map((p, i) => `
+      <div class="leaderboard-row">
+        <span class="lb-rank">${i + 1}</span>
+        <span class="lb-name">${this.escapeHtml(p.name)}</span>
+        <span class="lb-score">${p.lifetimeScore}</span>
+      </div>
+    `).join('') || '<div class="leaderboard-empty">No recorded players yet</div>';
+  },
+
+  declareFinalFailed() {
+    if (this.mode !== 'multiplayer' || this.finalRevealed) return;
+    if (!confirm('Declare the Final SOLUTION failed? This reveals the answer and applies the loss penalty to every connected player.')) return;
+    this.send({ type: 'gm:failFinal' });
+  },
+
+  updateFailFinalButtonVisibility() {
+    const btn = document.getElementById('declare-final-failed-btn');
+    if (!btn) return;
+    btn.style.display = (this.mode === 'multiplayer' && !this.finalRevealed) ? 'block' : 'none';
+  },
+
+  showScoreToast(award) {
+    const layer = document.getElementById('score-announcement-layer');
+    if (!layer) return;
+    const toast = document.createElement('div');
+    toast.className = 'score-toast';
+    const detail = award.awardType === 'final'
+      ? `FINAL SOLVED AFTER ${award.columnsKnownAtSolve} COLUMN${award.columnsKnownAtSolve === 1 ? '' : 'S'}`
+      : `COLUMN ${award.target} — ${award.cluesRevealed} CLUE${award.cluesRevealed === 1 ? '' : 'S'} REVEALED`;
+    toast.innerHTML = `
+      <div class="score-toast-name">${this.escapeHtml(award.playerName)}</div>
+      <div class="score-toast-detail">${detail}</div>
+      <div class="score-toast-points">+${award.points}</div>
+    `;
+    layer.appendChild(toast);
+    setTimeout(() => toast.classList.add('score-toast-out'), 3200);
+    setTimeout(() => toast.remove(), 3700);
+  },
+
+  showScoreWarning(msg) {
+    const layer = document.getElementById('score-announcement-layer');
+    if (!layer) return;
+    const toast = document.createElement('div');
+    toast.className = 'score-toast score-toast-warning';
+    toast.innerHTML = `<div class="score-toast-detail">${this.escapeHtml(msg)}</div>`;
+    layer.appendChild(toast);
+    setTimeout(() => toast.classList.add('score-toast-out'), 4200);
+    setTimeout(() => toast.remove(), 4700);
+  },
+
+  showStreakBanner(activeStreak) {
+    if (!activeStreak) { this._lastAnnouncedStreak = {}; return; }
+    const { playerId, playerName, columnCount } = activeStreak;
+    if (![2, 3, 4].includes(columnCount)) return;
+    if (this._lastAnnouncedStreak[playerId] === columnCount) return; // already shown this milestone
+    this._lastAnnouncedStreak[playerId] = columnCount;
+
+    const layer = document.getElementById('score-announcement-layer');
+    if (!layer) return;
+    const banner = document.createElement('div');
+    banner.className = 'streak-banner';
+    banner.innerHTML = `
+      <div class="streak-banner-name">${this.escapeHtml(playerName)}</div>
+      <div class="streak-banner-label">${columnCount} COLUMN STREAK</div>
+    `;
+    layer.appendChild(banner);
+    setTimeout(() => banner.classList.add('streak-banner-out'), 2800);
+    setTimeout(() => banner.remove(), 3300);
+  },
+
+  // Phase 1: the reveal + story go out to the whole room immediately.
+  // Numbers are deliberately withheld here -- see showFinalOutcome's
+  // sibling on the server (room.scoring.pendingResults) -- so the GM
+  // controls exactly when the room sees the score consequences, via the
+  // SHOW RESULTS button below (spec: "delayed score damage is intentional
+  // pacing", and it must apply to every client, not just the GM's own).
+  showFinalReveal(outcome) {
+    this.finalRevealed = true;
+    this.updateFailFinalButtonVisibility();
+
+    const layer = document.getElementById('score-announcement-layer');
+    if (!layer) return;
+    const isSuccess = outcome.outcome === 'success';
+    const story = GameData.currentGame?.story || '';
+
+    const banner = document.createElement('div');
+    banner.className = `final-outcome-banner ${isSuccess ? 'final-outcome-success' : 'final-outcome-failed'}`;
+    banner.innerHTML = `
+      <div class="fo-headline">${isSuccess ? 'SOLUTION CONFIRMED' : 'FINAL FAILED'}</div>
+      ${story ? `<div class="fo-story">${this.escapeHtml(story)}</div>` : ''}
+      <button class="gm-global-btn primary fo-continue-btn">SHOW RESULTS</button>
+      <div class="fo-results" style="display: none;"></div>
+    `;
+    layer.appendChild(banner);
+    this._activeFinalBanner = banner;
+
+    banner.querySelector('.fo-continue-btn').addEventListener('click', () => {
+      this.send({ type: 'gm:revealResults' });
+    });
+  },
+
+  // Phase 2: the GM clicked SHOW RESULTS -- the server has broadcast the
+  // actual point/penalty numbers to everyone, including us. Fill them into
+  // whichever banner is still open (should always be `_activeFinalBanner`).
+  revealFinalResults(results) {
+    const banner = this._activeFinalBanner;
+    if (!banner) return;
+
+    const isSuccess = results.outcome === 'success';
+    const continueBtn = banner.querySelector('.fo-continue-btn');
+    if (continueBtn) continueBtn.style.display = 'none';
+
+    const resultsEl = banner.querySelector('.fo-results');
+    resultsEl.innerHTML = isSuccess
+      ? `<div class="fo-columns-known">FINAL SOLVED AFTER ${results.columnsKnownAtSolve} COLUMN${results.columnsKnownAtSolve === 1 ? '' : 'S'}</div>
+         <div class="fo-points fo-points-positive">+${results.points} — ${this.escapeHtml(results.playerName)}</div>`
+      : `<div class="fo-points fo-points-negative">-${results.penalty} PER PLAYER</div>`;
+    resultsEl.style.display = 'block';
+
+    setTimeout(() => {
+      banner.classList.add('final-outcome-out');
+      setTimeout(() => banner.remove(), 600);
+    }, 4500);
+    this._activeFinalBanner = null;
   },
 
   hostRoom() {

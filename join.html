@@ -296,6 +296,21 @@
       line-height: 1.4;
     }
 
+    /* Verdict-state text treatment: presentation only, driven by the
+       authoritative msg.verdict already on the message element -- no
+       extra state is introduced. Green = accepted, muted red + faint
+       strike = rejected. Unjudged messages are untouched above. */
+    .chat-message.wrong .chat-message-text {
+      color: #b5544a;
+      text-decoration: line-through;
+      text-decoration-color: rgba(231, 76, 60, 0.4);
+      text-decoration-thickness: 1px;
+    }
+
+    .chat-message.correct .chat-message-text {
+      color: #5cb87a;
+    }
+
     .chat-verdict {
       display: inline-flex;
       align-items: center;
@@ -489,6 +504,12 @@
     <div id="board-layer">
       <div id="public-board" class="public-board"></div>
     </div>
+    <div id="player-leaderboard-strip" class="player-leaderboard-strip" style="display: none;">
+      <div id="player-leaderboard-list" class="player-leaderboard-list"></div>
+      <button type="button" id="player-alltime-toggle-btn" class="player-alltime-toggle-btn">ALL-TIME</button>
+    </div>
+    <div id="player-alltime-panel" class="player-alltime-panel" style="display: none;"></div>
+
     <div id="chat-panel">
       <div class="chat-header">
         <span class="chat-title">GUESSES</span>
@@ -509,6 +530,8 @@
       <div>RECONNECTING</div>
     </div>
   </div>
+
+  <div id="score-announcement-layer"></div>
 
   <script src="js/skeleton.js"></script>
   <script src="js/game-data.js"></script>

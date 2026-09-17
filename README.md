@@ -65,15 +65,19 @@ ASOC ENGINE/
 ├── join.html           # Player join page
 ├── server.js           # Node.js HTTP + WebSocket + API server
 ├── game-store.js       # Server-side game/background filesystem module
+├── scoring-constants.js # Centralized, tunable scoring point values
+├── player-store.js     # Persistent player profile storage (players.json)
+├── players.json        # All-time player profiles (generated, gitignored)
 ├── package.json        # Dependencies & scripts
 ├── css/
-│   └── asoc.css        # All styles (ASOC variables, board, forge)
+│   └── asoc.css        # All styles (ASOC variables, board, forge, scoring)
 ├── js/
-│   ├── game-data.js    # Game data, API client, GM token
+│   ├── skeleton.js     # Canonical board skeleton (word anchor positions)
+│   ├── game-data.js    # Game data, API client, GM token, Excel import
 │   ├── board.js        # Board rendering, session state, preview
-│   ├── app.js          # Gamemaster app coordination + WebSocket
+│   ├── app.js          # Gamemaster app coordination + WebSocket + scoring UI
 │   ├── forge.js        # The Forge: Game Library + Game Creator
-│   └── player.js       # Player join page logic
+│   └── player.js       # Player join page logic + scoring UI
 ├── games/
 │   └── *.json          # Game files (API-managed, not served statically)
 ├── assets/
@@ -227,6 +231,15 @@ Room {
 ```json
 { "type": "gm:judgeGuess", "messageId": "msg-123", "verdict": "correct", "target": "FINAL", "reveal": true }
 ```
+```json
+{ "type": "gm:failFinal" }
+```
+```json
+{ "type": "gm:revealResults" }
+```
+```json
+{ "type": "leaderboard:getAllTime" }
+```
 
 **Valid GM Commands:**
 | Command | Payload |
@@ -253,7 +266,7 @@ Room {
 { "type": "state:public", "roomCode": "K7RX", "gameId": "...", "title": "...", "theme": "...", "difficulty": "GREEN", "revision": 12, "background": "...", "cells": {...}, "finalSolution": {...}, "timestamp": "..." }
 ```
 ```json
-{ "type": "players:update", "players": [{ "id": "...", "name": "Nina", "connected": true }] }
+{ "type": "players:update", "players": [{ "id": "...", "name": "Nina", "connected": true, "score": 400 }] }
 ```
 ```json
 { "type": "chat:update", "messages": [...], "solvedTargets": {...} }
@@ -272,6 +285,30 @@ Room {
 ```
 ```json
 { "type": "host:reconnected", "roomCode": "K7RX" }
+```
+```json
+{ "type": "score:event", "awardType": "column", "target": "A", "points": 400, "cluesRevealed": 1, "playerName": "Nina" }
+```
+```json
+{ "type": "score:streak", "activeStreak": { "playerId": "...", "playerName": "Nina", "columnCount": 2 } }
+```
+```json
+{ "type": "score:warning", "message": "Column C has no revealed clues -- cannot award a column score." }
+```
+```json
+{ "type": "score:finalReveal", "outcome": "success" }
+```
+```json
+{ "type": "score:finalReveal", "outcome": "failed", "correctSolution": "THE FINAL ANSWER" }
+```
+```json
+{ "type": "score:finalResults", "outcome": "success", "columnsKnownAtSolve": 3, "points": 500, "playerName": "Nina" }
+```
+```json
+{ "type": "score:finalResults", "outcome": "failed", "penalty": 200, "participants": ["Nina", "Marko"] }
+```
+```json
+{ "type": "leaderboard:allTime", "players": [{ "id": "nina", "name": "Nina", "lifetimeScore": 3400, "...": "..." }] }
 ```
 
 #### Chat Message Model
@@ -384,13 +421,13 @@ Server maintains `room.chat.solvedTargets`:
   "FINAL": { "solved": true, "playerId": "456", "playerName": "Marko", "messageId": "msg-92", "timestamp": 1789640000000 }
 }
 ```
-This enables future scoring/statistics.
+This is the scoring system's source of truth -- see "Scoring & Player Profiles" below.
 
 #### GM Override (Reversible)
 GM can change verdict at any time:
 - WRONG → CORRECT (with target selection)
-- CORRECT → WRONG (clears solved target)
-- CORRECT target changed (updates solved target record)
+- CORRECT → WRONG (clears solved target, reverses any score it earned)
+- CORRECT target changed (clears the OLD target's solved record and reverses its score before crediting the new target -- a message can only ever hold credit for one target at a time)
 
 ### LAN Testing
 
@@ -423,6 +460,68 @@ Windows may prompt "Node.js: JavaScript runtime" to allow network access. **Allo
 - [ ] Player refresh/reconnect restores state
 - [ ] Multiple player devices receive same updates
 - [ ] Player cannot send GM commands (server rejects)
+
+---
+
+## Scoring & Player Profiles
+
+Automatic scoring layered on top of the existing chat-adjudication flow. The gamemaster still only identifies who guessed correctly and which target -- every point, bonus, penalty and profile stat is calculated by the server. Nothing here changes the board, the clue-reveal system, or the Progressive Clue Queue's status (still locked/not implemented -- see below).
+
+### Column scoring
+A column's score depends on how many of its four clues were revealed before it was solved (fewer clues revealed = harder = worth more):
+
+| Clues revealed | Points |
+|---|---|
+| 1 | 400 |
+| 2 | 300 |
+| 3 | 200 |
+| 4 | 100 |
+
+A column with **zero** revealed clues cannot be scored -- the GM can still mark the guess correct (the column still reveals and counts as solved), but the server rejects the *scoring* half and sends the GM a `score:warning`, never a silent zero-as-one substitution.
+
+### Final Solution jackpot
+The Final's value depends on how many column solutions were already known when it was solved:
+
+| Columns known | Points |
+|---|---|
+| 1 | 1200 |
+| 2 | 800 |
+| 3 | 500 |
+| 4 | 300 |
+
+Same rule as columns: solving the Final with **zero** columns known cannot be scored (rejected with a `score:warning`), but the guess can still be marked correct and the board still counts as won.
+
+### Column streaks
+Consecutive column solves by the same player earn a one-time bonus at each milestone, on top of the columns' own points:
+
+| Streak length | Bonus |
+|---|---|
+| 2 | +50 |
+| 3 | +125 |
+| 4 | +250 |
+
+A different player solving the next column breaks the streak; a full 4-column sweep by one player earns all three milestone bonuses (+425 total, on top of the four columns' own points). **Streaks reset every board** (including on RESET BOARD and NEXT GAME) -- they never carry between boards, even though session score does.
+
+Because a GM correction to an earlier verdict can change who solved what and in which order, streak state is never patched incrementally: any change to a board's solved columns triggers a full rebuild of that board's streak bonuses from the current, authoritative solve history, so a corrected verdict can never leave a stale bonus in place.
+
+### Failed Final
+The GM alone decides a board is lost -- there is no timer, guess-count, or inactivity auto-fail. **DECLARE FINAL FAILED** (Scoring panel) reveals the true Final Solution in black lettering with a blood-red glow, plays out the story if the game has one, and -- only once the GM clicks **SHOW RESULTS** -- applies a flat **-200** penalty to every currently-connected player. Negative scores are allowed and never floored at zero. A board can only be finalized (won or failed) once; a second attempt is rejected.
+
+### Session vs. all-time
+Two leaderboards, never merged:
+- **CURRENT SESSION** -- in-memory, scoped to the room, survives NEXT GAME (a session is one continuous room, potentially many boards), reset only by starting a new room.
+- **ALL-TIME** -- persistent, in `players.json`, read by any client via `leaderboard:getAllTime`. A collapsible view in both the GM console (**ALL-TIME RECORDS**) and the player screen (**ALL-TIME**), deliberately kept out of the way of the live board/chat.
+
+### Player identity (v1)
+There are no accounts. A profile is matched by display name, trimmed and case-folded (`"Marko"`, `"marko"`, `" MARKO "` all resolve to the same profile); the stored display name reflects whichever capitalization was typed most recently. Two different real people who both type the same name share a profile -- an accepted tradeoff for a small recurring group, not a bug. `players.json` is written with a temp-file-then-rename so an interrupted write can't corrupt it, and every scoring change (award, reversal, or board finalization) is persisted immediately, not just at room close.
+
+### Player profile fields
+`name`, `createdAt`, `lastPlayed`, `lifetimeScore`, `gamesPlayed`, `gamesWon`, `columnSolutions`, `oneClueColumnSolutions`, `finalSolutions`, `earlyFinalSolutions` (Final solved before all 4 columns were known), `earliestFinalColumnsKnown` (best-ever record, only moves down), `bestColumnStreak` (best-ever record, only moves up), `purpleSolves`, `blackSolves`. The last two exist structurally but are **never incremented today** -- there is no per-column difficulty metadata yet, only a per-board `difficulty`, and inferring one from the other would be fake precision. They light up once column-level difficulty metadata is added to the game format.
+
+`gamesPlayed`/`gamesWon` count **boards**, for every player connected when that board is finalized: a win increments both, a Failed Final increments only `gamesPlayed`. This is separate from `finalSolutions`, which only credits whoever actually typed the winning guess.
+
+### Scoring constants
+Every value above lives in `scoring-constants.js` (`COLUMN_SCORE_BY_CLUES`, `FINAL_SCORE_BY_COLUMNS`, `STREAK_MILESTONE_BONUS`, `FAILED_FINAL_PENALTY`) -- rebalance there, never inline in `server.js`.
 
 ---
 
@@ -507,17 +606,18 @@ Server response:
 | **Phase 1** | ✅ Complete | Local foundation: board, data model, reveal logic, undo, backgrounds, public view |
 | **Phase 2** | ✅ Complete | **THE ROOM**: Node.js server, WebSocket sync, room hosting, player join, authoritative state, public-state security |
 | **Phase 2.5** | ✅ Complete | **GUESS CHAT**: Player guesses, GM adjudication (❌/🖤), target selection, auto-reveal, solved tracking |
-| **The Forge** | ✅ Complete | **GAME LIBRARY + CREATOR**: in-app game/background management, live preview, NEXT GAME room switching |
-| **Phase 4** | ⏳ Planned | Scoring, teams, answer submission, timers, buzzer, QR codes, persistence |
+| **The Forge** | ✅ Complete | **GAME LIBRARY + CREATOR**: in-app game/background management, live preview, NEXT GAME room switching, Excel import |
+| **Scoring & Profiles** | ✅ Complete | Automatic column/Final scoring, column streaks, Failed Final penalty, session + all-time leaderboards, persistent player profiles |
+| **Phase 4** | ⏳ Planned | Teams, timers, buzzer, QR codes, room persistence across restarts |
 
 ---
 
 ## Phase 2 / 2.5 / The Forge Limitations (Known)
 
-- **No persistent storage** — rooms live in server memory only (restart = rooms lost)
+- **No persistent room storage** — rooms (and current-session scores) live in server memory only; restart = rooms and session leaderboards lost. Player profiles/all-time stats in `players.json` survive a restart just fine.
 - **No host migration** — if GM doesn't reconnect in 60s, room closes
-- **No scoring/teams/timers** — pure reveal sync + chat only
-- **No QR codes** — manual room code entry only
+- **No teams, timers, buzzer, or QR codes** — scoring is per-player, reveal pacing is entirely GM-controlled, room joining is manual room-code entry only
+- **Purple/Black solve tracking is structural only** — the fields exist on every profile but are never incremented yet; there is no per-column difficulty metadata to key off, only a per-board one
 - **Local undo only** — multiplayer undo requires manual inverse action
 - **No answer validation** — GM is sole judge, no automatic checking
 - **Chat history limit** — 200 messages max per room

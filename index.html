@@ -81,6 +81,14 @@
           </div>
         </section>
 
+        <section class="gm-section" id="scoring-section" style="display: none;">
+          <h3 class="gm-section-title">Scoring</h3>
+          <div id="session-leaderboard" class="session-leaderboard"></div>
+          <button class="gm-global-btn" id="alltime-toggle-btn" style="width: 100%; margin-top: 8px;">ALL-TIME RECORDS</button>
+          <div id="alltime-leaderboard" class="alltime-leaderboard" style="display: none;"></div>
+          <button class="gm-global-btn fail-final-btn" id="declare-final-failed-btn" style="width: 100%; margin-top: 12px; display: none;">DECLARE FINAL FAILED</button>
+        </section>
+
         <section class="gm-section">
           <h3 class="gm-section-title">Multiplayer</h3>
           <div class="multiplayer-status" id="multiplayer-status">
@@ -118,6 +126,8 @@
   <div id="forge-overlay" class="forge-overlay">
     <div class="forge-shell" id="forge-shell"></div>
   </div>
+
+  <div id="score-announcement-layer"></div>
 
   <div id="public-view">
     <div id="public-board" class="public-board"></div>

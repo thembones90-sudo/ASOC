@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const gameStore = require('./game-store');
+const playerStore = require('./player-store');
+const scoring = require('./scoring-constants');
 
 const PORT = 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -48,6 +50,14 @@ function generatePlayerId() {
 
 function generateMessageId() {
   return 'msg-' + Math.random().toString(36).substring(2, 12);
+}
+
+function generateBoardId() {
+  return 'board-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8);
+}
+
+function generateEventId() {
+  return 'evt-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8);
 }
 
 const gmTokens = new Set();
@@ -149,9 +159,11 @@ function createRoom(gameId, hostWs) {
     gameId,
     gameData,
     revision: 0,
+    boardId: generateBoardId(),
     sessionState: {
       cells: {},
-      finalSolution: false
+      finalSolution: false,
+      finalOutcome: null // null | 'success' | 'failed' -- drives GREEN vs BLACK/RED client treatment
     },
     currentBackground: gameData.background || '',
     players: new Map(),
@@ -162,6 +174,17 @@ function createRoom(gameId, hostWs) {
     chat: {
       messages: [],
       solvedTargets: {}
+    },
+    // SESSION-scoped scoring state. This whole object survives NEXT GAME
+    // (gm:switchGame) -- only the per-board fields inside it (activeStreak,
+    // boardFinalized) get reset there and on resetBoard. It is never
+    // persisted to disk; only playerStore's lifetime totals are durable.
+    scoring: {
+      players: {},        // playerId -> { name, sessionScore }
+      events: [],          // full SCORE EVENT log for this room's lifetime (undo/rebuild source of truth)
+      activeStreak: null,  // { playerId, playerName, columnCount } for the CURRENT board, or null
+      boardFinalized: false, // guards against double-applying a success/failure outcome for the current board
+      pendingResults: null // outcome data held back until the GM sends gm:revealResults
     }
   };
 
@@ -209,7 +232,7 @@ function getPublicState(room) {
 
   const finalRevealed = room.sessionState.finalSolution === true;
   const finalCell = finalRevealed
-    ? { revealed: true, value: game.finalSolution }
+    ? { revealed: true, value: game.finalSolution, outcome: room.sessionState.finalOutcome || 'success' }
     : { revealed: false };
 
   return {
@@ -233,6 +256,281 @@ function getCellData(game, column, row) {
     return game.columns[column]?.solution || '';
   }
   return '';
+}
+
+// ---------------------------------------------------------------------
+// SCORING
+//
+// Design summary (see README's "Scoring & Player Profiles" section for
+// the full writeup): every scoring event is derived from state the room
+// already tracks authoritatively (revealed cells, solvedTargets) rather
+// than duplicated. Column/Final point events are reversed individually
+// when a GM verdict correction undoes them. Column STREAK state is never
+// patched incrementally -- after any change to which columns are solved
+// by whom, it is fully rebuilt from room.chat.solvedTargets so a GM
+// correction can never leave a stale streak bonus in place.
+// ---------------------------------------------------------------------
+
+const SCORABLE_COLUMNS = ['A', 'B', 'C', 'D'];
+
+function countRevealedCluesInColumn(room, col) {
+  let count = 0;
+  for (let row = 1; row <= 4; row++) {
+    if (room.sessionState.cells[`${col}${row}`] === true) count++;
+  }
+  return count;
+}
+
+function countKnownColumns(room) {
+  return SCORABLE_COLUMNS.filter(col => !!room.chat.solvedTargets[col]).length;
+}
+
+// Per-column/per-target difficulty metadata does not exist in the game
+// data model yet -- only an overall BOARD difficulty does. Per the locked
+// decision, we must not infer column-level Purple/Black from the board's
+// difficulty. This returns null (meaning "not authoritative, don't count
+// it") until real per-column difficulty metadata is added to the game
+// JSON format.
+function getAuthoritativeColumnDifficulty(room, target) {
+  return null;
+}
+
+function getActiveParticipants(room) {
+  const participants = [];
+  room.players.forEach((player, ws) => {
+    if (player.connected !== false) {
+      participants.push({ playerId: player.id, playerName: player.name });
+    }
+  });
+  return participants;
+}
+
+function ensureSessionPlayerEntry(room, playerId, playerName) {
+  if (!room.scoring.players[playerId]) {
+    room.scoring.players[playerId] = { name: playerName, sessionScore: 0 };
+  } else {
+    room.scoring.players[playerId].name = playerName; // keep display name fresh
+  }
+  return room.scoring.players[playerId];
+}
+
+// Applies (or reverses, with a negative `points`) a point change to both
+// the in-memory CURRENT SESSION score and the persistent ALL-TIME profile.
+// These two are never merged into one number -- see README.
+function adjustPlayerScore(room, playerId, playerName, points) {
+  const entry = ensureSessionPlayerEntry(room, playerId, playerName);
+  entry.sessionScore += points;
+  playerStore.adjustProfile(playerName, { pointsDelta: points });
+}
+
+function recordEvent(room, fields) {
+  const event = {
+    eventId: generateEventId(),
+    gameId: room.gameId,
+    boardId: room.boardId,
+    sourceMessageId: fields.sourceMessageId || null,
+    target: fields.target || null,
+    type: fields.type,
+    playerId: fields.playerId,
+    playerName: fields.playerName,
+    points: fields.points,
+    timestamp: Date.now(),
+    cluesRevealed: fields.cluesRevealed ?? null,
+    columnsKnownAtSolve: fields.columnsKnownAtSolve ?? null,
+    streakLength: fields.streakLength ?? null,
+    difficulty: fields.difficulty ?? null
+  };
+  room.scoring.events.push(event);
+  return event;
+}
+
+// Result shape from award/reverse helpers: { rejected, reason } on failure,
+// { event } on success -- callers broadcast `score:event` only on success.
+function awardColumnSolve(room, target, message) {
+  const cluesRevealed = countRevealedCluesInColumn(room, target);
+  if (cluesRevealed < 1) {
+    return { rejected: true, reason: `Column ${target} has no revealed clues -- cannot award a column score.` };
+  }
+
+  const points = scoring.COLUMN_SCORE_BY_CLUES[Math.min(cluesRevealed, 4)];
+  const difficulty = getAuthoritativeColumnDifficulty(room, target);
+
+  const event = recordEvent(room, {
+    type: 'column',
+    target,
+    sourceMessageId: message.id,
+    playerId: message.playerId,
+    playerName: message.playerName,
+    points,
+    cluesRevealed,
+    difficulty
+  });
+
+  adjustPlayerScore(room, message.playerId, message.playerName, points);
+
+  const statDeltas = { columnSolutions: 1 };
+  if (cluesRevealed === 1) statDeltas.oneClueColumnSolutions = 1;
+  if (difficulty === 'PURPLE') statDeltas.purpleSolves = 1;
+  if (difficulty === 'BLACK') statDeltas.blackSolves = 1;
+  playerStore.adjustProfile(message.playerName, { statDeltas });
+
+  rebuildColumnStreaks(room);
+
+  return { event };
+}
+
+function reverseColumnSolve(room, target) {
+  const idx = room.scoring.events.findIndex(
+    e => e.boardId === room.boardId && e.type === 'column' && e.target === target
+  );
+  if (idx === -1) {
+    rebuildColumnStreaks(room);
+    return; // nothing was ever scored for this column (e.g. it had 0 revealed clues) -- fine
+  }
+
+  const event = room.scoring.events[idx];
+  room.scoring.events.splice(idx, 1);
+  adjustPlayerScore(room, event.playerId, event.playerName, -event.points);
+
+  const statDeltas = { columnSolutions: -1 };
+  if (event.cluesRevealed === 1) statDeltas.oneClueColumnSolutions = -1;
+  if (event.difficulty === 'PURPLE') statDeltas.purpleSolves = -1;
+  if (event.difficulty === 'BLACK') statDeltas.blackSolves = -1;
+  playerStore.adjustProfile(event.playerName, { statDeltas });
+
+  rebuildColumnStreaks(room);
+}
+
+function awardFinalSolve(room, message) {
+  const columnsKnownAtSolve = countKnownColumns(room);
+  if (columnsKnownAtSolve < 1) {
+    return { rejected: true, reason: 'No column solution is known yet -- the Final cannot be scored until at least one column is solved.' };
+  }
+
+  const points = scoring.FINAL_SCORE_BY_COLUMNS[Math.min(columnsKnownAtSolve, 4)];
+
+  const event = recordEvent(room, {
+    type: 'final',
+    target: 'FINAL',
+    sourceMessageId: message.id,
+    playerId: message.playerId,
+    playerName: message.playerName,
+    points,
+    columnsKnownAtSolve
+  });
+
+  adjustPlayerScore(room, message.playerId, message.playerName, points);
+
+  const isEarly = columnsKnownAtSolve < 4;
+  const statDeltas = { finalSolutions: 1 };
+  if (isEarly) statDeltas.earlyFinalSolutions = 1;
+  playerStore.adjustProfile(message.playerName, { statDeltas });
+  playerStore.maybeRecordEarliestFinal(message.playerName, columnsKnownAtSolve);
+
+  return { event };
+}
+
+function reverseFinalSolve(room) {
+  const idx = room.scoring.events.findIndex(e => e.boardId === room.boardId && e.type === 'final');
+  if (idx === -1) return;
+
+  const event = room.scoring.events[idx];
+  room.scoring.events.splice(idx, 1);
+  adjustPlayerScore(room, event.playerId, event.playerName, -event.points);
+
+  const statDeltas = { finalSolutions: -1 };
+  if (event.columnsKnownAtSolve < 4) statDeltas.earlyFinalSolutions = -1;
+  playerStore.adjustProfile(event.playerName, { statDeltas });
+  // earliestFinalColumnsKnown is an intentionally one-way "best ever"
+  // record (see player-store.js) -- a reversal does not attempt to roll
+  // it back to some previous value we no longer know.
+}
+
+// Deterministically rebuilds this board's column-streak state from the
+// CURRENT, authoritative room.chat.solvedTargets -- never patched
+// incrementally. Removes every existing streak-type event for this board,
+// reverses their point effects, then replays solvedTargets in timestamp
+// order to regenerate whichever milestones the corrected history actually
+// earns.
+function rebuildColumnStreaks(room) {
+  const staleStreakEvents = room.scoring.events.filter(
+    e => e.boardId === room.boardId && e.type === 'streak'
+  );
+  for (const event of staleStreakEvents) {
+    adjustPlayerScore(room, event.playerId, event.playerName, -event.points);
+  }
+  room.scoring.events = room.scoring.events.filter(
+    e => !(e.boardId === room.boardId && e.type === 'streak')
+  );
+
+  const solves = SCORABLE_COLUMNS
+    .map(col => ({ col, ...room.chat.solvedTargets[col] }))
+    .filter(s => s.solved)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  let streakPlayerId = null;
+  let streakPlayerName = null;
+  let streakLength = 0;
+
+  for (const solve of solves) {
+    if (solve.playerId === streakPlayerId) {
+      streakLength += 1;
+    } else {
+      streakPlayerId = solve.playerId;
+      streakPlayerName = solve.playerName;
+      streakLength = 1;
+    }
+
+    const bonus = scoring.STREAK_MILESTONE_BONUS[streakLength];
+    if (bonus) {
+      recordEvent(room, {
+        type: 'streak',
+        target: solve.col,
+        sourceMessageId: solve.messageId,
+        playerId: streakPlayerId,
+        playerName: streakPlayerName,
+        points: bonus,
+        streakLength
+      });
+      adjustPlayerScore(room, streakPlayerId, streakPlayerName, bonus);
+      playerStore.maybeRecordBestStreak(streakPlayerName, streakLength);
+    }
+  }
+
+  room.scoring.activeStreak = streakPlayerId
+    ? { playerId: streakPlayerId, playerName: streakPlayerName, columnCount: streakLength }
+    : null;
+}
+
+// Board finalization -- called exactly once per board, guarded by
+// room.scoring.boardFinalized so a duplicate success/failure signal (e.g.
+// a GM double-click) can never double-apply gamesPlayed/gamesWon or the
+// failed-Final penalty.
+function finalizeBoard(room, outcome) {
+  if (room.scoring.boardFinalized) return { alreadyFinalized: true };
+  room.scoring.boardFinalized = true;
+
+  const participants = getActiveParticipants(room);
+  const penaltyEvents = [];
+
+  participants.forEach(({ playerId, playerName }) => {
+    if (outcome === 'success') {
+      playerStore.recordBoardFinalization(playerName, { won: true });
+    } else {
+      const event = recordEvent(room, {
+        type: 'failedFinal',
+        target: 'FINAL',
+        playerId,
+        playerName,
+        points: -scoring.FAILED_FINAL_PENALTY
+      });
+      adjustPlayerScore(room, playerId, playerName, -scoring.FAILED_FINAL_PENALTY);
+      playerStore.recordBoardFinalization(playerName, { won: false });
+      penaltyEvents.push(event);
+    }
+  });
+
+  return { participants, penaltyEvents };
 }
 
 function applyCommand(room, command, payload) {
@@ -298,6 +596,7 @@ function applyCommand(room, command, payload) {
       });
       if (room.sessionState.finalSolution !== true) {
         room.sessionState.finalSolution = true;
+        room.sessionState.finalOutcome = room.sessionState.finalOutcome || 'success';
         changed = true;
       }
       break;
@@ -315,6 +614,7 @@ function applyCommand(room, command, payload) {
       });
       if (room.sessionState.finalSolution === true) {
         room.sessionState.finalSolution = false;
+        room.sessionState.finalOutcome = null;
         changed = true;
       }
       break;
@@ -322,6 +622,7 @@ function applyCommand(room, command, payload) {
     case 'revealFinal': {
       if (room.sessionState.finalSolution !== true) {
         room.sessionState.finalSolution = true;
+        room.sessionState.finalOutcome = room.sessionState.finalOutcome || 'success';
         changed = true;
       }
       break;
@@ -329,6 +630,7 @@ function applyCommand(room, command, payload) {
     case 'hideFinal': {
       if (room.sessionState.finalSolution === true) {
         room.sessionState.finalSolution = false;
+        room.sessionState.finalOutcome = null;
         changed = true;
       }
       break;
@@ -337,9 +639,18 @@ function applyCommand(room, command, payload) {
       const hadChanges = Object.values(room.sessionState.cells).some(v => v === true) ||
                          room.sessionState.finalSolution === true;
       if (hadChanges) {
-        room.sessionState = { cells: {}, finalSolution: false };
+        room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null };
         changed = true;
       }
+      // A reset re-attempts the SAME board from scratch: mint a fresh
+      // boardId (so a future streak rebuild only ever looks at solves that
+      // happened after this reset) and clear per-board scoring state.
+      // Session score and all-time profiles are untouched.
+      room.boardId = generateBoardId();
+      room.scoring.activeStreak = null;
+      room.scoring.boardFinalized = false;
+      room.scoring.pendingResults = null;
+      room.chat.solvedTargets = {};
       break;
     }
     case 'changeBackground': {
@@ -387,9 +698,33 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
   const oldVerdict = message.verdict;
   const oldTarget = message.target;
   let changed = false;
+  let scoreWarning = null;
+  let newAward = null;
+  let finalOutcome = null;
+  let streakChanged = false;
 
   message.verdict = verdict;
   message.target = target;
+
+  // Unwind whatever this message previously had credit for, whenever the
+  // verdict is no longer 'correct' for that same target -- covers both
+  // CORRECT -> WRONG (existing behavior) and CORRECT(target=X) ->
+  // CORRECT(target=Y), a retarget that the old code left half-applied
+  // (solvedTargets[X] was never cleared, so X stayed "solved" forever).
+  const losingOldCredit = oldVerdict === 'correct' && oldTarget && (verdict !== 'correct' || target !== oldTarget);
+  if (losingOldCredit) {
+    const oldSolvedKey = oldTarget === 'FINAL' ? 'FINAL' : oldTarget;
+    const oldRecord = room.chat.solvedTargets[oldSolvedKey];
+    if (oldRecord && oldRecord.messageId === message.id) {
+      delete room.chat.solvedTargets[oldSolvedKey];
+      if (oldTarget === 'FINAL') {
+        reverseFinalSolve(room);
+      } else {
+        reverseColumnSolve(room, oldTarget);
+        streakChanged = true;
+      }
+    }
+  }
 
   if (verdict === 'correct' && target && isValidTarget(target)) {
     const solvedKey = target === 'FINAL' ? 'FINAL' : target;
@@ -401,12 +736,48 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
         messageId: message.id,
         timestamp: Date.now()
       };
+
+      if (target === 'FINAL') {
+        const result = awardFinalSolve(room, message);
+        if (result.rejected) {
+          scoreWarning = result.reason;
+        } else {
+          newAward = { awardType: 'final', target, points: result.event.points, columnsKnownAtSolve: result.event.columnsKnownAtSolve, playerName: message.playerName };
+        }
+        // The board is won the moment Final is correctly solved, regardless
+        // of whether the jackpot itself could be scored (see spec: FINAL
+        // scoring and board finalization are related but separate).
+        const finalizeResult = finalizeBoard(room, 'success');
+        if (!finalizeResult.alreadyFinalized) {
+          // The reveal (headline + story) goes out to everyone immediately;
+          // the point/penalty numbers are held back until the GM explicitly
+          // advances past the story (gm:revealResults) -- see spec's
+          // "delayed score damage is intentional pacing", which applies to
+          // every client in the room, not just the GM's own screen.
+          room.scoring.pendingResults = {
+            outcome: 'success',
+            columnsKnownAtSolve: result.event ? result.event.columnsKnownAtSolve : countKnownColumns(room),
+            points: result.event ? result.event.points : 0,
+            playerName: message.playerName
+          };
+          finalOutcome = { outcome: 'success' };
+        }
+      } else {
+        const result = awardColumnSolve(room, target, message);
+        if (result.rejected) {
+          scoreWarning = result.reason;
+        } else {
+          newAward = { awardType: 'column', target, points: result.event.points, cluesRevealed: result.event.cluesRevealed, playerName: message.playerName };
+        }
+        streakChanged = true;
+      }
     }
 
     if (reveal) {
       if (target === 'FINAL') {
         if (room.sessionState.finalSolution !== true) {
           room.sessionState.finalSolution = true;
+          room.sessionState.finalOutcome = 'success';
           changed = true;
         }
       } else {
@@ -419,16 +790,11 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
     }
   }
 
-  if (verdict === 'wrong' && oldVerdict === 'correct' && oldTarget) {
-    const solvedKey = oldTarget === 'FINAL' ? 'FINAL' : oldTarget;
-    delete room.chat.solvedTargets[solvedKey];
-  }
-
   if (changed) {
     room.revision++;
   }
 
-  return { success: true, changed, revision: room.revision, message };
+  return { success: true, changed, revision: room.revision, message, scoreWarning, newAward, finalOutcome, streakChanged };
 }
 
 function addChatMessage(room, playerId, playerName, text) {
@@ -508,6 +874,13 @@ function handleHostCommand(ws, message) {
   if (result.success && result.changed) {
     const publicState = getPublicState(room);
     broadcastToRoom(room, { type: 'state:public', ...publicState });
+    if (message.command === 'resetBoard') {
+      // resetBoard also clears chat.solvedTargets (see applyCommand) so a
+      // replayed board can be scored again -- clients' cached solved-target
+      // state must be told about that too, same as any other chat change.
+      broadcastChatUpdate(room);
+      broadcastPlayersUpdate(room);
+    }
     sendToWs(ws, { type: 'command:ack', revision: room.revision });
   } else if (result.success) {
     sendToWs(ws, { type: 'command:ack', revision: room.revision, unchanged: true });
@@ -577,7 +950,8 @@ function broadcastPlayersUpdate(room) {
     players.push({
       id: player.id,
       name: player.name,
-      connected: ws.readyState === 1
+      connected: ws.readyState === 1,
+      score: room.scoring.players[player.id]?.sessionScore || 0
     });
   });
 
@@ -695,6 +1069,24 @@ function handleJudgeGuess(ws, message) {
       const publicState = getPublicState(room);
       broadcastToRoom(room, { type: 'state:public', ...publicState });
     }
+
+    // Any scoring change (award, reversal, or a streak rebuild) means
+    // session scores moved -- refresh every client's player list.
+    broadcastPlayersUpdate(room);
+
+    if (result.newAward) {
+      broadcastToRoom(room, { type: 'score:event', ...result.newAward });
+    }
+    if (result.streakChanged) {
+      broadcastToRoom(room, { type: 'score:streak', activeStreak: room.scoring.activeStreak });
+    }
+    if (result.finalOutcome) {
+      broadcastToRoom(room, { type: 'score:finalReveal', ...result.finalOutcome });
+    }
+    if (result.scoreWarning) {
+      sendToWs(ws, { type: 'score:warning', message: result.scoreWarning });
+    }
+
     sendToWs(ws, { type: 'gm:judge:ack', messageId, verdict, target });
   } else {
     sendToWs(ws, { type: 'error', message: result.error });
@@ -728,17 +1120,95 @@ function handleSwitchGame(ws, message) {
   room.gameId = game.id;
   room.gameData = game;
   room.revision = (room.revision || 0) + 1;
-  room.sessionState = { cells: {}, finalSolution: false };
+  room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null };
   room.currentBackground = game.background || gameStore.DEFAULT_BACKGROUND;
   room.chat = { messages: [], solvedTargets: {} };
+  // NEXT GAME starts a new board within the SAME session: current-session
+  // scores (room.scoring.players) and the persisted all-time profiles are
+  // untouched. Only per-board state resets, exactly like ending a streak
+  // when the board changes.
+  room.boardId = generateBoardId();
+  room.scoring.activeStreak = null;
+  room.scoring.boardFinalized = false;
+  room.scoring.pendingResults = null;
 
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
   broadcastChatUpdate(room);
+  broadcastPlayersUpdate(room);
   sendToWs(ws, { type: 'game:loaded', game });
   sendToWs(ws, { type: 'gm:switchGame:ack', gameId: game.id });
 
   console.log(`[ROOM ${room.code}] Game switched: ${game.title} (${game.id})`);
+}
+
+// Explicit GM action -- the Failed Final is NEVER inferred from a timer,
+// guess count, or inactivity (locked decision). The GM alone decides the
+// room has lost.
+function handleFailFinal(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can declare the Final failed' });
+    return;
+  }
+
+  if (room.scoring.boardFinalized) {
+    sendToWs(ws, { type: 'error', message: 'This board has already been finalized' });
+    return;
+  }
+
+  if (room.sessionState.finalSolution === true) {
+    sendToWs(ws, { type: 'error', message: 'The Final has already been revealed for this board' });
+    return;
+  }
+
+  // finalizeBoard() is the single, guarded place gamesPlayed/gamesWon and
+  // the penalty are applied -- boardFinalized flips true inside it, so a
+  // duplicate gm:failFinal (double-click) can never double-apply the loss.
+  const finalizeResult = finalizeBoard(room, 'failed');
+
+  room.sessionState.finalSolution = true;
+  room.sessionState.finalOutcome = 'failed';
+  room.revision++;
+
+  // Same pacing rule as a successful Final: everyone sees the reveal +
+  // story immediately, the penalty amount waits for gm:revealResults.
+  room.scoring.pendingResults = {
+    outcome: 'failed',
+    penalty: scoring.FAILED_FINAL_PENALTY,
+    participants: finalizeResult.participants ? finalizeResult.participants.map(p => p.playerName) : []
+  };
+
+  const publicState = getPublicState(room);
+  broadcastToRoom(room, { type: 'state:public', ...publicState });
+  broadcastPlayersUpdate(room);
+  broadcastToRoom(room, {
+    type: 'score:finalReveal',
+    outcome: 'failed',
+    correctSolution: room.gameData.finalSolution
+  });
+
+  console.log(`[ROOM ${room.code}] GM declared Final FAILED`);
+}
+
+// GM has finished showing the story/reveal sequence and is ready to reveal
+// the point/penalty consequences to the whole room at once.
+function handleRevealResults(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return;
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can reveal results' });
+    return;
+  }
+  if (!room.scoring.pendingResults) return; // nothing pending -- ignore silently, not an error
+
+  broadcastToRoom(room, { type: 'score:finalResults', ...room.scoring.pendingResults });
+  room.scoring.pendingResults = null;
 }
 
 function handleCloseRoom(ws) {
@@ -969,6 +1439,18 @@ wss.on('connection', (ws) => {
         }
         case 'gm:switchGame': {
           handleSwitchGame(ws, message);
+          break;
+        }
+        case 'gm:failFinal': {
+          handleFailFinal(ws, message);
+          break;
+        }
+        case 'gm:revealResults': {
+          handleRevealResults(ws);
+          break;
+        }
+        case 'leaderboard:getAllTime': {
+          sendToWs(ws, { type: 'leaderboard:allTime', players: playerStore.getAllTimeLeaderboard(50) });
           break;
         }
         case 'room:close': {

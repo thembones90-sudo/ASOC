@@ -958,6 +958,21 @@ html, body {
   line-height: 1.4;
 }
 
+/* Verdict-state text treatment: presentation only, driven by the
+   authoritative msg.verdict already on the message element -- no
+   extra state is introduced. Green = accepted, muted red + faint
+   strike = rejected. Unjudged messages are untouched above. */
+.gm-chat-message.wrong .gm-chat-message-text {
+  color: #b5544a;
+  text-decoration: line-through;
+  text-decoration-color: rgba(231, 76, 60, 0.4);
+  text-decoration-thickness: 1px;
+}
+
+.gm-chat-message.correct .gm-chat-message-text {
+  color: #5cb87a;
+}
+
 .gm-chat-verdict {
   display: inline-flex;
   align-items: center;
@@ -1684,4 +1699,327 @@ html, body {
 @keyframes slideIn {
   from { transform: translateY(-10px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* =========================================================
+   SCORING / PLAYER PROFILES
+   ========================================================= */
+
+/* --- GM console: session + all-time leaderboards --- */
+.session-leaderboard,
+.alltime-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 8px;
+  background: var(--button-bg);
+  border: 1px solid var(--button-border);
+  border-radius: 4px;
+  font-size: 0.68rem;
+}
+
+.leaderboard-row.leaderboard-lead {
+  border-color: var(--accent-gold);
+}
+
+.lb-rank {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-name {
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-score {
+  color: var(--accent-gold);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.leaderboard-empty {
+  color: var(--text-dim);
+  font-size: 0.65rem;
+  text-align: center;
+  padding: 6px;
+}
+
+.gm-global-btn.fail-final-btn {
+  border-color: #8a4a4a;
+  color: #e8a0a0;
+}
+
+.gm-global-btn.fail-final-btn:hover {
+  background: rgba(138, 74, 74, 0.2);
+  border-color: #c86a6a;
+  color: #ffb0b0;
+}
+
+/* --- Player-facing compact leaderboard strip (join.html) --- */
+.player-leaderboard-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--panel-border);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.player-leaderboard-list {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  overflow-x: auto;
+}
+
+.pl-entry {
+  color: var(--text-dim);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.pl-entry b {
+  color: var(--accent-gold);
+  font-weight: 600;
+  margin-left: 3px;
+}
+
+.pl-entry.pl-entry-me {
+  color: var(--text-primary);
+}
+
+.player-alltime-toggle-btn {
+  flex-shrink: 0;
+  background: var(--button-bg);
+  border: 1px solid var(--button-border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  font-size: 0.58rem;
+  letter-spacing: 0.5px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.player-alltime-toggle-btn:hover {
+  border-color: var(--accent-silver);
+  color: var(--text-primary);
+}
+
+.player-alltime-panel {
+  padding: 8px 10px;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--panel-border);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+/* --- Score toasts (column/final award announcements) --- */
+#score-announcement-layer {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.score-toast {
+  pointer-events: auto;
+  background: var(--panel-bg);
+  border: 1px solid var(--accent-gold);
+  border-radius: 6px;
+  padding: 10px 14px;
+  min-width: 180px;
+  text-align: right;
+  animation: slideIn 0.25s ease;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.score-toast.score-toast-out {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.score-toast-name {
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.score-toast-detail {
+  color: var(--text-dim);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.score-toast-points {
+  color: var(--accent-gold);
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.score-toast.score-toast-warning {
+  border-color: var(--accent-red);
+  text-align: left;
+}
+
+.score-toast.score-toast-warning .score-toast-detail {
+  color: #e8a0a0;
+}
+
+.score-toast.score-toast-compact {
+  min-width: 140px;
+  padding: 7px 10px;
+}
+
+.score-toast.score-toast-compact .score-toast-points {
+  font-size: 0.8rem;
+}
+
+/* --- Column streak milestone banner --- */
+.streak-banner {
+  pointer-events: auto;
+  background: linear-gradient(135deg, rgba(122, 74, 154, 0.25), var(--panel-bg));
+  border: 1px solid var(--accent-purple);
+  border-radius: 6px;
+  padding: 10px 16px;
+  text-align: right;
+  animation: slideIn 0.25s ease;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.streak-banner.streak-banner-out {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.streak-banner-name {
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.streak-banner-label {
+  color: #c89ae0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+.streak-banner.streak-banner-compact {
+  padding: 7px 10px;
+}
+
+.streak-banner.streak-banner-compact .streak-banner-label {
+  font-size: 0.7rem;
+}
+
+/* --- Final success / failure sequence --- */
+.final-outcome-banner {
+  pointer-events: auto;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 600;
+  min-width: 280px;
+  max-width: 420px;
+  text-align: center;
+  padding: 24px 28px;
+  border-radius: 8px;
+  background: var(--panel-bg);
+  animation: fadeIn 0.35s ease;
+  transition: opacity 0.5s ease;
+}
+
+.final-outcome-banner.final-outcome-out {
+  opacity: 0;
+}
+
+.final-outcome-banner.final-outcome-success {
+  border: 2px solid #3ecf6e;
+  box-shadow: 0 0 24px rgba(62, 207, 110, 0.35);
+}
+
+.final-outcome-banner.final-outcome-failed {
+  border: 2px solid #1a1a2e;
+  box-shadow: 0 0 28px rgba(200, 30, 30, 0.55);
+  background: #0c0c14;
+}
+
+.fo-headline {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.final-outcome-success .fo-headline {
+  color: #3ecf6e;
+}
+
+.final-outcome-failed .fo-headline {
+  color: #1a1a2e;
+  text-shadow: 0 0 10px #c81e1e, 0 0 22px #c81e1e;
+}
+
+.fo-story {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin-top: 12px;
+  line-height: 1.4;
+}
+
+.fo-continue-btn {
+  margin-top: 18px;
+}
+
+.fo-results {
+  margin-top: 16px;
+}
+
+.fo-columns-known {
+  color: var(--text-solution);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.fo-points {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.fo-points-positive {
+  color: var(--accent-gold);
+}
+
+.fo-points-negative {
+  color: #ff6a6a;
 }
