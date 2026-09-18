@@ -639,6 +639,41 @@
       cursor: not-allowed;
     }
 
+
+    .little-hero-hud, .little-hero-roster { width:100%; max-width:var(--canvas-width); box-sizing:border-box; }
+    .little-hero-hud { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-top:10px; padding:9px 12px; background:linear-gradient(90deg,rgba(19,23,29,.98),rgba(7,9,12,.98)); border:1px solid rgba(116,126,139,.48); box-shadow:inset 0 1px rgba(255,255,255,.035); }
+    .hero-hud-identity { display:flex; align-items:center; gap:9px; min-width:0; font:700 .72rem var(--font-machine); letter-spacing:1px; text-transform:uppercase; }
+    .hero-hud-identity .little-hero-avatar { width:34px; height:34px; flex:0 0 34px; }
+    .hero-hud-stats { display:flex; align-items:center; justify-content:flex-end; gap:14px; flex-wrap:wrap; color:#7f8792; font:600 .56rem var(--font-machine); letter-spacing:1px; }
+    .hero-hud-stats b { color:#eef0f5; margin-left:4px; }
+    .hero-hud-link { color:#d6a843; }
+    .hero-hud-link.stable { color:#62b77c; }
+    .hero-hud-link.lost { color:#d86157; }
+    .hero-hud-score-bump { animation:hudScoreBump .55s ease; }
+    @keyframes hudScoreBump { 40%{color:#62b77c;text-shadow:0 0 12px rgba(98,183,124,.8);transform:scale(1.2)} }
+    .little-hero-roster { display:flex; gap:6px; overflow-x:auto; padding:7px 2px 2px; scrollbar-width:thin; }
+    .hero-roster-card { display:flex; align-items:center; gap:6px; flex:0 0 auto; padding:5px 8px; border:1px solid rgba(116,126,139,.34); background:rgba(10,12,16,.82); font:600 .56rem var(--font-machine); letter-spacing:.7px; text-transform:uppercase; }
+    .hero-roster-card .little-hero-avatar { width:24px; height:24px; }
+    .hero-roster-card b { color:#d6a843; }
+    .hero-roster-card.signal-lost { opacity:.38; filter:grayscale(1); }
+    .battle-event-feed { display:flex; flex-direction:column; gap:3px; padding:5px 10px 0; }
+    .battle-event { text-align:center; padding:5px 8px; border-top:1px solid rgba(116,126,139,.25); border-bottom:1px solid rgba(116,126,139,.25); color:#8e98a6; font:600 .55rem var(--font-machine); letter-spacing:1.2px; text-transform:uppercase; animation:eventIn .25s ease; }
+    @keyframes eventIn { from{opacity:0;transform:translateY(-4px)} }
+    .chat-message.correct { animation:confirmPulse .45s ease; }
+    .chat-message.wrong { animation:rejectTwitch .38s ease; }
+    @keyframes confirmPulse { 45%{box-shadow:inset 0 0 20px rgba(92,184,122,.18);border-color:rgba(92,184,122,.75)} }
+    @keyframes rejectTwitch { 25%{transform:translateX(-2px)} 50%{transform:translateX(2px)} 75%{transform:translateX(-1px)} }
+    #chat-panel.broker-priority .chat-message { opacity:.35; transition:opacity .2s ease; }
+    #chat-panel.broker-priority .shadow-broker-transmission { opacity:1; }
+    .chat-message.grouped { margin-top:-7px; border-top-color:transparent; }
+    .chat-message.grouped .chat-message-header { display:none; }
+    .chat-reply-preview { flex:1 0 100%; padding:5px 8px; border-left:2px solid #d6a843; background:rgba(212,168,67,.07); color:#aab0ba; font-size:.62rem; }
+    .chat-reply-btn { float:right; border:0; background:transparent; color:#7f8792; cursor:pointer; font-size:.55rem; text-transform:uppercase; }
+    .chat-reply-btn:hover { color:#d6a843; }
+    .phase-borrowed #chat-panel, .phase-borrowed .little-hero-hud { animation:borrowedTerminal 1.2s ease-in-out infinite alternate; }
+    @keyframes borrowedTerminal { to{border-color:rgba(214,168,67,.72);box-shadow:inset 0 0 18px rgba(214,168,67,.07)} }
+    .phase-final .chat-title::after { content:" // FINAL PHASE"; color:#d86157; }
+
     .connection-status {
       position: fixed;
       bottom: 20px;
@@ -719,12 +754,16 @@
         padding: 12px 14px;
         font-size: 1.1rem;
       }
-      .chat-form {
-        flex-direction: column;
-      }
-      .chat-send-btn {
-        width: 100%;
-      }
+      #game-screen { padding-left:max(8px, env(safe-area-inset-left)); padding-right:max(8px, env(safe-area-inset-right)); padding-bottom:max(74px, env(safe-area-inset-bottom)); overflow-x:hidden; }
+      .little-hero-hud { align-items:flex-start; flex-direction:column; gap:7px; }
+      .hero-hud-stats { width:100%; justify-content:space-between; gap:6px; }
+      .battle-comms-online { display:none; }
+      .chat-header { gap:8px; padding:9px 10px; }
+      .chat-form { flex-direction:row; flex-wrap:wrap; padding:8px; }
+      #chat-input { min-width:0; padding:12px 10px; }
+      .chat-send-btn { width:auto; min-width:92px; padding:12px 10px; }
+      #chat-panel { max-height:48vh; }
+      .connection-status { bottom:max(10px, env(safe-area-inset-bottom)); }
     }
   </style>
 </head>
@@ -794,6 +833,17 @@
     </div>
     <div id="player-alltime-panel" class="player-alltime-panel" style="display: none;"></div>
 
+    <div id="little-hero-hud" class="little-hero-hud">
+      <div id="hero-hud-identity" class="hero-hud-identity"></div>
+      <div class="hero-hud-stats">
+        <span>SCORE <b id="hero-hud-score">0</b></span>
+        <span>RANK <b id="hero-hud-rank">#-</b></span>
+        <span>STREAK <b id="hero-hud-streak">x0</b></span>
+        <span id="hero-hud-link" class="hero-hud-link">LINK CONNECTING</span>
+      </div>
+    </div>
+    <div id="little-hero-roster" class="little-hero-roster"></div>
+
     <div id="chat-panel">
       <div class="chat-header">
         <div class="battle-comms-heading">
@@ -805,8 +855,10 @@
           <span class="chat-solved" id="chat-solved-count">SOLVED: 0/5</span>
         </div>
       </div>
+      <div id="battle-event-feed" class="battle-event-feed"></div>
       <div id="chat-messages"></div>
       <form class="chat-form" id="chat-form">
+        <div id="chat-reply-preview" class="chat-reply-preview" style="display:none"></div>
         <input type="text" id="chat-input" placeholder="Transmit to Battle Comms..." maxlength="100" autocomplete="off">
         <button type="submit" class="chat-send-btn">TRANSMIT</button>
       </form>

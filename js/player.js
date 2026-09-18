@@ -303,6 +303,7 @@ const PlayerApp = {
         Womf.update('womf-tracker-player', message.womf || { charge: 0, armed: false });
         Wheel.update('wheel-overlay', message.wheel, false);
         Timer.update('timer-tracker-player', message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
+        this.updateTerminalPhase(message);
         this.showGameScreen();
         this.setConnectionStatus('connected');
         this.reconnectAttempts = 0;
@@ -333,7 +334,13 @@ const PlayerApp = {
         if (this._chatEverInitialized) {
           const previousIds = new Set(this.chatMessages.map(m => m.id));
           const newBrokerMsg = incoming.find(m => m.source === 'shadowBroker' && !previousIds.has(m.id));
-          if (newBrokerMsg) this.playShadowBrokerBoardLine(newBrokerMsg.text);
+          if (newBrokerMsg) {
+            this.playShadowBrokerBoardLine(newBrokerMsg.text);
+            const panel = document.getElementById('chat-panel');
+            panel?.classList.add('broker-priority');
+            clearTimeout(this._brokerPriorityTimer);
+            this._brokerPriorityTimer = setTimeout(() => panel?.classList.remove('broker-priority'), 4200);
+          }
         }
         this._chatEverInitialized = true;
         this.chatMessages = incoming;
@@ -356,6 +363,7 @@ const PlayerApp = {
 
       case 'battle:controlsOnline':
         this.showBattleControlsOnline();
+        this.addBattleEvent('BATTLE CONTROLS ONLINE');
         break;
 
       case 'nemaAsoc':
@@ -364,14 +372,22 @@ const PlayerApp = {
 
       case 'score:event':
         this.showScoreToast(message);
+        this.addBattleEvent(`${message.playerName} // ${message.awardType === 'final' ? 'FINAL SOLUTION' : 'COLUMN ' + message.target} // +${message.points}`);
         break;
 
       case 'score:streak':
         this.showStreakBanner(message.activeStreak);
+        if (message.activeStreak) {
+          const streak = document.getElementById('hero-hud-streak');
+          if (streak && message.activeStreak.playerId === this.playerId) streak.textContent = 'x' + message.activeStreak.columnCount;
+          this.addBattleEvent(`${message.activeStreak.playerName} // STREAK x${message.activeStreak.columnCount}`);
+        }
         break;
 
       case 'score:finalReveal':
         this.showFinalReveal(message);
+        this.addBattleEvent('FINAL PHASE ENGAGED');
+        document.getElementById('game-screen')?.classList.add('phase-final');
         break;
 
       case 'score:finalResults':
@@ -629,6 +645,11 @@ const PlayerApp = {
       disconnected: 'DISCONNECTED'
     };
     el.querySelector('.status-text').textContent = textMap[status] || status.toUpperCase();
+    const link = document.getElementById('hero-hud-link');
+    if (link) {
+      link.className = 'hero-hud-link ' + (status === 'connected' ? 'stable' : status === 'disconnected' ? 'lost' : '');
+      link.textContent = status === 'connected' ? 'LINK STABLE' : status === 'disconnected' ? 'SIGNAL LOST' : 'LINK CONNECTING';
+    }
   },
 
   handleDisconnect() {
@@ -681,16 +702,35 @@ const PlayerApp = {
   updatePlayerLeaderboard(players) {
     const strip = document.getElementById('player-leaderboard-strip');
     const list = document.getElementById('player-leaderboard-list');
-    if (!strip || !list) return;
+    const roster = document.getElementById('little-hero-roster');
+    const identity = document.getElementById('hero-hud-identity');
     if (!players || players.length === 0) {
-      strip.style.display = 'none';
+      if (strip) strip.style.display = 'none';
+      if (roster) roster.innerHTML = '';
       return;
     }
-    strip.style.display = 'flex';
     const ranked = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
-    list.innerHTML = ranked.map(p => `
-      <span class="pl-entry ${p.id === this.playerId ? 'pl-entry-me' : ''}">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
+    if (strip && list) {
+      strip.style.display = 'flex';
+      list.innerHTML = ranked.map(p => `
+        <span class="pl-entry ${p.id === this.playerId ? 'pl-entry-me' : ''}">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
+      `).join('');
+    }
+    if (roster) roster.innerHTML = ranked.map(p => `
+      <span class="hero-roster-card ${p.connected === false ? 'signal-lost' : ''}">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
     `).join('');
+    const meIndex = ranked.findIndex(p => p.id === this.playerId);
+    const me = meIndex >= 0 ? ranked[meIndex] : null;
+    if (me) {
+      if (identity) identity.innerHTML = `${this.littleHeroAvatarHTML(me, true)}<span>${this.escapeHtml(me.name)} // LITTLE HERO</span>`;
+      const score = document.getElementById('hero-hud-score');
+      const rank = document.getElementById('hero-hud-rank');
+      if (score) {
+        if (score.textContent !== String(me.score || 0)) { score.classList.remove('hero-hud-score-bump'); void score.offsetWidth; score.classList.add('hero-hud-score-bump'); }
+        score.textContent = me.score || 0;
+      }
+      if (rank) rank.textContent = '#' + (meIndex + 1);
+    }
   },
 
   toggleAllTimeView() {
@@ -715,6 +755,26 @@ const PlayerApp = {
         <span class="lb-score">${p.lifetimeScore}</span>
       </div>
     `).join('') || '<div class="leaderboard-empty">No recorded players yet</div>';
+  },
+
+  addBattleEvent(text) {
+    const feed = document.getElementById('battle-event-feed');
+    if (!feed || !text) return;
+    const event = document.createElement('div');
+    event.className = 'battle-event';
+    event.textContent = '── ASOC // ' + text + ' ──';
+    feed.appendChild(event);
+    while (feed.children.length > 3) feed.firstElementChild.remove();
+    setTimeout(() => event.remove(), 9000);
+  },
+
+  updateTerminalPhase(state) {
+    const screen = document.getElementById('game-screen');
+    if (!screen) return;
+    const phase = state?.timer?.phase || '';
+    screen.classList.toggle('phase-borrowed', phase === 'borrowed');
+    if (phase === 'borrowed' && this._lastTerminalPhase !== 'borrowed') this.addBattleEvent('BORROWED TIME AUTHORIZED');
+    this._lastTerminalPhase = phase;
   },
 
   showBattleControlsOnline() {
@@ -832,6 +892,19 @@ const PlayerApp = {
         const { scrollTop, scrollHeight, clientHeight } = chatContainer;
         this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 50);
       });
+      chatContainer.addEventListener('click', (e) => {
+        const button = e.target.closest('.chat-reply-btn');
+        if (!button) return;
+        const messageEl = button.closest('.chat-message');
+        const name = messageEl?.dataset.playerName || 'LITTLE HERO';
+        this._replyTo = { id: button.dataset.replyId, name };
+        const preview = document.getElementById('chat-reply-preview');
+        if (preview) {
+          preview.textContent = 'REPLYING TO ' + name + ' // NEXT TRANSMISSION';
+          preview.style.display = 'block';
+        }
+        input.focus();
+      });
     }
   },
 
@@ -843,7 +916,11 @@ const PlayerApp = {
     if (!text) return;
 
     input.value = '';
-    this.send({ type: 'chat:guess', text });
+    const reply = this._replyTo;
+    this._replyTo = null;
+    const preview = document.getElementById('chat-reply-preview');
+    if (preview) preview.style.display = 'none';
+    this.send({ type: 'chat:guess', text: reply ? `↳ @${reply.name}: ${text}` : text });
   },
 
   renderChat() {
@@ -853,8 +930,11 @@ const PlayerApp = {
     const wasAtBottom = !this.userScrolledUp;
 
     let html = '';
+    let previousPlayerId = null;
     this.chatMessages.forEach(msg => {
-      html += this.createChatMessageHTML(msg);
+      const grouped = msg.source !== 'shadowBroker' && msg.playerId && msg.playerId === previousPlayerId;
+      html += this.createChatMessageHTML(msg, grouped);
+      previousPlayerId = msg.source === 'shadowBroker' ? null : msg.playerId;
     });
 
     container.innerHTML = html;
@@ -864,7 +944,7 @@ const PlayerApp = {
     }
   },
 
-  createChatMessageHTML(msg) {
+  createChatMessageHTML(msg, grouped = false) {
     // SHADOW BROKER standalone broadcast -- a freestanding transmission,
     // not tied to any player's guess. Entirely separate markup from the
     // guess-bubble path below; no verdict, no target, no "own" styling.
@@ -895,10 +975,10 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" style="--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(msg.frameColor || '') ? msg.frameColor : '#6f7885'}">
+      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''} ${grouped ? 'grouped' : ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" style="--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(msg.frameColor || '') ? msg.frameColor : '#6f7885'}">
         <div class="chat-message-header">
           <span class="chat-little-hero">${this.littleHeroAvatarHTML(msg)}<span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
-          <span class="chat-time">${time}</span>
+          <span><button type="button" class="chat-reply-btn" data-reply-id="${msg.id}">REPLY</button><span class="chat-time">${time}</span></span>
         </div>
         <div class="chat-message-text">${this.escapeHtml(msg.text)}</div>
         ${msg.target ? `<div class="chat-target">→ ${this.getTargetLabel(msg.target)}</div>` : ''}
