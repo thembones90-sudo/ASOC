@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const gameStore = require('./game-store');
 const playerStore = require('./player-store');
@@ -172,37 +173,37 @@ function generateRoomCode() {
   do {
     code = '';
     for (let i = 0; i < ROOM_CODE_LENGTH; i++) {
-      code += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+      code += ROOM_CODE_CHARS[crypto.randomInt(ROOM_CODE_CHARS.length)];
     }
   } while (rooms.has(code));
   return code;
 }
 
 function generateHostToken() {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  return crypto.randomBytes(24).toString('base64url');
 }
 
 function generatePlayerId() {
-  return Math.random().toString(36).substring(2, 10);
+  return crypto.randomBytes(6).toString('base64url');
 }
 
 function generateMessageId() {
-  return 'msg-' + Math.random().toString(36).substring(2, 12);
+  return 'msg-' + crypto.randomBytes(8).toString('hex');
 }
 
 function generateBoardId() {
-  return 'board-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8);
+  return 'board-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex');
 }
 
 function generateEventId() {
-  return 'evt-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8);
+  return 'evt-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex');
 }
 
 const gmTokens = new Set();
 let currentGMToken = '';
 
 function refreshGMToken() {
-  const token = 'gm-' + Math.random().toString(36).substring(2, 12) + Math.random().toString(36).substring(2, 12);
+  const token = 'gm-' + crypto.randomBytes(18).toString('base64url');
   gmTokens.clear();
   gmTokens.add(token);
   currentGMToken = token;
@@ -573,8 +574,8 @@ function handleWheelRoll(ws) {
     return;
   }
 
-  const winnerIndex = Math.floor(Math.random() * room.wheel.segments.length);
-  const spinToken = 'spin-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8);
+  const winnerIndex = crypto.randomInt(room.wheel.segments.length);
+  const spinToken = 'spin-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex');
 
   room.wheel.phase = 'spinning';
   room.wheel.winnerIndex = winnerIndex;
