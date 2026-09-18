@@ -13,7 +13,7 @@ const GAMES_DIR = path.join(__dirname, 'games');
 const BACKGROUNDS_DIR = path.join(__dirname, 'assets', 'backgrounds');
 
 const DEFAULT_BACKGROUND = 'assets/backgrounds/_default.svg';
-const DIFFICULTY_VALUES = ['GREEN', 'YELLOW', 'RED', 'PURPLE', 'BLACK'];
+const DIFFICULTY_VALUES = ['GREEN', 'YELLOW', 'AMBER', 'RED', 'PURPLE', 'BLACK'];
 const ALLOWED_BACKGROUND_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.svg'];
 const MAX_BACKGROUND_BYTES = 10 * 1024 * 1024;
 

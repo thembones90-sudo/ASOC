@@ -1,8 +1,11 @@
 /*
  * ASOC ENGINE - Skeleton Layout
  *
- * Shared positioning module for the ASOC poster skeleton
- * (`assets/ui/asoc-skeleton.png`, canonical 1900 x 1267 canvas).
+ * Shared positioning module for the ASOC poster skeleton (canonical
+ * 1900 x 1267 canvas). The poster itself is difficulty-reactive -- see
+ * SKELETON_MAP / skeletonPath() below -- but every variant shares this
+ * exact same pill/panel layout, so the slot map is identical regardless
+ * of which difficulty poster is loaded.
  *
  * CANONICAL SLOT MAP (measured from the master TIFF, Sep 2026):
  *
@@ -33,53 +36,37 @@
 const Skeleton = (() => {
   const W = 1900;
   const H = 1267;
-  const PNG = 'assets/ui/asoc-skeleton.png';
 
   // ---------------------------------------------------------------------
-  // DIFFICULTY-REACTIVE LOGO (Sep 2026)
+  // DIFFICULTY-REACTIVE SKELETON (Sep 2026)
   //
-  // The skeleton PNG has the ASOC logo baked in at a fixed spot (measured
-  // the same way the pill slots above were: from the master art, in this
-  // 1900x1267 canvas). LOGO_SLOT is that exact footprint -- source of
-  // truth for where ANY logo variant is drawn. It never changes.
-  //
-  // A same-size, same-position <img> (LOGO_MAP[difficulty]) is layered on
-  // top of the skeleton at exactly LOGO_SLOT, on an opaque backing that
-  // matches the panel so the baked-in logo underneath is fully hidden --
-  // the machine's silhouette is identical across every asset in LOGO_MAP,
-  // only the eye/core color differs, so the overlay reads as "the same
-  // logo, different eye color," never as a resized or shifted graphic.
-  // object-fit: contain guarantees no stretching even if an asset's own
-  // aspect ratio isn't pixel-identical to LOGO_SLOT's.
+  // Each difficulty has its own complete, hand-authored skeleton poster
+  // (same 1900x1267 canvas, same pill/panel/decoration layout -- verified
+  // pixel-identical outside the ASOC logo's own eye/core, which is the
+  // only part of the art that changes per difficulty). Swapping the whole
+  // poster image per difficulty means the machine's silhouette, pill
+  // positions, and every other decorative element are guaranteed to be
+  // the exact same source art everywhere -- there is no separate overlay
+  // layer to keep aligned.
   //
   // Canonical difficulty scale is GameData.DIFFICULTY_VALUES: GREEN,
-  // YELLOW, RED, PURPLE, BLACK. This is the ONLY place that scale maps to
-  // a logo asset -- nowhere else in the app should branch on difficulty
-  // to pick an image.
-  const LOGO_SLOT = { x: 665, y: 975, w: 605, h: 185 };
-
-  const LOGO_MAP = {
-    GREEN:  'assets/ui/logo/asoc-logo-green.png',
-    YELLOW: 'assets/ui/logo/asoc-logo-yellow.png',
-    RED:    'assets/ui/logo/asoc-logo-red.png',
-    PURPLE: 'assets/ui/logo/asoc-logo-purple.png',
-    BLACK:  'assets/ui/logo/asoc-logo-black.png'
+  // YELLOW, AMBER, RED, PURPLE, BLACK. This is the ONLY place that scale
+  // maps to a skeleton asset -- nowhere else in the app should branch on
+  // difficulty to pick an image.
+  const SKELETON_MAP = {
+    GREEN:  'assets/ui/skeleton/asoc-skeleton-green.png',
+    YELLOW: 'assets/ui/skeleton/asoc-skeleton-yellow.png',
+    AMBER:  'assets/ui/skeleton/asoc-skeleton-amber.png',
+    RED:    'assets/ui/skeleton/asoc-skeleton-red.png',
+    PURPLE: 'assets/ui/skeleton/asoc-skeleton-purple.png',
+    BLACK:  'assets/ui/skeleton/asoc-skeleton-black.png'
   };
-  const LOGO_FALLBACK = LOGO_MAP.RED;
+  const SKELETON_FALLBACK = SKELETON_MAP.RED;
 
   // Missing, unknown, or malformed difficulty -> canonical red (locked
   // fallback; never silently falls back to green/default).
-  function logoPath(difficulty) {
-    return LOGO_MAP[difficulty] || LOGO_FALLBACK;
-  }
-
-  function logoOverlayStyle() {
-    return [
-      'left:' + ((LOGO_SLOT.x / W) * 100).toFixed(3) + '%',
-      'top:' + ((LOGO_SLOT.y / H) * 100).toFixed(3) + '%',
-      'width:' + ((LOGO_SLOT.w / W) * 100).toFixed(3) + '%',
-      'height:' + ((LOGO_SLOT.h / H) * 100).toFixed(3) + '%'
-    ].join(';') + ';';
+  function skeletonPath(difficulty) {
+    return SKELETON_MAP[difficulty] || SKELETON_FALLBACK;
   }
 
   const slots = {
@@ -171,10 +158,7 @@ const Skeleton = (() => {
   }
 
   function skeletonHTML(difficulty) {
-    return `<img class="skeleton-img" src="${PNG}" alt="">` +
-      `<div class="asoc-logo-mask" style="${logoOverlayStyle()}">` +
-      `<img class="asoc-logo-dynamic" src="${logoPath(difficulty)}" alt="">` +
-      `</div>`;
+    return `<img class="skeleton-img" src="${skeletonPath(difficulty)}" alt="">`;
   }
 
   function fit(container) {
@@ -280,16 +264,14 @@ const Skeleton = (() => {
   return {
     W,
     H,
-    PNG,
     slots,
     supported,
     cellStyle,
     skeletonHTML,
     attach,
     fit,
-    LOGO_SLOT,
-    LOGO_MAP,
-    logoPath
+    SKELETON_MAP,
+    skeletonPath
   };
 })();
 

@@ -273,15 +273,16 @@ const Board = {
   },
 
   // Lightweight refresh for a live, decorative-only difficulty change:
-  // swaps the already-rendered dynamic logo's image src in place, without
-  // rebuilding the board (which would blow away sessionState-driven
-  // reveal/hide DOM classes). Mirrors the mapping used at initial render
-  // time in buildBoardHTML() -> Skeleton.skeletonHTML(game.difficulty).
-  updateLogo(difficulty) {
+  // swaps the already-rendered skeleton poster's image src in place,
+  // without rebuilding the board (which would blow away sessionState-
+  // driven reveal/hide DOM classes on the cells). Mirrors the mapping
+  // used at initial render time in
+  // buildBoardHTML() -> Skeleton.skeletonHTML(game.difficulty).
+  updateSkeleton(difficulty) {
     if (!this.container) return;
-    const img = this.container.querySelector('.asoc-logo-dynamic');
+    const img = this.container.querySelector('.skeleton-img');
     if (!img) return;
-    img.src = Skeleton.logoPath(difficulty);
+    img.src = Skeleton.skeletonPath(difficulty);
   },
 
   renderPreview(containerSelector, game) {

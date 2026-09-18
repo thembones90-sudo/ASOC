@@ -112,7 +112,7 @@ const App = {
     GameData.currentGame.difficulty = difficulty;
     this.updateGameInfo();
     this.updatePublicView();
-    Board.updateLogo(difficulty);
+    Board.updateSkeleton(difficulty);
 
     if (this.mode === 'multiplayer' && this.roomCode) {
       this.sendCommand('setDifficulty', { difficulty });

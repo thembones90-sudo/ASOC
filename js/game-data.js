@@ -5,12 +5,13 @@ const GameData = {
   gmToken: sessionStorage.getItem('asoc_gm_token') || '',
 
   // Canonical ASOC difficulty scale
-  DIFFICULTY_VALUES: ['GREEN', 'YELLOW', 'RED', 'PURPLE', 'BLACK'],
+  DIFFICULTY_VALUES: ['GREEN', 'YELLOW', 'AMBER', 'RED', 'PURPLE', 'BLACK'],
 
   difficultyColor(difficulty) {
     const colors = {
       GREEN: '#2ecc71',
       YELLOW: '#f1c40f',
+      AMBER: '#e67e22',
       RED: '#e74c3c',
       PURPLE: '#9b59b6',
       BLACK: '#1a1a2e'
