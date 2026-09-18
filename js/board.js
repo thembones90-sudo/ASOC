@@ -372,17 +372,45 @@ const Board = {
     Skeleton.attach(el);
   },
 
-  // Lightweight refresh for a live, decorative-only difficulty change:
-  // swaps the already-rendered skeleton poster's image src in place,
-  // without rebuilding the board (which would blow away sessionState-
-  // driven reveal/hide DOM classes on the cells). Mirrors the mapping
-  // used at initial render time in
-  // buildBoardHTML() -> Skeleton.skeletonHTML(game.difficulty).
+  // Lightweight refresh for a live, decorative-only difficulty change.
+  // Crossfades the next full skeleton poster over the current one without
+  // rebuilding the board, preserving every reveal/hide/session DOM class.
   updateSkeleton(difficulty) {
     if (!this.container) return;
-    const img = this.container.querySelector('.skeleton-img');
-    if (!img) return;
-    img.src = Skeleton.skeletonPath(difficulty);
+    const current = this.container.querySelector('.skeleton-img:not(.skeleton-transition-in)');
+    if (!current) return;
+
+    const nextSrc = Skeleton.skeletonPath(difficulty);
+    if (current.getAttribute('src') === nextSrc) return;
+
+    // Abort any half-finished prior transition before starting a new one.
+    this.container.querySelectorAll('.skeleton-img.skeleton-transition-in').forEach(img => img.remove());
+    current.classList.remove('skeleton-transition-out');
+
+    const next = document.createElement('img');
+    next.className = 'skeleton-img loaded skeleton-transition-in';
+    next.alt = '';
+    next.src = nextSrc;
+
+    const begin = () => {
+      if (!next.isConnected) return;
+      this.container.appendChild(next);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          next.classList.add('skeleton-transition-active');
+          current.classList.add('skeleton-transition-out');
+        });
+      });
+
+      setTimeout(() => {
+        if (current.isConnected) current.remove();
+        next.classList.remove('skeleton-transition-in', 'skeleton-transition-active');
+        Skeleton.attach(this.container);
+      }, 900);
+    };
+
+    if (next.complete && next.naturalWidth > 0) begin();
+    else next.onload = begin;
   },
 
   renderPreview(containerSelector, game) {

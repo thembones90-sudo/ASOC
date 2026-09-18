@@ -235,15 +235,15 @@ const Skeleton = (() => {
   // SHADOW BROKER BOARD LINE
   //
   // A transient HUD readout positioned directly above the Shadow Broker
-  // avatar's fixed position in the skeleton art (avatar center (950,220),
-  // radius 150 -- see the avatar placement itself). This is NOT a chat
+  // avatar's fixed position in the skeleton art (avatar center (950,239),
+  // radius 150 after the Sep 18 theatrical-spacing pass). This is NOT a chat
   // bubble: a single plain line of text in a tactical/military font,
   // appearing "above his head" wherever the board itself is rendered
   // (Public View, the player's own board) whenever the GM sends a
   // standalone Shadow Broker broadcast. Centered on the same x=950
   // vertical axis as the avatar, sitting in the clear space between the
   // canvas top edge and the avatar's own top edge (220-150=70).
-  const SHADOW_BROKER_LINE_SLOT = { x: 550, y: 8, w: 800, h: 55 };
+  const SHADOW_BROKER_LINE_SLOT = { x: 550, y: 27, w: 800, h: 55 };
 
   function shadowBrokerLineStyle() {
     if (!supported) return '';

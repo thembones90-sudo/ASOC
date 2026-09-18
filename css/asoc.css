@@ -370,6 +370,30 @@ textarea {
     opacity: 1;
   }
 
+  /* Difficulty swap theatre: old poster dissolves while the new one fades
+     through with a slight luminous lift. Both posters occupy the exact same
+     canonical 1900x1267 geometry, so this is presentation-only. */
+  .asoc-board .skeleton-img.skeleton-transition-in {
+    opacity: 0 !important;
+    filter: brightness(1.18) saturate(1.12) contrast(1.04);
+    transition:
+      opacity 850ms cubic-bezier(.22,.61,.36,1),
+      filter 850ms ease;
+  }
+
+  .asoc-board .skeleton-img.skeleton-transition-in.skeleton-transition-active {
+    opacity: 1 !important;
+    filter: brightness(1) saturate(1) contrast(1);
+  }
+
+  .asoc-board .skeleton-img.skeleton-transition-out {
+    opacity: 0 !important;
+    filter: brightness(0.72) saturate(0.82) contrast(1.03);
+    transition:
+      opacity 850ms cubic-bezier(.22,.61,.36,1),
+      filter 850ms ease;
+  }
+
   .asoc-board .board-cell {
     position: absolute;
     z-index: 2;
@@ -1533,7 +1557,7 @@ textarea {
   background: var(--button-bg);
   border: 1px solid var(--button-border);
   border-radius: 6px;
-  padding: calc(8px + 5mm) 10px 8px;
+  padding: 8px 10px;
   margin-bottom: 8px;
   animation: fadeIn 0.2s ease;
 }
