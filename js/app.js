@@ -1646,21 +1646,30 @@ const App = {
     const input = document.getElementById('shadow-broker-input');
     if (!input) return;
 
-    if (this.mode !== 'multiplayer') {
-      // Same silent-no-op rule as every other GM control in local mode --
-      // but unlike Timer/WOMF/Wheel, this one LOOKS like it should have
-      // done something (the typed text just sits there with zero
-      // feedback), which reads as broken rather than "not hosting yet".
-      // Give a brief, visible cue instead. Purely cosmetic -- no state,
-      // no wire message, no logic touched.
-      this.flashShadowBrokerNoRoom();
-      return;
-    }
-
     const text = input.value.trim();
     if (!text) return;
 
-    this.send({ type: 'gm:broadcast', text });
+    if (this.mode === 'multiplayer' && this.roomCode) {
+      // Live room: let the authoritative server broadcast it to every
+      // connected surface exactly as before.
+      this.send({ type: 'gm:broadcast', text });
+    } else {
+      // No room: TRANSMIT still means transmit. Play the message locally on
+      // both GM board surfaces and keep it in the GM chat log instead of
+      // refusing the action just because multiplayer is not active.
+      const localMsg = {
+        id: `shadow-local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        source: 'shadowBroker',
+        text,
+        timestamp: Date.now(),
+        verdict: null
+      };
+      this.chatMessages.push(localMsg);
+      this.playShadowBrokerBoardLine(text);
+      Board.playShadowBrokerBoardLine(text);
+      this.renderGMChat();
+    }
+
     input.value = '';
     // Keep focus in the box so pressing Enter to send another transmission
     // right away works without the operator having to reclick into it.
