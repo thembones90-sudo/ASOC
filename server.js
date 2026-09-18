@@ -2043,7 +2043,13 @@ function handleClose(ws) {
   } else {
     const room = rooms.get(ws.roomCode);
     if (room) {
-      room.players.delete(ws);
+      // Keep the disconnected player's identity record in the room so a
+      // reconnecting client can reclaim its previous playerId and therefore
+      // its existing session score. handlePlayerJoin() already scans these
+      // records by requested playerId, removes the stale socket entry, and
+      // reattaches the identity to the new WebSocket.
+      const player = room.players.get(ws);
+      if (player) player.connected = false;
       broadcastPlayersUpdate(room);
       console.log(`[ROOM ${ws.roomCode}] Player left: ${ws.playerName}`);
     }
