@@ -480,12 +480,18 @@ const App = {
 
     const newSessionState = {
       cells: {},
-      finalSolution: state.finalSolution?.revealed === true
+      finalSolution: state.finalSolution?.revealed === true,
+      cellOutcomes: {}
     };
 
     Object.entries(state.cells).forEach(([key, cell]) => {
       if (cell.revealed === true) {
         newSessionState.cells[key] = true;
+      }
+      // WOMF: only ever present on a solution slot the GM declared failed --
+      // drives the red treatment instead of the normal reveal color.
+      if (cell.outcome) {
+        newSessionState.cellOutcomes[key] = cell.outcome;
       }
     });
 
@@ -975,8 +981,9 @@ const App = {
       const key = `${col}5`;
       const content = GameData.getCellData(col, 5);
       const revealed = Board.isRevealed(col, 5);
+      const outcome = Board.getCellOutcome(col, 5);
 
-      html += this.createPublicCellHTML(key, content, true, revealed, `${col}5`);
+      html += this.createPublicCellHTML(key, content, true, revealed, `${col}5`, false, outcome);
     });
 
     const finalContent = GameData.getFinalSolution();
@@ -988,12 +995,13 @@ const App = {
     Skeleton.attach(publicBoard.querySelector('.asoc-board'));
   },
 
-  createPublicCellHTML(key, content, isSolution, revealed, label, isFinal = false) {
+  createPublicCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null) {
     const classes = ['board-cell'];
     if (isSolution) classes.push('solution-cell');
     if (isFinal) classes.push('final-solution');
     if (!revealed) classes.push('hidden');
     else classes.push('revealed');
+    if (outcome === 'failed') classes.push('outcome-failed');
 
     const displayContent = revealed ? (content || '—') : (isFinal ? '???' : '■■■');
 

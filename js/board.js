@@ -16,7 +16,11 @@ const Board = {
   resetSessionState() {
     this.sessionState = {
       cells: {},
-      finalSolution: false
+      finalSolution: false,
+      // Per-cell equivalent of a WOMF-declared column failure -- only ever
+      // set on a solution slot (A5/B5/C5/D5) by the server, keyed by cell
+      // key, value 'failed'. See getCellOutcome()/applyServerState().
+      cellOutcomes: {}
     };
     this.history = [];
     this._bulkAction = false;
@@ -31,6 +35,14 @@ const Board = {
   isRevealed(column, row) {
     const key = this.getCellKey(column, row);
     return this.sessionState.cells[key] === true;
+  },
+
+  // WOMF-only: null unless the server tagged this cell 'failed' (a
+  // declared column failure force-reveals its solution slot in red rather
+  // than the normal reveal color). Always null in local/solo mode.
+  getCellOutcome(column, row) {
+    const key = this.getCellKey(column, row);
+    return (this.sessionState.cellOutcomes && this.sessionState.cellOutcomes[key]) || null;
   },
 
   isFinalRevealed() {
@@ -225,6 +237,8 @@ const Board = {
     const revealed = this.sessionState.cells[key] === true;
     cell.classList.toggle('hidden', !revealed);
     cell.classList.toggle('revealed', revealed);
+    const outcome = this.sessionState.cellOutcomes && this.sessionState.cellOutcomes[key];
+    cell.classList.toggle('outcome-failed', outcome === 'failed');
   },
 
   updateFinalDisplay() {
@@ -329,8 +343,9 @@ const Board = {
       const content = cellData(col, 5);
       const isSolution = true;
       const revealed = this.isRevealed(col, 5);
+      const outcome = this.getCellOutcome(col, 5);
 
-      html += this.createCellHTML(key, content, isSolution, revealed, `${col}5`);
+      html += this.createCellHTML(key, content, isSolution, revealed, `${col}5`, false, outcome);
     });
 
     const finalContent = game.finalSolution || '';
@@ -340,12 +355,13 @@ const Board = {
     return Skeleton.skeletonHTML(game.difficulty) + html;
   },
 
-  createCellHTML(key, content, isSolution, revealed, label, isFinal = false) {
+  createCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null) {
     const classes = ['board-cell'];
     if (isSolution) classes.push('solution-cell');
     if (isFinal) classes.push('final-solution');
     if (!revealed) classes.push('hidden');
     else classes.push('revealed');
+    if (outcome === 'failed') classes.push('outcome-failed');
 
     return `
       <div class="${classes.join(' ')}" data-cell="${key}" data-label="${label}" style="${Skeleton.cellStyle(label)}">
@@ -365,7 +381,7 @@ const Board = {
   },
 
   setSessionState(state) {
-    this.sessionState = state || { cells: {}, finalSolution: false };
+    this.sessionState = state || { cells: {}, finalSolution: false, cellOutcomes: {} };
     this.history = [];
     this.render();
   },

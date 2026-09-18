@@ -2363,3 +2363,16 @@ html, body {
     width: 100%;
   }
 }
+
+/* WOMF: column declared FAILED. Only ever applied to a solution slot
+   (A5/B5/C5/D5) that the GM force-revealed via DECLARE [X] FAILED --
+   colors the word red instead of the normal reveal color, mirroring how a
+   failed Final already gets its own outcome. A pure color override: box
+   size/position, font-size, weight and padding are all untouched, and
+   this rule is placed after every other .cell-content color declaration
+   (fallback and container-query layout paths alike) so it always wins
+   regardless of which layout is active. */
+.board-cell.outcome-failed .cell-content,
+.asoc-board .board-cell.outcome-failed .cell-content {
+  color: #ff5a5a;
+}

@@ -249,7 +249,8 @@ const PlayerApp = {
       const cell = state.cells[key];
       const revealed = cell?.revealed === true;
       const content = revealed ? (cell.value || '—') : '■■■';
-      html += this.createPublicCellHTML(key, content, true, revealed, `${col}5`);
+      const outcome = cell?.outcome || null;
+      html += this.createPublicCellHTML(key, content, true, revealed, `${col}5`, false, outcome);
     });
 
     const finalRevealed = state.finalSolution?.revealed === true;
@@ -263,12 +264,13 @@ const PlayerApp = {
     this.applyBackground(state.background);
   },
 
-  createPublicCellHTML(key, content, isSolution, revealed, label, isFinal = false) {
+  createPublicCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null) {
     const classes = ['board-cell'];
     if (isSolution) classes.push('solution-cell');
     if (isFinal) classes.push('final-solution');
     if (!revealed) classes.push('hidden');
     else classes.push('revealed');
+    if (outcome === 'failed') classes.push('outcome-failed');
 
     return `
       <div class="${classes.join(' ')}" data-label="${label}" style="${Skeleton.cellStyle(label)}">

@@ -163,7 +163,13 @@ function createRoom(gameId, hostWs) {
     sessionState: {
       cells: {},
       finalSolution: false,
-      finalOutcome: null // null | 'success' | 'failed' -- drives GREEN vs BLACK/RED client treatment
+      finalOutcome: null, // null | 'success' | 'failed' -- drives GREEN vs BLACK/RED client treatment
+      // Per-cell equivalent of finalOutcome, but only ever set on a column's
+      // A5/B5/C5/D5 solution slot when the GM declares that column FAILED
+      // (see handleFailColumn) -- keyed by cell key ("A5"), value 'failed'.
+      // Cleared wherever that cell's own reveal state is cleared (hideCell/
+      // hideColumn/hideAll/resetBoard/switchGame), same lifecycle as cells.
+      cellOutcomes: {}
     },
     currentBackground: gameData.background || '',
     players: new Map(),
@@ -235,7 +241,11 @@ function getPublicState(room) {
     if (revealed) {
       publicCells[key] = {
         revealed: true,
-        value: getCellData(game, col, 5)
+        value: getCellData(game, col, 5),
+        // Only ever set when the GM declared this column FAILED (see
+        // handleFailColumn) -- drives the same red "failed" treatment the
+        // Final's outcome already gets. Absent for an ordinary reveal.
+        outcome: (room.sessionState.cellOutcomes && room.sessionState.cellOutcomes[key]) || null
       };
     } else {
       publicCells[key] = { revealed: false };
@@ -576,13 +586,35 @@ function applyCommand(room, command, payload) {
 
   switch (command) {
     case 'revealCell': {
-      const { cell } = payload;
+      // Pre-existing bug fix: this used to ignore payload.reveal and always
+      // set the cell true, so the GM's per-cell HIDE toggle (which sends
+      // this same command with reveal:false) only ever looked like it
+      // worked via the client's own optimistic local update -- the server
+      // saw "already true" as no change and never broadcast it, so players
+      // (and the GM on reconnect) never actually saw it hidden. Both
+      // directions are now handled here explicitly.
+      const { cell, reveal = true } = payload;
       if (!isValidCell(cell)) return { success: false, error: 'Invalid cell' };
       const [col, row] = [cell[0], parseInt(cell.slice(1), 10)];
       const key = `${col}${row}`;
-      if (room.sessionState.cells[key] !== true) {
-        room.sessionState.cells[key] = true;
-        changed = true;
+      if (reveal) {
+        if (room.sessionState.cells[key] !== true) {
+          room.sessionState.cells[key] = true;
+          changed = true;
+        }
+      } else {
+        if (room.sessionState.cells[key] === true) {
+          room.sessionState.cells[key] = false;
+          changed = true;
+        }
+        // A manual hide is the GM correcting/undoing -- it clears any WOMF
+        // "failed" outcome tag on that cell, same as hideFinal already does
+        // for finalOutcome. If it's re-revealed later it comes back as a
+        // normal reveal, not red.
+        if (room.sessionState.cellOutcomes && room.sessionState.cellOutcomes[key]) {
+          delete room.sessionState.cellOutcomes[key];
+          changed = true;
+        }
       }
       break;
     }
@@ -593,6 +625,14 @@ function applyCommand(room, command, payload) {
       const key = `${col}${row}`;
       if (room.sessionState.cells[key] === true) {
         room.sessionState.cells[key] = false;
+        changed = true;
+      }
+      // A manual hide is the GM correcting/undoing -- it clears any WOMF
+      // "failed" outcome tag on that cell, same as hideFinal already does
+      // for finalOutcome. If it's re-revealed later it comes back as a
+      // normal reveal, not red.
+      if (room.sessionState.cellOutcomes && room.sessionState.cellOutcomes[key]) {
+        delete room.sessionState.cellOutcomes[key];
         changed = true;
       }
       break;
@@ -616,6 +656,10 @@ function applyCommand(room, command, payload) {
         const key = `${column}${row}`;
         if (room.sessionState.cells[key] === true) {
           room.sessionState.cells[key] = false;
+          changed = true;
+        }
+        if (room.sessionState.cellOutcomes && room.sessionState.cellOutcomes[key]) {
+          delete room.sessionState.cellOutcomes[key];
           changed = true;
         }
       }
@@ -655,6 +699,7 @@ function applyCommand(room, command, payload) {
         room.sessionState.finalOutcome = null;
         changed = true;
       }
+      room.sessionState.cellOutcomes = {};
       break;
     }
     case 'revealFinal': {
@@ -677,7 +722,7 @@ function applyCommand(room, command, payload) {
       const hadChanges = Object.values(room.sessionState.cells).some(v => v === true) ||
                          room.sessionState.finalSolution === true;
       if (hadChanges) {
-        room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null };
+        room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, cellOutcomes: {} };
         changed = true;
       }
       // A reset re-attempts the SAME board from scratch: mint a fresh
@@ -1176,7 +1221,7 @@ function handleSwitchGame(ws, message) {
   room.gameId = game.id;
   room.gameData = game;
   room.revision = (room.revision || 0) + 1;
-  room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null };
+  room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, cellOutcomes: {} };
   room.currentBackground = game.background || gameStore.DEFAULT_BACKGROUND;
   room.chat = { messages: [], solvedTargets: {} };
   // NEXT GAME starts a new board within the SAME session: current-session
@@ -1265,8 +1310,12 @@ function handleFailFinal(ws, message) {
 // host-only, multiplayer-only control per column. This is the ONLY source
 // of a "failed column" event; it is never inferred from guess judging
 // (a GM revealing a column for pacing is not the same thing as a failure).
-// Declaring a column failed charges WOMF +1 -- it does NOT touch scoring,
-// reveal state, or any other column/board mechanic.
+// Declaring a column failed charges WOMF +1 and force-reveals that
+// column's solution slot (A5/B5/C5/D5) tagged with a 'failed' outcome, so
+// it renders red instead of the normal reveal color -- mirroring exactly
+// how a failed Final already gets its own outcome/color. It does NOT
+// touch scoring or any other column/board mechanic (the clue cells
+// A1-A4 are left untouched).
 function handleFailColumn(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -1299,6 +1348,12 @@ function handleFailColumn(ws, message) {
 
   room.womf.failedColumns[column] = true;
   addWomfCharge(room, 1);
+
+  const solutionKey = `${column}5`;
+  room.sessionState.cells[solutionKey] = true;
+  if (!room.sessionState.cellOutcomes) room.sessionState.cellOutcomes = {};
+  room.sessionState.cellOutcomes[solutionKey] = 'failed';
+
   room.revision++;
 
   const publicState = getPublicState(room);
