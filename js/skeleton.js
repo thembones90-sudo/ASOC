@@ -99,15 +99,22 @@ const Skeleton = (() => {
 
   // Font targets expressed as a fraction of the pill's RENDERED HEIGHT.
   // Deterministic slot-height-based sizing (see Skeleton.fit) so a word
-  // occupies ~60-70% of the pill no matter the board size.
-  const RATIO_CLUE = 0.62;       // A1-D4: fill the pill height 60-65%
-  const RATIO_SOLUTION = 0.68;   // A5/B5/C5/D5: column solutions, slightly bigger
-  const RATIO_FINAL = 0.62;      // FINAL: inside the inner dark pill
+  // occupies most of the pill no matter the board size. Bumped up from the
+  // original 0.62/0.68/0.62 per direct GM feedback that words needed to be
+  // "bigger" and more "visible" -- this is the ONLY place that controls
+  // rendered size on a container-query-capable browser: fit() sets
+  // txt.style.fontSize directly from these, overriding any CSS font-size
+  // on .cell-content, so bumping the CSS alone (as a prior pass did) has
+  // no visible effect here.
+  const RATIO_CLUE = 0.74;       // A1-D4
+  const RATIO_SOLUTION = 0.82;   // A5/B5/C5/D5: column solutions, bigger still
+  const RATIO_FINAL = 0.78;      // FINAL: inside the inner dark pill
 
-  // Medium-bold clues; solutions and FINAL carry a bit more visual weight.
-  const WEIGHT_CLUE = 600;
-  const WEIGHT_SOLUTION = 700;
-  const WEIGHT_FINAL = 700;
+  // Bolder across the board for visibility -- solutions and FINAL carry
+  // the most weight since they're the "big reveal" moments.
+  const WEIGHT_CLUE = 700;
+  const WEIGHT_SOLUTION = 800;
+  const WEIGHT_FINAL = 800;
 
   function kindOf(label) {
     if (label === 'FINAL') return 'final';
@@ -204,14 +211,15 @@ const Skeleton = (() => {
       txt.style.fontWeight = String(weightFor(label));
 
       // 2) Shrink ONLY when the rendered text exceeds the usable pill
-      //    width (86-90% of the inner width so letters never touch the
-      //    chrome). Short words stay untouched at scale 1.
-      const maxW = Math.max(4, (pillW - padL - padR) * 0.9);
+      //    width (94% of the inner width -- nudged up from 90% so longer
+      //    clue phrases keep more of the bigger base size before autofit
+      //    has to compensate). Short words stay untouched at scale 1.
+      const maxW = Math.max(4, (pillW - padL - padR) * 0.94);
       let scale = 1;
       const tw = txt.scrollWidth;
       if (tw > maxW) scale = maxW / tw;
       const th = txt.scrollHeight;
-      if (th > pillH * 0.85) scale = Math.min(scale, (pillH * 0.85) / th);
+      if (th > pillH * 0.9) scale = Math.min(scale, (pillH * 0.9) / th);
 
       if (scale < 1) {
         txt.style.transformOrigin = 'center center';
