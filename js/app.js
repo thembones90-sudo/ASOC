@@ -935,7 +935,10 @@ const App = {
     const gmColumnControls = document.getElementById('gm-column-controls');
     const columns = ['A', 'B', 'C', 'D'];
 
-    if (!window.GameData.currentGame) return;
+    if (!window.GameData.currentGame) {
+      this.buildEmptyGMControls();
+      return;
+    }
 
     let clueHtml = '';
     for (let row = 1; row <= 4; row++) {
@@ -944,11 +947,11 @@ const App = {
         const content = GameData.getCellData(col, row);
         const revealed = Board.isRevealed(col, row);
         clueHtml += `
-          <button class="gm-cell-btn ${revealed ? 'revealed' : ''}" 
+          <button class="gm-cell-btn ${revealed ? 'revealed' : ''}"
                   data-column="${col}" data-row="${row}"
                   title="${this.escapeHtmlAttr(content)}">
             <span style="font-size:0.55rem; color:var(--text-dim);">${col}${row}</span>
-            <span>${revealed ? 'HIDE' : 'REVEAL'}</span>
+            <span>${this.escapeHtml(content)}</span>
           </button>
         `;
       });
@@ -958,11 +961,11 @@ const App = {
       const solutionContent = GameData.getCellData(col, 5);
       const revealed = Board.isRevealed(col, 5);
       clueHtml += `
-        <button class="gm-cell-btn solution-btn ${revealed ? 'revealed' : ''}" 
+        <button class="gm-cell-btn solution-btn ${revealed ? 'revealed' : ''}"
                 data-column="${col}" data-row="5"
                 title="${this.escapeHtmlAttr(solutionContent)}">
           <span style="font-size:0.55rem; color:var(--accent-gold);">${col}5</span>
-          <span>${revealed ? 'HIDE' : 'REVEAL'}</span>
+          <span>${this.escapeHtml(solutionContent)}</span>
         </button>
       `;
     });
@@ -970,11 +973,11 @@ const App = {
     const finalRevealed = Board.isFinalRevealed();
     const finalContent = GameData.getFinalSolution();
     clueHtml += `
-      <button class="gm-cell-btn final-btn ${finalRevealed ? 'revealed' : ''}" 
+      <button class="gm-cell-btn final-btn ${finalRevealed ? 'revealed' : ''}"
               data-final="true"
               title="${this.escapeHtmlAttr(finalContent)}">
         <span style="font-size:0.55rem; color:var(--accent-gold);">FINAL</span>
-        <span>${finalRevealed ? 'HIDE FINAL' : 'REVEAL FINAL'}</span>
+        <span>${this.escapeHtml(finalContent)}</span>
       </button>
     `;
 
@@ -996,6 +999,58 @@ const App = {
       const allRevealed = Board.isAllRevealed();
       revealHideAllBtn.textContent = allRevealed ? 'HIDE ALL' : 'REVEAL ALL';
       revealHideAllBtn.classList.toggle('revealed', allRevealed);
+    }
+  },
+
+  // No game loaded (or the active game was cleared): render the same grid
+  // shape with coordinate labels only -- no REVEAL/HIDE text, no stale
+  // words from whatever game was loaded before, no revealed/green state.
+  // Buttons are disabled so an empty slot can't send a reveal command.
+  buildEmptyGMControls() {
+    const gmClueGrid = document.getElementById('gm-clue-grid');
+    const gmColumnControls = document.getElementById('gm-column-controls');
+    const columns = ['A', 'B', 'C', 'D'];
+
+    let clueHtml = '';
+    for (let row = 1; row <= 4; row++) {
+      columns.forEach(col => {
+        clueHtml += `
+          <button class="gm-cell-btn" data-column="${col}" data-row="${row}" disabled>
+            <span style="font-size:0.55rem; color:var(--text-dim);">${col}${row}</span>
+            <span></span>
+          </button>
+        `;
+      });
+    }
+
+    columns.forEach(col => {
+      clueHtml += `
+        <button class="gm-cell-btn solution-btn" data-column="${col}" data-row="5" disabled>
+          <span style="font-size:0.55rem; color:var(--accent-gold);">${col}5</span>
+          <span></span>
+        </button>
+      `;
+    });
+
+    clueHtml += `
+      <button class="gm-cell-btn final-btn" data-final="true" disabled>
+        <span style="font-size:0.55rem; color:var(--accent-gold);">FINAL</span>
+        <span></span>
+      </button>
+    `;
+
+    if (gmClueGrid) gmClueGrid.innerHTML = clueHtml;
+
+    let colHtml = '';
+    columns.forEach(col => {
+      colHtml += `<button class="gm-col-btn" data-column="${col}" data-action="reveal" disabled>REVEAL ${col}</button>`;
+    });
+    if (gmColumnControls) gmColumnControls.innerHTML = colHtml;
+
+    const revealHideAllBtn = document.getElementById('reveal-hide-all-btn');
+    if (revealHideAllBtn) {
+      revealHideAllBtn.textContent = 'REVEAL ALL';
+      revealHideAllBtn.classList.remove('revealed');
     }
   },
 

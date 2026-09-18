@@ -237,17 +237,19 @@ const Board = {
   },
 
   updateGMButtons() {
+    const game = window.GameData && window.GameData.currentGame;
     document.querySelectorAll('.gm-cell-btn').forEach(btn => {
       const column = btn.dataset.column;
       const row = parseInt(btn.dataset.row, 10);
+      const wordEl = btn.querySelector('span:last-child');
       if (column && row) {
         const revealed = this.isRevealed(column, row);
         btn.classList.toggle('revealed', revealed);
-        btn.textContent = revealed ? 'HIDE' : 'REVEAL';
+        if (wordEl) wordEl.textContent = game ? (window.GameData.getCellData(column, row) || '') : '';
       } else if (btn.dataset.final === 'true') {
         const revealed = this.isFinalRevealed();
         btn.classList.toggle('revealed', revealed);
-        btn.textContent = revealed ? 'HIDE FINAL' : 'REVEAL FINAL';
+        if (wordEl) wordEl.textContent = game ? (window.GameData.getFinalSolution() || '') : '';
       }
     });
 

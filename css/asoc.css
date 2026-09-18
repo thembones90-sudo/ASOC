@@ -65,6 +65,20 @@
   --scrollbar-thumb: #5a5f6e;
 }
 
+/* Board word font -- technical/condensed industrial sans, self-hosted
+   locally (no external font CDN) per the project's local-assets-only
+   convention. Latin subset only: board words are English clue/solution
+   text, so the other Unicode-range subsets Fontsource ships aren't
+   needed. Scoped to .cell-content only -- the rest of the UI (GM panel,
+   buttons, chat) keeps the existing Segoe UI stack untouched. */
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('assets/fonts/barlow-condensed-semibold.woff2') format('woff2');
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -194,7 +208,11 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6px 4px;
+  /* Asymmetric top/bottom padding (same total as before) nudges the
+     centered word ~3px down to match the pill art's visible inner
+     field rather than the geometric center of the slot box -- box
+     height/position are untouched (box-sizing: border-box). */
+  padding: 9px 4px 3px;
   text-align: center;
   min-height: 0;
   position: relative;
@@ -235,7 +253,7 @@ html, body {
   background: transparent;
   border: 0;
   border-radius: 0;
-  padding: 6px 12px;
+  padding: 9px 12px 3px;
   box-shadow: none;
 }
 
@@ -246,6 +264,7 @@ html, body {
 
 /* CELL CONTENT */
 .cell-content {
+  font-family: 'Barlow Condensed', 'Segoe UI', system-ui, -apple-system, sans-serif;
   font-size: clamp(0.85rem, 2vw, 1.15rem);
   line-height: 1.15;
   color: var(--text-primary);
@@ -312,7 +331,11 @@ html, body {
     position: absolute;
     z-index: 2;
     margin: 0;
-    padding: 7px 10px;
+    /* Asymmetric top/bottom padding (same total as before) nudges the
+       centered word ~3px down to match the pill art's visible inner
+       field rather than the geometric center of the slot box -- the
+       cell's own absolute position/size are untouched. */
+    padding: 10px 10px 4px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -326,7 +349,7 @@ html, body {
   }
 
   .asoc-board .board-cell.final-solution {
-    padding: 6px 12px;
+    padding: 9px 12px 3px;
     border-width: 0;
     background: transparent;
     box-shadow: none;
@@ -334,6 +357,7 @@ html, body {
 
   .asoc-board .cell-content {
     display: inline-block;
+    font-family: 'Barlow Condensed', 'Segoe UI', system-ui, -apple-system, sans-serif;
     font-size: var(--asoc-font, 1.8cqh);
     font-weight: 600;
     line-height: 1.15;
@@ -455,9 +479,9 @@ html, body {
 }
 
 .gm-cell-btn.revealed {
-  background: rgba(212, 168, 67, 0.2);
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
+  background: rgba(46, 204, 113, 0.2);
+  border-color: #2ecc71;
+  color: #2ecc71;
 }
 
 .gm-cell-btn.solution-btn {
@@ -466,7 +490,9 @@ html, body {
 }
 
 .gm-cell-btn.solution-btn.revealed {
-  background: rgba(212, 168, 67, 0.25);
+  background: rgba(46, 204, 113, 0.25);
+  border-color: #2ecc71;
+  color: #2ecc71;
 }
 
 .gm-cell-btn.final-btn {
@@ -480,7 +506,9 @@ html, body {
 }
 
 .gm-cell-btn.final-btn.revealed {
-  background: rgba(212, 168, 67, 0.3);
+  background: rgba(46, 204, 113, 0.3);
+  border-color: #2ecc71;
+  color: #2ecc71;
 }
 
 .gm-cell-btn:active {
