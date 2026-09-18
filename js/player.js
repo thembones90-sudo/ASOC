@@ -14,6 +14,7 @@ const PlayerApp = {
   init() {
     this.bindJoinForm();
     this.loadStoredCredentials();
+    Womf.init('womf-tracker-player');
   },
 
   bindJoinForm() {
@@ -120,6 +121,9 @@ const PlayerApp = {
       case 'state:public':
         this.lastPublicState = message;
         this.renderBoard(message);
+        // Read-only: no controls are ever exposed here, only the same
+        // charge/state the GM sees, sourced from the same broadcast.
+        Womf.update('womf-tracker-player', message.womf || { charge: 0, armed: false });
         this.showGameScreen();
         this.setConnectionStatus('connected');
         this.reconnectAttempts = 0;

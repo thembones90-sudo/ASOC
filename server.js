@@ -185,6 +185,18 @@ function createRoom(gameId, hostWs) {
       activeStreak: null,  // { playerId, playerName, columnCount } for the CURRENT board, or null
       boardFinalized: false, // guards against double-applying a success/failure outcome for the current board
       pendingResults: null // outcome data held back until the GM sends gm:revealResults
+    },
+    // WOMF (Wheel of Misfortune) -- a PERSISTENT, system-level mechanic, not
+    // tied to any single game. `charge` survives gm:switchGame, resetBoard,
+    // and XLSX imports; it is only ever cleared by future Wheel-roll logic
+    // (not yet built -- see addWomfCharge()/handleFailColumn()). It is
+    // capped at 10 and never decreases on its own. `failedColumns` is the
+    // ONLY per-board part of this object -- it guards a single column
+    // against being declared failed twice for the same board, and it DOES
+    // reset on gm:switchGame/resetBoard, exactly like scoring.activeStreak.
+    womf: {
+      charge: 0,
+      failedColumns: {}
     }
   };
 
@@ -245,7 +257,33 @@ function getPublicState(room) {
     background: room.currentBackground,
     cells: publicCells,
     finalSolution: finalCell,
+    womf: getWomfPublicState(room),
     timestamp: new Date().toISOString()
+  };
+}
+
+// ---------------------------------------------------------------------
+// WOMF (WHEEL OF MISFORTUNE)
+//
+// Persistent, system-level charge meter -- NOT tied to a single game.
+// Sources: a declared column failure (+1) or a declared Final failure
+// (+3), capped at 10. Reaching 10 only ARMS the wheel ("WHEEL READY");
+// it never auto-fires. What happens after a roll (reset timing,
+// punishment/result logic) is explicitly NOT decided yet -- do not
+// invent it here. This section only builds the charge accumulation and
+// the public read-only projection of it.
+// ---------------------------------------------------------------------
+
+function addWomfCharge(room, amount) {
+  if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
+  room.womf.charge = Math.min(10, room.womf.charge + amount);
+}
+
+function getWomfPublicState(room) {
+  const charge = room.womf ? room.womf.charge : 0;
+  return {
+    charge,
+    armed: charge >= 10
   };
 }
 
@@ -651,12 +689,30 @@ function applyCommand(room, command, payload) {
       room.scoring.boardFinalized = false;
       room.scoring.pendingResults = null;
       room.chat.solvedTargets = {};
+      // Same treatment as scoring.activeStreak: per-board only, WOMF charge
+      // itself is untouched by a board reset.
+      if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
+      room.womf.failedColumns = {};
       break;
     }
     case 'changeBackground': {
       const { background } = payload;
       if (room.currentBackground !== background) {
         room.currentBackground = background;
+        changed = true;
+      }
+      break;
+    }
+    case 'setDifficulty': {
+      const { difficulty } = payload;
+      if (!gameStore.DIFFICULTY_VALUES.includes(difficulty)) {
+        return { success: false, error: 'Invalid difficulty' };
+      }
+      // Decorative, session-only override -- mirrors changeBackground: it
+      // updates the in-memory room.gameData (what getPublicState reads),
+      // never the game file on disk.
+      if (room.gameData.difficulty !== difficulty) {
+        room.gameData.difficulty = difficulty;
         changed = true;
       }
       break;
@@ -1131,6 +1187,10 @@ function handleSwitchGame(ws, message) {
   room.scoring.activeStreak = null;
   room.scoring.boardFinalized = false;
   room.scoring.pendingResults = null;
+  // WOMF charge is global ASOC state, not per-board -- do NOT reset it here.
+  // Only the per-board "already declared failed this board" guard resets.
+  if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
+  room.womf.failedColumns = {};
 
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
@@ -1172,6 +1232,11 @@ function handleFailFinal(ws, message) {
   // duplicate gm:failFinal (double-click) can never double-apply the loss.
   const finalizeResult = finalizeBoard(room, 'failed');
 
+  // WOMF: a failed FINAL SOLUTION charges +3 (capped at 10). This sits
+  // behind the same boardFinalized guard above, so a double-click can
+  // never double-charge it.
+  addWomfCharge(room, 3);
+
   room.sessionState.finalSolution = true;
   room.sessionState.finalOutcome = 'failed';
   room.revision++;
@@ -1194,6 +1259,52 @@ function handleFailFinal(ws, message) {
   });
 
   console.log(`[ROOM ${room.code}] GM declared Final FAILED`);
+}
+
+// Explicit GM action -- mirrors handleFailFinal exactly, one guarded,
+// host-only, multiplayer-only control per column. This is the ONLY source
+// of a "failed column" event; it is never inferred from guess judging
+// (a GM revealing a column for pacing is not the same thing as a failure).
+// Declaring a column failed charges WOMF +1 -- it does NOT touch scoring,
+// reveal state, or any other column/board mechanic.
+function handleFailColumn(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can declare a column failed' });
+    return;
+  }
+
+  const { column } = message;
+  if (!['A', 'B', 'C', 'D'].includes(column)) {
+    sendToWs(ws, { type: 'error', message: 'Invalid column' });
+    return;
+  }
+
+  if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
+
+  if (room.womf.failedColumns[column]) {
+    sendToWs(ws, { type: 'error', message: `Column ${column} has already been declared failed for this board` });
+    return;
+  }
+
+  if (room.chat.solvedTargets[column]) {
+    sendToWs(ws, { type: 'error', message: `Column ${column} has already been solved` });
+    return;
+  }
+
+  room.womf.failedColumns[column] = true;
+  addWomfCharge(room, 1);
+  room.revision++;
+
+  const publicState = getPublicState(room);
+  broadcastToRoom(room, { type: 'state:public', ...publicState });
+
+  console.log(`[ROOM ${room.code}] GM declared column ${column} FAILED (WOMF charge: ${room.womf.charge}/10)`);
 }
 
 // GM has finished showing the story/reveal sequence and is ready to reveal
@@ -1443,6 +1554,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:failFinal': {
           handleFailFinal(ws, message);
+          break;
+        }
+        case 'gm:failColumn': {
+          handleFailColumn(ws, message);
           break;
         }
         case 'gm:revealResults': {

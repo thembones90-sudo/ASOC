@@ -14,6 +14,7 @@
 
   <div id="app-layout">
     <main id="main-content">
+      <div class="womf-tracker" id="womf-tracker-gm"></div>
       <div id="board-layer">
         <img id="background-layer" alt="Game background">
         <div id="asoc-board" class="asoc-board"></div>
@@ -49,6 +50,16 @@
         <section class="gm-section">
           <h3 class="gm-section-title">Column Controls</h3>
           <div class="gm-column-controls" id="gm-column-controls"></div>
+        </section>
+
+        <section class="gm-section" id="womf-controls-section" style="display: none;">
+          <h3 class="gm-section-title">WOMF</h3>
+          <div class="gm-column-controls" id="womf-fail-controls">
+            <button class="gm-global-btn fail-final-btn womf-fail-btn" data-column="A" title="Declare column A failed">FAIL A</button>
+            <button class="gm-global-btn fail-final-btn womf-fail-btn" data-column="B" title="Declare column B failed">FAIL B</button>
+            <button class="gm-global-btn fail-final-btn womf-fail-btn" data-column="C" title="Declare column C failed">FAIL C</button>
+            <button class="gm-global-btn fail-final-btn womf-fail-btn" data-column="D" title="Declare column D failed">FAIL D</button>
+          </div>
         </section>
 
         <section class="gm-section">
@@ -137,6 +148,7 @@
   <div id="score-announcement-layer"></div>
 
   <div id="public-view">
+    <div class="womf-tracker" id="womf-tracker-public"></div>
     <div id="public-board" class="public-board"></div>
     <div style="margin-top: 20px; text-align: center;">
       <button class="toolbar-btn" id="back-to-gm-btn">BACK TO GAMEMASTER</button>
@@ -144,6 +156,7 @@
   </div>
 
   <script src="js/skeleton.js"></script>
+  <script src="js/womf.js"></script>
   <script src="js/game-data.js"></script>
   <script src="js/board.js"></script>
   <script src="js/app.js"></script>

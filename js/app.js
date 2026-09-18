@@ -18,6 +18,11 @@ const App = {
   _hostingInFlight: false,
   finalRevealed: false,
   _lastAnnouncedStreak: {},
+  // WOMF is global ASOC state, not per-game -- it is only ever set from the
+  // server's authoritative state:public broadcasts (applyServerState) or
+  // reset to a static 0/10 when there is no room (cleanupRoom). It is never
+  // computed locally.
+  womf: { charge: 0, armed: false },
 
   async init() {
     this.showLoading(true);
@@ -41,12 +46,34 @@ const App = {
       await GameData.loadGameList();
       await GameData.loadBackgroundList();
       await this.loadFirstAvailableGame();
+
+      Womf.init('womf-tracker-gm');
+      Womf.init('womf-tracker-public');
+      // The OPEN WOMF control exists ONLY on the GM's own working view --
+      // never on the Public View preview or the player's read-only copy in
+      // join.html. It's appended here (rather than baked into womf.js's
+      // shared shellHTML) so Womf.init()/update() can stay identical for
+      // every tracker instance and never risk wiping a control that only
+      // some of them have. This runs BEFORE setupEventListeners() so the
+      // button already exists when that binds its click handler.
+      const gmTracker = document.getElementById('womf-tracker-gm');
+      if (gmTracker && !document.getElementById('womf-open-btn')) {
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.id = 'womf-open-btn';
+        openBtn.className = 'womf-open-btn';
+        openBtn.disabled = true;
+        openBtn.textContent = 'OPEN WOMF';
+        gmTracker.appendChild(openBtn);
+      }
+
       this.setupEventListeners();
       Forge.init();
       this.populateBackgroundSelector();
       Board.init('#asoc-board');
       this.applyBackground(GameData.currentGame?.background);
       this.updatePublicView();
+      this.updateWomfTracker();
       this.connectWebSocket();
     } catch (e) {
       console.error('Initialization error:', e);
@@ -141,6 +168,7 @@ const App = {
 
     document.getElementById('declare-final-failed-btn').addEventListener('click', () => this.declareFinalFailed());
     document.getElementById('alltime-toggle-btn').addEventListener('click', () => this.toggleAllTimeView());
+    document.getElementById('womf-open-btn')?.addEventListener('click', () => this.openWomf());
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.currentView === 'public') {
@@ -198,6 +226,11 @@ const App = {
 
       if (e.target.closest('.gm-verdict-clear')) {
         this.clearVerdictSelector();
+      }
+
+      const womfFailBtn = e.target.closest('.womf-fail-btn');
+      if (womfFailBtn) {
+        this.declareColumnFailed(womfFailBtn.dataset.column);
       }
     });
 
@@ -442,6 +475,9 @@ const App = {
     this.finalRevealed = state.finalSolution?.revealed === true;
     this.updateFailFinalButtonVisibility();
 
+    this.womf = state.womf || { charge: 0, armed: false };
+    this.updateWomfTracker();
+
     const newSessionState = {
       cells: {},
       finalSolution: state.finalSolution?.revealed === true
@@ -484,6 +520,7 @@ const App = {
     document.getElementById('next-game-btn').style.display = isMultiplayer ? 'block' : 'none';
     document.getElementById('scoring-section').style.display = isMultiplayer ? 'block' : 'none';
     this.updateFailFinalButtonVisibility();
+    this.updateWomfControlsVisibility();
 
     if (isMultiplayer) {
       document.getElementById('mp-room-code').textContent = this.roomCode;
@@ -562,6 +599,56 @@ const App = {
     if (this.mode !== 'multiplayer' || this.finalRevealed) return;
     if (!confirm('Declare the Final SOLUTION failed? This reveals the answer and applies the loss penalty to every connected player.')) return;
     this.send({ type: 'gm:failFinal' });
+  },
+
+  // WOMF -- explicit GM action, mirrors declareFinalFailed() exactly. This
+  // is the ONLY way a column-failed event exists; it is never inferred
+  // from guess judging. It adds a WOMF charge only -- no scoring, reveal,
+  // or other column/board effect.
+  declareColumnFailed(column) {
+    if (this.mode !== 'multiplayer') return;
+    if (!confirm(`Declare column ${column} failed? This adds a WOMF charge and cannot be undone.`)) return;
+    this.send({ type: 'gm:failColumn', column });
+  },
+
+  // WOMF state is broadcast (state:public -> applyServerState) rather than
+  // computed locally -- this only ever reflects what the server sent, or
+  // the static 0/10 dormant default when there is no room (see
+  // cleanupRoom()). Renders on the GM's own working view AND the GM's
+  // Public View preview; join.html's read-only copy is updated
+  // server-side->player.js the same way.
+  updateWomfTracker() {
+    const state = this.womf || { charge: 0, armed: false };
+    Womf.update('womf-tracker-gm', state);
+    Womf.update('womf-tracker-public', state);
+
+    const openBtn = document.getElementById('womf-open-btn');
+    if (openBtn) {
+      const armed = state.charge >= 10;
+      openBtn.disabled = !armed;
+      openBtn.classList.toggle('armed', armed);
+    }
+
+    this.updateWomfControlsVisibility();
+  },
+
+  // The DECLARE [X] FAILED controls are multiplayer-only, same gating as
+  // the Final-failed button -- WOMF charges only ever come from a live
+  // room (there is no local-mode equivalent).
+  updateWomfControlsVisibility() {
+    const section = document.getElementById('womf-controls-section');
+    if (section) section.style.display = this.mode === 'multiplayer' ? 'block' : 'none';
+  },
+
+  // OPEN WOMF -- enabled only at charge 10/10. Per the locked spec, this
+  // does NOT roll anything and does NOT reset the charge; it only opens
+  // the (not yet built) Wheel interface, where the GM will eventually
+  // enter/select player names and roll. That interface, any reset-after-
+  // roll logic, and any punishment/result logic are explicitly deferred --
+  // do not invent them here.
+  openWomf() {
+    if (!this.womf || this.womf.charge < 10) return;
+    alert('WHEEL OF MISFORTUNE — ARMED\n\nThe Wheel interface (entering player names and rolling) has not been built yet. This control will open it once that module is ready. The charge stays armed until then.');
   },
 
   updateFailFinalButtonVisibility() {
@@ -707,6 +794,11 @@ const App = {
     sessionStorage.removeItem('asoc_host_token');
     this.updateMultiplayerUI();
     this.updatePlayerList([]);
+    // No room -> no authoritative WOMF value anymore. Local mode has no
+    // WOMF equivalent, so the tracker goes back to its static dormant 0/10
+    // default rather than holding onto the last room's charge.
+    this.womf = { charge: 0, armed: false };
+    this.updateWomfTracker();
   },
 
   handleRoomClosed(message) {
