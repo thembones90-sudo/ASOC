@@ -2349,6 +2349,64 @@ html, body {
   pointer-events: none;
 }
 
+/* Multiplayer match ignition: shown once when the GM's START GAME
+   countdown completes and the server accepts the timer start. */
+.battle-controls-online {
+  position: fixed;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  z-index: 10050;
+  min-width: min(620px, 88vw);
+  padding: 18px 30px 20px;
+  text-align: center;
+  pointer-events: none;
+  font-family: "Agency FB", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, rgba(42, 45, 51, 0.97), rgba(12, 13, 16, 0.98));
+  border: 1px solid rgba(201, 205, 214, 0.9);
+  border-radius: 5px;
+  box-shadow:
+    inset 0 0 0 1px rgba(178, 24, 36, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 28px rgba(210, 22, 36, 0.38),
+    0 10px 35px rgba(0, 0, 0, 0.72);
+  animation: battle-controls-in 320ms steps(2, end);
+}
+
+.battle-controls-title {
+  margin: 5px 0;
+  color: #f1f2f5;
+  font-size: clamp(2rem, 7vw, 4.4rem);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 8px rgba(231, 37, 50, 0.72), 2px 0 0 rgba(154, 18, 29, 0.42);
+}
+
+.battle-controls-link,
+.battle-controls-channel {
+  color: #b91f2d;
+  font-size: clamp(0.72rem, 2.2vw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 7px rgba(210, 22, 36, 0.48);
+}
+
+.battle-controls-online-out {
+  opacity: 0;
+  filter: blur(2px);
+  transform: translate(-50%, -50%) scale(1.02);
+  transition: opacity 420ms ease, filter 420ms ease, transform 420ms ease;
+}
+
+@keyframes battle-controls-in {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scaleX(1.08); filter: contrast(1.8); }
+  28%  { opacity: 1; transform: translate(-51%, -50%) scaleX(0.98); }
+  52%  { opacity: 0.45; transform: translate(-49%, -50%) scaleX(1.03); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scaleX(1); filter: contrast(1); }
+}
+
 .score-toast {
   pointer-events: auto;
   background: var(--panel-bg);

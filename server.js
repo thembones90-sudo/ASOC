@@ -713,7 +713,8 @@ function handleTimerStart(ws) {
   room.timer.phase = 'running';
   room.revision++;
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
-  console.log(`[ROOM ${room.code}] GM started the Timer (${Math.round(room.timer.duration / 1000)}s)`);
+  broadcastToRoom(room, { type: 'battle:controlsOnline' });
+  console.log(`[ROOM ${room.code}] GM started the Timer (${Math.round(room.timer.duration / 1000)}s) — BATTLE CONTROLS ONLINE`);
 }
 
 function handleTimerPause(ws) {
