@@ -1170,12 +1170,13 @@ function applyCommand(room, command, payload) {
       break;
     }
     case 'resetBoard': {
-      const hadChanges = Object.values(room.sessionState.cells).some(v => v === true) ||
-                         room.sessionState.finalSolution === true;
-      if (hadChanges) {
-        room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
-        changed = true;
-      }
+      // RESET BOARD is an authoritative fresh attempt even if every cell is
+      // currently hidden. Rebuild sessionState unconditionally so hidden
+      // clue-queue assignments/outcome tags cannot survive a reset, and mark
+      // the command changed so clients always receive the reset Timer/Wheel/
+      // scoring/chat state that is rebuilt below.
+      room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
+      changed = true;
       // A reset re-attempts the SAME board from scratch: mint a fresh
       // boardId (so a future streak rebuild only ever looks at solves that
       // happened after this reset) and clear per-board scoring state.
