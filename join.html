@@ -548,6 +548,11 @@
         <div id="public-board" class="public-board"></div>
       </div>
     </div>
+
+    <!-- Read-only Wheel of Misfortune -- no ROLL/CLOSE controls are ever
+         drawn here (Wheel.update is always called with isGM=false), it
+         only reflects whatever the GM's copy is doing. -->
+    <div id="wheel-overlay" class="wheel-overlay"></div>
     <div id="player-leaderboard-strip" class="player-leaderboard-strip" style="display: none;">
       <div id="player-leaderboard-list" class="player-leaderboard-list"></div>
       <button type="button" id="player-alltime-toggle-btn" class="player-alltime-toggle-btn">ALL-TIME</button>
@@ -579,6 +584,7 @@
 
   <script src="js/skeleton.js"></script>
   <script src="js/womf.js"></script>
+  <script src="js/wheel.js"></script>
   <script src="js/game-data.js"></script>
   <script src="js/board.js"></script>
   <script src="js/player.js"></script>

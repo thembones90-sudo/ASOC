@@ -203,6 +203,27 @@ function createRoom(gameId, hostWs) {
     womf: {
       charge: 0,
       failedColumns: {}
+    },
+    // WHEEL OF MISFORTUNE -- the actual spin interface that OPEN WOMF
+    // (armed at charge 10/10) reveals. `segments` are the player names in
+    // play for this spin (GM-selected, or defaulted to everyone currently
+    // connected). `phase` is 'idle' (open, not yet rolled) | 'spinning' |
+    // 'result'. `winnerIndex` and `spinToken` are broadcast the instant a
+    // roll starts (not held back for suspense) so every client can
+    // deterministically animate the SAME landing position from
+    // (segments.length, winnerIndex) rather than trusting a client-local
+    // random number -- `spinToken` just lets a client detect "this is a
+    // new roll, play the animation" vs. "this is a state I've already
+    // shown" on an unrelated re-broadcast. Per the locked WOMF spec, this
+    // module ONLY opens the wheel, lets the GM roll it, and reports who it
+    // landed on -- it does not reset the WOMF charge and does not invent
+    // any punishment/consequence logic. That stays entirely up to the GM.
+    wheel: {
+      open: false,
+      segments: [],
+      phase: 'idle',
+      winnerIndex: null,
+      spinToken: null
     }
   };
 
@@ -268,6 +289,7 @@ function getPublicState(room) {
     cells: publicCells,
     finalSolution: finalCell,
     womf: getWomfPublicState(room),
+    wheel: getWheelPublicState(room),
     timestamp: new Date().toISOString()
   };
 }
@@ -295,6 +317,137 @@ function getWomfPublicState(room) {
     charge,
     armed: charge >= 10
   };
+}
+
+const WHEEL_SPIN_DURATION_MS = 4200;
+const WHEEL_MIN_SEGMENTS = 2;
+const WHEEL_MAX_SEGMENTS = 12;
+
+function getWheelPublicState(room) {
+  if (!room.wheel) room.wheel = { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
+  return {
+    open: room.wheel.open,
+    segments: room.wheel.segments,
+    phase: room.wheel.phase,
+    winnerIndex: room.wheel.winnerIndex,
+    spinToken: room.wheel.spinToken
+  };
+}
+
+function resetWheel(room) {
+  room.wheel = { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
+}
+
+// GM opens the Wheel (only reachable once WOMF is armed at 10/10). Segments
+// default to every currently-connected player's name if the GM doesn't
+// send a specific list (e.g. sends an empty array to mean "everyone").
+// This only makes the wheel visible and ready to roll -- it never touches
+// the WOMF charge itself.
+function handleWheelOpen(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can open the Wheel' });
+    return;
+  }
+  if (!room.womf || room.womf.charge < 10) {
+    sendToWs(ws, { type: 'error', message: 'WOMF is not armed yet (10/10 required)' });
+    return;
+  }
+
+  let segments = Array.isArray(message.segments) ? message.segments : [];
+  segments = segments.map(s => String(s || '').trim()).filter(Boolean);
+  // De-dupe while preserving order.
+  segments = segments.filter((name, i) => segments.indexOf(name) === i);
+
+  if (segments.length === 0) {
+    const connected = [];
+    room.players.forEach(player => { if (player.connected) connected.push(player.name); });
+    segments = connected;
+  }
+
+  if (segments.length > WHEEL_MAX_SEGMENTS) segments = segments.slice(0, WHEEL_MAX_SEGMENTS);
+
+  if (segments.length < WHEEL_MIN_SEGMENTS) {
+    sendToWs(ws, { type: 'error', message: `The Wheel needs at least ${WHEEL_MIN_SEGMENTS} names (got ${segments.length})` });
+    return;
+  }
+
+  room.wheel = { open: true, segments, phase: 'idle', winnerIndex: null, spinToken: null };
+  room.revision++;
+
+  const publicState = getPublicState(room);
+  broadcastToRoom(room, { type: 'state:public', ...publicState });
+
+  console.log(`[ROOM ${room.code}] GM opened the Wheel (${segments.length} segments)`);
+}
+
+function handleWheelRoll(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can roll the Wheel' });
+    return;
+  }
+  if (!room.wheel || !room.wheel.open) {
+    sendToWs(ws, { type: 'error', message: 'The Wheel is not open' });
+    return;
+  }
+  if (room.wheel.phase === 'spinning') {
+    sendToWs(ws, { type: 'error', message: 'The Wheel is already spinning' });
+    return;
+  }
+  if (!room.wheel.segments || room.wheel.segments.length < WHEEL_MIN_SEGMENTS) {
+    sendToWs(ws, { type: 'error', message: 'Not enough names on the Wheel to roll' });
+    return;
+  }
+
+  const winnerIndex = Math.floor(Math.random() * room.wheel.segments.length);
+  const spinToken = 'spin-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8);
+
+  room.wheel.phase = 'spinning';
+  room.wheel.winnerIndex = winnerIndex;
+  room.wheel.spinToken = spinToken;
+  room.revision++;
+
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  console.log(`[ROOM ${room.code}] GM rolled the Wheel -- landed on "${room.wheel.segments[winnerIndex]}"`);
+
+  setTimeout(() => {
+    const stillRoom = rooms.get(room.code);
+    // Bail if the room is gone, or a newer spin/close superseded this one.
+    if (!stillRoom || !stillRoom.wheel || stillRoom.wheel.spinToken !== spinToken) return;
+    stillRoom.wheel.phase = 'result';
+    stillRoom.revision++;
+    broadcastToRoom(stillRoom, { type: 'state:public', ...getPublicState(stillRoom) });
+  }, WHEEL_SPIN_DURATION_MS);
+}
+
+function handleWheelClose(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can close the Wheel' });
+    return;
+  }
+
+  // Closing just hides the wheel -- it does NOT touch the WOMF charge (no
+  // invented reset-after-roll logic; that stays a manual GM decision via
+  // the existing WOMF -1 / RESET WOMF controls).
+  resetWheel(room);
+  room.revision++;
+
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  console.log(`[ROOM ${room.code}] GM closed the Wheel`);
 }
 
 function getCellData(game, column, row) {
@@ -738,6 +891,9 @@ function applyCommand(room, command, payload) {
       // itself is untouched by a board reset.
       if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
       room.womf.failedColumns = {};
+      // A wheel opened for the board being reset no longer makes sense --
+      // close it. WOMF charge itself is untouched (see above).
+      resetWheel(room);
       break;
     }
     case 'changeBackground': {
@@ -1236,6 +1392,8 @@ function handleSwitchGame(ws, message) {
   // Only the per-board "already declared failed this board" guard resets.
   if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
   room.womf.failedColumns = {};
+  // A wheel opened for the previous game no longer makes sense -- close it.
+  resetWheel(room);
 
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
@@ -1336,18 +1494,24 @@ function handleFailColumn(ws, message) {
 
   if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
 
-  if (room.womf.failedColumns[column]) {
-    sendToWs(ws, { type: 'error', message: `Column ${column} has already been declared failed for this board` });
-    return;
-  }
-
   if (room.chat.solvedTargets[column]) {
     sendToWs(ws, { type: 'error', message: `Column ${column} has already been solved` });
     return;
   }
 
-  room.womf.failedColumns[column] = true;
-  addWomfCharge(room, 1);
+  // FAIL [X] is re-appliable: a GM manually hiding/re-revealing this
+  // column's solution slot afterward (e.g. to double-check something)
+  // clears its 'failed' tag (see the revealCell/hideColumn cases above),
+  // but the WOMF charge already earned for this board should NOT be
+  // grantable twice just by clicking FAIL [X] again -- so only the FIRST
+  // declaration for a given board charges WOMF; every declaration always
+  // re-applies the red tag + force-reveal, so the GM can always re-assert
+  // it regardless of what happened to the cell in between.
+  const alreadyFailedThisBoard = !!room.womf.failedColumns[column];
+  if (!alreadyFailedThisBoard) {
+    room.womf.failedColumns[column] = true;
+    addWomfCharge(room, 1);
+  }
 
   const solutionKey = `${column}5`;
   room.sessionState.cells[solutionKey] = true;
@@ -1359,7 +1523,7 @@ function handleFailColumn(ws, message) {
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
 
-  console.log(`[ROOM ${room.code}] GM declared column ${column} FAILED (WOMF charge: ${room.womf.charge}/10)`);
+  console.log(`[ROOM ${room.code}] GM ${alreadyFailedThisBoard ? 're-declared' : 'declared'} column ${column} FAILED (WOMF charge: ${room.womf.charge}/10)`);
 }
 
 // Manual GM correction tools -- e.g. undoing an accidental FAIL click, or
@@ -1665,6 +1829,18 @@ wss.on('connection', (ws) => {
         }
         case 'gm:womfReset': {
           handleWomfReset(ws);
+          break;
+        }
+        case 'gm:wheelOpen': {
+          handleWheelOpen(ws, message);
+          break;
+        }
+        case 'gm:wheelRoll': {
+          handleWheelRoll(ws);
+          break;
+        }
+        case 'gm:wheelClose': {
+          handleWheelClose(ws);
           break;
         }
         case 'gm:revealResults': {

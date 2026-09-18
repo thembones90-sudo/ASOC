@@ -49,6 +49,7 @@ const App = {
 
       Womf.init('womf-tracker-gm');
       Womf.init('womf-tracker-public');
+      Wheel.init('wheel-overlay');
       // The OPEN WOMF control exists ONLY on the GM's own working view --
       // never on the Public View preview or the player's read-only copy in
       // join.html. It's appended here (rather than baked into womf.js's
@@ -173,9 +174,22 @@ const App = {
     document.getElementById('alltime-toggle-btn').addEventListener('click', () => this.toggleAllTimeView());
     document.getElementById('womf-open-btn')?.addEventListener('click', () => this.openWomf());
 
+    document.getElementById('wheel-setup-close')?.addEventListener('click', () => this.closeWheelSetup());
+    document.getElementById('wheel-setup-add-name')?.addEventListener('click', () => this.addWheelSetupCustomName());
+    document.getElementById('wheel-setup-custom-name')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.addWheelSetupCustomName();
+      }
+    });
+    document.getElementById('wheel-setup-confirm')?.addEventListener('click', () => this.confirmWheelSetup());
+
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.currentView === 'public') {
         this.togglePublicView(false);
+      }
+      if (e.key === 'Escape' && document.getElementById('wheel-setup-overlay')?.classList.contains('active')) {
+        this.closeWheelSetup();
       }
       if (e.ctrlKey && e.key === 'z') {
         e.preventDefault();
@@ -484,6 +498,9 @@ const App = {
     this.womf = state.womf || { charge: 0, armed: false };
     this.updateWomfTracker();
 
+    this.wheel = state.wheel || { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
+    this.updateWheelUI();
+
     const newSessionState = {
       cells: {},
       finalSolution: state.finalSolution?.revealed === true,
@@ -543,6 +560,11 @@ const App = {
   },
 
   updatePlayerList(players) {
+    // Cached for the Wheel's setup step (js/app.js openWheelSetup()), so it
+    // can default to "everyone currently connected" without a separate
+    // round-trip to the server.
+    this.currentPlayers = players;
+
     const countEl = document.getElementById('mp-players-count');
     const listEl = document.getElementById('mp-player-list');
 
@@ -671,13 +693,95 @@ const App = {
 
   // OPEN WOMF -- enabled only at charge 10/10. Per the locked spec, this
   // does NOT roll anything and does NOT reset the charge; it only opens
-  // the (not yet built) Wheel interface, where the GM will eventually
-  // enter/select player names and roll. That interface, any reset-after-
-  // roll logic, and any punishment/result logic are explicitly deferred --
-  // do not invent them here.
+  // the (GM-local, never-broadcast) name-selection step. Confirming that
+  // step is what actually sends gm:wheelOpen and makes the real Wheel
+  // visible to everyone. Any reset-after-roll logic or punishment/result
+  // logic remains explicitly deferred -- do not invent it here.
   openWomf() {
     if (!this.womf || this.womf.charge < 10) return;
-    alert('WHEEL OF MISFORTUNE — ARMED\n\nThe Wheel interface (entering player names and rolling) has not been built yet. This control will open it once that module is ready. The charge stays armed until then.');
+    this.openWheelSetup();
+  },
+
+  // ---------------------------------------------------------------------
+  // WHEEL OF MISFORTUNE -- setup step + roll/close controls. The actual
+  // spinning dial (js/wheel.js) is purely a renderer; all of this is just
+  // gathering the segment list and sending the three gm:wheel* commands.
+  // ---------------------------------------------------------------------
+
+  openWheelSetup() {
+    const listEl = document.getElementById('wheel-setup-player-list');
+    if (listEl) {
+      const players = this.currentPlayers || [];
+      listEl.innerHTML = players.length > 0
+        ? players.map((p, i) => `
+            <label class="wheel-setup-row">
+              <input type="checkbox" class="wheel-setup-checkbox" data-player-name="${this.escapeHtmlAttr(p.name)}" checked>
+              <span>${this.escapeHtml(p.name)}</span>
+            </label>
+          `).join('')
+        : '<div class="wheel-setup-hint">No players connected yet -- add custom names below.</div>';
+    }
+    this._wheelSetupCustomNames = [];
+    document.getElementById('wheel-setup-overlay')?.classList.add('active');
+  },
+
+  closeWheelSetup() {
+    document.getElementById('wheel-setup-overlay')?.classList.remove('active');
+  },
+
+  addWheelSetupCustomName() {
+    const input = document.getElementById('wheel-setup-custom-name');
+    if (!input) return;
+    const name = input.value.trim();
+    if (!name) return;
+    if (!this._wheelSetupCustomNames) this._wheelSetupCustomNames = [];
+    if (!this._wheelSetupCustomNames.includes(name)) {
+      this._wheelSetupCustomNames.push(name);
+      const listEl = document.getElementById('wheel-setup-player-list');
+      if (listEl) {
+        listEl.insertAdjacentHTML('beforeend', `
+          <label class="wheel-setup-row">
+            <input type="checkbox" class="wheel-setup-checkbox" data-player-name="${this.escapeHtmlAttr(name)}" checked>
+            <span>${this.escapeHtml(name)}</span>
+          </label>
+        `);
+      }
+    }
+    input.value = '';
+    input.focus();
+  },
+
+  confirmWheelSetup() {
+    if (this.mode !== 'multiplayer') return;
+    const checked = Array.from(document.querySelectorAll('#wheel-setup-player-list .wheel-setup-checkbox:checked'));
+    const segments = checked.map(cb => cb.dataset.playerName).filter(Boolean);
+    if (segments.length < 2) {
+      alert('Select at least 2 names for the Wheel.');
+      return;
+    }
+    this.send({ type: 'gm:wheelOpen', segments });
+    this.closeWheelSetup();
+  },
+
+  rollWheel() {
+    if (this.mode !== 'multiplayer') return;
+    this.send({ type: 'gm:wheelRoll' });
+  },
+
+  closeWheel() {
+    if (this.mode !== 'multiplayer') return;
+    this.send({ type: 'gm:wheelClose' });
+  },
+
+  // Server-authoritative, same philosophy as updateWomfTracker(): this only
+  // ever reflects the last state:public broadcast (or the closed/empty
+  // default when there is no room).
+  updateWheelUI() {
+    const state = this.wheel || { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
+    Wheel.update('wheel-overlay', state, true, {
+      onRoll: () => this.rollWheel(),
+      onClose: () => this.closeWheel()
+    });
   },
 
   updateFailFinalButtonVisibility() {
@@ -828,6 +932,11 @@ const App = {
     // default rather than holding onto the last room's charge.
     this.womf = { charge: 0, armed: false };
     this.updateWomfTracker();
+    // Same for the Wheel -- it's inherently multiplayer-only, so it has no
+    // local-mode equivalent either; make sure it's hidden rather than
+    // stuck showing the last room's spin.
+    this.wheel = { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
+    this.updateWheelUI();
   },
 
   handleRoomClosed(message) {

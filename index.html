@@ -149,18 +149,48 @@
     <div class="forge-shell" id="forge-shell"></div>
   </div>
 
+  <!-- GM-only, local setup step for the Wheel of Misfortune -- never
+       broadcast. Confirming here sends the chosen names to the server,
+       which is what actually opens #wheel-overlay for everyone. -->
+  <div id="wheel-setup-overlay" class="forge-overlay">
+    <div class="forge-shell" style="max-width: 520px;">
+      <div class="forge-header">
+        <span class="forge-title">Wheel of Misfortune — Select Names</span>
+        <button type="button" class="forge-close" id="wheel-setup-close">×</button>
+      </div>
+      <div class="wheel-setup-body">
+        <div class="wheel-setup-hint">Choose who's on the Wheel, or add a custom name. Defaults to every connected player.</div>
+        <div id="wheel-setup-player-list" class="wheel-setup-list"></div>
+        <div class="wheel-setup-add-row">
+          <input type="text" id="wheel-setup-custom-name" class="wheel-setup-input" placeholder="Add a custom name…" maxlength="24">
+          <button type="button" class="forge-btn" id="wheel-setup-add-name">ADD</button>
+        </div>
+        <button type="button" class="gm-global-btn primary" id="wheel-setup-confirm" style="width: 100%; margin-top: 14px;">REVEAL THE WHEEL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- The actual public Wheel -- visible to the GM and every player alike,
+       driven entirely by the server-authoritative wheel state in
+       state:public. GM-only ROLL/CLOSE controls are injected by
+       Wheel.update() itself; players get a read-only copy in join.html. -->
+  <div id="wheel-overlay" class="wheel-overlay"></div>
+
   <div id="score-announcement-layer"></div>
 
   <div id="public-view">
     <div class="womf-tracker" id="womf-tracker-public"></div>
-    <div id="public-board" class="public-board"></div>
-    <div style="margin-top: 20px; text-align: center;">
+    <div class="public-board-frame">
+      <div id="public-board" class="public-board"></div>
+    </div>
+    <div style="margin-top: 16px; text-align: center; flex-shrink: 0;">
       <button class="toolbar-btn" id="back-to-gm-btn">BACK TO GAMEMASTER</button>
     </div>
   </div>
 
   <script src="js/skeleton.js"></script>
   <script src="js/womf.js"></script>
+  <script src="js/wheel.js"></script>
   <script src="js/game-data.js"></script>
   <script src="js/board.js"></script>
   <script src="js/app.js"></script>

@@ -15,6 +15,7 @@ const PlayerApp = {
     this.bindJoinForm();
     this.loadStoredCredentials();
     Womf.init('womf-tracker-player');
+    Wheel.init('wheel-overlay');
   },
 
   bindJoinForm() {
@@ -124,6 +125,7 @@ const PlayerApp = {
         // Read-only: no controls are ever exposed here, only the same
         // charge/state the GM sees, sourced from the same broadcast.
         Womf.update('womf-tracker-player', message.womf || { charge: 0, armed: false });
+        Wheel.update('wheel-overlay', message.wheel, false);
         this.showGameScreen();
         this.setConnectionStatus('connected');
         this.reconnectAttempts = 0;
