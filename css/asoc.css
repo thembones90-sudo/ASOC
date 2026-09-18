@@ -1180,6 +1180,201 @@ textarea {
   letter-spacing: 0.065em;
 }
 
+.nema-asoc-btn {
+  margin-top: 8px;
+  min-height: 44px;
+  border-color: rgba(185, 36, 44, 0.92) !important;
+  color: #ffc1c1 !important;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  background:
+    linear-gradient(180deg, rgba(102, 22, 27, 0.94), rgba(38, 10, 13, 0.98)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 0 18px rgba(205, 34, 44, 0.12),
+    0 0 12px rgba(160, 20, 28, 0.10);
+}
+
+.nema-asoc-btn:hover {
+  border-color: #ff4d58 !important;
+  color: #fff0f0 !important;
+  box-shadow:
+    inset 0 0 22px rgba(255, 58, 70, 0.16),
+    0 0 18px rgba(210, 30, 42, 0.24);
+}
+
+/* NEMA ASOC threat effect: five seconds of deliberate audiovisual-style
+   visual chaos. No game state changes; this is pure presentation. */
+.nema-asoc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 35, 35, 0.12), transparent 52%),
+    rgba(120, 0, 0, 0.70);
+  animation:
+    nema-asoc-overlay-flicker 160ms steps(2, end) infinite,
+    nema-asoc-overlay-pulse 760ms ease-in-out infinite;
+}
+
+.nema-asoc-overlay::before,
+.nema-asoc-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.nema-asoc-overlay::before {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(255,255,255,0.035) 0,
+      rgba(255,255,255,0.035) 1px,
+      rgba(0,0,0,0.065) 2px,
+      rgba(0,0,0,0.065) 4px
+    );
+  mix-blend-mode: screen;
+  opacity: 0.78;
+  animation: nema-asoc-scan 450ms linear infinite;
+}
+
+.nema-asoc-overlay::after {
+  background:
+    linear-gradient(90deg,
+      transparent 0 18%,
+      rgba(255,255,255,0.07) 18% 22%,
+      transparent 22% 67%,
+      rgba(0,0,0,0.14) 67% 72%,
+      transparent 72% 100%);
+  animation: nema-asoc-slice 230ms steps(2, end) infinite;
+}
+
+.nema-asoc-text {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-system);
+  font-size: clamp(5rem, 16vw, 15rem);
+  font-weight: 900;
+  line-height: 0.84;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  color: transparent;
+  background:
+    linear-gradient(180deg,
+      #eef1f5 0%,
+      #a2a8b1 28%,
+      #505761 52%,
+      #1c2027 68%,
+      #7e858f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-stroke: 2px rgba(12, 14, 18, 0.9);
+  text-shadow:
+    0 2px 0 rgba(255,255,255,0.10),
+    0 7px 0 rgba(0,0,0,0.62),
+    0 0 18px rgba(0,0,0,0.82);
+  filter: contrast(1.18);
+  animation: nema-asoc-text-glitch 105ms steps(2, end) infinite;
+}
+
+.nema-asoc-text::before,
+.nema-asoc-text::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: #cfd3da;
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-stroke: 1px rgba(20,20,24,0.86);
+  opacity: 0.78;
+  pointer-events: none;
+}
+
+.nema-asoc-text::before {
+  transform: translate(-5px, -1px);
+  color: rgba(255, 45, 55, 0.82);
+  clip-path: inset(7% 0 58% 0);
+  animation: nema-asoc-text-slice-a 190ms steps(2, end) infinite;
+}
+
+.nema-asoc-text::after {
+  transform: translate(6px, 2px);
+  color: rgba(184, 190, 201, 0.78);
+  clip-path: inset(60% 0 8% 0);
+  animation: nema-asoc-text-slice-b 240ms steps(2, end) infinite;
+}
+
+body.nema-asoc-active > *:not(.nema-asoc-overlay) {
+  animation:
+    nema-asoc-screen-shake 95ms steps(2, end) infinite,
+    nema-asoc-screen-flicker 170ms steps(2, end) infinite;
+  transform-origin: center center;
+}
+
+@keyframes nema-asoc-screen-shake {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  20%  { transform: translate(-7px, 3px) rotate(-0.12deg); }
+  40%  { transform: translate(6px, -4px) rotate(0.10deg); }
+  60%  { transform: translate(-4px, -2px) rotate(-0.08deg); }
+  80%  { transform: translate(7px, 4px) rotate(0.13deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+@keyframes nema-asoc-screen-flicker {
+  0%, 100% { filter: brightness(1) contrast(1); opacity: 1; }
+  35% { filter: brightness(0.76) contrast(1.38); opacity: 0.91; }
+  48% { filter: brightness(1.25) contrast(1.18); opacity: 0.98; }
+  71% { filter: brightness(0.86) contrast(1.28); opacity: 0.94; }
+}
+
+@keyframes nema-asoc-overlay-flicker {
+  0%, 100% { opacity: 1; }
+  33% { opacity: 0.88; }
+  36% { opacity: 0.98; }
+  73% { opacity: 0.91; }
+}
+
+@keyframes nema-asoc-overlay-pulse {
+  0%, 100% { filter: saturate(1) contrast(1); }
+  50% { filter: saturate(1.22) contrast(1.14); }
+}
+
+@keyframes nema-asoc-scan {
+  from { transform: translateY(-8px); }
+  to { transform: translateY(8px); }
+}
+
+@keyframes nema-asoc-slice {
+  0%, 100% { transform: translateX(0); opacity: 0.28; }
+  40% { transform: translateX(-3%); opacity: 0.62; }
+  70% { transform: translateX(4%); opacity: 0.42; }
+}
+
+@keyframes nema-asoc-text-glitch {
+  0%, 100% { transform: translate(0, 0) skewX(0); }
+  25% { transform: translate(-3px, 1px) skewX(-1deg); }
+  50% { transform: translate(4px, -2px) skewX(1deg); }
+  75% { transform: translate(-2px, 2px) skewX(-0.5deg); }
+}
+
+@keyframes nema-asoc-text-slice-a {
+  0%, 100% { clip-path: inset(7% 0 58% 0); transform: translate(-5px, -1px); }
+  50% { clip-path: inset(28% 0 46% 0); transform: translate(8px, 0); }
+}
+
+@keyframes nema-asoc-text-slice-b {
+  0%, 100% { clip-path: inset(60% 0 8% 0); transform: translate(6px, 2px); }
+  50% { clip-path: inset(43% 0 31% 0); transform: translate(-7px, -1px); }
+}
+
 /* PUBLIC VIEW
    #public-view is a fixed-fullscreen flex COLUMN: the WOMF/Timer trackers,
    the header (title/theme/difficulty), and the back button are all

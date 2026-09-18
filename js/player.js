@@ -339,6 +339,10 @@ const PlayerApp = {
         this.showBattleControlsOnline();
         break;
 
+      case 'nemaAsoc':
+        Skeleton.playNemaAsoc();
+        break;
+
       case 'score:event':
         this.showScoreToast(message);
         break;

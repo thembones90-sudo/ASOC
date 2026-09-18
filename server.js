@@ -1908,6 +1908,21 @@ function handleGmClearBroadcast(ws) {
   broadcastToRoom(room, { type: 'shadowBroker:clear', timestamp: Date.now() });
 }
 
+// NEMA ASOC -- host-only theatrical threat effect. Ephemeral presentation
+// only: no score, clue, timer, chat, WOMF, or persistence state changes.
+function handleGmNemaAsoc(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can trigger NEMA ASOC' });
+    return;
+  }
+  broadcastToRoom(room, { type: 'nemaAsoc', timestamp: Date.now() });
+}
+
 function handleJudgeGuess(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -2592,6 +2607,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:clearBroadcast': {
           handleGmClearBroadcast(ws);
+          break;
+        }
+        case 'gm:nemaAsoc': {
+          handleGmNemaAsoc(ws);
           break;
         }
         case 'gm:switchGame': {

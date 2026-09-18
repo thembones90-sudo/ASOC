@@ -214,6 +214,7 @@ const App = {
     });
     document.getElementById('reset-board-btn').addEventListener('click', () => this.confirmReset());
     document.getElementById('undo-btn').addEventListener('click', () => this.handleUndo());
+    document.getElementById('nema-asoc-btn')?.addEventListener('click', () => this.triggerNemaAsoc());
 
     document.getElementById('library-btn').addEventListener('click', () => Forge.open());
     document.getElementById('library-btn-footer').addEventListener('click', () => Forge.open());
@@ -371,6 +372,14 @@ const App = {
     if (this.ws && this.ws.readyState === 1) {
       this.ws.send(JSON.stringify(message));
     }
+  },
+
+  triggerNemaAsoc() {
+    if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+      this.send({ type: 'gm:nemaAsoc' });
+      return;
+    }
+    Skeleton.playNemaAsoc();
   },
 
   sendCommand(command, payload) {
@@ -546,6 +555,10 @@ const App = {
       case 'shadowBroker:clear':
         this.clearShadowBrokerBoardLine();
         Board.clearShadowBrokerBoardLine();
+        break;
+
+      case 'nemaAsoc':
+        Skeleton.playNemaAsoc();
         break;
 
       case 'command:ack':

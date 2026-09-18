@@ -371,6 +371,34 @@ const Skeleton = (() => {
     };
   }
 
+  let nemaAsocTimer = null;
+
+  function playNemaAsoc() {
+    const old = document.querySelector('.nema-asoc-overlay');
+    if (old) old.remove();
+    if (nemaAsocTimer) {
+      clearTimeout(nemaAsocTimer);
+      nemaAsocTimer = null;
+    }
+
+    document.body.classList.remove('nema-asoc-active');
+    // Force a clean animation restart if the GM threatens them twice in a row.
+    void document.body.offsetWidth;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'nema-asoc-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = '<div class="nema-asoc-text" data-text="NEMA ASOC">NEMA ASOC</div>';
+    document.body.appendChild(overlay);
+    document.body.classList.add('nema-asoc-active');
+
+    nemaAsocTimer = setTimeout(() => {
+      document.body.classList.remove('nema-asoc-active');
+      overlay.remove();
+      nemaAsocTimer = null;
+    }, 5000);
+  }
+
   return {
     W,
     H,
@@ -389,7 +417,8 @@ const Skeleton = (() => {
     BROKER_LINE_HOLD_MAX_MS,
     BROKER_LINE_HOLD_PER_CHAR_MS,
     BROKER_LINE_FADE_MS,
-    shadowBrokerTransmissionHTML
+    shadowBrokerTransmissionHTML,
+    playNemaAsoc
   };
 })();
 
