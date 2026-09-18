@@ -276,6 +276,11 @@ textarea {
   font-size: clamp(1.1rem, 2.7vw, 1.5rem);
   letter-spacing: 0.72px;
   line-height: 1;
+  /* Barlow Condensed's uppercase ink sits optically high inside its em box.
+     Flex centering therefore centers the font metrics, not the visible letters.
+     A small font-relative optical correction puts the actual glyphs in the
+     chrome pill's visual center without changing any canonical slot geometry. */
+  translate: 0 0.10em;
   color: var(--text-primary);
   word-wrap: break-word;
   max-width: 100%;
