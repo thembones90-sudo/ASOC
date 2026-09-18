@@ -51,6 +51,7 @@ const PlayerApp = {
   _brokerLineStartedAt: 0,
   _brokerLineTicker: null,
   _brokerLineInterruptedUntil: 0,
+  _brokerLineQueue: [],
 
   init() {
     this.bindJoinForm();
@@ -373,22 +374,35 @@ const PlayerApp = {
   playShadowBrokerBoardLine(text) {
     if (!text) return;
     const now = Date.now();
-    const wasActive = !!(
+    const isActive = !!(
       this._brokerLineText &&
       Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, now)
     );
-    this._brokerLineInterruptedUntil = wasActive ? now + 220 : 0;
+    if (isActive) {
+      this._brokerLineQueue.push(text);
+      return;
+    }
+
     this._brokerLineText = text;
     this._brokerLineStartedAt = now;
+    this._brokerLineInterruptedUntil = 0;
 
     if (this._brokerLineTicker) clearInterval(this._brokerLineTicker);
     this._brokerLineTicker = setInterval(() => {
-      if (!this._brokerLineText) {
-        clearInterval(this._brokerLineTicker);
-        this._brokerLineTicker = null;
-        // One final render to actually clear the line from the DOM.
-        if (this.lastPublicState) this.renderBoard(this.lastPublicState);
-        return;
+      const tickNow = Date.now();
+      const active = this._brokerLineText &&
+        Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, tickNow);
+      if (!active) {
+        const next = this._brokerLineQueue.shift();
+        if (next) {
+          this._brokerLineText = next;
+          this._brokerLineStartedAt = tickNow;
+          this._brokerLineInterruptedUntil = tickNow + 220;
+        } else {
+          this._brokerLineText = null;
+          clearInterval(this._brokerLineTicker);
+          this._brokerLineTicker = null;
+        }
       }
       if (this.lastPublicState) this.renderBoard(this.lastPublicState);
     }, 40);
@@ -398,6 +412,7 @@ const PlayerApp = {
     this._brokerLineText = null;
     this._brokerLineStartedAt = 0;
     this._brokerLineInterruptedUntil = 0;
+    this._brokerLineQueue = [];
     if (this._brokerLineTicker) {
       clearInterval(this._brokerLineTicker);
       this._brokerLineTicker = null;
