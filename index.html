@@ -45,7 +45,7 @@
       </header>
 
       <div class="gm-content">
-        <section class="gm-section">
+        <section class="gm-section gm-module gm-module-game">
           <h3 class="gm-section-title">Game</h3>
           <div id="current-game-info" class="current-game">
             <div class="cg-title">—</div>
@@ -57,17 +57,17 @@
           </div>
         </section>
 
-        <section class="gm-section">
+        <section class="gm-section gm-module gm-module-clues">
           <h3 class="gm-section-title">Clue Grid</h3>
           <div class="gm-grid" id="gm-clue-grid"></div>
         </section>
 
-        <section class="gm-section">
+        <section class="gm-section gm-module gm-module-columns">
           <h3 class="gm-section-title">Column Controls</h3>
           <div class="gm-column-controls" id="gm-column-controls"></div>
         </section>
 
-        <section class="gm-section" id="womf-controls-section" style="display: none;">
+        <section class="gm-section gm-module gm-module-womf" id="womf-controls-section" style="display: none;">
           <h3 class="gm-section-title">WOMF</h3>
           <div class="gm-column-controls womf-fail-grid" id="womf-fail-controls">
             <button class="gm-global-btn fail-final-btn womf-fail-btn" data-column="A" title="Declare column A failed">FAIL A</button>
@@ -82,7 +82,7 @@
           </div>
         </section>
 
-        <section class="gm-section">
+        <section class="gm-section gm-module gm-module-global">
           <h3 class="gm-section-title">Global Actions</h3>
           <div class="gm-global-controls">
             <button class="gm-global-btn undo-btn" id="undo-btn" disabled>UNDO LAST</button>
@@ -93,7 +93,7 @@
           </div>
         </section>
 
-        <section class="gm-section">
+        <section class="gm-section gm-module gm-module-background">
           <h3 class="gm-section-title">Background</h3>
           <div class="background-selector">
             <label class="bg-label">Select Background</label>
@@ -109,7 +109,7 @@
           </div>
         </section>
 
-        <section class="gm-section">
+        <section class="gm-section gm-module gm-module-chat">
           <div class="gm-chat-panel">
             <div class="gm-chat-header">
               <span class="gm-chat-title">GUESSES</span>
@@ -123,14 +123,14 @@
           </div>
         </section>
 
-        <section class="gm-section" id="scoring-section" style="display: none;">
+        <section class="gm-section gm-module gm-module-scoring" id="scoring-section" style="display: none;">
           <h3 class="gm-section-title">Scoring</h3>
           <div id="session-leaderboard" class="session-leaderboard"></div>
           <button class="gm-global-btn" id="alltime-toggle-btn" style="width: 100%; margin-top: 8px;">ALL-TIME RECORDS</button>
           <div id="alltime-leaderboard" class="alltime-leaderboard" style="display: none;"></div>
         </section>
 
-        <section class="gm-section">
+        <section class="gm-section gm-module gm-module-multiplayer">
           <h3 class="gm-section-title">Multiplayer</h3>
           <div class="multiplayer-status" id="multiplayer-status">
             <div class="mp-row">

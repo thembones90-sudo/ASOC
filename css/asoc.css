@@ -868,6 +868,294 @@ textarea {
   letter-spacing: 0.06em;
 }
 
+
+/* =========================================================
+   GM COMMAND CONSOLE POLISH
+   Visual hierarchy only. No gameplay/state behavior changes.
+   ========================================================= */
+#gm-panel {
+  background:
+    linear-gradient(180deg, rgba(18, 21, 28, 0.985), rgba(9, 11, 15, 0.995));
+  border-left: 1px solid rgba(174, 182, 198, 0.28);
+  box-shadow:
+    -18px 0 48px rgba(0, 0, 0, 0.56),
+    inset 1px 0 0 rgba(255, 255, 255, 0.025);
+}
+
+.gm-header {
+  position: relative;
+  padding: 18px 20px 16px;
+  background:
+    linear-gradient(180deg, rgba(34, 38, 47, 0.82), rgba(15, 18, 24, 0.92));
+  border-bottom: 1px solid rgba(184, 188, 200, 0.34);
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.gm-header::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent-gold), rgba(212,168,67,0.08) 58%, transparent);
+}
+
+.gm-title {
+  font-size: 1.34rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #eef1f7;
+  text-shadow: 0 1px 0 #000, 0 0 12px rgba(184,188,200,0.10);
+}
+
+.gm-subtitle {
+  margin-top: 2px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: #8f98aa;
+}
+
+.gm-content {
+  padding: 14px;
+}
+
+.gm-module {
+  position: relative;
+  margin-bottom: 14px;
+  padding: 12px;
+  background:
+    linear-gradient(180deg, rgba(29, 33, 41, 0.72), rgba(16, 19, 25, 0.82));
+  border: 1px solid rgba(100, 108, 124, 0.48);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.035),
+    inset 0 -1px 0 rgba(0,0,0,0.55),
+    0 8px 18px rgba(0,0,0,0.18);
+}
+
+.gm-module::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: -1px;
+  width: 56px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(212,168,67,0.85), transparent);
+}
+
+.gm-section-title {
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+  margin-bottom: 10px;
+  padding: 0 0 7px;
+  font-size: 0.70rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  border-bottom-color: rgba(112, 120, 136, 0.48);
+}
+
+.gm-module-clues {
+  border-color: rgba(138, 146, 162, 0.58);
+  background:
+    linear-gradient(180deg, rgba(33, 38, 47, 0.78), rgba(15, 18, 23, 0.88));
+}
+
+.gm-grid {
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.gm-cell-btn {
+  min-height: 50px;
+  padding: 8px 6px 9px;
+  background:
+    linear-gradient(180deg, rgba(43, 48, 59, 0.94), rgba(22, 25, 32, 0.98));
+  border-color: rgba(128, 137, 154, 0.62);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.62),
+    0 2px 5px rgba(0,0,0,0.32);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+}
+
+.gm-cell-btn > span:first-child {
+  margin-bottom: 2px;
+  opacity: 0.74;
+  letter-spacing: 0.08em;
+}
+
+.gm-cell-btn > span:last-child {
+  color: #eef1f7;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.gm-cell-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #aeb6c7;
+  background:
+    linear-gradient(180deg, rgba(54, 60, 72, 0.98), rgba(27, 31, 39, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.09),
+    0 4px 10px rgba(0,0,0,0.35);
+}
+
+.gm-cell-btn.solution-btn {
+  background:
+    linear-gradient(180deg, rgba(61, 51, 27, 0.44), rgba(26, 27, 29, 0.96));
+  border-color: rgba(212,168,67,0.72);
+}
+
+.gm-cell-btn.final-btn {
+  min-height: 58px;
+  background:
+    linear-gradient(90deg, rgba(110,26,30,0.28), rgba(68,31,87,0.40), rgba(35,31,75,0.30));
+  border-color: rgba(212,168,67,0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 0 20px rgba(122,74,154,0.08),
+    0 3px 8px rgba(0,0,0,0.38);
+}
+
+.gm-cell-btn.final-btn > span:last-child {
+  font-size: 0.92rem;
+  letter-spacing: 0.07em;
+}
+
+.gm-module-columns .gm-column-controls {
+  margin-bottom: 0;
+}
+
+.gm-col-btn,
+.gm-global-btn {
+  background:
+    linear-gradient(180deg, rgba(39,44,54,0.95), rgba(20,23,29,0.98));
+  border-color: rgba(118,127,144,0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.045),
+    inset 0 -1px 0 rgba(0,0,0,0.58);
+}
+
+.gm-col-btn {
+  min-height: 40px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+}
+
+.gm-col-btn:hover:not(:disabled),
+.gm-global-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.07),
+    0 4px 10px rgba(0,0,0,0.28);
+}
+
+.gm-module-womf {
+  border-color: rgba(154, 70, 74, 0.55);
+  background:
+    linear-gradient(180deg, rgba(48, 25, 29, 0.50), rgba(18, 18, 23, 0.90));
+}
+
+.gm-module-womf::before {
+  background: linear-gradient(90deg, rgba(231,76,60,0.9), transparent);
+}
+
+.womf-fail-btn {
+  background:
+    linear-gradient(180deg, rgba(75,31,35,0.88), rgba(31,20,23,0.96));
+  border-color: rgba(200, 84, 84, 0.75) !important;
+  color: #efaaaa !important;
+  font-weight: 700;
+}
+
+#womf-fail-final-btn {
+  min-height: 44px;
+  border-color: rgba(231,76,60,0.92) !important;
+  box-shadow:
+    inset 0 0 16px rgba(231,76,60,0.08),
+    0 0 10px rgba(231,76,60,0.08);
+}
+
+#reset-board-btn {
+  border-color: rgba(201,74,74,0.86);
+  color: #ffaaaa;
+  background:
+    linear-gradient(180deg, rgba(79,29,32,0.86), rgba(34,19,22,0.96));
+}
+
+#reveal-hide-all-btn {
+  border-color: rgba(212,168,67,0.68);
+  color: #ead18c;
+}
+
+.gm-module-background .background-selector {
+  padding: 2px;
+}
+
+.bg-select {
+  min-height: 40px;
+  background:
+    linear-gradient(180deg, rgba(38,43,52,0.96), rgba(21,24,30,0.98));
+  border-color: rgba(118,127,144,0.70);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.upload-zone {
+  padding-top: 4px;
+  border-top: 1px solid rgba(100,108,124,0.28);
+}
+
+.upload-label {
+  background:
+    linear-gradient(180deg, rgba(36,40,49,0.92), rgba(20,23,29,0.96));
+}
+
+.gm-module-multiplayer {
+  border-color: rgba(122,74,154,0.50);
+  background:
+    linear-gradient(180deg, rgba(35,26,43,0.46), rgba(16,18,23,0.90));
+}
+
+.gm-module-multiplayer::before {
+  background: linear-gradient(90deg, rgba(155,93,224,0.85), transparent);
+}
+
+.mp-row {
+  min-height: 29px;
+  padding: 5px 2px;
+}
+
+.gm-footer {
+  padding: 14px 20px 16px;
+  background:
+    linear-gradient(180deg, rgba(18,21,27,0.98), rgba(9,11,15,1));
+  border-top-color: rgba(135,143,158,0.44);
+  box-shadow: 0 -10px 28px rgba(0,0,0,0.24);
+}
+
+#public-view-btn {
+  min-height: 44px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  box-shadow:
+    inset 0 0 18px rgba(212,168,67,0.07),
+    0 0 12px rgba(212,168,67,0.06);
+}
+
+#library-btn-footer {
+  min-height: 42px;
+  font-weight: 700;
+  letter-spacing: 0.065em;
+}
+
 /* PUBLIC VIEW
    #public-view is a fixed-fullscreen flex COLUMN: the WOMF/Timer trackers,
    the header (title/theme/difficulty), and the back button are all
@@ -1245,7 +1533,7 @@ textarea {
   background: var(--button-bg);
   border: 1px solid var(--button-border);
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: calc(8px + 5mm) 10px 8px;
   margin-bottom: 8px;
   animation: fadeIn 0.2s ease;
 }
