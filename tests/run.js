@@ -10,6 +10,7 @@ const ROOT = path.resolve(__dirname, '..');
 const PORT = 18080;
 const BASE = `http://127.0.0.1:${PORT}`;
 const TEST_PLAYERS = path.join(os.tmpdir(), `asoc-test-players-${process.pid}.json`);
+const TEST_SESSION = path.join(os.tmpdir(), `asoc-test-session-${process.pid}.json`);
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -158,6 +159,90 @@ async function testResetBroadcast() {
   closeWs(host);
 }
 
+async function testCrashRecovery(server) {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  const player = await openWs();
+  const joinedPromise = waitForMessage(player, m => m.type === 'join:success', 'recovery player join');
+  player.send(JSON.stringify({
+    type: 'room:join',
+    roomCode: room.roomCode,
+    name: 'RECOVERY TEST'
+  }));
+  const joined = await joinedPromise;
+
+  const revealAck = waitForMessage(host, m => m.type === 'command:ack', 'reveal ack');
+  host.send(JSON.stringify({
+    type: 'gm:command',
+    command: 'revealCell',
+    payload: { cell: 'A3', reveal: true },
+    cmdId: 77
+  }));
+  await revealAck;
+
+  const brokerUpdate = waitForMessage(
+    host,
+    m => m.type === 'chat:update' && Array.isArray(m.messages) &&
+      m.messages.some(x => x.source === 'shadowBroker' && x.text === 'RECOVERY CHECK'),
+    'broker recovery message'
+  );
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: 'RECOVERY CHECK' }));
+  await brokerUpdate;
+  await delay(100);
+
+  await new Promise(resolve => {
+    server.once('exit', resolve);
+    server.kill();
+  });
+
+  const restarted = await startServer();
+
+  const host2 = await openWs();
+  const statePromise = waitForMessage(host2, m => m.type === 'state:public', 'restored state');
+  const chatPromise = waitForMessage(host2, m => m.type === 'chat:update', 'restored chat');
+  const playersPromise = waitForMessage(host2, m => m.type === 'players:update', 'restored players');
+  const reconnectPromise = waitForMessage(host2, m => m.type === 'host:reconnected', 'host reconnect');
+
+  host2.send(JSON.stringify({
+    type: 'host:reconnect',
+    roomCode: room.roomCode,
+    hostToken: room.hostToken
+  }));
+
+  const [state, chat, players] = await Promise.all([
+    statePromise,
+    chatPromise,
+    playersPromise,
+    reconnectPromise
+  ]).then(values => values.slice(0, 3));
+
+  assert.equal(state.cells.A3.revealed, true);
+  assert.ok(Array.isArray(state.clueOrder.A) && state.clueOrder.A.includes(3));
+  assert.ok(chat.messages.some(m => m.source === 'shadowBroker' && m.text === 'RECOVERY CHECK'));
+
+  const restoredPlayer = players.players.find(p => p.id === joined.playerId);
+  assert.ok(restoredPlayer);
+  assert.equal(restoredPlayer.connected, false);
+
+  const player2 = await openWs();
+  const rejoinPromise = waitForMessage(player2, m => m.type === 'join:success', 'restored player reconnect');
+  player2.send(JSON.stringify({
+    type: 'room:join',
+    roomCode: room.roomCode,
+    name: 'RECOVERY TEST',
+    playerId: joined.playerId
+  }));
+  const rejoined = await rejoinPromise;
+  assert.equal(rejoined.playerId, joined.playerId);
+
+  console.log('PASS session crash recovery');
+
+  closeWs(player2);
+  closeWs(host2);
+  return restarted;
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ['server.js'], {
@@ -165,7 +250,8 @@ function startServer() {
       env: {
         ...process.env,
         PORT: String(PORT),
-        ASOC_PLAYERS_FILE: TEST_PLAYERS
+        ASOC_PLAYERS_FILE: TEST_PLAYERS,
+        ASOC_SESSION_FILE: TEST_SESSION
       },
       stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -203,6 +289,7 @@ function startServer() {
     await testStaticLockdown();
     await testReconnectIdentity();
     await testResetBroadcast();
+    server = await testCrashRecovery(server);
     console.log('ALL ASOC REGRESSION TESTS PASSED');
   } catch (error) {
     console.error('TEST FAILURE:', error.stack || error.message);
@@ -210,5 +297,6 @@ function startServer() {
   } finally {
     if (server) server.kill();
     try { fs.unlinkSync(TEST_PLAYERS); } catch {}
+    try { fs.unlinkSync(TEST_SESSION); } catch {}
   }
 })();

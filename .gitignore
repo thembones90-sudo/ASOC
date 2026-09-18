@@ -11,3 +11,7 @@ Thumbs.db
 # like local state, not source, the same way games/ (your authored puzzles)
 # is committed but this isn't.
 players.json
+
+# Active multiplayer crash-recovery snapshot -- runtime state only.
+active-rooms.json
+active-rooms.json.tmp-*

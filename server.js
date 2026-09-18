@@ -29,6 +29,144 @@ const mimeTypes = {
 
 const rooms = new Map();
 
+const ACTIVE_ROOMS_FILE = process.env.ASOC_SESSION_FILE
+  ? path.resolve(process.env.ASOC_SESSION_FILE)
+  : path.join(__dirname, 'active-rooms.json');
+
+function makeOfflinePlayerSocket() {
+  return {
+    readyState: 0,
+    close() {}
+  };
+}
+
+function serializeRoomForRecovery(room) {
+  const players = [];
+  room.players.forEach(player => {
+    players.push({
+      id: player.id,
+      name: player.name,
+      joinedAt: player.joinedAt || Date.now()
+    });
+  });
+
+  return {
+    code: room.code,
+    gameId: room.gameId,
+    gameData: room.gameData,
+    revision: room.revision,
+    boardId: room.boardId,
+    sessionState: room.sessionState,
+    currentBackground: room.currentBackground,
+    hostToken: room.hostToken,
+    createdAt: room.createdAt,
+    chat: room.chat,
+    scoring: room.scoring,
+    womf: room.womf,
+    wheel: room.wheel,
+    timer: room.timer,
+    players
+  };
+}
+
+function persistActiveRooms() {
+  const payload = {
+    version: 1,
+    savedAt: Date.now(),
+    rooms: Array.from(rooms.values(), serializeRoomForRecovery)
+  };
+  const tmpFile = ACTIVE_ROOMS_FILE + '.tmp-' + process.pid + '-' + Date.now();
+
+  try {
+    fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
+    fs.renameSync(tmpFile, ACTIVE_ROOMS_FILE);
+  } catch (error) {
+    console.error('[recovery] Failed to save active rooms:', error.message);
+    try { fs.unlinkSync(tmpFile); } catch {}
+  }
+}
+
+function restoreActiveRooms() {
+  if (!fs.existsSync(ACTIVE_ROOMS_FILE)) return 0;
+
+  try {
+    const payload = JSON.parse(fs.readFileSync(ACTIVE_ROOMS_FILE, 'utf8'));
+    if (!payload || payload.version !== 1 || !Array.isArray(payload.rooms)) {
+      throw new Error('Unsupported or malformed recovery file');
+    }
+
+    let restored = 0;
+    for (const saved of payload.rooms) {
+      if (!saved || typeof saved.code !== 'string' || typeof saved.hostToken !== 'string') continue;
+
+      const gameData = saved.gameData || loadGameData(saved.gameId);
+      if (!gameData) {
+        console.warn(`[recovery] Skipping room ${saved.code}: game data unavailable`);
+        continue;
+      }
+
+      const room = {
+        code: saved.code.toUpperCase(),
+        gameId: saved.gameId || gameData.id || 'sample-game',
+        gameData,
+        revision: Number.isFinite(saved.revision) ? saved.revision : 0,
+        boardId: saved.boardId || generateBoardId(),
+        sessionState: saved.sessionState || {
+          cells: {},
+          finalSolution: false,
+          finalOutcome: null,
+          cellOutcomes: {},
+          clueOrder: { A: [], B: [], C: [], D: [] }
+        },
+        currentBackground: saved.currentBackground || gameData.background || '',
+        players: new Map(),
+        hostConnection: null,
+        hostToken: saved.hostToken,
+        hostReconnectTimer: null,
+        createdAt: saved.createdAt || Date.now(),
+        chat: saved.chat || { messages: [], solvedTargets: {} },
+        scoring: saved.scoring || {
+          players: {},
+          events: [],
+          activeStreak: null,
+          boardFinalized: false,
+          pendingResults: null
+        },
+        womf: saved.womf || { charge: 0, failedColumns: {} },
+        wheel: saved.wheel || {
+          open: false,
+          segments: [],
+          phase: 'idle',
+          winnerIndex: null,
+          spinToken: null
+        },
+        timer: saved.timer || null
+      };
+
+      if (!room.timer) resetTimer(room);
+
+      for (const player of Array.isArray(saved.players) ? saved.players : []) {
+        if (!player || typeof player.id !== 'string' || typeof player.name !== 'string') continue;
+        room.players.set(makeOfflinePlayerSocket(), {
+          id: player.id,
+          name: player.name,
+          connected: false,
+          joinedAt: player.joinedAt || Date.now()
+        });
+      }
+
+      rooms.set(room.code, room);
+      restored++;
+      console.log(`[recovery] Restored room ${room.code} (game: ${room.gameId})`);
+    }
+
+    return restored;
+  } catch (error) {
+    console.error('[recovery] Failed to restore active rooms:', error.message);
+    return 0;
+  }
+}
+
 function generateRoomCode() {
   let code;
   do {
@@ -249,6 +387,7 @@ function createRoom(gameId, hostWs) {
   resetTimer(room);
 
   rooms.set(roomCode, room);
+  persistActiveRooms();
   hostWs.roomCode = roomCode;
   hostWs.isHost = true;
   hostWs.hostToken = hostToken;
@@ -680,6 +819,7 @@ function handleTimerAdjust(ws, message) {
 // state (per the locked spec's explicit "do not auto-fail / do not
 // auto-charge WOMF" requirement).
 setInterval(() => {
+  let recoveryDirty = false;
   rooms.forEach((room) => {
     if (!room.timer) return;
     const t = room.timer;
@@ -703,7 +843,9 @@ setInterval(() => {
 
     room.revision++;
     broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+    recoveryDirty = true;
   });
+  if (recoveryDirty) persistActiveRooms();
 }, TIMER_TICK_MS);
 
 // Resolves the clue TEXT for a given physical slot per the Progressive
@@ -2038,6 +2180,7 @@ function handleClose(ws) {
           playerWs.close();
         });
         rooms.delete(ws.roomCode);
+        persistActiveRooms();
       }, HOST_RECONNECT_GRACE_MS);
       console.log(`[ROOM ${ws.roomCode}] Host disconnected, grace period started`);
     }
@@ -2055,6 +2198,7 @@ function handleClose(ws) {
       console.log(`[ROOM ${ws.roomCode}] Player left: ${ws.playerName}`);
     }
   }
+  persistActiveRooms();
 }
 
 function handleApiRequest(req, res) {
@@ -2401,6 +2545,7 @@ wss.on('connection', (ws) => {
         default:
           sendToWs(ws, { type: 'error', message: 'Unknown message type' });
       }
+      persistActiveRooms();
     } catch (e) {
       console.error('WebSocket message error:', e);
       sendToWs(ws, { type: 'error', message: 'Malformed message' });
@@ -2411,10 +2556,13 @@ wss.on('connection', (ws) => {
   ws.on('error', (err) => console.error('WebSocket error:', err));
 });
 
+const restoredRoomCount = restoreActiveRooms();
+
 server.listen(PORT, '0.0.0.0', () => {
   const token = refreshGMToken();
   console.log(`ASOC Engine server running on http://0.0.0.0:${PORT}`);
   console.log(`Gamemaster: http://localhost:${PORT}`);
   console.log(`Player join: http://<LAN-IP>:${PORT}/join.html`);
   console.log(`GM token: ${token}`);
+  if (restoredRoomCount > 0) console.log(`[recovery] ${restoredRoomCount} room(s) available for reconnect`);
 });
