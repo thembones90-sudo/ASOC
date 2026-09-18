@@ -516,7 +516,12 @@ const App = {
       cells: {},
       finalSolution: state.finalSolution?.revealed === true,
       cellOutcomes: {},
-      finalOutcome: state.finalSolution?.outcome || null
+      finalOutcome: state.finalSolution?.outcome || null,
+      // Progressive Clue Queue -- server-authoritative row order per column
+      // (see server.js's getPublicState()/assignClueOrder()). This always
+      // overwrites whatever the optimistic local update guessed, so a
+      // reconnect or any client's rerender can never scramble it.
+      clueOrder: state.clueOrder || { A: [], B: [], C: [], D: [] }
     };
 
     Object.entries(state.cells).forEach(([key, cell]) => {
@@ -1184,12 +1189,24 @@ const App = {
     const game = GameData.currentGame;
     const columns = ['A', 'B', 'C', 'D'];
 
-    let html = `
-      <div class="public-header">
+    // Title/theme/difficulty badge render into a SEPARATE element that
+    // lives OUTSIDE .public-board-frame (see index.html) -- the frame
+    // must contain ONLY the board so its aspect-ratio box is exactly the
+    // 1900x1267 board and nothing else. Previously this header was
+    // prepended inside #public-board's own innerHTML, which sat INSIDE
+    // the ratio-locked frame and stole vertical space from the board,
+    // stretching it off-ratio. See .public-board-frame's comment in
+    // css/asoc.css for the full writeup.
+    const headerBar = document.getElementById('public-header-bar');
+    if (headerBar) {
+      headerBar.innerHTML = `
         <div class="public-title">${this.escapeHtml(game.title)}</div>
         <div class="public-theme">${this.escapeHtml(game.theme)}</div>
         ${game.difficulty ? `<span class="difficulty-badge public-difficulty diff-${game.difficulty.toLowerCase()}">${this.escapeHtml(game.difficulty)}</span>` : ''}
-      </div>
+      `;
+    }
+
+    let html = `
       <div class="asoc-board">
         ${Skeleton.skeletonHTML(game.difficulty)}
     `;

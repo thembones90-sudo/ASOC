@@ -169,7 +169,20 @@ function createRoom(gameId, hostWs) {
       // (see handleFailColumn) -- keyed by cell key ("A5"), value 'failed'.
       // Cleared wherever that cell's own reveal state is cleared (hideCell/
       // hideColumn/hideAll/resetBoard/switchGame), same lifecycle as cells.
-      cellOutcomes: {}
+      cellOutcomes: {},
+      // PROGRESSIVE CLUE QUEUE -- physical slots A1-A4 (and B/C/D) do NOT
+      // permanently correspond to clue difficulty. Each column tracks its
+      // own ordered list of PHYSICAL ROW NUMBERS (1-4) in the order they
+      // were first revealed. Position within this array IS the difficulty
+      // index into game.columns[col].clues: the row revealed first gets
+      // clues[0] (hardest), second gets clues[1], etc., regardless of which
+      // physical slot the GM/player chose. See assignClueOrder()/
+      // getCellData(). Only ever appended to (on a cell's FIRST reveal, rows
+      // 1-4 only -- row 5 is the column solution and is not part of this);
+      // hiding a cell never removes it, so re-revealing the same slot always
+      // shows the same clue for the rest of this board. Reset alongside
+      // cells on resetBoard/switchGame. A5 is not part of this queue.
+      clueOrder: { A: [], B: [], C: [], D: [] }
     },
     currentBackground: gameData.background || '',
     players: new Map(),
@@ -256,7 +269,7 @@ function getPublicState(room) {
       if (revealed) {
         publicCells[key] = {
           revealed: true,
-          value: getCellData(game, col, row)
+          value: getCellData(room, col, row)
         };
       } else {
         publicCells[key] = { revealed: false };
@@ -270,7 +283,7 @@ function getPublicState(room) {
     if (revealed) {
       publicCells[key] = {
         revealed: true,
-        value: getCellData(game, col, 5),
+        value: getCellData(room, col, 5),
         // Only ever set when the GM declared this column FAILED (see
         // handleFailColumn) -- drives the same red "failed" treatment the
         // Final's outcome already gets. Absent for an ordinary reveal.
@@ -296,6 +309,10 @@ function getPublicState(room) {
     background: room.currentBackground,
     cells: publicCells,
     finalSolution: finalCell,
+    // Row-order only (e.g. { A: [3,1,4,2] }) -- never clue text -- so
+    // clients can resolve which physical slot shows which difficulty tier.
+    // Safe to send to every client, GM and players alike.
+    clueOrder: room.sessionState.clueOrder || { A: [], B: [], C: [], D: [] },
     womf: getWomfPublicState(room),
     wheel: getWheelPublicState(room),
     timer: getTimerPublicState(room),
@@ -635,13 +652,38 @@ setInterval(() => {
   });
 }, TIMER_TICK_MS);
 
-function getCellData(game, column, row) {
+// Resolves the clue TEXT for a given physical slot per the Progressive
+// Clue Queue: for rows 1-4, the difficulty index is this column's reveal
+// ORDER position for that row (see sessionState.clueOrder), never the row
+// number itself. Row 5 (solution) is unaffected and always direct.
+function getCellData(room, column, row) {
+  const game = room.gameData;
   if (row >= 1 && row <= 4) {
-    return game.columns[column]?.clues[row - 1] || '';
+    const order = room.sessionState.clueOrder && room.sessionState.clueOrder[column];
+    const pos = order ? order.indexOf(row) : -1;
+    // pos should always be >= 0 here in practice -- getCellData is only
+    // ever called (via getPublicState) for cells already marked revealed,
+    // and assignClueOrder() runs at the moment a cell is first revealed,
+    // before this is read. The `order.length` fallback (next unassigned
+    // slot) only guards against a call ordering bug elsewhere; it never
+    // reflects two slots sharing one clue.
+    const idx = pos !== -1 ? pos : (order ? order.length : row - 1);
+    return game.columns[column]?.clues[idx] || '';
   } else if (row === 5) {
     return game.columns[column]?.solution || '';
   }
   return '';
+}
+
+// Called exactly once per physical slot, at the moment it is FIRST
+// revealed (rows 1-4 only). Appends the row number to that column's queue
+// if not already present -- idempotent, and never called on hide, so a
+// slot's assigned clue is stable for the rest of the current board.
+function assignClueOrder(room, column, row) {
+  if (row < 1 || row > 4) return;
+  if (!room.sessionState.clueOrder) room.sessionState.clueOrder = { A: [], B: [], C: [], D: [] };
+  const order = room.sessionState.clueOrder[column];
+  if (!order.includes(row)) order.push(row);
 }
 
 // ---------------------------------------------------------------------
@@ -950,6 +992,7 @@ function applyCommand(room, command, payload) {
       if (reveal) {
         if (room.sessionState.cells[key] !== true) {
           room.sessionState.cells[key] = true;
+          assignClueOrder(room, col, row);
           changed = true;
         }
       } else {
@@ -960,7 +1003,9 @@ function applyCommand(room, command, payload) {
         // A manual hide is the GM correcting/undoing -- it clears any WOMF
         // "failed" outcome tag on that cell, same as hideFinal already does
         // for finalOutcome. If it's re-revealed later it comes back as a
-        // normal reveal, not red.
+        // normal reveal, not red. Note: clueOrder is deliberately NOT
+        // touched here -- once a slot has been assigned a clue, hiding and
+        // re-revealing it must show the exact same clue (locked spec).
         if (room.sessionState.cellOutcomes && room.sessionState.cellOutcomes[key]) {
           delete room.sessionState.cellOutcomes[key];
           changed = true;
@@ -994,6 +1039,7 @@ function applyCommand(room, command, payload) {
         const key = `${column}${row}`;
         if (room.sessionState.cells[key] !== true) {
           room.sessionState.cells[key] = true;
+          assignClueOrder(room, column, row);
           changed = true;
         }
       }
@@ -1022,6 +1068,7 @@ function applyCommand(room, command, payload) {
           const key = `${col}${row}`;
           if (room.sessionState.cells[key] !== true) {
             room.sessionState.cells[key] = true;
+            assignClueOrder(room, col, row);
             changed = true;
           }
         }
@@ -1072,7 +1119,7 @@ function applyCommand(room, command, payload) {
       const hadChanges = Object.values(room.sessionState.cells).some(v => v === true) ||
                          room.sessionState.finalSolution === true;
       if (hadChanges) {
-        room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, cellOutcomes: {} };
+        room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
         changed = true;
       }
       // A reset re-attempts the SAME board from scratch: mint a fresh
@@ -1585,7 +1632,7 @@ function handleSwitchGame(ws, message) {
   room.gameId = game.id;
   room.gameData = game;
   room.revision = (room.revision || 0) + 1;
-  room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, cellOutcomes: {} };
+  room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
   room.currentBackground = game.background || gameStore.DEFAULT_BACKGROUND;
   room.chat = { messages: [], solvedTargets: {} };
   // NEXT GAME starts a new board within the SAME session: current-session

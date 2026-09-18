@@ -25,7 +25,14 @@ const Board = {
       // sessionState.finalOutcome (already sent as state.finalSolution.outcome
       // in every state:public broadcast). Drives the same green/red
       // treatment as cellOutcomes, just for the FINAL slot specifically.
-      finalOutcome: null
+      finalOutcome: null,
+      // PROGRESSIVE CLUE QUEUE -- per-column list of physical row numbers
+      // (1-4) in first-reveal order; position = difficulty index. See
+      // setRevealed() below and GameData.getCellData(). Mirrors the
+      // server-authoritative version in multiplayer (applyServerState);
+      // built locally here for solo/local mode and as the optimistic
+      // pre-broadcast value in multiplayer.
+      clueOrder: { A: [], B: [], C: [], D: [] }
     };
     this.history = [];
     this._bulkAction = false;
@@ -75,12 +82,29 @@ const Board = {
     const prevState = this.sessionState.cells[key];
     if (prevState === revealed) return false;
 
+    // PROGRESSIVE CLUE QUEUE: a slot's FIRST reveal (rows 1-4 only) appends
+    // its physical row number to this column's queue -- position in that
+    // array is the difficulty index (see GameData.getCellData()). Hiding
+    // never touches the queue, so re-revealing the same slot later shows
+    // the same clue. Track whether THIS call did the assigning so undo()
+    // can cleanly reverse just that.
+    let clueOrderAssigned = false;
+    if (revealed && row >= 1 && row <= 4) {
+      if (!this.sessionState.clueOrder) this.sessionState.clueOrder = { A: [], B: [], C: [], D: [] };
+      const order = this.sessionState.clueOrder[column];
+      if (order && !order.includes(row)) {
+        order.push(row);
+        clueOrderAssigned = true;
+      }
+    }
+
     if (!this._bulkAction) {
       this.recordAction({
         type: 'cell',
         column,
         row,
-        prevState
+        prevState,
+        clueOrderAssigned
       });
     }
 
@@ -111,7 +135,8 @@ const Board = {
     this._bulkAction = true;
     this._bulkActionSnapshot = {
       cells: JSON.parse(JSON.stringify(this.sessionState.cells)),
-      finalSolution: this.sessionState.finalSolution
+      finalSolution: this.sessionState.finalSolution,
+      clueOrder: JSON.parse(JSON.stringify(this.sessionState.clueOrder || { A: [], B: [], C: [], D: [] }))
     };
   },
 
@@ -120,7 +145,8 @@ const Board = {
     const prevState = this._bulkActionSnapshot;
     const newState = {
       cells: JSON.parse(JSON.stringify(this.sessionState.cells)),
-      finalSolution: this.sessionState.finalSolution
+      finalSolution: this.sessionState.finalSolution,
+      clueOrder: JSON.parse(JSON.stringify(this.sessionState.clueOrder || { A: [], B: [], C: [], D: [] }))
     };
     
     // Only record if something actually changed
@@ -214,6 +240,17 @@ const Board = {
     switch (action.type) {
       case 'cell':
         this.sessionState.cells[`${action.column}${action.row}`] = action.prevState;
+        // If THIS reveal was what first assigned the slot's queue position,
+        // undoing it releases that position -- the row goes back to
+        // "unassigned" so a future re-reveal gets a fresh (possibly
+        // different) queue slot, exactly reversing setRevealed()'s effect.
+        if (action.clueOrderAssigned && this.sessionState.clueOrder) {
+          const order = this.sessionState.clueOrder[action.column];
+          if (order) {
+            const idx = order.indexOf(action.row);
+            if (idx !== -1) order.splice(idx, 1);
+          }
+        }
         this.updateCellDisplay(action.column, action.row);
         break;
       case 'final':
@@ -332,7 +369,15 @@ const Board = {
   buildBoardHTML(game) {
     if (!game) return '';
     const columns = ['A', 'B', 'C', 'D'];
+    // Route through the queue-aware GameData.getCellData() for the actual
+    // loaded game (so physical slots show the correct progressive-queue
+    // clue), but keep the naive direct index for Forge's preview calls,
+    // which pass an arbitrary in-progress DRAFT game object that was never
+    // loaded into GameData.currentGame and has no reveal/queue state of
+    // its own -- Forge always wants to preview clue1/clue2/clue3/clue4 in
+    // their natural slots while editing.
     const cellData = (col, row) => {
+      if (game === GameData.currentGame) return GameData.getCellData(col, row) || '';
       if (row >= 1 && row <= 4) return game.columns[col]?.clues?.[row - 1] || '';
       if (row === 5) return game.columns[col]?.solution || '';
       return '';
@@ -398,7 +443,8 @@ const Board = {
   },
 
   setSessionState(state) {
-    this.sessionState = state || { cells: {}, finalSolution: false, cellOutcomes: {}, finalOutcome: null };
+    this.sessionState = state || { cells: {}, finalSolution: false, cellOutcomes: {}, finalOutcome: null, clueOrder: { A: [], B: [], C: [], D: [] } };
+    if (!this.sessionState.clueOrder) this.sessionState.clueOrder = { A: [], B: [], C: [], D: [] };
     this.history = [];
     this.render();
   },

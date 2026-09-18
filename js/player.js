@@ -228,12 +228,22 @@ const PlayerApp = {
 
     window.GameData.currentGame = gameData;
 
-    let html = `
-      <div class="public-header">
+    // Title/theme/difficulty badge render into a SEPARATE element that
+    // lives OUTSIDE .public-board-frame (see join.html) -- the frame must
+    // contain ONLY the board so its aspect-ratio box is exactly the
+    // 1900x1267 board and nothing else. See .public-board-frame's comment
+    // in join.html's inline <style> for the full writeup of the
+    // distortion bug this fixes.
+    const headerBar = document.getElementById('public-header-bar');
+    if (headerBar) {
+      headerBar.innerHTML = `
         <div class="public-title">${this.escapeHtml(state.title)}</div>
         <div class="public-theme">${this.escapeHtml(state.theme)}</div>
         ${state.difficulty ? `<span class="difficulty-badge public-difficulty diff-${state.difficulty.toLowerCase()}">${this.escapeHtml(state.difficulty)}</span>` : ''}
-      </div>
+      `;
+    }
+
+    let html = `
       <div class="asoc-board">
         ${Skeleton.skeletonHTML(state.difficulty)}
     `;

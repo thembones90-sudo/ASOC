@@ -175,18 +175,52 @@
       z-index: 1;
     }
 
-    /* The actual framed play area -- exact same aspect-ratio box the old
-       .public-board rules used to size, now the containing block for the
-       background layer so it can never bleed into #board-layer's own
-       letterboxed centering space above/below it. */
+    /* LOCKED geometry rule: the board is canonically 1900x1267 and that
+       ratio is sacred everywhere it's shown -- it may scale uniformly but
+       must never stretch independently on X or Y. Same two-box split as
+       index.html's #public-view (see that file's css/asoc.css comment for
+       the full "why" -- flex-grow + an explicit width together make
+       aspect-ratio get ignored, since both axes end up independently
+       definite), plus one more wrapper here specifically:
+
+         .public-board-frame -- the AVAILABLE SPACE inside #board-layer.
+           No ratio of its own; just whatever room is left after the
+           trackers/header above it.
+         .public-board-ratio -- the actual RATIO-LOCKED box. Absolutely
+           positioned, inset:0 + margin:auto, NO explicit width/height --
+           only aspect-ratio + max-width/max-height:100%, so the browser
+           computes the largest 1900:1267 rect that fits the frame and
+           centers it (letterboxing, never distortion).
+         #background-layer + #public-board both live INSIDE
+           .public-board-ratio, as siblings, so they share the exact same
+           canonical rectangle. They stay siblings of each other (not
+           nested) because player.js's renderBoard() fully replaces
+           #public-board's innerHTML on every reveal/hide -- nesting the
+           persistent background <img> inside it would reload/flicker it
+           on every single render.
+
+       Previously .public-board itself carried the aspect-ratio AND (via
+       player.js) had the .public-header title/theme text injected inside
+       its own innerHTML -- the header now renders into the separate
+       #public-header-bar sibling above this frame instead. */
     .public-board-frame {
       position: relative;
-      overflow: hidden;
-      border-radius: 8px;
       width: 100%;
       max-width: var(--canvas-width);
-      max-height: var(--canvas-height);
+      flex: 1 1 auto;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    .public-board-ratio {
+      position: absolute;
+      inset: 0;
+      margin: auto;
       aspect-ratio: var(--board-aspect);
+      max-width: 100%;
+      max-height: 100%;
+      overflow: hidden;
+      border-radius: 8px;
     }
 
     .public-board {
@@ -194,12 +228,11 @@
       z-index: 1;
       width: 100%;
       height: 100%;
-      display: flex;
-      flex-direction: column;
     }
 
     .public-board .asoc-board {
-      flex: 1;
+      width: 100%;
+      height: 100%;
     }
 
     .public-header {
@@ -544,9 +577,15 @@
     <div id="board-layer">
       <div class="timer-tracker" id="timer-tracker-player"></div>
       <div class="womf-tracker" id="womf-tracker-player"></div>
+      <!-- Title/theme/difficulty badge live OUTSIDE the sacred 1900x1267
+           board frame -- see .public-board-frame's comment below.
+           Populated by PlayerApp.renderBoard(). -->
+      <div class="public-header" id="public-header-bar"></div>
       <div id="public-board-frame" class="public-board-frame">
-        <img id="background-layer" alt="Game background">
-        <div id="public-board" class="public-board"></div>
+        <div class="public-board-ratio">
+          <img id="background-layer" alt="Game background">
+          <div id="public-board" class="public-board"></div>
+        </div>
       </div>
     </div>
 

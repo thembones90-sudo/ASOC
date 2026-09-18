@@ -779,19 +779,52 @@ html, body {
 }
 
 /* PUBLIC VIEW
-   #public-view is a fixed-fullscreen flex COLUMN: the WOMF tracker and the
-   back button are fixed-height siblings (flex-shrink: 0), and everything
-   in between -- the aspect-ratio-locked .public-board-frame -- takes the
-   remaining vertical space and shrinks to fit it (flex: 1 1 auto +
-   min-height: 0 lets a flex item with aspect-ratio scale down instead of
-   overflowing). Previously .public-board itself carried the aspect-ratio
-   AND contained the .public-header text, so the header's height was added
-   on top of an already-fixed-height box -- on any viewport where
-   tracker + header + the full 1267px-tall board + button didn't all fit,
-   the excess just spilled past the fixed #public-view and got clipped
-   (the BACK TO GAMEMASTER button cut off at the bottom). Mirrors the
-   working .public-board-frame / .public-board split already used in
-   join.html for the player view. */
+   #public-view is a fixed-fullscreen flex COLUMN: the WOMF/Timer trackers,
+   the header (title/theme/difficulty), and the back button are all
+   fixed-height siblings (flex-shrink: 0) OUTSIDE the board frame.
+
+   LOCKED geometry rule: the board is canonically 1900x1267 and that ratio
+   is sacred everywhere it's shown -- it may scale uniformly but must never
+   stretch independently on X or Y. Getting this right needs TWO separate
+   boxes, not one:
+
+     .public-board-frame -- the AVAILABLE SPACE. It just takes whatever
+       room is left in the flex column (flex: 1 1 auto + min-height: 0) and
+       carries NO ratio of its own -- it can legitimately end up any shape
+       (wide, tall, whatever fits the viewport).
+     .public-board -- the actual RATIO-LOCKED box. It's absolutely
+       positioned with inset: 0 + margin: auto inside .public-board-frame,
+       with NO explicit width or height of its own -- only
+       aspect-ratio + max-width: 100% + max-height: 100%. That combination
+       is what lets the browser compute the largest 1900:1267 box that
+       fits inside the available frame and center it there (a JS-free
+       "contain" -- CSS's object-fit doesn't apply to plain divs, only
+       replaced elements like <img>).
+
+   Why not just put aspect-ratio directly on .public-board-frame (one box,
+   like the GM's own #board-layer > .asoc-board pattern)? Because here the
+   frame ALSO needs flex: 1 1 auto to fill the leftover vertical space
+   after the trackers/header/button -- and once flex-grow/shrink resolves
+   a definite height for a flex item that ALSO has an explicit
+   width: 100% (definite), aspect-ratio has nothing left to derive: both
+   axes are already definite, so the ratio is silently ignored and the box
+   just stretches to whatever rectangle flex handed it. (The GM's own
+   #board-layer avoids this because it does NOT flex-grow its board --
+   #main-content just centers a naturally-sized box instead.) Splitting
+   into an unconstrained "available space" outer box and a
+   width/height-auto "ratio" inner box sidesteps that entirely: the inner
+   box never has two independently-definite axes, so aspect-ratio always
+   wins.
+
+   Earlier revisions also put the .public-header title/theme text INSIDE
+   this frame, which added the header's own height on top of a box whose
+   overall shape was meant to be fixed -- the header must render OUTSIDE
+   .public-board-frame entirely (see #public-header-bar in index.html /
+   player-side equivalent in join.html) so nothing but the board itself
+   ever influences the frame's shape. join.html has its own inline copy of
+   this same two-box pattern (plus a further .public-board-ratio wrapper,
+   since it also has a persistent background image sibling) -- keep both
+   in sync. */
 #public-view {
   position: fixed;
   top: 0;
@@ -814,18 +847,18 @@ html, body {
   position: relative;
   width: 100%;
   max-width: var(--canvas-width);
-  max-height: var(--canvas-height);
-  aspect-ratio: var(--board-aspect);
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
 }
 
 .public-board {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  aspect-ratio: var(--board-aspect);
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .public-header {
@@ -852,13 +885,12 @@ html, body {
 }
 
 .public-board .asoc-board {
-  /* Overrides the generic .asoc-board rule's own aspect-ratio/max-height
-     (meant for the standalone GM board) -- here the frame around
-     .public-board already owns the aspect ratio, so the board itself
-     just fills whatever space is left after .public-header, via flex. */
-  flex: 1;
-  min-height: 0;
+  /* .public-board (the absolutely-positioned box above) already IS the
+     exact 1900:1267 rectangle -- the actual .asoc-board content just
+     fills it at 100%/100%, no ratio math of its own needed here. */
+  position: relative;
   width: 100%;
+  height: 100%;
   max-width: none;
   max-height: none;
   aspect-ratio: auto;

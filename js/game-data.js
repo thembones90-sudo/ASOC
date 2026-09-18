@@ -173,10 +173,27 @@ const GameData = {
     return `${column}${row}`;
   },
 
+  // PROGRESSIVE CLUE QUEUE: for rows 1-4, the physical slot's clue is
+  // resolved by that column's reveal-order position (server-authoritative,
+  // mirrored into window.Board.sessionState.clueOrder), NOT by the row
+  // number itself. See server.js's getCellData()/assignClueOrder() for the
+  // canonical logic this mirrors. Row 5 (column solution) is unaffected.
   getCellData(column, row) {
     if (!this.currentGame) return null;
     if (row >= 1 && row <= 4) {
-      return this.currentGame.columns[column]?.clues[row - 1] || '';
+      const order = window.Board && window.Board.sessionState && window.Board.sessionState.clueOrder
+        ? window.Board.sessionState.clueOrder[column]
+        : null;
+      let idx = row - 1;
+      if (order) {
+        const pos = order.indexOf(row);
+        // Not-yet-assigned slot: preview the NEXT clue this column would
+        // hand out (order.length), so GM tooling that reads a cell's data
+        // before it's revealed still shows a sensible upcoming value
+        // rather than always "hardest".
+        idx = pos !== -1 ? pos : order.length;
+      }
+      return this.currentGame.columns[column]?.clues[idx] || '';
     } else if (row === 5) {
       return this.currentGame.columns[column]?.solution || '';
     }

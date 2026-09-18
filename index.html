@@ -182,6 +182,10 @@
   <div id="public-view">
     <div class="timer-tracker" id="timer-tracker-public"></div>
     <div class="womf-tracker" id="womf-tracker-public"></div>
+    <!-- Title/theme/difficulty badge live OUTSIDE the sacred 1900x1267
+         board frame -- see .public-board-frame's comment in css/asoc.css.
+         Populated by App.updatePublicView(). -->
+    <div class="public-header" id="public-header-bar"></div>
     <div class="public-board-frame">
       <div id="public-board" class="public-board"></div>
     </div>
