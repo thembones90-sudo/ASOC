@@ -338,14 +338,11 @@ const App = {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${location.host}`;
 
+    this._protocolReady = false;
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
       console.log('[GM] WebSocket connected');
-      if (this.roomCode && this.hostToken) {
-        this._reconnectPending = true;
-        this.send({ type: 'host:reconnect', roomCode: this.roomCode, hostToken: this.hostToken });
-      }
       this.reconnectAttempts = 0;
     };
 
@@ -448,6 +445,23 @@ const App = {
 
   handleServerMessage(message) {
     switch (message.type) {
+      case 'protocol:hello':
+        this.send({ type: 'protocol:hello', protocolVersion: 1 });
+        break;
+
+      case 'protocol:ready':
+        this._protocolReady = true;
+        if (this.roomCode && this.hostToken) {
+          this._reconnectPending = true;
+          this.send({ type: 'host:reconnect', roomCode: this.roomCode, hostToken: this.hostToken });
+        }
+        break;
+
+      case 'protocol:mismatch':
+        this._protocolReady = false;
+        alert(message.message || 'SYSTEM VERSION MISMATCH // REFRESH REQUIRED');
+        break;
+
       case 'room:created':
         this._hostingInFlight = false;
         this.roomCode = message.roomCode;

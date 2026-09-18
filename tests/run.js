@@ -60,8 +60,19 @@ function waitForMessage(ws, predicate, label, timeout = 3000) {
 function openWs() {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
-    ws.once('open', () => resolve(ws));
     ws.once('error', reject);
+    ws.on('message', function protocolHandshake(data) {
+      let message;
+      try { message = JSON.parse(data.toString()); } catch { return; }
+      if (message.type === 'protocol:hello') {
+        ws.send(JSON.stringify({ type: 'protocol:hello', protocolVersion: 1 }));
+        return;
+      }
+      if (message.type === 'protocol:ready') {
+        ws.off('message', protocolHandshake);
+        resolve(ws);
+      }
+    });
   });
 }
 

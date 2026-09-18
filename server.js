@@ -16,6 +16,7 @@ const MAX_CHAT_LENGTH = 100;
 const MAX_AVATAR_DATA_LENGTH = 200000;
 const CHAT_HISTORY_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
+const PROTOCOL_VERSION = 1;
 
 const mimeTypes = {
   '.html': 'text/html',
@@ -2541,11 +2542,34 @@ server.on('close', () => clearInterval(heartbeatInterval));
 
 wss.on('connection', (ws) => {
   ws.isAlive = true;
+  ws.protocolVerified = false;
   ws.on('pong', () => { ws.isAlive = true; });
+
+  // First packet establishes the wire contract before either side is allowed
+  // to create/join/reconnect a room. This turns stale-browser/stale-server
+  // combinations into an explicit refresh screen instead of mystery
+  // "Unknown message type" failures.
+  sendToWs(ws, { type: 'protocol:hello', protocolVersion: PROTOCOL_VERSION });
 
   ws.on('message', (data) => {
     try {
       const message = JSON.parse(data.toString());
+
+      if (!ws.protocolVerified) {
+        if (message.type !== 'protocol:hello' || message.protocolVersion !== PROTOCOL_VERSION) {
+          sendToWs(ws, {
+            type: 'protocol:mismatch',
+            serverVersion: PROTOCOL_VERSION,
+            clientVersion: message.protocolVersion ?? null,
+            message: 'SYSTEM VERSION MISMATCH // REFRESH REQUIRED'
+          });
+          ws.close(1008, 'Protocol version mismatch');
+          return;
+        }
+        ws.protocolVerified = true;
+        sendToWs(ws, { type: 'protocol:ready', protocolVersion: PROTOCOL_VERSION });
+        return;
+      }
 
       switch (message.type) {
         case 'room:create': {

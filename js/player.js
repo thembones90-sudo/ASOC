@@ -233,23 +233,11 @@ const PlayerApp = {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${location.host}`;
 
+    this._protocolReady = false;
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
       console.log('[PLAYER] WebSocket connected');
-      // Send our previously-issued playerId (if we have one, from
-      // sessionStorage or a prior join:success in this tab) so the server
-      // can reclaim our old identity instead of minting a new one and
-      // leaving a stale "ghost" entry behind for the same person.
-      const joinMessage = {
-        type: 'room:join',
-        roomCode: this.roomCode,
-        name: this.playerName,
-        playerId: this.playerId || undefined
-      };
-      if (this._sendAvatarAppearance) joinMessage.avatarData = this.avatarData;
-      if (this._sendFrameAppearance) joinMessage.frameColor = this.frameColor;
-      this.send(joinMessage);
       this.setConnectionStatus('connecting');
     };
 
@@ -280,6 +268,33 @@ const PlayerApp = {
 
   handleMessage(message) {
     switch (message.type) {
+      case 'protocol:hello':
+        this.send({ type: 'protocol:hello', protocolVersion: 1 });
+        break;
+
+      case 'protocol:ready': {
+        this._protocolReady = true;
+        // Only join after both sides agree on the wire protocol. A stale
+        // browser therefore cannot accidentally issue commands to a newer
+        // server (or vice versa).
+        const joinMessage = {
+          type: 'room:join',
+          roomCode: this.roomCode,
+          name: this.playerName,
+          playerId: this.playerId || undefined
+        };
+        if (this._sendAvatarAppearance) joinMessage.avatarData = this.avatarData;
+        if (this._sendFrameAppearance) joinMessage.frameColor = this.frameColor;
+        this.send(joinMessage);
+        break;
+      }
+
+      case 'protocol:mismatch':
+        this._protocolReady = false;
+        this.setConnectionStatus('disconnected');
+        alert(message.message || 'SYSTEM VERSION MISMATCH // REFRESH REQUIRED');
+        break;
+
       case 'state:public':
         this.lastPublicState = message;
         this.renderBoard(message);
