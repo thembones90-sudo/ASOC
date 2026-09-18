@@ -16,6 +16,10 @@ players.json
 active-rooms.json
 active-rooms.json.tmp-*
 
+# Generated on every npm start so the live checkout can be fingerprinted
+# without creating a dirty Git worktree merely by running the server.
+DEPLOY_MANIFEST.json
+
 players.json.bak
 players.json.corrupt-*
 players.json.tmp-*

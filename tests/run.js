@@ -3,6 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const vm = require('vm');
 const { spawn } = require('child_process');
 const WebSocket = require('ws');
 
@@ -73,6 +74,40 @@ async function createRoom(host) {
 function closeWs(ws) {
   if (!ws) return;
   try { ws.close(); } catch {}
+}
+
+function testShadowBrokerTiming() {
+  const source = fs.readFileSync(path.join(ROOT, 'js', 'skeleton.js'), 'utf8');
+  const context = {
+    window: {},
+    CSS: { supports: () => true },
+    document: { createElement: () => ({ textContent: '', innerHTML: '' }) }
+  };
+  vm.runInNewContext(source, context, { filename: 'js/skeleton.js' });
+  const skeleton = context.window.Skeleton;
+  assert.ok(skeleton);
+  assert.equal(skeleton.BROKER_LINE_HOLD_MIN_MS, 3000);
+  assert.equal(skeleton.BROKER_LINE_HOLD_MAX_MS, 8000);
+  assert.equal(skeleton.BROKER_LINE_HOLD_PER_CHAR_MS, 50);
+
+  const short = 'HELLO';
+  const shortReveal = short.length * skeleton.BROKER_LINE_CHAR_MS;
+  const shortHold = 3000 + short.length * 50;
+  assert.ok(skeleton.shadowBrokerLineState(short, 0, shortReveal + shortHold - 1));
+  assert.equal(
+    skeleton.shadowBrokerLineState(short, 0, shortReveal + shortHold + skeleton.BROKER_LINE_FADE_MS),
+    null
+  );
+
+  const long = 'X'.repeat(100);
+  const longReveal = long.length * skeleton.BROKER_LINE_CHAR_MS;
+  assert.ok(skeleton.shadowBrokerLineState(long, 0, longReveal + 7999));
+  assert.equal(
+    skeleton.shadowBrokerLineState(long, 0, longReveal + 8000 + skeleton.BROKER_LINE_FADE_MS),
+    null
+  );
+
+  console.log('PASS Shadow Broker adaptive timing');
 }
 
 async function testStaticLockdown() {
@@ -156,6 +191,81 @@ async function testResetBroadcast() {
   assert.ok(resetMessages.some(m => m.type === 'players:update'));
 
   console.log('PASS reset board broadcast');
+  closeWs(host);
+}
+
+async function testShadowBrokerControls() {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  const player = await openWs();
+  const joined = waitForMessage(player, m => m.type === 'join:success', 'broker player join');
+  player.send(JSON.stringify({
+    type: 'room:join',
+    roomCode: room.roomCode,
+    name: 'BROKER TEST'
+  }));
+  await joined;
+
+  const hundredChars = 'X'.repeat(100);
+  const exactLimitOnHost = waitForMessage(
+    host,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === hundredChars),
+    '100-char broker broadcast on host'
+  );
+  const exactLimitOnPlayer = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === hundredChars),
+    '100-char broker broadcast on player'
+  );
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: hundredChars }));
+  await Promise.all([exactLimitOnHost, exactLimitOnPlayer]);
+
+  const tooLongError = waitForMessage(
+    host,
+    m => m.type === 'error' && /too long/i.test(m.message || ''),
+    '101-char broker rejection'
+  );
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: 'Y'.repeat(101) }));
+  await tooLongError;
+
+  const replacementText = 'SECOND TRANSMISSION';
+  const replacementUpdate = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === replacementText),
+    'replacement broker broadcast'
+  );
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: replacementText }));
+  await replacementUpdate;
+
+  const clearOnHost = waitForMessage(host, m => m.type === 'shadowBroker:clear', 'broker clear on host');
+  const clearOnPlayer = waitForMessage(player, m => m.type === 'shadowBroker:clear', 'broker clear on player');
+  host.send(JSON.stringify({ type: 'gm:clearBroadcast' }));
+  await Promise.all([clearOnHost, clearOnPlayer]);
+
+  const unauthorizedClear = waitForMessage(
+    player,
+    m => m.type === 'error' && /only host can clear/i.test(m.message || ''),
+    'non-host broker clear rejection'
+  );
+  player.send(JSON.stringify({ type: 'gm:clearBroadcast' }));
+  await unauthorizedClear;
+
+  const reconnect = await openWs();
+  const reconnectChat = waitForMessage(reconnect, m => m.type === 'chat:update', 'broker reconnect chat hydration');
+  reconnect.send(JSON.stringify({
+    type: 'room:join',
+    roomCode: room.roomCode,
+    name: 'BROKER RECONNECT'
+  }));
+  const hydrated = await reconnectChat;
+  assert.ok(hydrated.messages.some(m => m.source === 'shadowBroker' && m.text === hundredChars));
+  assert.ok(hydrated.messages.some(m => m.source === 'shadowBroker' && m.text === replacementText));
+  assert.equal(hydrated.messages.some(m => m.text === 'Y'.repeat(101)), false);
+
+  console.log('PASS Shadow Broker broadcast/clear/boundary regression');
+  closeWs(reconnect);
+  closeWs(player);
   closeWs(host);
 }
 
@@ -285,10 +395,12 @@ function startServer() {
 (async () => {
   let server;
   try {
+    testShadowBrokerTiming();
     server = await startServer();
     await testStaticLockdown();
     await testReconnectIdentity();
     await testResetBroadcast();
+    await testShadowBrokerControls();
     server = await testCrashRecovery(server);
     console.log('ALL ASOC REGRESSION TESTS PASSED');
   } catch (error) {

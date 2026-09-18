@@ -22,6 +22,7 @@ const Board = {
   _brokerLineText: null,
   _brokerLineStartedAt: 0,
   _brokerLineTicker: null,
+  _brokerLineInterruptedUntil: 0,
 
   init(containerSelector) {
     this.container = document.querySelector(containerSelector);
@@ -453,14 +454,18 @@ const Board = {
   // See PlayerApp's identical copy in js/player.js for the full rationale.
   renderShadowBrokerLineHTML() {
     if (!this._brokerLineText) return '';
-    const state = Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, Date.now());
+    const now = Date.now();
+    const state = Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, now);
     if (!state) {
       this._brokerLineText = null;
       return '';
     }
+    const interrupted = now < this._brokerLineInterruptedUntil ? ' sb-interrupted' : '';
+    const interruptElapsed = interrupted ? 220 - (this._brokerLineInterruptedUntil - now) : 0;
+    const interruptStyle = interrupted ? `;animation-delay:-${Math.max(0, interruptElapsed)}ms` : '';
     return `
-      <div class="shadow-broker-board-line" style="${Skeleton.shadowBrokerLineStyle()}">
-        <span class="shadow-broker-board-line-text" style="opacity:${state.opacity.toFixed(3)}">${this.escapeHtml(state.visibleText)}</span>
+      <div class="shadow-broker-board-line${interrupted}" style="${Skeleton.shadowBrokerLineStyle()}">
+        <span class="shadow-broker-board-line-text" style="opacity:${state.opacity.toFixed(3)}${interruptStyle}">${this.escapeHtml(state.visibleText)}</span>
       </div>
     `;
   },
@@ -472,8 +477,14 @@ const Board = {
   // without needing to switch to Public View to check.
   playShadowBrokerBoardLine(text) {
     if (!text) return;
+    const now = Date.now();
+    const wasActive = !!(
+      this._brokerLineText &&
+      Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, now)
+    );
+    this._brokerLineInterruptedUntil = wasActive ? now + 220 : 0;
     this._brokerLineText = text;
-    this._brokerLineStartedAt = Date.now();
+    this._brokerLineStartedAt = now;
 
     if (this._brokerLineTicker) clearInterval(this._brokerLineTicker);
     this._brokerLineTicker = setInterval(() => {
@@ -485,6 +496,17 @@ const Board = {
       }
       this.render();
     }, 40);
+  },
+
+  clearShadowBrokerBoardLine() {
+    this._brokerLineText = null;
+    this._brokerLineStartedAt = 0;
+    this._brokerLineInterruptedUntil = 0;
+    if (this._brokerLineTicker) {
+      clearInterval(this._brokerLineTicker);
+      this._brokerLineTicker = null;
+    }
+    this.render();
   },
 
   createCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null) {

@@ -138,8 +138,10 @@ For A1-A4/B1-B4/C1-C4/D1-D4:
 - free-form TRANSMIT works both with and without a hosted room
 - multiplayer broadcasts still flow through the authoritative `gm:broadcast` server path
 - local-only transmissions never invent a fake multiplayer room
-
-Known optional polish still not implemented: message recall/cancel, adaptive hold time, interrupt transition, character counter.
+- HUD hold time now scales with message length from roughly 3 to 8 seconds
+- replacing an active HUD message plays a brief interruption/glitch transition
+- the GM bar has a live 0/100 character counter
+- host-only CLEAR removes the current HUD transmission on every live surface without deleting chat history or touching scoring/game state
 
 ---
 
@@ -154,6 +156,8 @@ npx @wonderwhy-er/desktop-commander@latest remote
 The current project OpenCode config still defaults to Nemotron in `opencode.json`. `opencode/big-pickle` is available, but the attempted default-model switch did not land.
 
 Server-side edits require a Node server restart before the live port 8080 process uses them. Client JS/CSS is read from disk on request, so a browser refresh loads those changes.
+
+`npm start` now runs `scripts/generate-deploy-manifest.js` first. It writes ignored runtime file `DEPLOY_MANIFEST.json` with generation time, current Git SHA, deployed/tracked paths, sizes, and SHA-256 hashes. Use `npm run deploy:manifest` to regenerate it manually.
 
 ---
 

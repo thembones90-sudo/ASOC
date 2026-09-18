@@ -55,6 +55,7 @@ const App = {
   _brokerLineText: null,
   _brokerLineStartedAt: 0,
   _brokerLineTicker: null,
+  _brokerLineInterruptedUntil: 0,
   _chatEverInitialized: false,
   // "TRANSMIT clicked while not hosting" cosmetic-only feedback state --
   // see flashShadowBrokerNoRoom(). Not synced with anything, not sent
@@ -228,6 +229,13 @@ const App = {
       e.preventDefault();
       this.sendShadowBrokerBroadcast();
     });
+    document.getElementById('shadow-broker-input')?.addEventListener('input', () => {
+      this.updateShadowBrokerCounter();
+    });
+    document.getElementById('shadow-broker-clear-btn')?.addEventListener('click', () => {
+      this.clearShadowBrokerBroadcast();
+    });
+    this.updateShadowBrokerCounter();
 
     // FAIL K ("K" is this GM's own shorthand for the Final/"Kraj" slot) --
     // lives in the WOMF section alongside FAIL A-D now, replacing the old
@@ -533,6 +541,11 @@ const App = {
         this.renderGMChat();
         break;
       }
+
+      case 'shadowBroker:clear':
+        this.clearShadowBrokerBoardLine();
+        Board.clearShadowBrokerBoardLine();
+        break;
 
       case 'command:ack':
         this.pendingCommands.delete(message.cmdId);
@@ -1343,14 +1356,18 @@ const App = {
   // so it's never stale relative to whatever else just changed.
   renderShadowBrokerLineHTML() {
     if (!this._brokerLineText) return '';
-    const state = Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, Date.now());
+    const now = Date.now();
+    const state = Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, now);
     if (!state) {
       this._brokerLineText = null;
       return '';
     }
+    const interrupted = now < this._brokerLineInterruptedUntil ? ' sb-interrupted' : '';
+    const interruptElapsed = interrupted ? 220 - (this._brokerLineInterruptedUntil - now) : 0;
+    const interruptStyle = interrupted ? `;animation-delay:-${Math.max(0, interruptElapsed)}ms` : '';
     return `
-      <div class="shadow-broker-board-line" style="${Skeleton.shadowBrokerLineStyle()}">
-        <span class="shadow-broker-board-line-text" style="opacity:${state.opacity.toFixed(3)}">${this.escapeHtml(state.visibleText)}</span>
+      <div class="shadow-broker-board-line${interrupted}" style="${Skeleton.shadowBrokerLineStyle()}">
+        <span class="shadow-broker-board-line-text" style="opacity:${state.opacity.toFixed(3)}${interruptStyle}">${this.escapeHtml(state.visibleText)}</span>
       </div>
     `;
   },
@@ -1362,8 +1379,14 @@ const App = {
   // renderShadowBrokerLineHTML()'s time-based computation.
   playShadowBrokerBoardLine(text) {
     if (!text) return;
+    const now = Date.now();
+    const wasActive = !!(
+      this._brokerLineText &&
+      Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, now)
+    );
+    this._brokerLineInterruptedUntil = wasActive ? now + 220 : 0;
     this._brokerLineText = text;
-    this._brokerLineStartedAt = Date.now();
+    this._brokerLineStartedAt = now;
 
     if (this._brokerLineTicker) clearInterval(this._brokerLineTicker);
     this._brokerLineTicker = setInterval(() => {
@@ -1375,6 +1398,17 @@ const App = {
       }
       this.updatePublicView();
     }, 40);
+  },
+
+  clearShadowBrokerBoardLine() {
+    this._brokerLineText = null;
+    this._brokerLineStartedAt = 0;
+    this._brokerLineInterruptedUntil = 0;
+    if (this._brokerLineTicker) {
+      clearInterval(this._brokerLineTicker);
+      this._brokerLineTicker = null;
+    }
+    this.updatePublicView();
   },
 
   createPublicCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null, flourish = false) {
@@ -1671,9 +1705,28 @@ const App = {
     }
 
     input.value = '';
+    this.updateShadowBrokerCounter();
     // Keep focus in the box so pressing Enter to send another transmission
     // right away works without the operator having to reclick into it.
     input.focus();
+  },
+
+  updateShadowBrokerCounter() {
+    const input = document.getElementById('shadow-broker-input');
+    const counter = document.getElementById('shadow-broker-count');
+    if (!input || !counter) return;
+    counter.textContent = `${input.value.length}/100`;
+    counter.classList.toggle('at-limit', input.value.length >= 100);
+  },
+
+  clearShadowBrokerBroadcast() {
+    const input = document.getElementById('shadow-broker-input');
+    this.clearShadowBrokerBoardLine();
+    Board.clearShadowBrokerBoardLine();
+    if (this.mode === 'multiplayer' && this.roomCode) {
+      this.send({ type: 'gm:clearBroadcast' });
+    }
+    if (input) input.focus();
   },
 
   flashShadowBrokerNoRoom() {

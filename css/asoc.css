@@ -415,15 +415,10 @@ html, body {
   }
 
   /* SHADOW BROKER BOARD LINE -- positioned via Skeleton.shadowBrokerLineStyle(),
-     same cqw/cqh technique as every board-cell slot. Deliberately NOT a
-     bubble: no background, no border, no box -- a plain HUD readout line
-     sitting in the open space above the avatar. Condensed command-terminal
-     font stack (no external font file/CDN -- Bahnschrift ships with
-     Windows, Arial Narrow/sans-serif cover everywhere else), a faint
-     purple glow matching the avatar's own eye/ring color. z-index matches
-     .board-cell so it layers above the skeleton art the same way. The
-     GM-written text itself is never forced uppercase -- it renders
-     exactly as typed, same rule as the chat-panel transmission bubble. */
+     same cqw/cqh technique as every board-cell slot. The outer slot is only
+     positioning; the text span itself carries the compact gunmetal command
+     plaque so its width follows the actual transmission. z-index matches
+     .board-cell so it layers above the skeleton art the same way. */
   .asoc-board .shadow-broker-board-line {
     position: absolute;
     z-index: 2;
@@ -434,25 +429,43 @@ html, body {
     text-align: center;
   }
 
-  /* A light plate behind the text -- readable against any board background
-     image, not just plain black. Lives on the text span itself (not the
-     outer .shadow-broker-board-line container) so it shrink-wraps to
-     whatever the Broker actually said instead of drawing a fixed-width
-     bar across the slot. Text switches to a dark, saturated purple here
-     -- the old pale-purple-with-glow treatment was tuned for a dark
-     backdrop and reads as almost invisible on a light plate. */
+  /* Shadow Broker transmission plate: compact gunmetal command plaque.
+     Agency FB Bold is available on the host and gives the sharper military-
+     industrial silhouette this identity needs without adding a webfont/CDN. */
   .asoc-board .shadow-broker-board-line-text {
-    font-family: "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+    font-family: "Agency FB", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
     font-size: var(--asoc-font, 1.6cqh);
     font-weight: 700;
-    letter-spacing: 0.06em;
-    color: #3a1256;
-    background: rgba(250, 246, 255, 0.92);
-    padding: 0.2em 0.6em;
-    border-radius: 4px;
-    border: 1px solid rgba(155, 93, 224, 0.55);
-    box-shadow: 0 0 12px rgba(155, 93, 224, 0.45);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #e7e9ef;
+    text-shadow: 0 0 5px rgba(167, 92, 224, 0.34);
+    background:
+      linear-gradient(180deg,
+        rgba(63, 68, 78, 0.97) 0%,
+        rgba(31, 34, 41, 0.97) 48%,
+        rgba(13, 15, 19, 0.98) 100%);
+    padding: 0.18em 0.68em 0.22em;
+    border-radius: 5px;
+    border: 1px solid rgba(194, 199, 210, 0.9);
+    box-shadow:
+      inset 0 0 0 1px rgba(155, 93, 224, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.65),
+      0 0 10px rgba(155, 93, 224, 0.28),
+      0 3px 8px rgba(0, 0, 0, 0.45);
     white-space: nowrap;
+  }
+
+  @keyframes shadow-broker-board-interrupt {
+    0% { transform: translateX(-3px); filter: contrast(1.6) brightness(1.35); clip-path: inset(0 0 58% 0); }
+    35% { transform: translateX(4px); clip-path: inset(35% 0 12% 0); }
+    70% { transform: translateX(-2px); filter: contrast(1.25) brightness(1.12); clip-path: inset(8% 0 25% 0); }
+    100% { transform: translateX(0); filter: none; clip-path: inset(0); }
+  }
+
+  .asoc-board .shadow-broker-board-line.sb-interrupted .shadow-broker-board-line-text {
+    animation: shadow-broker-board-interrupt 220ms steps(2, end);
   }
 
   .asoc-board.skeleton-fallback {
@@ -1155,6 +1168,35 @@ html, body {
 .shadow-broker-input:focus {
   outline: none;
   border-color: #9b5de0;
+}
+
+.shadow-broker-count {
+  min-width: 44px;
+  text-align: right;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.shadow-broker-count.at-limit {
+  color: #e8b35b;
+  text-shadow: 0 0 7px rgba(232, 179, 91, 0.35);
+}
+
+.shadow-broker-clear-btn {
+  flex-shrink: 0;
+  padding: 9px 13px;
+  font-size: 0.68rem;
+  border-color: #5b5363;
+  color: #aaa3b1;
+}
+
+.shadow-broker-clear-btn:hover {
+  border-color: #8b7d96;
+  color: #ded8e5;
+  background: rgba(140, 125, 151, 0.12);
 }
 
 .shadow-broker-send-btn {

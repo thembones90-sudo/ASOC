@@ -1823,6 +1823,22 @@ function handleGmBroadcast(ws, message) {
   }
 }
 
+// CLEAR is deliberately ephemeral presentation state. It tells every live
+// surface to remove the current HUD transmission, while leaving the
+// authoritative chat history, scoring, timer, reveals, and player state alone.
+function handleGmClearBroadcast(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can clear a Shadow Broker transmission' });
+    return;
+  }
+  broadcastToRoom(room, { type: 'shadowBroker:clear', timestamp: Date.now() });
+}
+
 function handleJudgeGuess(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -2503,6 +2519,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:broadcast': {
           handleGmBroadcast(ws, message);
+          break;
+        }
+        case 'gm:clearBroadcast': {
+          handleGmClearBroadcast(ws);
           break;
         }
         case 'gm:switchGame': {

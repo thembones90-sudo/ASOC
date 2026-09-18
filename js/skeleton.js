@@ -271,14 +271,20 @@ const Skeleton = (() => {
   // (text, startedAt, now) rather than accumulated imperatively. Returns
   // null once the transmission has fully revealed, held, and faded out.
   const BROKER_LINE_CHAR_MS = 30;
-  const BROKER_LINE_HOLD_MS = 5000;
+  const BROKER_LINE_HOLD_MIN_MS = 3000;
+  const BROKER_LINE_HOLD_MAX_MS = 8000;
+  const BROKER_LINE_HOLD_PER_CHAR_MS = 50;
   const BROKER_LINE_FADE_MS = 500;
 
   function shadowBrokerLineState(text, startedAt, now) {
     if (!text) return null;
     const elapsed = now - startedAt;
     const revealMs = text.length * BROKER_LINE_CHAR_MS;
-    const fadeStart = revealMs + BROKER_LINE_HOLD_MS;
+    const holdMs = Math.min(
+      BROKER_LINE_HOLD_MAX_MS,
+      Math.max(BROKER_LINE_HOLD_MIN_MS, BROKER_LINE_HOLD_MIN_MS + text.length * BROKER_LINE_HOLD_PER_CHAR_MS)
+    );
+    const fadeStart = revealMs + holdMs;
     const fadeEnd = fadeStart + BROKER_LINE_FADE_MS;
     if (elapsed >= fadeEnd) return null;
 
@@ -376,7 +382,9 @@ const Skeleton = (() => {
     shadowBrokerLineStyle,
     shadowBrokerLineState,
     BROKER_LINE_CHAR_MS,
-    BROKER_LINE_HOLD_MS,
+    BROKER_LINE_HOLD_MIN_MS,
+    BROKER_LINE_HOLD_MAX_MS,
+    BROKER_LINE_HOLD_PER_CHAR_MS,
     BROKER_LINE_FADE_MS,
     shadowBrokerTransmissionHTML
   };
