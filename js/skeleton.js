@@ -107,14 +107,15 @@ const Skeleton = (() => {
   // on .cell-content, so bumping the CSS alone (as a prior pass did) has
   // no visible effect here.
   const RATIO_CLUE = 0.74;       // A1-D4
-  const RATIO_SOLUTION = 0.82;   // A5/B5/C5/D5: column solutions, bigger still
-  const RATIO_FINAL = 0.78;      // FINAL: inside the inner dark pill
+  const RATIO_SOLUTION = 0.82;   // A5/B5/C5/D5: column solutions
+  const RATIO_FINAL = 0.98;      // FINAL: deliberately dominant, the king reveal
+  const HORIZONTAL_STRETCH = 1.20;
 
   // Bolder across the board for visibility -- solutions and FINAL carry
   // the most weight since they're the "big reveal" moments.
   const WEIGHT_CLUE = 700;
   const WEIGHT_SOLUTION = 800;
-  const WEIGHT_FINAL = 800;
+  const WEIGHT_FINAL = 900;
 
   function kindOf(label) {
     if (label === 'FINAL') return 'final';
@@ -202,12 +203,9 @@ const Skeleton = (() => {
       //    height and reads from across the room.
       const baseFont = Math.max(4, pillH * ratioFor(label));
       txt.style.fontSize = baseFont + 'px';
-      // 1.15 (not 1) on purpose: at line-height 1, several UI fonts (Segoe UI
-      // bold in particular) render glyph ink taller than the nominal em box,
-      // so scrollHeight under-reports the true rendered height and the pill's
-      // own overflow can end up slicing through ascenders/descenders. 1.15
-      // gives that headroom; the 0.85 budget below adds a further margin.
-      txt.style.lineHeight = '1.15';
+      // Barlow Condensed is self-hosted and deterministic now, so the
+      // tighter line box keeps the visible uppercase ink centered cleanly.
+      txt.style.lineHeight = '1';
       txt.style.fontWeight = String(weightFor(label));
 
       // 2) Shrink ONLY when the rendered text exceeds the usable pill
@@ -216,10 +214,15 @@ const Skeleton = (() => {
       //    has to compensate). Short words stay untouched at scale 1.
       const maxW = Math.max(4, (pillW - padL - padR) * 0.94);
       let scale = 1;
-      const tw = txt.scrollWidth;
+      // CSS stretches every word 20% horizontally. scrollWidth reports the
+      // unscaled layout width, so include that stretch in overflow fitting.
+      const tw = txt.scrollWidth * HORIZONTAL_STRETCH;
       if (tw > maxW) scale = maxW / tw;
       const th = txt.scrollHeight;
-      if (th > pillH * 0.9) scale = Math.min(scale, (pillH * 0.9) / th);
+      const heightBudget = kindOf(label) === 'final' ? 1.05 : 0.9;
+      if (th > pillH * heightBudget) {
+        scale = Math.min(scale, (pillH * heightBudget) / th);
+      }
 
       if (scale < 1) {
         txt.style.transformOrigin = 'center center';

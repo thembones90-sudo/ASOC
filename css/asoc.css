@@ -277,10 +277,11 @@ textarea {
   letter-spacing: 0.72px;
   line-height: 1;
   /* Optical text correction only: keep every canonical pill/slot fixed.
-     Barlow Condensed sits slightly high in its em box, and the board artwork
-     reads better with the visible glyphs nudged ~0.6% of board width right.
-     Neither correction changes pill geometry or hit areas. */
-  translate: 0.60cqw 0.10em;
+     The visible glyphs sit ~3 mm right and ~2 mm lower on the canonical
+     1900x1267 stage. The 20% horizontal stretch is presentation-only too:
+     no pill geometry or hit area moves. */
+  translate: 0.60cqw calc(0.10em + 0.60cqh);
+  scale: 1.20 1;
   color: var(--text-primary);
   word-wrap: break-word;
   max-width: 100%;
@@ -300,11 +301,16 @@ textarea {
 /* Final solution ("K") -- same green-default/red-on-fail model as the
    column solutions; gold is no longer used here. */
 .board-cell.final-solution .cell-content {
-  color: #2ecc71;
-  font-weight: 700;
-  font-size: clamp(1.55rem, 3.8vw, 2.3rem);
-  letter-spacing: 2.4px;
+  color: #4cff94;
+  font-weight: 900;
+  font-size: clamp(1.8rem, 4.4vw, 2.8rem);
+  letter-spacing: 3px;
   text-transform: uppercase;
+  text-shadow:
+    0 0 6px currentColor,
+    0 0 16px currentColor,
+    0 0 28px rgba(255, 255, 255, 0.16);
+  filter: brightness(1.12);
 }
 
 /* FINAL SOLUTION REVEAL FLOURISH -- Public View / join.html only (see
@@ -419,10 +425,15 @@ textarea {
   }
 
   .asoc-board .board-cell.final-solution .cell-content {
-    color: #2ecc71;
-    font-weight: 700;
+    color: #4cff94;
+    font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 2.4px;
+    letter-spacing: 3px;
+    text-shadow:
+      0 0 6px currentColor,
+      0 0 16px currentColor,
+      0 0 28px rgba(255, 255, 255, 0.16);
+    filter: brightness(1.12);
   }
 
   /* SHADOW BROKER BOARD LINE -- positioned via Skeleton.shadowBrokerLineStyle(),
