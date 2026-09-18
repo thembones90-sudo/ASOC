@@ -21,6 +21,8 @@ const path = require('path');
 const PLAYERS_FILE = process.env.ASOC_PLAYERS_FILE
   ? path.resolve(process.env.ASOC_PLAYERS_FILE)
   : path.join(__dirname, 'players.json');
+const PLAYERS_BACKUP_FILE = PLAYERS_FILE + '.bak';
+let storageHealthy = true;
 
 function normalizeNameKey(name) {
   return String(name || '').trim().toLocaleLowerCase();
@@ -50,28 +52,164 @@ function blankProfile(displayName) {
   };
 }
 
-function loadPlayers() {
+const NUMERIC_PROFILE_FIELDS = [
+  'lifetimeScore',
+  'gamesPlayed',
+  'gamesWon',
+  'columnSolutions',
+  'oneClueColumnSolutions',
+  'finalSolutions',
+  'earlyFinalSolutions',
+  'bestColumnStreak',
+  'purpleSolves',
+  'blackSolves'
+];
+
+function validateAndNormalizePlayers(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('Player database root must be an object');
+  }
+
+  const normalized = {};
+  for (const [key, candidate] of Object.entries(raw)) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      throw new Error(`Invalid player profile at key "${key}"`);
+    }
+
+    const fallbackName = String(key || '').trim();
+    const displayName = typeof candidate.name === 'string' && candidate.name.trim()
+      ? candidate.name.trim()
+      : fallbackName;
+    if (!displayName) throw new Error(`Player profile "${key}" has no valid name`);
+
+    const base = blankProfile(displayName);
+    const profile = { ...base, ...candidate };
+
+    profile.name = displayName;
+    if (typeof profile.id !== 'string' || !profile.id.trim()) profile.id = fallbackName || normalizeNameKey(displayName);
+    if (typeof profile.createdAt !== 'string') profile.createdAt = base.createdAt;
+    if (typeof profile.lastPlayed !== 'string') profile.lastPlayed = base.lastPlayed;
+
+    for (const field of NUMERIC_PROFILE_FIELDS) {
+      if (candidate[field] === undefined) {
+        profile[field] = 0;
+      } else if (!Number.isFinite(candidate[field])) {
+        throw new Error(`Player profile "${key}" has invalid numeric field "${field}"`);
+      }
+    }
+
+    if (candidate.earliestFinalColumnsKnown === undefined) {
+      profile.earliestFinalColumnsKnown = null;
+    } else if (
+      candidate.earliestFinalColumnsKnown !== null &&
+      !Number.isFinite(candidate.earliestFinalColumnsKnown)
+    ) {
+      throw new Error(`Player profile "${key}" has invalid earliestFinalColumnsKnown`);
+    }
+
+    normalized[key] = profile;
+  }
+
+  return normalized;
+}
+
+function readPlayersFile(filePath) {
+  const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  return validateAndNormalizePlayers(parsed);
+}
+
+function writeJsonAtomic(filePath, value) {
+  const tmpFile = filePath + '.tmp-' + process.pid + '-' + Date.now();
   try {
-    if (!fs.existsSync(PLAYERS_FILE)) return {};
-    const raw = JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8'));
-    return raw && typeof raw === 'object' ? raw : {};
-  } catch (e) {
-    console.error('[player-store] Failed to read players.json, starting empty:', e.message);
-    return {};
+    fs.writeFileSync(tmpFile, JSON.stringify(value, null, 2), 'utf8');
+    fs.renameSync(tmpFile, filePath);
+  } catch (error) {
+    try { fs.unlinkSync(tmpFile); } catch {}
+    throw error;
   }
 }
 
-// Write-temp-then-rename: a crash or power loss mid-write leaves the old
-// players.json intact (rename is atomic on the same filesystem) instead of
-// a half-written, corrupt file.
-function savePlayersAtomic(players) {
-  const tmpFile = PLAYERS_FILE + '.tmp-' + process.pid + '-' + Date.now();
+function loadPlayers() {
+  if (!fs.existsSync(PLAYERS_FILE)) {
+    if (!fs.existsSync(PLAYERS_BACKUP_FILE)) {
+      storageHealthy = true;
+      return {};
+    }
+
+    try {
+      const backup = readPlayersFile(PLAYERS_BACKUP_FILE);
+      writeJsonAtomic(PLAYERS_FILE, backup);
+      storageHealthy = true;
+      console.warn('[player-store] Restored players.json from backup because the main file was missing.');
+      return backup;
+    } catch (backupError) {
+      storageHealthy = false;
+      console.error('[player-store] Main player database is missing and backup is unusable:', backupError.message);
+      return {};
+    }
+  }
+
   try {
-    fs.writeFileSync(tmpFile, JSON.stringify(players, null, 2), 'utf8');
-    fs.renameSync(tmpFile, PLAYERS_FILE);
-  } catch (e) {
-    console.error('[player-store] Failed to save players.json:', e.message);
-    try { fs.unlinkSync(tmpFile); } catch (e2) {}
+    const players = readPlayersFile(PLAYERS_FILE);
+    storageHealthy = true;
+    return players;
+  } catch (mainError) {
+    console.error('[player-store] players.json is corrupt or invalid:', mainError.message);
+
+    if (!fs.existsSync(PLAYERS_BACKUP_FILE)) {
+      storageHealthy = false;
+      console.error('[player-store] No valid backup exists. Refusing future writes until the database is repaired.');
+      return {};
+    }
+
+    try {
+      const backup = readPlayersFile(PLAYERS_BACKUP_FILE);
+      const corruptPath = PLAYERS_FILE + '.corrupt-' + Date.now();
+      fs.renameSync(PLAYERS_FILE, corruptPath);
+      writeJsonAtomic(PLAYERS_FILE, backup);
+      storageHealthy = true;
+      console.warn(`[player-store] Recovered from backup. Corrupt file preserved as ${path.basename(corruptPath)}`);
+      return backup;
+    } catch (backupError) {
+      storageHealthy = false;
+      console.error('[player-store] Backup is also unusable. Refusing future writes:', backupError.message);
+      return {};
+    }
+  }
+}
+
+function savePlayersAtomic(players) {
+  let normalized;
+  try {
+    normalized = validateAndNormalizePlayers(players);
+  } catch (error) {
+    console.error('[player-store] Refusing to save invalid player data:', error.message);
+    return false;
+  }
+
+  if (!storageHealthy) {
+    console.error('[player-store] Refusing to write because storage is in a protected unhealthy state.');
+    return false;
+  }
+
+  try {
+    if (fs.existsSync(PLAYERS_FILE)) {
+      const previousGood = readPlayersFile(PLAYERS_FILE);
+      writeJsonAtomic(PLAYERS_BACKUP_FILE, previousGood);
+    }
+
+    writeJsonAtomic(PLAYERS_FILE, normalized);
+
+    if (!fs.existsSync(PLAYERS_BACKUP_FILE)) {
+      writeJsonAtomic(PLAYERS_BACKUP_FILE, normalized);
+    }
+
+    storageHealthy = true;
+    return true;
+  } catch (error) {
+    storageHealthy = false;
+    console.error('[player-store] Failed to save players.json safely:', error.message);
+    return false;
   }
 }
 

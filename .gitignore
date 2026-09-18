@@ -15,3 +15,7 @@ players.json
 # Active multiplayer crash-recovery snapshot -- runtime state only.
 active-rooms.json
 active-rooms.json.tmp-*
+
+players.json.bak
+players.json.corrupt-*
+players.json.tmp-*

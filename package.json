@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node tests/run.js"
+    "test": "node tests/player-store-protection.js && node tests/run.js"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
