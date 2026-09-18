@@ -265,7 +265,8 @@ html, body {
 /* CELL CONTENT */
 .cell-content {
   font-family: 'Barlow Condensed', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  font-size: clamp(0.85rem, 2vw, 1.15rem);
+  font-size: clamp(0.95rem, 2.3vw, 1.3rem);
+  letter-spacing: 0.4px;
   line-height: 1.15;
   color: var(--text-primary);
   word-wrap: break-word;
@@ -273,17 +274,23 @@ html, body {
   transition: opacity 0.25s ease, visibility 0.25s ease;
 }
 
+/* Revealed column solutions (A5-D5) default to green -- red only when
+   WOMF-tagged 'failed' via the .outcome-failed override further down
+   this file (kept at equal selector specificity so source order wins). */
 .board-cell.solution-cell .cell-content {
-  color: var(--text-solution);
+  color: #2ecc71;
   font-weight: 700;
-  font-size: clamp(0.95rem, 2.3vw, 1.35rem);
+  font-size: clamp(1.05rem, 2.6vw, 1.5rem);
+  letter-spacing: 0.6px;
 }
 
+/* Final solution ("K") -- same green-default/red-on-fail model as the
+   column solutions; gold is no longer used here. */
 .board-cell.final-solution .cell-content {
-  color: var(--text-final);
+  color: #2ecc71;
   font-weight: 700;
-  font-size: clamp(1.2rem, 3vw, 1.8rem);
-  letter-spacing: 1px;
+  font-size: clamp(1.35rem, 3.4vw, 2.05rem);
+  letter-spacing: 1.5px;
   text-transform: uppercase;
 }
 
@@ -358,8 +365,9 @@ html, body {
   .asoc-board .cell-content {
     display: inline-block;
     font-family: 'Barlow Condensed', 'Segoe UI', system-ui, -apple-system, sans-serif;
-    font-size: var(--asoc-font, 1.8cqh);
+    font-size: var(--asoc-font, 2.1cqh);
     font-weight: 600;
+    letter-spacing: 0.4px;
     line-height: 1.15;
     white-space: nowrap;
     overflow-wrap: normal;
@@ -373,15 +381,16 @@ html, body {
   }
 
   .asoc-board .board-cell.solution-cell .cell-content {
-    color: var(--text-solution);
+    color: #2ecc71;
     font-weight: 700;
+    letter-spacing: 0.6px;
   }
 
   .asoc-board .board-cell.final-solution .cell-content {
-    color: var(--text-final);
+    color: #2ecc71;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
   }
 
   .asoc-board.skeleton-fallback {
@@ -511,6 +520,28 @@ html, body {
   color: #2ecc71;
 }
 
+/* WOMF-failed override -- a revealed solution/final slot that was force-
+   revealed via a declared column/Final failure reads red instead of the
+   normal green-when-revealed color. Three classes here out-specifies the
+   two-class ".revealed" rules above regardless of source order. */
+.gm-cell-btn.revealed.outcome-failed {
+  background: rgba(231, 76, 60, 0.2);
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.gm-cell-btn.solution-btn.revealed.outcome-failed {
+  background: rgba(231, 76, 60, 0.25);
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.gm-cell-btn.final-btn.revealed.outcome-failed {
+  background: rgba(231, 76, 60, 0.3);
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
 .gm-cell-btn:active {
   transform: scale(0.98);
 }
@@ -526,6 +557,18 @@ html, body {
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   margin-bottom: 16px;
+}
+
+/* WOMF fail-declare row: FAIL A/B/C/D keep the inherited 4-column grid,
+   FAIL K (the Final) gets its own full-width row underneath rather than
+   wrapping awkwardly into a 5th narrow column. */
+.womf-fail-grid {
+  margin-bottom: 8px;
+}
+
+.womf-fail-grid #womf-fail-final-btn {
+  grid-column: 1 / -1;
+  margin-top: 2px;
 }
 
 .gm-col-btn {

@@ -255,7 +255,8 @@ const PlayerApp = {
 
     const finalRevealed = state.finalSolution?.revealed === true;
     const finalContent = finalRevealed ? (state.finalSolution.value || '—') : '???';
-    html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true);
+    const finalOutcome = state.finalSolution?.outcome || null;
+    html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome);
 
     html += '</div>';
     publicBoard.innerHTML = html;

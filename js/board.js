@@ -20,7 +20,12 @@ const Board = {
       // Per-cell equivalent of a WOMF-declared column failure -- only ever
       // set on a solution slot (A5/B5/C5/D5) by the server, keyed by cell
       // key, value 'failed'. See getCellOutcome()/applyServerState().
-      cellOutcomes: {}
+      cellOutcomes: {},
+      // 'success' | 'failed' | null -- mirrors the server's
+      // sessionState.finalOutcome (already sent as state.finalSolution.outcome
+      // in every state:public broadcast). Drives the same green/red
+      // treatment as cellOutcomes, just for the FINAL slot specifically.
+      finalOutcome: null
     };
     this.history = [];
     this._bulkAction = false;
@@ -43,6 +48,10 @@ const Board = {
   getCellOutcome(column, row) {
     const key = this.getCellKey(column, row);
     return (this.sessionState.cellOutcomes && this.sessionState.cellOutcomes[key]) || null;
+  },
+
+  getFinalOutcome() {
+    return this.sessionState.finalOutcome || null;
   },
 
   isFinalRevealed() {
@@ -248,6 +257,7 @@ const Board = {
     const revealed = this.sessionState.finalSolution === true;
     cell.classList.toggle('hidden', !revealed);
     cell.classList.toggle('revealed', revealed);
+    cell.classList.toggle('outcome-failed', this.getFinalOutcome() === 'failed');
   },
 
   updateGMButtons() {
@@ -259,10 +269,12 @@ const Board = {
       if (column && row) {
         const revealed = this.isRevealed(column, row);
         btn.classList.toggle('revealed', revealed);
+        btn.classList.toggle('outcome-failed', this.getCellOutcome(column, row) === 'failed');
         if (wordEl) wordEl.textContent = game ? (window.GameData.getCellData(column, row) || '') : '';
       } else if (btn.dataset.final === 'true') {
         const revealed = this.isFinalRevealed();
         btn.classList.toggle('revealed', revealed);
+        btn.classList.toggle('outcome-failed', this.getFinalOutcome() === 'failed');
         if (wordEl) wordEl.textContent = game ? (window.GameData.getFinalSolution() || '') : '';
       }
     });
@@ -348,9 +360,14 @@ const Board = {
       html += this.createCellHTML(key, content, isSolution, revealed, `${col}5`, false, outcome);
     });
 
-    const finalContent = game.finalSolution || '';
     const finalRevealed = this.isFinalRevealed();
-    html += this.createCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true);
+    // Never put the real Final Solution word in the DOM while it's hidden
+    // -- "???" at all times until it's actually revealed (by a correct
+    // guess, a GM reveal, or a future timer expiry), same placeholder the
+    // Public View and player join.html already use.
+    const finalContent = finalRevealed ? (game.finalSolution || '') : '???';
+    const finalOutcome = this.getFinalOutcome();
+    html += this.createCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome);
 
     return Skeleton.skeletonHTML(game.difficulty) + html;
   },
@@ -381,7 +398,7 @@ const Board = {
   },
 
   setSessionState(state) {
-    this.sessionState = state || { cells: {}, finalSolution: false, cellOutcomes: {} };
+    this.sessionState = state || { cells: {}, finalSolution: false, cellOutcomes: {}, finalOutcome: null };
     this.history = [];
     this.render();
   },

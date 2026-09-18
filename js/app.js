@@ -71,7 +71,7 @@ const App = {
       Forge.init();
       this.populateBackgroundSelector();
       Board.init('#asoc-board');
-      this.applyBackground(GameData.currentGame?.background);
+      this.applyPersistedOrDefaultBackground();
       this.updatePublicView();
       this.updateWomfTracker();
       this.connectWebSocket();
@@ -101,9 +101,7 @@ const App = {
     this.updatePublicView();
     this.updateGameInfo();
     this.populateBackgroundSelector();
-    if (GameData.currentGame?.background) {
-      this.applyBackground(GameData.currentGame.background);
-    }
+    this.applyPersistedOrDefaultBackground();
     document.title = `ASOC Engine - ${GameData.currentGame.title}`;
   },
 
@@ -166,7 +164,12 @@ const App = {
     document.getElementById('host-room-btn').addEventListener('click', () => this.hostRoom());
     document.getElementById('close-room-btn').addEventListener('click', () => this.closeRoom());
 
-    document.getElementById('declare-final-failed-btn').addEventListener('click', () => this.declareFinalFailed());
+    // FAIL K ("K" is this GM's own shorthand for the Final/"Kraj" slot) --
+    // lives in the WOMF section alongside FAIL A-D now, replacing the old
+    // standalone DECLARE FINAL FAILED button under Scoring. Same action.
+    document.getElementById('womf-fail-final-btn')?.addEventListener('click', () => this.declareFinalFailed());
+    document.getElementById('womf-subtract-btn')?.addEventListener('click', () => this.declareWomfSubtract());
+    document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
     document.getElementById('alltime-toggle-btn').addEventListener('click', () => this.toggleAllTimeView());
     document.getElementById('womf-open-btn')?.addEventListener('click', () => this.openWomf());
 
@@ -384,7 +387,10 @@ const App = {
           this.updateGameInfo();
           this.populateBackgroundSelector();
           if (GameData.currentGame.background) {
-            this.applyBackground(GameData.currentGame.background);
+            // Multiplayer, server-driven game switch -- never persists as
+            // the GM's local override (see applyBackground's `persist`
+            // param).
+            this.applyBackground(GameData.currentGame.background, false);
             const bgSelect = document.getElementById('bg-select');
             const option = Array.from(bgSelect.options).find(o => o.value === GameData.currentGame.background);
             if (option) option.selected = true;
@@ -481,7 +487,8 @@ const App = {
     const newSessionState = {
       cells: {},
       finalSolution: state.finalSolution?.revealed === true,
-      cellOutcomes: {}
+      cellOutcomes: {},
+      finalOutcome: state.finalSolution?.outcome || null
     };
 
     Object.entries(state.cells).forEach(([key, cell]) => {
@@ -501,7 +508,8 @@ const App = {
     this.buildGMControls();
 
     if (state.background && state.background !== GameData.currentGame.background) {
-      this.applyBackground(state.background);
+      // Server-authoritative sync, not a local GM choice -- never persists.
+      this.applyBackground(state.background, false);
       const bgSelect = document.getElementById('bg-select');
       const option = Array.from(bgSelect.options).find(o => o.value === state.background);
       if (option) option.selected = true;
@@ -615,6 +623,21 @@ const App = {
     if (this.mode !== 'multiplayer') return;
     if (!confirm(`Declare column ${column} failed? This adds a WOMF charge and cannot be undone.`)) return;
     this.send({ type: 'gm:failColumn', column });
+  },
+
+  // Manual corrections for the WOMF meter itself (e.g. undoing an
+  // accidental FAIL click, or clearing it for a fresh session). These only
+  // ever touch the numeric charge -- they never touch any column/Final's
+  // reveal state or its red "failed" tag.
+  declareWomfSubtract() {
+    if (this.mode !== 'multiplayer') return;
+    this.send({ type: 'gm:womfSubtract' });
+  },
+
+  declareWomfReset() {
+    if (this.mode !== 'multiplayer') return;
+    if (!confirm('Reset WOMF charge to 0/10? This cannot be undone.')) return;
+    this.send({ type: 'gm:womfReset' });
   },
 
   // WOMF state is broadcast (state:public -> applyServerState) rather than
@@ -857,28 +880,70 @@ const App = {
     }
   },
 
-  applyBackground(path) {
+  BG_OVERRIDE_KEY: 'asoc_bg_override',
+
+  // `persist` is true for a genuine GM choice (the dropdown, a live
+  // upload) so it survives a page refresh; it's false for anything
+  // programmatic (initial load, a game switch, syncing a multiplayer
+  // broadcast) so those never overwrite the GM's saved choice.
+  applyBackground(path, persist = true) {
     const bgLayer = document.getElementById('background-layer');
     if (!path) {
       bgLayer.src = '';
       bgLayer.classList.remove('loaded');
-      return;
+    } else {
+      bgLayer.classList.remove('loaded');
+      const img = new Image();
+      img.onload = () => {
+        bgLayer.src = path;
+        bgLayer.classList.add('loaded');
+      };
+      img.onerror = () => {
+        console.warn('Failed to load background:', path);
+        bgLayer.src = '';
+      };
+      img.src = path;
     }
-
-    bgLayer.classList.remove('loaded');
-    const img = new Image();
-    img.onload = () => {
-      bgLayer.src = path;
-      bgLayer.classList.add('loaded');
-    };
-    img.onerror = () => {
-      console.warn('Failed to load background:', path);
-      bgLayer.src = '';
-    };
-    img.src = path;
 
     if (this.mode === 'multiplayer' && this.roomCode) {
       this.sendCommand('changeBackground', { background: path });
+    }
+
+    if (persist) {
+      try {
+        if (path) localStorage.setItem(this.BG_OVERRIDE_KEY, path);
+        else localStorage.removeItem(this.BG_OVERRIDE_KEY);
+      } catch (e) {
+        // localStorage unavailable (private mode, etc) -- the choice just
+        // won't survive a refresh; not fatal.
+      }
+    }
+  },
+
+  // Applies whatever background the GM last manually picked (persisted
+  // across refreshes and game switches via localStorage), falling back to
+  // the loaded game's own default background only when no override is
+  // saved, or the saved path no longer exists in the background library.
+  // Multiplayer sync (applyServerState, the game:loaded broadcast handler)
+  // deliberately does NOT go through this -- the room's background there
+  // is server-authoritative and shared with players, and must never be
+  // silently swapped for the GM's local preference.
+  applyPersistedOrDefaultBackground() {
+    let override = null;
+    try {
+      override = localStorage.getItem(this.BG_OVERRIDE_KEY);
+    } catch (e) {
+      // localStorage unavailable -- just fall through to the game default.
+    }
+    const validOverride = override && (this.backgrounds || []).some(bg => bg.path === override);
+    const path = validOverride ? override : (GameData.currentGame?.background || '');
+
+    this.applyBackground(path, false);
+
+    const bgSelect = document.getElementById('bg-select');
+    if (bgSelect) {
+      const opt = Array.from(bgSelect.options).find(o => o.value === path);
+      if (opt) opt.selected = true;
     }
   },
 
@@ -988,7 +1053,8 @@ const App = {
 
     const finalContent = GameData.getFinalSolution();
     const finalRevealed = Board.isFinalRevealed();
-    html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true);
+    const finalOutcome = Board.getFinalOutcome();
+    html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome);
 
     html += '</div>';
     publicBoard.innerHTML = html;
@@ -1060,8 +1126,9 @@ const App = {
     columns.forEach(col => {
       const solutionContent = GameData.getCellData(col, 5);
       const revealed = Board.isRevealed(col, 5);
+      const failed = Board.getCellOutcome(col, 5) === 'failed';
       clueHtml += `
-        <button class="gm-cell-btn solution-btn ${revealed ? 'revealed' : ''}"
+        <button class="gm-cell-btn solution-btn ${revealed ? 'revealed' : ''} ${failed ? 'outcome-failed' : ''}"
                 data-column="${col}" data-row="5"
                 title="${this.escapeHtmlAttr(solutionContent)}">
           <span style="font-size:0.55rem; color:var(--accent-gold);">${col}5</span>
@@ -1072,8 +1139,9 @@ const App = {
 
     const finalRevealed = Board.isFinalRevealed();
     const finalContent = GameData.getFinalSolution();
+    const finalFailed = Board.getFinalOutcome() === 'failed';
     clueHtml += `
-      <button class="gm-cell-btn final-btn ${finalRevealed ? 'revealed' : ''}"
+      <button class="gm-cell-btn final-btn ${finalRevealed ? 'revealed' : ''} ${finalFailed ? 'outcome-failed' : ''}"
               data-final="true"
               title="${this.escapeHtmlAttr(finalContent)}">
         <span style="font-size:0.55rem; color:var(--accent-gold);">FINAL</span>

@@ -54,11 +54,16 @@
 
         <section class="gm-section" id="womf-controls-section" style="display: none;">
           <h3 class="gm-section-title">WOMF</h3>
-          <div class="gm-column-controls" id="womf-fail-controls">
+          <div class="gm-column-controls womf-fail-grid" id="womf-fail-controls">
             <button class="gm-global-btn fail-final-btn womf-fail-btn" data-column="A" title="Declare column A failed">FAIL A</button>
             <button class="gm-global-btn fail-final-btn womf-fail-btn" data-column="B" title="Declare column B failed">FAIL B</button>
             <button class="gm-global-btn fail-final-btn womf-fail-btn" data-column="C" title="Declare column C failed">FAIL C</button>
             <button class="gm-global-btn fail-final-btn womf-fail-btn" data-column="D" title="Declare column D failed">FAIL D</button>
+            <button class="gm-global-btn fail-final-btn womf-fail-btn" id="womf-fail-final-btn" title="Declare the Final (K) failed">FAIL K</button>
+          </div>
+          <div class="gm-global-controls" style="grid-template-columns: 1fr 1fr; margin-top: 8px;">
+            <button class="gm-global-btn" id="womf-subtract-btn" title="Remove one WOMF charge">WOMF −1</button>
+            <button class="gm-global-btn reset-btn" id="womf-reset-btn" title="Reset WOMF charge to 0">RESET WOMF</button>
           </div>
         </section>
 
@@ -104,7 +109,6 @@
           <div id="session-leaderboard" class="session-leaderboard"></div>
           <button class="gm-global-btn" id="alltime-toggle-btn" style="width: 100%; margin-top: 8px;">ALL-TIME RECORDS</button>
           <div id="alltime-leaderboard" class="alltime-leaderboard" style="display: none;"></div>
-          <button class="gm-global-btn fail-final-btn" id="declare-final-failed-btn" style="width: 100%; margin-top: 12px; display: none;">DECLARE FINAL FAILED</button>
         </section>
 
         <section class="gm-section">

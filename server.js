@@ -1362,6 +1362,50 @@ function handleFailColumn(ws, message) {
   console.log(`[ROOM ${room.code}] GM declared column ${column} FAILED (WOMF charge: ${room.womf.charge}/10)`);
 }
 
+// Manual GM correction tools -- e.g. undoing an accidental FAIL click, or
+// clearing the meter for a fresh session. These only ever touch the
+// numeric charge; they never touch a column/Final's reveal state or its
+// 'failed' outcome tag (see handleFailColumn/handleFailFinal for those).
+function handleWomfSubtract(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can adjust WOMF' });
+    return;
+  }
+
+  if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
+  room.womf.charge = Math.max(0, room.womf.charge - 1);
+  room.revision++;
+
+  const publicState = getPublicState(room);
+  broadcastToRoom(room, { type: 'state:public', ...publicState });
+  console.log(`[ROOM ${room.code}] GM subtracted a WOMF charge (now ${room.womf.charge}/10)`);
+}
+
+function handleWomfReset(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can adjust WOMF' });
+    return;
+  }
+
+  if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
+  room.womf.charge = 0;
+  room.revision++;
+
+  const publicState = getPublicState(room);
+  broadcastToRoom(room, { type: 'state:public', ...publicState });
+  console.log(`[ROOM ${room.code}] GM reset WOMF charge to 0/10`);
+}
+
 // GM has finished showing the story/reveal sequence and is ready to reveal
 // the point/penalty consequences to the whole room at once.
 function handleRevealResults(ws) {
@@ -1613,6 +1657,14 @@ wss.on('connection', (ws) => {
         }
         case 'gm:failColumn': {
           handleFailColumn(ws, message);
+          break;
+        }
+        case 'gm:womfSubtract': {
+          handleWomfSubtract(ws);
+          break;
+        }
+        case 'gm:womfReset': {
+          handleWomfReset(ws);
           break;
         }
         case 'gm:revealResults': {
