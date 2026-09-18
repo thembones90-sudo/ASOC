@@ -2145,21 +2145,32 @@ function handleApiRequest(req, res) {
   return sendJson(res, 404, { error: 'Not found' });
 }
 
+// PUBLIC STATIC FILE ALLOWLIST
+// Only these are ever served off disk:
+//   /            -> /index.html
+//   /index.html, /join.html
+//   any file beneath /css/, /js/, /assets/
+// Everything else (HANDOFF.md, server.js, .git/*, games/, game-store.js,
+// player-store.js, scoring-constants.js, node_modules/, visual-test.html,
+// XLSX/PNG/TIF project files, etc.) is never served -- it 404s regardless
+// of how the path is obfuscated.
+//
+// The old implementation trusted the __dirname prefix check AFTER
+// path.join() had already normalized traversal (so `/../HANDOFF.md`,
+// `/js/../../server.js`, `/.git/config`, `/..\..\...` all resolved to a
+// path inside the project and were served). It is replaced by a strict
+// allowlist that rejects every obfuscation vector up front.
 function serveStaticFile(req, res) {
-  let filePath = req.url === '/' ? '/index.html' : req.url;
-  filePath = filePath.split('?')[0];
-
-  if (filePath.startsWith('/games/')) {
-    res.writeHead(403, { 'Content-Type': 'text/plain' });
-    res.end('Forbidden. Game data is served through the Gamemaster API.');
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.writeHead(405, { 'Content-Type': 'text/plain' });
+    res.end('Method Not Allowed');
     return;
   }
 
-  const fullPath = path.join(__dirname, filePath);
-
-  if (!fullPath.startsWith(__dirname)) {
-    res.writeHead(403);
-    res.end('Forbidden');
+  const fullPath = resolveAllowedStaticPath(req.url);
+  if (!fullPath) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
     return;
   }
 
@@ -2168,8 +2179,8 @@ function serveStaticFile(req, res) {
 
   fs.readFile(fullPath, (err, content) => {
     if (err) {
-      if (err.code === 'ENOENT') {
-        res.writeHead(404);
+      if (err.code === 'ENOENT' || err.code === 'EISDIR') {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Not Found');
       } else {
         res.writeHead(500);
@@ -2180,6 +2191,70 @@ function serveStaticFile(req, res) {
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(content);
   });
+}
+
+// Returns an absolute allowed file path for a request URL, or null when the
+// request must NOT be served. Handles querystrings, URL decoding, and every
+// traversal form (dot-dot segments, encoded dot-dot, backslashes, null
+// bytes). Because the decoded segments are validated against the explicit
+// allowlist BEFORE any path is built, no normalization can smuggle a path
+// out of the allowed roots.
+function resolveAllowedStaticPath(requestUrl) {
+  // Strip the querystring (and tolerate absolute-form URLs from proxies).
+  let rawPath = requestUrl;
+  const schemeEnd = rawPath.indexOf('://');
+  if (schemeEnd !== -1) {
+    try {
+      rawPath = new URL(rawPath).pathname;
+    } catch (e) {
+      return null;
+    }
+  } else {
+    rawPath = rawPath.split('?')[0];
+  }
+
+  // Decode ONCE. Anything still encoded after decode is a literal file name,
+  // not a traversal vector, but a malformed encoding must not be served.
+  let pathname;
+  try {
+    pathname = decodeURIComponent(rawPath);
+  } catch (e) {
+    return null;
+  }
+
+  // Null bytes crash fs.readFile and encode no legitimate filename.
+  if (pathname.indexOf('\0') !== -1) return null;
+  // Backslashes are a Windows path separator only -- they are the one form
+  // path.join() would treat as traversal here, so refuse them entirely.
+  if (pathname.indexOf('\\') !== -1) return null;
+
+  const segments = pathname.split('/').filter(seg => seg.length > 0);
+  if (segments.length === 0) {
+    // '/' serves the entry page, same as before.
+    segments.push('index.html');
+  }
+  for (const segment of segments) {
+    if (segment === '.' || segment === '..') return null;
+  }
+
+  const root = segments[0];
+  let rootPrefix;
+  if (root === 'index.html' || root === 'join.html') {
+    if (segments.length !== 1) return null;
+    rootPrefix = __dirname;
+  } else if (root === 'css' || root === 'js' || root === 'assets') {
+    rootPrefix = path.join(__dirname, root);
+  } else {
+    return null;
+  }
+
+  // Segments are pre-validated (no '.', '..', backslash, or empty parts),
+  // so this path can only ever resolve beneath the allowed root. The
+  // prefix re-check is a belt-and-suspenders guarantee.
+  const absolutePath = path.resolve(__dirname, path.join(...segments));
+  if (!absolutePath.startsWith(rootPrefix)) return null;
+
+  return absolutePath;
 }
 
 const server = http.createServer((req, res) => {
