@@ -14,6 +14,7 @@ const ROOM_CODE_LENGTH = 4;
 const HOST_RECONNECT_GRACE_MS = 60000;
 const MAX_CHAT_LENGTH = 100;
 const CHAT_HISTORY_LIMIT = 200;
+const WS_HEARTBEAT_MS = 30000;
 
 const mimeTypes = {
   '.html': 'text/html',
@@ -2420,7 +2421,28 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server });
 
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.isAlive === false) {
+      ws.terminate();
+      return;
+    }
+
+    ws.isAlive = false;
+    try {
+      ws.ping();
+    } catch {
+      ws.terminate();
+    }
+  });
+}, WS_HEARTBEAT_MS);
+
+server.on('close', () => clearInterval(heartbeatInterval));
+
 wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+
   ws.on('message', (data) => {
     try {
       const message = JSON.parse(data.toString());
