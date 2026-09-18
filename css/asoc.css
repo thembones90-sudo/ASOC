@@ -1022,7 +1022,7 @@ textarea {
   line-height: 1;
 }
 
-.gm-cell-btn:hover:not(:disabled) {
+.gm-cell-btn:hover:not(:disabled):not(.revealed) {
   transform: translateY(-1px);
   border-color: #aeb6c7;
   background:
