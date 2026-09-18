@@ -1648,12 +1648,11 @@ const App = {
     // never replacing it. msg.verdict remains the sole source of truth;
     // nothing here touches judging/scoring.
     let verdictResponseHtml = '';
-    if (msg.verdict === 'wrong' || msg.verdict === 'correct') {
+    if (msg.verdict === 'correct') {
       const verdictKey = `${msg.id}:${msg.verdict}`;
       const isNew = !this._seenShadowBrokerKeys.has(verdictKey);
       if (isNew) this._seenShadowBrokerKeys.add(verdictKey);
-      const verdictText = msg.verdict === 'correct' ? 'Correct.' : 'Incorrect.';
-      verdictResponseHtml = Skeleton.shadowBrokerTransmissionHTML(verdictText, {
+      verdictResponseHtml = Skeleton.shadowBrokerTransmissionHTML('Correct.', {
         glitchIn: isNew,
         variant: 'verdict-response',
         verdict: msg.verdict

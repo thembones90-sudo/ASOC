@@ -18,20 +18,27 @@
     }
 
     .join-logo {
-      font-size: clamp(2rem, 8vw, 4rem);
-      font-weight: 300;
-      color: var(--accent-silver);
-      letter-spacing: 8px;
+      font-family: var(--font-system);
+      font-size: clamp(2.8rem, 8vw, 4.8rem);
+      font-weight: 600;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      margin-bottom: 1rem;
+      margin-bottom: 0.65rem;
+      background: linear-gradient(180deg, #eef1f7 0%, #a4aab7 55%, #737a88 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 12px rgba(184, 188, 200, 0.08);
     }
 
     .join-subtitle {
-      font-size: clamp(0.8rem, 2vw, 1.2rem);
+      font-family: var(--font-system);
+      font-size: clamp(0.82rem, 2vw, 1.12rem);
+      font-weight: 600;
       color: var(--text-dim);
       text-transform: uppercase;
-      letter-spacing: 4px;
-      margin-bottom: 3rem;
+      letter-spacing: 0.12em;
+      margin-bottom: 1.6rem;
     }
 
     .join-form {
@@ -73,6 +80,11 @@
       text-align: center;
       outline: none;
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    #room-code {
+      font-family: var(--font-machine);
+      font-variant-numeric: tabular-nums;
     }
 
     .form-input::placeholder {
@@ -141,7 +153,7 @@
 
     .little-hero-avatar-placeholder {
       color: #d8dbe2;
-      font-family: "Agency FB", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+      font-family: var(--font-system);
       font-weight: 700;
       font-size: 1.25rem;
       letter-spacing: 0.12em;
@@ -188,7 +200,7 @@
       border-radius: 5px;
       background: var(--button-bg);
       color: var(--text-primary);
-      font: 700 0.88rem monospace;
+      font: 700 0.88rem var(--font-machine);
       text-transform: uppercase;
       letter-spacing: 1px;
       outline: none;
@@ -465,11 +477,11 @@
     }
 
     .chat-player-name {
-      font-size: 0.7rem;
-      font-weight: 600;
-      color: var(--accent-silver);
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: #eef0f5;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.06em;
     }
 
     .chat-message.own .chat-player-name {
@@ -477,11 +489,14 @@
     }
 
     .chat-time {
+      font-family: var(--font-machine);
       font-size: 0.55rem;
       color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
     }
 
     .chat-message-text {
+      font-family: var(--font-human);
       font-size: 0.85rem;
       color: var(--text-primary);
       word-wrap: break-word;
@@ -493,10 +508,10 @@
        extra state is introduced. Green = accepted, muted red + faint
        strike = rejected. Unjudged messages are untouched above. */
     .chat-message.wrong .chat-message-text {
-      color: #b5544a;
+      color: #d86157;
       text-decoration: line-through;
-      text-decoration-color: rgba(231, 76, 60, 0.4);
-      text-decoration-thickness: 1px;
+      text-decoration-color: rgba(255, 72, 72, 0.9);
+      text-decoration-thickness: 2px;
     }
 
     .chat-message.correct .chat-message-text {
@@ -547,6 +562,7 @@
 
     #chat-input {
       flex: 1;
+      font-family: var(--font-human);
       background: var(--button-bg);
       border: 1px solid var(--button-border);
       border-radius: 6px;

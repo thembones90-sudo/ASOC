@@ -63,14 +63,17 @@
   /* Scrollbar */
   --scrollbar-track: rgba(10, 12, 16, 0.5);
   --scrollbar-thumb: #5a5f6e;
+
+  /* Typography */
+  --font-system: 'Barlow Condensed', 'Segoe UI', system-ui, sans-serif;
+  --font-human: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-machine: Consolas, 'Courier New', ui-monospace, monospace;
 }
 
-/* Board word font -- technical/condensed industrial sans, self-hosted
-   locally (no external font CDN) per the project's local-assets-only
-   convention. Latin subset only: board words are English clue/solution
-   text, so the other Unicode-range subsets Fontsource ships aren't
-   needed. Scoped to .cell-content only -- the rest of the UI (GM panel,
-   buttons, chat) keeps the existing Segoe UI stack untouched. */
+/* Primary ASOC interface font -- technical/condensed industrial sans,
+   self-hosted locally so GM and player devices render the same machinery.
+   Human chat/prose is explicitly returned to --font-human where readability
+   matters more than command-terminal character. */
 @font-face {
   font-family: 'Barlow Condensed';
   font-style: normal;
@@ -89,9 +92,16 @@ html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-system);
   background: var(--asoc-dark);
   color: var(--text-primary);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
 /* LAYOUT */
@@ -208,11 +218,9 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* Asymmetric top/bottom padding (same total as before) nudges the
-     centered word ~3px down to match the pill art's visible inner
-     field rather than the geometric center of the slot box -- box
-     height/position are untouched (box-sizing: border-box). */
-  padding: 9px 4px 3px;
+  /* Keep the word geometrically centered inside the poster pill.
+     Slot geometry is untouched; only internal padding is symmetric. */
+  padding: 6px 4px;
   text-align: center;
   min-height: 0;
   position: relative;
@@ -253,7 +261,7 @@ html, body {
   background: transparent;
   border: 0;
   border-radius: 0;
-  padding: 9px 12px 3px;
+  padding: 6px 12px;
   box-shadow: none;
 }
 
@@ -264,10 +272,10 @@ html, body {
 
 /* CELL CONTENT */
 .cell-content {
-  font-family: 'Barlow Condensed', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-system);
   font-size: clamp(1.1rem, 2.7vw, 1.5rem);
   letter-spacing: 0.72px;
-  line-height: 1.15;
+  line-height: 1;
   color: var(--text-primary);
   word-wrap: break-word;
   max-width: 100%;
@@ -359,11 +367,9 @@ html, body {
     position: absolute;
     z-index: 2;
     margin: 0;
-    /* Asymmetric top/bottom padding (same total as before) nudges the
-       centered word ~3px down to match the pill art's visible inner
-       field rather than the geometric center of the slot box -- the
-       cell's own absolute position/size are untouched. */
-    padding: 10px 10px 4px;
+    /* Symmetric padding keeps the word in the visual center of
+       the pill without touching any canonical slot position or size. */
+    padding: 7px 10px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -377,7 +383,7 @@ html, body {
   }
 
   .asoc-board .board-cell.final-solution {
-    padding: 9px 12px 3px;
+    padding: 6px 12px;
     border-width: 0;
     background: transparent;
     box-shadow: none;
@@ -385,11 +391,11 @@ html, body {
 
   .asoc-board .cell-content {
     display: inline-block;
-    font-family: 'Barlow Condensed', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-system);
     font-size: var(--asoc-font, 2.1cqh);
     font-weight: 600;
     letter-spacing: 0.72px;
-    line-height: 1.15;
+    line-height: 1;
     white-space: nowrap;
     overflow-wrap: normal;
     /* No max-width/overflow/text-overflow here on purpose: this box must be
@@ -430,10 +436,9 @@ html, body {
   }
 
   /* Shadow Broker transmission plate: compact gunmetal command plaque.
-     Agency FB Bold is available on the host and gives the sharper military-
-     industrial silhouette this identity needs without adding a webfont/CDN. */
+     Uses the self-hosted ASOC system font so every device renders identically. */
   .asoc-board .shadow-broker-board-line-text {
-    font-family: "Agency FB", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+    font-family: var(--font-system);
     font-size: var(--asoc-font, 1.6cqh);
     font-weight: 700;
     text-transform: uppercase;
@@ -795,7 +800,7 @@ html, body {
 .mp-value {
   color: var(--text-primary);
   font-weight: 500;
-  font-family: monospace;
+  font-family: var(--font-machine);
 }
 
 .mp-code {
@@ -820,9 +825,10 @@ html, body {
 }
 
 .mp-player-name {
-  color: var(--text-primary);
+  color: #eef0f5;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
 }
 
 .mp-player-status {
@@ -849,8 +855,9 @@ html, body {
 }
 
 .mp-status-text {
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
 }
 
 /* PUBLIC VIEW
@@ -1315,7 +1322,7 @@ html, body {
    looking broken elsewhere). The message text itself is never forced
    uppercase -- only the SHADOW BROKER name/header above is. */
 .shadow-broker-text {
-  font-family: "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+  font-family: var(--font-system);
   font-weight: 700;
   letter-spacing: 0.06em;
   font-size: 0.85rem;
@@ -1401,7 +1408,13 @@ html, body {
   box-shadow:
     inset 0 0 0 1px rgba(10, 12, 16, 0.9),
     0 0 0 1px var(--lh-frame),
-    0 0 5px var(--lh-frame);
+    0 0 3px color-mix(in srgb, var(--lh-frame) 65%, transparent);
+}
+
+.mp-little-hero .little-hero-avatar-compact {
+  width: 23px;
+  height: 23px;
+  flex-basis: 23px;
 }
 
 .little-hero-avatar img {
@@ -1414,7 +1427,7 @@ html, body {
 
 .little-hero-avatar-fallback {
   color: #d9dde5;
-  font-family: "Agency FB", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+  font-family: var(--font-system);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -1450,19 +1463,22 @@ html, body {
 }
 
 .gm-chat-player-name {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--accent-silver);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #eef0f5;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
 }
 
 .gm-chat-time {
+  font-family: var(--font-machine);
   font-size: 0.55rem;
   color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
 }
 
 .gm-chat-message-text {
+  font-family: var(--font-human);
   font-size: 0.85rem;
   color: var(--text-primary);
   word-wrap: break-word;
@@ -1474,10 +1490,10 @@ html, body {
    extra state is introduced. Green = accepted, muted red + faint
    strike = rejected. Unjudged messages are untouched above. */
 .gm-chat-message.wrong .gm-chat-message-text {
-  color: #b5544a;
+  color: #d86157;
   text-decoration: line-through;
-  text-decoration-color: rgba(231, 76, 60, 0.4);
-  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 72, 72, 0.9);
+  text-decoration-thickness: 2px;
 }
 
 .gm-chat-message.correct .gm-chat-message-text {
@@ -2312,9 +2328,10 @@ html, body {
 }
 
 .lb-name {
-  color: var(--text-primary);
+  color: #eef0f5;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2322,8 +2339,9 @@ html, body {
 
 .lb-score {
   color: var(--accent-gold);
+  font-family: var(--font-machine);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .leaderboard-empty {
@@ -2365,9 +2383,10 @@ html, body {
 
 .pl-entry {
   color: var(--text-dim);
-  font-size: 0.62rem;
+  font-size: 0.64rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
   flex-shrink: 0;
 }
 
@@ -2431,7 +2450,7 @@ html, body {
   padding: 18px 30px 20px;
   text-align: center;
   pointer-events: none;
-  font-family: "Agency FB", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+  font-family: var(--font-system);
   text-transform: uppercase;
   background: linear-gradient(180deg, rgba(42, 45, 51, 0.97), rgba(12, 13, 16, 0.98));
   border: 1px solid rgba(201, 205, 214, 0.9);
