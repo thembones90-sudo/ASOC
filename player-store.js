@@ -18,7 +18,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const PLAYERS_FILE = path.join(__dirname, 'players.json');
+const PLAYERS_FILE = process.env.ASOC_PLAYERS_FILE
+  ? path.resolve(process.env.ASOC_PLAYERS_FILE)
+  : path.join(__dirname, 'players.json');
 
 function normalizeNameKey(name) {
   return String(name || '').trim().toLocaleLowerCase();

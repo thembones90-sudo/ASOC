@@ -6,7 +6,7 @@ const gameStore = require('./game-store');
 const playerStore = require('./player-store');
 const scoring = require('./scoring-constants');
 
-const PORT = 8080;
+const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
 const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const ROOM_CODE_LENGTH = 4;
