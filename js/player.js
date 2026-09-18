@@ -3,6 +3,10 @@ const PlayerApp = {
   roomCode: '',
   playerId: '',
   playerName: '',
+  avatarData: '',
+  frameColor: '#9B5DE0',
+  _sendAvatarAppearance: false,
+  _sendFrameAppearance: false,
   reconnectTimer: null,
   reconnectAttempts: 0,
   maxReconnectAttempts: 10,
@@ -81,16 +85,122 @@ const PlayerApp = {
         this.joinGame();
       }
     });
+
+    const avatarFile = document.getElementById('little-hero-avatar-file');
+    const framePicker = document.getElementById('little-hero-frame-picker');
+    const frameHex = document.getElementById('little-hero-frame-hex');
+
+    avatarFile?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        this.avatarData = await this.processAvatarFile(file);
+        this._sendAvatarAppearance = true;
+        localStorage.setItem('asoc_little_hero_avatar', this.avatarData);
+        this.updateAppearancePreview();
+      } catch (error) {
+        this.showError(error.message || 'Could not process avatar');
+      }
+    });
+
+    const applyFrameColor = (value) => {
+      if (!/^#[0-9A-Fa-f]{6}$/.test(value)) return false;
+      this.frameColor = value.toUpperCase();
+      this._sendFrameAppearance = true;
+      localStorage.setItem('asoc_little_hero_frame', this.frameColor);
+      if (framePicker) framePicker.value = this.frameColor;
+      if (frameHex) frameHex.value = this.frameColor;
+      this.updateAppearancePreview();
+      return true;
+    };
+
+    framePicker?.addEventListener('input', (e) => applyFrameColor(e.target.value));
+    frameHex?.addEventListener('change', (e) => {
+      if (!applyFrameColor(e.target.value.trim())) {
+        e.target.value = this.frameColor;
+        this.showError('Frame color must be a six-digit HEX value');
+      }
+    });
   },
 
   loadStoredCredentials() {
     const storedRoom = sessionStorage.getItem('asoc_room_code');
     const storedName = sessionStorage.getItem('asoc_player_name');
     const storedId = sessionStorage.getItem('asoc_player_id');
+    const storedAvatar = localStorage.getItem('asoc_little_hero_avatar');
+    const storedFrame = localStorage.getItem('asoc_little_hero_frame');
 
     if (storedRoom) document.getElementById('room-code').value = storedRoom;
     if (storedName) document.getElementById('player-name').value = storedName;
     if (storedId) this.playerId = storedId;
+
+    if (storedAvatar !== null) {
+      this.avatarData = storedAvatar;
+      this._sendAvatarAppearance = true;
+    }
+    if (storedFrame && /^#[0-9A-Fa-f]{6}$/.test(storedFrame)) {
+      this.frameColor = storedFrame.toUpperCase();
+      this._sendFrameAppearance = true;
+    }
+    this.updateAppearancePreview();
+  },
+
+  updateAppearancePreview() {
+    const preview = document.getElementById('little-hero-avatar-preview');
+    const image = document.getElementById('little-hero-avatar-image');
+    const picker = document.getElementById('little-hero-frame-picker');
+    const hex = document.getElementById('little-hero-frame-hex');
+    if (preview) preview.style.setProperty('--lh-frame', this.frameColor);
+    if (picker) picker.value = this.frameColor;
+    if (hex) hex.value = this.frameColor;
+    if (preview && image) {
+      if (this.avatarData) {
+        image.src = this.avatarData;
+        preview.classList.add('has-image');
+      } else {
+        image.removeAttribute('src');
+        preview.classList.remove('has-image');
+      }
+    }
+  },
+
+  processAvatarFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file.type.match(/^image\/(png|jpeg|webp)$/)) {
+        reject(new Error('Avatar must be PNG, JPG, or WEBP'));
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        reject(new Error('Avatar source image is too large'));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Could not read avatar image'));
+      reader.onload = () => {
+        const image = new Image();
+        image.onerror = () => reject(new Error('Could not decode avatar image'));
+        image.onload = () => {
+          const size = 256;
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          const crop = Math.min(image.naturalWidth, image.naturalHeight);
+          const sx = (image.naturalWidth - crop) / 2;
+          const sy = (image.naturalHeight - crop) / 2;
+          ctx.drawImage(image, sx, sy, crop, crop, 0, 0, size, size);
+          const data = canvas.toDataURL('image/webp', 0.82);
+          if (data.length > 190000) {
+            reject(new Error('Processed avatar is still too large'));
+            return;
+          }
+          resolve(data);
+        };
+        image.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
   },
 
   async joinGame() {
@@ -131,7 +241,15 @@ const PlayerApp = {
       // sessionStorage or a prior join:success in this tab) so the server
       // can reclaim our old identity instead of minting a new one and
       // leaving a stale "ghost" entry behind for the same person.
-      this.send({ type: 'room:join', roomCode: this.roomCode, name: this.playerName, playerId: this.playerId || undefined });
+      const joinMessage = {
+        type: 'room:join',
+        roomCode: this.roomCode,
+        name: this.playerName,
+        playerId: this.playerId || undefined
+      };
+      if (this._sendAvatarAppearance) joinMessage.avatarData = this.avatarData;
+      if (this._sendFrameAppearance) joinMessage.frameColor = this.frameColor;
+      this.send(joinMessage);
       this.setConnectionStatus('connecting');
     };
 
@@ -178,6 +296,17 @@ const PlayerApp = {
       case 'join:success':
         this.playerId = message.playerId;
         sessionStorage.setItem('asoc_player_id', this.playerId);
+        if (message.littleHero) {
+          this.avatarData = message.littleHero.avatarData || '';
+          this.frameColor = /^#[0-9A-Fa-f]{6}$/.test(message.littleHero.frameColor || '')
+            ? message.littleHero.frameColor.toUpperCase()
+            : '#9B5DE0';
+          localStorage.setItem('asoc_little_hero_avatar', this.avatarData);
+          localStorage.setItem('asoc_little_hero_frame', this.frameColor);
+          this._sendAvatarAppearance = true;
+          this._sendFrameAppearance = true;
+          this.updateAppearancePreview();
+        }
         break;
 
       case 'chat:update': {
@@ -537,7 +666,7 @@ const PlayerApp = {
     strip.style.display = 'flex';
     const ranked = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
     list.innerHTML = ranked.map(p => `
-      <span class="pl-entry ${p.id === this.playerId ? 'pl-entry-me' : ''}">${this.escapeHtml(p.name)} <b>${p.score || 0}</b></span>
+      <span class="pl-entry ${p.id === this.playerId ? 'pl-entry-me' : ''}">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
     `).join('');
   },
 
@@ -559,7 +688,7 @@ const PlayerApp = {
     panel.innerHTML = (players || []).map((p, i) => `
       <div class="leaderboard-row">
         <span class="lb-rank">${i + 1}</span>
-        <span class="lb-name">${this.escapeHtml(p.name)}</span>
+        <span class="lb-name lb-little-hero">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span></span>
         <span class="lb-score">${p.lifetimeScore}</span>
       </div>
     `).join('') || '<div class="leaderboard-empty">No recorded players yet</div>';
@@ -746,7 +875,7 @@ const PlayerApp = {
     return `
       <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}">
         <div class="chat-message-header">
-          <span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span>
+          <span class="chat-little-hero">${this.littleHeroAvatarHTML(msg)}<span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
           <span class="chat-time">${time}</span>
         </div>
         <div class="chat-message-text">${this.escapeHtml(msg.text)}</div>
@@ -778,6 +907,21 @@ const PlayerApp = {
       'FINAL': 'FINAL SOLUTION'
     };
     return labels[target] || target;
+  },
+
+  littleHeroAvatarHTML(entity = {}, compact = false) {
+    const frameColor = /^#[0-9A-Fa-f]{6}$/.test(entity.frameColor || '')
+      ? entity.frameColor.toUpperCase()
+      : '#9B5DE0';
+    const avatarData = typeof entity.avatarData === 'string' &&
+      /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(entity.avatarData)
+      ? entity.avatarData
+      : '';
+    return `
+      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}" style="--lh-frame:${frameColor}">
+        ${avatarData ? `<img src="${avatarData}" alt="">` : '<span class="little-hero-avatar-fallback">LH</span>'}
+      </span>
+    `;
   },
 
   escapeHtml(text) {

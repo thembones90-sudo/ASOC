@@ -1372,6 +1372,76 @@ html, body {
   animation: shadow-broker-glitch-in 240ms ease-out;
 }
 
+/* LITTLE HERO identity shell: the picture is player-controlled,
+   the circular gunmetal structure is ASOC-controlled, and the outer accent
+   is intentionally unrestricted HEX chaos. */
+.little-hero-avatar {
+  --lh-frame: #9B5DE0;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #343944, #0b0d11 72%);
+  border: 2px solid #8e96a3;
+  box-shadow:
+    inset 0 0 0 1px rgba(10, 12, 16, 0.9),
+    0 0 0 2px var(--lh-frame),
+    0 0 9px var(--lh-frame);
+  vertical-align: middle;
+}
+
+.little-hero-avatar.little-hero-avatar-compact {
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+  border-width: 1px;
+  box-shadow:
+    inset 0 0 0 1px rgba(10, 12, 16, 0.9),
+    0 0 0 1px var(--lh-frame),
+    0 0 5px var(--lh-frame);
+}
+
+.little-hero-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.little-hero-avatar-fallback {
+  color: #d9dde5;
+  font-family: "Agency FB", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.little-hero-avatar-compact .little-hero-avatar-fallback {
+  font-size: 0.42rem;
+}
+
+.gm-chat-little-hero,
+.chat-little-hero,
+.lb-little-hero,
+.mp-little-hero,
+.pl-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.lb-little-hero > span:last-child,
+.mp-little-hero > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .gm-chat-message-header {
   display: flex;
   justify-content: space-between;

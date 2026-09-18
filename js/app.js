@@ -685,7 +685,7 @@ const App = {
 
     listEl.innerHTML = players.map(p => `
       <div class="mp-player">
-        <span class="mp-player-name">${this.escapeHtml(p.name)}</span>
+        <span class="mp-player-name mp-little-hero">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span></span>
         <span class="mp-player-status">
           <span class="mp-status-dot ${p.connected ? 'connected' : 'disconnected'}"></span>
           <span class="mp-status-text">${p.connected ? 'CONNECTED' : 'DISCONNECTED'}</span>
@@ -709,7 +709,7 @@ const App = {
     el.innerHTML = ranked.map((p, i) => `
       <div class="leaderboard-row ${i === 0 && (p.score || 0) > 0 ? 'leaderboard-lead' : ''}">
         <span class="lb-rank">${i + 1}</span>
-        <span class="lb-name">${this.escapeHtml(p.name)}</span>
+        <span class="lb-name lb-little-hero">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span></span>
         <span class="lb-score">${p.score || 0}</span>
       </div>
     `).join('') || '<div class="leaderboard-empty">No players yet</div>';
@@ -737,7 +737,7 @@ const App = {
     panel.innerHTML = players.map((p, i) => `
       <div class="leaderboard-row">
         <span class="lb-rank">${i + 1}</span>
-        <span class="lb-name">${this.escapeHtml(p.name)}</span>
+        <span class="lb-name lb-little-hero">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span></span>
         <span class="lb-score">${p.lifetimeScore}</span>
       </div>
     `).join('') || '<div class="leaderboard-empty">No recorded players yet</div>';
@@ -1451,6 +1451,21 @@ const App = {
     else overlay.classList.add('hidden');
   },
 
+  littleHeroAvatarHTML(entity = {}, compact = false) {
+    const frameColor = /^#[0-9A-Fa-f]{6}$/.test(entity.frameColor || '')
+      ? entity.frameColor.toUpperCase()
+      : '#9B5DE0';
+    const avatarData = typeof entity.avatarData === 'string' &&
+      /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(entity.avatarData)
+      ? entity.avatarData
+      : '';
+    return `
+      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}" style="--lh-frame:${frameColor}">
+        ${avatarData ? `<img src="${avatarData}" alt="">` : '<span class="little-hero-avatar-fallback">LH</span>'}
+      </span>
+    `;
+  },
+
   escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -1648,7 +1663,7 @@ const App = {
     return `
       <div class="gm-chat-message ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}">
         <div class="gm-chat-message-header">
-          <span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span>
+          <span class="gm-chat-little-hero">${this.littleHeroAvatarHTML(msg)}<span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
           <span class="gm-chat-time">${time}</span>
         </div>
         <div class="gm-chat-message-text">${this.escapeHtml(msg.text)}</div>

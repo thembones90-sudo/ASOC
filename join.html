@@ -89,6 +89,124 @@
       border-color: #c86a6a;
     }
 
+    .little-hero-appearance {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 16px;
+      align-items: center;
+      margin: 0 0 1.5rem;
+      padding: 14px;
+      background: rgba(8, 10, 14, 0.7);
+      border: 1px solid var(--button-border);
+      border-radius: 8px;
+      text-align: left;
+    }
+
+    .little-hero-avatar-upload {
+      display: block;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .little-hero-avatar-preview {
+      --lh-frame: #9B5DE0;
+      width: 92px;
+      height: 92px;
+      margin: 0 auto 7px;
+      border-radius: 50%;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 50% 35%, #30343d, #0b0d11 72%);
+      border: 4px solid var(--lh-frame);
+      box-shadow:
+        inset 0 0 0 2px rgba(225, 229, 238, 0.5),
+        0 0 16px color-mix(in srgb, var(--lh-frame) 62%, transparent);
+    }
+
+    .little-hero-avatar-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .little-hero-avatar-preview.has-image img {
+      display: block;
+    }
+
+    .little-hero-avatar-preview.has-image .little-hero-avatar-placeholder {
+      display: none;
+    }
+
+    .little-hero-avatar-placeholder {
+      color: #d8dbe2;
+      font-family: "Agency FB", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+      font-weight: 700;
+      font-size: 1.25rem;
+      letter-spacing: 0.12em;
+    }
+
+    .little-hero-upload-label {
+      color: var(--text-dim);
+      font-size: 0.58rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #little-hero-avatar-file {
+      display: none;
+    }
+
+    .little-hero-frame-controls {
+      min-width: 0;
+    }
+
+    .little-hero-frame-row {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 8px;
+      align-items: center;
+      margin-top: 7px;
+    }
+
+    #little-hero-frame-picker {
+      width: 48px;
+      height: 42px;
+      padding: 2px;
+      border: 1px solid var(--button-border);
+      border-radius: 5px;
+      background: #11141a;
+      cursor: pointer;
+    }
+
+    #little-hero-frame-hex {
+      width: 100%;
+      min-width: 0;
+      padding: 11px 10px;
+      border: 1px solid var(--button-border);
+      border-radius: 5px;
+      background: var(--button-bg);
+      color: var(--text-primary);
+      font: 700 0.88rem monospace;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      outline: none;
+    }
+
+    #little-hero-frame-hex:focus {
+      border-color: var(--lh-frame, #9B5DE0);
+    }
+
+    .little-hero-chaos-note {
+      margin-top: 8px;
+      color: var(--text-dim);
+      font-size: 0.52rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      line-height: 1.35;
+    }
+
     .join-btn {
       width: 100%;
       background: linear-gradient(135deg, rgba(212, 168, 67, 0.2), rgba(25, 28, 35, 0.9));
@@ -563,7 +681,7 @@
 <body>
   <div id="join-screen">
     <div class="join-logo">ASOC</div>
-    <div class="join-subtitle">Join Game</div>
+    <div class="join-subtitle">Little Hero // Battle Access</div>
 
     <form class="join-form" id="join-form">
       <div class="form-group">
@@ -571,10 +689,31 @@
         <input type="text" class="form-input" id="room-code" placeholder="K7RX" maxlength="4" autocomplete="off" required>
       </div>
       <div class="form-group">
-        <label class="form-label" for="player-name">Name</label>
-        <input type="text" class="form-input" id="player-name" placeholder="Your Name" maxlength="20" autocomplete="off" required>
+        <label class="form-label" for="player-name">Little Hero Designation</label>
+        <input type="text" class="form-input" id="player-name" placeholder="USERNAME" maxlength="20" autocomplete="off" required>
       </div>
-      <button type="submit" class="join-btn" id="join-btn">JOIN GAME</button>
+
+      <div class="little-hero-appearance">
+        <label class="little-hero-avatar-upload" for="little-hero-avatar-file" title="Upload Little Hero avatar">
+          <span class="little-hero-avatar-preview" id="little-hero-avatar-preview">
+            <img id="little-hero-avatar-image" alt="Little Hero avatar preview">
+            <span class="little-hero-avatar-placeholder">LH</span>
+          </span>
+          <span class="little-hero-upload-label">Upload Avatar</span>
+        </label>
+        <input id="little-hero-avatar-file" type="file" accept="image/png,image/jpeg,image/webp">
+
+        <div class="little-hero-frame-controls">
+          <label class="form-label" for="little-hero-frame-hex">Frame Hex</label>
+          <div class="little-hero-frame-row">
+            <input id="little-hero-frame-picker" type="color" value="#9B5DE0" aria-label="Avatar frame color">
+            <input id="little-hero-frame-hex" type="text" value="#9B5DE0" maxlength="7" spellcheck="false" autocomplete="off">
+          </div>
+          <div class="little-hero-chaos-note">Structure is controlled. Color is chaos.</div>
+        </div>
+      </div>
+
+      <button type="submit" class="join-btn" id="join-btn">ENTER BATTLEFIELD</button>
       <div class="error-message" id="error-message"></div>
     </form>
   </div>

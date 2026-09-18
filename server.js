@@ -13,6 +13,7 @@ const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const ROOM_CODE_LENGTH = 4;
 const HOST_RECONNECT_GRACE_MS = 60000;
 const MAX_CHAT_LENGTH = 100;
+const MAX_AVATAR_DATA_LENGTH = 200000;
 const CHAT_HISTORY_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
 
@@ -281,6 +282,20 @@ function sanitizeText(text) {
   return text
     .replace(/[\x00-\x1F\x7F]/g, '')
     .trim();
+}
+
+function sanitizeFrameColor(value) {
+  return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value)
+    ? value.toUpperCase()
+    : null;
+}
+
+function sanitizeAvatarData(value) {
+  if (typeof value !== 'string' || !value) return null;
+  if (value.length > MAX_AVATAR_DATA_LENGTH) return null;
+  return /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
+    ? value
+    : null;
 }
 
 function loadGameData(gameIdOrFilename) {
@@ -1590,20 +1605,35 @@ function sendToWs(ws, message) {
 }
 
 function getChatState(room) {
+  const appearanceByPlayerId = new Map();
+  room.players.forEach((player) => {
+    if (!appearanceByPlayerId.has(player.id)) {
+      appearanceByPlayerId.set(player.id, {
+        avatarData: player.avatarData || '',
+        frameColor: player.frameColor || '#9B5DE0'
+      });
+    }
+  });
+
   return {
-    messages: room.chat.messages.map(m => ({
-      id: m.id,
-      playerId: m.playerId,
-      playerName: m.playerName,
-      text: m.text,
-      timestamp: m.timestamp,
-      verdict: m.verdict,
-      target: m.target,
-      // Only ever set server-side by addShadowBrokerMessage -- absent
-      // (undefined -> serializes as omitted) on every ordinary player
-      // guess. See addShadowBrokerMessage for why a player can't spoof it.
-      source: m.source || null
-    })),
+    messages: room.chat.messages.map(m => {
+      const appearance = m.playerId ? appearanceByPlayerId.get(m.playerId) : null;
+      return {
+        id: m.id,
+        playerId: m.playerId,
+        playerName: m.playerName,
+        avatarData: appearance?.avatarData || '',
+        frameColor: appearance?.frameColor || '#9B5DE0',
+        text: m.text,
+        timestamp: m.timestamp,
+        verdict: m.verdict,
+        target: m.target,
+        // Only ever set server-side by addShadowBrokerMessage -- absent
+        // (undefined -> serializes as omitted) on every ordinary player
+        // guess. See addShadowBrokerMessage for why a player can't spoof it.
+        source: m.source || null
+      };
+    }),
     solvedTargets: { ...room.chat.solvedTargets }
   };
 }
@@ -1657,6 +1687,26 @@ function handlePlayerJoin(ws, message) {
     return;
   }
 
+  const hasAvatarUpdate = Object.prototype.hasOwnProperty.call(message, 'avatarData');
+  const requestedAvatar = message.avatarData === '' ? '' : sanitizeAvatarData(message.avatarData);
+  const requestedFrameColor = sanitizeFrameColor(message.frameColor);
+  if (hasAvatarUpdate && requestedAvatar === null) {
+    sendToWs(ws, { type: 'error', message: 'Invalid avatar image' });
+    return;
+  }
+  if (message.frameColor !== undefined && !requestedFrameColor) {
+    sendToWs(ws, { type: 'error', message: 'Invalid avatar frame color' });
+    return;
+  }
+
+  let littleHeroProfile = playerStore.getOrCreateProfile(cleanName).profile;
+  if (hasAvatarUpdate || requestedFrameColor) {
+    littleHeroProfile = playerStore.updateProfileAppearance(cleanName, {
+      avatarData: hasAvatarUpdate ? requestedAvatar : undefined,
+      frameColor: requestedFrameColor || undefined
+    });
+  }
+
   // Reuse a stable id across reconnects (a dropped WebSocket, or a page
   // refresh restoring it from sessionStorage) so the SAME player doesn't
   // show up as a second "ghost" entry next to a stale one. No accounts and
@@ -1684,11 +1734,27 @@ function handlePlayerJoin(ws, message) {
   ws.playerName = cleanName;
   ws.isHost = false;
 
-  room.players.set(ws, { id: playerId, name: cleanName, connected: true, joinedAt: Date.now() });
+  room.players.set(ws, {
+    id: playerId,
+    name: cleanName,
+    avatarData: littleHeroProfile.avatarData || '',
+    frameColor: littleHeroProfile.frameColor || '#9B5DE0',
+    connected: true,
+    joinedAt: Date.now()
+  });
 
   const publicState = getPublicState(room);
   sendToWs(ws, { type: 'state:public', ...publicState });
-  sendToWs(ws, { type: 'join:success', playerId, roomCode: room.code });
+  sendToWs(ws, {
+    type: 'join:success',
+    playerId,
+    roomCode: room.code,
+    littleHero: {
+      name: cleanName,
+      avatarData: littleHeroProfile.avatarData || '',
+      frameColor: littleHeroProfile.frameColor || '#9B5DE0'
+    }
+  });
 
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
@@ -1703,6 +1769,8 @@ function broadcastPlayersUpdate(room) {
     players.push({
       id: player.id,
       name: player.name,
+      avatarData: player.avatarData || '',
+      frameColor: player.frameColor || '#9B5DE0',
       connected: ws.readyState === 1,
       score: room.scoring.players[player.id]?.sessionScore || 0
     });
