@@ -16,6 +16,7 @@ const PlayerApp = {
     this.loadStoredCredentials();
     Womf.init('womf-tracker-player');
     Wheel.init('wheel-overlay');
+    Timer.init('timer-tracker-player');
   },
 
   bindJoinForm() {
@@ -126,6 +127,7 @@ const PlayerApp = {
         // charge/state the GM sees, sourced from the same broadcast.
         Womf.update('womf-tracker-player', message.womf || { charge: 0, armed: false });
         Wheel.update('wheel-overlay', message.wheel, false);
+        Timer.update('timer-tracker-player', message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
         this.showGameScreen();
         this.setConnectionStatus('connected');
         this.reconnectAttempts = 0;

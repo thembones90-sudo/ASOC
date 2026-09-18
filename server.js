@@ -224,8 +224,16 @@ function createRoom(gameId, hostWs) {
       phase: 'idle',
       winnerIndex: null,
       spinToken: null
-    }
+    },
+    // TIMER + BORROWED TIME -- server-authoritative, per-board (unlike WOMF's
+    // persistent charge, a fresh board gets a fresh, un-started timer -- see
+    // resetTimer(), called here and again from resetBoard/switchGame). Never
+    // auto-starts: phase stays 'ready' until the GM explicitly sends
+    // gm:timerStart. See resetTimer() just below for the full field list and
+    // the phase state machine.
+    timer: null
   };
+  resetTimer(room);
 
   rooms.set(roomCode, room);
   hostWs.roomCode = roomCode;
@@ -290,6 +298,7 @@ function getPublicState(room) {
     finalSolution: finalCell,
     womf: getWomfPublicState(room),
     wheel: getWheelPublicState(room),
+    timer: getTimerPublicState(room),
     timestamp: new Date().toISOString()
   };
 }
@@ -449,6 +458,182 @@ function handleWheelClose(ws) {
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   console.log(`[ROOM ${room.code}] GM closed the Wheel`);
 }
+
+// ---------------------------------------------------------------------
+// TIMER + BORROWED TIME
+//
+// Locked spec: server-authoritative countdown, synchronized GM/player
+// display, player side read-only, numeric + a draining visual health bar
+// derived from the SAME remaining-time state. Duration is picked from the
+// game's difficulty (below); the GM starts/pauses/resumes it explicitly --
+// it never auto-starts on game/XLSX load.
+//
+// Phase state machine (room.timer.phase):
+//   'ready'          -- not started yet. duration/remaining hold the full
+//                        difficulty default; GM can still change difficulty
+//                        here and the default updates (see 'setDifficulty').
+//   'running'        -- normal time ticking down every TIMER_TICK_MS.
+//   'paused'         -- normal time frozen (GM-initiated).
+//   'borrowed'       -- normal time hit 0:00; a SEPARATE 2:00 emergency
+//                        reserve is now ticking down (borrowedRemaining).
+//                        This is a distinct bar/state, not a refill of the
+//                        normal one -- the normal bar stays empty.
+//   'borrowed_paused'-- Borrowed Time frozen (GM-initiated).
+//   'expired'        -- Borrowed Time hit 0:00. Per the locked spec this is
+//                        PURELY a display state: it does NOT auto-fail the
+//                        Final and does NOT auto-add WOMF charge. The GM
+//                        alone still decides (via the existing FAIL K
+//                        control) whether/when to declare the Final failed.
+//   'stopped'        -- the Final was resolved (success OR GM-declared
+//                        failure) while a countdown was active; finalizeBoard()
+//                        below freezes it here so the HUD stops moving.
+//
+// Client-side interpolation of the bar between ticks is fine (and expected,
+// for a smooth drain) but the numbers below are the sole source of truth --
+// every client reconciles to them on every state:public broadcast, which
+// happens at least once per TIMER_TICK_MS while a countdown is active.
+// ---------------------------------------------------------------------
+
+const TIMER_DURATIONS_MS = {
+  GREEN: 20 * 60 * 1000,
+  YELLOW: 20 * 60 * 1000,
+  AMBER: 25 * 60 * 1000,
+  RED: 35 * 60 * 1000,
+  PURPLE: 35 * 60 * 1000,
+  BLACK: 35 * 60 * 1000
+};
+const TIMER_BORROWED_MS = 2 * 60 * 1000;
+const TIMER_TICK_MS = 1000;
+
+function defaultTimerDuration(room) {
+  const difficulty = room.gameData && room.gameData.difficulty;
+  return TIMER_DURATIONS_MS[difficulty] || TIMER_DURATIONS_MS.GREEN;
+}
+
+// Fresh, un-started timer for the CURRENT game's difficulty. Called on
+// room creation, resetBoard, and switchGame (a new board always starts
+// back at 'ready' -- it is never carried over already-running).
+function resetTimer(room) {
+  const duration = defaultTimerDuration(room);
+  room.timer = {
+    phase: 'ready',
+    duration,
+    remaining: duration,
+    borrowedDuration: TIMER_BORROWED_MS,
+    borrowedRemaining: TIMER_BORROWED_MS
+  };
+}
+
+function getTimerPublicState(room) {
+  if (!room.timer) resetTimer(room);
+  const t = room.timer;
+  return {
+    phase: t.phase,
+    duration: t.duration,
+    remaining: t.remaining,
+    borrowedDuration: t.borrowedDuration,
+    borrowedRemaining: t.borrowedRemaining
+  };
+}
+
+function handleTimerStart(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can start the Timer' });
+    return;
+  }
+  if (!room.timer) resetTimer(room);
+  if (room.timer.phase !== 'ready') {
+    sendToWs(ws, { type: 'error', message: 'The Timer has already been started' });
+    return;
+  }
+
+  room.timer.phase = 'running';
+  room.revision++;
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  console.log(`[ROOM ${room.code}] GM started the Timer (${Math.round(room.timer.duration / 1000)}s)`);
+}
+
+function handleTimerPause(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can pause the Timer' });
+    return;
+  }
+  if (!room.timer || (room.timer.phase !== 'running' && room.timer.phase !== 'borrowed')) {
+    sendToWs(ws, { type: 'error', message: 'The Timer is not currently running' });
+    return;
+  }
+
+  room.timer.phase = room.timer.phase === 'borrowed' ? 'borrowed_paused' : 'paused';
+  room.revision++;
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  console.log(`[ROOM ${room.code}] GM paused the Timer`);
+}
+
+function handleTimerResume(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can resume the Timer' });
+    return;
+  }
+  if (!room.timer || (room.timer.phase !== 'paused' && room.timer.phase !== 'borrowed_paused')) {
+    sendToWs(ws, { type: 'error', message: 'The Timer is not currently paused' });
+    return;
+  }
+
+  room.timer.phase = room.timer.phase === 'borrowed_paused' ? 'borrowed' : 'running';
+  room.revision++;
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  console.log(`[ROOM ${room.code}] GM resumed the Timer`);
+}
+
+// Single global tick, once per second, covering every room. Only rooms with
+// an actively-running phase ('running' or 'borrowed') are touched -- ready/
+// paused/borrowed_paused/expired/stopped never move on their own. This is
+// the ONLY place normal time crosses into Borrowed Time, and the ONLY place
+// Borrowed Time crosses into 'expired' -- both are pure phase/number
+// changes with no side effects on scoring, WOMF, or the Final's own reveal
+// state (per the locked spec's explicit "do not auto-fail / do not
+// auto-charge WOMF" requirement).
+setInterval(() => {
+  rooms.forEach((room) => {
+    if (!room.timer) return;
+    const t = room.timer;
+
+    if (t.phase === 'running') {
+      t.remaining = Math.max(0, t.remaining - TIMER_TICK_MS);
+      if (t.remaining <= 0) {
+        t.phase = 'borrowed';
+        t.borrowedRemaining = t.borrowedDuration;
+        console.log(`[ROOM ${room.code}] Timer hit 0:00 -- entering BORROWED TIME`);
+      }
+    } else if (t.phase === 'borrowed') {
+      t.borrowedRemaining = Math.max(0, t.borrowedRemaining - TIMER_TICK_MS);
+      if (t.borrowedRemaining <= 0) {
+        t.phase = 'expired';
+        console.log(`[ROOM ${room.code}] Borrowed Time hit 0:00 -- TIME EXPIRED (GM decision required)`);
+      }
+    } else {
+      return;
+    }
+
+    room.revision++;
+    broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  });
+}, TIMER_TICK_MS);
 
 function getCellData(game, column, row) {
   if (row >= 1 && row <= 4) {
@@ -711,6 +896,18 @@ function finalizeBoard(room, outcome) {
   if (room.scoring.boardFinalized) return { alreadyFinalized: true };
   room.scoring.boardFinalized = true;
 
+  // Timer: the Final has now been resolved, success OR GM-declared failure
+  // (a success reaching here during Borrowed Time counts exactly the same
+  // as any other success -- this function doesn't even look at outcome to
+  // decide that). Freeze whatever countdown was active/paused so the HUD
+  // stops moving; this is purely a display change, never a trigger for
+  // anything else (no scoring/WOMF side effect lives here -- those already
+  // happened via the GM's own explicit action that called into this
+  // function in the first place).
+  if (room.timer && !['ready', 'expired', 'stopped'].includes(room.timer.phase)) {
+    room.timer.phase = 'stopped';
+  }
+
   const participants = getActiveParticipants(room);
   const penaltyEvents = [];
 
@@ -894,6 +1091,10 @@ function applyCommand(room, command, payload) {
       // A wheel opened for the board being reset no longer makes sense --
       // close it. WOMF charge itself is untouched (see above).
       resetWheel(room);
+      // Same treatment as the Wheel: a reset board is a fresh attempt, so
+      // the Timer goes back to a fresh, un-started 'ready' countdown at the
+      // current difficulty's duration -- the GM must press START GAME again.
+      resetTimer(room);
       break;
     }
     case 'changeBackground': {
@@ -915,6 +1116,13 @@ function applyCommand(room, command, payload) {
       if (room.gameData.difficulty !== difficulty) {
         room.gameData.difficulty = difficulty;
         changed = true;
+        // Timer: the default duration follows a difficulty change only when
+        // the Timer hasn't started yet (still 'ready') -- once the GM has
+        // pressed START GAME, changing difficulty must NOT silently rewrite
+        // the active countdown (locked spec, item 12).
+        if (!room.timer || room.timer.phase === 'ready') {
+          resetTimer(room);
+        }
       }
       break;
     }
@@ -1394,6 +1602,9 @@ function handleSwitchGame(ws, message) {
   room.womf.failedColumns = {};
   // A wheel opened for the previous game no longer makes sense -- close it.
   resetWheel(room);
+  // NEXT GAME is a new board -- same treatment as resetBoard: a fresh,
+  // un-started Timer at the new game's difficulty default.
+  resetTimer(room);
 
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
@@ -1788,6 +1999,17 @@ wss.on('connection', (ws) => {
             sendToWs(ws, { type: 'error', message: result.error });
           } else {
             sendToWs(ws, { type: 'room:created', roomCode: result.roomCode, hostToken: result.hostToken });
+            // Send the host its own initial state:public immediately -- without
+            // this, trackers with a non-zero 'ready' default (the Timer's
+            // difficulty duration, e.g. "20:00") sit at their pre-room static
+            // default (App.timer's own "00:00") until some other action or
+            // client happens to trigger the first broadcast. WOMF/Wheel never
+            // exposed this gap since their own defaults are already correct
+            // (0/10, closed).
+            const newRoom = rooms.get(result.roomCode);
+            if (newRoom) {
+              sendToWs(ws, { type: 'state:public', ...getPublicState(newRoom) });
+            }
           }
           break;
         }
@@ -1841,6 +2063,18 @@ wss.on('connection', (ws) => {
         }
         case 'gm:wheelClose': {
           handleWheelClose(ws);
+          break;
+        }
+        case 'gm:timerStart': {
+          handleTimerStart(ws);
+          break;
+        }
+        case 'gm:timerPause': {
+          handleTimerPause(ws);
+          break;
+        }
+        case 'gm:timerResume': {
+          handleTimerResume(ws);
           break;
         }
         case 'gm:revealResults': {

@@ -23,6 +23,11 @@ const App = {
   // reset to a static 0/10 when there is no room (cleanupRoom). It is never
   // computed locally.
   womf: { charge: 0, armed: false },
+  // TIMER + BORROWED TIME -- same philosophy as womf: purely a reflection
+  // of the server's authoritative state:public broadcasts (applyServerState)
+  // or the static, un-started 'ready' default when there is no room
+  // (cleanupRoom). Never runs its own countdown locally.
+  timer: { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 },
 
   async init() {
     this.showLoading(true);
@@ -50,6 +55,8 @@ const App = {
       Womf.init('womf-tracker-gm');
       Womf.init('womf-tracker-public');
       Wheel.init('wheel-overlay');
+      Timer.init('timer-tracker-gm');
+      Timer.init('timer-tracker-public');
       // The OPEN WOMF control exists ONLY on the GM's own working view --
       // never on the Public View preview or the player's read-only copy in
       // join.html. It's appended here (rather than baked into womf.js's
@@ -75,6 +82,7 @@ const App = {
       this.applyPersistedOrDefaultBackground();
       this.updatePublicView();
       this.updateWomfTracker();
+      this.updateTimerUI();
       this.connectWebSocket();
     } catch (e) {
       console.error('Initialization error:', e);
@@ -501,6 +509,9 @@ const App = {
     this.wheel = state.wheel || { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
     this.updateWheelUI();
 
+    this.timer = state.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 };
+    this.updateTimerUI();
+
     const newSessionState = {
       cells: {},
       finalSolution: state.finalSolution?.revealed === true,
@@ -784,6 +795,43 @@ const App = {
     });
   },
 
+  // ---------------------------------------------------------------------
+  // TIMER + BORROWED TIME -- GM controls just send the command; all display
+  // logic (numeric, bars, phase labels, color states) lives in js/timer.js,
+  // driven entirely by the server-authoritative state:public broadcast.
+  // ---------------------------------------------------------------------
+
+  startTimer() {
+    if (this.mode !== 'multiplayer') return;
+    this.send({ type: 'gm:timerStart' });
+  },
+
+  pauseTimer() {
+    if (this.mode !== 'multiplayer') return;
+    this.send({ type: 'gm:timerPause' });
+  },
+
+  resumeTimer() {
+    if (this.mode !== 'multiplayer') return;
+    this.send({ type: 'gm:timerResume' });
+  },
+
+  // Server-authoritative, same philosophy as updateWomfTracker()/
+  // updateWheelUI(): only ever reflects the last state:public broadcast, or
+  // the static un-started 'ready' default when there is no room (see
+  // cleanupRoom()). The GM's own main tracker gets START/PAUSE/RESUME; the
+  // GM's Public View preview copy is read-only, exactly like the WOMF
+  // tracker split.
+  updateTimerUI() {
+    const state = this.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 };
+    Timer.update('timer-tracker-gm', state, true, {
+      onStart: () => this.startTimer(),
+      onPause: () => this.pauseTimer(),
+      onResume: () => this.resumeTimer()
+    });
+    Timer.update('timer-tracker-public', state, false);
+  },
+
   updateFailFinalButtonVisibility() {
     const btn = document.getElementById('declare-final-failed-btn');
     if (!btn) return;
@@ -937,6 +985,11 @@ const App = {
     // stuck showing the last room's spin.
     this.wheel = { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
     this.updateWheelUI();
+    // Same for the Timer -- local mode has no server-authoritative countdown,
+    // so it goes back to the static un-started 'ready' default rather than
+    // holding onto (or continuing to display) the last room's clock.
+    this.timer = { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 };
+    this.updateTimerUI();
   },
 
   handleRoomClosed(message) {
