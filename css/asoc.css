@@ -277,10 +277,10 @@ textarea {
   letter-spacing: 0.72px;
   line-height: 1;
   /* Optical text correction only: keep every canonical pill/slot fixed.
-     The visible glyphs sit ~3 mm right and ~2 mm lower on the canonical
-     1900x1267 stage. The 20% horizontal stretch is presentation-only too:
+     The visible glyphs stay ~3 mm right and are now shifted ~3 mm upward
+     from the previous pass. The 20% horizontal stretch is presentation-only:
      no pill geometry or hit area moves. */
-  translate: 0.60cqw calc(0.10em + 0.60cqh);
+  translate: 0.60cqw calc(0.10em - 0.30cqh);
   scale: 1.20 1;
   color: var(--text-primary);
   word-wrap: break-word;
