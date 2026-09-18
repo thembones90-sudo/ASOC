@@ -91,12 +91,13 @@ ASOC ENGINE/
 
 ## Canonical Difficulty Scale
 
-ASOC uses exactly five difficulty tiers:
+ASOC uses exactly six difficulty tiers:
 
 | Tier | Visual Identity |
 |------|-----------------|
 | **GREEN** | Green |
 | **YELLOW** | Yellow |
+| **AMBER** | Amber |
 | **RED** | Red |
 | **PURPLE** | Purple |
 | **BLACK** | Black/Dark |
@@ -116,7 +117,7 @@ Valid JSON value:
   "title": "Display Title",
   "theme": "Theme Name",
   "background": "assets/backgrounds/image.jpg",
-  "difficulty": "GREEN|YELLOW|RED|PURPLE|BLACK",
+  "difficulty": "GREEN|YELLOW|AMBER|RED|PURPLE|BLACK",
   "columns": {
     "A": { "clues": ["A1","A2","A3","A4"], "solution": "A5" },
     "B": { "clues": ["B1","B2","B3","B4"], "solution": "B5" },
@@ -497,7 +498,7 @@ Each of the three consumers (`App`, `Board`, `PlayerApp`) tracks `_chatEverIniti
 ### GM console layout
 The Shadow Broker input (`#shadow-broker-form` / `#shadow-broker-input` / `.shadow-broker-send-btn`) lives in `#gm-broker-bar`, a sibling of `#board-layer` inside `#main-content` on `index.html` — directly under the board, always visible without scrolling the sidebar. It is NOT inside the `.gm-chat-panel` (GUESSES) section; that panel only holds the read-only message log now. If you move GM console sections around, keep this in mind — the ids didn't change when it moved, only its DOM location, so anything that does `document.getElementById('shadow-broker-input')` still works regardless of where the form physically lives.
 
-When `App.mode !== 'multiplayer'` (not currently hosting), TRANSMIT is a no-op — same rule as every other GM-only control (Timer, WOMF, Wheel) — but gives visible feedback (`flashShadowBrokerNoRoom()`: a brief red border/shake + placeholder swap to "HOST A ROOM FIRST") instead of silently doing nothing, since a Broker input sitting there with typed text and zero reaction reads as broken rather than "not hosting yet."
+TRANSMIT works in both hosted and local GM modes. With a live multiplayer room, the message is sent through the authoritative server and reaches every connected player plus the GM surfaces. Without a room, the message still plays immediately on the GM working board and Public View and is appended to the GM chat log. The control must never refuse a transmission merely because no room is active.
 
 ### Locked rules (do not silently change these)
 1. Never trust a client-supplied `source` field — it must only ever be set server-side.
@@ -510,7 +511,7 @@ When `App.mode !== 'multiplayer'` (not currently hosting), TRANSMIT is a no-op �
 
 ## Scoring & Player Profiles
 
-Automatic scoring layered on top of the existing chat-adjudication flow. The gamemaster still only identifies who guessed correctly and which target -- every point, bonus, penalty and profile stat is calculated by the server. Nothing here changes the board, the clue-reveal system, or the Progressive Clue Queue's status (still locked/not implemented -- see below).
+Automatic scoring layered on top of the existing chat-adjudication flow. The gamemaster still only identifies who guessed correctly and which target -- every point, bonus, penalty and profile stat is calculated by the server. The Progressive Clue Queue is implemented and remains independent of scoring.
 
 ### Column scoring
 A column's score depends on how many of its four clues were revealed before it was solved (fewer clues revealed = harder = worth more):
@@ -625,7 +626,7 @@ The GM token is obtained automatically on page load (`api/gm/token`, localhost o
 | POST | `/api/backgrounds/upload?filename=` | Upload background image (max 10 MB) |
 | POST | `/api/games/import-xlsx?filename=` | Parse an "ASOC FOREVER SHEET"-format `.xlsx` into a game draft (validated; not saved until `POST /api/games`) |
 
-Statically serving `/games/*.json` is **blocked (403)** — the browser never reads game files directly.
+Statically serving `/games/*.json` is **blocked (404)** by the public static-file allowlist — the browser never reads game files directly.
 
 ### Game Switching (WebSocket)
 ```json
@@ -653,15 +654,14 @@ Server response:
 | **Phase 2.5** | ✅ Complete | **GUESS CHAT**: Player guesses, GM adjudication (❌/🖤), target selection, auto-reveal, solved tracking |
 | **The Forge** | ✅ Complete | **GAME LIBRARY + CREATOR**: in-app game/background management, live preview, NEXT GAME room switching, Excel import |
 | **Scoring & Profiles** | ✅ Complete | Automatic column/Final scoring, column streaks, Failed Final penalty, session + all-time leaderboards, persistent player profiles |
-| **Phase 4** | ⏳ Planned | Teams, timers, buzzer, QR codes, room persistence across restarts |
+| **Phase 4** | 🚧 Partial | Server-authoritative Timer/Borrowed Time and active-room crash recovery are complete; teams, buzzer, and QR joining remain planned |
 
 ---
 
 ## Phase 2 / 2.5 / The Forge Limitations (Known)
 
-- **No persistent room storage** — rooms (and current-session scores) live in server memory only; restart = rooms and session leaderboards lost. Player profiles/all-time stats in `players.json` survive a restart just fine.
 - **No host migration** — if GM doesn't reconnect in 60s, room closes
-- **No teams, timers, buzzer, or QR codes** — scoring is per-player, reveal pacing is entirely GM-controlled, room joining is manual room-code entry only
+- **No teams, buzzer, or QR codes yet** — scoring is per-player and room joining is manual room-code entry; the server-authoritative Timer + Borrowed Time system is implemented
 - **Purple/Black solve tracking is structural only** — the fields exist on every profile but are never incremented yet; there is no per-column difficulty metadata to key off, only a per-board one
 - **Local undo only** — multiplayer undo requires manual inverse action
 - **No answer validation** — GM is sole judge, no automatic checking
@@ -672,9 +672,9 @@ Server response:
 
 ---
 
-## LOCKED SPEC — Progressive Clue Queue (NOT YET IMPLEMENTED)
+## Progressive Clue Queue — IMPLEMENTED
 
-**Status: locked design decision, not built. Do not implement until explicitly instructed — this is a gameplay-logic change, not a visual one, and it touches `Board`, `server.js`'s `applyCommand`/`getPublicState`, `game-store.js`'s data shape, `Forge`'s creator, and undo. Recorded here so the rule is fixed before any of that code is touched.**
+**Status: implemented in local and multiplayer play.** Each column keeps a server-authoritative reveal-order queue. Physical slot choice controls where a clue appears; reveal order controls which clue is assigned. The queue is reset by `resetBoard`/game switching and is included in public state only as row-order metadata, never as unrevealed clue text.
 
 ### The rule
 
@@ -698,19 +698,22 @@ This applies independently and identically to A1–A4, B1–B4, C1–C4, D1–D4
 
 ### Data model implication
 
-Do not permanently bind `A1 = clues[0]`, `A2 = clues[1]`, etc. A column's `clues` array is an ordered queue, consumed front-to-back as slots are opened — not a coordinate-to-content map. Session state needs, per column, which physical slots are open and which queue index each received, plus the next index to hand out:
+Do not permanently bind `A1 = clues[0]`, `A2 = clues[1]`, etc. A column's `clues` array is an ordered queue, consumed front-to-back as slots are first opened. The implemented session state stores the physical row numbers in first-reveal order:
 
 ```js
-// session state, per column
-A: {
-  revealedSlots: { A3: 0, A1: 1, A4: 2 },  // slot -> clueIndex it received
-  nextClueIndex: 3
+// sessionState.clueOrder
+{
+  A: [3, 1, 4],
+  B: [],
+  C: [],
+  D: []
 }
+// A3 received clues[0], A1 received clues[1], A4 received clues[2].
 ```
 
-When another unopened A-slot is picked, it receives `nextClueIndex` (3 in the example above), then `nextClueIndex` increments.
+When another previously unassigned A-slot is revealed, its clue index is the current length of `clueOrder.A`, then that row number is appended.
 
-**The reveal action means:** "open this physical slot and place the next unused clue from that column's queue into it" — **not** "reveal the clue permanently assigned to this coordinate." This is the core semantic change from how reveals currently work (today, `revealCell` just flips `sessionState.cells[key]` and the content is a fixed lookup by coordinate — that lookup-by-coordinate assumption goes away for A1–D4 under this spec).
+**The reveal action means:** "open this physical slot and place the next unused clue from that column's queue into it" — **not** "reveal the clue permanently assigned to this coordinate." `getCellData()` resolves A1–D4 through `sessionState.clueOrder`; row 5 and FINAL remain fixed-coordinate content.
 
 ### Reset
 
@@ -718,16 +721,11 @@ When another unopened A-slot is picked, it receives `nextClueIndex` (3 in the ex
 
 ### Undo
 
-Undo must roll back three things atomically for a queue-column reveal, not just the visible/hidden flag:
-- the physical slot returns to hidden
-- that column's `nextClueIndex` decrements back
-- the slot-to-clueIndex assignment for that slot is removed
-
-Example: A3 receives clue #1, then A1 receives clue #2, then UNDO → A1 returns to hidden, and the next reveal anywhere in column A must again hand out clue #2 (A3 keeps its already-assigned clue #1; only the most recent assignment unwinds).
+**Manual hide and undo are intentionally different.** In multiplayer, hiding a revealed slot does **not** remove its queue assignment; revealing that same physical slot again shows the same clue it previously received. `resetBoard` clears all assignments and restarts every column at clue #1. Local-mode history/undo can unwind the most recent reveal assignment when that action itself is undone.
 
 ### Multiplayer
 
-Server stays authoritative (same principle as today's `getPublicState()`). A player must only ever receive clue text for a slot once that slot has actually been revealed and assigned a queue index — the still-unopened clues in a column's queue (including which clue is "next") must never be present in any `state:public` payload, same non-negotiable rule as hidden cells today.
+Server stays authoritative. A player receives clue text only for revealed slots. `state:public` includes `clueOrder` row-order metadata so every client maps the same physical slot to the same difficulty index, but unrevealed clue text is never included.
 
 ### Forge / Creator
 
@@ -765,7 +763,7 @@ Fixed canonical geometry (1900 × 1267) is kept. The Forge creator includes a li
 - `Board.sessionState` = mutable reveal state (serializable)
 - `Board.history` = action log for undo (serializable, local only)
 - `Board.exportPublicState()` = sanitized state for remote clients
-- Server `rooms` Map = in-memory room registry (replaceable with Redis/DB later)
+- Server `rooms` Map = live room registry, mirrored to atomic `active-rooms.json` crash-recovery snapshots (replaceable with Redis/DB later)
 - Revision-based sync = ready for operational transform / CRDT if needed
 - No DOM coupling in core logic — WebSocket sync layer cleanly separated
 
