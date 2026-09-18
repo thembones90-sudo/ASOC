@@ -301,16 +301,12 @@ textarea {
 /* Final solution ("K") -- same green-default/red-on-fail model as the
    column solutions; gold is no longer used here. */
 .board-cell.final-solution .cell-content {
-  color: #4cff94;
+  color: #35d57a;
   font-weight: 900;
   font-size: clamp(1.8rem, 4.4vw, 2.8rem);
   letter-spacing: 3px;
   text-transform: uppercase;
-  text-shadow:
-    0 0 6px currentColor,
-    0 0 16px currentColor,
-    0 0 28px rgba(255, 255, 255, 0.16);
-  filter: brightness(1.12);
+  text-shadow: 0 0 5px rgba(53, 213, 122, 0.32);
 }
 
 /* FINAL SOLUTION REVEAL FLOURISH -- Public View / join.html only (see
@@ -425,15 +421,11 @@ textarea {
   }
 
   .asoc-board .board-cell.final-solution .cell-content {
-    color: #4cff94;
+    color: #35d57a;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 3px;
-    text-shadow:
-      0 0 6px currentColor,
-      0 0 16px currentColor,
-      0 0 28px rgba(255, 255, 255, 0.16);
-    filter: brightness(1.12);
+    text-shadow: 0 0 5px rgba(53, 213, 122, 0.32);
   }
 
   /* SHADOW BROKER BOARD LINE -- positioned via Skeleton.shadowBrokerLineStyle(),
