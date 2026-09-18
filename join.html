@@ -412,25 +412,58 @@
     #chat-panel {
       width: 100%;
       max-width: var(--canvas-width);
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 8px;
-      padding: 12px;
+      background:
+        linear-gradient(180deg, rgba(19, 23, 29, 0.98), rgba(7, 9, 12, 0.98));
+      border: 1px solid rgba(116, 126, 139, 0.55);
+      border-radius: 3px;
+      padding: 0;
       margin-top: 12px;
       display: flex;
       flex-direction: column;
-      max-height: 35vh;
+      max-height: 42vh;
       flex-shrink: 0;
+      box-shadow:
+        inset 0 1px rgba(255,255,255,0.035),
+        inset 0 0 28px rgba(0,0,0,0.55),
+        0 10px 28px rgba(0,0,0,0.28);
+      position: relative;
+      overflow: hidden;
     }
+
+    #chat-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(255,255,255,0.012) 0,
+        rgba(255,255,255,0.012) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+      z-index: 0;
+    }
+
+    #chat-panel > * { position: relative; z-index: 1; }
 
     .chat-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 4px 8px;
-      margin-bottom: 8px;
-      border-bottom: 1px solid var(--panel-border);
+      gap: 16px;
+      padding: 11px 14px 10px;
+      margin: 0;
+      background: linear-gradient(90deg, rgba(38,43,51,.9), rgba(12,15,19,.92));
+      border-bottom: 1px solid rgba(116,126,139,.42);
+      box-shadow: inset 0 -1px rgba(0,0,0,.55);
     }
+
+    .battle-comms-heading, .battle-comms-status { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .battle-comms-status { justify-content: flex-end; }
+    .battle-comms-room, .battle-comms-online { font-size: .55rem; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+    .battle-comms-room { color: #7f8792; padding-left: 12px; border-left: 1px solid rgba(116,126,139,.4); }
+    .battle-comms-online { color: #62b77c; }
 
     .chat-title {
       font-size: 0.65rem;
@@ -458,9 +491,10 @@
     .chat-message {
       background: var(--button-bg);
       border: 1px solid var(--button-border);
-      border-radius: 6px;
-      padding: 8px 10px;
-      margin-bottom: 8px;
+      border-radius: 2px;
+      padding: 9px 11px;
+      margin-bottom: 7px;
+      border-left: 2px solid var(--little-hero-accent, rgba(130,140,154,.55));
       animation: fadeIn 0.2s ease;
     }
 
@@ -762,13 +796,19 @@
 
     <div id="chat-panel">
       <div class="chat-header">
-        <span class="chat-title">GUESSES</span>
-        <span class="chat-solved" id="chat-solved-count">SOLVED: 0/5</span>
+        <div class="battle-comms-heading">
+          <span class="chat-title">BATTLE COMMS</span>
+          <span class="battle-comms-room" id="battle-comms-room">ROOM ----</span>
+        </div>
+        <div class="battle-comms-status">
+          <span class="battle-comms-online" id="battle-comms-online">● 0 LITTLE HEROES CONNECTED</span>
+          <span class="chat-solved" id="chat-solved-count">SOLVED: 0/5</span>
+        </div>
       </div>
       <div id="chat-messages"></div>
       <form class="chat-form" id="chat-form">
-        <input type="text" id="chat-input" placeholder="Type your guess..." maxlength="100" autocomplete="off">
-        <button type="submit" class="chat-send-btn">SEND</button>
+        <input type="text" id="chat-input" placeholder="Transmit to Battle Comms..." maxlength="100" autocomplete="off">
+        <button type="submit" class="chat-send-btn">TRANSMIT</button>
       </form>
     </div>
     <div class="connection-status" id="connection-status">

@@ -348,6 +348,10 @@ const PlayerApp = {
 
       case 'players:update':
         this.updatePlayerLeaderboard(message.players);
+        const commsRoom = document.getElementById('battle-comms-room');
+        const commsOnline = document.getElementById('battle-comms-online');
+        if (commsRoom) commsRoom.textContent = 'ROOM ' + (this.roomCode || '----');
+        if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' LITTLE HEROES CONNECTED';
         break;
 
       case 'battle:controlsOnline':
@@ -891,13 +895,14 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}">
+      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" style="--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(msg.frameColor || '') ? msg.frameColor : '#6f7885'}">
         <div class="chat-message-header">
           <span class="chat-little-hero">${this.littleHeroAvatarHTML(msg)}<span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
           <span class="chat-time">${time}</span>
         </div>
         <div class="chat-message-text">${this.escapeHtml(msg.text)}</div>
         ${msg.target ? `<div class="chat-target">→ ${this.getTargetLabel(msg.target)}</div>` : ''}
+        ${msg.verdict === 'correct' ? '<div class="chat-target">✓ CONFIRMED</div>' : msg.verdict === 'wrong' ? '<div class="chat-target">× REJECTED</div>' : ''}
         ${verdictResponseHtml}
       </div>
     `;
