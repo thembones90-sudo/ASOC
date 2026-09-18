@@ -370,28 +370,38 @@ textarea {
     opacity: 1;
   }
 
-  /* Difficulty swap theatre: old poster dissolves while the new one fades
-     through with a slight luminous lift. Both posters occupy the exact same
-     canonical 1900x1267 geometry, so this is presentation-only. */
-  .asoc-board .skeleton-img.skeleton-transition-in {
-    opacity: 0 !important;
-    filter: brightness(1.18) saturate(1.12) contrast(1.04);
+  /* Difficulty theatre belongs ONLY to the ASOC logo eye. The canonical
+     skeleton poster never fades or moves; transparent eye overlays crossfade
+     in-place so the machinery stays perfectly still while the eye changes. */
+  .asoc-board .difficulty-eye {
+    position: absolute;
+    left: 47.368421%;
+    top: 78.137332%;
+    width: 12.368421%;
+    height: 11.444357%;
+    z-index: 3;
+    pointer-events: none;
+    object-fit: fill;
+    opacity: 1;
     transition:
-      opacity 850ms cubic-bezier(.22,.61,.36,1),
-      filter 850ms ease;
+      opacity 900ms cubic-bezier(.22,.61,.36,1),
+      filter 900ms ease;
+    filter: brightness(1) saturate(1);
   }
 
-  .asoc-board .skeleton-img.skeleton-transition-in.skeleton-transition-active {
-    opacity: 1 !important;
-    filter: brightness(1) saturate(1) contrast(1);
+  .asoc-board .difficulty-eye.eye-transition-in {
+    opacity: 0;
+    filter: brightness(1.42) saturate(1.38);
   }
 
-  .asoc-board .skeleton-img.skeleton-transition-out {
-    opacity: 0 !important;
-    filter: brightness(0.72) saturate(0.82) contrast(1.03);
-    transition:
-      opacity 850ms cubic-bezier(.22,.61,.36,1),
-      filter 850ms ease;
+  .asoc-board .difficulty-eye.eye-transition-in.eye-transition-active {
+    opacity: 1;
+    filter: brightness(1) saturate(1);
+  }
+
+  .asoc-board .difficulty-eye.eye-transition-out {
+    opacity: 0;
+    filter: brightness(1.24) saturate(1.18);
   }
 
   .asoc-board .board-cell {

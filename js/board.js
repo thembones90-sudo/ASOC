@@ -372,41 +372,39 @@ const Board = {
     Skeleton.attach(el);
   },
 
-  // Lightweight refresh for a live, decorative-only difficulty change.
-  // Crossfades the next full skeleton poster over the current one without
-  // rebuilding the board, preserving every reveal/hide/session DOM class.
+  // Difficulty theatre: the skeleton poster itself remains absolutely still.
+  // Only the ASOC logo eye is overlaid and crossfaded to the new tier colour.
   updateSkeleton(difficulty) {
     if (!this.container) return;
-    const current = this.container.querySelector('.skeleton-img:not(.skeleton-transition-in)');
-    if (!current) return;
 
-    const nextSrc = Skeleton.skeletonPath(difficulty);
-    if (current.getAttribute('src') === nextSrc) return;
+    const tier = String(difficulty || 'GREEN').toLowerCase();
+    const nextSrc = `assets/ui/difficulty-eye/${tier}.png`;
+    let current = this.container.querySelector('.difficulty-eye:not(.eye-transition-in)');
 
-    // Abort any half-finished prior transition before starting a new one.
-    this.container.querySelectorAll('.skeleton-img.skeleton-transition-in').forEach(img => img.remove());
-    current.classList.remove('skeleton-transition-out');
+    if (current?.dataset.difficulty === tier) return;
+
+    // If this is the first live difficulty change, the old eye is already
+    // baked into the stationary skeleton underneath; fade the new eye over it.
+    this.container.querySelectorAll('.difficulty-eye.eye-transition-in').forEach(img => img.remove());
+    current?.classList.remove('eye-transition-out');
 
     const next = document.createElement('img');
-    next.className = 'skeleton-img loaded skeleton-transition-in';
+    next.className = 'difficulty-eye eye-transition-in';
     next.alt = '';
     next.src = nextSrc;
+    next.dataset.difficulty = tier;
 
     const begin = () => {
-      if (!next.isConnected) return;
       this.container.appendChild(next);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          next.classList.add('skeleton-transition-active');
-          current.classList.add('skeleton-transition-out');
-        });
-      });
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        next.classList.add('eye-transition-active');
+        current?.classList.add('eye-transition-out');
+      }));
 
       setTimeout(() => {
-        if (current.isConnected) current.remove();
-        next.classList.remove('skeleton-transition-in', 'skeleton-transition-active');
-        Skeleton.attach(this.container);
-      }, 900);
+        current?.remove();
+        next.classList.remove('eye-transition-in', 'eye-transition-active');
+      }, 950);
     };
 
     if (next.complete && next.naturalWidth > 0) begin();
