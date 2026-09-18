@@ -10,6 +10,46 @@ const PlayerApp = {
   chatMessages: [],
   solvedTargets: {},
   userScrolledUp: false,
+  // FINAL SOLUTION REVEAL FLOURISH -- same one-shot guard as App's copy in
+  // js/app.js (see its comment): renderBoard() fully rebuilds the board on
+  // every broadcast, so this flag is what keeps the animation from
+  // replaying on every incidental re-render while the Final stays revealed.
+  _finalFlourishPlayed: false,
+
+  // SHADOW BROKER glitch-in guard -- renderChat() rebuilds the entire chat
+  // list from scratch on every chat:update (a new guess from ANY player,
+  // not just Broker activity), so a naive "is this a Broker message" check
+  // would replay the glitch on every already-displayed transmission every
+  // single time. Instead we remember which transmissions have already
+  // played their one-shot arrival glitch, keyed so a genuinely NEW event
+  // (a fresh broadcast, or a verdict actually changing) gets a fresh key
+  // and therefore still glitches in, while re-rendering the same
+  // already-seen state never does. Standalone broadcasts key on the
+  // message id (which never changes); verdict responses key on
+  // `${message id}:${verdict}` so a correction (wrong -> correct) is
+  // treated as a new transmission, matching "the Broker updates its
+  // judgment," while an unrelated rerender of an unchanged verdict is not.
+  _seenShadowBrokerKeys: new Set(),
+
+  // SHADOW BROKER BOARD LINE -- the transient HUD line above the avatar's
+  // head on the board itself (separate from the chat-feed transmissions
+  // above). _chatEverInitialized guards the very first chat:update after
+  // connecting: without it, a player joining mid-game would see every
+  // Broker message in the room's whole history replay as a "new" arrival
+  // the instant they connect -- the same seed-time trap the Borrowed Time
+  // banner and Final flourish already had to guard against elsewhere in
+  // this codebase. _brokerLineText/_brokerLineStartedAt feed
+  // Skeleton.shadowBrokerLineState(), which recomputes the visible
+  // substring/opacity fresh from wall-clock time on every board rebuild
+  // (see renderShadowBrokerLineHTML) rather than an imperative DOM-mutating
+  // interval, so it survives any number of incidental rebuilds mid-reveal.
+  // _brokerLineTicker just re-invokes renderBoard() on a fast interval for
+  // the duration of one transmission so the reveal is actually visible
+  // frame-by-frame; it's cleared the moment the state function returns null.
+  _chatEverInitialized: false,
+  _brokerLineText: null,
+  _brokerLineStartedAt: 0,
+  _brokerLineTicker: null,
 
   init() {
     this.bindJoinForm();
@@ -138,11 +178,23 @@ const PlayerApp = {
         sessionStorage.setItem('asoc_player_id', this.playerId);
         break;
 
-      case 'chat:update':
-        this.chatMessages = message.messages || [];
+      case 'chat:update': {
+        const incoming = message.messages || [];
+        // Only look for a "new" standalone Broker broadcast to trigger the
+        // board-line reveal AFTER the first hydration -- otherwise a
+        // player joining mid-game would see the room's entire chat history
+        // replay as a fresh transmission the moment they connect.
+        if (this._chatEverInitialized) {
+          const previousIds = new Set(this.chatMessages.map(m => m.id));
+          const newBrokerMsg = incoming.find(m => m.source === 'shadowBroker' && !previousIds.has(m.id));
+          if (newBrokerMsg) this.playShadowBrokerBoardLine(newBrokerMsg.text);
+        }
+        this._chatEverInitialized = true;
+        this.chatMessages = incoming;
         this.solvedTargets = message.solvedTargets || {};
         this.renderChat();
         break;
+      }
 
       case 'players:update':
         this.updatePlayerLeaderboard(message.players);
@@ -246,6 +298,7 @@ const PlayerApp = {
     let html = `
       <div class="asoc-board">
         ${Skeleton.skeletonHTML(state.difficulty)}
+        ${this.renderShadowBrokerLineHTML()}
     `;
 
     for (let row = 1; row <= 4; row++) {
@@ -270,7 +323,11 @@ const PlayerApp = {
     const finalRevealed = state.finalSolution?.revealed === true;
     const finalContent = finalRevealed ? (state.finalSolution.value || '—') : '???';
     const finalOutcome = state.finalSolution?.outcome || null;
-    html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome);
+    // See App's copy of this same guard in js/app.js -- plays the flourish
+    // exactly once per reveal, never on a later incidental re-render.
+    const playFinalFlourish = finalRevealed && !this._finalFlourishPlayed;
+    this._finalFlourishPlayed = finalRevealed;
+    html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome, playFinalFlourish);
 
     html += '</div>';
     publicBoard.innerHTML = html;
@@ -279,13 +336,57 @@ const PlayerApp = {
     this.applyBackground(state.background);
   },
 
-  createPublicCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null) {
+  // Recomputes the Shadow Broker board line's visible substring/opacity
+  // fresh from wall-clock time (Skeleton.shadowBrokerLineState) every time
+  // the board is rebuilt -- called from inside renderBoard() itself, so it
+  // is never stale relative to whatever else just changed on the board.
+  renderShadowBrokerLineHTML() {
+    if (!this._brokerLineText) return '';
+    const state = Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, Date.now());
+    if (!state) {
+      this._brokerLineText = null;
+      return '';
+    }
+    return `
+      <div class="shadow-broker-board-line" style="${Skeleton.shadowBrokerLineStyle()}">
+        <span class="shadow-broker-board-line-text" style="opacity:${state.opacity.toFixed(3)}">${this.escapeHtml(state.visibleText)}</span>
+      </div>
+    `;
+  },
+
+  // Starts a new Shadow Broker board-line transmission. Re-invokes
+  // renderBoard() on a fast interval purely so the reveal is visible
+  // frame-by-frame -- the actual displayed text/opacity always comes from
+  // renderShadowBrokerLineHTML()'s fresh time-based computation, never
+  // from anything this interval accumulates itself, so it's safe even if
+  // OTHER events (a cell reveal, a Timer tick) also call renderBoard() in
+  // the middle of it.
+  playShadowBrokerBoardLine(text) {
+    if (!text) return;
+    this._brokerLineText = text;
+    this._brokerLineStartedAt = Date.now();
+
+    if (this._brokerLineTicker) clearInterval(this._brokerLineTicker);
+    this._brokerLineTicker = setInterval(() => {
+      if (!this._brokerLineText) {
+        clearInterval(this._brokerLineTicker);
+        this._brokerLineTicker = null;
+        // One final render to actually clear the line from the DOM.
+        if (this.lastPublicState) this.renderBoard(this.lastPublicState);
+        return;
+      }
+      if (this.lastPublicState) this.renderBoard(this.lastPublicState);
+    }, 40);
+  },
+
+  createPublicCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null, flourish = false) {
     const classes = ['board-cell'];
     if (isSolution) classes.push('solution-cell');
     if (isFinal) classes.push('final-solution');
     if (!revealed) classes.push('hidden');
     else classes.push('revealed');
     if (outcome === 'failed') classes.push('outcome-failed');
+    if (flourish) classes.push('final-flourish');
 
     return `
       <div class="${classes.join(' ')}" data-label="${label}" style="${Skeleton.cellStyle(label)}">
@@ -549,9 +650,35 @@ const PlayerApp = {
   },
 
   createChatMessageHTML(msg) {
-    const verdictIcon = this.getVerdictIcon(msg.verdict);
+    // SHADOW BROKER standalone broadcast -- a freestanding transmission,
+    // not tied to any player's guess. Entirely separate markup from the
+    // guess-bubble path below; no verdict, no target, no "own" styling.
+    if (msg.source === 'shadowBroker') {
+      const isNew = !this._seenShadowBrokerKeys.has(msg.id);
+      if (isNew) this._seenShadowBrokerKeys.add(msg.id);
+      return Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew });
+    }
+
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const isOwn = msg.playerId === this.playerId;
+
+    // The Shadow Broker's verdict response is an ADDITIONAL identity layer
+    // rendered alongside the verdict, not a replacement for it -- the
+    // guess bubble above keeps its existing correct/wrong classes and
+    // .chat-message-text color/strikethrough treatment exactly as before.
+    // msg.verdict remains the sole source of truth; nothing here alters it.
+    let verdictResponseHtml = '';
+    if (msg.verdict === 'wrong' || msg.verdict === 'correct') {
+      const verdictKey = `${msg.id}:${msg.verdict}`;
+      const isNew = !this._seenShadowBrokerKeys.has(verdictKey);
+      if (isNew) this._seenShadowBrokerKeys.add(verdictKey);
+      const verdictText = msg.verdict === 'correct' ? 'Correct.' : 'Incorrect.';
+      verdictResponseHtml = Skeleton.shadowBrokerTransmissionHTML(verdictText, {
+        glitchIn: isNew,
+        variant: 'verdict-response',
+        verdict: msg.verdict
+      });
+    }
 
     return `
       <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}">
@@ -560,11 +687,16 @@ const PlayerApp = {
           <span class="chat-time">${time}</span>
         </div>
         <div class="chat-message-text">${this.escapeHtml(msg.text)}</div>
-        ${verdictIcon ? `<div class="chat-verdict ${msg.verdict}">${verdictIcon}</div>` : ''}
         ${msg.target ? `<div class="chat-target">→ ${this.getTargetLabel(msg.target)}</div>` : ''}
+        ${verdictResponseHtml}
       </div>
     `;
   },
+
+  // NOTE: the Shadow Broker transmission markup itself now lives in
+  // Skeleton.shadowBrokerTransmissionHTML (js/skeleton.js) so the GM
+  // console (app.js) and this player screen render the exact same
+  // avatar/name/text bubble instead of two separate implementations.
 
   getVerdictIcon(verdict) {
     switch (verdict) {

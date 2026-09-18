@@ -617,6 +617,60 @@ function handleTimerResume(ws) {
   console.log(`[ROOM ${room.code}] GM resumed the Timer`);
 }
 
+// GM manual correction: nudge the CURRENTLY ACTIVE clock (normal or
+// Borrowed Time, whichever the phase is actually in) by a signed delta,
+// e.g. -30000/+30000. Deliberately does nothing else: it never touches
+// `phase` itself. If the nudge pushes normal `remaining` down to 0, the
+// very next tick of the loop below notices exactly as it always does and
+// transitions into 'borrowed' on its own -- so a phase change from an
+// adjustment is a natural, one-tick-later side effect, never something
+// this function forces directly. This is what keeps an adjustment from
+// resetting/restarting anything: no phase write, no field but the one
+// clock touched, so the warning/danger/borrowed pulse states (which are
+// all derived from remaining/duration) simply recompute correctly next
+// render.
+function handleTimerAdjust(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can adjust the Timer' });
+    return;
+  }
+  if (!room.timer) resetTimer(room);
+  const t = room.timer;
+
+  const ACTIVE_PHASES = ['running', 'paused', 'borrowed', 'borrowed_paused'];
+  if (!ACTIVE_PHASES.includes(t.phase)) {
+    sendToWs(ws, { type: 'error', message: 'The Timer is not active' });
+    return;
+  }
+
+  const deltaMs = Number(message.deltaMs);
+  if (!Number.isFinite(deltaMs) || deltaMs === 0) {
+    sendToWs(ws, { type: 'error', message: 'Invalid adjustment' });
+    return;
+  }
+
+  const inBorrowed = t.phase === 'borrowed' || t.phase === 'borrowed_paused';
+  // Clamped to [0, that clock's own full duration] -- the lower bound
+  // is the locked spec's explicit "prevent invalid negative timer state";
+  // the upper bound just keeps the health bar from rendering past 100%,
+  // it's not a rule against giving extra time, only against overfilling
+  // the bar past its own track.
+  if (inBorrowed) {
+    t.borrowedRemaining = Math.max(0, Math.min(t.borrowedDuration, t.borrowedRemaining + deltaMs));
+  } else {
+    t.remaining = Math.max(0, Math.min(t.duration, t.remaining + deltaMs));
+  }
+
+  room.revision++;
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  console.log(`[ROOM ${room.code}] GM adjusted the Timer by ${deltaMs > 0 ? '+' : ''}${Math.round(deltaMs / 1000)}s (${inBorrowed ? 'Borrowed Time' : 'normal'})`);
+}
+
 // Single global tick, once per second, covering every room. Only rooms with
 // an actively-running phase ('running' or 'borrowed') are touched -- ready/
 // paused/borrowed_paused/expired/stopped never move on their own. This is
@@ -1334,6 +1388,43 @@ function addChatMessage(room, playerId, playerName, text) {
   return { success: true, message };
 }
 
+// SHADOW BROKER -- presentation-layer identity feature. This is the ONLY
+// genuinely new chat-message type: a host-authored, freestanding broadcast
+// that isn't tied to judging any player's guess. It deliberately reuses
+// addChatMessage's exact validation (sanitizeText, MAX_CHAT_LENGTH) and
+// history-trim behavior so it behaves identically to a normal message on
+// the wire -- the only difference is playerId is null, playerName is the
+// fixed display label, and `source: 'shadowBroker'` marks it so clients
+// can render it as a Broker transmission instead of a player guess.
+// `source` is set here, server-side, only -- addChatMessage (the player
+// guess path) never reads a client-supplied source field, so a player has
+// no way to spoof this tag on their own message.
+function addShadowBrokerMessage(room, text) {
+  const sanitized = sanitizeText(text);
+  if (!sanitized) return { success: false, error: 'Empty message' };
+  if (sanitized.length > MAX_CHAT_LENGTH) {
+    return { success: false, error: `Message too long (max ${MAX_CHAT_LENGTH} chars)` };
+  }
+
+  const message = {
+    id: generateMessageId(),
+    playerId: null,
+    playerName: 'SHADOW BROKER',
+    text: sanitized,
+    timestamp: Date.now(),
+    verdict: null,
+    target: null,
+    source: 'shadowBroker'
+  };
+
+  room.chat.messages.push(message);
+  if (room.chat.messages.length > CHAT_HISTORY_LIMIT) {
+    room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
+  }
+
+  return { success: true, message };
+}
+
 function broadcastToRoom(room, message, excludeWs = null) {
   const data = JSON.stringify(message);
   room.players.forEach((player, ws) => {
@@ -1361,7 +1452,11 @@ function getChatState(room) {
       text: m.text,
       timestamp: m.timestamp,
       verdict: m.verdict,
-      target: m.target
+      target: m.target,
+      // Only ever set server-side by addShadowBrokerMessage -- absent
+      // (undefined -> serializes as omitted) on every ordinary player
+      // guess. See addShadowBrokerMessage for why a player can't spoof it.
+      source: m.source || null
     })),
     solvedTargets: { ...room.chat.solvedTargets }
   };
@@ -1551,6 +1646,38 @@ function handleChatGuess(ws, message) {
   }
 }
 
+// SHADOW BROKER free-form broadcast -- host-only, presentation layer only.
+// Reuses the existing chat pipeline end to end (addShadowBrokerMessage's
+// validation mirrors addChatMessage exactly; broadcastChatUpdate is the
+// same function every other chat mutation already uses), so this adds
+// exactly one new code path rather than a parallel message system. No
+// scoring, verdict, timer, clue, or reveal state is touched.
+function handleGmBroadcast(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can send a Shadow Broker transmission' });
+    return;
+  }
+
+  const { text } = message;
+  if (!text || typeof text !== 'string') {
+    sendToWs(ws, { type: 'error', message: 'Invalid transmission text' });
+    return;
+  }
+
+  const result = addShadowBrokerMessage(room, text);
+  if (result.success) {
+    broadcastChatUpdate(room);
+  } else {
+    sendToWs(ws, { type: 'error', message: result.error });
+  }
+}
+
 function handleJudgeGuess(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -1583,10 +1710,24 @@ function handleJudgeGuess(ws, message) {
     }
 
     // Any scoring change (award, reversal, or a streak rebuild) means
-    // session scores moved -- refresh every client's player list.
-    broadcastPlayersUpdate(room);
+    // session scores moved -- refresh every client's player list. EXCEPTION:
+    // when this verdict is the one that just resolved the Final
+    // (result.finalOutcome truthy), the jackpot was already committed to
+    // room.scoring.players/players.json inside awardFinalSolve/finalizeBoard
+    // above -- COMMIT SCORE NOW -- but per the locked pacing spec the
+    // *visible* leaderboard movement must not appear until the GM clicks
+    // SHOW RESULTS -- DISPLAY SCORE LATER. handleRevealResults() is the one
+    // place that broadcasts players:update for that case; ordinary column
+    // awards/reversals/streak rebuilds still update the leaderboard
+    // immediately, exactly as before.
+    if (!result.finalOutcome) {
+      broadcastPlayersUpdate(room);
+    }
 
-    if (result.newAward) {
+    if (result.newAward && !result.finalOutcome) {
+      // Same gating as above -- the Final's own point value is revealed
+      // exclusively via score:finalResults at SHOW RESULTS time (see
+      // handleRevealResults), never as an immediate toast.
       broadcastToRoom(room, { type: 'score:event', ...result.newAward });
     }
     if (result.streakChanged) {
@@ -1712,7 +1853,13 @@ function handleFailFinal(ws, message) {
 
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
-  broadcastPlayersUpdate(room);
+  // players:update is deliberately NOT broadcast here. The -200 penalty was
+  // just committed to room.scoring.players and players.json above (inside
+  // finalizeBoard) -- COMMIT SCORE NOW -- but per the locked pacing spec
+  // the visible leaderboard movement stays held back until the GM clicks
+  // SHOW RESULTS -- DISPLAY SCORE LATER. handleRevealResults() is the one
+  // place that broadcasts players:update for this outcome, exactly
+  // mirroring the Successful Final path below.
   broadcastToRoom(room, {
     type: 'score:finalReveal',
     outcome: 'failed',
@@ -1830,6 +1977,17 @@ function handleWomfReset(ws) {
 
 // GM has finished showing the story/reveal sequence and is ready to reveal
 // the point/penalty consequences to the whole room at once.
+//
+// LOCKED PACING RULE: the Final's score/penalty was already committed to
+// room.scoring.players AND players.json the instant the Final was resolved
+// (see awardFinalSolve/finalizeBoard, called from applyVerdict/failFinal
+// above) -- COMMIT SCORE NOW. What was deliberately withheld until this
+// exact moment is the *visible* leaderboard movement -- DISPLAY SCORE
+// LATER. This is the single place that broadcasts players:update for a
+// Final outcome; reading room.scoring.players here (rather than caching
+// anything earlier) also means if the GM corrected the verdict at any
+// point before clicking SHOW RESULTS, this broadcast reflects whatever the
+// current authoritative state actually is, not a stale snapshot.
 function handleRevealResults(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) return;
@@ -1840,6 +1998,7 @@ function handleRevealResults(ws) {
   if (!room.scoring.pendingResults) return; // nothing pending -- ignore silently, not an error
 
   broadcastToRoom(room, { type: 'score:finalResults', ...room.scoring.pendingResults });
+  broadcastPlayersUpdate(room);
   room.scoring.pendingResults = null;
 }
 
@@ -2056,6 +2215,19 @@ wss.on('connection', (ws) => {
             const newRoom = rooms.get(result.roomCode);
             if (newRoom) {
               sendToWs(ws, { type: 'state:public', ...getPublicState(newRoom) });
+              // Same reasoning as the state:public send just above, for
+              // chat this time: without this, the host's client-side chat
+              // state stays completely uninitialized until SOME chat event
+              // eventually happens (a player's first guess, or the GM's
+              // own first Shadow Broker broadcast) -- and a client that
+              // treats "my very first chat:update ever" as the signal to
+              // skip replaying history as fresh (see PlayerApp/App's
+              // _chatEverInitialized) would then wrongly swallow that very
+              // first real event instead of correctly treating it as new.
+              // Sending an (empty, for a brand new room) baseline here,
+              // mirroring what handlePlayerJoin already does for players,
+              // closes that gap.
+              sendToWs(ws, { type: 'chat:update', ...getChatState(newRoom) });
             }
           }
           break;
@@ -2078,6 +2250,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:judgeGuess': {
           handleJudgeGuess(ws, message);
+          break;
+        }
+        case 'gm:broadcast': {
+          handleGmBroadcast(ws, message);
           break;
         }
         case 'gm:switchGame': {
@@ -2122,6 +2298,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:timerResume': {
           handleTimerResume(ws);
+          break;
+        }
+        case 'gm:timerAdjust': {
+          handleTimerAdjust(ws, message);
           break;
         }
         case 'gm:revealResults': {

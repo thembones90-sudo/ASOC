@@ -232,6 +232,9 @@ Room {
 { "type": "gm:judgeGuess", "messageId": "msg-123", "verdict": "correct", "target": "FINAL", "reveal": true }
 ```
 ```json
+{ "type": "gm:broadcast", "text": "Column B is a dead end." }
+```
+```json
 { "type": "gm:failFinal" }
 ```
 ```json
@@ -320,9 +323,11 @@ Room {
   "text": "circus",
   "timestamp": 1789640000000,
   "verdict": "wrong" | "correct" | null,
-  "target": "A" | "B" | "C" | "D" | "FINAL" | null
+  "target": "A" | "B" | "C" | "D" | "FINAL" | null,
+  "source": "shadowBroker" | null
 }
 ```
+`source` is set server-side ONLY, by `addShadowBrokerMessage()` -- the ordinary player-guess path (`addChatMessage()`) never reads a client-supplied `source`, so a player has no way to spoof a Shadow Broker transmission. See "Shadow Broker Identity Layer" below.
 
 ### Revision Synchronization
 - Every authoritative state change increments `revision` (starts at 0)
@@ -460,6 +465,46 @@ Windows may prompt "Node.js: JavaScript runtime" to allow network access. **Allo
 - [ ] Player refresh/reconnect restores state
 - [ ] Multiple player devices receive same updates
 - [ ] Player cannot send GM commands (server rejects)
+
+---
+
+## Shadow Broker Identity Layer
+
+A presentation-layer identity for GM-to-player communication, layered on top of the existing chat/adjudication system without changing scoring, verdict logic, the timer, WOMF, the clue queue, or reveal behavior. Two capabilities:
+
+1. **Verdict reskin** — every judged guess (`msg.verdict === 'wrong' | 'correct'`) gets an ADDITIONAL "Shadow Broker" bubble (avatar + "Incorrect."/"Correct.") rendered alongside the guess, never replacing the guess's own existing correct/wrong styling. `msg.verdict` remains the sole source of truth.
+2. **Standalone broadcast** — the GM can type any freestanding sentence and have it appear to players as a Shadow Broker transmission, unconnected to any guess.
+
+### Server-set-only discriminator
+Chat messages carry an optional `source: 'shadowBroker'` field (see "Chat Message Model" above), set ONLY by `addShadowBrokerMessage()` in `server.js`. The ordinary player-guess path (`addChatMessage()`) never reads a client-supplied `source` — a player has no way to spoof a Broker transmission. `handleGmBroadcast()` enforces host-only (`ws !== room.hostConnection` → rejected), same pattern as every other GM-only action.
+
+### Three render surfaces, one shared markup source
+The Broker's avatar/name/text bubble (a standalone broadcast, or a verdict response nested under a guess) is built by exactly ONE function — `Skeleton.shadowBrokerTransmissionHTML(text, {glitchIn, variant, verdict})` in `js/skeleton.js` — called from both `js/app.js` (GM console) and `js/player.js` (player screen). **Do not re-introduce a second copy of this markup in either file.** Styling lives in `css/asoc.css` under `.shadow-broker-transmission` and friends, shared by `index.html` and `join.html`.
+
+Separately, a Broker **board-line** (a plain HUD-style readout, not a chat bubble — no box/border chrome beyond a light legibility plate, positioned above the avatar on the actual game board) renders identically on THREE surfaces that must all stay in sync:
+- `#asoc-board` — the GM's own working board (`js/board.js`)
+- `#public-board` on `index.html` — the GM's Public View / projector screen (`js/app.js`)
+- `#public-board` on `join.html` — each player's own screen (`js/player.js`)
+
+All three call the same pure functions — `Skeleton.shadowBrokerLineStyle()` (positioning) and `Skeleton.shadowBrokerLineState(text, startedAt, now)` (reveal/hold/fade timing) — and each maintains its own `(_brokerLineText, _brokerLineStartedAt, _brokerLineTicker)` triplet, driven by `playShadowBrokerBoardLine(text)`. **If you add a fourth render surface for the board line, or change the timing constants, do it in `js/skeleton.js` only** — never hardcode a duplicate timing value in a renderer.
+
+### The time-window rendering pattern (do not convert this to an imperative interval)
+`shadowBrokerLineState()` is a pure function of `(text, startedAt, now)` — it recomputes the currently-visible substring and fade opacity fresh from `Date.now()` on every single render call, however triggered. This is deliberate and matches the Final Solution flourish's established pattern elsewhere in this codebase: an imperative interval that mutates the DOM directly gets silently wiped by any unrelated full-DOM rebuild (a Timer tick broadcasting once/second, a cell reveal, an undo). Storing only `(fullText, startedAt)` and recomputing on every render means ANY incidental rebuild mid-transmission is automatically correct, never desynced or truncated. The `_brokerLineTicker` (a 40ms `setInterval`) exists ONLY to force repeated repaints so the reveal is visible frame-by-frame — its own state is never the source of truth, and it self-clears the instant the state function returns `null` (fully revealed, held, and faded).
+
+### The first-hydration guard (do not remove)
+Each of the three consumers (`App`, `Board`, `PlayerApp`) tracks `_chatEverInitialized` (App/PlayerApp) or relies on App's copy (Board has no separate chat state). The VERY FIRST `chat:update` a client ever receives is history hydration — it must NOT trigger the "new Broker message arrived, play the board line" side effect, or a client that just connected (a player joining mid-game, or a GM whose `room:create` response includes chat history) would replay the entire chat history as if every message just arrived. Only messages found in a LATER `chat:update`, not present in the previously-known id set, count as new. `server.js`'s `room:create` handler sends the host an initial `chat:update` (mirroring what `handlePlayerJoin`/`handleHostReconnect` already do) specifically so the GM's own first-ever broadcast isn't itself swallowed as "just hydration" — see "Bugs found and fixed" in the Shadow Broker handoff for why this was needed.
+
+### GM console layout
+The Shadow Broker input (`#shadow-broker-form` / `#shadow-broker-input` / `.shadow-broker-send-btn`) lives in `#gm-broker-bar`, a sibling of `#board-layer` inside `#main-content` on `index.html` — directly under the board, always visible without scrolling the sidebar. It is NOT inside the `.gm-chat-panel` (GUESSES) section; that panel only holds the read-only message log now. If you move GM console sections around, keep this in mind — the ids didn't change when it moved, only its DOM location, so anything that does `document.getElementById('shadow-broker-input')` still works regardless of where the form physically lives.
+
+When `App.mode !== 'multiplayer'` (not currently hosting), TRANSMIT is a no-op — same rule as every other GM-only control (Timer, WOMF, Wheel) — but gives visible feedback (`flashShadowBrokerNoRoom()`: a brief red border/shake + placeholder swap to "HOST A ROOM FIRST") instead of silently doing nothing, since a Broker input sitting there with typed text and zero reaction reads as broken rather than "not hosting yet."
+
+### Locked rules (do not silently change these)
+1. Never trust a client-supplied `source` field — it must only ever be set server-side.
+2. Never duplicate the Broker markup builder — `Skeleton.shadowBrokerTransmissionHTML` is the only copy.
+3. Never convert the board-line timing to an imperative/accumulating approach — it must stay a pure function of wall-clock time.
+4. All three board-line render surfaces (GM's own board, Public View, player screen) must stay in sync — a change to one (positioning, timing, styling) belongs in the shared `js/skeleton.js` functions or shared CSS, not per-surface.
+5. The verdict reskin is ADDITIVE — it must never replace or alter `msg.verdict`-driven styling that already existed before this layer.
 
 ---
 

@@ -17,7 +17,55 @@ const App = {
   _reconnectPending: false,
   _hostingInFlight: false,
   finalRevealed: false,
+  // FINAL SOLUTION REVEAL FLOURISH -- an epoch-ms deadline. Set once, in
+  // applyServerState(), the moment finalRevealed is detected flipping
+  // false->true on an AUTHORITATIVE confirmed broadcast (never from
+  // executeLocalCommand()'s optimistic pre-render). While Date.now() is
+  // before this deadline, updatePublicView() keeps including the flourish
+  // class on every rebuild it does. Two reasons this has to be a WINDOW
+  // rather than a one-shot flag consumed by the very next render:
+  //   1. sendCommand('revealFinal',...) triggers an instant optimistic
+  //      render AND a confirmed one moments later for the very same
+  //      reveal -- a one-shot flag consumed by whichever render reads it
+  //      first works for that pair specifically.
+  //   2. But updatePublicView() also gets rebuilt by anything else that
+  //      broadcasts meanwhile -- most commonly the Timer, which ticks
+  //      (and broadcasts) once a second for as long as it's still
+  //      running, which it usually still is when the GM reveals Final.
+  //      A one-shot flag gets cut off by the very next tick's rebuild,
+  //      often within a fraction of a second -- long before a human could
+  //      register the animation. A short window instead means every
+  //      rebuild inside it re-includes the class, so the flourish is
+  //      still visibly playing (restarting is imperceptible this early)
+  //      across any of those incidental rebuilds, matching the CSS
+  //      animation's own ~1.1s duration. A rebuild for a genuinely later,
+  //      unrelated reveal is unaffected either way, since finalRevealed
+  //      was already true and this deadline is never extended by one.
+  _finalFlourishUntil: 0,
   _lastAnnouncedStreak: {},
+  // SHADOW BROKER BOARD LINE -- same time-window rendering philosophy as
+  // _finalFlourishUntil just above: renderShadowBrokerLineHTML() recomputes
+  // the visible substring/opacity fresh from wall-clock time on every
+  // updatePublicView() rebuild (never an imperative DOM-mutating interval),
+  // so a Timer tick or any other incidental rebuild mid-transmission can
+  // never desync or truncate it. _brokerLineTicker just re-invokes
+  // updatePublicView() on a fast interval so the reveal is actually
+  // visible frame-by-frame; it self-clears once the state function
+  // reports the transmission finished (revealed, held, and faded).
+  _brokerLineText: null,
+  _brokerLineStartedAt: 0,
+  _brokerLineTicker: null,
+  _chatEverInitialized: false,
+  // "TRANSMIT clicked while not hosting" cosmetic-only feedback state --
+  // see flashShadowBrokerNoRoom(). Not synced with anything, not sent
+  // over the wire.
+  _brokerNoRoomTimeout: null,
+  _brokerNoRoomPlaceholder: null,
+  // Per-message/per-verdict "have I already played the one-shot glitch-in
+  // for this Shadow Broker bubble" guard, same role as player.js's own
+  // _seenShadowBrokerKeys -- kept as a separate set since the GM console
+  // rebuilds its own chat list independently of the player screen.
+  _seenShadowBrokerKeys: new Set(),
   // WOMF is global ASOC state, not per-game -- it is only ever set from the
   // server's authoritative state:public broadcasts (applyServerState) or
   // reset to a static 0/10 when there is no room (cleanupRoom). It is never
@@ -172,6 +220,14 @@ const App = {
 
     document.getElementById('host-room-btn').addEventListener('click', () => this.hostRoom());
     document.getElementById('close-room-btn').addEventListener('click', () => this.closeRoom());
+
+    // SHADOW BROKER free-form broadcast -- presentation layer only, see
+    // handleGmBroadcast in server.js. Enter submits (native form submit),
+    // same as the player's own chat-form.
+    document.getElementById('shadow-broker-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.sendShadowBrokerBroadcast();
+    });
 
     // FAIL K ("K" is this GM's own shorthand for the Final/"Kraj" slot) --
     // lives in the WOMF section alongside FAIL A-D now, replacing the old
@@ -453,11 +509,30 @@ const App = {
         this.renderAllTimeLeaderboard(message.players || []);
         break;
 
-      case 'chat:update':
-        this.chatMessages = message.messages || [];
+      case 'chat:update': {
+        const incoming = message.messages || [];
+        // Same first-hydration guard as PlayerApp's copy in js/player.js --
+        // without it, a GM reconnecting mid-game would see the room's
+        // entire chat history replay as a fresh Broker transmission on
+        // their own Public View the instant the reconnect completes.
+        if (this._chatEverInitialized) {
+          const previousIds = new Set(this.chatMessages.map(m => m.id));
+          const newBrokerMsg = incoming.find(m => m.source === 'shadowBroker' && !previousIds.has(m.id));
+          if (newBrokerMsg) {
+            this.playShadowBrokerBoardLine(newBrokerMsg.text);
+            // The GM's own working board (js/board.js) previously never
+            // showed this at all -- the GM had to trust the chat log or
+            // switch to Public View to see it. Play it there too so
+            // hosting shows exactly what players are about to see.
+            Board.playShadowBrokerBoardLine(newBrokerMsg.text);
+          }
+        }
+        this._chatEverInitialized = true;
+        this.chatMessages = incoming;
         this.solvedTargets = message.solvedTargets || {};
         this.renderGMChat();
         break;
+      }
 
       case 'command:ack':
         this.pendingCommands.delete(message.cmdId);
@@ -500,7 +575,14 @@ const App = {
   },
 
   applyServerState(state) {
+    const wasFinalRevealed = this.finalRevealed;
     this.finalRevealed = state.finalSolution?.revealed === true;
+    // See _finalFlourishUntil's declaration for why this is decided here,
+    // once, on the authoritative transition, rather than inside
+    // updatePublicView() itself.
+    if (!wasFinalRevealed && this.finalRevealed) {
+      this._finalFlourishUntil = Date.now() + 1100;
+    }
     this.updateFailFinalButtonVisibility();
 
     this.womf = state.womf || { charge: 0, armed: false };
@@ -821,6 +903,15 @@ const App = {
     this.send({ type: 'gm:timerResume' });
   },
 
+  // GM manual correction (+30s/-30s). The server nudges whichever clock
+  // is actually active (normal or Borrowed Time) and lets phase recompute
+  // naturally on its own next tick -- this never resets anything, see
+  // server.js's handleTimerAdjust.
+  adjustTimer(deltaMs) {
+    if (this.mode !== 'multiplayer') return;
+    this.send({ type: 'gm:timerAdjust', deltaMs });
+  },
+
   // Server-authoritative, same philosophy as updateWomfTracker()/
   // updateWheelUI(): only ever reflects the last state:public broadcast, or
   // the static un-started 'ready' default when there is no room (see
@@ -832,7 +923,8 @@ const App = {
     Timer.update('timer-tracker-gm', state, true, {
       onStart: () => this.startTimer(),
       onPause: () => this.pauseTimer(),
-      onResume: () => this.resumeTimer()
+      onResume: () => this.resumeTimer(),
+      onAdjust: (deltaMs) => this.adjustTimer(deltaMs)
     });
     Timer.update('timer-tracker-public', state, false);
   },
@@ -1209,6 +1301,7 @@ const App = {
     let html = `
       <div class="asoc-board">
         ${Skeleton.skeletonHTML(game.difficulty)}
+        ${this.renderShadowBrokerLineHTML()}
     `;
 
     for (let row = 1; row <= 4; row++) {
@@ -1233,20 +1326,65 @@ const App = {
     const finalContent = GameData.getFinalSolution();
     const finalRevealed = Board.isFinalRevealed();
     const finalOutcome = Board.getFinalOutcome();
-    html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome);
+    // See _finalFlourishUntil's declaration -- true for every rebuild
+    // that falls inside the short window applyServerState() opened on the
+    // authoritative reveal transition, false for anything before or after.
+    const playFinalFlourish = finalRevealed && Date.now() < this._finalFlourishUntil;
+    html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome, playFinalFlourish);
 
     html += '</div>';
     publicBoard.innerHTML = html;
     Skeleton.attach(publicBoard.querySelector('.asoc-board'));
   },
 
-  createPublicCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null) {
+  // Recomputes the Shadow Broker board line's visible substring/opacity
+  // fresh from wall-clock time (Skeleton.shadowBrokerLineState) every time
+  // Public View is rebuilt -- called from inside updatePublicView() itself,
+  // so it's never stale relative to whatever else just changed.
+  renderShadowBrokerLineHTML() {
+    if (!this._brokerLineText) return '';
+    const state = Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, Date.now());
+    if (!state) {
+      this._brokerLineText = null;
+      return '';
+    }
+    return `
+      <div class="shadow-broker-board-line" style="${Skeleton.shadowBrokerLineStyle()}">
+        <span class="shadow-broker-board-line-text" style="opacity:${state.opacity.toFixed(3)}">${this.escapeHtml(state.visibleText)}</span>
+      </div>
+    `;
+  },
+
+  // Starts a new Shadow Broker board-line transmission on Public View. See
+  // PlayerApp's identical copy in js/player.js for the full rationale --
+  // this interval only exists to make the reveal visible frame-by-frame;
+  // the actual displayed text/opacity always comes fresh from
+  // renderShadowBrokerLineHTML()'s time-based computation.
+  playShadowBrokerBoardLine(text) {
+    if (!text) return;
+    this._brokerLineText = text;
+    this._brokerLineStartedAt = Date.now();
+
+    if (this._brokerLineTicker) clearInterval(this._brokerLineTicker);
+    this._brokerLineTicker = setInterval(() => {
+      if (!this._brokerLineText) {
+        clearInterval(this._brokerLineTicker);
+        this._brokerLineTicker = null;
+        this.updatePublicView();
+        return;
+      }
+      this.updatePublicView();
+    }, 40);
+  },
+
+  createPublicCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null, flourish = false) {
     const classes = ['board-cell'];
     if (isSolution) classes.push('solution-cell');
     if (isFinal) classes.push('final-solution');
     if (!revealed) classes.push('hidden');
     else classes.push('revealed');
     if (outcome === 'failed') classes.push('outcome-failed');
+    if (flourish) classes.push('final-flourish');
 
     const displayContent = revealed ? (content || '—') : (isFinal ? '???' : '■■■');
 
@@ -1422,10 +1560,40 @@ const App = {
   },
 
   createGMChatMessageHTML(msg) {
+    // The GM's own Shadow Broker broadcasts land back in this same list
+    // (broadcastChatUpdate reaches the host too) -- it's the GM's own
+    // outgoing transmission, not a guess, so it never gets judge controls.
+    // It renders as the SAME avatar/name/text bubble the players see
+    // (Skeleton.shadowBrokerTransmissionHTML), not a plain tinted row --
+    // no separate ".gm-chat-message" wrapper needed since the shared
+    // bubble already carries its own border/background/spacing.
+    if (msg.source === 'shadowBroker') {
+      const isNew = !this._seenShadowBrokerKeys.has(msg.id);
+      if (isNew) this._seenShadowBrokerKeys.add(msg.id);
+      return Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew });
+    }
+
     const verdictIcon = this.getVerdictIcon(msg.verdict);
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const hasVerdict = msg.verdict !== null;
     const showControls = !hasVerdict;
+
+    // Same additive identity layer the player screen already shows under
+    // a judged guess -- appended alongside the existing verdict icon,
+    // never replacing it. msg.verdict remains the sole source of truth;
+    // nothing here touches judging/scoring.
+    let verdictResponseHtml = '';
+    if (msg.verdict === 'wrong' || msg.verdict === 'correct') {
+      const verdictKey = `${msg.id}:${msg.verdict}`;
+      const isNew = !this._seenShadowBrokerKeys.has(verdictKey);
+      if (isNew) this._seenShadowBrokerKeys.add(verdictKey);
+      const verdictText = msg.verdict === 'correct' ? 'Correct.' : 'Incorrect.';
+      verdictResponseHtml = Skeleton.shadowBrokerTransmissionHTML(verdictText, {
+        glitchIn: isNew,
+        variant: 'verdict-response',
+        verdict: msg.verdict
+      });
+    }
 
     return `
       <div class="gm-chat-message ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}">
@@ -1435,6 +1603,7 @@ const App = {
         </div>
         <div class="gm-chat-message-text">${this.escapeHtml(msg.text)}</div>
         ${verdictIcon ? `<div class="gm-chat-verdict ${msg.verdict}">${verdictIcon}${msg.target ? ` (${this.getTargetLabel(msg.target)})` : ''}</div>` : ''}
+        ${verdictResponseHtml}
         <div class="gm-chat-controls" style="display: ${showControls ? 'flex' : 'none'};">
           <button class="gm-verdict-btn wrong" data-message-id="${msg.id}" data-verdict="wrong" title="Mark as wrong">❌</button>
           <button class="gm-verdict-btn correct" data-message-id="${msg.id}" data-verdict="correct" title="Mark as correct">🖤</button>
@@ -1467,6 +1636,57 @@ const App = {
     if (!countEl) return;
     const solved = Object.keys(this.solvedTargets).length;
     countEl.textContent = `SOLVED: ${solved}/5`;
+  },
+
+  // SHADOW BROKER free-form broadcast -- host-only, sent as its own new
+  // 'gm:broadcast' command (see handleGmBroadcast in server.js). This does
+  // not touch judgeGuess/applyVerdict/scoring in any way; it's a
+  // completely separate, additive chat-message type.
+  sendShadowBrokerBroadcast() {
+    const input = document.getElementById('shadow-broker-input');
+    if (!input) return;
+
+    if (this.mode !== 'multiplayer') {
+      // Same silent-no-op rule as every other GM control in local mode --
+      // but unlike Timer/WOMF/Wheel, this one LOOKS like it should have
+      // done something (the typed text just sits there with zero
+      // feedback), which reads as broken rather than "not hosting yet".
+      // Give a brief, visible cue instead. Purely cosmetic -- no state,
+      // no wire message, no logic touched.
+      this.flashShadowBrokerNoRoom();
+      return;
+    }
+
+    const text = input.value.trim();
+    if (!text) return;
+
+    this.send({ type: 'gm:broadcast', text });
+    input.value = '';
+    // Keep focus in the box so pressing Enter to send another transmission
+    // right away works without the operator having to reclick into it.
+    input.focus();
+  },
+
+  flashShadowBrokerNoRoom() {
+    const form = document.getElementById('shadow-broker-form');
+    const input = document.getElementById('shadow-broker-input');
+    if (!form || !input) return;
+    if (this._brokerNoRoomTimeout) {
+      clearTimeout(this._brokerNoRoomTimeout);
+    } else {
+      this._brokerNoRoomPlaceholder = input.placeholder;
+    }
+    form.classList.remove('shadow-broker-no-room');
+    // Force reflow so re-triggering the class restarts the CSS animation
+    // if the operator clicks TRANSMIT again before the first flash ends.
+    void form.offsetWidth;
+    form.classList.add('shadow-broker-no-room');
+    input.placeholder = 'HOST A ROOM FIRST';
+    this._brokerNoRoomTimeout = setTimeout(() => {
+      form.classList.remove('shadow-broker-no-room');
+      input.placeholder = this._brokerNoRoomPlaceholder;
+      this._brokerNoRoomTimeout = null;
+    }, 1400);
   },
 
   judgeGuess(messageId, verdict) {

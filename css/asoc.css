@@ -294,6 +294,27 @@ html, body {
   text-transform: uppercase;
 }
 
+/* FINAL SOLUTION REVEAL FLOURISH -- Public View / join.html only (see
+   updatePublicView()/renderBoard()'s _finalFlourishPlayed flag, which
+   ensures this class is only ever present on the FIRST render after the
+   reveal, never on an incidental re-render while it stays revealed, so
+   the animation plays exactly once and never loops). currentColor picks
+   up whichever color the reveal actually resolved to (green success /
+   red WOMF-failed via .outcome-failed below), so the flourish is correct
+   either way with no extra color logic needed. Pure transform/filter/
+   text-shadow -- no change to any box's size, so this can never shift
+   board geometry or trigger a reflow of neighboring cells. */
+.board-cell.final-solution.final-flourish .cell-content {
+  animation: final-solution-flourish 1.1s ease-out;
+}
+
+@keyframes final-solution-flourish {
+  0% { transform: scale(0.82); opacity: 0; text-shadow: 0 0 0 currentColor; filter: brightness(1); }
+  35% { transform: scale(1.14); opacity: 1; text-shadow: 0 0 22px currentColor; filter: brightness(1.6); }
+  65% { transform: scale(1.02); text-shadow: 0 0 14px currentColor; filter: brightness(1.25); }
+  100% { transform: scale(1); text-shadow: 0 0 0 currentColor; filter: brightness(1); }
+}
+
 /* =========================================================
    SKELETON STAGE — canonical 1900 x 1267 poster overlay
    Cells are absolutely positioned with container-size units
@@ -391,6 +412,47 @@ html, body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 2.4px;
+  }
+
+  /* SHADOW BROKER BOARD LINE -- positioned via Skeleton.shadowBrokerLineStyle(),
+     same cqw/cqh technique as every board-cell slot. Deliberately NOT a
+     bubble: no background, no border, no box -- a plain HUD readout line
+     sitting in the open space above the avatar. Condensed command-terminal
+     font stack (no external font file/CDN -- Bahnschrift ships with
+     Windows, Arial Narrow/sans-serif cover everywhere else), a faint
+     purple glow matching the avatar's own eye/ring color. z-index matches
+     .board-cell so it layers above the skeleton art the same way. The
+     GM-written text itself is never forced uppercase -- it renders
+     exactly as typed, same rule as the chat-panel transmission bubble. */
+  .asoc-board .shadow-broker-board-line {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    pointer-events: none;
+    text-align: center;
+  }
+
+  /* A light plate behind the text -- readable against any board background
+     image, not just plain black. Lives on the text span itself (not the
+     outer .shadow-broker-board-line container) so it shrink-wraps to
+     whatever the Broker actually said instead of drawing a fixed-width
+     bar across the slot. Text switches to a dark, saturated purple here
+     -- the old pale-purple-with-glow treatment was tuned for a dark
+     backdrop and reads as almost invisible on a light plate. */
+  .asoc-board .shadow-broker-board-line-text {
+    font-family: "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+    font-size: var(--asoc-font, 1.6cqh);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #3a1256;
+    background: rgba(250, 246, 255, 0.92);
+    padding: 0.2em 0.6em;
+    border-radius: 4px;
+    border: 1px solid rgba(155, 93, 224, 0.55);
+    box-shadow: 0 0 12px rgba(155, 93, 224, 0.45);
+    white-space: nowrap;
   }
 
   .asoc-board.skeleton-fallback {
@@ -1045,6 +1107,83 @@ html, body {
   min-height: 0;
 }
 
+/* SHADOW BROKER broadcast box -- a compact operator control under the
+   GUESSES panel, not another full section. Sends a freestanding
+   transmission to players (gm:broadcast); does not touch judging. */
+/* Sits directly under the board (#board-layer's sibling in #main-content),
+   not in the GM sidebar -- always visible while looking at the board, no
+   scrolling needed to fire off a transmission mid-game. Matches the
+   board's own width so it reads as part of the same console. */
+.gm-broker-bar {
+  width: 100%;
+  max-width: var(--canvas-width);
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+.shadow-broker-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(20, 12, 30, 0.55);
+}
+
+.shadow-broker-form-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #b78fe0;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.shadow-broker-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--button-bg);
+  border: 1px solid var(--button-border);
+  border-radius: 4px;
+  padding: 9px 12px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.shadow-broker-input:focus {
+  outline: none;
+  border-color: #9b5de0;
+}
+
+.shadow-broker-send-btn {
+  flex-shrink: 0;
+  padding: 9px 18px;
+  font-size: 0.7rem;
+  border-color: #6a3f8a;
+  color: #cfa8f0;
+}
+
+.shadow-broker-send-btn:hover {
+  background: rgba(139, 74, 200, 0.2);
+  border-color: #9b5de0;
+  color: #e8d0ff;
+}
+
+/* TRANSMIT clicked while not hosting a room -- cosmetic-only feedback so
+   this doesn't silently look broken (see flashShadowBrokerNoRoom in
+   app.js). Reuses the same red already used for a wrong-guess verdict
+   elsewhere in the GM console, rather than introducing a new color. */
+.shadow-broker-form.shadow-broker-no-room .shadow-broker-input {
+  border-color: #e74c3c;
+  animation: womf-critical-shake 0.4s ease-in-out;
+}
+
+.shadow-broker-form.shadow-broker-no-room .shadow-broker-input::placeholder {
+  color: #e74c3c;
+}
+
 .gm-chat-message {
   background: var(--button-bg);
   border: 1px solid var(--button-border);
@@ -1067,6 +1206,128 @@ html, body {
 .gm-chat-message.correct {
   border-color: #1a1a2e;
   background: rgba(26, 26, 46, 0.3);
+}
+
+/* SHADOW BROKER transmission bubble -- shared by both the GM console
+   (index.html, via createGMChatMessageHTML) and the player screen
+   (join.html, via createChatMessageHTML), built from the ONE markup
+   source (Skeleton.shadowBrokerTransmissionHTML in js/skeleton.js) so
+   the two views never drift into different-looking implementations.
+   Two contexts share it: a standalone broadcast (its own full-width
+   chat entry) and a verdict response (a smaller instance nested under
+   a judged guess, added alongside -- never replacing -- that guess's
+   existing correct/wrong treatment). */
+.shadow-broker-transmission {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 6px;
+  background: rgba(139, 74, 200, 0.08);
+  border: 1px solid rgba(155, 93, 224, 0.35);
+}
+
+.shadow-broker-transmission.shadow-broker-broadcast {
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+.shadow-broker-transmission.shadow-broker-verdict-response {
+  padding: 6px 8px;
+  margin-top: 6px;
+}
+
+.shadow-broker-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #000;
+  border: 1px solid rgba(155, 93, 224, 0.5);
+}
+
+.shadow-broker-verdict-response .shadow-broker-avatar {
+  width: 26px;
+  height: 26px;
+}
+
+.shadow-broker-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.shadow-broker-name {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #b78fe0;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 2px;
+}
+
+/* Command-terminal feel for the Broker's actual words -- condensed,
+   authoritative, sharp, but still plainly readable at normal game size.
+   Falls back gracefully to Arial Narrow / sans-serif where Bahnschrift
+   isn't installed (it ships with Windows; the fallbacks keep this from
+   looking broken elsewhere). The message text itself is never forced
+   uppercase -- only the SHADOW BROKER name/header above is. */
+.shadow-broker-text {
+  font-family: "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+/* Reuses the exact same muted-red/green already established for the
+   player's own guess treatment above -- this is an additional label,
+   not a new color language. */
+.shadow-broker-verdict-response.sb-wrong .shadow-broker-text {
+  color: #b5544a;
+}
+
+.shadow-broker-verdict-response.sb-correct .shadow-broker-text {
+  color: #5cb87a;
+}
+
+/* One-shot arrival effect only -- "a corrupted transmission briefly
+   materializes, then stabilizes." Applied via the .sb-glitch-in class,
+   which app.js/player.js add only the first time a given transmission
+   is ever rendered (see _seenShadowBrokerKeys), so re-rendering the
+   same already-displayed message on an unrelated chat update never
+   replays it. Pure transform/filter/box-shadow -- no layout shift. */
+@keyframes shadow-broker-glitch-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-3px);
+    filter: brightness(1.9) saturate(1.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translateX(3px);
+    filter: brightness(2.2) saturate(1.8);
+    box-shadow: 0 0 12px rgba(155, 93, 224, 0.55);
+  }
+  40% {
+    transform: translateX(-2px);
+  }
+  60% {
+    transform: translateX(1px);
+    box-shadow: 0 0 10px rgba(155, 93, 224, 0.4);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    filter: brightness(1) saturate(1);
+    box-shadow: none;
+  }
+}
+
+.shadow-broker-transmission.sb-glitch-in {
+  animation: shadow-broker-glitch-in 240ms ease-out;
 }
 
 .gm-chat-message-header {
@@ -2408,6 +2669,89 @@ html, body {
 .timer-controls .toolbar-btn {
   padding: 6px 12px;
   font-size: 0.6rem;
+}
+
+/* GM manual +/-30s correction -- kept visually compact (a small grouped
+   pair, same toolbar-btn sizing as START/PAUSE/RESUME) rather than a
+   separate control row. Purely client convenience: click sends
+   gm:timerAdjust and the server nudges whichever clock (normal or
+   Borrowed Time) is actually active -- see server.js's handleTimerAdjust
+   for why this never resets phase or restarts any animation. */
+.timer-adjust-group {
+  display: flex;
+  gap: 4px;
+}
+
+.timer-adjust-btn {
+  min-width: 2.6em;
+  opacity: 0.85;
+}
+
+.timer-adjust-btn:hover {
+  opacity: 1;
+}
+
+/* START GAME 3-2-1 LAUNCH FLASH -- purely client-local (see
+   Timer.runStartCountdown()). The server's timer is still sitting in
+   'ready' for the whole ~1.5s this plays; nothing broadcasts until it
+   completes and the real gm:timerStart goes out. */
+.timer-countdown-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  border-radius: 6px;
+  background: rgba(8, 9, 13, 0.92);
+  color: var(--asoc-gold, #d4a843);
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  pointer-events: none;
+}
+
+.timer-countdown-overlay.timer-countdown-pulse {
+  animation: timer-countdown-pulse 0.5s ease-out;
+}
+
+@keyframes timer-countdown-pulse {
+  0% { transform: scale(0.5); opacity: 0; }
+  35% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* BORROWED TIME CALLOUT -- fires once, exactly on the fresh transition
+   into Borrowed Time (see the phase-transition check in Timer.update()).
+   Confined to the Timer HUD area itself, same as the countdown flash
+   above -- it never touches or covers the board, and removes itself
+   automatically after ~2s with no looping. */
+.timer-borrowed-banner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--asoc-purple), var(--asoc-red));
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 24px rgba(200, 90, 200, 0.7);
+  pointer-events: none;
+  animation: timer-borrowed-banner-flash 2s ease-in-out forwards;
+}
+
+@keyframes timer-borrowed-banner-flash {
+  0% { opacity: 0; transform: scale(0.92); }
+  12% { opacity: 1; transform: scale(1.03); }
+  20% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
 }
 
 @media (max-width: 720px) {

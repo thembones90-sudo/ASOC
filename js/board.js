@@ -7,6 +7,22 @@ const Board = {
   _bulkAction: false,
   _bulkActionSnapshot: null,
 
+  // SHADOW BROKER BOARD LINE, on the GM's OWN working board this time --
+  // the GM was previously expected to confirm a sent transmission via the
+  // GUESSES chat log alone, but that's not "seeing what players see." This
+  // mirrors App's identical copy for Public View (js/app.js) and
+  // PlayerApp's for the player screen (js/player.js) exactly: only
+  // (text, startedAt) is stored, and renderShadowBrokerLineHTML()
+  // recomputes the visible substring/opacity fresh from wall-clock time on
+  // every render() rebuild, so any incidental re-render mid-transmission
+  // (a cell reveal, an undo) can never desync or truncate it.
+  // _brokerLineTicker just re-invokes render() on a fast interval so the
+  // reveal is actually visible frame-by-frame; it self-clears once the
+  // state function reports the transmission finished.
+  _brokerLineText: null,
+  _brokerLineStartedAt: 0,
+  _brokerLineTicker: null,
+
   init(containerSelector) {
     this.container = document.querySelector(containerSelector);
     this.resetSessionState();
@@ -285,6 +301,23 @@ const Board = {
     cell.classList.toggle('revealed', revealed);
     const outcome = this.sessionState.cellOutcomes && this.sessionState.cellOutcomes[key];
     cell.classList.toggle('outcome-failed', outcome === 'failed');
+
+    // PROGRESSIVE CLUE QUEUE: a physical slot's word is only pinned down
+    // the moment it's actually (re-)revealed -- buildBoardHTML() baked in
+    // whatever GameData.getCellData() returned at the LAST FULL RENDER,
+    // which for a not-yet-assigned row 1-4 slot is only a best-guess
+    // preview (the next upcoming clue) and goes stale the instant a
+    // sibling slot in the same column claims a queue position. Refresh
+    // the tile's actual word here, every time its reveal state changes,
+    // so it always reflects the column's current queue -- mirrors what
+    // updateGMButtons() already does for the CLUE GRID sidebar buttons.
+    if (window.GameData && window.GameData.currentGame) {
+      const contentEl = cell.querySelector('.cell-content');
+      if (contentEl) {
+        const content = GameData.getCellData(column, row);
+        contentEl.textContent = content || '—';
+      }
+    }
   },
 
   updateFinalDisplay() {
@@ -414,7 +447,44 @@ const Board = {
     const finalOutcome = this.getFinalOutcome();
     html += this.createCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome);
 
-    return Skeleton.skeletonHTML(game.difficulty) + html;
+    return Skeleton.skeletonHTML(game.difficulty) + this.renderShadowBrokerLineHTML() + html;
+  },
+
+  // See PlayerApp's identical copy in js/player.js for the full rationale.
+  renderShadowBrokerLineHTML() {
+    if (!this._brokerLineText) return '';
+    const state = Skeleton.shadowBrokerLineState(this._brokerLineText, this._brokerLineStartedAt, Date.now());
+    if (!state) {
+      this._brokerLineText = null;
+      return '';
+    }
+    return `
+      <div class="shadow-broker-board-line" style="${Skeleton.shadowBrokerLineStyle()}">
+        <span class="shadow-broker-board-line-text" style="opacity:${state.opacity.toFixed(3)}">${this.escapeHtml(state.visibleText)}</span>
+      </div>
+    `;
+  },
+
+  // Called by App (js/app.js) the instant a new Shadow Broker message
+  // (the GM's own broadcast, or a verdict response) lands in chat:update
+  // -- alongside its own identical call for Public View -- so the GM's
+  // own working board shows exactly what players are about to see,
+  // without needing to switch to Public View to check.
+  playShadowBrokerBoardLine(text) {
+    if (!text) return;
+    this._brokerLineText = text;
+    this._brokerLineStartedAt = Date.now();
+
+    if (this._brokerLineTicker) clearInterval(this._brokerLineTicker);
+    this._brokerLineTicker = setInterval(() => {
+      if (!this._brokerLineText) {
+        clearInterval(this._brokerLineTicker);
+        this._brokerLineTicker = null;
+        this.render();
+        return;
+      }
+      this.render();
+    }, 40);
   },
 
   createCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null) {

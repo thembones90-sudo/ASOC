@@ -228,6 +228,99 @@ const Skeleton = (() => {
     }
   }
 
+  // ---------------------------------------------------------------------
+  // SHADOW BROKER BOARD LINE
+  //
+  // A transient HUD readout positioned directly above the Shadow Broker
+  // avatar's fixed position in the skeleton art (avatar center (950,220),
+  // radius 150 -- see the avatar placement itself). This is NOT a chat
+  // bubble: a single plain line of text in a tactical/military font,
+  // appearing "above his head" wherever the board itself is rendered
+  // (Public View, the player's own board) whenever the GM sends a
+  // standalone Shadow Broker broadcast. Centered on the same x=950
+  // vertical axis as the avatar, sitting in the clear space between the
+  // canvas top edge and the avatar's own top edge (220-150=70).
+  const SHADOW_BROKER_LINE_SLOT = { x: 550, y: 8, w: 800, h: 55 };
+
+  function shadowBrokerLineStyle() {
+    if (!supported) return '';
+    const slot = SHADOW_BROKER_LINE_SLOT;
+    const left = (slot.x / W) * 100;
+    const top = (slot.y / H) * 100;
+    const width = (slot.w / W) * 100;
+    const height = (slot.h / H) * 100;
+    const fontCqh = (0.62 * slot.h / H) * 100;
+    return [
+      'left:' + left.toFixed(3) + 'cqw',
+      'top:' + top.toFixed(3) + 'cqh',
+      'width:' + width.toFixed(3) + 'cqw',
+      'height:' + height.toFixed(3) + 'cqh',
+      '--asoc-font:' + fontCqh.toFixed(3) + 'cqh'
+    ].join(';') + ';';
+  }
+
+  // Pure timing function shared by every board renderer (Public View in
+  // js/app.js, the player's own board in js/player.js) so the reveal
+  // speed/hold/fade behavior is defined in exactly ONE place. Renderers
+  // call this fresh on every rebuild -- never an imperative DOM-mutating
+  // interval -- the same time-window pattern already proven for the Final
+  // Solution flourish (see js/app.js's _finalFlourishUntil comment): any
+  // number of incidental rebuilds mid-transmission (a cell reveal, a
+  // Timer tick broadcasting once a second) can never desync, truncate, or
+  // restart it, because the visible state is always recomputed from
+  // (text, startedAt, now) rather than accumulated imperatively. Returns
+  // null once the transmission has fully revealed, held, and faded out.
+  const BROKER_LINE_CHAR_MS = 30;
+  const BROKER_LINE_HOLD_MS = 5000;
+  const BROKER_LINE_FADE_MS = 500;
+
+  function shadowBrokerLineState(text, startedAt, now) {
+    if (!text) return null;
+    const elapsed = now - startedAt;
+    const revealMs = text.length * BROKER_LINE_CHAR_MS;
+    const fadeStart = revealMs + BROKER_LINE_HOLD_MS;
+    const fadeEnd = fadeStart + BROKER_LINE_FADE_MS;
+    if (elapsed >= fadeEnd) return null;
+
+    const charsShown = Math.max(0, Math.min(text.length, Math.floor(elapsed / BROKER_LINE_CHAR_MS)));
+    const visibleText = text.slice(0, charsShown);
+    let opacity = 1;
+    if (elapsed > fadeStart) {
+      opacity = Math.max(0, 1 - (elapsed - fadeStart) / BROKER_LINE_FADE_MS);
+    }
+    return { visibleText, opacity };
+  }
+
+  // Shared Shadow Broker identity markup -- the ONE place both the GM
+  // console (app.js) and the player screen (player.js) build a Broker
+  // "transmission" bubble (a standalone broadcast, or a verdict response
+  // attached under a judged guess), so the two views never drift into
+  // two different-looking implementations. Purely markup/escaping; no
+  // DOM-state or app-specific dependency, which is why it lives here
+  // alongside the other board-agnostic Skeleton helpers rather than in
+  // either app.js or player.js. Styling for the classes used below lives
+  // in css/asoc.css (.shadow-broker-transmission and friends), loaded by
+  // both index.html and join.html.
+  function escapeHtmlText(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function shadowBrokerTransmissionHTML(text, { glitchIn = false, variant = 'broadcast', verdict = null } = {}) {
+    const variantClass = variant === 'verdict-response' ? 'shadow-broker-verdict-response' : 'shadow-broker-broadcast';
+    const verdictClass = verdict ? ` sb-${verdict}` : '';
+    return `
+      <div class="shadow-broker-transmission ${variantClass}${verdictClass} ${glitchIn ? 'sb-glitch-in' : ''}">
+        <img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">
+        <div class="shadow-broker-body">
+          <span class="shadow-broker-name">SHADOW BROKER</span>
+          <span class="shadow-broker-text">${escapeHtmlText(text)}</span>
+        </div>
+      </div>
+    `;
+  }
+
   const resizeHandler = new WeakMap();
 
   function scheduleFit(container) {
@@ -279,7 +372,13 @@ const Skeleton = (() => {
     attach,
     fit,
     SKELETON_MAP,
-    skeletonPath
+    skeletonPath,
+    shadowBrokerLineStyle,
+    shadowBrokerLineState,
+    BROKER_LINE_CHAR_MS,
+    BROKER_LINE_HOLD_MS,
+    BROKER_LINE_FADE_MS,
+    shadowBrokerTransmissionHTML
   };
 })();
 

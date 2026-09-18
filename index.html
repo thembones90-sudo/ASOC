@@ -20,6 +20,18 @@
         <img id="background-layer" alt="Game background">
         <div id="asoc-board" class="asoc-board"></div>
       </div>
+
+      <!-- Moved here from the GUESSES panel in the sidebar -- always
+           visible right under the board itself, so sending a transmission
+           never requires scrolling the GM panel mid-game. Same ids/classes
+           as before, so no JS changes were needed to keep it working. -->
+      <div id="gm-broker-bar" class="gm-broker-bar">
+        <form id="shadow-broker-form" class="shadow-broker-form">
+          <span class="shadow-broker-form-label">SHADOW BROKER</span>
+          <input type="text" id="shadow-broker-input" class="shadow-broker-input" placeholder="Transmit to players..." maxlength="100" autocomplete="off">
+          <button type="submit" class="gm-global-btn shadow-broker-send-btn">TRANSMIT</button>
+        </form>
+      </div>
     </main>
 
     <aside id="gm-panel">
@@ -102,6 +114,10 @@
               <span class="gm-chat-solved" id="gm-chat-solved-count">SOLVED: 0/5</span>
             </div>
             <div id="gm-chat-messages" class="gm-chat-messages"></div>
+            <!-- The TRANSMIT input itself now lives under the board (see
+                 #gm-broker-bar in #main-content) so it's always in view
+                 without scrolling this sidebar -- this panel keeps the
+                 read-only message log only. -->
           </div>
         </section>
 
