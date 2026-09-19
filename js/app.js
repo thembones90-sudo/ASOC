@@ -13,6 +13,10 @@ const App = {
   chatMessages: [],
   solvedTargets: {},
   userScrolledUp: false,
+  _gmNewMessageCount: 0,
+  _gmWrongFadeTimer: null,
+  _gmWrongVerdictSeenAt: new Map(),
+  chatReactionEmojis: ['😂', '💀', '🤡', '🖤', '🔥', '👀', '👍', '👎', '😭', '😈', '🤔', '🫡'],
   pendingVerdict: null,
   _reconnectPending: false,
   _hostingInFlight: false,
@@ -240,6 +244,51 @@ const App = {
       }
     });
 
+    const gmEmojiToggle = document.getElementById('gm-emoji-toggle');
+    const gmEmojiPicker = document.getElementById('gm-emoji-picker');
+    const gmReactionPicker = document.getElementById('gm-chat-reaction-picker');
+    const gmPickerButtons = this.chatReactionEmojis
+      .map(emoji => `<button type="button" class="gm-emoji-option" data-emoji="${emoji}">${emoji}</button>`)
+      .join('');
+    if (gmEmojiPicker) gmEmojiPicker.innerHTML = gmPickerButtons;
+    if (gmReactionPicker) gmReactionPicker.innerHTML = gmPickerButtons;
+
+    gmEmojiToggle?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!gmEmojiPicker) return;
+      gmEmojiPicker.hidden = !gmEmojiPicker.hidden;
+      if (gmReactionPicker) gmReactionPicker.hidden = true;
+    });
+
+    gmEmojiPicker?.addEventListener('click', (e) => {
+      const option = e.target.closest('.gm-emoji-option');
+      if (!option) return;
+      this.insertGMEmoji(option.dataset.emoji || '');
+      gmEmojiPicker.hidden = true;
+    });
+
+    gmReactionPicker?.addEventListener('click', (e) => {
+      const option = e.target.closest('.gm-emoji-option');
+      if (!option) return;
+      const messageId = gmReactionPicker.dataset.messageId || '';
+      if (messageId) this.sendGMChatReaction(messageId, option.dataset.emoji || '');
+      gmReactionPicker.hidden = true;
+    });
+
+    const gmChatContainer = document.getElementById('gm-chat-messages');
+    gmChatContainer?.addEventListener('scroll', () => {
+      const { scrollTop, scrollHeight, clientHeight } = gmChatContainer;
+      this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 40);
+      if (!this.userScrolledUp && this._gmNewMessageCount) {
+        this._gmNewMessageCount = 0;
+        this.updateGMNewMessageChip();
+      }
+    });
+
+    document.getElementById('gm-chat-new-messages')?.addEventListener('click', () => {
+      this.jumpToLatestGMChat();
+    });
+
     // FAIL K ("K" is this GM's own shorthand for the Final/"Kraj" slot) --
     // lives in the WOMF section alongside FAIL A-D now, replacing the old
     // standalone DECLARE FINAL FAILED button under Scoring. Same action.
@@ -273,6 +322,15 @@ const App = {
     });
 
     document.body.addEventListener('click', (e) => {
+      const liveEmojiPicker = document.getElementById('gm-emoji-picker');
+      const liveReactionPicker = document.getElementById('gm-chat-reaction-picker');
+      if (liveEmojiPicker && !liveEmojiPicker.hidden && !liveEmojiPicker.contains(e.target) && !e.target.closest('#gm-emoji-toggle')) {
+        liveEmojiPicker.hidden = true;
+      }
+      if (liveReactionPicker && !liveReactionPicker.hidden && !liveReactionPicker.contains(e.target) && !e.target.closest('.gm-chat-reaction-add')) {
+        liveReactionPicker.hidden = true;
+      }
+
       const btn = e.target.closest('.gm-cell-btn');
       if (btn) {
         if (btn.dataset.final === 'true') {
@@ -288,6 +346,19 @@ const App = {
       const diffBtn = e.target.closest('.diff-swatch');
       if (diffBtn) {
         this.setDifficulty(diffBtn.dataset.difficulty);
+      }
+
+      const gmReactionChip = e.target.closest('.gm-chat-reaction-chip');
+      if (gmReactionChip) {
+        this.sendGMChatReaction(
+          gmReactionChip.dataset.messageId || '',
+          gmReactionChip.dataset.emoji || ''
+        );
+      }
+
+      const gmReactionAdd = e.target.closest('.gm-chat-reaction-add');
+      if (gmReactionAdd) {
+        this.openGMChatReactionPicker(gmReactionAdd.dataset.messageId || '', gmReactionAdd);
       }
 
       if (e.target.closest('.gm-verdict-btn')) {
@@ -539,13 +610,25 @@ const App = {
 
       case 'chat:update': {
         const incoming = message.messages || [];
+        const previousIds = new Set(this.chatMessages.map(m => m.id));
+        const previousById = new Map(this.chatMessages.map(m => [m.id, m]));
         // Same first-hydration guard as PlayerApp's copy in js/player.js --
         // without it, a GM reconnecting mid-game would see the room's
         // entire chat history replay as a fresh Broker transmission on
         // their own Public View the instant the reconnect completes.
         if (this._chatEverInitialized) {
-          const previousIds = new Set(this.chatMessages.map(m => m.id));
-          const newBrokerMsg = incoming.find(m => m.source === 'shadowBroker' && !previousIds.has(m.id));
+          const newMessages = incoming.filter(m => !previousIds.has(m.id));
+          const verdictUpdates = incoming.filter(m => {
+            const previous = previousById.get(m.id);
+            return previous && previous.verdict !== m.verdict && m.verdict;
+          });
+          const newActivityCount = newMessages.length + verdictUpdates.length;
+          if (this.userScrolledUp && newActivityCount) {
+            this._gmNewMessageCount += newActivityCount;
+            this.updateGMNewMessageChip();
+          }
+
+          const newBrokerMsg = newMessages.find(m => m.source === 'shadowBroker');
           if (newBrokerMsg) {
             this.playShadowBrokerBoardLine(newBrokerMsg.text);
             // The GM's own working board (js/board.js) previously never
@@ -555,6 +638,24 @@ const App = {
             Board.playShadowBrokerBoardLine(newBrokerMsg.text);
           }
         }
+
+        const verdictNow = Date.now();
+        incoming.forEach(msg => {
+          const previous = previousById.get(msg.id);
+          if (msg.verdict === 'wrong') {
+            if (previous?.verdict !== 'wrong') {
+              this._gmWrongVerdictSeenAt.set(
+                msg.id,
+                this._chatEverInitialized ? verdictNow : verdictNow - 3000
+              );
+            } else if (!this._gmWrongVerdictSeenAt.has(msg.id)) {
+              this._gmWrongVerdictSeenAt.set(msg.id, verdictNow - 3000);
+            }
+          } else {
+            this._gmWrongVerdictSeenAt.delete(msg.id);
+          }
+        });
+
         this._chatEverInitialized = true;
         this.chatMessages = incoming;
         this.solvedTargets = message.solvedTargets || {};
@@ -1630,50 +1731,113 @@ const App = {
     if (!container) return;
 
     const wasAtBottom = !this.userScrolledUp;
-
+    const previousScrollTop = container.scrollTop;
+    const previousScrollHeight = container.scrollHeight;
+    const now = Date.now();
+    let nextWrongFadeMs = Infinity;
     let html = '';
-    this.chatMessages.forEach(msg => {
-      html += this.createGMChatMessageHTML(msg);
+
+    this.chatMessages.forEach((msg, index) => {
+      const previous = index > 0 ? this.chatMessages[index - 1] : null;
+      if (previous && (Number(msg.timestamp) - Number(previous.timestamp)) > 300000) {
+        html += this.createGMChatTimeSeparator(msg.timestamp);
+      }
+      if (msg.verdict === 'wrong') {
+        const wrongSeenAt = this._gmWrongVerdictSeenAt.get(msg.id) ?? (now - 3000);
+        const remaining = 3000 - (now - wrongSeenAt);
+        if (remaining > 0) nextWrongFadeMs = Math.min(nextWrongFadeMs, remaining);
+      }
+      html += this.createGMChatMessageHTML(
+        msg,
+        this.shouldGroupGMChatMessage(previous, msg),
+        now
+      );
     });
 
     container.innerHTML = html;
 
+    clearTimeout(this._gmWrongFadeTimer);
+    if (Number.isFinite(nextWrongFadeMs)) {
+      this._gmWrongFadeTimer = setTimeout(() => this.renderGMChat(), Math.max(30, nextWrongFadeMs + 30));
+    }
+
     if (wasAtBottom) {
       container.scrollTop = container.scrollHeight;
+      this._gmNewMessageCount = 0;
+      this.updateGMNewMessageChip();
+    } else {
+      const heightDelta = container.scrollHeight - previousScrollHeight;
+      container.scrollTop = Math.max(0, previousScrollTop + heightDelta);
     }
 
     this.updateSolvedCount();
   },
 
+  createGMChatTimeSeparator(timestamp) {
+    const time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `<div class="gm-chat-time-separator"><span>${time}</span></div>`;
+  },
+
+  shouldGroupGMChatMessage(previous, current) {
+    if (!previous || !current) return false;
+    if (previous.source === 'shadowBroker' || current.source === 'shadowBroker') return false;
+    if (previous.playerId !== current.playerId) return false;
+    if (previous.verdict === 'correct' || current.verdict === 'correct') return false;
+    const gap = Number(current.timestamp) - Number(previous.timestamp);
+    return Number.isFinite(gap) && gap >= 0 && gap <= 90000;
+  },
+
   createGMReactionSummaryHTML(msg) {
     const reactions = msg?.reactions && typeof msg.reactions === 'object' ? msg.reactions : {};
     const chips = Object.entries(reactions)
-      .filter(([, playerIds]) => Array.isArray(playerIds) && playerIds.length)
-      .map(([emoji, playerIds]) => `<span class="gm-chat-reaction-chip"><span>${this.escapeHtml(emoji)}</span><b>${playerIds.length}</b></span>`)
+      .filter(([emoji, playerIds]) => this.chatReactionEmojis.includes(emoji) && Array.isArray(playerIds) && playerIds.length)
+      .map(([emoji, playerIds]) => {
+        const mine = playerIds.map(String).includes('__GM__');
+        return `<button type="button" class="gm-chat-reaction-chip${mine ? ' mine' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" aria-pressed="${mine ? 'true' : 'false'}"><span>${this.escapeHtml(emoji)}</span><b>${playerIds.length}</b></button>`;
+      })
       .join('');
-    return chips ? `<div class="gm-chat-reactions">${chips}</div>` : '';
+
+    const addButton = this.mode === 'multiplayer'
+      ? `<button type="button" class="gm-chat-reaction-add" data-message-id="${this.escapeHtml(msg.id)}" title="React as GameMaster" aria-label="React to message">＋</button>`
+      : '';
+    return `<div class="gm-chat-reactions${chips ? ' has-reactions' : ''}">${chips}${addButton}</div>`;
   },
 
-  createGMChatMessageHTML(msg) {
-    // The GM's own Shadow Broker broadcasts land back in this same list
-    // (broadcastChatUpdate reaches the host too) -- it's the GM's own
-    // outgoing transmission, not a guess, so it never gets judge controls.
-    // It renders as the SAME avatar/name/text bubble the players see
-    // (Skeleton.shadowBrokerTransmissionHTML), not a plain tinted row --
-    // no separate ".gm-chat-message" wrapper needed since the shared
-    // bubble already carries its own border/background/spacing.
+  createGMChatMessageHTML(msg, grouped = false, now = Date.now()) {
     if (msg.source === 'shadowBroker') {
       const isNew = !this._seenShadowBrokerKeys.has(msg.id);
       if (isNew) this._seenShadowBrokerKeys.add(msg.id);
-      return `<div class="gm-shadow-broker-entry">${Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew })}${this.createGMReactionSummaryHTML(msg)}</div>`;
+      return `
+        <div class="gm-shadow-broker-entry" data-message-id="${this.escapeHtml(msg.id)}">
+          ${Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew })}
+          ${this.createGMReactionSummaryHTML(msg)}
+        </div>
+      `;
     }
 
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const wrongSeenAt = this._gmWrongVerdictSeenAt.get(msg.id) ?? (now - 3000);
+    const agedRejected = msg.verdict === 'wrong' && (now - wrongSeenAt) >= 3000;
     const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
     const hasVerdict = msg.verdict !== null;
     const showControls = !hasVerdict;
     const themeStyle = ASOCThemes.messageStyle(identity.themeId);
     const frameColor = /^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885';
+
+    const replyMatch = typeof msg.text === 'string'
+      ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
+      : null;
+    const messageText = replyMatch ? replyMatch[3] : msg.text;
+    const replyContextHtml = replyMatch
+      ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
+      : '';
+
+    const verdictMetaHtml = msg.verdict === 'correct'
+      ? `<div class="gm-chat-machine-verdict accepted">ACCEPTED // ${this.escapeHtml(this.getTargetLabel(msg.target || 'LOCKED'))}</div>`
+      : msg.verdict === 'wrong'
+        ? '<div class="gm-chat-machine-verdict rejected">FUCK OFF</div>'
+        : '';
+
     let verdictResponseHtml = '';
     if (msg.verdict === 'correct') {
       const verdictKey = `${msg.id}:${msg.verdict}`;
@@ -1687,22 +1851,85 @@ const App = {
     }
 
     return `
-      <div class="gm-chat-message discord-row ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}">
-        <span class="gm-chat-leading">${this.littleHeroAvatarHTML(identity, true)}</span>
-        <span class="gm-chat-inline-content">
-          <span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span>
-          <span class="gm-chat-time">${time}</span>
-          <span class="gm-chat-message-text">${this.escapeHtml(msg.text)}</span>
-          ${msg.verdict ? `<span class="gm-chat-mini-verdict ${msg.verdict}">${msg.verdict === 'correct' ? '🖤 ACCEPTED' : '× REJECTED'}${msg.target ? ` // ${this.getTargetLabel(msg.target)}` : ''}</span>` : ''}
-        </span>
-        ${showControls ? `<span class="gm-chat-quick-actions" aria-label="Judge message if it is an answer">
-          <button class="gm-verdict-btn wrong" data-message-id="${msg.id}" data-verdict="wrong" title="Reject as answer">×</button>
-          <button class="gm-verdict-btn correct" data-message-id="${msg.id}" data-verdict="correct" title="Accept as answer">🖤</button>
-        </span>` : '<span class="gm-chat-quick-actions adjudicated" aria-hidden="true"></span>'}
-        ${verdictResponseHtml}
-        ${this.createGMReactionSummaryHTML(msg)}
+      <div class="gm-chat-message gm-flow-message ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}">
+        <div class="gm-chat-avatar-rail">${grouped ? '' : this.littleHeroAvatarHTML(identity, true)}</div>
+        <div class="gm-chat-message-main">
+          ${grouped ? '' : `<div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span><span class="gm-chat-time">${time}</span></div>`}
+          ${replyContextHtml}
+          <div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div>
+          ${verdictMetaHtml}
+          ${verdictResponseHtml}
+          ${this.createGMReactionSummaryHTML(msg)}
+        </div>
+        ${showControls ? `<div class="gm-chat-quick-actions" aria-label="Judge message if it is an answer">
+          <button class="gm-verdict-btn wrong" data-message-id="${this.escapeHtml(msg.id)}" data-verdict="wrong" title="Reject as answer">×</button>
+          <button class="gm-verdict-btn correct" data-message-id="${this.escapeHtml(msg.id)}" data-verdict="correct" title="Accept as answer">🖤</button>
+        </div>` : '<div class="gm-chat-quick-actions adjudicated" aria-hidden="true"></div>'}
       </div>
     `;
+  },
+
+  insertGMEmoji(emoji) {
+    if (!emoji) return;
+    const input = document.getElementById('shadow-broker-input');
+    if (!input) return;
+
+    const start = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
+    const end = Number.isInteger(input.selectionEnd) ? input.selectionEnd : start;
+    const next = input.value.slice(0, start) + emoji + input.value.slice(end);
+    input.value = next;
+    const caret = Math.min(start + emoji.length, input.value.length);
+    input.setSelectionRange(caret, caret);
+    input.focus();
+  },
+
+  sendGMChatReaction(messageId, emoji) {
+    if (this.mode !== 'multiplayer') return;
+    if (!messageId || !this.chatReactionEmojis.includes(emoji)) return;
+    this.send({ type: 'chat:react', messageId, emoji });
+  },
+
+  openGMChatReactionPicker(messageId, anchor) {
+    const picker = document.getElementById('gm-chat-reaction-picker');
+    if (!picker || !messageId || !anchor) return;
+
+    picker.dataset.messageId = messageId;
+    picker.hidden = false;
+    const emojiPicker = document.getElementById('gm-emoji-picker');
+    if (emojiPicker) emojiPicker.hidden = true;
+
+    requestAnimationFrame(() => {
+      const anchorRect = anchor.getBoundingClientRect();
+      const pickerRect = picker.getBoundingClientRect();
+      let left = anchorRect.right - pickerRect.width;
+      let top = anchorRect.bottom + 4;
+
+      left = Math.max(8, Math.min(left, window.innerWidth - pickerRect.width - 8));
+      if (top + pickerRect.height > window.innerHeight - 8) {
+        top = Math.max(8, anchorRect.top - pickerRect.height - 4);
+      }
+
+      picker.style.left = left + 'px';
+      picker.style.top = top + 'px';
+    });
+  },
+
+  updateGMNewMessageChip() {
+    const chip = document.getElementById('gm-chat-new-messages');
+    if (!chip) return;
+    chip.hidden = this._gmNewMessageCount <= 0;
+    if (!chip.hidden) {
+      chip.textContent = `↓ ${this._gmNewMessageCount} NEW TRANSMISSION${this._gmNewMessageCount === 1 ? '' : 'S'}`;
+    }
+  },
+
+  jumpToLatestGMChat() {
+    const container = document.getElementById('gm-chat-messages');
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+    this.userScrolledUp = false;
+    this._gmNewMessageCount = 0;
+    this.updateGMNewMessageChip();
   },
 
   getVerdictIcon(verdict) {

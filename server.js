@@ -1933,11 +1933,6 @@ function handleChatReaction(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Room not found' });
     return;
   }
-  if (ws.isHost) {
-    sendToWs(ws, { type: 'error', message: 'Host reactions are not enabled yet' });
-    return;
-  }
-
   const messageId = typeof message.messageId === 'string' ? message.messageId : '';
   const emoji = typeof message.emoji === 'string' ? message.emoji : '';
   if (!messageId || !CHAT_REACTION_EMOJIS.has(emoji)) {
@@ -1961,7 +1956,8 @@ function handleChatReaction(ws, message) {
   }
 
   const current = Array.isArray(target.reactions[emoji]) ? target.reactions[emoji] : [];
-  const actorId = String(ws.playerId || '');
+  const actorId = ws.isHost ? '__GM__' : String(ws.playerId || '');
+  if (!actorId) return;
   const index = current.indexOf(actorId);
   if (index >= 0) {
     current.splice(index, 1);

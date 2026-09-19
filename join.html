@@ -921,6 +921,70 @@
     }
     #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby > * { position:relative; z-index:1; }
 
+    /* DISCO INFERNO // BURN SIGNAL COMMS.
+       Same flow-chat geometry; only the surrounding machine skin changes. */
+    #game-screen[data-player-theme="disco-inferno"] .battle-comms-lobby {
+      background:
+        radial-gradient(circle at 88% 14%,rgba(255,126,54,.16) 0 2px,transparent 42px),
+        radial-gradient(circle at 18% 78%,rgba(160,48,16,.10),transparent 135px),
+        linear-gradient(118deg,rgba(255,180,92,.035),transparent 38%,rgba(240,106,42,.055) 70%,transparent),
+        linear-gradient(180deg,#23140e 0%,#120b08 58%,#090706 100%);
+      border-left-color:#8e4b2b;
+      box-shadow:inset 10px 0 20px rgba(0,0,0,.58),inset 1px 0 rgba(255,155,88,.18),inset -1px 0 rgba(0,0,0,.78);
+    }
+    #game-screen[data-player-theme="disco-inferno"] .battle-comms-lobby #chat-panel {
+      border-color:#5d3524;
+      background:linear-gradient(180deg,rgba(31,17,11,.97),rgba(10,7,6,.98));
+    }
+
+    /* OUR THEME // RED STANDARD COMMS.
+       Dark Soviet steel, restrained gold telemetry, identical chat behavior. */
+    #game-screen[data-player-theme="our-theme"] .battle-comms-lobby {
+      background:
+        linear-gradient(90deg,rgba(215,179,74,.08) 0 1px,transparent 1px 100%),
+        radial-gradient(circle at 87% 16%,rgba(185,37,34,.15) 0 2px,transparent 48px),
+        linear-gradient(118deg,rgba(255,255,255,.018),rgba(185,37,34,.045) 42%,rgba(0,0,0,.08)),
+        linear-gradient(180deg,#211010 0%,#110909 58%,#080606 100%);
+      border-left-color:#7f302d;
+      box-shadow:inset 10px 0 20px rgba(0,0,0,.62),inset 1px 0 rgba(215,179,74,.14),inset -1px 0 rgba(0,0,0,.80);
+    }
+    #game-screen[data-player-theme="our-theme"] .battle-comms-lobby #chat-panel {
+      border-color:#57302d;
+      background:linear-gradient(180deg,rgba(29,13,13,.98),rgba(9,6,6,.98));
+    }
+
+    /* THE UNDERCITY // PLAGUE SIGNAL COMMS.
+       Toxic green instrument glow over dead catacomb metal. */
+    #game-screen[data-player-theme="undead"] .battle-comms-lobby {
+      background:
+        radial-gradient(circle at 84% 18%,rgba(127,191,63,.17) 0 2px,rgba(127,191,63,.035) 4px 50px,transparent 95px),
+        linear-gradient(124deg,transparent 0 70%,rgba(111,119,112,.055) 70.4% 70.8%,transparent 71.2% 100%),
+        linear-gradient(118deg,rgba(255,255,255,.014),rgba(93,115,79,.035) 40%,rgba(0,0,0,.075)),
+        linear-gradient(180deg,#181d18 0%,#0d100d 58%,#070907 100%);
+      border-left-color:#57733d;
+      box-shadow:inset 10px 0 20px rgba(0,0,0,.60),inset 1px 0 rgba(147,190,100,.14),inset -1px 0 rgba(0,0,0,.80);
+    }
+    #game-screen[data-player-theme="undead"] .battle-comms-lobby #chat-panel {
+      border-color:#45523d;
+      background:linear-gradient(180deg,rgba(21,26,21,.98),rgba(8,10,8,.98));
+    }
+
+    /* REVAN // CRIMSON VIOLET COMMS.
+       Two-channel red/violet signal, same information hierarchy underneath. */
+    #game-screen[data-player-theme="revan"] .battle-comms-lobby {
+      background:
+        radial-gradient(circle at 88% 15%,rgba(168,50,138,.16) 0 2px,transparent 48px),
+        linear-gradient(132deg,transparent 0 61%,rgba(184,41,62,.09) 61.3% 61.7%,transparent 62% 100%),
+        linear-gradient(48deg,transparent 0 82%,rgba(125,43,184,.08) 82.3% 82.7%,transparent 83% 100%),
+        linear-gradient(180deg,#21101d 0%,#110912 57%,#080609 100%);
+      border-left-color:#7f3268;
+      box-shadow:inset 10px 0 20px rgba(0,0,0,.60),inset 1px 0 rgba(190,72,154,.17),inset -1px 0 rgba(0,0,0,.80);
+    }
+    #game-screen[data-player-theme="revan"] .battle-comms-lobby #chat-panel {
+      border-color:#58304d;
+      background:linear-gradient(180deg,rgba(28,12,24,.98),rgba(9,6,9,.98));
+    }
+
     .battle-comms-lobby .player-leaderboard-strip,
     .battle-comms-lobby .little-hero-hud {
       background:linear-gradient(180deg,#1a1f25,#0c0f13);
@@ -1826,8 +1890,11 @@
       content:none !important;
       display:none !important;
     }
+    .battle-comms-lobby .chat-message:not(.grouped) {
+      box-shadow:inset 1px 0 color-mix(in srgb,var(--little-hero-theme,#6f7885) 62%,transparent) !important;
+    }
     .battle-comms-lobby .chat-message:hover {
-      background:rgba(255,255,255,.035) !important;
+      background:linear-gradient(90deg,color-mix(in srgb,var(--theme-message-top,#151A20) 58%,transparent),transparent 78%) !important;
     }
 
     .battle-comms-lobby .chat-avatar-rail {
@@ -1854,6 +1921,7 @@
       margin:0 0 2px;
     }
     .battle-comms-lobby .chat-player-name {
+      color:color-mix(in srgb,var(--little-hero-theme,#d4a843) 74%,#f0f3f7);
       font-size:.61rem;
       font-weight:800;
       letter-spacing:.8px;
@@ -2114,9 +2182,9 @@
       color:#eef0f5;
     }
     .battle-comms-lobby .chat-reaction-chip.mine {
-      border-color:rgba(212,168,67,.72);
-      color:#f0cb72;
-      background:rgba(212,168,67,.08);
+      border-color:color-mix(in srgb,var(--little-hero-theme,#d4a843) 78%,#dfe5eb);
+      color:color-mix(in srgb,var(--little-hero-theme,#d4a843) 72%,#ffffff);
+      background:color-mix(in srgb,var(--theme-message-top,#151A20) 72%,transparent);
     }
     .battle-comms-lobby .chat-reaction-emoji {
       font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;
@@ -2172,6 +2240,7 @@
       position:absolute;
       right:7px;
       bottom:44px;
+      border-color:color-mix(in srgb,var(--player-theme,#6f7885) 58%,#454d57);
     }
     .battle-comms-lobby .chat-emoji-option {
       width:34px;
@@ -2203,7 +2272,7 @@
       cursor:pointer;
     }
     .battle-comms-lobby .chat-emoji-toggle:hover {
-      color:#d6a843;
+      color:var(--player-theme,#d6a843);
     }
     .battle-comms-lobby #chat-input {
       padding-right:36px;

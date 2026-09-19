@@ -289,6 +289,17 @@ async function testChatEmojiReactions() {
   player.send(JSON.stringify({ type: 'chat:react', messageId: brokerMessage.id, emoji: '🔥' }));
   await brokerReactedUpdate;
 
+  const gmReactedUpdate = waitForMessage(
+    player,
+    m => {
+      const target = m.type === 'chat:update' && m.messages?.find(x => x.id === brokerMessage.id);
+      return Array.isArray(target?.reactions?.['👀']) && target.reactions['👀'].includes('__GM__');
+    },
+    'gm reaction add'
+  );
+  host.send(JSON.stringify({ type: 'chat:react', messageId: brokerMessage.id, emoji: '👀' }));
+  await gmReactedUpdate;
+
   const invalidReaction = waitForMessage(
     player,
     m => m.type === 'error' && /invalid reaction/i.test(m.message || ''),
