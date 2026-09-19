@@ -19,7 +19,7 @@ const ControlSurfaces = {
     battle.id = 'gm-battle-control';
     battle.className = 'gm-control-surface gm-battle-control';
     content.insertBefore(battle, content.firstChild);
-    [clues, womf, chat, scoring, global].forEach(section => {
+    [chat, clues, womf, scoring, global].forEach(section => {
       if (section) battle.appendChild(section);
     });
 
