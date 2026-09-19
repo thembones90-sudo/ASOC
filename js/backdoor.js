@@ -55,13 +55,6 @@ const ControlSurfaces = {
     maintenance.id = 'gm-maintenance';
     maintenance.className = 'gm-control-surface gm-maintenance';
     maintenance.hidden = true;
-    maintenance.innerHTML =
-      '<div class="maintenance-header">' +
-        '<button type="button" class="maintenance-return-btn" id="maintenance-return-btn">← RETURN TO BATTLE CONTROL</button>' +
-        '<div class="maintenance-title">BACKDOOR</div>' +
-        '<div class="maintenance-subtitle">SYSTEM ACCESS // NON-BATTLE CONTROLS</div>' +
-        '<div id="maintenance-battle-warning" class="maintenance-battle-warning" style="display:none;">● BATTLE ACTIVE // TIMER CONTINUES</div>' +
-      '</div>';
     content.appendChild(maintenance);
 
     const makeModule = (titleText) => {
@@ -149,14 +142,11 @@ const ControlSurfaces = {
       footerButton.classList.add('maintenance-toggle-btn');
     }
 
-    document.getElementById('maintenance-return-btn')?.addEventListener('click', () => this.setOpen(false));
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && !maintenance.hidden) this.setOpen(false);
     });
 
     this.updateSessionSummary();
-    this.updateBattleWarning();
-    setInterval(() => this.updateBattleWarning(), 1000);
   },
 
   setOpen(open) {
@@ -174,7 +164,6 @@ const ControlSurfaces = {
       footerButton.classList.toggle('active', !!open);
     }
 
-    this.updateBattleWarning();
     const scroll = document.querySelector('.gm-content');
     if (scroll) scroll.scrollTop = 0;
   },
@@ -199,14 +188,6 @@ const ControlSurfaces = {
     if (code) code.textContent = app.roomCode || '—';
     if (heroes) heroes.style.display = multiplayer ? 'inline' : 'none';
     if (count) count.textContent = String((app.currentPlayers || []).length);
-  },
-
-  updateBattleWarning() {
-    const warning = document.getElementById('maintenance-battle-warning');
-    if (!warning) return;
-    const phase = this.app?.timer?.phase || 'ready';
-    const active = ['running', 'paused', 'borrowed', 'borrowed_paused'].includes(phase);
-    warning.style.display = active ? 'block' : 'none';
   }
 };
 

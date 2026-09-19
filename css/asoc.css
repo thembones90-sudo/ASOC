@@ -5378,70 +5378,6 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 .gm-maintenance .gm-module-game .current-game { margin-bottom: 14px; }
 .gm-maintenance { position: relative; }
 
-.maintenance-header {
-  position: relative;
-  margin: 0 0 22px;
-  padding: 15px 16px 16px;
-  border: 1px solid rgba(77,132,135,.48);
-  background:
-    linear-gradient(90deg, rgba(40,111,112,.08), transparent 45%),
-    linear-gradient(180deg, rgba(20,25,29,.98), rgba(10,13,16,.98));
-  box-shadow: inset 0 1px 0 rgba(177,226,225,.05);
-}
-.maintenance-header::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: #579b9d;
-  box-shadow: 0 0 10px rgba(77,168,170,.32);
-}
-.maintenance-title {
-  margin-top: 11px;
-  color: #9ed2d0;
-  font-size: 1.12rem;
-  line-height: 1;
-  font-weight: 900;
-  letter-spacing: 3.4px;
-  text-shadow: 0 0 9px rgba(84,176,176,.22);
-}
-.maintenance-subtitle {
-  margin-top: 5px;
-  color: #607b7d;
-  font-size: .5rem;
-  font-weight: 800;
-  letter-spacing: 1.45px;
-}
-.maintenance-return-btn {
-  width: 100%;
-  padding: 7px 9px;
-  border: 1px solid rgba(86,128,132,.45);
-  border-radius: 2px;
-  background: rgba(21,31,34,.85);
-  color: #8aa6a8;
-  font-family: inherit;
-  font-size: .56rem;
-  font-weight: 800;
-  letter-spacing: 1px;
-  text-align: left;
-  cursor: pointer;
-}
-.maintenance-return-btn:hover {
-  border-color: rgba(120,190,191,.72);
-  color: #c3e1df;
-  background: rgba(33,53,56,.9);
-}
-.maintenance-battle-warning {
-  margin-top: 10px;
-  padding: 7px 9px;
-  border: 1px solid rgba(188,73,57,.52);
-  background: rgba(102,33,28,.18);
-  color: #df7868;
-  font-size: .54rem;
-  font-weight: 900;
-  letter-spacing: 1.1px;
-  animation: maintenance-live-pulse 1.6s ease-in-out infinite;
-}
 .gm-maintenance .maintenance-module {
   margin-bottom: 22px;
   padding: 15px;
@@ -5496,11 +5432,6 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 }
 #gm-panel.maintenance-open #reveal-hide-all-btn {
   margin-top: 12px !important;
-}
-
-@keyframes maintenance-live-pulse {
-  0%, 100% { opacity: .72; }
-  50% { opacity: 1; }
 }
 
 /* =========================================================
