@@ -1659,32 +1659,15 @@ const App = {
       return Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew });
     }
 
-    const verdictIcon = this.getVerdictIcon(msg.verdict);
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
     const hasVerdict = msg.verdict !== null;
     const showControls = !hasVerdict;
 
-    // Same additive identity layer the player screen already shows under
-    // a judged guess -- appended alongside the existing verdict icon,
-    // never replacing it. msg.verdict remains the sole source of truth;
-    // nothing here touches judging/scoring.
-    let verdictResponseHtml = '';
-    if (msg.verdict === 'correct') {
-      const verdictKey = `${msg.id}:${msg.verdict}`;
-      const isNew = !this._seenShadowBrokerKeys.has(verdictKey);
-      if (isNew) this._seenShadowBrokerKeys.add(verdictKey);
-      verdictResponseHtml = Skeleton.shadowBrokerTransmissionHTML('Correct.', {
-        glitchIn: isNew,
-        variant: 'verdict-response',
-        verdict: msg.verdict
-      });
-    }
-
     return `
       <div class="gm-chat-message ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}">
         <div class="gm-chat-message-header">
-          <span class="gm-chat-little-hero">${this.littleHeroAvatarHTML(identity)}<span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
+          <span class="gm-chat-little-hero">${this.littleHeroAvatarHTML(identity, true)}<span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
           <span class="gm-chat-message-meta">
             <span class="gm-chat-time">${time}</span>
             ${showControls ? `<span class="gm-chat-quick-actions" aria-label="Judge message if it is an answer">
@@ -1694,8 +1677,7 @@ const App = {
           </span>
         </div>
         <div class="gm-chat-message-text">${this.escapeHtml(msg.text)}</div>
-        ${verdictIcon ? `<div class="gm-chat-verdict ${msg.verdict}">${verdictIcon}${msg.target ? ` (${this.getTargetLabel(msg.target)})` : ''}</div>` : ''}
-        ${verdictResponseHtml}
+        ${msg.verdict ? `<div class="gm-chat-mini-verdict ${msg.verdict}">${msg.verdict === 'correct' ? '🖤 ACCEPTED' : '× REJECTED'}${msg.target ? ` // ${this.getTargetLabel(msg.target)}` : ''}</div>` : ''}
       </div>
     `;
   },
