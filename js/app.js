@@ -1667,7 +1667,7 @@ const App = {
     const frameColor = /^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885';
 
     return `
-      <div class="gm-chat-message discord-row ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" style="${themeStyle}--little-hero-accent:${frameColor}">
+      <div class="gm-chat-message discord-row ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}">
         <span class="gm-chat-leading">${this.littleHeroAvatarHTML(identity, true)}</span>
         <span class="gm-chat-inline-content">
           <span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span>

@@ -1102,7 +1102,7 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}">
+      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}">
         <div class="chat-message-header">
           <span class="chat-little-hero">${this.littleHeroAvatarHTML(identity)}<span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
           <span><button type="button" class="chat-reply-btn" data-reply-id="${msg.id}">REPLY</button><span class="chat-time">${time}</span></span>

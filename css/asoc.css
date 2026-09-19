@@ -2337,6 +2337,22 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 .gm-module-chat .gm-chat-message.discord-row:hover {
   background: linear-gradient(100deg, color-mix(in srgb,var(--theme-message-top,#151A20) 90%,#fff 10%), color-mix(in srgb,var(--theme-message-bottom,#0C0F13) 92%,#fff 8%) 72%);
 }
+
+/* SKYNET MATERIAL 05 // GM adjudication strip.
+   Flatter than the player transmission casing so rapid judging stays readable. */
+.gm-module-chat .gm-chat-message.discord-row[data-theme-id="gunmetal"] {
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.026),transparent 34%),
+    repeating-linear-gradient(135deg,rgba(255,255,255,.008) 0 1px,transparent 1px 9px),
+    linear-gradient(100deg,#171c22,#0b0e12 76%);
+  box-shadow:inset 0 1px rgba(218,224,230,.04),inset 0 -1px rgba(0,0,0,.58);
+}
+.gm-module-chat .gm-chat-message.discord-row[data-theme-id="gunmetal"]:hover {
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.038),transparent 34%),
+    repeating-linear-gradient(135deg,rgba(255,255,255,.011) 0 1px,transparent 1px 9px),
+    linear-gradient(100deg,#1a2027,#0d1115 76%);
+}
 .gm-module-chat .gm-chat-message.discord-row.wrong {
   border-color: rgba(216,97,87,.44);
   border-left-color: #d86157;
