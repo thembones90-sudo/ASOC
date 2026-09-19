@@ -2,7 +2,8 @@
  * Themes may style surrounding UI BACKGROUND surfaces only.
  * They must never recolor the authored game-board artwork or board elements.
  * LOCKED LINEUP: 01 SKYNET / 02 SUGARCOAT / 03 VERDANTIS /
- * 04 MY SINDRAGOSA / 05 DISCO INFERNO.
+ * 04 MY SINDRAGOSA / 05 DISCO INFERNO / 06 OUR THEME /
+ * 07 UNDEAD / 08 REVAN.
  */
 const ASOCThemes = {
   DEFAULT_ID: 'gunmetal',
@@ -86,6 +87,54 @@ const ASOCThemes = {
       messageTop: '#3A1B0F',
       messageBottom: '#180C08',
       ambient: 'rgba(240,106,42,.16)'
+    },
+    'our-theme': {
+      id: 'our-theme',
+      code: '06',
+      name: 'OUR THEME',
+      subtitle: 'RED STANDARD // SOVIET STEEL',
+      color: '#B92522',
+      shellTop: '#1D0F0F',
+      shellBottom: '#090606',
+      railTop: '#271211',
+      railBottom: '#110908',
+      statusTop: '#321514',
+      statusBottom: '#140A09',
+      messageTop: '#381716',
+      messageBottom: '#180B0A',
+      ambient: 'rgba(185,37,34,.16)'
+    },
+    undead: {
+      id: 'undead',
+      code: '07',
+      name: 'UNDEAD',
+      subtitle: 'FORSAKEN SIGNAL // PLAGUE CIRCUITS',
+      color: '#7E5AB8',
+      shellTop: '#15111C',
+      shellBottom: '#08070B',
+      railTop: '#1C1724',
+      railBottom: '#0C0A10',
+      statusTop: '#211A2A',
+      statusBottom: '#0E0B13',
+      messageTop: '#251A31',
+      messageBottom: '#100C16',
+      ambient: 'rgba(126,90,184,.14)'
+    },
+    revan: {
+      id: 'revan',
+      code: '08',
+      name: 'REVAN',
+      subtitle: 'CRIMSON VIOLET // SIGNATURE CIRCUITS',
+      color: '#A8328A',
+      shellTop: '#1B0D18',
+      shellBottom: '#09060A',
+      railTop: '#24101E',
+      railBottom: '#0F080D',
+      statusTop: '#2B1224',
+      statusBottom: '#110910',
+      messageTop: '#341127',
+      messageBottom: '#160914',
+      ambient: 'rgba(180,42,95,.17)'
     }
   },
 

@@ -24,7 +24,10 @@ const LITTLE_HERO_THEMES = Object.freeze({
   'pink-protocol': '#E06AB1',
   verdantis: '#5FAF63',
   'my-sindragosa': '#79C8F2',
-  'disco-inferno': '#F06A2A'
+  'disco-inferno': '#F06A2A',
+  'our-theme': '#B92522',
+  undead: '#7E5AB8',
+  revan: '#A8328A'
 });
 
 const mimeTypes = {
