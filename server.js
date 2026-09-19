@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const gameStore = require('./game-store');
 const playerStore = require('./player-store');
+const authStore = require('./auth-store');
 const scoring = require('./scoring-constants');
 
 const PORT = Number(process.env.PORT) || 8080;
@@ -225,7 +226,17 @@ function generateEventId() {
 }
 
 const gmTokens = new Set();
+const playerAuthTokens = new Map();
 let currentGMToken = '';
+const GM_PASSWORD_FILE = path.join(__dirname, '.gm-password');
+let GM_PASSWORD = String(process.env.ASOC_GM_PASSWORD || '');
+if (!GM_PASSWORD) {
+  try { GM_PASSWORD = fs.readFileSync(GM_PASSWORD_FILE, 'utf8').trim(); } catch (e) {}
+}
+if (!GM_PASSWORD) {
+  GM_PASSWORD = crypto.randomBytes(12).toString('base64url');
+  try { fs.writeFileSync(GM_PASSWORD_FILE, GM_PASSWORD, { mode: 0o600 }); } catch (e) {}
+}
 
 function refreshGMToken() {
   const token = 'gm-' + crypto.randomBytes(18).toString('base64url');
@@ -2458,11 +2469,41 @@ function handleApiRequest(req, res) {
   const parts = url.pathname.split('/').filter(Boolean);
   const method = req.method;
 
+  if (method === 'POST' && url.pathname === '/api/auth/player/register') {
+    return readJsonBody(req, (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
+      try {
+        const player = authStore.register(body.email, body.password, body.name);
+        const token = 'player-' + crypto.randomBytes(24).toString('base64url');
+        playerAuthTokens.set(token, { playerId: player.id, email: player.email, createdAt: Date.now() });
+        return sendJson(res, 201, { token, player });
+      } catch (e) { return sendJson(res, 400, { error: e.message }); }
+    });
+  }
+
+  if (method === 'POST' && url.pathname === '/api/auth/player/login') {
+    return readJsonBody(req, (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
+      const player = authStore.login(body.email, body.password);
+      if (!player) return sendJson(res, 401, { error: 'Invalid email or password' });
+      const token = 'player-' + crypto.randomBytes(24).toString('base64url');
+      playerAuthTokens.set(token, { playerId: player.id, email: player.email, createdAt: Date.now() });
+      return sendJson(res, 200, { token, player });
+    });
+  }
+
+  if (method === 'POST' && url.pathname === '/api/auth/gm/login') {
+    return readJsonBody(req, (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
+      const supplied = Buffer.from(String(body.password || ''));
+      const expected = Buffer.from(GM_PASSWORD);
+      if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) return sendJson(res, 401, { error: 'Access denied' });
+      return sendJson(res, 200, { token: refreshGMToken() });
+    });
+  }
+
   if (method === 'GET' && parts[0] === 'api' && parts[1] === 'gm' && parts[2] === 'token') {
-    if (!isLocalhostRequest(req)) {
-      return sendJson(res, 403, { error: 'GM token is only available from localhost' });
-    }
-    return sendJson(res, 200, { token: currentGMToken });
+    return sendJson(res, 403, { error: 'GM password authentication required' });
   }
 
   if (!isGmAuthorized(req)) {

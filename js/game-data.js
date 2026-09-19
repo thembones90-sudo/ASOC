@@ -46,6 +46,7 @@ const GameData = {
   },
 
   async fetchGMToken() {
+    if (this.gmToken) return this.gmToken;
     try {
       const data = await this.apiFetch('api/gm/token');
       if (data.token) this.setGMToken(data.token);

@@ -23,3 +23,8 @@ DEPLOY_MANIFEST.json
 players.json.bak
 players.json.corrupt-*
 players.json.tmp-*
+
+# Authentication database -- contains password hashes and player emails.
+auth-store.json
+auth-store.json.tmp
+.gm-password

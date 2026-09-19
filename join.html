@@ -2654,10 +2654,46 @@
       .join-form { padding:12px 10px 13px; }
     }
 
+    /* ASOC ACCESS GATE */
+    #access-gate{position:fixed;inset:0;z-index:100000;background:radial-gradient(circle at 50% 35%,#171122 0,#08090d 42%,#020304 100%);color:#e9e9ee;display:grid;place-items:center;font-family:Arial,sans-serif;overflow:auto;padding:20px}
+    #access-gate[hidden]{display:none}.access-shell{width:min(820px,96vw);border:1px solid #40384e;background:rgba(8,9,13,.94);box-shadow:0 0 80px #000,0 0 35px rgba(154,86,224,.12);padding:28px;position:relative}
+    .access-shell:before,.access-shell:after{content:"";position:absolute;width:44px;height:44px;border-color:#a463e7}.access-shell:before{left:-2px;top:-2px;border-left:2px solid;border-top:2px solid}.access-shell:after{right:-2px;bottom:-2px;border-right:2px solid;border-bottom:2px solid}
+    .access-eye{width:86px;height:34px;margin:0 auto 18px;border:2px solid #7542a7;border-radius:60% 10%;transform:skewX(-18deg);box-shadow:0 0 25px #6f36a9 inset,0 0 25px #6f36a9;position:relative}.access-eye:after{content:"";position:absolute;width:12px;height:12px;border-radius:50%;background:#c781ff;box-shadow:0 0 18px #c781ff;left:36px;top:9px}
+    .access-kicker{text-align:center;font-size:10px;letter-spacing:5px;color:#777f89}.access-title{text-align:center;font-size:clamp(42px,9vw,84px);letter-spacing:12px;margin:3px 0 0;color:#f0f0f2;text-shadow:0 0 24px rgba(170,96,240,.25)}.access-sub{text-align:center;color:#8b8494;font-size:11px;letter-spacing:3px;margin-bottom:25px}
+    .access-choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}.access-choice{min-height:140px;text-align:left;padding:20px;border:1px solid #34313a;background:#0c0e12;color:#ddd;cursor:pointer;transition:.18s}.access-choice:hover{transform:translateY(-2px);border-color:#8f55c5;background:#111018}.access-choice b{display:block;font-size:20px;letter-spacing:2px;margin:8px 0}.access-choice small{color:#777f89;line-height:1.5}.access-choice .num{color:#a463e7;font-size:11px;letter-spacing:2px}
+    .access-panel{max-width:480px;margin:0 auto}.access-panel[hidden]{display:none}.access-back{border:0;background:none;color:#81788c;cursor:pointer;padding:0 0 18px;font-weight:bold}.access-panel h2{letter-spacing:3px;margin:0 0 4px}.access-panel p{color:#777f89;font-size:12px;margin:0 0 18px}.access-field{display:block;margin:10px 0}.access-field span{display:block;font-size:10px;letter-spacing:2px;color:#9b91a7;margin-bottom:6px}.access-field input{box-sizing:border-box;width:100%;height:46px;background:#06070a;border:1px solid #393640;color:#eee;padding:0 13px;outline:none}.access-field input:focus{border-color:#9457cb;box-shadow:0 0 0 1px #9457cb}
+    .access-submit{width:100%;height:48px;margin-top:8px;border:1px solid #b98a37;background:linear-gradient(#d5a54a,#a87624);color:#100d08;font-weight:900;letter-spacing:2px;cursor:pointer}.access-alt{width:100%;border:0;background:none;color:#9e7bc2;margin-top:12px;cursor:pointer}.access-error{min-height:18px;color:#df6565;font-size:12px;margin-top:10px}.access-status{text-align:center;color:#7e7688;font-size:10px;letter-spacing:2px;margin-top:18px}
+    @media(max-width:600px){.access-shell{padding:20px 14px}.access-choices{grid-template-columns:1fr}.access-choice{min-height:112px}.access-title{letter-spacing:7px}.access-sub{letter-spacing:2px}}
   </style>
 </head>
 <body>
-  <div id="join-screen">
+  <div id="access-gate">
+    <div class="access-shell">
+      <div id="access-home">
+        <div class="access-eye"></div><div class="access-kicker">A SHADOW OF CHAOS</div><div class="access-title">ASOC</div>
+        <div class="access-sub">SYSTEM ONLINE // IDENTIFY YOURSELF</div>
+        <div class="access-choices">
+          <button class="access-choice" id="access-player" type="button"><span class="num">01 // PLAYER CHANNEL</span><b>LITTLE HERO</b><small>Authenticate your persistent identity, then enter the current battlefield.</small></button>
+          <button class="access-choice" id="access-gm" type="button"><span class="num">02 // RESTRICTED CHANNEL</span><b>GAME MASTER</b><small>Single-password command access. Unauthorized heroes will be mocked silently.</small></button>
+        </div><div class="access-status">ENCRYPTED LINK // SHADOW BROKER WATCHING</div>
+      </div>
+      <form id="player-auth-panel" class="access-panel" hidden>
+        <button class="access-back" type="button">&lt; RETURN</button><h2>LITTLE HERO ACCESS</h2><p id="player-auth-copy">Sign in with your ASOC identity.</p>
+        <label class="access-field"><span>EMAIL ID</span><input id="auth-email" type="email" autocomplete="email" required></label>
+        <label class="access-field"><span>PASSWORD</span><input id="auth-password" type="password" autocomplete="current-password" minlength="6" required></label>
+        <label class="access-field" id="auth-name-field" hidden><span>LITTLE HERO DESIGNATION</span><input id="auth-name" type="text" maxlength="20" autocomplete="nickname"></label>
+        <button class="access-submit" type="submit" id="player-auth-submit">AUTHENTICATE</button>
+        <button class="access-alt" type="button" id="player-auth-mode">NEW HERO? CREATE ID</button><div class="access-error" id="player-auth-error"></div>
+      </form>
+      <form id="gm-auth-panel" class="access-panel" hidden>
+        <button class="access-back" type="button">&lt; RETURN</button><h2>GAME MASTER</h2><p>Command authority requires one thing. The password.</p>
+        <label class="access-field"><span>GM PASSWORD</span><input id="gm-password" type="password" autocomplete="current-password" required autofocus></label>
+        <button class="access-submit" type="submit">ENTER COMMAND POST</button><div class="access-error" id="gm-auth-error"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="join-screen" style="display:none">
     <div class="join-brand">
       <div class="join-logo">ASOC</div>
       <div class="join-subtitle">Little Hero // Battle Access</div>
@@ -2864,6 +2900,43 @@
 
   <div id="score-announcement-layer"></div>
 
+  <script>
+  (() => {
+    const gate=document.getElementById('access-gate'), home=document.getElementById('access-home');
+    const pp=document.getElementById('player-auth-panel'), gp=document.getElementById('gm-auth-panel');
+    let register=false;
+    const show=(panel)=>{home.hidden=!!panel;pp.hidden=panel!=='player';gp.hidden=panel!=='gm';};
+    document.getElementById('access-player').onclick=()=>show('player');
+    document.getElementById('access-gm').onclick=()=>show('gm');
+    document.querySelectorAll('.access-back').forEach(b=>b.onclick=()=>show(null));
+    document.getElementById('player-auth-mode').onclick=()=>{
+      register=!register; document.getElementById('auth-name-field').hidden=!register;
+      document.getElementById('player-auth-copy').textContent=register?'Create a persistent Little Hero identity.':'Sign in with your ASOC identity.';
+      document.getElementById('player-auth-submit').textContent=register?'CREATE LITTLE HERO':'AUTHENTICATE';
+      document.getElementById('player-auth-mode').textContent=register?'HAVE AN ID? SIGN IN':'NEW HERO? CREATE ID';
+    };
+    pp.addEventListener('submit',async e=>{
+      e.preventDefault(); const err=document.getElementById('player-auth-error'); err.textContent='';
+      try{
+        const payload={email:document.getElementById('auth-email').value,password:document.getElementById('auth-password').value,name:document.getElementById('auth-name').value};
+        const res=await fetch(register?'/api/auth/player/register':'/api/auth/player/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+        const data=await res.json(); if(!res.ok)throw Error(data.error||'Authentication failed');
+        sessionStorage.setItem('asoc_player_auth_token',data.token);
+        if(data.player?.id) sessionStorage.setItem('asoc_player_id',data.player.id);
+        if(data.player?.name) document.getElementById('player-name').value=data.player.name;
+        gate.hidden=true; document.getElementById('join-screen').style.display='flex';
+      }catch(x){err.textContent=x.message;}
+    });
+    gp.addEventListener('submit',async e=>{
+      e.preventDefault(); const err=document.getElementById('gm-auth-error'); err.textContent='';
+      try{
+        const res=await fetch('/api/auth/gm/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:document.getElementById('gm-password').value})});
+        const data=await res.json(); if(!res.ok)throw Error(data.error||'Access denied');
+        sessionStorage.setItem('asoc_gm_token',data.token); location.href='/index.html';
+      }catch(x){err.textContent=x.message;}
+    });
+  })();
+  </script>
   <script src="js/themes.js"></script>
   <script src="js/skeleton.js"></script>
   <script src="js/womf.js"></script>
