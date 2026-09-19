@@ -371,15 +371,13 @@ const Skeleton = (() => {
     };
   }
 
-  let nemaAsocTimer = null;
+  let nemaAsocTimers = [];
 
   function playNemaAsoc() {
     const old = document.querySelector('.nema-asoc-overlay');
     if (old) old.remove();
-    if (nemaAsocTimer) {
-      clearTimeout(nemaAsocTimer);
-      nemaAsocTimer = null;
-    }
+    nemaAsocTimers.forEach(clearTimeout);
+    nemaAsocTimers = [];
 
     document.body.classList.remove('nema-asoc-active');
     // Force a clean animation restart if the GM threatens them twice in a row.
@@ -388,15 +386,37 @@ const Skeleton = (() => {
     const overlay = document.createElement('div');
     overlay.className = 'nema-asoc-overlay';
     overlay.setAttribute('aria-hidden', 'true');
-    overlay.innerHTML = '<div class="nema-asoc-text" data-text="NEMA ASOC">NEMA ASOC</div>';
+    overlay.dataset.phase = 'interrupt';
+    overlay.innerHTML = `
+      <div class="nema-asoc-corruption"></div>
+      <div class="nema-asoc-lock" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="nema-asoc-terminal">
+        <div class="nema-asoc-kicker">ASOC DISPLAY OVERRIDE // HOST AUTHORITY</div>
+        <div class="nema-asoc-text" data-text="NEMA ASOC">NEMA ASOC</div>
+        <div class="nema-asoc-phase">SIGNAL INTERRUPTION</div>
+      </div>
+      <div class="nema-asoc-progress"><span></span></div>
+      <div class="nema-asoc-counter">05 SEC // THE END OF ASOC</div>`;
     document.body.appendChild(overlay);
     document.body.classList.add('nema-asoc-active');
 
-    nemaAsocTimer = setTimeout(() => {
+    const setPhase = (delay, phase, label) => {
+      nemaAsocTimers.push(setTimeout(() => {
+        if (!overlay.isConnected) return;
+        overlay.dataset.phase = phase;
+        const phaseLabel = overlay.querySelector('.nema-asoc-phase');
+        if (phaseLabel) phaseLabel.textContent = label;
+      }, delay));
+    };
+    setPhase(620, 'seized', 'DISPLAY SEIZED');
+    setPhase(1450, 'active', 'SYSTEM FAILURE // TERMINATION IMMINENT');
+    setPhase(4200, 'release', 'RELEASING DISPLAY');
+
+    nemaAsocTimers.push(setTimeout(() => {
       document.body.classList.remove('nema-asoc-active');
       overlay.remove();
-      nemaAsocTimer = null;
-    }, 5000);
+      nemaAsocTimers = [];
+    }, 5000));
   }
 
   return {

@@ -223,6 +223,7 @@ const App = {
 
     document.getElementById('library-btn').addEventListener('click', () => Forge.open());
     document.getElementById('library-btn-footer').addEventListener('click', () => ControlSurfaces.toggle());
+    document.getElementById('gm-logout-btn')?.addEventListener('click', () => this.logoutShadowBroker());
     document.getElementById('new-game-btn').addEventListener('click', () => Forge.open().then(() => Forge.openCreator(null, true)));
     document.getElementById('next-game-btn').addEventListener('click', () => Forge.open());
 
@@ -1230,6 +1231,42 @@ const App = {
 
     this.send({ type: 'room:close' });
     this.cleanupRoom();
+  },
+
+  async logoutShadowBroker() {
+    const hostingRoom = this.mode === 'multiplayer' && !!this.roomCode;
+    const warning = hostingRoom
+      ? 'SEVER SHADOW BROKER SESSION?\n\nThe active hosted room will be closed and command authentication will be cleared.'
+      : 'SEVER SHADOW BROKER SESSION?\n\nCommand authentication will be cleared and you will return to the access terminal.';
+    if (!window.confirm(warning)) return;
+
+    const button = document.getElementById('gm-logout-btn');
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'SEVERING COMMAND LINK...';
+    }
+
+    const gmToken = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
+    try {
+      if (hostingRoom) {
+        this.send({ type: 'room:close' });
+        this.cleanupRoom();
+      }
+      if (gmToken) {
+        await fetch('/api/auth/gm/logout', {
+          method: 'POST',
+          headers: { 'x-gm-token': gmToken }
+        });
+      }
+    } catch (_) {
+      // Local session cleanup still proceeds if the server link is unavailable.
+    } finally {
+      sessionStorage.removeItem('asoc_gm_token');
+      sessionStorage.removeItem('asoc_host_room');
+      sessionStorage.removeItem('asoc_host_token');
+      GameData.setGMToken('');
+      location.replace('/join.html');
+    }
   },
 
   cleanupRoom() {

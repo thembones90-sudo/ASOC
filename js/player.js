@@ -96,7 +96,6 @@ const PlayerApp = {
 
     const avatarFile = document.getElementById('little-hero-avatar-file');
     const framePicker = document.getElementById('little-hero-frame-picker');
-    const frameHex = document.getElementById('little-hero-frame-hex');
     const themeSelect = document.getElementById('theme-select');
     const themeToggle = document.getElementById('theme-select-toggle');
     const themeMenu = document.getElementById('theme-select-menu');
@@ -121,18 +120,11 @@ const PlayerApp = {
       this._sendFrameAppearance = true;
       localStorage.setItem('asoc_little_hero_frame', this.frameColor);
       if (framePicker) framePicker.value = this.frameColor;
-      if (frameHex) frameHex.value = this.frameColor;
       this.updateAppearancePreview();
       return true;
     };
 
     framePicker?.addEventListener('input', (e) => applyFrameColor(e.target.value));
-    frameHex?.addEventListener('change', (e) => {
-      if (!applyFrameColor(e.target.value.trim())) {
-        e.target.value = this.frameColor;
-        this.showError('Frame color must be a six-digit HEX value');
-      }
-    });
 
     const applyThemeProfile = (themeId) => {
       const theme = ASOCThemes.get(themeId);

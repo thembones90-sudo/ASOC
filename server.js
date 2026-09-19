@@ -2519,7 +2519,7 @@ function handleApiRequest(req, res) {
     return readJsonBody(req, (err, body) => {
       if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
       const player = authStore.login(body.email, body.password);
-      if (!player) return sendJson(res, 401, { error: 'Invalid email or password' });
+      if (!player) return sendJson(res, 401, { error: 'Invalid identity ID or password' });
       const token = 'player-' + crypto.randomBytes(24).toString('base64url');
       playerAuthTokens.set(token, { playerId: player.id, email: player.email, createdAt: Date.now(), expiresAt: Date.now() + AUTH_TOKEN_TTL_MS });
       return sendJson(res, 200, { token, player });
