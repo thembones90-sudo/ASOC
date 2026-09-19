@@ -4186,3 +4186,208 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   .womf-readout { width: 66px; }
   .timer-controls { width: 100%; border-left: 0; padding: 6px 0 0; }
 }
+/* =========================================================
+   TIMER — LIVE BURNING FUSE
+   Server time remains authoritative; --fuse-progress-pct is visual only.
+   ========================================================= */
+.timer-fuse-wrap {
+  min-width: 0;
+  height: 38px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-bottom: 12px;
+}
+.timer-fuse {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  overflow: visible;
+}
+.timer-fuse-cord {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background:
+    repeating-linear-gradient(115deg, rgba(202,160,92,.25) 0 3px, transparent 3px 7px),
+    linear-gradient(180deg, #6a5638 0%, #3b3021 48%, #211b14 100%);
+  border: 1px solid rgba(137,111,74,.65);
+  box-shadow: inset 0 1px 1px rgba(255,228,174,.12), 0 1px 4px rgba(0,0,0,.8);
+}.timer-fuse-burned,
+.timer-fuse-live {
+  position: absolute;
+  top: 8px;
+  height: 8px;
+  border-radius: 999px;
+  pointer-events: none;
+  transition: width 1s linear, left 1s linear;
+}
+.timer-fuse-burned {
+  left: 0;
+  width: var(--fuse-progress-pct, 0%);
+  z-index: 2;
+  background:
+    repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0 2px, transparent 2px 6px),
+    linear-gradient(180deg, #252525, #080808);
+  border: 1px solid rgba(61,61,61,.9);
+  box-shadow: inset 0 0 4px #000, 0 0 6px rgba(0,0,0,.8);
+}
+.timer-fuse-live {
+  left: var(--fuse-progress-pct, 0%);
+  width: calc(100% - var(--fuse-progress-pct, 0%));
+  z-index: 1;
+  background:
+    repeating-linear-gradient(115deg, rgba(231,183,102,.25) 0 3px, transparent 3px 7px),
+    linear-gradient(180deg, #806542, #46371f);
+  border: 1px solid rgba(155,123,72,.72);
+}.timer-fuse-tip {
+  position: absolute;
+  left: var(--fuse-progress-pct, 0%);
+  top: 12px;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  border-radius: 50%;
+  pointer-events: none;
+  transition: left 1s linear;
+  background: radial-gradient(circle, rgba(255,246,178,.96) 0 10%, #ffc246 18%, #ff6b16 38%, rgba(225,42,10,.74) 55%, rgba(225,42,10,0) 73%);
+  filter: drop-shadow(0 0 5px rgba(255,101,19,.95));
+  animation: timer-fuse-flame .16s ease-in-out infinite alternate;
+}
+.timer-fuse-core {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  left: 8px;
+  top: 8px;
+  border-radius: 50%;
+  background: #fff8c6;
+  box-shadow: 0 0 6px #ffd85a, 0 0 13px #ff6320, 0 0 21px rgba(255,44,0,.72);
+}
+.timer-fuse-tip::before {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 17px;
+  left: 8px;
+  top: -10px;
+  border-radius: 50%;
+  background: rgba(130,136,145,.22);
+  filter: blur(4px);
+  animation: timer-fuse-smoke 1.4s ease-out infinite;
+}.timer-fuse-spark {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff0a0;
+  box-shadow: 0 0 5px #ff7a1d;
+  opacity: 0;
+}
+.timer-fuse-spark.spark-a { left: 15px; top: 5px; animation: timer-spark-a .62s linear infinite; }
+.timer-fuse-spark.spark-b { left: 11px; top: 2px; animation: timer-spark-b .84s linear .18s infinite; }
+.timer-fuse-spark.spark-c { left: 16px; top: 13px; animation: timer-spark-c .72s linear .31s infinite; }
+@keyframes timer-fuse-flame {
+  from { transform: translate(-50%, -50%) scale(.92) rotate(-3deg); filter: drop-shadow(0 0 4px rgba(255,91,18,.82)); }
+  to { transform: translate(-50%, -50%) scale(1.08) rotate(3deg); filter: drop-shadow(0 0 9px rgba(255,126,24,1)); }
+}
+@keyframes timer-fuse-smoke {
+  0% { transform: translate(0, 2px) scale(.7); opacity: .25; }
+  55% { opacity: .12; }
+  100% { transform: translate(5px, -11px) scale(1.3); opacity: 0; }
+}
+@keyframes timer-spark-a {
+  0% { transform: translate(0,0) scale(1); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(13px,-10px) scale(.2); opacity: 0; }
+}@keyframes timer-spark-b {
+  0% { transform: translate(0,0) scale(1); opacity: 0; }
+  15% { opacity: .9; }
+  100% { transform: translate(-7px,-15px) scale(.15); opacity: 0; }
+}
+@keyframes timer-spark-c {
+  0% { transform: translate(0,0) scale(1); opacity: 0; }
+  20% { opacity: .95; }
+  100% { transform: translate(14px,8px) scale(.2); opacity: 0; }
+}
+.timer-tracker[data-phase="ready"] .timer-fuse-tip {
+  animation: none;
+  width: 12px;
+  height: 12px;
+  background: radial-gradient(circle, #8d929b 0 20%, #3d424b 50%, rgba(25,27,32,0) 72%);
+  filter: none;
+}
+.timer-tracker[data-phase="ready"] .timer-fuse-core,
+.timer-tracker[data-phase="ready"] .timer-fuse-spark,
+.timer-tracker[data-phase="ready"] .timer-fuse-tip::before {
+  display: none;
+}
+.timer-tracker.timer-paused .timer-fuse-tip,
+.timer-tracker.timer-paused .timer-fuse-spark,
+.timer-tracker.timer-paused .timer-fuse-tip::before {
+  animation-play-state: paused;
+}.timer-tracker[data-level="warning"] .timer-fuse-tip {
+  filter: drop-shadow(0 0 8px rgba(255,137,25,1)) drop-shadow(0 0 10px rgba(255,76,0,.55));
+}
+.timer-tracker[data-level="danger"] .timer-fuse-tip {
+  animation-duration: .09s;
+  filter: drop-shadow(0 0 10px rgba(255,178,55,1)) drop-shadow(0 0 16px rgba(255,27,0,.8));
+}
+.timer-tracker[data-level="danger"] .timer-fuse-core {
+  box-shadow: 0 0 7px #fff0a6, 0 0 16px #ff4d17, 0 0 27px rgba(255,0,0,.92);
+}
+.timer-tracker[data-mode="borrowed"] .timer-fuse-live {
+  background:
+    repeating-linear-gradient(115deg, rgba(255,113,189,.18) 0 3px, transparent 3px 7px),
+    linear-gradient(180deg, #712a53, #3a204d);
+  border-color: rgba(183,73,151,.72);
+}
+.timer-tracker[data-mode="borrowed"] .timer-fuse-tip {
+  background: radial-gradient(circle, #ffe0ff 0 10%, #ff75cf 20%, #bd39ff 42%, rgba(113,24,218,.76) 58%, rgba(113,24,218,0) 74%);
+  filter: drop-shadow(0 0 7px rgba(232,78,255,1)) drop-shadow(0 0 14px rgba(151,35,255,.75));
+}
+.timer-tracker[data-mode="borrowed"] .timer-fuse-core {
+  background: #ffe7ff;
+  box-shadow: 0 0 7px #ff9ee3, 0 0 15px #c246ff, 0 0 24px rgba(91,22,230,.9);
+}.timer-tracker[data-phase="expired"] .timer-fuse-tip,
+.timer-tracker[data-phase="stopped"] .timer-fuse-tip {
+  animation: none;
+  opacity: .34;
+  filter: grayscale(.7);
+}
+.timer-tracker[data-phase="expired"] .timer-fuse-spark,
+.timer-tracker[data-phase="expired"] .timer-fuse-tip::before,
+.timer-tracker[data-phase="stopped"] .timer-fuse-spark,
+.timer-tracker[data-phase="stopped"] .timer-fuse-tip::before {
+  display: none;
+}
+.timer-tracker[data-phase="expired"] .timer-fuse-cord,
+.timer-tracker[data-phase="expired"] .timer-fuse-live {
+  filter: grayscale(1) brightness(.45);
+}
+.timer-fuse-wrap .timer-scale {
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+@media (max-width: 720px) {
+  .timer-fuse-wrap { height: 34px; padding-bottom: 11px; }
+  .timer-fuse { height: 21px; }
+  .timer-fuse-cord,
+  .timer-fuse-burned,
+  .timer-fuse-live { top: 7px; height: 7px; }
+  .timer-fuse-tip { top: 10.5px; width: 21px; height: 21px; }
+  .timer-fuse-core { left: 7px; top: 7px; }
+}
+
+.timer-fuse {
+  width: calc(100% - 24px);
+  margin: 0 12px;
+}
+@media (max-width: 720px) {
+  .timer-fuse { width: calc(100% - 20px); margin: 0 10px; }
+}

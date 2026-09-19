@@ -77,14 +77,19 @@ const Timer = {
           <div class="timer-count">00:00</div>
           <div class="timer-status">READY</div>
         </div>
-        <div class="timer-bars">
-          <div class="timer-bar-track timer-bar-track-normal">
-            <div class="timer-bar timer-bar-normal"></div>
+        <div class="timer-fuse-wrap">
+          <div class="timer-fuse" aria-hidden="true">
+            <div class="timer-fuse-cord"></div>
+            <div class="timer-fuse-burned"></div>
+            <div class="timer-fuse-live"></div>
+            <div class="timer-fuse-tip">
+              <span class="timer-fuse-core"></span>
+              <span class="timer-fuse-spark spark-a"></span>
+              <span class="timer-fuse-spark spark-b"></span>
+              <span class="timer-fuse-spark spark-c"></span>
+            </div>
           </div>
-          <div class="timer-bar-track timer-bar-track-borrowed">
-            <div class="timer-bar timer-bar-borrowed"></div>
-          </div>
-          <div class="timer-scale"><span>FULL</span><span>TIME RESERVE</span><span>ZERO</span></div>
+          <div class="timer-scale"><span>IGNITION</span><span>FUSE BURN</span><span>DETONATION</span></div>
         </div>
       </div>
       <div class="timer-controls"></div>
@@ -98,8 +103,7 @@ const Timer = {
     el.dataset.phase = 'ready';
     el.dataset.level = 'calm';
     el.dataset.mode = 'normal';
-    const normalBar = el.querySelector('.timer-bar-normal');
-    if (normalBar) normalBar.style.width = '100%';
+    el.style.setProperty('--fuse-progress', '0');
     // Deliberately NOT seeding _lastPhase here -- see the borrowed-banner
     // check below for why the FIRST real update() must be able to tell
     // "just joined/loaded, already in some phase" apart from "just
@@ -137,17 +141,17 @@ const Timer = {
 
     const normalRatio = state.duration > 0 ? Math.max(0, Math.min(1, state.remaining / state.duration)) : 1;
     const borrowedRatio = state.borrowedDuration > 0 ? Math.max(0, Math.min(1, state.borrowedRemaining / state.borrowedDuration)) : 1;
+    const activeRatio = inBorrowed ? borrowedRatio : normalRatio;
+    const fuseProgress = phase === 'expired' ? 1 : Math.max(0, Math.min(1, 1 - activeRatio));
 
-    const normalBar = el.querySelector('.timer-bar-normal');
-    if (normalBar) normalBar.style.width = `${(phase === 'expired' || phase === 'stopped' ? (inBorrowed ? 0 : normalRatio) : normalRatio) * 100}%`;
-
-    const borrowedBar = el.querySelector('.timer-bar-borrowed');
-    if (borrowedBar) borrowedBar.style.width = `${(phase === 'expired' ? 0 : borrowedRatio) * 100}%`;
+    el.style.setProperty('--fuse-progress', String(fuseProgress));
+    el.style.setProperty('--fuse-progress-pct', `${fuseProgress * 100}%`);
 
     const level = this.classify(normalRatio);
     el.dataset.level = level;
     el.classList.toggle('timer-critical', phase === 'running' && state.remaining > 0 && state.remaining <= 60000);
     el.classList.toggle('timer-borrowed-critical', phase === 'borrowed' && state.borrowedRemaining > 0 && state.borrowedRemaining <= 30000);
+    el.classList.toggle('timer-paused', phase === 'paused' || phase === 'borrowed_paused');
 
     const countEl = el.querySelector('.timer-count');
     if (countEl) {
