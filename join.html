@@ -350,10 +350,8 @@
            persistent background <img> inside it would reload/flicker it
            on every single render.
 
-       Previously .public-board itself carried the aspect-ratio AND (via
-       player.js) had the .public-header title/theme text injected inside
-       its own innerHTML -- the header now renders into the separate
-       #public-header-bar sibling above this frame instead. */
+       Player-side title/theme chrome is intentionally omitted here so the
+       battlefield consumes every available pixel outside Timer/WOMF. */
     .public-board-frame {
       position: relative;
       width: 100%;
@@ -387,50 +385,6 @@
       width: 100%;
       height: 100%;
     }
-
-    .public-header {
-      text-align: center;
-      margin-bottom: 16px;
-      padding: 0 20px;
-      flex-shrink: 0;
-    }
-
-    .public-title {
-      font-size: clamp(1.2rem, 3vw, 2rem);
-      font-weight: 300;
-      color: var(--accent-silver);
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-
-    .public-theme {
-      font-size: clamp(0.7rem, 1.5vw, 1rem);
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 2px;
-    }
-
-    .difficulty-badge {
-      display: inline-block;
-      font-size: 0.7rem;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 3px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .public-difficulty {
-      margin-top: 8px;
-    }
-
-    .diff-green  { background: rgba(46, 204, 113, 0.18); color: #2ecc71; border: 1px solid rgba(46,204,113,0.35); }
-    .diff-yellow { background: rgba(241, 196, 15, 0.18); color: #f1c40f; border: 1px solid rgba(241,196,15,0.35); }
-    .diff-amber  { background: rgba(230, 126, 34, 0.18); color: #e67e22; border: 1px solid rgba(230,126,34,0.35); }
-    .diff-red    { background: rgba(231, 76, 60, 0.18); color: #e74c3c; border: 1px solid rgba(231,76,60,0.35); }
-    .diff-purple { background: rgba(155, 89, 182, 0.18); color: #9b59b6; border: 1px solid rgba(155,89,182,0.35); }
-    .diff-black  { background: rgba(26, 26, 46, 0.45); color: #8080a0; border: 1px solid rgba(80,80,100,0.5); }
 
     .battle-comms-lobby .player-leaderboard-strip {
       flex: 0 0 auto;
@@ -976,10 +930,6 @@
     <div id="board-layer">
       <div class="timer-tracker" id="timer-tracker-player"></div>
       <div class="womf-tracker" id="womf-tracker-player"></div>
-      <!-- Title/theme/difficulty badge live OUTSIDE the sacred 1900x1267
-           board frame -- see .public-board-frame's comment below.
-           Populated by PlayerApp.renderBoard(). -->
-      <div class="public-header" id="public-header-bar"></div>
       <div id="public-board-frame" class="public-board-frame">
         <div class="public-board-ratio">
           <img id="background-layer" alt="Game background">

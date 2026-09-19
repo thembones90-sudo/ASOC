@@ -466,15 +466,6 @@ const PlayerApp = {
 
     window.GameData.currentGame = gameData;
 
-    // Player view mirrors Public View: title only. Theme and difficulty
-    // are already encoded elsewhere and were redundant here.
-    const headerBar = document.getElementById('public-header-bar');
-    if (headerBar) {
-      headerBar.innerHTML = `
-        <div class="public-title">${this.escapeHtml(state.title)}</div>
-      `;
-    }
-
     let html = `
       <div class="asoc-board">
         ${Skeleton.skeletonHTML(state.difficulty)}
