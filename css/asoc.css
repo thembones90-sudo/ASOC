@@ -1617,8 +1617,16 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 .gm-chat-panel {
   display: flex;
   flex-direction: column;
-  min-height: 200px;
-  max-height: 300px;
+  min-height: 0;
+  max-height: 220px;
+}
+
+.gm-chat-messages:empty {
+  min-height: 34px;
+}
+
+.gm-chat-messages:not(:empty) {
+  max-height: 165px;
 }
 
 .gm-chat-header {
