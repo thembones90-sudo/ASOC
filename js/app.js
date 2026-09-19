@@ -1645,6 +1645,15 @@ const App = {
     this.updateSolvedCount();
   },
 
+  createGMReactionSummaryHTML(msg) {
+    const reactions = msg?.reactions && typeof msg.reactions === 'object' ? msg.reactions : {};
+    const chips = Object.entries(reactions)
+      .filter(([, playerIds]) => Array.isArray(playerIds) && playerIds.length)
+      .map(([emoji, playerIds]) => `<span class="gm-chat-reaction-chip"><span>${this.escapeHtml(emoji)}</span><b>${playerIds.length}</b></span>`)
+      .join('');
+    return chips ? `<div class="gm-chat-reactions">${chips}</div>` : '';
+  },
+
   createGMChatMessageHTML(msg) {
     // The GM's own Shadow Broker broadcasts land back in this same list
     // (broadcastChatUpdate reaches the host too) -- it's the GM's own
@@ -1656,7 +1665,7 @@ const App = {
     if (msg.source === 'shadowBroker') {
       const isNew = !this._seenShadowBrokerKeys.has(msg.id);
       if (isNew) this._seenShadowBrokerKeys.add(msg.id);
-      return Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew });
+      return `<div class="gm-shadow-broker-entry">${Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew })}${this.createGMReactionSummaryHTML(msg)}</div>`;
     }
 
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1691,6 +1700,7 @@ const App = {
           <button class="gm-verdict-btn correct" data-message-id="${msg.id}" data-verdict="correct" title="Accept as answer">🖤</button>
         </span>` : '<span class="gm-chat-quick-actions adjudicated" aria-hidden="true"></span>'}
         ${verdictResponseHtml}
+        ${this.createGMReactionSummaryHTML(msg)}
       </div>
     `;
   },

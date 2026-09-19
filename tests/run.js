@@ -219,6 +219,90 @@ async function testChatTransportHygiene() {
   closeWs(host);
 }
 
+async function testChatEmojiReactions() {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  const player = await openWs();
+  const joinedPromise = waitForMessage(player, m => m.type === 'join:success', 'reaction player join');
+  player.send(JSON.stringify({
+    type: 'room:join',
+    roomCode: room.roomCode,
+    name: 'REACTION TEST'
+  }));
+  const joined = await joinedPromise;
+
+  const emojiMessageUpdate = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'EMOJI 😂💀'),
+    'emoji chat transport'
+  );
+  player.send(JSON.stringify({ type: 'chat:guess', text: 'EMOJI 😂💀' }));
+  const emojiState = await emojiMessageUpdate;
+  const emojiMessage = emojiState.messages.find(x => x.text === 'EMOJI 😂💀');
+  assert.ok(emojiMessage);
+  assert.deepEqual(emojiMessage.reactions, {});
+
+  const reactedUpdate = waitForMessage(
+    player,
+    m => {
+      const target = m.type === 'chat:update' && m.messages?.find(x => x.id === emojiMessage.id);
+      return Array.isArray(target?.reactions?.['💀']) && target.reactions['💀'].includes(joined.playerId);
+    },
+    'reaction add'
+  );
+  player.send(JSON.stringify({ type: 'chat:react', messageId: emojiMessage.id, emoji: '💀' }));
+  const reactedState = await reactedUpdate;
+  const reactedMessage = reactedState.messages.find(x => x.id === emojiMessage.id);
+  assert.equal(reactedMessage.reactions['💀'].length, 1);
+
+  await delay(150);
+  const unreactedUpdate = waitForMessage(
+    player,
+    m => {
+      const target = m.type === 'chat:update' && m.messages?.find(x => x.id === emojiMessage.id);
+      return target && !target.reactions?.['💀'];
+    },
+    'reaction remove'
+  );
+  player.send(JSON.stringify({ type: 'chat:react', messageId: emojiMessage.id, emoji: '💀' }));
+  await unreactedUpdate;
+
+  const brokerUpdate = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === 'REACT TO BROKER'),
+    'broker reaction target'
+  );
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: 'REACT TO BROKER' }));
+  const brokerState = await brokerUpdate;
+  const brokerMessage = brokerState.messages.find(x => x.source === 'shadowBroker' && x.text === 'REACT TO BROKER');
+
+  await delay(150);
+  const brokerReactedUpdate = waitForMessage(
+    player,
+    m => {
+      const target = m.type === 'chat:update' && m.messages?.find(x => x.id === brokerMessage.id);
+      return Array.isArray(target?.reactions?.['🔥']) && target.reactions['🔥'].includes(joined.playerId);
+    },
+    'broker reaction add'
+  );
+  player.send(JSON.stringify({ type: 'chat:react', messageId: brokerMessage.id, emoji: '🔥' }));
+  await brokerReactedUpdate;
+
+  const invalidReaction = waitForMessage(
+    player,
+    m => m.type === 'error' && /invalid reaction/i.test(m.message || ''),
+    'invalid reaction rejection'
+  );
+  await delay(150);
+  player.send(JSON.stringify({ type: 'chat:react', messageId: emojiMessage.id, emoji: '🚂' }));
+  await invalidReaction;
+
+  console.log('PASS emoji chat and server-authoritative reactions');
+  closeWs(player);
+  closeWs(host);
+}
+
 async function testResetBroadcast() {
   const host = await openWs();
   const messages = [];
@@ -457,6 +541,7 @@ function startServer() {
     await testStaticLockdown();
     await testReconnectIdentity();
     await testChatTransportHygiene();
+    await testChatEmojiReactions();
     await testResetBroadcast();
     await testShadowBrokerControls();
     server = await testCrashRecovery(server);

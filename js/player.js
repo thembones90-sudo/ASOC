@@ -21,6 +21,7 @@ const PlayerApp = {
   _newMessageCount: 0,
   _wrongFadeTimer: null,
   _wrongVerdictSeenAt: new Map(),
+  chatReactionEmojis: ['😂', '💀', '🤡', '🖤', '🔥', '👀', '👍', '👎', '😭', '😈', '🤔', '🫡'],
   // FINAL SOLUTION REVEAL FLOURISH -- same one-shot guard as App's copy in
   // js/app.js (see its comment): renderBoard() fully rebuilds the board on
   // every broadcast, so this flag is what keeps the animation from
@@ -1028,6 +1029,18 @@ const PlayerApp = {
     const input = document.getElementById('chat-input');
 
     if (!form) return;
+    if (form.dataset.chatBound === '1') return;
+    form.dataset.chatBound = '1';
+
+    const emojiToggle = document.getElementById('chat-emoji-toggle');
+    const emojiPicker = document.getElementById('chat-emoji-picker');
+    const reactionPicker = document.getElementById('chat-reaction-picker');
+
+    const pickerButtons = this.chatReactionEmojis
+      .map(emoji => `<button type="button" class="chat-emoji-option" data-emoji="${emoji}">${emoji}</button>`)
+      .join('');
+    if (emojiPicker) emojiPicker.innerHTML = pickerButtons;
+    if (reactionPicker) reactionPicker.innerHTML = pickerButtons;
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -1038,6 +1051,37 @@ const PlayerApp = {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         this.submitGuess();
+      }
+    });
+
+    emojiToggle?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!emojiPicker) return;
+      emojiPicker.hidden = !emojiPicker.hidden;
+      if (reactionPicker) reactionPicker.hidden = true;
+    });
+
+    emojiPicker?.addEventListener('click', (e) => {
+      const option = e.target.closest('.chat-emoji-option');
+      if (!option) return;
+      this.insertChatEmoji(option.dataset.emoji || '');
+      emojiPicker.hidden = true;
+    });
+
+    reactionPicker?.addEventListener('click', (e) => {
+      const option = e.target.closest('.chat-emoji-option');
+      if (!option) return;
+      const messageId = reactionPicker.dataset.messageId || '';
+      if (messageId) this.sendChatReaction(messageId, option.dataset.emoji || '');
+      reactionPicker.hidden = true;
+    });
+
+    document.addEventListener('click', (e) => {
+      if (emojiPicker && !emojiPicker.hidden && !emojiPicker.contains(e.target) && e.target !== emojiToggle) {
+        emojiPicker.hidden = true;
+      }
+      if (reactionPicker && !reactionPicker.hidden && !reactionPicker.contains(e.target) && !e.target.closest('.chat-reaction-add')) {
+        reactionPicker.hidden = true;
       }
     });
 
@@ -1052,6 +1096,18 @@ const PlayerApp = {
         }
       });
       chatContainer.addEventListener('click', (e) => {
+        const reactionChip = e.target.closest('.chat-reaction-chip');
+        if (reactionChip) {
+          this.sendChatReaction(reactionChip.dataset.messageId || '', reactionChip.dataset.emoji || '');
+          return;
+        }
+
+        const reactionAdd = e.target.closest('.chat-reaction-add');
+        if (reactionAdd) {
+          this.openChatReactionPicker(reactionAdd.dataset.messageId || '', reactionAdd);
+          return;
+        }
+
         const button = e.target.closest('.chat-reply-btn');
         if (!button) return;
         const messageEl = button.closest('.chat-message');
@@ -1077,6 +1133,60 @@ const PlayerApp = {
     document.getElementById('chat-new-messages')?.addEventListener('click', () => {
       this.jumpToLatestChat();
     });
+  },
+
+  insertChatEmoji(emoji) {
+    if (!emoji) return;
+    const input = document.getElementById('chat-input');
+    if (!input) return;
+
+    const start = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
+    const end = Number.isInteger(input.selectionEnd) ? input.selectionEnd : start;
+    const next = input.value.slice(0, start) + emoji + input.value.slice(end);
+    input.value = next.slice(0, input.maxLength || 100);
+    const caret = Math.min(start + emoji.length, input.value.length);
+    input.setSelectionRange(caret, caret);
+    input.focus();
+  },
+
+  sendChatReaction(messageId, emoji) {
+    if (!messageId || !this.chatReactionEmojis.includes(emoji)) return;
+    this.send({ type: 'chat:react', messageId, emoji });
+  },
+
+  openChatReactionPicker(messageId, anchor) {
+    const picker = document.getElementById('chat-reaction-picker');
+    if (!picker || !messageId || !anchor) return;
+
+    picker.dataset.messageId = messageId;
+    picker.hidden = false;
+    requestAnimationFrame(() => {
+      const anchorRect = anchor.getBoundingClientRect();
+      const pickerRect = picker.getBoundingClientRect();
+      let left = anchorRect.right - pickerRect.width;
+      let top = anchorRect.bottom + 4;
+
+      left = Math.max(8, Math.min(left, window.innerWidth - pickerRect.width - 8));
+      if (top + pickerRect.height > window.innerHeight - 8) {
+        top = Math.max(8, anchorRect.top - pickerRect.height - 4);
+      }
+
+      picker.style.left = left + 'px';
+      picker.style.top = top + 'px';
+    });
+  },
+
+  createReactionBarHTML(msg) {
+    const reactions = msg?.reactions && typeof msg.reactions === 'object' ? msg.reactions : {};
+    const chips = Object.entries(reactions)
+      .filter(([emoji, playerIds]) => this.chatReactionEmojis.includes(emoji) && Array.isArray(playerIds) && playerIds.length)
+      .map(([emoji, playerIds]) => {
+        const mine = playerIds.map(String).includes(String(this.playerId));
+        return `<button type="button" class="chat-reaction-chip${mine ? ' mine' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" aria-pressed="${mine ? 'true' : 'false'}"><span class="chat-reaction-emoji">${this.escapeHtml(emoji)}</span><span class="chat-reaction-count">${playerIds.length}</span></button>`;
+      })
+      .join('');
+
+    return `<div class="chat-reactions${chips ? ' has-reactions' : ''}">${chips}<button type="button" class="chat-reaction-add" data-message-id="${this.escapeHtml(msg.id)}" title="React" aria-label="React to message">＋</button></div>`;
   },
 
   updateNewMessageChip() {
@@ -1178,7 +1288,12 @@ const PlayerApp = {
     if (msg.source === 'shadowBroker') {
       const isNew = !this._seenShadowBrokerKeys.has(msg.id);
       if (isNew) this._seenShadowBrokerKeys.add(msg.id);
-      return Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew });
+      return `
+        <div class="chat-broker-entry chat-reactable" data-message-id="${this.escapeHtml(msg.id)}">
+          ${Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew })}
+          ${this.createReactionBarHTML(msg)}
+        </div>
+      `;
     }
 
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1226,6 +1341,7 @@ const PlayerApp = {
           <div class="chat-message-text">${this.escapeHtml(messageText)}</div>
           ${verdictMetaHtml}
           ${verdictResponseHtml}
+          ${this.createReactionBarHTML(msg)}
         </div>
       </div>
     `;

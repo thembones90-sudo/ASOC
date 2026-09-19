@@ -15,6 +15,8 @@ const ROOM_CODE_LENGTH = 4;
 const HOST_RECONNECT_GRACE_MS = 60000;
 const MAX_CHAT_LENGTH = 100;
 const PLAYER_CHAT_MIN_INTERVAL_MS = 350;
+const PLAYER_REACTION_MIN_INTERVAL_MS = 120;
+const CHAT_REACTION_EMOJIS = new Set(['😂', '💀', '🤡', '🖤', '🔥', '👀', '👍', '👎', '😭', '😈', '🤔', '🫡']);
 const MAX_AVATAR_DATA_LENGTH = 200000;
 const CHAT_HISTORY_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
@@ -1594,7 +1596,8 @@ function addChatMessage(room, playerId, playerName, text) {
     timestamp: Date.now(),
     verdict: null,
     target: null,
-    verdictResponse: null
+    verdictResponse: null,
+    reactions: {}
   };
 
   room.chat.messages.push(message);
@@ -1625,7 +1628,8 @@ function addShadowBrokerMessage(room, text) {
     timestamp: Date.now(),
     verdict: null,
     target: null,
-    source: 'shadowBroker'
+    source: 'shadowBroker',
+    reactions: {}
   };
 
   room.chat.messages.push(message);
@@ -1666,6 +1670,11 @@ function getChatState(room) {
         verdict: m.verdict,
         target: m.target,
         verdictResponse: m.verdictResponse || null,
+        reactions: Object.fromEntries(
+          Object.entries(m.reactions || {})
+            .filter(([emoji, playerIds]) => CHAT_REACTION_EMOJIS.has(emoji) && Array.isArray(playerIds) && playerIds.length)
+            .map(([emoji, playerIds]) => [emoji, Array.from(new Set(playerIds.filter(id => typeof id === 'string')))])
+        ),
         // Only ever set server-side by addShadowBrokerMessage -- absent
         // (undefined -> serializes as omitted) on every ordinary player
         // guess. See addShadowBrokerMessage for why a player can't spoof it.
@@ -1916,6 +1925,56 @@ function handleChatGuess(ws, message) {
   } else {
     sendToWs(ws, { type: 'error', message: result.error });
   }
+}
+
+function handleChatReaction(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws.isHost) {
+    sendToWs(ws, { type: 'error', message: 'Host reactions are not enabled yet' });
+    return;
+  }
+
+  const messageId = typeof message.messageId === 'string' ? message.messageId : '';
+  const emoji = typeof message.emoji === 'string' ? message.emoji : '';
+  if (!messageId || !CHAT_REACTION_EMOJIS.has(emoji)) {
+    sendToWs(ws, { type: 'error', message: 'Invalid reaction' });
+    return;
+  }
+
+  const now = Date.now();
+  if (ws._lastReactionAt && now - ws._lastReactionAt < PLAYER_REACTION_MIN_INTERVAL_MS) {
+    return;
+  }
+
+  const target = room.chat.messages.find(entry => entry.id === messageId);
+  if (!target) {
+    sendToWs(ws, { type: 'error', message: 'Message not found' });
+    return;
+  }
+
+  if (!target.reactions || typeof target.reactions !== 'object' || Array.isArray(target.reactions)) {
+    target.reactions = {};
+  }
+
+  const current = Array.isArray(target.reactions[emoji]) ? target.reactions[emoji] : [];
+  const actorId = String(ws.playerId || '');
+  const index = current.indexOf(actorId);
+  if (index >= 0) {
+    current.splice(index, 1);
+  } else {
+    current.push(actorId);
+  }
+
+  if (current.length) target.reactions[emoji] = current;
+  else delete target.reactions[emoji];
+
+  ws._lastReactionAt = now;
+  broadcastChatUpdate(room);
+  persistActiveRooms();
 }
 
 // SHADOW BROKER free-form broadcast -- host-only, presentation layer only.
@@ -2713,6 +2772,10 @@ wss.on('connection', (ws) => {
         }
         case 'chat:guess': {
           handleChatGuess(ws, message);
+          break;
+        }
+        case 'chat:react': {
+          handleChatReaction(ws, message);
           break;
         }
         case 'gm:judgeGuess': {

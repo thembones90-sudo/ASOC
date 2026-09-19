@@ -1987,18 +1987,24 @@
       box-shadow:0 0 5px rgba(92,184,122,.18);
       pointer-events:none;
     }
-    .battle-comms-lobby #chat-messages > .shadow-broker-transmission {
+    .battle-comms-lobby #chat-messages > .chat-broker-entry {
       width:auto;
       max-width:calc(100% - 38px);
       margin:7px 4px 8px 34px;
     }
-    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast {
+    .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission {
+      width:100%;
+      max-width:none;
+      margin:0;
+      box-sizing:border-box;
+    }
+    .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast {
       min-height:0;
       padding:5px 8px 6px;
       align-items:center;
       clip-path:none;
     }
-    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast::before {
+    .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast::before {
       content:"OVERRIDE // UNAUTHORIZED";
       top:2px;
       right:6px;
@@ -2007,19 +2013,19 @@
       letter-spacing:.45px;
       opacity:.72;
     }
-    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast .shadow-broker-avatar {
+    .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast .shadow-broker-avatar {
       width:30px;
       height:30px;
       margin-top:4px;
     }
-    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast .shadow-broker-body {
+    .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast .shadow-broker-body {
       padding-top:6px;
     }
-    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast .shadow-broker-name {
+    .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast .shadow-broker-name {
       font-size:.48rem;
       margin-bottom:0;
     }
-    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast .shadow-broker-text {
+    .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast .shadow-broker-text {
       font-size:.80rem;
       line-height:1.18;
     }
@@ -2065,13 +2071,152 @@
       background:#15191e;
     }
 
+    .battle-comms-lobby .chat-reactions {
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:3px;
+      min-height:0;
+      margin-top:0;
+      position:relative;
+    }
+    .battle-comms-lobby .chat-reactions.has-reactions {
+      min-height:18px;
+      margin-top:3px;
+    }
+    .battle-comms-lobby .chat-reactions:not(.has-reactions) .chat-reaction-add {
+      position:absolute;
+      right:0;
+      top:1px;
+    }
+    .battle-comms-lobby .chat-reaction-chip,
+    .battle-comms-lobby .chat-reaction-add {
+      height:18px;
+      min-width:25px;
+      padding:0 5px;
+      border:1px solid rgba(107,117,130,.42);
+      background:rgba(8,10,13,.82);
+      color:#aeb6c0;
+      font:700 .52rem var(--font-machine);
+      line-height:16px;
+      cursor:pointer;
+    }
+    .battle-comms-lobby .chat-reaction-chip {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:3px;
+    }
+    .battle-comms-lobby .chat-reaction-chip:hover,
+    .battle-comms-lobby .chat-reaction-add:hover {
+      border-color:#8b96a4;
+      background:#151a20;
+      color:#eef0f5;
+    }
+    .battle-comms-lobby .chat-reaction-chip.mine {
+      border-color:rgba(212,168,67,.72);
+      color:#f0cb72;
+      background:rgba(212,168,67,.08);
+    }
+    .battle-comms-lobby .chat-reaction-emoji {
+      font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;
+      font-size:.72rem;
+      line-height:1;
+    }
+    .battle-comms-lobby .chat-reaction-count {
+      font-size:.42rem;
+      line-height:1;
+    }
+    .battle-comms-lobby .chat-reaction-add {
+      min-width:20px;
+      width:20px;
+      padding:0;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .12s ease;
+    }
+    .battle-comms-lobby .chat-reactions.has-reactions .chat-reaction-add {
+      opacity:.42;
+      pointer-events:auto;
+    }
+    .battle-comms-lobby .chat-message:hover .chat-reaction-add,
+    .battle-comms-lobby .chat-message:focus-within .chat-reaction-add,
+    .battle-comms-lobby .chat-broker-entry:hover .chat-reaction-add,
+    .battle-comms-lobby .chat-broker-entry:focus-within .chat-reaction-add {
+      opacity:1;
+      pointer-events:auto;
+    }
+    .battle-comms-lobby .chat-broker-entry .chat-reactions {
+      margin:3px 0 0 4px;
+    }
+
+    .battle-comms-lobby .chat-floating-emoji-picker,
+    .battle-comms-lobby .chat-input-emoji-picker {
+      display:grid;
+      grid-template-columns:repeat(4, 34px);
+      gap:3px;
+      padding:5px;
+      border:1px solid #454d57;
+      background:rgba(7,9,12,.98);
+      box-shadow:0 8px 24px rgba(0,0,0,.62), inset 0 1px rgba(255,255,255,.035);
+      z-index:30;
+    }
+    .battle-comms-lobby .chat-floating-emoji-picker[hidden],
+    .battle-comms-lobby .chat-input-emoji-picker[hidden] {
+      display:none;
+    }
+    .battle-comms-lobby .chat-floating-emoji-picker {
+      position:fixed;
+    }
+    .battle-comms-lobby .chat-input-emoji-picker {
+      position:absolute;
+      right:7px;
+      bottom:44px;
+    }
+    .battle-comms-lobby .chat-emoji-option {
+      width:34px;
+      height:30px;
+      padding:0;
+      border:1px solid transparent;
+      background:#0d1014;
+      font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;
+      font-size:1rem;
+      cursor:pointer;
+    }
+    .battle-comms-lobby .chat-emoji-option:hover {
+      border-color:#6d7784;
+      background:#1a2027;
+    }
+    .battle-comms-lobby .chat-emoji-toggle {
+      position:absolute;
+      right:9px;
+      bottom:9px;
+      width:24px;
+      height:24px;
+      z-index:4;
+      padding:0;
+      border:0;
+      background:transparent;
+      color:#858f9b;
+      font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;
+      font-size:.9rem;
+      cursor:pointer;
+    }
+    .battle-comms-lobby .chat-emoji-toggle:hover {
+      color:#d6a843;
+    }
+    .battle-comms-lobby #chat-input {
+      padding-right:36px;
+    }
+
     @media (max-width: 900px) {
       #game-screen { overflow-y:auto; }
       .player-battle-layout { display:flex; flex-direction:column; height:auto; min-height:100%; padding:8px; }
       #board-layer { min-height:70vh; }
       .battle-comms-lobby { min-height:48vh; border-left:0; border-top:1px solid rgba(116,126,139,.28); padding:10px 0 0; }
       #chat-panel { min-height:38vh; }
-      .battle-comms-lobby .chat-reply-btn {
+      .battle-comms-lobby .chat-reply-btn,
+      .battle-comms-lobby .chat-reaction-add {
         opacity:.42;
         pointer-events:auto;
       }
@@ -2272,8 +2417,11 @@
       <div id="battle-event-feed" class="battle-event-feed"></div>
       <div id="chat-messages"></div>
       <button type="button" id="chat-new-messages" class="chat-new-messages" hidden>↓ 0 NEW TRANSMISSIONS</button>
+      <div id="chat-reaction-picker" class="chat-floating-emoji-picker" hidden></div>
       <form class="chat-form" id="chat-form">
         <div id="chat-reply-preview" class="chat-reply-preview" style="display:none"></div>
+        <button type="button" id="chat-emoji-toggle" class="chat-emoji-toggle" title="Emoji">☺</button>
+        <div id="chat-emoji-picker" class="chat-input-emoji-picker" hidden></div>
         <input type="text" id="chat-input" placeholder="Insult here" maxlength="100" autocomplete="off">
       </form>
     </div>
