@@ -19,10 +19,10 @@
 //
 // Two purely-visual, client-local additions live in this module too (no
 // server involvement, no new phase):
-//   1. A brief 3-2-1 flash before START GAME actually sends gm:timerStart
-//      -- see runStartCountdown(). The server's timer stays in 'ready'
-//      the whole time; nothing is broadcast differently, so every client
-//      is unaffected until the real start command goes out.
+//   1. A full-screen T-10 -> T-1 launch countdown before START GAME
+//      actually sends gm:timerStart -- see runStartCountdown(). The
+//      server's timer stays in 'ready' the whole time, so no game time is
+//      consumed until the launch sequence reaches zero.
 //   2. A brief "BORROWED TIME" banner the instant a container's rendered
 //      phase transitions INTO 'borrowed' -- see the phase-transition check
 //      inside update(). Because update() is the one shared function GM,
@@ -196,14 +196,12 @@ const Timer = {
     }
   },
 
-  // Local-only "launch" flourish: shows 3, 2, 1 (one per ~500ms) directly
-  // over the timer HUD, THEN calls onComplete (which is what actually
-  // sends gm:timerStart to the server). Nothing about the server's timer
-  // state changes during this window -- it's still sitting in 'ready' the
-  // whole time. Re-entrant clicks while a sequence is already running for
-  // this containerId are ignored outright, which is what prevents a
-  // repeatedly-clicked START GAME from ever queuing up more than one
-  // countdown (and therefore more than one eventual gm:timerStart).
+  // Local-only launch sequence: shows a full-screen T-10 -> T-1
+  // countdown before the real gm:timerStart is sent. The server's timer
+  // remains in 'ready' for the entire ten-second arming sequence, so no
+  // authoritative game time is consumed before BATTLE CONTROLS ONLINE.
+  // Re-entrant clicks are ignored so START GAME can never queue multiple
+  // countdowns or duplicate timer-start commands.
   runStartCountdown(containerId, onComplete) {
     if (this._countdownActive[containerId]) return;
     const el = document.getElementById(containerId);
@@ -216,8 +214,8 @@ const Timer = {
     const startBtn = el.querySelector('.timer-start-btn');
     if (startBtn) startBtn.style.display = 'none';
 
-    const steps = ['3', '2', '1'];
-    const STEP_MS = 500;
+    const steps = Array.from({ length: 10 }, (_, i) => 10 - i);
+    const STEP_MS = 1000;
     let i = 0;
 
     const showStep = () => {
@@ -236,22 +234,35 @@ const Timer = {
   },
 
   _flashCountdownDigit(el, text) {
-    let overlay = el.querySelector('.timer-countdown-overlay');
+    let overlay = document.getElementById('battle-launch-countdown');
     if (!overlay) {
       overlay = document.createElement('div');
-      overlay.className = 'timer-countdown-overlay';
-      el.appendChild(overlay);
+      overlay.id = 'battle-launch-countdown';
+      overlay.className = 'battle-launch-countdown';
+      overlay.innerHTML = `
+        <div class="battle-launch-scan"></div>
+        <div class="battle-launch-copy">
+          <div class="battle-launch-kicker">[ ASOC BATTLE LINK INITIALIZATION ]</div>
+          <div class="battle-launch-time"></div>
+          <div class="battle-launch-status">WEAPONS FREE ON ZERO</div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
     }
-    overlay.textContent = text;
-    // Restart the CSS animation on every digit swap.
-    overlay.classList.remove('timer-countdown-pulse');
-    void overlay.offsetWidth; // force reflow so the animation replays
-    overlay.classList.add('timer-countdown-pulse');
+
+    const time = overlay.querySelector('.battle-launch-time');
+    if (time) time.textContent = `T-${text}`;
+
+    overlay.classList.remove('battle-launch-pulse');
+    void overlay.offsetWidth;
+    overlay.classList.add('battle-launch-pulse');
   },
 
-  _clearCountdownOverlay(el) {
-    const overlay = el.querySelector('.timer-countdown-overlay');
-    if (overlay) overlay.remove();
+  _clearCountdownOverlay() {
+    const overlay = document.getElementById('battle-launch-countdown');
+    if (!overlay) return;
+    overlay.classList.add('battle-launch-out');
+    setTimeout(() => overlay.remove(), 220);
   },
 
   // Brief "BORROWED TIME" banner over the timer HUD -- purely decorative,

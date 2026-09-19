@@ -517,6 +517,10 @@ const App = {
         this.updatePlayerList(message.players);
         break;
 
+      case 'battle:controlsOnline':
+        this.showBattleControlsOnline();
+        break;
+
       case 'score:event':
         this.showScoreToast(message);
         break;
@@ -974,6 +978,24 @@ const App = {
     const btn = document.getElementById('declare-final-failed-btn');
     if (!btn) return;
     btn.style.display = (this.mode === 'multiplayer' && !this.finalRevealed) ? 'block' : 'none';
+  },
+
+  showBattleControlsOnline() {
+    const layer = document.getElementById('score-announcement-layer');
+    if (!layer) return;
+    const existing = layer.querySelector('.battle-controls-online');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.className = 'battle-controls-online';
+    banner.innerHTML = `
+      <div class="battle-controls-link">[ SYSTEM LINK ESTABLISHED ]</div>
+      <div class="battle-controls-title">BATTLE CONTROLS ONLINE</div>
+      <div class="battle-controls-channel">[ ALL CHANNELS UNRESTRICTED ]</div>
+    `;
+    layer.appendChild(banner);
+    setTimeout(() => banner.classList.add('battle-controls-online-out'), 2400);
+    setTimeout(() => banner.remove(), 3000);
   },
 
   showScoreToast(award) {
