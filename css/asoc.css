@@ -5437,3 +5437,35 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
     grid-template-columns: 1fr;
   }
 }
+
+/* MY SINDRAGOSA // approved literal GM message frame.
+   The nine-slice border remains decorative and never covers verdict controls. */
+.gm-module-chat .gm-chat-message[data-theme-id="my-sindragosa"] {
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(100deg,rgba(9,16,25,.97),rgba(3,7,12,.98) 78%)!important;
+  border-color:transparent;
+  border-left-color:var(--little-hero-accent,#78c7ee);
+  box-shadow:inset 2px 0 var(--little-hero-accent,#78c7ee)!important;
+}
+.gm-module-chat .gm-chat-message[data-theme-id="my-sindragosa"]::after {
+  content:"";
+  display:block;
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  box-sizing:border-box;
+  border:4px solid transparent;
+  border-image:url("../assets/themes/my-sindragosa/gm-message.png") 32 / 4px stretch;
+}
+.gm-module-chat .gm-chat-message[data-theme-id="my-sindragosa"] > * {
+  position:relative;
+  z-index:1;
+}
+.gm-module-chat .gm-chat-message[data-theme-id="my-sindragosa"].wrong {
+  box-shadow:inset 2px 0 #d86157!important;
+}
+.gm-module-chat .gm-chat-message[data-theme-id="my-sindragosa"].correct {
+  box-shadow:inset 2px 0 #7e5c9a!important;
+}

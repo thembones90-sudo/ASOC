@@ -1976,6 +1976,79 @@
       .connection-status { bottom:max(10px, env(safe-area-inset-bottom)); }
     }
 
+    /* MY SINDRAGOSA // approved literal asset integration.
+       Artwork is confined to presentation surfaces; board and controls stay live. */
+    #game-screen[data-player-theme="my-sindragosa"] {
+      background:#050910 url("assets/themes/my-sindragosa/main-shell.png") center / cover no-repeat;
+    }
+
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby {
+      background:#050a10 url("assets/themes/my-sindragosa/battle-comms.png") center / 100% 100% no-repeat;
+      overflow:hidden;
+    }
+
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module {
+      position:relative;
+      overflow:hidden;
+      background:linear-gradient(180deg,rgba(5,13,21,.94),rgba(2,7,12,.96));
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module::before {
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      box-sizing:border-box;
+      border:6px solid transparent;
+      border-image:url("assets/themes/my-sindragosa/little-hero-status.png") 48 / 6px stretch;
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module > * {
+      position:relative;
+      z-index:1;
+    }
+
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"] {
+      position:relative;
+      overflow:hidden!important;
+      background:linear-gradient(100deg,rgba(10,19,29,.97),rgba(3,8,14,.98) 76%)!important;
+      box-shadow:inset 2px 0 var(--little-hero-accent,#78c7ee)!important;
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"]::after {
+      content:""!important;
+      display:block!important;
+      position:absolute;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      box-sizing:border-box;
+      border:5px solid transparent;
+      border-image:url("assets/themes/my-sindragosa/player-message.png") 40 / 5px stretch;
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"] > * {
+      position:relative;
+      z-index:1;
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"].wrong {
+      box-shadow:inset 2px 0 #d86157!important;
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"].correct {
+      box-shadow:inset 2px 0 #5cb87a!important;
+    }
+
+    .theme-select[data-theme-id="my-sindragosa"] .theme-select-toggle,
+    .theme-option[data-theme-id="my-sindragosa"].selected {
+      background:#07101a url("assets/themes/my-sindragosa/theme-selector.png") center / 100% 100% no-repeat;
+      overflow:hidden;
+    }
+    .theme-select-preview.my-sindragosa,
+    .theme-option-preview.my-sindragosa {
+      background:#07101a url("assets/themes/my-sindragosa/theme-selector.png") left center / auto 100% no-repeat;
+    }
+    .theme-select-preview.my-sindragosa i,
+    .theme-option-preview.my-sindragosa i {
+      background:transparent!important;
+    }
+
   </style>
 </head>
 <body>
