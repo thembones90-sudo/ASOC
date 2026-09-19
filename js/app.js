@@ -284,15 +284,6 @@ const App = {
         this.updatePublicView();
       }
 
-      const colBtn = e.target.closest('.gm-col-btn');
-      if (colBtn) {
-        const col = colBtn.dataset.column;
-        const action = colBtn.dataset.action;
-        if (action === 'reveal') this.sendCommand('revealColumn', { column: col });
-        else if (action === 'hide') this.sendCommand('hideColumn', { column: col });
-        this.updatePublicView();
-      }
-
       const diffBtn = e.target.closest('.diff-swatch');
       if (diffBtn) {
         this.setDifficulty(diffBtn.dataset.difficulty);
@@ -1529,7 +1520,6 @@ const App = {
 
   buildGMControls() {
     const gmClueGrid = document.getElementById('gm-clue-grid');
-    const gmColumnControls = document.getElementById('gm-column-controls');
     const columns = ['A', 'B', 'C', 'D'];
 
     if (!window.GameData.currentGame) {
@@ -1582,17 +1572,6 @@ const App = {
 
     gmClueGrid.innerHTML = clueHtml;
 
-    let colHtml = '';
-    columns.forEach(col => {
-      const colRevealed = Board.isColumnRevealed(col);
-      const action = colRevealed ? 'hide' : 'reveal';
-      const label = colRevealed ? `HIDE ${col}` : `REVEAL ${col}`;
-      colHtml += `
-        <button class="gm-col-btn ${colRevealed ? 'revealed' : ''}" data-column="${col}" data-action="${action}">${label}</button>
-      `;
-    });
-    gmColumnControls.innerHTML = colHtml;
-
     const revealHideAllBtn = document.getElementById('reveal-hide-all-btn');
     if (revealHideAllBtn) {
       const allRevealed = Board.isAllRevealed();
@@ -1607,7 +1586,6 @@ const App = {
   // Buttons are disabled so an empty slot can't send a reveal command.
   buildEmptyGMControls() {
     const gmClueGrid = document.getElementById('gm-clue-grid');
-    const gmColumnControls = document.getElementById('gm-column-controls');
     const columns = ['A', 'B', 'C', 'D'];
 
     let clueHtml = '';
@@ -1639,12 +1617,6 @@ const App = {
     `;
 
     if (gmClueGrid) gmClueGrid.innerHTML = clueHtml;
-
-    let colHtml = '';
-    columns.forEach(col => {
-      colHtml += `<button class="gm-col-btn" data-column="${col}" data-action="reveal" disabled>REVEAL ${col}</button>`;
-    });
-    if (gmColumnControls) gmColumnControls.innerHTML = colHtml;
 
     const revealHideAllBtn = document.getElementById('reveal-hide-all-btn');
     if (revealHideAllBtn) {
