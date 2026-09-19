@@ -395,7 +395,7 @@ const PlayerApp = {
           type: 'room:join',
           roomCode: this.roomCode,
           name: this.playerName,
-          playerId: this.playerId || undefined
+          authToken: sessionStorage.getItem('asoc_player_auth_token') || ''
         };
         if (this._sendAvatarAppearance) joinMessage.avatarData = this.avatarData;
         if (this._sendFrameAppearance) joinMessage.frameColor = this.frameColor;
@@ -557,6 +557,12 @@ const PlayerApp = {
 
       case 'leaderboard:allTime':
         this.renderAllTimeLeaderboard(message.players || []);
+        break;
+
+      case 'auth:required':
+        sessionStorage.removeItem('asoc_player_auth_token');
+        this.showError(message.message || 'Little Hero authentication required');
+        setTimeout(() => location.replace('/join.html'), 700);
         break;
 
       case 'error':

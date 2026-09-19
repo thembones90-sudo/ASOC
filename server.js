@@ -262,9 +262,17 @@ function isLocalhostRequest(req) {
 }
 
 function isGmAuthorized(req) {
-  if (isLocalhostRequest(req)) return true;
-  const token = req.headers['x-gm-token'] || req.headers['x-gm-token'];
+  const token = req.headers['x-gm-token'];
   return typeof token === 'string' && gmTokens.has(token);
+}
+
+function isValidGmToken(token) {
+  return typeof token === 'string' && gmTokens.has(token);
+}
+
+function getPlayerAuth(token) {
+  if (typeof token !== 'string' || !token) return null;
+  return playerAuthTokens.get(token) || null;
 }
 
 function sendJson(res, statusCode, data) {
@@ -1741,7 +1749,13 @@ function handleHostCommand(ws, message) {
 }
 
 function handlePlayerJoin(ws, message) {
-  const { roomCode, name, playerId: requestedId } = message;
+  const { roomCode, name } = message;
+  const auth = getPlayerAuth(message.authToken);
+  if (!auth) {
+    sendToWs(ws, { type: 'auth:required', role: 'player', message: 'Little Hero authentication required' });
+    return;
+  }
+  const requestedId = auth.playerId;
   const room = rooms.get(roomCode?.toUpperCase());
 
   if (!room) {
@@ -1782,15 +1796,13 @@ function handlePlayerJoin(ws, message) {
     });
   }
 
-  // Reuse a stable id across reconnects (a dropped WebSocket, or a page
-  // refresh restoring it from sessionStorage) so the SAME player doesn't
-  // show up as a second "ghost" entry next to a stale one. No accounts and
-  // nothing persists beyond this room/session: this only reclaims an id
-  // that already belongs to a player currently tracked in THIS room.
-  let playerId = null;
-  if (requestedId && typeof requestedId === 'string') {
+  // The authenticated account id is the canonical player identity. Reuse
+  // that id across reconnects so a dropped socket or refresh cannot create
+  // a duplicate Little Hero, and never trust a client-supplied player id.
+  let playerId = requestedId;
+  if (playerId) {
     for (const [existingWs, info] of room.players) {
-      if (info.id === requestedId) {
+      if (info.id === playerId) {
         if (existingWs !== ws && existingWs.readyState === 1) {
           // A live duplicate connection under the same id (e.g. the old
           // socket hasn't noticed it's dead yet) -- this new one supersedes it.
@@ -2787,6 +2799,11 @@ wss.on('connection', (ws) => {
 
       switch (message.type) {
         case 'room:create': {
+          if (!isValidGmToken(message.gmToken)) {
+            sendToWs(ws, { type: 'auth:required', role: 'gm', message: 'Game Master authentication required' });
+            break;
+          }
+          ws.gmAuthenticated = true;
           const result = createRoom(message.gameId || 'sample-game', ws);
           if (result.error) {
             sendToWs(ws, { type: 'error', message: result.error });
@@ -2824,6 +2841,11 @@ wss.on('connection', (ws) => {
           break;
         }
         case 'host:reconnect': {
+          if (!isValidGmToken(message.gmToken)) {
+            sendToWs(ws, { type: 'auth:required', role: 'gm', message: 'Game Master authentication required' });
+            break;
+          }
+          ws.gmAuthenticated = true;
           handleHostReconnect(ws, message);
           break;
         }

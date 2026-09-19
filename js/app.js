@@ -516,7 +516,7 @@ const App = {
         this._protocolReady = true;
         if (this.roomCode && this.hostToken) {
           this._reconnectPending = true;
-          this.send({ type: 'host:reconnect', roomCode: this.roomCode, hostToken: this.hostToken });
+          this.send({ type: 'host:reconnect', roomCode: this.roomCode, hostToken: this.hostToken, gmToken: GameData.gmToken });
         }
         break;
 
@@ -678,6 +678,12 @@ const App = {
 
       case 'gm:judge:ack':
         console.log('[GM] Verdict acknowledged:', message);
+        break;
+
+      case 'auth:required':
+        sessionStorage.removeItem('asoc_gm_token');
+        GameData.setGMToken('');
+        location.replace('/join.html');
         break;
 
       case 'error':
@@ -1210,7 +1216,7 @@ const App = {
 
     this._hostingInFlight = true;
     const gameId = GameData.currentGame?.id || 'sample-game';
-    this.send({ type: 'room:create', gameId });
+    this.send({ type: 'room:create', gameId, gmToken: GameData.gmToken });
   },
 
   switchRoomGame(gameId) {

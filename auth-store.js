@@ -1,5 +1,5 @@
 ﻿const fs=require('fs'), path=require('path'), crypto=require('crypto');
-const file=path.join(__dirname,'auth-store.json');
+const file=process.env.ASOC_AUTH_FILE || path.join(__dirname,'auth-store.json');
 const ITER=210000;
 function load(){try{const d=JSON.parse(fs.readFileSync(file,'utf8'));return d&&typeof d==='object'?d:{players:{}}}catch(e){return {players:{}}}}
 function save(d){const t=file+'.tmp';fs.writeFileSync(t,JSON.stringify(d,null,2));fs.renameSync(t,file)}

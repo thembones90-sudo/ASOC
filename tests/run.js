@@ -19,19 +19,30 @@ function delay(ms) {
 
 function requestStatus(urlPath, method = 'GET') {
   return new Promise((resolve, reject) => {
-    const req = http.request({
-      hostname: '127.0.0.1',
-      port: PORT,
-      path: urlPath,
-      method
-    }, res => {
-      res.resume();
-      res.on('end', () => resolve(res.statusCode));
+    const req = http.request({ hostname: '127.0.0.1', port: PORT, path: urlPath, method }, res => {
+      res.resume(); res.on('end', () => resolve(res.statusCode));
     });
-    req.on('error', reject);
-    req.end();
+    req.on('error', reject); req.end();
   });
 }
+
+function requestJson(urlPath, method = 'GET', body = null, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const payload = body === null ? null : JSON.stringify(body);
+    const req = http.request({
+      hostname: '127.0.0.1', port: PORT, path: urlPath, method,
+      headers: { ...(payload ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) } : {}), ...headers }
+    }, res => {
+      let raw = ''; res.on('data', chunk => { raw += chunk; });
+      res.on('end', () => { let data = {}; try { data = raw ? JSON.parse(raw) : {}; } catch {} resolve({ status: res.statusCode, data }); });
+    });
+    req.on('error', reject); if (payload) req.write(payload); req.end();
+  });
+}
+
+let TEST_GM_TOKEN = '';
+let TEST_PLAYER_TOKEN = '';
+let TEST_PLAYER_ID = '';
 
 function waitForMessage(ws, predicate, label, timeout = 3000) {
   return new Promise((resolve, reject) => {
@@ -78,7 +89,7 @@ function openWs() {
 
 async function createRoom(host) {
   const response = waitForMessage(host, m => m.type === 'room:created', 'room:created');
-  host.send(JSON.stringify({ type: 'room:create', gameId: 'sample-game' }));
+  host.send(JSON.stringify({ type: 'room:create', gameId: 'sample-game', gmToken: TEST_GM_TOKEN }));
   return response;
 }
 
@@ -121,6 +132,36 @@ function testShadowBrokerTiming() {
   console.log('PASS Shadow Broker adaptive timing');
 }
 
+async function setupAuth() {
+  const gm = await requestJson('/api/auth/gm/login', 'POST', { password: 'test-gm-password' });
+  assert.equal(gm.status, 200);
+  TEST_GM_TOKEN = gm.data.token;
+  const credentials = { email: `regression-${process.pid}@asoc.test`, password: 'test-player-password', name: 'REGRESSION TEST' };
+  let player = await requestJson('/api/auth/player/register', 'POST', credentials);
+  if (player.status === 400) player = await requestJson('/api/auth/player/login', 'POST', credentials);
+  assert.ok(player.status === 200 || player.status === 201);
+  TEST_PLAYER_TOKEN = player.data.token;
+  TEST_PLAYER_ID = player.data.player.id;
+}
+
+async function testAuthEnforcement() {
+  assert.equal((await requestJson('/api/games')).status, 401);
+  assert.equal((await requestJson('/api/games', 'GET', null, { 'x-gm-token': TEST_GM_TOKEN })).status, 200);
+  const rogueHost = await openWs();
+  const deniedHost = waitForMessage(rogueHost, m => m.type === 'auth:required' && m.role === 'gm', 'unauthenticated host denial');
+  rogueHost.send(JSON.stringify({ type: 'room:create', gameId: 'sample-game' }));
+  await deniedHost;
+  closeWs(rogueHost);
+  const host = await openWs();
+  const room = await createRoom(host);
+  const roguePlayer = await openWs();
+  const deniedPlayer = waitForMessage(roguePlayer, m => m.type === 'auth:required' && m.role === 'player', 'unauthenticated player denial');
+  roguePlayer.send(JSON.stringify({ type: 'room:join', roomCode: room.roomCode, name: 'ROGUE' }));
+  await deniedPlayer;
+  closeWs(roguePlayer); closeWs(host);
+  console.log('PASS authentication enforcement');
+}
+
 async function testStaticLockdown() {
   assert.equal(await requestStatus('/'), 200);
   assert.equal(await requestStatus('/join.html'), 200);
@@ -146,6 +187,7 @@ async function testReconnectIdentity() {
   const firstJoin = waitForMessage(p1, m => m.type === 'join:success', 'first join');
   p1.send(JSON.stringify({
     type: 'room:join',
+    authToken: TEST_PLAYER_TOKEN,
     roomCode: room.roomCode,
     name: 'REGRESSION TEST'
   }));
@@ -157,6 +199,7 @@ async function testReconnectIdentity() {
   const secondJoin = waitForMessage(p2, m => m.type === 'join:success', 'reconnect');
   p2.send(JSON.stringify({
     type: 'room:join',
+    authToken: TEST_PLAYER_TOKEN,
     roomCode: room.roomCode,
     name: 'REGRESSION TEST',
     playerId: first.playerId
@@ -178,6 +221,7 @@ async function testChatTransportHygiene() {
   const joined = waitForMessage(player, m => m.type === 'join:success', 'chat hygiene player join');
   player.send(JSON.stringify({
     type: 'room:join',
+    authToken: TEST_PLAYER_TOKEN,
     roomCode: room.roomCode,
     name: 'CHAT HYGIENE',
     avatarData: 'data:image/png;base64,iVBORw0KGgo=',
@@ -227,6 +271,7 @@ async function testChatEmojiReactions() {
   const joinedPromise = waitForMessage(player, m => m.type === 'join:success', 'reaction player join');
   player.send(JSON.stringify({
     type: 'room:join',
+    authToken: TEST_PLAYER_TOKEN,
     roomCode: room.roomCode,
     name: 'REACTION TEST'
   }));
@@ -357,6 +402,7 @@ async function testShadowBrokerControls() {
   const joined = waitForMessage(player, m => m.type === 'join:success', 'broker player join');
   player.send(JSON.stringify({
     type: 'room:join',
+    authToken: TEST_PLAYER_TOKEN,
     roomCode: room.roomCode,
     name: 'BROKER TEST'
   }));
@@ -402,6 +448,7 @@ async function testShadowBrokerControls() {
   const reconnectChat = waitForMessage(reconnect, m => m.type === 'chat:update', 'broker reconnect chat hydration');
   reconnect.send(JSON.stringify({
     type: 'room:join',
+    authToken: TEST_PLAYER_TOKEN,
     roomCode: room.roomCode,
     name: 'BROKER RECONNECT'
   }));
@@ -425,6 +472,7 @@ async function testCrashRecovery(server) {
   const recoveryFrame = '#12ABCD';
   player.send(JSON.stringify({
     type: 'room:join',
+    authToken: TEST_PLAYER_TOKEN,
     roomCode: room.roomCode,
     name: 'RECOVERY TEST',
     avatarData: recoveryAvatar,
@@ -457,6 +505,7 @@ async function testCrashRecovery(server) {
   });
 
   const restarted = await startServer();
+  await setupAuth();
 
   const host2 = await openWs();
   const statePromise = waitForMessage(host2, m => m.type === 'state:public', 'restored state');
@@ -467,7 +516,8 @@ async function testCrashRecovery(server) {
   host2.send(JSON.stringify({
     type: 'host:reconnect',
     roomCode: room.roomCode,
-    hostToken: room.hostToken
+    hostToken: room.hostToken,
+    gmToken: TEST_GM_TOKEN
   }));
 
   const [state, chat, players] = await Promise.all([
@@ -491,6 +541,7 @@ async function testCrashRecovery(server) {
   const rejoinPromise = waitForMessage(player2, m => m.type === 'join:success', 'restored player reconnect');
   player2.send(JSON.stringify({
     type: 'room:join',
+    authToken: TEST_PLAYER_TOKEN,
     roomCode: room.roomCode,
     name: 'RECOVERY TEST',
     playerId: joined.playerId
@@ -513,7 +564,9 @@ function startServer() {
         ...process.env,
         PORT: String(PORT),
         ASOC_PLAYERS_FILE: TEST_PLAYERS,
-        ASOC_SESSION_FILE: TEST_SESSION
+        ASOC_SESSION_FILE: TEST_SESSION,
+        ASOC_AUTH_FILE: path.join(os.tmpdir(), `asoc-test-auth-${process.pid}.json`),
+        ASOC_GM_PASSWORD: 'test-gm-password'
       },
       stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -549,6 +602,8 @@ function startServer() {
   try {
     testShadowBrokerTiming();
     server = await startServer();
+    await setupAuth();
+    await testAuthEnforcement();
     await testStaticLockdown();
     await testReconnectIdentity();
     await testChatTransportHygiene();
