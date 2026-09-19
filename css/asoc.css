@@ -1140,6 +1140,20 @@ textarea {
     linear-gradient(180deg, rgba(38,43,52,0.96), rgba(21,24,30,0.98));
   border-color: rgba(118,127,144,0.70);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  color: #e7edf5;
+  color-scheme: dark;
+}
+
+/* Native select menus otherwise fall back to Windows' white dropdown while
+   keeping ASOC's pale text. Humanity did not need another unreadable menu. */
+.bg-select option,
+.bg-select optgroup {
+  background: #10141b;
+  color: #e7edf5;
+}
+.bg-select option:checked {
+  background: #245da8;
+  color: #ffffff;
 }
 
 .upload-zone {
