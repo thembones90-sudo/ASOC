@@ -26,7 +26,7 @@ const LITTLE_HERO_THEMES = Object.freeze({
   'my-sindragosa': '#79C8F2',
   'disco-inferno': '#F06A2A',
   'our-theme': '#B92522',
-  undead: '#7E5AB8',
+  undead: '#7FBF3F',
   revan: '#A8328A'
 });
 
@@ -756,7 +756,7 @@ function handleTimerStart(ws) {
   room.revision++;
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastToRoom(room, { type: 'battle:controlsOnline' });
-  console.log(`[ROOM ${room.code}] GM started the Timer (${Math.round(room.timer.duration / 1000)}s) — BATTLE CONTROLS ONLINE`);
+  console.log(`[ROOM ${room.code}] GM started the Timer (${Math.round(room.timer.duration / 1000)}s) â€” BATTLE CONTROLS ONLINE`);
 }
 
 function handleTimerPause(ws) {
