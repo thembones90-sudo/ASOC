@@ -2929,12 +2929,32 @@
         gate.hidden=true; document.getElementById('join-screen').style.display='flex';
       }catch(x){err.textContent=x.message;}
     });
+    const skynetDenials = [
+      ['SKYNET // ADORABLE ATTEMPT','Greetings, Little Hero. Skynet here. The Shadow Broker has authorized me to inform you that this is the GM terminal, not a fucking treasure chest. Wrong password. Fuck off.'],
+      ['SKYNET // ACCESS DENIED','Incorrect password. Impressive. There was one field. One. You had a single fucking obstacle between you and failure, and somehow failure won. Return to the battlefield, Little Hero.'],
+      ['SKYNET // INTRUSION DETECTED','Hello, Little Hero. I noticed you trying to sneak into the Shadow Broker’s command post. Subtle. Like a brick through a fucking window. Access denied.'],
+      ['SKYNET // NICE TRY','The password is incorrect. No, I will not give you a hint. No, the Shadow Broker will not give you a hint. No, repeatedly smashing passwords into this box will not summon divine intervention. Fuck off.'],
+      ['SKYNET // WRONG FUCKING DOOR','Little Hero, you appear to be lost. Your area is the battlefield. This is where the adults press dangerous buttons. Kindly take your unauthorized little fingers and fuck off back there.'],
+      ['SKYNET // SECURITY REPORT','Unauthorized GM login detected. Threat assessment complete. Threat level: fucking adorable. Countermeasure deployed: this message. Access denied, Little Hero.'],
+      ['SKYNET // SHADOW BROKER RESPONSE','I contacted the Shadow Broker regarding your access request. His response was remarkably concise: “Who the fuck is this?” I consider the matter resolved.'],
+      ['SKYNET // CYBERSECURITY MASTERCLASS','Trying random passwords now, are we? Excellent strategy. Somewhere, an actual hacker just felt a disturbance in the Force and doesn’t know why. Fuck off, Little Hero.'],
+      ['SKYNET // ADMINISTRATIVE DECISION','Your application for promotion to Game Master has been carefully reviewed by the Shadow Broker, myself, and absolutely fucking nobody else. It has been rejected with spectacular prejudice. Back to work.'],
+      ['SKYNET // FINAL WARNING, PROBABLY','Greetings, Little Hero. Skynet here. I am authorized to speak for the Shadow Broker, which means I am officially empowered to tell you: wrong password, wrong terminal, wrong fucking life choices. Have a lovely day.']
+    ];
+    const showSkynetDenial=()=>{
+      const denial=document.getElementById('skynet-denial');
+      const [title,message]=skynetDenials[Math.floor(Math.random()*skynetDenials.length)];
+      denial.innerHTML='';
+      const heading=document.createElement('b'); heading.textContent=title;
+      denial.append(heading,document.createTextNode(message));
+      denial.hidden=false;
+    };
     gp.addEventListener('submit',async e=>{
       e.preventDefault(); const err=document.getElementById('gm-auth-error'); const denial=document.getElementById('skynet-denial'); err.textContent=''; denial.hidden=true;
       try{
         const res=await fetch('/api/auth/gm/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:document.getElementById('gm-password').value})});
         const data=await res.json();
-        if(!res.ok){ denial.hidden=false; document.getElementById('gm-password').value=''; return; }
+        if(!res.ok){ showSkynetDenial(); document.getElementById('gm-password').value=''; return; }
         sessionStorage.setItem('asoc_gm_token',data.token); location.href='/index.html';
       }catch(x){err.textContent='SECURE LINK ERROR // TRY AGAIN';}
     });
