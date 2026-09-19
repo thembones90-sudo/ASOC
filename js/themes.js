@@ -7,6 +7,7 @@ const ASOCThemes = {
   presets: {
     gunmetal: {
       id: 'gunmetal',
+      code: '01',
       name: 'GUNMETAL',
       subtitle: 'CLASSIC ASOC // COLD STEEL',
       color: '#343A42',
@@ -22,6 +23,7 @@ const ASOCThemes = {
     },
     'pink-protocol': {
       id: 'pink-protocol',
+      code: '02',
       name: 'PINK PROTOCOL',
       subtitle: 'GIRLY WARFARE // ROSE CIRCUITS',
       color: '#E06AB1',

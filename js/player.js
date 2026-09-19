@@ -93,7 +93,10 @@ const PlayerApp = {
     const avatarFile = document.getElementById('little-hero-avatar-file');
     const framePicker = document.getElementById('little-hero-frame-picker');
     const frameHex = document.getElementById('little-hero-frame-hex');
-    const themeButtons = Array.from(document.querySelectorAll('[data-theme-id]'));
+    const themeSelect = document.getElementById('theme-select');
+    const themeToggle = document.getElementById('theme-select-toggle');
+    const themeMenu = document.getElementById('theme-select-menu');
+    const themeButtons = Array.from(document.querySelectorAll('.theme-option[data-theme-id]'));
 
     avatarFile?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
@@ -138,8 +141,34 @@ const PlayerApp = {
       this.updateAppearancePreview();
     };
 
+    const closeThemeMenu = () => {
+      if (!themeSelect || !themeToggle || !themeMenu) return;
+      themeSelect.classList.remove('open');
+      themeToggle.setAttribute('aria-expanded', 'false');
+      themeMenu.hidden = true;
+    };
+
+    themeToggle?.addEventListener('click', () => {
+      const willOpen = !themeSelect?.classList.contains('open');
+      if (!themeSelect || !themeMenu) return;
+      themeSelect.classList.toggle('open', willOpen);
+      themeToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      themeMenu.hidden = !willOpen;
+    });
+
     themeButtons.forEach(button => {
-      button.addEventListener('click', () => applyThemeProfile(button.dataset.themeId));
+      button.addEventListener('click', () => {
+        applyThemeProfile(button.dataset.themeId);
+        closeThemeMenu();
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (themeSelect && !themeSelect.contains(e.target)) closeThemeMenu();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeThemeMenu();
     });
   },
 
@@ -185,13 +214,24 @@ const PlayerApp = {
     if (preview) preview.style.setProperty('--lh-frame', this.frameColor);
     if (picker) picker.value = this.frameColor;
     if (hex) hex.value = this.frameColor;
-    ASOCThemes.applyToScreen(gameScreen, this.themeId);
-    document.querySelectorAll('[data-theme-id]').forEach(button => {
-      const active = button.dataset.themeId === this.themeId;
+    const theme = ASOCThemes.get(this.themeId);
+    ASOCThemes.applyToScreen(gameScreen, theme.id);
+
+    const themeSelect = document.getElementById('theme-select');
+    const themePreview = document.getElementById('theme-select-preview');
+    const themeName = document.getElementById('theme-select-name');
+    const themeSubtitle = document.getElementById('theme-select-subtitle');
+    if (themeSelect) themeSelect.dataset.themeId = theme.id;
+    if (themePreview) themePreview.className = `theme-select-preview ${theme.id}`;
+    if (themeName) themeName.textContent = theme.name;
+    if (themeSubtitle) themeSubtitle.textContent = `${theme.code || '--'} // ${theme.subtitle}`;
+
+    document.querySelectorAll('.theme-option[data-theme-id]').forEach(button => {
+      const active = button.dataset.themeId === theme.id;
       button.classList.toggle('selected', active);
-      button.setAttribute('aria-pressed', active ? 'true' : 'false');
-      const lock = button.querySelector('.theme-profile-lock');
-      if (lock) lock.textContent = active ? 'ACTIVE' : 'SELECT';
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      const state = button.querySelector('.theme-option-state');
+      if (state) state.textContent = active ? 'ACTIVE' : 'SELECT';
     });
     if (preview && image) {
       if (this.avatarData) {

@@ -218,86 +218,139 @@
       border-top: 1px solid rgba(116,126,139,.24);
     }
 
-    .theme-profile-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
+    .theme-select {
+      position: relative;
       margin-top: 7px;
     }
 
-    .theme-profile-card {
+    .theme-select-toggle {
       display: grid;
-      grid-template-columns: 48px minmax(0,1fr) auto;
-      gap: 10px;
+      grid-template-columns: 42px minmax(0,1fr) 18px;
+      gap: 9px;
       align-items: center;
       width: 100%;
-      padding: 8px 9px;
-      border: 1px solid #4d5661;
+      min-height: 48px;
+      padding: 6px 8px;
+      border: 1px solid #505965;
       border-radius: 5px;
-      background: linear-gradient(180deg,#1b2027,#0c0f13);
-      color: #e3e7ed;
+      background: linear-gradient(180deg,#181d24,#0c0f13);
+      color: #e8ecf2;
       text-align: left;
       cursor: pointer;
       box-shadow: inset 0 1px rgba(255,255,255,.035);
     }
 
-    .theme-profile-card.selected {
-      border-color: #88939f;
-      box-shadow: inset 3px 0 #87919d, inset 0 1px rgba(255,255,255,.06), 0 0 12px rgba(132,145,158,.08);
+    .theme-select-toggle:hover,
+    .theme-select.open .theme-select-toggle {
+      border-color: #727d89;
+    }
+    .theme-select[data-theme-id="pink-protocol"] .theme-select-toggle {
+      border-color:#a65c87;
+      background:linear-gradient(180deg,#251720,#100b0f);
+      box-shadow:inset 2px 0 #e06ab1, inset 0 1px rgba(255,255,255,.04);
     }
 
-    .theme-profile-preview {
-      width: 46px;
-      height: 34px;
+    .theme-select-preview,
+    .theme-option-preview {
+      width: 38px;
+      height: 30px;
       display: grid;
       grid-template-columns: repeat(3,1fr);
       gap: 2px;
-      padding: 4px;
+      padding: 3px;
       border: 1px solid #525b65;
       background: #090c10;
       box-sizing: border-box;
     }
-    .theme-profile-preview i { display:block; border-radius:1px; }
-    .theme-profile-preview.gunmetal i:nth-child(1) { background:#11161c; }
-    .theme-profile-preview.gunmetal i:nth-child(2) { background:#343a42; }
-    .theme-profile-preview.gunmetal i:nth-child(3) { background:#737d88; }
-    .theme-profile-preview.pink-protocol i:nth-child(1) { background:#1a1018; }
-    .theme-profile-preview.pink-protocol i:nth-child(2) { background:#e06ab1; }
-    .theme-profile-preview.pink-protocol i:nth-child(3) { background:#f3b2d8; }
+    .theme-select-preview i,
+    .theme-option-preview i { display:block; border-radius:1px; }
+    .theme-select-preview.gunmetal i:nth-child(1),
+    .theme-option-preview.gunmetal i:nth-child(1) { background:#11161c; }
+    .theme-select-preview.gunmetal i:nth-child(2),
+    .theme-option-preview.gunmetal i:nth-child(2) { background:#343a42; }
+    .theme-select-preview.gunmetal i:nth-child(3),
+    .theme-option-preview.gunmetal i:nth-child(3) { background:#737d88; }
+    .theme-select-preview.pink-protocol i:nth-child(1),
+    .theme-option-preview.pink-protocol i:nth-child(1) { background:#1a1018; }
+    .theme-select-preview.pink-protocol i:nth-child(2),
+    .theme-option-preview.pink-protocol i:nth-child(2) { background:#e06ab1; }
+    .theme-select-preview.pink-protocol i:nth-child(3),
+    .theme-option-preview.pink-protocol i:nth-child(3) { background:#f3b2d8; }
 
-    .theme-profile-card[data-theme-id="pink-protocol"].selected {
-      border-color:#d47aad;
-      box-shadow: inset 3px 0 #e06ab1, inset 0 1px rgba(255,255,255,.06), 0 0 14px rgba(224,106,177,.16);
-      background: linear-gradient(180deg,#251720,#100b0f);
-    }
-    .theme-profile-card[data-theme-id="pink-protocol"].selected .theme-profile-lock {
-      color:#ffd3eb;
-      border-color:#87546f;
-      background:#1b0e17;
-    }
-
-    .theme-profile-copy { min-width:0; }
-    .theme-profile-copy strong {
+    .theme-select-copy,
+    .theme-option-copy { min-width:0; }
+    .theme-select-copy strong,
+    .theme-option-copy strong {
       display:block;
       color:#f0f3f7;
-      font:800 .68rem var(--font-machine);
-      letter-spacing:1px;
+      font:800 .66rem var(--font-machine);
+      letter-spacing:.9px;
     }
-    .theme-profile-copy small {
+    .theme-select-copy small,
+    .theme-option-copy small {
       display:block;
-      margin-top:2px;
+      margin-top:1px;
       color:#7d8793;
-      font:700 .43rem var(--font-machine);
-      letter-spacing:.65px;
+      font:700 .41rem var(--font-machine);
+      letter-spacing:.55px;
+      line-height:1.2;
     }
-    .theme-profile-lock {
-      padding:2px 5px;
-      border:1px solid #4e5964;
-      color:#aeb6bf;
-      background:#0a0d11;
-      font:800 .42rem var(--font-machine);
-      letter-spacing:.7px;
+
+    .theme-select-arrow {
+      justify-self:end;
+      color:#9ba5b0;
+      font:900 .8rem var(--font-machine);
+      transition: transform .14s ease;
     }
+    .theme-select.open .theme-select-arrow { transform:rotate(180deg); }
+
+    .theme-select-menu {
+      position:absolute;
+      left:0;
+      right:0;
+      top:calc(100% + 5px);
+      z-index:80;
+      display:grid;
+      gap:5px;
+      max-height:220px;
+      overflow-y:auto;
+      padding:6px;
+      border:1px solid #515b66;
+      border-radius:5px;
+      background:linear-gradient(180deg,#11161c,#080a0d);
+      box-shadow:0 14px 30px rgba(0,0,0,.58);
+    }
+    .theme-select-menu[hidden] { display:none; }
+
+    .theme-option {
+      display:grid;
+      grid-template-columns:42px minmax(0,1fr) auto;
+      gap:8px;
+      align-items:center;
+      width:100%;
+      padding:6px 7px;
+      border:1px solid #3d4650;
+      border-radius:4px;
+      background:linear-gradient(180deg,#171b21,#0c0f13);
+      color:#e8ecf2;
+      text-align:left;
+      cursor:pointer;
+    }
+    .theme-option:hover { border-color:#6c7783; background:linear-gradient(180deg,#1d232a,#101419); }
+    .theme-option.selected { border-color:#8d98a4; box-shadow:inset 2px 0 #8d98a4; }
+    .theme-option[data-theme-id="pink-protocol"].selected {
+      border-color:#d47aad;
+      box-shadow:inset 2px 0 #e06ab1;
+      background:linear-gradient(180deg,#251720,#100b0f);
+    }
+
+    .theme-option-state {
+      color:#87919c;
+      font:800 .38rem var(--font-machine);
+      letter-spacing:.6px;
+    }
+    .theme-option.selected .theme-option-state { color:#cbd2da; }
+    .theme-option[data-theme-id="pink-protocol"].selected .theme-option-state { color:#ffd0e9; }
 
     .little-hero-chaos-note {
       margin-top: 8px;
@@ -1243,23 +1296,33 @@
 
           <div class="little-hero-theme-block">
             <div class="form-label">Theme Profile</div>
-            <div class="theme-profile-grid" id="theme-profile-grid">
-              <button type="button" class="theme-profile-card selected" data-theme-id="gunmetal" aria-pressed="true">
-                <span class="theme-profile-preview gunmetal" aria-hidden="true"><i></i><i></i><i></i></span>
-                <span class="theme-profile-copy">
-                  <strong>GUNMETAL</strong>
-                  <small>01 // CLASSIC ASOC // COLD STEEL</small>
+            <div class="theme-select" id="theme-select">
+              <button type="button" class="theme-select-toggle" id="theme-select-toggle" aria-expanded="false" aria-haspopup="listbox">
+                <span class="theme-select-preview gunmetal" id="theme-select-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="theme-select-copy">
+                  <strong id="theme-select-name">GUNMETAL</strong>
+                  <small id="theme-select-subtitle">01 // CLASSIC ASOC // COLD STEEL</small>
                 </span>
-                <span class="theme-profile-lock">ACTIVE</span>
+                <span class="theme-select-arrow" aria-hidden="true">▾</span>
               </button>
-              <button type="button" class="theme-profile-card" data-theme-id="pink-protocol" aria-pressed="false">
-                <span class="theme-profile-preview pink-protocol" aria-hidden="true"><i></i><i></i><i></i></span>
-                <span class="theme-profile-copy">
-                  <strong>PINK PROTOCOL</strong>
-                  <small>02 // GIRLY WARFARE // ROSE CIRCUITS</small>
-                </span>
-                <span class="theme-profile-lock">SELECT</span>
-              </button>
+              <div class="theme-select-menu" id="theme-select-menu" role="listbox" hidden>
+                <button type="button" class="theme-option selected" data-theme-id="gunmetal" role="option" aria-selected="true">
+                  <span class="theme-option-preview gunmetal" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="theme-option-copy">
+                    <strong>GUNMETAL</strong>
+                    <small>01 // CLASSIC ASOC // COLD STEEL</small>
+                  </span>
+                  <span class="theme-option-state">ACTIVE</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-id="pink-protocol" role="option" aria-selected="false">
+                  <span class="theme-option-preview pink-protocol" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="theme-option-copy">
+                    <strong>PINK PROTOCOL</strong>
+                    <small>02 // GIRLY WARFARE // ROSE CIRCUITS</small>
+                  </span>
+                  <span class="theme-option-state">SELECT</span>
+                </button>
+              </div>
             </div>
             <div class="little-hero-chaos-note">Theme colors alter background surfaces only. The game board keeps its original artwork.</div>
           </div>
