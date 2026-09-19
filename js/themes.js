@@ -38,6 +38,22 @@ const ASOCThemes = {
       messageTop: '#311828',
       messageBottom: '#140B12',
       ambient: 'rgba(224,106,177,.14)'
+    },
+    verdantis: {
+      id: 'verdantis',
+      code: '03',
+      name: 'VERDANTIS',
+      subtitle: 'WILD SIGNAL // LIVING CIRCUITS',
+      color: '#5FAF63',
+      shellTop: '#101812',
+      shellBottom: '#070B08',
+      railTop: '#142018',
+      railBottom: '#09100B',
+      statusTop: '#18261B',
+      statusBottom: '#0A110C',
+      messageTop: '#19301E',
+      messageBottom: '#0B150E',
+      ambient: 'rgba(95,175,99,.13)'
     }
   },
 

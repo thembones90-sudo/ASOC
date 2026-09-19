@@ -249,6 +249,11 @@
       background:linear-gradient(180deg,#251720,#100b0f);
       box-shadow:inset 2px 0 #e06ab1, inset 0 1px rgba(255,255,255,.04);
     }
+    .theme-select[data-theme-id="verdantis"] .theme-select-toggle {
+      border-color:#557f58;
+      background:linear-gradient(180deg,#172319,#0b110c);
+      box-shadow:inset 2px 0 #5faf63, inset 0 1px rgba(255,255,255,.04);
+    }
 
     .theme-select-preview,
     .theme-option-preview {
@@ -276,6 +281,12 @@
     .theme-option-preview.pink-protocol i:nth-child(2) { background:#e06ab1; }
     .theme-select-preview.pink-protocol i:nth-child(3),
     .theme-option-preview.pink-protocol i:nth-child(3) { background:#f3b2d8; }
+    .theme-select-preview.verdantis i:nth-child(1),
+    .theme-option-preview.verdantis i:nth-child(1) { background:#101812; }
+    .theme-select-preview.verdantis i:nth-child(2),
+    .theme-option-preview.verdantis i:nth-child(2) { background:#5faf63; }
+    .theme-select-preview.verdantis i:nth-child(3),
+    .theme-option-preview.verdantis i:nth-child(3) { background:#9dcc78; }
 
     .theme-select-copy,
     .theme-option-copy { min-width:0; }
@@ -343,6 +354,11 @@
       box-shadow:inset 2px 0 #e06ab1;
       background:linear-gradient(180deg,#251720,#100b0f);
     }
+    .theme-option[data-theme-id="verdantis"].selected {
+      border-color:#68a66d;
+      box-shadow:inset 2px 0 #5faf63;
+      background:linear-gradient(180deg,#172319,#0b110c);
+    }
 
     .theme-option-state {
       color:#87919c;
@@ -351,6 +367,7 @@
     }
     .theme-option.selected .theme-option-state { color:#cbd2da; }
     .theme-option[data-theme-id="pink-protocol"].selected .theme-option-state { color:#ffd0e9; }
+    .theme-option[data-theme-id="verdantis"].selected .theme-option-state { color:#bfe7b4; }
 
     .little-hero-chaos-note {
       margin-top: 8px;
@@ -1319,6 +1336,14 @@
                   <span class="theme-option-copy">
                     <strong>SUGARCOAT</strong>
                     <small>02 // SWEET VIOLENCE // PINK CIRCUITS</small>
+                  </span>
+                  <span class="theme-option-state">SELECT</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-id="verdantis" role="option" aria-selected="false">
+                  <span class="theme-option-preview verdantis" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="theme-option-copy">
+                    <strong>VERDANTIS</strong>
+                    <small>03 // WILD SIGNAL // LIVING CIRCUITS</small>
                   </span>
                   <span class="theme-option-state">SELECT</span>
                 </button>
