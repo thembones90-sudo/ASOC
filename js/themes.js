@@ -54,6 +54,22 @@ const ASOCThemes = {
       messageTop: '#19301E',
       messageBottom: '#0B150E',
       ambient: 'rgba(95,175,99,.13)'
+    },
+    'my-sindragosa': {
+      id: 'my-sindragosa',
+      code: '04',
+      name: 'MY SINDRAGOSA',
+      subtitle: 'FROZEN SIGNAL // GLACIAL CIRCUITS',
+      color: '#79C8F2',
+      shellTop: '#0F1820',
+      shellBottom: '#070B0F',
+      railTop: '#14222C',
+      railBottom: '#091116',
+      statusTop: '#182934',
+      statusBottom: '#0A1218',
+      messageTop: '#173142',
+      messageBottom: '#0B1720',
+      ambient: 'rgba(121,200,242,.15)'
     }
   },
 

@@ -254,6 +254,11 @@
       background:linear-gradient(180deg,#172319,#0b110c);
       box-shadow:inset 2px 0 #5faf63, inset 0 1px rgba(255,255,255,.04);
     }
+    .theme-select[data-theme-id="my-sindragosa"] .theme-select-toggle {
+      border-color:#5f9fbe;
+      background:linear-gradient(180deg,#15232d,#0a1117);
+      box-shadow:inset 2px 0 #79c8f2, inset 0 1px rgba(255,255,255,.05);
+    }
 
     .theme-select-preview,
     .theme-option-preview {
@@ -287,6 +292,12 @@
     .theme-option-preview.verdantis i:nth-child(2) { background:#5faf63; }
     .theme-select-preview.verdantis i:nth-child(3),
     .theme-option-preview.verdantis i:nth-child(3) { background:#9dcc78; }
+    .theme-select-preview.my-sindragosa i:nth-child(1),
+    .theme-option-preview.my-sindragosa i:nth-child(1) { background:#0f1820; }
+    .theme-select-preview.my-sindragosa i:nth-child(2),
+    .theme-option-preview.my-sindragosa i:nth-child(2) { background:#79c8f2; }
+    .theme-select-preview.my-sindragosa i:nth-child(3),
+    .theme-option-preview.my-sindragosa i:nth-child(3) { background:#d4f1ff; }
 
     .theme-select-copy,
     .theme-option-copy { min-width:0; }
@@ -359,6 +370,11 @@
       box-shadow:inset 2px 0 #5faf63;
       background:linear-gradient(180deg,#172319,#0b110c);
     }
+    .theme-option[data-theme-id="my-sindragosa"].selected {
+      border-color:#72b7da;
+      box-shadow:inset 2px 0 #79c8f2;
+      background:linear-gradient(180deg,#15232d,#0a1117);
+    }
 
     .theme-option-state {
       color:#87919c;
@@ -368,6 +384,7 @@
     .theme-option.selected .theme-option-state { color:#cbd2da; }
     .theme-option[data-theme-id="pink-protocol"].selected .theme-option-state { color:#ffd0e9; }
     .theme-option[data-theme-id="verdantis"].selected .theme-option-state { color:#bfe7b4; }
+    .theme-option[data-theme-id="my-sindragosa"].selected .theme-option-state { color:#d9f3ff; }
 
     .little-hero-chaos-note {
       margin-top: 8px;
@@ -1344,6 +1361,14 @@
                   <span class="theme-option-copy">
                     <strong>VERDANTIS</strong>
                     <small>03 // WILD SIGNAL // LIVING CIRCUITS</small>
+                  </span>
+                  <span class="theme-option-state">SELECT</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-id="my-sindragosa" role="option" aria-selected="false">
+                  <span class="theme-option-preview my-sindragosa" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="theme-option-copy">
+                    <strong>MY SINDRAGOSA</strong>
+                    <small>04 // FROZEN SIGNAL // GLACIAL CIRCUITS</small>
                   </span>
                   <span class="theme-option-state">SELECT</span>
                 </button>
