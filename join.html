@@ -265,9 +265,13 @@
       box-shadow:inset 2px 0 #e06ab1,inset 0 1px rgba(255,245,250,.09),inset 0 -1px rgba(0,0,0,.48);
     }
     .theme-select[data-theme-id="verdantis"] .theme-select-toggle {
-      border-color:#557f58;
-      background:linear-gradient(180deg,#172319,#0b110c);
-      box-shadow:inset 2px 0 #5faf63, inset 0 1px rgba(255,255,255,.04);
+      border-color:#5f865f;
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20150%2048'%3E%3Cg%20fill%3D'none'%20stroke%3D'%2389B85E'%20stroke-width%3D'1.15'%3E%3Cpath%20opacity%3D'.22'%20d%3D'M8%2040%20C26%2032%2038%2034%2050%2022%20C63%209%2078%2013%2090%208%20C105%202%20118%209%20140%204'%2F%3E%3Cpath%20opacity%3D'.15'%20d%3D'M49%2022%20C42%2016%2038%2010%2038%204%20M88%209%20C83%2018%2085%2025%2090%2031'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%237FBC50'%3E%3Cellipse%20opacity%3D'.24'%20cx%3D'39'%20cy%3D'8'%20rx%3D'4'%20ry%3D'2'%20transform%3D'rotate(-35%2039%208)'/%3E%3Cellipse%20opacity%3D'.21'%20cx%3D'91'%20cy%3D'29'%20rx%3D'4'%20ry%3D'2'%20transform%3D'rotate(35%2091%2029)'/%3E%3Ccircle%20fill%3D'%23A7F25A'%20opacity%3D'.38'%20cx%3D'118'%20cy%3D'9'%20r%3D'2.2'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 8px center / 132px 42px no-repeat,
+        radial-gradient(circle at 78% 24%,rgba(168,242,90,.10),transparent 30%),
+        linear-gradient(180deg,rgba(255,255,255,.025),transparent 24%),
+        linear-gradient(180deg,#1d2a1e,#0b120c);
+      box-shadow:inset 2px 0 #5faf63,inset 0 1px rgba(214,235,205,.06),inset 0 -1px rgba(0,0,0,.55);
     }
     .theme-select[data-theme-id="my-sindragosa"] .theme-select-toggle {
       border-color:#5f9fbe;
@@ -446,8 +450,12 @@
     }
     .theme-option[data-theme-id="verdantis"].selected {
       border-color:#68a66d;
-      box-shadow:inset 2px 0 #5faf63;
-      background:linear-gradient(180deg,#172319,#0b110c);
+      box-shadow:inset 2px 0 #5faf63,inset 0 1px rgba(214,235,205,.055);
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20150%2048'%3E%3Cg%20fill%3D'none'%20stroke%3D'%2389B85E'%20stroke-width%3D'1.1'%3E%3Cpath%20opacity%3D'.20'%20d%3D'M10%2040%20C28%2032%2038%2034%2052%2022%20C66%2010%2080%2013%2094%208%20C108%203%20120%209%20140%204'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%237FBC50'%3E%3Cellipse%20opacity%3D'.22'%20cx%3D'42'%20cy%3D'14'%20rx%3D'4'%20ry%3D'2'%20transform%3D'rotate(-35%2042%2014)'/%3E%3Ccircle%20fill%3D'%23A7F25A'%20opacity%3D'.36'%20cx%3D'120'%20cy%3D'9'%20r%3D'2.1'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 8px center / 128px 40px no-repeat,
+        radial-gradient(circle at 78% 24%,rgba(168,242,90,.09),transparent 30%),
+        linear-gradient(180deg,rgba(255,255,255,.020),transparent 25%),
+        linear-gradient(180deg,#1d2a1e,#0b120c);
     }
     .theme-option[data-theme-id="my-sindragosa"].selected {
       border-color:#72b7da;
@@ -584,6 +592,18 @@
         radial-gradient(circle at 91% 72%,rgba(255,145,205,.08) 0,transparent 145px),
         linear-gradient(115deg,rgba(255,255,255,.025) 0%,rgba(255,220,235,.060) 34%,rgba(255,255,255,.018) 52%,rgba(0,0,0,.05) 100%),
         linear-gradient(145deg,#24111f 0%,#150a13 44%,#0c060c 100%);
+    }
+
+    /* VERDANTIS MATERIAL 01 // LIVING SHELL.
+       Dark forest metal with roots and a few bioluminescent growth nodes.
+       The game board itself remains pristine and unthemed. */
+    #game-screen[data-player-theme="verdantis"] {
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20540%20320'%3E%3Cg%20fill%3D'none'%20stroke%3D'%235C7D45'%20stroke-linecap%3D'round'%3E%3Cpath%20opacity%3D'.17'%20stroke-width%3D'4'%20d%3D'M14%20284%20C76%20256%2090%20224%20144%20210%20C202%20194%20218%20142%20274%20128%20C332%20114%20354%2074%20410%2066%20C454%2060%20484%2034%20530%2020'%2F%3E%3Cpath%20opacity%3D'.11'%20stroke-width%3D'2'%20d%3D'M142%20210%20C126%20178%20118%20148%20124%20116%20M274%20128%20C256%20100%20254%2072%20266%2040%20M410%2066%20C400%2092%20404%20118%20424%20140'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%236D944B'%3E%3Cellipse%20opacity%3D'.20'%20cx%3D'122'%20cy%3D'132'%20rx%3D'10'%20ry%3D'4'%20transform%3D'rotate(-42%20122%20132)'/%3E%3Cellipse%20opacity%3D'.17'%20cx%3D'268'%20cy%3D'58'%20rx%3D'9'%20ry%3D'4'%20transform%3D'rotate(36%20268%2058)'/%3E%3Cellipse%20opacity%3D'.15'%20cx%3D'420'%20cy%3D'126'%20rx%3D'8'%20ry%3D'3.5'%20transform%3D'rotate(-28%20420%20126)'/%3E%3C%2Fg%3E%3Cg%20fill%3D'%23A9F45D'%3E%3Ccircle%20opacity%3D'.45'%20cx%3D'144'%20cy%3D'210'%20r%3D'2.6'%2F%3E%3Ccircle%20opacity%3D'.38'%20cx%3D'274'%20cy%3D'128'%20r%3D'2.4'%2F%3E%3Ccircle%20opacity%3D'.34'%20cx%3D'410'%20cy%3D'66'%20r%3D'2.5'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 1.5vw top 8vh / min(540px,40vw) auto no-repeat,
+        radial-gradient(circle at 90% 15%,rgba(145,220,76,.105) 0 2px,rgba(145,220,76,.035) 4px 54px,transparent 128px),
+        radial-gradient(circle at 84% 76%,rgba(80,126,58,.075),transparent 150px),
+        linear-gradient(118deg,rgba(255,255,255,.018) 0%,rgba(116,145,97,.035) 34%,rgba(0,0,0,.045) 100%),
+        linear-gradient(145deg,#111a12 0%,#0b100c 48%,#050806 100%);
     }
 
     #game-screen.active {
@@ -793,6 +813,19 @@
       box-shadow:inset 10px 0 20px rgba(0,0,0,.42),inset 1px 0 rgba(255,235,244,.18),inset -1px 0 rgba(0,0,0,.65);
     }
 
+    /* VERDANTIS MATERIAL 02 // ROOTBOUND BATTLE COMMS.
+       The rail is the strongest Verdantis surface: reclaimed metal, roots,
+       moss shadows, small leaves, mushroom silhouettes and living green nodes. */
+    #game-screen[data-player-theme="verdantis"] .battle-comms-lobby {
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20320%20720'%3E%3Cg%20fill%3D'none'%20stroke-linecap%3D'round'%3E%3Cpath%20stroke%3D'%234B613B'%20stroke-width%3D'7'%20opacity%3D'.30'%20d%3D'M12%20710%20C42%20654%2028%20608%2070%20552%20C110%20498%2092%20442%20130%20392%20C164%20348%20158%20298%20196%20252%20C230%20210%20224%20158%20272%2094%20C294%2064%20302%2042%20312%2012'%2F%3E%3Cpath%20stroke%3D'%23709450'%20stroke-width%3D'2.2'%20opacity%3D'.24'%20d%3D'M65%20558%20C46%20526%2038%20494%2044%20452%20M128%20396%20C102%20374%2088%20344%2084%20308%20M198%20254%20C176%20230%20168%20196%20172%20164%20M272%2094%20C248%2090%20230%2076%20218%2054'%2F%3E%3Cpath%20stroke%3D'%23384631'%20stroke-width%3D'4'%20opacity%3D'.26'%20d%3D'M304%20692%20C266%20662%20254%20626%20230%20594%20C204%20560%20210%20520%20184%20484'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%236D944B'%3E%3Cellipse%20opacity%3D'.27'%20cx%3D'47'%20cy%3D'468'%20rx%3D'12'%20ry%3D'5'%20transform%3D'rotate(-44%2047%20468)'/%3E%3Cellipse%20opacity%3D'.23'%20cx%3D'86'%20cy%3D'319'%20rx%3D'11'%20ry%3D'4.5'%20transform%3D'rotate(32%2086%20319)'/%3E%3Cellipse%20opacity%3D'.20'%20cx%3D'176'%20cy%3D'181'%20rx%3D'10'%20ry%3D'4.2'%20transform%3D'rotate(-36%20176%20181)'/%3E%3Cellipse%20opacity%3D'.18'%20cx%3D'221'%20cy%3D'61'%20rx%3D'9'%20ry%3D'4'%20transform%3D'rotate(24%20221%2061)'/%3E%3C%2Fg%3E%3Cg%20fill%3D'%23A9F45D'%3E%3Ccircle%20opacity%3D'.56'%20cx%3D'70'%20cy%3D'552'%20r%3D'3.2'%2F%3E%3Ccircle%20opacity%3D'.48'%20cx%3D'130'%20cy%3D'392'%20r%3D'3'%2F%3E%3Ccircle%20opacity%3D'.45'%20cx%3D'196'%20cy%3D'252'%20r%3D'3'%2F%3E%3Ccircle%20opacity%3D'.40'%20cx%3D'272'%20cy%3D'94'%20r%3D'2.8'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23B59A61'%20opacity%3D'.26'%3E%3Cpath%20d%3D'M250%20672%20q14-18%2028%200z'%2F%3E%3Crect%20x%3D'262'%20y%3D'671'%20width%3D'4'%20height%3D'16'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M279%20648%20q10-13%2020%200z'%2F%3E%3Crect%20x%3D'287'%20y%3D'647'%20width%3D'3'%20height%3D'12'%20rx%3D'1.5'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center top / 100% 100% no-repeat,
+        radial-gradient(circle at 82% 19%,rgba(164,244,84,.12) 0 2px,rgba(164,244,84,.035) 4px 42px,transparent 92px),
+        radial-gradient(circle at 26% 78%,rgba(88,133,61,.10),transparent 130px),
+        linear-gradient(118deg,rgba(255,255,255,.018) 0%,rgba(126,151,105,.035) 28%,rgba(0,0,0,.055) 100%),
+        linear-gradient(180deg,#172019 0%,#0d140f 56%,#080c09 100%);
+      box-shadow:inset 10px 0 20px rgba(0,0,0,.55),inset 1px 0 rgba(160,190,137,.11),inset -1px 0 rgba(0,0,0,.75);
+    }
+
     .battle-comms-lobby .player-leaderboard-strip,
     .battle-comms-lobby .little-hero-hud {
       background:linear-gradient(180deg,#1a1f25,#0c0f13);
@@ -854,6 +887,14 @@
         repeating-linear-gradient(0deg,rgba(255,242,248,.012) 0 1px,transparent 1px 4px);
     }
 
+    /* VERDANTIS // one large root system occupies the otherwise dead chat field.
+       The growth stays beneath content and is intentionally asymmetric. */
+    #game-screen[data-player-theme="verdantis"] .battle-comms-lobby #chat-panel::before {
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20280%20380'%3E%3Cg%20fill%3D'none'%20stroke-linecap%3D'round'%3E%3Cpath%20stroke%3D'%23465A39'%20stroke-width%3D'6'%20opacity%3D'.24'%20d%3D'M12%20370%20C36%20330%2056%20320%2068%20280%20C80%20238%20110%20232%20124%20194%20C138%20158%20164%20154%20182%20118%20C202%2078%20224%2076%20266%2036'%2F%3E%3Cpath%20stroke%3D'%236E914E'%20stroke-width%3D'2'%20opacity%3D'.22'%20d%3D'M66%20282%20C42%20268%2036%20246%2038%20220%20M124%20194%20C102%20178%2096%20154%2098%20130%20M182%20118%20C166%20100%20162%2080%20168%2056%20M224%2076%20C236%2096%20244%20118%20242%20142'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23779852'%3E%3Cellipse%20opacity%3D'.27'%20cx%3D'39'%20cy%3D'230'%20rx%3D'10'%20ry%3D'4'%20transform%3D'rotate(-42%2039%20230)'/%3E%3Cellipse%20opacity%3D'.24'%20cx%3D'99'%20cy%3D'140'%20rx%3D'9'%20ry%3D'3.8'%20transform%3D'rotate(34%2099%20140)'/%3E%3Cellipse%20opacity%3D'.20'%20cx%3D'168'%20cy%3D'66'%20rx%3D'8'%20ry%3D'3.5'%20transform%3D'rotate(-28%20168%2066)'/%3E%3C%2Fg%3E%3Cg%20fill%3D'%23A9F45D'%3E%3Ccircle%20opacity%3D'.52'%20cx%3D'68'%20cy%3D'280'%20r%3D'3.2'%2F%3E%3Ccircle%20opacity%3D'.46'%20cx%3D'124'%20cy%3D'194'%20r%3D'3'%2F%3E%3Ccircle%20opacity%3D'.42'%20cx%3D'182'%20cy%3D'118'%20r%3D'2.8'%2F%3E%3Ccircle%20opacity%3D'.38'%20cx%3D'224'%20cy%3D'76'%20r%3D'2.6'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23B39A63'%20opacity%3D'.24'%3E%3Cpath%20d%3D'M204%20330%20q14-17%2028%200z'%2F%3E%3Crect%20x%3D'216'%20y%3D'329'%20width%3D'4'%20height%3D'17'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M236%20348%20q10-12%2020%200z'%2F%3E%3Crect%20x%3D'244'%20y%3D'347'%20width%3D'3'%20height%3D'12'%20rx%3D'1.5'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center 78% / 94% 60% no-repeat,
+        repeating-linear-gradient(0deg,rgba(197,218,184,.009) 0 1px,transparent 1px 5px);
+    }
+
     #chat-panel > * { position: relative; z-index: 1; }
 
     #game-screen[data-player-theme="pink-protocol"] #chat-panel {
@@ -869,6 +910,21 @@
     #game-screen[data-player-theme="pink-protocol"] .chat-form {
       background:
         linear-gradient(180deg,rgba(71,27,57,.96),rgba(28,11,23,.99));
+    }
+
+    #game-screen[data-player-theme="verdantis"] #chat-panel {
+      background:
+        radial-gradient(circle at 78% 84%,rgba(118,170,78,.060),transparent 35%),
+        linear-gradient(180deg,rgba(27,39,29,.985),rgba(8,13,9,.995));
+    }
+    #game-screen[data-player-theme="verdantis"] .chat-header {
+      background:
+        linear-gradient(116deg,rgba(190,218,171,.035),transparent 48%),
+        linear-gradient(90deg,rgba(31,46,33,.96),rgba(12,19,13,.97));
+    }
+    #game-screen[data-player-theme="verdantis"] .chat-form {
+      background:
+        linear-gradient(180deg,rgba(29,43,31,.97),rgba(10,16,11,.995));
     }
 
     .chat-header {
@@ -1230,6 +1286,36 @@
         linear-gradient(180deg,#6a2b58,#3a1630);
       box-shadow:inset 0 1px rgba(255,246,250,.09),inset 0 -1px rgba(0,0,0,.40);
     }
+
+    /* VERDANTIS MATERIAL 03 // RECLAIMED STATUS SLAB.
+       Metal is still visible, but roots and leaves have begun to own it. */
+    #game-screen[data-player-theme="verdantis"] .detainee-status-module {
+      background:
+        radial-gradient(circle at 88% 22%,rgba(166,244,89,.11) 0 2px,transparent 32px),
+        linear-gradient(118deg,rgba(255,255,255,.018),rgba(127,154,106,.045) 34%,rgba(0,0,0,.055) 100%),
+        linear-gradient(180deg,#1b281d,#0d140f 84%);
+      box-shadow:inset 0 1px rgba(203,224,190,.065),inset 0 -3px 10px rgba(0,0,0,.70);
+    }
+    #game-screen[data-player-theme="verdantis"] .detainee-status-module::before {
+      content:"";
+      position:absolute;
+      right:7px;
+      top:5px;
+      width:142px;
+      height:86px;
+      z-index:0;
+      pointer-events:none;
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20142%2086'%3E%3Cg%20fill%3D'none'%20stroke-linecap%3D'round'%3E%3Cpath%20stroke%3D'%234A603B'%20stroke-width%3D'4'%20opacity%3D'.34'%20d%3D'M4%2080%20C24%2062%2036%2068%2052%2050%20C66%2034%2086%2040%20102%2024%20C116%2010%20126%2014%20138%204'%2F%3E%3Cpath%20stroke%3D'%2370954F'%20stroke-width%3D'1.6'%20opacity%3D'.28'%20d%3D'M52%2050%20C42%2038%2040%2028%2042%2018%20M102%2024%20C94%2018%2090%2010%2092%204'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%237C9F56'%3E%3Cellipse%20opacity%3D'.32'%20cx%3D'42'%20cy%3D'22'%20rx%3D'8'%20ry%3D'3.5'%20transform%3D'rotate(-38%2042%2022)'/%3E%3Cellipse%20opacity%3D'.28'%20cx%3D'92'%20cy%3D'10'%20rx%3D'7'%20ry%3D'3'%20transform%3D'rotate(28%2092%2010)'/%3E%3C%2Fg%3E%3Cg%20fill%3D'%23A9F45D'%3E%3Ccircle%20opacity%3D'.56'%20cx%3D'52'%20cy%3D'50'%20r%3D'2.7'%2F%3E%3Ccircle%20opacity%3D'.48'%20cx%3D'102'%20cy%3D'24'%20r%3D'2.5'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right bottom / 142px 86px no-repeat;
+      opacity:.92;
+    }
+    #game-screen[data-player-theme="verdantis"] .detainee-status-label {
+      background:
+        linear-gradient(90deg,rgba(145,183,117,.055),transparent 48%),
+        linear-gradient(180deg,#273429,#121b14);
+      box-shadow:inset 0 1px rgba(203,224,190,.055),inset 0 -1px rgba(0,0,0,.55);
+    }
+
     .detainee-status-module::after {
       content:"";
       position:absolute;
@@ -1371,6 +1457,17 @@
         linear-gradient(180deg,rgba(255,242,248,.05),transparent 24%),
         linear-gradient(100deg,#4a1f3d,#24111f 72%);
       box-shadow:inset 0 1px rgba(255,242,248,.07),inset 0 -1px rgba(0,0,0,.45);
+    }
+
+    /* VERDANTIS MATERIAL 04 // ROOT-WRAPPED TRANSMISSION.
+       Bark-dark casing, moss patina and one living vine at the empty edge. */
+    .battle-comms-lobby .chat-message[data-theme-id="verdantis"] {
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20170%2072'%3E%3Cg%20fill%3D'none'%20stroke-linecap%3D'round'%3E%3Cpath%20stroke%3D'%23556C42'%20stroke-width%3D'2.6'%20opacity%3D'.25'%20d%3D'M80%2068%20C94%2054%2098%2046%20112%2038%20C124%2030%20130%2020%20152%2010'%2F%3E%3Cpath%20stroke%3D'%237A9A55'%20stroke-width%3D'1.1'%20opacity%3D'.22'%20d%3D'M111%2038%20C104%2030%20102%2024%20104%2018%20M132%2022%20C140%2028%20144%2034%20144%2042'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%237A9D56'%3E%3Cellipse%20opacity%3D'.28'%20cx%3D'104'%20cy%3D'21'%20rx%3D'6'%20ry%3D'2.6'%20transform%3D'rotate(-35%20104%2021)'/%3E%3Cellipse%20opacity%3D'.24'%20cx%3D'144'%20cy%3D'39'%20rx%3D'5.5'%20ry%3D'2.4'%20transform%3D'rotate(30%20144%2039)'/%3E%3C%2Fg%3E%3Ccircle%20fill%3D'%23A9F45D'%20opacity%3D'.48'%20cx%3D'112'%20cy%3D'38'%20r%3D'2.3'%2F%3E%3C%2Fsvg%3E") right 5px bottom 3px / 112px 48px no-repeat,
+        radial-gradient(circle at 88% 22%,rgba(164,244,84,.09) 0 1px,transparent 24px),
+        repeating-linear-gradient(145deg,rgba(117,145,98,.010) 0 1px,transparent 1px 11px),
+        linear-gradient(100deg,#1a261c,#0c140e 74%);
+      box-shadow:inset 0 1px rgba(195,220,181,.045),inset 0 -1px rgba(0,0,0,.60);
     }
 
     .battle-comms-lobby .chat-message.grouped {
