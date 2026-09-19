@@ -125,6 +125,7 @@ const App = {
         gmTracker.appendChild(openBtn);
       }
 
+      ControlSurfaces.init(this);
       this.setupEventListeners();
       Forge.init();
       this.populateBackgroundSelector();
@@ -217,7 +218,7 @@ const App = {
     document.getElementById('nema-asoc-btn')?.addEventListener('click', () => this.triggerNemaAsoc());
 
     document.getElementById('library-btn').addEventListener('click', () => Forge.open());
-    document.getElementById('library-btn-footer').addEventListener('click', () => Forge.open());
+    document.getElementById('library-btn-footer').addEventListener('click', () => ControlSurfaces.toggle());
     document.getElementById('new-game-btn').addEventListener('click', () => Forge.open().then(() => Forge.openCreator(null, true)));
     document.getElementById('next-game-btn').addEventListener('click', () => Forge.open());
 
@@ -684,6 +685,9 @@ const App = {
     document.getElementById('close-room-btn').style.display = isMultiplayer ? 'block' : 'none';
     document.getElementById('next-game-btn').style.display = isMultiplayer ? 'block' : 'none';
     document.getElementById('scoring-section').style.display = isMultiplayer ? 'block' : 'none';
+    const recordsSection = document.getElementById('records-section');
+    if (recordsSection) recordsSection.style.display = isMultiplayer ? 'block' : 'none';
+    ControlSurfaces.updateSessionSummary();
     this.updateFailFinalButtonVisibility();
     this.updateWomfControlsVisibility();
 
@@ -703,6 +707,8 @@ const App = {
     const listEl = document.getElementById('mp-player-list');
 
     countEl.textContent = players.length;
+    const battleCount = document.getElementById('battle-session-player-count');
+    if (battleCount) battleCount.textContent = String(players.length);
     listEl.style.display = players.length > 0 ? 'block' : 'none';
 
     listEl.innerHTML = players.map(p => `

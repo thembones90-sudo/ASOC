@@ -1,0 +1,208 @@
+const ControlSurfaces = {
+  app: null,
+
+  init(app) {
+    this.app = app;
+    const content = document.querySelector('.gm-content');
+    if (!content || document.getElementById('gm-maintenance')) return;
+
+    const game = content.querySelector('.gm-module-game');
+    const clues = content.querySelector('.gm-module-clues');
+    const womf = content.querySelector('.gm-module-womf');
+    const global = content.querySelector('.gm-module-global');
+    const background = content.querySelector('.gm-module-background');
+    const chat = content.querySelector('.gm-module-chat');
+    const scoring = content.querySelector('.gm-module-scoring');
+    const multiplayer = content.querySelector('.gm-module-multiplayer');
+
+    const battle = document.createElement('div');
+    battle.id = 'gm-battle-control';
+    battle.className = 'gm-control-surface gm-battle-control';
+    content.insertBefore(battle, content.firstChild);
+    [game, clues, womf, chat, scoring, global].forEach(section => {
+      if (section) battle.appendChild(section);
+    });
+
+    if (game) {
+      const title = game.querySelector('.gm-section-title');
+      if (title) title.textContent = 'Battle Status';
+      const strip = document.createElement('div');
+      strip.id = 'battle-session-strip';
+      strip.className = 'battle-session-strip';
+      strip.innerHTML =
+        '<span id="battle-session-mode">LOCAL</span>' +
+        '<span id="battle-session-room" style="display:none;">ROOM <b id="battle-session-code">—</b></span>' +
+        '<span id="battle-session-heroes" style="display:none;"><b id="battle-session-player-count">0</b> HEROES</span>';
+      game.appendChild(strip);
+    }
+
+    if (womf) {
+      const title = womf.querySelector('.gm-section-title');
+      if (title) title.textContent = 'WOMF Commands';
+    }
+
+    if (scoring) {
+      const title = scoring.querySelector('.gm-section-title');
+      if (title) title.textContent = 'Session';
+    }
+
+    if (global) {
+      const title = global.querySelector('.gm-section-title');
+      if (title) title.textContent = 'Live Action';
+    }
+
+    const maintenance = document.createElement('div');
+    maintenance.id = 'gm-maintenance';
+    maintenance.className = 'gm-control-surface gm-maintenance';
+    maintenance.hidden = true;
+    maintenance.innerHTML =
+      '<div class="maintenance-header">' +
+        '<button type="button" class="maintenance-return-btn" id="maintenance-return-btn">← RETURN TO BATTLE CONTROL</button>' +
+        '<div class="maintenance-title">BACKDOOR</div>' +
+        '<div class="maintenance-subtitle">SYSTEM ACCESS // NON-BATTLE CONTROLS</div>' +
+        '<div id="maintenance-battle-warning" class="maintenance-battle-warning" style="display:none;">● BATTLE ACTIVE // TIMER CONTINUES</div>' +
+      '</div>';
+    content.appendChild(maintenance);
+
+    const makeModule = (titleText) => {
+      const section = document.createElement('section');
+      section.className = 'gm-section gm-module maintenance-module';
+      const title = document.createElement('h3');
+      title.className = 'gm-section-title';
+      title.textContent = titleText;
+      section.appendChild(title);
+      maintenance.appendChild(section);
+      return section;
+    };
+
+    const gameManagement = makeModule('Game Management');
+    const gameButtons = game?.querySelector('.gm-global-controls');
+    if (gameButtons) gameManagement.appendChild(gameButtons);
+    const nextGame = document.getElementById('next-game-btn');
+    if (nextGame) gameManagement.appendChild(nextGame);
+
+    const boardMaintenance = makeModule('Board Maintenance');
+    const undo = document.getElementById('undo-btn');
+    const resetBoard = document.getElementById('reset-board-btn');
+    const revealAll = document.getElementById('reveal-hide-all-btn');
+    const boardGrid = undo?.parentElement;
+    if (boardGrid && boardGrid.contains(resetBoard)) boardMaintenance.appendChild(boardGrid);
+    if (revealAll) {
+      revealAll.style.width = '100%';
+      revealAll.style.marginTop = '8px';
+      boardMaintenance.appendChild(revealAll);
+    }
+
+    if (background) {
+      const title = background.querySelector('.gm-section-title');
+      if (title) title.textContent = 'Visual Systems';
+      background.classList.add('maintenance-module');
+      maintenance.appendChild(background);
+    }
+
+    const womfMaintenance = makeModule('WOMF Maintenance');
+    const womfReset = document.getElementById('womf-reset-btn');
+    if (womfReset) {
+      const oldParent = womfReset.parentElement;
+      womfReset.style.width = '100%';
+      womfMaintenance.appendChild(womfReset);
+      if (oldParent) oldParent.style.gridTemplateColumns = '1fr';
+    }
+
+    if (multiplayer) {
+      const title = multiplayer.querySelector('.gm-section-title');
+      if (title) title.textContent = 'Multiplayer Administration';
+      multiplayer.classList.add('maintenance-module');
+      maintenance.appendChild(multiplayer);
+    }
+
+    const records = makeModule('Records');
+    records.id = 'records-section';
+    records.style.display = 'none';
+    const allTimeButton = document.getElementById('alltime-toggle-btn');
+    const allTimePanel = document.getElementById('alltime-leaderboard');
+    if (allTimeButton) {
+      allTimeButton.style.width = '100%';
+      allTimeButton.style.marginTop = '0';
+      records.appendChild(allTimeButton);
+    }
+    if (allTimePanel) records.appendChild(allTimePanel);
+
+    if (global) {
+      const nema = document.getElementById('nema-asoc-btn');
+      const controls = Array.from(global.querySelectorAll('.gm-global-controls'));
+      controls.forEach(group => {
+        if (!group.children.length) group.remove();
+        else group.style.gridTemplateColumns = '1fr';
+      });
+      if (nema) nema.style.width = '100%';
+    }
+
+    const footerButton = document.getElementById('library-btn-footer');
+    if (footerButton) {
+      footerButton.textContent = 'BACKDOOR';
+      footerButton.classList.add('maintenance-toggle-btn');
+    }
+
+    document.getElementById('maintenance-return-btn')?.addEventListener('click', () => this.setOpen(false));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !maintenance.hidden) this.setOpen(false);
+    });
+
+    this.updateSessionSummary();
+    this.updateBattleWarning();
+    setInterval(() => this.updateBattleWarning(), 1000);
+  },
+
+  setOpen(open) {
+    const battle = document.getElementById('gm-battle-control');
+    const maintenance = document.getElementById('gm-maintenance');
+    const footerButton = document.getElementById('library-btn-footer');
+    if (!battle || !maintenance) return;
+
+    battle.hidden = !!open;
+    maintenance.hidden = !open;
+    document.getElementById('gm-panel')?.classList.toggle('maintenance-open', !!open);
+
+    if (footerButton) {
+      footerButton.textContent = open ? 'RETURN TO BATTLE' : 'BACKDOOR';
+      footerButton.classList.toggle('active', !!open);
+    }
+
+    this.updateBattleWarning();
+    const scroll = document.querySelector('.gm-content');
+    if (scroll) scroll.scrollTop = 0;
+  },
+
+  toggle() {
+    const maintenance = document.getElementById('gm-maintenance');
+    this.setOpen(!!maintenance?.hidden);
+  },
+
+  updateSessionSummary() {
+    const app = this.app;
+    if (!app) return;
+    const multiplayer = app.mode === 'multiplayer';
+    const mode = document.getElementById('battle-session-mode');
+    const room = document.getElementById('battle-session-room');
+    const code = document.getElementById('battle-session-code');
+    const heroes = document.getElementById('battle-session-heroes');
+    const count = document.getElementById('battle-session-player-count');
+
+    if (mode) mode.textContent = multiplayer ? 'MULTIPLAYER' : 'LOCAL';
+    if (room) room.style.display = multiplayer ? 'inline' : 'none';
+    if (code) code.textContent = app.roomCode || '—';
+    if (heroes) heroes.style.display = multiplayer ? 'inline' : 'none';
+    if (count) count.textContent = String((app.currentPlayers || []).length);
+  },
+
+  updateBattleWarning() {
+    const warning = document.getElementById('maintenance-battle-warning');
+    if (!warning) return;
+    const phase = this.app?.timer?.phase || 'ready';
+    const active = ['running', 'paused', 'borrowed', 'borrowed_paused'].includes(phase);
+    warning.style.display = active ? 'block' : 'none';
+  }
+};
+
+window.ControlSurfaces = ControlSurfaces;

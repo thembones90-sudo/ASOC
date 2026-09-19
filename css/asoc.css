@@ -4606,3 +4606,121 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   .battle-controls-link,
   .battle-controls-channel { letter-spacing: .16em; }
 }
+/* =========================================================
+   GM CONTROL SURFACES — BATTLE CONTROL + BACKDOOR
+   ========================================================= */
+.gm-control-surface[hidden] { display: none !important; }
+.gm-control-surface { width: 100%; }
+
+.battle-session-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(120,126,139,.22);
+  font-size: .54rem;
+  font-weight: 800;
+  letter-spacing: 1.05px;
+  color: #777f8e;
+}
+.battle-session-strip b { color: #d6b565; font-weight: 900; }
+.gm-battle-control .gm-module-game .current-game { margin-bottom: 0; }
+.gm-maintenance { position: relative; }
+
+.maintenance-header {
+  position: relative;
+  margin: 0 0 12px;
+  padding: 13px 14px 14px;
+  border: 1px solid rgba(77,132,135,.48);
+  background:
+    linear-gradient(90deg, rgba(40,111,112,.08), transparent 45%),
+    linear-gradient(180deg, rgba(20,25,29,.98), rgba(10,13,16,.98));
+  box-shadow: inset 0 1px 0 rgba(177,226,225,.05);
+}
+.maintenance-header::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: #579b9d;
+  box-shadow: 0 0 10px rgba(77,168,170,.32);
+}
+.maintenance-title {
+  margin-top: 11px;
+  color: #9ed2d0;
+  font-size: 1.12rem;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 3.4px;
+  text-shadow: 0 0 9px rgba(84,176,176,.22);
+}
+.maintenance-subtitle {
+  margin-top: 5px;
+  color: #607b7d;
+  font-size: .5rem;
+  font-weight: 800;
+  letter-spacing: 1.45px;
+}
+.maintenance-return-btn {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid rgba(86,128,132,.45);
+  border-radius: 2px;
+  background: rgba(21,31,34,.85);
+  color: #8aa6a8;
+  font-family: inherit;
+  font-size: .56rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-align: left;
+  cursor: pointer;
+}
+.maintenance-return-btn:hover {
+  border-color: rgba(120,190,191,.72);
+  color: #c3e1df;
+  background: rgba(33,53,56,.9);
+}
+.maintenance-battle-warning {
+  margin-top: 10px;
+  padding: 7px 9px;
+  border: 1px solid rgba(188,73,57,.52);
+  background: rgba(102,33,28,.18);
+  color: #df7868;
+  font-size: .54rem;
+  font-weight: 900;
+  letter-spacing: 1.1px;
+  animation: maintenance-live-pulse 1.6s ease-in-out infinite;
+}
+.gm-maintenance .maintenance-module {
+  border-color: rgba(77,103,108,.52);
+  background:
+    linear-gradient(90deg, rgba(47,93,96,.035), transparent 32%),
+    var(--panel-bg);
+}
+.gm-maintenance .maintenance-module .gm-section-title {
+  color: #78a9aa;
+  border-color: rgba(76,109,113,.38);
+}
+.gm-maintenance .gm-global-btn:not(.reset-btn):not(.primary) {
+  border-color: rgba(85,105,112,.72);
+}
+.gm-footer .maintenance-toggle-btn {
+  border-color: rgba(73,126,129,.62);
+  color: #82b4b4;
+}
+.gm-footer .maintenance-toggle-btn:hover,
+.gm-footer .maintenance-toggle-btn.active {
+  border-color: rgba(112,188,188,.86);
+  color: #c3e1df;
+  background: rgba(45,93,95,.22);
+}
+#gm-panel.maintenance-open .gm-header {
+  border-bottom-color: rgba(78,137,139,.5);
+}
+#gm-panel.maintenance-open .gm-subtitle { color: #6e9a9b; }
+
+@keyframes maintenance-live-pulse {
+  0%, 100% { opacity: .72; }
+  50% { opacity: 1; }
+}
