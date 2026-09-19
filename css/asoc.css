@@ -2391,6 +2391,22 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
     repeating-linear-gradient(145deg,rgba(136,121,94,.010) 0 1px,transparent 1px 12px),
     linear-gradient(100deg,#1e1d19 0%,#121310 78%);
 }
+
+/* MY SINDRAGOSA 05 // FROZEN GM ADJUDICATION STRIP. */
+.gm-module-chat .gm-chat-message.discord-row[data-theme-id="my-sindragosa"] {
+  background:
+    linear-gradient(136deg,transparent 0 87%,rgba(128,207,246,.075) 87.4% 87.8%,transparent 88.2% 100%),
+    linear-gradient(180deg,rgba(195,235,255,.028),transparent 28%),
+    linear-gradient(100deg,#111b23 0%,#091219 78%);
+  border-color:rgba(91,145,174,.38);
+  box-shadow:inset 0 1px rgba(185,228,249,.04),inset 0 -1px rgba(0,0,0,.60);
+}
+.gm-module-chat .gm-chat-message.discord-row[data-theme-id="my-sindragosa"]:hover {
+  background:
+    linear-gradient(136deg,transparent 0 87%,rgba(139,216,253,.10) 87.4% 87.8%,transparent 88.2% 100%),
+    linear-gradient(180deg,rgba(205,240,255,.038),transparent 28%),
+    linear-gradient(100deg,#14212b 0%,#0b151d 78%);
+}
 .gm-module-chat .gm-chat-message.discord-row.wrong {
   border-color: rgba(216,97,87,.44);
   border-left-color: #d86157;

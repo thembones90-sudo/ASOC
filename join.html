@@ -274,9 +274,13 @@
       box-shadow:inset 2px 0 #5faf63,inset 0 1px rgba(214,235,205,.06),inset 0 -1px rgba(0,0,0,.55);
     }
     .theme-select[data-theme-id="my-sindragosa"] .theme-select-toggle {
-      border-color:#5f9fbe;
-      background:linear-gradient(180deg,#15232d,#0a1117);
-      box-shadow:inset 2px 0 #79c8f2, inset 0 1px rgba(255,255,255,.05);
+      border-color:#69a9c9;
+      background:
+        linear-gradient(132deg,transparent 0 78%,rgba(158,225,255,.20) 78.5% 79%,transparent 79.5% 100%),
+        radial-gradient(circle at 82% 24%,rgba(111,207,251,.16),transparent 28%),
+        linear-gradient(180deg,rgba(210,241,255,.045),transparent 25%),
+        linear-gradient(180deg,#142838,#08131d);
+      box-shadow:inset 2px 0 #79c8f2,inset 0 1px rgba(200,238,255,.10),inset 0 -1px rgba(0,0,0,.62);
     }
     .theme-select[data-theme-id="disco-inferno"] .theme-select-toggle {
       border-color:#9e542d;
@@ -459,8 +463,11 @@
     }
     .theme-option[data-theme-id="my-sindragosa"].selected {
       border-color:#72b7da;
-      box-shadow:inset 2px 0 #79c8f2;
-      background:linear-gradient(180deg,#15232d,#0a1117);
+      box-shadow:inset 2px 0 #79c8f2,inset 0 1px rgba(200,238,255,.09);
+      background:
+        linear-gradient(132deg,transparent 0 80%,rgba(158,225,255,.18) 80.5% 81%,transparent 81.5% 100%),
+        radial-gradient(circle at 82% 24%,rgba(111,207,251,.14),transparent 28%),
+        linear-gradient(180deg,#142838,#08131d);
     }
     .theme-option[data-theme-id="disco-inferno"].selected {
       border-color:#d46d35;
@@ -604,6 +611,17 @@
         radial-gradient(circle at 84% 76%,rgba(80,126,58,.075),transparent 150px),
         linear-gradient(118deg,rgba(255,255,255,.018) 0%,rgba(116,145,97,.035) 34%,rgba(0,0,0,.045) 100%),
         linear-gradient(145deg,#111a12 0%,#0b100c 48%,#050806 100%);
+    }
+
+    /* MY SINDRAGOSA 01 // FROSTBOUND NECROPOLIS SHELL.
+       Outer atmosphere only. The authored board is sacred and remains untouched. */
+    #game-screen[data-player-theme="my-sindragosa"] {
+      background:
+        radial-gradient(circle at 92% 13%,rgba(110,211,255,.16) 0 2px,rgba(68,151,202,.05) 4px 60px,transparent 145px),
+        linear-gradient(128deg,transparent 0 61%,rgba(139,218,255,.055) 61.2% 61.45%,transparent 61.7% 100%),
+        linear-gradient(42deg,transparent 0 78%,rgba(175,229,255,.045) 78.2% 78.45%,transparent 78.7% 100%),
+        radial-gradient(ellipse at 87% 77%,rgba(54,113,157,.12),transparent 180px),
+        linear-gradient(145deg,#0b1721 0%,#071019 46%,#03080d 100%);
     }
 
     #game-screen.active {
@@ -856,6 +874,52 @@
         url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20320%20176'%3E%3Cg%20fill%3D'none'%20stroke-linecap%3D'round'%3E%3Cpath%20stroke%3D'%23384930'%20stroke-width%3D'11'%20opacity%3D'.58'%20d%3D'M0%20166%20C42%20136%2062%20150%2094%20118%20C124%2088%20148%20110%20178%2078%20C206%2048%20232%2068%20258%2040%20C282%2018%20302%2022%20320%206'%2F%3E%3Cpath%20stroke%3D'%235D7946'%20stroke-width%3D'4'%20opacity%3D'.58'%20d%3D'M24%20156%20C46%20130%2064%20126%2084%20104%20C108%2078%20134%2096%20158%2070%20C182%2046%20202%2056%20228%2030%20C250%209%20282%2026%20308%2010'%2F%3E%3Cpath%20stroke%3D'%237D9E58'%20stroke-width%3D'2'%20opacity%3D'.42'%20d%3D'M84%20106%20C72%2086%2068%2068%2074%2050%20M158%2070%20C146%2052%20144%2038%20148%2020%20M228%2030%20C220%2050%20222%2068%20236%2084'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%237B9D57'%3E%3Cellipse%20opacity%3D'.70'%20cx%3D'72'%20cy%3D'58'%20rx%3D'12'%20ry%3D'5'%20transform%3D'rotate(-38%2072%2058)'/%3E%3Cellipse%20opacity%3D'.64'%20cx%3D'148'%20cy%3D'28'%20rx%3D'11'%20ry%3D'4.6'%20transform%3D'rotate(32%20148%2028)'/%3E%3Cellipse%20opacity%3D'.60'%20cx%3D'236'%20cy%3D'78'%20rx%3D'12'%20ry%3D'5'%20transform%3D'rotate(-30%20236%2078)'/%3E%3C%2Fg%3E%3Cg%20fill%3D'%23A9F45D'%3E%3Ccircle%20opacity%3D'.78'%20cx%3D'94'%20cy%3D'118'%20r%3D'3.2'%2F%3E%3Ccircle%20opacity%3D'.72'%20cx%3D'178'%20cy%3D'78'%20r%3D'3'%2F%3E%3Ccircle%20opacity%3D'.66'%20cx%3D'258'%20cy%3D'40'%20r%3D'3'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23C2A66C'%20opacity%3D'.72'%3E%3Cpath%20d%3D'M22%20118%20q14-16%2028%200z'%2F%3E%3Crect%20x%3D'34'%20y%3D'117'%20width%3D'4'%20height%3D'21'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M52%20138%20q10-12%2020%200z'%2F%3E%3Crect%20x%3D'60'%20y%3D'137'%20width%3D'3'%20height%3D'16'%20rx%3D'1.5'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center bottom / 100% 100% no-repeat;
       background-color:transparent;
     }
+
+    /* MY SINDRAGOSA 02 // FROZEN DRAGON CRYPT.
+       Ice, bone and necropolis silhouettes stay clipped inside Battle Comms. */
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby {
+      background:
+        radial-gradient(ellipse at 62% 78%,rgba(41,92,130,.28),transparent 38%),
+        linear-gradient(132deg,transparent 0 18%,rgba(135,215,255,.10) 18.2% 18.55%,transparent 18.8% 100%),
+        linear-gradient(46deg,transparent 0 72%,rgba(163,226,255,.08) 72.2% 72.5%,transparent 72.8% 100%),
+        linear-gradient(180deg,#0d1b27 0%,#08131d 48%,#050c13 100%);
+      border-left-color:#406b84;
+      box-shadow:inset 10px 0 22px rgba(0,0,0,.58),inset 1px 0 rgba(158,220,250,.22),inset -1px 0 rgba(0,0,0,.78);
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby::before {
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      border:0;
+      border-radius:0;
+      box-shadow:none;
+      background:
+        linear-gradient(120deg,transparent 0 8%,rgba(126,213,255,.52) 8.4% 9%,transparent 9.4% 100%) left top / 54px 110px no-repeat,
+        linear-gradient(58deg,transparent 0 14%,rgba(151,224,255,.40) 14.5% 15%,transparent 15.5% 100%) right top / 74px 135px no-repeat,
+        linear-gradient(135deg,transparent 0 42%,rgba(116,203,247,.32) 42.5% 43%,transparent 43.5% 100%) left bottom / 72px 170px no-repeat,
+        radial-gradient(ellipse at 62% 76%,rgba(68,132,176,.18),transparent 34%);
+      clip-path:inset(0);
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby::after {
+      content:"";
+      position:absolute;
+      left:0;right:0;bottom:52px;
+      height:42%;
+      z-index:0;
+      pointer-events:none;
+      border:0;
+      border-radius:0;
+      box-shadow:none;
+      background:
+        linear-gradient(78deg,transparent 0 8%,rgba(115,151,176,.18) 8.5% 10%,transparent 10.5% 100%),
+        linear-gradient(102deg,transparent 0 21%,rgba(92,128,154,.16) 21.5% 23%,transparent 23.5% 100%),
+        linear-gradient(84deg,transparent 0 34%,rgba(102,139,165,.13) 34.5% 36%,transparent 36.5% 100%),
+        radial-gradient(ellipse at 58% 100%,rgba(37,83,116,.44),transparent 62%);
+      clip-path:polygon(0 100%,0 68%,8% 56%,14% 74%,23% 43%,30% 70%,39% 50%,49% 76%,58% 32%,66% 68%,75% 46%,84% 72%,92% 50%,100% 65%,100% 100%);
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby > * { position:relative; z-index:1; }
 
     .battle-comms-lobby .player-leaderboard-strip,
     .battle-comms-lobby .little-hero-hud {
@@ -1357,6 +1421,32 @@
         repeating-linear-gradient(0deg,rgba(200,220,187,.010) 0 1px,transparent 1px 5px);
     }
 
+    /* MY SINDRAGOSA 03 // FROZEN RELIQUARY STATUS SLAB. */
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module {
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 88% 18%,rgba(128,219,255,.20) 0 2px,transparent 35px),
+        linear-gradient(136deg,transparent 0 66%,rgba(142,219,255,.11) 66.4% 66.9%,transparent 67.3% 100%),
+        linear-gradient(180deg,#132432,#09141e 86%);
+      border-color:#426d86;
+      box-shadow:inset 0 1px rgba(183,231,255,.12),inset 0 -3px 10px rgba(0,0,0,.76);
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module::before {
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      background:
+        linear-gradient(118deg,transparent 0 8%,rgba(141,220,255,.48) 8.5% 9.4%,transparent 10% 100%) left bottom / 52px 74px no-repeat,
+        linear-gradient(62deg,transparent 0 13%,rgba(160,226,255,.36) 13.5% 14.2%,transparent 15% 100%) right top / 66px 70px no-repeat,
+        radial-gradient(ellipse at 92% 100%,rgba(61,129,173,.16),transparent 35%);
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-label {
+      background:linear-gradient(180deg,#1b3345,#0d1c28);
+      box-shadow:inset 0 1px rgba(186,232,255,.10),inset 0 -1px rgba(0,0,0,.58);
+    }
+
     .detainee-status-module::after {
       content:"";
       position:absolute;
@@ -1521,6 +1611,28 @@
         linear-gradient(100deg,#1b1a17 0%,#10110f 76%,#0b0d0c 100%);
       border-color:rgba(126,119,101,.42);
       box-shadow:inset 0 1px rgba(224,215,194,.045),inset 0 -1px rgba(0,0,0,.68),0 2px 7px rgba(0,0,0,.28);
+    }
+
+    /* MY SINDRAGOSA 04 // OBSIDIAN-ICE TRANSMISSION SLAB.
+       Foreground stays darker and cleaner than the frozen crypt behind it. */
+    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"] {
+      background:
+        linear-gradient(136deg,transparent 0 84%,rgba(122,204,244,.09) 84.4% 84.8%,transparent 85.2% 100%),
+        linear-gradient(180deg,rgba(201,239,255,.045),transparent 24%),
+        linear-gradient(100deg,#111b24 0%,#09121a 76%,#070d13 100%);
+      border-color:rgba(105,163,194,.48);
+      box-shadow:inset 0 1px rgba(191,232,252,.07),inset 0 -1px rgba(0,0,0,.72),0 2px 8px rgba(0,0,0,.32);
+    }
+    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"]::after {
+      content:"";
+      position:absolute;
+      right:0;top:0;
+      width:42px;height:32px;
+      pointer-events:none;
+      background:
+        linear-gradient(128deg,transparent 0 36%,rgba(151,220,253,.30) 37% 39%,transparent 40% 100%),
+        linear-gradient(62deg,transparent 0 52%,rgba(113,191,231,.22) 53% 55%,transparent 56% 100%);
+      opacity:.8;
     }
 
     .battle-comms-lobby .chat-message.grouped {
