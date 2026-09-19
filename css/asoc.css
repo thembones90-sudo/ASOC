@@ -2355,6 +2355,24 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
     linear-gradient(180deg,rgba(232,237,242,.042),transparent 31%),
     linear-gradient(100deg,#1a2027,#0d1115 76%);
 }
+
+/* SUGARCOAT MATERIAL 05 // FAIRY CANDY ADJUDICATION STRIP.
+   Same resin family as player chat, flattened so GM controls remain dominant. */
+.gm-module-chat .gm-chat-message.discord-row[data-theme-id="pink-protocol"] {
+  background:
+    radial-gradient(circle at 91% 24%,rgba(255,244,250,.12) 0 1px,transparent 1.5px) 0 0 / 21px 21px,
+    linear-gradient(116deg,rgba(0,0,0,.05) 0%,rgba(255,227,241,.052) 42%,rgba(0,0,0,.05) 100%),
+    linear-gradient(180deg,rgba(255,241,247,.035),transparent 31%),
+    linear-gradient(100deg,#442036,#23111d 76%);
+  box-shadow:inset 0 1px rgba(255,241,247,.04),inset 0 -1px rgba(0,0,0,.42);
+}
+.gm-module-chat .gm-chat-message.discord-row[data-theme-id="pink-protocol"]:hover {
+  background:
+    radial-gradient(circle at 91% 24%,rgba(255,247,251,.14) 0 1px,transparent 1.5px) 0 0 / 21px 21px,
+    linear-gradient(116deg,rgba(0,0,0,.045) 0%,rgba(255,233,244,.067) 42%,rgba(0,0,0,.045) 100%),
+    linear-gradient(180deg,rgba(255,245,249,.045),transparent 31%),
+    linear-gradient(100deg,#4b2440,#26131f 76%);
+}
 .gm-module-chat .gm-chat-message.discord-row.wrong {
   border-color: rgba(216,97,87,.44);
   border-left-color: #d86157;

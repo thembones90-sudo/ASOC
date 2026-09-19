@@ -256,9 +256,13 @@
       box-shadow:inset 2px 0 #555f69,inset 0 1px rgba(226,232,238,.07),inset 0 -1px rgba(0,0,0,.72);
     }
     .theme-select[data-theme-id="pink-protocol"] .theme-select-toggle {
-      border-color:#a65c87;
-      background:linear-gradient(180deg,#251720,#100b0f);
-      box-shadow:inset 2px 0 #e06ab1, inset 0 1px rgba(255,255,255,.04);
+      border-color:#c77ca8;
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20150%2048'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23FFD7EA'%20stroke-width%3D'1.2'%3E%3Cpath%20opacity%3D'.18'%20d%3D'M10%2038%20C30%2026%2044%2026%2060%2018%20C76%2010%2092%2012%20112%208'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23FFF1F8'%3E%3Ccircle%20opacity%3D'.22'%20cx%3D'60'%20cy%3D'18'%20r%3D'2.3'%2F%3E%3Cpath%20opacity%3D'.18'%20d%3D'M124%2022%20l3%205%205%201%20l-4%204%201%205%20l-5-3%20l-5%203%201-5%20l-4-4%205-1z'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 8px center / 132px 42px no-repeat,
+        linear-gradient(116deg,rgba(0,0,0,.06) 0%,rgba(255,229,241,.12) 42%,rgba(0,0,0,.06) 100%),
+        linear-gradient(180deg,rgba(255,245,250,.055),transparent 24%),
+        linear-gradient(180deg,#522242,#2a1322);
+      box-shadow:inset 2px 0 #e06ab1,inset 0 1px rgba(255,245,250,.09),inset 0 -1px rgba(0,0,0,.48);
     }
     .theme-select[data-theme-id="verdantis"] .theme-select-toggle {
       border-color:#557f58;
@@ -432,9 +436,13 @@
         linear-gradient(180deg,#1b2026,#0b0e12);
     }
     .theme-option[data-theme-id="pink-protocol"].selected {
-      border-color:#d47aad;
-      box-shadow:inset 2px 0 #e06ab1;
-      background:linear-gradient(180deg,#251720,#100b0f);
+      border-color:#d68ab6;
+      box-shadow:inset 2px 0 #e06ab1,inset 0 1px rgba(255,245,250,.08);
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20150%2048'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23FFD7EA'%20stroke-width%3D'1.1'%3E%3Cpath%20opacity%3D'.16'%20d%3D'M12%2038%20C30%2028%2048%2028%2064%2018%20C80%208%2098%2010%20116%208'%2F%3E%3C%2Fg%3E%3Ccircle%20fill%3D'%23FFF1F8'%20opacity%3D'.20'%20cx%3D'64'%20cy%3D'18'%20r%3D'2.1'%2F%3E%3C%2Fsvg%3E") right 8px center / 128px 40px no-repeat,
+        linear-gradient(116deg,rgba(0,0,0,.05) 0%,rgba(255,230,242,.09) 42%,rgba(0,0,0,.05) 100%),
+        linear-gradient(180deg,rgba(255,245,250,.045),transparent 28%),
+        linear-gradient(180deg,#522242,#2a1322);
     }
     .theme-option[data-theme-id="verdantis"].selected {
       border-color:#68a66d;
@@ -564,6 +572,18 @@
         linear-gradient(90deg,transparent 0 58%,rgba(207,216,225,.025) 58% 58.08%,transparent 58.08% 100%),
         linear-gradient(180deg,rgba(255,255,255,.022),transparent 7%),
         linear-gradient(145deg,#151a20 0%,#0b0e12 48%,#05070a 100%);
+    }
+
+    /* SUGARCOAT MATERIAL 01 // FAIRY CANDY CHAMBER.
+       Cotton-candy haze and tiny star-glints stay in the shell only.
+       The authored board artwork remains completely untouched. */
+    #game-screen[data-player-theme="pink-protocol"] {
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20520%20300'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23FFD6EA'%20stroke-width%3D'1.1'%3E%3Cpath%20opacity%3D'.08'%20d%3D'M42%20250%20C92%20210%20138%20220%20182%20178%20C224%20138%20278%20144%20326%20104%20C370%2068%20424%2078%20486%2042'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23FFF3F9'%3E%3Ccircle%20opacity%3D'.13'%20cx%3D'182'%20cy%3D'178'%20r%3D'2.4'%2F%3E%3Ccircle%20opacity%3D'.11'%20cx%3D'326'%20cy%3D'104'%20r%3D'2.1'%2F%3E%3Cpath%20opacity%3D'.12'%20d%3D'M448%20126%20l4%207%208%201%20l-6%206%201%208%20l-7-4%20l-7%204%201-8%20l-6-6%208-1z'%2F%3E%3Cpath%20opacity%3D'.09'%20d%3D'M400%20182%20l3%205%206%201%20l-4%204%201%206%20l-6-3%20l-5%203%201-6%20l-4-4%205-1z'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 2vw top 9vh / min(520px,38vw) auto no-repeat,
+        radial-gradient(circle at 88% 16%,rgba(255,192,230,.12) 0 2px,rgba(255,192,230,.045) 3px 50px,transparent 120px),
+        radial-gradient(circle at 91% 72%,rgba(255,145,205,.08) 0,transparent 145px),
+        linear-gradient(115deg,rgba(255,255,255,.025) 0%,rgba(255,220,235,.060) 34%,rgba(255,255,255,.018) 52%,rgba(0,0,0,.05) 100%),
+        linear-gradient(145deg,#24111f 0%,#150a13 44%,#0c060c 100%);
     }
 
     #game-screen.active {
@@ -760,6 +780,19 @@
         linear-gradient(180deg,#171d23 0%,#0c1014 58%,#080a0d 100%);
       box-shadow:inset 10px 0 20px rgba(0,0,0,.60),inset 1px 0 rgba(211,219,227,.22),inset -1px 0 rgba(0,0,0,.80);
     }
+
+    /* SUGARCOAT MATERIAL 02 // FAIRY LOLLIPOP CORTEX.
+       Glossy candy enamel over dark machinery with curved candy-circuit routing. */
+    #game-screen[data-player-theme="pink-protocol"] .battle-comms-lobby {
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20320%20720'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23FFD6EA'%20stroke-width%3D'1.15'%3E%3Cpath%20opacity%3D'.13'%20d%3D'M24%2080%20C64%2056%2084%2088%20112%2070%20C144%2050%20168%2086%20198%2064%20C226%2044%20258%2058%20298%2030'%2F%3E%3Cpath%20opacity%3D'.10'%20d%3D'M42%20256%20C78%20224%20110%20248%20142%20212%20C174%20178%20208%20212%20246%20172'%2F%3E%3Cpath%20opacity%3D'.08'%20d%3D'M52%20594%20C92%20554%20126%20586%20162%20542%20C196%20500%20230%20530%20278%20484'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23FFF0F8'%3E%3Ccircle%20opacity%3D'.18'%20cx%3D'112'%20cy%3D'70'%20r%3D'3.2'%2F%3E%3Ccircle%20opacity%3D'.16'%20cx%3D'142'%20cy%3D'212'%20r%3D'3'%2F%3E%3Ccircle%20opacity%3D'.14'%20cx%3D'162'%20cy%3D'542'%20r%3D'3'%2F%3E%3Cpath%20opacity%3D'.15'%20d%3D'M262%20304%20l4%207%208%201%20l-6%206%201%208%20l-7-4%20l-7%204%201-8%20l-6-6%208-1z'%2F%3E%3Cpath%20opacity%3D'.11'%20d%3D'M92%20414%20l3%205%206%201%20l-4%204%201%206%20l-6-3%20l-5%203%201-6%20l-4-4%205-1z'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center top / 100% 100% no-repeat,
+        linear-gradient(118deg,rgba(255,255,255,.045) 0%,rgba(255,215,235,.125) 28%,rgba(255,255,255,.04) 46%,rgba(255,170,215,.055) 62%,rgba(0,0,0,.08) 100%),
+        linear-gradient(90deg,rgba(255,150,215,.10) 0 2px,transparent 2px 100%),
+        linear-gradient(180deg,rgba(255,235,245,.05),transparent 10%),
+        linear-gradient(180deg,#3a1630 0%,#23101f 56%,#150b12 100%);
+      box-shadow:inset 10px 0 20px rgba(0,0,0,.42),inset 1px 0 rgba(255,235,244,.18),inset -1px 0 rgba(0,0,0,.65);
+    }
+
     .battle-comms-lobby .player-leaderboard-strip,
     .battle-comms-lobby .little-hero-hud {
       background:linear-gradient(180deg,#1a1f25,#0c0f13);
@@ -813,7 +846,30 @@
         repeating-linear-gradient(0deg,rgba(255,255,255,.010) 0 1px,transparent 1px 4px);
     }
 
+    /* SUGARCOAT // fairy-lollipop structure in the empty comms field.
+       Curved candy routing, round nodes and starbursts live beneath content. */
+    #game-screen[data-player-theme="pink-protocol"] .battle-comms-lobby #chat-panel::before {
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20280%20380'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23FFD5EA'%20stroke-width%3D'1.2'%3E%3Cpath%20opacity%3D'.14'%20d%3D'M18%20314%20C46%20288%2070%20286%2092%20260%20C114%20232%20146%20230%20170%20202%20C194%20174%20224%20172%20260%20148'%2F%3E%3Cpath%20opacity%3D'.11'%20d%3D'M34%20348%20C62%20320%2092%20320%20120%20290%20C148%20260%20176%20258%20208%20222'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23FFE7F3'%3E%3Ccircle%20opacity%3D'.19'%20cx%3D'92'%20cy%3D'260'%20r%3D'4'%2F%3E%3Ccircle%20opacity%3D'.16'%20cx%3D'170'%20cy%3D'202'%20r%3D'3.2'%2F%3E%3Ccircle%20opacity%3D'.14'%20cx%3D'208'%20cy%3D'222'%20r%3D'3.2'%2F%3E%3Ccircle%20opacity%3D'.14'%20cx%3D'120'%20cy%3D'290'%20r%3D'3.2'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23FFF6FB'%3E%3Cpath%20opacity%3D'.16'%20d%3D'M236%2082%20l6%2010%2012%202%20l-9%208%202%2012%20l-11-6%20l-11%206%202-12%20l-9-8%2012-2z'%2F%3E%3Cpath%20opacity%3D'.12'%20d%3D'M208%20126%20l4%207%208%201%20l-6%206%201%208%20l-7-4%20l-7%204%201-8%20l-6-6%208-1z'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center 78% / 92% 58% no-repeat,
+        repeating-linear-gradient(0deg,rgba(255,242,248,.012) 0 1px,transparent 1px 4px);
+    }
+
     #chat-panel > * { position: relative; z-index: 1; }
+
+    #game-screen[data-player-theme="pink-protocol"] #chat-panel {
+      background:
+        radial-gradient(circle at 86% 82%,rgba(255,162,210,.055),transparent 34%),
+        linear-gradient(180deg,rgba(63,24,51,.98),rgba(24,10,20,.99));
+    }
+    #game-screen[data-player-theme="pink-protocol"] .chat-header {
+      background:
+        linear-gradient(116deg,rgba(255,240,247,.055),transparent 46%),
+        linear-gradient(90deg,rgba(82,34,67,.96),rgba(31,13,26,.96));
+    }
+    #game-screen[data-player-theme="pink-protocol"] .chat-form {
+      background:
+        linear-gradient(180deg,rgba(71,27,57,.96),rgba(28,11,23,.99));
+    }
 
     .chat-header {
       display: flex;
@@ -1146,6 +1202,34 @@
       box-shadow:inset 0 1px rgba(229,234,239,.075),inset 0 -1px rgba(0,0,0,.62);
     }
 
+    /* SUGARCOAT MATERIAL 03 // ENCHANTED CANDY BADGE.
+       Pearlescent pink resin with a tiny fairy-star flourish. */
+    #game-screen[data-player-theme="pink-protocol"] .detainee-status-module {
+      background:
+        linear-gradient(112deg,rgba(255,255,255,.05) 0%,rgba(255,220,236,.155) 34%,rgba(255,255,255,.06) 48%,rgba(255,155,210,.055) 66%,rgba(0,0,0,.08) 100%),
+        linear-gradient(180deg,rgba(255,240,247,.06),transparent 24%),
+        linear-gradient(180deg,#4b1d3d,#24121f 82%);
+      box-shadow:inset 0 1px rgba(255,241,247,.12),inset 0 -3px 10px rgba(0,0,0,.62);
+    }
+    #game-screen[data-player-theme="pink-protocol"] .detainee-status-module::before {
+      content:"";
+      position:absolute;
+      right:8px;
+      top:7px;
+      width:122px;
+      height:80px;
+      z-index:0;
+      pointer-events:none;
+      opacity:.9;
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20122%2080'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23FFD7EA'%20stroke-width%3D'1.2'%3E%3Cpath%20opacity%3D'.18'%20d%3D'M10%2060%20C28%2042%2042%2042%2056%2028%20C68%2016%2084%2016%20104%2010'%2F%3E%3Cpath%20opacity%3D'.12'%20d%3D'M34%2072%20C34%2058%2044%2048%2058%2042%20C74%2034%2082%2022%2086%208'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23FFEFF7'%3E%3Ccircle%20opacity%3D'.20'%20cx%3D'56'%20cy%3D'28'%20r%3D'3'%2F%3E%3Ccircle%20opacity%3D'.17'%20cx%3D'86'%20cy%3D'8'%20r%3D'2.6'%2F%3E%3Cpath%20opacity%3D'.16'%20d%3D'M94%2050%20l5%208%209%201%20l-7%206%202%209%20l-9-5%20l-9%205%202-9%20l-7-6%209-1z'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center / contain no-repeat;
+    }
+    #game-screen[data-player-theme="pink-protocol"] .detainee-status-label {
+      background:
+        linear-gradient(90deg,rgba(255,240,247,.065),transparent 46%),
+        linear-gradient(180deg,#6a2b58,#3a1630);
+      box-shadow:inset 0 1px rgba(255,246,250,.09),inset 0 -1px rgba(0,0,0,.40);
+    }
     .detainee-status-module::after {
       content:"";
       position:absolute;
@@ -1275,6 +1359,18 @@
         repeating-linear-gradient(135deg,rgba(255,255,255,.008) 0 1px,transparent 1px 10px),
         linear-gradient(100deg,#171d23,#0b0f13 72%);
       box-shadow:inset 0 1px rgba(224,230,236,.055),inset 0 -1px rgba(0,0,0,.68);
+    }
+
+    /* SUGARCOAT MATERIAL 04 // CANDY-WRAPPER TRANSMISSION.
+       Glossy raspberry resin with one tiny fairy trail in the empty edge. */
+    .battle-comms-lobby .chat-message[data-theme-id="pink-protocol"] {
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20170%2072'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23FFD9EC'%20stroke-width%3D'1.1'%3E%3Cpath%20opacity%3D'.13'%20d%3D'M10%2056%20C30%2042%2044%2042%2060%2030%20C74%2020%2092%2020%20114%2016'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23FFF4FA'%3E%3Ccircle%20opacity%3D'.13'%20cx%3D'60'%20cy%3D'30'%20r%3D'2.2'%2F%3E%3Cpath%20opacity%3D'.12'%20d%3D'M126%2044%20l3%205%206%201%20l-4%204%201%206%20l-6-3%20l-6%203%201-6%20l-4-4%206-1z'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 6px bottom 4px / 82px 36px no-repeat,
+        radial-gradient(circle at 89% 18%,rgba(255,245,250,.16) 0 1px,transparent 1.5px) 0 0 / 19px 19px,
+        linear-gradient(116deg,rgba(0,0,0,.06) 0%,rgba(255,225,240,.075) 38%,rgba(255,255,255,.055) 46%,rgba(255,170,218,.035) 58%,rgba(0,0,0,.07) 100%),
+        linear-gradient(180deg,rgba(255,242,248,.05),transparent 24%),
+        linear-gradient(100deg,#4a1f3d,#24111f 72%);
+      box-shadow:inset 0 1px rgba(255,242,248,.07),inset 0 -1px rgba(0,0,0,.45);
     }
 
     .battle-comms-lobby .chat-message.grouped {
