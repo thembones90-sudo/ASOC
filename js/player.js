@@ -141,25 +141,13 @@ const PlayerApp = {
       if (!themeSelect || !themeToggle || !themeMenu || themeMenu.hidden) return;
       const rect = themeToggle.getBoundingClientRect();
       const viewportPad = 12;
-      const desiredWidth = Math.min(300, window.innerWidth - viewportPad * 2);
       const availableAbove = Math.max(0, rect.top - viewportPad - 5);
       const availableBelow = Math.max(0, window.innerHeight - rect.bottom - viewportPad - 5);
       const openUp = availableBelow < 190 && availableAbove > availableBelow;
       const available = openUp ? availableAbove : availableBelow;
-      const maxHeight = Math.max(120, Math.min(220, available));
-      const menuHeight = Math.min(themeMenu.scrollHeight, maxHeight);
-      const left = Math.min(
-        window.innerWidth - desiredWidth - viewportPad,
-        Math.max(viewportPad, rect.right - desiredWidth)
-      );
-      const top = openUp
-        ? Math.max(viewportPad, rect.top - menuHeight - 5)
-        : Math.min(window.innerHeight - menuHeight - viewportPad, rect.bottom + 5);
+      const maxHeight = Math.max(132, Math.min(280, available));
 
-      themeMenu.style.width = `${desiredWidth}px`;
       themeMenu.style.maxHeight = `${maxHeight}px`;
-      themeMenu.style.left = `${left}px`;
-      themeMenu.style.top = `${top}px`;
       themeSelect.classList.toggle('opens-up', openUp);
     };
 
