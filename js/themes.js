@@ -70,6 +70,22 @@ const ASOCThemes = {
       messageTop: '#173142',
       messageBottom: '#0B1720',
       ambient: 'rgba(121,200,242,.15)'
+    },
+    'disco-inferno': {
+      id: 'disco-inferno',
+      code: '05',
+      name: 'DISCO INFERNO',
+      subtitle: 'BURN SIGNAL // MOLTEN CIRCUITS',
+      color: '#F06A2A',
+      shellTop: '#1D120D',
+      shellBottom: '#0A0706',
+      railTop: '#27160F',
+      railBottom: '#110A07',
+      statusTop: '#311A11',
+      statusBottom: '#130B08',
+      messageTop: '#3A1B0F',
+      messageBottom: '#180C08',
+      ambient: 'rgba(240,106,42,.16)'
     }
   },
 
