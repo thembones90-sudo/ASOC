@@ -1394,10 +1394,10 @@ const PlayerApp = {
       <div class="chat-message ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}">
         <div class="chat-avatar-rail">${grouped ? '' : this.littleHeroAvatarHTML(identity)}</div>
         <div class="chat-message-main">
-          ${grouped ? '' : `<div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span><span class="chat-time">${time}</span></div>`}
+          ${grouped ? '' : `<div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>`}
           <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">↩</button>
           ${replyContextHtml}
-          <div class="chat-message-text">${this.escapeHtml(messageText)}</div>
+          <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span></div>
           ${verdictMetaHtml}
           ${verdictResponseHtml}
           ${this.createReactionBarHTML(msg)}

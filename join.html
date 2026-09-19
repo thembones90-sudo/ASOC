@@ -2341,6 +2341,97 @@
       cursor:pointer;
     }
 
+    /* CLASSIC SKYPE TRIBUTE // transcript-first Battle Comms.
+       Identity anchors the speaker block; messages stay light, dense and readable. */
+    .battle-comms-lobby #chat-messages {
+      padding:8px 9px 10px;
+    }
+    .battle-comms-lobby .chat-message {
+      display:grid;
+      grid-template-columns:34px minmax(0,1fr);
+      column-gap:7px;
+      min-height:0;
+      padding:2px 5px 3px 1px;
+    }
+    .battle-comms-lobby .chat-message:not(.grouped) {
+      margin-top:9px;
+      padding-top:4px;
+      box-shadow:none !important;
+    }
+    .battle-comms-lobby .chat-message.grouped {
+      margin-top:0;
+      padding-top:1px;
+    }
+    .battle-comms-lobby .chat-message.grouped .chat-avatar-rail {
+      width:34px;
+      min-width:34px;
+    }
+    .battle-comms-lobby .chat-avatar-rail {
+      width:34px;
+      min-width:34px;
+    }
+    .battle-comms-lobby .chat-avatar-rail .little-hero-avatar {
+      width:30px;
+      height:30px;
+      flex-basis:30px;
+    }
+    .battle-comms-lobby .chat-message-main {
+      padding-right:2px;
+    }
+    .battle-comms-lobby .chat-message-header {
+      min-height:15px;
+      margin:0 0 1px;
+    }
+    .battle-comms-lobby .chat-player-name {
+      font-size:.64rem;
+      letter-spacing:.65px;
+    }
+    .battle-comms-lobby .chat-message-line {
+      display:flex;
+      align-items:flex-end;
+      gap:8px;
+      min-width:0;
+    }
+    .battle-comms-lobby .chat-message-text {
+      flex:1 1 auto;
+      min-width:0;
+      font-size:.84rem;
+      line-height:1.28;
+      overflow-wrap:anywhere;
+    }
+    .battle-comms-lobby .chat-message-line .chat-time {
+      flex:0 0 auto;
+      margin-left:auto;
+      padding:0 1px 1px 4px;
+      color:#69727d;
+      font-size:.39rem;
+      opacity:.76;
+    }
+    .battle-comms-lobby .chat-message:hover {
+      background:linear-gradient(90deg,color-mix(in srgb,var(--theme-message-top,#151A20) 32%,transparent),transparent 88%) !important;
+    }
+    .battle-comms-lobby .chat-reply-context {
+      margin:1px 0 2px;
+      padding:1px 0 1px 7px;
+      opacity:.82;
+    }
+    .battle-comms-lobby .chat-reactions.has-reactions {
+      margin-top:2px;
+    }
+    .battle-comms-lobby .chat-reaction-chip {
+      border-radius:9px;
+      background:color-mix(in srgb,var(--theme-message-top,#151A20) 48%,rgba(8,10,13,.72));
+    }
+    .battle-comms-lobby .chat-form {
+      border-top:1px solid color-mix(in srgb,var(--player-theme,#6f7885) 34%,rgba(112,122,135,.30));
+      padding-top:7px;
+      background:linear-gradient(180deg,rgba(5,7,9,.34),rgba(5,7,9,.68));
+    }
+    .battle-comms-lobby .chat-reply-preview {
+      border-left-width:3px;
+      background:color-mix(in srgb,var(--player-theme,#d6a843) 8%,rgba(7,9,12,.86));
+    }
+
     @media (max-width: 900px) {
       #game-screen { overflow-y:auto; }
       .player-battle-layout { display:flex; flex-direction:column; height:auto; min-height:100%; padding:8px; }

@@ -1860,9 +1860,9 @@ const App = {
       <div class="gm-chat-message gm-flow-message ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}">
         <div class="gm-chat-avatar-rail">${grouped ? '' : this.littleHeroAvatarHTML(identity, true)}</div>
         <div class="gm-chat-message-main">
-          ${grouped ? '' : `<div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span><span class="gm-chat-time">${time}</span></div>`}
+          ${grouped ? '' : `<div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>`}
           ${replyContextHtml}
-          <div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div>
+          <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span></div>
           ${verdictMetaHtml}
           ${verdictResponseHtml}
           ${this.createGMReactionSummaryHTML(msg)}
