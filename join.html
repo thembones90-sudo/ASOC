@@ -438,6 +438,37 @@
       margin-bottom: 8px;
     }
 
+    /* Right rail hierarchy: CHAT is the tool. Identity/scoring is a compact
+       status bar, not three separate dashboards fighting for attention. */
+    .battle-comms-lobby .player-leaderboard-strip {
+      padding: 4px 7px;
+      min-height: 30px;
+    }
+    .battle-comms-lobby .player-leaderboard-list { gap: 7px; }
+    .battle-comms-lobby .player-leaderboard-entry { font-size: .5rem; }
+    .battle-comms-lobby .player-alltime-toggle-btn { padding: 4px 7px; font-size: .48rem; }
+    .battle-comms-lobby .little-hero-hud {
+      margin-top: 0;
+      padding: 6px 8px;
+      gap: 8px;
+    }
+    .battle-comms-lobby .hero-hud-identity { font-size: .58rem; gap: 6px; }
+    .battle-comms-lobby .hero-hud-identity .little-hero-avatar { width:26px; height:26px; flex-basis:26px; }
+    .battle-comms-lobby .hero-hud-stats { gap: 7px; font-size: .48rem; flex-wrap:nowrap; }
+    .battle-comms-lobby .little-hero-roster { display:none; }
+    .battle-comms-lobby #chat-panel { margin-top:8px; }
+    .battle-comms-lobby .chat-header { padding:8px 9px; gap:7px; }
+    .battle-comms-lobby .battle-comms-heading,
+    .battle-comms-lobby .battle-comms-status { gap:6px; }
+    .battle-comms-lobby .battle-comms-room,
+    .battle-comms-lobby .battle-comms-online,
+    .battle-comms-lobby .chat-solved { font-size:.46rem; letter-spacing:.6px; }
+    .battle-comms-lobby .battle-comms-room { padding-left:6px; }
+    .battle-comms-lobby .chat-title { font-size:.58rem; }
+    .battle-comms-lobby .chat-form { padding:7px; gap:7px; }
+    .battle-comms-lobby #chat-input { padding:10px 9px; font-size:.8rem; }
+    .battle-comms-lobby .chat-send-btn { padding:10px 11px; font-size:.62rem; }
+
     #chat-panel {
       width: 100%;
       max-width: var(--canvas-width);
