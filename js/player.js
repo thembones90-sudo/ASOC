@@ -1080,7 +1080,13 @@ const PlayerApp = {
       if (emojiPicker && !emojiPicker.hidden && !emojiPicker.contains(e.target) && e.target !== emojiToggle) {
         emojiPicker.hidden = true;
       }
-      if (reactionPicker && !reactionPicker.hidden && !reactionPicker.contains(e.target) && !e.target.closest('.chat-reaction-add')) {
+      if (
+        reactionPicker &&
+        !reactionPicker.hidden &&
+        !reactionPicker.contains(e.target) &&
+        !e.target.closest('.chat-reaction-add') &&
+        !e.target.closest('.chat-message, .chat-broker-entry')
+      ) {
         reactionPicker.hidden = true;
       }
     });
@@ -1108,31 +1114,76 @@ const PlayerApp = {
           return;
         }
 
-        const button = e.target.closest('.chat-reply-btn');
-        if (!button) return;
-        const messageEl = button.closest('.chat-message');
-        const name = messageEl?.dataset.playerName || 'LITTLE HERO';
-        const excerpt = (messageEl?.querySelector('.chat-message-text')?.textContent || '')
-          .replace(/[:\r\n]+/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .slice(0, 30);
-        this._replyTo = { id: button.dataset.replyId, name, excerpt };
-        const replyPrefix = `↳ @${name}${excerpt ? ` // ${excerpt}` : ''}: `;
-        input.maxLength = Math.max(1, 100 - replyPrefix.length);
-        if (input.value.length > input.maxLength) input.value = input.value.slice(0, input.maxLength);
-        const preview = document.getElementById('chat-reply-preview');
-        if (preview) {
-          preview.textContent = `REPLY TO ${name}${excerpt ? ` // ${excerpt}` : ''}`;
-          preview.style.display = 'block';
+        const replyButton = e.target.closest('.chat-reply-btn');
+        if (replyButton) {
+          const messageEl = replyButton.closest('.chat-message');
+          this.startChatReply(messageEl, replyButton.dataset.replyId || messageEl?.dataset.messageId || '');
+          return;
         }
-        input.focus();
+
+        // Fast reaction path: clicking anywhere on a message opens the emoji
+        // reaction picker. Interactive controls above short-circuit first so
+        // replying or toggling an existing reaction never also opens this.
+        const messageEl = e.target.closest('.chat-message, .chat-broker-entry');
+        if (messageEl) {
+          const messageId = messageEl.dataset.messageId || '';
+          if (messageId) this.openChatReactionPicker(messageId, messageEl);
+        }
       });
     }
 
     document.getElementById('chat-new-messages')?.addEventListener('click', () => {
       this.jumpToLatestChat();
     });
+
+    document.getElementById('chat-reply-cancel')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.cancelChatReply();
+    });
+  },
+
+  startChatReply(messageEl, replyId) {
+    const input = document.getElementById('chat-input');
+    if (!input || !messageEl || !replyId) return;
+
+    const name = messageEl.dataset.playerName || 'LITTLE HERO';
+    const excerpt = (messageEl.querySelector('.chat-message-text')?.textContent || '')
+      .replace(/[:\r\n]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 30);
+
+    this._replyTo = { id: replyId, name, excerpt };
+
+    const replyPrefix = `↳ @${name}${excerpt ? ` // ${excerpt}` : ''}: `;
+    input.maxLength = Math.max(1, 100 - replyPrefix.length);
+    if (input.value.length > input.maxLength) {
+      input.value = input.value.slice(0, input.maxLength);
+    }
+
+    const preview = document.getElementById('chat-reply-preview');
+    const previewText = document.getElementById('chat-reply-preview-text');
+    if (previewText) {
+      previewText.textContent = `REPLY TO ${name}${excerpt ? ` // ${excerpt}` : ''}`;
+    }
+    if (preview) preview.style.display = 'flex';
+
+    const reactionPicker = document.getElementById('chat-reaction-picker');
+    const emojiPicker = document.getElementById('chat-emoji-picker');
+    if (reactionPicker) reactionPicker.hidden = true;
+    if (emojiPicker) emojiPicker.hidden = true;
+
+    input.focus();
+  },
+
+  cancelChatReply() {
+    this._replyTo = null;
+    const input = document.getElementById('chat-input');
+    if (input) input.maxLength = 100;
+    const preview = document.getElementById('chat-reply-preview');
+    if (preview) preview.style.display = 'none';
+    input?.focus();
   },
 
   insertChatEmoji(emoji) {
@@ -1160,6 +1211,8 @@ const PlayerApp = {
 
     picker.dataset.messageId = messageId;
     picker.hidden = false;
+    const inputEmojiPicker = document.getElementById('chat-emoji-picker');
+    if (inputEmojiPicker) inputEmojiPicker.hidden = true;
     requestAnimationFrame(() => {
       const anchorRect = anchor.getBoundingClientRect();
       const pickerRect = picker.getBoundingClientRect();

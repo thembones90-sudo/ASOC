@@ -1953,18 +1953,26 @@
     }
     .battle-comms-lobby .chat-reply-btn {
       position:absolute;
-      top:-2px;
+      top:-3px;
       right:0;
+      z-index:6;
       float:none;
       opacity:0;
       pointer-events:none;
-      width:18px;
-      height:18px;
+      width:22px;
+      height:22px;
       padding:0;
+      border:1px solid transparent;
+      background:rgba(7,9,12,.72);
       color:#77818d;
-      font-size:.72rem;
-      line-height:18px;
+      font-size:.78rem;
+      line-height:20px;
       text-align:center;
+    }
+    .battle-comms-lobby .chat-reply-btn:hover {
+      color:#d6a843;
+      border-color:rgba(212,168,67,.42);
+      background:#11151a;
     }
     .battle-comms-lobby .chat-message:hover .chat-reply-btn,
     .battle-comms-lobby .chat-message:focus-within .chat-reply-btn {
@@ -2276,6 +2284,61 @@
     }
     .battle-comms-lobby #chat-input {
       padding-right:36px;
+      min-width:0;
+    }
+
+    /* Reply mode must occupy its own row instead of trying to coexist
+       beside the input and blowing the comms form wider than its rail. */
+    .battle-comms-lobby .chat-form {
+      position:relative;
+      flex-wrap:wrap;
+    }
+    .battle-comms-lobby .chat-reply-preview {
+      flex:0 0 100%;
+      width:100%;
+      min-width:0;
+      align-items:center;
+      justify-content:space-between;
+      gap:7px;
+      padding:5px 7px;
+      border-left:2px solid #d6a843;
+      background:rgba(212,168,67,.07);
+      color:#aab0ba;
+      font:700 .52rem var(--font-machine);
+      letter-spacing:.45px;
+      box-sizing:border-box;
+    }
+    .battle-comms-lobby #chat-reply-preview-text {
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .battle-comms-lobby .chat-reply-cancel {
+      flex:0 0 18px;
+      width:18px;
+      height:18px;
+      padding:0;
+      border:1px solid rgba(122,132,145,.35);
+      background:#0b0e12;
+      color:#8d96a1;
+      font:800 .60rem var(--font-machine);
+      line-height:16px;
+      cursor:pointer;
+    }
+    .battle-comms-lobby .chat-reply-cancel:hover {
+      border-color:#c95c5c;
+      color:#df746a;
+    }
+
+    .battle-comms-lobby .chat-message,
+    .battle-comms-lobby .chat-broker-entry {
+      cursor:pointer;
+    }
+    .battle-comms-lobby .chat-reaction-chip,
+    .battle-comms-lobby .chat-reaction-add,
+    .battle-comms-lobby .chat-reply-btn {
+      cursor:pointer;
     }
 
     @media (max-width: 900px) {
@@ -2488,7 +2551,10 @@
       <button type="button" id="chat-new-messages" class="chat-new-messages" hidden>↓ 0 NEW TRANSMISSIONS</button>
       <div id="chat-reaction-picker" class="chat-floating-emoji-picker" hidden></div>
       <form class="chat-form" id="chat-form">
-        <div id="chat-reply-preview" class="chat-reply-preview" style="display:none"></div>
+        <div id="chat-reply-preview" class="chat-reply-preview" style="display:none">
+          <span id="chat-reply-preview-text"></span>
+          <button type="button" id="chat-reply-cancel" class="chat-reply-cancel" title="Cancel reply" aria-label="Cancel reply">×</button>
+        </div>
         <button type="button" id="chat-emoji-toggle" class="chat-emoji-toggle" title="Emoji">☺</button>
         <div id="chat-emoji-picker" class="chat-input-emoji-picker" hidden></div>
         <input type="text" id="chat-input" placeholder="Insult here" maxlength="100" autocomplete="off">
