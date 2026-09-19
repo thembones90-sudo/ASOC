@@ -1,6 +1,8 @@
 /* ASOC Little Hero theme registry.
  * Themes may style surrounding UI BACKGROUND surfaces only.
  * They must never recolor the authored game-board artwork or board elements.
+ * LOCKED LINEUP: 01 SKYNET / 02 SUGARCOAT / 03 VERDANTIS /
+ * 04 MY SINDRAGOSA / 05 DISCO INFERNO.
  */
 const ASOCThemes = {
   DEFAULT_ID: 'gunmetal',
@@ -8,8 +10,8 @@ const ASOCThemes = {
     gunmetal: {
       id: 'gunmetal',
       code: '01',
-      name: 'GUNMETAL',
-      subtitle: 'CLASSIC ASOC // COLD STEEL',
+      name: 'SKYNET',
+      subtitle: 'MACHINERY OF OPPRESSION // COLD STEEL',
       color: '#343A42',
       shellTop: '#11161C',
       shellBottom: '#07090C',
@@ -24,8 +26,8 @@ const ASOCThemes = {
     'pink-protocol': {
       id: 'pink-protocol',
       code: '02',
-      name: 'PINK PROTOCOL',
-      subtitle: 'GIRLY WARFARE // ROSE CIRCUITS',
+      name: 'SUGARCOAT',
+      subtitle: 'SWEET VIOLENCE // PINK CIRCUITS',
       color: '#E06AB1',
       shellTop: '#1A1018',
       shellBottom: '#09070A',
