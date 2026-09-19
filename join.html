@@ -825,6 +825,36 @@
         linear-gradient(180deg,#172019 0%,#0d140f 56%,#080c09 100%);
       box-shadow:inset 10px 0 20px rgba(0,0,0,.55),inset 1px 0 rgba(160,190,137,.11),inset -1px 0 rgba(0,0,0,.75);
     }
+    #game-screen[data-player-theme="verdantis"] .battle-comms-lobby > * {
+      position:relative;
+      z-index:1;
+    }
+    #game-screen[data-player-theme="verdantis"] .battle-comms-lobby::before,
+    #game-screen[data-player-theme="verdantis"] .battle-comms-lobby::after {
+      pointer-events:none;
+      z-index:0;
+      border:0;
+      border-radius:0;
+      box-shadow:none;
+    }
+    #game-screen[data-player-theme="verdantis"] .battle-comms-lobby::before {
+      left:-2px;
+      top:-2px;
+      width:calc(100% + 4px);
+      height:148px;
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20320%20148'%3E%3Cg%20fill%3D'none'%20stroke-linecap%3D'round'%3E%3Cpath%20stroke%3D'%233B4E31'%20stroke-width%3D'10'%20opacity%3D'.62'%20d%3D'M2%2024%20C34%2038%2050%2010%2084%2022%20C118%2034%20138%205%20174%2018%20C208%2030%20234%209%20270%2020%20C288%2026%20304%2018%20318%207'%2F%3E%3Cpath%20stroke%3D'%235D7846'%20stroke-width%3D'4'%20opacity%3D'.60'%20d%3D'M18%2054%20C44%2036%2066%2048%2090%2032%20C116%2014%20138%2030%20162%2018%20C190%205%20210%2028%20238%2016%20C268%204%20292%2018%20312%2010'%2F%3E%3Cpath%20stroke%3D'%237FA25A'%20stroke-width%3D'2'%20opacity%3D'.46'%20d%3D'M64%2042%20C58%2064%2048%2078%2036%2090%20M154%2022%20C148%2042%20150%2060%20164%2074%20M242%2018%20C236%2036%20238%2056%20252%2068'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%237C9D58'%3E%3Cellipse%20opacity%3D'.70'%20cx%3D'38'%20cy%3D'84'%20rx%3D'13'%20ry%3D'5.5'%20transform%3D'rotate(-40%2038%2084)'/%3E%3Cellipse%20opacity%3D'.62'%20cx%3D'62'%20cy%3D'58'%20rx%3D'11'%20ry%3D'4.8'%20transform%3D'rotate(34%2062%2058)'/%3E%3Cellipse%20opacity%3D'.60'%20cx%3D'166'%20cy%3D'70'%20rx%3D'12'%20ry%3D'5'%20transform%3D'rotate(-32%20166%2070)'/%3E%3Cellipse%20opacity%3D'.58'%20cx%3D'252'%20cy%3D'64'%20rx%3D'11'%20ry%3D'4.6'%20transform%3D'rotate(28%20252%2064)'/%3E%3C%2Fg%3E%3Cg%20fill%3D'%23A9F45D'%3E%3Ccircle%20opacity%3D'.80'%20cx%3D'90'%20cy%3D'32'%20r%3D'3.2'%2F%3E%3Ccircle%20opacity%3D'.70'%20cx%3D'162'%20cy%3D'18'%20r%3D'3'%2F%3E%3Ccircle%20opacity%3D'.68'%20cx%3D'238'%20cy%3D'16'%20r%3D'3'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23C6AD75'%20opacity%3D'.72'%3E%3Cpath%20d%3D'M266%2096%20q15-18%2030%200z'%2F%3E%3Crect%20x%3D'279'%20y%3D'95'%20width%3D'4'%20height%3D'22'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M290%2078%20q10-12%2020%200z'%2F%3E%3Crect%20x%3D'299'%20y%3D'77'%20width%3D'3'%20height%3D'16'%20rx%3D'1.5'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center top / 100% 100% no-repeat;
+      background-color:transparent;
+    }
+    #game-screen[data-player-theme="verdantis"] .battle-comms-lobby::after {
+      left:-2px;
+      bottom:-2px;
+      width:calc(100% + 4px);
+      height:176px;
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20320%20176'%3E%3Cg%20fill%3D'none'%20stroke-linecap%3D'round'%3E%3Cpath%20stroke%3D'%23384930'%20stroke-width%3D'11'%20opacity%3D'.58'%20d%3D'M0%20166%20C42%20136%2062%20150%2094%20118%20C124%2088%20148%20110%20178%2078%20C206%2048%20232%2068%20258%2040%20C282%2018%20302%2022%20320%206'%2F%3E%3Cpath%20stroke%3D'%235D7946'%20stroke-width%3D'4'%20opacity%3D'.58'%20d%3D'M24%20156%20C46%20130%2064%20126%2084%20104%20C108%2078%20134%2096%20158%2070%20C182%2046%20202%2056%20228%2030%20C250%209%20282%2026%20308%2010'%2F%3E%3Cpath%20stroke%3D'%237D9E58'%20stroke-width%3D'2'%20opacity%3D'.42'%20d%3D'M84%20106%20C72%2086%2068%2068%2074%2050%20M158%2070%20C146%2052%20144%2038%20148%2020%20M228%2030%20C220%2050%20222%2068%20236%2084'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%237B9D57'%3E%3Cellipse%20opacity%3D'.70'%20cx%3D'72'%20cy%3D'58'%20rx%3D'12'%20ry%3D'5'%20transform%3D'rotate(-38%2072%2058)'/%3E%3Cellipse%20opacity%3D'.64'%20cx%3D'148'%20cy%3D'28'%20rx%3D'11'%20ry%3D'4.6'%20transform%3D'rotate(32%20148%2028)'/%3E%3Cellipse%20opacity%3D'.60'%20cx%3D'236'%20cy%3D'78'%20rx%3D'12'%20ry%3D'5'%20transform%3D'rotate(-30%20236%2078)'/%3E%3C%2Fg%3E%3Cg%20fill%3D'%23A9F45D'%3E%3Ccircle%20opacity%3D'.78'%20cx%3D'94'%20cy%3D'118'%20r%3D'3.2'%2F%3E%3Ccircle%20opacity%3D'.72'%20cx%3D'178'%20cy%3D'78'%20r%3D'3'%2F%3E%3Ccircle%20opacity%3D'.66'%20cx%3D'258'%20cy%3D'40'%20r%3D'3'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23C2A66C'%20opacity%3D'.72'%3E%3Cpath%20d%3D'M22%20118%20q14-16%2028%200z'%2F%3E%3Crect%20x%3D'34'%20y%3D'117'%20width%3D'4'%20height%3D'21'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M52%20138%20q10-12%2020%200z'%2F%3E%3Crect%20x%3D'60'%20y%3D'137'%20width%3D'3'%20height%3D'16'%20rx%3D'1.5'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center bottom / 100% 100% no-repeat;
+      background-color:transparent;
+    }
 
     .battle-comms-lobby .player-leaderboard-strip,
     .battle-comms-lobby .little-hero-hud {
@@ -1315,6 +1345,16 @@
         linear-gradient(180deg,#273429,#121b14);
       box-shadow:inset 0 1px rgba(203,224,190,.055),inset 0 -1px rgba(0,0,0,.55);
     }
+    #game-screen[data-player-theme="verdantis"] .detainee-status-module::after {
+      z-index:0;
+      opacity:1;
+      background:
+        radial-gradient(ellipse at 12% 0%,rgba(91,122,63,.38) 0 10%,transparent 34%),
+        radial-gradient(ellipse at 86% 100%,rgba(74,104,54,.34) 0 9%,transparent 31%),
+        linear-gradient(90deg,rgba(78,107,57,.34),transparent 28%,transparent 72%,rgba(67,94,49,.28)) top / 100% 5px no-repeat,
+        linear-gradient(90deg,rgba(53,76,40,.28),transparent 35%,rgba(79,107,57,.24)) bottom / 100% 5px no-repeat,
+        repeating-linear-gradient(0deg,rgba(200,220,187,.010) 0 1px,transparent 1px 5px);
+    }
 
     .detainee-status-module::after {
       content:"";
@@ -1378,6 +1418,16 @@
       background:
         linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0)) left 8px top / 1px 100% no-repeat,
         linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0)) right 8px top / 1px 100% no-repeat;
+    }
+    #game-screen[data-player-theme="verdantis"] .battle-comms-lobby #chat-panel::after {
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20300%20580'%3E%3Cg%20fill%3D'none'%20stroke-linecap%3D'round'%3E%3Cpath%20stroke%3D'%23485E38'%20stroke-width%3D'5'%20opacity%3D'.55'%20d%3D'M0%2018%20C26%2030%2044%208%2072%2019%20C96%2029%20118%207%20146%2017%20C170%2026%20198%208%20224%2018%20C250%2028%20272%2010%20300%2016'%2F%3E%3Cpath%20stroke%3D'%23536E40'%20stroke-width%3D'6'%20opacity%3D'.50'%20d%3D'M0%20564%20C28%20542%2054%20558%2078%20536%20C104%20514%20126%20540%20152%20518%20C178%20496%20204%20524%20230%20502%20C256%20480%20278%20504%20300%20488'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%237B9D56'%3E%3Cellipse%20opacity%3D'.68'%20cx%3D'36'%20cy%3D'34'%20rx%3D'11'%20ry%3D'4.5'%20transform%3D'rotate(-36%2036%2034)'/%3E%3Cellipse%20opacity%3D'.60'%20cx%3D'116'%20cy%3D'26'%20rx%3D'10'%20ry%3D'4.2'%20transform%3D'rotate(30%20116%2026)'/%3E%3Cellipse%20opacity%3D'.58'%20cx%3D'242'%20cy%3D'31'%20rx%3D'10'%20ry%3D'4.2'%20transform%3D'rotate(-30%20242%2031)'/%3E%3Cellipse%20opacity%3D'.66'%20cx%3D'62'%20cy%3D'532'%20rx%3D'11'%20ry%3D'4.5'%20transform%3D'rotate(38%2062%20532)'/%3E%3Cellipse%20opacity%3D'.58'%20cx%3D'206'%20cy%3D'514'%20rx%3D'10'%20ry%3D'4.2'%20transform%3D'rotate(-32%20206%20514)'/%3E%3C%2Fg%3E%3Cg%20fill%3D'%23A9F45D'%3E%3Ccircle%20opacity%3D'.72'%20cx%3D'72'%20cy%3D'19'%20r%3D'2.6'%2F%3E%3Ccircle%20opacity%3D'.65'%20cx%3D'224'%20cy%3D'18'%20r%3D'2.5'%2F%3E%3Ccircle%20opacity%3D'.66'%20cx%3D'152'%20cy%3D'518'%20r%3D'2.6'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23C4A96F'%20opacity%3D'.72'%3E%3Cpath%20d%3D'M244%20538%20q14-16%2028%200z'%2F%3E%3Crect%20x%3D'256'%20y%3D'537'%20width%3D'4'%20height%3D'20'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M272%20520%20q9-11%2018%200z'%2F%3E%3Crect%20x%3D'280'%20y%3D'519'%20width%3D'3'%20height%3D'14'%20rx%3D'1.5'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center / 100% 100% no-repeat,
+        radial-gradient(ellipse at 9% 0%,rgba(91,125,63,.38) 0 7%,transparent 23%),
+        radial-gradient(ellipse at 91% 100%,rgba(78,108,55,.36) 0 8%,transparent 24%),
+        linear-gradient(90deg,rgba(82,113,59,.34),transparent 34%,rgba(72,102,51,.30)) top / 100% 6px no-repeat,
+        linear-gradient(90deg,rgba(63,91,46,.32),transparent 36%,rgba(78,108,55,.34)) bottom / 100% 7px no-repeat,
+        linear-gradient(180deg,rgba(199,221,184,.030),rgba(255,255,255,0)) left 8px top / 1px 100% no-repeat,
+        linear-gradient(180deg,rgba(199,221,184,.030),rgba(255,255,255,0)) right 8px top / 1px 100% no-repeat;
     }
     .battle-comms-lobby .chat-header {
       align-items:flex-start;
