@@ -1632,8 +1632,10 @@ const App = {
     const wasAtBottom = !this.userScrolledUp;
 
     let html = '';
+    let previousPlayerMessage = null;
     this.chatMessages.forEach(msg => {
-      html += this.createGMChatMessageHTML(msg);
+      html += this.createGMChatMessageHTML(msg, previousPlayerMessage);
+      previousPlayerMessage = msg.source === 'shadowBroker' ? null : msg;
     });
 
     container.innerHTML = html;
@@ -1645,7 +1647,7 @@ const App = {
     this.updateSolvedCount();
   },
 
-  createGMChatMessageHTML(msg) {
+  createGMChatMessageHTML(msg, previousMsg = null) {
     // The GM's own Shadow Broker broadcasts land back in this same list
     // (broadcastChatUpdate reaches the host too) -- it's the GM's own
     // outgoing transmission, not a guess, so it never gets judge controls.
@@ -1663,21 +1665,27 @@ const App = {
     const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
     const hasVerdict = msg.verdict !== null;
     const showControls = !hasVerdict;
+    const grouped = !!(
+      previousMsg &&
+      previousMsg.source !== 'shadowBroker' &&
+      previousMsg.playerId === msg.playerId &&
+      Math.abs(Number(msg.timestamp || 0) - Number(previousMsg.timestamp || 0)) < 5 * 60 * 1000
+    );
 
     return `
-      <div class="gm-chat-message ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}">
-        <div class="gm-chat-message-header">
-          <span class="gm-chat-little-hero">${this.littleHeroAvatarHTML(identity, true)}<span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
-          <span class="gm-chat-message-meta">
-            <span class="gm-chat-time">${time}</span>
-            ${showControls ? `<span class="gm-chat-quick-actions" aria-label="Judge message if it is an answer">
-              <button class="gm-verdict-btn wrong" data-message-id="${msg.id}" data-verdict="wrong" title="Reject as answer">×</button>
-              <button class="gm-verdict-btn correct" data-message-id="${msg.id}" data-verdict="correct" title="Accept as answer">🖤</button>
-            </span>` : ''}
-          </span>
-        </div>
-        <div class="gm-chat-message-text">${this.escapeHtml(msg.text)}</div>
-        ${msg.verdict ? `<div class="gm-chat-mini-verdict ${msg.verdict}">${msg.verdict === 'correct' ? '🖤 ACCEPTED' : '× REJECTED'}${msg.target ? ` // ${this.getTargetLabel(msg.target)}` : ''}</div>` : ''}
+      <div class="gm-chat-message discord-row ${grouped ? 'grouped' : 'group-start'} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}">
+        <span class="gm-chat-leading">
+          ${grouped ? `<span class="gm-chat-hover-time">${time}</span>` : this.littleHeroAvatarHTML(identity, true)}
+        </span>
+        <span class="gm-chat-inline-content">
+          ${grouped ? '' : `<span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span><span class="gm-chat-time">${time}</span>`}
+          <span class="gm-chat-message-text">${this.escapeHtml(msg.text)}</span>
+          ${msg.verdict ? `<span class="gm-chat-mini-verdict ${msg.verdict}">${msg.verdict === 'correct' ? '🖤 ACCEPTED' : '× REJECTED'}${msg.target ? ` // ${this.getTargetLabel(msg.target)}` : ''}</span>` : ''}
+        </span>
+        ${showControls ? `<span class="gm-chat-quick-actions" aria-label="Judge message if it is an answer">
+          <button class="gm-verdict-btn wrong" data-message-id="${msg.id}" data-verdict="wrong" title="Reject as answer">×</button>
+          <button class="gm-verdict-btn correct" data-message-id="${msg.id}" data-verdict="correct" title="Accept as answer">🖤</button>
+        </span>` : '<span class="gm-chat-quick-actions adjudicated" aria-hidden="true"></span>'}
       </div>
     `;
   },

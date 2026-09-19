@@ -2160,65 +2160,143 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   border-color: #9b72bd;
 }
 
-/* Compact GM chat rows: messages stay chat-sized. Verdict actions live in
-   the header and judged messages only gain a tiny status tag. */
-.gm-module-chat .gm-chat-message {
-  padding: 5px 7px;
-  margin-bottom: 4px;
-  border-radius: 3px;
-  background: linear-gradient(180deg, rgba(28,32,39,.88), rgba(15,18,23,.94));
-  border-color: rgba(95,104,118,.46);
+/* DISCORD-DENSITY GM CHAT — no card-per-message chrome. The feed uses
+   compact grouped rows: avatar/name only start a speaker group, follow-up
+   messages tuck directly underneath, and GM verdict controls stay tiny. */
+.gm-module-chat .gm-chat-message.discord-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 6px;
+  padding: 2px 4px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
 }
-.gm-module-chat .gm-chat-message.has-verdict,
-.gm-module-chat .gm-chat-message.wrong,
-.gm-module-chat .gm-chat-message.correct {
-  background: linear-gradient(180deg, rgba(28,32,39,.88), rgba(15,18,23,.94));
+.gm-module-chat .gm-chat-message.discord-row.group-start {
+  margin-top: 5px;
+  padding-top: 4px;
 }
-.gm-module-chat .gm-chat-message.wrong { border-color: rgba(216,97,87,.48); }
-.gm-module-chat .gm-chat-message.correct { border-color: rgba(111,84,139,.58); }
-.gm-module-chat .gm-chat-message-header {
-  margin-bottom: 2px;
-  gap: 7px;
+.gm-module-chat .gm-chat-message.discord-row:first-child {
+  margin-top: 0;
 }
-.gm-module-chat .gm-chat-little-hero { gap: 5px; }
-.gm-module-chat .gm-chat-player-name { font-size: .62rem; }
-.gm-module-chat .gm-chat-time { font-size: .46rem; }
+.gm-module-chat .gm-chat-message.discord-row:hover {
+  background: rgba(255,255,255,.035);
+}
+.gm-module-chat .gm-chat-message.discord-row.wrong {
+  background: rgba(112,31,31,.07);
+  box-shadow: inset 2px 0 rgba(216,97,87,.62);
+}
+.gm-module-chat .gm-chat-message.discord-row.correct {
+  background: rgba(83,58,104,.08);
+  box-shadow: inset 2px 0 rgba(126,92,154,.68);
+}
+.gm-chat-leading {
+  width: 20px;
+  min-width: 20px;
+  min-height: 18px;
+  display: grid;
+  place-items: start center;
+}
+.gm-module-chat .gm-chat-leading .little-hero-avatar-compact {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+}
+.gm-chat-hover-time {
+  visibility: hidden;
+  margin-top: 3px;
+  color: #69727f;
+  font: 700 .34rem var(--font-machine);
+  letter-spacing: -.2px;
+  white-space: nowrap;
+}
+.gm-chat-message.discord-row.grouped:hover .gm-chat-hover-time {
+  visibility: visible;
+}
+.gm-chat-inline-content {
+  min-width: 0;
+  color: #dfe3e9;
+  font-family: var(--font-human);
+  font-size: .72rem;
+  line-height: 1.24;
+  overflow-wrap: anywhere;
+}
+.gm-chat-inline-content .gm-chat-player-name {
+  margin-right: 5px;
+  color: #eef1f6;
+  font-family: var(--font-system);
+  font-size: .61rem;
+  font-weight: 800;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+.gm-chat-inline-content .gm-chat-time {
+  margin-right: 6px;
+  color: #727b87;
+  font-size: .41rem;
+  vertical-align: 1px;
+}
 .gm-module-chat .gm-chat-message-text,
 .gm-module-chat .gm-chat-message.wrong .gm-chat-message-text,
 .gm-module-chat .gm-chat-message.correct .gm-chat-message-text {
+  display: inline;
   color: #dfe3e9;
-  font-size: .76rem;
-  line-height: 1.28;
+  font-size: inherit;
+  line-height: inherit;
   text-decoration: none;
 }
-.gm-module-chat .gm-chat-message-meta { gap: 5px; }
-.gm-module-chat .gm-chat-quick-actions { gap: 3px; }
-.gm-module-chat .gm-chat-quick-actions .gm-verdict-btn {
-  flex-basis: 18px;
-  width: 18px;
-  height: 18px;
-  font-size: .7rem;
+.gm-module-chat .gm-chat-quick-actions {
+  align-self: start;
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 3px;
+  min-width: 36px;
 }
-.gm-module-chat .gm-chat-quick-actions .gm-verdict-btn.wrong { font-size: .9rem; }
+.gm-module-chat .gm-chat-quick-actions.adjudicated {
+  visibility: hidden;
+}
+.gm-module-chat .gm-chat-quick-actions .gm-verdict-btn {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  padding: 0;
+  border-radius: 3px;
+  font-size: .58rem;
+  opacity: .78;
+}
+.gm-module-chat .gm-chat-quick-actions .gm-verdict-btn:hover {
+  opacity: 1;
+}
+.gm-module-chat .gm-chat-quick-actions .gm-verdict-btn.wrong {
+  font-size: .82rem;
+}
 .gm-chat-mini-verdict {
   display: inline-flex;
   align-items: center;
-  margin-top: 3px;
-  padding: 1px 4px;
-  border: 1px solid rgba(118,127,144,.32);
-  background: rgba(7,9,12,.72);
+  margin-left: 6px;
+  padding: 0 3px;
+  border: 1px solid rgba(118,127,144,.26);
+  border-radius: 2px;
+  background: rgba(7,9,12,.58);
   color: #818a96;
-  font: 800 .42rem var(--font-machine);
-  letter-spacing: .55px;
+  font: 800 .36rem var(--font-machine);
+  letter-spacing: .45px;
   line-height: 1.35;
+  vertical-align: 1px;
+  white-space: nowrap;
 }
 .gm-chat-mini-verdict.wrong {
   color: #d86157;
-  border-color: rgba(216,97,87,.35);
+  border-color: rgba(216,97,87,.3);
 }
 .gm-chat-mini-verdict.correct {
   color: #a98bc4;
-  border-color: rgba(111,84,139,.45);
+  border-color: rgba(111,84,139,.4);
 }
 
 /* GM TARGET SELECTOR */
