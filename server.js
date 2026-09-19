@@ -225,9 +225,17 @@ function generateEventId() {
   return 'evt-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex');
 }
 
-const gmTokens = new Set();
+const AUTH_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+const gmTokens = new Map();
 const playerAuthTokens = new Map();
 let currentGMToken = '';
+function tokenRecordValid(record) {
+  return !!record && Number(record.expiresAt || 0) > Date.now();
+}
+function pruneAuthTokens() {
+  for (const [token, record] of gmTokens) if (!tokenRecordValid(record)) gmTokens.delete(token);
+  for (const [token, record] of playerAuthTokens) if (!tokenRecordValid(record)) playerAuthTokens.delete(token);
+}
 const GM_PASSWORD_FILE = path.join(__dirname, '.gm-password');
 const GM_LOCKOUT_FILE = path.join(__dirname, 'gm-lockouts.json');
 let gmLockouts = {};
@@ -251,7 +259,7 @@ if (!GM_PASSWORD) {
 function refreshGMToken() {
   const token = 'gm-' + crypto.randomBytes(18).toString('base64url');
   gmTokens.clear();
-  gmTokens.add(token);
+  gmTokens.set(token, { expiresAt: Date.now() + AUTH_TOKEN_TTL_MS });
   currentGMToken = token;
   return token;
 }
@@ -262,17 +270,21 @@ function isLocalhostRequest(req) {
 }
 
 function isGmAuthorized(req) {
-  const token = req.headers['x-gm-token'];
-  return typeof token === 'string' && gmTokens.has(token);
+  return isValidGmToken(req.headers['x-gm-token']);
 }
 
 function isValidGmToken(token) {
-  return typeof token === 'string' && gmTokens.has(token);
+  if (typeof token !== 'string') return false;
+  const record = gmTokens.get(token);
+  if (!tokenRecordValid(record)) { gmTokens.delete(token); return false; }
+  return true;
 }
 
 function getPlayerAuth(token) {
   if (typeof token !== 'string' || !token) return null;
-  return playerAuthTokens.get(token) || null;
+  const record = playerAuthTokens.get(token);
+  if (!tokenRecordValid(record)) { playerAuthTokens.delete(token); return null; }
+  return record;
 }
 
 function sendJson(res, statusCode, data) {
@@ -2497,7 +2509,7 @@ function handleApiRequest(req, res) {
       try {
         const player = authStore.register(body.email, body.password, body.name);
         const token = 'player-' + crypto.randomBytes(24).toString('base64url');
-        playerAuthTokens.set(token, { playerId: player.id, email: player.email, createdAt: Date.now() });
+        playerAuthTokens.set(token, { playerId: player.id, email: player.email, createdAt: Date.now(), expiresAt: Date.now() + AUTH_TOKEN_TTL_MS });
         return sendJson(res, 201, { token, player });
       } catch (e) { return sendJson(res, 400, { error: e.message }); }
     });
@@ -2509,9 +2521,21 @@ function handleApiRequest(req, res) {
       const player = authStore.login(body.email, body.password);
       if (!player) return sendJson(res, 401, { error: 'Invalid email or password' });
       const token = 'player-' + crypto.randomBytes(24).toString('base64url');
-      playerAuthTokens.set(token, { playerId: player.id, email: player.email, createdAt: Date.now() });
+      playerAuthTokens.set(token, { playerId: player.id, email: player.email, createdAt: Date.now(), expiresAt: Date.now() + AUTH_TOKEN_TTL_MS });
       return sendJson(res, 200, { token, player });
     });
+  }
+
+  if (method === 'POST' && url.pathname === '/api/auth/player/logout') {
+    const token = String(req.headers['x-player-token'] || '');
+    if (token) playerAuthTokens.delete(token);
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (method === 'POST' && url.pathname === '/api/auth/gm/logout') {
+    const token = String(req.headers['x-gm-token'] || '');
+    if (token) gmTokens.delete(token);
+    return sendJson(res, 200, { ok: true });
   }
 
   if (method === 'POST' && url.pathname === '/api/auth/gm/login') {
@@ -2954,10 +2978,10 @@ wss.on('connection', (ws) => {
 const restoredRoomCount = restoreActiveRooms();
 
 server.listen(PORT, '0.0.0.0', () => {
-  const token = refreshGMToken();
+  refreshGMToken();
+  pruneAuthTokens();
   console.log(`ASOC Engine server running on http://0.0.0.0:${PORT}`);
   console.log(`Gamemaster: http://localhost:${PORT}`);
   console.log(`Player join: http://<LAN-IP>:${PORT}/join.html`);
-  console.log(`GM token: ${token}`);
   if (restoredRoomCount > 0) console.log(`[recovery] ${restoredRoomCount} room(s) available for reconnect`);
 });
