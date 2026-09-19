@@ -1665,6 +1665,17 @@ const App = {
     const showControls = !hasVerdict;
     const themeStyle = ASOCThemes.messageStyle(identity.themeId);
     const frameColor = /^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885';
+    let verdictResponseHtml = '';
+    if (msg.verdict === 'correct') {
+      const verdictKey = `${msg.id}:${msg.verdict}`;
+      const isNew = !this._seenShadowBrokerKeys.has(verdictKey);
+      if (isNew) this._seenShadowBrokerKeys.add(verdictKey);
+      verdictResponseHtml = `<div class="gm-chat-verdict-response">${Skeleton.shadowBrokerTransmissionHTML(msg.verdictResponse || 'Indeed.', {
+        glitchIn: isNew,
+        variant: 'verdict-response',
+        verdict: msg.verdict
+      })}</div>`;
+    }
 
     return `
       <div class="gm-chat-message discord-row ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}">
@@ -1679,6 +1690,7 @@ const App = {
           <button class="gm-verdict-btn wrong" data-message-id="${msg.id}" data-verdict="wrong" title="Reject as answer">×</button>
           <button class="gm-verdict-btn correct" data-message-id="${msg.id}" data-verdict="correct" title="Accept as answer">🖤</button>
         </span>` : '<span class="gm-chat-quick-actions adjudicated" aria-hidden="true"></span>'}
+        ${verdictResponseHtml}
       </div>
     `;
   },
@@ -1803,8 +1815,15 @@ const App = {
     const msgEl = container.querySelector(`[data-message-id="${messageId}"]`);
     if (!msgEl) return;
 
-    const controlsEl = msgEl.querySelector('.gm-chat-controls');
-    if (!controlsEl) return;
+    const quickActions = msgEl.querySelector('.gm-chat-quick-actions');
+    if (quickActions) quickActions.classList.add('adjudicated');
+
+    let controlsEl = msgEl.querySelector('.gm-chat-target-controls');
+    if (!controlsEl) {
+      controlsEl = document.createElement('div');
+      controlsEl.className = 'gm-chat-target-controls';
+      msgEl.appendChild(controlsEl);
+    }
 
     controlsEl.innerHTML = `
       <div class="gm-target-selector">

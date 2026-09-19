@@ -941,6 +941,20 @@ function assignClueOrder(room, column, row) {
 // ---------------------------------------------------------------------
 
 const SCORABLE_COLUMNS = ['A', 'B', 'C', 'D'];
+const CORRECT_VERDICT_RESPONSES = [
+  'Indeed.',
+  'Rejoice, peasants!',
+  'Yes.',
+  'About time.',
+  'Logical conclusion.',
+  'Someone activated their neurons today.',
+  'Well done, little hero.',
+  'Not so free of thought, after all.'
+];
+
+function pickCorrectVerdictResponse() {
+  return CORRECT_VERDICT_RESPONSES[Math.floor(Math.random() * CORRECT_VERDICT_RESPONSES.length)];
+}
 
 function countRevealedCluesInColumn(room, col) {
   let count = 0;
@@ -1459,6 +1473,13 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
 
   message.verdict = verdict;
   message.target = target;
+  if (verdict === 'correct') {
+    if (oldVerdict !== 'correct' || !message.verdictResponse) {
+      message.verdictResponse = pickCorrectVerdictResponse();
+    }
+  } else {
+    message.verdictResponse = null;
+  }
 
   // Unwind whatever this message previously had credit for, whenever the
   // verdict is no longer 'correct' for that same target -- covers both
@@ -1537,19 +1558,11 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
       }
     }
 
-    if (reveal) {
-      if (target === 'FINAL') {
-        if (room.sessionState.finalSolution !== true) {
-          room.sessionState.finalSolution = true;
-          room.sessionState.finalOutcome = 'success';
-          changed = true;
-        }
-      } else {
-        const key = `${target}5`;
-        if (room.sessionState.cells[key] !== true) {
-          room.sessionState.cells[key] = true;
-          changed = true;
-        }
+    if (reveal && target === 'FINAL') {
+      if (room.sessionState.finalSolution !== true) {
+        room.sessionState.finalSolution = true;
+        room.sessionState.finalOutcome = 'success';
+        changed = true;
       }
     }
   }
@@ -1580,7 +1593,8 @@ function addChatMessage(room, playerId, playerName, text) {
     text: sanitized,
     timestamp: Date.now(),
     verdict: null,
-    target: null
+    target: null,
+    verdictResponse: null
   };
 
   room.chat.messages.push(message);
@@ -1651,6 +1665,7 @@ function getChatState(room) {
         timestamp: m.timestamp,
         verdict: m.verdict,
         target: m.target,
+        verdictResponse: m.verdictResponse || null,
         // Only ever set server-side by addShadowBrokerMessage -- absent
         // (undefined -> serializes as omitted) on every ordinary player
         // guess. See addShadowBrokerMessage for why a player can't spoof it.
@@ -1966,6 +1981,29 @@ function handleGmNemaAsoc(ws) {
   broadcastToRoom(room, { type: 'nemaAsoc', timestamp: Date.now() });
 }
 
+function scheduleSolvedColumnReveal(room, messageId, column) {
+  if (!SCORABLE_COLUMNS.includes(column)) return;
+
+  const roomCode = room.code;
+  const boardId = room.boardId;
+
+  setTimeout(() => {
+    const liveRoom = rooms.get(roomCode);
+    if (!liveRoom || liveRoom.boardId !== boardId) return;
+
+    const solved = liveRoom.chat.solvedTargets[column];
+    const judgedMessage = liveRoom.chat.messages.find(m => m.id === messageId);
+    if (!solved || solved.messageId !== messageId) return;
+    if (!judgedMessage || judgedMessage.verdict !== 'correct' || judgedMessage.target !== column) return;
+
+    const revealResult = applyCommand(liveRoom, 'revealColumn', { column });
+    if (revealResult.success && revealResult.changed) {
+      broadcastToRoom(liveRoom, { type: 'state:public', ...getPublicState(liveRoom) });
+      persistActiveRooms();
+    }
+  }, 5000);
+}
+
 function handleJudgeGuess(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -2020,6 +2058,13 @@ function handleJudgeGuess(ws, message) {
     }
     if (result.streakChanged) {
       broadcastToRoom(room, { type: 'score:streak', activeStreak: room.scoring.activeStreak });
+    }
+    if (
+      verdict === 'correct' &&
+      SCORABLE_COLUMNS.includes(target) &&
+      room.chat.solvedTargets[target]?.messageId === messageId
+    ) {
+      scheduleSolvedColumnReveal(room, messageId, target);
     }
     if (result.finalOutcome) {
       broadcastToRoom(room, { type: 'score:finalReveal', ...result.finalOutcome });

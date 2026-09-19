@@ -1094,7 +1094,7 @@ const PlayerApp = {
       const verdictKey = `${msg.id}:${msg.verdict}`;
       const isNew = !this._seenShadowBrokerKeys.has(verdictKey);
       if (isNew) this._seenShadowBrokerKeys.add(verdictKey);
-      verdictResponseHtml = Skeleton.shadowBrokerTransmissionHTML('Correct.', {
+      verdictResponseHtml = Skeleton.shadowBrokerTransmissionHTML(msg.verdictResponse || 'Indeed.', {
         glitchIn: isNew,
         variant: 'verdict-response',
         verdict: msg.verdict

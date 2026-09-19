@@ -2264,13 +2264,23 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   font-size: .41rem;
   vertical-align: 1px;
 }
-.gm-module-chat .gm-chat-message-text,
-.gm-module-chat .gm-chat-message.wrong .gm-chat-message-text,
-.gm-module-chat .gm-chat-message.correct .gm-chat-message-text {
+.gm-module-chat .gm-chat-message-text {
   display: inline;
   color: #dfe3e9;
   font-size: inherit;
   line-height: inherit;
+  text-decoration: none;
+}
+
+.gm-module-chat .gm-chat-message.wrong .gm-chat-message-text {
+  color: #d86157;
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 72, 72, 0.9);
+  text-decoration-thickness: 2px;
+}
+
+.gm-module-chat .gm-chat-message.correct .gm-chat-message-text {
+  color: #5cb87a;
   text-decoration: none;
 }
 .gm-module-chat .gm-chat-quick-actions {
@@ -2438,6 +2448,18 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 }
 
 /* GM TARGET SELECTOR */
+.gm-module-chat .gm-chat-target-controls,
+.gm-module-chat .gm-chat-verdict-response {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 5px;
+}
+
+.gm-module-chat .gm-chat-target-controls .gm-target-selector {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .gm-target-selector {
   display: flex;
   flex-direction: column;
