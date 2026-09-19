@@ -314,8 +314,8 @@
        innerHTML is fully replaced on every render (see player.js
        renderBoard()), so the background layer lives in the stable
        .public-board-frame wrapper instead, sized to that frame's exact
-       bounds and clipped by its overflow:hidden below. The player's chosen
-       theme now tints both the shell and the background art independently. */
+       bounds and clipped by its overflow:hidden below. Player themes may
+       tint surrounding UI surfaces, but NEVER the authored board artwork. */
     #background-layer {
       position: absolute;
       inset: 0;
@@ -389,35 +389,12 @@
       border-radius: 8px;
     }
 
-    /* Player theme tint lives BETWEEN the background art and the board UI.
-       That means the battlefield image actually changes color without
-       recoloring logos, clue frames, text, or other gameplay chrome. */
-    .public-board-ratio::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
-      background: var(--player-theme, #343A42);
-      opacity: .30;
-      mix-blend-mode: color;
-    }
-
-    .public-board-ratio::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
-      background:
-        radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--player-theme,#343A42) 16%, transparent), transparent 58%),
-        linear-gradient(180deg, color-mix(in srgb, var(--player-theme,#343A42) 10%, transparent), transparent 55%);
-      opacity: .85;
-    }
-
+    /* LOCKED THEME RULE: player themes may tint UI BACKGROUND surfaces only.
+       The game-board artwork and all gameplay elements keep their authored
+       colors exactly as supplied. */
     .public-board {
       position: relative;
-      z-index: 2;
+      z-index: 1;
       width: 100%;
       height: 100%;
     }
@@ -469,7 +446,7 @@
     .battle-comms-lobby {
       position: relative;
       padding: 10px 10px 8px 16px;
-      border-left: 3px solid color-mix(in srgb,var(--player-theme,#343A42) 70%,#343a42);
+      border-left: 3px solid #343a42;
       background:
         linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 100%),
         linear-gradient(180deg,
@@ -833,7 +810,7 @@
     .detainee-status-module {
       position:relative;
       flex:0 0 auto;
-      border:1px solid color-mix(in srgb,var(--player-theme,#343A42) 62%,#414852);
+      border:1px solid #414852;
       background:linear-gradient(180deg,
         color-mix(in srgb,var(--player-theme,#343A42) 24%,#171c22),
         color-mix(in srgb,var(--player-theme,#343A42) 10%,#0a0d11));
@@ -955,7 +932,7 @@
     .battle-comms-lobby .chat-message {
       margin:0 0 6px;
       padding:8px 10px 20px;
-      border:1px solid color-mix(in srgb,var(--little-hero-theme,#343A42) 55%,#3a414a);
+      border:1px solid #3a414a;
       border-left:3px solid var(--little-hero-accent,#68717d);
       background:
         linear-gradient(100deg,
@@ -964,7 +941,7 @@
     }
     .battle-comms-lobby .chat-message.grouped {
       margin-top:0;
-      border-top-color:color-mix(in srgb,var(--little-hero-theme,#343A42) 45%,#3a414a);
+      border-top-color:#3a414a;
       clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);
     }
     .battle-comms-lobby .chat-message.grouped::before {

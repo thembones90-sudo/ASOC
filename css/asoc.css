@@ -2328,7 +2328,7 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 .gm-module-chat .gm-chat-message.discord-row {
   margin: 0 0 5px;
   padding: 5px 6px;
-  border: 1px solid color-mix(in srgb, var(--little-hero-theme,#343A42) 55%, rgba(95,104,118,.46));
+  border: 1px solid rgba(95,104,118,.46);
   border-left: 2px solid var(--little-hero-accent,#6f7885);
   border-radius: 5px;
   background:
