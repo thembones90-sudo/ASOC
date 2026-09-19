@@ -1064,6 +1064,52 @@ textarea {
   letter-spacing: 0.07em;
 }
 
+/* COMPACT GM CLUE GRID — this is a tactical control matrix, not twenty
+   miniature billboards. Keep every control readable while reclaiming the
+   vertical space the GM actually needs for chat and live controls. */
+.gm-module-clues {
+  padding: 10px;
+}
+.gm-module-clues .gm-section-title {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+}
+.gm-module-clues .gm-grid {
+  gap: 4px;
+}
+.gm-module-clues .gm-cell-btn {
+  min-height: 40px;
+  padding: 4px 3px 5px;
+  border-radius: 4px;
+  font-size: .58rem;
+}
+.gm-module-clues .gm-cell-btn > span:first-child {
+  margin-bottom: 1px;
+  font-size: .48rem;
+  line-height: 1;
+}
+.gm-module-clues .gm-cell-btn > span:last-child {
+  font-size: .64rem;
+  line-height: .98;
+  letter-spacing: 0;
+}
+.gm-module-clues .gm-cell-btn.solution-btn {
+  min-height: 38px;
+}
+.gm-module-clues .gm-cell-btn.final-btn {
+  min-height: 44px;
+  padding: 5px 6px;
+  margin-top: 1px;
+}
+.gm-module-clues .gm-cell-btn.final-btn > span:first-child {
+  font-size: .48rem;
+}
+.gm-module-clues .gm-cell-btn.final-btn > span:last-child {
+  font-size: .76rem;
+  line-height: 1;
+  letter-spacing: .045em;
+}
+
 .gm-module-columns .gm-column-controls {
   margin-bottom: 0;
 }
