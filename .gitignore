@@ -28,3 +28,4 @@ players.json.tmp-*
 auth-store.json
 auth-store.json.tmp
 .gm-password
+gm-lockouts.json

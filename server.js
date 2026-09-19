@@ -229,6 +229,16 @@ const gmTokens = new Set();
 const playerAuthTokens = new Map();
 let currentGMToken = '';
 const GM_PASSWORD_FILE = path.join(__dirname, '.gm-password');
+const GM_LOCKOUT_FILE = path.join(__dirname, 'gm-lockouts.json');
+let gmLockouts = {};
+try { gmLockouts = JSON.parse(fs.readFileSync(GM_LOCKOUT_FILE, 'utf8')); } catch (e) { gmLockouts = {}; }
+function gmClientKey(req) {
+  const address = String(req.socket?.remoteAddress || 'unknown');
+  return crypto.createHash('sha256').update(address).digest('hex');
+}
+function saveGmLockouts() {
+  try { fs.writeFileSync(GM_LOCKOUT_FILE, JSON.stringify(gmLockouts, null, 2)); } catch (e) { console.error('[gm-auth] Failed to persist lockouts:', e.message); }
+}
 let GM_PASSWORD = String(process.env.ASOC_GM_PASSWORD || '');
 if (!GM_PASSWORD) {
   try { GM_PASSWORD = fs.readFileSync(GM_PASSWORD_FILE, 'utf8').trim(); } catch (e) {}
@@ -2495,9 +2505,23 @@ function handleApiRequest(req, res) {
   if (method === 'POST' && url.pathname === '/api/auth/gm/login') {
     return readJsonBody(req, (err, body) => {
       if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
+      const clientKey = gmClientKey(req);
+      const record = gmLockouts[clientKey] || { attempts: 0, locked: false };
+      if (record.locked) return sendJson(res, 423, { error: 'GM access permanently locked', locked: true });
       const supplied = Buffer.from(String(body.password || ''));
       const expected = Buffer.from(GM_PASSWORD);
-      if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) return sendJson(res, 401, { error: 'Access denied' });
+      const valid = supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+      if (!valid) {
+        record.attempts = Number(record.attempts || 0) + 1;
+        if (record.attempts >= 3) {
+          record.locked = true;
+          record.lockedAt = new Date().toISOString();
+        }
+        gmLockouts[clientKey] = record;
+        saveGmLockouts();
+        return sendJson(res, record.locked ? 423 : 401, { error: 'Access denied', locked: record.locked, attempts: record.attempts });
+      }
+      if (gmLockouts[clientKey]) { delete gmLockouts[clientKey]; saveGmLockouts(); }
       return sendJson(res, 200, { token: refreshGMToken() });
     });
   }

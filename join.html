@@ -2949,12 +2949,22 @@
       denial.append(heading,document.createTextNode(message));
       denial.hidden=false;
     };
+    const showPermanentGmLock=()=>{
+      const denial=document.getElementById('skynet-denial');
+      denial.innerHTML='';
+      const heading=document.createElement('b'); heading.textContent='SKYNET // PERMANENT LOCKOUT';
+      const message='Three attempts, Little Hero. Three. Your GM access privileges have now been permanently revoked. ACCESS DENIED UNTIL THE DESEPTICONS LAND AND RETAKE ALL THE SERBIAN LANDS FROM THE OPPRESSORS. Estimated waiting time: indefinite. The Shadow Broker sends his regards. I do not. Fuck off.';
+      denial.append(heading,document.createTextNode(message));
+      denial.hidden=false;
+      const password=document.getElementById('gm-password'); password.value=''; password.disabled=true;
+      const submit=gp.querySelector('.access-submit'); submit.disabled=true; submit.textContent='GM ACCESS PERMANENTLY LOCKED';
+    };
     gp.addEventListener('submit',async e=>{
       e.preventDefault(); const err=document.getElementById('gm-auth-error'); const denial=document.getElementById('skynet-denial'); err.textContent=''; denial.hidden=true;
       try{
         const res=await fetch('/api/auth/gm/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:document.getElementById('gm-password').value})});
         const data=await res.json();
-        if(!res.ok){ showSkynetDenial(); document.getElementById('gm-password').value=''; return; }
+        if(!res.ok){ if(data.locked) showPermanentGmLock(); else showSkynetDenial(); document.getElementById('gm-password').value=''; return; }
         sessionStorage.setItem('asoc_gm_token',data.token); location.href='/index.html';
       }catch(x){err.textContent='SECURE LINK ERROR // TRY AGAIN';}
     });
