@@ -18,6 +18,9 @@ const PlayerApp = {
   chatMessages: [],
   solvedTargets: {},
   userScrolledUp: false,
+  _newMessageCount: 0,
+  _wrongFadeTimer: null,
+  _wrongVerdictSeenAt: new Map(),
   // FINAL SOLUTION REVEAL FLOURISH -- same one-shot guard as App's copy in
   // js/app.js (see its comment): renderBoard() fully rebuilds the board on
   // every broadcast, so this flag is what keeps the animation from
@@ -450,13 +453,24 @@ const PlayerApp = {
 
       case 'chat:update': {
         const incoming = message.messages || [];
+        const previousIds = new Set(this.chatMessages.map(m => m.id));
+        const previousById = new Map(this.chatMessages.map(m => [m.id, m]));
         // Only look for a "new" standalone Broker broadcast to trigger the
         // board-line reveal AFTER the first hydration -- otherwise a
         // player joining mid-game would see the room's entire chat history
         // replay as a fresh transmission the moment they connect.
         if (this._chatEverInitialized) {
-          const previousIds = new Set(this.chatMessages.map(m => m.id));
-          const newBrokerMsg = incoming.find(m => m.source === 'shadowBroker' && !previousIds.has(m.id));
+          const newMessages = incoming.filter(m => !previousIds.has(m.id));
+          const verdictUpdates = incoming.filter(m => {
+            const previous = previousById.get(m.id);
+            return previous && previous.verdict !== m.verdict && m.verdict;
+          });
+          const newActivityCount = newMessages.length + verdictUpdates.length;
+          if (this.userScrolledUp && newActivityCount) {
+            this._newMessageCount += newActivityCount;
+            this.updateNewMessageChip();
+          }
+          const newBrokerMsg = newMessages.find(m => m.source === 'shadowBroker');
           if (newBrokerMsg) {
             this.playShadowBrokerBoardLine(newBrokerMsg.text);
             const panel = document.getElementById('chat-panel');
@@ -465,6 +479,22 @@ const PlayerApp = {
             this._brokerPriorityTimer = setTimeout(() => panel?.classList.remove('broker-priority'), 4200);
           }
         }
+        const verdictNow = Date.now();
+        incoming.forEach(msg => {
+          const previous = previousById.get(msg.id);
+          if (msg.verdict === 'wrong') {
+            if (previous?.verdict !== 'wrong') {
+              this._wrongVerdictSeenAt.set(
+                msg.id,
+                this._chatEverInitialized ? verdictNow : verdictNow - 3000
+              );
+            } else if (!this._wrongVerdictSeenAt.has(msg.id)) {
+              this._wrongVerdictSeenAt.set(msg.id, verdictNow - 3000);
+            }
+          } else {
+            this._wrongVerdictSeenAt.delete(msg.id);
+          }
+        });
         this._chatEverInitialized = true;
         this.chatMessages = incoming;
         this.solvedTargets = message.solvedTargets || {};
@@ -1016,24 +1046,55 @@ const PlayerApp = {
       chatContainer.addEventListener('scroll', () => {
         const { scrollTop, scrollHeight, clientHeight } = chatContainer;
         this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 50);
+        if (!this.userScrolledUp && this._newMessageCount) {
+          this._newMessageCount = 0;
+          this.updateNewMessageChip();
+        }
       });
       chatContainer.addEventListener('click', (e) => {
         const button = e.target.closest('.chat-reply-btn');
         if (!button) return;
         const messageEl = button.closest('.chat-message');
         const name = messageEl?.dataset.playerName || 'LITTLE HERO';
-        this._replyTo = { id: button.dataset.replyId, name };
-        const replyPrefix = `↳ @${name}: `;
+        const excerpt = (messageEl?.querySelector('.chat-message-text')?.textContent || '')
+          .replace(/[:\r\n]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 30);
+        this._replyTo = { id: button.dataset.replyId, name, excerpt };
+        const replyPrefix = `↳ @${name}${excerpt ? ` // ${excerpt}` : ''}: `;
         input.maxLength = Math.max(1, 100 - replyPrefix.length);
         if (input.value.length > input.maxLength) input.value = input.value.slice(0, input.maxLength);
         const preview = document.getElementById('chat-reply-preview');
         if (preview) {
-          preview.textContent = 'REPLYING TO ' + name + ' // NEXT TRANSMISSION';
+          preview.textContent = `REPLY TO ${name}${excerpt ? ` // ${excerpt}` : ''}`;
           preview.style.display = 'block';
         }
         input.focus();
       });
     }
+
+    document.getElementById('chat-new-messages')?.addEventListener('click', () => {
+      this.jumpToLatestChat();
+    });
+  },
+
+  updateNewMessageChip() {
+    const chip = document.getElementById('chat-new-messages');
+    if (!chip) return;
+    chip.hidden = this._newMessageCount <= 0;
+    if (!chip.hidden) {
+      chip.textContent = `↓ ${this._newMessageCount} NEW TRANSMISSION${this._newMessageCount === 1 ? '' : 'S'}`;
+    }
+  },
+
+  jumpToLatestChat() {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+    this.userScrolledUp = false;
+    this._newMessageCount = 0;
+    this.updateNewMessageChip();
   },
 
   submitGuess() {
@@ -1049,7 +1110,10 @@ const PlayerApp = {
     input.maxLength = 100;
     const preview = document.getElementById('chat-reply-preview');
     if (preview) preview.style.display = 'none';
-    this.send({ type: 'chat:guess', text: reply ? `↳ @${reply.name}: ${text}` : text });
+    const replyPrefix = reply
+      ? `↳ @${reply.name}${reply.excerpt ? ` // ${reply.excerpt}` : ''}: `
+      : '';
+    this.send({ type: 'chat:guess', text: reply ? replyPrefix + text : text });
   },
 
   renderChat() {
@@ -1057,30 +1121,57 @@ const PlayerApp = {
     if (!container) return;
 
     const wasAtBottom = !this.userScrolledUp;
+    const previousScrollTop = container.scrollTop;
+    const previousScrollHeight = container.scrollHeight;
 
     let html = '';
+    let nextWrongFadeMs = Infinity;
+    const now = Date.now();
     this.chatMessages.forEach((msg, index) => {
       const previous = index > 0 ? this.chatMessages[index - 1] : null;
-      html += this.createChatMessageHTML(msg, this.shouldGroupChatMessage(previous, msg));
+      if (previous && (Number(msg.timestamp) - Number(previous.timestamp)) > 300000) {
+        html += this.createChatTimeSeparator(msg.timestamp);
+      }
+      if (msg.verdict === 'wrong') {
+        const wrongSeenAt = this._wrongVerdictSeenAt.get(msg.id) ?? (now - 3000);
+        const remaining = 3000 - (now - wrongSeenAt);
+        if (remaining > 0) nextWrongFadeMs = Math.min(nextWrongFadeMs, remaining);
+      }
+      html += this.createChatMessageHTML(msg, this.shouldGroupChatMessage(previous, msg), now);
     });
 
     container.innerHTML = html;
 
+    clearTimeout(this._wrongFadeTimer);
+    if (Number.isFinite(nextWrongFadeMs)) {
+      this._wrongFadeTimer = setTimeout(() => this.renderChat(), Math.max(30, nextWrongFadeMs + 30));
+    }
+
     if (wasAtBottom) {
       container.scrollTop = container.scrollHeight;
+      this._newMessageCount = 0;
+      this.updateNewMessageChip();
+    } else {
+      const heightDelta = container.scrollHeight - previousScrollHeight;
+      container.scrollTop = Math.max(0, previousScrollTop + heightDelta);
     }
+  },
+
+  createChatTimeSeparator(timestamp) {
+    const time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `<div class="chat-time-separator"><span>${time}</span></div>`;
   },
 
   shouldGroupChatMessage(previous, current) {
     if (!previous || !current) return false;
     if (previous.source === 'shadowBroker' || current.source === 'shadowBroker') return false;
     if (previous.playerId !== current.playerId) return false;
-    if (previous.verdict !== null || current.verdict !== null) return false;
+    if (previous.verdict === 'correct' || current.verdict === 'correct') return false;
     const gap = Number(current.timestamp) - Number(previous.timestamp);
     return Number.isFinite(gap) && gap >= 0 && gap <= 90000;
   },
 
-  createChatMessageHTML(msg, grouped = false) {
+  createChatMessageHTML(msg, grouped = false, now = Date.now()) {
     // SHADOW BROKER standalone broadcast -- a freestanding transmission,
     // not tied to any player's guess. Entirely separate markup from the
     // guess-bubble path below; no verdict, no target, no "own" styling.
@@ -1091,12 +1182,16 @@ const PlayerApp = {
     }
 
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const wrongSeenAt = this._wrongVerdictSeenAt.get(msg.id) ?? (now - 3000);
+    const agedRejected = msg.verdict === 'wrong' && (now - wrongSeenAt) >= 3000;
     const isOwn = msg.playerId === this.playerId;
     const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
-    const replyMatch = typeof msg.text === 'string' ? msg.text.match(/^↳ @([^:]{1,40}):\s*([\s\S]*)$/) : null;
-    const messageText = replyMatch ? replyMatch[2] : msg.text;
+    const replyMatch = typeof msg.text === 'string'
+      ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
+      : null;
+    const messageText = replyMatch ? replyMatch[3] : msg.text;
     const replyContextHtml = replyMatch
-      ? `<div class="chat-reply-context">↳ REPLY TO @${this.escapeHtml(replyMatch[1])}</div>`
+      ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
       : '';
     const verdictMetaHtml = msg.verdict === 'correct'
       ? `<div class="chat-machine-verdict accepted">ACCEPTED // ${this.escapeHtml(this.getTargetLabel(msg.target || 'LOCKED'))}</div>`
@@ -1122,7 +1217,7 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}">
+      <div class="chat-message ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}">
         <div class="chat-avatar-rail">${grouped ? '' : this.littleHeroAvatarHTML(identity)}</div>
         <div class="chat-message-main">
           ${grouped ? '' : `<div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span><span class="chat-time">${time}</span></div>`}
