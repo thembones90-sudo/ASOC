@@ -3,7 +3,7 @@
  * They must never recolor the authored game-board artwork or board elements.
  * LOCKED LINEUP: 01 SKYNET / 02 SUGARCOAT / 03 VERDANTIS /
  * 04 MY SINDRAGOSA / 05 DISCO INFERNO / 06 OUR THEME /
- * 07 UNDEAD / 08 REVAN.
+ * 07 THE UNDERCITY / 08 REVAN.
  */
 const ASOCThemes = {
   DEFAULT_ID: 'gunmetal',
@@ -107,7 +107,7 @@ const ASOCThemes = {
     undead: {
       id: 'undead',
       code: '07',
-      name: 'UNDEAD',
+      name: 'THE UNDERCITY',
       subtitle: 'FORSAKEN SIGNAL // PLAGUE CIRCUITS',
       color: '#7E5AB8',
       shellTop: '#15111C',
