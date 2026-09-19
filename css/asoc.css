@@ -1677,8 +1677,13 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 .gm-chat-panel {
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  max-height: 300px;
+  width: 100%;
+  height: 220px;
+  min-height: 110px;
+  max-height: none;
+  resize: vertical;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .gm-chat-messages:empty {
@@ -1686,7 +1691,7 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 }
 
 .gm-chat-messages:not(:empty) {
-  max-height: 245px;
+  max-height: none;
 }
 
 .gm-chat-header {
@@ -1714,10 +1719,29 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 }
 
 .gm-chat-messages {
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
-  padding: 4px 8px;
+  padding: 4px 8px 10px;
   min-height: 0;
+}
+
+/* Vertical-only GM chat resize. Drag the bottom edge/handle to make the
+   Battle Chat taller or shorter; width stays locked to the sidebar. */
+.gm-module-chat {
+  min-width: 0;
+}
+.gm-module-chat .gm-chat-panel {
+  max-width: 100%;
+}
+.gm-module-chat .gm-chat-panel::after {
+  content: "↕ DRAG";
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin: 1px 6px 3px 0;
+  color: rgba(122,132,145,.55);
+  font: 700 .36rem var(--font-machine);
+  letter-spacing: .7px;
+  pointer-events: none;
 }
 
 /* SHADOW BROKER broadcast box -- a compact operator control under the
