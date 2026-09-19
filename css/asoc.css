@@ -1702,50 +1702,7 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   border-color: #9b5de0;
 }
 
-.shadow-broker-count {
-  min-width: 44px;
-  text-align: right;
-  font-size: 0.68rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-dim);
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
-}
-
-.shadow-broker-count.at-limit {
-  color: #e8b35b;
-  text-shadow: 0 0 7px rgba(232, 179, 91, 0.35);
-}
-
-.shadow-broker-clear-btn {
-  flex-shrink: 0;
-  padding: 9px 13px;
-  font-size: 0.68rem;
-  border-color: #5b5363;
-  color: #aaa3b1;
-}
-
-.shadow-broker-clear-btn:hover {
-  border-color: #8b7d96;
-  color: #ded8e5;
-  background: rgba(140, 125, 151, 0.12);
-}
-
-.shadow-broker-send-btn {
-  flex-shrink: 0;
-  padding: 9px 18px;
-  font-size: 0.7rem;
-  border-color: #6a3f8a;
-  color: #cfa8f0;
-}
-
-.shadow-broker-send-btn:hover {
-  background: rgba(139, 74, 200, 0.2);
-  border-color: #9b5de0;
-  color: #e8d0ff;
-}
-
-/* TRANSMIT clicked while not hosting a room -- cosmetic-only feedback so
+/* Enter pressed while not hosting a room -- cosmetic-only feedback so
    this doesn't silently look broken (see flashShadowBrokerNoRoom in
    app.js). Reuses the same red already used for a wrong-guess verdict
    elsewhere in the GM console, rather than introducing a new color. */

@@ -1551,22 +1551,16 @@ function addChatMessage(room, playerId, playerName, text) {
 }
 
 // SHADOW BROKER -- presentation-layer identity feature. This is the ONLY
-// genuinely new chat-message type: a host-authored, freestanding broadcast
-// that isn't tied to judging any player's guess. It deliberately reuses
-// addChatMessage's exact validation (sanitizeText, MAX_CHAT_LENGTH) and
-// history-trim behavior so it behaves identically to a normal message on
-// the wire -- the only difference is playerId is null, playerName is the
-// fixed display label, and `source: 'shadowBroker'` marks it so clients
-// can render it as a Broker transmission instead of a player guess.
+// host-authored, freestanding broadcast message type. It still runs through
+// sanitizeText and the normal history trim, but it intentionally has NO
+// player-chat character cap: the GM can transmit as much text as needed.
+// Player guesses remain capped separately by addChatMessage.
 // `source` is set here, server-side, only -- addChatMessage (the player
 // guess path) never reads a client-supplied source field, so a player has
 // no way to spoof this tag on their own message.
 function addShadowBrokerMessage(room, text) {
   const sanitized = sanitizeText(text);
   if (!sanitized) return { success: false, error: 'Empty message' };
-  if (sanitized.length > MAX_CHAT_LENGTH) {
-    return { success: false, error: `Message too long (max ${MAX_CHAT_LENGTH} chars)` };
-  }
 
   const message = {
     id: generateMessageId(),

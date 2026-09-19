@@ -218,27 +218,19 @@ async function testShadowBrokerControls() {
   }));
   await joined;
 
-  const hundredChars = 'X'.repeat(100);
-  const exactLimitOnHost = waitForMessage(
+  const longBrokerText = 'X'.repeat(512);
+  const longBroadcastOnHost = waitForMessage(
     host,
-    m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === hundredChars),
-    '100-char broker broadcast on host'
+    m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === longBrokerText),
+    'long broker broadcast on host'
   );
-  const exactLimitOnPlayer = waitForMessage(
+  const longBroadcastOnPlayer = waitForMessage(
     player,
-    m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === hundredChars),
-    '100-char broker broadcast on player'
+    m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === longBrokerText),
+    'long broker broadcast on player'
   );
-  host.send(JSON.stringify({ type: 'gm:broadcast', text: hundredChars }));
-  await Promise.all([exactLimitOnHost, exactLimitOnPlayer]);
-
-  const tooLongError = waitForMessage(
-    host,
-    m => m.type === 'error' && /too long/i.test(m.message || ''),
-    '101-char broker rejection'
-  );
-  host.send(JSON.stringify({ type: 'gm:broadcast', text: 'Y'.repeat(101) }));
-  await tooLongError;
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: longBrokerText }));
+  await Promise.all([longBroadcastOnHost, longBroadcastOnPlayer]);
 
   const replacementText = 'SECOND TRANSMISSION';
   const replacementUpdate = waitForMessage(
@@ -270,9 +262,8 @@ async function testShadowBrokerControls() {
     name: 'BROKER RECONNECT'
   }));
   const hydrated = await reconnectChat;
-  assert.ok(hydrated.messages.some(m => m.source === 'shadowBroker' && m.text === hundredChars));
+  assert.ok(hydrated.messages.some(m => m.source === 'shadowBroker' && m.text === longBrokerText));
   assert.ok(hydrated.messages.some(m => m.source === 'shadowBroker' && m.text === replacementText));
-  assert.equal(hydrated.messages.some(m => m.text === 'Y'.repeat(101)), false);
 
   console.log('PASS Shadow Broker broadcast/clear/boundary regression');
   closeWs(reconnect);

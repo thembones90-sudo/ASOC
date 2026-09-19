@@ -231,13 +231,13 @@ const App = {
       e.preventDefault();
       this.sendShadowBrokerBroadcast();
     });
-    document.getElementById('shadow-broker-input')?.addEventListener('input', () => {
-      this.updateShadowBrokerCounter();
+    document.getElementById('shadow-broker-input')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Delete') {
+        e.preventDefault();
+        e.currentTarget.value = '';
+        this.clearShadowBrokerBroadcast();
+      }
     });
-    document.getElementById('shadow-broker-clear-btn')?.addEventListener('click', () => {
-      this.clearShadowBrokerBroadcast();
-    });
-    this.updateShadowBrokerCounter();
 
     // FAIL K ("K" is this GM's own shorthand for the Final/"Kraj" slot) --
     // lives in the WOMF section alongside FAIL A-D now, replacing the old
@@ -1784,18 +1784,10 @@ const App = {
     }
 
     input.value = '';
-    this.updateShadowBrokerCounter();
-    // Keep focus in the box so pressing Enter to send another transmission
-    // right away works without the operator having to reclick into it.
+    // Keep focus in the box so Enter can fire the next transmission
+    // immediately. There is deliberately no character counter or GM-side
+    // transmission length cap.
     input.focus();
-  },
-
-  updateShadowBrokerCounter() {
-    const input = document.getElementById('shadow-broker-input');
-    const counter = document.getElementById('shadow-broker-count');
-    if (!input || !counter) return;
-    counter.textContent = `${input.value.length}/100`;
-    counter.classList.toggle('at-limit', input.value.length >= 100);
   },
 
   clearShadowBrokerBroadcast() {
