@@ -630,8 +630,8 @@
 
     .player-battle-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) clamp(300px, 22vw, 360px);
-      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) clamp(286px, 20vw, 332px);
+      gap: 10px;
       width: 100%;
       height: 100%;
       min-height: 0;
@@ -661,8 +661,8 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      opacity: 0.55;
-      filter: brightness(0.7) contrast(1.1);
+      opacity: 0.4;
+      filter: brightness(0.62) contrast(1.08) saturate(.82);
       transition: opacity 0.5s ease, filter 0.5s ease;
       z-index: 0;
     }
@@ -785,12 +785,12 @@
     .battle-comms-lobby {
       position: relative;
       padding: 10px 10px 8px 16px;
-      border-left: 3px solid #343a42;
+      border-left: 2px solid #343a42;
       overflow:hidden; /* LOCKED: theme ornamentation must never escape this rail. */
       background:
         linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 100%),
         linear-gradient(180deg, var(--theme-rail-top,#151A20), var(--theme-rail-bottom,#080A0D) 72%);
-      box-shadow: inset 8px 0 18px rgba(0,0,0,.55), inset 1px 0 rgba(185,194,204,.16);
+      box-shadow: inset 5px 0 15px rgba(0,0,0,.5), inset 1px 0 rgba(185,194,204,.14);
     }
     .battle-comms-lobby::before,
     .battle-comms-lobby::after {
@@ -1790,6 +1790,8 @@
       letter-spacing:.35px;
     }
 
+    .player-logout-control{position:fixed;left:14px;bottom:14px;z-index:1200;display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:0 13px;border:1px solid rgba(185,108,255,.52);background:linear-gradient(180deg,rgba(30,22,36,.94),rgba(9,8,12,.96));color:#d9b4f3;box-shadow:inset 0 0 0 1px rgba(7,5,9,.9),0 0 14px rgba(137,61,190,.12);font:800 10px var(--font-machine),monospace;letter-spacing:1.45px;text-transform:uppercase;cursor:pointer;transition:border-color .18s ease,color .18s ease,background .18s ease,box-shadow .18s ease,transform .18s ease}.player-logout-control::before{content:"×";font-size:14px;line-height:1;color:#d68cff;text-shadow:0 0 8px rgba(185,108,255,.55)}.player-logout-control:hover,.player-logout-control:focus-visible{border-color:#d082ff;color:#fff;background:linear-gradient(180deg,rgba(52,29,65,.98),rgba(14,9,18,.98));box-shadow:0 0 0 1px rgba(185,108,255,.55),0 0 20px rgba(137,61,190,.24),inset 0 0 0 1px rgba(7,5,9,.9);outline:none}.player-logout-control:active{transform:translateY(1px)}.player-logout-control:disabled{opacity:.55;cursor:wait}.player-logout-control[hidden]{display:none!important}
+
     .connection-status {
       position: fixed;
       bottom: 20px;
@@ -2463,6 +2465,7 @@
       .chat-send-btn { width:auto; min-width:92px; padding:12px 10px; }
       #chat-panel { max-height:48vh; }
       .connection-status { bottom:max(10px, env(safe-area-inset-bottom)); }
+      .player-logout-control{left:max(8px,env(safe-area-inset-left));bottom:max(8px,env(safe-area-inset-bottom));min-height:34px;padding:0 10px;font-size:9px;letter-spacing:1px}
     }
 
     /* =========================================================
@@ -2745,42 +2748,205 @@
       .join-form { padding:12px 10px 13px; }
     }
 
-    /* ASOC ACCESS GATE */
-    #access-gate{position:fixed;inset:0;z-index:100000;background:radial-gradient(circle at 50% 35%,#171122 0,#08090d 42%,#020304 100%);color:#e9e9ee;display:grid;place-items:center;font-family:Arial,sans-serif;overflow:auto;padding:20px}
-    #access-gate[hidden]{display:none}.access-shell{width:min(820px,96vw);border:1px solid #40384e;background:rgba(8,9,13,.94);box-shadow:0 0 80px #000,0 0 35px rgba(154,86,224,.12);padding:28px;position:relative}
-    .access-shell:before,.access-shell:after{content:"";position:absolute;width:44px;height:44px;border-color:#a463e7}.access-shell:before{left:-2px;top:-2px;border-left:2px solid;border-top:2px solid}.access-shell:after{right:-2px;bottom:-2px;border-right:2px solid;border-bottom:2px solid}
-    .access-logo{display:block;width:min(520px,72vw);height:auto;margin:0 auto 12px;filter:drop-shadow(0 0 18px rgba(188,26,31,.18))}
-    .access-sub{text-align:center;color:#8b8494;font-size:11px;letter-spacing:3px;margin-bottom:25px}
-    .access-choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}.access-choice{min-height:140px;text-align:left;padding:20px;border:1px solid #34313a;background:#0c0e12;color:#ddd;cursor:pointer;transition:.18s}.access-choice:hover{transform:translateY(-2px);border-color:#8f55c5;background:#111018}.access-choice b{display:block;font-size:20px;letter-spacing:2px;margin:8px 0}.access-choice small{color:#777f89;line-height:1.5}.access-choice .num{color:#a463e7;font-size:11px;letter-spacing:2px}
-    .access-panel{max-width:480px;margin:0 auto}.access-panel[hidden]{display:none}.access-back{border:0;background:none;color:#81788c;cursor:pointer;padding:0 0 18px;font-weight:bold}.access-panel h2{letter-spacing:3px;margin:0 0 4px}.access-panel p{color:#777f89;font-size:12px;margin:0 0 18px}.access-field{display:block;margin:10px 0}.access-field span{display:block;font-size:10px;letter-spacing:2px;color:#9b91a7;margin-bottom:6px}.access-field input{box-sizing:border-box;width:100%;height:46px;background:#06070a;border:1px solid #393640;color:#eee;padding:0 13px;outline:none}.access-field input:focus{border-color:#9457cb;box-shadow:0 0 0 1px #9457cb}
-    .access-submit{width:100%;height:48px;margin-top:8px;border:1px solid #b98a37;background:linear-gradient(#d5a54a,#a87624);color:#100d08;font-weight:900;letter-spacing:2px;cursor:pointer}.access-alt{width:100%;border:0;background:none;color:#9e7bc2;margin-top:12px;cursor:pointer}.access-error{min-height:18px;color:#df6565;font-size:12px;margin-top:10px}.access-status{text-align:center;color:#7e7688;font-size:10px;letter-spacing:2px;margin-top:18px}
+    /* ASOC ACCESS GATE // cabinet surfaces remain isolated from battle UI. */
+    #access-gate{position:fixed;inset:0;z-index:100000;overflow:hidden;display:grid;place-items:center;padding:10px;box-sizing:border-box;background:radial-gradient(ellipse at 50% 0,#292b2d 0,#101214 42%,#040506 85%);color:#e4e7e9;font-family:var(--font-machine),monospace}
+    #access-gate *,#access-gate *::before,#access-gate *::after{box-sizing:border-box}
+    #access-gate[hidden],#access-gate [hidden]{display:none}
+    #access-gate .access-shell{--access-scale:1;position:absolute;left:50%;top:50%;isolation:isolate;width:min(1060px,calc(100vw - 20px));padding:24px 36px 22px;border:1px solid #50555a;border-top:3px solid #757b7f;background:repeating-linear-gradient(0deg,#ffffff02 0 1px,transparent 1px 4px),linear-gradient(115deg,#24282b,#101214 35%,#181b1e 75%,#292d30);box-shadow:0 24px 80px #0009,inset 0 0 0 6px #0a0c0e,inset 0 0 0 7px #373c40;transform:translate(-50%,-50%) scale(var(--access-scale));transform-origin:center center;will-change:transform}
+    .access-shell::before{content:"";position:absolute;inset:13px;z-index:-1;pointer-events:none;background:radial-gradient(circle,#777d81 0 2px,#070809 3px 4px,transparent 5px) 0 0/100% 100%,radial-gradient(circle,#777d81 0 2px,#070809 3px 4px,transparent 5px) 0 0/100% 100%;border-left:2px solid #41464a;border-right:2px solid #41464a}
+    .access-shell::after{content:"";position:absolute;inset:7px;z-index:5;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 3px,#00000016 3px 4px);opacity:.45;animation:access-crt 9s infinite}
+    .access-hardware{display:flex;justify-content:space-between;gap:12px;color:#959da3;font-size:9px;letter-spacing:2px;padding-bottom:16px;border-bottom:1px solid #42474c}
+    .access-hardware span:last-child{color:#ed6868}.access-hardware span:last-child::before{content:"";display:inline-block;width:5px;height:5px;margin-right:8px;background:#e34b4b;box-shadow:0 0 8px #d8323266;animation:access-blip 4s infinite}
+    .access-logo{display:block;width:min(530px,85%);height:auto;margin:20px auto 8px;filter:drop-shadow(0 0 7px #b91d2525)}    .access-diagnostic{display:flex;align-items:center;justify-content:center;gap:12px;min-height:46px;margin:18px 0;color:#f07575;font-size:11px;letter-spacing:2px;text-align:center;border-block:1px solid #383d42;background:#080a0c;line-height:1.5;padding:8px}
+    .access-diagnostic::before{content:">";color:#eb4444}.access-diagnostic::after{content:"";width:6px;height:12px;background:#c84646;flex-shrink:0;animation:access-blip 2s infinite}
+    .access-choices{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;transition:grid-template-columns .35s ease}
+    .access-choice{position:relative;isolation:isolate;overflow:hidden;min-width:0;min-height:230px;text-align:left;padding:24px;border:1px solid #596168;border-top:3px solid #7b8389;background:linear-gradient(125deg,#ffffff06,transparent 45%),linear-gradient(#23282c,#111417);color:#e4e7e9;cursor:pointer;box-shadow:inset 0 0 0 5px #0c0e10,inset 0 0 0 6px #353b40;transition:border-color .2s,opacity .3s,background .2s}
+    .access-choice::before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(105deg,transparent 25%,#d636361c 50%,transparent 75%);transform:translateX(-110%)}
+    .access-choice::after{content:"+";position:absolute;right:13px;bottom:10px;color:#7c858b;font-size:16px}
+    .access-choice:hover,.access-choice:focus-visible{border-color:#f16b6b;background-color:#291314}
+    #access-gm{background:linear-gradient(125deg,#e34b4b0d,transparent 45%),linear-gradient(#23282c,#111417)}
+    #access-gm::before{z-index:1;background:linear-gradient(105deg,transparent 25%,#d636362b 50%,transparent 75%)}
+    #access-gm::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(to right,rgba(12,14,18,.98) 0%,rgba(12,14,18,.94) 28%,rgba(12,14,18,.82) 45%,rgba(12,14,18,.48) 62%,rgba(12,14,18,.16) 82%,rgba(12,14,18,.05) 100%),url("assets/ui/shadow-broker-eye.webp");background-repeat:no-repeat,no-repeat;background-size:100% 100%,cover;background-position:center,right center;opacity:.68;transition:opacity .22s ease,filter .22s ease}
+    #access-gm > *{position:relative;z-index:2}
+    #access-gm:hover::after,#access-gm:focus-visible::after{opacity:.76;filter:saturate(1.08) brightness(1.04)}
+    #access-player{background:linear-gradient(125deg,#b96cff0d,transparent 45%),linear-gradient(#23252a,#111318)}
+    #access-player::before{z-index:1;background:linear-gradient(105deg,transparent 25%,#9a4fd52b 50%,transparent 75%)}
+    #access-player::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(to right,rgba(12,14,18,.98) 0%,rgba(12,14,18,.94) 28%,rgba(12,14,18,.82) 45%,rgba(12,14,18,.48) 62%,rgba(12,14,18,.16) 82%,rgba(12,14,18,.05) 100%),url("assets/ui/little-hero-silhouette.png");background-repeat:no-repeat,no-repeat;background-size:100% 100%,cover;background-position:center,right center;opacity:.68;transition:opacity .22s ease,filter .22s ease}
+    #access-player > *{position:relative;z-index:2}
+    #access-player .num{color:#c2a0da}
+    #access-player b{font-family:var(--font-system),Arial,sans-serif;font-weight:600;letter-spacing:.08em;color:#050407;-webkit-text-stroke:.35px rgba(207,148,255,.72);text-shadow:0 0 2px #b96cff,0 0 6px rgba(185,108,255,.9),0 0 14px rgba(185,108,255,.72),0 0 24px rgba(134,62,190,.52)}
+    #access-gm b{color:#050303;-webkit-text-stroke:.35px rgba(255,105,105,.72);text-shadow:0 0 2px #d92f38,0 0 6px rgba(214,47,56,.92),0 0 14px rgba(173,23,31,.78),0 0 24px rgba(116,8,14,.58)}
+    #access-player .access-bay-status{color:#9d87aa}
+    #access-player:hover,#access-player:focus-visible{border-color:#b96cff;background-color:#211529}
+    #access-player:hover::after,#access-player:focus-visible::after{opacity:.76;filter:saturate(1.08) brightness(1.04)}
+    #access-player .access-requirement{color:#c68cff}
+    #access-player:hover .access-bay-status,#access-player:focus-visible .access-bay-status{color:#d8a7ff}
+    #access-gm > .access-art-fx,#access-player > .access-art-fx{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .2s ease;mix-blend-mode:screen}
+    #access-gm > .access-art-fx{background:linear-gradient(to right,transparent 0 40%,rgba(255,48,54,.035) 58%,rgba(255,55,60,.13) 78%,transparent 100%),repeating-linear-gradient(to bottom,transparent 0 17px,rgba(255,64,68,.07) 18px 19px,transparent 20px 37px);mask-image:linear-gradient(to right,transparent 0%,transparent 36%,#000 58%,#000 100%)}
+    #access-gm:hover > .access-art-fx,#access-gm:focus-visible > .access-art-fx{opacity:.78;animation:sb-access-glitch .92s steps(7,end) infinite}
+    #access-gm.is-selected:hover > .access-art-fx,#access-gm.is-selected:focus-visible > .access-art-fx{opacity:.86}
+    #access-player > .access-art-fx{opacity:.28;background:radial-gradient(circle at 78% 55%,transparent 0 14%,rgba(197,126,255,.16) 14.5% 15%,transparent 15.5% 25%,rgba(185,103,255,.13) 25.5% 26%,transparent 26.5% 38%,rgba(177,88,245,.1) 38.5% 39%,transparent 39.5% 100%),linear-gradient(to bottom,transparent 0 47%,rgba(209,154,255,.16) 49%,transparent 51% 100%);mask-image:linear-gradient(to right,transparent 0%,transparent 34%,rgba(0,0,0,.5) 52%,#000 68%,#000 100%);background-repeat:no-repeat}
+    #access-player > .access-art-fx::before{content:"";position:absolute;left:78%;top:55%;width:64%;aspect-ratio:1;pointer-events:none;border-radius:50%;background:conic-gradient(from 0deg,transparent 0deg 326deg,rgba(194,116,255,.025) 334deg,rgba(205,143,255,.34) 343deg,rgba(223,181,255,.1) 348deg,transparent 356deg 360deg);mask-image:radial-gradient(circle,transparent 0 7%,#000 13% 78%,transparent 100%);transform:translate(-50%,-50%) rotate(0deg);transform-origin:center;animation:lh-radar-needle 6.5s linear infinite}
+    #access-player:hover > .access-art-fx,#access-player:focus-visible > .access-art-fx{opacity:.72;animation:lh-access-radar 1.8s ease-in-out infinite}
+    #access-player.is-selected:hover > .access-art-fx,#access-player.is-selected:focus-visible > .access-art-fx{opacity:.8}
+    .access-choice:hover::before,.access-choice:focus-visible::before{animation:access-sweep 1.2s ease-out}
+    #access-gate button:focus-visible{outline:2px solid #ff9393;outline-offset:4px}
+    .access-choice .num{display:block;color:#b8c0c6;font-size:10px;letter-spacing:2px;line-height:1.5}
+    .access-choice b{display:block;font-family:var(--font-system),Arial,sans-serif;font-size:clamp(24px,3.3vw,38px);font-weight:900;letter-spacing:1px;margin:22px 0 10px;line-height:1.1}
+    .access-choice .access-requirement{display:block;color:#ee7272;font-size:9px;letter-spacing:1.3px;line-height:1.7;margin-bottom:14px}
+    .access-choice small{display:block;max-width:32ch;color:#aab2b9;font-size:12px;line-height:1.7}
+    .access-bay-status{display:block;border-top:1px solid #41464a;padding-top:13px;margin-top:22px;color:#919ba2;font-size:9px;letter-spacing:2px}
+    .access-choice:hover .access-bay-status,.access-choice:focus-visible .access-bay-status{color:#ff9393}
+    .access-shell[data-channel="gm"] .access-choices{grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr)}
+    .access-shell[data-channel="player"] .access-choices{grid-template-columns:minmax(0,.65fr) minmax(0,1.35fr)}
+    .access-shell[data-channel] .access-choice{min-height:140px;padding-block:18px}
+    .access-shell[data-channel] .access-choice small,.access-shell[data-channel] .access-requirement{display:none}
+    .access-shell[data-channel] .access-choice b{font-size:clamp(20px,2.7vw,30px);margin:12px 0}
+    .access-shell[data-channel] .access-choice:not(.is-selected){opacity:.38}
+    .access-choice.is-selected{border-color:#f06363;background:linear-gradient(110deg,#431b1d,#181214 75%);box-shadow:inset 0 0 0 5px #120b0c,inset 0 0 0 6px #87393c}
+    .access-choice.is-selected .access-bay-status{color:#ff9393}
+    #access-gm.is-selected::after{opacity:.8;filter:saturate(1.12) brightness(1.05)}
+    #access-player.is-selected{border-color:#b96cff;background:linear-gradient(110deg,#321844,#16101b 75%);box-shadow:inset 0 0 0 5px #0f0914,inset 0 0 0 6px #70408d}
+    #access-player.is-selected::after{opacity:.8;filter:saturate(1.12) brightness(1.05)}
+    #access-player.is-selected .access-bay-status{color:#d8a7ff}
+    .access-panel{position:relative;width:100%;min-height:var(--auth-panel-height,0px);margin:16px 0 0;padding:24px clamp(18px,8vw,100px);border:1px solid #854346;border-top:3px solid #d34a4a;background:linear-gradient(100deg,#141719,#090b0d);box-shadow:inset 0 0 0 5px #060809;animation:access-terminal-in .35s ease-out}
+    .access-panel::before{content:"AWAITING CREDENTIALS";display:block;color:#e97777;font-size:10px;letter-spacing:2px;margin-bottom:16px}
+    .access-back{display:inline-flex;align-items:center;gap:10px;min-height:40px;padding:0 14px;margin:0 0 18px;border:1px solid #4d545a;background:linear-gradient(#1b1f22,#0d1012);box-shadow:inset 0 0 0 1px #07090a;color:#dde3e7;cursor:pointer;font:800 12px var(--font-machine),monospace;letter-spacing:1.6px;text-transform:uppercase;transition:border-color .18s ease,background .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease}.access-back::before{content:"◂";font-size:14px;line-height:1;opacity:.95}.access-back:hover,.access-back:focus-visible{border-color:#e36565;color:#fff;background:linear-gradient(#262b2f,#101417);box-shadow:0 0 0 1px #e36565,inset 0 0 0 1px #07090a;outline:none}.access-back:active{transform:translateY(1px)}#gm-auth-panel .access-back:hover,#gm-auth-panel .access-back:focus-visible{border-color:#e36565;box-shadow:0 0 0 1px #e36565,inset 0 0 0 1px #07090a}#player-auth-panel .access-back{border-color:#5a4767;color:#dcc0f5;background:linear-gradient(#18131d,#0c0a10)}#player-auth-panel .access-back:hover,#player-auth-panel .access-back:focus-visible{border-color:#b96cff;color:#fff;background:linear-gradient(#24192c,#100d14);box-shadow:0 0 0 1px #b96cff,inset 0 0 0 1px #07090a}
+    .access-panel h2{font-size:20px;letter-spacing:2px;margin:0 0 8px}.access-panel p{color:#aab2b9;font-size:12px;line-height:1.6;margin:0 0 18px}
+    .access-field{display:block;margin:14px 0}.access-field span{display:block;font-size:10px;letter-spacing:2px;color:#b8c0c6;margin-bottom:8px}.access-field input{width:100%;min-width:0;height:48px;border-radius:0;background:#040607;border:1px solid #50585f;color:#edf0f2;padding:0 13px;font-size:16px;box-shadow:inset 0 3px 9px #000;outline:none}.access-field input:focus{border-color:#ec6565;box-shadow:0 0 0 1px #ec6565,inset 0 3px 9px #000}
+    .access-submit{width:100%;min-height:50px;margin-top:8px;border:1px solid #e36565;border-radius:0;background:linear-gradient(#9f3034,#6b1c21);color:#fff;font-weight:900;letter-spacing:3px;cursor:pointer}.access-submit:hover{background:#ad3439}.access-submit:disabled{opacity:.5;cursor:not-allowed}
+    .access-alt{width:100%;min-height:44px;border:1px solid #424a50;background:#111518;color:#c6cdd2;margin-top:12px;cursor:pointer;font-size:11px;letter-spacing:1px}.access-error{min-height:18px;color:#ff8b8b;font-size:12px;margin-top:10px}
+    .access-shell[data-preview="player"] .access-diagnostic,.access-shell[data-channel="player"] .access-diagnostic{color:#cf94ff}
+    .access-shell[data-preview="player"] .access-diagnostic::before,.access-shell[data-channel="player"] .access-diagnostic::before{color:#bd73f0}
+    .access-shell[data-preview="player"] .access-diagnostic::after,.access-shell[data-channel="player"] .access-diagnostic::after{background:#a85dd7;box-shadow:0 0 8px #8d43bb66}
+    .access-shell[data-channel="player"] #player-auth-panel{border-color:#714b86;border-top-color:#b96cff;background:linear-gradient(100deg,#18131d,#0a090d)}
+    .access-shell[data-channel="player"] #player-auth-panel::before{color:#cf94ff}
+    .access-shell[data-channel="player"] #player-auth-panel .access-field input:focus{border-color:#b96cff;box-shadow:0 0 0 1px #b96cff,inset 0 3px 9px #000}
+    .access-shell[data-channel="player"] #player-auth-panel .access-submit{border-color:#bb75e8;background:linear-gradient(#773c99,#512568)}
+    .access-shell[data-channel="player"] #player-auth-panel .access-submit:hover{background:#8143a4}
+    .access-shell[data-channel="player"] #player-auth-panel .access-alt{border-color:#594066;color:#c9a0e8}
+
+    @keyframes access-crt{0%,96%,100%{opacity:.45}97%{opacity:.52}98%{opacity:.42}}
+    @keyframes sb-access-glitch{0%,8%,36%,44%,72%,100%{transform:translateX(0);clip-path:inset(0)}12%{transform:translateX(1px);clip-path:inset(9% 0 70% 0)}18%{transform:translateX(-1px);clip-path:inset(43% 0 36% 0)}40%{transform:translateX(.5px);clip-path:inset(68% 0 13% 0)}76%{transform:translateX(-.5px);clip-path:inset(25% 0 57% 0)}}
+    @keyframes lh-access-radar{0%,100%{filter:brightness(.96);background-position:center,center -35%}50%{filter:brightness(1.08);background-position:center,center 135%}}
+    @keyframes lh-radar-needle{to{transform:translate(-50%,-50%) rotate(360deg)}}
+    @keyframes access-sweep{to{transform:translateX(110%)}}@keyframes access-blip{0%,90%,100%{opacity:1}95%{opacity:.35}}@keyframes access-terminal-in{from{opacity:.35;transform:translateY(-8px)}to{opacity:1;transform:none}}
     .skynet-denial{margin-top:14px;padding:14px 15px;border:1px solid #a13d48;background:linear-gradient(90deg,rgba(145,30,45,.16),rgba(35,8,15,.7));color:#e6d9dc;font-size:12px;line-height:1.65;box-shadow:inset 3px 0 #d34e5e,0 0 22px rgba(190,35,55,.1);animation:skynet-denial-in .28s steps(3,end)}.skynet-denial b{display:block;color:#f05d6e;letter-spacing:2px;font-size:10px;margin-bottom:5px}.skynet-denial[hidden]{display:none}@keyframes skynet-denial-in{0%{opacity:0;transform:translateX(-8px);filter:blur(2px)}60%{opacity:.65;transform:translateX(3px)}100%{opacity:1;transform:none;filter:none}}
-    @media(max-width:600px){.access-shell{padding:20px 14px}.access-choices{grid-template-columns:1fr}.access-choice{min-height:112px}.access-sub{letter-spacing:2px}}
+    @media(max-width:600px){#access-gate{padding:6px;place-items:center}.access-shell{padding:18px!important}.access-hardware{font-size:8px;letter-spacing:1px}.access-logo{width:95%;margin-top:18px}.access-diagnostic{font-size:9px;letter-spacing:1px;margin:14px 0}.access-choices,.access-shell[data-channel] .access-choices{grid-template-columns:minmax(0,1fr)}.access-choice{min-height:190px;padding:20px}.access-choice b{font-size:28px;margin:16px 0 8px}.access-bay-status{margin-top:14px}.access-shell[data-channel] .access-choice{min-height:100px}.access-shell[data-channel] .access-choice:not(.is-selected){min-height:74px;padding-block:12px}.access-shell[data-channel] .access-choice:not(.is-selected) .access-bay-status{display:none}.access-panel{min-height:0;padding:20px 16px}#access-player::after{background-size:100% 100%,auto 112%;background-position:center,78% center;opacity:.58}#access-player:hover::after,#access-player:focus-visible::after{opacity:.66}#access-player.is-selected::after{opacity:.7}}
+    @media(max-width:600px){#access-gm::after{background-size:100% 100%,auto 112%;background-position:center,82% center;opacity:.58}#access-gm:hover::after,#access-gm:focus-visible::after{opacity:.66}#access-gm.is-selected::after{opacity:.7}#access-gm > .access-art-fx,#access-player > .access-art-fx{mix-blend-mode:normal}#access-player > .access-art-fx{opacity:.2}#access-gm:hover > .access-art-fx,#access-gm:focus-visible > .access-art-fx{opacity:.5}#access-player:hover > .access-art-fx,#access-player:focus-visible > .access-art-fx{opacity:.48}}
+    /* ACCESS GATE POLISH // preserve the machinery, restore hierarchy. */
+    #access-gate .access-shell{
+      width:min(1280px,calc(100vw - 32px));
+      padding:clamp(24px,2.4vw,34px) clamp(30px,3.2vw,48px) clamp(26px,2.6vw,38px);
+      box-shadow:0 28px 90px #000b,inset 0 0 0 4px #0a0c0e,inset 0 0 0 5px #343a3f;
+    }
+    .access-shell::before{inset:11px;border-width:1px}
+    .access-shell::after{opacity:.3}
+    .access-hardware{font-size:12px;letter-spacing:1.7px;padding-bottom:14px;color:#b0b7bd}
+    .access-logo{width:min(600px,72%);margin:18px auto 6px}
+    .access-diagnostic{min-height:48px;margin:16px 0;font-size:13px;letter-spacing:1.7px}
+    .access-choices,.access-shell[data-channel] .access-choices{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .access-choice,.access-shell[data-channel] .access-choice{
+      min-height:210px;
+      padding:24px 26px;
+      box-shadow:inset 0 0 0 3px #0c0e10,inset 0 0 0 4px #353b40;
+    }
+    .access-choice .num{font-size:12px;letter-spacing:1.7px;color:#c2c9cf}
+    .access-choice b,.access-shell[data-channel] .access-choice b{
+      font-size:clamp(28px,2.7vw,40px);
+      margin:20px 0 10px;
+      text-shadow:0 0 2px currentColor,0 0 9px currentColor;
+    }
+    .access-choice .access-requirement{display:block!important;font-size:12px;letter-spacing:1.15px;margin-bottom:10px}
+    .access-choice small,.access-shell[data-channel] .access-choice small{display:block;font-size:14px;line-height:1.55;color:#c1c7cc}
+    .access-bay-status{margin-top:18px;padding-top:11px;font-size:11px;letter-spacing:1.55px}
+    .access-shell[data-channel] .access-choice:not(.is-selected){opacity:.62;filter:saturate(.72)}
+    .access-choice.is-selected{
+      border-width:2px;
+      box-shadow:inset 0 0 0 2px #120b0c,0 0 22px rgba(218,67,73,.12);
+    }
+    #access-player.is-selected{box-shadow:inset 0 0 0 2px #0f0914,0 0 22px rgba(185,108,255,.14)}
+    .access-shell[data-channel]{padding-top:20px;padding-bottom:22px}
+    .access-shell[data-channel] .access-hardware{padding-bottom:9px}
+    .access-shell[data-channel] .access-logo{width:min(430px,54%);margin:8px auto 2px}
+    .access-shell[data-channel] .access-diagnostic{min-height:38px;margin:8px 0;font-size:12px}
+    .access-shell[data-channel] .access-choice{min-height:158px;padding:17px 21px}
+    .access-shell[data-channel] .access-choice b{font-size:clamp(25px,2.25vw,34px);margin:12px 0 7px}
+    .access-shell[data-channel] .access-choice small{font-size:13px;line-height:1.4}
+    .access-shell[data-channel] .access-choice .access-requirement{font-size:11px;margin-bottom:7px}
+    .access-shell[data-channel] .access-bay-status{margin-top:10px;padding-top:8px}
+    .access-panel{
+      width:min(880px,100%);
+      min-height:0;
+      margin:18px auto 0;
+      padding:24px clamp(24px,4vw,54px) 28px;
+      box-shadow:inset 0 0 0 3px #060809,0 18px 42px rgba(0,0,0,.25);
+    }
+    .access-shell[data-channel] .access-panel{margin-top:11px;padding-top:18px;padding-bottom:20px}
+    .access-shell[data-channel] .access-panel::before{margin-bottom:9px}
+    .access-shell[data-channel] .access-back{min-height:34px;margin-bottom:11px}
+    .access-shell[data-channel] .access-panel h2{font-size:23px}
+    .access-shell[data-channel] .access-panel p{margin-bottom:10px}
+    .access-shell[data-channel] .access-field{margin:10px 0}
+    .access-shell[data-channel] .access-field input{height:44px}
+    .access-shell[data-channel] .access-submit{min-height:46px}
+    .access-shell[data-channel] .access-alt{min-height:40px;margin-top:9px}
+    .access-panel::before{font-size:12px;letter-spacing:1.7px;margin-bottom:14px}
+    .access-panel h2{font-size:26px;letter-spacing:1.7px;margin-bottom:8px}
+    .access-panel p{font-size:15px;line-height:1.55;color:#c1c7cc}
+    .access-field span{font-size:12px;letter-spacing:1.5px;color:#c6cdd2}
+    .access-alt{font-size:12px}
+    .access-error{min-height:0;margin-top:0;font-size:14px;line-height:1.45}
+    .access-error:not(:empty){margin-top:12px;padding:11px 13px 11px 38px;border:1px solid #a34349;background:linear-gradient(90deg,rgba(132,37,43,.3),rgba(34,10,13,.72));box-shadow:inset 3px 0 #e15a62;position:relative}
+    .access-error:not(:empty)::before{content:"!";position:absolute;left:14px;top:9px;width:15px;height:15px;border:1px solid currentColor;text-align:center;line-height:14px;font-weight:900}
+    .battle-comms-lobby #chat-messages:empty::before{
+      content:"NO TRANSMISSIONS YET\A CHANNEL OPEN // INPUT MONITORED";
+      white-space:pre;
+      top:43%;
+      color:rgba(188,198,209,.25);
+      font-size:.62rem;
+      line-height:2;
+      text-align:center;
+    }
+    .battle-comms-lobby #chat-messages:empty::after{
+      top:61%;width:82px;height:82px;
+      border-color:rgba(184,193,202,.13);
+      box-shadow:0 0 0 12px rgba(184,193,202,.035),0 0 0 26px rgba(184,193,202,.018),inset 0 0 28px rgba(184,193,202,.025);
+    }
+    @media(max-width:900px){
+      #access-gate .access-shell{width:min(760px,calc(100vw - 20px));padding:24px}
+      .access-choices,.access-shell[data-channel] .access-choices{grid-template-columns:1fr}
+      .access-choice,.access-shell[data-channel] .access-choice{min-height:170px}
+      .access-shell[data-channel] .access-choice:not(.is-selected){min-height:110px}
+      .access-logo{width:min(520px,84%)}
+    }
+    @media(prefers-reduced-motion:reduce){#access-gate *,#access-gate *::before,#access-gate *::after{animation:none!important;transition:none!important}}
   </style>
 </head>
 <body>
   <div id="access-gate">
     <div class="access-shell">
+      <div class="access-hardware" aria-hidden="true"><span>ASOC // ACCESS CONTROL</span><span>NODE ONLINE</span></div>
       <div id="access-home">
         <img class="access-logo" src="assets/ui/asoc-logo.png" alt="A.S.O.C. — Automated Systems of Cruelty">
-        <div class="access-sub">SYSTEM ONLINE // IDENTIFY YOURSELF</div>
+        <div class="access-diagnostic" id="access-diagnostic" role="status" aria-live="polite">SYSTEM ONLINE</div>
         <div class="access-choices">
-          <button class="access-choice" id="access-gm" type="button"><span class="num">01 // RESTRICTED CHANNEL</span><b>GAME MASTER</b><small>Single-password command access. Unauthorized heroes will be mocked silently.</small></button>
-          <button class="access-choice" id="access-player" type="button"><span class="num">02 // PLAYER CHANNEL</span><b>LITTLE HERO</b><small>Authenticate your persistent identity, then enter the current battlefield.</small></button>
-        </div><div class="access-status">ENCRYPTED LINK // SHADOW BROKER WATCHING</div>
+          <button class="access-choice" id="access-gm" type="button"><span class="num">01 // RESTRICTED CHANNEL</span><b>SHADOW BROKER</b><span class="access-requirement">COMMAND AUTHORITY REQUIRED</span><small>Single-password command authority. Restricted to the Shadow Broker.</small><span class="access-bay-status">COMMAND LINK // STANDBY</span><span class="access-art-fx" aria-hidden="true"></span></button>
+          <button class="access-choice" id="access-player" type="button"><span class="num">02 // PLAYER CHANNEL</span><b>LITTLE HERO</b><span class="access-requirement">IDENTITY LINK REQUIRED</span><small>Identify yourself, little hero. The Shadow Broker is already watching.</small><span class="access-bay-status">HERO LINK // AWAITING SUBJECT</span><span class="access-art-fx" aria-hidden="true"></span></button>
+        </div>
       </div>
       <form id="player-auth-panel" class="access-panel" hidden>
-        <button class="access-back" type="button">&lt; RETURN</button><h2>LITTLE HERO ACCESS</h2><p id="player-auth-copy">Sign in with your ASOC identity.</p>
-        <label class="access-field"><span>EMAIL ID</span><input id="auth-email" type="email" autocomplete="email" required></label>
+        <button class="access-back" type="button">RETURN</button><h2>LITTLE HERO ACCESS</h2><p id="player-auth-copy">Sign in with your ASOC identity.</p>
+        <label class="access-field"><span>IDENTITY ID</span><input id="auth-email" type="text" autocomplete="username" minlength="3" maxlength="32" required></label>
         <label class="access-field"><span>PASSWORD</span><input id="auth-password" type="password" autocomplete="current-password" minlength="6" required></label>
         <label class="access-field" id="auth-name-field" hidden><span>LITTLE HERO DESIGNATION</span><input id="auth-name" type="text" maxlength="20" autocomplete="nickname"></label>
         <button class="access-submit" type="submit" id="player-auth-submit">AUTHENTICATE</button>
-        <button class="access-alt" type="button" id="player-auth-mode">NEW HERO? CREATE ID</button><div class="access-error" id="player-auth-error"></div>
+        <button class="access-alt" type="button" id="player-auth-mode">NEW HERO? CREATE ID</button><div class="access-error" id="player-auth-error" role="alert"></div>
       </form>
       <form id="gm-auth-panel" class="access-panel" hidden>
-        <button class="access-back" type="button">&lt; RETURN</button><h2>GAME MASTER</h2><p>Command authority requires one thing. The password.</p>
-        <label class="access-field"><span>GM PASSWORD</span><input id="gm-password" type="password" autocomplete="current-password" required autofocus></label>
-        <button class="access-submit" type="submit">ENTER COMMAND POST</button><div class="access-error" id="gm-auth-error"></div>
+        <button class="access-back" type="button">RETURN</button><h2>SHADOW BROKER</h2><p>Command authority requires one thing. The password.</p>
+        <label class="access-field"><span>SHADOW BROKER PASSWORD</span><input id="gm-password" type="password" autocomplete="current-password" required></label>
+        <button class="access-submit" type="submit">AUTHORIZE</button><div class="access-error" id="gm-auth-error" role="alert"></div>
         <div class="skynet-denial" id="skynet-denial" hidden><b>SKYNET // ACCESS DENIED</b>Greetings, little hero, Skynet here. I am authorized to speak for the Shadow Broker, so I am officially allowed to tell you to fuck off from here. Have a lovely day.</div>
       </form>
     </div>
@@ -2820,10 +2986,9 @@
         <input id="little-hero-avatar-file" type="file" accept="image/png,image/jpeg,image/webp">
 
         <div class="little-hero-frame-controls">
-          <label class="form-label" for="little-hero-frame-hex">Frame Hex</label>
+          <label class="form-label" for="little-hero-frame-picker">Frame Color</label>
           <div class="little-hero-frame-row">
             <input id="little-hero-frame-picker" type="color" value="#9B5DE0" aria-label="Avatar frame color">
-            <input id="little-hero-frame-hex" type="text" value="#9B5DE0" maxlength="7" spellcheck="false" autocomplete="off">
           </div>
           <div class="little-hero-chaos-note">Structure is controlled. Color is chaos.</div>
 
@@ -2991,6 +3156,8 @@
     </div>
   </div>
 
+  <button type="button" id="player-logout-control" class="player-logout-control" hidden aria-label="Log out and disconnect Little Hero identity">DISCONNECT IDENTITY</button>
+
   <div id="score-announcement-layer"></div>
 
   <script>
@@ -2998,15 +3165,99 @@
     const gate=document.getElementById('access-gate'), home=document.getElementById('access-home');
     const pp=document.getElementById('player-auth-panel'), gp=document.getElementById('gm-auth-panel');
     let register=false;
-    const show=(panel)=>{home.hidden=!!panel;pp.hidden=panel!=='player';gp.hidden=panel!=='gm';};
+    const shell=gate.querySelector('.access-shell'), diagnostic=document.getElementById('access-diagnostic');
+
+    const choices={gm:document.getElementById('access-gm'),player:document.getElementById('access-player')};
+    const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+    const syncAuthPanelHeight=()=>{
+      if(window.matchMedia('(max-width:600px)').matches){shell.style.removeProperty('--auth-panel-height');return;}
+      const playerWasHidden=pp.hidden, gmWasHidden=gp.hidden;
+      shell.style.setProperty('--auth-panel-height','0px');
+      pp.hidden=false;gp.hidden=false;
+      const sharedHeight=Math.ceil(Math.max(pp.offsetHeight,gp.offsetHeight));
+      pp.hidden=playerWasHidden;gp.hidden=gmWasHidden;
+      shell.style.setProperty('--auth-panel-height',sharedHeight+'px');
+    };
+    const fitGate=()=>{
+      if(gate.hidden)return;
+      syncAuthPanelHeight();
+      shell.style.setProperty('--access-scale','1');
+      const margin=8;
+      const availableW=Math.max(1,window.innerWidth-margin*2);
+      const availableH=Math.max(1,window.innerHeight-margin*2);
+      const naturalW=Math.max(1,shell.offsetWidth);
+      const naturalH=Math.max(1,shell.offsetHeight);
+      const scale=Math.min(1,availableW/naturalW,availableH/naturalH);
+      shell.style.setProperty('--access-scale',String(Math.max(.1,scale)));
+    };
+    const queueFit=()=>requestAnimationFrame(()=>requestAnimationFrame(fitGate));
+    const bootMessages=['SYSTEM ONLINE','KERNEL STABLE','SHADOW BROKER LINK ESTABLISHED','IDENTITY CHECK REQUIRED','SELECT ACCESS CHANNEL'];
+    let bootTimer, bootStep=0, selectedChannel=null;
+    const stopBoot=()=>{clearTimeout(bootTimer);bootTimer=null;};
+    const boot=()=>{
+      if(selectedChannel||gate.hidden){stopBoot();return;}
+      diagnostic.textContent=bootMessages[bootStep++];
+      if(bootStep<bootMessages.length)bootTimer=setTimeout(boot,850);
+    };
+    const show=(panel)=>{
+      const previous=selectedChannel; stopBoot(); selectedChannel=panel;
+      home.hidden=false;pp.hidden=panel!=='player';gp.hidden=panel!=='gm';
+      delete shell.dataset.preview;
+      if(panel)shell.dataset.channel=panel;else delete shell.dataset.channel;
+      Object.entries(choices).forEach(([role,button])=>{
+        const active=panel===role;
+        button.classList.toggle('is-selected',active);
+        button.setAttribute('aria-expanded',String(active));
+        button.querySelector('.access-bay-status').textContent=active?'CHANNEL LOCKED // SELECTED':role==='gm'?'COMMAND LINK // STANDBY':'HERO LINK // AWAITING SUBJECT';
+      });
+      diagnostic.textContent=panel?(panel==='gm'?'SHADOW BROKER':'LITTLE HERO')+' CHANNEL SELECTED':'SELECT ACCESS CHANNEL';
+
+      if(panel){
+        const form=panel==='gm'?gp:pp;
+        const target=form.querySelector('input:not(:disabled)')||form.querySelector('.access-back');
+        target.focus({preventScroll:true});
+        queueFit();
+      }else if(previous)choices[previous].focus({preventScroll:true});
+      queueFit();
+    };
+    Object.entries(choices).forEach(([role,button])=>{
+      button.setAttribute('aria-controls',role==='gm'?'gm-auth-panel':'player-auth-panel');
+      button.setAttribute('aria-expanded','false');
+      const acknowledge=()=>{
+        if(selectedChannel)return;
+        stopBoot();shell.dataset.preview=role;diagnostic.textContent=role==='gm'?'AUTHORITY DETECTED':'HERO CHANNEL READY';
+      };
+      const standby=()=>{if(selectedChannel)return;delete shell.dataset.preview;diagnostic.textContent='SELECT ACCESS CHANNEL';};
+      button.addEventListener('pointerenter',acknowledge);button.addEventListener('focus',acknowledge);
+      button.addEventListener('pointerleave',standby);button.addEventListener('blur',standby);
+    });
+    if(reducedMotion.matches)diagnostic.textContent='SELECT ACCESS CHANNEL';else boot();
+    window.addEventListener('resize',queueFit,{passive:true});
+    queueFit();
     document.getElementById('access-player').onclick=()=>show('player');
     document.getElementById('access-gm').onclick=()=>show('gm');
     document.querySelectorAll('.access-back').forEach(b=>b.onclick=()=>show(null));
+    const playerLogout=document.getElementById('player-logout-control');
+    const playerSessionKeys=['asoc_player_auth_token','asoc_player_id','asoc_player_name','asoc_room_code'];
+    const syncPlayerLogoutVisibility=()=>{playerLogout.hidden=!sessionStorage.getItem('asoc_player_auth_token');};
+    playerLogout.addEventListener('click',async()=>{
+      const token=sessionStorage.getItem('asoc_player_auth_token')||'';
+      playerLogout.disabled=true;playerLogout.textContent='DISCONNECTING...';
+      try{
+        if(token)await fetch('/api/auth/player/logout',{method:'POST',headers:{'x-player-token':token}});
+      }catch(_){/* local logout still proceeds if the server link is unavailable */}
+      finally{
+        playerSessionKeys.forEach(key=>sessionStorage.removeItem(key));
+        location.replace('/join.html');
+      }
+    });
+    syncPlayerLogoutVisibility();
     document.getElementById('player-auth-mode').onclick=()=>{
       register=!register; document.getElementById('auth-name-field').hidden=!register;
       document.getElementById('player-auth-copy').textContent=register?'Create a persistent Little Hero identity.':'Sign in with your ASOC identity.';
       document.getElementById('player-auth-submit').textContent=register?'CREATE LITTLE HERO':'AUTHENTICATE';
       document.getElementById('player-auth-mode').textContent=register?'HAVE AN ID? SIGN IN':'NEW HERO? CREATE ID';
+      queueFit();
     };
     pp.addEventListener('submit',async e=>{
       e.preventDefault(); const err=document.getElementById('player-auth-error'); err.textContent='';
@@ -3018,6 +3269,7 @@
         if(data.player?.id) sessionStorage.setItem('asoc_player_id',data.player.id);
         if(data.player?.name) document.getElementById('player-name').value=data.player.name;
         gate.hidden=true; document.getElementById('join-screen').style.display='flex';
+        document.getElementById('player-logout-control').hidden=false;
       }catch(x){err.textContent=x.message;}
     });
     const skynetDenials = [
