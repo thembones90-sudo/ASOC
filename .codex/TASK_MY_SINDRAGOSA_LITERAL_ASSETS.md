@@ -1,5 +1,15 @@
 # CODEX TASK — MY SINDRAGOSA LITERAL ASSET IMPLEMENTATION
 
+## Mandatory orientation first
+
+Before touching code, read these in order:
+1. `AGENTS.md`
+2. `.codex/PROJECT_HANDOFF.md`
+3. the relevant sections of `README.md`
+4. `HANDOFF.md`
+
+Do not begin implementation until you understand the board invariants, server-authority model, Little Hero theme system, bounds rule, foreground/background separation rule, and the sacred rule that player themes never touch the authored game board.
+
 Repo: thembones90-sudo/ASOC
 Branch: codex/my-sindragosa-literal-assets
 
