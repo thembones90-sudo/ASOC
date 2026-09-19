@@ -244,14 +244,15 @@
     .theme-select.open .theme-select-toggle {
       border-color: #727d89;
     }
-    /* SKYNET // cold-steel selector face */
+    /* SKYNET // miniature machine-cortex selector face. */
     .theme-select[data-theme-id="gunmetal"] .theme-select-toggle {
       border-color:#626d78;
       background:
-        linear-gradient(90deg,rgba(157,24,24,.10) 0 2px,transparent 2px 100%),
-        repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 7px),
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20150%2048'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23C2CAD2'%20stroke-width%3D'1'%3E%3Cpath%20opacity%3D'.065'%20d%3D'M8%2038%20L34%2038%20L46%2026%20L82%2026%20L94%2014%20L140%2014'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23D0D6DC'%3E%3Ccircle%20opacity%3D'.08'%20cx%3D'34'%20cy%3D'38'%20r%3D'1.3'%2F%3E%3Ccircle%20opacity%3D'.075'%20cx%3D'82'%20cy%3D'26'%20r%3D'1.3'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 8px center / 132px 42px no-repeat,
+        linear-gradient(90deg,rgba(157,24,24,.08) 0 2px,transparent 2px 100%),
+        linear-gradient(180deg,rgba(255,255,255,.035),transparent 24%),
         linear-gradient(180deg,#1b2128,#0b0e12);
-      box-shadow:inset 2px 0 #555f69,inset 0 1px rgba(255,255,255,.06),inset 0 -1px rgba(0,0,0,.7);
+      box-shadow:inset 2px 0 #555f69,inset 0 1px rgba(226,232,238,.07),inset 0 -1px rgba(0,0,0,.72);
     }
     .theme-select[data-theme-id="pink-protocol"] .theme-select-toggle {
       border-color:#a65c87;
@@ -422,9 +423,10 @@
     .theme-option.selected { border-color:#8d98a4; box-shadow:inset 2px 0 #8d98a4; }
     .theme-option[data-theme-id="gunmetal"].selected {
       border-color:#747f8a;
-      box-shadow:inset 2px 0 #616b75,inset 0 1px rgba(255,255,255,.045);
+      box-shadow:inset 2px 0 #616b75,inset 0 1px rgba(226,232,238,.05);
       background:
-        repeating-linear-gradient(0deg,rgba(255,255,255,.014) 0 1px,transparent 1px 7px),
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20150%2048'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23C2CAD2'%20stroke-width%3D'1'%3E%3Cpath%20opacity%3D'.065'%20d%3D'M8%2038%20L34%2038%20L46%2026%20L82%2026%20L94%2014%20L140%2014'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23D0D6DC'%3E%3Ccircle%20opacity%3D'.08'%20cx%3D'34'%20cy%3D'38'%20r%3D'1.3'%2F%3E%3Ccircle%20opacity%3D'.075'%20cx%3D'82'%20cy%3D'26'%20r%3D'1.3'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 8px center / 128px 40px no-repeat,
+        linear-gradient(180deg,rgba(255,255,255,.028),transparent 28%),
         linear-gradient(180deg,#1b2026,#0b0e12);
     }
     .theme-option[data-theme-id="pink-protocol"].selected {
@@ -549,14 +551,16 @@
         linear-gradient(180deg, var(--theme-shell-top), var(--theme-shell-bottom) 72%);
     }
 
-    /* SKYNET MATERIAL 01 // broad command-chamber shell.
-       Background-only by design: the canonical board artwork remains untouched. */
+    /* SKYNET MATERIAL 01 // COMMAND CHAMBER.
+       Quiet black/gunmetal armor with a buried synthetic neural route.
+       The board remains the highest-contrast object on the entire screen. */
     #game-screen[data-player-theme="gunmetal"] {
       background:
-        radial-gradient(circle at 88% 16%,rgba(168,28,28,.11) 0 2px,rgba(168,28,28,.045) 3px 42px,transparent 118px),
-        repeating-linear-gradient(90deg,rgba(255,255,255,.010) 0 1px,transparent 1px 112px),
-        repeating-linear-gradient(0deg,rgba(255,255,255,.008) 0 1px,transparent 1px 72px),
-        linear-gradient(145deg,#151a20 0%,#0b0e12 46%,#05070a 100%);
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20520%20300'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23B8C0C9'%20stroke-width%3D'1'%3E%3Cpath%20opacity%3D'.10'%20d%3D'M18%20232%20L76%20232%20L108%20200%20L168%20200%20L202%20166%20L278%20166%20L318%20126%20L390%20126%20L432%2084%20L506%2084'%2F%3E%3Cpath%20opacity%3D'.06'%20d%3D'M62%20274%20L110%20226%20L160%20226%20L196%20190%20L250%20190%20L292%20148'%2F%3E%3Cpath%20opacity%3D'.05'%20d%3D'M240%20286%20L240%20230%20L276%20194%20L344%20194%20L384%20154%20L444%20154'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23C7CFD7'%3E%3Ccircle%20opacity%3D'.11'%20cx%3D'76'%20cy%3D'232'%20r%3D'2'%2F%3E%3Ccircle%20opacity%3D'.10'%20cx%3D'168'%20cy%3D'200'%20r%3D'2'%2F%3E%3Ccircle%20opacity%3D'.09'%20cx%3D'278'%20cy%3D'166'%20r%3D'2'%2F%3E%3Ccircle%20opacity%3D'.09'%20cx%3D'390'%20cy%3D'126'%20r%3D'2'%2F%3E%3Ccircle%20opacity%3D'.08'%20cx%3D'444'%20cy%3D'154'%20r%3D'2'%2F%3E%3C%2Fg%3E%3Ccircle%20fill%3D'%238B2020'%20opacity%3D'.38'%20cx%3D'432'%20cy%3D'84'%20r%3D'2.4'%2F%3E%3C%2Fsvg%3E") right 2.5vw top 10vh / min(520px,38vw) auto no-repeat,
+        radial-gradient(circle at 91% 13%,rgba(145,26,26,.075) 0 1px,rgba(145,26,26,.025) 3px 38px,transparent 105px),
+        linear-gradient(90deg,transparent 0 58%,rgba(207,216,225,.025) 58% 58.08%,transparent 58.08% 100%),
+        linear-gradient(180deg,rgba(255,255,255,.022),transparent 7%),
+        linear-gradient(145deg,#151a20 0%,#0b0e12 48%,#05070a 100%);
     }
 
     #game-screen.active {
@@ -741,14 +745,16 @@
     .battle-comms-lobby::before { top:8px; }
     .battle-comms-lobby::after { bottom:8px; }
 
-    /* SKYNET MATERIAL 02 // bolted detention-terminal wall. */
+    /* SKYNET MATERIAL 02 // MACHINE CORTEX.
+       Strongest themed surface: armored steel over a sparse neural bus.
+       Static on purpose; cognition is implied, never animated wallpaper. */
     #game-screen[data-player-theme="gunmetal"] .battle-comms-lobby {
       background:
-        linear-gradient(90deg,rgba(170,30,30,.12) 0 2px,transparent 2px 100%),
-        repeating-linear-gradient(0deg,rgba(255,255,255,.014) 0 1px,transparent 1px 46px),
-        repeating-linear-gradient(90deg,rgba(255,255,255,.010) 0 1px,transparent 1px 86px),
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20320%20720'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23BEC6CE'%20stroke-width%3D'1'%3E%3Cpath%20opacity%3D'.13'%20d%3D'M18%2062%20L70%2062%20L96%2088%20L96%20150%20L132%20186%20L190%20186%20L220%20216%20L220%20286%20L262%20328%20L302%20328'%2F%3E%3Cpath%20opacity%3D'.09'%20d%3D'M38%20246%20L82%20246%20L110%20274%20L110%20338%20L150%20378%20L150%20448%20L198%20496%20L250%20496%20L282%20528'%2F%3E%3Cpath%20opacity%3D'.075'%20d%3D'M48%20646%20L48%20574%20L88%20534%20L88%20474%20L124%20438'%2F%3E%3Cpath%20opacity%3D'.07'%20d%3D'M184%2034%20L184%2092%20L218%20126%20L268%20126%20L300%20158'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23C8D0D7'%3E%3Ccircle%20opacity%3D'.18'%20cx%3D'70'%20cy%3D'62'%20r%3D'2'%2F%3E%3Ccircle%20opacity%3D'.14'%20cx%3D'132'%20cy%3D'186'%20r%3D'2'%2F%3E%3Ccircle%20opacity%3D'.14'%20cx%3D'220'%20cy%3D'286'%20r%3D'2'%2F%3E%3Ccircle%20opacity%3D'.13'%20cx%3D'110'%20cy%3D'338'%20r%3D'2'%2F%3E%3Ccircle%20opacity%3D'.12'%20cx%3D'198'%20cy%3D'496'%20r%3D'2'%2F%3E%3Ccircle%20opacity%3D'.12'%20cx%3D'88'%20cy%3D'534'%20r%3D'2'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23932222'%3E%3Ccircle%20opacity%3D'.52'%20cx%3D'96'%20cy%3D'150'%20r%3D'2.6'%2F%3E%3Ccircle%20opacity%3D'.42'%20cx%3D'282'%20cy%3D'528'%20r%3D'2.4'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center top / 100% 100% no-repeat,
+        linear-gradient(90deg,rgba(196,205,214,.055),transparent 1px) 0 0 / 82px 100%,
+        linear-gradient(180deg,rgba(226,232,238,.035),transparent 9%),
         linear-gradient(180deg,#171d23 0%,#0c1014 58%,#080a0d 100%);
-      box-shadow:inset 10px 0 20px rgba(0,0,0,.60),inset 1px 0 rgba(196,205,214,.18),inset -1px 0 rgba(0,0,0,.78);
+      box-shadow:inset 10px 0 20px rgba(0,0,0,.60),inset 1px 0 rgba(211,219,227,.22),inset -1px 0 rgba(0,0,0,.80);
     }
     .battle-comms-lobby .player-leaderboard-strip,
     .battle-comms-lobby .little-hero-hud {
@@ -1098,18 +1104,21 @@
       clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
       overflow:hidden;
     }
-    /* SKYNET MATERIAL 03 // armored command slab. */
+    /* SKYNET MATERIAL 03 // COMMAND SLAB.
+       A brighter steel faceplate over a recessed processing core. */
     #game-screen[data-player-theme="gunmetal"] .detainee-status-module {
       background:
-        linear-gradient(90deg,rgba(162,26,26,.10),transparent 22%),
-        repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 6px),
+        linear-gradient(90deg,transparent 0 74%,rgba(151,31,31,.40) 74% 89%,transparent 89%) top / 100% 1px no-repeat,
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20150%2090'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23C2CAD2'%20stroke-width%3D'1'%3E%3Cpath%20opacity%3D'.14'%20d%3D'M6%2072%20L34%2072%20L48%2058%20L80%2058%20L94%2044%20L126%2044%20L144%2026'%2F%3E%3Cpath%20opacity%3D'.08'%20d%3D'M70%2088%20L70%2070%20L88%2052%20L88%2022%20L110%206'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23D0D6DC'%3E%3Ccircle%20opacity%3D'.18'%20cx%3D'34'%20cy%3D'72'%20r%3D'1.8'%2F%3E%3Ccircle%20opacity%3D'.15'%20cx%3D'80'%20cy%3D'58'%20r%3D'1.8'%2F%3E%3Ccircle%20opacity%3D'.14'%20cx%3D'126'%20cy%3D'44'%20r%3D'1.8'%2F%3E%3C%2Fg%3E%3Ccircle%20fill%3D'%23972323'%20opacity%3D'.50'%20cx%3D'144'%20cy%3D'26'%20r%3D'2.2'%2F%3E%3C%2Fsvg%3E") right 4px bottom 2px / 150px 90px no-repeat,
+        linear-gradient(180deg,rgba(231,236,241,.055),transparent 22%),
         linear-gradient(180deg,#1b2229,#0b0f13 82%);
-      box-shadow:inset 0 1px rgba(220,226,232,.08),inset 0 -3px 10px rgba(0,0,0,.78);
+      box-shadow:inset 0 1px rgba(225,231,237,.10),inset 0 -3px 10px rgba(0,0,0,.78);
     }
     #game-screen[data-player-theme="gunmetal"] .detainee-status-label {
       background:
-        linear-gradient(90deg,rgba(172,30,30,.14),transparent 24%),
+        linear-gradient(90deg,rgba(224,230,236,.045),transparent 46%),
         linear-gradient(180deg,#262d35,#11161b);
+      box-shadow:inset 0 1px rgba(229,234,239,.07),inset 0 -1px rgba(0,0,0,.62);
     }
 
     .detainee-status-module::after {
@@ -1230,14 +1239,16 @@
       border-left:3px solid var(--little-hero-accent,#68717d);
       background:linear-gradient(100deg, var(--theme-message-top,#151A20), var(--theme-message-bottom,#0C0F13) 72%);
     }
-    /* SKYNET MATERIAL 04 // stamped transmission casing.
-       This follows the MESSAGE AUTHOR'S theme, not the viewer's shell theme. */
+    /* SKYNET MATERIAL 04 // TRANSMISSION CASING.
+       The neural trace is deliberately pushed to the empty right/lower edge
+       so message text wins every readability contest. */
     .battle-comms-lobby .chat-message[data-theme-id="gunmetal"] {
       background:
-        linear-gradient(180deg,rgba(255,255,255,.035),transparent 28%),
-        repeating-linear-gradient(135deg,rgba(255,255,255,.010) 0 1px,transparent 1px 8px),
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20170%2072'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23C3CBD3'%20stroke-width%3D'1'%3E%3Cpath%20opacity%3D'.09'%20d%3D'M4%2058%20L30%2058%20L42%2046%20L78%2046%20L92%2032%20L122%2032%20L136%2018%20L166%2018'%2F%3E%3Cpath%20opacity%3D'.055'%20d%3D'M64%2070%20L64%2056%20L82%2038%20L82%2014'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23D0D6DC'%3E%3Ccircle%20opacity%3D'.11'%20cx%3D'30'%20cy%3D'58'%20r%3D'1.5'%2F%3E%3Ccircle%20opacity%3D'.10'%20cx%3D'78'%20cy%3D'46'%20r%3D'1.5'%2F%3E%3Ccircle%20opacity%3D'.09'%20cx%3D'122'%20cy%3D'32'%20r%3D'1.5'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 5px bottom 3px / 158px 67px no-repeat,
+        linear-gradient(180deg,rgba(229,235,241,.045),transparent 24%),
+        repeating-linear-gradient(135deg,rgba(255,255,255,.008) 0 1px,transparent 1px 10px),
         linear-gradient(100deg,#171d23,#0b0f13 72%);
-      box-shadow:inset 0 1px rgba(220,226,232,.045),inset 0 -1px rgba(0,0,0,.65);
+      box-shadow:inset 0 1px rgba(224,230,236,.055),inset 0 -1px rgba(0,0,0,.68);
     }
 
     .battle-comms-lobby .chat-message.grouped {
