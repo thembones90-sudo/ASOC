@@ -360,8 +360,8 @@ const PlayerApp = {
         this.updatePlayerLeaderboard(message.players);
         const commsRoom = document.getElementById('battle-comms-room');
         const commsOnline = document.getElementById('battle-comms-online');
-        if (commsRoom) commsRoom.textContent = 'ROOM ' + (this.roomCode || '----');
-        if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' LITTLE HEROES CONNECTED';
+        if (commsRoom) commsRoom.textContent = 'MONITORED // ROOM ' + (this.roomCode || '----');
+        if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' LINKED';
         break;
 
       case 'battle:controlsOnline':
@@ -989,8 +989,8 @@ const PlayerApp = {
           <span><button type="button" class="chat-reply-btn" data-reply-id="${msg.id}">REPLY</button><span class="chat-time">${time}</span></span>
         </div>
         <div class="chat-message-text">${this.escapeHtml(msg.text)}</div>
-        ${msg.target ? `<div class="chat-target">→ ${this.getTargetLabel(msg.target)}</div>` : ''}
-        ${msg.verdict === 'correct' ? '<div class="chat-target">✓ CONFIRMED</div>' : msg.verdict === 'wrong' ? '<div class="chat-target">× REJECTED</div>' : ''}
+        ${msg.target ? `<div class="chat-target">TARGET // ${this.getTargetLabel(msg.target)}</div>` : ''}
+        ${msg.verdict === 'correct' ? '<div class="chat-machine-verdict accepted">ACCEPTED // TARGET LOCKED</div>' : msg.verdict === 'wrong' ? '<div class="chat-machine-verdict rejected">REJECTED // NO MATCH</div>' : ''}
         ${verdictResponseHtml}
       </div>
     `;
