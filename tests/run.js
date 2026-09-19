@@ -277,10 +277,14 @@ async function testCrashRecovery(server) {
 
   const player = await openWs();
   const joinedPromise = waitForMessage(player, m => m.type === 'join:success', 'recovery player join');
+  const recoveryAvatar = 'data:image/png;base64,iVBORw0KGgo=';
+  const recoveryFrame = '#12ABCD';
   player.send(JSON.stringify({
     type: 'room:join',
     roomCode: room.roomCode,
-    name: 'RECOVERY TEST'
+    name: 'RECOVERY TEST',
+    avatarData: recoveryAvatar,
+    frameColor: recoveryFrame
   }));
   const joined = await joinedPromise;
 
@@ -336,6 +340,8 @@ async function testCrashRecovery(server) {
   const restoredPlayer = players.players.find(p => p.id === joined.playerId);
   assert.ok(restoredPlayer);
   assert.equal(restoredPlayer.connected, false);
+  assert.equal(restoredPlayer.avatarData, recoveryAvatar);
+  assert.equal(restoredPlayer.frameColor, recoveryFrame);
 
   const player2 = await openWs();
   const rejoinPromise = waitForMessage(player2, m => m.type === 'join:success', 'restored player reconnect');

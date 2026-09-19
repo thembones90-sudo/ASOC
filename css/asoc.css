@@ -4808,3 +4808,93 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   from { background-position: 0 0; }
   to { background-position: 28px 0; }
 }
+
+/* =========================================================
+   FINAL DEBRIEF — SHARED GM / LITTLE HERO PRESENTATION
+   ========================================================= */
+.final-outcome-banner.fo-debrief {
+  width: min(720px, 90vw);
+  max-width: min(720px, 90vw);
+  max-height: min(78vh, 760px);
+  overflow-y: auto;
+  padding: 26px 30px 28px;
+}
+
+.fo-debrief-label {
+  margin-top: 9px;
+  color: #89909d;
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.fo-debrief-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.fo-debrief-row,
+.fo-final-answer {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid rgba(112,120,137,.32);
+  background: rgba(9,11,15,.72);
+  text-align: left;
+}
+
+.fo-debrief-row span,
+.fo-final-answer span {
+  flex: 0 0 auto;
+  min-width: 34px;
+  color: #7f8792;
+  font-size: .6rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.fo-debrief-row b,
+.fo-final-answer b {
+  min-width: 0;
+  color: #d9dde5;
+  font-size: .74rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.fo-final-answer {
+  margin-top: 9px;
+  border-color: rgba(212,168,67,.48);
+  box-shadow: inset 0 0 14px rgba(212,168,67,.05);
+}
+
+.fo-final-answer span,
+.fo-final-answer b {
+  color: #d6a843;
+}
+
+.final-outcome-banner.fo-debrief .fo-story {
+  margin-top: 15px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(112,120,137,.22);
+  color: #b1b6c0;
+  font-size: .82rem;
+  line-height: 1.55;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 620px) {
+  .final-outcome-banner.fo-debrief {
+    width: 92vw;
+    max-width: 92vw;
+    padding: 20px 16px 22px;
+  }
+  .fo-debrief-grid {
+    grid-template-columns: 1fr;
+  }
+}

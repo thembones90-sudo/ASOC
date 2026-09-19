@@ -304,6 +304,7 @@ const PlayerApp = {
         Wheel.update('wheel-overlay', message.wheel, false);
         Timer.update('timer-tracker-player', message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
         this.updateTerminalPhase(message);
+        document.getElementById('game-screen')?.classList.toggle('phase-final', message.finalSolution?.revealed === true);
         this.showGameScreen();
         this.setConnectionStatus('connected');
         this.reconnectAttempts = 0;
@@ -345,6 +346,8 @@ const PlayerApp = {
         this._chatEverInitialized = true;
         this.chatMessages = incoming;
         this.solvedTargets = message.solvedTargets || {};
+        const solvedCount = document.getElementById('chat-solved-count');
+        if (solvedCount) solvedCount.textContent = `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
         this.renderChat();
         break;
       }
@@ -375,14 +378,19 @@ const PlayerApp = {
         this.addBattleEvent(`${message.playerName} // ${message.awardType === 'final' ? 'FINAL SOLUTION' : 'COLUMN ' + message.target} // +${message.points}`);
         break;
 
-      case 'score:streak':
+      case 'score:streak': {
         this.showStreakBanner(message.activeStreak);
+        const streak = document.getElementById('hero-hud-streak');
+        if (streak) {
+          streak.textContent = message.activeStreak?.playerId === this.playerId
+            ? 'x' + message.activeStreak.columnCount
+            : 'x0';
+        }
         if (message.activeStreak) {
-          const streak = document.getElementById('hero-hud-streak');
-          if (streak && message.activeStreak.playerId === this.playerId) streak.textContent = 'x' + message.activeStreak.columnCount;
           this.addBattleEvent(`${message.activeStreak.playerName} // STREAK x${message.activeStreak.columnCount}`);
         }
         break;
+      }
 
       case 'score:finalReveal':
         this.showFinalReveal(message);
@@ -840,11 +848,19 @@ const PlayerApp = {
     const layer = document.getElementById('score-announcement-layer');
     if (!layer) return;
     const isSuccess = outcome.outcome === 'success';
+    const columns = outcome.columnSolutions || {};
+    const columnRows = ['A', 'B', 'C', 'D']
+      .filter(col => columns[col])
+      .map(col => `<div class="fo-debrief-row"><span>${col}5</span><b>${this.escapeHtml(columns[col])}</b></div>`)
+      .join('');
     const banner = document.createElement('div');
-    banner.className = `final-outcome-banner ${isSuccess ? 'final-outcome-success' : 'final-outcome-failed'}`;
+    banner.className = `final-outcome-banner fo-debrief ${isSuccess ? 'final-outcome-success' : 'final-outcome-failed'}`;
     banner.innerHTML = `
       <div class="fo-headline">${isSuccess ? 'SOLUTION CONFIRMED' : 'FINAL FAILED'}</div>
-      ${!isSuccess && outcome.correctSolution ? `<div class="fo-columns-known">${this.escapeHtml(outcome.correctSolution)}</div>` : ''}
+      <div class="fo-debrief-label">${isSuccess ? 'CASE FILE UNSEALED' : 'CASE FILE DECLASSIFIED'}</div>
+      ${columnRows ? `<div class="fo-debrief-grid">${columnRows}</div>` : ''}
+      ${outcome.correctSolution ? `<div class="fo-final-answer"><span>FINAL</span><b>${this.escapeHtml(outcome.correctSolution)}</b></div>` : ''}
+      ${outcome.story ? `<div class="fo-story">${this.escapeHtml(outcome.story)}</div>` : ''}
       <div class="fo-results" style="display: none;"></div>
     `;
     layer.appendChild(banner);
@@ -898,6 +914,9 @@ const PlayerApp = {
         const messageEl = button.closest('.chat-message');
         const name = messageEl?.dataset.playerName || 'LITTLE HERO';
         this._replyTo = { id: button.dataset.replyId, name };
+        const replyPrefix = `↳ @${name}: `;
+        input.maxLength = Math.max(1, 100 - replyPrefix.length);
+        if (input.value.length > input.maxLength) input.value = input.value.slice(0, input.maxLength);
         const preview = document.getElementById('chat-reply-preview');
         if (preview) {
           preview.textContent = 'REPLYING TO ' + name + ' // NEXT TRANSMISSION';
@@ -918,6 +937,7 @@ const PlayerApp = {
     input.value = '';
     const reply = this._replyTo;
     this._replyTo = null;
+    input.maxLength = 100;
     const preview = document.getElementById('chat-reply-preview');
     if (preview) preview.style.display = 'none';
     this.send({ type: 'chat:guess', text: reply ? `↳ @${reply.name}: ${text}` : text });

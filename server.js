@@ -9,6 +9,7 @@ const scoring = require('./scoring-constants');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
+const MAX_WS_PAYLOAD_BYTES = 5 * 1024 * 1024;
 const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const ROOM_CODE_LENGTH = 4;
 const HOST_RECONNECT_GRACE_MS = 60000;
@@ -50,6 +51,8 @@ function serializeRoomForRecovery(room) {
     players.push({
       id: player.id,
       name: player.name,
+      avatarData: player.avatarData || '',
+      frameColor: player.frameColor || '#9B5DE0',
       joinedAt: player.joinedAt || Date.now()
     });
   });
@@ -154,6 +157,8 @@ function restoreActiveRooms() {
         room.players.set(makeOfflinePlayerSocket(), {
           id: player.id,
           name: player.name,
+          avatarData: sanitizeAvatarData(player.avatarData) || '',
+          frameColor: sanitizeFrameColor(player.frameColor) || '#9B5DE0',
           connected: false,
           joinedAt: player.joinedAt || Date.now()
         });
@@ -1488,7 +1493,17 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
             points: result.event ? result.event.points : 0,
             playerName: message.playerName
           };
-          finalOutcome = { outcome: 'success' };
+          finalOutcome = {
+            outcome: 'success',
+            correctSolution: room.gameData.finalSolution || '',
+            story: room.gameData.story || '',
+            columnSolutions: {
+              A: room.gameData.columns?.A?.solution || '',
+              B: room.gameData.columns?.B?.solution || '',
+              C: room.gameData.columns?.C?.solution || '',
+              D: room.gameData.columns?.D?.solution || ''
+            }
+          };
         }
       } else {
         const result = awardColumnSolve(room, target, message);
@@ -2103,7 +2118,14 @@ function handleFailFinal(ws, message) {
   broadcastToRoom(room, {
     type: 'score:finalReveal',
     outcome: 'failed',
-    correctSolution: room.gameData.finalSolution
+    correctSolution: room.gameData.finalSolution || '',
+    story: room.gameData.story || '',
+    columnSolutions: {
+      A: room.gameData.columns?.A?.solution || '',
+      B: room.gameData.columns?.B?.solution || '',
+      C: room.gameData.columns?.C?.solution || '',
+      D: room.gameData.columns?.D?.solution || ''
+    }
   });
 
   console.log(`[ROOM ${room.code}] GM declared Final FAILED`);
@@ -2514,7 +2536,7 @@ const server = http.createServer((req, res) => {
   }
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, maxPayload: MAX_WS_PAYLOAD_BYTES });
 
 const heartbeatInterval = setInterval(() => {
   wss.clients.forEach(ws => {
