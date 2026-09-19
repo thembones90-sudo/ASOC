@@ -1196,7 +1196,7 @@ const PlayerApp = {
     const verdictMetaHtml = msg.verdict === 'correct'
       ? `<div class="chat-machine-verdict accepted">ACCEPTED // ${this.escapeHtml(this.getTargetLabel(msg.target || 'LOCKED'))}</div>`
       : msg.verdict === 'wrong'
-        ? '<div class="chat-machine-verdict rejected">REJECTED // NO MATCH</div>'
+        ? '<div class="chat-machine-verdict rejected">FUCK OFF</div>'
         : '';
 
     // The Shadow Broker's verdict response is an ADDITIONAL identity layer
