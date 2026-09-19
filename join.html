@@ -1070,7 +1070,7 @@
       padding: 9px 11px;
       margin-bottom: 7px;
       border-left: 2px solid var(--little-hero-accent, rgba(130,140,154,.55));
-      animation: fadeIn 0.2s ease;
+      animation: fadeIn 0.16s ease-out;
     }
 
     @keyframes fadeIn {
@@ -1804,9 +1804,10 @@
       display:grid;
       grid-template-columns:28px minmax(0,1fr);
       column-gap:8px;
-      min-height:32px;
+      min-height:30px;
       margin:0;
-      padding:5px 6px 5px 2px;
+      padding:4px 6px 4px 2px;
+      transition:opacity .42s ease, background-color .14s ease;
     }
 
     .battle-comms-lobby .chat-message,
@@ -1922,6 +1923,13 @@
       text-decoration-color:rgba(255,72,72,.9);
       text-decoration-thickness:2px;
     }
+    .battle-comms-lobby .chat-message.aged-rejected {
+      opacity:.72;
+    }
+    .battle-comms-lobby .chat-message.aged-rejected:hover,
+    .battle-comms-lobby .chat-message.aged-rejected:focus-within {
+      opacity:1;
+    }
 
     .battle-comms-lobby .chat-message.correct {
       min-height:42px;
@@ -1958,18 +1966,103 @@
     .battle-comms-lobby .chat-machine-verdict.accepted {
       color:#69bd83;
       border:0;
+      margin-top:0;
       text-shadow:none;
     }
 
     .battle-comms-lobby .chat-message.correct .shadow-broker-transmission {
       width:auto;
       max-width:94%;
-      margin:7px 0 1px;
+      margin:6px 0 1px 10px;
+      position:relative;
+    }
+    .battle-comms-lobby .chat-message.correct .shadow-broker-verdict-response::before {
+      content:"";
+      position:absolute;
+      left:-10px;
+      top:-7px;
+      width:1px;
+      height:calc(100% + 7px);
+      background:linear-gradient(180deg,#5cb87a 0%,rgba(113,86,145,.9) 72%,rgba(155,93,224,.7) 100%);
+      box-shadow:0 0 5px rgba(92,184,122,.18);
+      pointer-events:none;
     }
     .battle-comms-lobby #chat-messages > .shadow-broker-transmission {
       width:auto;
       max-width:calc(100% - 38px);
-      margin:8px 4px 9px 34px;
+      margin:7px 4px 8px 34px;
+    }
+    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast {
+      min-height:0;
+      padding:5px 8px 6px;
+      align-items:center;
+      clip-path:none;
+    }
+    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast::before {
+      content:"OVERRIDE // UNAUTHORIZED";
+      top:2px;
+      right:6px;
+      font-size:.30rem;
+      line-height:1;
+      letter-spacing:.45px;
+      opacity:.72;
+    }
+    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast .shadow-broker-avatar {
+      width:30px;
+      height:30px;
+      margin-top:4px;
+    }
+    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast .shadow-broker-body {
+      padding-top:6px;
+    }
+    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast .shadow-broker-name {
+      font-size:.48rem;
+      margin-bottom:0;
+    }
+    .battle-comms-lobby #chat-messages > .shadow-broker-broadcast .shadow-broker-text {
+      font-size:.80rem;
+      line-height:1.18;
+    }
+
+    .battle-comms-lobby .chat-time-separator {
+      display:flex;
+      align-items:center;
+      gap:7px;
+      margin:7px 4px 6px 34px;
+      color:#5f6874;
+      font:700 .39rem var(--font-machine);
+      letter-spacing:.8px;
+    }
+    .battle-comms-lobby .chat-time-separator::before,
+    .battle-comms-lobby .chat-time-separator::after {
+      content:"";
+      height:1px;
+      flex:1;
+      background:rgba(112,122,135,.22);
+    }
+
+    .battle-comms-lobby .chat-new-messages {
+      position:absolute;
+      left:50%;
+      bottom:49px;
+      transform:translateX(-50%);
+      z-index:8;
+      border:1px solid rgba(212,168,67,.52);
+      background:rgba(10,12,16,.94);
+      color:#d6a843;
+      padding:4px 8px;
+      font:800 .43rem var(--font-machine);
+      letter-spacing:.7px;
+      white-space:nowrap;
+      cursor:pointer;
+      box-shadow:0 4px 14px rgba(0,0,0,.45);
+    }
+    .battle-comms-lobby .chat-new-messages[hidden] {
+      display:none;
+    }
+    .battle-comms-lobby .chat-new-messages:hover {
+      border-color:#d6a843;
+      background:#15191e;
     }
 
     @media (max-width: 900px) {
@@ -2178,6 +2271,7 @@
       </div>
       <div id="battle-event-feed" class="battle-event-feed"></div>
       <div id="chat-messages"></div>
+      <button type="button" id="chat-new-messages" class="chat-new-messages" hidden>↓ 0 NEW TRANSMISSIONS</button>
       <form class="chat-form" id="chat-form">
         <div id="chat-reply-preview" class="chat-reply-preview" style="display:none"></div>
         <input type="text" id="chat-input" placeholder="Insult here" maxlength="100" autocomplete="off">
