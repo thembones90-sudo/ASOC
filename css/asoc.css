@@ -4742,13 +4742,13 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   color: #777f8e;
 }
 .battle-session-strip b { color: #d6b565; font-weight: 900; }
-.gm-maintenance .gm-module-game .current-game { margin-bottom: 0; }
+.gm-maintenance .gm-module-game .current-game { margin-bottom: 14px; }
 .gm-maintenance { position: relative; }
 
 .maintenance-header {
   position: relative;
-  margin: 0 0 12px;
-  padding: 13px 14px 14px;
+  margin: 0 0 22px;
+  padding: 15px 16px 16px;
   border: 1px solid rgba(77,132,135,.48);
   background:
     linear-gradient(90deg, rgba(40,111,112,.08), transparent 45%),
@@ -4810,12 +4810,16 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   animation: maintenance-live-pulse 1.6s ease-in-out infinite;
 }
 .gm-maintenance .maintenance-module {
+  margin-bottom: 22px;
+  padding: 15px;
   border-color: rgba(77,103,108,.52);
   background:
     linear-gradient(90deg, rgba(47,93,96,.035), transparent 32%),
     var(--panel-bg);
 }
 .gm-maintenance .maintenance-module .gm-section-title {
+  margin-bottom: 13px;
+  padding-bottom: 9px;
   color: #78a9aa;
   border-color: rgba(76,109,113,.38);
 }
@@ -4836,6 +4840,30 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   border-bottom-color: rgba(78,137,139,.5);
 }
 #gm-panel.maintenance-open .gm-subtitle { color: #6e9a9b; }
+#gm-panel.maintenance-open .gm-content {
+  padding: 18px 18px 34px;
+}
+#gm-panel.maintenance-open .gm-maintenance .gm-global-controls {
+  gap: 10px;
+}
+#gm-panel.maintenance-open .gm-maintenance .gm-global-controls + .gm-global-controls {
+  margin-top: 10px;
+}
+#gm-panel.maintenance-open .gm-maintenance .difficulty-picker {
+  margin-top: 11px;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+#gm-panel.maintenance-open .gm-maintenance .battle-session-strip {
+  margin-top: 12px;
+  padding-top: 10px;
+}
+#gm-panel.maintenance-open .gm-footer {
+  padding-top: 18px;
+}
+#gm-panel.maintenance-open #reveal-hide-all-btn {
+  margin-top: 12px !important;
+}
 
 @keyframes maintenance-live-pulse {
   0%, 100% { opacity: .72; }

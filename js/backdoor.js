@@ -81,7 +81,7 @@ const ControlSurfaces = {
       const nextGame = document.getElementById('next-game-btn');
       if (nextGame) {
         nextGame.style.width = '100%';
-        nextGame.style.marginTop = '8px';
+        nextGame.style.marginTop = '12px';
         game.appendChild(nextGame);
       }
     }
