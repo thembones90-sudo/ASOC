@@ -4470,6 +4470,70 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 }
 
 /* =========================================================
+   SKYNET DETENTION RACK - TIMER + WOMF
+   Shared prison-gunmetal shell. Timer gets a barbed-wire restraint frame;
+   WOMF gets a reinforced threat cage. Functional telemetry is untouched.
+   ========================================================= */
+.timer-tracker,
+.womf-tracker {
+  border-color: rgba(86, 94, 104, .88);
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 5px),
+    linear-gradient(90deg, rgba(255,255,255,.025), transparent 12%, transparent 88%, rgba(255,255,255,.018)),
+    linear-gradient(180deg, #171b20 0%, #0b0e12 58%, #06080a 100%);
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.075),
+    inset 0 -2px 0 rgba(0,0,0,.88),
+    inset 0 0 24px rgba(0,0,0,.46),
+    0 0 0 1px #050607,
+    0 9px 20px rgba(0,0,0,.34);
+}
+
+.timer-tracker::after {
+  content:"";
+  position:absolute;
+  inset:3px 8px;
+  z-index:4;
+  pointer-events:none;
+  opacity:.72;
+  background:
+    linear-gradient(180deg,#858b93,#343940 55%,#121519) top 3px left / 100% 1px no-repeat,
+    linear-gradient(180deg,#858b93,#343940 55%,#121519) bottom 3px left / 100% 1px no-repeat,
+    repeating-linear-gradient(64deg,transparent 0 22px,rgba(154,160,168,.88) 22px 23px,transparent 23px 30px) top left / 100% 8px no-repeat,
+    repeating-linear-gradient(116deg,transparent 0 22px,rgba(96,102,111,.9) 22px 23px,transparent 23px 30px) bottom left / 100% 8px no-repeat;
+  filter:drop-shadow(0 1px 0 #000);
+}
+.timer-tracker[data-level="warning"]::after { opacity:.82; filter:drop-shadow(0 0 3px rgba(214,158,66,.2)); }
+.timer-tracker[data-level="danger"]::after { opacity:.94; filter:drop-shadow(0 0 4px rgba(207,74,62,.28)); }
+.timer-tracker[data-mode="borrowed"]::after { filter:drop-shadow(0 0 4px rgba(150,58,170,.34)); }
+
+.womf-tracker::after {
+  content:"";
+  position:absolute;
+  inset:4px 7px;
+  z-index:4;
+  pointer-events:none;
+  border-top:1px solid rgba(90,45,52,.74);
+  border-bottom:1px solid rgba(56,31,38,.9);
+  background:
+    linear-gradient(135deg,#69717b 0 5px,transparent 5px) top left / 13px 13px no-repeat,
+    linear-gradient(225deg,#69717b 0 5px,transparent 5px) top right / 13px 13px no-repeat,
+    linear-gradient(45deg,#3d434b 0 5px,transparent 5px) bottom left / 13px 13px no-repeat,
+    linear-gradient(315deg,#3d434b 0 5px,transparent 5px) bottom right / 13px 13px no-repeat;
+  opacity:.68;
+}
+.womf-tracker[data-state="charging"]::after,
+.womf-tracker[data-state="unstable"]::after,
+.womf-tracker[data-state="critical"]::after {
+  border-color:rgba(145,48,62,.8);
+  filter:drop-shadow(0 0 3px rgba(197,43,66,.2));
+}
+.womf-tracker[data-state="ready"]::after {
+  border-color:rgba(171,126,45,.82);
+  filter:drop-shadow(0 0 4px rgba(212,168,67,.24));
+}
+
+/* =========================================================
    BATTLE LAUNCH SEQUENCE — T-10 + FULL-WIDTH SYSTEM ONLINE
    ========================================================= */
 .battle-launch-countdown {
