@@ -1341,20 +1341,13 @@ const App = {
     const game = GameData.currentGame;
     const columns = ['A', 'B', 'C', 'D'];
 
-    // Title/theme/difficulty badge render into a SEPARATE element that
-    // lives OUTSIDE .public-board-frame (see index.html) -- the frame
-    // must contain ONLY the board so its aspect-ratio box is exactly the
-    // 1900x1267 board and nothing else. Previously this header was
-    // prepended inside #public-board's own innerHTML, which sat INSIDE
-    // the ratio-locked frame and stole vertical space from the board,
-    // stretching it off-ratio. See .public-board-frame's comment in
-    // css/asoc.css for the full writeup.
+    // Public View only needs the game title here. Theme and difficulty
+    // are already encoded elsewhere in the presentation and were redundant.
+    // Keep the header outside the ratio-locked board frame.
     const headerBar = document.getElementById('public-header-bar');
     if (headerBar) {
       headerBar.innerHTML = `
         <div class="public-title">${this.escapeHtml(game.title)}</div>
-        <div class="public-theme">${this.escapeHtml(game.theme)}</div>
-        ${game.difficulty ? `<span class="difficulty-badge public-difficulty diff-${game.difficulty.toLowerCase()}">${this.escapeHtml(game.difficulty)}</span>` : ''}
       `;
     }
 
