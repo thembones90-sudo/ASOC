@@ -2404,18 +2404,21 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 
 /* MY SINDRAGOSA 05 // FROZEN GM ADJUDICATION STRIP. */
 .gm-module-chat .gm-chat-message.discord-row[data-theme-id="my-sindragosa"] {
-  background:
-    linear-gradient(136deg,transparent 0 87%,rgba(128,207,246,.075) 87.4% 87.8%,transparent 88.2% 100%),
-    linear-gradient(180deg,rgba(195,235,255,.028),transparent 28%),
-    linear-gradient(100deg,#111b23 0%,#091219 78%);
-  border-color:rgba(91,145,174,.38);
-  box-shadow:inset 0 1px rgba(185,228,249,.04),inset 0 -1px rgba(0,0,0,.60);
+  overflow:hidden;
+  background-color:#07121b;
+  background-image:
+    linear-gradient(rgba(3,10,16,.82),rgba(3,10,16,.86)),
+    url("../assets/themes/my-sindragosa/gm-message.png");
+  background-position:center,center 48%;
+  background-size:cover,cover;
+  background-repeat:no-repeat;
+  border-color:rgba(91,160,196,.52);
+  box-shadow:inset 0 0 10px rgba(2,8,13,.34),0 2px 6px rgba(0,0,0,.22);
 }
 .gm-module-chat .gm-chat-message.discord-row[data-theme-id="my-sindragosa"]:hover {
-  background:
-    linear-gradient(136deg,transparent 0 87%,rgba(139,216,253,.10) 87.4% 87.8%,transparent 88.2% 100%),
-    linear-gradient(180deg,rgba(205,240,255,.038),transparent 28%),
-    linear-gradient(100deg,#14212b 0%,#0b151d 78%);
+  background-image:
+    linear-gradient(rgba(5,14,21,.76),rgba(5,14,21,.82)),
+    url("../assets/themes/my-sindragosa/gm-message.png");
 }
 .gm-module-chat .gm-chat-message.discord-row.wrong {
   border-color: rgba(216,97,87,.44);

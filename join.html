@@ -273,15 +273,6 @@
         linear-gradient(180deg,#1d2a1e,#0b120c);
       box-shadow:inset 2px 0 #5faf63,inset 0 1px rgba(214,235,205,.06),inset 0 -1px rgba(0,0,0,.55);
     }
-    .theme-select[data-theme-id="my-sindragosa"] .theme-select-toggle {
-      border-color:#69a9c9;
-      background:
-        linear-gradient(132deg,transparent 0 78%,rgba(158,225,255,.20) 78.5% 79%,transparent 79.5% 100%),
-        radial-gradient(circle at 82% 24%,rgba(111,207,251,.16),transparent 28%),
-        linear-gradient(180deg,rgba(210,241,255,.045),transparent 25%),
-        linear-gradient(180deg,#142838,#08131d);
-      box-shadow:inset 2px 0 #79c8f2,inset 0 1px rgba(200,238,255,.10),inset 0 -1px rgba(0,0,0,.62);
-    }
     .theme-select[data-theme-id="disco-inferno"] .theme-select-toggle {
       border-color:#9e542d;
       background:linear-gradient(180deg,#2b180f,#120b08);
@@ -461,14 +452,6 @@
         linear-gradient(180deg,rgba(255,255,255,.020),transparent 25%),
         linear-gradient(180deg,#1d2a1e,#0b120c);
     }
-    .theme-option[data-theme-id="my-sindragosa"].selected {
-      border-color:#72b7da;
-      box-shadow:inset 2px 0 #79c8f2,inset 0 1px rgba(200,238,255,.09);
-      background:
-        linear-gradient(132deg,transparent 0 80%,rgba(158,225,255,.18) 80.5% 81%,transparent 81.5% 100%),
-        radial-gradient(circle at 82% 24%,rgba(111,207,251,.14),transparent 28%),
-        linear-gradient(180deg,#142838,#08131d);
-    }
     .theme-option[data-theme-id="disco-inferno"].selected {
       border-color:#d46d35;
       box-shadow:inset 2px 0 #f06a2a;
@@ -613,16 +596,6 @@
         linear-gradient(145deg,#111a12 0%,#0b100c 48%,#050806 100%);
     }
 
-    /* MY SINDRAGOSA 01 // FROSTBOUND NECROPOLIS SHELL.
-       Outer atmosphere only. The authored board is sacred and remains untouched. */
-    #game-screen[data-player-theme="my-sindragosa"] {
-      background:
-        radial-gradient(circle at 92% 13%,rgba(110,211,255,.16) 0 2px,rgba(68,151,202,.05) 4px 60px,transparent 145px),
-        linear-gradient(128deg,transparent 0 61%,rgba(139,218,255,.055) 61.2% 61.45%,transparent 61.7% 100%),
-        linear-gradient(42deg,transparent 0 78%,rgba(175,229,255,.045) 78.2% 78.45%,transparent 78.7% 100%),
-        radial-gradient(ellipse at 87% 77%,rgba(54,113,157,.12),transparent 180px),
-        linear-gradient(145deg,#0b1721 0%,#071019 46%,#03080d 100%);
-    }
 
     #game-screen.active {
       display: flex;
@@ -1423,32 +1396,6 @@
         repeating-linear-gradient(0deg,rgba(200,220,187,.010) 0 1px,transparent 1px 5px);
     }
 
-    /* MY SINDRAGOSA 03 // FROZEN RELIQUARY STATUS SLAB. */
-    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module {
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 88% 18%,rgba(128,219,255,.20) 0 2px,transparent 35px),
-        linear-gradient(136deg,transparent 0 66%,rgba(142,219,255,.11) 66.4% 66.9%,transparent 67.3% 100%),
-        linear-gradient(180deg,#132432,#09141e 86%);
-      border-color:#426d86;
-      box-shadow:inset 0 1px rgba(183,231,255,.12),inset 0 -3px 10px rgba(0,0,0,.76);
-    }
-    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module::before {
-      content:"";
-      position:absolute;
-      inset:0;
-      z-index:0;
-      pointer-events:none;
-      background:
-        linear-gradient(118deg,transparent 0 8%,rgba(141,220,255,.48) 8.5% 9.4%,transparent 10% 100%) left bottom / 52px 74px no-repeat,
-        linear-gradient(62deg,transparent 0 13%,rgba(160,226,255,.36) 13.5% 14.2%,transparent 15% 100%) right top / 66px 70px no-repeat,
-        radial-gradient(ellipse at 92% 100%,rgba(61,129,173,.16),transparent 35%);
-    }
-    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-label {
-      background:linear-gradient(180deg,#1b3345,#0d1c28);
-      box-shadow:inset 0 1px rgba(186,232,255,.10),inset 0 -1px rgba(0,0,0,.58);
-    }
-
     .detainee-status-module::after {
       content:"";
       position:absolute;
@@ -1613,28 +1560,6 @@
         linear-gradient(100deg,#1b1a17 0%,#10110f 76%,#0b0d0c 100%);
       border-color:rgba(126,119,101,.42);
       box-shadow:inset 0 1px rgba(224,215,194,.045),inset 0 -1px rgba(0,0,0,.68),0 2px 7px rgba(0,0,0,.28);
-    }
-
-    /* MY SINDRAGOSA 04 // OBSIDIAN-ICE TRANSMISSION SLAB.
-       Foreground stays darker and cleaner than the frozen crypt behind it. */
-    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"] {
-      background:
-        linear-gradient(136deg,transparent 0 84%,rgba(122,204,244,.09) 84.4% 84.8%,transparent 85.2% 100%),
-        linear-gradient(180deg,rgba(201,239,255,.045),transparent 24%),
-        linear-gradient(100deg,#111b24 0%,#09121a 76%,#070d13 100%);
-      border-color:rgba(105,163,194,.48);
-      box-shadow:inset 0 1px rgba(191,232,252,.07),inset 0 -1px rgba(0,0,0,.72),0 2px 8px rgba(0,0,0,.32);
-    }
-    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"]::after {
-      content:"";
-      position:absolute;
-      right:0;top:0;
-      width:42px;height:32px;
-      pointer-events:none;
-      background:
-        linear-gradient(128deg,transparent 0 36%,rgba(151,220,253,.30) 37% 39%,transparent 40% 100%),
-        linear-gradient(62deg,transparent 0 52%,rgba(113,191,231,.22) 53% 55%,transparent 56% 100%);
-      opacity:.8;
     }
 
     .battle-comms-lobby .chat-message.grouped {
@@ -2095,6 +2020,130 @@
       .chat-send-btn { width:auto; min-width:92px; padding:12px 10px; }
       #chat-panel { max-height:48vh; }
       .connection-status { bottom:max(10px, env(safe-area-inset-bottom)); }
+    }
+
+    /* MY SINDRAGOSA // LITERAL APPROVED ASSET SKINS.
+       These final, theme-scoped rules intentionally replace the earlier
+       CSS-only frozen-necropolis approximation. The authored game board is
+       not selected here; every image is clipped to the component it skins. */
+    #game-screen[data-player-theme="my-sindragosa"] {
+      background-color:#03080d;
+      background-image:
+        linear-gradient(rgba(2,7,12,.42),rgba(2,7,12,.42)),
+        url("assets/themes/my-sindragosa/main-shell.png");
+      background-position:center,center;
+      background-size:cover,cover;
+      background-repeat:no-repeat;
+    }
+
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby {
+      overflow:hidden;
+      border-left-color:#476f87;
+      background-color:#07111a;
+      background-image:
+        linear-gradient(rgba(3,9,14,.24),rgba(3,9,14,.34)),
+        url("assets/themes/my-sindragosa/battle-comms.png");
+      background-position:center,center;
+      background-size:cover,cover;
+      background-repeat:no-repeat;
+      box-shadow:inset 0 0 24px rgba(2,7,12,.44);
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby::before,
+    #game-screen[data-player-theme="my-sindragosa"] .battle-comms-lobby::after {
+      content:none;
+      display:none;
+    }
+
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module {
+      overflow:hidden;
+      border-color:#4f7f9a;
+      background-color:#08131d;
+      background-image:
+        linear-gradient(rgba(3,10,16,.76),rgba(3,10,16,.82)),
+        url("assets/themes/my-sindragosa/little-hero-status.png");
+      background-position:center,center 49%;
+      background-size:cover,cover;
+      background-repeat:no-repeat;
+      box-shadow:inset 0 0 15px rgba(2,7,12,.44);
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module::before,
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module::after {
+      content:none;
+      display:none;
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-label {
+      background:rgba(5,17,26,.76);
+      border-bottom-color:rgba(112,190,230,.46);
+      box-shadow:none;
+    }
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module .player-leaderboard-strip,
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module .little-hero-hud,
+    #game-screen[data-player-theme="my-sindragosa"] .detainee-status-module .player-alltime-panel {
+      background:rgba(3,11,18,.97);
+    }
+
+    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"],
+    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"].wrong,
+    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"].correct {
+      overflow:hidden;
+      border:1px solid rgba(97,167,203,.56) !important;
+      border-left:3px solid var(--little-hero-accent,#79c8f2) !important;
+      border-radius:4px !important;
+      padding:8px 10px 20px !important;
+      background-color:#07121b !important;
+      background-image:
+        linear-gradient(rgba(3,10,16,.84),rgba(3,10,16,.88)),
+        url("assets/themes/my-sindragosa/player-message.png") !important;
+      background-position:center,center 47% !important;
+      background-size:cover,cover !important;
+      background-repeat:no-repeat !important;
+      box-shadow:inset 0 0 12px rgba(3,10,16,.34),0 2px 7px rgba(0,0,0,.30) !important;
+    }
+    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"].wrong {
+      border-left-color:#d86157 !important;
+    }
+    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"].correct {
+      border-color:rgba(92,184,122,.58) !important;
+      border-left-color:#5cb87a !important;
+    }
+    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"]::before,
+    .battle-comms-lobby .chat-message[data-theme-id="my-sindragosa"]::after {
+      content:none !important;
+      display:none !important;
+    }
+
+    .theme-select[data-theme-id="my-sindragosa"] .theme-select-toggle,
+    .theme-option[data-theme-id="my-sindragosa"].selected {
+      position:relative;
+      isolation:isolate;
+      overflow:hidden;
+      border-color:#72b7da;
+      background:#06111a;
+      box-shadow:inset 2px 0 #79c8f2,inset 0 0 0 1px rgba(174,226,251,.12);
+    }
+    .theme-select[data-theme-id="my-sindragosa"] .theme-select-toggle::before,
+    .theme-option[data-theme-id="my-sindragosa"].selected::before {
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:-1;
+      pointer-events:none;
+      background-image:
+        linear-gradient(rgba(2,8,13,.66),rgba(2,8,13,.72)),
+        url("assets/themes/my-sindragosa/theme-selector.png");
+      background-position:center,center 49%;
+      background-size:cover,cover;
+      background-repeat:no-repeat;
+    }
+    .theme-select-preview.my-sindragosa,
+    .theme-option-preview.my-sindragosa {
+      overflow:hidden;
+      border-color:#639dbb;
+      background:url("assets/themes/my-sindragosa/theme-selector.png") center 50% / cover no-repeat;
+    }
+    .theme-select-preview.my-sindragosa i,
+    .theme-option-preview.my-sindragosa i {
+      background:transparent !important;
     }
   </style>
 </head>
