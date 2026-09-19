@@ -1059,8 +1059,9 @@ const PlayerApp = {
     const wasAtBottom = !this.userScrolledUp;
 
     let html = '';
-    this.chatMessages.forEach(msg => {
-      html += this.createChatMessageHTML(msg, false);
+    this.chatMessages.forEach((msg, index) => {
+      const previous = index > 0 ? this.chatMessages[index - 1] : null;
+      html += this.createChatMessageHTML(msg, this.shouldGroupChatMessage(previous, msg));
     });
 
     container.innerHTML = html;
@@ -1068,6 +1069,15 @@ const PlayerApp = {
     if (wasAtBottom) {
       container.scrollTop = container.scrollHeight;
     }
+  },
+
+  shouldGroupChatMessage(previous, current) {
+    if (!previous || !current) return false;
+    if (previous.source === 'shadowBroker' || current.source === 'shadowBroker') return false;
+    if (previous.playerId !== current.playerId) return false;
+    if (previous.verdict !== null || current.verdict !== null) return false;
+    const gap = Number(current.timestamp) - Number(previous.timestamp);
+    return Number.isFinite(gap) && gap >= 0 && gap <= 90000;
   },
 
   createChatMessageHTML(msg, grouped = false) {
@@ -1083,6 +1093,16 @@ const PlayerApp = {
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const isOwn = msg.playerId === this.playerId;
     const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
+    const replyMatch = typeof msg.text === 'string' ? msg.text.match(/^↳ @([^:]{1,40}):\s*([\s\S]*)$/) : null;
+    const messageText = replyMatch ? replyMatch[2] : msg.text;
+    const replyContextHtml = replyMatch
+      ? `<div class="chat-reply-context">↳ REPLY TO @${this.escapeHtml(replyMatch[1])}</div>`
+      : '';
+    const verdictMetaHtml = msg.verdict === 'correct'
+      ? `<div class="chat-machine-verdict accepted">ACCEPTED // ${this.escapeHtml(this.getTargetLabel(msg.target || 'LOCKED'))}</div>`
+      : msg.verdict === 'wrong'
+        ? '<div class="chat-machine-verdict rejected">REJECTED // NO MATCH</div>'
+        : '';
 
     // The Shadow Broker's verdict response is an ADDITIONAL identity layer
     // rendered alongside the verdict, not a replacement for it -- the
@@ -1102,15 +1122,16 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}">
-        <div class="chat-message-header">
-          <span class="chat-little-hero">${this.littleHeroAvatarHTML(identity)}<span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
-          <span><button type="button" class="chat-reply-btn" data-reply-id="${msg.id}">REPLY</button><span class="chat-time">${time}</span></span>
+      <div class="chat-message ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}">
+        <div class="chat-avatar-rail">${grouped ? '' : this.littleHeroAvatarHTML(identity)}</div>
+        <div class="chat-message-main">
+          ${grouped ? '' : `<div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span><span class="chat-time">${time}</span></div>`}
+          <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">↩</button>
+          ${replyContextHtml}
+          <div class="chat-message-text">${this.escapeHtml(messageText)}</div>
+          ${verdictMetaHtml}
+          ${verdictResponseHtml}
         </div>
-        <div class="chat-message-text">${this.escapeHtml(msg.text)}</div>
-        ${msg.target ? `<div class="chat-target">TARGET // ${this.getTargetLabel(msg.target)}</div>` : ''}
-        ${msg.verdict === 'correct' ? '<div class="chat-machine-verdict accepted">ACCEPTED // TARGET LOCKED</div>' : msg.verdict === 'wrong' ? '<div class="chat-machine-verdict rejected">REJECTED // NO MATCH</div>' : ''}
-        ${verdictResponseHtml}
       </div>
     `;
   },
