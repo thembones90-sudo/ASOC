@@ -176,8 +176,7 @@
 
     .little-hero-frame-row {
       display: grid;
-      grid-template-columns: 48px 1fr;
-      gap: 8px;
+      grid-template-columns: minmax(0,1fr);
       align-items: center;
       margin-top: 7px;
     }
@@ -193,7 +192,6 @@
       cursor: pointer;
     }
 
-    #little-hero-frame-hex,
     #little-hero-theme-hex {
       width: 100%;
       min-width: 0;
@@ -208,9 +206,6 @@
       outline: none;
     }
 
-    #little-hero-frame-hex:focus {
-      border-color: var(--lh-frame, #9B5DE0);
-    }
 
     .little-hero-theme-block {
       margin-top: 14px;
@@ -2660,17 +2655,12 @@
       background:linear-gradient(145deg,rgba(20,25,34,.92),rgba(8,11,16,.96));
     }
     .little-hero-frame-row {
-      grid-template-columns:44px minmax(0,1fr);
+      grid-template-columns:minmax(0,1fr);
       margin-top:5px;
     }
     #little-hero-frame-picker {
-      width:44px;
+      width:100%;
       height:38px;
-      border-radius:2px;
-    }
-    #little-hero-frame-hex {
-      height:38px;
-      padding:8px 10px;
       border-radius:2px;
     }
     .little-hero-chaos-note {
@@ -2845,11 +2835,14 @@
     .access-hardware{font-size:12px;letter-spacing:1.7px;padding-bottom:14px;color:#b0b7bd}
     .access-logo{width:min(600px,72%);margin:18px auto 6px}
     .access-diagnostic{min-height:48px;margin:16px 0;font-size:13px;letter-spacing:1.7px}
-    .access-choices,.access-shell[data-channel] .access-choices{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .access-choices{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;transition:grid-template-columns .48s cubic-bezier(.22,.8,.24,1)}
+    .access-shell[data-channel="gm"] .access-choices{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)}
+    .access-shell[data-channel="player"] .access-choices{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}
     .access-choice,.access-shell[data-channel] .access-choice{
       min-height:210px;
       padding:24px 26px;
       box-shadow:inset 0 0 0 3px #0c0e10,inset 0 0 0 4px #353b40;
+      transition:border-color .25s,opacity .38s,filter .38s,background .25s,box-shadow .38s;
     }
     .access-choice .num{font-size:12px;letter-spacing:1.7px;color:#c2c9cf}
     .access-choice b,.access-shell[data-channel] .access-choice b{
@@ -2877,10 +2870,11 @@
     .access-shell[data-channel] .access-bay-status{margin-top:10px;padding-top:8px}
     .access-panel{
       width:min(880px,100%);
-      min-height:0;
+      min-height:var(--auth-panel-height,0px);
       margin:18px auto 0;
       padding:24px clamp(24px,4vw,54px) 28px;
       box-shadow:inset 0 0 0 3px #060809,0 18px 42px rgba(0,0,0,.25);
+      animation:access-panel-channel-in .44s cubic-bezier(.2,.8,.2,1);
     }
     .access-shell[data-channel] .access-panel{margin-top:11px;padding-top:18px;padding-bottom:20px}
     .access-shell[data-channel] .access-panel::before{margin-bottom:9px}
@@ -2899,6 +2893,11 @@
     .access-error{min-height:0;margin-top:0;font-size:14px;line-height:1.45}
     .access-error:not(:empty){margin-top:12px;padding:11px 13px 11px 38px;border:1px solid #a34349;background:linear-gradient(90deg,rgba(132,37,43,.3),rgba(34,10,13,.72));box-shadow:inset 3px 0 #e15a62;position:relative}
     .access-error:not(:empty)::before{content:"!";position:absolute;left:14px;top:9px;width:15px;height:15px;border:1px solid currentColor;text-align:center;line-height:14px;font-weight:900}
+    @keyframes access-panel-channel-in{
+      0%{opacity:.32;transform:translateY(-7px);clip-path:inset(0 0 92% 0)}
+      44%{opacity:.78;clip-path:inset(0 0 18% 0)}
+      100%{opacity:1;transform:none;clip-path:inset(0)}
+    }
     .battle-comms-lobby #chat-messages:empty::before{
       content:"NO TRANSMISSIONS YET\A CHANNEL OPEN // INPUT MONITORED";
       white-space:pre;
