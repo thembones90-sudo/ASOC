@@ -2299,6 +2299,56 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   border-color: rgba(111,84,139,.4);
 }
 
+/* TEAMS-LIKE MESSAGE SEPARATION — compact, but every transmission remains
+   its own readable object with sender, time, text and verdict actions. */
+.gm-module-chat .gm-chat-message.discord-row {
+  margin: 0 0 5px;
+  padding: 5px 6px;
+  border: 1px solid color-mix(in srgb, var(--little-hero-theme,#343A42) 55%, rgba(95,104,118,.46));
+  border-left: 2px solid var(--little-hero-accent,#6f7885);
+  border-radius: 5px;
+  background:
+    linear-gradient(100deg,
+      color-mix(in srgb,var(--little-hero-theme,#343A42) 22%,#171b20),
+      color-mix(in srgb,var(--little-hero-theme,#343A42) 10%,#0d1014) 72%);
+  box-shadow: inset 0 1px rgba(255,255,255,.025);
+}
+.gm-module-chat .gm-chat-message.discord-row:hover {
+  background:
+    linear-gradient(100deg,
+      color-mix(in srgb,var(--little-hero-theme,#343A42) 29%,#1b2026),
+      color-mix(in srgb,var(--little-hero-theme,#343A42) 14%,#101419) 72%);
+}
+.gm-module-chat .gm-chat-message.discord-row.wrong {
+  border-color: rgba(216,97,87,.44);
+  border-left-color: #d86157;
+  box-shadow: none;
+}
+.gm-module-chat .gm-chat-message.discord-row.correct {
+  border-color: rgba(126,92,154,.5);
+  border-left-color: #7e5c9a;
+  box-shadow: none;
+}
+.gm-module-chat .gm-chat-inline-content {
+  padding-top: 1px;
+}
+.gm-module-chat .gm-chat-inline-content .gm-chat-player-name {
+  display: inline;
+}
+.gm-module-chat .gm-chat-inline-content .gm-chat-time {
+  display: inline;
+}
+.gm-module-chat .gm-chat-message-text {
+  display: block;
+  margin-top: 1px;
+}
+.gm-module-chat .gm-chat-leading {
+  padding-top: 1px;
+}
+.gm-module-chat .gm-chat-hover-time {
+  display:none;
+}
+
 /* GM TARGET SELECTOR */
 .gm-target-selector {
   display: flex;

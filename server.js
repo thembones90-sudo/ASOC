@@ -54,6 +54,7 @@ function serializeRoomForRecovery(room) {
       name: player.name,
       avatarData: player.avatarData || '',
       frameColor: player.frameColor || '#9B5DE0',
+      themeColor: player.themeColor || '#343A42',
       joinedAt: player.joinedAt || Date.now()
     });
   });
@@ -160,6 +161,7 @@ function restoreActiveRooms() {
           name: player.name,
           avatarData: sanitizeAvatarData(player.avatarData) || '',
           frameColor: sanitizeFrameColor(player.frameColor) || '#9B5DE0',
+          themeColor: sanitizeFrameColor(player.themeColor) || '#343A42',
           connected: false,
           joinedAt: player.joinedAt || Date.now()
         });
@@ -1548,10 +1550,14 @@ function addChatMessage(room, playerId, playerName, text) {
     return { success: false, error: `Message too long (max ${MAX_CHAT_LENGTH} chars)` };
   }
 
+  const liveIdentity = Array.from(room.players.values()).find(player => player.id === playerId) || {};
   const message = {
     id: generateMessageId(),
     playerId,
     playerName,
+    avatarData: liveIdentity.avatarData || '',
+    frameColor: liveIdentity.frameColor || '#9B5DE0',
+    themeColor: liveIdentity.themeColor || '#343A42',
     text: sanitized,
     timestamp: Date.now(),
     verdict: null,
@@ -1688,6 +1694,7 @@ function handlePlayerJoin(ws, message) {
   const hasAvatarUpdate = Object.prototype.hasOwnProperty.call(message, 'avatarData');
   const requestedAvatar = message.avatarData === '' ? '' : sanitizeAvatarData(message.avatarData);
   const requestedFrameColor = sanitizeFrameColor(message.frameColor);
+  const requestedThemeColor = sanitizeFrameColor(message.themeColor);
   if (hasAvatarUpdate && requestedAvatar === null) {
     sendToWs(ws, { type: 'error', message: 'Invalid avatar image' });
     return;
@@ -1696,12 +1703,17 @@ function handlePlayerJoin(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Invalid avatar frame color' });
     return;
   }
+  if (message.themeColor !== undefined && !requestedThemeColor) {
+    sendToWs(ws, { type: 'error', message: 'Invalid Little Hero theme color' });
+    return;
+  }
 
   let littleHeroProfile = playerStore.getOrCreateProfile(cleanName).profile;
-  if (hasAvatarUpdate || requestedFrameColor) {
+  if (hasAvatarUpdate || requestedFrameColor || requestedThemeColor) {
     littleHeroProfile = playerStore.updateProfileAppearance(cleanName, {
       avatarData: hasAvatarUpdate ? requestedAvatar : undefined,
-      frameColor: requestedFrameColor || undefined
+      frameColor: requestedFrameColor || undefined,
+      themeColor: requestedThemeColor || undefined
     });
   }
 
@@ -1737,6 +1749,7 @@ function handlePlayerJoin(ws, message) {
     name: cleanName,
     avatarData: littleHeroProfile.avatarData || '',
     frameColor: littleHeroProfile.frameColor || '#9B5DE0',
+    themeColor: littleHeroProfile.themeColor || '#343A42',
     connected: true,
     joinedAt: Date.now()
   });
@@ -1750,7 +1763,8 @@ function handlePlayerJoin(ws, message) {
     littleHero: {
       name: cleanName,
       avatarData: littleHeroProfile.avatarData || '',
-      frameColor: littleHeroProfile.frameColor || '#9B5DE0'
+      frameColor: littleHeroProfile.frameColor || '#9B5DE0',
+      themeColor: littleHeroProfile.themeColor || '#343A42'
     }
   });
 
@@ -1769,6 +1783,7 @@ function broadcastPlayersUpdate(room) {
       name: player.name,
       avatarData: player.avatarData || '',
       frameColor: player.frameColor || '#9B5DE0',
+      themeColor: player.themeColor || '#343A42',
       connected: ws.readyState === 1,
       score: room.scoring.players[player.id]?.sessionScore || 0
     });

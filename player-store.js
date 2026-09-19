@@ -38,6 +38,7 @@ function blankProfile(displayName) {
     name: String(displayName || '').trim(),
     avatarData: '',
     frameColor: '#9B5DE0',
+    themeColor: '#343A42',
     createdAt: nowISO(),
     lastPlayed: nowISO(),
     lifetimeScore: 0,
@@ -91,6 +92,7 @@ function validateAndNormalizePlayers(raw) {
     if (typeof profile.id !== 'string' || !profile.id.trim()) profile.id = fallbackName || normalizeNameKey(displayName);
     if (typeof profile.avatarData !== 'string') profile.avatarData = '';
     if (typeof profile.frameColor !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(profile.frameColor)) profile.frameColor = '#9B5DE0';
+    if (typeof profile.themeColor !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(profile.themeColor)) profile.themeColor = '#343A42';
     if (typeof profile.createdAt !== 'string') profile.createdAt = base.createdAt;
     if (typeof profile.lastPlayed !== 'string') profile.lastPlayed = base.lastPlayed;
 
@@ -234,7 +236,7 @@ function getOrCreateProfile(displayName) {
 // (e.g. a GM verdict correction). `statDeltas` is a flat object of
 // { statName: +1 | -1 | ... }; only known numeric stat fields are touched.
 // `displayName` also refreshes the stored display capitalization.
-function updateProfileAppearance(displayName, { avatarData, frameColor } = {}) {
+function updateProfileAppearance(displayName, { avatarData, frameColor, themeColor } = {}) {
   const key = normalizeNameKey(displayName);
   const players = loadPlayers();
   if (!players[key]) players[key] = blankProfile(displayName);
@@ -245,6 +247,9 @@ function updateProfileAppearance(displayName, { avatarData, frameColor } = {}) {
   if (typeof avatarData === 'string') profile.avatarData = avatarData;
   if (typeof frameColor === 'string' && /^#[0-9A-Fa-f]{6}$/.test(frameColor)) {
     profile.frameColor = frameColor.toUpperCase();
+  }
+  if (typeof themeColor === 'string' && /^#[0-9A-Fa-f]{6}$/.test(themeColor)) {
+    profile.themeColor = themeColor.toUpperCase();
   }
 
   savePlayersAtomic(players);
