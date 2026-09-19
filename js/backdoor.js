@@ -19,13 +19,13 @@ const ControlSurfaces = {
     battle.id = 'gm-battle-control';
     battle.className = 'gm-control-surface gm-battle-control';
     content.insertBefore(battle, content.firstChild);
-    [game, clues, womf, chat, scoring, global].forEach(section => {
+    [clues, womf, chat, scoring, global].forEach(section => {
       if (section) battle.appendChild(section);
     });
 
     if (game) {
       const title = game.querySelector('.gm-section-title');
-      if (title) title.textContent = 'Battle Status';
+      if (title) title.textContent = 'Game Setup';
       const strip = document.createElement('div');
       strip.id = 'battle-session-strip';
       strip.className = 'battle-session-strip';
@@ -75,11 +75,16 @@ const ControlSurfaces = {
       return section;
     };
 
-    const gameManagement = makeModule('Game Management');
-    const gameButtons = game?.querySelector('.gm-global-controls');
-    if (gameButtons) gameManagement.appendChild(gameButtons);
-    const nextGame = document.getElementById('next-game-btn');
-    if (nextGame) gameManagement.appendChild(nextGame);
+    if (game) {
+      game.classList.add('maintenance-module');
+      maintenance.appendChild(game);
+      const nextGame = document.getElementById('next-game-btn');
+      if (nextGame) {
+        nextGame.style.width = '100%';
+        nextGame.style.marginTop = '8px';
+        game.appendChild(nextGame);
+      }
+    }
 
     const boardMaintenance = makeModule('Board Maintenance');
     const undo = document.getElementById('undo-btn');

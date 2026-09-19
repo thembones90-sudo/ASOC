@@ -4742,7 +4742,7 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   color: #777f8e;
 }
 .battle-session-strip b { color: #d6b565; font-weight: 900; }
-.gm-battle-control .gm-module-game .current-game { margin-bottom: 0; }
+.gm-maintenance .gm-module-game .current-game { margin-bottom: 0; }
 .gm-maintenance { position: relative; }
 
 .maintenance-header {
