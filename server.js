@@ -20,7 +20,8 @@ const CHAT_HISTORY_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
 const PROTOCOL_VERSION = 1;
 const LITTLE_HERO_THEMES = Object.freeze({
-  gunmetal: '#343A42'
+  gunmetal: '#343A42',
+  'pink-protocol': '#E06AB1'
 });
 
 const mimeTypes = {

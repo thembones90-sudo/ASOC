@@ -261,6 +261,20 @@
     .theme-profile-preview.gunmetal i:nth-child(1) { background:#11161c; }
     .theme-profile-preview.gunmetal i:nth-child(2) { background:#343a42; }
     .theme-profile-preview.gunmetal i:nth-child(3) { background:#737d88; }
+    .theme-profile-preview.pink-protocol i:nth-child(1) { background:#1a1018; }
+    .theme-profile-preview.pink-protocol i:nth-child(2) { background:#e06ab1; }
+    .theme-profile-preview.pink-protocol i:nth-child(3) { background:#f3b2d8; }
+
+    .theme-profile-card[data-theme-id="pink-protocol"].selected {
+      border-color:#d47aad;
+      box-shadow: inset 3px 0 #e06ab1, inset 0 1px rgba(255,255,255,.06), 0 0 14px rgba(224,106,177,.16);
+      background: linear-gradient(180deg,#251720,#100b0f);
+    }
+    .theme-profile-card[data-theme-id="pink-protocol"].selected .theme-profile-lock {
+      color:#ffd3eb;
+      border-color:#87546f;
+      background:#1b0e17;
+    }
 
     .theme-profile-copy { min-width:0; }
     .theme-profile-copy strong {
@@ -346,13 +360,14 @@
       --theme-status-bottom: #0A0D11;
       --theme-message-top: #151A20;
       --theme-message-bottom: #0C0F13;
+      --theme-ambient: rgba(126,139,151,.07);
       display: none;
       flex-direction: column;
       height: 100vh;
       width: 100vw;
       overflow: hidden;
       background:
-        radial-gradient(circle at 78% 28%, rgba(126,139,151,.07), transparent 42%),
+        radial-gradient(circle at 78% 28%, var(--theme-ambient), transparent 42%),
         linear-gradient(180deg, var(--theme-shell-top), var(--theme-shell-bottom) 72%);
     }
 
@@ -1236,6 +1251,14 @@
                   <small>01 // CLASSIC ASOC // COLD STEEL</small>
                 </span>
                 <span class="theme-profile-lock">ACTIVE</span>
+              </button>
+              <button type="button" class="theme-profile-card" data-theme-id="pink-protocol" aria-pressed="false">
+                <span class="theme-profile-preview pink-protocol" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="theme-profile-copy">
+                  <strong>PINK PROTOCOL</strong>
+                  <small>02 // GIRLY WARFARE // ROSE CIRCUITS</small>
+                </span>
+                <span class="theme-profile-lock">SELECT</span>
               </button>
             </div>
             <div class="little-hero-chaos-note">Theme colors alter background surfaces only. The game board keeps its original artwork.</div>
