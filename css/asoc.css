@@ -2064,6 +2064,56 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   color: #fff;
 }
 
+/* GM BATTLE CHAT — every player transmission is neutral chat until the GM
+   decides it was actually an answer. Ignore it = nothing happens; tap the
+   tiny × or black heart only when adjudication is needed. */
+.gm-chat-message-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+.gm-chat-quick-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.gm-chat-quick-actions .gm-verdict-btn {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 2px;
+  font-size: .86rem;
+  line-height: 1;
+  background: #0b0e12;
+  box-shadow: inset 0 1px rgba(255,255,255,.04);
+}
+.gm-chat-quick-actions .gm-verdict-btn.wrong {
+  color: #d86157;
+  border-color: rgba(216,97,87,.55);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.gm-chat-quick-actions .gm-verdict-btn.correct {
+  color: #0a0a0d;
+  border-color: rgba(111,84,139,.72);
+  background: linear-gradient(180deg,#8a6aa7,#4f3d62);
+  text-shadow: 0 0 3px rgba(255,255,255,.25);
+}
+.gm-chat-quick-actions .gm-verdict-btn.wrong:hover {
+  color: #ff8278;
+  background: rgba(116,34,34,.32);
+  border-color: #d86157;
+}
+.gm-chat-quick-actions .gm-verdict-btn.correct:hover {
+  color: #000;
+  background: linear-gradient(180deg,#ad8bc9,#6e5287);
+  border-color: #9b72bd;
+}
+
 /* GM TARGET SELECTOR */
 .gm-target-selector {
   display: flex;

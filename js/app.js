@@ -1685,15 +1685,17 @@ const App = {
       <div class="gm-chat-message ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}">
         <div class="gm-chat-message-header">
           <span class="gm-chat-little-hero">${this.littleHeroAvatarHTML(identity)}<span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
-          <span class="gm-chat-time">${time}</span>
+          <span class="gm-chat-message-meta">
+            <span class="gm-chat-time">${time}</span>
+            ${showControls ? `<span class="gm-chat-quick-actions" aria-label="Judge message if it is an answer">
+              <button class="gm-verdict-btn wrong" data-message-id="${msg.id}" data-verdict="wrong" title="Reject as answer">×</button>
+              <button class="gm-verdict-btn correct" data-message-id="${msg.id}" data-verdict="correct" title="Accept as answer">🖤</button>
+            </span>` : ''}
+          </span>
         </div>
         <div class="gm-chat-message-text">${this.escapeHtml(msg.text)}</div>
         ${verdictIcon ? `<div class="gm-chat-verdict ${msg.verdict}">${verdictIcon}${msg.target ? ` (${this.getTargetLabel(msg.target)})` : ''}</div>` : ''}
         ${verdictResponseHtml}
-        <div class="gm-chat-controls" style="display: ${showControls ? 'flex' : 'none'};">
-          <button class="gm-verdict-btn wrong" data-message-id="${msg.id}" data-verdict="wrong" title="Mark as wrong">❌</button>
-          <button class="gm-verdict-btn correct" data-message-id="${msg.id}" data-verdict="correct" title="Mark as correct">🖤</button>
-        </div>
       </div>
     `;
   },
