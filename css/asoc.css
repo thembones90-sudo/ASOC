@@ -4534,6 +4534,59 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 }
 
 /* =========================================================
+   COMPACT TELEMETRY RACK
+   Keep the detention-hardware look while giving the board more vertical room.
+   ========================================================= */
+.timer-tracker,
+.womf-tracker {
+  min-height: 58px;
+  margin-bottom: 8px;
+  padding: 6px 12px 6px 14px;
+  gap: 10px;
+}
+.timer-identity,
+.womf-identity {
+  width: 108px;
+  padding-right: 8px;
+}
+.timer-kicker,
+.womf-kicker {
+  font-size: .43rem;
+  margin-bottom: 1px;
+}
+.timer-label,
+.womf-label {
+  font-size: .82rem;
+  letter-spacing: 3px;
+}
+.timer-core {
+  grid-template-columns: 90px minmax(140px,1fr);
+  gap: 10px;
+}
+.timer-count { font-size: 1.08rem; }
+.womf-count { font-size: 1rem; }
+.timer-status,
+.womf-status {
+  margin-top: 3px;
+  font-size: .44rem;
+}
+.timer-bars {
+  height: 24px;
+  padding-bottom: 9px;
+}
+.timer-bar-track { height: 10px; }
+.womf-meter { padding-bottom: 10px; }
+.womf-segments,
+.womf-segment { height: 20px; }
+.womf-segments { gap: 4px; }
+.womf-readout {
+  width: 72px;
+  padding-left: 8px;
+}
+.timer-tracker::after,
+.womf-tracker::after { inset: 2px 7px; }
+
+/* =========================================================
    BATTLE LAUNCH SEQUENCE — T-10 + FULL-WIDTH SYSTEM ONLINE
    ========================================================= */
 .battle-launch-countdown {
