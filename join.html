@@ -2373,14 +2373,302 @@
       #chat-panel { max-height:48vh; }
       .connection-status { bottom:max(10px, env(safe-area-inset-bottom)); }
     }
+
+    /* =========================================================
+       LITTLE HERO ACCESS V2 // COMPACT TERMINAL
+       ========================================================= */
+    #join-screen {
+      --join-purple:#8b3df0;
+      --join-cyan:#77d9ff;
+      --join-gold:#d6a843;
+      position:relative;
+      isolation:isolate;
+      justify-content:center;
+      min-height:100vh;
+      padding:20px 18px 24px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 18%,rgba(82,64,132,.16),transparent 31%),
+        linear-gradient(90deg,transparent 0 49.9%,rgba(121,137,160,.035) 50%,transparent 50.1%),
+        linear-gradient(180deg,#0b0e13 0%,#07090d 100%);
+    }
+    #join-screen::before {
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:-1;
+      pointer-events:none;
+      opacity:.45;
+      background:
+        linear-gradient(135deg,transparent 0 9%,rgba(129,145,166,.045) 9.1% 9.25%,transparent 9.35% 90%,rgba(129,145,166,.04) 90.1% 90.25%,transparent 90.35%),
+        repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 1px,transparent 1px 4px);
+    }
+    .join-brand {
+      position:relative;
+      margin-bottom:14px;
+      text-align:center;
+    }
+    .join-brand::before,
+    .join-brand::after {
+      content:"";
+      position:absolute;
+      top:45%;
+      width:54px;
+      height:1px;
+      background:linear-gradient(90deg,transparent,rgba(139,61,240,.62));
+    }
+    .join-brand::before { right:calc(100% + 18px); }
+    .join-brand::after { left:calc(100% + 18px); transform:scaleX(-1); }
+    .join-logo {
+      margin:0;
+      font-size:clamp(2.5rem,7vw,4.25rem);
+      line-height:.9;
+      letter-spacing:.15em;
+      text-shadow:0 8px 28px rgba(0,0,0,.65);
+    }
+    .join-subtitle {
+      margin:10px 0 0;
+      color:#bfc8d8;
+      font-size:clamp(.68rem,1.6vw,.86rem);
+      letter-spacing:.20em;
+    }
+    .join-form {
+      position:relative;
+      width:min(100%,680px);
+      max-width:680px;
+      padding:16px 18px 18px;
+      border:1px solid #485365;
+      border-radius:4px;
+      background:
+        linear-gradient(135deg,rgba(139,61,240,.045),transparent 24%),
+        linear-gradient(180deg,rgba(18,22,30,.97),rgba(9,12,17,.985));
+      box-shadow:0 22px 60px rgba(0,0,0,.52),inset 0 1px rgba(255,255,255,.035);
+      backdrop-filter:blur(8px);
+    }
+    .join-form::before,
+    .join-form::after {
+      content:"";
+      position:absolute;
+      width:42px;
+      height:42px;
+      pointer-events:none;
+    }
+    .join-form::before {
+      left:-1px; top:-1px;
+      border-left:2px solid var(--join-purple);
+      border-top:2px solid #8fa1bd;
+    }
+    .join-form::after {
+      right:-1px; bottom:-1px;
+      border-right:2px solid var(--join-gold);
+      border-bottom:2px solid #8fa1bd;
+    }
+    .join-form-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin:-3px 0 13px;
+      padding:0 0 9px;
+      border-bottom:1px solid rgba(110,124,145,.30);
+      color:#cbd3df;
+      font:700 .65rem var(--font-system);
+      letter-spacing:.17em;
+      text-align:left;
+    }
+    .join-form-head::before {
+      content:"";
+      width:2px;
+      height:15px;
+      flex:0 0 2px;
+      background:var(--join-gold);
+      box-shadow:0 0 7px rgba(214,168,67,.28);
+    }
+    .join-form-head span { margin-right:auto; }
+    .join-form-head small {
+      color:#667284;
+      font:600 .42rem var(--font-machine);
+      letter-spacing:.12em;
+    }
+    .join-primary-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .join-primary-grid .form-group {
+      margin:0 0 13px;
+    }
+    .join-form .form-label {
+      margin-bottom:5px;
+      font-size:.56rem;
+      letter-spacing:1.25px;
+    }
+    .join-form .form-input {
+      height:48px;
+      padding:9px 12px;
+      border-radius:3px;
+      background:linear-gradient(180deg,#171c25,#11151c);
+      border-color:#586376;
+      font-size:1.05rem;
+      box-shadow:inset 0 1px rgba(255,255,255,.025);
+    }
+    .join-form .form-input:focus {
+      border-color:var(--join-purple);
+      box-shadow:0 0 0 1px rgba(139,61,240,.28),inset 0 1px rgba(255,255,255,.03);
+    }
+    .little-hero-appearance {
+      grid-template-columns:132px minmax(0,1fr);
+      gap:14px;
+      align-items:stretch;
+      margin:0 0 14px;
+      padding:0;
+      border:0;
+      background:transparent;
+    }
+    .little-hero-avatar-upload {
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      min-height:164px;
+      padding:11px;
+      border:1px solid #455064;
+      border-radius:3px;
+      background:linear-gradient(145deg,rgba(20,25,34,.92),rgba(8,11,16,.96));
+    }
+    .little-hero-avatar-upload::before {
+      content:"AVATAR";
+      position:absolute;
+      top:9px;
+      left:10px;
+      color:var(--join-gold);
+      font:700 .49rem var(--font-system);
+      letter-spacing:1px;
+    }
+    .little-hero-avatar-preview {
+      width:86px;
+      height:86px;
+      margin:12px auto 7px;
+      border-width:3px;
+      box-shadow:inset 0 0 0 1px rgba(225,229,238,.48),0 0 20px color-mix(in srgb,var(--lh-frame) 48%,transparent);
+    }
+    .little-hero-upload-label {
+      color:#c3cad5;
+      font-size:.50rem;
+      font-weight:700;
+      letter-spacing:1.15px;
+    }
+    .little-hero-frame-controls {
+      padding:11px 12px;
+      border:1px solid #455064;
+      border-radius:3px;
+      background:linear-gradient(145deg,rgba(20,25,34,.92),rgba(8,11,16,.96));
+    }
+    .little-hero-frame-row {
+      grid-template-columns:44px minmax(0,1fr);
+      margin-top:5px;
+    }
+    #little-hero-frame-picker {
+      width:44px;
+      height:38px;
+      border-radius:2px;
+    }
+    #little-hero-frame-hex {
+      height:38px;
+      padding:8px 10px;
+      border-radius:2px;
+    }
+    .little-hero-chaos-note {
+      margin-top:5px;
+      color:#727d8d;
+      font-size:.43rem;
+      line-height:1.25;
+      letter-spacing:.55px;
+    }
+    .little-hero-theme-block {
+      margin-top:9px;
+      padding-top:8px;
+    }
+    .theme-select-toggle {
+      min-height:45px;
+      border-radius:2px;
+      background:linear-gradient(110deg,#111923,#162536 65%,#17374b);
+      border-color:#54758d;
+    }
+    .theme-select-toggle:hover,
+    .theme-select-toggle[aria-expanded="true"] {
+      border-color:var(--join-cyan);
+      box-shadow:0 0 0 1px rgba(119,217,255,.15);
+    }
+    .theme-select-copy strong { font-size:.68rem; }
+    .theme-select-copy small { font-size:.38rem; }
+    .join-btn {
+      position:relative;
+      min-height:52px;
+      margin-top:0;
+      border-radius:2px;
+      border:1px solid #c9951e;
+      background:
+        linear-gradient(90deg,rgba(255,202,65,.06),rgba(255,202,65,.17),rgba(255,202,65,.06)),
+        #171511;
+      color:#f2c451;
+      font-size:.86rem;
+      font-weight:800;
+      letter-spacing:.20em;
+      box-shadow:inset 0 0 0 1px rgba(255,210,91,.06),0 0 20px rgba(214,168,67,.06);
+      clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px);
+    }
+    .join-btn::after { content:"  ›"; font-size:1.25em; }
+    .join-btn:hover {
+      background:
+        linear-gradient(90deg,rgba(255,202,65,.10),rgba(255,202,65,.25),rgba(255,202,65,.10)),
+        #1b1812;
+      border-color:#efbf48;
+      box-shadow:0 0 24px rgba(214,168,67,.14),inset 0 0 18px rgba(214,168,67,.06);
+    }
+    #join-screen .error-message { margin-top:7px; }
+
+    @media (max-width:620px) {
+      #join-screen { justify-content:flex-start; padding:16px 10px 20px; }
+      .join-brand { margin-bottom:12px; }
+      .join-brand::before,.join-brand::after { display:none; }
+      .join-form { padding:13px 12px 14px; }
+      .join-form-head small { display:none; }
+      .join-primary-grid { grid-template-columns:1fr 1fr; gap:8px; }
+      .join-form .form-input { height:44px; font-size:.95rem; letter-spacing:2px; }
+      .little-hero-appearance { grid-template-columns:108px minmax(0,1fr); gap:8px; }
+      .little-hero-avatar-upload { min-height:152px; padding:8px; }
+      .little-hero-avatar-preview { width:74px; height:74px; }
+      .little-hero-frame-controls { padding:9px; }
+      .theme-select-copy small { display:none; }
+      .join-btn { min-height:49px; }
+    }
+
+    @media (max-width:430px) {
+      .join-primary-grid { grid-template-columns:1fr; }
+      .join-primary-grid .form-group { margin-bottom:7px; }
+      .little-hero-appearance { grid-template-columns:96px minmax(0,1fr); }
+      .little-hero-avatar-preview { width:66px; height:66px; }
+      .little-hero-avatar-upload { min-height:146px; }
+      .join-form { padding:12px 10px 13px; }
+    }
+
   </style>
 </head>
 <body>
   <div id="join-screen">
-    <div class="join-logo">ASOC</div>
-    <div class="join-subtitle">Little Hero // Battle Access</div>
+    <div class="join-brand">
+      <div class="join-logo">ASOC</div>
+      <div class="join-subtitle">Little Hero // Battle Access</div>
+    </div>
 
     <form class="join-form" id="join-form">
+      <div class="join-form-head">
+        <span>JOIN THE BATTLE</span>
+        <small>ASOC TERMINAL // PLAYER ACCESS</small>
+      </div>
+      <div class="join-primary-grid">
       <div class="form-group">
         <label class="form-label" for="room-code">Room Code</label>
         <input type="text" class="form-input" id="room-code" placeholder="K7RX" maxlength="4" autocomplete="off" required>
@@ -2388,6 +2676,8 @@
       <div class="form-group">
         <label class="form-label" for="player-name">Little Hero Designation</label>
         <input type="text" class="form-input" id="player-name" placeholder="USERNAME" maxlength="20" autocomplete="off" required>
+      </div>
+
       </div>
 
       <div class="little-hero-appearance">
