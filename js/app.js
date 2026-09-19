@@ -1663,11 +1663,11 @@ const App = {
     const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
     const hasVerdict = msg.verdict !== null;
     const showControls = !hasVerdict;
-    const themeColor = /^#[0-9A-Fa-f]{6}$/.test(identity.themeColor || '') ? identity.themeColor : '#343A42';
+    const themeStyle = ASOCThemes.messageStyle(identity.themeId);
     const frameColor = /^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885';
 
     return `
-      <div class="gm-chat-message discord-row ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" style="--little-hero-theme:${themeColor};--little-hero-accent:${frameColor}">
+      <div class="gm-chat-message discord-row ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" style="${themeStyle}--little-hero-accent:${frameColor}">
         <span class="gm-chat-leading">${this.littleHeroAvatarHTML(identity, true)}</span>
         <span class="gm-chat-inline-content">
           <span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span>

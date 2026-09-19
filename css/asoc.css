@@ -2331,17 +2331,11 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
   border: 1px solid rgba(95,104,118,.46);
   border-left: 2px solid var(--little-hero-accent,#6f7885);
   border-radius: 5px;
-  background:
-    linear-gradient(100deg,
-      color-mix(in srgb,var(--little-hero-theme,#343A42) 22%,#171b20),
-      color-mix(in srgb,var(--little-hero-theme,#343A42) 10%,#0d1014) 72%);
+  background: linear-gradient(100deg, var(--theme-message-top,#151A20), var(--theme-message-bottom,#0C0F13) 72%);
   box-shadow: inset 0 1px rgba(255,255,255,.025);
 }
 .gm-module-chat .gm-chat-message.discord-row:hover {
-  background:
-    linear-gradient(100deg,
-      color-mix(in srgb,var(--little-hero-theme,#343A42) 29%,#1b2026),
-      color-mix(in srgb,var(--little-hero-theme,#343A42) 14%,#101419) 72%);
+  background: linear-gradient(100deg, color-mix(in srgb,var(--theme-message-top,#151A20) 90%,#fff 10%), color-mix(in srgb,var(--theme-message-bottom,#0C0F13) 92%,#fff 8%) 72%);
 }
 .gm-module-chat .gm-chat-message.discord-row.wrong {
   border-color: rgba(216,97,87,.44);

@@ -212,14 +212,77 @@
       border-color: var(--lh-frame, #9B5DE0);
     }
 
-    #little-hero-theme-hex:focus {
-      border-color: var(--player-theme, #343A42);
-    }
-
     .little-hero-theme-block {
       margin-top: 14px;
       padding-top: 12px;
       border-top: 1px solid rgba(116,126,139,.24);
+    }
+
+    .theme-profile-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: 7px;
+    }
+
+    .theme-profile-card {
+      display: grid;
+      grid-template-columns: 48px minmax(0,1fr) auto;
+      gap: 10px;
+      align-items: center;
+      width: 100%;
+      padding: 8px 9px;
+      border: 1px solid #4d5661;
+      border-radius: 5px;
+      background: linear-gradient(180deg,#1b2027,#0c0f13);
+      color: #e3e7ed;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: inset 0 1px rgba(255,255,255,.035);
+    }
+
+    .theme-profile-card.selected {
+      border-color: #88939f;
+      box-shadow: inset 3px 0 #87919d, inset 0 1px rgba(255,255,255,.06), 0 0 12px rgba(132,145,158,.08);
+    }
+
+    .theme-profile-preview {
+      width: 46px;
+      height: 34px;
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 2px;
+      padding: 4px;
+      border: 1px solid #525b65;
+      background: #090c10;
+      box-sizing: border-box;
+    }
+    .theme-profile-preview i { display:block; border-radius:1px; }
+    .theme-profile-preview.gunmetal i:nth-child(1) { background:#11161c; }
+    .theme-profile-preview.gunmetal i:nth-child(2) { background:#343a42; }
+    .theme-profile-preview.gunmetal i:nth-child(3) { background:#737d88; }
+
+    .theme-profile-copy { min-width:0; }
+    .theme-profile-copy strong {
+      display:block;
+      color:#f0f3f7;
+      font:800 .68rem var(--font-machine);
+      letter-spacing:1px;
+    }
+    .theme-profile-copy small {
+      display:block;
+      margin-top:2px;
+      color:#7d8793;
+      font:700 .43rem var(--font-machine);
+      letter-spacing:.65px;
+    }
+    .theme-profile-lock {
+      padding:2px 5px;
+      border:1px solid #4e5964;
+      color:#aeb6bf;
+      background:#0a0d11;
+      font:800 .42rem var(--font-machine);
+      letter-spacing:.7px;
     }
 
     .little-hero-chaos-note {
@@ -275,14 +338,22 @@
 
     #game-screen {
       --player-theme: #343A42;
+      --theme-shell-top: #11161C;
+      --theme-shell-bottom: #07090C;
+      --theme-rail-top: #151A20;
+      --theme-rail-bottom: #080A0D;
+      --theme-status-top: #171C22;
+      --theme-status-bottom: #0A0D11;
+      --theme-message-top: #151A20;
+      --theme-message-bottom: #0C0F13;
       display: none;
       flex-direction: column;
       height: 100vh;
       width: 100vw;
       overflow: hidden;
       background:
-        radial-gradient(circle at 78% 28%, color-mix(in srgb, var(--player-theme) 18%, transparent), transparent 42%),
-        linear-gradient(180deg, color-mix(in srgb, var(--player-theme) 10%, #0a0c10), #07090c 72%);
+        radial-gradient(circle at 78% 28%, rgba(126,139,151,.07), transparent 42%),
+        linear-gradient(180deg, var(--theme-shell-top), var(--theme-shell-bottom) 72%);
     }
 
     #game-screen.active {
@@ -449,9 +520,7 @@
       border-left: 3px solid #343a42;
       background:
         linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 100%),
-        linear-gradient(180deg,
-          color-mix(in srgb,var(--player-theme,#343A42) 20%,#11151a),
-          color-mix(in srgb,var(--player-theme,#343A42) 8%,#080a0d) 72%);
+        linear-gradient(180deg, var(--theme-rail-top,#151A20), var(--theme-rail-bottom,#080A0D) 72%);
       box-shadow: inset 8px 0 18px rgba(0,0,0,.55), inset 1px 0 rgba(185,194,204,.16);
     }
     .battle-comms-lobby::before,
@@ -811,9 +880,7 @@
       position:relative;
       flex:0 0 auto;
       border:1px solid #414852;
-      background:linear-gradient(180deg,
-        color-mix(in srgb,var(--player-theme,#343A42) 24%,#171c22),
-        color-mix(in srgb,var(--player-theme,#343A42) 10%,#0a0d11));
+      background:linear-gradient(180deg, var(--theme-status-top,#171C22), var(--theme-status-bottom,#0A0D11));
       box-shadow:inset 0 1px rgba(255,255,255,.055),inset 0 -2px 8px rgba(0,0,0,.72);
       clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
       overflow:hidden;
@@ -934,10 +1001,7 @@
       padding:8px 10px 20px;
       border:1px solid #3a414a;
       border-left:3px solid var(--little-hero-accent,#68717d);
-      background:
-        linear-gradient(100deg,
-          color-mix(in srgb,var(--little-hero-theme,#343A42) 22%,#151a20),
-          color-mix(in srgb,var(--little-hero-theme,#343A42) 10%,#0c0f13) 72%);
+      background:linear-gradient(100deg, var(--theme-message-top,#151A20), var(--theme-message-bottom,#0C0F13) 72%);
     }
     .battle-comms-lobby .chat-message.grouped {
       margin-top:0;
@@ -1163,12 +1227,18 @@
           <div class="little-hero-chaos-note">Structure is controlled. Color is chaos.</div>
 
           <div class="little-hero-theme-block">
-            <label class="form-label" for="little-hero-theme-hex">Theme Color</label>
-            <div class="little-hero-frame-row">
-              <input id="little-hero-theme-picker" type="color" value="#343A42" aria-label="Little Hero theme color">
-              <input id="little-hero-theme-hex" type="text" value="#343A42" maxlength="7" spellcheck="false" autocomplete="off">
+            <div class="form-label">Theme Profile</div>
+            <div class="theme-profile-grid" id="theme-profile-grid">
+              <button type="button" class="theme-profile-card selected" data-theme-id="gunmetal" aria-pressed="true">
+                <span class="theme-profile-preview gunmetal" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="theme-profile-copy">
+                  <strong>GUNMETAL</strong>
+                  <small>01 // CLASSIC ASOC // COLD STEEL</small>
+                </span>
+                <span class="theme-profile-lock">ACTIVE</span>
+              </button>
             </div>
-            <div class="little-hero-chaos-note">Gunmetal default. Your command post and transmissions inherit this color.</div>
+            <div class="little-hero-chaos-note">Theme colors alter background surfaces only. The game board keeps its original artwork.</div>
           </div>
         </div>
       </div>
@@ -1249,6 +1319,7 @@
 
   <div id="score-announcement-layer"></div>
 
+  <script src="js/themes.js"></script>
   <script src="js/skeleton.js"></script>
   <script src="js/womf.js"></script>
   <script src="js/wheel.js"></script>

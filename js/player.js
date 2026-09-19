@@ -5,6 +5,7 @@ const PlayerApp = {
   playerName: '',
   avatarData: '',
   frameColor: '#9B5DE0',
+  themeId: 'gunmetal',
   themeColor: '#343A42',
   _sendAvatarAppearance: false,
   _sendFrameAppearance: false,
@@ -92,8 +93,7 @@ const PlayerApp = {
     const avatarFile = document.getElementById('little-hero-avatar-file');
     const framePicker = document.getElementById('little-hero-frame-picker');
     const frameHex = document.getElementById('little-hero-frame-hex');
-    const themePicker = document.getElementById('little-hero-theme-picker');
-    const themeHex = document.getElementById('little-hero-theme-hex');
+    const themeButtons = Array.from(document.querySelectorAll('[data-theme-id]'));
 
     avatarFile?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
@@ -127,24 +127,19 @@ const PlayerApp = {
       }
     });
 
-    const applyThemeColor = (value) => {
-      if (!/^#[0-9A-Fa-f]{6}$/.test(value)) return false;
-      this.themeColor = value.toUpperCase();
+    const applyThemeProfile = (themeId) => {
+      const theme = ASOCThemes.get(themeId);
+      this.themeId = theme.id;
+      this.themeColor = theme.color;
       this._sendThemeAppearance = true;
       this._themeChangedByUser = true;
+      localStorage.setItem('asoc_little_hero_theme_id', this.themeId);
       localStorage.setItem('asoc_little_hero_theme', this.themeColor);
-      if (themePicker) themePicker.value = this.themeColor;
-      if (themeHex) themeHex.value = this.themeColor;
       this.updateAppearancePreview();
-      return true;
     };
 
-    themePicker?.addEventListener('input', (e) => applyThemeColor(e.target.value));
-    themeHex?.addEventListener('change', (e) => {
-      if (!applyThemeColor(e.target.value.trim())) {
-        e.target.value = this.themeColor;
-        this.showError('Theme color must be a six-digit HEX value');
-      }
+    themeButtons.forEach(button => {
+      button.addEventListener('click', () => applyThemeProfile(button.dataset.themeId));
     });
   },
 
@@ -154,7 +149,7 @@ const PlayerApp = {
     const storedId = sessionStorage.getItem('asoc_player_id');
     const storedAvatar = localStorage.getItem('asoc_little_hero_avatar');
     const storedFrame = localStorage.getItem('asoc_little_hero_frame');
-    const storedTheme = localStorage.getItem('asoc_little_hero_theme');
+    const storedThemeId = localStorage.getItem('asoc_little_hero_theme_id');
 
     if (storedRoom) document.getElementById('room-code').value = storedRoom;
     if (storedName) document.getElementById('player-name').value = storedName;
@@ -168,9 +163,15 @@ const PlayerApp = {
       this.frameColor = storedFrame.toUpperCase();
       this._sendFrameAppearance = true;
     }
-    if (storedTheme && /^#[0-9A-Fa-f]{6}$/.test(storedTheme)) {
-      this.themeColor = storedTheme.toUpperCase();
+    if (storedThemeId) {
+      const theme = ASOCThemes.get(storedThemeId);
+      this.themeId = theme.id;
+      this.themeColor = theme.color;
       this._sendThemeAppearance = true;
+    } else {
+      const theme = ASOCThemes.get(ASOCThemes.DEFAULT_ID);
+      this.themeId = theme.id;
+      this.themeColor = theme.color;
     }
     this.updateAppearancePreview();
   },
@@ -180,15 +181,18 @@ const PlayerApp = {
     const image = document.getElementById('little-hero-avatar-image');
     const picker = document.getElementById('little-hero-frame-picker');
     const hex = document.getElementById('little-hero-frame-hex');
-    const themePicker = document.getElementById('little-hero-theme-picker');
-    const themeHex = document.getElementById('little-hero-theme-hex');
     const gameScreen = document.getElementById('game-screen');
     if (preview) preview.style.setProperty('--lh-frame', this.frameColor);
     if (picker) picker.value = this.frameColor;
     if (hex) hex.value = this.frameColor;
-    if (themePicker) themePicker.value = this.themeColor;
-    if (themeHex) themeHex.value = this.themeColor;
-    if (gameScreen) gameScreen.style.setProperty('--player-theme', this.themeColor);
+    ASOCThemes.applyToScreen(gameScreen, this.themeId);
+    document.querySelectorAll('[data-theme-id]').forEach(button => {
+      const active = button.dataset.themeId === this.themeId;
+      button.classList.toggle('selected', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      const lock = button.querySelector('.theme-profile-lock');
+      if (lock) lock.textContent = active ? 'ACTIVE' : 'SELECT';
+    });
     if (preview && image) {
       if (this.avatarData) {
         image.src = this.avatarData;
@@ -322,6 +326,7 @@ const PlayerApp = {
         if (this._sendAvatarAppearance) joinMessage.avatarData = this.avatarData;
         if (this._sendFrameAppearance) joinMessage.frameColor = this.frameColor;
         if (this._sendThemeAppearance) {
+          joinMessage.themeId = this.themeId;
           joinMessage.themeColor = this.themeColor;
           joinMessage.themeColorExplicit = this._themeChangedByUser;
         }
@@ -358,11 +363,12 @@ const PlayerApp = {
           this.frameColor = /^#[0-9A-Fa-f]{6}$/.test(message.littleHero.frameColor || '')
             ? message.littleHero.frameColor.toUpperCase()
             : '#9B5DE0';
-          this.themeColor = /^#[0-9A-Fa-f]{6}$/.test(message.littleHero.themeColor || '')
-            ? message.littleHero.themeColor.toUpperCase()
-            : '#343A42';
+          const theme = ASOCThemes.get(message.littleHero.themeId || ASOCThemes.DEFAULT_ID);
+          this.themeId = theme.id;
+          this.themeColor = theme.color;
           localStorage.setItem('asoc_little_hero_avatar', this.avatarData);
           localStorage.setItem('asoc_little_hero_frame', this.frameColor);
+          localStorage.setItem('asoc_little_hero_theme_id', this.themeId);
           localStorage.setItem('asoc_little_hero_theme', this.themeColor);
           this._sendAvatarAppearance = true;
           this._sendFrameAppearance = true;
@@ -1026,7 +1032,7 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" style="--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'};--little-hero-theme:${/^#[0-9A-Fa-f]{6}$/.test(identity.themeColor || '') ? identity.themeColor : '#343A42'}">
+      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}">
         <div class="chat-message-header">
           <span class="chat-little-hero">${this.littleHeroAvatarHTML(identity)}<span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
           <span><button type="button" class="chat-reply-btn" data-reply-id="${msg.id}">REPLY</button><span class="chat-time">${time}</span></span>

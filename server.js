@@ -19,6 +19,9 @@ const MAX_AVATAR_DATA_LENGTH = 200000;
 const CHAT_HISTORY_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
 const PROTOCOL_VERSION = 1;
+const LITTLE_HERO_THEMES = Object.freeze({
+  gunmetal: '#343A42'
+});
 
 const mimeTypes = {
   '.html': 'text/html',
@@ -54,6 +57,7 @@ function serializeRoomForRecovery(room) {
       name: player.name,
       avatarData: player.avatarData || '',
       frameColor: player.frameColor || '#9B5DE0',
+      themeId: player.themeId || 'gunmetal',
       themeColor: player.themeColor || '#343A42',
       joinedAt: player.joinedAt || Date.now()
     });
@@ -161,7 +165,8 @@ function restoreActiveRooms() {
           name: player.name,
           avatarData: sanitizeAvatarData(player.avatarData) || '',
           frameColor: sanitizeFrameColor(player.frameColor) || '#9B5DE0',
-          themeColor: sanitizeFrameColor(player.themeColor) || '#343A42',
+          themeId: sanitizeThemeId(player.themeId) || 'gunmetal',
+          themeColor: LITTLE_HERO_THEMES[sanitizeThemeId(player.themeId) || 'gunmetal'],
           connected: false,
           joinedAt: player.joinedAt || Date.now()
         });
@@ -296,6 +301,12 @@ function sanitizeText(text) {
 function sanitizeFrameColor(value) {
   return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value)
     ? value.toUpperCase()
+    : null;
+}
+
+function sanitizeThemeId(value) {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(LITTLE_HERO_THEMES, value)
+    ? value
     : null;
 }
 
@@ -1557,6 +1568,7 @@ function addChatMessage(room, playerId, playerName, text) {
     playerName,
     avatarData: liveIdentity.avatarData || '',
     frameColor: liveIdentity.frameColor || '#9B5DE0',
+    themeId: liveIdentity.themeId || 'gunmetal',
     themeColor: liveIdentity.themeColor || '#343A42',
     text: sanitized,
     timestamp: Date.now(),
@@ -1694,7 +1706,7 @@ function handlePlayerJoin(ws, message) {
   const hasAvatarUpdate = Object.prototype.hasOwnProperty.call(message, 'avatarData');
   const requestedAvatar = message.avatarData === '' ? '' : sanitizeAvatarData(message.avatarData);
   const requestedFrameColor = sanitizeFrameColor(message.frameColor);
-  const requestedThemeColor = sanitizeFrameColor(message.themeColor);
+  const requestedThemeId = sanitizeThemeId(message.themeId);
   if (hasAvatarUpdate && requestedAvatar === null) {
     sendToWs(ws, { type: 'error', message: 'Invalid avatar image' });
     return;
@@ -1703,24 +1715,18 @@ function handlePlayerJoin(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Invalid avatar frame color' });
     return;
   }
-  if (message.themeColor !== undefined && !requestedThemeColor) {
-    sendToWs(ws, { type: 'error', message: 'Invalid Little Hero theme color' });
+  if (message.themeId !== undefined && !requestedThemeId) {
+    sendToWs(ws, { type: 'error', message: 'Invalid Little Hero theme profile' });
     return;
   }
 
   let littleHeroProfile = playerStore.getOrCreateProfile(cleanName).profile;
-  const themeWasExplicitlyChanged = message.themeColorExplicit === true;
-  const preserveSavedCustomTheme = (
-    requestedThemeColor === '#343A42' &&
-    !themeWasExplicitlyChanged &&
-    littleHeroProfile.themeColor &&
-    littleHeroProfile.themeColor !== '#343A42'
-  );
-  if (hasAvatarUpdate || requestedFrameColor || (requestedThemeColor && !preserveSavedCustomTheme)) {
+  if (hasAvatarUpdate || requestedFrameColor || requestedThemeId) {
     littleHeroProfile = playerStore.updateProfileAppearance(cleanName, {
       avatarData: hasAvatarUpdate ? requestedAvatar : undefined,
       frameColor: requestedFrameColor || undefined,
-      themeColor: requestedThemeColor && !preserveSavedCustomTheme ? requestedThemeColor : undefined
+      themeId: requestedThemeId || undefined,
+      themeColor: requestedThemeId ? LITTLE_HERO_THEMES[requestedThemeId] : undefined
     });
   }
 
@@ -1756,7 +1762,8 @@ function handlePlayerJoin(ws, message) {
     name: cleanName,
     avatarData: littleHeroProfile.avatarData || '',
     frameColor: littleHeroProfile.frameColor || '#9B5DE0',
-    themeColor: littleHeroProfile.themeColor || '#343A42',
+    themeId: littleHeroProfile.themeId || 'gunmetal',
+    themeColor: LITTLE_HERO_THEMES[littleHeroProfile.themeId || 'gunmetal'] || '#343A42',
     connected: true,
     joinedAt: Date.now()
   });
@@ -1771,7 +1778,8 @@ function handlePlayerJoin(ws, message) {
       name: cleanName,
       avatarData: littleHeroProfile.avatarData || '',
       frameColor: littleHeroProfile.frameColor || '#9B5DE0',
-      themeColor: littleHeroProfile.themeColor || '#343A42'
+      themeId: littleHeroProfile.themeId || 'gunmetal',
+      themeColor: LITTLE_HERO_THEMES[littleHeroProfile.themeId || 'gunmetal'] || '#343A42'
     }
   });
 
@@ -1790,7 +1798,8 @@ function broadcastPlayersUpdate(room) {
       name: player.name,
       avatarData: player.avatarData || '',
       frameColor: player.frameColor || '#9B5DE0',
-      themeColor: player.themeColor || '#343A42',
+      themeId: player.themeId || 'gunmetal',
+      themeColor: LITTLE_HERO_THEMES[player.themeId || 'gunmetal'] || '#343A42',
       connected: ws.readyState === 1,
       score: room.scoring.players[player.id]?.sessionScore || 0
     });
