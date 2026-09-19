@@ -4391,3 +4391,115 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
 @media (max-width: 720px) {
   .timer-fuse { width: calc(100% - 20px); margin: 0 10px; }
 }
+
+/* =========================================================
+   TELEMETRY COLOR CORRECTION
+   TIMER = hot fuse / amber. WOMF = threat engine / crimson-purple.
+   ========================================================= */
+.timer-kicker {
+  color: #9b7040;
+}
+.timer-label {
+  color: #e7a84f;
+  text-shadow: 0 0 8px rgba(224,137,42,.18), 0 1px 0 #000;
+}
+.timer-count {
+  color: #f2eee6;
+}
+.timer-status,
+.timer-scale {
+  color: #8c765c;
+}
+.timer-controls .toolbar-btn.primary,
+.timer-controls .timer-pause-btn,
+.timer-controls .timer-resume-btn {
+  color: #efc27b;
+  border-color: rgba(180,124,53,.62);
+  background: linear-gradient(180deg, rgba(58,45,28,.96), rgba(22,18,14,.98));
+}
+.timer-controls .timer-adjust-btn {
+  color: #b8b1a5;
+  border-color: rgba(99,103,111,.62);
+  background: linear-gradient(180deg, rgba(34,37,43,.98), rgba(15,17,21,.98));
+}
+.timer-tracker[data-level="warning"] .timer-label,
+.timer-tracker[data-level="warning"] .timer-count {
+  color: #f0b34e;
+  text-shadow: 0 0 9px rgba(239,151,39,.32);
+}
+.timer-tracker[data-level="danger"] .timer-label,
+.timer-tracker[data-level="danger"] .timer-count {
+  color: #ef654e;
+  text-shadow: 0 0 10px rgba(229,59,39,.42);
+}
+.timer-tracker[data-mode="borrowed"] .timer-label,
+.timer-tracker[data-mode="borrowed"] .timer-kicker,
+.timer-tracker[data-mode="borrowed"] .timer-status {
+  color: #cc5ad7;
+  text-shadow: 0 0 9px rgba(173,58,191,.38);
+}
+
+.womf-kicker {
+  color: #7d3d50;
+}
+.womf-label {
+  color: #d2495d;
+  text-shadow: 0 0 9px rgba(190,43,66,.24), 0 1px 0 #000;
+}
+.womf-count {
+  color: #f0d9df;
+}
+.womf-count-max,
+.womf-scale {
+  color: #75545e;
+}
+.womf-status {
+  color: #80505d;
+}
+.womf-segment {
+  border-color: rgba(94,62,72,.72);
+  background: linear-gradient(180deg, rgba(40,32,38,.88), rgba(15,13,17,.98));
+}
+.womf-segment::before {
+  color: rgba(123,83,96,.65);
+}
+.womf-segment.filled {
+  background: linear-gradient(180deg, #7f2838 0%, #501e35 52%, #2d1835 100%);
+  border-color: rgba(198,66,91,.82);
+  box-shadow: inset 0 1px 0 rgba(255,190,202,.12), 0 0 8px rgba(173,40,72,.42);
+}
+.womf-segment.filled::before {
+  color: #efb3bf;
+}
+.womf-open-btn {
+  color: #765965;
+  border-color: rgba(91,61,72,.7);
+  background: linear-gradient(180deg, rgba(35,26,31,.96), rgba(15,12,15,.98));
+}
+.womf-open-btn.armed {
+  color: #ffd28a;
+  border-color: rgba(222,153,59,.86);
+  background: linear-gradient(180deg, rgba(93,54,29,.98), rgba(44,20,24,.98));
+  box-shadow: 0 0 13px rgba(208,77,52,.26), inset 0 1px 0 rgba(255,218,139,.14);
+}
+.womf-tracker[data-state="charging"] .womf-label,
+.womf-tracker[data-state="charging"] .womf-status {
+  color: #db5268;
+}
+.womf-tracker[data-state="unstable"] .womf-label,
+.womf-tracker[data-state="unstable"] .womf-status {
+  color: #e13f5b;
+  text-shadow: 0 0 9px rgba(214,44,78,.42);
+}
+.womf-tracker[data-state="critical"] .womf-label,
+.womf-tracker[data-state="critical"] .womf-status,
+.womf-tracker[data-state="critical"] .womf-count {
+  color: #ff536a;
+  text-shadow: 0 0 11px rgba(244,53,86,.58);
+}
+.womf-tracker[data-state="ready"] .womf-label,
+.womf-tracker[data-state="ready"] .womf-status,
+.womf-tracker[data-state="ready"] .womf-count {
+  color: #f0b74d;
+  text-shadow: 0 0 10px rgba(222,149,42,.52);
+}
