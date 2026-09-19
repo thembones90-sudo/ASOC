@@ -1332,12 +1332,10 @@ const PlayerApp = {
   },
 
   shouldGroupChatMessage(previous, current) {
-    if (!previous || !current) return false;
-    if (previous.source === 'shadowBroker' || current.source === 'shadowBroker') return false;
-    if (previous.playerId !== current.playerId) return false;
-    if (previous.verdict === 'correct' || current.verdict === 'correct') return false;
-    const gap = Number(current.timestamp) - Number(previous.timestamp);
-    return Number.isFinite(gap) && gap >= 0 && gap <= 90000;
+    // Every Battle Comms entry is a standalone identity unit. In ASOC any
+    // line can become an answer/verdict target, so speaker identity must
+    // never depend on the message above it.
+    return false;
   },
 
   createChatMessageHTML(msg, grouped = false, now = Date.now()) {

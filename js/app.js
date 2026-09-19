@@ -1785,12 +1785,9 @@ const App = {
   },
 
   shouldGroupGMChatMessage(previous, current) {
-    if (!previous || !current) return false;
-    if (previous.source === 'shadowBroker' || current.source === 'shadowBroker') return false;
-    if (previous.playerId !== current.playerId) return false;
-    if (previous.verdict === 'correct' || current.verdict === 'correct') return false;
-    const gap = Number(current.timestamp) - Number(previous.timestamp);
-    return Number.isFinite(gap) && gap >= 0 && gap <= 90000;
+    // GM adjudicates individual lines, so every line must carry its own
+    // visible speaker identity instead of inheriting context from above.
+    return false;
   },
 
   createGMReactionSummaryHTML(msg) {
