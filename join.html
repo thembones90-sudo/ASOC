@@ -274,6 +274,26 @@
       display: flex;
     }
 
+    .player-battle-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) clamp(340px, 24vw, 460px);
+      gap: 14px;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      padding: 12px;
+      box-sizing: border-box;
+    }
+
+    .battle-comms-lobby {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      border-left: 1px solid rgba(116,126,139,.28);
+      padding-left: 12px;
+    }
+
     /* Scoped to the board frame ONLY -- this is the "game/play area"
        background, never the application shell. #public-board's own
        innerHTML is fully replaced on every render (see player.js
@@ -417,11 +437,12 @@
       border: 1px solid rgba(116, 126, 139, 0.55);
       border-radius: 3px;
       padding: 0;
-      margin-top: 12px;
+      margin-top: 10px;
       display: flex;
       flex-direction: column;
-      max-height: 42vh;
-      flex-shrink: 0;
+      max-height: none;
+      min-height: 0;
+      flex: 1 1 auto;
       box-shadow:
         inset 0 1px rgba(255,255,255,0.035),
         inset 0 0 28px rgba(0,0,0,0.55),
@@ -640,7 +661,7 @@
     }
 
 
-    .little-hero-hud, .little-hero-roster { width:100%; max-width:var(--canvas-width); box-sizing:border-box; }
+    .little-hero-hud, .little-hero-roster { width:100%; max-width:none; box-sizing:border-box; }
     .little-hero-hud { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-top:10px; padding:9px 12px; background:linear-gradient(90deg,rgba(19,23,29,.98),rgba(7,9,12,.98)); border:1px solid rgba(116,126,139,.48); box-shadow:inset 0 1px rgba(255,255,255,.035); }
     .hero-hud-identity { display:flex; align-items:center; gap:9px; min-width:0; font:700 .72rem var(--font-machine); letter-spacing:1px; text-transform:uppercase; }
     .hero-hud-identity .little-hero-avatar { width:34px; height:34px; flex:0 0 34px; }
@@ -746,6 +767,14 @@
       to { transform: rotate(360deg); }
     }
 
+    @media (max-width: 900px) {
+      #game-screen { overflow-y:auto; }
+      .player-battle-layout { display:flex; flex-direction:column; height:auto; min-height:100%; padding:8px; }
+      #board-layer { min-height:70vh; }
+      .battle-comms-lobby { min-height:48vh; border-left:0; border-top:1px solid rgba(116,126,139,.28); padding:10px 0 0; }
+      #chat-panel { min-height:38vh; }
+    }
+
     @media (max-width: 480px) {
       .join-form {
         padding: 1.5rem 1.2rem;
@@ -808,6 +837,7 @@
   </div>
 
   <div id="game-screen">
+    <div id="player-battle-layout" class="player-battle-layout">
     <div id="board-layer">
       <div class="timer-tracker" id="timer-tracker-player"></div>
       <div class="womf-tracker" id="womf-tracker-player"></div>
@@ -833,6 +863,7 @@
     </div>
     <div id="player-alltime-panel" class="player-alltime-panel" style="display: none;"></div>
 
+    <aside id="battle-comms-lobby" class="battle-comms-lobby">
     <div id="little-hero-hud" class="little-hero-hud">
       <div id="hero-hud-identity" class="hero-hud-identity"></div>
       <div class="hero-hud-stats">
@@ -862,6 +893,8 @@
         <input type="text" id="chat-input" placeholder="Transmit to Battle Comms..." maxlength="100" autocomplete="off">
         <button type="submit" class="chat-send-btn">TRANSMIT</button>
       </form>
+    </div>
+    </aside>
     </div>
     <div class="connection-status" id="connection-status">
       <span class="status-dot"></span>
