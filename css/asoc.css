@@ -2374,22 +2374,22 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
     linear-gradient(100deg,#4b2440,#26131f 76%);
 }
 
-/* VERDANTIS MATERIAL 05 // RECLAIMED ADJUDICATION STRIP.
-   A faint root watermark and oxidized forest patina, quieter than player chat. */
+/* VERDANTIS MATERIAL 05 // NEUTRAL ADJUDICATION STRIP.
+   Organic scenery stays behind the messages. GM rows are deliberately
+   charcoal/bark-neutral so foreground and background never share a skin. */
 .gm-module-chat .gm-chat-message.discord-row[data-theme-id="verdantis"] {
   background:
-    url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20150%2048'%3E%3Cg%20fill%3D'none'%20stroke-linecap%3D'round'%3E%3Cpath%20stroke%3D'%23657F4D'%20stroke-width%3D'1.5'%20opacity%3D'.12'%20d%3D'M72%2046%20C88%2036%2094%2030%20106%2022%20C118%2014%20128%2016%20142%206'%2F%3E%3Cpath%20stroke%3D'%2383A65D'%20stroke-width%3D'1'%20opacity%3D'.10'%20d%3D'M106%2022%20C100%2016%2098%2010%20100%204'%2F%3E%3C%2Fg%3E%3Cellipse%20fill%3D'%237B9C57'%20opacity%3D'.12'%20cx%3D'101'%20cy%3D'8'%20rx%3D'5'%20ry%3D'2.2'%20transform%3D'rotate(-34%20101%208)'/%3E%3Ccircle%20fill%3D'%23A9F45D'%20opacity%3D'.20'%20cx%3D'107'%20cy%3D'22'%20r%3D'1.8'%2F%3E%3C%2Fsvg%3E") right 5px center / 138px 44px no-repeat,
-    radial-gradient(circle at 89% 25%,rgba(164,244,84,.055) 0 1px,transparent 22px),
-    linear-gradient(116deg,rgba(0,0,0,.05),rgba(120,148,99,.032) 42%,rgba(0,0,0,.05)),
-    linear-gradient(100deg,#172119,#0b120d 76%);
-  box-shadow:inset 0 1px rgba(197,219,184,.030),inset 0 -1px rgba(0,0,0,.55);
+    linear-gradient(180deg,rgba(255,255,255,.025),transparent 24%),
+    repeating-linear-gradient(145deg,rgba(126,112,88,.008) 0 1px,transparent 1px 12px),
+    linear-gradient(100deg,#191915 0%,#10110f 78%);
+  border-color:rgba(119,113,97,.34);
+  box-shadow:inset 0 1px rgba(221,212,193,.032),inset 0 -1px rgba(0,0,0,.58);
 }
 .gm-module-chat .gm-chat-message.discord-row[data-theme-id="verdantis"]:hover {
   background:
-    url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20150%2048'%3E%3Cg%20fill%3D'none'%20stroke-linecap%3D'round'%3E%3Cpath%20stroke%3D'%236B8750'%20stroke-width%3D'1.5'%20opacity%3D'.15'%20d%3D'M72%2046%20C88%2036%2094%2030%20106%2022%20C118%2014%20128%2016%20142%206'%2F%3E%3Cpath%20stroke%3D'%2388AD62'%20stroke-width%3D'1'%20opacity%3D'.12'%20d%3D'M106%2022%20C100%2016%2098%2010%20100%204'%2F%3E%3C%2Fg%3E%3Cellipse%20fill%3D'%2381A45A'%20opacity%3D'.14'%20cx%3D'101'%20cy%3D'8'%20rx%3D'5'%20ry%3D'2.2'%20transform%3D'rotate(-34%20101%208)'/%3E%3Ccircle%20fill%3D'%23A9F45D'%20opacity%3D'.24'%20cx%3D'107'%20cy%3D'22'%20r%3D'1.8'%2F%3E%3C%2Fsvg%3E") right 5px center / 138px 44px no-repeat,
-    radial-gradient(circle at 89% 25%,rgba(164,244,84,.07) 0 1px,transparent 22px),
-    linear-gradient(116deg,rgba(0,0,0,.045),rgba(131,161,107,.042) 42%,rgba(0,0,0,.045)),
-    linear-gradient(100deg,#1a261c,#0d160f 76%);
+    linear-gradient(180deg,rgba(255,255,255,.035),transparent 24%),
+    repeating-linear-gradient(145deg,rgba(136,121,94,.010) 0 1px,transparent 1px 12px),
+    linear-gradient(100deg,#1e1d19 0%,#121310 78%);
 }
 .gm-module-chat .gm-chat-message.discord-row.wrong {
   border-color: rgba(216,97,87,.44);
