@@ -4,7 +4,6 @@
   "description": "ASOC Engine - Multiplayer Phase 2",
   "main": "server.js",
   "scripts": {
-    "prestart": "node scripts/generate-deploy-manifest.js",
     "start": "node server.js",
     "dev": "node server.js",
     "deploy:manifest": "node scripts/generate-deploy-manifest.js",
