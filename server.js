@@ -14,6 +14,7 @@ const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const ROOM_CODE_LENGTH = 4;
 const HOST_RECONNECT_GRACE_MS = 60000;
 const MAX_CHAT_LENGTH = 100;
+const PLAYER_CHAT_MIN_INTERVAL_MS = 350;
 const MAX_AVATAR_DATA_LENGTH = 200000;
 const CHAT_HISTORY_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
@@ -1615,25 +1616,12 @@ function sendToWs(ws, message) {
 }
 
 function getChatState(room) {
-  const appearanceByPlayerId = new Map();
-  room.players.forEach((player) => {
-    if (!appearanceByPlayerId.has(player.id)) {
-      appearanceByPlayerId.set(player.id, {
-        avatarData: player.avatarData || '',
-        frameColor: player.frameColor || '#9B5DE0'
-      });
-    }
-  });
-
   return {
     messages: room.chat.messages.map(m => {
-      const appearance = m.playerId ? appearanceByPlayerId.get(m.playerId) : null;
       return {
         id: m.id,
         playerId: m.playerId,
         playerName: m.playerName,
-        avatarData: appearance?.avatarData || '',
-        frameColor: appearance?.frameColor || '#9B5DE0',
         text: m.text,
         timestamp: m.timestamp,
         verdict: m.verdict,
@@ -1862,8 +1850,15 @@ function handleChatGuess(ws, message) {
     return;
   }
 
+  const now = Date.now();
+  if (ws._lastChatAt && now - ws._lastChatAt < PLAYER_CHAT_MIN_INTERVAL_MS) {
+    sendToWs(ws, { type: 'error', message: 'Battle Comms cooling down' });
+    return;
+  }
+
   const result = addChatMessage(room, ws.playerId, ws.playerName, text);
   if (result.success) {
+    ws._lastChatAt = now;
     broadcastChatUpdate(room);
   } else {
     sendToWs(ws, { type: 'error', message: result.error });

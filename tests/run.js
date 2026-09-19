@@ -170,6 +170,55 @@ async function testReconnectIdentity() {
   closeWs(host);
 }
 
+async function testChatTransportHygiene() {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  const player = await openWs();
+  const joined = waitForMessage(player, m => m.type === 'join:success', 'chat hygiene player join');
+  player.send(JSON.stringify({
+    type: 'room:join',
+    roomCode: room.roomCode,
+    name: 'CHAT HYGIENE',
+    avatarData: 'data:image/png;base64,iVBORw0KGgo=',
+    frameColor: '#123ABC'
+  }));
+  await joined;
+
+  const firstUpdate = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'FIRST MESSAGE'),
+    'first chat message'
+  );
+  player.send(JSON.stringify({ type: 'chat:guess', text: 'FIRST MESSAGE' }));
+  const chat = await firstUpdate;
+  const first = chat.messages.find(x => x.text === 'FIRST MESSAGE');
+  assert.ok(first);
+  assert.equal(Object.prototype.hasOwnProperty.call(first, 'avatarData'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(first, 'frameColor'), false);
+
+  const cooldownError = waitForMessage(
+    player,
+    m => m.type === 'error' && /cooling down/i.test(m.message || ''),
+    'chat flood rejection'
+  );
+  player.send(JSON.stringify({ type: 'chat:guess', text: 'TOO FAST' }));
+  await cooldownError;
+
+  await delay(400);
+  const thirdUpdate = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'AFTER COOLDOWN'),
+    'chat after cooldown'
+  );
+  player.send(JSON.stringify({ type: 'chat:guess', text: 'AFTER COOLDOWN' }));
+  await thirdUpdate;
+
+  console.log('PASS chat payload normalization and flood protection');
+  closeWs(player);
+  closeWs(host);
+}
+
 async function testResetBroadcast() {
   const host = await openWs();
   const messages = [];
@@ -407,6 +456,7 @@ function startServer() {
     server = await startServer();
     await testStaticLockdown();
     await testReconnectIdentity();
+    await testChatTransportHygiene();
     await testResetBroadcast();
     await testShadowBrokerControls();
     server = await testCrashRecovery(server);

@@ -182,8 +182,8 @@ const Timer = {
       const minusBtn = controls.querySelector('.timer-adjust-minus');
       const plusBtn = controls.querySelector('.timer-adjust-plus');
       // START GAME never calls onStart directly -- it always goes through
-      // the local 3-2-1 sequence first, which itself calls onStart only
-      // once the sequence completes. See runStartCountdown().
+      // the local T-10 launch sequence first, which itself calls onStart only
+      // once the countdown completes. See runStartCountdown().
       if (startBtn && handlers && handlers.onStart) {
         startBtn.onclick = () => this.runStartCountdown(containerId, handlers.onStart);
       }

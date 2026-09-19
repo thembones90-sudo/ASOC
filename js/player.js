@@ -702,6 +702,7 @@ const PlayerApp = {
   },
 
   updatePlayerLeaderboard(players) {
+    this.currentPlayers = players || [];
     const strip = document.getElementById('player-leaderboard-strip');
     const list = document.getElementById('player-leaderboard-list');
     const roster = document.getElementById('little-hero-roster');
@@ -733,6 +734,7 @@ const PlayerApp = {
       }
       if (rank) rank.textContent = '#' + (meIndex + 1);
     }
+    if (this.chatMessages && this.chatMessages.length) this.renderChat();
   },
 
   toggleAllTimeView() {
@@ -970,6 +972,7 @@ const PlayerApp = {
 
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const isOwn = msg.playerId === this.playerId;
+    const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
 
     // The Shadow Broker's verdict response is an ADDITIONAL identity layer
     // rendered alongside the verdict, not a replacement for it -- the
@@ -989,9 +992,9 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''} ${grouped ? 'grouped' : ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" style="--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(msg.frameColor || '') ? msg.frameColor : '#6f7885'}">
+      <div class="chat-message ${isOwn ? 'own' : ''} ${msg.verdict || ''} ${grouped ? 'grouped' : ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" style="--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}">
         <div class="chat-message-header">
-          <span class="chat-little-hero">${this.littleHeroAvatarHTML(msg)}<span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
+          <span class="chat-little-hero">${this.littleHeroAvatarHTML(identity)}<span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
           <span><button type="button" class="chat-reply-btn" data-reply-id="${msg.id}">REPLY</button><span class="chat-time">${time}</span></span>
         </div>
         <div class="chat-message-text">${this.escapeHtml(msg.text)}</div>

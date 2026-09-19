@@ -722,6 +722,7 @@ const App = {
     `).join('');
 
     this.renderSessionLeaderboard(players);
+    if (this.chatMessages?.length) this.renderGMChat();
     document.getElementById('scoring-section').style.display = this.mode === 'multiplayer' ? 'block' : 'none';
   },
 
@@ -1660,6 +1661,7 @@ const App = {
 
     const verdictIcon = this.getVerdictIcon(msg.verdict);
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
     const hasVerdict = msg.verdict !== null;
     const showControls = !hasVerdict;
 
@@ -1682,7 +1684,7 @@ const App = {
     return `
       <div class="gm-chat-message ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}">
         <div class="gm-chat-message-header">
-          <span class="gm-chat-little-hero">${this.littleHeroAvatarHTML(msg)}<span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
+          <span class="gm-chat-little-hero">${this.littleHeroAvatarHTML(identity)}<span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></span>
           <span class="gm-chat-time">${time}</span>
         </div>
         <div class="gm-chat-message-text">${this.escapeHtml(msg.text)}</div>
