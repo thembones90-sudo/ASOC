@@ -141,9 +141,35 @@ const PlayerApp = {
       this.updateAppearancePreview();
     };
 
+    const positionThemeMenu = () => {
+      if (!themeSelect || !themeToggle || !themeMenu || themeMenu.hidden) return;
+      const rect = themeToggle.getBoundingClientRect();
+      const viewportPad = 12;
+      const desiredWidth = Math.min(300, window.innerWidth - viewportPad * 2);
+      const availableAbove = Math.max(0, rect.top - viewportPad - 5);
+      const availableBelow = Math.max(0, window.innerHeight - rect.bottom - viewportPad - 5);
+      const openUp = availableBelow < 190 && availableAbove > availableBelow;
+      const available = openUp ? availableAbove : availableBelow;
+      const maxHeight = Math.max(120, Math.min(220, available));
+      const menuHeight = Math.min(themeMenu.scrollHeight, maxHeight);
+      const left = Math.min(
+        window.innerWidth - desiredWidth - viewportPad,
+        Math.max(viewportPad, rect.right - desiredWidth)
+      );
+      const top = openUp
+        ? Math.max(viewportPad, rect.top - menuHeight - 5)
+        : Math.min(window.innerHeight - menuHeight - viewportPad, rect.bottom + 5);
+
+      themeMenu.style.width = `${desiredWidth}px`;
+      themeMenu.style.maxHeight = `${maxHeight}px`;
+      themeMenu.style.left = `${left}px`;
+      themeMenu.style.top = `${top}px`;
+      themeSelect.classList.toggle('opens-up', openUp);
+    };
+
     const closeThemeMenu = () => {
       if (!themeSelect || !themeToggle || !themeMenu) return;
-      themeSelect.classList.remove('open');
+      themeSelect.classList.remove('open', 'opens-up');
       themeToggle.setAttribute('aria-expanded', 'false');
       themeMenu.hidden = true;
     };
@@ -154,6 +180,7 @@ const PlayerApp = {
       themeSelect.classList.toggle('open', willOpen);
       themeToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
       themeMenu.hidden = !willOpen;
+      if (willOpen) requestAnimationFrame(positionThemeMenu);
     });
 
     themeButtons.forEach(button => {
@@ -170,6 +197,9 @@ const PlayerApp = {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeThemeMenu();
     });
+
+    window.addEventListener('resize', positionThemeMenu);
+    window.addEventListener('scroll', positionThemeMenu, true);
   },
 
   loadStoredCredentials() {
