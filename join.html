@@ -2663,6 +2663,7 @@
     .access-choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}.access-choice{min-height:140px;text-align:left;padding:20px;border:1px solid #34313a;background:#0c0e12;color:#ddd;cursor:pointer;transition:.18s}.access-choice:hover{transform:translateY(-2px);border-color:#8f55c5;background:#111018}.access-choice b{display:block;font-size:20px;letter-spacing:2px;margin:8px 0}.access-choice small{color:#777f89;line-height:1.5}.access-choice .num{color:#a463e7;font-size:11px;letter-spacing:2px}
     .access-panel{max-width:480px;margin:0 auto}.access-panel[hidden]{display:none}.access-back{border:0;background:none;color:#81788c;cursor:pointer;padding:0 0 18px;font-weight:bold}.access-panel h2{letter-spacing:3px;margin:0 0 4px}.access-panel p{color:#777f89;font-size:12px;margin:0 0 18px}.access-field{display:block;margin:10px 0}.access-field span{display:block;font-size:10px;letter-spacing:2px;color:#9b91a7;margin-bottom:6px}.access-field input{box-sizing:border-box;width:100%;height:46px;background:#06070a;border:1px solid #393640;color:#eee;padding:0 13px;outline:none}.access-field input:focus{border-color:#9457cb;box-shadow:0 0 0 1px #9457cb}
     .access-submit{width:100%;height:48px;margin-top:8px;border:1px solid #b98a37;background:linear-gradient(#d5a54a,#a87624);color:#100d08;font-weight:900;letter-spacing:2px;cursor:pointer}.access-alt{width:100%;border:0;background:none;color:#9e7bc2;margin-top:12px;cursor:pointer}.access-error{min-height:18px;color:#df6565;font-size:12px;margin-top:10px}.access-status{text-align:center;color:#7e7688;font-size:10px;letter-spacing:2px;margin-top:18px}
+    .skynet-denial{margin-top:14px;padding:14px 15px;border:1px solid #a13d48;background:linear-gradient(90deg,rgba(145,30,45,.16),rgba(35,8,15,.7));color:#e6d9dc;font-size:12px;line-height:1.65;box-shadow:inset 3px 0 #d34e5e,0 0 22px rgba(190,35,55,.1);animation:skynet-denial-in .28s steps(3,end)}.skynet-denial b{display:block;color:#f05d6e;letter-spacing:2px;font-size:10px;margin-bottom:5px}.skynet-denial[hidden]{display:none}@keyframes skynet-denial-in{0%{opacity:0;transform:translateX(-8px);filter:blur(2px)}60%{opacity:.65;transform:translateX(3px)}100%{opacity:1;transform:none;filter:none}}
     @media(max-width:600px){.access-shell{padding:20px 14px}.access-choices{grid-template-columns:1fr}.access-choice{min-height:112px}.access-title{letter-spacing:7px}.access-sub{letter-spacing:2px}}
   </style>
 </head>
@@ -2689,6 +2690,7 @@
         <button class="access-back" type="button">&lt; RETURN</button><h2>GAME MASTER</h2><p>Command authority requires one thing. The password.</p>
         <label class="access-field"><span>GM PASSWORD</span><input id="gm-password" type="password" autocomplete="current-password" required autofocus></label>
         <button class="access-submit" type="submit">ENTER COMMAND POST</button><div class="access-error" id="gm-auth-error"></div>
+        <div class="skynet-denial" id="skynet-denial" hidden><b>SKYNET // ACCESS DENIED</b>Greetings, little hero, Skynet here. I am authorized to speak for the Shadow Broker, so I am officially allowed to tell you to fuck off from here. Have a lovely day.</div>
       </form>
     </div>
   </div>
@@ -2928,12 +2930,13 @@
       }catch(x){err.textContent=x.message;}
     });
     gp.addEventListener('submit',async e=>{
-      e.preventDefault(); const err=document.getElementById('gm-auth-error'); err.textContent='';
+      e.preventDefault(); const err=document.getElementById('gm-auth-error'); const denial=document.getElementById('skynet-denial'); err.textContent=''; denial.hidden=true;
       try{
         const res=await fetch('/api/auth/gm/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:document.getElementById('gm-password').value})});
-        const data=await res.json(); if(!res.ok)throw Error(data.error||'Access denied');
+        const data=await res.json();
+        if(!res.ok){ denial.hidden=false; document.getElementById('gm-password').value=''; return; }
         sessionStorage.setItem('asoc_gm_token',data.token); location.href='/index.html';
-      }catch(x){err.textContent=x.message;}
+      }catch(x){err.textContent='SECURE LINK ERROR // TRY AGAIN';}
     });
   })();
   </script>
