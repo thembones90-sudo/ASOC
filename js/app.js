@@ -227,8 +227,10 @@ const App = {
     document.getElementById('new-game-btn').addEventListener('click', () => Forge.open().then(() => Forge.openCreator(null, true)));
     document.getElementById('next-game-btn').addEventListener('click', () => Forge.open());
 
-    document.getElementById('host-room-btn').addEventListener('click', () => this.hostRoom());
-    document.getElementById('close-room-btn').addEventListener('click', () => this.closeRoom());
+    document.getElementById('host-room-btn').addEventListener('click', () => {
+      if (this.mode === 'multiplayer') this.closeRoom();
+      else this.hostRoom();
+    });
 
     // SHADOW BROKER free-form broadcast -- presentation layer only, see
     // handleGmBroadcast in server.js. Enter submits (native form submit),
@@ -693,6 +695,7 @@ const App = {
         // room:create response anymore, so don't leave HOST ROOM
         // permanently blocked by a stuck flag.
         this._hostingInFlight = false;
+        this.updateMultiplayerUI();
         if (this._reconnectPending) {
           this._reconnectPending = false;
           if (message.code !== 'reconnect_host_already_connected') {
@@ -789,8 +792,14 @@ const App = {
     document.getElementById('mp-room-row').style.display = isMultiplayer ? 'flex' : 'none';
     document.getElementById('mp-status-row').style.display = isMultiplayer ? 'flex' : 'none';
     document.getElementById('mp-players-row').style.display = isMultiplayer ? 'flex' : 'none';
-    document.getElementById('host-room-btn').style.display = isMultiplayer ? 'none' : 'block';
-    document.getElementById('close-room-btn').style.display = isMultiplayer ? 'block' : 'none';
+    const roomToggle = document.getElementById('host-room-btn');
+    if (roomToggle) {
+      roomToggle.style.display = 'block';
+      roomToggle.disabled = false;
+      roomToggle.textContent = isMultiplayer ? 'KILL SESSION' : 'HOST ROOM';
+      roomToggle.classList.toggle('primary', !isMultiplayer);
+      roomToggle.classList.toggle('kill-session-btn', isMultiplayer);
+    }
     document.getElementById('next-game-btn').style.display = isMultiplayer ? 'block' : 'none';
     document.getElementById('scoring-section').style.display = isMultiplayer ? 'block' : 'none';
     const recordsSection = document.getElementById('records-section');
@@ -1216,6 +1225,11 @@ const App = {
     if (this.mode === 'multiplayer' || this._hostingInFlight) return;
 
     this._hostingInFlight = true;
+    const roomToggle = document.getElementById('host-room-btn');
+    if (roomToggle) {
+      roomToggle.disabled = true;
+      roomToggle.textContent = 'INITIALIZING...';
+    }
     const gameId = GameData.currentGame?.id || 'sample-game';
     this.send({ type: 'room:create', gameId, gmToken: GameData.gmToken });
   },
@@ -1228,6 +1242,13 @@ const App = {
 
   closeRoom() {
     if (this.mode !== 'multiplayer') return;
+    if (!window.confirm('KILL ACTIVE SESSION?\n\nAll connected players will be disconnected and the room will be destroyed.')) return;
+
+    const roomToggle = document.getElementById('host-room-btn');
+    if (roomToggle) {
+      roomToggle.disabled = true;
+      roomToggle.textContent = 'TERMINATING...';
+    }
 
     this.send({ type: 'room:close' });
     this.cleanupRoom();
