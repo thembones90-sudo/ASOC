@@ -9,6 +9,7 @@ const PlayerApp = {
   _sendAvatarAppearance: false,
   _sendFrameAppearance: false,
   _sendThemeAppearance: false,
+  _themeChangedByUser: false,
   reconnectTimer: null,
   reconnectAttempts: 0,
   maxReconnectAttempts: 10,
@@ -130,6 +131,7 @@ const PlayerApp = {
       if (!/^#[0-9A-Fa-f]{6}$/.test(value)) return false;
       this.themeColor = value.toUpperCase();
       this._sendThemeAppearance = true;
+      this._themeChangedByUser = true;
       localStorage.setItem('asoc_little_hero_theme', this.themeColor);
       if (themePicker) themePicker.value = this.themeColor;
       if (themeHex) themeHex.value = this.themeColor;
@@ -319,7 +321,10 @@ const PlayerApp = {
         };
         if (this._sendAvatarAppearance) joinMessage.avatarData = this.avatarData;
         if (this._sendFrameAppearance) joinMessage.frameColor = this.frameColor;
-        if (this._sendThemeAppearance) joinMessage.themeColor = this.themeColor;
+        if (this._sendThemeAppearance) {
+          joinMessage.themeColor = this.themeColor;
+          joinMessage.themeColorExplicit = this._themeChangedByUser;
+        }
         this.send(joinMessage);
         break;
       }
@@ -362,6 +367,7 @@ const PlayerApp = {
           this._sendAvatarAppearance = true;
           this._sendFrameAppearance = true;
           this._sendThemeAppearance = true;
+          this._themeChangedByUser = false;
           this.updateAppearancePreview();
         }
         break;

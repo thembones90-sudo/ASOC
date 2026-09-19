@@ -1709,11 +1709,18 @@ function handlePlayerJoin(ws, message) {
   }
 
   let littleHeroProfile = playerStore.getOrCreateProfile(cleanName).profile;
-  if (hasAvatarUpdate || requestedFrameColor || requestedThemeColor) {
+  const themeWasExplicitlyChanged = message.themeColorExplicit === true;
+  const preserveSavedCustomTheme = (
+    requestedThemeColor === '#343A42' &&
+    !themeWasExplicitlyChanged &&
+    littleHeroProfile.themeColor &&
+    littleHeroProfile.themeColor !== '#343A42'
+  );
+  if (hasAvatarUpdate || requestedFrameColor || (requestedThemeColor && !preserveSavedCustomTheme)) {
     littleHeroProfile = playerStore.updateProfileAppearance(cleanName, {
       avatarData: hasAvatarUpdate ? requestedAvatar : undefined,
       frameColor: requestedFrameColor || undefined,
-      themeColor: requestedThemeColor || undefined
+      themeColor: requestedThemeColor && !preserveSavedCustomTheme ? requestedThemeColor : undefined
     });
   }
 
