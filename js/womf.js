@@ -35,13 +35,21 @@ const Womf = {
   shellHTML() {
     let segments = '';
     for (let i = 0; i < 10; i++) {
-      segments += `<span class="womf-segment" data-index="${i}"></span>`;
+      segments += `<span class="womf-segment" data-index="${i + 1}"></span>`;
     }
     return `
-      <div class="womf-label">WOMF</div>
-      <div class="womf-segments">${segments}</div>
-      <div class="womf-count"><span class="womf-count-value">0</span>/10</div>
-      <div class="womf-status">DORMANT</div>
+      <div class="womf-identity">
+        <span class="womf-kicker">THREAT ENGINE</span>
+        <div class="womf-label">WOMF</div>
+      </div>
+      <div class="womf-meter">
+        <div class="womf-segments">${segments}</div>
+        <div class="womf-scale"><span>0</span><span>WHEEL CHARGE</span><span>10</span></div>
+      </div>
+      <div class="womf-readout">
+        <div class="womf-count"><span class="womf-count-value">0</span><span class="womf-count-max">/10</span></div>
+        <div class="womf-status">DORMANT</div>
+      </div>
     `;
   },
 

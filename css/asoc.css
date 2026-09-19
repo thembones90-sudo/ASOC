@@ -3946,3 +3946,243 @@ body.nema-asoc-active > *:not(.nema-asoc-overlay) {
     font-size: 0.58rem;
   }
 }
+
+/* =========================================================
+   ASOC TELEMETRY RACK — TIMER + WOMF VISUAL OVERHAUL
+   Functional state/geometry stay untouched; this is presentation only.
+   ========================================================= */
+.timer-tracker,
+.womf-tracker {
+  min-height: 72px;
+  margin-bottom: 10px;
+  padding: 9px 12px 9px 14px;
+  gap: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(116, 122, 136, 0.58);
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.025), transparent 14%, transparent 86%, rgba(255,255,255,0.02)),
+    linear-gradient(180deg, rgba(24,27,34,0.98), rgba(8,10,14,0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.8),
+    0 8px 20px rgba(0,0,0,0.34);
+  clip-path: polygon(0 7px, 7px 0, calc(100% - 7px) 0, 100% 7px, 100% calc(100% - 7px), calc(100% - 7px) 100%, 7px 100%, 0 calc(100% - 7px));
+}
+.timer-tracker::before,
+.womf-tracker::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #aeb5c3, #555d69);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.timer-identity,
+.womf-identity {
+  width: 118px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-right: 10px;
+  border-right: 1px solid rgba(118,125,140,0.28);
+  flex-shrink: 0;
+}
+.timer-kicker,
+.womf-kicker {
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 1.7px;
+  color: #676f7e;
+  margin-bottom: 2px;
+}
+.timer-label,
+.womf-label {
+  font-size: 0.92rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #d7dce5;
+  text-shadow: 0 1px 0 #000;
+}
+.timer-core {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 104px minmax(140px, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.timer-readout,
+.womf-readout {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.timer-count {
+  min-width: 0;
+  text-align: left;
+  font-size: 1.22rem;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: #edf1f7;
+  text-shadow: 0 0 10px rgba(180,190,210,0.14);
+}
+
+.timer-status,
+.womf-status {
+  min-width: 0;
+  margin-top: 5px;
+  text-align: left;
+  font-size: 0.49rem;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  color: #7f8796;
+}
+.timer-bars {
+  height: 30px;
+  display: block;
+  position: relative;
+  padding-bottom: 11px;
+}
+.timer-bar-track {
+  top: 0;
+  bottom: auto;
+  height: 12px;
+  border-radius: 1px;
+  border-color: rgba(112,120,137,0.5);
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 10%),
+    rgba(33,37,46,0.82);
+}
+.timer-bar-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(5,7,10,0.75) calc(10% - 1px) 10%);
+  pointer-events: none;
+}
+.timer-bar-normal {
+  background: linear-gradient(90deg, #717987, #c4cad4 72%, #eef2f8);
+}
+.timer-scale,
+.womf-scale {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.42rem;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+  color: #565e6c;
+}
+.timer-controls {
+  padding-left: 10px;
+  border-left: 1px solid rgba(118,125,140,0.25);
+}
+.timer-controls .toolbar-btn,
+.womf-open-btn {
+  border-radius: 2px;
+  min-height: 28px;
+}
+
+.womf-meter {
+  min-width: 0;
+  flex: 1;
+  position: relative;
+  padding-bottom: 13px;
+}
+.womf-segments {
+  height: 24px;
+  gap: 5px;
+  align-items: stretch;
+}
+.womf-segment {
+  position: relative;
+  max-width: none;
+  height: 24px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, rgba(43,47,57,0.72), rgba(20,23,29,0.95));
+  border: 1px solid rgba(98,105,119,0.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
+}
+.womf-segment::before {
+  content: attr(data-index);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.42rem;
+  font-weight: 900;
+  color: rgba(135,142,155,0.45);
+}
+.womf-segment::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 3px;
+  height: 2px;
+  background: rgba(255,255,255,0.05);
+}
+.womf-segment.filled {
+  background: linear-gradient(180deg, #a83845 0%, #6c273f 48%, #43204f 100%);
+  border-color: rgba(217,93,112,0.78);
+  box-shadow: inset 0 1px 0 rgba(255,215,220,0.18), 0 0 9px rgba(168,56,79,0.42);
+}
+.womf-segment.filled::before {
+  color: rgba(255,232,236,0.84);
+}
+.womf-readout {
+  width: 82px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(118,125,140,0.25);
+  flex-shrink: 0;
+}
+.womf-count {
+  min-width: 0;
+  text-align: left;
+  font-size: 1.12rem;
+  line-height: 1;
+  font-weight: 900;
+}
+.womf-count-max {
+  margin-left: 2px;
+  font-size: 0.56rem;
+  color: #626b79;
+}
+
+.timer-tracker[data-level="warning"]::before { background: linear-gradient(180deg, #e0b458, #8a6428); }
+.timer-tracker[data-level="danger"]::before { background: linear-gradient(180deg, #e05a5a, #7e2424); }
+.timer-tracker[data-mode="borrowed"]::before { background: linear-gradient(180deg, var(--asoc-red), var(--asoc-purple)); }
+.timer-tracker[data-mode="borrowed"] .timer-label,
+.timer-tracker[data-mode="borrowed"] .timer-kicker { color: #d86a88; }
+.womf-tracker[data-state="charging"]::before,
+.womf-tracker[data-state="unstable"]::before,
+.womf-tracker[data-state="critical"]::before { background: linear-gradient(180deg, #d35d65, #6d294d); }
+.womf-tracker[data-state="ready"]::before { background: linear-gradient(180deg, #f1cf76, #9b712b); }
+.womf-tracker[data-state="ready"] .womf-segment.filled {
+  background: linear-gradient(180deg, #c89a38, #8f6825);
+  border-color: rgba(239,201,105,0.78);
+  box-shadow: 0 0 10px rgba(212,168,67,0.52);
+}
+.womf-open-btn.armed {
+  color: #f1cf76;
+  background: linear-gradient(180deg, rgba(105,79,27,0.92), rgba(41,31,15,0.96));
+}
+@media (max-width: 720px) {
+  .timer-tracker,
+  .womf-tracker { min-height: 0; padding: 8px 10px; }
+  .timer-identity,
+  .womf-identity { width: 88px; }
+  .timer-core { grid-template-columns: 82px minmax(100px, 1fr); gap: 8px; }
+  .timer-count { font-size: 1rem; }
+  .womf-readout { width: 66px; }
+  .timer-controls { width: 100%; border-left: 0; padding: 6px 0 0; }
+}

@@ -68,17 +68,25 @@ const Timer = {
 
   shellHTML() {
     return `
-      <div class="timer-label">TIMER</div>
-      <div class="timer-bars">
-        <div class="timer-bar-track timer-bar-track-normal">
-          <div class="timer-bar timer-bar-normal"></div>
+      <div class="timer-identity">
+        <span class="timer-kicker">CHRONO CONTROL</span>
+        <div class="timer-label">TIMER</div>
+      </div>
+      <div class="timer-core">
+        <div class="timer-readout">
+          <div class="timer-count">00:00</div>
+          <div class="timer-status">READY</div>
         </div>
-        <div class="timer-bar-track timer-bar-track-borrowed">
-          <div class="timer-bar timer-bar-borrowed"></div>
+        <div class="timer-bars">
+          <div class="timer-bar-track timer-bar-track-normal">
+            <div class="timer-bar timer-bar-normal"></div>
+          </div>
+          <div class="timer-bar-track timer-bar-track-borrowed">
+            <div class="timer-bar timer-bar-borrowed"></div>
+          </div>
+          <div class="timer-scale"><span>FULL</span><span>TIME RESERVE</span><span>ZERO</span></div>
         </div>
       </div>
-      <div class="timer-count">00:00</div>
-      <div class="timer-status">READY</div>
       <div class="timer-controls"></div>
     `;
   },
