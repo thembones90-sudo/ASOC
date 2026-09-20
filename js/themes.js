@@ -22,6 +22,10 @@ const ASOCThemes = {
       statusBottom: '#0A0D11',
       messageTop: '#151A20',
       messageBottom: '#0C0F13',
+      bannerAccent: '#B92323',
+      bannerGlow: 'rgba(185,35,35,.24)',
+      borderAccent: '#687481',
+      ambientStrength: 'rgba(126,139,151,.055)',
       ambient: 'rgba(126,139,151,.07)'
     },
     'pink-protocol': {
@@ -38,6 +42,10 @@ const ASOCThemes = {
       statusBottom: '#110A10',
       messageTop: '#311828',
       messageBottom: '#140B12',
+      bannerAccent: '#FF8ACA',
+      bannerGlow: 'rgba(224,106,177,.28)',
+      borderAccent: '#9B5E80',
+      ambientStrength: 'rgba(224,106,177,.065)',
       ambient: 'rgba(224,106,177,.14)'
     },
     verdantis: {
@@ -54,6 +62,10 @@ const ASOCThemes = {
       statusBottom: '#0A110C',
       messageTop: '#19301E',
       messageBottom: '#0B150E',
+      bannerAccent: '#9DE15D',
+      bannerGlow: 'rgba(117,205,91,.30)',
+      borderAccent: '#5D8057',
+      ambientStrength: 'rgba(95,175,99,.075)',
       ambient: 'rgba(95,175,99,.13)'
     },
     'my-sindragosa': {
@@ -70,6 +82,10 @@ const ASOCThemes = {
       statusBottom: '#0A1218',
       messageTop: '#173142',
       messageBottom: '#0B1720',
+      bannerAccent: '#B8E9FF',
+      bannerGlow: 'rgba(121,200,242,.30)',
+      borderAccent: '#648DA3',
+      ambientStrength: 'rgba(121,200,242,.075)',
       ambient: 'rgba(121,200,242,.15)'
     },
     'disco-inferno': {
@@ -86,6 +102,10 @@ const ASOCThemes = {
       statusBottom: '#130B08',
       messageTop: '#3A1B0F',
       messageBottom: '#180C08',
+      bannerAccent: '#FF9B4A',
+      bannerGlow: 'rgba(240,106,42,.30)',
+      borderAccent: '#9A5B36',
+      ambientStrength: 'rgba(240,106,42,.07)',
       ambient: 'rgba(240,106,42,.16)'
     },
     'our-theme': {
@@ -102,6 +122,10 @@ const ASOCThemes = {
       statusBottom: '#140A09',
       messageTop: '#381716',
       messageBottom: '#180B0A',
+      bannerAccent: '#D6B54E',
+      bannerGlow: 'rgba(185,37,34,.28)',
+      borderAccent: '#8A4B42',
+      ambientStrength: 'rgba(185,37,34,.065)',
       ambient: 'rgba(185,37,34,.16)'
     },
     undead: {
@@ -118,6 +142,10 @@ const ASOCThemes = {
       statusBottom: '#0D100D',
       messageTop: '#252D24',
       messageBottom: '#101310',
+      bannerAccent: '#A9D84F',
+      bannerGlow: 'rgba(127,191,63,.30)',
+      borderAccent: '#718259',
+      ambientStrength: 'rgba(127,191,63,.07)',
       ambient: 'rgba(127,191,63,.16)'
     },
     revan: {
@@ -134,6 +162,10 @@ const ASOCThemes = {
       statusBottom: '#110910',
       messageTop: '#341127',
       messageBottom: '#160914',
+      bannerAccent: '#D44973',
+      bannerGlow: 'rgba(168,50,138,.30)',
+      borderAccent: '#864875',
+      ambientStrength: 'rgba(168,50,138,.07)',
       ambient: 'rgba(180,42,95,.17)'
     }
   },

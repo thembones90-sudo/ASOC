@@ -388,6 +388,7 @@ const PlayerApp = {
     ASOCThemes.applyToScreen(gameScreen, theme.id);
 
     const profileCard = document.getElementById('little-hero-profile-preview');
+    const joinScreen = document.getElementById('join-screen');
     const profileTheme = document.getElementById('little-hero-profile-theme');
     const profileName = document.getElementById('little-hero-profile-name');
     const nameInput = document.getElementById('player-name');
@@ -396,6 +397,13 @@ const PlayerApp = {
       profileCard.style.setProperty('--profile-theme', theme.color);
       profileCard.style.setProperty('--profile-shell-top', theme.shellTop);
       profileCard.style.setProperty('--profile-shell-bottom', theme.shellBottom);
+      profileCard.style.setProperty('--profile-banner-accent', theme.bannerAccent || theme.color);
+      profileCard.style.setProperty('--profile-banner-glow', theme.bannerGlow || theme.ambient);
+      profileCard.style.setProperty('--profile-border-accent', theme.borderAccent || theme.color);
+    }
+    if (joinScreen) {
+      joinScreen.dataset.themeId = theme.id;
+      joinScreen.style.setProperty('--join-theme-ambient', theme.ambientStrength || theme.ambient);
     }
     if (profileTheme) profileTheme.textContent = theme.name;
     if (profileName) profileName.textContent = (nameInput?.value || '').trim() || 'LITTLE HERO';
@@ -404,7 +412,12 @@ const PlayerApp = {
     const themePreview = document.getElementById('theme-select-preview');
     const themeName = document.getElementById('theme-select-name');
     const themeSubtitle = document.getElementById('theme-select-subtitle');
-    if (themeSelect) themeSelect.dataset.themeId = theme.id;
+    if (themeSelect) {
+      themeSelect.dataset.themeId = theme.id;
+      themeSelect.style.setProperty('--selector-accent', theme.bannerAccent || theme.color);
+      themeSelect.style.setProperty('--selector-glow', theme.bannerGlow || theme.ambient);
+      themeSelect.style.setProperty('--selector-border', theme.borderAccent || theme.color);
+    }
     if (themePreview) themePreview.className = `theme-select-preview ${theme.id}`;
     if (themeName) themeName.textContent = theme.name;
     if (themeSubtitle) themeSubtitle.textContent = `${theme.code || '--'} // ${theme.subtitle}`;
