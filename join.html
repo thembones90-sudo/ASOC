@@ -3567,6 +3567,34 @@
     .skynet-denial{margin-top:14px;padding:14px 15px;border:1px solid #a13d48;background:linear-gradient(90deg,rgba(145,30,45,.16),rgba(35,8,15,.7));color:#e6d9dc;font-size:12px;line-height:1.65;box-shadow:inset 3px 0 #d34e5e,0 0 22px rgba(190,35,55,.1);animation:skynet-denial-in .28s steps(3,end)}.skynet-denial b{display:block;color:#f05d6e;letter-spacing:2px;font-size:10px;margin-bottom:5px}.skynet-denial[hidden]{display:none}@keyframes skynet-denial-in{0%{opacity:0;transform:translateX(-8px);filter:blur(2px)}60%{opacity:.65;transform:translateX(3px)}100%{opacity:1;transform:none;filter:none}}
     @media(max-width:600px){#access-gate{padding:6px;place-items:center}.access-shell{padding:18px!important}.access-hardware{font-size:8px;letter-spacing:1px}.access-logo{width:95%;margin-top:18px}.access-diagnostic{font-size:9px;letter-spacing:1px;margin:14px 0}.access-choices,.access-shell[data-channel] .access-choices{grid-template-columns:minmax(0,1fr)}.access-choice{min-height:190px;padding:20px}.access-choice b{font-size:28px;margin:16px 0 8px}.access-bay-status{margin-top:14px}.access-shell[data-channel] .access-choice{min-height:100px}.access-shell[data-channel] .access-choice:not(.is-selected){min-height:74px;padding-block:12px}.access-shell[data-channel] .access-choice:not(.is-selected) .access-bay-status{display:none}.access-panel{min-height:0;padding:20px 16px}#access-player::after{background-size:100% 100%,auto 112%;background-position:center,78% center;opacity:.58}#access-player:hover::after,#access-player:focus-visible::after{opacity:.66}#access-player.is-selected::after{opacity:.7}}
     @media(max-width:600px){#access-gm::after{background-size:100% 100%,auto 112%;background-position:center,82% center;opacity:.58}#access-gm:hover::after,#access-gm:focus-visible::after{opacity:.66}#access-gm.is-selected::after{opacity:.7}#access-gm > .access-art-fx,#access-player > .access-art-fx{mix-blend-mode:normal}#access-player > .access-art-fx{opacity:.2}#access-gm:hover > .access-art-fx,#access-gm:focus-visible > .access-art-fx{opacity:.5}#access-player:hover > .access-art-fx,#access-player:focus-visible > .access-art-fx{opacity:.48}}
+
+    /* LITTLE HERO LOGIN SURGE // restored screen-wide purple scan.
+       This is the original join-power-surge language brought back onto the
+       authenticated Little Hero access channel. It is presentation-only and
+       deliberately sits above the cabinet art but below interactive controls. */
+    .little-hero-login-surge{
+      position:fixed;
+      z-index:100004;
+      left:-3%;
+      top:0;
+      width:106%;
+      height:82px;
+      pointer-events:none;
+      opacity:0;
+      display:none;
+      background:
+        linear-gradient(90deg,transparent 0 3%,rgba(155,93,224,.34) 17%,rgba(207,86,207,.52) 48%,rgba(229,92,136,.52) 52%,rgba(214,59,74,.34) 83%,transparent 97%),
+        linear-gradient(180deg,transparent 0 39%,rgba(238,220,251,.08) 42%,rgba(246,231,255,.80) 49%,rgba(232,102,186,.42) 51%,rgba(206,54,82,.08) 58%,transparent 63%),
+        repeating-linear-gradient(90deg,transparent 0 37px,rgba(255,255,255,.09) 38px 40px,transparent 41px 79px);
+      filter:blur(.15px) drop-shadow(0 0 10px rgba(191,65,167,.30));
+      mix-blend-mode:screen;
+      clip-path:polygon(0 17%,12% 17%,12% 7%,31% 7%,31% 24%,48% 24%,48% 0,64% 0,64% 20%,81% 20%,81% 10%,100% 10%,100% 77%,91% 77%,91% 91%,72% 91%,72% 70%,53% 70%,53% 100%,36% 100%,36% 79%,18% 79%,18% 91%,0 91%);
+    }
+    #access-gate.player-channel-active .little-hero-login-surge{
+      display:block;
+      animation:join-power-surge 5.8s linear infinite;
+    }
+
     /* ACCESS GATE POLISH // preserve the machinery, restore hierarchy. */
     #access-gate .access-shell{
       width:min(1280px,calc(100vw - 32px));
@@ -3664,7 +3692,7 @@
       .access-shell[data-channel] .access-choice:not(.is-selected){min-height:110px}
       .access-logo{width:min(520px,84%)}
     }
-    @media(prefers-reduced-motion:reduce){#access-gate *,#access-gate *::before,#access-gate *::after{animation:none!important;transition:none!important}}
+    @media(prefers-reduced-motion:reduce){#access-gate *,#access-gate *::before,#access-gate *::after{animation:none!important;transition:none!important}.little-hero-login-surge{display:none!important}}
 
     /* LITTLE HERO PROFILE REFINEMENT // softened industrial geometry and
        theme-authored identity surfaces. Presentation only. */
@@ -4566,6 +4594,7 @@
 </head>
 <body>
   <div id="access-gate">
+    <div class="little-hero-login-surge" aria-hidden="true"></div>
     <div class="access-shell">
       <div class="access-hardware" aria-hidden="true"><span>ASOC // ACCESS CONTROL</span><span>NODE ONLINE</span></div>
       <div id="access-home">
@@ -4914,6 +4943,7 @@
       home.hidden=false;pp.hidden=panel!=='player';gp.hidden=panel!=='gm';
       delete shell.dataset.preview;
       if(panel)shell.dataset.channel=panel;else delete shell.dataset.channel;
+      gate.classList.toggle('player-channel-active',panel==='player');
       Object.entries(choices).forEach(([role,button])=>{
         const active=panel===role;
         button.classList.toggle('is-selected',active);
