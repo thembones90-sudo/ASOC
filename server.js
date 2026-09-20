@@ -2744,7 +2744,10 @@ function handlePlayerJoin(ws, message) {
         if (existingWs !== ws && existingWs.readyState === 1) {
           // A live duplicate connection under the same id (e.g. the old
           // socket hasn't noticed it's dead yet) -- this new one supersedes it.
-          try { existingWs.close(); } catch (e) {}
+          // Deliberate supersession, not a network failure. The custom close
+          // code lets the old browser stop instead of reconnecting and
+          // immediately evicting the new socket in an endless ping-pong loop.
+          try { existingWs.close(4001, 'Superseded by newer Little Hero connection'); } catch (e) {}
         }
         room.players.delete(existingWs);
         playerId = requestedId;
