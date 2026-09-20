@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "deploy:manifest": "node scripts/generate-deploy-manifest.js",
-    "test": "node tests/auth-store-protection.js && node tests/ceremony-regressions.js && node tests/email-verification.js && node tests/player-store-protection.js && node tests/game-store-overlay.js && node tests/match-ledger.js && node tests/recount-engine.js && node tests/run.js"
+    "test": "node tests/auth-store-protection.js && node tests/ceremony-regressions.js && node tests/email-verification.js && node tests/interruption-continuity.js && node tests/player-store-protection.js && node tests/game-store-overlay.js && node tests/match-ledger.js && node tests/recount-engine.js && node tests/run.js"
   },
   "dependencies": {
     "exceljs": "^4.4.0",

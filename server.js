@@ -2780,6 +2780,38 @@ function handleHostReconnect(ws, message) {
   console.log(`[ROOM ${room.code}] Host reconnected`);
 }
 
+function handleHostRecover(ws) {
+  const room = rooms.get(MASTER_ROOM_CODE);
+
+  if (!room || room.armed !== true) {
+    sendToWs(ws, { type: 'host:recovery-none', roomCode: MASTER_ROOM_CODE });
+    return;
+  }
+
+  if (room.hostConnection && room.hostConnection.readyState === 1) {
+    sendToWs(ws, { type: 'error', code: 'recover_host_already_connected', message: 'Shadow Broker is already connected' });
+    return;
+  }
+
+  const hostToken = generateHostToken();
+  room.hostConnection = ws;
+  room.hostToken = hostToken;
+  room.hostReconnectTimer = null;
+  ws.roomCode = MASTER_ROOM_CODE;
+  ws.isHost = true;
+  ws.hostToken = hostToken;
+
+  persistActiveRooms();
+  sendToWs(ws, { type: 'game:loaded', game: room.gameData });
+  sendToWs(ws, { type: 'state:public', ...getPublicState(room) });
+  sendToWs(ws, { type: 'host:recovered', roomCode: room.code, hostToken });
+  sendToWs(ws, { type: 'chat:update', ...getChatState(room) });
+  sendRecountHydration(ws, room);
+  sendTributeVaultToHost(room);
+  broadcastPlayersUpdate(room);
+  console.log('[MASTER ROOM] Shadow Broker recovered armed session without browser host token');
+}
+
 function handleChatGuess(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -4024,6 +4056,15 @@ wss.on('connection', (ws) => {
           }
           ws.gmAuthenticated = true;
           handleHostReconnect(ws, message);
+          break;
+        }
+        case 'host:recover': {
+          if (!isValidGmToken(message.gmToken)) {
+            sendToWs(ws, { type: 'auth:required', role: 'gm', message: 'Game Master authentication required' });
+            break;
+          }
+          ws.gmAuthenticated = true;
+          handleHostRecover(ws);
           break;
         }
         case 'gm:command': {

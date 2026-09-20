@@ -22,6 +22,7 @@ const App = {
   chatReactionEmojis: ['😂', '💀', '🤡', '🖤', '🔥', '👀', '👍', '👎', '😭', '😈', '🤔', '🫡'],
   pendingVerdict: null,
   _reconnectPending: false,
+  _recoverPending: false,
   _hostingInFlight: false,
   finalRevealed: false,
   // GAME WON -- mirrors the server's authoritative sessionState.gameWon.
@@ -796,6 +797,12 @@ const App = {
         if (this.roomCode && this.hostToken) {
           this._reconnectPending = true;
           this.send({ type: 'host:reconnect', roomCode: this.roomCode, hostToken: this.hostToken, gmToken: GameData.gmToken });
+        } else if (GameData.gmToken) {
+          // A full tab/browser close destroys sessionStorage. The authenticated
+          // GM may therefore return without the old browser host token. Ask the
+          // server to reclaim an already-armed MASTER without resetting it.
+          this._recoverPending = true;
+          this.send({ type: 'host:recover', gmToken: GameData.gmToken });
         }
         break;
 
@@ -819,6 +826,19 @@ const App = {
         this.mode = 'multiplayer';
         sessionStorage.setItem('asoc_host_token', this.hostToken);
         this.updateMultiplayerUI();
+        break;
+
+      case 'host:recovered':
+        this._recoverPending = false;
+        this.roomCode = message.roomCode;
+        this.hostToken = message.hostToken;
+        this.mode = 'multiplayer';
+        sessionStorage.setItem('asoc_host_token', this.hostToken);
+        this.updateMultiplayerUI();
+        break;
+
+      case 'host:recovery-none':
+        this._recoverPending = false;
         break;
 
       case 'state:public':
@@ -990,6 +1010,7 @@ const App = {
         // permanently blocked by a stuck flag.
         this._hostingInFlight = false;
         this.updateMultiplayerUI();
+        if (this._recoverPending) this._recoverPending = false;
         if (this._reconnectPending) {
           this._reconnectPending = false;
           if (message.code !== 'reconnect_host_already_connected') {

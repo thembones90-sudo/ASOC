@@ -41,6 +41,7 @@ const PlayerApp = {
   gameLost: false,
   _lossBaselined: false,
   _lossResultKey: null,
+  _resumeJoinScheduled: false,
 
   // SHADOW BROKER glitch-in guard -- renderChat() rebuilds the entire chat
   // list from scratch on every chat:update (a new guess from ANY player,
@@ -82,9 +83,25 @@ const PlayerApp = {
   init() {
     this.bindJoinForm();
     this.loadStoredCredentials();
+    window.addEventListener('asoc:player-session-restored', () => this.resumeStoredMasterSession());
     Womf.init('womf-tracker-player');
     Wheel.init('wheel-overlay');
     Timer.init('timer-tracker-player');
+    this.resumeStoredMasterSession();
+  },
+
+  resumeStoredMasterSession() {
+    if (this._resumeJoinScheduled) return;
+    if (localStorage.getItem('asoc_player_in_master') !== '1') return;
+    const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+    const name = (document.getElementById('player-name')?.value || '').trim();
+    if (!token || !name) return;
+    if (this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1)) return;
+    this._resumeJoinScheduled = true;
+    setTimeout(() => {
+      this._resumeJoinScheduled = false;
+      this.joinGame();
+    }, 0);
   },
 
   bindJoinForm() {
@@ -589,6 +606,7 @@ const PlayerApp = {
       case 'join:success':
         this.playerId = message.playerId;
         sessionStorage.setItem('asoc_player_id', this.playerId);
+        localStorage.setItem('asoc_player_in_master', '1');
         this.updateBloodTributeDemand(this.lastPublicState?.bloodTribute || { status: 'idle' });
         if (message.littleHero) {
           this.avatarData = message.littleHero.avatarData || '';

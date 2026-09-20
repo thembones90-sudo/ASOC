@@ -4938,6 +4938,7 @@
     const playerLogout=document.getElementById('player-logout-control');
     const playerAuthTokenKey='asoc_player_auth_token';
     const playerSessionKeys=['asoc_player_id','asoc_player_name'];
+    const playerResumeKey='asoc_player_in_master';
     const getStoredPlayerAuthToken=()=>localStorage.getItem(playerAuthTokenKey)||sessionStorage.getItem(playerAuthTokenKey)||'';
     const persistPlayerAuthToken=(token)=>{
       if(!token)return;
@@ -4946,6 +4947,7 @@
     };
     const clearPlayerAuthState=()=>{
       localStorage.removeItem(playerAuthTokenKey);
+      localStorage.removeItem(playerResumeKey);
       sessionStorage.removeItem(playerAuthTokenKey);
       playerSessionKeys.forEach(key=>sessionStorage.removeItem(key));
     };
@@ -4982,6 +4984,7 @@
       gate.hidden=true;
       document.getElementById('join-screen').style.display='flex';
       playerLogout.hidden=false;
+      window.dispatchEvent(new Event('asoc:player-session-restored'));
     };
     syncPlayerLogoutVisibility();
     restorePlayerSession();
@@ -5048,6 +5051,7 @@
         }
         gate.hidden=true; document.getElementById('join-screen').style.display='flex';
         document.getElementById('player-logout-control').hidden=false;
+        window.dispatchEvent(new Event('asoc:player-session-restored'));
       }catch(x){authError.textContent=x.message;queueFit();}
     });
 
