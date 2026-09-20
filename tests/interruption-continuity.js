@@ -16,7 +16,7 @@ async function api(url,method='GET',body){
   return {status:r.status,data:await r.json()};
 }
 function wait(ws,pred,ms=5000){return new Promise((resolve,reject)=>{const t=setTimeout(()=>{ws.off('message',on);reject(Error('timeout'));},ms);const on=raw=>{let m;try{m=JSON.parse(raw)}catch{return}if(pred(m)){clearTimeout(t);ws.off('message',on);resolve(m)}};ws.on('message',on);});}
-async function open(){const ws=new WebSocket('ws://127.0.0.1:'+PORT);await once(ws,'open');await wait(ws,m=>m.type==='protocol:hello');ws.send(JSON.stringify({type:'protocol:hello',protocolVersion:1}));await wait(ws,m=>m.type==='protocol:ready');return ws;}async function createHost(gm){
+async function open(){const ws=new WebSocket('ws://127.0.0.1:'+PORT);const helloP=wait(ws,m=>m.type==='protocol:hello');await once(ws,'open');await helloP;const readyP=wait(ws,m=>m.type==='protocol:ready');ws.send(JSON.stringify({type:'protocol:hello',protocolVersion:1}));await readyP;return ws;}async function createHost(gm){
   const ws=await open(),createdP=wait(ws,m=>m.type==='room:created'),stateP=wait(ws,m=>m.type==='state:public');
   ws.send(JSON.stringify({type:'room:create',gameId:'sample-game',gmToken:gm}));
   const created=await createdP,state=await stateP;return {ws,hostToken:created.hostToken,state};

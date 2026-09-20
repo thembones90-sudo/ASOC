@@ -78,6 +78,7 @@ async function startServer() {
       ASOC_DATA_DIR: DATA,
       ASOC_GM_PASSWORD: 'hardening-gm-password',
       ASOC_EMAIL_VERIFICATION: '0',
+      ASOC_TRUST_PROXY: '1',
       ASOC_GM_LOCKOUT_MS: '250',
       ASOC_WS_HANDSHAKE_TIMEOUT_MS: '250',
       ASOC_WHEEL_SPIN_DURATION_MS: '800',
@@ -251,6 +252,14 @@ function testSessionStoreRecovery() {
     testSessionStoreRecovery();
     seedLegacyProfile();
     await startServer();
+
+    const badIp = '203.0.113.10';
+    assert.equal((await gmLogin(badIp, 'wrong-one')).status, 401);
+    assert.equal((await gmLogin(badIp, 'wrong-two')).status, 401);
+    const locked = await gmLogin(badIp, 'wrong-three');
+    assert.equal(locked.status, 423, 'third bad attempt permanently locks that derived client key');
+    assert.equal((await gmLogin(badIp)).status, 423, 'locked forwarded client stays locked');
+    assert.equal((await gmLogin('203.0.113.11')).status, 200, 'different forwarded client is not collateral damage');
 
     const gm = await gmLogin();
     assert.equal(gm.status, 200, 'GM login succeeds');
