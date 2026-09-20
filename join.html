@@ -4363,6 +4363,140 @@
       }
     }
 
+
+
+    /* MOBILE PLAYER MODE LOCK 07 // complete phone composition */
+    @media (max-width:760px) {
+      #join-screen,
+      #game-screen,
+      #game-screen.active {
+        width:100dvw;
+        max-width:100dvw;
+        box-sizing:border-box;
+      }
+
+      #join-screen * ,
+      #game-screen * { min-width:0; box-sizing:border-box; }
+
+      .join-form {
+        width:100%;
+        max-width:520px;
+      }
+
+      .little-hero-appearance {
+        width:100%;
+      }
+
+      .frame-color-panel {
+        position:relative;
+        inset:auto;
+        width:100%;
+        max-height:none;
+        margin-top:6px;
+      }
+
+      .frame-color-field { height:min(142px,34vw); }
+      .frame-color-presets { grid-template-columns:repeat(4,minmax(0,1fr)); }
+      .frame-color-presets button { min-height:32px; }
+
+      .player-battle-layout {
+        display:flex;
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      #board-layer,
+      .battle-comms-lobby {
+        width:100%;
+        max-width:100%;
+      }
+
+      .battle-comms-lobby {
+        display:flex;
+        flex-direction:column;
+      }
+
+      .little-hero-roster {
+        width:100%;
+        max-width:100%;
+        overscroll-behavior-x:contain;
+      }
+
+      .battle-event-feed,
+      .little-hero-hud,
+      #chat-panel {
+        width:100%;
+        max-width:100%;
+      }
+
+      .hero-hud-stats { flex-wrap:wrap; }
+
+      .chat-header { flex-wrap:wrap; }
+      .battle-comms-room {
+        max-width:100%;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+      }
+
+      .chat-message-context-menu {
+        position:fixed;
+        left:8px !important;
+        right:8px !important;
+        top:auto !important;
+        bottom:max(8px,env(safe-area-inset-bottom)) !important;
+        width:auto;
+        max-width:none;
+      }
+
+      .chat-message-context-menu button {
+        min-height:48px;
+      }
+
+      .chat-floating-emoji-picker,
+      .chat-input-emoji-picker {
+        position:fixed;
+        left:8px !important;
+        right:8px !important;
+        bottom:max(8px,env(safe-area-inset-bottom)) !important;
+        top:auto !important;
+        width:auto;
+        max-width:none;
+        grid-template-columns:repeat(6,minmax(40px,1fr)) !important;
+        z-index:5000;
+      }
+
+      .chat-floating-emoji-picker button,
+      .chat-input-emoji-picker button {
+        width:100% !important;
+        min-width:40px;
+        min-height:44px;
+      }
+
+      .player-alltime-overlay,
+      .player-profile-overlay,
+      .player-settings-overlay {
+        max-width:100dvw;
+        max-height:100dvh;
+        overflow-y:auto;
+      }
+
+      .connection-status,
+      .player-logout-control {
+        z-index:6000;
+      }
+    }
+
+    @media (max-width:430px) {
+      .little-hero-appearance { grid-template-columns:1fr; }
+      .little-hero-avatar-upload { min-height:0; }
+      .frame-color-presets { grid-template-columns:repeat(4,1fr); }
+      .chat-floating-emoji-picker,
+      .chat-input-emoji-picker {
+        grid-template-columns:repeat(4,minmax(44px,1fr)) !important;
+      }
+    }
+
   </style>
 </head>
 <body>
