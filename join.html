@@ -4273,6 +4273,96 @@
       }
     }
 
+
+
+    /* MOBILE OVERLAY SAFETY 04 // player-side system surfaces */
+    @media (max-width:760px) {
+      .blood-tribute-overlay,
+      .wheel-overlay,
+      .forge-overlay,
+      .recount-overlay {
+        width:100dvw;
+        min-height:100dvh;
+        box-sizing:border-box;
+        overflow-y:auto;
+        overscroll-behavior:contain;
+        -webkit-overflow-scrolling:touch;
+        padding:
+          max(10px,env(safe-area-inset-top))
+          max(8px,env(safe-area-inset-right))
+          max(14px,env(safe-area-inset-bottom))
+          max(8px,env(safe-area-inset-left));
+      }
+
+      .blood-tribute-shell,
+      .wheel-shell,
+      .forge-shell,
+      .recount-panel {
+        width:100%;
+        max-width:100%;
+        max-height:none;
+        box-sizing:border-box;
+      }
+
+      .blood-tribute-shell {
+        margin:auto;
+        padding:18px 14px;
+      }
+
+      .blood-tribute-shell h2 {
+        overflow-wrap:anywhere;
+      }
+
+      .blood-tribute-upload input {
+        min-height:44px;
+        font-size:16px;
+      }
+
+      .blood-tribute-submit {
+        min-height:46px;
+        touch-action:manipulation;
+      }
+
+      .player-leaderboard-strip {
+        max-width:100%;
+        overflow-x:auto;
+        overscroll-behavior-x:contain;
+        -webkit-overflow-scrolling:touch;
+      }
+
+      .player-leaderboard-list {
+        min-width:max-content;
+      }
+
+      .recount-panel {
+        overflow:hidden;
+      }
+
+      .recount-head {
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      .recount-controls {
+        width:100%;
+      }
+
+      .recount-controls button {
+        flex:1;
+        min-height:44px;
+      }
+
+      .rc-block {
+        max-width:100%;
+        overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
+      }
+
+      .rc-table {
+        min-width:520px;
+      }
+    }
+
   </style>
 </head>
 <body>
