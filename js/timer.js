@@ -111,8 +111,10 @@ const Timer = {
   },
 
   // isGM: whether to draw START GAME/PAUSE/RESUME/-30s/+30s (players never
-  // get them). handlers: { onStart, onPause, onResume, onAdjust } click
-  // callbacks, GM-only. onAdjust receives a signed ms delta.
+  // get them). handlers: { onStart, onLaunch, onPause, onResume, onAdjust }
+  // callbacks, GM-only. onLaunch announces the theatrical T-10 sequence to
+  // connected players; onStart is still sent only when the local countdown
+  // completes. onAdjust receives a signed ms delta.
   update(containerId, timerState, isGM, handlers) {
     const el = document.getElementById(containerId);
     if (!el) return;
@@ -196,7 +198,10 @@ const Timer = {
       // the local T-10 launch sequence first, which itself calls onStart only
       // once the countdown completes. See runStartCountdown().
       if (startBtn && handlers && handlers.onStart) {
-        startBtn.onclick = () => this.runStartCountdown(containerId, handlers.onStart);
+        startBtn.onclick = () => {
+          if (handlers.onLaunch) handlers.onLaunch();
+          this.runStartCountdown(containerId, handlers.onStart);
+        };
       }
       if (pauseBtn && handlers && handlers.onPause) pauseBtn.onclick = handlers.onPause;
       if (resumeBtn && handlers && handlers.onResume) resumeBtn.onclick = handlers.onResume;
@@ -238,7 +243,7 @@ const Timer = {
         this._clearCountdownOverlay(el);
         el.classList.remove('timer-launching');
         delete this._countdownActive[containerId];
-        onComplete();
+        if (typeof onComplete === 'function') onComplete();
       }
     };
     showStep();
