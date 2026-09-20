@@ -882,6 +882,11 @@ const App = {
         this.updatePlayerList(message.players);
         break;
 
+      case 'battle:launchCountdown':
+        // The GM already started the same local sequence from the button
+        // click that caused this broadcast. Players consume this event.
+        break;
+
       case 'battle:controlsOnline':
         this.showBattleControlsOnline();
         break;
@@ -1442,6 +1447,11 @@ const App = {
   // driven entirely by the server-authoritative state:public broadcast.
   // ---------------------------------------------------------------------
 
+  announceTimerLaunch() {
+    if (this.mode !== 'multiplayer') return;
+    this.send({ type: 'gm:timerLaunchCountdown' });
+  },
+
   startTimer() {
     if (this.mode !== 'multiplayer') return;
     this.send({ type: 'gm:timerStart' });
@@ -1476,6 +1486,7 @@ const App = {
     const state = this.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 };
     Timer.update('timer-tracker-gm', state, true, {
       onStart: () => this.startTimer(),
+      onLaunch: () => this.announceTimerLaunch(),
       onPause: () => this.pauseTimer(),
       onResume: () => this.resumeTimer(),
       onAdjust: (deltaMs) => this.adjustTimer(deltaMs)
