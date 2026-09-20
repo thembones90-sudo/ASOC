@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ASOC - Join Game</title>
   <link rel="stylesheet" href="css/asoc.css">
   <style>
@@ -4001,6 +4001,556 @@
       #join-screen .join-btn::before { animation:none!important; opacity:0!important; }
       #join-screen::after { animation:none!important; opacity:0!important; }
     }
+
+
+    /* =========================================================
+       MOBILE PLAYER BATTLEFIELD
+       Phone layout: board first, comms second, natural page scroll.
+       The authored board remains ratio-locked and unthemed.
+       ========================================================= */
+    @media (max-width: 760px) {
+      #join-screen {
+        min-height: 100dvh;
+        height: auto;
+        padding: max(14px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom));
+        justify-content: flex-start;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .join-logo { width:min(88vw,420px); }
+      .join-form { max-width:100%; padding:20px 14px; }
+
+      #game-screen,
+      #game-screen.active {
+        width:100%;
+        min-height:100dvh;
+        height:auto;
+        overflow-x:hidden;
+        overflow-y:visible;
+      }
+
+      .player-battle-layout {
+        display:flex;
+        flex-direction:column;
+        width:100%;
+        height:auto;
+        min-height:100dvh;
+        gap:8px;
+        padding:max(6px,env(safe-area-inset-top)) 6px max(76px,env(safe-area-inset-bottom));
+      }
+
+      #board-layer {
+        order:1;
+        flex:none;
+        width:100%;
+        min-height:0;
+        padding:0;
+        justify-content:flex-start;
+      }
+
+      .public-board-frame {
+        width:100%;
+        max-width:100%;
+        flex:none;
+        aspect-ratio:var(--board-aspect);
+      }
+
+      .public-board-ratio {
+        width:100%;
+        height:100%;
+        max-width:100%;
+        max-height:100%;
+      }
+
+      .battle-comms-lobby {
+        order:2;
+        width:100%;
+        min-height:0;
+        padding:8px 0 0;
+        border-left:0;
+        border-top:1px solid rgba(116,126,139,.28);
+        overflow:visible;
+      }
+
+      .battle-comms-lobby #chat-panel {
+        flex:none;
+        min-height:360px;
+        height:min(62dvh,560px);
+        margin-top:6px;
+      }
+
+      .battle-comms-lobby #chat-messages {
+        min-height:0;
+        overflow-y:auto;
+        overscroll-behavior:contain;
+        -webkit-overflow-scrolling:touch;
+      }
+
+      .battle-comms-lobby .chat-form {
+        position:sticky;
+        bottom:0;
+        z-index:8;
+        padding:7px max(7px,env(safe-area-inset-right)) max(7px,env(safe-area-inset-bottom)) max(7px,env(safe-area-inset-left));
+      }
+
+      .battle-comms-lobby #chat-input {
+        min-width:0;
+        min-height:44px;
+        font-size:16px;
+      }
+
+      .battle-comms-lobby .chat-send-btn {
+        min-width:64px;
+        min-height:44px;
+        padding:10px 12px;
+        touch-action:manipulation;
+      }
+
+      .battle-comms-lobby .chat-reply-btn,
+      .battle-comms-lobby .chat-reaction-add,
+      .battle-comms-lobby .chat-reaction-chip {
+        min-height:32px;
+        min-width:32px;
+        opacity:1;
+        pointer-events:auto;
+        touch-action:manipulation;
+      }
+
+      .chat-message-context-menu button {
+        min-height:44px;
+        font-size:.68rem;
+      }
+
+      #chat-reaction-picker.chat-floating-emoji-picker,
+      .battle-comms-lobby .chat-floating-emoji-picker,
+      .battle-comms-lobby .chat-input-emoji-picker {
+        grid-template-columns:repeat(4,44px);
+      }
+
+      .player-logout-control {
+        left:max(8px,env(safe-area-inset-left));
+        bottom:max(8px,env(safe-area-inset-bottom));
+        min-height:44px;
+      }
+
+      .connection-status {
+        right:max(8px,env(safe-area-inset-right));
+        left:auto;
+        bottom:max(8px,env(safe-area-inset-bottom));
+        transform:none;
+        min-height:44px;
+        padding:8px 11px;
+      }
+
+      .master-room-standby {
+        inset:8px;
+        padding:16px 12px;
+      }
+
+      .master-room-standby-title {
+        font-size:clamp(1rem,5vw,1.45rem);
+      }
+
+      .master-room-standby-copy {
+        font-size:.68rem;
+        line-height:1.5;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .little-hero-appearance {
+        grid-template-columns:84px minmax(0,1fr);
+        gap:10px;
+        padding:10px;
+      }
+
+      .little-hero-avatar-preview {
+        width:72px;
+        height:72px;
+      }
+
+      .battle-comms-lobby .little-hero-hud {
+        align-items:flex-start;
+        flex-direction:column;
+      }
+
+      .battle-comms-lobby .hero-hud-stats {
+        width:100%;
+        justify-content:flex-start;
+        flex-wrap:wrap;
+      }
+
+      .battle-comms-lobby .chat-message {
+        grid-template-columns:24px minmax(0,1fr);
+        column-gap:6px;
+      }
+
+      .battle-comms-lobby .chat-message-main {
+        min-width:0;
+        max-width:100%;
+        padding-right:24px;
+      }
+    }
+
+
+    /* MOBILE POLISH 02 // iOS, landscape, touch and keyboard behavior */
+    @media (max-width: 760px) {
+      html, body {
+        width:100%;
+        min-height:100%;
+        overflow-x:hidden;
+        overscroll-behavior-x:none;
+      }
+
+      body {
+        min-height:100dvh;
+        -webkit-text-size-adjust:100%;
+      }
+
+      button, input, select, textarea {
+        touch-action:manipulation;
+      }
+
+      .battle-comms-lobby .chat-message {
+        -webkit-user-select:text;
+        user-select:text;
+      }
+
+      .battle-comms-lobby .chat-floating-emoji-picker,
+      #chat-reaction-picker.chat-floating-emoji-picker {
+        max-width:calc(100vw - 16px);
+        max-height:min(52dvh,320px);
+        overflow-y:auto;
+        overscroll-behavior:contain;
+      }
+
+      .theme-select-menu {
+        max-width:calc(100vw - 20px) !important;
+        max-height:min(56dvh,420px);
+        overflow-y:auto;
+        overscroll-behavior:contain;
+      }
+
+      .reconnecting {
+        width:100dvw;
+        height:100dvh;
+        padding:
+          max(12px,env(safe-area-inset-top))
+          max(12px,env(safe-area-inset-right))
+          max(12px,env(safe-area-inset-bottom))
+          max(12px,env(safe-area-inset-left));
+        box-sizing:border-box;
+      }
+
+      @supports (-webkit-touch-callout: none) {
+        .battle-comms-lobby #chat-panel {
+          height:min(58dvh,520px);
+        }
+      }
+    }
+
+    @media (max-width: 900px) and (orientation: landscape) {
+      #game-screen,
+      #game-screen.active {
+        min-height:100dvh;
+        height:auto;
+        overflow-y:auto;
+      }
+
+      .player-battle-layout {
+        min-height:100dvh;
+        height:auto;
+      }
+
+      .public-board-frame {
+        width:min(100%,calc((100dvh - 18px) * var(--board-aspect)));
+        align-self:center;
+      }
+
+      .battle-comms-lobby #chat-panel {
+        height:max(260px,72dvh);
+      }
+    }
+
+
+
+    /* MOBILE OVERLAY SAFETY 04 // player-side system surfaces */
+    @media (max-width:760px) {
+      .blood-tribute-overlay,
+      .wheel-overlay,
+      .forge-overlay,
+      .recount-overlay {
+        width:100dvw;
+        min-height:100dvh;
+        box-sizing:border-box;
+        overflow-y:auto;
+        overscroll-behavior:contain;
+        -webkit-overflow-scrolling:touch;
+        padding:
+          max(10px,env(safe-area-inset-top))
+          max(8px,env(safe-area-inset-right))
+          max(14px,env(safe-area-inset-bottom))
+          max(8px,env(safe-area-inset-left));
+      }
+
+      .blood-tribute-shell,
+      .wheel-shell,
+      .forge-shell,
+      .recount-panel {
+        width:100%;
+        max-width:100%;
+        max-height:none;
+        box-sizing:border-box;
+      }
+
+      .blood-tribute-shell {
+        margin:auto;
+        padding:18px 14px;
+      }
+
+      .blood-tribute-shell h2 {
+        overflow-wrap:anywhere;
+      }
+
+      .blood-tribute-upload input {
+        min-height:44px;
+        font-size:16px;
+      }
+
+      .blood-tribute-submit {
+        min-height:46px;
+        touch-action:manipulation;
+      }
+
+      .player-leaderboard-strip {
+        max-width:100%;
+        overflow-x:auto;
+        overscroll-behavior-x:contain;
+        -webkit-overflow-scrolling:touch;
+      }
+
+      .player-leaderboard-list {
+        min-width:max-content;
+      }
+
+      .recount-panel {
+        overflow:hidden;
+      }
+
+      .recount-head {
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      .recount-controls {
+        width:100%;
+      }
+
+      .recount-controls button {
+        flex:1;
+        min-height:44px;
+      }
+
+      .rc-block {
+        max-width:100%;
+        overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
+      }
+
+      .rc-table {
+        min-width:520px;
+      }
+    }
+
+
+
+    /* MOBILE PLAYER MODE LOCK 07 // complete phone composition */
+    @media (max-width:760px) {
+      #join-screen,
+      #game-screen,
+      #game-screen.active {
+        width:100dvw;
+        max-width:100dvw;
+        box-sizing:border-box;
+      }
+
+      #join-screen * ,
+      #game-screen * { min-width:0; box-sizing:border-box; }
+
+      .join-form {
+        width:100%;
+        max-width:520px;
+      }
+
+      .little-hero-appearance {
+        width:100%;
+      }
+
+      .frame-color-panel {
+        position:relative;
+        inset:auto;
+        width:100%;
+        max-height:none;
+        margin-top:6px;
+      }
+
+      .frame-color-field { height:min(142px,34vw); }
+      .frame-color-presets { grid-template-columns:repeat(4,minmax(0,1fr)); }
+      .frame-color-presets button { min-height:32px; }
+
+      .player-battle-layout {
+        display:flex;
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      #board-layer,
+      .battle-comms-lobby {
+        width:100%;
+        max-width:100%;
+      }
+
+      .battle-comms-lobby {
+        display:flex;
+        flex-direction:column;
+      }
+
+      .little-hero-roster {
+        width:100%;
+        max-width:100%;
+        overscroll-behavior-x:contain;
+      }
+
+      .battle-event-feed,
+      .little-hero-hud,
+      #chat-panel {
+        width:100%;
+        max-width:100%;
+      }
+
+      .hero-hud-stats { flex-wrap:wrap; }
+
+      .chat-header { flex-wrap:wrap; }
+      .battle-comms-room {
+        max-width:100%;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+      }
+
+      .chat-message-context-menu {
+        position:fixed;
+        left:8px !important;
+        right:8px !important;
+        top:auto !important;
+        bottom:max(8px,env(safe-area-inset-bottom)) !important;
+        width:auto;
+        max-width:none;
+      }
+
+      .chat-message-context-menu button {
+        min-height:48px;
+      }
+
+      .chat-floating-emoji-picker,
+      .chat-input-emoji-picker {
+        position:fixed;
+        left:8px !important;
+        right:8px !important;
+        bottom:max(8px,env(safe-area-inset-bottom)) !important;
+        top:auto !important;
+        width:auto;
+        max-width:none;
+        grid-template-columns:repeat(6,minmax(40px,1fr)) !important;
+        z-index:5000;
+      }
+
+      .chat-floating-emoji-picker button,
+      .chat-input-emoji-picker button {
+        width:100% !important;
+        min-width:40px;
+        min-height:44px;
+      }
+
+      .player-alltime-overlay,
+      .player-profile-overlay,
+      .player-settings-overlay {
+        max-width:100dvw;
+        max-height:100dvh;
+        overflow-y:auto;
+      }
+
+      .connection-status,
+      .player-logout-control {
+        z-index:6000;
+      }
+    }
+
+    @media (max-width:430px) {
+      .little-hero-appearance { grid-template-columns:1fr; }
+      .little-hero-avatar-upload { min-height:0; }
+      .frame-color-presets { grid-template-columns:repeat(4,1fr); }
+      .chat-floating-emoji-picker,
+      .chat-input-emoji-picker {
+        grid-template-columns:repeat(4,minmax(44px,1fr)) !important;
+      }
+    }
+
+
+
+    /* MOBILE SCROLL GUARANTEE 08 // final cascade authority */
+    @media (max-width:760px) {
+      html {
+        height:auto !important;
+        min-height:100% !important;
+        overflow-x:hidden !important;
+        overflow-y:auto !important;
+        -webkit-overflow-scrolling:touch;
+      }
+      body {
+        height:auto !important;
+        min-height:100dvh !important;
+        overflow-x:hidden !important;
+        overflow-y:auto !important;
+        position:relative !important;
+        -webkit-overflow-scrolling:touch;
+      }
+      #join-screen,
+      #game-screen,
+      #game-screen.active,
+      .player-battle-layout {
+        height:auto !important;
+        max-height:none !important;
+        min-height:100dvh !important;
+        overflow-x:hidden !important;
+        overflow-y:visible !important;
+      }
+      .battle-comms-lobby {
+        height:auto !important;
+        max-height:none !important;
+        overflow:visible !important;
+      }
+      .battle-comms-lobby #chat-panel {
+        height:min(62dvh,560px) !important;
+        min-height:360px;
+        overflow:hidden;
+      }
+      .battle-comms-lobby #chat-messages {
+        overflow-y:auto !important;
+        -webkit-overflow-scrolling:touch;
+      }
+      .blood-tribute-overlay,
+      .wheel-overlay,
+      .forge-overlay,
+      .recount-overlay,
+      .victory-overlay,
+      .defeat-overlay {
+        overflow-y:auto !important;
+        -webkit-overflow-scrolling:touch;
+      }
+    }
+
   </style>
 </head>
 <body>
