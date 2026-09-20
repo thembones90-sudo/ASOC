@@ -6,8 +6,68 @@ const ITER=210000;
 const VERIFY_TTL_MS=Math.max(5*60*1000,Number(process.env.ASOC_EMAIL_VERIFY_TTL_MS)||60*60*1000);
 const RESEND_COOLDOWN_MS=Math.max(15000,Number(process.env.ASOC_EMAIL_RESEND_COOLDOWN_MS)||60*1000);
 
-function load(){try{const d=JSON.parse(fs.readFileSync(file,'utf8'));return d&&typeof d==='object'?d:{players:{}}}catch(e){return {players:{}}}}
-function save(d){const t=file+'.tmp';fs.writeFileSync(t,JSON.stringify(d,null,2),{mode:0o600});fs.renameSync(t,file)}
+const backupFile=file+'.bak';
+function validate(d){
+  const object=v=>v&&typeof v==='object'&&!Array.isArray(v);
+  if(!object(d)||!object(d.players))throw Error('Invalid auth database');
+  const ids=new Set();
+  for(const [key,p] of Object.entries(d.players)){
+    if(!object(p)||typeof p.id!=='string'||!p.id||ids.has(p.id)||
+       typeof p.email!=='string'||p.email!==key||normEmail(key)!==key||
+       typeof p.salt!=='string'||!p.salt||typeof p.hash!=='string'||! /^[a-f0-9]{64}$/i.test(p.hash))throw Error('Invalid auth account');
+    ids.add(p.id);
+    if(p.verificationRequired!==undefined&&typeof p.verificationRequired!=='boolean')throw Error('Invalid verification state');
+    for(const field of ['emailVerifiedAt','verificationExpiresAt','verificationSentAt']){
+      if(p[field]!=null&&(!Number.isFinite(p[field])||p[field]<0))throw Error('Invalid verification timestamp');
+    }
+    if(p.verificationTokenHash!==undefined&&!/^[a-f0-9]{64}$/i.test(p.verificationTokenHash))throw Error('Invalid verification digest');
+  }
+  return d;
+}
+function read(filePath){return validate(JSON.parse(fs.readFileSync(filePath,'utf8')))}
+function atomic(filePath,d){
+  const tmp=filePath+'.tmp-'+process.pid+'-'+crypto.randomBytes(8).toString('hex');
+  let fd;
+  try{
+    fd=fs.openSync(tmp,'wx',0o600);
+    fs.writeFileSync(fd,JSON.stringify(d,null,2),'utf8');
+    fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;
+    fs.renameSync(tmp,filePath);
+  }catch(error){
+    if(fd!==undefined)try{fs.closeSync(fd)}catch{}
+    try{fs.unlinkSync(tmp)}catch{}
+    throw error;
+  }
+}
+function unavailable(){return Error('Auth storage unavailable; repair or restore the database before retrying')}
+function load(){
+  let mainError;
+  try{return read(file)}catch(error){mainError=error}
+  // Permission and I/O failures are not evidence of corruption. Never replace them.
+  if(mainError.code&&mainError.code!=='ENOENT')throw unavailable();
+  let backup;
+  try{backup=read(backupFile)}catch(error){
+    if(mainError.code==='ENOENT'&&error.code==='ENOENT')return {players:{}};
+    throw unavailable();
+  }
+  try{
+    if(mainError.code!=='ENOENT')fs.renameSync(file,file+'.corrupt-'+Date.now()+'-'+crypto.randomBytes(6).toString('hex'));
+    atomic(file,backup);
+  }catch{throw unavailable()}
+  console.warn('[auth-store] Restored validated backup; any corrupt main file was quarantined.');
+  return backup;
+}
+function save(d){
+  validate(d);
+  // Re-read before replacing either file; never back up corrupt data.
+  let previous;
+  try{previous=read(file)}catch(error){if(error.code!=='ENOENT')throw unavailable()}
+  try{
+    if(previous)atomic(backupFile,previous);
+    else atomic(backupFile,d);
+    atomic(file,d);
+  }catch{throw unavailable()}
+}
 function normEmail(v){return String(v||'').trim().toLowerCase()}
 function isRealEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)}
 function isLegacyIdentity(v){return /^[a-z0-9][a-z0-9_-]{2,31}$/.test(v)}

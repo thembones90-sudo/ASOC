@@ -9,9 +9,11 @@ A local web application for running ASOC (A Strange Odd Connection) games.
 
 ### Installation
 ```bash
-cd "A:\ASOC ENGINE"
+cd "C:\ASOC ENGINE"
 npm install
 ```
+
+Production uses https://asocengine.com and direct `node server.js` in Railway for graceful SIGTERM handling; `railway.json` matches the locked runbook. One replica uses `/data` (`ASOC_DATA_DIR=/data`) and `/health`. Local npm commands remain unchanged. Neither startup command generates a deployment manifest; `npm run deploy:manifest` is manual only. See `HANDOFF.md` for the recorded CLI deployment and `docs/EMAIL-VERIFICATION.md` for the intentionally disabled verification toggle.
 
 ### Running
 ```bash
@@ -684,8 +686,8 @@ Server response:
 
 ## Phase 2 / 2.5 / The Forge Limitations (Known)
 
-- **No host migration** — if GM doesn't reconnect in 60s, room closes
-- **No teams, buzzer, or QR codes yet** — scoring is per-player and room joining is manual room-code entry; the server-authoritative Timer + Borrowed Time system is implemented
+- **No host migration** — MASTER remains available when the GM disconnects; the GM reconnects with its existing identity
+- **No teams, buzzer, or QR codes yet** — scoring is per-player and players join permanent MASTER without entering a room code; the server-authoritative Timer + Borrowed Time system is implemented
 - **Purple/Black solve tracking is structural only** — the fields exist on every profile but are never incremented yet; there is no per-column difficulty metadata to key off, only a per-board one
 - **Local undo only** — multiplayer undo requires manual inverse action
 - **No answer validation** — GM is sole judge, no automatic checking
@@ -832,8 +834,8 @@ Tone: the system has calculated that further resistance is pointless. Cold, clin
 - **One entry point: the host's manual GAME WON button** (`gm:gameWon`, host-only, idempotent). **Accepting a Final guess is NOT the end of the game** — players can still solve the remaining columns — so it never triggers the victory. Nor is it derived from `finalSolution`/`finalOutcome`: REVEAL ALL marks the Final `success` without a solve, and a lost game must never end in the victory sequence. The host declares victory when the game is actually won.
 - **Reversal:** a host-declared victory is not undone by changing a verdict; it clears only with the board (RESET BOARD / NEXT GAME).
 - **Live sequence plays once.** Each client plays it only when it sees `gameWon` flip false→true **after** its connection's baseline state. The first `state:public` after every load/reconnect is the baseline, so a refresh, reconnect or late join loads directly into the completed state — never a replay. Same hydration-guard idea as the Shadow Broker rules.
-- **One shared renderer:** `Skeleton.playGameWon()` (GM and players). The board reaction (A5–D5 ring pulses in sequence, sparks converging on FINAL, FINAL ring) is drawn on the overlay from measured cell rects, never by mutating board cells (the board rebuilds every timer tick).
-- **Sequence (~7.2 s):** `FINAL ASSOCIATION DETECTED` / `Pattern coherent. Reasoning sufficient.` / `Puzzle structure compromised.` / `Further resistance inefficient.` / `Victory state confirmed.` → large `GAME WON` → after a short delay the line **`Well done, little heroes.`** (**LOCKED wording and capitalization**; ~40% of the title size, muted, italic). GM button cycles `VERIFYING...` → `SOLUTION ACCEPTED` → `GAME WON` (~350 ms each).
+- **One shared renderer:** `Skeleton.playGameWon()` (GM and players). The full-viewport green neural prelude targets rendered A5/B5/C5/D5 words and converges on FINAL. Effects are drawn on the overlay from measured word positions, never by mutating board cells (the board rebuilds every timer tick).
+- **Sequence:** a 2.2-second edge-to-edge green neural prelude precedes the ceremony; ceremony child animations begin at reveal, with safe-area-protected content. The overlay settles at 16.7 seconds and is dismissible by click after the prelude. The ceremony shows the authoritative result message, large `GAME WON`, and **`Well done, little heroes.`** (**LOCKED wording and capitalization**, muted and italic), followed by final/column solutions and match winner. GM button stages are `VERIFYING...` at entry, `SOLUTION ACCEPTED` at 900 ms, and `GAME WON` when the ceremony appears at 2200 ms.
 - **Completed state (permanent, no animation):** `body.game-won` — GM `GAME WON` button emerald, FINAL confirmed, subtle board treatment, and the board-driving GM controls locked (`revealCell/hideCell/revealColumn/hideColumn/revealAll/hideAll/revealFinal/hideFinal`, Undo, FAIL buttons). Chat, judging, RESET BOARD and NEXT GAME stay live. The existing SHOW RESULTS score pacing is untouched.
 - Presentation only: no scoring, clue, timer, chat or WOMF logic lives in the victory code.
 

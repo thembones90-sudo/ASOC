@@ -2053,7 +2053,11 @@ body.game-complete .fail-final-btn {
 
 @media (prefers-reduced-motion: reduce) {
   .victory-overlay,
-  .victory-overlay * { animation: none !important; }
+  .victory-overlay *,
+  .victory-overlay::before,
+  .victory-overlay::after,
+  .victory-overlay *::before,
+  .victory-overlay *::after { animation: none !important; transition: none !important; }
   .victory-overlay { opacity: 1; }
   .victory-line, .victory-ring, .victory-particle, .victory-frag, .victory-flash { display: none; }
   .victory-title, .victory-subline { opacity: 1; }
@@ -8167,7 +8171,12 @@ body.game-complete .recount-btn,
   inset: 0 !important;
   width: 100vw !important;
   height: 100dvh !important;
-  padding: 0 !important;
+  padding:
+    max(14px,env(safe-area-inset-top))
+    max(10px,env(safe-area-inset-right))
+    max(18px,env(safe-area-inset-bottom))
+    max(10px,env(safe-area-inset-left)) !important;
+  box-sizing: border-box;
   margin: 0 !important;
 }
 .victory-overlay .victory-dim {
@@ -8182,6 +8191,7 @@ body.game-complete .recount-btn,
 }
 
 .victory-overlay.is-neural-prelude {
+  padding: 0 !important;
   background:
     radial-gradient(circle at 50% 52%, rgba(28,196,128,.18), transparent 48%),
     linear-gradient(180deg, rgba(0,48,30,.34), rgba(0,26,16,.42)) !important;
@@ -8194,6 +8204,11 @@ body.game-complete .recount-btn,
 .victory-overlay.is-neural-prelude .victory-ceremony {
   opacity: 0 !important;
   visibility: hidden !important;
+  animation: none !important;
+}
+.victory-overlay.is-neural-prelude .victory-ceremony *,
+.victory-overlay.is-neural-prelude .victory-ceremony *::before,
+.victory-overlay.is-neural-prelude .victory-ceremony *::after {
   animation: none !important;
 }
 .victory-overlay.is-neural-prelude .victory-fx {

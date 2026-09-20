@@ -432,6 +432,7 @@ const Skeleton = (() => {
   function playGameWon(result = {}, options = {}) {
     const onStage = typeof options.onStage === 'function' ? options.onStage : () => {};
     const live = options.live !== false;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
     document.querySelector('.victory-link-overlay')?.remove();
     document.querySelector('.victory-overlay')?.remove();
@@ -443,7 +444,7 @@ const Skeleton = (() => {
     const winner = result.matchWinner || (Array.isArray(result.winners) ? result.winners[0] : null);
 
     const overlay = document.createElement('div');
-    overlay.className = `victory-overlay${live ? ' is-live is-neural-prelude' : ' is-static'}`;
+    overlay.className = `victory-overlay${live && !reducedMotion ? ' is-live is-neural-prelude' : ' is-static'}`;
     overlay.innerHTML = `
       <div class="victory-dim"></div>
       <div class="victory-grid"></div>
@@ -466,8 +467,12 @@ const Skeleton = (() => {
       </section>`;
     document.body.appendChild(overlay);
 
-    if (!live) {
+    if (!live || reducedMotion) {
       onStage('won');
+      if (live) overlay.addEventListener('click', () => {
+        overlay.remove();
+        onStage('done');
+      }, { once: true });
       return overlay;
     }
 

@@ -4,6 +4,9 @@ const fs=require('fs');
 const os=require('os');
 const path=require('path');
 const {spawn}=require('child_process');
+const {once}=require('events');
+const WebSocket=require('ws');
+const crypto=require('crypto');
 
 const ROOT=path.resolve(__dirname,'..');
 const PORT=Number(process.env.ASOC_EMAIL_TEST_PORT)||18310;
@@ -26,7 +29,7 @@ function request(urlPath,method='GET',body=null){
   });
 }
 
-function startServer(){
+function startServer(verification='1'){
   return new Promise((resolve,reject)=>{
     const child=spawn(process.execPath,['server.js'],{
       cwd:ROOT,
@@ -37,7 +40,7 @@ function startServer(){
         ASOC_GM_PASSWORD:'email-test-gm',
         ASOC_EMAIL_PROVIDER:'test',
         ASOC_EMAIL_TEST_OUTBOX:outbox,
-        ASOC_EMAIL_VERIFICATION:'1',
+        ASOC_EMAIL_VERIFICATION:verification,
         ASOC_PUBLIC_BASE_URL:'http://127.0.0.1:'+PORT
       },
       stdio:['ignore','pipe','pipe']
@@ -53,6 +56,28 @@ function startServer(){
     child.once('exit',code=>{
       clearTimeout(timer);
       if(code&&code!==0)reject(Error('Email verification test server exited '+code+': '+stderr));
+    });
+  });
+}
+
+async function stopServer(child){
+  if (!child || child.exitCode !== null) return;
+  const exited=once(child,'exit');
+  child.kill('SIGTERM');
+  await exited;
+}
+function join(token){
+  return new Promise((resolve,reject)=>{
+    const ws=new WebSocket('ws://127.0.0.1:'+PORT);
+    const timer=setTimeout(()=>{ws.terminate();reject(Error('Join timed out'))},5000);
+    ws.on('error',reject);
+    ws.on('message',raw=>{
+      const message=JSON.parse(raw);
+      if(message.type==='protocol:hello') ws.send(JSON.stringify({type:'protocol:hello',protocolVersion:1}));
+      if(message.type==='protocol:ready') ws.send(JSON.stringify({type:'room:join',authToken:token,name:'VERIFY HERO'}));
+      if(['join:success','auth:required','error'].includes(message.type)){
+        clearTimeout(timer);ws.close();resolve(message);
+      }
     });
   });
 }
@@ -92,10 +117,39 @@ function startServer(){
     assert.equal(replay.status,302);
     assert.equal(replay.headers.location,'/join.html?verify=invalid');
 
+    const pending={email:'pending@example.com',password:'test-password',name:'PENDING'};
+    await request('/api/auth/player/register','POST',pending);
+    await stopServer(server);
+    server=await startServer('0');
+    const pendingLogin=await request('/api/auth/player/login','POST',pending);
+    assert.equal(pendingLogin.status,200);
+    assert.equal(pendingLogin.data.player.emailVerified,false);
+    assert.equal((await join(pendingLogin.data.token)).type,'join:success');
+    const legacy=await request('/api/auth/player/register','POST',{email:'legacy_hero',password:'test-password'});
+    assert.equal(legacy.status,201);
+    await stopServer(server);
+    // Exercise pre-verification-schema legacy semantics as well.
+    const authFile=path.join(tempDir,'auth-store.json');
+    const db=JSON.parse(fs.readFileSync(authFile,'utf8'));
+    delete db.players.legacy_hero.verificationRequired;
+    delete db.players.legacy_hero.emailVerifiedAt;
+    fs.writeFileSync(authFile,JSON.stringify(db));
+    server=await startServer('1');
+    const rejected=await join(pendingLogin.data.token);
+    assert.equal(rejected.type,'auth:required');
+    assert.equal(rejected.code,'EMAIL_NOT_VERIFIED');
+    const sessions=JSON.parse(fs.readFileSync(path.join(tempDir,'.player-auth-sessions.json'),'utf8')).sessions;
+    const key=crypto.createHash('sha256').update(pendingLogin.data.token).digest('hex');
+    assert.equal(sessions[key],undefined,'rejected session removed from disk');
+    assert.equal((await join(loggedIn.data.token)).type,'join:success');
+    assert.equal((await join(legacy.data.token)).type,'join:success');
+    await stopServer(server);
+    server=await startServer('1');
+    assert.equal((await join(pendingLogin.data.token)).type,'auth:required');
+
     console.log('PASS player email verification: create -> blocked -> email link -> login');
   }finally{
-    if(server&&!server.killed)server.kill('SIGTERM');
-    await new Promise(r=>setTimeout(r,150));
+    await stopServer(server);
     fs.rmSync(tempDir,{recursive:true,force:true});
   }
 })().catch(err=>{console.error(err);process.exitCode=1});

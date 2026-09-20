@@ -2583,6 +2583,23 @@ function handlePlayerJoin(ws, message) {
     return;
   }
   const requestedId = auth.playerId;
+  // Sessions can outlive a verification-policy change. Trust current account
+  // semantics (including legacy verified accounts), not token issuance time.
+  let account;
+  try {
+    account = authStore.getById(requestedId);
+  } catch {
+    sendToWs(ws, { type: 'error', code: 'AUTH_STORAGE_UNAVAILABLE', message: 'Authentication temporarily unavailable' });
+    return;
+  }
+  if (!account || (EMAIL_VERIFICATION_REQUIRED && !account.emailVerified)) {
+    playerAuthTokens.delete(playerTokenKey(message.authToken));
+    savePlayerAuthSessions();
+    sendToWs(ws, { type: 'auth:required', role: 'player',
+      code: account ? 'EMAIL_NOT_VERIFIED' : 'ACCOUNT_NOT_FOUND',
+      message: account ? 'Email verification required before entering MASTER.' : 'Little Hero authentication required' });
+    return;
+  }
   const room = rooms.get(MASTER_ROOM_CODE);
 
   if (!room) {

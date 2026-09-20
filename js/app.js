@@ -629,12 +629,15 @@ const App = {
       button.classList.toggle('is-lost', lost);
       button.setAttribute('aria-pressed', lost ? 'true' : 'false');
     }
-    if (!lost) document.querySelector('.defeat-overlay')?.remove();
+    if (lost) this._closeLossPreview?.();
+    if (!lost) document.querySelector('.defeat-overlay:not(.is-test-preview)')?.remove();
     else if (live) Skeleton.playGameLost(matchResult, { live: true });
     else if (changed && !document.querySelector('.defeat-overlay')) Skeleton.playGameLost(matchResult, { live: false });
   },
 
   testGameLost() {
+    if (this.gameLost) return;
+    this._closeLossPreview?.();
     const game = GameData.currentGame || {};
     const result = {
       outcome: 'LOST', occurredAt: Date.now(),
@@ -658,7 +661,9 @@ const App = {
     const close = () => {
       overlay.remove();
       if (onKey) document.removeEventListener('keydown', onKey);
+      if (this._closeLossPreview === close) this._closeLossPreview = null;
     };
+    this._closeLossPreview = close;
     overlay.addEventListener('click', close, { once: true });
     onKey = event => { if (event.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);

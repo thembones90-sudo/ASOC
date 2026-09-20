@@ -1,8 +1,20 @@
-# HANDOFF — ASOC Reliability Pass
+# HANDOFF â€” ASOC Reliability Pass
 
-**Date:** 2026-09-18  
-**Canonical local path:** `A:\ASOC ENGINE`  
+**Date:** 2026-09-20
+**Canonical local path:** `C:\ASOC ENGINE`
 **Canonical GitHub repo:** `thembones90-sudo/ASOC` (`main`)
+
+## Current production handoff (2026-09-20)
+
+Production is https://asocengine.com (players: /join.html), Railway service asoc-live, one replica, /data persistent mount with ASOC_DATA_DIR=/data, and /health readiness. The service uses direct `node server.js` for graceful SIGTERM handling. railway.json now matches that command; local npm start/dev remain available. This repository change does not change live Railway settings.
+
+MASTER is permanent: ARM GAME arms/resets its board; KILL SESSION disarms without destroying identities, sockets or Battle Comms. Graceful shutdown persists recoverable state; no multi-replica storage coordination is implemented.
+
+The production history records mobile adaptation fc784c8 followed by animation patch 64b519f. The webhook missed that patch, so the exact patched worktree was deployed by CLI (deployment 0746512c-5857-4320-bd65-0966bd5f1820 reported SUCCESS). Subsequent deployments must be verified independently; do not assume a push is proof of deployment.
+
+Postmark DKIM/Return-Path and custom-domain HTTPS were verified in the latest handoff; sender delivery to the forwarded admin inbox succeeded. External recipient approval remains pending, with Gmail rejected. Keep ASOC_EMAIL_VERIFICATION=0 until external delivery is permitted and tested. See docs/EMAIL-VERIFICATION.md. These are handoff facts, not a fresh provider-status check.
+
+The older implementation history below remains for context.
 
 This handoff supersedes the older Shadow Broker-only handoff. Shadow Broker's permanent design/implementation rules remain documented in `README.md`; this file records the current project state and the reliability work completed afterward.
 
@@ -12,7 +24,7 @@ This handoff supersedes the older Shadow Broker-only handoff. Shadow Broker's pe
 
 ASOC currently includes:
 
-- fixed canonical 1900 × 1267 board geometry
+- fixed canonical 1900 Ã— 1267 board geometry
 - six difficulty tiers: GREEN, YELLOW, AMBER, RED, PURPLE, BLACK
 - local and multiplayer board control
 - server-authoritative public state
@@ -35,35 +47,35 @@ Do not alter the canonical board geometry, skeleton placement, or difficulty-log
 
 The integral audit items were handled one by one:
 
-1. **Safe checkpoint** — `e8844ec`
+1. **Safe checkpoint** â€” `e8844ec`
    - Current live feature set checkpointed before reliability edits.
 
-2. **Static server lockdown** — `b50e2bc`
+2. **Static server lockdown** â€” `b50e2bc`
    - Public static serving is allowlisted to `index.html`, `join.html`, `css/`, `js/`, and `assets/`.
    - `server.js`, `.git/`, `games/`, `node_modules/`, docs, package/config files, traversal attempts, and non-GET/HEAD requests are blocked.
    - Verified allowed routes return 200 and protected routes return 404/405.
 
-3. **Stable player reconnect identity** — `ae365ed`
+3. **Stable player reconnect identity** â€” `ae365ed`
    - Disconnected player identity records remain in-room instead of being deleted.
    - A reconnecting client can reclaim its previous `playerId`, preserving session score continuity.
    - Regression probe confirmed identical IDs before/after reconnect.
 
-4. **Shadow Broker local TRANSMIT fix** — `ff8946b`
+4. **Shadow Broker local TRANSMIT fix** â€” `ff8946b`
    - TRANSMIT no longer requires a hosted multiplayer room.
    - With a room: broadcasts server-authoritatively to everyone.
    - Without a room: renders locally on the GM board/Public View and enters the GM chat log.
 
-5. **RESET BOARD synchronization** — `c661989`
+5. **RESET BOARD synchronization** â€” `c661989`
    - `resetBoard` always rebuilds session state and always counts as a real state change.
    - Hidden Progressive Clue Queue assignments cannot survive RESET.
    - Reset now always broadcasts `state:public`, `chat:update`, and `players:update`.
 
-6. **Permanent regression suite** — `92d08a9`
+6. **Permanent regression suite** â€” `92d08a9`
    - `npm test` is now a real project command.
    - Tests run against an isolated server port and isolated temporary player/session files.
    - Static lockdown, reconnect identity, and reset-broadcast behavior are permanently covered.
 
-7. **Active-room crash recovery** — `702dd0b`
+7. **Active-room crash recovery** â€” `702dd0b`
    - Active serializable room state is atomically mirrored to `active-rooms.json`.
    - Restart restores room code, host token, game/board state, clue order, chat, scoring, WOMF, wheel, timer, and player IDs.
    - WebSocket objects are never serialized; restored players return as offline identities and reclaim their IDs normally.
@@ -71,15 +83,15 @@ The integral audit items were handled one by one:
    - Running timers resume from their last persisted tick after restart rather than consuming server downtime.
    - A regression test kills the server, restarts it, reconnects the same host/player, and verifies the session survived.
 
-8. **Cryptographic IDs/tokens** — `4a01339`
+8. **Cryptographic IDs/tokens** â€” `4a01339`
    - Room-code selection, host tokens, player IDs, message IDs, board/event IDs, GM token, wheel winner selection, and spin tokens now use Node `crypto`.
    - No server-side `Math.random()` remains.
 
-9. **WebSocket heartbeat cleanup** — `9df25fa`
+9. **WebSocket heartbeat cleanup** â€” `9df25fa`
    - 30-second ping/pong watchdog terminates dead sockets.
    - Normal close/reconnect logic then handles the dead client instead of leaving ghost connections.
 
-10. **Player-store corruption protection** — `a50dbce`
+10. **Player-store corruption protection** â€” `a50dbce`
     - `players.json` is schema-validated before use.
     - One-write-behind `players.json.bak` is maintained.
     - Corrupt main files are quarantined as `players.json.corrupt-<timestamp>` and restored from backup.
@@ -93,7 +105,7 @@ The integral audit items were handled one by one:
 Run:
 
 ```powershell
-cd "A:\ASOC ENGINE"
+cd "C:\ASOC ENGINE"
 npm test
 ```
 
@@ -118,7 +130,7 @@ Implemented, not speculative.
 
 For A1-A4/B1-B4/C1-C4/D1-D4:
 
-- clue arrays are hardest → easiest
+- clue arrays are hardest â†’ easiest
 - the first physical slot revealed gets clue #1, second new slot gets clue #2, etc.
 - `sessionState.clueOrder` stores physical row numbers in first-reveal order
 - manual hide does not unassign a clue
@@ -157,7 +169,7 @@ The current project OpenCode config still defaults to Nemotron in `opencode.json
 
 Server-side edits require a Node server restart before the live port 8080 process uses them. Client JS/CSS is read from disk on request, so a browser refresh loads those changes.
 
-`npm start` now runs `scripts/generate-deploy-manifest.js` first. It writes ignored runtime file `DEPLOY_MANIFEST.json` with generation time, current Git SHA, deployed/tracked paths, sizes, and SHA-256 hashes. Use `npm run deploy:manifest` to regenerate it manually.
+`npm start` and `npm run dev` run `node server.js` directly. Neither generates a deployment manifest. `npm run deploy:manifest` is an optional manual diagnostic that writes ignored `DEPLOY_MANIFEST.json`; it is not proof of the live deployment.
 
 ---
 
