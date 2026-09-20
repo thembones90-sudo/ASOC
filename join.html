@@ -4497,6 +4497,60 @@
       }
     }
 
+
+
+    /* MOBILE SCROLL GUARANTEE 08 // final cascade authority */
+    @media (max-width:760px) {
+      html {
+        height:auto !important;
+        min-height:100% !important;
+        overflow-x:hidden !important;
+        overflow-y:auto !important;
+        -webkit-overflow-scrolling:touch;
+      }
+      body {
+        height:auto !important;
+        min-height:100dvh !important;
+        overflow-x:hidden !important;
+        overflow-y:auto !important;
+        position:relative !important;
+        -webkit-overflow-scrolling:touch;
+      }
+      #join-screen,
+      #game-screen,
+      #game-screen.active,
+      .player-battle-layout {
+        height:auto !important;
+        max-height:none !important;
+        min-height:100dvh !important;
+        overflow-x:hidden !important;
+        overflow-y:visible !important;
+      }
+      .battle-comms-lobby {
+        height:auto !important;
+        max-height:none !important;
+        overflow:visible !important;
+      }
+      .battle-comms-lobby #chat-panel {
+        height:min(62dvh,560px) !important;
+        min-height:360px;
+        overflow:hidden;
+      }
+      .battle-comms-lobby #chat-messages {
+        overflow-y:auto !important;
+        -webkit-overflow-scrolling:touch;
+      }
+      .blood-tribute-overlay,
+      .wheel-overlay,
+      .forge-overlay,
+      .recount-overlay,
+      .victory-overlay,
+      .defeat-overlay {
+        overflow-y:auto !important;
+        -webkit-overflow-scrolling:touch;
+      }
+    }
+
   </style>
 </head>
 <body>
