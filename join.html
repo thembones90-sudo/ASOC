@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ASOC - Join Game</title>
   <link rel="stylesheet" href="css/asoc.css">
   <style>
@@ -4190,6 +4190,86 @@
         min-width:0;
         max-width:100%;
         padding-right:24px;
+      }
+    }
+
+
+    /* MOBILE POLISH 02 // iOS, landscape, touch and keyboard behavior */
+    @media (max-width: 760px) {
+      html, body {
+        width:100%;
+        min-height:100%;
+        overflow-x:hidden;
+        overscroll-behavior-x:none;
+      }
+
+      body {
+        min-height:100dvh;
+        -webkit-text-size-adjust:100%;
+      }
+
+      button, input, select, textarea {
+        touch-action:manipulation;
+      }
+
+      .battle-comms-lobby .chat-message {
+        -webkit-user-select:text;
+        user-select:text;
+      }
+
+      .battle-comms-lobby .chat-floating-emoji-picker,
+      #chat-reaction-picker.chat-floating-emoji-picker {
+        max-width:calc(100vw - 16px);
+        max-height:min(52dvh,320px);
+        overflow-y:auto;
+        overscroll-behavior:contain;
+      }
+
+      .theme-select-menu {
+        max-width:calc(100vw - 20px) !important;
+        max-height:min(56dvh,420px);
+        overflow-y:auto;
+        overscroll-behavior:contain;
+      }
+
+      .reconnecting {
+        width:100dvw;
+        height:100dvh;
+        padding:
+          max(12px,env(safe-area-inset-top))
+          max(12px,env(safe-area-inset-right))
+          max(12px,env(safe-area-inset-bottom))
+          max(12px,env(safe-area-inset-left));
+        box-sizing:border-box;
+      }
+
+      @supports (-webkit-touch-callout: none) {
+        .battle-comms-lobby #chat-panel {
+          height:min(58dvh,520px);
+        }
+      }
+    }
+
+    @media (max-width: 900px) and (orientation: landscape) {
+      #game-screen,
+      #game-screen.active {
+        min-height:100dvh;
+        height:auto;
+        overflow-y:auto;
+      }
+
+      .player-battle-layout {
+        min-height:100dvh;
+        height:auto;
+      }
+
+      .public-board-frame {
+        width:min(100%,calc((100dvh - 18px) * var(--board-aspect)));
+        align-self:center;
+      }
+
+      .battle-comms-lobby #chat-panel {
+        height:max(260px,72dvh);
       }
     }
 
