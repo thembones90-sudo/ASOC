@@ -537,6 +537,23 @@ The Final's value depends on how many column solutions were already known when i
 
 Same rule as columns: solving the Final with **zero** columns known cannot be scored (rejected with a `score:warning`), but the guess can still be marked correct and the board still counts as won.
 
+### Columns solved after the Final
+Solving the Final does **not** end the game — the remaining columns can still be solved, and with the meta answer known they are easier to hit. So **any column solved after the Final has been solved scores 50%** of its normal value (`COLUMN_SCORE_MULTIPLIER_AFTER_FINAL = 0.5`):
+
+| Clues revealed | Normal | After the Final |
+|---|---|---|
+| 1 | 400 | 200 |
+| 2 | 300 | 150 |
+| 3 | 200 | 100 |
+| 4 | 100 | 50 |
+
+- Applies only after a **real Final solve**; a Final the GM declared failed does not make columns easier (full value).
+- A column solved **before** the Final always keeps its full value.
+- Streak milestone bonuses are separate events and are **not** reduced.
+- Order is derived from the authoritative solve order (`chat.solvedTargets` timestamps) and re-derived after every verdict change (`reconcileColumnPoints`), so a GM correction can never leave a stale score: reversing the Final restores its later columns to full value; re-accepting it only halves columns solved after the new acceptance.
+- Each column score event records `basePoints` and `afterFinal` so the RECOUNT/awards engine can see it.
+- The score toast on GM and player screens says `· 50% — FINAL ALREADY SOLVED`.
+
 ### Column streaks
 Consecutive column solves by the same player earn a one-time bonus at each milestone, on top of the columns' own points:
 
@@ -567,7 +584,7 @@ There are no accounts. A profile is matched by display name, trimmed and case-fo
 `gamesPlayed`/`gamesWon` count **boards**, for every player connected when that board is finalized: a win increments both, a Failed Final increments only `gamesPlayed`. This is separate from `finalSolutions`, which only credits whoever actually typed the winning guess.
 
 ### Scoring constants
-Every value above lives in `scoring-constants.js` (`COLUMN_SCORE_BY_CLUES`, `FINAL_SCORE_BY_COLUMNS`, `STREAK_MILESTONE_BONUS`, `FAILED_FINAL_PENALTY`) -- rebalance there, never inline in `server.js`.
+Every value above lives in `scoring-constants.js` (`COLUMN_SCORE_BY_CLUES`, `COLUMN_SCORE_MULTIPLIER_AFTER_FINAL`, `FINAL_SCORE_BY_COLUMNS`, `STREAK_MILESTONE_BONUS`, `FAILED_FINAL_PENALTY`) -- rebalance there, never inline in `server.js`.
 
 ---
 
@@ -799,3 +816,43 @@ Use the creator's **ADD BACKGROUND** upload, or place image files directly in `a
 ```
 
 `game:loaded` is sent to the **host only**. Players only ever see the accompanying public `state:public`.
+
+## LOCKED SPEC — GAME WON Victory
+
+Tone: the system has calculated that further resistance is pointless. Cold, clinical, quietly condescending, but it concedes. **Never** confetti, fireworks, or "Congratulations".
+
+- **Authoritative state:** `sessionState.gameWon` (boolean), exposed as `state:public.gameWon`. Persisted with the room snapshot (crash recovery) and cleared with the board (RESET BOARD / NEXT GAME).
+- **One entry point: the host's manual GAME WON button** (`gm:gameWon`, host-only, idempotent). **Accepting a Final guess is NOT the end of the game** — players can still solve the remaining columns — so it never triggers the victory. Nor is it derived from `finalSolution`/`finalOutcome`: REVEAL ALL marks the Final `success` without a solve, and a lost game must never end in the victory sequence. The host declares victory when the game is actually won.
+- **Reversal:** a host-declared victory is not undone by changing a verdict; it clears only with the board (RESET BOARD / NEXT GAME).
+- **Live sequence plays once.** Each client plays it only when it sees `gameWon` flip false→true **after** its connection's baseline state. The first `state:public` after every load/reconnect is the baseline, so a refresh, reconnect or late join loads directly into the completed state — never a replay. Same hydration-guard idea as the Shadow Broker rules.
+- **One shared renderer:** `Skeleton.playGameWon()` (GM and players). The board reaction (A5–D5 ring pulses in sequence, sparks converging on FINAL, FINAL ring) is drawn on the overlay from measured cell rects, never by mutating board cells (the board rebuilds every timer tick).
+- **Sequence (~7.2 s):** `FINAL ASSOCIATION DETECTED` / `Pattern coherent. Reasoning sufficient.` / `Puzzle structure compromised.` / `Further resistance inefficient.` / `Victory state confirmed.` → large `GAME WON` → after a short delay the line **`Well done, little heroes.`** (**LOCKED wording and capitalization**; ~40% of the title size, muted, italic). GM button cycles `VERIFYING...` → `SOLUTION ACCEPTED` → `GAME WON` (~350 ms each).
+- **Completed state (permanent, no animation):** `body.game-won` — GM `GAME WON` button emerald, FINAL confirmed, subtle board treatment, and the board-driving GM controls locked (`revealCell/hideCell/revealColumn/hideColumn/revealAll/hideAll/revealFinal/hideFinal`, Undo, FAIL buttons). Chat, judging, RESET BOARD and NEXT GAME stay live. The existing SHOW RESULTS score pacing is untouched.
+- Presentation only: no scoring, clue, timer, chat or WOMF logic lives in the victory code.
+
+## Match Ledger & Archive (RECOUNT data capture)
+
+Foundation for the post-game RECOUNT and Match Awards Engine. **Data capture only** — no awards, no RECOUNT screen yet. History cannot be backfilled: it starts when this layer goes live.
+
+- **A match = one board.** `room.match` (see `match-ledger.js`, pure functions) is replaced with a fresh ledger whenever a new board id is minted (room create, RESET BOARD, NEXT GAME). It is persisted with the room snapshot, so it survives a crash.
+- **Game end is locked: the WHOLE FIELD must be opened** — all four column solutions (A5–D5) **and** the FINAL solution. However a field got opened counts: a correct guess (`solved`), a GM-declared failure (`failed`), or simply being revealed on the board (`revealed`, including a plain GM reveal or REVEAL ALL). Precedence is solved > failed > revealed. A Final solved early does **not** end the game — players can still solve the remaining columns (at 50% points, see *Columns solved after the Final*). Status is *derived* each time from `chat.solvedTargets`, `womf.failedColumns` / `ledger.failedAt.FINAL` and the board's revealed slots; hiding a merely-revealed slot re-opens the game. Because opening the field is the ending parameter, REVEAL ALL completes the match; nothing reaches players until the host's manual SHOW RESULTS (planned RECOUNT gate), and victory is still only ever the host's GAME WON. Exposed as `state:public.gameComplete` (boolean only — the ledger never leaves the server). This is distinct from `gameWon`, which is the victory presentation.
+- **Attempts are GM-judged messages only** (upserted by message id, so a flipped or retargeted verdict updates the same attempt). Unjudged chat is recorded separately as *activity* and never counts as an attempt. Wrong verdicts carry no target, so wrong attempts record the total clues revealed at judging time.
+- **Participation:** per-player presence intervals + first-seen (`joinedAt` is overwritten on reconnect, so it cannot be used for this).
+- **Archive:** on completion the server writes a record to `matches.json` (`match-store.js`, gitignored; same atomic-write / backup / quarantine / fail-safe rules as `players.json`): fields, per-player match points (events for THIS board only), judged counts, activity, presence, the full attempt list, and overall standings before/after (shared places: 1, 2, 2, 4). A verdict reversal that re-opens a field withdraws the record; it is re-written on the next completion. RESET BOARD / NEXT GAME never delete a completed match.
+- **History key is the display name** (same as profiles); the account id is stored alongside each player for future migration.
+- **GM board lock** (`body.game-complete`): when the match is complete the clue grid, REVEAL ALL, Undo and FAIL buttons lock. Chat, judging, RESET BOARD and NEXT GAME stay live. It is keyed to `gameComplete`, never to `gameWon` — an early Final leaves columns that still need the clue grid and FAIL A–D.
+
+## LOCKED SPEC — WOMF Blood Tribute
+
+- Trigger: WOMF reaches **10/10**, the Wheel is rolled, and it lands on a linked Little Hero.
+- The selected player alone receives **BLOOD TRIBUTE DEMANDED** and an image-upload field.
+- Accepted tribute formats: PNG, JPEG, WEBP; player-side limit 2 MB.
+- The upload screen must state that the image is public in Battle Comms for **02:00** and is then retained privately by the host in the Tribute Vault.
+- Submission requires the retention notice acknowledgement flag; the server rejects a tribute without it.
+- A submitted image appears as its own Battle Comms identity card with a live public-purge countdown.
+- Public lifetime is server-authoritative: **120,000 ms**. After expiry, the public chat payload no longer includes the tribute or its image data.
+- The GM receives a separate private `tribute:vault` payload; the vault is never included in `state:public`.
+- The GM can explicitly **PURGE VAULT**. Public expiry does not purge the GM vault.
+- Successful payment resolves the WOMF cycle: charge resets to **0/10** and the Wheel closes.
+- Until the outstanding tribute is paid, another Wheel opening/roll is rejected.
+- Current vault lifetime is the active room/session, with active-room crash recovery; closing/destroying the room removes that room archive.

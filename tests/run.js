@@ -12,6 +12,17 @@ const PORT = 18080;
 const BASE = `http://127.0.0.1:${PORT}`;
 const TEST_PLAYERS = path.join(os.tmpdir(), `asoc-test-players-${process.pid}.json`);
 const TEST_SESSION = path.join(os.tmpdir(), `asoc-test-session-${process.pid}.json`);
+const TEST_PLAYER_AUTH_SESSIONS = path.join(os.tmpdir(), `asoc-test-player-auth-sessions-${process.pid}.json`);
+const TEST_MATCHES = path.join(os.tmpdir(), `asoc-test-matches-${process.pid}.json`);
+
+function readArchive(roomCode) {
+  try {
+    const archive = JSON.parse(fs.readFileSync(TEST_MATCHES, 'utf8'));
+    return Object.values(archive.matches || {}).filter(record => !roomCode || record.roomCode === roomCode);
+  } catch {
+    return [];
+  }
+}
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -462,6 +473,166 @@ async function testShadowBrokerControls() {
   closeWs(host);
 }
 
+async function testGameWonReward() {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  const player = await openWs();
+  const firstState = waitForMessage(player, m => m.type === 'state:public', 'game won player initial state');
+  const joined = waitForMessage(player, m => m.type === 'join:success', 'game won player join');
+  player.send(JSON.stringify({
+    type: 'room:join',
+    authToken: TEST_PLAYER_TOKEN,
+    roomCode: room.roomCode,
+    name: 'GAME WON TEST'
+  }));
+  await joined;
+  assert.equal((await firstState).gameWon, false, 'a fresh board is not won');
+
+  const stateWhere = (ws, predicate, label) =>
+    waitForMessage(ws, m => m.type === 'state:public' && predicate(m), label);
+  const bothSee = (predicate, label) => Promise.all([
+    stateWhere(host, predicate, `${label} on host`),
+    stateWhere(player, predicate, `${label} on player`)
+  ]);
+  const command = (name, cmdId) =>
+    host.send(JSON.stringify({ type: 'gm:command', command: name, payload: {}, cmdId }));
+
+  // 1. A player can never trigger it: rejected, and no victory state leaks.
+  const rejected = waitForMessage(
+    player,
+    m => m.type === 'error' && /only host can trigger game won/i.test(m.message || ''),
+    'non-host GAME WON rejection'
+  );
+  let leaked = false;
+  const leakWatch = raw => { try { const m = JSON.parse(raw); if (m.type === 'state:public' && m.gameWon) leaked = true; } catch {} };
+  host.on('message', leakWatch);
+  player.on('message', leakWatch);
+  player.send(JSON.stringify({ type: 'gm:gameWon' }));
+  await rejected;
+  await delay(150);
+  assert.equal(leaked, false, 'GAME WON must not be set by a non-host');
+
+  // 2. REVEAL ALL opens the whole field (which ends the MATCH) but is NOT a
+  //    victory: victory is only ever the host's manual GAME WON.
+  const revealed = bothSee(m => m.finalSolution?.revealed === true, 'reveal all');
+  command('revealAll', 901);
+  const [revealedState] = await revealed;
+  assert.equal(revealedState.gameWon, false, 'REVEAL ALL must not set gameWon');
+  const cleared = bothSee(m => m.finalSolution?.revealed !== true, 'reset after reveal all');
+  command('resetBoard', 902);
+  await cleared;
+
+  // 3. Accepting the FINAL is NOT the end of the game -- columns can still be
+  //    solved -- so it must never trigger the victory. GAME WON is the host's
+  //    manual call.
+  const guessSeen = waitForMessage(
+    host,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'THE FINAL ANSWER'),
+    'final guess chat'
+  );
+  player.send(JSON.stringify({ type: 'chat:guess', text: 'THE FINAL ANSWER' }));
+  const guessId = (await guessSeen).messages.find(x => x.text === 'THE FINAL ANSWER').id;
+  let wonEarly = false;
+  const earlyWatch = raw => { try { const m = JSON.parse(raw); if (m.type === 'state:public' && m.gameWon) wonEarly = true; } catch {} };
+  host.on('message', earlyWatch);
+  player.on('message', earlyWatch);
+  const judgeAck = waitForMessage(host, m => m.type === 'gm:judge:ack' && m.messageId === guessId, 'final judge ack');
+  host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: guessId, verdict: 'correct', target: 'FINAL', reveal: true }));
+  await judgeAck;
+  await delay(200);
+  host.off('message', earlyWatch);
+  player.off('message', earlyWatch);
+  assert.equal(wonEarly, false, 'accepting the Final must NOT trigger GAME WON');
+
+  // 4. The host's manual button is the only way to enter the victory state.
+  const wonManually = bothSee(m => m.gameWon === true, 'manual GAME WON');
+  host.send(JSON.stringify({ type: 'gm:gameWon' }));
+  await wonManually;
+
+  // 5. A late-joining client (a different player) hydrates straight into the
+  //    completed state. (Re-using the first player's token would replace that
+  //    player's socket via stable reconnect identity -- not what this models.)
+  const lateAuth = await requestJson('/api/auth/player/register', 'POST', {
+    email: `gamewon-late-${process.pid}@asoc.test`, password: 'test-player-password', name: 'GAME WON LATE'
+  });
+  assert.ok(lateAuth.status === 200 || lateAuth.status === 201);
+  const joinLate = async () => {
+    const late = await openWs();
+    const lateState = waitForMessage(late, m => m.type === 'state:public', 'late joiner state');
+    late.send(JSON.stringify({ type: 'room:join', authToken: lateAuth.data.token, roomCode: room.roomCode, name: 'GAME WON LATE' }));
+    const state = await lateState;
+    closeWs(late);
+    return state;
+  };
+  assert.equal((await joinLate()).gameWon, true, 'a reconnecting client must hydrate as already won');
+
+  // 6. Manual trigger on an already-won game is a no-op: no new broadcast.
+  let rebroadcast = false;
+  const rebroadcastWatch = raw => { try { if (JSON.parse(raw).type === 'state:public') rebroadcast = true; } catch {} };
+  host.on('message', rebroadcastWatch);
+  host.send(JSON.stringify({ type: 'gm:gameWon' }));
+  await delay(200);
+  host.off('message', rebroadcastWatch);
+  assert.equal(rebroadcast, false, 'GAME WON must be idempotent once won');
+
+  // 7. Reversing the Final verdict does not undo the host's declaration.
+  const reversedAck = waitForMessage(host, m => m.type === 'gm:judge:ack' && m.messageId === guessId && m.verdict === 'wrong', 'reversal ack');
+  host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: guessId, verdict: 'wrong' }));
+  await reversedAck;
+  assert.equal((await joinLate()).gameWon, true, 'a verdict reversal must not un-win a host-declared victory');
+
+  // 8. RESET BOARD clears it with the rest of the board.
+  const resetClears = bothSee(m => m.gameWon === false, 'reset clears GAME WON');
+  command('resetBoard', 903);
+  await resetClears;
+
+  console.log('PASS GAME WON is manual-only (not triggered by the Final; hydrate/idempotent/reset)');
+  closeWs(player);
+  closeWs(host);
+}
+
+async function testAuthoritativeGameLost() {
+  const host = await openWs();
+  const room = await createRoom(host);
+  const player = await openWs();
+  const joined = waitForMessage(player, m => m.type === 'join:success', 'game lost player join');
+  player.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'LOSS TEST' }));
+  await joined;
+
+  const borrowed = waitForMessage(host, m => m.type === 'state:public' && m.timer?.phase === 'borrowed', 'borrowed time transition');
+  host.send(JSON.stringify({ type: 'gm:timerStart' }));
+  host.send(JSON.stringify({ type: 'gm:timerAdjust', deltaMs: -99 * 60 * 1000 }));
+  await borrowed;
+
+  const hostLost = waitForMessage(host, m => m.type === 'state:public' && m.matchResult?.outcome === 'LOST', 'host game lost', 5000);
+  const playerLost = waitForMessage(player, m => m.type === 'state:public' && m.matchResult?.outcome === 'LOST', 'player game lost', 5000);
+  host.send(JSON.stringify({ type: 'gm:timerAdjust', deltaMs: -99 * 60 * 1000 }));
+  const [hostState, playerState] = await Promise.all([hostLost, playerLost]);
+  assert.equal(hostState.matchResult.message, playerState.matchResult.message, 'all clients receive one server-selected message');
+  assert.equal(hostState.finalSolution.outcome, 'failed');
+  assert.equal(hostState.matchResult.finalSolution, hostState.finalSolution.value);
+  assert.ok(Array.isArray(hostState.matchResult.awards));
+  assert.ok(hostState.matchResult.awards.some(a => a.type === 'COLLECTIVE FAILURE'));
+
+  const locked = waitForMessage(player, m => m.type === 'error' && /game lost/i.test(m.message || ''), 'post-loss input locked');
+  player.send(JSON.stringify({ type: 'chat:guess', text: 'TOO LATE' }));
+  await locked;
+
+  const late = await openWs();
+  const credentials = { email: `loss-late-${process.pid}@asoc.test`, password: 'test-player-password', name: 'LOSS LATE' };
+  let auth = await requestJson('/api/auth/player/register', 'POST', credentials);
+  if (auth.status === 400) auth = await requestJson('/api/auth/player/login', 'POST', credentials);
+  const lateState = waitForMessage(late, m => m.type === 'state:public' && m.matchResult?.outcome === 'LOST', 'late join settled loss');
+  late.send(JSON.stringify({ type: 'room:join', authToken: auth.data.token, roomCode: room.roomCode, name: 'LOSS LATE' }));
+  assert.equal((await lateState).matchResult.message, hostState.matchResult.message, 'late join does not reroll the loss message');
+
+  console.log('PASS GAME LOST is timer-authoritative, synchronized, locked and reconnect-safe');
+  closeWs(late);
+  closeWs(player);
+  closeWs(host);
+}
+
 async function testCrashRecovery(server) {
   const host = await openWs();
   const room = await createRoom(host);
@@ -489,6 +660,10 @@ async function testCrashRecovery(server) {
   }));
   await revealAck;
 
+  const wonBeforeCrash = waitForMessage(host, m => m.type === 'state:public' && m.gameWon === true, 'game won before crash');
+  host.send(JSON.stringify({ type: 'gm:gameWon' }));
+  await wonBeforeCrash;
+
   const brokerUpdate = waitForMessage(
     host,
     m => m.type === 'chat:update' && Array.isArray(m.messages) &&
@@ -497,6 +672,15 @@ async function testCrashRecovery(server) {
   );
   host.send(JSON.stringify({ type: 'gm:broadcast', text: 'RECOVERY CHECK' }));
   await brokerUpdate;
+  await delay(100);
+
+  // MATCH LEDGER: a judged attempt made before the crash must survive it.
+  const preGuessSeen = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'PRE CRASH GUESS'), 'pre-crash guess');
+  player.send(JSON.stringify({ type: 'chat:guess', text: 'PRE CRASH GUESS' }));
+  const preGuessId = (await preGuessSeen).messages.find(x => x.text === 'PRE CRASH GUESS').id;
+  const preJudged = waitForMessage(host, m => m.type === 'gm:judge:ack', 'pre-crash judge ack');
+  host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: preGuessId, verdict: 'wrong' }));
+  await preJudged;
   await delay(100);
 
   await new Promise(resolve => {
@@ -528,6 +712,7 @@ async function testCrashRecovery(server) {
   ]).then(values => values.slice(0, 3));
 
   assert.equal(state.cells.A3.revealed, true);
+  assert.equal(state.gameWon, true, 'GAME WON must survive a server crash/restart');
   assert.ok(Array.isArray(state.clueOrder.A) && state.clueOrder.A.includes(3));
   assert.ok(chat.messages.some(m => m.source === 'shadowBroker' && m.text === 'RECOVERY CHECK'));
 
@@ -549,11 +734,320 @@ async function testCrashRecovery(server) {
   const rejoined = await rejoinPromise;
   assert.equal(rejoined.playerId, joined.playerId);
 
+  const completedAfterRestart = waitForMessage(host2, m => m.type === 'state:public' && m.gameComplete === true, 'game complete after restart');
+  for (const column of ['A', 'B', 'C', 'D']) host2.send(JSON.stringify({ type: 'gm:failColumn', column }));
+  host2.send(JSON.stringify({ type: 'gm:failFinal' }));
+  await completedAfterRestart;
+  const restoredArchive = readArchive(room.roomCode);
+  assert.equal(restoredArchive.length, 1);
+  assert.ok(
+    restoredArchive[0].attempts.some(x => x.textKey === 'pre crash guess' && x.verdict === 'wrong'),
+    'the pre-crash judged attempt must survive a restart in the match ledger'
+  );
+
   console.log('PASS session crash recovery');
 
   closeWs(player2);
   closeWs(host2);
   return restarted;
+}
+
+async function testBloodTributeLifecycle() {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  const secondCredentials = {
+    email: `tribute-${process.pid}@asoc.test`,
+    password: 'test-player-password',
+    name: 'TRIBUTE TWO'
+  };
+  let secondAuth = await requestJson('/api/auth/player/register', 'POST', secondCredentials);
+  if (secondAuth.status === 400) secondAuth = await requestJson('/api/auth/player/login', 'POST', secondCredentials);
+  assert.ok(secondAuth.status === 200 || secondAuth.status === 201);
+
+  const p1 = await openWs();
+  const p2 = await openWs();
+  const p1Join = waitForMessage(p1, m => m.type === 'join:success', 'tribute player one join');
+  p1.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'TRIBUTE ONE' }));
+  const one = await p1Join;
+
+  const p2Join = waitForMessage(p2, m => m.type === 'join:success', 'tribute player two join');
+  p2.send(JSON.stringify({ type: 'room:join', authToken: secondAuth.data.token, roomCode: room.roomCode, name: 'TRIBUTE TWO' }));
+  const two = await p2Join;
+
+  async function failColumnsToCharge(columns, target) {
+    const charged = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === target, `WOMF ${target}/10`);
+    for (const column of columns) host.send(JSON.stringify({ type: 'gm:failColumn', column }));
+    await charged;
+  }
+
+  async function resetBoard(cmdId, expectedCharge) {
+    const state = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === expectedCharge, `board reset at ${expectedCharge}/10`);
+    host.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId }));
+    await state;
+  }
+
+  await failColumnsToCharge(['A', 'B', 'C', 'D'], 4);
+  await resetBoard(7001, 4);
+  await failColumnsToCharge(['A', 'B', 'C', 'D'], 8);
+  await resetBoard(7002, 8);
+  await failColumnsToCharge(['A', 'B'], 10);
+
+  const wheelOpened = waitForMessage(host, m => m.type === 'state:public' && m.wheel?.open === true, 'tribute wheel open');
+  host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['TRIBUTE ONE', 'TRIBUTE TWO'] }));
+  await wheelOpened;
+
+  const resultPromise = waitForMessage(
+    host,
+    m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
+    'tribute demand after wheel result',
+    7000
+  );
+  host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
+  const result = await resultPromise;
+  assert.equal(result.womf.charge, 10);
+  assert.ok(result.bloodTribute.playerId === one.playerId || result.bloodTribute.playerId === two.playerId);
+
+  const selected = result.bloodTribute.playerId === one.playerId ? p1 : p2;
+  const imageData = 'data:image/png;base64,iVBORw0KGgo=';
+  const acceptedPromise = waitForMessage(selected, m => m.type === 'tribute:accepted', 'tribute accepted');
+  const resetPromise = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 0 && m.wheel?.open === false, 'WOMF reset after tribute');
+  const vaultPromise = waitForMessage(host, m => m.type === 'tribute:vault' && m.tributes?.length === 1, 'private tribute vault');
+  const publicChatPromise = waitForMessage(selected, m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'bloodTribute'), 'public tribute chat');
+
+  selected.send(JSON.stringify({ type: 'tribute:submit', imageData, retentionAcknowledged: true }));
+  const [accepted, resetState, vault, publicChat] = await Promise.all([acceptedPromise, resetPromise, vaultPromise, publicChatPromise]);
+
+  assert.ok(Number(accepted.publicUntil) > Date.now());
+  assert.equal(resetState.bloodTribute.status, 'idle');
+  assert.equal(Object.prototype.hasOwnProperty.call(resetState, 'bloodTributes'), false);
+  assert.equal(vault.tributes[0].imageData, imageData);
+  assert.equal(vault.tributes[0].publicUntil - vault.tributes[0].submittedAt, 120000);
+  const publicTribute = publicChat.messages.find(x => x.source === 'bloodTribute');
+  assert.equal(publicTribute.imageData, imageData);
+  assert.equal(publicTribute.publicUntil, vault.tributes[0].publicUntil);
+
+  console.log('PASS Blood Tribute lifecycle');
+  closeWs(p1);
+  closeWs(p2);
+  closeWs(host);
+}
+
+async function testMatchCaptureAndCompletion() {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  const player = await openWs();
+  const firstState = waitForMessage(player, m => m.type === 'state:public', 'match capture initial state');
+  const joined = waitForMessage(player, m => m.type === 'join:success', 'match capture join');
+  player.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'MATCH CAPTURE' }));
+  await joined;
+  assert.equal((await firstState).gameComplete, false, 'a fresh board is not complete');
+
+  let cmdId = 8000;
+  const stateWhere = (predicate, label) =>
+    waitForMessage(host, m => m.type === 'state:public' && predicate(m), label);
+  const command = name =>
+    host.send(JSON.stringify({ type: 'gm:command', command: name, payload: {}, cmdId: ++cmdId }));
+  async function guess(text) {
+    await delay(400); // Battle Comms cooldown
+    const seen = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === text), `guess "${text}"`);
+    player.send(JSON.stringify({ type: 'chat:guess', text }));
+    return (await seen).messages.find(x => x.text === text).id;
+  }
+  async function judge(messageId, verdict, target) {
+    const ack = waitForMessage(host, m => m.type === 'gm:judge:ack' && m.messageId === messageId, 'judge ack');
+    host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId, verdict, target }));
+    await ack;
+  }
+  async function fail(field) {
+    const next = waitForMessage(host, m => m.type === 'state:public', `fail ${field}`);
+    host.send(JSON.stringify(field === 'FINAL' ? { type: 'gm:failFinal' } : { type: 'gm:failColumn', column: field }));
+    return next;
+  }
+
+  // ---- Scenario A: A solved, B/C/D/FINAL failed -> complete only at the last field.
+  await guess('just thinking out loud');                    // unjudged: activity, NOT an attempt
+  const solvedId = await guess('column a answer');
+  await judge(solvedId, 'correct', 'A');
+  const wrongId = await guess('a wrong answer');
+  await judge(wrongId, 'wrong');
+  for (const column of ['B', 'C', 'D']) {
+    assert.equal((await fail(column)).gameComplete, false, `four fields done is not the end (after ${column})`);
+  }
+  const completedA = stateWhere(m => m.gameComplete === true, 'complete after the fifth field');
+  host.send(JSON.stringify({ type: 'gm:failFinal' }));
+  await completedA;
+
+  let archive = readArchive(room.roomCode);
+  assert.equal(archive.length, 1, 'completion archives exactly one match');
+  const a = archive[0];
+  assert.equal(a.fields.A.status, 'solved');
+  for (const field of ['B', 'C', 'D', 'FINAL']) assert.equal(a.fields[field].status, 'failed');
+  assert.equal(a.gameWon, false, 'a failed Final is not a victory');
+  const me = a.players.find(p => p.name === 'MATCH CAPTURE');
+  assert.ok(me, 'the participant is in the archive');
+  assert.deepEqual(me.judged, { total: 2, correct: 1, wrong: 1 }, 'only GM-judged messages are attempts');
+  assert.equal(me.messages, 3, 'unjudged chatter is counted as activity');
+  assert.equal(me.matchPoints, -200, 'this match only: the failed-Final penalty (column A had no clues to score)');
+  assert.ok(a.attempts.some(x => x.textKey === 'a wrong answer' && x.verdict === 'wrong' && x.target === null));
+  const standing = a.standings.find(s => s.key === 'match capture');
+  assert.ok(standing, 'standings are captured for participants');
+  assert.equal(standing.lifetimeAfter - standing.lifetimeBefore, -200);
+
+  // RESET BOARD clears completion but KEEPS the archived completed match.
+  const cleared = stateWhere(m => m.gameComplete === false, 'reset clears completion');
+  command('resetBoard');
+  await cleared;
+  assert.equal(readArchive(room.roomCode).length, 1, 'a reset never deletes a completed match');
+
+  // ---- Scenario B: the WHOLE FIELD OPENED ends the game, however it got opened,
+  //      and hiding a slot re-opens it. (Victory is separate: opening the field
+  //      never sets gameWon.)
+  const openedAll = stateWhere(m => m.gameComplete === true, 'whole field opened by REVEAL ALL');
+  command('revealAll');
+  const openedState = await openedAll;
+  assert.equal(openedState.gameWon, false, 'opening the field is not a host-declared victory');
+  archive = readArchive(room.roomCode);
+  assert.equal(archive.length, 2);
+  const openedRecord = archive.find(r => r.fields.A.status === 'revealed');
+  assert.ok(openedRecord, 'plainly opened fields are archived as revealed');
+  for (const field of ['A', 'B', 'C', 'D', 'FINAL']) assert.equal(openedRecord.fields[field].status, 'revealed');
+  const hiddenAgain = stateWhere(m => m.gameComplete === false, 'hide all re-opens the field');
+  command('hideAll');
+  await hiddenAgain;
+  assert.equal(readArchive(room.roomCode).length, 1, 'a re-opened match is withdrawn from the archive');
+  const cleared2 = stateWhere(m => m.finalSolution?.revealed !== true, 'reset for the early-final scenario');
+  command('resetBoard');
+  await cleared2;
+
+  const finalId = await guess('the final answer');
+  await judge(finalId, 'correct', 'FINAL');
+  // The Final accepted first is NOT the end -- columns are still open -- and
+  // it is not a host-declared victory either.
+  for (const column of ['A', 'B', 'C']) {
+    const state = await fail(column);
+    assert.equal(state.gameComplete, false, `still open after failing ${column}`);
+    assert.equal(state.gameWon, false, 'accepting the Final never declares victory');
+  }
+  const completedB = stateWhere(m => m.gameComplete === true, 'complete on the last column');
+  host.send(JSON.stringify({ type: 'gm:failColumn', column: 'D' }));
+  await completedB;
+
+  archive = readArchive(room.roomCode);
+  assert.equal(archive.length, 2);
+  const b = archive.find(r => r.fields.FINAL.status === 'solved');
+  assert.ok(b, 'the second match has a solved FINAL');
+  assert.equal(b.gameWon, false, 'the archive records victory only when the host declared it');
+  for (const field of ['A', 'B', 'C', 'D']) assert.equal(b.fields[field].status, 'failed');
+
+  // ---- Reversing the accepted Final re-opens the match and withdraws its archive record...
+  const reopened = stateWhere(m => m.gameComplete === false, 'reversal re-opens the match');
+  await judge(finalId, 'wrong');
+  await reopened;
+  assert.equal(readArchive(room.roomCode).length, 1, 'a re-opened match is withdrawn from the archive');
+
+  // ...and re-accepting it completes (and archives) it again.
+  const completedAgain = stateWhere(m => m.gameComplete === true, 'complete again');
+  await judge(finalId, 'correct', 'FINAL');
+  await completedAgain;
+  assert.equal(readArchive(room.roomCode).length, 2);
+
+  console.log('PASS match capture: five-field completion, judged-only attempts, archive');
+  closeWs(player);
+  closeWs(host);
+}
+
+async function testColumnScoreAfterFinal() {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  const player = await openWs();
+  const joined = waitForMessage(player, m => m.type === 'join:success', 'after-final player join');
+  player.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'AFTER FINAL' }));
+  await joined;
+
+  let lastScore = null;
+  host.on('message', raw => {
+    try {
+      const m = JSON.parse(raw);
+      if (m.type === 'players:update') {
+        const me = m.players.find(p => p.name === 'AFTER FINAL');
+        if (me) lastScore = me.score;
+      }
+    } catch {}
+  });
+
+  let cmdId = 9000;
+  async function reveal(cell) {
+    // command:ack carries only a revision (no cmdId); commands here are sequential.
+    const ack = waitForMessage(host, m => m.type === 'command:ack', `reveal ${cell}`);
+    host.send(JSON.stringify({ type: 'gm:command', command: 'revealCell', payload: { cell, reveal: true }, cmdId: ++cmdId }));
+    await ack;
+  }
+  async function guess(text) {
+    await delay(400); // Battle Comms cooldown
+    const seen = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === text), `guess "${text}"`);
+    player.send(JSON.stringify({ type: 'chat:guess', text }));
+    return (await seen).messages.find(x => x.text === text).id;
+  }
+  async function judge(messageId, verdict, target) {
+    const ack = waitForMessage(host, m => m.type === 'gm:judge:ack' && m.messageId === messageId, 'judge ack');
+    host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId, verdict, target }));
+    await ack;
+  }
+  async function solveColumn(column, text) {
+    const id = await guess(text);
+    const award = waitForMessage(host, m => m.type === 'score:event' && m.target === column, `score for ${column}`);
+    await judge(id, 'correct', column);
+    return award;
+  }
+
+  // Column A is solved BEFORE the Final: full value (1 clue revealed = 400).
+  await reveal('A1');
+  const a = await solveColumn('A', 'column a answer');
+  assert.equal(a.points, 400);
+  assert.equal(a.afterFinal, false, 'a column solved before the Final scores in full');
+
+  // The Final is solved (1 column known = 1200).
+  const finalId = await guess('the final answer');
+  await judge(finalId, 'correct', 'FINAL');
+
+  // Column B is solved AFTER the Final: half of its 300 (2 clues revealed).
+  await reveal('B1');
+  await reveal('B2');
+  const b = await solveColumn('B', 'column b answer');
+  assert.equal(b.cluesRevealed, 2);
+  assert.equal(b.points, 150, 'a column solved after the Final scores 50%');
+  assert.equal(b.afterFinal, true);
+  await delay(100);
+  const scoreAfterB = lastScore;
+
+  // Reversing the Final removes its 1200 AND restores B to its full 300 (+150).
+  await judge(finalId, 'wrong');
+  const scoreAfterReversal = lastScore;
+  assert.equal(scoreAfterB - scoreAfterReversal, 1200 - 150, 'reversal restores the full column value');
+
+  // Re-accepting the Final: 2 columns known = 800. B was solved BEFORE this
+  // new Final solve, so it stays at its full value.
+  await judge(finalId, 'correct', 'FINAL');
+  assert.equal(lastScore - scoreAfterReversal, 800, 'columns solved before the (re-)accepted Final stay in full');
+
+  // A FAILED Final does not make columns easier: full value.
+  const cleared = waitForMessage(host, m => m.type === 'state:public' && m.finalSolution?.revealed !== true, 'reset for failed-final board');
+  host.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: ++cmdId }));
+  await cleared;
+  await reveal('C1');
+  const failedFinal = waitForMessage(host, m => m.type === 'score:finalReveal', 'final failed reveal');
+  host.send(JSON.stringify({ type: 'gm:failFinal' }));
+  await failedFinal;
+  const c = await solveColumn('C', 'column c answer');
+  assert.equal(c.points, 400, 'a failed Final never halves a column');
+  assert.equal(c.afterFinal, false);
+
+  console.log('PASS column score is 50% once the Final is solved (and corrects with verdicts)');
+  closeWs(player);
+  closeWs(host);
 }
 
 function startServer() {
@@ -566,6 +1060,8 @@ function startServer() {
         ASOC_PLAYERS_FILE: TEST_PLAYERS,
         ASOC_SESSION_FILE: TEST_SESSION,
         ASOC_AUTH_FILE: path.join(os.tmpdir(), `asoc-test-auth-${process.pid}.json`),
+        ASOC_PLAYER_AUTH_SESSIONS_FILE: TEST_PLAYER_AUTH_SESSIONS,
+        ASOC_MATCHES_FILE: TEST_MATCHES,
         ASOC_GM_PASSWORD: 'test-gm-password'
       },
       stdio: ['ignore', 'pipe', 'pipe']
@@ -610,6 +1106,11 @@ function startServer() {
     await testChatEmojiReactions();
     await testResetBroadcast();
     await testShadowBrokerControls();
+    await testGameWonReward();
+    await testAuthoritativeGameLost();
+    await testBloodTributeLifecycle();
+    await testMatchCaptureAndCompletion();
+    await testColumnScoreAfterFinal();
     server = await testCrashRecovery(server);
     console.log('ALL ASOC REGRESSION TESTS PASSED');
   } catch (error) {
@@ -619,5 +1120,9 @@ function startServer() {
     if (server) server.kill();
     try { fs.unlinkSync(TEST_PLAYERS); } catch {}
     try { fs.unlinkSync(TEST_SESSION); } catch {}
+    try { fs.unlinkSync(TEST_PLAYER_AUTH_SESSIONS); } catch {}
+    try { fs.unlinkSync(TEST_PLAYER_AUTH_SESSIONS + '.tmp'); } catch {}
+    try { fs.unlinkSync(TEST_MATCHES); } catch {}
+    try { fs.unlinkSync(TEST_MATCHES + '.bak'); } catch {}
   }
 })();

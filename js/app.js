@@ -16,11 +16,34 @@ const App = {
   _gmNewMessageCount: 0,
   _gmWrongFadeTimer: null,
   _gmWrongVerdictSeenAt: new Map(),
+  _gmTributeExpiryTimer: null,
+  bloodTribute: { status: 'idle' },
+  bloodTributes: [],
   chatReactionEmojis: ['😂', '💀', '🤡', '🖤', '🔥', '👀', '👍', '👎', '😭', '😈', '🤔', '🫡'],
   pendingVerdict: null,
   _reconnectPending: false,
   _hostingInFlight: false,
   finalRevealed: false,
+  // GAME WON -- mirrors the server's authoritative sessionState.gameWon.
+  // The live sequence plays ONLY when applyServerState() sees it flip
+  // false->true on a connection that has already received a baseline state
+  // (_victoryBaselined); the first state after every (re)connect is that
+  // baseline, so a refresh/reconnect loads straight into the completed state.
+  gameWon: false,
+  _victoryBaselined: false,
+  _victoryLive: false,
+  gameLost: false,
+  _lossBaselined: false,
+  _lossResultKey: null,
+  // GAME COMPLETE -- the server's authoritative "all five fields resolved"
+  // (solved OR failed). This, not gameWon, is what locks the board: the Final
+  // can be solved early while columns are still open, and those columns still
+  // need the clue grid and FAIL A-D to be finished.
+  gameComplete: false,
+  _gameWonLockedCommands: new Set([
+    'revealCell', 'hideCell', 'revealColumn', 'hideColumn',
+    'revealAll', 'hideAll', 'revealFinal', 'hideFinal'
+  ]),
   // FINAL SOLUTION REVEAL FLOURISH -- an epoch-ms deadline. Set once, in
   // applyServerState(), the moment finalRevealed is detected flipping
   // false->true on an AUTHORITATIVE confirmed broadcast (never from
@@ -220,6 +243,7 @@ const App = {
     document.getElementById('reset-board-btn').addEventListener('click', () => this.confirmReset());
     document.getElementById('undo-btn').addEventListener('click', () => this.handleUndo());
     document.getElementById('nema-asoc-btn')?.addEventListener('click', () => this.triggerNemaAsoc());
+    document.getElementById('game-won-btn')?.addEventListener('click', () => this.triggerGameWon());
 
     document.getElementById('library-btn').addEventListener('click', () => Forge.open());
     document.getElementById('library-btn-footer').addEventListener('click', () => ControlSurfaces.toggle());
@@ -250,6 +274,36 @@ const App = {
     const gmEmojiToggle = document.getElementById('gm-emoji-toggle');
     const gmEmojiPicker = document.getElementById('gm-emoji-picker');
     const gmReactionPicker = document.getElementById('gm-chat-reaction-picker');
+    const gmContextMenu = document.getElementById('gm-chat-context-menu');
+    if (gmReactionPicker && gmReactionPicker.parentElement !== document.body) document.body.appendChild(gmReactionPicker);
+    if (gmContextMenu && gmContextMenu.parentElement !== document.body) document.body.appendChild(gmContextMenu);
+    let gmContextMessageEl = null;
+    const closeGMContextMenu = () => {
+      if (!gmContextMenu) return;
+      gmContextMenu.hidden = true;
+      gmContextMenu.removeAttribute('data-message-id');
+      gmContextMenu._messageEl = null;
+      gmContextMessageEl = null;
+    };
+    const openGMContextMenu = (messageEl, clientX, clientY) => {
+      if (!gmContextMenu || !messageEl) return;
+      const messageId = messageEl.dataset.messageId || '';
+      if (!messageId) return;
+      gmContextMessageEl = messageEl;
+      gmContextMenu._messageEl = messageEl;
+      gmContextMenu.dataset.messageId = messageId;
+      gmContextMenu.hidden = false;
+      if (gmReactionPicker) gmReactionPicker.hidden = true;
+      if (gmEmojiPicker) gmEmojiPicker.hidden = true;
+      requestAnimationFrame(() => {
+        const rect = gmContextMenu.getBoundingClientRect();
+        const left = Math.max(8, Math.min(clientX, window.innerWidth - rect.width - 8));
+        const top = Math.max(8, Math.min(clientY, window.innerHeight - rect.height - 8));
+        gmContextMenu.style.left = left + 'px';
+        gmContextMenu.style.top = top + 'px';
+        gmContextMenu.querySelector('button')?.focus({ preventScroll:true });
+      });
+    };
     const gmPickerButtons = this.chatReactionEmojis
       .map(emoji => `<button type="button" class="gm-emoji-option" data-emoji="${emoji}">${emoji}</button>`)
       .join('');
@@ -278,6 +332,49 @@ const App = {
       gmReactionPicker.hidden = true;
     });
 
+    document.addEventListener('contextmenu', (e) => {
+      const messageEl = e.target.closest('#gm-chat-messages .gm-chat-message, #gm-chat-messages .gm-shadow-broker-entry');
+      if (!messageEl) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openGMContextMenu(messageEl, e.clientX, e.clientY);
+    }, true);
+
+    gmContextMenu?.addEventListener('click', (e) => {
+      const action = e.target.closest('[data-gm-chat-action]')?.dataset.gmChatAction;
+      if (!action) return;
+      // Keep this click away from the page-level outside-click handlers: they
+      // would read a REACT click as "outside the picker" and hide the picker
+      // this very click just opened.
+      e.stopPropagation();
+      const messageId = gmContextMenu.dataset.messageId || '';
+      // Chat re-renders replace message nodes wholesale, so the element cached
+      // when the menu opened may be detached by now. Re-resolve it by id.
+      const messageEl = (messageId && document.querySelector(`#gm-chat-messages [data-message-id="${CSS.escape(messageId)}"]`))
+        || gmContextMenu._messageEl || gmContextMessageEl;
+      if (!messageEl || !messageId) return;
+      closeGMContextMenu();
+      if (action === 'react') {
+        // A detached anchor has a zero rect; the message is gone, nothing to react to.
+        if (messageEl.isConnected) this.openGMChatReactionPicker(messageId, messageEl);
+        return;
+      }
+      if (action === 'reply') {
+        const input = document.getElementById('shadow-broker-input');
+        if (!input) return;
+        const name = messageEl.dataset.playerName || (messageEl.classList.contains('gm-shadow-broker-entry') ? 'SHADOW BROKER' : 'LITTLE HERO');
+        const excerpt = (messageEl.querySelector('.gm-chat-message-text, .shadow-broker-text')?.textContent || '')
+          .replace(/[:\r\n]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 30);
+        const prefix = `↳ @${name}${excerpt ? ` // ${excerpt}` : ''}: `;
+        input.value = prefix + input.value.replace(/^↳ @[^:]{1,80}:\s*/, '');
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+    });
+
     const gmChatContainer = document.getElementById('gm-chat-messages');
     gmChatContainer?.addEventListener('scroll', () => {
       const { scrollTop, scrollHeight, clientHeight } = gmChatContainer;
@@ -286,6 +383,7 @@ const App = {
         this._gmNewMessageCount = 0;
         this.updateGMNewMessageChip();
       }
+      closeGMContextMenu();
     });
 
     document.getElementById('gm-chat-new-messages')?.addEventListener('click', () => {
@@ -298,6 +396,7 @@ const App = {
     document.getElementById('womf-fail-final-btn')?.addEventListener('click', () => this.declareFinalFailed());
     document.getElementById('womf-subtract-btn')?.addEventListener('click', () => this.declareWomfSubtract());
     document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
+    document.getElementById('blood-tribute-vault-clear')?.addEventListener('click', () => this.clearBloodTributeVault());
     document.getElementById('alltime-toggle-btn').addEventListener('click', () => this.toggleAllTimeView());
     document.getElementById('womf-open-btn')?.addEventListener('click', () => this.openWomf());
 
@@ -312,6 +411,7 @@ const App = {
     document.getElementById('wheel-setup-confirm')?.addEventListener('click', () => this.confirmWheelSetup());
 
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeGMContextMenu();
       if (e.key === 'Escape' && this.currentView === 'public') {
         this.togglePublicView(false);
       }
@@ -324,6 +424,8 @@ const App = {
       }
     });
 
+    window.addEventListener('resize', closeGMContextMenu, { passive:true });
+
     document.body.addEventListener('click', (e) => {
       const liveEmojiPicker = document.getElementById('gm-emoji-picker');
       const liveReactionPicker = document.getElementById('gm-chat-reaction-picker');
@@ -333,6 +435,7 @@ const App = {
       if (liveReactionPicker && !liveReactionPicker.hidden && !liveReactionPicker.contains(e.target) && !e.target.closest('.gm-chat-reaction-add')) {
         liveReactionPicker.hidden = true;
       }
+      if (gmContextMenu && !gmContextMenu.hidden && !gmContextMenu.contains(e.target)) closeGMContextMenu();
 
       const btn = e.target.closest('.gm-cell-btn');
       if (btn) {
@@ -410,6 +513,7 @@ const App = {
     this.ws.onopen = () => {
       console.log('[GM] WebSocket connected');
       this.reconnectAttempts = 0;
+      this._victoryBaselined = false;
     };
 
     this.ws.onmessage = (event) => {
@@ -445,7 +549,90 @@ const App = {
     Skeleton.playNemaAsoc();
   },
 
+  // The host's manual entry into the SAME authoritative victory state the
+  // server sets when the judge accepts the Final. In a room the server owns
+  // it (state:public -> every client, this one included, plays the sequence);
+  // with no room there is no server, so it is applied locally. Idempotent: a
+  // completed game never replays.
+  triggerGameWon() {
+    if (this.gameWon || this._victoryLive) return;
+    if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+      this.send({ type: 'gm:gameWon' });
+      return;
+    }
+    this.setGameWon(true, { play: true });
+  },
+
+  setGameComplete(complete) {
+    this.gameComplete = complete === true;
+    document.body.classList.toggle('game-complete', this.gameComplete);
+  },
+
+  setGameWon(won, { play = false } = {}) {
+    const wasWon = this.gameWon;
+    this.gameWon = won === true;
+    if (this.gameWon && !wasWon && play) this.playVictory();
+    this.renderGameWonState();
+  },
+
+  applyLossState(matchResult) {
+    const lost = matchResult?.outcome === 'LOST';
+    const key = lost ? String(matchResult.occurredAt || matchResult.message || 'lost') : null;
+    const live = this._lossBaselined && !this.gameLost && lost;
+    const changed = key !== this._lossResultKey;
+    this._lossBaselined = true;
+    this.gameLost = lost;
+    this._lossResultKey = key;
+    document.body.classList.toggle('game-lost', lost);
+    if (!lost) document.querySelector('.defeat-overlay')?.remove();
+    else if (live) Skeleton.playGameLost(matchResult, { live: true });
+    else if (changed && !document.querySelector('.defeat-overlay')) Skeleton.playGameLost(matchResult, { live: false });
+  },
+
+  // Completed state: derived purely from this.gameWon, so it is identical
+  // after a refresh, a reconnect, or the live sequence finishing.
+  renderGameWonState() {
+    document.body.classList.toggle('game-won', this.gameWon);
+    const btn = document.getElementById('game-won-btn');
+    if (!btn || this._victoryLive) return;
+    btn.classList.remove('is-cycling');
+    btn.classList.toggle('is-won', this.gameWon);
+    btn.textContent = 'GAME WON';
+    btn.setAttribute('aria-pressed', this.gameWon ? 'true' : 'false');
+  },
+
+  playVictory() {
+    this._victoryLive = true;
+    const btn = document.getElementById('game-won-btn');
+    Skeleton.playGameWon({
+      onStage: (stage) => {
+        if (stage === 'done') {
+          this._victoryLive = false;
+          this.renderGameWonState();
+          return;
+        }
+        if (!btn) return;
+        if (stage === 'verifying') {
+          btn.classList.add('is-cycling');
+          btn.textContent = 'VERIFYING...';
+        } else if (stage === 'accepted') {
+          btn.textContent = 'SOLUTION ACCEPTED';
+        } else if (stage === 'won') {
+          btn.classList.remove('is-cycling');
+          btn.classList.add('is-won', 'is-won-pop');
+          btn.textContent = 'GAME WON';
+          setTimeout(() => btn.classList.remove('is-won-pop'), 650);
+        }
+      }
+    });
+  },
+
   sendCommand(command, payload) {
+    // Game over (all five fields resolved): board-driving commands are locked
+    // (see body.game-complete CSS). RESET BOARD / NEXT GAME are not in this
+    // set and clear the state.
+    if (this.gameComplete && this._gameWonLockedCommands.has(command)) return;
+
     if (this.mode === 'local') {
       this.executeLocalCommand(command, payload);
       return;
@@ -498,6 +685,8 @@ const App = {
       }
       case 'resetBoard': {
         Board.resetBoard();
+        this.setGameWon(false);
+        this.setGameComplete(false);
         changed = true;
         break;
       }
@@ -557,6 +746,8 @@ const App = {
           // and re-arm the Failed Final action (session score itself is
           // untouched; that lives server-side in room.scoring.players).
           this.finalRevealed = false;
+          this.setGameWon(false);
+          this.setGameComplete(false);
           this._lastAnnouncedStreak = {};
           this.updateFailFinalButtonVisibility();
           this.buildGMControls();
@@ -609,6 +800,15 @@ const App = {
 
       case 'leaderboard:allTime':
         this.renderAllTimeLeaderboard(message.players || []);
+        break;
+
+      case 'tribute:vault':
+        this.bloodTributes = Array.isArray(message.tributes) ? message.tributes : [];
+        this.renderBloodTributeVault();
+        break;
+
+      case 'tribute:unavailable':
+        alert(`BLOOD TRIBUTE UNAVAILABLE // ${message.playerName || 'UNKNOWN'} is not linked to a player identity.`);
         break;
 
       case 'chat:update': {
@@ -723,6 +923,17 @@ const App = {
   },
 
   applyServerState(state) {
+    // Victory is authoritative server state. Play the live sequence only on
+    // a false->true flip AFTER this connection's baseline state; the baseline
+    // itself (first state after load/reconnect) just renders the completed
+    // state. Late joiners and refreshes therefore never replay it.
+    const victoryNow = state.gameWon === true;
+    const victoryLive = this._victoryBaselined && !this.gameWon && victoryNow;
+    this._victoryBaselined = true;
+    this.setGameWon(victoryNow, { play: victoryLive });
+    this.applyLossState(state.matchResult || null);
+    this.setGameComplete(state.gameComplete === true);
+
     const wasFinalRevealed = this.finalRevealed;
     this.finalRevealed = state.finalSolution?.revealed === true;
     // See _finalFlourishUntil's declaration for why this is decided here,
@@ -738,6 +949,9 @@ const App = {
 
     this.wheel = state.wheel || { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
     this.updateWheelUI();
+
+    this.bloodTribute = state.bloodTribute || { status: 'idle' };
+    this.renderBloodTributeVault();
 
     this.timer = state.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 };
     this.updateTimerUI();
@@ -802,6 +1016,8 @@ const App = {
     }
     document.getElementById('next-game-btn').style.display = isMultiplayer ? 'block' : 'none';
     document.getElementById('scoring-section').style.display = isMultiplayer ? 'block' : 'none';
+    const tributeVaultSection = document.getElementById('blood-tribute-vault-section');
+    if (tributeVaultSection) tributeVaultSection.style.display = isMultiplayer ? 'block' : 'none';
     const recordsSection = document.getElementById('records-section');
     if (recordsSection) recordsSection.style.display = isMultiplayer ? 'block' : 'none';
     ControlSurfaces.updateSessionSummary();
@@ -1042,6 +1258,47 @@ const App = {
     });
   },
 
+  renderBloodTributeVault() {
+    const list = document.getElementById('blood-tribute-vault-list');
+    const status = document.getElementById('blood-tribute-vault-status');
+    const clearBtn = document.getElementById('blood-tribute-vault-clear');
+    if (!list || !status) return;
+
+    const tributes = Array.isArray(this.bloodTributes) ? this.bloodTributes : [];
+    if (this.bloodTribute?.status === 'required') {
+      status.textContent = `DEBT OUTSTANDING // ${this.bloodTribute.playerName || 'UNKNOWN'}`;
+      status.classList.add('debt-outstanding');
+    } else {
+      status.textContent = tributes.length
+        ? `${tributes.length} TRIBUTE${tributes.length === 1 ? '' : 'S'} ARCHIVED // GM PRIVATE`
+        : 'NO TRIBUTES ARCHIVED';
+      status.classList.remove('debt-outstanding');
+    }
+
+    const now = Date.now();
+    list.innerHTML = tributes.map(t => {
+      const publicNow = Number(t.publicUntil) > now;
+      const stamp = new Date(Number(t.submittedAt) || now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return `
+        <article class="blood-tribute-vault-item">
+          <img src="${t.imageData}" alt="Archived tribute image">
+          <div class="blood-tribute-vault-meta">
+            <strong>${this.escapeHtml(t.playerName || 'LITTLE HERO')}</strong>
+            <span>${stamp} // ${publicNow ? 'PUBLIC WINDOW ACTIVE' : 'ARCHIVED'}</span>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    if (clearBtn) clearBtn.disabled = tributes.length === 0;
+  },
+
+  clearBloodTributeVault() {
+    if (this.mode !== 'multiplayer' || !this.bloodTributes.length) return;
+    if (!confirm('Purge every archived Blood Tribute from the private vault? This cannot be undone.')) return;
+    this.send({ type: 'gm:tributeVaultClear' });
+  },
+
   // ---------------------------------------------------------------------
   // TIMER + BORROWED TIME -- GM controls just send the command; all display
   // logic (numeric, bars, phase labels, color states) lives in js/timer.js,
@@ -1120,7 +1377,7 @@ const App = {
     toast.className = 'score-toast';
     const detail = award.awardType === 'final'
       ? `FINAL SOLVED AFTER ${award.columnsKnownAtSolve} COLUMN${award.columnsKnownAtSolve === 1 ? '' : 'S'}`
-      : `COLUMN ${award.target} — ${award.cluesRevealed} CLUE${award.cluesRevealed === 1 ? '' : 'S'} REVEALED`;
+      : `COLUMN ${award.target} — ${award.cluesRevealed} CLUE${award.cluesRevealed === 1 ? '' : 'S'} REVEALED${award.afterFinal ? ' · 50% — FINAL ALREADY SOLVED' : ''}`;
     toast.innerHTML = `
       <div class="score-toast-name">${this.escapeHtml(award.playerName)}</div>
       <div class="score-toast-detail">${detail}</div>
@@ -1296,6 +1553,10 @@ const App = {
     this.mode = 'local';
     sessionStorage.removeItem('asoc_host_room');
     sessionStorage.removeItem('asoc_host_token');
+    // No room -> no authoritative victory state either.
+    this._victoryBaselined = false;
+    this.setGameWon(false);
+    this.setGameComplete(false);
     this.updateMultiplayerUI();
     this.updatePlayerList([]);
     // No room -> no authoritative WOMF value anymore. Local mode has no
@@ -1308,6 +1569,9 @@ const App = {
     // stuck showing the last room's spin.
     this.wheel = { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
     this.updateWheelUI();
+    this.bloodTribute = { status: 'idle' };
+    this.bloodTributes = [];
+    this.renderBloodTributeVault();
     // Same for the Timer -- local mode has no server-authoritative countdown,
     // so it goes back to the static un-started 'ready' default rather than
     // holding onto (or continuing to display) the last room's clock.
@@ -1344,6 +1608,7 @@ const App = {
   },
 
   handleUndo() {
+    if (this.gameComplete) return; // game over: board controls are locked
     if (this.mode === 'multiplayer') {
       alert('Undo in multiplayer: perform the inverse action manually (e.g., HIDE to undo REVEAL).');
       return;
@@ -1799,6 +2064,7 @@ const App = {
     const previousScrollHeight = container.scrollHeight;
     const now = Date.now();
     let nextWrongFadeMs = Infinity;
+    let nextTributeTickMs = Infinity;
     let html = '';
 
     this.chatMessages.forEach((msg, index) => {
@@ -1810,6 +2076,10 @@ const App = {
         const wrongSeenAt = this._gmWrongVerdictSeenAt.get(msg.id) ?? (now - 3000);
         const remaining = 3000 - (now - wrongSeenAt);
         if (remaining > 0) nextWrongFadeMs = Math.min(nextWrongFadeMs, remaining);
+      }
+      if (msg.source === 'bloodTribute') {
+        const tributeRemaining = Number(msg.publicUntil) - now;
+        if (tributeRemaining > 0) nextTributeTickMs = Math.min(nextTributeTickMs, tributeRemaining, 1000);
       }
       html += this.createGMChatMessageHTML(
         msg,
@@ -1823,6 +2093,13 @@ const App = {
     clearTimeout(this._gmWrongFadeTimer);
     if (Number.isFinite(nextWrongFadeMs)) {
       this._gmWrongFadeTimer = setTimeout(() => this.renderGMChat(), Math.max(30, nextWrongFadeMs + 30));
+    }
+    clearTimeout(this._gmTributeExpiryTimer);
+    if (Number.isFinite(nextTributeTickMs)) {
+      this._gmTributeExpiryTimer = setTimeout(() => {
+        this.renderGMChat();
+        this.renderBloodTributeVault();
+      }, Math.max(30, nextTributeTickMs + 30));
     }
 
     if (wasAtBottom) {
@@ -1865,12 +2142,34 @@ const App = {
   },
 
   createGMChatMessageHTML(msg, grouped = false, now = Date.now()) {
+    if (msg.source === 'bloodTribute') {
+      const remainingMs = Number(msg.publicUntil) - now;
+      if (!msg.imageData || remainingMs <= 0) return '';
+      const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+      const seconds = String(totalSeconds % 60).padStart(2, '0');
+      return `
+        <div class="gm-chat-blood-tribute-entry" data-message-id="${this.escapeHtml(msg.id)}">
+          <div class="blood-tribute-chat-head"><span>BLOOD TRIBUTE // ${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><b>PUBLIC PURGE ${minutes}:${seconds}</b></div>
+          <img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image">
+        </div>
+      `;
+    }
+
     if (msg.source === 'shadowBroker') {
       const isNew = !this._seenShadowBrokerKeys.has(msg.id);
       if (isNew) this._seenShadowBrokerKeys.add(msg.id);
+      const replyMatch = typeof msg.text === 'string'
+        ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
+        : null;
+      const messageText = replyMatch ? replyMatch[3] : msg.text;
+      const replyContextHtml = replyMatch
+        ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
+        : '';
       return `
-        <div class="gm-shadow-broker-entry" data-message-id="${this.escapeHtml(msg.id)}">
-          ${Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew })}
+        <div class="gm-shadow-broker-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+          ${replyContextHtml}
+          ${Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchIn: isNew })}
           ${this.createGMReactionSummaryHTML(msg)}
         </div>
       `;
@@ -1912,7 +2211,7 @@ const App = {
     }
 
     return `
-      <div class="gm-chat-message gm-flow-message ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}">
+      <div class="gm-chat-message gm-flow-message ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
         <div class="gm-chat-avatar-rail">${grouped ? '' : this.littleHeroAvatarHTML(identity, true)}</div>
         <div class="gm-chat-message-main">
           ${grouped ? '' : `<div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>`}
@@ -1928,6 +2227,32 @@ const App = {
         </div>` : '<div class="gm-chat-quick-actions adjudicated" aria-hidden="true"></div>'}
       </div>
     `;
+  },
+
+  openGMMessageActionMenu(event, messageEl) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const menu = document.getElementById('gm-chat-context-menu');
+    const messageId = messageEl?.dataset?.messageId || '';
+    if (!menu || !messageEl || !messageId) return false;
+
+    menu._messageEl = messageEl;
+    menu.dataset.messageId = messageId;
+    menu.hidden = false;
+    const reactionPicker = document.getElementById('gm-chat-reaction-picker');
+    const emojiPicker = document.getElementById('gm-emoji-picker');
+    if (reactionPicker) reactionPicker.hidden = true;
+    if (emojiPicker) emojiPicker.hidden = true;
+
+    const x = Number(event?.clientX) || 8;
+    const y = Number(event?.clientY) || 8;
+    requestAnimationFrame(() => {
+      const rect = menu.getBoundingClientRect();
+      menu.style.left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8)) + 'px';
+      menu.style.top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8)) + 'px';
+      menu.querySelector('button')?.focus({ preventScroll:true });
+    });
+    return false;
   },
 
   insertGMEmoji(emoji) {

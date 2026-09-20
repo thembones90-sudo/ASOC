@@ -27,5 +27,14 @@ players.json.tmp-*
 # Authentication database -- contains password hashes and player emails.
 auth-store.json
 auth-store.json.tmp
+.player-auth-sessions.json
+.player-auth-sessions.json.tmp
 .gm-password
 gm-lockouts.json
+
+# Archive of completed matches (RECOUNT / GAME HISTORY foundation) -- runtime
+# data, personal to whoever runs the engine, same treatment as players.json.
+matches.json
+matches.json.bak
+matches.json.corrupt-*
+matches.json.tmp-*

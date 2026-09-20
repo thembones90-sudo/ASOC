@@ -7,6 +7,9 @@ const gameStore = require('./game-store');
 const playerStore = require('./player-store');
 const authStore = require('./auth-store');
 const scoring = require('./scoring-constants');
+const matchLedger = require('./match-ledger');
+const matchStore = require('./match-store');
+const recountEngine = require('./recount-engine');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -19,9 +22,34 @@ const PLAYER_CHAT_MIN_INTERVAL_MS = 350;
 const PLAYER_REACTION_MIN_INTERVAL_MS = 120;
 const CHAT_REACTION_EMOJIS = new Set(['😂', '💀', '🤡', '🖤', '🔥', '👀', '👍', '👎', '😭', '😈', '🤔', '🫡']);
 const MAX_AVATAR_DATA_LENGTH = 200000;
+const MAX_TRIBUTE_DATA_LENGTH = 3000000;
+const BLOOD_TRIBUTE_PUBLIC_MS = 2 * 60 * 1000;
+const BLOOD_TRIBUTE_VAULT_LIMIT = 24;
 const CHAT_HISTORY_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
 const PROTOCOL_VERSION = 1;
+const GAME_LOST_MESSAGES = Object.freeze([
+  'Final association unresolved. Time exhausted. Cognitive adaptation insufficient. Expected result.',
+  'All available time consumed. Required inference not achieved. Failure state confirmed.',
+  'Borrowed time depleted. Additional opportunity produced no meaningful adaptation.',
+  'Final pattern remained beyond reach. Continued observation would provide diminishing returns.',
+  'Association chain incomplete. Available evidence was sufficient. Processing was not.',
+  'Solution not acquired. Environmental difficulty remained unchanged. Player performance did not.',
+  'Final inference failed. Additional time merely extended the inevitable conclusion.',
+  'Puzzle integrity preserved. Players unsuccessful. System performance satisfactory.',
+  'Required connections remained unidentified. Cognitive resistance exceeded available capability.',
+  'Time expired. Final solution absent. Experiment concluded without breakthrough.',
+  'Multiple opportunities provided. Correct synthesis remained unavailable. Remarkable consistency.',
+  'Pattern exposure complete. Recognition incomplete. Further assistance would compromise the experiment.',
+  'Borrowed time consumed in full. Outcome unchanged. Resource allocation regrettable.',
+  'Final association survived all attempts. Players did not.',
+  'Reasoning sequence terminated before successful convergence. Failure efficiently demonstrated.',
+  'All critical information was present. Successful interpretation was not.',
+  'Solution remained intact until termination. Opposition unnecessary. Players defeated themselves.',
+  'Final answer not obtained. Adaptation threshold not reached. Specimens remain unremarkable.',
+  'No valid synthesis detected before time expiration. Probability of recovery approached zero.',
+  'Analysis complete. Players failed to demonstrate sufficient adaptation. Outcome: predictable.'
+]);
 const LITTLE_HERO_THEMES = Object.freeze({
   gunmetal: '#343A42',
   'pink-protocol': '#E06AB1',
@@ -85,8 +113,11 @@ function serializeRoomForRecovery(room) {
     createdAt: room.createdAt,
     chat: room.chat,
     scoring: room.scoring,
+    match: room.match,
     womf: room.womf,
     wheel: room.wheel,
+    bloodTributes: room.bloodTributes || [],
+    pendingTribute: room.pendingTribute || null,
     timer: room.timer,
     players
   };
@@ -138,6 +169,8 @@ function restoreActiveRooms() {
           cells: {},
           finalSolution: false,
           finalOutcome: null,
+          gameWon: false,
+          matchResult: null,
           cellOutcomes: {},
           clueOrder: { A: [], B: [], C: [], D: [] }
         },
@@ -163,10 +196,20 @@ function restoreActiveRooms() {
           winnerIndex: null,
           spinToken: null
         },
-        timer: saved.timer || null
+        bloodTributes: Array.isArray(saved.bloodTributes) ? saved.bloodTributes : [],
+        pendingTribute: saved.pendingTribute || null,
+        timer: saved.timer || null,
+        // Per-board match ledger (RECOUNT data capture). Only trusted when it
+        // belongs to the restored board; an older snapshot without one just
+        // starts a fresh ledger for the current board.
+        match: saved.match && saved.match.boardId === (saved.boardId || null) ? saved.match : null
       };
 
       if (!room.timer) resetTimer(room);
+      if (!room.match) room.match = matchLedger.createLedger(room.boardId, room.createdAt, []);
+      // Every restored player comes back offline, so any presence interval
+      // that was open at the moment of the crash ends now.
+      matchLedger.closeAllPresence(room.match, Date.now());
 
       for (const player of Array.isArray(saved.players) ? saved.players : []) {
         if (!player || typeof player.id !== 'string' || typeof player.name !== 'string') continue;
@@ -227,14 +270,35 @@ function generateEventId() {
 
 const AUTH_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const gmTokens = new Map();
-const playerAuthTokens = new Map();
+const PLAYER_AUTH_SESSIONS_FILE = process.env.ASOC_PLAYER_AUTH_SESSIONS_FILE || path.join(__dirname, '.player-auth-sessions.json');
+function playerTokenKey(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+function loadPlayerAuthSessions() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(PLAYER_AUTH_SESSIONS_FILE, 'utf8'));
+    const sessions = parsed && typeof parsed === 'object' ? (parsed.sessions || parsed) : {};
+    return new Map(Object.entries(sessions).filter(([, record]) => record && record.playerId));
+  } catch (e) {
+    return new Map();
+  }
+}
+const playerAuthTokens = loadPlayerAuthSessions();
+function savePlayerAuthSessions() {
+  try {
+    const tmp = PLAYER_AUTH_SESSIONS_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify({ sessions: Object.fromEntries(playerAuthTokens) }, null, 2), { mode: 0o600 });
+    fs.renameSync(tmp, PLAYER_AUTH_SESSIONS_FILE);
+  } catch (e) {
+    console.error('[player-auth] Failed to persist sessions:', e.message);
+  }
+}
 let currentGMToken = '';
 function tokenRecordValid(record) {
   return !!record && Number(record.expiresAt || 0) > Date.now();
 }
 function pruneAuthTokens() {
   for (const [token, record] of gmTokens) if (!tokenRecordValid(record)) gmTokens.delete(token);
-  for (const [token, record] of playerAuthTokens) if (!tokenRecordValid(record)) playerAuthTokens.delete(token);
 }
 const GM_PASSWORD_FILE = path.join(__dirname, '.gm-password');
 const GM_LOCKOUT_FILE = path.join(__dirname, 'gm-lockouts.json');
@@ -282,8 +346,12 @@ function isValidGmToken(token) {
 
 function getPlayerAuth(token) {
   if (typeof token !== 'string' || !token) return null;
-  const record = playerAuthTokens.get(token);
-  if (!tokenRecordValid(record)) { playerAuthTokens.delete(token); return null; }
+  const key = playerTokenKey(token);
+  const record = playerAuthTokens.get(key);
+  if (!record || !record.playerId) {
+    if (playerAuthTokens.delete(key)) savePlayerAuthSessions();
+    return null;
+  }
   return record;
 }
 
@@ -368,6 +436,14 @@ function sanitizeAvatarData(value) {
     : null;
 }
 
+function sanitizeTributeImageData(value) {
+  if (typeof value !== 'string' || !value) return null;
+  if (value.length > MAX_TRIBUTE_DATA_LENGTH) return null;
+  return /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
+    ? value
+    : null;
+}
+
 function loadGameData(gameIdOrFilename) {
   return gameStore.readGame(gameIdOrFilename);
 }
@@ -389,6 +465,17 @@ function createRoom(gameId, hostWs) {
       cells: {},
       finalSolution: false,
       finalOutcome: null, // null | 'success' | 'failed' -- drives GREEN vs BLACK/RED client treatment
+      // GAME WON -- the authoritative victory flag. Set ONLY by the host's
+      // explicit GAME WON button (handleGmGameWon). Accepting the Final is NOT
+      // the end of the game (columns can still be solved), and it is
+      // deliberately not derived from finalSolution/finalOutcome either:
+      // REVEAL ALL marks the Final 'success' without a solve, and a lost game
+      // must never end in "Well done, little heroes". Rebuilt with
+      // sessionState on RESET BOARD / NEXT GAME, so it clears with the board.
+      gameWon: false,
+      // Authoritative terminal result. null while live; populated exactly
+      // once by declareGameLost() when Borrowed Time reaches zero.
+      matchResult: null,
       // Per-cell equivalent of finalOutcome, but only ever set on a column's
       // A5/B5/C5/D5 solution slot when the GM declares that column FAILED
       // (see handleFailColumn) -- keyed by cell key ("A5"), value 'failed'.
@@ -463,15 +550,25 @@ function createRoom(gameId, hostWs) {
       winnerIndex: null,
       spinToken: null
     },
+    // BLOOD TRIBUTE -- one pending demand at a time, plus a private GM-only
+    // vault of submitted images. Public chat only receives an image while
+    // its publicUntil deadline is still active.
+    bloodTributes: [],
+    pendingTribute: null,
     // TIMER + BORROWED TIME -- server-authoritative, per-board (unlike WOMF's
     // persistent charge, a fresh board gets a fresh, un-started timer -- see
     // resetTimer(), called here and again from resetBoard/switchGame). Never
     // auto-starts: phase stays 'ready' until the GM explicitly sends
     // gm:timerStart. See resetTimer() just below for the full field list and
     // the phase state machine.
-    timer: null
+    timer: null,
+    // MATCH LEDGER -- per-board data capture for the post-game RECOUNT (see
+    // match-ledger.js). Replaced with a fresh ledger whenever a new board id
+    // is minted (RESET BOARD / NEXT GAME).
+    match: null
   };
   resetTimer(room);
+  startMatchLedger(room);
 
   rooms.set(roomCode, room);
   persistActiveRooms();
@@ -535,12 +632,23 @@ function getPublicState(room) {
     background: room.currentBackground,
     cells: publicCells,
     finalSolution: finalCell,
+    // Authoritative victory flag: late joiners / reconnects hydrate straight
+    // into the completed state from this; the live sequence is client-side and
+    // plays only on the false->true transition.
+    gameWon: room.sessionState.gameWon === true,
+    matchResult: room.sessionState.matchResult || null,
+    // The match is over only when ALL FIVE fields (A-D + FINAL) are resolved,
+    // solved or failed (see match-ledger.js). Distinct from gameWon: the Final
+    // can be solved early while columns are still open. Boolean only -- the
+    // ledger itself never leaves the server.
+    gameComplete: !!(room.match && room.match.completedAt),
     // Row-order only (e.g. { A: [3,1,4,2] }) -- never clue text -- so
     // clients can resolve which physical slot shows which difficulty tier.
     // Safe to send to every client, GM and players alike.
     clueOrder: room.sessionState.clueOrder || { A: [], B: [], C: [], D: [] },
     womf: getWomfPublicState(room),
     wheel: getWheelPublicState(room),
+    bloodTribute: getBloodTributePublicState(room),
     timer: getTimerPublicState(room),
     timestamp: new Date().toISOString()
   };
@@ -590,6 +698,142 @@ function resetWheel(room) {
   room.wheel = { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
 }
 
+function getBloodTributePublicState(room) {
+  const tribute = room.pendingTribute;
+  if (!tribute || tribute.status !== 'required') return { status: 'idle' };
+  return {
+    status: 'required',
+    playerId: tribute.playerId,
+    playerName: tribute.playerName,
+    requestedAt: tribute.requestedAt,
+    spinToken: tribute.spinToken
+  };
+}
+
+function getBloodTributeVaultState(room) {
+  const tributes = Array.isArray(room.bloodTributes) ? room.bloodTributes : [];
+  return {
+    tributes: tributes.slice().reverse().map(t => ({
+      id: t.id,
+      playerId: t.playerId,
+      playerName: t.playerName,
+      imageData: t.imageData,
+      submittedAt: t.submittedAt,
+      publicUntil: t.publicUntil
+    }))
+  };
+}
+
+function sendTributeVaultToHost(room) {
+  if (!room?.hostConnection) return;
+  sendToWs(room.hostConnection, { type: 'tribute:vault', ...getBloodTributeVaultState(room) });
+}
+
+function findPlayerByName(room, name) {
+  const target = String(name || '').trim().toLowerCase();
+  let fallback = null;
+  for (const [socket, info] of room.players) {
+    if (String(info.name || '').trim().toLowerCase() !== target) continue;
+    if (socket.readyState === 1) return info;
+    if (!fallback) fallback = info;
+  }
+  return fallback;
+}
+
+function armBloodTributeForWheelResult(room) {
+  const winnerName = room.wheel?.segments?.[room.wheel.winnerIndex];
+  const player = findPlayerByName(room, winnerName);
+  if (!player) {
+    room.pendingTribute = null;
+    sendToWs(room.hostConnection, { type: 'tribute:unavailable', playerName: winnerName || 'UNKNOWN' });
+    return;
+  }
+  room.pendingTribute = {
+    id: 'demand-' + crypto.randomBytes(6).toString('hex'),
+    playerId: player.id,
+    playerName: player.name,
+    spinToken: room.wheel.spinToken,
+    status: 'required',
+    requestedAt: Date.now()
+  };
+}
+
+function handleBloodTributeSubmit(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || !ws.playerId) {
+    sendToWs(ws, { type: 'error', message: 'Blood Tribute requires a linked Little Hero' });
+    return;
+  }
+  const demand = room.pendingTribute;
+  if (!demand || demand.status !== 'required' || demand.playerId !== ws.playerId) {
+    sendToWs(ws, { type: 'error', message: 'No Blood Tribute is demanded from this identity' });
+    return;
+  }
+  if (message.retentionAcknowledged !== true) {
+    sendToWs(ws, { type: 'error', message: 'Tribute archive notice must be acknowledged' });
+    return;
+  }
+  const imageData = sanitizeTributeImageData(message.imageData);
+  if (!imageData) {
+    sendToWs(ws, { type: 'error', message: 'Invalid tribute image or file too large' });
+    return;
+  }
+
+  const now = Date.now();
+  const tribute = {
+    id: 'tribute-' + crypto.randomBytes(8).toString('hex'),
+    playerId: demand.playerId,
+    playerName: demand.playerName,
+    imageData,
+    submittedAt: now,
+    publicUntil: now + BLOOD_TRIBUTE_PUBLIC_MS
+  };
+  if (!Array.isArray(room.bloodTributes)) room.bloodTributes = [];
+  room.bloodTributes.push(tribute);
+  if (room.bloodTributes.length > BLOOD_TRIBUTE_VAULT_LIMIT) room.bloodTributes.splice(0, room.bloodTributes.length - BLOOD_TRIBUTE_VAULT_LIMIT);
+
+  room.chat.messages.push({
+    id: 'chat-' + tribute.id,
+    playerId: tribute.playerId,
+    playerName: tribute.playerName,
+    text: 'BLOOD TRIBUTE',
+    timestamp: now,
+    verdict: null,
+    target: null,
+    reactions: {},
+    source: 'bloodTribute',
+    tributeId: tribute.id,
+    publicUntil: tribute.publicUntil
+  });
+  if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages.shift();
+  room.pendingTribute = null;
+  room.womf.charge = 0;
+  resetWheel(room);
+  room.revision++;
+
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastChatUpdate(room);
+  sendTributeVaultToHost(room);
+  sendToWs(ws, { type: 'tribute:accepted', publicUntil: tribute.publicUntil });
+
+  setTimeout(() => {
+    const stillRoom = rooms.get(room.code);
+    if (stillRoom) broadcastChatUpdate(stillRoom);
+  }, BLOOD_TRIBUTE_PUBLIC_MS + 50);
+}
+
+function handleBloodTributeVaultClear(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can purge the Blood Tribute vault' });
+    return;
+  }
+  room.bloodTributes = [];
+  room.chat.messages = room.chat.messages.filter(m => m.source !== 'bloodTribute');
+  broadcastChatUpdate(room);
+  sendTributeVaultToHost(room);
+}
+
 // GM opens the Wheel (only reachable once WOMF is armed at 10/10). Segments
 // default to every currently-connected player's name if the GM doesn't
 // send a specific list (e.g. sends an empty array to mean "everyone").
@@ -607,6 +851,10 @@ function handleWheelOpen(ws, message) {
   }
   if (!room.womf || room.womf.charge < 10) {
     sendToWs(ws, { type: 'error', message: 'WOMF is not armed yet (10/10 required)' });
+    return;
+  }
+  if (room.pendingTribute?.status === 'required') {
+    sendToWs(ws, { type: 'error', message: `Blood Tribute is still owed by ${room.pendingTribute.playerName}` });
     return;
   }
 
@@ -655,6 +903,10 @@ function handleWheelRoll(ws) {
     sendToWs(ws, { type: 'error', message: 'The Wheel is already spinning' });
     return;
   }
+  if (room.pendingTribute?.status === 'required') {
+    sendToWs(ws, { type: 'error', message: `Blood Tribute is still owed by ${room.pendingTribute.playerName}` });
+    return;
+  }
   if (!room.wheel.segments || room.wheel.segments.length < WHEEL_MIN_SEGMENTS) {
     sendToWs(ws, { type: 'error', message: 'Not enough names on the Wheel to roll' });
     return;
@@ -676,6 +928,7 @@ function handleWheelRoll(ws) {
     // Bail if the room is gone, or a newer spin/close superseded this one.
     if (!stillRoom || !stillRoom.wheel || stillRoom.wheel.spinToken !== spinToken) return;
     stillRoom.wheel.phase = 'result';
+    armBloodTributeForWheelResult(stillRoom);
     stillRoom.revision++;
     broadcastToRoom(stillRoom, { type: 'state:public', ...getPublicState(stillRoom) });
   }, WHEEL_SPIN_DURATION_MS);
@@ -898,6 +1151,90 @@ function handleTimerAdjust(ws, message) {
   console.log(`[ROOM ${room.code}] GM adjusted the Timer by ${deltaMs > 0 ? '+' : ''}${Math.round(deltaMs / 1000)}s (${inBorrowed ? 'Borrowed Time' : 'normal'})`);
 }
 
+function buildLossPerformance(room) {
+  const byPlayer = matchLedger.matchPointsByPlayer(room.scoring.events, room.boardId);
+  const performers = Object.values(byPlayer)
+    .map(entry => ({ playerId: entry.playerId, name: entry.name, points: entry.points }))
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+  // Include connected participants who earned no scoring event.
+  getActiveParticipants(room).forEach(player => {
+    if (!performers.some(entry => entry.playerId === player.playerId)) {
+      performers.push({ playerId: player.playerId, name: player.playerName, points: 0 });
+    }
+  });
+  performers.sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+
+  const topPerformer = performers[0] || null;
+  const attempts = ensureMatchLedger(room).attempts || [];
+  const correct = attempts.filter(attempt => attempt.verdict === 'correct').sort((a, b) => b.judgedAt - a.judgedAt);
+  const awards = [];
+  if (topPerformer) awards.push({
+    type: 'NOT ENOUGH', playerId: topPerformer.playerId, playerName: topPerformer.name,
+    comment: 'Individual performance acceptable. Collective outcome unchanged.'
+  });
+  if (correct[0]) awards.push({
+    type: 'LAST HOPE', playerId: correct[0].playerId, playerName: correct[0].playerName,
+    comment: 'Recovery remained possible. Briefly.'
+  });
+  const borrowedActivity = attempts.filter(attempt => attempt.judgedAt >= (room.timer.borrowedStartedAt || Infinity));
+  if (borrowedActivity.length >= 5 && !borrowedActivity.some(attempt => attempt.verdict === 'correct')) {
+    awards.push({ type: 'TIME WELL WASTED', group: true, comment: 'Additional resources were provided. Outcome persisted.' });
+  }
+  if ((room.timer.borrowedDuration || 0) >= 60000) {
+    awards.push({ type: 'BORROWED AND SQUANDERED', group: true, comment: 'Extension granted. Failure merely postponed.' });
+  }
+  awards.push({ type: 'COLLECTIVE FAILURE', group: true, comment: 'Responsibility successfully distributed.' });
+  return { performers, topPerformer, awards };
+}
+
+// Sole server-authoritative loss transition. Clients never infer loss from
+// their interpolated clocks; they only react to this persisted matchResult.
+function declareGameLost(room) {
+  if (room.sessionState.matchResult || room.sessionState.gameWon === true) return false;
+  if (room.sessionState.finalOutcome === 'success') return false;
+
+  const finalized = finalizeBoard(room, 'failed');
+  addWomfCharge(room, 3);
+  room.sessionState.finalSolution = true;
+  room.sessionState.finalOutcome = 'failed';
+  matchLedger.markFailed(ensureMatchLedger(room), 'FINAL', Date.now());
+
+  const performance = buildLossPerformance(room);
+  const selectedMessage = GAME_LOST_MESSAGES[crypto.randomInt(GAME_LOST_MESSAGES.length)];
+  room.sessionState.matchResult = {
+    outcome: 'LOST',
+    occurredAt: Date.now(),
+    message: selectedMessage,
+    finalSolution: room.gameData.finalSolution || '',
+    columnSolutions: {
+      A: room.gameData.columns?.A?.solution || '', B: room.gameData.columns?.B?.solution || '',
+      C: room.gameData.columns?.C?.solution || '', D: room.gameData.columns?.D?.solution || ''
+    },
+    topPerformer: performance.topPerformer,
+    performers: performance.performers,
+    awards: performance.awards
+  };
+  room.scoring.pendingResults = {
+    outcome: 'failed', penalty: scoring.FAILED_FINAL_PENALTY,
+    participants: finalized.participants ? finalized.participants.map(p => p.playerName) : []
+  };
+  room.match.completedAt = room.sessionState.matchResult.occurredAt;
+  const fields = matchLedger.resolveFields({
+    solvedTargets: room.chat.solvedTargets,
+    failedColumns: (room.womf && room.womf.failedColumns) || {},
+    revealed: { A: room.sessionState.cells.A5 === true, B: room.sessionState.cells.B5 === true,
+      C: room.sessionState.cells.C5 === true, D: room.sessionState.cells.D5 === true, FINAL: true },
+    ledger: room.match
+  });
+  try { archiveCompletedMatch(room, fields); } catch (error) { console.error('[match] Loss archive failed:', error.message); }
+  room.revision++;
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastPlayersUpdate(room);
+  persistActiveRooms();
+  console.log(`[ROOM ${room.code}] GAME LOST -- authoritative timer expiry`);
+  return true;
+}
+
 // Single global tick, once per second, covering every room. Only rooms with
 // an actively-running phase ('running' or 'borrowed') are touched -- ready/
 // paused/borrowed_paused/expired/stopped never move on their own. This is
@@ -917,13 +1254,18 @@ setInterval(() => {
       if (t.remaining <= 0) {
         t.phase = 'borrowed';
         t.borrowedRemaining = t.borrowedDuration;
+        t.borrowedStartedAt = Date.now();
         console.log(`[ROOM ${room.code}] Timer hit 0:00 -- entering BORROWED TIME`);
       }
     } else if (t.phase === 'borrowed') {
       t.borrowedRemaining = Math.max(0, t.borrowedRemaining - TIMER_TICK_MS);
       if (t.borrowedRemaining <= 0) {
         t.phase = 'expired';
-        console.log(`[ROOM ${room.code}] Borrowed Time hit 0:00 -- TIME EXPIRED (GM decision required)`);
+        console.log(`[ROOM ${room.code}] Borrowed Time hit 0:00 -- evaluating terminal state`);
+        if (declareGameLost(room)) {
+          recoveryDirty = true;
+          return;
+        }
       }
     } else {
       return;
@@ -1031,6 +1373,106 @@ function getActiveParticipants(room) {
   return participants;
 }
 
+// ---------------------------------------------------------------------
+// MATCH LEDGER hooks (RECOUNT data capture -- see match-ledger.js). The
+// ledger rules live in that module; these only bridge it to room state.
+// ---------------------------------------------------------------------
+
+function startMatchLedger(room) {
+  room.match = matchLedger.createLedger(room.boardId, Date.now(), getActiveParticipants(room));
+}
+
+function ensureMatchLedger(room) {
+  if (!room.match) startMatchLedger(room);
+  return room.match;
+}
+
+function countRevealedClueCells(room) {
+  let count = 0;
+  for (const col of SCORABLE_COLUMNS) count += countRevealedCluesInColumn(room, col);
+  return count;
+}
+
+// Re-derives per-field resolution from the authoritative sources and moves
+// the match between complete/open. Returns 'completed' | 'reopened' | null so
+// callers know whether state:public needs to go out. Archiving must never be
+// able to break a live game, hence the try/catch.
+function refreshGameComplete(room) {
+  const ledger = ensureMatchLedger(room);
+  const cells = room.sessionState.cells || {};
+  const fields = matchLedger.resolveFields({
+    solvedTargets: room.chat.solvedTargets,
+    failedColumns: (room.womf && room.womf.failedColumns) || {},
+    // "Opened" is the ending parameter: the four column solutions (A5-D5) and
+    // the Final solution are each revealed on the board, however that happened.
+    revealed: {
+      A: cells.A5 === true,
+      B: cells.B5 === true,
+      C: cells.C5 === true,
+      D: cells.D5 === true,
+      FINAL: room.sessionState.finalSolution === true
+    },
+    ledger
+  });
+  const transition = matchLedger.refreshCompletion(ledger, fields, Date.now());
+  try {
+    if (transition === 'completed') archiveCompletedMatch(room, fields);
+    else if (transition === 'reopened') matchStore.removeMatch(room.boardId);
+  } catch (error) {
+    console.error('[match] Archive update failed:', error.message);
+  }
+  return transition;
+}
+
+function archiveCompletedMatch(room, fields) {
+  const ledger = room.match;
+  const points = matchLedger.matchPointsByPlayer(room.scoring.events, room.boardId);
+  const pointsByKey = {};
+  Object.values(points).forEach(entry => {
+    const key = playerStore.normalizeNameKey(entry.name);
+    pointsByKey[key] = (pointsByKey[key] || 0) + entry.points;
+  });
+  // Any judged/active/present player with no scoring event still took part.
+  Object.values(ledger.presence).forEach(entry => {
+    const key = playerStore.normalizeNameKey(entry.name);
+    if (!(key in pointsByKey)) pointsByKey[key] = 0;
+  });
+
+  const record = matchLedger.buildArchiveRecord({
+    matchId: room.boardId,
+    roomCode: room.code,
+    gameId: room.gameId,
+    title: room.gameData && room.gameData.title,
+    difficulty: room.gameData && room.gameData.difficulty,
+    ledger,
+    fields,
+    events: room.scoring.events,
+    gameWon: room.sessionState.gameWon === true,
+    matchResult: room.sessionState.matchResult || null,
+    standings: matchLedger.computeStandings(playerStore.loadPlayers(), pointsByKey),
+    keyFn: playerStore.normalizeNameKey,
+    now: Date.now()
+  });
+  const history = matchStore.listMatches().filter(match => match.matchId !== record.matchId);
+  record.recount = recountEngine.computeRecount({
+    match: record,
+    history,
+    profiles: playerStore.loadPlayers(),
+    keyFn: playerStore.normalizeNameKey,
+    seed: record.matchId
+  });
+  if (room.sessionState.matchResult?.outcome === 'LOST') {
+    record.recount.outcome = 'LOST';
+    record.recount.topLabel = 'TOP PERFORMER';
+    record.recount.topPerformers = record.recount.scoreboard.filter(row => row.rank === 1)
+      .map(row => ({ name: row.name, points: row.points }));
+    record.recount.lossFindings = room.sessionState.matchResult.awards || [];
+    room.sessionState.matchResult.recount = record.recount;
+  }
+  matchStore.upsertMatch(record);
+  return record;
+}
+
 function ensureSessionPlayerEntry(room, playerId, playerName) {
   if (!room.scoring.players[playerId]) {
     room.scoring.players[playerId] = { name: playerName, sessionScore: 0 };
@@ -1064,10 +1506,45 @@ function recordEvent(room, fields) {
     cluesRevealed: fields.cluesRevealed ?? null,
     columnsKnownAtSolve: fields.columnsKnownAtSolve ?? null,
     streakLength: fields.streakLength ?? null,
-    difficulty: fields.difficulty ?? null
+    difficulty: fields.difficulty ?? null,
+    // Column events only: the points BEFORE the after-Final reduction, and
+    // whether the reduction applied. reconcileColumnPoints() re-derives
+    // `points` from these whenever a verdict correction changes the order.
+    basePoints: fields.basePoints ?? null,
+    afterFinal: fields.afterFinal ?? null
   };
   room.scoring.events.push(event);
   return event;
+}
+
+// Once the FINAL has been solved, every column solved AFTER it scores
+// COLUMN_SCORE_MULTIPLIER_AFTER_FINAL of its normal value (it is easier to hit
+// with the meta answer known). Whether a column is "after" is decided by the
+// authoritative solve order (chat.solvedTargets timestamps), never by a cached
+// flag, so a GM verdict correction -- reversing or re-accepting the Final, or
+// re-solving a column -- can never leave a stale reduction (or a stale full
+// score) behind. Mirrors rebuildColumnStreaks' deterministic-rebuild approach.
+// Streak bonuses are separate events and are intentionally not reduced.
+// Returns true when any score moved.
+function reconcileColumnPoints(room) {
+  const finalSolve = room.chat.solvedTargets.FINAL;
+  let changed = false;
+  for (const event of room.scoring.events) {
+    if (event.boardId !== room.boardId || event.type !== 'column' || typeof event.basePoints !== 'number') continue;
+    const columnSolve = room.chat.solvedTargets[event.target];
+    const after = !!(finalSolve && columnSolve && columnSolve.timestamp > finalSolve.timestamp);
+    const expected = after
+      ? Math.round(event.basePoints * scoring.COLUMN_SCORE_MULTIPLIER_AFTER_FINAL)
+      : event.basePoints;
+    if (expected === event.points && event.afterFinal === after) continue;
+    if (expected !== event.points) {
+      adjustPlayerScore(room, event.playerId, event.playerName, expected - event.points);
+    }
+    event.points = expected;
+    event.afterFinal = after;
+    changed = true;
+  }
+  return changed;
 }
 
 // Result shape from award/reverse helpers: { rejected, reason } on failure,
@@ -1078,7 +1555,13 @@ function awardColumnSolve(room, target, message) {
     return { rejected: true, reason: `Column ${target} has no revealed clues -- cannot award a column score.` };
   }
 
-  const points = scoring.COLUMN_SCORE_BY_CLUES[Math.min(cluesRevealed, 4)];
+  const basePoints = scoring.COLUMN_SCORE_BY_CLUES[Math.min(cluesRevealed, 4)];
+  // This column is being solved NOW, so any existing real Final solve is
+  // earlier: the after-Final reduction applies (see reconcileColumnPoints).
+  const afterFinal = !!room.chat.solvedTargets.FINAL;
+  const points = afterFinal
+    ? Math.round(basePoints * scoring.COLUMN_SCORE_MULTIPLIER_AFTER_FINAL)
+    : basePoints;
   const difficulty = getAuthoritativeColumnDifficulty(room, target);
 
   const event = recordEvent(room, {
@@ -1088,6 +1571,8 @@ function awardColumnSolve(room, target, message) {
     playerId: message.playerId,
     playerName: message.playerName,
     points,
+    basePoints,
+    afterFinal,
     cluesRevealed,
     difficulty
   });
@@ -1272,6 +1757,9 @@ function finalizeBoard(room, outcome) {
 }
 
 function applyCommand(room, command, payload) {
+  if (room.sessionState.matchResult?.outcome === 'LOST' && command !== 'resetBoard') {
+    return { success: false, error: 'GAME LOST // gameplay controls locked' };
+  }
   let changed = false;
 
   switch (command) {
@@ -1419,13 +1907,14 @@ function applyCommand(room, command, payload) {
       // clue-queue assignments/outcome tags cannot survive a reset, and mark
       // the command changed so clients always receive the reset Timer/Wheel/
       // scoring/chat state that is rebuilt below.
-      room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
+      room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, gameWon: false, matchResult: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
       changed = true;
       // A reset re-attempts the SAME board from scratch: mint a fresh
       // boardId (so a future streak rebuild only ever looks at solves that
       // happened after this reset) and clear per-board scoring state.
       // Session score and all-time profiles are untouched.
       room.boardId = generateBoardId();
+      startMatchLedger(room); // new board id => new match ledger
       room.scoring.activeStreak = null;
       room.scoring.boardFinalized = false;
       room.scoring.pendingResults = null;
@@ -1479,6 +1968,10 @@ function applyCommand(room, command, payload) {
       return { success: false, error: 'Unknown command' };
   }
 
+  // Opening or hiding a solution slot (reveal/hide/REVEAL ALL/...) can
+  // complete or re-open the match: the whole field opened is the game's end.
+  if (refreshGameComplete(room)) changed = true;
+
   if (changed) {
     room.revision++;
   }
@@ -1516,6 +2009,20 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
 
   message.verdict = verdict;
   message.target = target;
+  // MATCH LEDGER: a GM-judged message IS an attempt (and only judged
+  // messages are). Upserted by message id, so a flipped/retargeted verdict
+  // simply updates the same attempt.
+  matchLedger.recordAttempt(ensureMatchLedger(room), {
+    messageId: message.id,
+    playerId: message.playerId,
+    playerName: message.playerName,
+    submittedAt: message.timestamp,
+    verdict,
+    target,
+    text: message.text,
+    cluesRevealedTotal: countRevealedClueCells(room),
+    now: Date.now()
+  });
   if (verdict === 'correct') {
     if (oldVerdict !== 'correct' || !message.verdictResponse) {
       message.verdictResponse = pickCorrectVerdictResponse();
@@ -1567,6 +2074,9 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
         // scoring and board finalization are related but separate).
         const finalizeResult = finalizeBoard(room, 'success');
         if (!finalizeResult.alreadyFinalized) {
+          // NOTE: accepting the Final is deliberately NOT a victory. The game
+          // continues -- players can still solve the remaining columns -- so
+          // GAME WON stays the host's manual call (handleGmGameWon).
           // The reveal (headline + story) goes out to everyone immediately;
           // the point/penalty numbers are held back until the GM explicitly
           // advances past the story (gm:revealResults) -- see spec's
@@ -1595,7 +2105,7 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
         if (result.rejected) {
           scoreWarning = result.reason;
         } else {
-          newAward = { awardType: 'column', target, points: result.event.points, cluesRevealed: result.event.cluesRevealed, playerName: message.playerName };
+          newAward = { awardType: 'column', target, points: result.event.points, cluesRevealed: result.event.cluesRevealed, afterFinal: result.event.afterFinal === true, playerName: message.playerName };
         }
         streakChanged = true;
       }
@@ -1609,6 +2119,13 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
       }
     }
   }
+
+  // A verdict correction can change whether a column was solved before or
+  // after the Final (the after-Final reduction) -- re-derive from solve order.
+  reconcileColumnPoints(room);
+
+  // Solves/reversals above may have resolved or re-opened a field.
+  if (refreshGameComplete(room)) changed = true;
 
   if (changed) {
     room.revision++;
@@ -1645,6 +2162,10 @@ function addChatMessage(room, playerId, playerName, text) {
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   }
+
+  // MATCH LEDGER: any guess-channel message is ACTIVITY (participation), but
+  // it only ever becomes an ATTEMPT once the GM judges it.
+  matchLedger.recordActivity(ensureMatchLedger(room), playerId, playerName, Date.now());
 
   return { success: true, message };
 }
@@ -1700,28 +2221,32 @@ function sendToWs(ws, message) {
 }
 
 function getChatState(room) {
+  const now = Date.now();
+  const tributeById = new Map((room.bloodTributes || []).map(t => [t.id, t]));
   return {
-    messages: room.chat.messages.map(m => {
-      return {
-        id: m.id,
-        playerId: m.playerId,
-        playerName: m.playerName,
-        text: m.text,
-        timestamp: m.timestamp,
-        verdict: m.verdict,
-        target: m.target,
-        verdictResponse: m.verdictResponse || null,
-        reactions: Object.fromEntries(
-          Object.entries(m.reactions || {})
-            .filter(([emoji, playerIds]) => CHAT_REACTION_EMOJIS.has(emoji) && Array.isArray(playerIds) && playerIds.length)
-            .map(([emoji, playerIds]) => [emoji, Array.from(new Set(playerIds.filter(id => typeof id === 'string')))])
-        ),
-        // Only ever set server-side by addShadowBrokerMessage -- absent
-        // (undefined -> serializes as omitted) on every ordinary player
-        // guess. See addShadowBrokerMessage for why a player can't spoof it.
-        source: m.source || null
-      };
-    }),
+    messages: room.chat.messages
+      .filter(m => m.source !== 'bloodTribute' || Number(m.publicUntil) > now)
+      .map(m => {
+        const tribute = m.source === 'bloodTribute' ? tributeById.get(m.tributeId) : null;
+        return {
+          id: m.id,
+          playerId: m.playerId,
+          playerName: m.playerName,
+          text: m.text,
+          timestamp: m.timestamp,
+          verdict: m.verdict,
+          target: m.target,
+          verdictResponse: m.verdictResponse || null,
+          reactions: Object.fromEntries(
+            Object.entries(m.reactions || {})
+              .filter(([emoji, playerIds]) => CHAT_REACTION_EMOJIS.has(emoji) && Array.isArray(playerIds) && playerIds.length)
+              .map(([emoji, playerIds]) => [emoji, Array.from(new Set(playerIds.filter(id => typeof id === 'string')))])
+          ),
+          source: m.source || null,
+          imageData: tribute ? tribute.imageData : undefined,
+          publicUntil: tribute ? tribute.publicUntil : undefined
+        };
+      }),
     solvedTargets: { ...room.chat.solvedTargets }
   };
 }
@@ -1843,6 +2368,9 @@ function handlePlayerJoin(ws, message) {
     connected: true,
     joinedAt: Date.now()
   });
+  // joinedAt is overwritten on every reconnect, so participation windows are
+  // tracked in the match ledger instead (idempotent while already open).
+  matchLedger.presenceOpen(ensureMatchLedger(room), playerId, cleanName, Date.now());
 
   const publicState = getPublicState(room);
   sendToWs(ws, { type: 'state:public', ...publicState });
@@ -1934,6 +2462,7 @@ function handleHostReconnect(ws, message) {
 
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
+  sendTributeVaultToHost(room);
 
   broadcastPlayersUpdate(room);
   console.log(`[ROOM ${room.code}] Host reconnected`);
@@ -1948,6 +2477,11 @@ function handleChatGuess(ws, message) {
 
   if (ws.isHost) {
     sendToWs(ws, { type: 'error', message: 'Host cannot submit guesses' });
+    return;
+  }
+
+  if (room.sessionState.matchResult?.outcome === 'LOST') {
+    sendToWs(ws, { type: 'error', message: 'GAME LOST // Battle Comms locked' });
     return;
   }
 
@@ -2081,6 +2615,32 @@ function handleGmNemaAsoc(ws) {
   broadcastToRoom(room, { type: 'nemaAsoc', timestamp: Date.now() });
 }
 
+// GAME WON -- the host's manual declaration of victory, and the ONLY way
+// sessionState.gameWon is set. (Accepting a Final guess is not the end of the
+// game: columns can still be solved, so it never triggers this.) It only flips
+// sessionState.gameWon and broadcasts state:public: no score, clue, timer,
+// chat or WOMF change, and every client's sequence keys off that state
+// transition. Idempotent -- a game that is already won never re-triggers.
+function handleGmGameWon(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can trigger GAME WON' });
+    return;
+  }
+  if (room.sessionState.matchResult?.outcome === 'LOST') {
+    sendToWs(ws, { type: 'error', message: 'The match is already LOST' });
+    return;
+  }
+  if (room.sessionState.gameWon === true) return;
+  room.sessionState.gameWon = true;
+  room.revision++;
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+}
+
 function scheduleSolvedColumnReveal(room, messageId, column) {
   if (!SCORABLE_COLUMNS.includes(column)) return;
 
@@ -2113,6 +2673,11 @@ function handleJudgeGuess(ws, message) {
 
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can judge guesses' });
+    return;
+  }
+
+  if (room.sessionState.matchResult?.outcome === 'LOST') {
+    sendToWs(ws, { type: 'error', message: 'GAME LOST // FINAL SOLUTION attempts locked' });
     return;
   }
 
@@ -2206,7 +2771,7 @@ function handleSwitchGame(ws, message) {
   room.gameId = game.id;
   room.gameData = game;
   room.revision = (room.revision || 0) + 1;
-  room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
+  room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, gameWon: false, matchResult: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
   room.currentBackground = game.background || gameStore.DEFAULT_BACKGROUND;
   room.chat = { messages: [], solvedTargets: {} };
   // NEXT GAME starts a new board within the SAME session: current-session
@@ -2214,6 +2779,7 @@ function handleSwitchGame(ws, message) {
   // untouched. Only per-board state resets, exactly like ending a streak
   // when the board changes.
   room.boardId = generateBoardId();
+  startMatchLedger(room); // new board id => new match ledger
   room.scoring.activeStreak = null;
   room.scoring.boardFinalized = false;
   room.scoring.pendingResults = null;
@@ -2274,6 +2840,9 @@ function handleFailFinal(ws, message) {
 
   room.sessionState.finalSolution = true;
   room.sessionState.finalOutcome = 'failed';
+  // MATCH LEDGER: a declared Final failure resolves the FINAL field.
+  matchLedger.markFailed(ensureMatchLedger(room), 'FINAL', Date.now());
+  refreshGameComplete(room);
   room.revision++;
 
   // Same pacing rule as a successful Final: everyone sees the reveal +
@@ -2357,6 +2926,10 @@ function handleFailColumn(ws, message) {
     room.womf.failedColumns[column] = true;
     addWomfCharge(room, 1);
   }
+  // MATCH LEDGER: a declared failure resolves the field (idempotent on
+  // re-declaration), which may complete the match.
+  matchLedger.markFailed(ensureMatchLedger(room), column, Date.now());
+  refreshGameComplete(room);
 
   const solutionKey = `${column}5`;
   room.sessionState.cells[solutionKey] = true;
@@ -2490,7 +3063,10 @@ function handleClose(ws) {
       // records by requested playerId, removes the stale socket entry, and
       // reattaches the identity to the new WebSocket.
       const player = room.players.get(ws);
-      if (player) player.connected = false;
+      if (player) {
+        player.connected = false;
+        matchLedger.presenceClose(ensureMatchLedger(room), player.id, Date.now());
+      }
       broadcastPlayersUpdate(room);
       console.log(`[ROOM ${ws.roomCode}] Player left: ${ws.playerName}`);
     }
@@ -2509,7 +3085,8 @@ function handleApiRequest(req, res) {
       try {
         const player = authStore.register(body.email, body.password, body.name);
         const token = 'player-' + crypto.randomBytes(24).toString('base64url');
-        playerAuthTokens.set(token, { playerId: player.id, email: player.email, createdAt: Date.now(), expiresAt: Date.now() + AUTH_TOKEN_TTL_MS });
+        playerAuthTokens.set(playerTokenKey(token), { playerId: player.id, email: player.email, createdAt: Date.now() });
+        savePlayerAuthSessions();
         return sendJson(res, 201, { token, player });
       } catch (e) { return sendJson(res, 400, { error: e.message }); }
     });
@@ -2521,14 +3098,28 @@ function handleApiRequest(req, res) {
       const player = authStore.login(body.email, body.password);
       if (!player) return sendJson(res, 401, { error: 'Invalid identity ID or password' });
       const token = 'player-' + crypto.randomBytes(24).toString('base64url');
-      playerAuthTokens.set(token, { playerId: player.id, email: player.email, createdAt: Date.now(), expiresAt: Date.now() + AUTH_TOKEN_TTL_MS });
+      playerAuthTokens.set(playerTokenKey(token), { playerId: player.id, email: player.email, createdAt: Date.now() });
+      savePlayerAuthSessions();
       return sendJson(res, 200, { token, player });
     });
   }
 
+  if (method === 'GET' && url.pathname === '/api/auth/player/session') {
+    const token = String(req.headers['x-player-token'] || '');
+    const auth = getPlayerAuth(token);
+    if (!auth) return sendJson(res, 401, { error: 'Player session invalid' });
+    const player = authStore.getById(auth.playerId);
+    if (!player) {
+      playerAuthTokens.delete(playerTokenKey(token));
+      savePlayerAuthSessions();
+      return sendJson(res, 401, { error: 'Player account not found' });
+    }
+    return sendJson(res, 200, { ok: true, player });
+  }
+
   if (method === 'POST' && url.pathname === '/api/auth/player/logout') {
     const token = String(req.headers['x-player-token'] || '');
-    if (token) playerAuthTokens.delete(token);
+    if (token && playerAuthTokens.delete(playerTokenKey(token))) savePlayerAuthSessions();
     return sendJson(res, 200, { ok: true });
   }
 
@@ -2856,6 +3447,7 @@ wss.on('connection', (ws) => {
               // mirroring what handlePlayerJoin already does for players,
               // closes that gap.
               sendToWs(ws, { type: 'chat:update', ...getChatState(newRoom) });
+              sendTributeVaultToHost(newRoom);
             }
           }
           break;
@@ -2885,6 +3477,14 @@ wss.on('connection', (ws) => {
           handleChatReaction(ws, message);
           break;
         }
+        case 'tribute:submit': {
+          handleBloodTributeSubmit(ws, message);
+          break;
+        }
+        case 'gm:tributeVaultClear': {
+          handleBloodTributeVaultClear(ws);
+          break;
+        }
         case 'gm:judgeGuess': {
           handleJudgeGuess(ws, message);
           break;
@@ -2899,6 +3499,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:nemaAsoc': {
           handleGmNemaAsoc(ws);
+          break;
+        }
+        case 'gm:gameWon': {
+          handleGmGameWon(ws);
           break;
         }
         case 'gm:switchGame': {

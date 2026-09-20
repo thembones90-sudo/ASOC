@@ -33,17 +33,45 @@
           <input type="text" id="shadow-broker-input" class="shadow-broker-input" placeholder="Transmit to players..." autocomplete="off">
         </form>
       </div>
+
+      <section id="battle-controls-panel" class="battle-controls-panel" aria-label="Shadow Broker battle controls">
+        <div class="battle-controls-header">
+          <span>BATTLE CONTROLS</span>
+          <small>SHADOW BROKER AUTHORITY // LIVE COMMANDS</small>
+        </div>
+        <div class="battle-controls-grid">
+          <div class="battle-controls-host-slot">
+            <button class="gm-global-btn primary battle-host-btn" id="host-room-btn">HOST ROOM</button>
+            <button class="gm-global-btn battle-next-btn" id="next-game-btn" style="display: none;">NEXT GAME</button>
+          </div>
+          <button class="gm-global-btn nema-asoc-btn battle-nema-btn" id="nema-asoc-btn" title="Threaten the lobby with the end of ASOC">NEMA ASOC</button>
+          <button class="gm-global-btn game-won-btn battle-won-btn" id="game-won-btn" title="Declare the game won (host). Accepting the Final alone does not end the game.">GAME WON</button>
+        </div>
+      </section>
     </main>
 
     <aside id="gm-panel">
-      <header class="gm-header">
-        <div>
-          <div class="gm-title">Gamemaster</div>
-          <div class="gm-subtitle">ASOC Control Panel</div>
-        </div>
-      </header>
-
       <div class="gm-content">
+        <section class="gm-section gm-module gm-module-chat">
+          <div class="gm-chat-panel">
+            <div class="gm-chat-header">
+              <span class="gm-chat-title">BATTLE CHAT</span>
+              <span class="gm-chat-solved" id="gm-chat-solved-count">SOLVED: 0/5</span>
+            </div>
+            <div id="gm-chat-messages" class="gm-chat-messages"></div>
+          <button type="button" id="gm-chat-new-messages" class="gm-chat-new-messages" hidden>↓ 0 NEW TRANSMISSIONS</button>
+          <div id="gm-chat-reaction-picker" class="gm-chat-floating-emoji-picker" hidden></div>
+          <div id="gm-chat-context-menu" class="gm-chat-context-menu" hidden role="menu" aria-label="Message actions">
+            <button type="button" data-gm-chat-action="reply" role="menuitem"><span>&#8617;</span> REPLY</button>
+            <button type="button" data-gm-chat-action="react" role="menuitem"><span>&#9786;</span> REACT</button>
+          </div>
+            <!-- The TRANSMIT input itself now lives under the board (see
+                 #gm-broker-bar in #main-content) so it's always in view
+                 without scrolling this sidebar -- this panel keeps the
+                 read-only message log only. -->
+          </div>
+        </section>
+
         <section class="gm-section gm-module gm-module-game">
           <h3 class="gm-section-title">Game</h3>
           <div id="current-game-info" class="current-game">
@@ -76,6 +104,13 @@
           </div>
         </section>
 
+        <section class="gm-section gm-module gm-module-tribute-vault" id="blood-tribute-vault-section" style="display: none;">
+          <h3 class="gm-section-title">Blood Tribute Vault</h3>
+          <div id="blood-tribute-vault-status" class="blood-tribute-vault-status">NO TRIBUTES ARCHIVED</div>
+          <div id="blood-tribute-vault-list" class="blood-tribute-vault-list"></div>
+          <button type="button" class="gm-global-btn reset-btn" id="blood-tribute-vault-clear" style="width: 100%; margin-top: 8px;">PURGE VAULT</button>
+        </section>
+
         <section class="gm-section gm-module gm-module-global">
           <h3 class="gm-section-title">Global Actions</h3>
           <div class="gm-global-controls">
@@ -84,7 +119,6 @@
           </div>
           <div class="gm-global-controls" style="grid-template-columns: 1fr;">
             <button class="gm-global-btn primary" id="reveal-hide-all-btn">REVEAL ALL</button>
-            <button class="gm-global-btn nema-asoc-btn" id="nema-asoc-btn" title="Threaten the lobby with the end of ASOC">NEMA ASOC</button>
           </div>
         </section>
 
@@ -101,22 +135,6 @@
               <span class="upload-note">PNG · JPG · WEBP · SVG — max 10 MB</span>
               <span class="upload-status" id="gm-bg-upload-status"></span>
             </div>
-          </div>
-        </section>
-
-        <section class="gm-section gm-module gm-module-chat">
-          <div class="gm-chat-panel">
-            <div class="gm-chat-header">
-              <span class="gm-chat-title">BATTLE CHAT</span>
-              <span class="gm-chat-solved" id="gm-chat-solved-count">SOLVED: 0/5</span>
-            </div>
-            <div id="gm-chat-messages" class="gm-chat-messages"></div>
-          <button type="button" id="gm-chat-new-messages" class="gm-chat-new-messages" hidden>↓ 0 NEW TRANSMISSIONS</button>
-          <div id="gm-chat-reaction-picker" class="gm-chat-floating-emoji-picker" hidden></div>
-            <!-- The TRANSMIT input itself now lives under the board (see
-                 #gm-broker-bar in #main-content) so it's always in view
-                 without scrolling this sidebar -- this panel keeps the
-                 read-only message log only. -->
           </div>
         </section>
 
@@ -147,8 +165,6 @@
               <span class="mp-value" id="mp-players-count">0</span>
             </div>
             <div id="mp-player-list" style="margin-top: 8px; display: none;"></div>
-            <button class="gm-global-btn primary" id="host-room-btn" style="width: 100%; margin-top: 12px;">HOST ROOM</button>
-            <button class="gm-global-btn" id="next-game-btn" style="width: 100%; margin-top: 8px; display: none;">NEXT GAME</button>
           </div>
         </section>
       </div>

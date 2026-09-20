@@ -419,6 +419,165 @@ const Skeleton = (() => {
     }, 5000));
   }
 
+  let gameWonTimers = [];
+
+  // GAME WON -- the live victory sequence. Cold and clinical: the system
+  // processes its own defeat. Played ONCE, at the moment the server flips
+  // sessionState.gameWon (see App/PlayerApp applyServerState); the completed
+  // state that persists afterwards is the body.game-won class, never this.
+  // Shared by the GM and every player surface -- do not fork it.
+  //
+  // options.onStage (GM only) drives the GAME WON button through
+  // 'verifying' -> 'accepted' -> 'won', then 'done' when the overlay is gone.
+  const VICTORY_LINES = [
+    'FINAL ASSOCIATION DETECTED',
+    'Pattern coherent. Reasoning sufficient.',
+    'Puzzle structure compromised.',
+    'Further resistance inefficient.',
+    'Victory state confirmed.'
+  ];
+  const VICTORY_TOTAL_MS = 7200;
+
+  function playGameWon(options = {}) {
+    const onStage = typeof options.onStage === 'function' ? options.onStage : () => {};
+
+    const old = document.querySelector('.victory-overlay');
+    if (old) old.remove();
+    gameWonTimers.forEach(clearTimeout);
+    gameWonTimers = [];
+
+    const overlay = document.createElement('div');
+    overlay.className = 'victory-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = `
+      <div class="victory-dim"></div>
+      <div class="victory-grid"></div>
+      <div class="victory-scan"></div>
+      <div class="victory-frame"></div>
+      <div class="victory-fx"></div>
+      <div class="victory-lines">${VICTORY_LINES.map((line, i) =>
+        `<div class="victory-line" style="--i:${i}">${line}</div>`).join('')}</div>
+      <div class="victory-reveal">
+        <div class="victory-title">GAME WON</div>
+        <div class="victory-subline">Well done, little heroes.</div>
+      </div>
+      <div class="victory-flash"></div>`;
+    document.body.appendChild(overlay);
+    const fx = overlay.querySelector('.victory-fx');
+
+    // Board reaction. Drawn on the overlay from the cells' measured rects
+    // (never by mutating board cells: the board rebuilds on every timer
+    // tick and would wipe a class). A5..D5 react in sequence, a spark
+    // travels from each toward the FINAL, and the FINAL answers last.
+    const cellRect = (label) => {
+      const el = Array.from(document.querySelectorAll(`.board-cell[data-label="${label}"]`))
+        .find(node => node.getBoundingClientRect().width > 0);
+      return el ? el.getBoundingClientRect() : null;
+    };
+    const addRing = (rect, delayMs, isFinal) => {
+      const ring = document.createElement('div');
+      ring.className = 'victory-ring' + (isFinal ? ' is-final' : '');
+      ring.style.cssText =
+        `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;--d:${delayMs}ms`;
+      fx.appendChild(ring);
+    };
+    const addSpark = (from, to, delayMs) => {
+      const spark = document.createElement('div');
+      spark.className = 'victory-spark';
+      fx.appendChild(spark);
+      if (typeof spark.animate !== 'function') { spark.remove(); return; }
+      const x1 = from.left + from.width / 2, y1 = from.top + from.height / 2;
+      const x2 = to.left + to.width / 2, y2 = to.top + to.height / 2;
+      spark.animate([
+        { transform: `translate(${x1}px, ${y1}px) scale(.6)`, opacity: 0 },
+        { transform: `translate(${x1}px, ${y1}px) scale(1)`, opacity: 1, offset: .15 },
+        { transform: `translate(${x2}px, ${y2}px) scale(.8)`, opacity: .9, offset: .9 },
+        { transform: `translate(${x2}px, ${y2}px) scale(.4)`, opacity: 0 }
+      ], { duration: 720, delay: delayMs, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'both' });
+    };
+    const finalRect = cellRect('FINAL');
+    ['A', 'B', 'C', 'D'].forEach((col, i) => {
+      const rect = cellRect(`${col}5`);
+      if (!rect) return;
+      addRing(rect, i * 260, false);
+      if (finalRect) addSpark(rect, finalRect, 220 + i * 260);
+    });
+    if (finalRect) addRing(finalRect, 1500, true);
+
+    // Restrained green particles and small digital/grid fragments. Client
+    // cosmetics only -- nothing here touches game state.
+    const rand = (min, max) => min + Math.random() * (max - min);
+    for (let i = 0; i < 26; i++) {
+      const p = document.createElement('div');
+      const size = rand(2, 4.5);
+      p.className = 'victory-particle';
+      p.style.cssText =
+        `left:${rand(4, 96)}%;top:${rand(30, 96)}%;width:${size}px;height:${size}px;` +
+        `--dur:${rand(2.2, 4.2).toFixed(2)}s;--d:${rand(0, 3.4).toFixed(2)}s`;
+      fx.appendChild(p);
+    }
+    for (let i = 0; i < 9; i++) {
+      const f = document.createElement('div');
+      f.className = 'victory-frag';
+      f.style.cssText =
+        `left:${rand(6, 88)}%;top:${rand(8, 86)}%;width:${rand(18, 70)}px;height:${rand(8, 30)}px;` +
+        `--d:${rand(3.3, 5.2).toFixed(2)}s`;
+      fx.appendChild(f);
+    }
+
+    onStage('verifying');
+    gameWonTimers.push(setTimeout(() => onStage('accepted'), 350));
+    gameWonTimers.push(setTimeout(() => onStage('won'), 700));
+    gameWonTimers.push(setTimeout(() => {
+      overlay.remove();
+      gameWonTimers = [];
+      onStage('done');
+    }, VICTORY_TOTAL_MS));
+  }
+
+  let gameLostTimer = null;
+  const escapeLoss = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
+
+  // GAME LOST mirrors the victory ceremony structurally, but receives every
+  // word and result from the server-authored persisted matchResult.
+  function playGameLost(result, options = {}) {
+    const live = options.live !== false;
+    document.querySelector('.defeat-overlay')?.remove();
+    if (gameLostTimer) clearTimeout(gameLostTimer);
+    const columns = result.columnSolutions || {};
+    const top = result.topPerformer;
+    const awards = Array.isArray(result.awards) ? result.awards : [];
+    const overlay = document.createElement('div');
+    overlay.className = `defeat-overlay${live ? ' is-live' : ' is-static'}`;
+    overlay.innerHTML = `
+      <div class="defeat-noise"></div><div class="defeat-frame"></div>
+      <section class="defeat-ceremony">
+        <p class="defeat-message">${escapeLoss(result.message)}</p>
+        <h1>GAME LOST</h1>
+        <p class="defeat-subline">Expected outcome, little heroes.</p>
+        <div class="defeat-solution">
+          <span>FINAL SOLUTION</span><strong>${escapeLoss(result.finalSolution)}</strong>
+          <div class="defeat-columns">${['A','B','C','D'].map(col =>
+            `<span><b>${col}5</b>${escapeLoss(columns[col])}</span>`).join('')}</div>
+        </div>
+        <div class="defeat-recount">
+          <span>RECOUNT // MATCH OUTCOME: LOST</span>
+          ${top ? `<h2>TOP PERFORMER</h2><strong>${escapeLoss(top.name)}</strong><b>${Number(top.points) || 0} POINTS</b>` : '<h2>TOP PERFORMER</h2><strong>NO QUALIFYING DATA</strong>'}
+          <div class="defeat-awards">${awards.map(award => `<p><b>${escapeLoss(award.type)}</b>${award.playerName ? ` // ${escapeLoss(award.playerName)}` : ''}<small>${escapeLoss(award.comment)}</small></p>`).join('')}</div>
+        </div>
+      </section>`;
+    document.body.appendChild(overlay);
+    if (live) {
+      gameLostTimer = setTimeout(() => {
+        overlay.classList.add('is-settled');
+        gameLostTimer = null;
+      }, 14500);
+    }
+    return overlay;
+  }
+
   return {
     W,
     H,
@@ -438,7 +597,9 @@ const Skeleton = (() => {
     BROKER_LINE_HOLD_PER_CHAR_MS,
     BROKER_LINE_FADE_MS,
     shadowBrokerTransmissionHTML,
-    playNemaAsoc
+    playNemaAsoc,
+    playGameWon,
+    playGameLost
   };
 })();
 

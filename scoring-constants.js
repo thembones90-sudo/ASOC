@@ -27,6 +27,14 @@ const FINAL_SCORE_BY_COLUMNS = {
   4: 300
 };
 
+// Once the FINAL has been solved, any column solved AFTER it scores this
+// fraction of its normal COLUMN_SCORE_BY_CLUES value -- with the meta answer
+// known, a remaining column is easier to hit. Applies only to columns solved
+// after a real Final solve (a failed Final does not make columns easier), and
+// never to streak bonuses. Every base value is a multiple of 100, so 0.5
+// always yields whole points (400/300/200/100 -> 200/150/100/50).
+const COLUMN_SCORE_MULTIPLIER_AFTER_FINAL = 0.5;
+
 // Column streak MILESTONE bonuses (not cumulative totals). Each milestone
 // is awarded once, the moment it is reached, in addition to any bonus(es)
 // already awarded earlier in the same streak. A full 4-column sweep by one
@@ -45,6 +53,7 @@ const FAILED_FINAL_PENALTY = 200;
 
 module.exports = {
   COLUMN_SCORE_BY_CLUES,
+  COLUMN_SCORE_MULTIPLIER_AFTER_FINAL,
   FINAL_SCORE_BY_COLUMNS,
   STREAK_MILESTONE_BONUS,
   FAILED_FINAL_PENALTY

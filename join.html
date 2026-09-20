@@ -18,17 +18,16 @@
     }
 
     .join-logo {
-      font-family: var(--font-system);
-      font-size: clamp(2.8rem, 8vw, 4.8rem);
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      margin-bottom: 0.65rem;
-      background: linear-gradient(180deg, #eef1f7 0%, #a4aab7 55%, #737a88 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      text-shadow: 0 0 12px rgba(184, 188, 200, 0.08);
+      display: block;
+      width: min(82vw, 520px);
+      height: auto;
+      margin: 0 auto 0.55rem;
+      object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+      filter:
+        drop-shadow(0 10px 24px rgba(0, 0, 0, 0.68))
+        drop-shadow(0 0 8px rgba(176, 22, 18, 0.14));
     }
 
     .join-subtitle {
@@ -2253,6 +2252,86 @@
       bottom:44px;
       border-color:color-mix(in srgb,var(--player-theme,#6f7885) 58%,#454d57);
     }
+    .chat-message-context-menu {
+      position:fixed;
+      z-index:200000;
+      min-width:132px;
+      padding:4px;
+      border:1px solid #59636f;
+      border-top-color:#7b8794;
+      border-radius:4px;
+      background:linear-gradient(180deg,#1a2027,#0a0d11);
+      box-shadow:0 12px 30px rgba(0,0,0,.72),inset 0 1px rgba(255,255,255,.035);
+    }
+    .chat-message-context-menu[hidden]{display:none}
+    .chat-message-context-menu::before{
+      content:"MESSAGE ACTIONS";
+      display:block;
+      padding:4px 7px 5px;
+      margin-bottom:3px;
+      border-bottom:1px solid #313944;
+      color:#6f7a87;
+      font:800 .38rem var(--font-system);
+      letter-spacing:.15em;
+    }
+    .chat-message-context-menu button{
+      display:grid;
+      grid-template-columns:20px 1fr;
+      align-items:center;
+      gap:6px;
+      width:100%;
+      min-height:30px;
+      padding:4px 8px;
+      border:0;
+      border-radius:2px;
+      background:transparent;
+      color:#d8dde4;
+      font:800 .55rem var(--font-system);
+      letter-spacing:.10em;
+      text-align:left;
+      cursor:pointer;
+    }
+    .chat-message-context-menu button span{
+      color:color-mix(in srgb,var(--player-theme,#9b5de0) 72%,#f0f2f5);
+      font-size:.9rem;
+      text-align:center;
+    }
+    .chat-message-context-menu button:hover,
+    .chat-message-context-menu button:focus-visible{
+      background:color-mix(in srgb,var(--player-theme,#9b5de0) 16%,#161b21);
+      color:#fff;
+      outline:none;
+    }
+    /* Portaled to document.body so the player rail's overflow:hidden cannot clip it. */
+    #chat-reaction-picker.chat-floating-emoji-picker{
+      display:grid;
+      grid-template-columns:repeat(4,34px);
+      gap:3px;
+      position:fixed;
+      z-index:200001;
+      padding:5px;
+      border:1px solid #51445f;
+      background:rgba(7,9,12,.985);
+      box-shadow:0 10px 28px rgba(0,0,0,.72),inset 0 1px rgba(255,255,255,.035);
+    }
+    #chat-reaction-picker.chat-floating-emoji-picker[hidden]{display:none}
+    #chat-reaction-picker .chat-emoji-option{
+      width:34px;
+      height:30px;
+      padding:0;
+      border:1px solid transparent;
+      background:#0d1014;
+      color:#fff;
+      font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;
+      font-size:1rem;
+      cursor:pointer;
+    }
+    #chat-reaction-picker .chat-emoji-option:hover,
+    #chat-reaction-picker .chat-emoji-option:focus-visible{
+      border-color:#775e8b;
+      background:#19121f;
+      outline:none;
+    }
     .battle-comms-lobby .chat-emoji-option {
       width:34px;
       height:30px;
@@ -2435,6 +2514,211 @@
       background:color-mix(in srgb,var(--player-theme,#d6a843) 8%,rgba(7,9,12,.86));
     }
 
+    /* PRIME SKYPE MESSAGE CLOUDS // the previous tribute only changed density.
+       This layer makes the format visually explicit while preserving ASOC themes:
+       avatar + name identify every single message, the cloud carries the text,
+       the timestamp stays quiet at the far edge, and replies/reactions remain inline. */
+    .battle-comms-lobby .chat-message,
+    .battle-comms-lobby .chat-message:hover,
+    .battle-comms-lobby .chat-message.correct,
+    .battle-comms-lobby .chat-message.wrong {
+      background:transparent !important;
+      box-shadow:none !important;
+    }
+    .battle-comms-lobby .chat-message:not(.grouped) {
+      margin-top:10px;
+    }
+    .battle-comms-lobby .chat-message-main {
+      position:relative;
+      justify-self:start;
+      width:fit-content;
+      min-width:112px;
+      max-width:100%;
+      padding:6px 28px 6px 9px;
+      border:1px solid color-mix(in srgb,var(--little-hero-accent,#6f7885) 46%,#46505c);
+      border-radius:11px 11px 11px 4px;
+      background:
+        linear-gradient(180deg,
+          color-mix(in srgb,var(--theme-message-top,#151A20) 92%,#27313b 8%),
+          color-mix(in srgb,var(--theme-message-bottom,#0C0F13) 94%,#050607 6%));
+      box-shadow:
+        inset 0 1px rgba(255,255,255,.045),
+        0 1px 2px rgba(0,0,0,.55);
+      transition:border-color .14s ease,background .14s ease,box-shadow .14s ease;
+    }
+    .battle-comms-lobby .chat-message-main::before {
+      content:"";
+      position:absolute;
+      left:-6px;
+      top:10px;
+      width:7px;
+      height:11px;
+      clip-path:polygon(100% 0,100% 100%,0 50%);
+      background:color-mix(in srgb,var(--theme-message-top,#151A20) 90%,#27313b 10%);
+      filter:drop-shadow(-1px 0 0 color-mix(in srgb,var(--little-hero-accent,#6f7885) 42%,#46505c));
+      pointer-events:none;
+    }
+    .battle-comms-lobby .chat-message:hover .chat-message-main,
+    .battle-comms-lobby .chat-message:focus-within .chat-message-main {
+      border-color:color-mix(in srgb,var(--little-hero-accent,#6f7885) 68%,#c7ced7);
+      background:
+        linear-gradient(180deg,
+          color-mix(in srgb,var(--theme-message-top,#151A20) 86%,#34414d 14%),
+          color-mix(in srgb,var(--theme-message-bottom,#0C0F13) 91%,#10151b 9%));
+      box-shadow:
+        inset 0 1px rgba(255,255,255,.055),
+        0 2px 7px rgba(0,0,0,.38);
+    }
+    .battle-comms-lobby .chat-message-header {
+      padding-right:18px;
+      min-height:14px;
+      margin-bottom:2px;
+    }
+    .battle-comms-lobby .chat-player-name {
+      color:color-mix(in srgb,var(--little-hero-accent,#d4a843) 72%,#f4f6f8) !important;
+      font-weight:800;
+    }
+    .battle-comms-lobby .chat-message-line {
+      align-items:flex-end;
+      gap:10px;
+    }
+    .battle-comms-lobby .chat-message-line .chat-time {
+      align-self:flex-end;
+      padding-bottom:1px;
+      color:#78818c;
+      opacity:.72;
+      font-size:.38rem;
+      white-space:nowrap;
+    }
+    .battle-comms-lobby .chat-reply-btn {
+      top:3px;
+      right:5px;
+    }
+    .battle-comms-lobby .chat-reply-context {
+      border-left:2px solid color-mix(in srgb,var(--little-hero-accent,#6f7885) 58%,#68727d);
+      background:rgba(0,0,0,.10);
+      border-radius:0 4px 4px 0;
+      padding:2px 5px 2px 7px;
+      margin:2px 0 4px;
+    }
+    .battle-comms-lobby .chat-reactions.has-reactions {
+      margin-top:4px;
+    }
+    .battle-comms-lobby .chat-reaction-chip,
+    .battle-comms-lobby .chat-reaction-add {
+      min-height:18px;
+      border-radius:9px;
+      background:rgba(6,8,11,.58);
+    }
+    .battle-comms-lobby .chat-message.wrong .chat-message-main {
+      border-color:rgba(197,74,70,.48);
+    }
+    .battle-comms-lobby .chat-message.correct .chat-message-main {
+      border-color:rgba(92,184,122,.58);
+      box-shadow:inset 0 1px rgba(255,255,255,.045),0 0 8px rgba(92,184,122,.08);
+    }
+
+
+    /* COMPACT SKYPE PASS // keep the prime-Skype identity, remove vertical fat. */
+    .battle-comms-lobby .chat-message {
+      padding:1px 4px 2px 1px !important;
+    }
+    .battle-comms-lobby .chat-message:not(.grouped) {
+      margin-top:6px !important;
+    }
+    .battle-comms-lobby .chat-message-main {
+      min-width:96px;
+      padding:4px 34px 4px 8px;
+      border-radius:9px 9px 9px 4px;
+    }
+    .battle-comms-lobby .chat-message-main::before {
+      left:-5px;
+      top:8px;
+      width:6px;
+      height:9px;
+    }
+    .battle-comms-lobby .chat-avatar-rail {
+      width:30px !important;
+      min-width:30px !important;
+    }
+    .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
+    .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact {
+      width:26px !important;
+      height:26px !important;
+      flex-basis:26px !important;
+    }
+    .battle-comms-lobby .chat-message-header {
+      min-height:12px;
+      margin:0 0 1px;
+      padding-right:16px;
+    }
+    .battle-comms-lobby .chat-player-name {
+      font-size:.58rem !important;
+      letter-spacing:.55px !important;
+    }
+    .battle-comms-lobby .chat-message-line {
+      gap:6px;
+    }
+    .battle-comms-lobby .chat-message-text {
+      font-size:.78rem !important;
+      line-height:1.18 !important;
+    }
+    .battle-comms-lobby .chat-message-line .chat-time {
+      font-size:.34rem !important;
+      padding:0 0 1px 3px !important;
+      opacity:.62;
+    }
+    .battle-comms-lobby .chat-reply-btn {
+      top:3px;
+      right:4px;
+      width:30px;
+      height:24px;
+      line-height:22px;
+      font-size:1rem;
+      font-weight:800;
+      border-radius:5px;
+      transform:none;
+      transform-origin:top right;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.025),0 1px 4px rgba(0,0,0,.34);
+    }
+    .battle-comms-lobby .chat-reply-btn:hover,
+    .battle-comms-lobby .chat-reply-btn:focus-visible {
+      color:#f1c65f;
+      border-color:rgba(212,168,67,.62);
+      background:#151a20;
+      box-shadow:0 0 8px rgba(212,168,67,.18),inset 0 0 0 1px rgba(255,255,255,.03);
+      outline:none;
+    }
+    .battle-comms-lobby .chat-reply-context {
+      margin:1px 0 3px;
+      padding:1px 4px 1px 6px;
+      font-size:.50rem;
+      line-height:1.12;
+    }
+    .battle-comms-lobby .chat-machine-verdict {
+      margin-top:2px;
+      font-size:.44rem !important;
+      line-height:1.1;
+    }
+    .battle-comms-lobby .shadow-broker-verdict-response,
+    .battle-comms-lobby .chat-message.correct .shadow-broker-transmission,
+    .battle-comms-lobby .chat-message.wrong .shadow-broker-transmission {
+      margin:3px 0 0 8px !important;
+      padding:3px 6px !important;
+      font-size:.43rem !important;
+      line-height:1.08 !important;
+      max-width:88%;
+    }
+    .battle-comms-lobby .chat-reactions.has-reactions {
+      margin-top:3px;
+    }
+    .battle-comms-lobby .chat-reaction-chip,
+    .battle-comms-lobby .chat-reaction-add {
+      min-height:16px !important;
+      padding:0 5px !important;
+      font-size:.48rem !important;
+    }
+
     @media (max-width: 900px) {
       #game-screen { overflow-y:auto; }
       .player-battle-layout { display:flex; flex-direction:column; height:auto; min-height:100%; padding:8px; }
@@ -2505,21 +2789,19 @@
     }
     .join-brand::before,
     .join-brand::after {
-      content:"";
-      position:absolute;
-      top:45%;
-      width:54px;
-      height:1px;
-      background:linear-gradient(90deg,transparent,rgba(139,61,240,.62));
+      display:none;
     }
-    .join-brand::before { right:calc(100% + 18px); }
-    .join-brand::after { left:calc(100% + 18px); transform:scaleX(-1); }
     .join-logo {
-      margin:0;
-      font-size:clamp(2.5rem,7vw,4.25rem);
-      line-height:.9;
-      letter-spacing:.15em;
-      text-shadow:0 8px 28px rgba(0,0,0,.65);
+      display:block;
+      width:min(82vw,520px);
+      height:auto;
+      margin:0 auto;
+      object-fit:contain;
+      user-select:none;
+      -webkit-user-drag:none;
+      filter:
+        drop-shadow(0 10px 28px rgba(0,0,0,.72))
+        drop-shadow(0 0 9px rgba(176,22,18,.16));
     }
     .join-subtitle {
       margin:10px 0 0;
@@ -2669,6 +2951,15 @@
       height:38px;
       border-radius:2px;
     }
+    .little-hero-frame-row{position:relative}
+    .frame-color-toggle{display:grid;grid-template-columns:34px minmax(0,1fr) 14px;gap:9px;align-items:center;padding:5px 8px!important;border:1px solid #566175!important;background:linear-gradient(180deg,#171c24,#0b0e13)!important;color:#e9edf4;text-align:left;box-shadow:inset 0 1px rgba(255,255,255,.035);cursor:pointer}
+    .frame-color-toggle:hover,.frame-color-toggle[aria-expanded="true"]{border-color:#9b5de0!important;box-shadow:0 0 0 1px rgba(155,93,224,.16),inset 0 1px rgba(255,255,255,.04)}
+    .frame-color-swatch{display:block;width:28px;height:24px;border:1px solid #aab2c0;background:var(--lh-frame,#9B5DE0);box-shadow:0 0 10px color-mix(in srgb,var(--lh-frame,#9B5DE0) 42%,transparent),inset 0 0 0 1px rgba(0,0,0,.45)}
+    .frame-color-copy{display:flex;min-width:0;flex-direction:column;gap:1px}.frame-color-copy strong{font:800 .61rem var(--font-system);letter-spacing:.12em}.frame-color-copy small{color:#778295;font:700 .37rem var(--font-machine);letter-spacing:.08em}.frame-color-arrow{color:#8d98a8;font-size:.7rem;text-align:right}
+    .frame-color-panel{position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:2000;padding:11px;border:1px solid #596476;background:linear-gradient(180deg,#141922,#080b10);box-shadow:0 14px 34px rgba(0,0,0,.72),inset 0 0 0 1px rgba(255,255,255,.025)}.frame-color-panel[hidden]{display:none}
+    .frame-color-panel-head{display:flex;justify-content:space-between;gap:12px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid #313947;color:#c8d0dd;font:800 .48rem var(--font-system);letter-spacing:.16em}.frame-color-panel-head span:last-child{color:var(--lh-frame,#9B5DE0);text-shadow:0 0 8px color-mix(in srgb,var(--lh-frame,#9B5DE0) 50%,transparent)}
+    .frame-color-field{position:relative;height:142px;margin:4px 0 10px;border:1px solid #596476;background:linear-gradient(to bottom,transparent,#000),linear-gradient(to right,#fff,transparent),hsl(var(--frame-hue,267) 100% 50%);cursor:crosshair;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45),inset 0 0 22px rgba(0,0,0,.12)}.frame-color-field:focus-visible{outline:1px solid #aeb8c8;outline-offset:2px}.frame-color-field-cursor{position:absolute;left:68%;top:38%;width:13px;height:13px;border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 2px #111722,0 0 10px rgba(255,255,255,.22);pointer-events:none}.frame-hue-row{display:grid;grid-template-columns:46px minmax(0,1fr);gap:8px;align-items:center;margin:0 0 10px}.frame-hue-row>span{color:#8792a2;font:800 .45rem var(--font-system);letter-spacing:.12em}.frame-hue-row input[type="range"]{width:100%;height:14px;margin:0;appearance:none;-webkit-appearance:none;background:transparent;cursor:pointer}.frame-hue-row input[type="range"]::-webkit-slider-runnable-track{height:8px;border:1px solid #4a5360;background:linear-gradient(90deg,#f33,#ff0,#3f3,#0ff,#33f,#f0f,#f33)}.frame-hue-row input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;margin-top:-4px;border:2px solid #eef2f7;border-radius:50%;background:#10141a;box-shadow:0 0 0 2px #252c36,0 0 8px rgba(255,255,255,.18)}.frame-color-info{display:grid;grid-template-columns:40px repeat(3,minmax(0,1fr));gap:7px;align-items:stretch;padding:9px;border:1px solid #3c4655;background:linear-gradient(180deg,#1b212a,#0d1117);box-shadow:inset 0 1px rgba(255,255,255,.025),inset 0 -1px rgba(0,0,0,.65)}.frame-color-info-swatch{display:block;min-height:34px;border:1px solid #7a8594;background:var(--lh-frame,#9B5DE0);box-shadow:inset 0 0 0 1px rgba(0,0,0,.48),0 0 10px color-mix(in srgb,var(--lh-frame,#9B5DE0) 32%,transparent)}.frame-color-info div{display:grid;grid-template-rows:auto 1fr;place-items:center;border:1px solid #313a47;background:#11161d}.frame-color-info small{color:#768292;font:800 .38rem var(--font-system);letter-spacing:.12em}.frame-color-info b{color:#dde3eb;font:800 .65rem var(--font-machine);font-variant-numeric:tabular-nums}
+    .frame-color-presets{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px;margin-top:10px;padding-top:9px;border-top:1px solid #2e3540}.frame-color-presets button{height:22px;border:1px solid #667182;background:var(--preset);cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45)}.frame-color-presets button:hover,.frame-color-presets button:focus-visible{transform:translateY(-1px);border-color:#e6ebf3;outline:none}.frame-color-presets button[data-frame-color="#9B5DE0"]{--preset:#9B5DE0}.frame-color-presets button[data-frame-color="#D94B62"]{--preset:#D94B62}.frame-color-presets button[data-frame-color="#E38B2C"]{--preset:#E38B2C}.frame-color-presets button[data-frame-color="#E5C84B"]{--preset:#E5C84B}.frame-color-presets button[data-frame-color="#4FB36C"]{--preset:#4FB36C}.frame-color-presets button[data-frame-color="#3FA7C9"]{--preset:#3FA7C9}.frame-color-presets button[data-frame-color="#4F6EE8"]{--preset:#4F6EE8}.frame-color-presets button[data-frame-color="#D36BC4"]{--preset:#D36BC4}
     .little-hero-chaos-note {
       margin-top:5px;
       color:#727d8d;
@@ -2742,6 +3033,407 @@
       .little-hero-avatar-preview { width:66px; height:66px; }
       .little-hero-avatar-upload { min-height:146px; }
       .join-form { padding:12px 10px 13px; }
+    }
+
+    /* =========================================================
+       LITTLE HERO ACCESS V3 // IDENTITY FORGE
+       The ASOC anthem is the authority mark; the hero card is the focus.
+       ========================================================= */
+    #join-screen { padding-top:clamp(10px,2vh,22px); padding-bottom:clamp(14px,2.5vh,28px); }
+    .join-brand { margin-bottom:clamp(9px,1.7vh,15px); }
+    .join-logo {
+      width:min(78vw,520px,54vh);
+      filter:drop-shadow(0 12px 28px rgba(0,0,0,.78)) drop-shadow(0 0 10px rgba(190,24,20,.18));
+    }
+    .join-subtitle {
+      margin-top:clamp(4px,.8vh,8px);
+      color:#aeb8c8;
+      font-size:clamp(.60rem,1.25vw,.78rem);
+      letter-spacing:.23em;
+      text-shadow:0 0 10px rgba(139,61,240,.14);
+    }
+    .join-form {
+      width:min(100%,720px);
+      max-width:720px;
+      padding:15px 17px 17px;
+    }
+    .join-form-head { margin-bottom:11px; }
+    .join-primary-grid { gap:11px; }
+    .join-primary-grid .form-group { margin-bottom:11px; }
+    .little-hero-appearance {
+      grid-template-columns:160px minmax(0,1fr);
+      gap:11px 14px;
+      margin-bottom:13px;
+    }
+    .little-hero-appearance::before {
+      content:"LITTLE HERO IDENTITY  //  AVATAR · FRAME · THEME";
+      grid-column:1 / -1;
+      display:block;
+      padding:0 0 7px;
+      border-bottom:1px solid rgba(105,119,141,.28);
+      color:#8793a5;
+      font:700 .47rem var(--font-machine);
+      letter-spacing:.14em;
+      text-align:left;
+    }
+    .little-hero-avatar-upload {
+      min-height:184px;
+      padding:14px 12px 12px;
+      border-color:#515d71;
+      background:
+        radial-gradient(circle at 50% 42%,rgba(139,61,240,.085),transparent 42%),
+        linear-gradient(145deg,rgba(22,27,37,.95),rgba(8,11,16,.98));
+      box-shadow:inset 0 1px rgba(255,255,255,.025);
+    }
+    .little-hero-avatar-upload::before { top:10px; left:11px; font-size:.52rem; letter-spacing:1.2px; }
+    .little-hero-avatar-preview {
+      width:112px;
+      height:112px;
+      margin:13px auto 9px;
+      border-width:4px;
+      box-shadow:inset 0 0 0 2px rgba(225,229,238,.42),0 0 24px color-mix(in srgb,var(--lh-frame) 48%,transparent);
+    }
+    .little-hero-upload-label { font-size:.53rem; letter-spacing:1.3px; color:#d0d6df; }
+    .little-hero-frame-controls {
+      padding:12px 13px 11px;
+      border-color:#515d71;
+      background:linear-gradient(145deg,rgba(22,27,37,.95),rgba(8,11,16,.98));
+      box-shadow:inset 0 1px rgba(255,255,255,.025);
+    }
+    .little-hero-theme-block { margin-top:10px; padding-top:10px; border-top:1px solid rgba(105,119,141,.22); }
+    .join-btn { min-height:54px; }
+
+    @media (max-width:620px) {
+      .join-logo { width:min(88vw,440px,42vh); }
+      .little-hero-appearance { grid-template-columns:122px minmax(0,1fr); gap:8px 9px; }
+      .little-hero-avatar-upload { min-height:166px; }
+      .little-hero-avatar-preview { width:86px; height:86px; }
+      .little-hero-appearance::before { font-size:.43rem; }
+    }
+    @media (max-width:430px) {
+      .join-logo { width:min(92vw,390px,38vh); }
+      .little-hero-appearance { grid-template-columns:104px minmax(0,1fr); }
+      .little-hero-avatar-upload { min-height:154px; }
+      .little-hero-avatar-preview { width:72px; height:72px; border-width:3px; }
+      .little-hero-appearance::before { content:"LITTLE HERO IDENTITY"; }
+    }
+
+    /* =========================================================
+       LITTLE HERO ACCESS V5 // DISCORD-INSPIRED IDENTITY CARD
+       ========================================================= */
+    .little-hero-appearance {
+      display:grid;
+      grid-template-columns:minmax(0,1.12fr) minmax(250px,.88fr);
+      gap:14px;
+      align-items:stretch;
+      margin:0 0 14px;
+    }
+    .little-hero-appearance::before { display:none; content:none; }
+    .profile-preview-card {
+      --profile-theme:#9b5de0;
+      --profile-shell-top:#171b22;
+      --profile-shell-bottom:#0a0d11;
+      position:relative;
+      min-width:0;
+      min-height:248px;
+      overflow:hidden;
+      border:1px solid #505b6c;
+      border-radius:8px;
+      background:linear-gradient(180deg,#171b22 0 46%,#0b0e13 46% 100%);
+      box-shadow:0 12px 28px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.035);
+    }
+    .profile-preview-card::after {
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      border-radius:inherit;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.018);
+    }
+    .profile-preview-head {
+      position:absolute;
+      z-index:4;
+      top:9px;
+      left:12px;
+      right:12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      color:#d5dbe5;
+      font:800 .47rem var(--font-machine);
+      letter-spacing:.15em;
+      text-shadow:0 1px 4px #000;
+    }
+    .profile-preview-head small {
+      color:var(--profile-theme);
+      font:800 .40rem var(--font-machine);
+      letter-spacing:.12em;
+      text-shadow:0 0 8px color-mix(in srgb,var(--profile-theme) 40%,transparent);
+    }
+    .profile-preview-banner {
+      position:relative;
+      height:122px;
+      overflow:hidden;
+      border-bottom:1px solid rgba(255,255,255,.05);
+      background:
+        radial-gradient(circle at 78% 35%,color-mix(in srgb,var(--profile-theme) 22%,transparent),transparent 31%),
+        linear-gradient(135deg,color-mix(in srgb,var(--profile-theme) 12%,#171b22),#0b0e13 72%);
+    }
+    .profile-preview-banner::after {
+      content:"";
+      position:absolute;
+      inset:auto 0 0;
+      height:46px;
+      background:linear-gradient(180deg,transparent,rgba(5,7,10,.58));
+      pointer-events:none;
+    }
+    .profile-preview-theme {
+      position:absolute;
+      right:12px;
+      bottom:10px;
+      z-index:2;
+      color:rgba(238,242,248,.72);
+      font:800 .45rem var(--font-machine);
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      text-shadow:0 1px 4px #000;
+    }
+    .profile-preview-body {
+      position:relative;
+      min-height:126px;
+      padding:67px 16px 14px;
+      background:
+        linear-gradient(180deg,color-mix(in srgb,var(--profile-shell-top) 82%,#11151c),var(--profile-shell-bottom));
+    }
+    .profile-avatar-edit,
+    .little-hero-avatar-upload.profile-avatar-edit {
+      position:absolute;
+      z-index:5;
+      left:16px;
+      top:-58px;
+      width:116px;
+      height:116px;
+      min-height:0;
+      margin:0;
+      padding:0;
+      display:block;
+      border:0;
+      border-radius:50%;
+      background:none;
+      box-shadow:none;
+      cursor:pointer;
+    }
+    .little-hero-avatar-upload.profile-avatar-edit::before { display:none; content:none; }
+    .profile-avatar-edit .little-hero-avatar-preview {
+      width:116px;
+      height:116px;
+      margin:0;
+      border:4px solid var(--lh-frame);
+      outline:5px solid #0b0e13;
+      box-shadow:
+        inset 0 0 0 2px rgba(225,229,238,.34),
+        0 0 20px color-mix(in srgb,var(--lh-frame) 42%,transparent),
+        0 8px 18px rgba(0,0,0,.42);
+    }
+    .avatar-edit-overlay {
+      position:absolute;
+      inset:4px;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      background:rgba(4,6,9,.74);
+      color:#f2f4f8;
+      font:900 .48rem var(--font-system);
+      letter-spacing:.11em;
+      opacity:0;
+      transition:opacity .14s ease;
+      pointer-events:none;
+    }
+    .profile-avatar-edit:hover .avatar-edit-overlay,
+    .profile-avatar-edit:focus-within .avatar-edit-overlay { opacity:1; }
+    .profile-preview-name {
+      max-width:100%;
+      overflow:hidden;
+      color:#f1f4f8;
+      font:900 1rem var(--font-system);
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .profile-preview-status {
+      display:flex;
+      align-items:center;
+      gap:7px;
+      margin-top:6px;
+      color:#8995a6;
+      font:700 .46rem var(--font-machine);
+      letter-spacing:.12em;
+    }
+    .profile-preview-status > span {
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      background:#55c96d;
+      box-shadow:0 0 8px rgba(85,201,109,.46);
+    }
+    .little-hero-frame-controls {
+      display:flex;
+      min-width:0;
+      flex-direction:column;
+      gap:7px;
+      padding:14px;
+      border:1px solid #505b6c;
+      border-radius:8px;
+      background:linear-gradient(145deg,rgba(22,27,37,.96),rgba(8,11,16,.985));
+      box-shadow:inset 0 1px rgba(255,255,255,.028);
+    }
+    .little-hero-frame-controls > .form-label,
+    .little-hero-theme-block > .form-label { margin:4px 0 0; }
+    .identity-control { margin-bottom:4px; }
+    .identity-control .form-label { margin-bottom:6px; }
+    .identity-action {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      min-height:38px;
+      box-sizing:border-box;
+      border:1px solid #596578;
+      border-radius:3px;
+      background:linear-gradient(180deg,#181d25,#0d1117);
+      color:#e6ebf2;
+      font:800 .58rem var(--font-system);
+      letter-spacing:.13em;
+      cursor:pointer;
+      transition:border-color .14s ease,background .14s ease,box-shadow .14s ease;
+    }
+    .identity-action:hover {
+      border-color:#8794a7;
+      background:linear-gradient(180deg,#202631,#10151c);
+      box-shadow:0 0 0 1px rgba(255,255,255,.025);
+    }
+    .little-hero-frame-row { margin-top:0; }
+    #little-hero-frame-picker {
+      height:40px;
+      border-color:#596578!important;
+      border-radius:3px;
+    }
+    .frame-color-copy small { display:none; }
+    .frame-color-copy strong { font-size:.61rem; }
+    .little-hero-theme-block {
+      margin-top:5px;
+      padding-top:9px;
+      border-top:1px solid rgba(105,119,141,.23);
+    }
+    .little-hero-theme-block .theme-select { margin-top:6px; }
+    .little-hero-theme-block .theme-select-toggle {
+      grid-template-columns:minmax(0,1fr) 16px;
+      gap:8px;
+      min-height:42px;
+      padding:6px 9px;
+    }
+    .little-hero-theme-block .theme-select-preview { display:none; }
+    .little-hero-theme-block .theme-select-copy small { display:none; }
+    .little-hero-theme-block .theme-select-copy strong { font-size:.62rem; letter-spacing:.10em; }
+
+    .profile-preview-card[data-theme-id="gunmetal"] .profile-preview-banner {
+      background:
+        radial-gradient(circle at 78% 42%,rgba(190,35,35,.20),transparent 0 7%,rgba(190,35,35,.08) 8% 15%,transparent 16% 100%),
+        linear-gradient(90deg,transparent 0 64%,rgba(170,182,196,.08) 64.4% 64.8%,transparent 65.2%),
+        linear-gradient(135deg,#20262d,#0b0e12 72%);
+    }
+    .profile-preview-card[data-theme-id="pink-protocol"] .profile-preview-banner {
+      background:
+        radial-gradient(circle at 77% 30%,rgba(255,182,223,.24),transparent 0 9%,rgba(224,106,177,.08) 10% 24%,transparent 25%),
+        linear-gradient(115deg,transparent 0 58%,rgba(255,215,234,.10) 58.5% 59%,transparent 59.5%),
+        linear-gradient(135deg,#522242,#1b0f19 72%);
+    }
+    .profile-preview-card[data-theme-id="verdantis"] .profile-preview-banner {
+      background:
+        radial-gradient(ellipse at 78% 24%,rgba(168,242,90,.18),transparent 0 12%,rgba(95,175,99,.08) 13% 30%,transparent 31%),
+        linear-gradient(32deg,transparent 0 62%,rgba(127,188,80,.12) 62.5% 63%,transparent 63.5%),
+        linear-gradient(135deg,#1d2a1e,#0b120c 72%);
+    }
+    .profile-preview-card[data-theme-id="my-sindragosa"] .profile-preview-banner {
+      background:
+        linear-gradient(132deg,transparent 0 63%,rgba(178,229,255,.16) 63.5% 64%,transparent 64.5% 100%),
+        linear-gradient(48deg,transparent 0 72%,rgba(121,200,242,.13) 72.5% 73%,transparent 73.5%),
+        radial-gradient(circle at 80% 22%,rgba(180,233,255,.20),transparent 28%),
+        linear-gradient(135deg,#173449,#08131d 74%);
+    }
+    .profile-preview-card[data-theme-id="disco-inferno"] .profile-preview-banner {
+      background:
+        radial-gradient(circle at 78% 34%,rgba(255,179,71,.22),transparent 0 10%,rgba(240,106,42,.10) 11% 25%,transparent 26%),
+        linear-gradient(66deg,transparent 0 60%,rgba(255,126,47,.14) 60.5% 61.5%,transparent 62%),
+        linear-gradient(135deg,#4a2310,#120b08 72%);
+    }
+    .profile-preview-card[data-theme-id="our-theme"] .profile-preview-banner {
+      background:
+        linear-gradient(90deg,transparent 0 70%,rgba(215,179,74,.11) 70.4% 71%,transparent 71.4%),
+        repeating-linear-gradient(135deg,rgba(185,37,34,.08) 0 8px,transparent 8px 28px),
+        linear-gradient(135deg,#351515,#100909 72%);
+    }
+    .profile-preview-card[data-theme-id="undead"] .profile-preview-banner {
+      background:
+        radial-gradient(circle at 79% 30%,rgba(173,235,83,.18),transparent 0 8%,rgba(127,191,63,.07) 9% 22%,transparent 23%),
+        radial-gradient(circle at 30% 80%,rgba(102,143,72,.13),transparent 28%),
+        linear-gradient(135deg,#242b20,#0b100b 72%);
+    }
+    .profile-preview-card[data-theme-id="revan"] .profile-preview-banner {
+      background:
+        linear-gradient(124deg,transparent 0 58%,rgba(184,41,62,.16) 58.5% 60%,transparent 60.5%),
+        linear-gradient(56deg,transparent 0 70%,rgba(125,43,184,.17) 70.5% 72%,transparent 72.5%),
+        radial-gradient(circle at 78% 32%,rgba(168,50,138,.18),transparent 27%),
+        linear-gradient(135deg,#2a1025,#10080e 74%);
+    }
+    .profile-preview-card[data-theme-id="gunmetal"] { border-color:#59636e; }
+    .profile-preview-card[data-theme-id="pink-protocol"] { border-color:#785168; }
+    .profile-preview-card[data-theme-id="verdantis"] { border-color:#526951; }
+    .profile-preview-card[data-theme-id="my-sindragosa"] { border-color:#4f7082; }
+    .profile-preview-card[data-theme-id="disco-inferno"] { border-color:#7a4c31; }
+    .profile-preview-card[data-theme-id="our-theme"] { border-color:#743e3a; }
+    .profile-preview-card[data-theme-id="undead"] { border-color:#5e6d4d; }
+    .profile-preview-card[data-theme-id="revan"] { border-color:#6e3d64; }
+
+    @media (max-width:620px) {
+      .little-hero-appearance {
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+      .profile-preview-card { min-height:230px; }
+      .profile-preview-banner { height:112px; }
+      .profile-preview-body { min-height:118px; padding-top:62px; }
+      .profile-avatar-edit,
+      .little-hero-avatar-upload.profile-avatar-edit {
+        width:104px;
+        height:104px;
+        top:-52px;
+      }
+      .profile-avatar-edit .little-hero-avatar-preview {
+        width:104px;
+        height:104px;
+      }
+      .little-hero-frame-controls { padding:12px; }
+    }
+    @media (max-width:430px) {
+      .profile-preview-card { min-height:218px; }
+      .profile-preview-banner { height:104px; }
+      .profile-preview-body { min-height:114px; padding:58px 13px 12px; }
+      .profile-avatar-edit,
+      .little-hero-avatar-upload.profile-avatar-edit {
+        left:13px;
+        width:94px;
+        height:94px;
+        top:-47px;
+      }
+      .profile-avatar-edit .little-hero-avatar-preview {
+        width:94px;
+        height:94px;
+        border-width:3px;
+        outline-width:4px;
+      }
+      .profile-preview-name { font-size:.88rem; }
     }
 
     /* ASOC ACCESS GATE // cabinet surfaces remain isolated from battle UI. */
@@ -2959,7 +3651,16 @@
 
   <div id="join-screen" style="display:none">
     <div class="join-brand">
-      <div class="join-logo">ASOC</div>
+      <img
+        class="join-logo"
+        src="assets/ui/asoc-anthem.png"
+        width="1983"
+        height="793"
+        alt="ASOC — Automated Systems of Cruelty"
+        loading="eager"
+        decoding="async"
+        fetchpriority="high"
+        draggable="false">
       <div class="join-subtitle">Little Hero // Battle Access</div>
     </div>
 
@@ -2981,22 +3682,61 @@
       </div>
 
       <div class="little-hero-appearance">
-        <label class="little-hero-avatar-upload" for="little-hero-avatar-file" title="Upload Little Hero avatar">
-          <span class="little-hero-avatar-preview" id="little-hero-avatar-preview">
-            <img id="little-hero-avatar-image" alt="Little Hero avatar preview">
-            <span class="little-hero-avatar-placeholder">LH</span>
-          </span>
-          <span class="little-hero-upload-label">Upload Avatar</span>
-        </label>
+        <section class="profile-preview-card" id="little-hero-profile-preview" data-theme-id="gunmetal" aria-label="Little Hero profile preview">
+          <div class="profile-preview-head"><span>PROFILE PREVIEW</span><small>LIVE</small></div>
+          <div class="profile-preview-banner">
+            <span class="profile-preview-theme" id="little-hero-profile-theme">SKYNET</span>
+          </div>
+          <div class="profile-preview-body">
+            <label class="little-hero-avatar-upload profile-avatar-edit" for="little-hero-avatar-file" title="Change Little Hero avatar">
+              <span class="little-hero-avatar-preview" id="little-hero-avatar-preview">
+                <img id="little-hero-avatar-image" alt="Little Hero avatar preview">
+                <span class="little-hero-avatar-placeholder">LH</span>
+              </span>
+              <span class="avatar-edit-overlay">CHANGE AVATAR</span>
+            </label>
+            <div class="profile-preview-name" id="little-hero-profile-name">LITTLE HERO</div>
+            <div class="profile-preview-status"><span aria-hidden="true"></span>LITTLE HERO // READY</div>
+          </div>
+        </section>
         <input id="little-hero-avatar-file" type="file" accept="image/png,image/jpeg,image/webp">
 
         <div class="little-hero-frame-controls">
-          <label class="form-label" for="little-hero-frame-picker">Frame Color</label>
-          <div class="little-hero-frame-row">
-            <input id="little-hero-frame-picker" type="color" value="#9B5DE0" aria-label="Avatar frame color">
+          <div class="identity-control">
+            <div class="form-label">AVATAR</div>
+            <label class="identity-action" for="little-hero-avatar-file">CHANGE AVATAR</label>
           </div>
-          <div class="little-hero-chaos-note">Structure is controlled. Color is chaos.</div>
-
+          <label class="form-label" for="little-hero-frame-picker">FRAME</label>
+          <div class="little-hero-frame-row">
+            <button id="little-hero-frame-picker" class="frame-color-toggle" type="button" aria-expanded="false" aria-controls="frame-color-panel">
+              <span class="frame-color-swatch" aria-hidden="true"></span>
+              <span class="frame-color-copy"><strong id="frame-color-label">PURPLE</strong><small>CLICK TO EDIT</small></span>
+              <span class="frame-color-arrow" aria-hidden="true">▾</span>
+            </button>
+            <div id="frame-color-panel" class="frame-color-panel" hidden>
+              <div class="frame-color-panel-head"><span>FRAME COLOR</span><span id="frame-color-state">ACTIVE</span></div>
+              <div id="frame-color-field" class="frame-color-field" role="slider" tabindex="0" aria-label="Frame color saturation and brightness">
+                <span id="frame-color-field-cursor" class="frame-color-field-cursor" aria-hidden="true"></span>
+              </div>
+              <label class="frame-hue-row"><span>HUE</span><input id="frame-hue" type="range" min="0" max="360" value="267"></label>
+              <div class="frame-color-info">
+                <span class="frame-color-info-swatch" aria-hidden="true"></span>
+                <div><small>R</small><b id="frame-r">155</b></div>
+                <div><small>G</small><b id="frame-g">93</b></div>
+                <div><small>B</small><b id="frame-b">224</b></div>
+              </div>
+              <div class="frame-color-presets" aria-label="Preset frame colors">
+                <button type="button" data-frame-color="#9B5DE0" aria-label="Purple"></button>
+                <button type="button" data-frame-color="#D94B62" aria-label="Crimson"></button>
+                <button type="button" data-frame-color="#E38B2C" aria-label="Amber"></button>
+                <button type="button" data-frame-color="#E5C84B" aria-label="Gold"></button>
+                <button type="button" data-frame-color="#4FB36C" aria-label="Green"></button>
+                <button type="button" data-frame-color="#3FA7C9" aria-label="Cyan"></button>
+                <button type="button" data-frame-color="#4F6EE8" aria-label="Blue"></button>
+                <button type="button" data-frame-color="#D36BC4" aria-label="Pink"></button>
+              </div>
+            </div>
+          </div>
           <div class="little-hero-theme-block">
             <div class="form-label">Theme Profile</div>
             <div class="theme-select" id="theme-select">
@@ -3075,7 +3815,7 @@
                 </button>
               </div>
             </div>
-            <div class="little-hero-chaos-note">Theme colors alter background surfaces only. The game board keeps its original artwork.</div>
+
           </div>
         </div>
       </div>
@@ -3102,6 +3842,21 @@
          drawn here (Wheel.update is always called with isGM=false), it
          only reflects whatever the GM's copy is doing. -->
     <div id="wheel-overlay" class="wheel-overlay"></div>
+
+    <div id="blood-tribute-overlay" class="blood-tribute-overlay" hidden>
+      <form id="blood-tribute-form" class="blood-tribute-shell">
+        <div class="blood-tribute-kicker">WOMF // DEBT CALLED</div>
+        <h2>BLOOD TRIBUTE DEMANDED</h2>
+        <div id="blood-tribute-player" class="blood-tribute-player"></div>
+        <label class="blood-tribute-upload">
+          <span>CHOOSE TRIBUTE IMAGE</span>
+          <input id="blood-tribute-file" type="file" accept="image/png,image/jpeg,image/webp" required>
+        </label>
+        <div class="blood-tribute-retention-note">The image is public in Battle Comms for 02:00. After the public purge, the host retains it privately in the Tribute Vault.</div>
+        <button id="blood-tribute-submit" class="blood-tribute-submit" type="submit">PAY TRIBUTE</button>
+        <div id="blood-tribute-status" class="blood-tribute-status"></div>
+      </form>
+    </div>
 
     <aside id="battle-comms-lobby" class="battle-comms-lobby">
     <section class="detainee-status-module">
@@ -3139,6 +3894,10 @@
       <div id="chat-messages"></div>
       <button type="button" id="chat-new-messages" class="chat-new-messages" hidden>↓ 0 NEW TRANSMISSIONS</button>
       <div id="chat-reaction-picker" class="chat-floating-emoji-picker" hidden></div>
+      <div id="chat-message-context-menu" class="chat-message-context-menu" hidden role="menu" aria-label="Message actions">
+        <button type="button" data-chat-action="reply" role="menuitem"><span>&#8617;</span> REPLY</button>
+        <button type="button" data-chat-action="react" role="menuitem"><span>&#9786;</span> REACT</button>
+      </div>
       <form class="chat-form" id="chat-form">
         <div id="chat-reply-preview" class="chat-reply-preview" style="display:none">
           <span id="chat-reply-preview-text"></span>
@@ -3243,20 +4002,55 @@
     document.getElementById('access-gm').onclick=()=>show('gm');
     document.querySelectorAll('.access-back').forEach(b=>b.onclick=()=>show(null));
     const playerLogout=document.getElementById('player-logout-control');
-    const playerSessionKeys=['asoc_player_auth_token','asoc_player_id','asoc_player_name','asoc_room_code'];
-    const syncPlayerLogoutVisibility=()=>{playerLogout.hidden=!sessionStorage.getItem('asoc_player_auth_token');};
+    const playerAuthTokenKey='asoc_player_auth_token';
+    const playerSessionKeys=['asoc_player_id','asoc_player_name','asoc_room_code'];
+    const getStoredPlayerAuthToken=()=>localStorage.getItem(playerAuthTokenKey)||sessionStorage.getItem(playerAuthTokenKey)||'';
+    const persistPlayerAuthToken=(token)=>{
+      if(!token)return;
+      localStorage.setItem(playerAuthTokenKey,token);
+      sessionStorage.setItem(playerAuthTokenKey,token);
+    };
+    const clearPlayerAuthState=()=>{
+      localStorage.removeItem(playerAuthTokenKey);
+      sessionStorage.removeItem(playerAuthTokenKey);
+      playerSessionKeys.forEach(key=>sessionStorage.removeItem(key));
+    };
+    const syncPlayerLogoutVisibility=()=>{playerLogout.hidden=!getStoredPlayerAuthToken();};
     playerLogout.addEventListener('click',async()=>{
-      const token=sessionStorage.getItem('asoc_player_auth_token')||'';
+      const token=getStoredPlayerAuthToken();
       playerLogout.disabled=true;playerLogout.textContent='DISCONNECTING...';
       try{
         if(token)await fetch('/api/auth/player/logout',{method:'POST',headers:{'x-player-token':token}});
       }catch(_){/* local logout still proceeds if the server link is unavailable */}
       finally{
-        playerSessionKeys.forEach(key=>sessionStorage.removeItem(key));
+        clearPlayerAuthState();
         location.replace('/join.html');
       }
     });
+    const restorePlayerSession=async()=>{
+      const token=getStoredPlayerAuthToken();
+      if(!token){syncPlayerLogoutVisibility();return;}
+      persistPlayerAuthToken(token); // migrate legacy sessionStorage-only logins
+      try{
+        const res=await fetch('/api/auth/player/session',{method:'GET',headers:{'x-player-token':token},cache:'no-store'});
+        if(res.status===401){clearPlayerAuthState();syncPlayerLogoutVisibility();return;}
+        if(!res.ok)throw Error('Player session validation unavailable');
+        const data=await res.json();
+        if(data.player?.id)sessionStorage.setItem('asoc_player_id',data.player.id);
+        if(data.player?.name){
+          sessionStorage.setItem('asoc_player_name',data.player.name);
+          document.getElementById('player-name').value=data.player.name;
+        }
+      }catch(_){
+        /* A temporary network failure must not silently log out a valid player. */
+      }
+      stopBoot();
+      gate.hidden=true;
+      document.getElementById('join-screen').style.display='flex';
+      playerLogout.hidden=false;
+    };
     syncPlayerLogoutVisibility();
+    restorePlayerSession();
     document.getElementById('player-auth-mode').onclick=()=>{
       register=!register; document.getElementById('auth-name-field').hidden=!register;
       document.getElementById('player-auth-copy').textContent=register?'Create a persistent Little Hero identity.':'Sign in with your ASOC identity.';
@@ -3270,9 +4064,12 @@
         const payload={email:document.getElementById('auth-email').value,password:document.getElementById('auth-password').value,name:document.getElementById('auth-name').value};
         const res=await fetch(register?'/api/auth/player/register':'/api/auth/player/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
         const data=await res.json(); if(!res.ok)throw Error(data.error||'Authentication failed');
-        sessionStorage.setItem('asoc_player_auth_token',data.token);
+        persistPlayerAuthToken(data.token);
         if(data.player?.id) sessionStorage.setItem('asoc_player_id',data.player.id);
-        if(data.player?.name) document.getElementById('player-name').value=data.player.name;
+        if(data.player?.name){
+          sessionStorage.setItem('asoc_player_name',data.player.name);
+          document.getElementById('player-name').value=data.player.name;
+        }
         gate.hidden=true; document.getElementById('join-screen').style.display='flex';
         document.getElementById('player-logout-control').hidden=false;
       }catch(x){err.textContent=x.message;}

@@ -21,12 +21,24 @@ const PlayerApp = {
   _newMessageCount: 0,
   _wrongFadeTimer: null,
   _wrongVerdictSeenAt: new Map(),
+  _tributeExpiryTimer: null,
+  bloodTribute: { status: 'idle' },
+  tributeUploading: false,
   chatReactionEmojis: ['😂', '💀', '🤡', '🖤', '🔥', '👀', '👍', '👎', '😭', '😈', '🤔', '🫡'],
   // FINAL SOLUTION REVEAL FLOURISH -- same one-shot guard as App's copy in
   // js/app.js (see its comment): renderBoard() fully rebuilds the board on
   // every broadcast, so this flag is what keeps the animation from
   // replaying on every incidental re-render while the Final stays revealed.
   _finalFlourishPlayed: false,
+  // GAME WON -- mirrors the server's authoritative sessionState.gameWon.
+  // Same contract as the GM: the live sequence plays only on a false->true
+  // flip after this connection's baseline state; the first state after every
+  // (re)connect is the baseline, so a refresh/reconnect never replays it.
+  gameWon: false,
+  _victoryBaselined: false,
+  gameLost: false,
+  _lossBaselined: false,
+  _lossResultKey: null,
 
   // SHADOW BROKER glitch-in guard -- renderChat() rebuilds the entire chat
   // list from scratch on every chat:update (a new guess from ANY player,
@@ -87,6 +99,15 @@ const PlayerApp = {
       this.joinGame();
     });
 
+    document.getElementById('blood-tribute-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.submitBloodTribute();
+    });
+
+    nameInput.addEventListener('input', () => {
+      this.updateAppearancePreview();
+    });
+
     nameInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -96,6 +117,12 @@ const PlayerApp = {
 
     const avatarFile = document.getElementById('little-hero-avatar-file');
     const framePicker = document.getElementById('little-hero-frame-picker');
+    const framePanel = document.getElementById('frame-color-panel');
+    const frameField = document.getElementById('frame-color-field');
+    const frameFieldCursor = document.getElementById('frame-color-field-cursor');
+    const frameHue = document.getElementById('frame-hue');
+    const framePresets = Array.from(document.querySelectorAll('[data-frame-color]'));
+    const frameRow = framePicker?.closest('.little-hero-frame-row');
     const themeSelect = document.getElementById('theme-select');
     const themeToggle = document.getElementById('theme-select-toggle');
     const themeMenu = document.getElementById('theme-select-menu');
@@ -119,12 +146,64 @@ const PlayerApp = {
       this.frameColor = value.toUpperCase();
       this._sendFrameAppearance = true;
       localStorage.setItem('asoc_little_hero_frame', this.frameColor);
-      if (framePicker) framePicker.value = this.frameColor;
       this.updateAppearancePreview();
       return true;
     };
 
-    framePicker?.addEventListener('input', (e) => applyFrameColor(e.target.value));
+    const closeFramePanel = () => {
+      if (!framePanel || !framePicker) return;
+      framePanel.hidden = true;
+      framePicker.setAttribute('aria-expanded', 'false');
+    };
+
+    const applyFieldPoint = (clientX, clientY) => {
+      if (!frameField || !frameHue) return;
+      const rect = frameField.getBoundingClientRect();
+      const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+      const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+      const saturation = rect.width ? (x / rect.width) * 100 : 0;
+      const value = rect.height ? 100 - (y / rect.height) * 100 : 0;
+      applyFrameColor(this.hsvToHex(frameHue.value, saturation, value));
+    };
+
+    framePicker?.addEventListener('click', () => {
+      if (!framePanel) return;
+      const willOpen = framePanel.hidden;
+      framePanel.hidden = !willOpen;
+      framePicker.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (willOpen) this.syncFrameColorEditor();
+    });
+    frameHue?.addEventListener('input', () => {
+      const hsv = this.hexToHsv(this.frameColor);
+      applyFrameColor(this.hsvToHex(frameHue.value, hsv.s, hsv.v));
+    });
+    frameField?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      frameField.setPointerCapture?.(e.pointerId);
+      applyFieldPoint(e.clientX, e.clientY);
+    });
+    frameField?.addEventListener('pointermove', (e) => {
+      if (!(e.buttons & 1)) return;
+      applyFieldPoint(e.clientX, e.clientY);
+    });
+    frameField?.addEventListener('keydown', (e) => {
+      const hsv = this.hexToHsv(this.frameColor);
+      let s = hsv.s, v = hsv.v;
+      if (e.key === 'ArrowLeft') s -= 2;
+      else if (e.key === 'ArrowRight') s += 2;
+      else if (e.key === 'ArrowUp') v += 2;
+      else if (e.key === 'ArrowDown') v -= 2;
+      else return;
+      e.preventDefault();
+      applyFrameColor(this.hsvToHex(hsv.h, Math.max(0,Math.min(100,s)), Math.max(0,Math.min(100,v))));
+    });
+    framePresets.forEach(button => button.addEventListener('click', () => applyFrameColor(button.dataset.frameColor)));
+    document.addEventListener('pointerdown', (e) => {
+      if (framePanel && !framePanel.hidden && frameRow && !frameRow.contains(e.target)) closeFramePanel();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && framePanel && !framePanel.hidden) closeFramePanel();
+    });
 
     const applyThemeProfile = (themeId) => {
       const theme = ASOCThemes.get(themeId);
@@ -219,17 +298,107 @@ const PlayerApp = {
     this.updateAppearancePreview();
   },
 
+  hexToHsv(hex) {
+    const clean = String(hex || '#9B5DE0').replace('#', '');
+    const r = parseInt(clean.slice(0,2),16) / 255;
+    const g = parseInt(clean.slice(2,4),16) / 255;
+    const b = parseInt(clean.slice(4,6),16) / 255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    const d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r) h = 60 * (((g - b) / d) % 6);
+      else if (max === g) h = 60 * (((b - r) / d) + 2);
+      else h = 60 * (((r - g) / d) + 4);
+    }
+    if (h < 0) h += 360;
+    const s = max === 0 ? 0 : d / max;
+    return { h: Math.round(h), s: Math.round(s * 100), v: Math.round(max * 100) };
+  },
+
+  hsvToHex(h, s, v) {
+    h = ((Number(h) % 360) + 360) % 360;
+    s = Math.max(0, Math.min(100, Number(s))) / 100;
+    v = Math.max(0, Math.min(100, Number(v))) / 100;
+    const c = v * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = v - c;
+    let rp = 0, gp = 0, bp = 0;
+    if (h < 60) [rp,gp,bp] = [c,x,0];
+    else if (h < 120) [rp,gp,bp] = [x,c,0];
+    else if (h < 180) [rp,gp,bp] = [0,c,x];
+    else if (h < 240) [rp,gp,bp] = [0,x,c];
+    else if (h < 300) [rp,gp,bp] = [x,0,c];
+    else [rp,gp,bp] = [c,0,x];
+    const part = n => Math.round((n + m) * 255).toString(16).padStart(2,'0').toUpperCase();
+    return `#${part(rp)}${part(gp)}${part(bp)}`;
+  },
+
+  syncFrameColorEditor() {
+    const controls = document.querySelector('.little-hero-frame-controls');
+    const panel = document.getElementById('frame-color-panel');
+    const hue = document.getElementById('frame-hue');
+    const fieldCursor = document.getElementById('frame-color-field-cursor');
+    const rOut = document.getElementById('frame-r');
+    const gOut = document.getElementById('frame-g');
+    const bOut = document.getElementById('frame-b');
+    const label = document.getElementById('frame-color-label');
+    const hsv = this.hexToHsv(this.frameColor);
+    const clean = this.frameColor.replace('#','');
+    const rgb = {
+      r: parseInt(clean.slice(0,2),16),
+      g: parseInt(clean.slice(2,4),16),
+      b: parseInt(clean.slice(4,6),16)
+    };
+    if (controls) controls.style.setProperty('--lh-frame', this.frameColor);
+    if (panel) {
+      panel.style.setProperty('--lh-frame', this.frameColor);
+      panel.style.setProperty('--frame-hue', hsv.h);
+    }
+    if (hue) hue.value = hsv.h;
+    if (fieldCursor) {
+      fieldCursor.style.left = `${hsv.s}%`;
+      fieldCursor.style.top = `${100 - hsv.v}%`;
+    }
+    if (rOut) rOut.textContent = rgb.r;
+    if (gOut) gOut.textContent = rgb.g;
+    if (bOut) bOut.textContent = rgb.b;
+    if (label) {
+      const names = {
+        '#9B5DE0':'PURPLE',
+        '#D94B62':'CRIMSON',
+        '#E38B2C':'AMBER',
+        '#E5C84B':'GOLD',
+        '#4FB36C':'GREEN',
+        '#3FA7C9':'CYAN',
+        '#4F6EE8':'BLUE',
+        '#D36BC4':'PINK'
+      };
+      label.textContent = names[this.frameColor] || this.frameColor;
+    }
+  },
+
   updateAppearancePreview() {
     const preview = document.getElementById('little-hero-avatar-preview');
     const image = document.getElementById('little-hero-avatar-image');
-    const picker = document.getElementById('little-hero-frame-picker');
-    const hex = document.getElementById('little-hero-frame-hex');
     const gameScreen = document.getElementById('game-screen');
     if (preview) preview.style.setProperty('--lh-frame', this.frameColor);
-    if (picker) picker.value = this.frameColor;
-    if (hex) hex.value = this.frameColor;
+    this.syncFrameColorEditor();
     const theme = ASOCThemes.get(this.themeId);
     ASOCThemes.applyToScreen(gameScreen, theme.id);
+
+    const profileCard = document.getElementById('little-hero-profile-preview');
+    const profileTheme = document.getElementById('little-hero-profile-theme');
+    const profileName = document.getElementById('little-hero-profile-name');
+    const nameInput = document.getElementById('player-name');
+    if (profileCard) {
+      profileCard.dataset.themeId = theme.id;
+      profileCard.style.setProperty('--profile-theme', theme.color);
+      profileCard.style.setProperty('--profile-shell-top', theme.shellTop);
+      profileCard.style.setProperty('--profile-shell-bottom', theme.shellBottom);
+    }
+    if (profileTheme) profileTheme.textContent = theme.name;
+    if (profileName) profileName.textContent = (nameInput?.value || '').trim() || 'LITTLE HERO';
 
     const themeSelect = document.getElementById('theme-select');
     const themePreview = document.getElementById('theme-select-preview');
@@ -332,6 +501,7 @@ const PlayerApp = {
 
     this.ws.onopen = () => {
       console.log('[PLAYER] WebSocket connected');
+      this._victoryBaselined = false;
       this.setConnectionStatus('connecting');
     };
 
@@ -375,7 +545,7 @@ const PlayerApp = {
           type: 'room:join',
           roomCode: this.roomCode,
           name: this.playerName,
-          authToken: sessionStorage.getItem('asoc_player_auth_token') || ''
+          authToken: localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || ''
         };
         if (this._sendAvatarAppearance) joinMessage.avatarData = this.avatarData;
         if (this._sendFrameAppearance) joinMessage.frameColor = this.frameColor;
@@ -397,10 +567,13 @@ const PlayerApp = {
       case 'state:public':
         this.lastPublicState = message;
         this.renderBoard(message);
+        this.applyVictoryState(message.gameWon === true);
+        this.applyLossState(message.matchResult || null);
         // Read-only: no controls are ever exposed here, only the same
         // charge/state the GM sees, sourced from the same broadcast.
         Womf.update('womf-tracker-player', message.womf || { charge: 0, armed: false });
         Wheel.update('wheel-overlay', message.wheel, false);
+        this.updateBloodTributeDemand(message.bloodTribute || { status: 'idle' });
         Timer.update('timer-tracker-player', message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
         this.updateTerminalPhase(message);
         document.getElementById('game-screen')?.classList.toggle('phase-final', message.finalSolution?.revealed === true);
@@ -412,6 +585,7 @@ const PlayerApp = {
       case 'join:success':
         this.playerId = message.playerId;
         sessionStorage.setItem('asoc_player_id', this.playerId);
+        this.updateBloodTributeDemand(this.lastPublicState?.bloodTribute || { status: 'idle' });
         if (message.littleHero) {
           this.avatarData = message.littleHero.avatarData || '';
           this.frameColor = /^#[0-9A-Fa-f]{6}$/.test(message.littleHero.frameColor || '')
@@ -539,7 +713,17 @@ const PlayerApp = {
         this.renderAllTimeLeaderboard(message.players || []);
         break;
 
+      case 'tribute:accepted': {
+        this.tributeUploading = false;
+        const status = document.getElementById('blood-tribute-status');
+        if (status) status.textContent = 'TRIBUTE ACCEPTED // PUBLIC WINDOW 02:00';
+        const file = document.getElementById('blood-tribute-file');
+        if (file) file.value = '';
+        break;
+      }
+
       case 'auth:required':
+        localStorage.removeItem('asoc_player_auth_token');
         sessionStorage.removeItem('asoc_player_auth_token');
         this.showError(message.message || 'Little Hero authentication required');
         setTimeout(() => location.replace('/join.html'), 700);
@@ -547,6 +731,11 @@ const PlayerApp = {
 
       case 'error':
         this.showError(message.message);
+        if (this.bloodTribute?.status === 'required') {
+          this.tributeUploading = false;
+          const tributeStatus = document.getElementById('blood-tribute-status');
+          if (tributeStatus) tributeStatus.textContent = message.message || 'TRIBUTE REJECTED';
+        }
         if (message.message.includes('Room not found') || message.message.includes('already connected')) {
           this.showJoinScreen();
         }
@@ -757,7 +946,38 @@ const PlayerApp = {
     this.bindLeaderboardToggle();
   },
 
+  // Completed state = body.game-won (CSS), driven only by server state.
+  applyVictoryState(won) {
+    const live = this._victoryBaselined && !this.gameWon && won;
+    this._victoryBaselined = true;
+    this.gameWon = won;
+    document.body.classList.toggle('game-won', won);
+    if (live) Skeleton.playGameWon();
+  },
+
+  applyLossState(matchResult) {
+    const lost = matchResult?.outcome === 'LOST';
+    const key = lost ? String(matchResult.occurredAt || matchResult.message || 'lost') : null;
+    const live = this._lossBaselined && !this.gameLost && lost;
+    const changed = key !== this._lossResultKey;
+    this._lossBaselined = true;
+    this.gameLost = lost;
+    this._lossResultKey = key;
+    document.body.classList.toggle('game-lost', lost);
+    if (!lost) document.querySelector('.defeat-overlay')?.remove();
+    else if (live) Skeleton.playGameLost(matchResult, { live: true });
+    else if (changed && !document.querySelector('.defeat-overlay')) Skeleton.playGameLost(matchResult, { live: false });
+  },
+
   showJoinScreen() {
+    this.gameWon = false;
+    this._victoryBaselined = false;
+    this.gameLost = false;
+    this._lossBaselined = false;
+    this._lossResultKey = null;
+    document.body.classList.remove('game-won');
+    document.body.classList.remove('game-lost');
+    document.querySelector('.defeat-overlay')?.remove();
     document.getElementById('game-screen').classList.remove('active');
     document.getElementById('join-screen').style.display = 'flex';
     this.setConnectionStatus('disconnected');
@@ -936,7 +1156,7 @@ const PlayerApp = {
     toast.className = 'score-toast score-toast-compact';
     const detail = award.awardType === 'final'
       ? `FINAL SOLVED AFTER ${award.columnsKnownAtSolve} COLUMN${award.columnsKnownAtSolve === 1 ? '' : 'S'}`
-      : `COLUMN ${award.target}`;
+      : `COLUMN ${award.target}${award.afterFinal ? ' · 50% — FINAL ALREADY SOLVED' : ''}`;
     toast.innerHTML = `
       <div class="score-toast-name">${this.escapeHtml(award.playerName)}</div>
       <div class="score-toast-detail">${detail}</div>
@@ -1021,6 +1241,36 @@ const PlayerApp = {
     const emojiToggle = document.getElementById('chat-emoji-toggle');
     const emojiPicker = document.getElementById('chat-emoji-picker');
     const reactionPicker = document.getElementById('chat-reaction-picker');
+    const contextMenu = document.getElementById('chat-message-context-menu');
+    if (reactionPicker && reactionPicker.parentElement !== document.body) document.body.appendChild(reactionPicker);
+    if (contextMenu && contextMenu.parentElement !== document.body) document.body.appendChild(contextMenu);
+    let contextMessageEl = null;
+    const closeContextMenu = () => {
+      if (!contextMenu) return;
+      contextMenu.hidden = true;
+      contextMenu.removeAttribute('data-message-id');
+      contextMenu._messageEl = null;
+      contextMessageEl = null;
+    };
+    const openContextMenu = (messageEl, clientX, clientY) => {
+      if (!contextMenu || !messageEl) return;
+      const messageId = messageEl.dataset.messageId || '';
+      if (!messageId) return;
+      contextMessageEl = messageEl;
+      contextMenu._messageEl = messageEl;
+      contextMenu.dataset.messageId = messageId;
+      contextMenu.hidden = false;
+      if (reactionPicker) reactionPicker.hidden = true;
+      if (emojiPicker) emojiPicker.hidden = true;
+      requestAnimationFrame(() => {
+        const rect = contextMenu.getBoundingClientRect();
+        const left = Math.max(8, Math.min(clientX, window.innerWidth - rect.width - 8));
+        const top = Math.max(8, Math.min(clientY, window.innerHeight - rect.height - 8));
+        contextMenu.style.left = left + 'px';
+        contextMenu.style.top = top + 'px';
+        contextMenu.querySelector('button')?.focus({ preventScroll:true });
+      });
+    };
 
     const pickerButtons = this.chatReactionEmojis
       .map(emoji => `<button type="button" class="chat-emoji-option" data-emoji="${emoji}">${emoji}</button>`)
@@ -1070,11 +1320,11 @@ const PlayerApp = {
         reactionPicker &&
         !reactionPicker.hidden &&
         !reactionPicker.contains(e.target) &&
-        !e.target.closest('.chat-reaction-add') &&
-        !e.target.closest('.chat-message, .chat-broker-entry')
+        !e.target.closest('.chat-reaction-add')
       ) {
         reactionPicker.hidden = true;
       }
+      if (contextMenu && !contextMenu.hidden && !contextMenu.contains(e.target)) closeContextMenu();
     });
 
     const chatContainer = document.getElementById('chat-messages');
@@ -1086,6 +1336,7 @@ const PlayerApp = {
           this._newMessageCount = 0;
           this.updateNewMessageChip();
         }
+        closeContextMenu();
       });
       chatContainer.addEventListener('click', (e) => {
         const reactionChip = e.target.closest('.chat-reaction-chip');
@@ -1102,21 +1353,47 @@ const PlayerApp = {
 
         const replyButton = e.target.closest('.chat-reply-btn');
         if (replyButton) {
-          const messageEl = replyButton.closest('.chat-message');
+          const messageEl = replyButton.closest('.chat-message, .chat-broker-entry');
           this.startChatReply(messageEl, replyButton.dataset.replyId || messageEl?.dataset.messageId || '');
           return;
         }
-
-        // Fast reaction path: clicking anywhere on a message opens the emoji
-        // reaction picker. Interactive controls above short-circuit first so
-        // replying or toggling an existing reaction never also opens this.
-        const messageEl = e.target.closest('.chat-message, .chat-broker-entry');
-        if (messageEl) {
-          const messageId = messageEl.dataset.messageId || '';
-          if (messageId) this.openChatReactionPicker(messageId, messageEl);
-        }
       });
     }
+
+    document.addEventListener('contextmenu', (e) => {
+      const messageEl = e.target.closest('#chat-messages .chat-message, #chat-messages .chat-broker-entry');
+      if (!messageEl) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openContextMenu(messageEl, e.clientX, e.clientY);
+    }, true);
+
+    contextMenu?.addEventListener('click', (e) => {
+      const action = e.target.closest('[data-chat-action]')?.dataset.chatAction;
+      if (!action) return;
+      // Keep this click away from the page-level outside-click handler: it
+      // would read a REACT click as "outside the picker" and hide the picker
+      // this very click just opened.
+      e.stopPropagation();
+      const messageId = contextMenu.dataset.messageId || '';
+      // Chat re-renders replace message nodes wholesale, so the element cached
+      // when the menu opened may be detached by now. Re-resolve it by id.
+      const messageEl = (messageId && document.querySelector(`#chat-messages [data-message-id="${CSS.escape(messageId)}"]`))
+        || contextMenu._messageEl || contextMessageEl;
+      if (!messageEl || !messageId) return;
+      closeContextMenu();
+      if (action === 'reply') {
+        this.startChatReply(messageEl, messageId);
+      } else if (action === 'react') {
+        // A detached anchor has a zero rect; the message is gone, nothing to react to.
+        if (messageEl.isConnected) this.openChatReactionPicker(messageId, messageEl);
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeContextMenu();
+    });
+    window.addEventListener('resize', closeContextMenu, { passive:true });
 
     document.getElementById('chat-new-messages')?.addEventListener('click', () => {
       this.jumpToLatestChat();
@@ -1129,12 +1406,38 @@ const PlayerApp = {
     });
   },
 
+  openMessageActionMenu(event, messageEl) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const menu = document.getElementById('chat-message-context-menu');
+    const messageId = messageEl?.dataset?.messageId || '';
+    if (!menu || !messageEl || !messageId) return false;
+
+    menu._messageEl = messageEl;
+    menu.dataset.messageId = messageId;
+    menu.hidden = false;
+    const reactionPicker = document.getElementById('chat-reaction-picker');
+    const emojiPicker = document.getElementById('chat-emoji-picker');
+    if (reactionPicker) reactionPicker.hidden = true;
+    if (emojiPicker) emojiPicker.hidden = true;
+
+    const x = Number(event?.clientX) || 8;
+    const y = Number(event?.clientY) || 8;
+    requestAnimationFrame(() => {
+      const rect = menu.getBoundingClientRect();
+      menu.style.left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8)) + 'px';
+      menu.style.top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8)) + 'px';
+      menu.querySelector('button')?.focus({ preventScroll:true });
+    });
+    return false;
+  },
+
   startChatReply(messageEl, replyId) {
     const input = document.getElementById('chat-input');
     if (!input || !messageEl || !replyId) return;
 
-    const name = messageEl.dataset.playerName || 'LITTLE HERO';
-    const excerpt = (messageEl.querySelector('.chat-message-text')?.textContent || '')
+    const name = messageEl.dataset.playerName || (messageEl.classList.contains('chat-broker-entry') ? 'SHADOW BROKER' : 'LITTLE HERO');
+    const excerpt = (messageEl.querySelector('.chat-message-text, .shadow-broker-text')?.textContent || '')
       .replace(/[:\r\n]+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
@@ -1265,6 +1568,61 @@ const PlayerApp = {
     this.send({ type: 'chat:guess', text: reply ? replyPrefix + text : text });
   },
 
+  updateBloodTributeDemand(state) {
+    this.bloodTribute = state || { status: 'idle' };
+    const overlay = document.getElementById('blood-tribute-overlay');
+    if (!overlay) return;
+    const mine = this.bloodTribute.status === 'required' && this.bloodTribute.playerId === this.playerId;
+    overlay.hidden = !mine;
+    if (!mine) {
+      this.tributeUploading = false;
+      return;
+    }
+    const player = document.getElementById('blood-tribute-player');
+    const status = document.getElementById('blood-tribute-status');
+    if (player) player.textContent = `${this.bloodTribute.playerName || this.playerName || 'LITTLE HERO'} // YOUR DEBT IS DUE`;
+    if (status && !this.tributeUploading) status.textContent = 'SELECT AN IMAGE TO PAY THE TRIBUTE';
+  },
+
+  submitBloodTribute() {
+    if (this.tributeUploading) return;
+    const demand = this.bloodTribute;
+    if (!demand || demand.status !== 'required' || demand.playerId !== this.playerId) return;
+    const input = document.getElementById('blood-tribute-file');
+    const status = document.getElementById('blood-tribute-status');
+    const file = input?.files?.[0];
+    if (!file) {
+      if (status) status.textContent = 'NO IMAGE SELECTED';
+      return;
+    }
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      if (status) status.textContent = 'PNG, JPG OR WEBP ONLY';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      if (status) status.textContent = 'IMAGE TOO LARGE // 2 MB MAX';
+      return;
+    }
+
+    this.tributeUploading = true;
+    if (status) status.textContent = 'TRANSMITTING TRIBUTE...';
+    const reader = new FileReader();
+    reader.onload = () => {
+      const imageData = String(reader.result || '');
+      if (!imageData.startsWith('data:image/')) {
+        this.tributeUploading = false;
+        if (status) status.textContent = 'IMAGE COULD NOT BE READ';
+        return;
+      }
+      this.send({ type: 'tribute:submit', imageData, retentionAcknowledged: true });
+    };
+    reader.onerror = () => {
+      this.tributeUploading = false;
+      if (status) status.textContent = 'IMAGE COULD NOT BE READ';
+    };
+    reader.readAsDataURL(file);
+  },
+
   renderChat() {
     const container = document.getElementById('chat-messages');
     if (!container) return;
@@ -1275,6 +1633,7 @@ const PlayerApp = {
 
     let html = '';
     let nextWrongFadeMs = Infinity;
+    let nextTributeTickMs = Infinity;
     const now = Date.now();
     this.chatMessages.forEach((msg, index) => {
       const previous = index > 0 ? this.chatMessages[index - 1] : null;
@@ -1286,6 +1645,10 @@ const PlayerApp = {
         const remaining = 3000 - (now - wrongSeenAt);
         if (remaining > 0) nextWrongFadeMs = Math.min(nextWrongFadeMs, remaining);
       }
+      if (msg.source === 'bloodTribute') {
+        const tributeRemaining = Number(msg.publicUntil) - now;
+        if (tributeRemaining > 0) nextTributeTickMs = Math.min(nextTributeTickMs, tributeRemaining, 1000);
+      }
       html += this.createChatMessageHTML(msg, this.shouldGroupChatMessage(previous, msg), now);
     });
 
@@ -1294,6 +1657,10 @@ const PlayerApp = {
     clearTimeout(this._wrongFadeTimer);
     if (Number.isFinite(nextWrongFadeMs)) {
       this._wrongFadeTimer = setTimeout(() => this.renderChat(), Math.max(30, nextWrongFadeMs + 30));
+    }
+    clearTimeout(this._tributeExpiryTimer);
+    if (Number.isFinite(nextTributeTickMs)) {
+      this._tributeExpiryTimer = setTimeout(() => this.renderChat(), Math.max(30, nextTributeTickMs + 30));
     }
 
     if (wasAtBottom) {
@@ -1319,15 +1686,37 @@ const PlayerApp = {
   },
 
   createChatMessageHTML(msg, grouped = false, now = Date.now()) {
+    if (msg.source === 'bloodTribute') {
+      const remainingMs = Number(msg.publicUntil) - now;
+      if (!msg.imageData || remainingMs <= 0) return '';
+      const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+      const seconds = String(totalSeconds % 60).padStart(2, '0');
+      return `
+        <div class="chat-blood-tribute-entry" data-message-id="${this.escapeHtml(msg.id)}">
+          <div class="blood-tribute-chat-head"><span>BLOOD TRIBUTE // ${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><b>PUBLIC PURGE ${minutes}:${seconds}</b></div>
+          <img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image">
+        </div>
+      `;
+    }
+
     // SHADOW BROKER standalone broadcast -- a freestanding transmission,
     // not tied to any player's guess. Entirely separate markup from the
     // guess-bubble path below; no verdict, no target, no "own" styling.
     if (msg.source === 'shadowBroker') {
       const isNew = !this._seenShadowBrokerKeys.has(msg.id);
       if (isNew) this._seenShadowBrokerKeys.add(msg.id);
+      const replyMatch = typeof msg.text === 'string'
+        ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
+        : null;
+      const messageText = replyMatch ? replyMatch[3] : msg.text;
+      const replyContextHtml = replyMatch
+        ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
+        : '';
       return `
-        <div class="chat-broker-entry chat-reactable" data-message-id="${this.escapeHtml(msg.id)}">
-          ${Skeleton.shadowBrokerTransmissionHTML(msg.text, { glitchIn: isNew })}
+        <div class="chat-broker-entry chat-reactable" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+          ${replyContextHtml}
+          ${Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchIn: isNew })}
           ${this.createReactionBarHTML(msg)}
         </div>
       `;
@@ -1369,11 +1758,11 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}">
+      <div class="chat-message ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
         <div class="chat-avatar-rail">${grouped ? '' : this.littleHeroAvatarHTML(identity)}</div>
         <div class="chat-message-main">
           ${grouped ? '' : `<div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>`}
-          <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">↩</button>
+          <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">&#8617;</button>
           ${replyContextHtml}
           <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span></div>
           ${verdictMetaHtml}
