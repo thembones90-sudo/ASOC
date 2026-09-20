@@ -553,6 +553,8 @@ async function testGameWonReward() {
   assert.equal(hostWon.matchResult.message, playerWon.matchResult.message, 'all clients receive one server-selected win message');
   assert.equal(hostWon.matchResult.finalSolution, hostWon.finalSolution.value);
   assert.ok(hostWon.matchResult.columnSolutions?.A !== undefined);
+  assert.deepEqual(hostWon.matchResult.columnResults, { A: false, B: false, C: false, D: false },
+    'GAME WON preserves independent per-column misses');
 
   // 5. A late-joining client (a different player) hydrates straight into the
   //    completed state. (Re-using the first player's token would replace that
@@ -618,6 +620,8 @@ async function testAuthoritativeGameLost() {
   assert.equal(hostState.matchResult.message, playerState.matchResult.message, 'all clients receive one server-selected message');
   assert.equal(hostState.finalSolution.outcome, 'failed');
   assert.equal(hostState.matchResult.finalSolution, hostState.finalSolution.value);
+  assert.deepEqual(hostState.matchResult.columnResults, { A: false, B: false, C: false, D: false },
+    'GAME LOST carries independent per-column results');
   assert.ok(Array.isArray(hostState.matchResult.awards));
   assert.ok(hostState.matchResult.awards.some(a => a.type === 'COLLECTIVE FAILURE'));
 

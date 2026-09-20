@@ -7071,3 +7071,31 @@ body.game-complete .fail-final-btn {
   color: #ead8da;
   text-shadow: 0 2px 3px #000, 0 0 10px rgba(225, 75, 85, .2);
 }
+
+/* Column verdicts are independent of the overall match outcome. A GAME LOST
+   screen may therefore contain four green hits when only the Final failed. */
+.victory-columns .column-result.is-hit,
+.defeat-columns .column-result.is-hit {
+  border: 1px solid rgba(42, 220, 139, .46);
+  background: rgba(8, 55, 37, .62);
+  color: #c8f6df;
+  box-shadow: inset 0 0 16px rgba(34, 230, 154, .08);
+}
+
+.victory-columns .column-result.is-hit b,
+.defeat-columns .column-result.is-hit b {
+  color: #35e49a;
+}
+
+.victory-columns .column-result.is-miss,
+.defeat-columns .column-result.is-miss {
+  border: 1px solid rgba(225, 75, 85, .46);
+  background: rgba(65, 10, 18, .62);
+  color: #f1cdd1;
+  box-shadow: inset 0 0 16px rgba(225, 75, 85, .08);
+}
+
+.victory-columns .column-result.is-miss b,
+.defeat-columns .column-result.is-miss b {
+  color: #f05b66;
+}

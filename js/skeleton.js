@@ -441,6 +441,7 @@ const Skeleton = (() => {
     const overlay = document.createElement('div');
     overlay.className = `victory-overlay${live ? ' is-live' : ' is-static'}`;
     const columns = result.columnSolutions || {};
+    const columnResults = result.columnResults || {};
     const winner = result.matchWinner || (Array.isArray(result.winners) ? result.winners[0] : null);
     overlay.innerHTML = `
       <div class="victory-dim"></div><div class="victory-grid"></div><div class="victory-scan"></div><div class="victory-frame"></div>
@@ -451,7 +452,7 @@ const Skeleton = (() => {
         <div class="victory-solution">
           <span>FINAL SOLUTION</span><strong>${escapeLoss(result.finalSolution || '')}</strong>
           <div class="victory-columns">${['A','B','C','D'].map(col =>
-            `<span><b>${col}5</b>${escapeLoss(columns[col] || '')}</span>`).join('')}</div>
+            `<span class="column-result ${columnResults[col] === true ? 'is-hit' : 'is-miss'}"><b>${col}5</b>${escapeLoss(columns[col] || '')}</span>`).join('')}</div>
         </div>
         <div class="victory-recount">
           <span>RECOUNT // MATCH OUTCOME: WON</span>
@@ -488,6 +489,7 @@ const Skeleton = (() => {
     document.querySelector('.defeat-overlay')?.remove();
     if (gameLostTimer) clearTimeout(gameLostTimer);
     const columns = result.columnSolutions || {};
+    const columnResults = result.columnResults || {};
     const top = result.topPerformer;
     const awards = Array.isArray(result.awards) ? result.awards : [];
     const overlay = document.createElement('div');
@@ -501,7 +503,7 @@ const Skeleton = (() => {
         <div class="defeat-solution">
           <span>FINAL SOLUTION</span><strong>${escapeLoss(result.finalSolution)}</strong>
           <div class="defeat-columns">${['A','B','C','D'].map(col =>
-            `<span><b>${col}5</b>${escapeLoss(columns[col])}</span>`).join('')}</div>
+            `<span class="column-result ${columnResults[col] === true ? 'is-hit' : 'is-miss'}"><b>${col}5</b>${escapeLoss(columns[col])}</span>`).join('')}</div>
         </div>
         <div class="defeat-recount">
           <span>RECOUNT // MATCH OUTCOME: LOST</span>

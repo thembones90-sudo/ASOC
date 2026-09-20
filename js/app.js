@@ -574,6 +574,10 @@ const App = {
         A: game.columns?.A?.solution || '', B: game.columns?.B?.solution || '',
         C: game.columns?.C?.solution || '', D: game.columns?.D?.solution || ''
       },
+      columnResults: {
+        A: !!this.solvedTargets?.A, B: !!this.solvedTargets?.B,
+        C: !!this.solvedTargets?.C, D: !!this.solvedTargets?.D
+      },
       matchWinner: { name: 'TEST SUBJECT', points: 0 }
     } });
   },
@@ -623,6 +627,10 @@ const App = {
       columnSolutions: {
         A: game.columns?.A?.solution || 'A5', B: game.columns?.B?.solution || 'B5',
         C: game.columns?.C?.solution || 'C5', D: game.columns?.D?.solution || 'D5'
+      },
+      columnResults: {
+        A: !!this.solvedTargets?.A, B: !!this.solvedTargets?.B,
+        C: !!this.solvedTargets?.C, D: !!this.solvedTargets?.D
       },
       topPerformer: { name: 'TEST SUBJECT', points: 0 },
       awards: [{ type: 'COLLECTIVE FAILURE', group: true, comment: 'Responsibility successfully distributed.' }]

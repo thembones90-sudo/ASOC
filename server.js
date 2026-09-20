@@ -1247,6 +1247,10 @@ function declareGameLost(room) {
       A: room.gameData.columns?.A?.solution || '', B: room.gameData.columns?.B?.solution || '',
       C: room.gameData.columns?.C?.solution || '', D: room.gameData.columns?.D?.solution || ''
     },
+    columnResults: {
+      A: !!room.chat.solvedTargets.A, B: !!room.chat.solvedTargets.B,
+      C: !!room.chat.solvedTargets.C, D: !!room.chat.solvedTargets.D
+    },
     topPerformer: performance.topPerformer,
     performers: performance.performers,
     awards: performance.awards
@@ -2685,6 +2689,10 @@ function handleGmGameWon(ws) {
     columnSolutions: {
       A: room.gameData.columns?.A?.solution || '', B: room.gameData.columns?.B?.solution || '',
       C: room.gameData.columns?.C?.solution || '', D: room.gameData.columns?.D?.solution || ''
+    },
+    columnResults: {
+      A: !!room.chat.solvedTargets.A, B: !!room.chat.solvedTargets.B,
+      C: !!room.chat.solvedTargets.C, D: !!room.chat.solvedTargets.D
     },
     matchWinner: performance.matchWinner,
     winners: performance.winners,
