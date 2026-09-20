@@ -1399,6 +1399,35 @@ const PlayerApp = {
       openContextMenu(messageEl, e.clientX, e.clientY);
     }, true);
 
+    // Phones have no right-click. A deliberate long-press opens the same
+    // Reply / React action menu without hijacking normal chat scrolling.
+    let chatHoldTimer = null;
+    let chatHoldStart = null;
+    const cancelChatHold = () => {
+      if (chatHoldTimer) clearTimeout(chatHoldTimer);
+      chatHoldTimer = null;
+      chatHoldStart = null;
+    };
+    chatContainer?.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' || e.button !== 0) return;
+      const messageEl = e.target.closest('.chat-message, .chat-broker-entry');
+      if (!messageEl || e.target.closest('button, a, input, textarea')) return;
+      cancelChatHold();
+      chatHoldStart = { x:e.clientX, y:e.clientY, messageEl };
+      chatHoldTimer = setTimeout(() => {
+        if (!chatHoldStart) return;
+        navigator.vibrate?.(18);
+        openContextMenu(chatHoldStart.messageEl, chatHoldStart.x, chatHoldStart.y);
+        cancelChatHold();
+      }, 520);
+    }, { passive:true });
+    chatContainer?.addEventListener('pointermove', (e) => {
+      if (!chatHoldStart) return;
+      if (Math.hypot(e.clientX - chatHoldStart.x, e.clientY - chatHoldStart.y) > 12) cancelChatHold();
+    }, { passive:true });
+    chatContainer?.addEventListener('pointerup', cancelChatHold, { passive:true });
+    chatContainer?.addEventListener('pointercancel', cancelChatHold, { passive:true });
+
     contextMenu?.addEventListener('click', (e) => {
       const action = e.target.closest('[data-chat-action]')?.dataset.chatAction;
       if (!action) return;
