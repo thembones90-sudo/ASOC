@@ -511,19 +511,30 @@ const PlayerApp = {
   },
 
   connectWebSocket() {
+    // Never create a second live socket for the same page. Two concurrent
+    // sockets with one authenticated Little Hero id can supersede each other
+    // forever: new socket closes old -> old reconnects -> closes new -> repeat.
+    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
+      return;
+    }
+
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${location.host}`;
 
     this._protocolReady = false;
-    this.ws = new WebSocket(wsUrl);
+    const socket = new WebSocket(wsUrl);
+    this.ws = socket;
 
-    this.ws.onopen = () => {
+    socket.onopen = () => {
+      // Ignore callbacks from a socket that has already been superseded locally.
+      if (this.ws !== socket) return;
       console.log('[PLAYER] WebSocket connected');
       this._victoryBaselined = false;
       this.setConnectionStatus('connecting');
     };
 
-    this.ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (this.ws !== socket) return;
       try {
         const message = JSON.parse(event.data);
         this.handleMessage(message);
@@ -532,12 +543,31 @@ const PlayerApp = {
       }
     };
 
-    this.ws.onclose = () => {
-      console.log('[PLAYER] WebSocket closed');
+    socket.onclose = (event) => {
+      // A stale socket must never start a new reconnect cycle after a newer
+      // socket has already replaced it.
+      if (this.ws !== socket) return;
+      this.ws = null;
+      console.log('[PLAYER] WebSocket closed', event.code, event.reason || '');
+
+      // 4001 is the server's deliberate "newer login won" close. Reconnecting
+      // this superseded client is exactly what creates the perpetual duel.
+      if (event.code === 4001) {
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
+        this.setConnectionStatus('disconnected');
+        this.showJoinScreen();
+        this.showError('This Little Hero identity is active in another tab or device.');
+        return;
+      }
+
       this.handleDisconnect();
     };
 
-    this.ws.onerror = (err) => {
+    socket.onerror = (err) => {
+      if (this.ws !== socket) return;
       console.error('[PLAYER] WebSocket error:', err);
     };
   },
@@ -600,6 +630,10 @@ const PlayerApp = {
         this.showGameScreen();
         this.setConnectionStatus('connected');
         this.reconnectAttempts = 0;
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
         break;
       }
 
@@ -1077,6 +1111,11 @@ const PlayerApp = {
   },
 
   attemptReconnect() {
+    // One page gets one reconnect timer. Multiple close callbacks must not
+    // queue competing sockets.
+    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) return;
+    if (this.reconnectTimer) return;
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       alert('Unable to reconnect. Please refresh the page.');
       this.showJoinScreen();
@@ -1087,6 +1126,7 @@ const PlayerApp = {
     const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
 
     this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
       console.log(`[PLAYER] Reconnect attempt ${this.reconnectAttempts}`);
       this.connectWebSocket();
     }, delay);
