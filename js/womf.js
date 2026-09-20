@@ -81,6 +81,8 @@ const Womf = {
     segments.forEach((seg, i) => {
       const filled = i < charge;
       seg.classList.toggle('filled', filled);
+      seg.classList.toggle('next', charge < 10 && i === charge);
+      seg.classList.toggle('current', charge > 0 && i === charge - 1);
       // Only a segment newly earned in THIS update gets the light-up
       // animation -- never replay it on a segment that was already lit,
       // and never fire it on a decrease (WOMF charge never decreases
@@ -102,6 +104,8 @@ const Womf = {
     // fixed treatments), and ready holds it at full.
     const intensity = state === 'charging' ? Math.min(1, Math.max(0, (charge - 3) / 4)) : (state === 'dormant' ? 0 : 1);
     el.style.setProperty('--womf-intensity', String(intensity));
+    el.style.setProperty('--womf-charge-pct', `${charge * 10}%`);
+    el.dataset.charge = String(charge);
 
     if (charge >= 10 && !wasReady) {
       // Reaching 10 for the first time: brief escalation (reuse whatever

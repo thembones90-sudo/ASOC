@@ -89,7 +89,7 @@ const Timer = {
               <span class="timer-fuse-spark spark-c"></span>
             </div>
           </div>
-          <div class="timer-scale"><span>IGNITION</span><span>FUSE BURN</span><span>DETONATION</span></div>
+          <div class="timer-scale"><span data-timer-stage="ignition">IGNITION</span><span data-timer-stage="fuse-burn">FUSE BURN</span><span data-timer-stage="detonation">DETONATION</span></div>
         </div>
       </div>
       <div class="timer-controls"></div>
@@ -143,9 +143,20 @@ const Timer = {
     const borrowedRatio = state.borrowedDuration > 0 ? Math.max(0, Math.min(1, state.borrowedRemaining / state.borrowedDuration)) : 1;
     const activeRatio = inBorrowed ? borrowedRatio : normalRatio;
     const fuseProgress = phase === 'expired' ? 1 : Math.max(0, Math.min(1, 1 - activeRatio));
+    const timerStage = phase === 'ready' || fuseProgress < 0.32
+      ? 'ignition'
+      : (fuseProgress < 0.72 ? 'fuse-burn' : 'detonation');
 
     el.style.setProperty('--fuse-progress', String(fuseProgress));
     el.style.setProperty('--fuse-progress-pct', `${fuseProgress * 100}%`);
+    el.dataset.stage = timerStage;
+    const stageOrder = ['ignition', 'fuse-burn', 'detonation'];
+    const activeStageIndex = stageOrder.indexOf(timerStage);
+    el.querySelectorAll('[data-timer-stage]').forEach((marker) => {
+      const markerIndex = stageOrder.indexOf(marker.dataset.timerStage);
+      marker.classList.toggle('active', markerIndex === activeStageIndex);
+      marker.classList.toggle('passed', markerIndex < activeStageIndex);
+    });
 
     const level = this.classify(normalRatio);
     el.dataset.level = level;
