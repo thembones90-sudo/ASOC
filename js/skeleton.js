@@ -433,18 +433,23 @@ const Skeleton = (() => {
     const onStage = typeof options.onStage === 'function' ? options.onStage : () => {};
     const live = options.live !== false;
 
-    const old = document.querySelector('.victory-overlay');
-    if (old) old.remove();
+    document.querySelector('.victory-link-overlay')?.remove();
+    document.querySelector('.victory-overlay')?.remove();
     gameWonTimers.forEach(clearTimeout);
     gameWonTimers = [];
 
-    const overlay = document.createElement('div');
-    overlay.className = `victory-overlay${live ? ' is-live' : ' is-static'}`;
     const columns = result.columnSolutions || {};
     const columnResults = result.columnResults || {};
     const winner = result.matchWinner || (Array.isArray(result.winners) ? result.winners[0] : null);
+
+    const overlay = document.createElement('div');
+    overlay.className = `victory-overlay${live ? ' is-live is-neural-prelude' : ' is-static'}`;
     overlay.innerHTML = `
-      <div class="victory-dim"></div><div class="victory-grid"></div><div class="victory-scan"></div><div class="victory-frame"></div>
+      <div class="victory-dim"></div>
+      <div class="victory-grid"></div>
+      <div class="victory-scan"></div>
+      <div class="victory-frame"></div>
+      <div class="victory-fx"></div>
       <section class="victory-ceremony">
         <p class="victory-message">${escapeLoss(result.message || 'Victory state confirmed.')}</p>
         <h1 class="victory-title">GAME WON</h1>
@@ -461,23 +466,109 @@ const Skeleton = (() => {
       </section>`;
     document.body.appendChild(overlay);
 
+    if (!live) {
+      onStage('won');
+      return overlay;
+    }
+
     onStage('verifying');
-    gameWonTimers.push(setTimeout(() => onStage('accepted'), 350));
-    gameWonTimers.push(setTimeout(() => onStage('won'), 700));
-    if (live) gameWonTimers.push(setTimeout(() => {
-      overlay.classList.add('is-settled');
-      gameWonTimers = [];
-    }, 14500));
-    if (live) overlay.addEventListener('click', () => {
-      gameWonTimers.forEach(clearTimeout);
-      gameWonTimers = [];
-      overlay.remove();
-      onStage('done');
-    }, { once: true });
+    const fx = overlay.querySelector('.victory-fx');
+
+    // Board-first convergence: target the rendered WORDS, not the poster
+    // slots. The painted pill extends beyond logical slot geometry, so crisp
+    // slot rectangles looked visibly off-target.
+    const targetRect = (label) => {
+      const candidates = Array.from(document.querySelectorAll(`.board-cell[data-label="${label}"]`))
+        .map(cell => {
+          const text = cell.querySelector('.cell-content');
+          const rect = text?.getBoundingClientRect() || cell.getBoundingClientRect();
+          return { rect, area: rect.width * rect.height };
+        })
+        .filter(item => item.rect.width > 0 && item.rect.height > 0);
+      candidates.sort((a, b) => b.area - a.area);
+      return candidates[0]?.rect || null;
+    };
+    const addHit = (rect, delayMs, isFinal) => {
+      if (!fx || !rect) return;
+      const padX = isFinal ? 26 : 18;
+      const padY = isFinal ? 13 : 10;
+      const hit = document.createElement('div');
+      hit.className = 'victory-word-hit' + (isFinal ? ' is-final' : '');
+      hit.style.cssText =
+        `left:${rect.left - padX}px;top:${rect.top - padY}px;width:${rect.width + padX * 2}px;height:${rect.height + padY * 2}px;--d:${delayMs}ms`;
+      fx.appendChild(hit);
+    };
+    const addLink = (from, to, delayMs) => {
+      if (!fx || !from || !to) return;
+      const x1 = from.left + from.width / 2;
+      const y1 = from.top + from.height / 2;
+      const x2 = to.left + to.width / 2;
+      const y2 = to.top + to.height / 2;
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const length = Math.hypot(dx, dy);
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+      const link = document.createElement('div');
+      link.className = 'victory-neural-link';
+      link.style.cssText =
+        `left:${x1}px;top:${y1}px;width:${length}px;transform:rotate(${angle}deg);--d:${delayMs}ms`;
+      fx.appendChild(link);
+
+      const spark = document.createElement('div');
+      spark.className = 'victory-spark';
+      fx.appendChild(spark);
+      if (typeof spark.animate !== 'function') {
+        spark.remove();
+        return;
+      }
+      spark.animate([
+        { transform: `translate(${x1}px, ${y1}px) scale(.65)`, opacity: 0 },
+        { transform: `translate(${x1}px, ${y1}px) scale(1)`, opacity: 1, offset: .12 },
+        { transform: `translate(${x2}px, ${y2}px) scale(.9)`, opacity: 1, offset: .88 },
+        { transform: `translate(${x2}px, ${y2}px) scale(.45)`, opacity: 0 }
+      ], {
+        duration: 760,
+        delay: delayMs + 90,
+        easing: 'cubic-bezier(.35,0,.18,1)',
+        fill: 'both'
+      });
+    };
+
+    const finalRect = targetRect('FINAL');
+    ['A','B','C','D'].forEach((col, i) => {
+      const rect = targetRect(`${col}5`);
+      if (!rect) return;
+      addHit(rect, i * 260, false);
+      if (finalRect) addLink(rect, finalRect, 180 + i * 260);
+    });
+    if (finalRect) addHit(finalRect, 1450, true);
+
+
+    gameWonTimers.push(setTimeout(() => onStage('accepted'), 900));
+    gameWonTimers.push(setTimeout(() => {
+      if (!overlay.isConnected) return;
+      overlay.classList.remove('is-neural-prelude');
+      overlay.classList.add('is-ceremony');
+      onStage('won');
+
+      overlay.addEventListener('click', () => {
+        gameWonTimers.forEach(clearTimeout);
+        gameWonTimers = [];
+        overlay.remove();
+        onStage('done');
+      }, { once: true });
+    }, 2200));
+
+    gameWonTimers.push(setTimeout(() => {
+      if (overlay.isConnected) overlay.classList.add('is-settled');
+    }, 16700));
+
     return overlay;
   }
 
   let gameLostTimer = null;
+  let gameLostPreludeTimer = null;
   const escapeLoss = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
@@ -488,14 +579,21 @@ const Skeleton = (() => {
     const live = options.live !== false;
     document.querySelector('.defeat-overlay')?.remove();
     if (gameLostTimer) clearTimeout(gameLostTimer);
+    if (gameLostPreludeTimer) clearTimeout(gameLostPreludeTimer);
+    gameLostTimer = null;
+    gameLostPreludeTimer = null;
+
     const columns = result.columnSolutions || {};
     const columnResults = result.columnResults || {};
     const top = result.topPerformer;
     const awards = Array.isArray(result.awards) ? result.awards : [];
     const overlay = document.createElement('div');
-    overlay.className = `defeat-overlay${live ? ' is-live' : ' is-static'}`;
+    overlay.className = `defeat-overlay${live ? ' is-live is-virus-prelude' : ' is-static'}`;
     overlay.innerHTML = `
-      <div class="defeat-noise"></div><div class="defeat-frame"></div>
+      <div class="defeat-noise"></div>
+      <div class="defeat-frame"></div>
+      <div class="defeat-virus-shroud"></div>
+      <div class="defeat-virus-fx"></div>
       <section class="defeat-ceremony">
         <p class="defeat-message">${escapeLoss(result.message)}</p>
         <h1>GAME LOST</h1>
@@ -512,12 +610,104 @@ const Skeleton = (() => {
         </div>
       </section>`;
     document.body.appendChild(overlay);
-    if (live) {
-      gameLostTimer = setTimeout(() => {
-        overlay.classList.add('is-settled');
-        gameLostTimer = null;
-      }, 14500);
-    }
+
+    if (!live) return overlay;
+
+    const fx = overlay.querySelector('.defeat-virus-fx');
+    const rectFor = label => {
+      const cell = Array.from(document.querySelectorAll(`.board-cell[data-label="${label}"]`))
+        .find(node => {
+          const r = node.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        });
+      if (!cell) return null;
+      const r = cell.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    };
+
+    const seeds = ['A5','B5','C5','D5','FINAL'].map(rectFor).filter(Boolean);
+    if (!seeds.length) seeds.push({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+
+    const targets = Array.from(document.querySelectorAll('.board-cell[data-label]'))
+      .map(node => {
+        const r = node.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+      })
+      .filter(Boolean);
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    [
+      [.03,.08],[.18,.03],[.39,.06],[.62,.04],[.83,.07],[.97,.16],
+      [.05,.38],[.95,.34],[.02,.68],[.98,.72],[.15,.94],[.36,.97],
+      [.63,.95],[.84,.92],[.50,.12],[.50,.90]
+    ].forEach(([x,y]) => targets.push({ x: w * x, y: h * y }));
+
+    const addNode = (point, delay, size, core = false) => {
+      if (!fx) return;
+      const node = document.createElement('div');
+      node.className = 'defeat-virus-node' + (core ? ' is-core' : '');
+      node.style.cssText = `left:${point.x}px;top:${point.y}px;--d:${delay}ms;--s:${size}px`;
+      fx.appendChild(node);
+    };
+
+    const addLink = (from, to, delay, thickness = 2) => {
+      if (!fx) return;
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const length = Math.hypot(dx, dy);
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      const link = document.createElement('div');
+      link.className = 'defeat-virus-link';
+      link.style.cssText =
+        `left:${from.x}px;top:${from.y}px;width:${length}px;height:${thickness}px;transform:rotate(${angle}deg);--d:${delay}ms`;
+      fx.appendChild(link);
+
+      const packet = document.createElement('div');
+      packet.className = 'defeat-virus-packet';
+      fx.appendChild(packet);
+      if (typeof packet.animate === 'function') {
+        packet.animate([
+          { transform: `translate(${from.x}px,${from.y}px) scale(.6)`, opacity: 0 },
+          { transform: `translate(${from.x}px,${from.y}px) scale(1)`, opacity: 1, offset: .12 },
+          { transform: `translate(${to.x}px,${to.y}px) scale(1.35)`, opacity: .95, offset: .86 },
+          { transform: `translate(${to.x}px,${to.y}px) scale(.4)`, opacity: 0 }
+        ], {
+          duration: 640 + (delay % 220),
+          delay: delay + 70,
+          easing: 'cubic-bezier(.4,0,.18,1)',
+          fill: 'both'
+        });
+      }
+    };
+
+    seeds.forEach((seed, i) => addNode(seed, i * 80, 18 + i * 2, true));
+
+    targets.forEach((target, i) => {
+      const seed = seeds[i % seeds.length];
+      const delay = 120 + (i * 73) % 1220;
+      addLink(seed, target, delay, 1 + (i % 3));
+      addNode(target, delay + 340, 8 + (i % 5) * 2, false);
+
+      if (i > 2 && i % 3 === 0) {
+        const branchFrom = targets[(i * 5 + 3) % targets.length];
+        addLink(branchFrom, target, delay + 260, 1);
+      }
+    });
+
+    gameLostPreludeTimer = setTimeout(() => {
+      if (!overlay.isConnected) return;
+      overlay.classList.remove('is-virus-prelude');
+      overlay.classList.add('is-ceremony');
+      gameLostPreludeTimer = null;
+    }, 2450);
+
+    gameLostTimer = setTimeout(() => {
+      if (!overlay.isConnected) return;
+      overlay.classList.add('is-settled');
+      gameLostTimer = null;
+    }, 16950);
+
     return overlay;
   }
 

@@ -578,6 +578,9 @@ const App = {
   },
 
   triggerGameWon() {
+    if (this._victoryLive && !document.querySelector('.victory-overlay')) {
+      this._victoryLive = false;
+    }
     if (this.gameWon || this._victoryLive) return;
     if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
       this.send({ type: 'gm:gameWon' });
@@ -632,7 +635,6 @@ const App = {
   },
 
   testGameLost() {
-    if (this.mode === 'multiplayer' || this.roomCode) return;
     const game = GameData.currentGame || {};
     const result = {
       outcome: 'LOST', occurredAt: Date.now(),
@@ -677,27 +679,34 @@ const App = {
   playVictory(result) {
     this._victoryLive = true;
     const btn = document.getElementById('game-won-btn');
-    Skeleton.playGameWon(result, {
-      onStage: (stage) => {
-        if (stage === 'done') {
-          this._victoryLive = false;
-          this.renderGameWonState();
-          return;
+    try {
+      Skeleton.playGameWon(result, {
+        onStage: (stage) => {
+          if (stage === 'done') {
+            this._victoryLive = false;
+            this.renderGameWonState();
+            return;
+          }
+          if (!btn) return;
+          if (stage === 'verifying') {
+            btn.classList.add('is-cycling');
+            btn.textContent = 'VERIFYING...';
+          } else if (stage === 'accepted') {
+            btn.textContent = 'SOLUTION ACCEPTED';
+          } else if (stage === 'won') {
+            btn.classList.remove('is-cycling');
+            btn.classList.add('is-won', 'is-won-pop');
+            btn.textContent = 'GAME WON';
+            setTimeout(() => btn.classList.remove('is-won-pop'), 650);
+          }
         }
-        if (!btn) return;
-        if (stage === 'verifying') {
-          btn.classList.add('is-cycling');
-          btn.textContent = 'VERIFYING...';
-        } else if (stage === 'accepted') {
-          btn.textContent = 'SOLUTION ACCEPTED';
-        } else if (stage === 'won') {
-          btn.classList.remove('is-cycling');
-          btn.classList.add('is-won', 'is-won-pop');
-          btn.textContent = 'GAME WON';
-          setTimeout(() => btn.classList.remove('is-won-pop'), 650);
-        }
-      }
-    });
+      });
+    } catch (error) {
+      this._victoryLive = false;
+      btn?.classList.remove('is-cycling');
+      this.renderGameWonState();
+      console.error('[GM] GAME WON animation failed:', error);
+    }
   },
 
   sendCommand(command, payload) {
@@ -1100,12 +1109,10 @@ const App = {
     }
     const lostButton = document.getElementById('game-lost-btn');
     if (lostButton) {
-      lostButton.disabled = isMultiplayer;
-      lostButton.classList.toggle('is-testable', !isMultiplayer);
-      lostButton.textContent = isMultiplayer ? 'GAME LOST' : 'TEST GAME LOST';
-      lostButton.title = isMultiplayer
-        ? 'GAME LOST is declared automatically when all authoritative time expires'
-        : 'Preview the GAME LOST sequence locally';
+      lostButton.disabled = false;
+      lostButton.classList.add('is-testable');
+      lostButton.textContent = 'TEST GAME LOST';
+      lostButton.title = 'Preview the GAME LOST sequence locally without changing authoritative match state';
     }
     document.getElementById('next-game-btn').style.display = isMultiplayer ? 'block' : 'none';
     document.getElementById('scoring-section').style.display = isMultiplayer ? 'block' : 'none';

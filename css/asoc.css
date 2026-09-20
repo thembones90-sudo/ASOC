@@ -8158,3 +8158,302 @@ body.game-complete .recount-btn,
     overscroll-behavior-y:contain;
   }
 }
+
+
+/* GAME WON viewport + neural targeting correction.
+   Full-screen green means FULL viewport, no inset frame or black edge slivers.
+   Targets are the rendered words themselves, so no fake misaligned rectangles. */
+.victory-overlay {
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.victory-overlay .victory-dim {
+  inset: 0 !important;
+}
+.victory-overlay .victory-frame {
+  inset: 0 !important;
+  border: 1px solid rgba(45,224,148,.62) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(20,110,74,.18),
+    inset 0 0 150px rgba(16,142,91,.15) !important;
+}
+
+.victory-overlay.is-neural-prelude {
+  background:
+    radial-gradient(circle at 50% 52%, rgba(28,196,128,.18), transparent 48%),
+    linear-gradient(180deg, rgba(0,48,30,.34), rgba(0,26,16,.42)) !important;
+  backdrop-filter: none !important;
+}
+.victory-overlay.is-neural-prelude .victory-dim,
+.victory-overlay.is-neural-prelude .victory-grid,
+.victory-overlay.is-neural-prelude .victory-scan,
+.victory-overlay.is-neural-prelude .victory-frame,
+.victory-overlay.is-neural-prelude .victory-ceremony {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  animation: none !important;
+}
+.victory-overlay.is-neural-prelude .victory-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: none;
+}
+
+.victory-word-hit {
+  position: fixed;
+  border: 0;
+  border-radius: 999px;
+  opacity: 0;
+  background:
+    radial-gradient(ellipse at center,
+      rgba(208,255,235,.46) 0%,
+      rgba(48,235,160,.30) 28%,
+      rgba(23,198,129,.13) 52%,
+      transparent 76%);
+  filter: blur(.2px);
+  box-shadow:
+    0 0 16px rgba(34,230,154,.48),
+    0 0 34px rgba(20,184,116,.22);
+  animation: victory-word-hit .92s ease-out var(--d,0ms) both;
+}
+.victory-word-hit.is-final {
+  box-shadow:
+    0 0 24px rgba(73,255,183,.72),
+    0 0 58px rgba(20,210,132,.34);
+  animation: victory-final-hit 1.08s ease-out var(--d,0ms) both;
+}
+
+.victory-neural-link {
+  position: fixed;
+  height: 2px;
+  margin-top: -1px;
+  transform-origin: 0 50%;
+  pointer-events: none;
+  opacity: .95;
+}
+.victory-neural-link::before {
+  content: "";
+  position: absolute;
+  inset: -1px 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg,
+    rgba(120,255,204,.2),
+    #39e89f 18%,
+    #d5ffef 52%,
+    #39e89f 82%,
+    rgba(120,255,204,.12));
+  box-shadow:
+    0 0 6px rgba(34,230,154,.95),
+    0 0 14px rgba(34,230,154,.48);
+  animation: victory-neural-link-draw .86s cubic-bezier(.22,.72,.2,1) var(--d,0ms) both;
+}
+.victory-overlay.is-neural-prelude .victory-spark,
+.victory-overlay.is-neural-prelude .victory-neural-link,
+.victory-overlay.is-neural-prelude .victory-word-hit {
+  visibility: visible !important;
+}
+.victory-overlay.is-ceremony .victory-fx {
+  opacity: 0;
+  transition: opacity .22s ease;
+}
+
+@keyframes victory-word-hit {
+  0% { opacity:0; transform:scale(.72); filter:brightness(1) blur(.6px); }
+  24% { opacity:1; transform:scale(1.08); filter:brightness(1.55) blur(0); }
+  62% { opacity:.88; transform:scale(1); filter:brightness(1.2); }
+  100% { opacity:.12; transform:scale(.96); filter:brightness(1); }
+}
+@keyframes victory-final-hit {
+  0% { opacity:0; transform:scale(.68); filter:brightness(1); }
+  24% { opacity:1; transform:scale(1.14); filter:brightness(1.9); }
+  58% { opacity:1; transform:scale(1.02); filter:brightness(1.35); }
+  100% { opacity:0; transform:scale(1.12); filter:brightness(1); }
+}
+@keyframes victory-neural-link-draw {
+  0% { transform:scaleX(0); opacity:0; }
+  12% { opacity:1; }
+  78% { transform:scaleX(1); opacity:1; }
+  100% { transform:scaleX(1); opacity:.22; }
+}
+
+/* GAME LOST black-virus prelude.
+   The existing defeat ceremony remains intact; this only infects the live board
+   for ~2.45s before the locked red takeover begins. */
+.defeat-overlay.is-virus-prelude {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(124,10,20,.20), transparent 52%),
+    linear-gradient(180deg, rgba(23,0,4,.34), rgba(0,0,0,.50)) !important;
+}
+.defeat-overlay.is-virus-prelude .defeat-ceremony {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  animation: none !important;
+}
+.defeat-overlay.is-virus-prelude .defeat-ceremony * {
+  animation: none !important;
+}
+.defeat-overlay.is-virus-prelude .defeat-frame {
+  inset: 0;
+  border-color: rgba(211,34,48,.50);
+  box-shadow:
+    inset 0 0 90px rgba(118,0,12,.18),
+    inset 0 0 190px rgba(0,0,0,.36);
+}
+.defeat-virus-fx,
+.defeat-virus-shroud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+.defeat-virus-fx {
+  z-index: 3;
+  overflow: hidden;
+}
+.defeat-virus-shroud {
+  z-index: 2;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 18% 24%, rgba(0,0,0,.72) 0 5%, transparent 18%),
+    radial-gradient(circle at 76% 32%, rgba(0,0,0,.68) 0 7%, transparent 21%),
+    radial-gradient(circle at 44% 74%, rgba(0,0,0,.76) 0 6%, transparent 22%),
+    repeating-linear-gradient(90deg, transparent 0 17px, rgba(160,0,18,.045) 18px 19px),
+    repeating-linear-gradient(0deg, transparent 0 5px, rgba(255,32,45,.035) 6px 7px);
+}
+.defeat-overlay.is-virus-prelude .defeat-virus-shroud {
+  animation: defeat-virus-shroud 2.45s steps(9,end) both;
+}
+
+.defeat-virus-node {
+  position: fixed;
+  width: var(--s,12px);
+  height: var(--s,12px);
+  margin: calc(var(--s,12px) / -2) 0 0 calc(var(--s,12px) / -2);
+  border-radius: 48% 52% 43% 57%;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 50% 50%, #050505 0 28%, #160003 32% 47%, #b20f20 52% 61%, #050505 66% 100%);
+  box-shadow:
+    0 0 0 1px rgba(224,39,55,.28),
+    0 0 12px rgba(189,18,35,.65),
+    0 0 28px rgba(0,0,0,.92);
+  filter: contrast(1.35);
+  animation: defeat-virus-node 1.05s steps(5,end) var(--d,0ms) both;
+}
+.defeat-virus-node::after {
+  content: "";
+  position: absolute;
+  inset: 30%;
+  border-radius: 50%;
+  background: #020202;
+  box-shadow: 0 0 8px rgba(255,25,45,.70);
+}
+.defeat-virus-node.is-core {
+  background:
+    radial-gradient(circle at 50% 50%, #000 0 30%, #260006 34% 52%, #d51d30 57% 65%, #000 70% 100%);
+  box-shadow:
+    0 0 0 1px rgba(239,56,70,.38),
+    0 0 20px rgba(209,24,42,.80),
+    0 0 42px rgba(0,0,0,.96);
+  animation-duration: 1.25s;
+}
+.defeat-virus-link {
+  position: fixed;
+  margin-top: -1px;
+  transform-origin: 0 50%;
+  overflow: visible;
+  opacity: 1;
+}
+.defeat-virus-link::before,
+.defeat-virus-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  transform-origin: left center;
+  transform: translateY(-50%) scaleX(0);
+}
+.defeat-virus-link::before {
+  height: 4px;
+  background:
+    linear-gradient(90deg,
+      rgba(0,0,0,.98),
+      rgba(45,0,7,.98) 24%,
+      rgba(214,26,43,.90) 48%,
+      rgba(7,0,1,.98) 67%,
+      rgba(148,5,20,.88));
+  box-shadow:
+    0 0 5px rgba(210,26,43,.62),
+    0 0 13px rgba(0,0,0,.98);
+  animation: defeat-virus-link-grow .82s cubic-bezier(.18,.72,.18,1) var(--d,0ms) both;
+}
+.defeat-virus-link::after {
+  height: 1px;
+  background:
+    repeating-linear-gradient(90deg,#f04455 0 7px,#070707 7px 13px,#6f0712 13px 21px);
+  filter: blur(.2px);
+  animation:
+    defeat-virus-link-grow .72s cubic-bezier(.18,.72,.18,1) var(--d,0ms) both,
+    defeat-virus-static .16s steps(2,end) calc(var(--d,0ms) + 180ms) 7;
+}
+.defeat-virus-packet {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 45% 55% 35% 65%;
+  background: #050505;
+  box-shadow:
+    0 0 0 1px rgba(241,45,62,.82),
+    0 0 10px rgba(221,23,42,.95),
+    0 0 18px rgba(0,0,0,.98);
+  opacity: 0;
+}
+
+.defeat-overlay.is-ceremony .defeat-virus-fx,
+.defeat-overlay.is-ceremony .defeat-virus-shroud {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .24s ease, visibility .24s linear;
+}
+@keyframes defeat-virus-node {
+  0% { opacity:0; transform:scale(.18) rotate(0deg); filter:brightness(.7) contrast(1.5); }
+  20% { opacity:1; transform:scale(1.35) rotate(-8deg); filter:brightness(1.5) contrast(1.7); }
+  46% { transform:scale(.86) rotate(6deg); }
+  68% { opacity:1; transform:scale(1.14) rotate(-4deg); }
+  100% { opacity:.72; transform:scale(1) rotate(0deg); filter:brightness(.82) contrast(1.45); }
+}
+@keyframes defeat-virus-link-grow {
+  0% { transform:translateY(-50%) scaleX(0); opacity:0; }
+  9% { opacity:1; }
+  72% { transform:translateY(-50%) scaleX(1); opacity:1; }
+  100% { transform:translateY(-50%) scaleX(1); opacity:.82; }
+}
+@keyframes defeat-virus-static {
+  0%,100% { opacity:.2; filter:brightness(.7); }
+  33% { opacity:1; filter:brightness(2); }
+  66% { opacity:.55; filter:brightness(1.1); }
+}
+@keyframes defeat-virus-shroud {
+  0% { opacity:0; filter:contrast(1); }
+  18% { opacity:.16; }
+  42% { opacity:.31; filter:contrast(1.12); }
+  66% { opacity:.48; }
+  82% { opacity:.62; filter:contrast(1.35); }
+  100% { opacity:.76; filter:contrast(1.5) brightness(.74); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .defeat-overlay.is-virus-prelude .defeat-virus-fx,
+  .defeat-overlay.is-virus-prelude .defeat-virus-shroud { display:none!important; }
+}
+
