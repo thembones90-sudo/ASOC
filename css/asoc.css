@@ -7435,3 +7435,160 @@ body.game-complete .recount-btn,
 .defeat-columns .column-result.is-miss b {
   color: #f05b66;
 }
+
+
+/* =========================================================
+   MOBILE FOUNDATION // phone-first shell adaptation
+   Preserve the canonical board geometry; adapt only the shell.
+   ========================================================= */
+@media (max-width: 760px) {
+  html, body {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body { min-height: 100dvh; }
+
+  #app-layout {
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    flex-direction: column;
+  }
+
+  #main-content {
+    width: 100%;
+    flex: none;
+    min-height: auto;
+    justify-content: flex-start;
+    padding: max(8px, env(safe-area-inset-top)) 8px 10px;
+  }
+
+  #board-layer {
+    width: 100%;
+    max-width: 100%;
+    flex: none;
+  }
+
+  .asoc-board {
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: var(--board-aspect);
+  }
+
+  #gm-panel {
+    position: relative;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    flex: none;
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid var(--panel-border);
+    box-shadow: 0 -14px 36px rgba(0,0,0,.38);
+  }
+
+  .gm-content {
+    overflow: visible;
+    padding: 10px;
+  }
+
+  .gm-section { margin-bottom: 14px; }
+
+  .gm-footer {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .gm-grid {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 8px;
+  }
+
+  .gm-cell-btn,
+  .gm-global-btn,
+  .toolbar-btn,
+  .forge-btn {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .battle-controls-panel,
+  .gm-broker-bar {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .battle-controls-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .shadow-broker-form {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .shadow-broker-form-label { display: none; }
+
+  .shadow-broker-input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .timer-tracker,
+  .womf-tracker {
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 8px;
+  }
+
+  #public-view {
+    height: 100dvh;
+    min-height: 100dvh;
+    padding: max(8px, env(safe-area-inset-top)) 6px max(8px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .public-header {
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 0 8px;
+  }
+
+  .public-board-frame {
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: var(--board-aspect);
+    flex: 0 0 auto;
+  }
+
+  .public-title {
+    font-size: clamp(.9rem, 4vw, 1.25rem);
+    letter-spacing: .12em;
+  }
+
+  .gm-chat-messages {
+    min-height: 220px;
+    max-height: 52dvh;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gm-chat-context-menu button,
+  .gm-chat-floating-emoji-picker button,
+  .gm-emoji-option {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  input, select, textarea { font-size: 16px; }
+}
+
+@media (max-width: 430px) {
+  .battle-controls-grid { grid-template-columns: 1fr; }
+}
