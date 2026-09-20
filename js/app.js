@@ -244,6 +244,7 @@ const App = {
     document.getElementById('undo-btn').addEventListener('click', () => this.handleUndo());
     document.getElementById('nema-asoc-btn')?.addEventListener('click', () => this.triggerNemaAsoc());
     document.getElementById('game-won-btn')?.addEventListener('click', () => this.triggerGameWon());
+    document.getElementById('game-lost-btn')?.addEventListener('click', () => this.testGameLost());
 
     document.getElementById('library-btn').addEventListener('click', () => Forge.open());
     document.getElementById('library-btn-footer').addEventListener('click', () => ControlSurfaces.toggle());
@@ -592,6 +593,40 @@ const App = {
     if (!lost) document.querySelector('.defeat-overlay')?.remove();
     else if (live) Skeleton.playGameLost(matchResult, { live: true });
     else if (changed && !document.querySelector('.defeat-overlay')) Skeleton.playGameLost(matchResult, { live: false });
+  },
+
+  testGameLost() {
+    // Preview only. A hosted match can enter LOST exclusively through the
+    // server's authoritative timer transition; this path deliberately sends
+    // no message, changes no score, and persists nothing.
+    if (this.mode === 'multiplayer' || this.roomCode) return;
+    const game = GameData.currentGame || {};
+    const result = {
+      outcome: 'LOST',
+      occurredAt: Date.now(),
+      message: 'Final association unresolved. Time exhausted. Cognitive adaptation insufficient. Expected result.',
+      finalSolution: game.finalSolution || 'UNRESOLVED',
+      columnSolutions: {
+        A: game.columns?.A?.solution || 'A5', B: game.columns?.B?.solution || 'B5',
+        C: game.columns?.C?.solution || 'C5', D: game.columns?.D?.solution || 'D5'
+      },
+      topPerformer: { name: 'TEST SUBJECT', points: 0 },
+      awards: [{ type: 'COLLECTIVE FAILURE', group: true, comment: 'Responsibility successfully distributed.' }]
+    };
+    const overlay = Skeleton.playGameLost(result, { live: true });
+    overlay.classList.add('is-test-preview');
+    overlay.title = 'Local preview — click anywhere or press Escape to close';
+    let onKey;
+    const close = () => {
+      overlay.remove();
+      if (onKey) document.removeEventListener('keydown', onKey);
+    };
+    overlay.addEventListener('click', close, { once: true });
+    onKey = event => {
+      if (event.key !== 'Escape') return;
+      close();
+    };
+    document.addEventListener('keydown', onKey);
   },
 
   // Completed state: derived purely from this.gameWon, so it is identical
@@ -1018,6 +1053,15 @@ const App = {
       roomToggle.textContent = isMultiplayer ? 'KILL SESSION' : 'HOST GAME';
       roomToggle.classList.toggle('primary', !isMultiplayer);
       roomToggle.classList.toggle('kill-session-btn', isMultiplayer);
+    }
+    const lostButton = document.getElementById('game-lost-btn');
+    if (lostButton) {
+      lostButton.disabled = isMultiplayer;
+      lostButton.classList.toggle('is-testable', !isMultiplayer);
+      lostButton.textContent = isMultiplayer ? 'GAME LOST' : 'TEST GAME LOST';
+      lostButton.title = isMultiplayer
+        ? 'GAME LOST is declared automatically when all authoritative time expires'
+        : 'Preview the GAME LOST sequence locally';
     }
     document.getElementById('next-game-btn').style.display = isMultiplayer ? 'block' : 'none';
     document.getElementById('scoring-section').style.display = isMultiplayer ? 'block' : 'none';

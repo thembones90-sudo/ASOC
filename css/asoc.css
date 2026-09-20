@@ -2354,6 +2354,9 @@ body.game-complete .fail-final-btn {
   box-shadow:inset 0 0 14px rgba(190,35,48,.08);
 }
 .game-lost-btn:disabled {opacity:.78;cursor:not-allowed}
+.game-lost-btn.is-testable {opacity:1;cursor:pointer;border-color:rgba(176,47,58,.88)!important;color:#dc8f95!important}
+.game-lost-btn.is-testable:hover {border-color:#dc3948!important;color:#ffe1e3!important;box-shadow:inset 0 0 20px rgba(196,35,49,.16),0 0 15px rgba(176,24,38,.18)}
+.defeat-overlay.is-test-preview::after {content:'LOCAL PREVIEW // CLICK OR ESC TO CLOSE';position:fixed;right:24px;bottom:18px;color:#8d6266;font:700 .52rem var(--font-machine);letter-spacing:.14em}
 .game-lost-btn.is-lost {
   opacity:1;border-color:#c52b39!important;color:#ffd7da!important;
   box-shadow:inset 0 0 20px rgba(196,35,49,.17),0 0 16px rgba(176,24,38,.2);
