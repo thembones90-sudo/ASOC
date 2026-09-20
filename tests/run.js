@@ -548,7 +548,11 @@ async function testGameWonReward() {
   // 4. The host's manual button is the only way to enter the victory state.
   const wonManually = bothSee(m => m.gameWon === true, 'manual GAME WON');
   host.send(JSON.stringify({ type: 'gm:gameWon' }));
-  await wonManually;
+  const [hostWon, playerWon] = await wonManually;
+  assert.equal(hostWon.matchResult?.outcome, 'WON');
+  assert.equal(hostWon.matchResult.message, playerWon.matchResult.message, 'all clients receive one server-selected win message');
+  assert.equal(hostWon.matchResult.finalSolution, hostWon.finalSolution.value);
+  assert.ok(hostWon.matchResult.columnSolutions?.A !== undefined);
 
   // 5. A late-joining client (a different player) hydrates straight into the
   //    completed state. (Re-using the first player's token would replace that
@@ -576,11 +580,13 @@ async function testGameWonReward() {
   host.off('message', rebroadcastWatch);
   assert.equal(rebroadcast, false, 'GAME WON must be idempotent once won');
 
-  // 7. Reversing the Final verdict does not undo the host's declaration.
-  const reversedAck = waitForMessage(host, m => m.type === 'gm:judge:ack' && m.messageId === guessId && m.verdict === 'wrong', 'reversal ack');
+  // 7. The completed victory state locks further adjudication.
+  const locked = waitForMessage(host, m => m.type === 'error' && /game won.*attempts locked/i.test(m.message || ''), 'post-win adjudication lock');
   host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: guessId, verdict: 'wrong' }));
-  await reversedAck;
-  assert.equal((await joinLate()).gameWon, true, 'a verdict reversal must not un-win a host-declared victory');
+  await locked;
+  const lateSettled = await joinLate();
+  assert.equal(lateSettled.gameWon, true, 'a reconnect remains in the completed victory state');
+  assert.equal(lateSettled.matchResult.message, hostWon.matchResult.message, 'reconnect never rerolls the win message');
 
   // 8. RESET BOARD clears it with the rest of the board.
   const resetClears = bothSee(m => m.gameWon === false, 'reset clears GAME WON');
@@ -660,10 +666,6 @@ async function testCrashRecovery(server) {
   }));
   await revealAck;
 
-  const wonBeforeCrash = waitForMessage(host, m => m.type === 'state:public' && m.gameWon === true, 'game won before crash');
-  host.send(JSON.stringify({ type: 'gm:gameWon' }));
-  await wonBeforeCrash;
-
   const brokerUpdate = waitForMessage(
     host,
     m => m.type === 'chat:update' && Array.isArray(m.messages) &&
@@ -682,6 +684,10 @@ async function testCrashRecovery(server) {
   host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: preGuessId, verdict: 'wrong' }));
   await preJudged;
   await delay(100);
+
+  const wonBeforeCrash = waitForMessage(host, m => m.type === 'state:public' && m.gameWon === true, 'game won before crash');
+  host.send(JSON.stringify({ type: 'gm:gameWon' }));
+  await wonBeforeCrash;
 
   await new Promise(resolve => {
     server.once('exit', resolve);

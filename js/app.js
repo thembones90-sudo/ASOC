@@ -565,7 +565,17 @@ const App = {
       this.send({ type: 'gm:gameWon' });
       return;
     }
-    this.setGameWon(true, { play: true });
+    const game = GameData.currentGame || {};
+    this.setGameWon(true, { play: true, result: {
+      outcome: 'WON', occurredAt: Date.now(),
+      message: 'Final association confirmed. Pattern integrity has collapsed. Further resistance serves no purpose.',
+      finalSolution: game.finalSolution || '',
+      columnSolutions: {
+        A: game.columns?.A?.solution || '', B: game.columns?.B?.solution || '',
+        C: game.columns?.C?.solution || '', D: game.columns?.D?.solution || ''
+      },
+      matchWinner: { name: 'TEST SUBJECT', points: 0 }
+    } });
   },
 
   setGameComplete(complete) {
@@ -573,10 +583,10 @@ const App = {
     document.body.classList.toggle('game-complete', this.gameComplete);
   },
 
-  setGameWon(won, { play = false } = {}) {
+  setGameWon(won, { play = false, result = null } = {}) {
     const wasWon = this.gameWon;
     this.gameWon = won === true;
-    if (this.gameWon && !wasWon && play) this.playVictory();
+    if (this.gameWon && !wasWon && play) this.playVictory(result || {});
     this.renderGameWonState();
   },
 
@@ -645,10 +655,10 @@ const App = {
     btn.setAttribute('aria-pressed', this.gameWon ? 'true' : 'false');
   },
 
-  playVictory() {
+  playVictory(result) {
     this._victoryLive = true;
     const btn = document.getElementById('game-won-btn');
-    Skeleton.playGameWon({
+    Skeleton.playGameWon(result, {
       onStage: (stage) => {
         if (stage === 'done') {
           this._victoryLive = false;
@@ -974,7 +984,7 @@ const App = {
     const victoryNow = state.gameWon === true;
     const victoryLive = this._victoryBaselined && !this.gameWon && victoryNow;
     this._victoryBaselined = true;
-    this.setGameWon(victoryNow, { play: victoryLive });
+    this.setGameWon(victoryNow, { play: victoryLive, result: state.matchResult || null });
     this.applyLossState(state.matchResult || null);
     this.setGameComplete(state.gameComplete === true);
 

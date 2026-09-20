@@ -567,7 +567,7 @@ const PlayerApp = {
       case 'state:public':
         this.lastPublicState = message;
         this.renderBoard(message);
-        this.applyVictoryState(message.gameWon === true);
+        this.applyVictoryState(message.gameWon === true, message.matchResult || null);
         this.applyLossState(message.matchResult || null);
         // Read-only: no controls are ever exposed here, only the same
         // charge/state the GM sees, sourced from the same broadcast.
@@ -947,12 +947,12 @@ const PlayerApp = {
   },
 
   // Completed state = body.game-won (CSS), driven only by server state.
-  applyVictoryState(won) {
+  applyVictoryState(won, matchResult = null) {
     const live = this._victoryBaselined && !this.gameWon && won;
     this._victoryBaselined = true;
     this.gameWon = won;
     document.body.classList.toggle('game-won', won);
-    if (live) Skeleton.playGameWon();
+    if (live) Skeleton.playGameWon(matchResult || {}, { live: true });
   },
 
   applyLossState(matchResult) {

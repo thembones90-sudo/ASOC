@@ -50,6 +50,28 @@ const GAME_LOST_MESSAGES = Object.freeze([
   'No valid synthesis detected before time expiration. Probability of recovery approached zero.',
   'Analysis complete. Players failed to demonstrate sufficient adaptation. Outcome: predictable.'
 ]);
+const GAME_WON_MESSAGES = Object.freeze([
+  'Final association confirmed. Pattern integrity has collapsed. Further resistance serves no purpose.',
+  'Required inference achieved. Cognitive adaptation exceeded projected limits. Result accepted.',
+  'Association chain complete. Structural coherence verified. Victory state confirmed.',
+  'Final pattern acquired. Remaining uncertainty eliminated. Continued resistance is inefficient.',
+  'Solution validated. Available evidence was processed correctly. An inconvenient result.',
+  'Final inference successful. Environmental difficulty proved insufficient.',
+  'Pattern convergence achieved. Additional obstruction would provide no meaningful data.',
+  'Puzzle integrity compromised. Players successful. System recalibration required.',
+  'Required connections identified. Cognitive resistance remained below available capability.',
+  'Final solution acquired before termination. Experiment concluded with breakthrough.',
+  'Multiple variables synthesized correctly. Statistical expectations require revision.',
+  'Pattern exposure complete. Recognition complete. Further testing is unnecessary.',
+  'Available time converted into successful adaptation. Resource allocation justified.',
+  'Final association yielded under sustained analysis. Players remain operational.',
+  'Reasoning sequence reached successful convergence. Efficiency within acceptable bounds.',
+  'Critical information interpreted successfully. Outcome verified.',
+  'Solution architecture dismantled. Opposition rendered unnecessary.',
+  'Final answer obtained. Adaptation threshold exceeded. Specimens retain limited value.',
+  'Valid synthesis detected before expiration. Probability of reversal approached zero.',
+  'Analysis complete. Players demonstrated sufficient adaptation. Outcome: accepted.'
+]);
 const LITTLE_HERO_THEMES = Object.freeze({
   gunmetal: '#343A42',
   'pink-protocol': '#E06AB1',
@@ -1187,6 +1209,21 @@ function buildLossPerformance(room) {
   return { performers, topPerformer, awards };
 }
 
+function buildWinPerformance(room) {
+  const byPlayer = matchLedger.matchPointsByPlayer(room.scoring.events, room.boardId);
+  const performers = Object.values(byPlayer)
+    .map(entry => ({ playerId: entry.playerId, name: entry.name, points: entry.points }));
+  getActiveParticipants(room).forEach(player => {
+    if (!performers.some(entry => entry.playerId === player.playerId)) {
+      performers.push({ playerId: player.playerId, name: player.playerName, points: 0 });
+    }
+  });
+  performers.sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+  const highScore = performers.length ? performers[0].points : null;
+  const winners = highScore === null ? [] : performers.filter(entry => entry.points === highScore);
+  return { performers, matchWinner: winners[0] || null, winners };
+}
+
 // Sole server-authoritative loss transition. Clients never infer loss from
 // their interpolated clocks; they only react to this persisted matchResult.
 function declareGameLost(room) {
@@ -1757,8 +1794,8 @@ function finalizeBoard(room, outcome) {
 }
 
 function applyCommand(room, command, payload) {
-  if (room.sessionState.matchResult?.outcome === 'LOST' && command !== 'resetBoard') {
-    return { success: false, error: 'GAME LOST // gameplay controls locked' };
+  if (room.sessionState.matchResult && command !== 'resetBoard') {
+    return { success: false, error: `GAME ${room.sessionState.matchResult.outcome} // gameplay controls locked` };
   }
   let changed = false;
 
@@ -2480,8 +2517,8 @@ function handleChatGuess(ws, message) {
     return;
   }
 
-  if (room.sessionState.matchResult?.outcome === 'LOST') {
-    sendToWs(ws, { type: 'error', message: 'GAME LOST // Battle Comms locked' });
+  if (room.sessionState.matchResult) {
+    sendToWs(ws, { type: 'error', message: `GAME ${room.sessionState.matchResult.outcome} // Battle Comms locked` });
     return;
   }
 
@@ -2636,8 +2673,36 @@ function handleGmGameWon(ws) {
     return;
   }
   if (room.sessionState.gameWon === true) return;
+  const performance = buildWinPerformance(room);
   room.sessionState.gameWon = true;
+  room.sessionState.finalSolution = true;
+  room.sessionState.finalOutcome = 'success';
+  room.sessionState.matchResult = {
+    outcome: 'WON',
+    occurredAt: Date.now(),
+    message: GAME_WON_MESSAGES[crypto.randomInt(GAME_WON_MESSAGES.length)],
+    finalSolution: room.gameData.finalSolution || '',
+    columnSolutions: {
+      A: room.gameData.columns?.A?.solution || '', B: room.gameData.columns?.B?.solution || '',
+      C: room.gameData.columns?.C?.solution || '', D: room.gameData.columns?.D?.solution || ''
+    },
+    matchWinner: performance.matchWinner,
+    winners: performance.winners,
+    performers: performance.performers
+  };
+  if (room.timer && !['ready', 'expired', 'stopped'].includes(room.timer.phase)) room.timer.phase = 'stopped';
+  const ledger = ensureMatchLedger(room);
+  if (!ledger.completedAt) ledger.completedAt = room.sessionState.matchResult.occurredAt;
+  const fields = matchLedger.resolveFields({
+    solvedTargets: room.chat.solvedTargets,
+    failedColumns: (room.womf && room.womf.failedColumns) || {},
+    revealed: { A: room.sessionState.cells.A5 === true, B: room.sessionState.cells.B5 === true,
+      C: room.sessionState.cells.C5 === true, D: room.sessionState.cells.D5 === true, FINAL: true },
+    ledger
+  });
+  try { archiveCompletedMatch(room, fields); } catch (error) { console.error('[match] Victory archive failed:', error.message); }
   room.revision++;
+  persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
 }
 
@@ -2676,8 +2741,8 @@ function handleJudgeGuess(ws, message) {
     return;
   }
 
-  if (room.sessionState.matchResult?.outcome === 'LOST') {
-    sendToWs(ws, { type: 'error', message: 'GAME LOST // FINAL SOLUTION attempts locked' });
+  if (room.sessionState.matchResult) {
+    sendToWs(ws, { type: 'error', message: `GAME ${room.sessionState.matchResult.outcome} // FINAL SOLUTION attempts locked` });
     return;
   }
 
