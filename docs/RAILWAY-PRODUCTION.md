@@ -6,7 +6,7 @@
 | --- | --- |
 | Railway project | `ASOC Engine` |
 | Railway service | `asoc-live` |
-| Runtime | Node.js, `npm start` |
+| Runtime | Node.js, `node server.js` |
 | Replicas | **Exactly one** |
 | Persistent volume mount | `/data` |
 | Required variable | `ASOC_DATA_DIR=/data` |
