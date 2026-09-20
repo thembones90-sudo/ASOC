@@ -1249,6 +1249,30 @@ function getTimerPublicState(room) {
   };
 }
 
+function handleTimerLaunchCountdown(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can launch the battle countdown' });
+    return;
+  }
+  if (!room.timer) resetTimer(room);
+  if (room.timer.phase !== 'ready') {
+    sendToWs(ws, { type: 'error', message: 'The Timer has already been started' });
+    return;
+  }
+
+  // The T-10 sequence is theatrical, not authoritative game time. Broadcast
+  // it immediately so every connected Little Hero sees the same launch
+  // overlay while the real timer remains READY until gm:timerStart arrives
+  // from the host at zero.
+  broadcastToRoom(room, { type: 'battle:launchCountdown' });
+  console.log(`[ROOM ${room.code}] Battle launch countdown broadcast to GM + players`);
+}
+
 function handleTimerStart(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -4141,6 +4165,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:wheelClose': {
           handleWheelClose(ws);
+          break;
+        }
+        case 'gm:timerLaunchCountdown': {
+          handleTimerLaunchCountdown(ws);
           break;
         }
         case 'gm:timerStart': {
