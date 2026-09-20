@@ -7884,3 +7884,108 @@ body.game-complete .recount-btn,
     min-width:480px;
   }
 }
+
+
+/* =========================================================
+   MOBILE COMPLETE SURFACE PASS 05
+   Remaining game surfaces: Forge, Wheel, debrief, maintenance,
+   difficulty controls, announcements and compact system dialogs.
+   ========================================================= */
+@media (max-width:760px) {
+  .forge-header {
+    position:sticky;
+    top:0;
+    z-index:5;
+    padding:10px 12px;
+    gap:8px;
+  }
+  .forge-title { font-size:.72rem; letter-spacing:1px; }
+  .forge-close { width:44px; height:44px; flex:0 0 44px; }
+  .forge-body,
+  .wheel-setup-body { padding:12px 10px 16px; }
+  .forge-btn { min-height:44px; padding:9px 10px; touch-action:manipulation; }
+
+  .wheel-shell { padding:18px 10px; }
+  .wheel-title { margin-bottom:14px; font-size:.82rem; letter-spacing:2px; }
+  .wheel-stage {
+    width:min(280px,76vw);
+    height:min(280px,76vw);
+  }
+  .wheel-controls { flex-wrap:wrap; }
+  .wheel-controls > * { min-height:44px; flex:1 1 120px; }
+  .wheel-setup-list { max-height:42dvh; }
+  .wheel-setup-row { min-height:44px; }
+  .wheel-setup-checkbox { width:22px; height:22px; }
+  .wheel-setup-add-row { flex-wrap:wrap; }
+  .wheel-setup-input { min-width:0; min-height:44px; font-size:16px; }
+
+  .final-outcome-banner.fo-debrief {
+    width:calc(100vw - 16px);
+    max-width:calc(100vw - 16px);
+    max-height:calc(100dvh - 20px);
+    padding:16px 10px 18px;
+    box-sizing:border-box;
+    -webkit-overflow-scrolling:touch;
+  }
+  .fo-debrief-grid { grid-template-columns:1fr; }
+  .fo-debrief-row,
+  .fo-final-answer { min-width:0; }
+  .fo-debrief-row > *,
+  .fo-final-answer > * { min-width:0; overflow-wrap:anywhere; }
+
+  #gm-panel.maintenance-open .gm-content { padding:10px 8px 24px; }
+  .gm-maintenance .maintenance-module { padding:10px; margin-bottom:12px; }
+  #gm-panel.maintenance-open .gm-maintenance .gm-global-controls { gap:7px; }
+  #gm-panel.maintenance-open .gm-maintenance .difficulty-picker { gap:6px; }
+
+  .difficulty-picker,
+  .gm-global-controls,
+  .gm-column-controls {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .battle-session-strip {
+    gap:5px 8px;
+    overflow-wrap:anywhere;
+  }
+
+  #library-btn-footer.maintenance-toggle-btn,
+  #public-view-btn,
+  #host-room-btn {
+    min-height:48px;
+  }
+
+  .final-outcome-banner,
+  .score-announcement,
+  .timer-countdown-overlay {
+    max-width:calc(100vw - 16px);
+    box-sizing:border-box;
+  }
+
+  .nema-asoc-terminal,
+  .nema-asoc-lock {
+    max-width:calc(100vw - 20px);
+    box-sizing:border-box;
+  }
+
+  .gm-chat-context-menu,
+  .gm-chat-floating-emoji-picker {
+    max-width:calc(100vw - 12px);
+    max-height:60dvh;
+    overflow-y:auto;
+  }
+}
+
+@media (max-width:430px) {
+  .difficulty-picker,
+  .gm-global-controls {
+    grid-template-columns:1fr;
+  }
+  .gm-column-controls {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .wheel-label span {
+    max-width:76px;
+    font-size:.55rem;
+  }
+}
