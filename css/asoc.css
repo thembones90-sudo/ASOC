@@ -1289,25 +1289,28 @@ textarea {
 .nema-asoc-btn {
   margin-top: 8px;
   min-height: 44px;
-  border-color: rgba(185, 36, 44, 0.92) !important;
-  color: #ffc1c1 !important;
+  border-color: rgba(116, 216, 35, 0.92) !important;
+  color: #d7ff76 !important;
   font-weight: 900;
   letter-spacing: 0.12em;
   background:
-    linear-gradient(180deg, rgba(102, 22, 27, 0.94), rgba(38, 10, 13, 0.98)) !important;
+    radial-gradient(circle at 50% 0, rgba(166,255,57,.18), transparent 55%),
+    linear-gradient(180deg, rgba(35, 71, 14, 0.96), rgba(12, 28, 7, 0.99)) !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.06),
-    inset 0 0 18px rgba(205, 34, 44, 0.12),
-    0 0 12px rgba(160, 20, 28, 0.10);
+    inset 0 0 18px rgba(139, 255, 45, 0.12),
+    0 0 12px rgba(98, 226, 24, 0.12);
+  text-shadow: 0 0 9px rgba(167,255,72,.38);
 }
 
 .nema-asoc-btn:hover {
-  border-color: #ff4d58 !important;
-  color: #fff0f0 !important;
+  border-color: #b8ff3d !important;
+  color: #f1ffc7 !important;
   box-shadow:
-    inset 0 0 22px rgba(255, 58, 70, 0.16),
-    0 0 18px rgba(210, 30, 42, 0.24);
+    inset 0 0 22px rgba(151, 255, 52, 0.18),
+    0 0 20px rgba(104, 235, 28, 0.28);
 }
+.nema-nuclear-mark {font-size:1.18em;color:#baff34;filter:drop-shadow(0 0 4px rgba(174,255,65,.7));vertical-align:-.05em}
 
 /* NEMA ASOC threat effect: five seconds of deliberate audiovisual-style
    visual chaos. No game state changes; this is pure presentation. */
@@ -2294,7 +2297,7 @@ body.game-complete .fail-final-btn {
 
 .battle-controls-grid {
   display: grid;
-  grid-template-columns: repeat(3,minmax(0,1fr));
+  grid-template-columns: repeat(4,minmax(0,1fr));
   gap: 10px;
   align-items: stretch;
 }
@@ -2337,10 +2340,24 @@ body.game-complete .fail-final-btn {
 
 
 .battle-nema-btn,
-.battle-won-btn {
+.battle-won-btn,
+.battle-lost-btn {
   min-height: 46px !important;
   height: 100%;
   margin: 0 !important;
+}
+
+.game-lost-btn {
+  border-color:rgba(139,42,49,.68)!important;
+  color:#b9757b!important;
+  background:linear-gradient(180deg,rgba(58,18,23,.96),rgba(24,8,11,.99))!important;
+  box-shadow:inset 0 0 14px rgba(190,35,48,.08);
+}
+.game-lost-btn:disabled {opacity:.78;cursor:not-allowed}
+.game-lost-btn.is-lost {
+  opacity:1;border-color:#c52b39!important;color:#ffd7da!important;
+  box-shadow:inset 0 0 20px rgba(196,35,49,.17),0 0 16px rgba(176,24,38,.2);
+  text-shadow:0 0 8px rgba(225,55,67,.4);
 }
 
 @media (max-width: 900px) {

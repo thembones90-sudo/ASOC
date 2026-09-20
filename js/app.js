@@ -584,6 +584,11 @@ const App = {
     this.gameLost = lost;
     this._lossResultKey = key;
     document.body.classList.toggle('game-lost', lost);
+    const button = document.getElementById('game-lost-btn');
+    if (button) {
+      button.classList.toggle('is-lost', lost);
+      button.setAttribute('aria-pressed', lost ? 'true' : 'false');
+    }
     if (!lost) document.querySelector('.defeat-overlay')?.remove();
     else if (live) Skeleton.playGameLost(matchResult, { live: true });
     else if (changed && !document.querySelector('.defeat-overlay')) Skeleton.playGameLost(matchResult, { live: false });
@@ -1010,7 +1015,7 @@ const App = {
     if (roomToggle) {
       roomToggle.style.display = 'block';
       roomToggle.disabled = false;
-      roomToggle.textContent = isMultiplayer ? 'KILL SESSION' : 'HOST ROOM';
+      roomToggle.textContent = isMultiplayer ? 'KILL SESSION' : 'HOST GAME';
       roomToggle.classList.toggle('primary', !isMultiplayer);
       roomToggle.classList.toggle('kill-session-btn', isMultiplayer);
     }
