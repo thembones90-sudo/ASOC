@@ -161,6 +161,10 @@ const App = {
       this.updatePublicView();
       this.updateWomfTracker();
       this.updateTimerUI();
+      // Establish local/hosted control states on the first render. Without
+      // this, controls whose HTML defaults are conservative (GAME LOST in
+      // particular) remain disabled until a room-state transition occurs.
+      this.updateMultiplayerUI();
       this.connectWebSocket();
     } catch (e) {
       console.error('Initialization error:', e);
