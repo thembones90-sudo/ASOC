@@ -8111,3 +8111,50 @@ body.game-complete .recount-btn,
     pointer-events:none;
   }
 }
+
+
+/* MOBILE SCROLL GUARANTEE 08
+   Phone pages must always be vertically scrollable. Override every desktop
+   viewport lock at the end of the cascade. */
+@media (max-width:760px) {
+  html {
+    height:auto !important;
+    min-height:100% !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    -webkit-overflow-scrolling:touch;
+  }
+  body {
+    height:auto !important;
+    min-height:100dvh !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    position:relative !important;
+    -webkit-overflow-scrolling:touch;
+  }
+  #app-layout,
+  #main-content,
+  #gm-panel {
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+  #app-layout { min-height:100dvh !important; }
+  #gm-panel { min-height:100dvh; }
+
+  /* Fixed full-screen system layers scroll themselves while open. */
+  .forge-overlay,
+  .wheel-overlay,
+  .blood-tribute-overlay,
+  .recount-overlay,
+  .victory-overlay,
+  .defeat-overlay,
+  .nema-asoc-overlay,
+  .battle-controls-online,
+  .loading-overlay {
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-y:contain;
+  }
+}
