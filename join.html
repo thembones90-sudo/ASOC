@@ -3920,6 +3920,36 @@
       70% { opacity:.18; }
       88%,100% { opacity:0; transform:translate(-50%,-50%) scale(1.16,.82); }
     }
+    #join-screen::after {
+      content:"";
+      position:absolute;
+      z-index:40;
+      left:-3%;
+      top:0;
+      width:106%;
+      height:82px;
+      pointer-events:none;
+      opacity:0;
+      background:
+        linear-gradient(90deg,transparent 0 3%,rgba(155,93,224,.34) 17%,rgba(207,86,207,.52) 48%,rgba(229,92,136,.52) 52%,rgba(214,59,74,.34) 83%,transparent 97%),
+        linear-gradient(180deg,transparent 0 39%,rgba(238,220,251,.08) 42%,rgba(246,231,255,.80) 49%,rgba(232,102,186,.42) 51%,rgba(206,54,82,.08) 58%,transparent 63%),
+        repeating-linear-gradient(90deg,transparent 0 37px,rgba(255,255,255,.09) 38px 40px,transparent 41px 79px);
+      filter:blur(.15px) drop-shadow(0 0 10px rgba(191,65,167,.30));
+      mix-blend-mode:screen;
+      clip-path:polygon(0 17%,12% 17%,12% 7%,31% 7%,31% 24%,48% 24%,48% 0,64% 0,64% 20%,81% 20%,81% 10%,100% 10%,100% 77%,91% 77%,91% 91%,72% 91%,72% 70%,53% 70%,53% 100%,36% 100%,36% 79%,18% 79%,18% 91%,0 91%);
+      animation:join-power-surge 5.8s linear infinite;
+    }
+    @keyframes join-power-surge {
+      0%,12% { opacity:0; transform:translate3d(0,-110px,0) scaleY(.55); }
+      14% { opacity:.72; transform:translate3d(-7px,-72px,0) scaleY(.72); }
+      18% { opacity:.34; transform:translate3d(5px,4vh,0) scaleY(.52); }
+      27% { opacity:.62; transform:translate3d(-3px,22vh,0) scaleY(.78); }
+      28% { opacity:.18; transform:translate3d(8px,25vh,0) scaleY(.38); }
+      39% { opacity:.52; transform:translate3d(0,44vh,0) scaleY(.66); }
+      53% { opacity:.28; transform:translate3d(-6px,68vh,0) scaleY(.44); }
+      66% { opacity:.48; transform:translate3d(4px,91vh,0) scaleY(.72); }
+      72%,100% { opacity:0; transform:translate3d(0,112vh,0) scaleY(.50); }
+    }
     @keyframes hero-conflict-pulse {
       0%,100% { box-shadow:0 0 0 1px rgba(185,116,244,.24),0 0 20px rgba(139,61,240,.15); }
       50% { box-shadow:0 0 0 1px rgba(200,142,250,.40),0 0 30px rgba(139,61,240,.27); }
@@ -3933,6 +3963,7 @@
     @media(prefers-reduced-motion:reduce){
       #join-screen .profile-avatar-edit { animation:none!important; }
       #join-screen .join-btn::before { animation:none!important; opacity:0!important; }
+      #join-screen::after { animation:none!important; opacity:0!important; }
     }
   </style>
 </head>
