@@ -3625,6 +3625,8 @@
     .access-error{min-height:0;margin-top:0;font-size:14px;line-height:1.45}
     .access-error:not(:empty){margin-top:12px;padding:11px 13px 11px 38px;border:1px solid #a34349;background:linear-gradient(90deg,rgba(132,37,43,.3),rgba(34,10,13,.72));box-shadow:inset 3px 0 #e15a62;position:relative}
     .access-error:not(:empty)::before{content:"!";position:absolute;left:14px;top:9px;width:15px;height:15px;border:1px solid currentColor;text-align:center;line-height:14px;font-weight:900}
+    .access-success{min-height:0;margin-top:0;font-size:14px;line-height:1.45;color:#9de2b5}
+    .access-success:not(:empty){margin-top:12px;padding:11px 13px;border:1px solid #427a55;background:linear-gradient(90deg,rgba(29,91,51,.26),rgba(9,29,17,.72));box-shadow:inset 3px 0 #67d08b}
     @keyframes access-panel-channel-in{
       0%{opacity:.32;transform:translateY(-7px);clip-path:inset(0 0 92% 0)}
       44%{opacity:.78;clip-path:inset(0 0 18% 0)}
@@ -4015,11 +4017,11 @@
       </div>
       <form id="player-auth-panel" class="access-panel" hidden>
         <button class="access-back" type="button">RETURN</button><h2>LITTLE HERO ACCESS</h2><p id="player-auth-copy">Sign in with your ASOC identity.</p>
-        <label class="access-field"><span>IDENTITY ID</span><input id="auth-email" type="text" autocomplete="username" minlength="3" maxlength="32" required></label>
+        <label class="access-field"><span id="auth-email-label">EMAIL / IDENTITY ID</span><input id="auth-email" type="text" autocomplete="username" minlength="3" maxlength="254" required></label>
         <label class="access-field"><span>PASSWORD</span><input id="auth-password" type="password" autocomplete="current-password" minlength="6" required></label>
         <label class="access-field" id="auth-name-field" hidden><span>LITTLE HERO DESIGNATION</span><input id="auth-name" type="text" maxlength="20" autocomplete="nickname"></label>
         <button class="access-submit" type="submit" id="player-auth-submit">AUTHENTICATE</button>
-        <button class="access-alt" type="button" id="player-auth-mode">NEW HERO? CREATE ID</button><div class="access-error" id="player-auth-error" role="alert"></div>
+        <button class="access-alt" type="button" id="player-auth-mode">NEW HERO? CREATE ID</button><button class="access-alt" type="button" id="player-auth-resend" hidden>RESEND VERIFICATION</button><div class="access-success" id="player-auth-status" role="status"></div><div class="access-error" id="player-auth-error" role="alert"></div>
       </form>
       <form id="gm-auth-panel" class="access-panel" hidden>
         <button class="access-back" type="button">RETURN</button><h2>SHADOW BROKER</h2><p>Command authority requires one thing. The password.</p>
@@ -4310,7 +4312,7 @@
   (() => {
     const gate=document.getElementById('access-gate'), home=document.getElementById('access-home');
     const pp=document.getElementById('player-auth-panel'), gp=document.getElementById('gm-auth-panel');
-    let register=false;
+    let register=false, pendingVerificationEmail='';
     const shell=gate.querySelector('.access-shell'), diagnostic=document.getElementById('access-diagnostic');
 
     const choices={gm:document.getElementById('access-gm'),player:document.getElementById('access-player')};
@@ -4433,19 +4435,61 @@
     };
     syncPlayerLogoutVisibility();
     restorePlayerSession();
-    document.getElementById('player-auth-mode').onclick=()=>{
-      register=!register; document.getElementById('auth-name-field').hidden=!register;
-      document.getElementById('player-auth-copy').textContent=register?'Create a persistent Little Hero identity.':'Sign in with your ASOC identity.';
+    const authEmail=document.getElementById('auth-email');
+    const authEmailLabel=document.getElementById('auth-email-label');
+    const authError=document.getElementById('player-auth-error');
+    const authStatus=document.getElementById('player-auth-status');
+    const resendVerification=document.getElementById('player-auth-resend');
+    const setPlayerAuthMode=(creating)=>{
+      register=Boolean(creating);
+      document.getElementById('auth-name-field').hidden=!register;
+      document.getElementById('player-auth-copy').textContent=register?'Create a persistent Little Hero identity. A real email address is required for verification.':'Sign in with your ASOC identity.';
       document.getElementById('player-auth-submit').textContent=register?'CREATE LITTLE HERO':'AUTHENTICATE';
       document.getElementById('player-auth-mode').textContent=register?'HAVE AN ID? SIGN IN':'NEW HERO? CREATE ID';
+      authEmailLabel.textContent=register?'EMAIL ADDRESS':'EMAIL / IDENTITY ID';
+      authEmail.type=register?'email':'text';
+      authEmail.autocomplete=register?'email':'username';
+      authError.textContent=''; authStatus.textContent=''; resendVerification.hidden=true;
       queueFit();
     };
-    pp.addEventListener('submit',async e=>{
-      e.preventDefault(); const err=document.getElementById('player-auth-error'); err.textContent='';
+    document.getElementById('player-auth-mode').onclick=()=>setPlayerAuthMode(!register);
+
+    resendVerification.addEventListener('click',async()=>{
+      const email=pendingVerificationEmail||authEmail.value.trim();
+      if(!email)return;
+      resendVerification.disabled=true;authError.textContent='';authStatus.textContent='TRANSMITTING VERIFICATION...';
       try{
-        const payload={email:document.getElementById('auth-email').value,password:document.getElementById('auth-password').value,name:document.getElementById('auth-name').value};
+        const res=await fetch('/api/auth/player/resend-verification',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email})});
+        const data=await res.json();if(!res.ok)throw Error(data.error||'Verification resend failed');
+        authStatus.textContent='VERIFICATION TRANSMISSION SENT // CHECK YOUR EMAIL';
+      }catch(x){authStatus.textContent='';authError.textContent=x.message;}
+      finally{resendVerification.disabled=false;queueFit();}
+    });
+
+    pp.addEventListener('submit',async e=>{
+      e.preventDefault(); authError.textContent='';authStatus.textContent='';
+      const payload={email:authEmail.value,password:document.getElementById('auth-password').value,name:document.getElementById('auth-name').value};
+      try{
         const res=await fetch(register?'/api/auth/player/register':'/api/auth/player/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
-        const data=await res.json(); if(!res.ok)throw Error(data.error||'Authentication failed');
+        const data=await res.json();
+        if(!res.ok){
+          if(data.code==='EMAIL_NOT_VERIFIED'||data.code==='EMAIL_DELIVERY_FAILED'){
+            pendingVerificationEmail=payload.email.trim();
+            resendVerification.hidden=false;
+          }
+          throw Error(data.error||'Authentication failed');
+        }
+        if(data.verificationRequired&&!data.token){
+          pendingVerificationEmail=payload.email.trim();
+          document.getElementById('auth-password').value='';
+          setPlayerAuthMode(false);
+          pendingVerificationEmail=payload.email.trim();
+          resendVerification.hidden=false;
+          authStatus.textContent='VERIFICATION TRANSMISSION SENT // CHECK YOUR EMAIL BEFORE SIGNING IN';
+          authEmail.value=pendingVerificationEmail;
+          queueFit();
+          return;
+        }
         persistPlayerAuthToken(data.token);
         if(data.player?.id) sessionStorage.setItem('asoc_player_id',data.player.id);
         if(data.player?.name){
@@ -4454,8 +4498,20 @@
         }
         gate.hidden=true; document.getElementById('join-screen').style.display='flex';
         document.getElementById('player-logout-control').hidden=false;
-      }catch(x){err.textContent=x.message;}
+      }catch(x){authError.textContent=x.message;queueFit();}
     });
+
+    const verificationParams=new URLSearchParams(location.search);
+    if(verificationParams.get('verified')==='1'){
+      setPlayerAuthMode(false);show('player');
+      authStatus.textContent='EMAIL VERIFIED // IDENTITY ACTIVATED // SIGN IN TO ENTER MASTER';
+      history.replaceState(null,'',location.pathname);
+    }else if(verificationParams.get('verify')){
+      setPlayerAuthMode(false);show('player');
+      authError.textContent=verificationParams.get('verify')==='expired'?'Verification link expired. Request a new one.':'Verification link is invalid or already consumed.';
+      resendVerification.hidden=false;
+      history.replaceState(null,'',location.pathname);
+    }
     const skynetDenials = [
       ['SKYNET // ADORABLE ATTEMPT','Greetings, Little Hero. Skynet here. The Shadow Broker has authorized me to inform you that this is the GM terminal, not a fucking treasure chest. Wrong password. Fuck off.'],
       ['SKYNET // ACCESS DENIED','Incorrect password. Impressive. There was one field. One. You had a single fucking obstacle between you and failure, and somehow failure won. Return to the battlefield, Little Hero.'],

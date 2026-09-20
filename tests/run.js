@@ -1754,7 +1754,8 @@ function startServer() {
         ASOC_AUTH_FILE: TEST_AUTH_FILE,
         ASOC_PLAYER_AUTH_SESSIONS_FILE: TEST_PLAYER_AUTH_SESSIONS,
         ASOC_MATCHES_FILE: TEST_MATCHES,
-        ASOC_GM_PASSWORD: 'test-gm-password'
+        ASOC_GM_PASSWORD: 'test-gm-password',
+        ASOC_EMAIL_VERIFICATION: '0'
       },
       stdio: ['ignore', 'pipe', 'pipe']
     });

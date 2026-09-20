@@ -6,6 +6,7 @@ const { WebSocketServer } = require('ws');
 const gameStore = require('./game-store');
 const playerStore = require('./player-store');
 const authStore = require('./auth-store');
+const emailService = require('./email-service');
 const scoring = require('./scoring-constants');
 const matchLedger = require('./match-ledger');
 const matchStore = require('./match-store');
@@ -26,6 +27,7 @@ const BLOOD_TRIBUTE_VAULT_LIMIT = 24;
 const CHAT_HISTORY_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
 const PROTOCOL_VERSION = 1;
+const EMAIL_VERIFICATION_REQUIRED = process.env.ASOC_EMAIL_VERIFICATION !== '0';
 const GAME_LOST_MESSAGES = Object.freeze([
   'Final association unresolved. Time exhausted. Cognitive adaptation insufficient. Expected result.',
   'All available time consumed. Required inference not achieved. Failure state confirmed.',
@@ -3481,21 +3483,105 @@ function handleClose(ws) {
   }
 }
 
+function publicBaseUrl(req) {
+  const configured = String(process.env.ASOC_PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+  if (configured) return configured;
+  const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || ('localhost:' + PORT)).split(',')[0].trim();
+  return proto + '://' + host;
+}
+
+function issuePlayerAuthToken(player) {
+  const token = 'player-' + crypto.randomBytes(24).toString('base64url');
+  playerAuthTokens.set(playerTokenKey(token), { playerId: player.id, email: player.email, createdAt: Date.now() });
+  savePlayerAuthSessions();
+  return token;
+}
+
+function redirectPlayerVerification(res, state) {
+  res.writeHead(302, {
+    Location: '/join.html?' + state,
+    'Cache-Control': 'no-store',
+    Pragma: 'no-cache'
+  });
+  res.end();
+}
+
 function handleApiRequest(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const parts = url.pathname.split('/').filter(Boolean);
   const method = req.method;
 
   if (method === 'POST' && url.pathname === '/api/auth/player/register') {
-    return readJsonBody(req, (err, body) => {
+    return readJsonBody(req, async (err, body) => {
       if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
+      if (EMAIL_VERIFICATION_REQUIRED && !emailService.isConfigured()) {
+        return sendJson(res, 503, { error: 'Email verification service is not configured', code: 'EMAIL_SERVICE_UNAVAILABLE' });
+      }
       try {
-        const player = authStore.register(body.email, body.password, body.name);
-        const token = 'player-' + crypto.randomBytes(24).toString('base64url');
-        playerAuthTokens.set(playerTokenKey(token), { playerId: player.id, email: player.email, createdAt: Date.now() });
-        savePlayerAuthSessions();
-        return sendJson(res, 201, { token, player });
-      } catch (e) { return sendJson(res, 400, { error: e.message }); }
+        const created = authStore.register(body.email, body.password, body.name, { requireVerification: EMAIL_VERIFICATION_REQUIRED });
+        if (!EMAIL_VERIFICATION_REQUIRED) {
+          const token = issuePlayerAuthToken(created.player);
+          return sendJson(res, 201, { token, player: created.player });
+        }
+        const verifyUrl = publicBaseUrl(req) + '/api/auth/player/verify?token=' + encodeURIComponent(created.verificationToken);
+        try {
+          await emailService.sendVerificationEmail({
+            to: created.player.email,
+            name: created.player.name,
+            verifyUrl,
+            idempotencyKey: 'verify-' + created.player.id + '-' + Date.now()
+          });
+        } catch (mailError) {
+          console.error('[auth] Verification email delivery failed:', mailError.message);
+          return sendJson(res, 502, {
+            error: 'Account created, but the verification email could not be sent. Use RESEND VERIFICATION shortly.',
+            code: 'EMAIL_DELIVERY_FAILED',
+            verificationRequired: true,
+            player: created.player
+          });
+        }
+        return sendJson(res, 201, {
+          verificationRequired: true,
+          player: created.player,
+          message: 'Verification email sent. Confirm the address before signing in.'
+        });
+      } catch (e) {
+        return sendJson(res, 400, { error: e.message });
+      }
+    });
+  }
+
+  if (method === 'GET' && url.pathname === '/api/auth/player/verify') {
+    const token = String(url.searchParams.get('token') || '');
+    if (!token) return redirectPlayerVerification(res, 'verify=invalid');
+    const result = authStore.verifyEmail(token);
+    if (result.ok) return redirectPlayerVerification(res, 'verified=1');
+    return redirectPlayerVerification(res, result.reason === 'expired' ? 'verify=expired' : 'verify=invalid');
+  }
+
+  if (method === 'POST' && url.pathname === '/api/auth/player/resend-verification') {
+    return readJsonBody(req, async (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
+      if (!emailService.isConfigured()) {
+        return sendJson(res, 503, { error: 'Email verification service is not configured', code: 'EMAIL_SERVICE_UNAVAILABLE' });
+      }
+      const issued = authStore.issueVerificationToken(body.email);
+      const generic = { ok: true, message: 'If this identity is awaiting verification, a new verification email has been sent.' };
+      if (!issued.ok) return sendJson(res, 200, generic);
+      try {
+        const verifyUrl = publicBaseUrl(req) + '/api/auth/player/verify?token=' + encodeURIComponent(issued.verificationToken);
+        await emailService.sendVerificationEmail({
+          to: issued.player.email,
+          name: issued.player.name,
+          verifyUrl,
+          idempotencyKey: 'verify-resend-' + issued.player.id + '-' + Date.now()
+        });
+      } catch (mailError) {
+        console.error('[auth] Verification resend failed:', mailError.message);
+        return sendJson(res, 502, { error: 'Verification email could not be sent. Try again shortly.', code: 'EMAIL_DELIVERY_FAILED' });
+      }
+      return sendJson(res, 200, generic);
     });
   }
 
@@ -3504,9 +3590,14 @@ function handleApiRequest(req, res) {
       if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
       const player = authStore.login(body.email, body.password);
       if (!player) return sendJson(res, 401, { error: 'Invalid identity ID or password' });
-      const token = 'player-' + crypto.randomBytes(24).toString('base64url');
-      playerAuthTokens.set(playerTokenKey(token), { playerId: player.id, email: player.email, createdAt: Date.now() });
-      savePlayerAuthSessions();
+      if (EMAIL_VERIFICATION_REQUIRED && !player.emailVerified) {
+        return sendJson(res, 403, {
+          error: 'Email verification required before entering MASTER.',
+          code: 'EMAIL_NOT_VERIFIED',
+          verificationRequired: true
+        });
+      }
+      const token = issuePlayerAuthToken(player);
       return sendJson(res, 200, { token, player });
     });
   }
@@ -3520,6 +3611,11 @@ function handleApiRequest(req, res) {
       playerAuthTokens.delete(playerTokenKey(token));
       savePlayerAuthSessions();
       return sendJson(res, 401, { error: 'Player account not found' });
+    }
+    if (EMAIL_VERIFICATION_REQUIRED && !player.emailVerified) {
+      playerAuthTokens.delete(playerTokenKey(token));
+      savePlayerAuthSessions();
+      return sendJson(res, 403, { error: 'Email verification required', code: 'EMAIL_NOT_VERIFIED' });
     }
     return sendJson(res, 200, { ok: true, player });
   }
