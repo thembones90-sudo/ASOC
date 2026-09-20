@@ -7039,3 +7039,13 @@ body.game-complete .fail-final-btn {
     grid-template-columns: 1fr;
   }
 }
+
+/* Final cascade lock: the legacy GAME WON overlay retains useful shared
+   geometry, but its old 7.2s root animation must never fade the takeover.
+   Only Skeleton's explicit click-confirm handler may remove it. */
+.victory-overlay.is-live,
+.victory-overlay.is-static,
+.victory-overlay.is-settled {
+  animation: none !important;
+  opacity: 1 !important;
+}
