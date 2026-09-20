@@ -14,9 +14,7 @@ const recountEngine = require('./recount-engine');
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_WS_PAYLOAD_BYTES = 5 * 1024 * 1024;
-const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const ROOM_CODE_LENGTH = 4;
-const HOST_RECONNECT_GRACE_MS = 60000;
+const MASTER_ROOM_CODE = 'MASTER';
 const MAX_CHAT_LENGTH = 100;
 const PLAYER_CHAT_MIN_INTERVAL_MS = 350;
 const PLAYER_REACTION_MIN_INTERVAL_MS = 120;
@@ -98,9 +96,36 @@ const mimeTypes = {
 
 const rooms = new Map();
 
+// One durable data root can move every file-backed piece of ASOC state onto
+// a mounted production volume. Per-file ASOC_* overrides still win when set.
+const ASOC_DATA_DIR = process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_DIR) : __dirname;
+try {
+  fs.mkdirSync(ASOC_DATA_DIR, { recursive: true });
+} catch (error) {
+  throw new Error(`ASOC durable data directory cannot be created (${ASOC_DATA_DIR}): ${error.message}`);
+}
+function assertDataDirectoryWritable(dataDir) {
+  const probe = path.join(dataDir, `.asoc-write-probe-${process.pid}-${Date.now()}`);
+  try {
+    fs.writeFileSync(probe, 'asoc-persistence-ready', { flag: 'wx', mode: 0o600 });
+    fs.unlinkSync(probe);
+  } catch (error) {
+    try { fs.unlinkSync(probe); } catch {}
+    throw new Error(`ASOC durable data directory is not writable (${dataDir}): ${error.message}`);
+  }
+}
+assertDataDirectoryWritable(ASOC_DATA_DIR);
 const ACTIVE_ROOMS_FILE = process.env.ASOC_SESSION_FILE
   ? path.resolve(process.env.ASOC_SESSION_FILE)
-  : path.join(__dirname, 'active-rooms.json');
+  : path.join(ASOC_DATA_DIR, 'active-rooms.json');
+
+// Recovery store schema: v1 is the legacy pre-MASTER snapshot; v2 adds an
+// explicit format marker and may carry a migration block. Anything newer or
+// unrecognized must be preserved untouched (persist gets locked) rather than
+// silently rebuilt and overwritten by a fresh room.
+const RECOVERY_STORE_FORMAT = 'asoc-recovery-store';
+const CURRENT_STORE_VERSION = 2;
+let recoveryStoreLocked = false;
 
 function makeOfflinePlayerSocket() {
   return {
@@ -125,6 +150,7 @@ function serializeRoomForRecovery(room) {
 
   return {
     code: room.code,
+    armed: room.armed === true,
     gameId: room.gameId,
     gameData: room.gameData,
     revision: room.revision,
@@ -146,8 +172,13 @@ function serializeRoomForRecovery(room) {
 }
 
 function persistActiveRooms() {
+  if (recoveryStoreLocked) {
+    console.error(`[recovery] CRITICAL: recovery store ${ACTIVE_ROOMS_FILE} is locked (unsupported/future format detected). Refusing to overwrite it.`);
+    return;
+  }
   const payload = {
-    version: 1,
+    format: RECOVERY_STORE_FORMAT,
+    version: CURRENT_STORE_VERSION,
     savedAt: Date.now(),
     rooms: Array.from(rooms.values(), serializeRoomForRecovery)
   };
@@ -157,7 +188,22 @@ function persistActiveRooms() {
     fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
     fs.renameSync(tmpFile, ACTIVE_ROOMS_FILE);
   } catch (error) {
-    console.error('[recovery] Failed to save active rooms:', error.message);
+    // Windows can deny rename-over-existing even when the file itself is
+    // writable (AV/indexer/share-mode contention). Preserve the atomic path
+    // as the default, but fall back to a direct overwrite so MASTER state is
+    // not silently stuck on an ancient recovery snapshot.
+    if ((error.code === 'EPERM' || error.code === 'EACCES') && fs.existsSync(tmpFile)) {
+      try {
+        fs.writeFileSync(ACTIVE_ROOMS_FILE, fs.readFileSync(tmpFile));
+        fs.unlinkSync(tmpFile);
+        console.warn('[recovery] Atomic replace blocked; recovery snapshot saved via direct-write fallback');
+        return;
+      } catch (fallbackError) {
+        console.error('[recovery] Failed to save active rooms:', fallbackError.message);
+      }
+    } else {
+      console.error('[recovery] Failed to save active rooms:', error.message);
+    }
     try { fs.unlinkSync(tmpFile); } catch {}
   }
 }
@@ -165,12 +211,31 @@ function persistActiveRooms() {
 function restoreActiveRooms() {
   if (!fs.existsSync(ACTIVE_ROOMS_FILE)) return 0;
 
+  let payload;
   try {
-    const payload = JSON.parse(fs.readFileSync(ACTIVE_ROOMS_FILE, 'utf8'));
-    if (!payload || payload.version !== 1 || !Array.isArray(payload.rooms)) {
-      throw new Error('Unsupported or malformed recovery file');
-    }
+    payload = JSON.parse(fs.readFileSync(ACTIVE_ROOMS_FILE, 'utf8'));
+  } catch (error) {
+    console.error(`[recovery] CRITICAL: cannot parse recovery file ${ACTIVE_ROOMS_FILE}: ${error.message}. Locking persist so the file is preserved for inspection.`);
+    recoveryStoreLocked = true;
+    return 0;
+  }
 
+  if (!payload || typeof payload !== 'object' || !Array.isArray(payload.rooms) || payload.rooms.length === 0) {
+    console.error(`[recovery] CRITICAL: recovery file ${ACTIVE_ROOMS_FILE} is malformed (missing "rooms" array). Locking persist so the file is preserved for inspection.`);
+    recoveryStoreLocked = true;
+    return 0;
+  }
+
+  const version = payload.version;
+  const isCurrent = version === CURRENT_STORE_VERSION && payload.format === RECOVERY_STORE_FORMAT;
+  const isLegacy = version === 1;
+  if (!isCurrent && !isLegacy) {
+    console.error(`[recovery] CRITICAL: recovery store version "${version}" is not supported by this build (current: ${CURRENT_STORE_VERSION}). Locking persist so an unknown/future format can never be overwritten.`);
+    recoveryStoreLocked = true;
+    return 0;
+  }
+
+  try {
     let restored = 0;
     for (const saved of payload.rooms) {
       if (!saved || typeof saved.code !== 'string' || typeof saved.hostToken !== 'string') continue;
@@ -183,6 +248,7 @@ function restoreActiveRooms() {
 
       const room = {
         code: saved.code.toUpperCase(),
+        armed: saved.armed !== false,
         gameId: saved.gameId || gameData.id || 'sample-game',
         gameData,
         revision: Number.isFinite(saved.revision) ? saved.revision : 0,
@@ -229,6 +295,16 @@ function restoreActiveRooms() {
 
       if (!room.timer) resetTimer(room);
       if (!room.match) room.match = matchLedger.createLedger(room.boardId, room.createdAt, []);
+      // Migration for chat snapshots written before persistent Master Room
+      // adjudication scoping existed. Messages from the current board remain
+      // judgeable; older history is deliberately archival only.
+      const boardStartedAt = Number(room.match?.startedAt || room.createdAt || 0);
+      for (const chatMessage of Array.isArray(room.chat?.messages) ? room.chat.messages : []) {
+        if (!Object.prototype.hasOwnProperty.call(chatMessage, 'boardId')) {
+          const sentAt = Number(chatMessage.timestamp) || 0;
+          chatMessage.boardId = room.armed === true && sentAt >= boardStartedAt ? room.boardId : null;
+        }
+      }
       // Every restored player comes back offline, so any presence interval
       // that was open at the moment of the crash ends now.
       matchLedger.closeAllPresence(room.match, Date.now());
@@ -259,17 +335,6 @@ function restoreActiveRooms() {
   }
 }
 
-function generateRoomCode() {
-  let code;
-  do {
-    code = '';
-    for (let i = 0; i < ROOM_CODE_LENGTH; i++) {
-      code += ROOM_CODE_CHARS[crypto.randomInt(ROOM_CODE_CHARS.length)];
-    }
-  } while (rooms.has(code));
-  return code;
-}
-
 function generateHostToken() {
   return crypto.randomBytes(24).toString('base64url');
 }
@@ -292,7 +357,9 @@ function generateEventId() {
 
 const AUTH_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const gmTokens = new Map();
-const PLAYER_AUTH_SESSIONS_FILE = process.env.ASOC_PLAYER_AUTH_SESSIONS_FILE || path.join(__dirname, '.player-auth-sessions.json');
+const PLAYER_AUTH_SESSIONS_FILE = process.env.ASOC_PLAYER_AUTH_SESSIONS_FILE
+  ? path.resolve(process.env.ASOC_PLAYER_AUTH_SESSIONS_FILE)
+  : path.join(ASOC_DATA_DIR, '.player-auth-sessions.json');
 function playerTokenKey(token) {
   return crypto.createHash('sha256').update(String(token || '')).digest('hex');
 }
@@ -322,8 +389,8 @@ function tokenRecordValid(record) {
 function pruneAuthTokens() {
   for (const [token, record] of gmTokens) if (!tokenRecordValid(record)) gmTokens.delete(token);
 }
-const GM_PASSWORD_FILE = path.join(__dirname, '.gm-password');
-const GM_LOCKOUT_FILE = path.join(__dirname, 'gm-lockouts.json');
+const GM_PASSWORD_FILE = path.join(ASOC_DATA_DIR, '.gm-password');
+const GM_LOCKOUT_FILE = path.join(ASOC_DATA_DIR, 'gm-lockouts.json');
 let gmLockouts = {};
 try { gmLockouts = JSON.parse(fs.readFileSync(GM_LOCKOUT_FILE, 'utf8')); } catch (e) { gmLockouts = {}; }
 function gmClientKey(req) {
@@ -470,14 +537,79 @@ function loadGameData(gameIdOrFilename) {
   return gameStore.readGame(gameIdOrFilename);
 }
 
+function resetMasterGameSession(room, gameData) {
+  room.gameId = gameData.id || room.gameId;
+  room.gameData = gameData;
+  room.revision = (room.revision || 0) + 1;
+  room.boardId = generateBoardId();
+  room.sessionState = {
+    cells: {}, finalSolution: false, finalOutcome: null, gameWon: false,
+    matchResult: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] }
+  };
+  room.currentBackground = gameData.background || gameStore.DEFAULT_BACKGROUND;
+  if (!room.chat) room.chat = { messages: [], solvedTargets: {} };
+  room.chat.solvedTargets = {};
+  room.scoring = { players: {}, events: [], activeStreak: null, boardFinalized: false, pendingResults: null };
+  // WOMF is Master Room state, not disposable game state. ARM/KILL may reset
+  // per-board failure guards, but they must never erase accumulated charge.
+  const womfCharge = Math.max(0, Math.min(10, Number(room.womf?.charge) || 0));
+  room.womf = { charge: womfCharge, failedColumns: {} };
+  room.wheel = { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
+  // An outstanding Blood Tribute is a Master Room debt. Do not let KILL
+  // SESSION or a later ARM clear it; only submission/explicit tribute logic
+  // may settle or replace the demand.
+  resetTimer(room);
+  startMatchLedger(room);
+}
+
+function ensureMasterRoom() {
+  let master = rooms.get(MASTER_ROOM_CODE);
+  if (!master && rooms.size) {
+    master = Array.from(rooms.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+    rooms.clear();
+    master.code = MASTER_ROOM_CODE;
+    master.hostConnection = null;
+    master.hostReconnectTimer = null;
+    master.armed = master.armed !== false;
+    rooms.set(MASTER_ROOM_CODE, master);
+    console.log(`[MASTER ROOM] Migrated persisted room into ${MASTER_ROOM_CODE}`);
+  }
+  if (!master) {
+    const result = createRoom('sample-game', null);
+    if (result.error) throw new Error(`Could not initialize Master Room: ${result.error}`);
+    master = rooms.get(MASTER_ROOM_CODE);
+  }
+  persistActiveRooms();
+  return master;
+}
+
 function createRoom(gameId, hostWs) {
   const gameData = loadGameData(gameId);
   if (!gameData) return { error: 'Game not found' };
 
-  const roomCode = generateRoomCode();
-  const hostToken = generateHostToken();
+  const roomCode = MASTER_ROOM_CODE;
+  const existingRoom = rooms.get(roomCode);
+  if (existingRoom) {
+    if (existingRoom.hostConnection && existingRoom.hostConnection !== hostWs && existingRoom.hostConnection.readyState === 1) {
+      return { error: 'Master Room already has an active Shadow Broker connection' };
+    }
+    const hostToken = generateHostToken();
+    existingRoom.hostConnection = hostWs;
+    existingRoom.hostToken = hostToken;
+    existingRoom.armed = true;
+    resetMasterGameSession(existingRoom, gameData);
+    hostWs.roomCode = roomCode;
+    hostWs.isHost = true;
+    hostWs.hostToken = hostToken;
+    persistActiveRooms();
+    console.log(`[MASTER ROOM] Armed (game: ${gameId})`);
+    return { roomCode, hostToken };
+  }
+
+  const hostToken = hostWs ? generateHostToken() : '';
 
   const room = {
+    armed: !!hostWs,
     code: roomCode,
     gameId,
     gameData,
@@ -520,7 +652,7 @@ function createRoom(gameId, hostWs) {
     },
     currentBackground: gameData.background || '',
     players: new Map(),
-    hostConnection: hostWs,
+    hostConnection: hostWs || null,
     hostToken,
     hostReconnectTimer: null,
     createdAt: Date.now(),
@@ -541,9 +673,11 @@ function createRoom(gameId, hostWs) {
     },
     // WOMF (Wheel of Misfortune) -- a PERSISTENT, system-level mechanic, not
     // tied to any single game. `charge` survives gm:switchGame, resetBoard,
-    // and XLSX imports; it is only ever cleared by future Wheel-roll logic
-    // (not yet built -- see addWomfCharge()/handleFailColumn()). It is
-    // capped at 10 and never decreases on its own. `failedColumns` is the
+    // and XLSX imports; it only ever changes through explicit commands:
+    // gm:womfSubtract (-1), gm:womfReset (0), a declared FAIL (+1 per column,
+    // +3 for the Final -- see addWomfCharge()/handleFailColumn()), a GAME LOST
+    // (+3), or a paid/overridden Blood Tribute (back to 0). It is capped at
+    // 10 and moves down only when a command says so. `failedColumns` is the
     // ONLY per-board part of this object -- it guards a single column
     // against being declared failed twice for the same board, and it DOES
     // reset on gm:switchGame/resetBoard, exactly like scoring.activeStreak.
@@ -562,9 +696,11 @@ function createRoom(gameId, hostWs) {
     // random number -- `spinToken` just lets a client detect "this is a
     // new roll, play the animation" vs. "this is a state I've already
     // shown" on an unrelated re-broadcast. Per the locked WOMF spec, this
-    // module ONLY opens the wheel, lets the GM roll it, and reports who it
-    // landed on -- it does not reset the WOMF charge and does not invent
-    // any punishment/consequence logic. That stays entirely up to the GM.
+    // module opens the wheel, lets the GM roll it, and reports who it
+    // landed on; the single consequence it invents is arming the Blood
+    // Tribute demand from the result. It never invents any punishment
+    // beyond that demand, and the reset of the WOMF charge is owned by the
+    // tribute's settlement, not the roll itself.
     wheel: {
       open: false,
       segments: [],
@@ -594,12 +730,25 @@ function createRoom(gameId, hostWs) {
 
   rooms.set(roomCode, room);
   persistActiveRooms();
-  hostWs.roomCode = roomCode;
-  hostWs.isHost = true;
-  hostWs.hostToken = hostToken;
+  if (hostWs) {
+    hostWs.roomCode = roomCode;
+    hostWs.isHost = true;
+    hostWs.hostToken = hostToken;
+  }
 
-  console.log(`[ROOM] Created: ${roomCode} (game: ${gameId})`);
+  console.log(`[MASTER ROOM] ${hostWs ? 'Armed' : 'Initialized unarmed'} (game: ${gameId})`);
   return { roomCode, hostToken };
+}
+
+// matchResult also carries the finished RECOUNT (stored for the archive). That
+// payload must never leave through state:public: the RECOUNT is delivered only
+// by the host's manual SHOW RESULTS (recount:update). The loss ceremony's own
+// fields (message, topPerformer, awards, ...) stay public.
+function publicMatchResult(room) {
+  const result = room.sessionState.matchResult;
+  if (!result) return null;
+  const { recount, ...rest } = result;
+  return rest;
 }
 
 function getPublicState(room) {
@@ -646,6 +795,7 @@ function getPublicState(room) {
 
   return {
     roomCode: room.code,
+    armed: room.armed === true,
     gameId: game.id,
     title: game.title,
     theme: game.theme,
@@ -658,7 +808,7 @@ function getPublicState(room) {
     // into the completed state from this; the live sequence is client-side and
     // plays only on the false->true transition.
     gameWon: room.sessionState.gameWon === true,
-    matchResult: room.sessionState.matchResult || null,
+    matchResult: publicMatchResult(room),
     // The match is over only when ALL FIVE fields (A-D + FINAL) are resolved,
     // solved or failed (see match-ledger.js). Distinct from gameWon: the Final
     // can be solved early while columns are still open. Boolean only -- the
@@ -833,6 +983,9 @@ function handleBloodTributeSubmit(ws, message) {
   resetWheel(room);
   room.revision++;
 
+  // The accepted tribute and private vault copy are durable before either
+  // side is told that payment succeeded.
+  persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastChatUpdate(room);
   sendTributeVaultToHost(room);
@@ -852,8 +1005,43 @@ function handleBloodTributeVaultClear(ws) {
   }
   room.bloodTributes = [];
   room.chat.messages = room.chat.messages.filter(m => m.source !== 'bloodTribute');
+  persistActiveRooms();
   broadcastChatUpdate(room);
   sendTributeVaultToHost(room);
+}
+
+// GM-only release of a demanded Blood Tribute WITHOUT requiring the payment
+// itself. The debt is dropped outright: nothing is archived in the vault, the
+// WOMF meter is deliberately NOT reset (forgiveness is not payment), and the
+// Wheel stays exactly where it was -- fully operable -- so the GM can roll
+// again. The override is written into the room's permanent chat as an
+// actual Shadow Broker transmission (host-only + server-side source), and
+// persisted BEFORE anyone is told the debt is gone.
+function handleTributeForgive(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can override the Blood Tribute' });
+    return;
+  }
+  const demand = room.pendingTribute;
+  if (!demand || demand.status !== 'required') {
+    sendToWs(ws, { type: 'error', message: 'No Blood Tribute debt is currently owed' });
+    return;
+  }
+
+  room.pendingTribute = null;
+  room.revision++;
+  const override = addShadowBrokerMessage(room, 'BLOOD TRIBUTE OVERRIDDEN BY SHADOW BROKER');
+
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastChatUpdate(room);
+  sendTributeVaultToHost(room);
+  console.log(`[ROOM ${room.code}] GM OVERRODE the Blood Tribute demanded of ${demand.playerName}`);
 }
 
 // GM opens the Wheel (only reachable once WOMF is armed at 10/10). Segments
@@ -901,6 +1089,7 @@ function handleWheelOpen(ws, message) {
   room.wheel = { open: true, segments, phase: 'idle', winnerIndex: null, spinToken: null };
   room.revision++;
 
+  persistActiveRooms();
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
 
@@ -942,6 +1131,7 @@ function handleWheelRoll(ws) {
   room.wheel.spinToken = spinToken;
   room.revision++;
 
+  persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   console.log(`[ROOM ${room.code}] GM rolled the Wheel -- landed on "${room.wheel.segments[winnerIndex]}"`);
 
@@ -952,6 +1142,8 @@ function handleWheelRoll(ws) {
     stillRoom.wheel.phase = 'result';
     armBloodTributeForWheelResult(stillRoom);
     stillRoom.revision++;
+    // Do not display a Tribute demand that could vanish on an immediate crash.
+    persistActiveRooms();
     broadcastToRoom(stillRoom, { type: 'state:public', ...getPublicState(stillRoom) });
   }, WHEEL_SPIN_DURATION_MS);
 }
@@ -973,6 +1165,7 @@ function handleWheelClose(ws) {
   resetWheel(room);
   room.revision++;
 
+  persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   console.log(`[ROOM ${room.code}] GM closed the Wheel`);
 }
@@ -1269,9 +1462,9 @@ function declareGameLost(room) {
   });
   try { archiveCompletedMatch(room, fields); } catch (error) { console.error('[match] Loss archive failed:', error.message); }
   room.revision++;
+  persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastPlayersUpdate(room);
-  persistActiveRooms();
   console.log(`[ROOM ${room.code}] GAME LOST -- authoritative timer expiry`);
   return true;
 }
@@ -1285,7 +1478,7 @@ function declareGameLost(room) {
 // state (per the locked spec's explicit "do not auto-fail / do not
 // auto-charge WOMF" requirement).
 setInterval(() => {
-  let recoveryDirty = false;
+  const dirty = [];
   rooms.forEach((room) => {
     if (!room.timer) return;
     const t = room.timer;
@@ -1304,7 +1497,7 @@ setInterval(() => {
         t.phase = 'expired';
         console.log(`[ROOM ${room.code}] Borrowed Time hit 0:00 -- evaluating terminal state`);
         if (declareGameLost(room)) {
-          recoveryDirty = true;
+          // declareGameLost already persisted and broadcast the terminal state.
           return;
         }
       }
@@ -1312,11 +1505,13 @@ setInterval(() => {
       return;
     }
 
+    dirty.push(room);
+  });
+  if (dirty.length) persistActiveRooms();
+  dirty.forEach((room) => {
     room.revision++;
     broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
-    recoveryDirty = true;
   });
-  if (recoveryDirty) persistActiveRooms();
 }, TIMER_TICK_MS);
 
 // Resolves the clue TEXT for a given physical slot per the Progressive
@@ -1420,7 +1615,33 @@ function getActiveParticipants(room) {
 // ---------------------------------------------------------------------
 
 function startMatchLedger(room) {
+  const hadShownRecount = !!(room.match && room.match.resultsShownAt);
   room.match = matchLedger.createLedger(room.boardId, Date.now(), getActiveParticipants(room));
+  // A new board (RESET BOARD / NEXT GAME) ends the previous RECOUNT for everyone.
+  if (hadShownRecount) broadcastRecount(room, null, false);
+}
+
+// RECOUNT delivery. `live` is true ONLY for the moment the host presses SHOW
+// RESULTS (clients play the staged reveal); hydration for a late join /
+// reconnect is live:false so nobody ever replays it. recount:null closes it.
+function broadcastRecount(room, recount, live) {
+  broadcastToRoom(room, { type: 'recount:update', recount: recount || null, live: live === true });
+}
+
+function sendRecountHydration(ws, room) {
+  if (room.match && room.match.recount && room.match.resultsShownAt) {
+    sendToWs(ws, { type: 'recount:update', recount: room.match.recount, live: false });
+  }
+}
+
+// A re-opened match (e.g. a hidden slot or a reversed verdict) voids its RECOUNT.
+// Pure mutation: the caller broadcasts recount:null AFTER persisting, so clients
+// never see a voided RECOUNT that an immediate crash could roll back.
+function voidRecount(room) {
+  if (!room.match || (!room.match.recount && !room.match.resultsShownAt)) return false;
+  room.match.recount = null;
+  room.match.resultsShownAt = null;
+  return true;
 }
 
 function ensureMatchLedger(room) {
@@ -1434,14 +1655,12 @@ function countRevealedClueCells(room) {
   return count;
 }
 
-// Re-derives per-field resolution from the authoritative sources and moves
-// the match between complete/open. Returns 'completed' | 'reopened' | null so
-// callers know whether state:public needs to go out. Archiving must never be
-// able to break a live game, hence the try/catch.
-function refreshGameComplete(room) {
-  const ledger = ensureMatchLedger(room);
+// The five fields' current status (solved / failed / revealed / open), derived
+// from the authoritative sources. Shared by the completion check and by SHOW
+// RESULTS, which rebuilds the archive record from the live ledger.
+function currentMatchFields(room) {
   const cells = room.sessionState.cells || {};
-  const fields = matchLedger.resolveFields({
+  return matchLedger.resolveFields({
     solvedTargets: room.chat.solvedTargets,
     failedColumns: (room.womf && room.womf.failedColumns) || {},
     // "Opened" is the ending parameter: the four column solutions (A5-D5) and
@@ -1453,12 +1672,24 @@ function refreshGameComplete(room) {
       D: cells.D5 === true,
       FINAL: room.sessionState.finalSolution === true
     },
-    ledger
+    ledger: ensureMatchLedger(room)
   });
+}
+
+// Re-derives per-field resolution from the authoritative sources and moves
+// the match between complete/open. Returns 'completed' | 'reopened' | null so
+// callers know whether state:public needs to go out. Archiving must never be
+// able to break a live game, hence the try/catch.
+function refreshGameComplete(room) {
+  const ledger = ensureMatchLedger(room);
+  const fields = currentMatchFields(room);
   const transition = matchLedger.refreshCompletion(ledger, fields, Date.now());
   try {
     if (transition === 'completed') archiveCompletedMatch(room, fields);
-    else if (transition === 'reopened') matchStore.removeMatch(room.boardId);
+    else if (transition === 'reopened') {
+      matchStore.removeMatch(room.boardId);
+      voidRecount(room);
+    }
   } catch (error) {
     console.error('[match] Archive update failed:', error.message);
   }
@@ -1494,7 +1725,9 @@ function archiveCompletedMatch(room, fields) {
     keyFn: playerStore.normalizeNameKey,
     now: Date.now()
   });
-  const history = matchStore.listMatches().filter(match => match.matchId !== record.matchId);
+  // Only matches whose RESULTS WERE SHOWN count as history: a REVEAL ALL /
+  // test completion the host never showed must not skew career averages.
+  const history = matchStore.listMatches().filter(match => match.matchId !== record.matchId && match.resultsShownAt);
   record.recount = recountEngine.computeRecount({
     match: record,
     history,
@@ -2011,13 +2244,14 @@ function applyCommand(room, command, payload) {
 
   // Opening or hiding a solution slot (reveal/hide/REVEAL ALL/...) can
   // complete or re-open the match: the whole field opened is the game's end.
-  if (refreshGameComplete(room)) changed = true;
+  const transition = refreshGameComplete(room);
+  if (transition) changed = true;
 
   if (changed) {
     room.revision++;
   }
 
-  return { success: true, changed, revision: room.revision };
+  return { success: true, changed, revision: room.revision, recountClosed: transition === 'reopened' };
 }
 
 function isValidCell(cell) {
@@ -2040,6 +2274,9 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
   }
 
   const message = room.chat.messages[msgIndex];
+  if (room.armed !== true || message.source || message.boardId !== room.boardId) {
+    return { success: false, error: 'Historical transmission is outside the active game and cannot be judged' };
+  }
   const oldVerdict = message.verdict;
   const oldTarget = message.target;
   let changed = false;
@@ -2193,6 +2430,9 @@ function addChatMessage(room, playerId, playerName, text) {
     themeColor: liveIdentity.themeColor || '#343A42',
     text: sanitized,
     timestamp: Date.now(),
+    // Chat is permanent, adjudication is not. Bind each player transmission
+    // to the board that existed when it was sent so later games cannot score it.
+    boardId: room.boardId,
     verdict: null,
     target: null,
     verdictResponse: null,
@@ -2275,6 +2515,9 @@ function getChatState(room) {
           playerName: m.playerName,
           text: m.text,
           timestamp: m.timestamp,
+          // Persistent chat spans many games. Only a player transmission
+          // created on the currently armed board may be adjudicated now.
+          adjudicable: room.armed === true && !m.source && m.boardId === room.boardId,
           verdict: m.verdict,
           target: m.target,
           verdictResponse: m.verdictResponse || null,
@@ -2309,6 +2552,10 @@ function handleHostCommand(ws, message) {
   const result = applyCommand(room, message.command, message.payload || {});
 
   if (result.success && result.changed) {
+    // Authoritative command mutations must reach the recovery snapshot before
+    // any client hears about them (incl. a RECOUNT close triggered inside).
+    persistActiveRooms();
+    if (result.recountClosed) broadcastRecount(room, null, false);
     const publicState = getPublicState(room);
     broadcastToRoom(room, { type: 'state:public', ...publicState });
     if (message.command === 'resetBoard') {
@@ -2327,17 +2574,17 @@ function handleHostCommand(ws, message) {
 }
 
 function handlePlayerJoin(ws, message) {
-  const { roomCode, name } = message;
+  const { name } = message;
   const auth = getPlayerAuth(message.authToken);
   if (!auth) {
     sendToWs(ws, { type: 'auth:required', role: 'player', message: 'Little Hero authentication required' });
     return;
   }
   const requestedId = auth.playerId;
-  const room = rooms.get(roomCode?.toUpperCase());
+  const room = rooms.get(MASTER_ROOM_CODE);
 
   if (!room) {
-    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    sendToWs(ws, { type: 'error', message: 'Master Room unavailable' });
     return;
   }
 
@@ -2394,7 +2641,7 @@ function handlePlayerJoin(ws, message) {
   }
   if (!playerId) playerId = generatePlayerId();
 
-  ws.roomCode = roomCode.toUpperCase();
+  ws.roomCode = MASTER_ROOM_CODE;
   ws.playerId = playerId;
   ws.playerName = cleanName;
   ws.isHost = false;
@@ -2413,6 +2660,9 @@ function handlePlayerJoin(ws, message) {
   // tracked in the match ledger instead (idempotent while already open).
   matchLedger.presenceOpen(ensureMatchLedger(room), playerId, cleanName, Date.now());
 
+  // A player is not considered joined until the durable Master Room snapshot
+  // already contains that identity. Persist before any success/state frames.
+  persistActiveRooms();
   const publicState = getPublicState(room);
   sendToWs(ws, { type: 'state:public', ...publicState });
   sendToWs(ws, {
@@ -2430,6 +2680,7 @@ function handlePlayerJoin(ws, message) {
 
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
+  sendRecountHydration(ws, room);
 
   broadcastPlayersUpdate(room);
   console.log(`[ROOM ${room.code}] Player joined: ${cleanName} (${playerId})`);
@@ -2460,8 +2711,8 @@ function broadcastPlayersUpdate(room) {
 }
 
 function handleHostReconnect(ws, message) {
-  const { roomCode, hostToken } = message;
-  const room = rooms.get(roomCode?.toUpperCase());
+  const { hostToken } = message;
+  const room = rooms.get(MASTER_ROOM_CODE);
 
   if (!room) {
     sendToWs(ws, { type: 'error', code: 'reconnect_room_not_found', message: 'Room not found' });
@@ -2479,7 +2730,7 @@ function handleHostReconnect(ws, message) {
   }
 
   room.hostConnection = ws;
-  ws.roomCode = roomCode.toUpperCase();
+  ws.roomCode = MASTER_ROOM_CODE;
   ws.isHost = true;
   ws.hostToken = hostToken;
 
@@ -2503,6 +2754,7 @@ function handleHostReconnect(ws, message) {
 
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
+  sendRecountHydration(ws, room);
   sendTributeVaultToHost(room);
 
   broadcastPlayersUpdate(room);
@@ -2541,6 +2793,9 @@ function handleChatGuess(ws, message) {
   const result = addChatMessage(room, ws.playerId, ws.playerName, text);
   if (result.success) {
     ws._lastChatAt = now;
+    // Permanent channel contract: if clients can see a transmission, it has
+    // already reached the recovery snapshot.
+    persistActiveRooms();
     broadcastChatUpdate(room);
   } else {
     sendToWs(ws, { type: 'error', message: result.error });
@@ -2589,8 +2844,8 @@ function handleChatReaction(ws, message) {
   else delete target.reactions[emoji];
 
   ws._lastReactionAt = now;
-  broadcastChatUpdate(room);
   persistActiveRooms();
+  broadcastChatUpdate(room);
 }
 
 // SHADOW BROKER free-form broadcast -- host-only, presentation layer only.
@@ -2619,6 +2874,7 @@ function handleGmBroadcast(ws, message) {
 
   const result = addShadowBrokerMessage(room, text);
   if (result.success) {
+    persistActiveRooms();
     broadcastChatUpdate(room);
   } else {
     sendToWs(ws, { type: 'error', message: result.error });
@@ -2731,8 +2987,8 @@ function scheduleSolvedColumnReveal(room, messageId, column) {
 
     const revealResult = applyCommand(liveRoom, 'revealColumn', { column });
     if (revealResult.success && revealResult.changed) {
-      broadcastToRoom(liveRoom, { type: 'state:public', ...getPublicState(liveRoom) });
       persistActiveRooms();
+      broadcastToRoom(liveRoom, { type: 'state:public', ...getPublicState(liveRoom) });
     }
   }, 5000);
 }
@@ -2767,6 +3023,9 @@ function handleJudgeGuess(ws, message) {
 
   const result = applyVerdict(room, messageId, verdict, target, reveal);
   if (result.success) {
+    // A verdict mutates the authoritative room (scoring, solved targets,
+    // verdicts) and may finalize the board -- persist before any broadcast.
+    persistActiveRooms();
     broadcastChatUpdate(room);
     if (result.changed) {
       const publicState = getPublicState(room);
@@ -2846,7 +3105,8 @@ function handleSwitchGame(ws, message) {
   room.revision = (room.revision || 0) + 1;
   room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, gameWon: false, matchResult: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
   room.currentBackground = game.background || gameStore.DEFAULT_BACKGROUND;
-  room.chat = { messages: [], solvedTargets: {} };
+  if (!room.chat) room.chat = { messages: [], solvedTargets: {} };
+  room.chat.solvedTargets = {};
   // NEXT GAME starts a new board within the SAME session: current-session
   // scores (room.scoring.players) and the persisted all-time profiles are
   // untouched. Only per-board state resets, exactly like ending a streak
@@ -2866,6 +3126,8 @@ function handleSwitchGame(ws, message) {
   // un-started Timer at the new game's difficulty default.
   resetTimer(room);
 
+  // NEXT GAME becomes authoritative on disk before connected clients switch.
+  persistActiveRooms();
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
   broadcastChatUpdate(room);
@@ -2926,6 +3188,7 @@ function handleFailFinal(ws, message) {
     participants: finalizeResult.participants ? finalizeResult.participants.map(p => p.playerName) : []
   };
 
+  persistActiveRooms();
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
   // players:update is deliberately NOT broadcast here. The -200 penalty was
@@ -3011,6 +3274,7 @@ function handleFailColumn(ws, message) {
 
   room.revision++;
 
+  persistActiveRooms();
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
 
@@ -3036,6 +3300,7 @@ function handleWomfSubtract(ws) {
   room.womf.charge = Math.max(0, room.womf.charge - 1);
   room.revision++;
 
+  persistActiveRooms();
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
   console.log(`[ROOM ${room.code}] GM subtracted a WOMF charge (now ${room.womf.charge}/10)`);
@@ -3056,6 +3321,7 @@ function handleWomfReset(ws) {
   room.womf.charge = 0;
   room.revision++;
 
+  persistActiveRooms();
   const publicState = getPublicState(room);
   broadcastToRoom(room, { type: 'state:public', ...publicState });
   console.log(`[ROOM ${room.code}] GM reset WOMF charge to 0/10`);
@@ -3081,19 +3347,86 @@ function handleRevealResults(ws) {
     sendToWs(ws, { type: 'error', message: 'Only host can reveal results' });
     return;
   }
-  if (!room.scoring.pendingResults) return; // nothing pending -- ignore silently, not an error
+  const results = releasePendingResults(room); // nothing pending -- ignored silently, not an error
+  if (results) {
+    persistActiveRooms();
+    broadcastToRoom(room, { type: 'score:finalResults', ...results });
+    broadcastPlayersUpdate(room);
+  }
+}
 
-  broadcastToRoom(room, { type: 'score:finalResults', ...room.scoring.pendingResults });
-  broadcastPlayersUpdate(room);
+// The withheld Final points/penalty, released by EITHER the story banner's
+// SHOW RESULTS or the RECOUNT's SHOW RESULTS, whichever the host presses first.
+// Pure mutation: returns the pending payload (or null); the CALLER persists
+// first and then broadcasts, so released results can never be rolled back by
+// a crash that happened after clients already saw them.
+function releasePendingResults(room) {
+  if (!room.scoring.pendingResults) return null;
+  const results = room.scoring.pendingResults;
   room.scoring.pendingResults = null;
+  return results;
+}
+
+// RECOUNT -- the post-game results screen. It is NEVER shown automatically:
+// the match completes (all five fields opened, or a timer loss), the recount is
+// computed and archived at that moment, and it stays hidden until the host
+// presses SHOW RESULTS. This handler then stores the SAME payload with the
+// match (so reconnects/late joins receive it, never a regenerated one),
+// releases any withheld Final points, and broadcasts it live exactly once.
+function handleGmShowRecount(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can show the RECOUNT' });
+    return;
+  }
+  const ledger = room.match;
+  if (!ledger || !ledger.completedAt) {
+    sendToWs(ws, { type: 'error', message: 'The game is not over yet -- the whole field must be opened first' });
+    return;
+  }
+  if (ledger.resultsShownAt) return; // idempotent: never re-broadcast / regenerate
+
+  // Build the RECOUNT NOW, from the live ledger -- not from the snapshot taken
+  // when the match completed. The host decides when results are shown, and
+  // anything judged between completion and this button (the last guesses after
+  // the final field opened) belongs in the recount. archiveCompletedMatch is an
+  // idempotent upsert, so this simply refreshes the stored record.
+  let record = null;
+  try { record = archiveCompletedMatch(room, currentMatchFields(room)); } catch (error) {
+    console.error('[match] RECOUNT build failed:', error.message);
+  }
+  if (!record || !record.recount) {
+    sendToWs(ws, { type: 'error', message: 'RECOUNT unavailable: the match archive could not be written' });
+    return;
+  }
+
+  ledger.recount = record.recount;
+  ledger.resultsShownAt = Date.now();
+  record.resultsShownAt = ledger.resultsShownAt;
+  try { matchStore.upsertMatch(record); } catch (error) { console.error('[match] Archive update failed:', error.message); }
+
+  // Mutate -> persist -> broadcast: shown results and any released Final
+  // points must be durable before clients see them.
+  const results = releasePendingResults(room);
+  persistActiveRooms();
+  if (results) {
+    broadcastToRoom(room, { type: 'score:finalResults', ...results });
+    broadcastPlayersUpdate(room);
+  }
+  broadcastRecount(room, ledger.recount, true);
+  console.log(`[ROOM ${room.code}] RECOUNT shown`);
 }
 
 function handleCloseRoom(ws) {
-  const room = rooms.get(ws.roomCode);
+  const room = rooms.get(MASTER_ROOM_CODE);
   if (!room) return;
 
   if (ws !== room.hostConnection) {
-    sendToWs(ws, { type: 'error', message: 'Only host can close the room' });
+    sendToWs(ws, { type: 'error', message: 'Only host can disarm the active game session' });
     return;
   }
 
@@ -3102,30 +3435,31 @@ function handleCloseRoom(ws) {
     room.hostReconnectTimer = null;
   }
 
-  room.players.forEach((player, playerWs) => {
-    sendToWs(playerWs, { type: 'room:closed', message: 'Host closed the room' });
-    playerWs.close();
-  });
+  resetMasterGameSession(room, room.gameData);
+  room.armed = false;
+  room.hostConnection = null;
+  room.hostToken = '';
+  ws.roomCode = '';
+  ws.isHost = false;
+  ws.hostToken = '';
 
-  rooms.delete(room.code);
-  console.log(`[ROOM ${room.code}] Closed by host`);
+  // Commit the unarmed Master Room before telling anyone the session died.
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastChatUpdate(room);
+  broadcastPlayersUpdate(room);
+  sendToWs(ws, { type: 'room:disarmed', roomCode: MASTER_ROOM_CODE, message: 'Game session disarmed. Master Room remains online.' });
+  console.log('[MASTER ROOM] Game session disarmed; players and chat remain online');
 }
 
 function handleClose(ws) {
   if (ws.isHost) {
-    const room = rooms.get(ws.roomCode);
-    if (room) {
+    const room = rooms.get(MASTER_ROOM_CODE);
+    if (room && room.hostConnection === ws) {
       room.hostConnection = null;
-      room.hostReconnectTimer = setTimeout(() => {
-        console.log(`[ROOM ${room.code}] Host grace period expired, closing room`);
-        room.players.forEach((player, playerWs) => {
-          sendToWs(playerWs, { type: 'room:closed', message: 'Host disconnected' });
-          playerWs.close();
-        });
-        rooms.delete(ws.roomCode);
-        persistActiveRooms();
-      }, HOST_RECONNECT_GRACE_MS);
-      console.log(`[ROOM ${ws.roomCode}] Host disconnected, grace period started`);
+      if (room.hostReconnectTimer) clearTimeout(room.hostReconnectTimer);
+      room.hostReconnectTimer = null;
+      console.log(`[MASTER ROOM] Shadow Broker disconnected; room remains ${room.armed ? 'armed' : 'unarmed'} for reconnect`);
     }
   } else {
     const room = rooms.get(ws.roomCode);
@@ -3140,11 +3474,11 @@ function handleClose(ws) {
         player.connected = false;
         matchLedger.presenceClose(ensureMatchLedger(room), player.id, Date.now());
       }
+      persistActiveRooms();
       broadcastPlayersUpdate(room);
       console.log(`[ROOM ${ws.roomCode}] Player left: ${ws.playerName}`);
     }
   }
-  persistActiveRooms();
 }
 
 function handleApiRequest(req, res) {
@@ -3347,17 +3681,37 @@ function serveStaticFile(req, res) {
 
   fs.readFile(fullPath, (err, content) => {
     if (err) {
-      if (err.code === 'ENOENT' || err.code === 'EISDIR') {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Not Found');
-      } else {
-        res.writeHead(500);
-        res.end('Server Error');
+      // DURABLE BACKGROUND OVERLAY: an uploaded background lives in
+      // ASOC_DATA_DIR/assets/backgrounds (see game-store.js). Bundled assets
+      // are served from __dirname first; only a missing bundled file falls
+      // through to the durable copy, and only beneath the same allowlisted
+      // assets/backgrounds root.
+      if (err.code === 'ENOENT' && fullPath.startsWith(path.join(__dirname, 'assets', 'backgrounds')) && ASOC_DATA_DIR !== __dirname) {
+        const overlayPath = path.resolve(ASOC_DATA_DIR, path.relative(__dirname, fullPath));
+        if (overlayPath.startsWith(path.join(ASOC_DATA_DIR, 'assets', 'backgrounds'))) {
+          fs.readFile(overlayPath, (overlayErr, overlayContent) => {
+            if (overlayErr) return respondMissing();
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(overlayContent);
+          });
+          return;
+        }
       }
+      respondMissing();
       return;
     }
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(content);
+
+    function respondMissing() {
+      if (err && err.code !== 'ENOENT' && err.code !== 'EISDIR') {
+        res.writeHead(500);
+        res.end('Server Error');
+      } else {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+      }
+    }
   });
 }
 
@@ -3427,6 +3781,13 @@ function resolveAllowedStaticPath(requestUrl) {
 
 const server = http.createServer((req, res) => {
   const urlPath = req.url.split('?')[0];
+  if (req.method === 'GET' && urlPath === '/health') {
+    return sendJson(res, shuttingDown ? 503 : 200, {
+      ok: !shuttingDown,
+      service: 'asoc-engine',
+      status: shuttingDown ? 'shutting-down' : 'ready'
+    });
+  }
   if (urlPath.startsWith('/api/')) {
     handleApiRequest(req, res);
   } else {
@@ -3435,6 +3796,7 @@ const server = http.createServer((req, res) => {
 });
 
 const wss = new WebSocketServer({ server, maxPayload: MAX_WS_PAYLOAD_BYTES });
+let shuttingDown = false;
 
 const heartbeatInterval = setInterval(() => {
   wss.clients.forEach(ws => {
@@ -3455,6 +3817,10 @@ const heartbeatInterval = setInterval(() => {
 server.on('close', () => clearInterval(heartbeatInterval));
 
 wss.on('connection', (ws) => {
+  if (shuttingDown) {
+    ws.close(1012, 'Server shutting down');
+    return;
+  }
   ws.isAlive = true;
   ws.protocolVerified = false;
   ws.on('pong', () => { ws.isAlive = true; });
@@ -3467,6 +3833,10 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (data) => {
     try {
+      if (shuttingDown) {
+        sendToWs(ws, { type: 'error', message: 'SERVER SHUTDOWN IN PROGRESS // RECONNECT REQUIRED' });
+        return;
+      }
       const message = JSON.parse(data.toString());
 
       if (!ws.protocolVerified) {
@@ -3521,6 +3891,11 @@ wss.on('connection', (ws) => {
               // closes that gap.
               sendToWs(ws, { type: 'chat:update', ...getChatState(newRoom) });
               sendTributeVaultToHost(newRoom);
+              // The Master Room already contains players before a game is armed.
+              // Wake their existing clients in place instead of making them rejoin.
+              broadcastToRoom(newRoom, { type: 'state:public', ...getPublicState(newRoom) });
+              broadcastChatUpdate(newRoom);
+              broadcastPlayersUpdate(newRoom);
             }
           }
           break;
@@ -3556,6 +3931,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:tributeVaultClear': {
           handleBloodTributeVaultClear(ws);
+          break;
+        }
+        case 'gm:tributeForgive': {
+          handleTributeForgive(ws);
           break;
         }
         case 'gm:judgeGuess': {
@@ -3630,6 +4009,10 @@ wss.on('connection', (ws) => {
           handleRevealResults(ws);
           break;
         }
+        case 'gm:showRecount': {
+          handleGmShowRecount(ws);
+          break;
+        }
         case 'leaderboard:getAllTime': {
           sendToWs(ws, { type: 'leaderboard:allTime', players: playerStore.getAllTimeLeaderboard(50) });
           break;
@@ -3653,6 +4036,7 @@ wss.on('connection', (ws) => {
 });
 
 const restoredRoomCount = restoreActiveRooms();
+ensureMasterRoom();
 
 server.listen(PORT, '0.0.0.0', () => {
   refreshGMToken();
@@ -3660,5 +4044,54 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`ASOC Engine server running on http://0.0.0.0:${PORT}`);
   console.log(`Gamemaster: http://localhost:${PORT}`);
   console.log(`Player join: http://<LAN-IP>:${PORT}/join.html`);
+  console.log(`[persistence] Durable data directory: ${ASOC_DATA_DIR}`);
   if (restoredRoomCount > 0) console.log(`[recovery] ${restoredRoomCount} room(s) available for reconnect`);
 });
+
+const SHUTDOWN_GRACE_MS = Math.max(1000, Number(process.env.ASOC_SHUTDOWN_GRACE_MS) || 10000);
+function gracefulShutdown(signal) {
+  if (shuttingDown) {
+    console.warn(`[shutdown] ${signal} received while shutdown is already in progress`);
+    return;
+  }
+  shuttingDown = true;
+  console.log(`[shutdown] ${signal} received; persisting MASTER and closing connections`);
+
+  const forceTimer = setTimeout(() => {
+    console.error(`[shutdown] Grace period of ${SHUTDOWN_GRACE_MS}ms expired; forcing exit`);
+    process.exit(1);
+  }, SHUTDOWN_GRACE_MS);
+  forceTimer.unref();
+
+  try {
+    persistActiveRooms();
+    savePlayerAuthSessions();
+    saveGmLockouts();
+  } catch (error) {
+    console.error('[shutdown] Persistence flush failed:', error);
+  }
+
+  clearInterval(heartbeatInterval);
+  for (const ws of wss.clients) {
+    try { ws.close(1012, 'Server restarting'); } catch {}
+  }
+  wss.close(() => console.log('[shutdown] WebSocket server closed'));
+  server.close((error) => {
+    clearTimeout(forceTimer);
+    if (error) {
+      console.error('[shutdown] HTTP server close failed:', error);
+      process.exit(1);
+      return;
+    }
+    console.log('[shutdown] Persistence complete; HTTP server closed');
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+if (process.env.NODE_ENV === 'test') {
+  process.on('message', message => {
+    if (message && message.type === 'asoc:test-shutdown') gracefulShutdown('TEST');
+  });
+}

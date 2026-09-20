@@ -466,6 +466,11 @@ const AWARDS = [
 ];
 
 const SEVERITY_BONUS = { minor: 0, major: 0.05, catastrophic: 0.12 };
+// Inside a conflict group the stricter tier always wins when its (harder)
+// criteria are met -- the rarer, harsher, more specific description is the
+// truer one -- and strength only breaks ties WITHIN a tier. (Tiers are spaced
+// wider than the 0..1 strength range so strength can never cross a tier.)
+const SEVERITY_TIER = { minor: 0, major: 1, catastrophic: 2 };
 
 // ------------------------------------------------------------- selection
 
@@ -532,7 +537,7 @@ function makeCandidate(def, holders, result, seed) {
     def, holders, strength,
     evidence: result.evidence,
     interest: 0.55 * strength + 0.3 * def.rarity + bonus,
-    rank: strength + bonus,
+    rank: (SEVERITY_TIER[def.severity] || 0) * 2 + strength,
     tie: hash01(seed, def.id, holders.map(h => h.nameKey).join('+'))
   };
 }
@@ -588,7 +593,9 @@ function buildOverall(match, profiles, keyFn) {
       total: item.total,
       gamesPlayed: item.gamesPlayed,
       average: item.gamesPlayed > 0 ? Math.round(item.total / item.gamesPlayed) : null,
-      movement: s ? s.rankBefore - s.rankAfter : null, // +N = up N places, 0 = unchanged
+      // +N = up N places, 0 = unchanged. A player whose first game this is has no
+      // earlier standing to move from, so no movement is claimed.
+      movement: s && item.gamesPlayed > 1 ? s.rankBefore - s.rankAfter : null,
       inMatch: inMatch.has(item.key)
     };
   });

@@ -9,17 +9,39 @@ const fs = require('fs');
 const path = require('path');
 const ExcelJS = require('exceljs');
 
+// BUNDLED directories are shipped with the app and are read-only at runtime.
 const GAMES_DIR = path.join(__dirname, 'games');
 const BACKGROUNDS_DIR = path.join(__dirname, 'assets', 'backgrounds');
+
+// DURABLE overlay: when ASOC_DATA_DIR is set (Railway volume / ephemeral
+// deployments), every WRITE and DELETE lands here and every READ prefers it,
+// so a redeploy that replaces the bundled files can never lose games or
+// uploaded backgrounds, and the bundled default files always keep working.
+// Bundled files are never deleted or overwritten. When ASOC_DATA_DIR is
+// unset (local dev) the durable dirs resolve to the same folders, keeping
+// the historical single-tree behavior byte-for-byte.
+const DATA_DIR = process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_DIR) : __dirname;
+const DURABLE_GAMES_DIR = path.join(DATA_DIR, 'games');
+const DURABLE_BACKGROUNDS_DIR = path.join(DATA_DIR, 'assets', 'backgrounds');
 
 const DEFAULT_BACKGROUND = 'assets/backgrounds/_default.svg';
 const DIFFICULTY_VALUES = ['GREEN', 'YELLOW', 'AMBER', 'RED', 'PURPLE', 'BLACK'];
 const ALLOWED_BACKGROUND_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.svg'];
 const MAX_BACKGROUND_BYTES = 10 * 1024 * 1024;
 
+function isUnder(root, candidate) {
+  const r = path.resolve(root);
+  const c = path.resolve(candidate);
+  return c === r || c.startsWith(r + path.sep);
+}
+
 function ensureDirs() {
-  if (!fs.existsSync(GAMES_DIR)) fs.mkdirSync(GAMES_DIR, { recursive: true });
-  if (!fs.existsSync(BACKGROUNDS_DIR)) fs.mkdirSync(BACKGROUNDS_DIR, { recursive: true });
+  if (!fs.existsSync(DURABLE_GAMES_DIR)) fs.mkdirSync(DURABLE_GAMES_DIR, { recursive: true });
+  if (!fs.existsSync(DURABLE_BACKGROUNDS_DIR)) fs.mkdirSync(DURABLE_BACKGROUNDS_DIR, { recursive: true });
+  if (DATA_DIR !== __dirname) {
+    if (!fs.existsSync(GAMES_DIR)) fs.mkdirSync(GAMES_DIR, { recursive: true });
+    if (!fs.existsSync(BACKGROUNDS_DIR)) fs.mkdirSync(BACKGROUNDS_DIR, { recursive: true });
+  }
 }
 
 function generateGameId() {
@@ -58,22 +80,43 @@ function nowISO() {
   return new Date().toISOString();
 }
 
-function listGameFiles() {
-  ensureDirs();
-  const names = fs.readdirSync(GAMES_DIR).filter(f => f.endsWith('.json'));
-  const games = [];
+function readDirGameFiles(dir) {
+  const out = [];
+  let names = [];
+  try {
+    names = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+  } catch (e) {
+    return out;
+  }
   for (const filename of names) {
     try {
-      const full = path.join(GAMES_DIR, filename);
+      const full = path.join(dir, filename);
       const raw = JSON.parse(fs.readFileSync(full, 'utf8'));
       const stat = fs.statSync(full);
       const id = raw.id || (safeName(raw.title) + '-' + shortIdFrom(filename));
-      games.push(metadataFrom(raw, id, filename, stat));
+      out.push(metadataFrom(raw, id, filename, stat));
     } catch (e) {
       // Skip corrupt/unreadable files
     }
   }
-  return games;
+  return out;
+}
+
+function listGameFiles() {
+  ensureDirs();
+  // Durable copies first: an overlay file shadows a same-id / same-filename
+  // bundled file, so the listing never shows a stale bundled twin.
+  const byId = new Map();
+  const seenNames = new Set();
+  for (const game of readDirGameFiles(DURABLE_GAMES_DIR)) {
+    byId.set(game.id, game);
+    seenNames.add(game.filename);
+  }
+  for (const game of readDirGameFiles(GAMES_DIR)) {
+    if (byId.has(game.id) || seenNames.has(game.filename)) continue;
+    byId.set(game.id, game);
+  }
+  return Array.from(byId.values());
 }
 
 function metadataFrom(raw, id, filename, stat) {
@@ -94,27 +137,36 @@ function metadataFrom(raw, id, filename, stat) {
   };
 }
 
-function findGameFile(gameId) {
-  ensureDirs();
-  if (!gameId) return null;
-
+function findGameIn(dir, gameId) {
   if (gameId.endsWith('.json')) {
-    const p = safeResolve(GAMES_DIR, gameId);
+    const p = safeResolve(dir, gameId);
     if (p && fs.existsSync(p)) return p;
   }
 
-  const direct = path.join(GAMES_DIR, safeName(gameId) + '.json');
+  const direct = path.join(dir, safeName(gameId) + '.json');
   if (fs.existsSync(direct)) return direct;
 
-  const files = fs.readdirSync(GAMES_DIR).filter(f => f.endsWith('.json'));
+  let files = [];
+  try {
+    files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+  } catch (e) {
+    return null;
+  }
   for (const f of files) {
     try {
-      const raw = JSON.parse(fs.readFileSync(path.join(GAMES_DIR, f), 'utf8'));
+      const raw = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
       const id = raw.id || (safeName(raw.title) + '-' + shortIdFrom(f));
-      if (id === gameId) return path.join(GAMES_DIR, f);
+      if (id === gameId) return path.join(dir, f);
     } catch (e) {}
   }
   return null;
+}
+
+function findGameFile(gameId) {
+  ensureDirs();
+  if (!gameId) return null;
+  // Durable overlay shadows the bundled copy, never the other way around.
+  return findGameIn(DURABLE_GAMES_DIR, gameId) || findGameIn(GAMES_DIR, gameId);
 }
 
 function readGame(gameId) {
@@ -208,16 +260,16 @@ function saveGame(game) {
   const base = safeName(normalized.title, 'game');
   let filename = base + '.json';
   let counter = 2;
-  while (fs.existsSync(path.join(GAMES_DIR, filename))) {
+  while (fs.existsSync(path.join(DURABLE_GAMES_DIR, filename))) {
     if (prevFile && path.basename(prevFile) === filename) break;
     filename = `${base}-${counter}.json`;
     counter++;
   }
 
-  const targetPath = path.join(GAMES_DIR, filename);
+  const targetPath = path.join(DURABLE_GAMES_DIR, filename);
   fs.writeFileSync(targetPath, JSON.stringify(normalized, null, 2), 'utf8');
 
-  if (prevFile && prevFile !== targetPath) {
+  if (prevFile && prevFile !== targetPath && isUnder(DURABLE_GAMES_DIR, prevFile)) {
     try { fs.unlinkSync(prevFile); } catch (e) {}
   }
 
@@ -247,23 +299,44 @@ function deleteGame(gameId) {
   const file = findGameFile(gameId);
   if (!file) return { error: 'Game not found' };
 
-  if (gameId === 'sample-001' || path.basename(file) === 'sample-game.json') {
+  // The shipped sample is protected, but ONLY in its bundled home: a durable
+  // SAMPLE copy (someone saved an edit) is just another overlay artifact and
+  // may be deleted -- doing so un-shadows the bundled original.
+  const isSampleName = gameId === 'sample-001' || path.basename(file) === 'sample-game.json';
+  if (isSampleName && isUnder(GAMES_DIR, file)) {
     return { error: 'The sample game cannot be deleted.' };
   }
 
-  fs.unlinkSync(file);
+  // Deletion only ever touches the durable overlay -- a bundled game file is
+  // read-only and can never be removed.
+  const durableFile = findGameIn(DURABLE_GAMES_DIR, gameId);
+  if (!durableFile) {
+    return { error: 'Bundled games are read-only; only a locally-created copy can be deleted.' };
+  }
+
+  fs.unlinkSync(durableFile);
   return { success: true };
+}
+
+function readDirBackgrounds(dir) {
+  let names = [];
+  try {
+    names = fs.readdirSync(dir)
+      .filter(f => ALLOWED_BACKGROUND_EXTS.includes(path.extname(f).toLowerCase()))
+      .sort();
+  } catch (e) {
+    return [];
+  }
+  return names.map(filename => ({ filename, path: `assets/backgrounds/${filename}` }));
 }
 
 function listBackgrounds() {
   ensureDirs();
-  const names = fs.readdirSync(BACKGROUNDS_DIR)
-    .filter(f => ALLOWED_BACKGROUND_EXTS.includes(path.extname(f).toLowerCase()))
-    .sort();
-  return names.map(filename => ({
-    filename,
-    path: `assets/backgrounds/${filename}`
-  }));
+  // Durable uploads shadow bundled files of the same name.
+  const byName = new Map();
+  for (const bg of readDirBackgrounds(DURABLE_BACKGROUNDS_DIR)) byName.set(bg.filename, bg);
+  for (const bg of readDirBackgrounds(BACKGROUNDS_DIR)) if (!byName.has(bg.filename)) byName.set(bg.filename, bg);
+  return Array.from(byName.values());
 }
 
 function saveBackgroundUpload(filename, buffer) {
@@ -280,12 +353,12 @@ function saveBackgroundUpload(filename, buffer) {
   const base = safeName(path.basename(String(filename || ''), ext), 'background');
   let name = base + ext;
   let counter = 2;
-  while (fs.existsSync(path.join(BACKGROUNDS_DIR, name))) {
+  while (fs.existsSync(path.join(DURABLE_BACKGROUNDS_DIR, name))) {
     name = `${base}-${counter}${ext}`;
     counter++;
   }
 
-  const target = safeResolve(BACKGROUNDS_DIR, name);
+  const target = safeResolve(DURABLE_BACKGROUNDS_DIR, name);
   if (!target) return { error: 'Invalid filename.' };
 
   fs.writeFileSync(target, buffer);
@@ -473,6 +546,9 @@ async function importXlsx(buffer, sourceFilename) {
 module.exports = {
   GAMES_DIR,
   BACKGROUNDS_DIR,
+  DATA_DIR,
+  DURABLE_GAMES_DIR,
+  DURABLE_BACKGROUNDS_DIR,
   DEFAULT_BACKGROUND,
   DIFFICULTY_VALUES,
   generateGameId,

@@ -1,5 +1,7 @@
 ﻿const fs=require('fs'), path=require('path'), crypto=require('crypto');
-const file=process.env.ASOC_AUTH_FILE || path.join(__dirname,'auth-store.json');
+const dataDir=process.env.ASOC_DATA_DIR?path.resolve(process.env.ASOC_DATA_DIR):__dirname;
+const file=process.env.ASOC_AUTH_FILE?path.resolve(process.env.ASOC_AUTH_FILE):path.join(dataDir,'auth-store.json');
+fs.mkdirSync(path.dirname(file),{recursive:true});
 const ITER=210000;
 function load(){try{const d=JSON.parse(fs.readFileSync(file,'utf8'));return d&&typeof d==='object'?d:{players:{}}}catch(e){return {players:{}}}}
 function save(d){const t=file+'.tmp';fs.writeFileSync(t,JSON.stringify(d,null,2));fs.renameSync(t,file)}

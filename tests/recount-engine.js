@@ -259,6 +259,14 @@ function testOverallRankingsAndMovement() {
   assert.equal(row('Ivana').movement, null, 'a non-participant has no movement');
   assert.equal(row('Nina').average, 250);
   assert.equal(row('Nina').inMatch, true);
+
+  // First-ever game: everyone was tied at zero before it, so "moved down" would be a lie.
+  const debut = run(mkMatch({ players, standings }), {
+    nina: { name: 'Nina', lifetimeScore: 1000, gamesPlayed: 1 },
+    marko: { name: 'Marko', lifetimeScore: 900, gamesPlayed: 1 }
+  });
+  assert.equal(debut.overall.find(x => x.name === 'Nina').movement, null, 'a debut claims no movement');
+  assert.equal(debut.overall.find(x => x.name === 'Marko').movement, null, 'a debut claims no movement');
   console.log('PASS recount engine: overall rankings and rank movement');
 }
 
@@ -294,8 +302,106 @@ function testCatalogHonesty() {
   console.log('PASS recount engine: catalog is honest and complete');
 }
 
+// ---- table-driven: every award qualifies on its threshold and misses just below it
+function P(o = {}) {
+  return {
+    playerId: 'p', name: 'P', nameKey: 'p', points: 100, judged: 0, correct: 0, wrong: 0, accuracy: null,
+    messages: 0, presenceRatio: 1, seq: [], flips: 0, longestWrong: 0, longestCorrect: 0,
+    wrongRepeat: { text: '', count: 0 }, wrongAtMid: 0, wrongAtHigh: 0, dupCorrect: 0, medianGapMs: null,
+    firstHalfAcc: null, secondHalfAcc: null, firstHalfN: 0, secondHalfN: 0, columnEvents: [], finalEvent: null,
+    isFinalSolver: false, solves: 0, firstSolveAt: null, chain: 0, drought: 0, history: null, share: 0.25, active: true, ...o
+  };
+}
+function evalAward(id, pOver, ctxOver = {}, others) {
+  const def = engine.AWARDS.find(a => a.id === id);
+  const p = P(pOver);
+  const rest = others || [P({ playerId: 'q', points: 200, solves: 1, judged: 4, correct: 2, wrong: 2, messages: 4 }), P({ playerId: 'r', points: 150, messages: 4 })];
+  const players = [p, ...rest];
+  const active = players.filter(x => x.active);
+  const ctx = {
+    matchMs: 20 * 60000, players, active, activeCount: active.length, totalJudged: 30, roomAccuracy: 0.5, maxWrong: 5,
+    maxSolves: 2, medianOfMedianGaps: 20000, activePoints: active.map(x => x.points), firstSolve: null, finalSolver: null, startedAt: START,
+    ...ctxOver
+  };
+  return def.test(p, ctx);
+}
+const four = pts => pts.map((points, i) => P({ playerId: `o${i}`, points, judged: 5, messages: 6 }));
+
+// [id, qualifying player overrides, qualifying ctx, near-miss player overrides, near-miss ctx]
+const AWARD_CASES = [
+  ['THE ARCHITECT', { solves: 3 }, { maxSolves: 3 }, { solves: 1 }, { maxSolves: 3 }],
+  ['THE CLOSER', { isFinalSolver: true }, {}, { isFinalSolver: false }, {}],
+  ["SHADOW BROKER'S ASSET", { points: 500 }, {}, { points: 100 }, {}],
+  ['COLD READ', { columnEvents: [{ target: 'A', cluesRevealed: 1 }] }, {}, { columnEvents: [{ target: 'A', cluesRevealed: 2 }] }, {}],
+  ['FIRST BLOOD', {}, { firstSolve: { playerId: 'p', target: 'A', timestamp: START + 60000 } }, {}, { firstSolve: { playerId: 'q', target: 'A', timestamp: START + 60000 } }],
+  ['CHAIN REACTION', { chain: 2 }, {}, { chain: 1 }, {}],
+  ['THE ORACLE', { judged: 8, correct: 7, wrong: 1, accuracy: 7 / 8 }, {}, { judged: 8, correct: 8, wrong: 0, accuracy: 1 }, {}],
+  ['PERFECT SPECIMEN', { judged: 5, correct: 5, accuracy: 1 }, {}, { judged: 4, correct: 4, accuracy: 1 }, {}],
+  ['SOLO CARRY', { share: 0.7 }, {}, { share: 0.5 }, {}],
+  ['UNAUTHORIZED EVOLUTION', { points: 300, history: { games: 6, avg: 60, best: 110 } }, {}, { points: 100, history: { games: 6, avg: 60, best: 110 } }, {}],
+  ['CHAOS THEORY', { judged: 12, correct: 6, wrong: 6, accuracy: 0.5, flips: 7 }, {}, { judged: 12, correct: 6, wrong: 6, accuracy: 0.5, flips: 3 }, {}],
+  ['THE EXPERIMENT', { judged: 14, correct: 5, wrong: 9, accuracy: 5 / 14, longestWrong: 5, longestCorrect: 3 }, {}, { judged: 14, correct: 5, wrong: 9, accuracy: 5 / 14, longestWrong: 4, longestCorrect: 3 }, {}],
+  ['ONE JOB', { solves: 1, judged: 2, messages: 3, isFinalSolver: true }, {}, { solves: 1, judged: 5, messages: 3, isFinalSolver: true }, {}],
+  ['TACTICAL SILENCE', { messages: 2, judged: 2, points: 300, share: 0.3, presenceRatio: 0.8 }, {}, { messages: 6, judged: 2, points: 300, share: 0.3, presenceRatio: 0.8 }, {}],
+  ['THE SURVIVOR', { judged: 10, firstHalfN: 5, secondHalfN: 5, firstHalfAcc: 0.2, secondHalfAcc: 0.8 }, {}, { judged: 10, firstHalfN: 5, secondHalfN: 5, firstHalfAcc: 0.5, secondHalfAcc: 0.8 }, {}],
+  ['LAST TO KNOW', { dupCorrect: 2 }, {}, { dupCorrect: 1 }, {}],
+  ['THE DONOR', { points: 300, columnEvents: [{ target: 'A' }, { target: 'B' }] }, { finalSolver: { playerId: 'q', points: 900 } }, { points: 300, columnEvents: [{ target: 'A' }, { target: 'B' }] }, { finalSolver: { playerId: 'q', points: 400 } }],
+  ['WEAPONIZED CONFIDENCE', { judged: 14, correct: 2, wrong: 12, accuracy: 2 / 14 }, { maxWrong: 12 }, { judged: 14, correct: 7, wrong: 7, accuracy: 0.5 }, { maxWrong: 12 }],
+  ['THE BLIND ARCHER', { judged: 12, correct: 1, wrong: 11, accuracy: 1 / 12 }, {}, { judged: 12, correct: 3, wrong: 9, accuracy: 0.25 }, {}],
+  ['STATISTICAL ANOMALY', { judged: 7, correct: 1, wrong: 6, accuracy: 1 / 7 }, { roomAccuracy: 0.6 }, { judged: 7, correct: 1, wrong: 6, accuracy: 1 / 7 }, { roomAccuracy: 0.3 }],
+  ['MANUAL OVERRIDE REQUIRED', { judged: 13, correct: 0, wrong: 13, accuracy: 0 }, {}, { judged: 13, correct: 1, wrong: 12, accuracy: 1 / 13 }, {}],
+  ['RESOURCE CONSUMER', { messages: 15, share: 0.02, wrong: 5, judged: 6 }, {}, { messages: 15, share: 0.2, wrong: 5, judged: 6 }, {}],
+  ['THE RED HERRING', { wrong: 6, judged: 12, correct: 6, accuracy: 0.5 }, { maxWrong: 6 }, { wrong: 6, judged: 12, correct: 6, accuracy: 0.5 }, { maxWrong: 6, others: [P({ playerId: 'q', wrong: 6 }), P({ playerId: 'r' })] }],
+  ['THE FALSE PROPHET', { wrongRepeat: { text: 'the moon', count: 3 } }, {}, { wrongRepeat: { text: 'the moon', count: 2 } }, {}],
+  ['THE CONFIDENCE PARADOX', { judged: 9, correct: 2, wrong: 7, accuracy: 2 / 9, medianGapMs: 12000 }, {}, { judged: 9, correct: 2, wrong: 7, accuracy: 2 / 9, medianGapMs: 40000 }, {}],
+  ['HUMAN CAPTCHA FAILURE', { wrongAtHigh: 3 }, {}, { wrongAtHigh: 2 }, {}],
+  ['COGNITIVE FRIENDLY FIRE', { wrongAtMid: 4 }, {}, { wrongAtMid: 3 }, {}],
+  ['PATTERN RESISTANT', { wrongAtMid: 5, judged: 8, correct: 2, accuracy: 0.25 }, {}, { wrongAtMid: 5, judged: 8, correct: 5, accuracy: 0.6 }, {}],
+  ['THE LIABILITY', { points: 20, judged: 6 }, { others: four([900, 500, 300]) }, { points: 20, judged: 6 }, { others: four([900, 500]) }],
+  ['THE ANCHOR', { points: 50, judged: 6 }, { others: four([900, 500, 300]) }, { points: 400, judged: 6 }, { others: four([900, 500, 300]) }],
+  ['STRATEGIC IRRELEVANCE', { messages: 8, judged: 4, correct: 0, wrong: 4, solves: 0, share: 0, points: 0, presenceRatio: 0.8 }, { others: four([900, 500, 300]) }, { messages: 8, judged: 4, correct: 1, wrong: 3, solves: 0, share: 0, points: 0, presenceRatio: 0.8 }, { others: four([900, 500, 300]) }],
+  ['THE NPC', { active: false, presenceRatio: 0.9, messages: 0, judged: 0, solves: 0 }, { others: four([300, 200, 100]) }, { active: false, presenceRatio: 0.9, messages: 2, judged: 0, solves: 0 }, { others: four([300, 200, 100]) }],
+  ['THE DECORATION', { active: false, presenceRatio: 0.9, messages: 2, judged: 0, solves: 0 }, { others: four([300, 200, 100]) }, { active: false, presenceRatio: 0.9, messages: 6, judged: 0, solves: 0 }, { others: four([300, 200, 100]) }],
+  ['THE TOURIST', { presenceRatio: 0.2, messages: 2, solves: 0 }, {}, { presenceRatio: 0.6, messages: 2, solves: 0 }, {}],
+  ['THOUGHTS AND PRAYERS', { messages: 14, judged: 1, solves: 0 }, {}, { messages: 14, judged: 5, solves: 0 }, {}],
+  ['BRAIN BUFFERING', { presenceRatio: 0.9, correct: 1, judged: 5, drought: 14 * 60000 }, {}, { presenceRatio: 0.9, correct: 1, judged: 5, drought: 5 * 60000 }, {}],
+  ['LOCALIZED SYSTEM FAILURE', { points: 50, judged: 6, history: { games: 6, avg: 400, best: 600 } }, {}, { points: 300, judged: 6, history: { games: 6, avg: 400, best: 600 } }, {}]
+];
+
+function testEveryAwardQualifiesAtItsThresholdAndMissesJustBelow() {
+  const covered = new Set(AWARD_CASES.map(c => c[0]));
+  engine.AWARDS.forEach(a => assert.ok(covered.has(a.id), `${a.id} has no threshold test`));
+  for (const [id, hit, hitCtx, miss, missCtx] of AWARD_CASES) {
+    const { others: hitOthers, ...hitCtxClean } = hitCtx;
+    const { others: missOthers, ...missCtxClean } = missCtx;
+    const yes = evalAward(id, hit, hitCtxClean, hitOthers);
+    assert.ok(yes, `${id} must qualify when its thresholds are met`);
+    assert.ok(yes.strength >= 0 && yes.strength <= 1, `${id} strength must be within 0..1 (got ${yes.strength})`);
+    assert.ok(Array.isArray(yes.evidence) && yes.evidence.length >= 1 && yes.evidence.every(e => typeof e === 'string' && e.length), `${id} must show evidence`);
+    assert.equal(evalAward(id, miss, missCtxClean, missOthers), null, `${id} must NOT qualify just below its threshold`);
+  }
+  console.log(`PASS recount engine: all ${AWARD_CASES.length} awards hit their thresholds and miss just below`);
+}
+
+function testSeverityOutranksOnEqualStrength() {
+  const sev = id => engine.AWARDS.find(a => a.id === id).severity;
+  assert.equal(sev('THE TOURIST'), 'minor');
+  assert.equal(sev('WEAPONIZED CONFIDENCE'), 'major');
+  ['STRATEGIC IRRELEVANCE', 'LOCALIZED SYSTEM FAILURE', 'MANUAL OVERRIDE REQUIRED'].forEach(id => assert.equal(sev(id), 'catastrophic', id));
+  // Same underlying behaviour (0 correct of 13): the catastrophic tier must win the conflict group.
+  const bojan = rep(13, i => ({ p: 'bojan', v: 'W', at: i + 0.7, text: `w${i}` }));
+  const { players, attempts } = room4({ bojan });
+  const r = run(mkMatch({ players, attempts }));
+  const mine = r.awards.filter(a => a.playerNames.includes('Bojan'));
+  assert.ok(mine.some(a => a.id === 'MANUAL OVERRIDE REQUIRED'), 'zero correct of 13 earns the catastrophic tier');
+  assert.ok(!mine.some(a => ['THE BLIND ARCHER', 'WEAPONIZED CONFIDENCE'].includes(a.id)), 'weaker tiers of the same behaviour are suppressed');
+  console.log('PASS recount engine: failure severity tiers win their conflict group');
+}
+
 testWeaponizedConfidenceAndEvidence();
 testConflictGroupsAndPlayerLimits();
+testEveryAwardQualifiesAtItsThresholdAndMissesJustBelow();
+testSeverityOutranksOnEqualStrength();
 testParticipationProtection();
 testNothingIsForced();
 testDeterminism();

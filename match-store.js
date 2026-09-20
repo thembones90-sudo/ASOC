@@ -22,9 +22,11 @@
 const fs = require('fs');
 const path = require('path');
 
+const DATA_DIR = process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_DIR) : __dirname;
 const MATCHES_FILE = process.env.ASOC_MATCHES_FILE
   ? path.resolve(process.env.ASOC_MATCHES_FILE)
-  : path.join(__dirname, 'matches.json');
+  : path.join(DATA_DIR, 'matches.json');
+fs.mkdirSync(path.dirname(MATCHES_FILE), { recursive: true });
 const MATCHES_BACKUP_FILE = MATCHES_FILE + '.bak';
 let storageHealthy = true;
 

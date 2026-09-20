@@ -40,7 +40,12 @@ function createLedger(boardId, now, connectedPlayers = []) {
     activity: {},   // playerId -> guess-channel message counts (judged or not)
     presence: {},   // playerId -> { name, firstSeenAt, intervals: [{ from, to|null }] }
     failedAt: {},   // field -> ms timestamp the GM declared it failed
-    completedAt: null
+    completedAt: null,
+    // RECOUNT: nothing is shown until the host's manual SHOW RESULTS. The
+    // stored payload lets every reconnect/late join receive the SAME RECOUNT
+    // (never regenerated); both clear when the match re-opens or the board resets.
+    resultsShownAt: null,
+    recount: null
   };
   connectedPlayers.forEach(p => presenceOpen(ledger, p.playerId, p.playerName, now));
   return ledger;

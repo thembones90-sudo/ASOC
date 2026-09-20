@@ -8,12 +8,15 @@ const { spawn } = require('child_process');
 const WebSocket = require('ws');
 
 const ROOT = path.resolve(__dirname, '..');
-const PORT = 18080;
+// Overridable so two agents/terminals can run the suite at the same time
+// without colliding on one fixed port (e.g. ASOC_TEST_PORT=18190 npm test).
+const PORT = Number(process.env.ASOC_TEST_PORT) || 18080;
 const BASE = `http://127.0.0.1:${PORT}`;
 const TEST_PLAYERS = path.join(os.tmpdir(), `asoc-test-players-${process.pid}.json`);
 const TEST_SESSION = path.join(os.tmpdir(), `asoc-test-session-${process.pid}.json`);
 const TEST_PLAYER_AUTH_SESSIONS = path.join(os.tmpdir(), `asoc-test-player-auth-sessions-${process.pid}.json`);
 const TEST_MATCHES = path.join(os.tmpdir(), `asoc-test-matches-${process.pid}.json`);
+const TEST_AUTH_FILE = path.join(os.tmpdir(), `asoc-test-auth-${process.pid}.json`);
 
 function readArchive(roomCode) {
   try {
@@ -153,6 +156,111 @@ async function setupAuth() {
   assert.ok(player.status === 200 || player.status === 201);
   TEST_PLAYER_TOKEN = player.data.token;
   TEST_PLAYER_ID = player.data.player.id;
+}
+
+async function testMasterRoomLifecycle() {
+  const player = await openWs();
+  const joined = waitForMessage(player, m => m.type === 'join:success', 'Master Room player join');
+  const unarmed = waitForMessage(player, m => m.type === 'state:public' && m.armed === false, 'Master Room unarmed state');
+  player.send(JSON.stringify({
+    type: 'room:join',
+    authToken: TEST_PLAYER_TOKEN,
+    name: 'MASTER ROOM TEST'
+  }));
+  const [joinAck, initialState] = await Promise.all([joined, unarmed]);
+  assert.equal(joinAck.roomCode, 'MASTER', 'players always join the canonical Master Room');
+  assert.equal(initialState.roomCode, 'MASTER');
+  assert.equal(initialState.armed, false, 'Master Room is available while no game is armed');
+
+  const beforeText = 'MASTER ROOM UNARMED CHAT';
+  const beforeChat = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === beforeText),
+    'unarmed Master Room chat'
+  );
+  player.send(JSON.stringify({ type: 'chat:guess', text: beforeText }));
+  const beforeChatState = await beforeChat;
+  const historicalMessage = beforeChatState.messages.find(x => x.text === beforeText);
+  assert.equal(historicalMessage.adjudicable, false, 'unarmed chat is never an active-game answer');
+
+  const host = await openWs();
+  const armedState = waitForMessage(player, m => m.type === 'state:public' && m.armed === true, 'Master Room armed in place');
+  const armedChat = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === beforeText),
+    'Master Room chat survives arm'
+  );
+  const room = await createRoom(host);
+  assert.equal(room.roomCode, 'MASTER');
+  await armedState;
+  const armedChatState = await armedChat;
+  assert.equal(
+    armedChatState.messages.find(x => x.id === historicalMessage.id)?.adjudicable,
+    false,
+    'pre-game chat remains archival after ARM GAME'
+  );
+
+  const historicalReject = waitForMessage(
+    host,
+    m => m.type === 'error' && /historical transmission/i.test(m.message || ''),
+    'historical message adjudication rejection'
+  );
+  host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: historicalMessage.id, verdict: 'wrong' }));
+  await historicalReject;
+
+  await delay(400);
+  const activeText = 'MASTER ROOM ACTIVE GUESS';
+  const activeChat = waitForMessage(
+    host,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === activeText),
+    'active game chat'
+  );
+  player.send(JSON.stringify({ type: 'chat:guess', text: activeText }));
+  const activeMessage = (await activeChat).messages.filter(x => x.text === activeText).at(-1);
+  assert.equal(activeMessage.adjudicable, true, 'current-board player chat is judgeable');
+  const activeJudgeAck = waitForMessage(host, m => m.type === 'gm:judge:ack' && m.messageId === activeMessage.id, 'active guess judge');
+  host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: activeMessage.id, verdict: 'wrong' }));
+  await activeJudgeAck;
+
+  const womfCharged = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 1, 'WOMF charge before disarm');
+  host.send(JSON.stringify({ type: 'gm:failColumn', column: 'A' }));
+  await womfCharged;
+
+  const disarmedState = waitForMessage(player, m => m.type === 'state:public' && m.armed === false, 'Master Room disarmed in place');
+  const disarmedChat = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === beforeText),
+    'Master Room chat survives disarm'
+  );
+  const disarmedAck = waitForMessage(host, m => m.type === 'room:disarmed', 'Master Room disarm acknowledgement');
+  host.send(JSON.stringify({ type: 'room:close' }));
+  const [idleState] = await Promise.all([disarmedState, disarmedChat, disarmedAck]);
+  assert.equal(idleState.womf.charge, 1, 'KILL SESSION must preserve Master Room WOMF charge');
+  assert.equal(player.readyState, WebSocket.OPEN, 'disarming gameplay must not disconnect players');
+
+  const rearmedState = waitForMessage(player, m => m.type === 'state:public' && m.armed === true, 'Master Room rearmed');
+  await createRoom(host);
+  assert.equal((await rearmedState).womf.charge, 1, 'ARM GAME must preserve accumulated WOMF charge');
+  const womfReset = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 0, 'WOMF cleanup for later tests');
+  host.send(JSON.stringify({ type: 'gm:womfReset' }));
+  await womfReset;
+  const redisarmed = waitForMessage(host, m => m.type === 'room:disarmed', 'Master Room second disarm');
+  host.send(JSON.stringify({ type: 'room:close' }));
+  await redisarmed;
+
+  await delay(400);
+  const afterText = 'MASTER ROOM POST GAME CHAT';
+  const afterChat = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === afterText),
+    'post-game Master Room chat'
+  );
+  player.send(JSON.stringify({ type: 'chat:guess', text: afterText }));
+  await afterChat;
+
+  console.log('PASS permanent Master Room: no code, unarmed chat, arm/disarm in place');
+  closeWs(player);
+  closeWs(host);
 }
 
 async function testAuthEnforcement() {
@@ -646,6 +754,7 @@ async function testAuthoritativeGameLost() {
 async function testCrashRecovery(server) {
   const host = await openWs();
   const room = await createRoom(host);
+  const preexistingArchiveIds = new Set(readArchive(room.roomCode).map(record => record.matchId));
 
   const player = await openWs();
   const joinedPromise = waitForMessage(player, m => m.type === 'join:success', 'recovery player join');
@@ -748,7 +857,7 @@ async function testCrashRecovery(server) {
   for (const column of ['A', 'B', 'C', 'D']) host2.send(JSON.stringify({ type: 'gm:failColumn', column }));
   host2.send(JSON.stringify({ type: 'gm:failFinal' }));
   await completedAfterRestart;
-  const restoredArchive = readArchive(room.roomCode);
+  const restoredArchive = readArchive(room.roomCode).filter(record => !preexistingArchiveIds.has(record.matchId));
   assert.equal(restoredArchive.length, 1);
   assert.ok(
     restoredArchive[0].attempts.some(x => x.textKey === 'pre crash guess' && x.verdict === 'wrong'),
@@ -762,9 +871,240 @@ async function testCrashRecovery(server) {
   return restarted;
 }
 
+async function testUnarmedMasterRoomRecovery(server) {
+  const host = await openWs();
+  const room = await createRoom(host);
+  const womfZero = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 0, 'unarmed recovery WOMF baseline');
+  host.send(JSON.stringify({ type: 'gm:womfReset' }));
+  await womfZero;
+
+  const player = await openWs();
+  const joined = waitForMessage(player, m => m.type === 'join:success', 'unarmed recovery player join');
+  player.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, name: 'UNARMED RECOVERY' }));
+  await joined;
+
+  const womfCharged = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 1, 'unarmed recovery WOMF charge');
+  host.send(JSON.stringify({ type: 'gm:failColumn', column: 'A' }));
+  await womfCharged;
+
+  const idleState = waitForMessage(player, m => m.type === 'state:public' && m.armed === false, 'unarmed recovery disarm state');
+  const disarmedAck = waitForMessage(host, m => m.type === 'room:disarmed', 'unarmed recovery disarm ack');
+  host.send(JSON.stringify({ type: 'room:close' }));
+  const [idle] = await Promise.all([idleState, disarmedAck]);
+  assert.equal(idle.womf.charge, 1, 'WOMF survives transition into the unarmed Master Room');
+
+  await delay(400);
+  const text = 'UNARMED CHAT SURVIVES SERVER RESTART';
+  const chatSeen = waitForMessage(player, m => m.type === 'chat:update' && m.messages?.some(x => x.text === text), 'unarmed recovery chat');
+  player.send(JSON.stringify({ type: 'chat:guess', text }));
+  const sentChat = await chatSeen;
+  assert.equal(sentChat.messages.find(x => x.text === text)?.adjudicable, false);
+
+  await new Promise(resolve => {
+    server.once('exit', resolve);
+    server.kill();
+  });
+
+  const restarted = await startServer();
+  await setupAuth();
+
+  const player2 = await openWs();
+  const restoredState = waitForMessage(
+    player2,
+    m => m.type === 'state:public' && m.armed === false && m.womf?.charge === 1,
+    'restored unarmed Master Room state'
+  );
+  const restoredChat = waitForMessage(
+    player2,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === text),
+    'restored unarmed Master Room chat'
+  );
+  const rejoined = waitForMessage(player2, m => m.type === 'join:success', 'restored unarmed player join');
+  player2.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, name: 'UNARMED RECOVERY' }));
+
+  const [state, chat, joinAck] = await Promise.all([restoredState, restoredChat, rejoined]);
+  assert.equal(state.roomCode, 'MASTER');
+  assert.equal(joinAck.roomCode, 'MASTER');
+  assert.equal(chat.messages.find(x => x.text === text)?.adjudicable, false, 'restored unarmed chat remains archival');
+  console.log('PASS unarmed Master Room survives server restart with chat + WOMF intact');
+
+  closeWs(player2);
+  return restarted;
+}
+
+// CRASH-INJECTION PERSISTENCE: five authoritative mutations are each forced to
+// the recovery snapshot, then the server is hard-killed and restarted. Every
+// one of them must be back: (1) a judged correct column verdict + solved target
+// + scoring event, (2) FAIL actions (WOMF charge + failed-column tags),
+// (3) the Wheel left OPEN, (4) a live Blood Tribute demand, (5) a GAME LOST
+// terminal state (timer-authoritative). The second restart re-verifies the
+// terminal state plus the crushing reality that a Tribute debt never dies.
+async function testCrashInjectionPersistence(server) {
+  const opened = [];
+  let restarted = null;
+  let restarted2 = null;
+  let ok = false;
+  try {
+  const host = await openWs();
+  opened.push(host);
+  const room = await createRoom(host);
+
+  const womfZero = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 0, 'crash injection WOMF baseline');
+  host.send(JSON.stringify({ type: 'gm:womfReset' }));
+  await womfZero;
+
+  const crashCredentials = { email: `crash-${process.pid}@asoc.test`, password: 'test-player-password', name: 'CRASH TWO' };
+  let crashAuth = await requestJson('/api/auth/player/register', 'POST', crashCredentials);
+  if (crashAuth.status === 400) crashAuth = await requestJson('/api/auth/player/login', 'POST', crashCredentials);
+  assert.ok(crashAuth.status === 200 || crashAuth.status === 201);
+
+  const p1 = await openWs();
+  opened.push(p1);
+  const p2 = await openWs();
+  opened.push(p2);
+  const p1Join = waitForMessage(p1, m => m.type === 'join:success', 'crash player one join');
+  p1.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'CRASH PLAYER' }));
+  const one = await p1Join;
+  const p2Join = waitForMessage(p2, m => m.type === 'join:success', 'crash player two join');
+  p2.send(JSON.stringify({ type: 'room:join', authToken: crashAuth.data.token, roomCode: room.roomCode, name: 'CRASH TWO' }));
+  const two = await p2Join;
+
+  const failBatches = async (expectCharge, label) => {
+    const charged = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === expectCharge, label);
+    host.send(JSON.stringify({ type: 'gm:failColumn', column: 'B' }));
+    host.send(JSON.stringify({ type: 'gm:failColumn', column: 'D' }));
+    host.send(JSON.stringify({ type: 'gm:failFinal' }));
+    await charged;
+  };
+
+  // FAIL batch #1: B,D (+2) then FINAL (+3) => WOMF 5/10.
+  await failBatches(5, 'crash WOMF 5 after first FAIL batch');
+  const resetKeptCharge = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 5, 'crash reset keeps WOMF charge');
+  host.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: 6001 }));
+  await resetKeptCharge;
+  // FAIL batch #2: B,D (+2) then FINAL (+3) => WOMF 10/10, Wheel can open.
+  await failBatches(10, 'crash WOMF 10 after second FAIL batch');
+
+  // A judged correct column verdict + solved target + scoring event.
+  const guessSeen = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'CRASH VERDICT SURVIVES'), 'crash verdict guess chat');
+  p1.send(JSON.stringify({ type: 'chat:guess', text: 'CRASH VERDICT SURVIVES' }));
+  const guessId = (await guessSeen).messages.find(x => x.text === 'CRASH VERDICT SURVIVES').id;
+  const judged = waitForMessage(host, m => m.type === 'gm:judge:ack' && m.messageId === guessId, 'crash verdict judged');
+  host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: guessId, verdict: 'correct', target: 'C' }));
+  await judged;
+
+  // Wheel OPEN (the armed wheel itself must survive) and then ROLL -> result.
+  const wheelOpened = waitForMessage(host, m => m.type === 'state:public' && m.wheel?.open === true, 'crash wheel open');
+  host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['CRASH PLAYER', 'CRASH TWO'] }));
+  await wheelOpened;
+
+  const resultPromise = waitForMessage(
+    host,
+    m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
+    'crash tribute demand after wheel result',
+    7000
+  );
+  host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
+  const result = await resultPromise;
+  assert.equal(result.womf.charge, 10);
+  assert.ok(result.bloodTribute.playerId === one.playerId || result.bloodTribute.playerId === two.playerId,
+    'the wheel winner becomes the tribute debtor');
+
+  // ---- CRASH #1 -----------------------------------------------------------
+  await new Promise(resolve => { server.once('exit', resolve); server.kill(); });
+  restarted = await startServer();
+  await setupAuth();
+
+  // The durable recovery store (the same file the new instance restores from)
+  // proves the conservative state survived, independent of what public shapes
+  // choose to expose.
+  const persistedAfterCrash = JSON.parse(fs.readFileSync(TEST_SESSION, 'utf8')).rooms.find(r => r.code === 'MASTER');
+  assert.equal(persistedAfterCrash.chat.solvedTargets.C?.messageId, guessId, 'solved target C survives the crash');
+  assert.deepEqual(persistedAfterCrash.womf.failedColumns, { B: true, D: true }, 'failed-column tags survive the crash');
+  assert.equal(persistedAfterCrash.wheel.open, true, 'an open Wheel survives the crash');
+  assert.equal(persistedAfterCrash.wheel.phase, 'result', 'the settled spin phase survives the crash');
+  assert.equal(persistedAfterCrash.pendingTribute?.status, 'required', 'the Tribute demand survives the crash');
+  assert.equal(persistedAfterCrash.pendingTribute?.playerId, result.bloodTribute.playerId, 'the Tribute debtor survives the crash');
+  assert.equal(persistedAfterCrash.womf.charge, 10, 'WOMF 10/10 survives the crash');
+
+  const host2 = await openWs();
+  opened.push(host2);
+  const statePromise = waitForMessage(host2, m => m.type === 'state:public', 'crash-recovered state');
+  const chatPromise = waitForMessage(host2, m => m.type === 'chat:update', 'crash-recovered chat');
+  const reconnectPromise = waitForMessage(host2, m => m.type === 'host:reconnected', 'crash-recovered host reconnect');
+  host2.send(JSON.stringify({ type: 'host:reconnect', roomCode: room.roomCode, hostToken: room.hostToken, gmToken: TEST_GM_TOKEN }));
+  const [state, chat] = await Promise.all([statePromise, chatPromise, reconnectPromise]).then(values => values.slice(0, 2));
+
+  const verdictMessage = chat.messages.find(x => x.id === guessId);
+  assert.ok(verdictMessage, 'the judged message survives the crash');
+  assert.equal(verdictMessage.verdict, 'correct');
+  assert.equal(verdictMessage.target, 'C');
+  assert.equal(verdictMessage.adjudicable, true, 'a current-board verdict stays adjudicable');
+
+  assert.equal(state.womf.charge, 10, 'WOMF 10/10 surfaces in public state after the crash');
+  assert.equal(state.wheel.open, true, 'an open Wheel surfaces in public state after the crash');
+  assert.equal(state.wheel.phase, 'result', 'the settled spin phase surfaces in public state after the crash');
+  assert.equal(state.bloodTribute.status, 'required');
+  assert.equal(state.bloodTribute.playerId, result.bloodTribute.playerId, 'the Tribute debtor is still the same player');
+
+  // (5) GAME LOST via the authoritative timer, then a second crash. Drain
+  // WOMF below the meter cap first so the loss's +3 charge is observable
+  // (the meter itself caps at 10/10; 7 + 3 = 10 proves the +3 applied).
+  const womfDrained = waitForMessage(host2, m => m.type === 'state:public' && m.womf?.charge === 7, 'crash-test WOMF drained to 7');
+  host2.send(JSON.stringify({ type: 'gm:womfSubtract' }));
+  host2.send(JSON.stringify({ type: 'gm:womfSubtract' }));
+  host2.send(JSON.stringify({ type: 'gm:womfSubtract' }));
+  await womfDrained;
+
+  const borrowed = waitForMessage(host2, m => m.type === 'state:public' && m.timer?.phase === 'borrowed', 'crash-test borrowed transition');
+  host2.send(JSON.stringify({ type: 'gm:timerStart' }));
+  host2.send(JSON.stringify({ type: 'gm:timerAdjust', deltaMs: -99 * 60 * 1000 }));
+  await borrowed;
+  const hostLost = waitForMessage(host2, m => m.type === 'state:public' && m.matchResult?.outcome === 'LOST', 'crash-test GAME LOST', 5000);
+  host2.send(JSON.stringify({ type: 'gm:timerAdjust', deltaMs: -99 * 60 * 1000 }));
+  const lostState = await hostLost;
+  assert.equal(lostState.womf.charge, 10, 'GAME LOST charges WOMF +3 (7/10 -> 10/10)');
+
+  // ---- CRASH #2 -----------------------------------------------------------
+  await new Promise(resolve => { restarted.once('exit', resolve); restarted.kill(); });
+  restarted2 = await startServer();
+  await setupAuth();
+
+  const host3 = await openWs();
+  opened.push(host3);
+  const lostAgainPromise = waitForMessage(host3, m => m.type === 'state:public' && m.matchResult?.outcome === 'LOST', 'terminal LOST after second crash');
+  host3.send(JSON.stringify({ type: 'host:reconnect', roomCode: room.roomCode, hostToken: room.hostToken, gmToken: TEST_GM_TOKEN }));
+  const lostAgain = await lostAgainPromise;
+  assert.equal(lostAgain.womf.charge, 10, 'GAME LOST + its WOMF charge survive a second crash');
+  assert.equal(lostAgain.bloodTribute.status, 'required', 'an unresolved Tribute debt survives a second crash');
+  assert.equal(lostAgain.gameComplete, true);
+
+  console.log('PASS crash injection: verdict, FAIL/WOMF, wheel open+result, tribute debt, and GAME LOST all survive kill+restart');
+
+  closeWs(host3);
+  closeWs(host2);
+  closeWs(p1);
+  closeWs(p2);
+  closeWs(host);
+  ok = true;
+  return restarted2;
+  } finally {
+    if (!ok) {
+      for (const sock of opened) closeWs(sock);
+      if (restarted2) { try { restarted2.kill(); } catch (_) {} }
+      if (restarted) { try { restarted.kill(); } catch (_) {} }
+    }
+  }
+}
+
 async function testBloodTributeLifecycle() {
   const host = await openWs();
   const room = await createRoom(host);
+  // WOMF is intentionally global Master Room state, so this test establishes
+  // its own baseline instead of assuming previous scenarios left it at zero.
+  const womfZero = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 0, 'tribute WOMF baseline');
+  host.send(JSON.stringify({ type: 'gm:womfReset' }));
+  await womfZero;
 
   const secondCredentials = {
     email: `tribute-${process.pid}@asoc.test`,
@@ -792,7 +1132,12 @@ async function testBloodTributeLifecycle() {
   }
 
   async function resetBoard(cmdId, expectedCharge) {
-    const state = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === expectedCharge, `board reset at ${expectedCharge}/10`);
+    const state = waitForMessage(
+      host,
+      m => m.type === 'state:public' && m.womf?.charge === expectedCharge,
+      `board reset at ${expectedCharge}/10`,
+      7000
+    );
     host.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId }));
     await state;
   }
@@ -819,6 +1164,30 @@ async function testBloodTributeLifecycle() {
   assert.ok(result.bloodTribute.playerId === one.playerId || result.bloodTribute.playerId === two.playerId);
 
   const selected = result.bloodTribute.playerId === one.playerId ? p1 : p2;
+
+  // KILL SESSION must not erase an already-demanded Blood Tribute. The debt
+  // belongs to the Master Room, not to the disposable gameplay surface.
+  const tributeIdle = waitForMessage(
+    selected,
+    m => m.type === 'state:public' && m.armed === false && m.bloodTribute?.status === 'required',
+    'tribute survives KILL SESSION'
+  );
+  const tributeDisarmed = waitForMessage(host, m => m.type === 'room:disarmed', 'tribute session disarm');
+  host.send(JSON.stringify({ type: 'room:close' }));
+  const [idleTribute] = await Promise.all([tributeIdle, tributeDisarmed]);
+  assert.equal(idleTribute.bloodTribute.playerId, result.bloodTribute.playerId);
+  assert.equal(idleTribute.womf.charge, 10);
+
+  const tributeRearmed = waitForMessage(
+    selected,
+    m => m.type === 'state:public' && m.armed === true && m.bloodTribute?.status === 'required',
+    'tribute survives ARM GAME'
+  );
+  await createRoom(host);
+  const activeTribute = await tributeRearmed;
+  assert.equal(activeTribute.bloodTribute.playerId, result.bloodTribute.playerId);
+  assert.equal(activeTribute.womf.charge, 10);
+
   const imageData = 'data:image/png;base64,iVBORw0KGgo=';
   const acceptedPromise = waitForMessage(selected, m => m.type === 'tribute:accepted', 'tribute accepted');
   const resetPromise = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 0 && m.wheel?.open === false, 'WOMF reset after tribute');
@@ -843,9 +1212,173 @@ async function testBloodTributeLifecycle() {
   closeWs(host);
 }
 
+async function testTributeForgive(server) {
+  const opened = [];
+  let restarted = null;
+  let ok = false;
+  try {
+    const host = await openWs();
+    opened.push(host);
+    const room = await createRoom(host);
+
+    // The Master Room is shared, in-order state across every test in this
+    // suite. Start defensively clean: release any leftover Tribute debt from
+    // a predecessor (no-op if none is owed -- yet ARM KILL deliberately keeps
+    // the debt, and an outstanding demand blocks a forward roll), clear WOMF,
+    // and record how many override lines already exist so the restart check
+    // later proves OUR override persisted rather than someone else's.
+    const baselineOverrides = (() => {
+      try {
+        return (JSON.parse(fs.readFileSync(TEST_SESSION, 'utf8')).rooms.find(r => r.code === 'MASTER')?.chat?.messages || [])
+          .filter(m => m.text === 'BLOOD TRIBUTE OVERRIDDEN BY SHADOW BROKER').length;
+      } catch { return 0; }
+    })();
+    const cleanSlate = waitForMessage(host, m => m.type === 'state:public' && m.bloodTribute?.status !== 'required' && m.womf?.charge === 0, 'forgive clean slate', 5000);
+    host.send(JSON.stringify({ type: 'gm:tributeForgive' }));
+    host.send(JSON.stringify({ type: 'gm:womfReset' }));
+    await cleanSlate;
+    // Purge the vault too: an earlier test archived a real tribute, and this
+    // test must prove forgiveness adds NOTHING to the vault.
+    const vaultPurged = waitForMessage(host, m => m.type === 'tribute:vault' && (m.tributes || []).length === 0, 'forgive vault purged');
+    host.send(JSON.stringify({ type: 'gm:tributeVaultClear' }));
+    await vaultPurged;
+
+    const secondCredentials = {
+      email: `forgive-${process.pid}@asoc.test`,
+      password: 'test-player-password',
+      name: 'FORGIVE TWO'
+    };
+    let secondAuth = await requestJson('/api/auth/player/register', 'POST', secondCredentials);
+    if (secondAuth.status === 400) secondAuth = await requestJson('/api/auth/player/login', 'POST', secondCredentials);
+    assert.ok(secondAuth.status === 200 || secondAuth.status === 201);
+
+    const p1 = await openWs();
+    opened.push(p1);
+    const p2 = await openWs();
+    opened.push(p2);
+    const p1Join = waitForMessage(p1, m => m.type === 'join:success', 'forgive player one join');
+    p1.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'FORGIVE ONE' }));
+    const one = await p1Join;
+    const p2Join = waitForMessage(p2, m => m.type === 'join:success', 'forgive player two join');
+    p2.send(JSON.stringify({ type: 'room:join', authToken: secondAuth.data.token, roomCode: room.roomCode, name: 'FORGIVE TWO' }));
+    const two = await p2Join;
+
+    async function failColumnsToCharge(columns, target) {
+      const charged = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === target, `forgive WOMF ${target}/10`);
+      for (const column of columns) host.send(JSON.stringify({ type: 'gm:failColumn', column }));
+      await charged;
+    }
+    async function resetBoard(cmdId, expectedCharge) {
+      const state = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === expectedCharge, `forgive board reset at ${expectedCharge}/10`, 7000);
+      host.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId }));
+      await state;
+    }
+
+    await failColumnsToCharge(['A', 'B', 'C', 'D'], 4);
+    await resetBoard(8001, 4);
+    await failColumnsToCharge(['A', 'B', 'C', 'D'], 8);
+    await resetBoard(8002, 8);
+    await failColumnsToCharge(['A', 'B'], 10);
+
+    const wheelOpened = waitForMessage(host, m => m.type === 'state:public' && m.wheel?.open === true, 'forgive wheel open');
+    host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['FORGIVE ONE', 'FORGIVE TWO'] }));
+    await wheelOpened;
+
+    const demandPromise = waitForMessage(
+      host,
+      m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
+      'forgive tribute demand',
+      7000
+    );
+    host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
+    const demand = await demandPromise;
+    assert.equal(demand.womf.charge, 10);
+    assert.ok(demand.bloodTribute.playerId === one.playerId || demand.bloodTribute.playerId === two.playerId);
+
+    // (1) A linked Little Hero cannot clear the debt -- the override is
+    //     host-only, so the player gets an error and the demand stays.
+    const playerBlocked = waitForMessage(p1, m => m.type === 'error', 'player blocked from forgiving');
+    p1.send(JSON.stringify({ type: 'gm:tributeForgive' }));
+    const playerErr = await playerBlocked;
+    assert.ok(/Only host/.test(playerErr.message || ''), 'non-host forgive attempt is rejected');
+
+    // (2) An unauthenticated, un-joined socket cannot reconcile either.
+    const stranger = await openWs();
+    opened.push(stranger);
+    const strangerBlocked = waitForMessage(stranger, m => m.type === 'error', 'stranger blocked from forgiving');
+    stranger.send(JSON.stringify({ type: 'gm:tributeForgive' }));
+    const strangerErr = await strangerBlocked;
+    assert.ok(/Room not found/.test(strangerErr.message || ''), 'un-joined forgive attempt is rejected');
+
+    // (3) The GM override itself: debt released, no vault entry, WOMF kept
+    //     at 10, Wheel untouched, and a permanent Broker override line.
+    const forgivenStatePromise = waitForMessage(host, m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'forgiven state');
+    const overrideChatPromise = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === 'BLOOD TRIBUTE OVERRIDDEN BY SHADOW BROKER'), 'forgive override chat line');
+    const vaultPromise = waitForMessage(host, m => m.type === 'tribute:vault', 'forgive vault refresh');
+    host.send(JSON.stringify({ type: 'gm:tributeForgive' }));
+    const [forgiven, overrideChat, vault] = await Promise.all([forgivenStatePromise, overrideChatPromise, vaultPromise]);
+
+    assert.equal(forgiven.bloodTribute.status, 'idle');
+    assert.equal(forgiven.womf.charge, 10, 'forgiveness is not payment: WOMF stays 10/10');
+    assert.equal(forgiven.wheel.open, true, 'Wheel stays open after forgiveness');
+    assert.equal(forgiven.wheel.phase, 'result');
+    assert.equal(Array.isArray(vault.tributes) ? vault.tributes.length : 0, 0, 'no tribute is archived by forgiveness');
+
+    // (4) The Wheel is fully operable again: it rolls a fresh demand we then
+    //     release the exact same way.
+    const secondDemandPromise = waitForMessage(
+      host,
+      m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
+      'forgive second demand',
+      7000
+    );
+    host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
+    const secondDemand = await secondDemandPromise;
+    assert.ok(secondDemand.bloodTribute.playerId === one.playerId || secondDemand.bloodTribute.playerId === two.playerId);
+    const secondForgiven = waitForMessage(host, m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'second forgiven state');
+    host.send(JSON.stringify({ type: 'gm:tributeForgive' }));
+    await secondForgiven;
+
+    // (5) Durability: kill the server; the forgiven state returns untouched.
+    await new Promise(resolve => { server.once('exit', resolve); server.kill(); });
+    restarted = await startServer();
+    await setupAuth();
+
+    const persisted = JSON.parse(fs.readFileSync(TEST_SESSION, 'utf8')).rooms.find(r => r.code === 'MASTER');
+    assert.equal(persisted.pendingTribute ?? null, null, 'no tribute demand survives the restart after forgiveness');
+    assert.equal(persisted.womf.charge, 10, 'the forgiven charge survives the restart');
+    assert.ok(persisted.chat.messages.filter(m => m.source === 'shadowBroker' && m.text === 'BLOOD TRIBUTE OVERRIDDEN BY SHADOW BROKER').length === baselineOverrides + 3, 'the override lines (clean-slate + 2 releases) all survive the restart');
+
+    const host2 = await openWs();
+    opened.push(host2);
+    const reconnected = waitForMessage(host2, m => m.type === 'state:public' && m.bloodTribute?.status !== undefined, 'forgive survived restart');
+    const reconnect = waitForMessage(host2, m => m.type === 'host:reconnected', 'forgive host reconnect after restart');
+    host2.send(JSON.stringify({ type: 'host:reconnect', roomCode: room.roomCode, hostToken: room.hostToken, gmToken: TEST_GM_TOKEN }));
+    const [reconnectedState] = await Promise.all([reconnected, reconnect]);
+    assert.equal(reconnectedState.bloodTribute.status, 'idle', 'no debt resurfaces after the restart');
+    assert.equal(reconnectedState.womf.charge, 10);
+
+    console.log('PASS GM tribute forgive: host-only, no vault entry, WOMF kept, wheel re-operable, survives restart');
+    closeWs(host2);
+    closeWs(p1);
+    closeWs(p2);
+    closeWs(host);
+    closeWs(stranger);
+    ok = true;
+    return restarted;
+  } finally {
+    if (!ok) {
+      for (const sock of opened) closeWs(sock);
+      if (restarted) { try { restarted.kill(); } catch (_) {} }
+    }
+  }
+}
+
 async function testMatchCaptureAndCompletion() {
   const host = await openWs();
   const room = await createRoom(host);
+  const preexistingArchiveIds = new Set(readArchive(room.roomCode).map(record => record.matchId));
+  const readThisTestArchive = () => readArchive(room.roomCode).filter(record => !preexistingArchiveIds.has(record.matchId));
 
   const player = await openWs();
   const firstState = waitForMessage(player, m => m.type === 'state:public', 'match capture initial state');
@@ -863,7 +1396,7 @@ async function testMatchCaptureAndCompletion() {
     await delay(400); // Battle Comms cooldown
     const seen = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === text), `guess "${text}"`);
     player.send(JSON.stringify({ type: 'chat:guess', text }));
-    return (await seen).messages.find(x => x.text === text).id;
+    return (await seen).messages.filter(x => x.text === text).at(-1).id;
   }
   async function judge(messageId, verdict, target) {
     const ack = waitForMessage(host, m => m.type === 'gm:judge:ack' && m.messageId === messageId, 'judge ack');
@@ -889,7 +1422,7 @@ async function testMatchCaptureAndCompletion() {
   host.send(JSON.stringify({ type: 'gm:failFinal' }));
   await completedA;
 
-  let archive = readArchive(room.roomCode);
+  let archive = readThisTestArchive();
   assert.equal(archive.length, 1, 'completion archives exactly one match');
   const a = archive[0];
   assert.equal(a.fields.A.status, 'solved');
@@ -909,7 +1442,7 @@ async function testMatchCaptureAndCompletion() {
   const cleared = stateWhere(m => m.gameComplete === false, 'reset clears completion');
   command('resetBoard');
   await cleared;
-  assert.equal(readArchive(room.roomCode).length, 1, 'a reset never deletes a completed match');
+  assert.equal(readThisTestArchive().length, 1, 'a reset never deletes a completed match');
 
   // ---- Scenario B: the WHOLE FIELD OPENED ends the game, however it got opened,
   //      and hiding a slot re-opens it. (Victory is separate: opening the field
@@ -918,7 +1451,7 @@ async function testMatchCaptureAndCompletion() {
   command('revealAll');
   const openedState = await openedAll;
   assert.equal(openedState.gameWon, false, 'opening the field is not a host-declared victory');
-  archive = readArchive(room.roomCode);
+  archive = readThisTestArchive();
   assert.equal(archive.length, 2);
   const openedRecord = archive.find(r => r.fields.A.status === 'revealed');
   assert.ok(openedRecord, 'plainly opened fields are archived as revealed');
@@ -926,7 +1459,7 @@ async function testMatchCaptureAndCompletion() {
   const hiddenAgain = stateWhere(m => m.gameComplete === false, 'hide all re-opens the field');
   command('hideAll');
   await hiddenAgain;
-  assert.equal(readArchive(room.roomCode).length, 1, 'a re-opened match is withdrawn from the archive');
+  assert.equal(readThisTestArchive().length, 1, 'a re-opened match is withdrawn from the archive');
   const cleared2 = stateWhere(m => m.finalSolution?.revealed !== true, 'reset for the early-final scenario');
   command('resetBoard');
   await cleared2;
@@ -944,7 +1477,7 @@ async function testMatchCaptureAndCompletion() {
   host.send(JSON.stringify({ type: 'gm:failColumn', column: 'D' }));
   await completedB;
 
-  archive = readArchive(room.roomCode);
+  archive = readThisTestArchive();
   assert.equal(archive.length, 2);
   const b = archive.find(r => r.fields.FINAL.status === 'solved');
   assert.ok(b, 'the second match has a solved FINAL');
@@ -955,13 +1488,13 @@ async function testMatchCaptureAndCompletion() {
   const reopened = stateWhere(m => m.gameComplete === false, 'reversal re-opens the match');
   await judge(finalId, 'wrong');
   await reopened;
-  assert.equal(readArchive(room.roomCode).length, 1, 'a re-opened match is withdrawn from the archive');
+  assert.equal(readThisTestArchive().length, 1, 'a re-opened match is withdrawn from the archive');
 
   // ...and re-accepting it completes (and archives) it again.
   const completedAgain = stateWhere(m => m.gameComplete === true, 'complete again');
   await judge(finalId, 'correct', 'FINAL');
   await completedAgain;
-  assert.equal(readArchive(room.roomCode).length, 2);
+  assert.equal(readThisTestArchive().length, 2);
 
   console.log('PASS match capture: five-field completion, judged-only attempts, archive');
   closeWs(player);
@@ -999,7 +1532,7 @@ async function testColumnScoreAfterFinal() {
     await delay(400); // Battle Comms cooldown
     const seen = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === text), `guess "${text}"`);
     player.send(JSON.stringify({ type: 'chat:guess', text }));
-    return (await seen).messages.find(x => x.text === text).id;
+    return (await seen).messages.filter(x => x.text === text).at(-1).id;
   }
   async function judge(messageId, verdict, target) {
     const ack = waitForMessage(host, m => m.type === 'gm:judge:ack' && m.messageId === messageId, 'judge ack');
@@ -1060,6 +1593,155 @@ async function testColumnScoreAfterFinal() {
   closeWs(host);
 }
 
+async function testRecountShowFlow() {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  const second = await requestJson('/api/auth/player/register', 'POST', {
+    email: `recount-two-${process.pid}@asoc.test`, password: 'test-player-password', name: 'RECOUNT TWO'
+  });
+  assert.ok(second.status === 200 || second.status === 201);
+
+  const p1 = await openWs();
+  const p2 = await openWs();
+  const join = async (ws, token, name) => {
+    const ok = waitForMessage(ws, m => m.type === 'join:success', `${name} join`);
+    ws.send(JSON.stringify({ type: 'room:join', authToken: token, roomCode: room.roomCode, name }));
+    await ok;
+  };
+  await join(p1, TEST_PLAYER_TOKEN, 'RECOUNT ONE');
+  await join(p2, second.data.token, 'RECOUNT TWO');
+
+  // Record every recount:update and every leaked matchResult.recount per socket.
+  const seen = new Map();
+  [['host', host], ['p1', p1], ['p2', p2]].forEach(([label, ws]) => {
+    seen.set(label, { recounts: [], leaks: 0, finalResults: 0 });
+    ws.on('message', raw => {
+      try {
+        const m = JSON.parse(raw);
+        const s = seen.get(label);
+        if (m.type === 'recount:update') s.recounts.push(m);
+        if (m.type === 'score:finalResults') s.finalResults += 1;
+        if (m.type === 'state:public' && m.matchResult && 'recount' in m.matchResult) s.leaks += 1;
+      } catch {}
+    });
+  });
+
+  let cmdId = 9500;
+  const stateWhere = (predicate, label) => waitForMessage(host, m => m.type === 'state:public' && predicate(m), label);
+  const command = name => host.send(JSON.stringify({ type: 'gm:command', command: name, payload: {}, cmdId: ++cmdId }));
+  const nextError = (ws, pattern, label) => waitForMessage(ws, m => m.type === 'error' && pattern.test(m.message || ''), label);
+  async function guess(ws, text) {
+    await delay(400);
+    const seenChat = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === text), `guess "${text}"`);
+    ws.send(JSON.stringify({ type: 'chat:guess', text }));
+    return (await seenChat).messages.filter(x => x.text === text).at(-1).id;
+  }
+  async function judge(messageId, verdict, target) {
+    const ack = waitForMessage(host, m => m.type === 'gm:judge:ack' && m.messageId === messageId, 'judge ack');
+    host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId, verdict, target }));
+    await ack;
+  }
+  async function fail(field) {
+    const next = waitForMessage(host, m => m.type === 'state:public', `fail ${field}`);
+    host.send(JSON.stringify(field === 'FINAL' ? { type: 'gm:failFinal' } : { type: 'gm:failColumn', column: field }));
+    return next;
+  }
+
+  // 1. Not over yet: the host cannot show it; a player never can.
+  const early = nextError(host, /not over yet/i, 'RECOUNT before the game is over');
+  host.send(JSON.stringify({ type: 'gm:showRecount' }));
+  await early;
+  const notHost = nextError(p1, /only host/i, 'non-host RECOUNT rejection');
+  p1.send(JSON.stringify({ type: 'gm:showRecount' }));
+  await notHost;
+
+  // 2. Play a match: a scored solve, a wrong guess, then close out the field.
+  const soloMsg = await guess(p1, 'a column answer');
+  const revealAck = waitForMessage(host, m => m.type === 'command:ack', 'reveal A1');
+  host.send(JSON.stringify({ type: 'gm:command', command: 'revealCell', payload: { cell: 'A1', reveal: true }, cmdId: ++cmdId }));
+  await revealAck;
+  await judge(soloMsg, 'correct', 'A');
+  await judge(await guess(p2, 'a wrong answer'), 'wrong');
+  for (const column of ['B', 'C', 'D']) await fail(column);
+  const complete = stateWhere(m => m.gameComplete === true, 'game complete');
+  host.send(JSON.stringify({ type: 'gm:failFinal' }));
+  await complete;
+  await delay(250);
+
+  // 3. Completed, but NOTHING has been shown: no recount:update, no leak.
+  for (const label of ['host', 'p1', 'p2']) {
+    assert.equal(seen.get(label).recounts.length, 0, `${label}: RECOUNT must wait for the manual SHOW RESULTS`);
+  }
+
+  // 3b. The host decides when results are shown: an answer judged AFTER the
+  //     game completed but BEFORE SHOW RESULTS must still count in the recount
+  //     (it must not be frozen at the moment of completion).
+  await judge(await guess(p2, 'a late wrong answer'), 'wrong');
+
+  // 4. The host presses SHOW RESULTS: everyone gets the SAME recount, live, once,
+  //    and the withheld Final penalty is released with it.
+  const shown = ['host', 'p1', 'p2'].map(label => waitForMessage(
+    label === 'host' ? host : label === 'p1' ? p1 : p2, m => m.type === 'recount:update' && m.recount, `${label} recount`));
+  host.send(JSON.stringify({ type: 'gm:showRecount' }));
+  const [hostMsg, p1Msg, p2Msg] = await Promise.all(shown);
+  await delay(200);
+  assert.equal(hostMsg.live, true);
+  assert.deepEqual(p1Msg.recount, hostMsg.recount, 'every client receives the identical recount');
+  assert.deepEqual(p2Msg.recount, hostMsg.recount);
+  const rc = hostMsg.recount;
+  assert.equal(rc.summary.complete, true);
+  assert.ok(Array.isArray(rc.scoreboard) && rc.scoreboard.length >= 2);
+  assert.ok(rc.scoreboard.some(r => r.name === 'RECOUNT ONE') && rc.scoreboard.some(r => r.name === 'RECOUNT TWO'));
+  const two = rc.scoreboard.find(r => r.name === 'RECOUNT TWO');
+  assert.deepEqual(two.judged, { total: 2, correct: 0, wrong: 2 }, 'answers judged after completion but before SHOW RESULTS are included');
+  assert.ok(Array.isArray(rc.awards) && rc.awards.length <= 3);
+  assert.ok(Array.isArray(rc.overall) && rc.overall.length >= 1);
+  assert.ok(rc.topLabel === 'MATCH WINNER' || rc.topLabel === 'TOP PERFORMER');
+  for (const label of ['host', 'p1', 'p2']) {
+    assert.equal(seen.get(label).finalResults, 1, `${label}: the withheld Final results are released with the RECOUNT`);
+    assert.equal(seen.get(label).leaks, 0, `${label}: the recount never leaks through state:public`);
+  }
+
+  // 5. Idempotent: a second SHOW RESULTS neither re-broadcasts nor regenerates.
+  const before = seen.get('p1').recounts.length;
+  host.send(JSON.stringify({ type: 'gm:showRecount' }));
+  await delay(300);
+  assert.equal(seen.get('p1').recounts.length, before, 'SHOW RESULTS is idempotent');
+
+  // 6. A late joiner is hydrated with the SAME recount, NOT live (no replay).
+  const third = await requestJson('/api/auth/player/register', 'POST', {
+    email: `recount-three-${process.pid}@asoc.test`, password: 'test-player-password', name: 'RECOUNT THREE'
+  });
+  const p3 = await openWs();
+  const hydrated = waitForMessage(p3, m => m.type === 'recount:update', 'late recount hydration');
+  p3.send(JSON.stringify({ type: 'room:join', authToken: third.data.token, roomCode: room.roomCode, name: 'RECOUNT THREE' }));
+  const lateMsg = await hydrated;
+  assert.equal(lateMsg.live, false, 'hydration must never replay the live reveal');
+  assert.deepEqual(lateMsg.recount, hostMsg.recount, 'a late joiner sees the very same recount');
+  closeWs(p3);
+
+  // 7. RESET BOARD ends the RECOUNT for everyone.
+  const closed = waitForMessage(p1, m => m.type === 'recount:update' && m.recount === null, 'recount closed by reset');
+  command('resetBoard');
+  await closed;
+
+  // 8. Opening the whole field completes the match; hiding a slot re-opens it
+  //    and voids a shown RECOUNT.
+  const opened = stateWhere(m => m.gameComplete === true, 'complete by REVEAL ALL');
+  command('revealAll');
+  await opened;
+  const shownAgain = waitForMessage(p2, m => m.type === 'recount:update' && m.recount && m.live === true, 'second recount');
+  host.send(JSON.stringify({ type: 'gm:showRecount' }));
+  await shownAgain;
+  const voided = waitForMessage(p2, m => m.type === 'recount:update' && m.recount === null, 'recount voided');
+  command('hideAll');
+  await voided;
+
+  console.log('PASS RECOUNT: manual gate, host-only, live-once, hydration, void/reset, no leak');
+  closeWs(p1); closeWs(p2); closeWs(host);
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ['server.js'], {
@@ -1069,7 +1751,7 @@ function startServer() {
         PORT: String(PORT),
         ASOC_PLAYERS_FILE: TEST_PLAYERS,
         ASOC_SESSION_FILE: TEST_SESSION,
-        ASOC_AUTH_FILE: path.join(os.tmpdir(), `asoc-test-auth-${process.pid}.json`),
+        ASOC_AUTH_FILE: TEST_AUTH_FILE,
         ASOC_PLAYER_AUTH_SESSIONS_FILE: TEST_PLAYER_AUTH_SESSIONS,
         ASOC_MATCHES_FILE: TEST_MATCHES,
         ASOC_GM_PASSWORD: 'test-gm-password'
@@ -1106,9 +1788,14 @@ function startServer() {
 (async () => {
   let server;
   try {
+    // A recycled Windows PID must not inherit an auth database from an aborted
+    // earlier regression run. Test isolation should not depend on municipal luck.
+    try { fs.unlinkSync(TEST_AUTH_FILE); } catch {}
+    try { fs.unlinkSync(TEST_AUTH_FILE + '.tmp'); } catch {}
     testShadowBrokerTiming();
     server = await startServer();
     await setupAuth();
+    await testMasterRoomLifecycle();
     await testAuthEnforcement();
     await testStaticLockdown();
     await testReconnectIdentity();
@@ -1121,7 +1808,11 @@ function startServer() {
     await testBloodTributeLifecycle();
     await testMatchCaptureAndCompletion();
     await testColumnScoreAfterFinal();
+    await testRecountShowFlow();
     server = await testCrashRecovery(server);
+    server = await testUnarmedMasterRoomRecovery(server);
+    server = await testCrashInjectionPersistence(server);
+    server = await testTributeForgive(server);
     console.log('ALL ASOC REGRESSION TESTS PASSED');
   } catch (error) {
     console.error('TEST FAILURE:', error.stack || error.message);
@@ -1132,6 +1823,8 @@ function startServer() {
     try { fs.unlinkSync(TEST_SESSION); } catch {}
     try { fs.unlinkSync(TEST_PLAYER_AUTH_SESSIONS); } catch {}
     try { fs.unlinkSync(TEST_PLAYER_AUTH_SESSIONS + '.tmp'); } catch {}
+    try { fs.unlinkSync(TEST_AUTH_FILE); } catch {}
+    try { fs.unlinkSync(TEST_AUTH_FILE + '.tmp'); } catch {}
     try { fs.unlinkSync(TEST_MATCHES); } catch {}
     try { fs.unlinkSync(TEST_MATCHES + '.bak'); } catch {}
   }

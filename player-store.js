@@ -18,9 +18,11 @@
 const fs = require('fs');
 const path = require('path');
 
+const DATA_DIR = process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_DIR) : __dirname;
 const PLAYERS_FILE = process.env.ASOC_PLAYERS_FILE
   ? path.resolve(process.env.ASOC_PLAYERS_FILE)
-  : path.join(__dirname, 'players.json');
+  : path.join(DATA_DIR, 'players.json');
+fs.mkdirSync(path.dirname(PLAYERS_FILE), { recursive: true });
 const PLAYERS_BACKUP_FILE = PLAYERS_FILE + '.bak';
 let storageHealthy = true;
 

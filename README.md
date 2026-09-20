@@ -36,17 +36,18 @@ For LAN multiplayer, other devices use:
   - UNDO LAST (Ctrl+Z) — *local mode only*
 - **Background**: Dropdown to swap background images
 - **Game**: Current game title/difficulty, GAME LIBRARY + NEW GAME buttons
-- **Multiplayer**: HOST ROOM / CLOSE ROOM, room code display, player list, NEXT GAME button
+- **Multiplayer**: ARM GAME / KILL SESSION, permanent Master Room, player list, NEXT GAME button
 
 ### Public View
 - Clean player-facing board showing only revealed information
 - No controls, no hidden answers, no GM notes
 
 ### Player Join (join.html)
-- Enter room code and name
-- Instantly see current board state
+- Enter the permanent Master Room with player identity only; no room code is required
+- When unarmed, Battle Comms stays available while the gameplay surface remains dormant
+- When the GM arms a game, connected players transition in place to the live board
 - Auto-reconnect on connection loss
-- Submit guesses in chat panel beneath board
+- Submit guesses and normal chat through Battle Comms
 
 ### Gamemaster Chat (index.html)
 - GUESSES panel shows all player submissions
@@ -367,34 +368,38 @@ The server's `getPublicState()` function explicitly omits `value` for unrevealed
 
 ### Reconnection Behavior
 **GM (Host):**
-- 60-second grace period after disconnect
-- Host token in `sessionStorage` enables `host:reconnect`
-- If host returns within 60s: room restored, current state resent
-- After 60s: room closed, all players notified
+- Host token in `sessionStorage` enables `host:reconnect` while a game is armed
+- A dropped GM connection no longer destroys the Master Room or disconnects players
+- KILL SESSION disarms gameplay only; the permanent room and Battle Comms stay online
 
 **Players:**
 - Exponential backoff reconnect (1s, 1.5s, 2.25s... max 10s, 10 attempts)
-- `sessionStorage` preserves room code, name, player ID
-- On reconnect: `room:join` with stored credentials → immediate `state:public` with current board
+- `sessionStorage` preserves player name and player ID; the room identifier is no longer player-facing
+- On reconnect: `room:join` with stored credentials → immediate `state:public` for the current Master Room state
 
 ### Chat Architecture
 
-#### CHAT IS SESSION STATE
-Chat belongs to the live room/session. It is NOT part of game JSON.
+#### CHAT IS MASTER ROOM STATE
+Chat belongs to the permanent Master Room, not to an individual game JSON or disposable gameplay session. It remains available while ASOC is unarmed and survives ARM / KILL SESSION / NEXT GAME transitions.
 
 ```text
 GAME DATA
 Puzzle definition
 
-SESSION STATE
+MASTER ROOM STATE
+Players / presence
+Chat history
+Reactions / replies
+
+ACTIVE GAME STATE
 Reveals
 Background
 Revision
-Chat
 Guess verdicts
 Solved targets
 
 PUBLIC STATE
+Armed / unarmed lifecycle
 Sanitized board state
 Public chat
 Public verdicts
@@ -448,11 +453,13 @@ Windows may prompt "Node.js: JavaScript runtime" to allow network access. **Allo
 
 #### Test Steps
 1. **GM Machine:** `npm start` → open `http://localhost:8080`
-2. **GM:** Click **HOST ROOM** → note room code (e.g., `K7RX`)
-3. **Player Device:** Open `http://192.168.x.x:8080/join.html`
-4. **Player:** Enter room code `K7RX`, name `TEST` → JOIN
-5. **GM:** Click **A1 REVEAL** in Clue Grid
-6. **Player:** A1 appears instantly (no refresh)
+2. **Player Device:** Open `http://192.168.x.x:8080/join.html`
+3. **Player:** Enter the Master Room as `TEST`; verify Battle Comms works while the system is unarmed
+4. **GM:** Click **ARM GAME**
+5. **Player:** The live board appears automatically without rejoining
+6. **GM:** Click **A1 REVEAL** in Clue Grid
+7. **Player:** A1 appears instantly (no refresh)
+8. **GM:** Click **KILL SESSION**; player remains connected in the unarmed Master Room
 
 #### Verify Checklist
 - [ ] A1 hide syncs
@@ -623,9 +630,9 @@ GM-only tools for managing games and backgrounds entirely in-app. No manual JSON
 - Path traversal and invalid file types are rejected by the server
 
 ### Loading & NEXT GAME
-- **LOAD** (no room): replaces the local GM board with the new game, board reset hidden
-- **LOAD** (with active room): confirmation prompt → server switches the room's game, clears chat/solved targets, resets reveal state, keeps room code + all players
-- **NEXT GAME** button (multiplayer toolbar): opens the library restricted to the room context
+- **LOAD** (unarmed): replaces the local GM board with the new game, board reset hidden
+- **LOAD** (with an armed game): confirmation prompt → server switches the active game, preserves Battle Comms history, clears solved targets, resets gameplay state, keeps the Master Room + all players
+- **NEXT GAME** button (multiplayer toolbar): opens the library restricted to the active game context
 - Players receive the new board + background instantly; hidden answers never appear in their payloads
 
 ### Server API (GM token required)
@@ -832,15 +839,27 @@ Tone: the system has calculated that further resistance is pointless. Cold, clin
 
 ## Match Ledger & Archive (RECOUNT data capture)
 
-Foundation for the post-game RECOUNT and Match Awards Engine. **Data capture only** — no awards, no RECOUNT screen yet. History cannot be backfilled: it starts when this layer goes live.
+Foundation for the post-game RECOUNT and Match Awards Engine (see *LOCKED SPEC — RECOUNT* below). History cannot be backfilled: it starts when this layer goes live.
 
 - **A match = one board.** `room.match` (see `match-ledger.js`, pure functions) is replaced with a fresh ledger whenever a new board id is minted (room create, RESET BOARD, NEXT GAME). It is persisted with the room snapshot, so it survives a crash.
-- **Game end is locked: the WHOLE FIELD must be opened** — all four column solutions (A5–D5) **and** the FINAL solution. However a field got opened counts: a correct guess (`solved`), a GM-declared failure (`failed`), or simply being revealed on the board (`revealed`, including a plain GM reveal or REVEAL ALL). Precedence is solved > failed > revealed. A Final solved early does **not** end the game — players can still solve the remaining columns (at 50% points, see *Columns solved after the Final*). Status is *derived* each time from `chat.solvedTargets`, `womf.failedColumns` / `ledger.failedAt.FINAL` and the board's revealed slots; hiding a merely-revealed slot re-opens the game. Because opening the field is the ending parameter, REVEAL ALL completes the match; nothing reaches players until the host's manual SHOW RESULTS (planned RECOUNT gate), and victory is still only ever the host's GAME WON. Exposed as `state:public.gameComplete` (boolean only — the ledger never leaves the server). This is distinct from `gameWon`, which is the victory presentation.
+- **Game end is locked: the WHOLE FIELD must be opened** — all four column solutions (A5–D5) **and** the FINAL solution. However a field got opened counts: a correct guess (`solved`), a GM-declared failure (`failed`), or simply being revealed on the board (`revealed`, including a plain GM reveal or REVEAL ALL). Precedence is solved > failed > revealed. A Final solved early does **not** end the game — players can still solve the remaining columns (at 50% points, see *Columns solved after the Final*). Status is *derived* each time from `chat.solvedTargets`, `womf.failedColumns` / `ledger.failedAt.FINAL` and the board's revealed slots; hiding a merely-revealed slot re-opens the game. Because opening the field is the ending parameter, REVEAL ALL completes the match; nothing reaches players until the host's manual SHOW RESULTS (the RECOUNT gate), and victory is still only ever the host's GAME WON. Exposed as `state:public.gameComplete` (boolean only — the ledger never leaves the server). This is distinct from `gameWon`, which is the victory presentation.
 - **Attempts are GM-judged messages only** (upserted by message id, so a flipped or retargeted verdict updates the same attempt). Unjudged chat is recorded separately as *activity* and never counts as an attempt. Wrong verdicts carry no target, so wrong attempts record the total clues revealed at judging time.
 - **Participation:** per-player presence intervals + first-seen (`joinedAt` is overwritten on reconnect, so it cannot be used for this).
 - **Archive:** on completion the server writes a record to `matches.json` (`match-store.js`, gitignored; same atomic-write / backup / quarantine / fail-safe rules as `players.json`): fields, per-player match points (events for THIS board only), judged counts, activity, presence, the full attempt list, and overall standings before/after (shared places: 1, 2, 2, 4). A verdict reversal that re-opens a field withdraws the record; it is re-written on the next completion. RESET BOARD / NEXT GAME never delete a completed match.
 - **History key is the display name** (same as profiles); the account id is stored alongside each player for future migration.
 - **GM board lock** (`body.game-complete`): when the match is complete the clue grid, REVEAL ALL, Undo and FAIL buttons lock. Chat, judging, RESET BOARD and NEXT GAME stay live. It is keyed to `gameComplete`, never to `gameWon` — an early Final leaves columns that still need the clue grid and FAIL A–D.
+
+## LOCKED SPEC — RECOUNT (post-game audit + Match Awards Engine)
+
+The screen is called **RECOUNT** — never "Results". Files: `recount-engine.js` (pure engine), `js/recount.js` (shared GM/player renderer), `match-ledger.js` / `match-store.js` (data), CSS block "RECOUNT // post-game audit".
+
+- **Gate:** RECOUNT exists only after the match is complete (whole field opened, see *Match Ledger*) **and** the host presses the manual `SHOW RESULTS` button (`gm:showRecount`). Nothing is computed for players, and nothing leaks in `state:public`, before that press. The button is hidden unless `body.game-complete`.
+- **Built at press time, not at completion**, so judgments made between the last field opening and SHOW RESULTS are included. The result is then stored on the ledger and in the `matches.json` record (`resultsShownAt`, `recount`) and is **never regenerated** on refresh or reconnect. A verdict reversal that re-opens the board voids it. `publicMatchResult` strips `recount` from `state:public`.
+- **Protocol:** `recount:update {recount, live}` — `live:true` only at the press (staged reveal + GM and every player); `live:false` is hydration for late/reconnecting clients (static, never auto-opens or replays; players get a reopen `RECOUNT` pill); `recount:null` closes it (RESET BOARD / NEXT GAME / game load).
+- **Content:** MATCH WINNER (top points *this match only*; separate from OVERALL LEADER), match scoreboard, 2–3 awards revealed one at a time, overall rankings with ▲/▼/— movement. Movement is only claimed for players with an earlier game; a debut shows —. A failed/lost game gets a RECOUNT too, headed **TOP PERFORMER**.
+- **Ranking rules:** ties break on fewer wrong answers; only fully equal results share a place (1-2-2-4). Attempts are GM-judged messages only. History key = display name.
+- **Awards are data-driven, never random.** Every award carries evidence (the numbers that triggered it) and commentary. Deterministic: tie-breaks and line variants use a seeded sha256 hash of the match id — no `Math.random`. Selection: qualify → strength/severity → conflict groups (rank = severity tier × 2 + strength, so a catastrophic finding outranks a minor one) → per-player limits (1 award per player; a 2nd only when both are exceptional and unrelated; never more) → ≤ 3 total. Participation protection: a quiet player is not mocked. Failure awards need ≥ 10 judged answers in the match; inactivity awards need enough duration/active players; historical awards need ≥ 5 archived matches that had their RECOUNT shown.
+- **Catalog:** 37 shipped awards (distinction / anomaly / failure). **Held back, not shipped:** NEGATIVE SYNERGY, UNAUTHORIZED THINKING, THE TOUR GUIDE (no reliable signal yet). `tests/recount-engine.js` has a hit and a near-miss case for every shipped award and fails if the catalog and tests drift.
 
 ## LOCKED SPEC — WOMF Blood Tribute
 
