@@ -693,6 +693,13 @@ const PlayerApp = {
         if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' LINKED';
         break;
 
+      case 'battle:launchCountdown':
+        // Mirror the GM's full-screen T-10 launch sequence on every player
+        // client. This is presentation only; the authoritative game timer
+        // still starts from the host's gm:timerStart at zero.
+        Timer.runStartCountdown('timer-tracker-player');
+        break;
+
       case 'battle:controlsOnline':
         this.showBattleControlsOnline();
         this.addBattleEvent('BATTLE CONTROLS ONLINE');
