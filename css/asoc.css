@@ -7989,3 +7989,125 @@ body.game-complete .recount-btn,
     font-size:.55rem;
   }
 }
+
+
+/* =========================================================
+   MOBILE MODE LOCK 06
+   Desktop remains canonical. Everything below exists only for phones.
+   ========================================================= */
+@media (max-width:760px) {
+  :root { --mobile-ui-gap:8px; }
+
+  /* The GM application becomes a real document on mobile. */
+  #app-layout { display:block; }
+  #main-content { display:block; }
+  #main-content > * { max-width:100%; }
+  #gm-panel { display:block; }
+
+  /* No desktop module is allowed to force the phone wider than its viewport. */
+  #gm-panel *,
+  .forge-overlay *,
+  .wheel-overlay *,
+  .blood-tribute-overlay *,
+  .recount-overlay * { min-width:0; }
+
+  .gm-global-controls,
+  .gm-column-controls,
+  .difficulty-picker,
+  .forge-toolbar,
+  .forge-form-row {
+    width:100%;
+    max-width:100%;
+  }
+
+  .forge-grid {
+    grid-template-columns:1fr;
+    max-height:none;
+    overflow:visible;
+    padding:10px;
+  }
+  .forge-card { min-width:0; }
+  .forge-toolbar { flex-wrap:wrap; padding:10px; gap:8px; }
+  .forge-toolbar > * { flex:1 1 140px; }
+  .forge-editor,
+  .forge-form,
+  .forge-form-row { max-width:100%; }
+  .forge-form-row { flex-wrap:wrap; }
+  .forge-form-row input,
+  .forge-form-row select,
+  .forge-form-row textarea { width:100%; max-width:100%; font-size:16px; }
+
+  /* System layers become viewport-safe, not desktop canvases clipped by glass. */
+  #score-announcement-layer,
+  .final-outcome-banner,
+  .nema-asoc-overlay,
+  .battle-controls-online,
+  .loading-overlay {
+    max-width:100dvw;
+    box-sizing:border-box;
+  }
+
+  .final-outcome-banner {
+    width:calc(100dvw - 16px);
+    max-height:calc(100dvh - 20px);
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .nema-asoc-terminal {
+    min-width:0;
+    width:min(100%,620px);
+  }
+
+  .battle-controls-online {
+    width:100dvw;
+    min-height:100dvh;
+    overflow-y:auto;
+    padding:
+      max(14px,env(safe-area-inset-top))
+      max(10px,env(safe-area-inset-right))
+      max(18px,env(safe-area-inset-bottom))
+      max(10px,env(safe-area-inset-left));
+  }
+
+  /* GM chat is a touch interface on phones. */
+  .gm-chat-message,
+  .gm-chat-broker-entry {
+    max-width:100%;
+    overflow-wrap:anywhere;
+  }
+  .gm-chat-reply-btn,
+  .gm-chat-reaction-add,
+  .gm-chat-reaction-chip {
+    opacity:1;
+    pointer-events:auto;
+    min-width:32px;
+    min-height:32px;
+    touch-action:manipulation;
+  }
+
+  /* Tables keep their data instead of becoming microscopic. */
+  .session-leaderboard table,
+  .alltime-leaderboard table,
+  .blood-tribute-vault-list table {
+    min-width:520px;
+  }
+
+  /* Footer/navigation is finger-sized. */
+  .gm-footer {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+  .gm-footer button { width:100%; min-height:48px; }
+
+  /* Prevent decorative animation layers from stealing gestures. */
+  .victory-overlay::before,
+  .victory-overlay::after,
+  .defeat-overlay::before,
+  .defeat-overlay::after,
+  .nema-asoc-overlay::before,
+  .nema-asoc-overlay::after {
+    pointer-events:none;
+  }
+}
