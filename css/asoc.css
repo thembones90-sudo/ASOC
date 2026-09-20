@@ -67,6 +67,11 @@
   /* Typography */
   --font-system: 'Barlow Condensed', 'Segoe UI', system-ui, sans-serif;
   --font-human: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Dedicated chat stack with complete Serbian Latin / Latin Extended glyphs.
+     Do not route human-entered chat through the condensed ASOC display face:
+     its local subset can fall back glyph-by-glyph for Š Đ Č Ć Ž, producing
+     visibly mismatched capital letters. */
+  --font-chat: 'Segoe UI', 'Noto Sans', Arial, system-ui, sans-serif;
   --font-machine: Consolas, 'Courier New', ui-monospace, monospace;
 }
 
@@ -2635,7 +2640,7 @@ body.game-complete .fail-final-btn {
    looking broken elsewhere). The message text itself is never forced
    uppercase -- only the SHADOW BROKER name/header above is. */
 .shadow-broker-text {
-  font-family: var(--font-system);
+  font-family: var(--font-chat);
   font-weight: 700;
   letter-spacing: 0.06em;
   font-size: 0.85rem;
@@ -2791,7 +2796,7 @@ body.game-complete .fail-final-btn {
 }
 
 .gm-chat-message-text {
-  font-family: var(--font-human);
+  font-family: var(--font-chat);
   font-size: 0.85rem;
   color: var(--text-primary);
   word-wrap: break-word;
@@ -2983,7 +2988,7 @@ body.game-complete .fail-final-btn {
 .gm-chat-inline-content {
   min-width: 0;
   color: #dfe3e9;
-  font-family: var(--font-human);
+  font-family: var(--font-chat);
   font-size: .72rem;
   line-height: 1.24;
   overflow-wrap: anywhere;
@@ -6545,7 +6550,7 @@ body.game-complete .fail-final-btn {
 .gm-module-chat .gm-flow-message .gm-chat-message-text {
   display: block !important;
   color: #d7dce2 !important;
-  font-family: var(--font-human);
+  font-family: var(--font-chat);
   font-size: .74rem !important;
   line-height: 1.3;
   text-decoration: none !important;
@@ -6905,6 +6910,17 @@ body.game-complete .fail-final-btn {
   box-shadow:inset 0 1px rgba(255,255,255,.04),0 0 8px rgba(92,184,122,.08);
 }
 
+
+/* SERBIAN LATIN CHAT FIX // keep every human-readable chat surface on one
+   Latin Extended-capable face. This prevents glyph-by-glyph fallback for
+   uppercase Š Đ Č Ć Ž in names, messages, replies and Broker transmissions. */
+.gm-module-chat .gm-chat-player-name,
+.gm-module-chat .gm-chat-message-text,
+.gm-module-chat .gm-chat-reply-context,
+.gm-module-chat .shadow-broker-text,
+.shadow-broker-input {
+  font-family: var(--font-chat) !important;
+}
 
 /* COMPACT SKYPE PASS // preserve identity + adjudication, reclaim vertical space. */
 .gm-module-chat .gm-chat-message.gm-flow-message {
