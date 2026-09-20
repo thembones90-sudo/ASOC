@@ -466,8 +466,13 @@ const Skeleton = (() => {
     if (live) gameWonTimers.push(setTimeout(() => {
       overlay.classList.add('is-settled');
       gameWonTimers = [];
-      onStage('done');
     }, 14500));
+    if (live) overlay.addEventListener('click', () => {
+      gameWonTimers.forEach(clearTimeout);
+      gameWonTimers = [];
+      overlay.remove();
+      onStage('done');
+    }, { once: true });
     return overlay;
   }
 

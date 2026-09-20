@@ -1691,6 +1691,8 @@ body.game-lost .board-cell.final-solution.revealed {
 .victory-recount {margin:18px auto 0;padding:24px;border-top:1px solid rgba(34,199,132,.25);background:rgba(3,10,8,.86)}
 .victory-recount h2 {margin:18px 0 7px;color:#76ac93;font-size:.72rem;letter-spacing:.3em}.victory-recount>strong,.victory-recount>b{display:block}.victory-recount>strong{font-size:1.65rem;color:#d9ece3}.victory-recount>b{margin-top:5px;color:#61ad8b;font-size:.8rem}
 .victory-overlay.is-live .victory-message{animation:defeat-step 2.8s both}.victory-overlay.is-live .victory-title{animation:defeat-step .8s 2.6s both}.victory-overlay.is-live .victory-subline{animation:defeat-step .9s 3.6s both}.victory-overlay.is-live .victory-solution{animation:defeat-step .9s 5.1s both}.victory-overlay.is-live .victory-recount{animation:defeat-step .9s 8s both}
+.victory-overlay.is-live {cursor:pointer}
+.victory-overlay.is-settled::after {content:'CLICK TO CONFIRM';position:fixed;right:24px;bottom:18px;color:#6fa58c;font:700 .54rem var(--font-machine);letter-spacing:.18em;animation:defeat-step .5s both}
 @media(max-width:700px){.victory-columns{grid-template-columns:repeat(2,1fr)}}
 @media(prefers-reduced-motion:reduce){.victory-overlay *{animation:none!important}.victory-overlay.is-live .victory-message,.victory-overlay.is-live .victory-title,.victory-overlay.is-live .victory-subline,.victory-overlay.is-live .victory-solution,.victory-overlay.is-live .victory-recount{opacity:1}}
 
