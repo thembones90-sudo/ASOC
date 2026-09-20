@@ -41,13 +41,16 @@
         </div>
         <div class="battle-controls-grid">
           <div class="battle-controls-host-slot">
-            <button class="gm-global-btn primary battle-host-btn" id="host-room-btn">HOST GAME</button>
+            <button class="gm-global-btn primary battle-host-btn" id="host-room-btn">ARM GAME</button>
             <button class="gm-global-btn battle-next-btn" id="next-game-btn" style="display: none;">NEXT GAME</button>
           </div>
-          <button class="gm-global-btn nema-asoc-btn battle-nema-btn" id="nema-asoc-btn" title="Trigger the toxic NEMA ASOC protocol"><span class="nema-nuclear-mark" aria-hidden="true">☢</span> NEMA ASOC</button>
+          <button class="gm-global-btn nema-asoc-btn battle-nema-btn" id="nema-asoc-btn" title="Trigger the toxic NEMA ASOC protocol"><svg class="nema-sprite" aria-hidden="true" focusable="false"><symbol id="nema-trefoil" viewBox="0 0 100 100"><path d="M59.00 65.59L72.50 88.97A45 45 0 0 1 27.50 88.97L41.00 65.59A18 18 0 0 0 59.00 65.59ZM32.00 50.00L5.00 50.00A45 45 0 0 1 27.50 11.03L41.00 34.41A18 18 0 0 0 32.00 50.00ZM59.00 34.41L72.50 11.03A45 45 0 0 1 95.00 50.00L68.00 50.00A18 18 0 0 0 59.00 34.41ZM50 41.5a8.5 8.5 0 1 0 .01 0Z"/></symbol></svg><span class="nema-pattern" aria-hidden="true"></span><svg class="nema-mark-bg" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use href="#nema-trefoil"/></svg><svg class="nema-nuclear-mark nema-mark-l" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use href="#nema-trefoil"/></svg><span class="nema-label">NEMA ASOC</span><svg class="nema-nuclear-mark nema-mark-r" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use href="#nema-trefoil"/></svg></button>
           <button class="gm-global-btn game-won-btn battle-won-btn" id="game-won-btn" title="Declare the game won (host). Accepting the Final alone does not end the game.">GAME WON</button>
           <button class="gm-global-btn game-lost-btn battle-lost-btn is-testable" id="game-lost-btn" type="button" title="Preview the GAME LOST sequence locally">TEST GAME LOST</button>
         </div>
+        <!-- RECOUNT gate: appears only when the game is over (whole field opened, or lost
+             on time). SHOW RESULTS broadcasts the RECOUNT to everyone; afterwards it reopens it. -->
+        <button class="gm-global-btn recount-btn" id="recount-btn" type="button">SHOW RESULTS</button>
       </section>
     </main>
 
@@ -110,6 +113,7 @@
           <div id="blood-tribute-vault-status" class="blood-tribute-vault-status">NO TRIBUTES ARCHIVED</div>
           <div id="blood-tribute-vault-list" class="blood-tribute-vault-list"></div>
           <button type="button" class="gm-global-btn reset-btn" id="blood-tribute-vault-clear" style="width: 100%; margin-top: 8px;">PURGE VAULT</button>
+          <button type="button" class="gm-global-btn reset-btn" id="blood-tribute-override-btn" style="width: 100%; margin-top: 8px; display: none;">OVERRIDE DEBT</button>
         </section>
 
         <section class="gm-section gm-module gm-module-global">
@@ -154,8 +158,8 @@
               <span class="mp-value" id="mp-mode">LOCAL</span>
             </div>
             <div class="mp-row" id="mp-room-row" style="display: none;">
-              <span class="mp-label">ROOM</span>
-              <span class="mp-value mp-code" id="mp-room-code">—</span>
+              <span class="mp-label">CHANNEL</span>
+              <span class="mp-value mp-code" id="mp-room-code">MASTER ROOM</span>
             </div>
             <div class="mp-row" id="mp-status-row" style="display: none;">
               <span class="mp-label">STATUS</span>
@@ -230,6 +234,7 @@
   </script>
   <script src="js/themes.js"></script>
   <script src="js/skeleton.js"></script>
+  <script src="js/recount.js"></script>
   <script src="js/womf.js"></script>
   <script src="js/wheel.js"></script>
   <script src="js/timer.js"></script>

@@ -85,8 +85,8 @@ const Womf = {
       seg.classList.toggle('current', charge > 0 && i === charge - 1);
       // Only a segment newly earned in THIS update gets the light-up
       // animation -- never replay it on a segment that was already lit,
-      // and never fire it on a decrease (WOMF charge never decreases
-      // today, but this guards the animation either way).
+      // and never fire it on a decrease (gm:womfSubtract can lower the
+      // charge, but this guards the animation either way).
       if (filled && i >= prevCharge && charge > prevCharge) {
         seg.classList.remove('womf-newly-filled');
         void seg.offsetWidth; // restart the animation if it's mid-flight

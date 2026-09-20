@@ -81,10 +81,6 @@
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
-    #room-code {
-      font-family: var(--font-machine);
-      font-variant-numeric: tabular-nums;
-    }
 
     .form-input::placeholder {
       color: var(--text-dim);
@@ -679,6 +675,44 @@
       min-height: 0;
       z-index: 1;
     }
+
+    .master-room-standby {
+      position:absolute;
+      inset:clamp(18px,4vh,48px) clamp(12px,2vw,28px);
+      z-index:8;
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+      gap:10px;
+      padding:24px;
+      border:1px solid rgba(91,107,124,.38);
+      border-radius:8px;
+      background:linear-gradient(180deg,rgba(12,16,21,.96),rgba(5,8,11,.98));
+      box-shadow:inset 0 0 60px rgba(0,0,0,.48),0 16px 45px rgba(0,0,0,.28);
+      text-align:center;
+    }
+    .master-room-standby:not([hidden]) { display:flex; }
+    .master-room-standby-kicker {
+      color:#7a8795;
+      font:700 .62rem var(--font-machine);
+      letter-spacing:.22em;
+    }
+    .master-room-standby-title {
+      color:#aeb8c3;
+      font:800 clamp(1.35rem,3vw,2.45rem) var(--font-machine);
+      letter-spacing:.16em;
+      text-shadow:0 0 18px rgba(125,144,163,.12);
+    }
+    .master-room-standby-copy {
+      max-width:560px;
+      color:#6f7b88;
+      font:600 .74rem var(--font-system);
+      letter-spacing:.08em;
+      line-height:1.7;
+    }
+    #game-screen.master-room-unarmed .public-board-frame,
+    #game-screen.master-room-unarmed .timer-tracker,
+    #game-screen.master-room-unarmed .womf-tracker { visibility:hidden; }
 
     /* LOCKED geometry rule: the board is canonically 1900x1267 and that
        ratio is sacred everywhere it's shown -- it may scale uniformly but
@@ -2869,7 +2903,7 @@
     }
     .join-primary-grid {
       display:grid;
-      grid-template-columns:1fr 1fr;
+      grid-template-columns:1fr;
       gap:12px;
     }
     .join-primary-grid .form-group {
@@ -3016,7 +3050,7 @@
       .join-brand::before,.join-brand::after { display:none; }
       .join-form { padding:13px 12px 14px; }
       .join-form-head small { display:none; }
-      .join-primary-grid { grid-template-columns:1fr 1fr; gap:8px; }
+      .join-primary-grid { grid-template-columns:1fr; gap:8px; }
       .join-form .form-input { height:44px; font-size:.95rem; letter-spacing:2px; }
       .little-hero-appearance { grid-template-columns:108px minmax(0,1fr); gap:8px; }
       .little-hero-avatar-upload { min-height:152px; padding:8px; }
@@ -4013,14 +4047,10 @@
 
     <form class="join-form" id="join-form">
       <div class="join-form-head">
-        <span>JOIN THE BATTLE</span>
-        <small>ASOC TERMINAL // PLAYER ACCESS</small>
+        <span>ENTER MASTER ROOM</span>
+        <small>ASOC TERMINAL // PERMANENT CHANNEL</small>
       </div>
       <div class="join-primary-grid">
-      <div class="form-group">
-        <label class="form-label" for="room-code">Room Code</label>
-        <input type="text" class="form-input" id="room-code" placeholder="K7RX" maxlength="4" autocomplete="off" required>
-      </div>
       <div class="form-group">
         <label class="form-label" for="player-name">Little Hero Designation</label>
         <input type="text" class="form-input" id="player-name" placeholder="USERNAME" maxlength="20" autocomplete="off" required>
@@ -4167,7 +4197,7 @@
         </div>
       </div>
 
-      <button type="submit" class="join-btn" id="join-btn">ENTER BATTLEFIELD</button>
+      <button type="submit" class="join-btn" id="join-btn">ENTER MASTER ROOM</button>
       <div class="error-message" id="error-message"></div>
     </form>
   </div>
@@ -4175,6 +4205,11 @@
   <div id="game-screen">
     <div id="player-battle-layout" class="player-battle-layout">
     <div id="board-layer">
+      <div id="master-room-standby" class="master-room-standby" hidden>
+        <div class="master-room-standby-kicker">MASTER ROOM // CHANNEL OPEN</div>
+        <div class="master-room-standby-title">SYSTEM UNARMED</div>
+        <div class="master-room-standby-copy">Battle Comms remain online. Awaiting Shadow Broker activation.</div>
+      </div>
       <div class="timer-tracker" id="timer-tracker-player"></div>
       <div class="womf-tracker" id="womf-tracker-player"></div>
       <div id="public-board-frame" class="public-board-frame">
@@ -4230,7 +4265,7 @@
       <div class="chat-header">
         <div class="battle-comms-heading">
           <span class="chat-title">BATTLE COMMS</span>
-          <span class="battle-comms-room" id="battle-comms-room">MONITORED // ROOM ----</span>
+          <span class="battle-comms-room" id="battle-comms-room">MONITORED // MASTER ROOM</span>
         </div>
         <div class="battle-comms-status">
           <span class="battle-comms-online" id="battle-comms-online">● 0 LINKED</span>
@@ -4350,7 +4385,7 @@
     document.querySelectorAll('.access-back').forEach(b=>b.onclick=()=>show(null));
     const playerLogout=document.getElementById('player-logout-control');
     const playerAuthTokenKey='asoc_player_auth_token';
-    const playerSessionKeys=['asoc_player_id','asoc_player_name','asoc_room_code'];
+    const playerSessionKeys=['asoc_player_id','asoc_player_name'];
     const getStoredPlayerAuthToken=()=>localStorage.getItem(playerAuthTokenKey)||sessionStorage.getItem(playerAuthTokenKey)||'';
     const persistPlayerAuthToken=(token)=>{
       if(!token)return;
@@ -4464,6 +4499,7 @@
   </script>
   <script src="js/themes.js"></script>
   <script src="js/skeleton.js"></script>
+  <script src="js/recount.js"></script>
   <script src="js/womf.js"></script>
   <script src="js/wheel.js"></script>
   <script src="js/timer.js"></script>

@@ -185,7 +185,7 @@ const ControlSurfaces = {
 
     if (mode) mode.textContent = multiplayer ? 'MULTIPLAYER' : 'LOCAL';
     if (room) room.style.display = multiplayer ? 'inline' : 'none';
-    if (code) code.textContent = app.roomCode || '—';
+    if (code) code.textContent = multiplayer ? 'MASTER ROOM' : '—';
     if (heroes) heroes.style.display = multiplayer ? 'inline' : 'none';
     if (count) count.textContent = String((app.currentPlayers || []).length);
   }

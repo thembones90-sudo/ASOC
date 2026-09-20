@@ -1286,31 +1286,128 @@ textarea {
   cursor: wait;
 }
 
+/* NEMA ASOC button // toxic hazard face.
+   Layers, back to front: acid base -> staggered trefoil field (.nema-pattern)
+   -> giant watermark trefoil -> hazard-stripe rails (::before/::after) ->
+   label flanked by two spinning trefoils. Presentation only. */
 .nema-asoc-btn {
+  --nema-lit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Cg transform='translate(6 6) scale(.14)'%3E%3Cpath fill='%23c6ff2e' fill-opacity='.34' d='M59.00 65.59L72.50 88.97A45 45 0 0 1 27.50 88.97L41.00 65.59A18 18 0 0 0 59.00 65.59ZM32.00 50.00L5.00 50.00A45 45 0 0 1 27.50 11.03L41.00 34.41A18 18 0 0 0 32.00 50.00ZM59.00 34.41L72.50 11.03A45 45 0 0 1 95.00 50.00L68.00 50.00A18 18 0 0 0 59.00 34.41ZM50 41.5a8.5 8.5 0 1 0 .01 0Z'/%3E%3C/g%3E%3C/svg%3E");
+  --nema-dark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Cg transform='translate(6 6) scale(.14)'%3E%3Cpath fill='%23020a00' fill-opacity='.5' d='M59.00 65.59L72.50 88.97A45 45 0 0 1 27.50 88.97L41.00 65.59A18 18 0 0 0 59.00 65.59ZM32.00 50.00L5.00 50.00A45 45 0 0 1 27.50 11.03L41.00 34.41A18 18 0 0 0 32.00 50.00ZM59.00 34.41L72.50 11.03A45 45 0 0 1 95.00 50.00L68.00 50.00A18 18 0 0 0 59.00 34.41ZM50 41.5a8.5 8.5 0 1 0 .01 0Z'/%3E%3C/g%3E%3C/svg%3E");
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .55em;
   margin-top: 8px;
   min-height: 44px;
-  border-color: rgba(116, 216, 35, 0.92) !important;
-  color: #d7ff76 !important;
+  border-color: #b6ff1a !important;
+  border-width: 2px !important;
+  color: #f6ffb8 !important;
   font-weight: 900;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
   background:
-    radial-gradient(circle at 50% 0, rgba(166,255,57,.18), transparent 55%),
-    linear-gradient(180deg, rgba(35, 71, 14, 0.96), rgba(12, 28, 7, 0.99)) !important;
+    radial-gradient(ellipse at 50% 135%, rgba(208,255,36,.62), transparent 62%),
+    radial-gradient(circle at 8% 0, rgba(120,255,0,.32), transparent 45%),
+    radial-gradient(circle at 92% 0, rgba(120,255,0,.32), transparent 45%),
+    linear-gradient(180deg, #3a7a08 0%, #1b4404 55%, #0a1c02 100%) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.06),
-    inset 0 0 18px rgba(139, 255, 45, 0.12),
-    0 0 12px rgba(98, 226, 24, 0.12);
-  text-shadow: 0 0 9px rgba(167,255,72,.38);
+    inset 0 0 0 1px rgba(3,10,0,.9),
+    inset 0 0 22px rgba(160,255,30,.38),
+    0 0 14px rgba(140,255,20,.42),
+    0 0 34px rgba(90,220,10,.2);
+  text-shadow: 0 0 5px #b6ff00, 0 0 13px rgba(130,255,0,.95), 1px 1px 0 #041000, -1px -1px 0 #041000;
+  animation: nema-btn-toxic-pulse 2.6s ease-in-out infinite;
 }
+.nema-asoc-btn > * { position: relative; z-index: 2; }
+.nema-asoc-btn .nema-sprite {
+  position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none;
+}
+.nema-asoc-btn .nema-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--nema-dark), var(--nema-lit);
+  background-size: 26px 26px, 26px 26px;
+  background-position: 13px 13px, 0 0;
+  animation: nema-pattern-drift 7s linear infinite;
+}
+.nema-asoc-btn .nema-mark-bg {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  width: 92px;
+  height: 92px;
+  margin: -46px 0 0 -46px;
+  fill: #d8ff3a;
+  opacity: .2;
+  filter: drop-shadow(0 0 6px #9dff00);
+  animation: nema-mark-spin 14s linear infinite;
+}
+.nema-asoc-btn .nema-label { position: relative; z-index: 3; white-space: nowrap; }
+.nema-asoc-btn .nema-nuclear-mark {
+  flex: none;
+  width: 1.9em;
+  height: 1.9em;
+  fill: #e4ff4a;
+  filter: drop-shadow(0 0 3px #041000) drop-shadow(0 0 7px #a4ff00);
+  animation: nema-mark-spin 5.5s linear infinite;
+}
+.nema-asoc-btn .nema-mark-r { animation-direction: reverse; }
+/* hazard-stripe rails */
+.nema-asoc-btn::before,
+.nema-asoc-btn::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  z-index: 2;
+  pointer-events: none;
+  background: repeating-linear-gradient(-45deg, #dcff1f 0 7px, #0b1503 7px 14px);
+  background-size: 19.8px 100%;
+  box-shadow: 0 0 8px rgba(190,255,20,.7);
+  animation: nema-stripes-march 1.1s linear infinite;
+}
+.nema-asoc-btn::before { top: 0; }
+.nema-asoc-btn::after { bottom: 0; animation-direction: reverse; }
 
-.nema-asoc-btn:hover {
-  border-color: #b8ff3d !important;
-  color: #f1ffc7 !important;
+.nema-asoc-btn:hover,
+.nema-asoc-btn:focus-visible {
+  border-color: #eaff5a !important;
+  color: #ffffff !important;
+  outline: none;
   box-shadow:
-    inset 0 0 22px rgba(151, 255, 52, 0.18),
-    0 0 20px rgba(104, 235, 28, 0.28);
+    inset 0 0 0 1px rgba(3,10,0,.9),
+    inset 0 0 30px rgba(190,255,40,.55),
+    0 0 20px rgba(170,255,30,.7),
+    0 0 48px rgba(110,255,10,.4);
 }
-.nema-nuclear-mark {font-size:1.18em;color:#baff34;filter:drop-shadow(0 0 4px rgba(174,255,65,.7));vertical-align:-.05em}
+.nema-asoc-btn:hover .nema-nuclear-mark,
+.nema-asoc-btn:focus-visible .nema-nuclear-mark { animation-duration: 1.2s; }
+.nema-asoc-btn:hover .nema-pattern,
+.nema-asoc-btn:focus-visible .nema-pattern { animation-duration: 2s; }
+.nema-asoc-btn:active { transform: translateY(1px); }
+
+@keyframes nema-btn-toxic-pulse {
+  0%, 100% { filter: saturate(1) brightness(1); }
+  50% { filter: saturate(1.35) brightness(1.16); }
+}
+@keyframes nema-pattern-drift {
+  to { background-position: 39px 39px, 26px 26px; }
+}
+@keyframes nema-mark-spin { to { transform: rotate(360deg); } }
+@keyframes nema-stripes-march { to { background-position: 19.8px 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .nema-asoc-btn,
+  .nema-asoc-btn::before,
+  .nema-asoc-btn::after,
+  .nema-asoc-btn .nema-pattern,
+  .nema-asoc-btn .nema-nuclear-mark { animation: none !important; }
+}
 
 /* NEMA ASOC threat effect: five seconds of deliberate audiovisual-style
    visual chaos. No game state changes; this is pure presentation. */
@@ -7038,6 +7135,245 @@ body.game-complete .fail-final-btn {
   .fo-debrief-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* =====================================================================
+   RECOUNT // post-game audit (js/recount.js). Cold, clinical, gunmetal.
+   Delivered only after the host's manual SHOW RESULTS. Presentation only.
+   ===================================================================== */
+
+/* GM console: SHOW RESULTS / RECOUNT strip -- hidden until the game is over. */
+.recount-btn {
+  display: none;
+  width: 100%;
+  margin: 10px 0 0 !important;
+  min-height: 46px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  border-color: rgba(212,168,67,.9) !important;
+  color: #f0c65d !important;
+  background:
+    linear-gradient(90deg, rgba(212,168,67,.07), rgba(212,168,67,.18), rgba(212,168,67,.07)),
+    linear-gradient(180deg, #211d13, #100f0c) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,220,126,.04), 0 0 16px rgba(212,168,67,.10);
+}
+.recount-btn:hover { border-color: #f1c653 !important; color: #ffe49b !important; }
+body.game-complete .recount-btn,
+.recount-btn.has-recount { display: block; }
+.recount-btn.has-recount {
+  border-color: rgba(120,140,160,.6) !important;
+  color: #b8c2cf !important;
+  background: linear-gradient(180deg, #1a2027, #0d1014) !important;
+  box-shadow: none;
+}
+
+/* Players: small reopen pill once a RECOUNT exists. */
+.recount-pill {
+  position: fixed;
+  left: 14px;
+  bottom: 62px;
+  z-index: 1500;
+  padding: 7px 12px;
+  border: 1px solid rgba(212,168,67,.7);
+  border-radius: 3px;
+  background: linear-gradient(180deg, #1c1912, #0d0c09);
+  color: #f0c65d;
+  font: 800 .62rem var(--font-machine, monospace);
+  letter-spacing: .16em;
+  cursor: pointer;
+}
+.recount-pill[hidden] { display: none; }
+
+.recount-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 190000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-y: auto;
+  padding: clamp(10px, 3vh, 34px) clamp(8px, 3vw, 28px);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(212,168,67,.07), transparent 55%),
+    rgba(4, 5, 8, .94);
+  -webkit-overflow-scrolling: touch;
+}
+.recount-overlay::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(255,255,255,.022) 0 1px, transparent 1px 4px);
+}
+
+.recount-panel {
+  position: relative;
+  width: min(880px, 100%);
+  padding: clamp(14px, 2.4vw, 26px);
+  border: 1px solid #39414c;
+  border-top-color: #5d6875;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #12161b, #0a0c10);
+  box-shadow: 0 24px 70px rgba(0,0,0,.75), inset 0 1px rgba(255,255,255,.04);
+  color: #cfd4dc;
+  font-family: var(--font-machine, monospace);
+}
+.recount-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, #d4a843, rgba(212,168,67,.15));
+}
+
+.recount-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #313842;
+}
+.recount-title {
+  font: 900 clamp(1.7rem, 5vw, 2.6rem)/1 var(--font-system, sans-serif);
+  letter-spacing: .3em;
+  color: #e8ecf2;
+  text-shadow: 0 0 18px rgba(212,168,67,.22);
+}
+.recount-sub { margin-top: 8px; font-size: .6rem; letter-spacing: .16em; color: #7b8794; }
+.rc-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font-size: .56rem;
+  letter-spacing: .18em;
+}
+.rc-badge-won { color: #22e69a; }
+.rc-badge-lost { color: #e0605f; }
+.recount-controls { display: flex; gap: 8px; flex: 0 0 auto; }
+.recount-controls button {
+  padding: 7px 12px;
+  border: 1px solid #4a535f;
+  border-radius: 2px;
+  background: #171b21;
+  color: #aab3bf;
+  font: 800 .58rem var(--font-machine, monospace);
+  letter-spacing: .14em;
+  cursor: pointer;
+}
+.recount-controls button:hover { border-color: #d4a843; color: #f0c65d; }
+.recount-overlay.rc-done .recount-skip { display: none; }
+
+/* staged reveal */
+.rc-step {
+  opacity: 0;
+  transform: translateY(10px);
+  filter: blur(2px);
+  transition: opacity .55s ease, transform .55s ease, filter .55s ease;
+  transition-delay: calc(var(--i, 0) * 90ms);
+}
+.rc-step.is-in { opacity: 1; transform: none; filter: none; }
+
+.rc-block { margin-top: 18px; }
+.rc-block h3 {
+  margin: 0 0 9px;
+  font: 800 .62rem var(--font-machine, monospace);
+  letter-spacing: .24em;
+  color: #d4a843;
+}
+.rc-sub-h { margin-top: 16px !important; color: #e0605f !important; }
+.rc-label { font-size: .62rem; letter-spacing: .3em; color: #d4a843; }
+
+.rc-top { text-align: center; padding: 18px 8px 14px; border: 1px solid #2c333c; border-radius: 3px; background: rgba(255,255,255,.015); }
+.rc-top-name {
+  margin-top: 8px;
+  font: 900 clamp(1.7rem, 6vw, 3rem)/1.05 var(--font-system, sans-serif);
+  letter-spacing: .06em;
+  color: #f2f4f7;
+  text-shadow: 0 0 22px rgba(212,168,67,.28);
+  word-break: break-word;
+}
+.rc-top-name i { font-style: normal; color: #7b8794; font-size: .6em; }
+.rc-top-points { margin-top: 6px; font-size: .82rem; letter-spacing: .24em; color: #d4a843; }
+.rc-strip { margin-top: 12px; font-size: .52rem; letter-spacing: .12em; color: #6f7a87; line-height: 1.7; }
+.rc-dim { color: #6f7a87 !important; }
+
+.rc-table { width: 100%; border-collapse: collapse; font-size: .74rem; }
+.rc-table th {
+  padding: 5px 8px;
+  border-bottom: 1px solid #313842;
+  color: #6f7a87;
+  font-size: .5rem;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-align: left;
+}
+.rc-table td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,.05); }
+.rc-num { text-align: right !important; font-variant-numeric: tabular-nums; }
+.rc-rank { width: 34px; color: #d4a843; font-weight: 800; }
+.rc-name { color: #e6e9ee; font-weight: 700; letter-spacing: .05em; word-break: break-word; }
+.rc-crown { color: #d4a843; }
+.rc-inmatch .rc-name { color: #f0c65d; }
+.rc-move { font-weight: 800; letter-spacing: .04em; }
+.rc-move-up { color: #22e69a; }
+.rc-move-down { color: #e0605f; }
+.rc-move-none { color: #59626e; }
+
+/* award cards: category colours the rail, severity deepens it */
+.rc-award {
+  margin-top: 10px;
+  border: 1px solid #2c333c;
+  border-left: 3px solid #d4a843;
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.008));
+}
+.rc-cat-anomaly { border-left-color: #9b6de0; }
+.rc-cat-failure { border-left-color: #e0605f; }
+.rc-cat-loss { border-left-color: #8a4a4a; }
+.rc-sev-catastrophic { box-shadow: inset 0 0 26px rgba(224,96,95,.10); border-color: rgba(224,96,95,.45); }
+.rc-award-head {
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  font-size: .5rem;
+  letter-spacing: .26em;
+  color: #7b8794;
+}
+.rc-award-body { padding: 12px; }
+.rc-award-title {
+  font: 900 clamp(.95rem, 3.2vw, 1.25rem)/1.15 var(--font-system, sans-serif);
+  letter-spacing: .12em;
+  color: #eef1f5;
+}
+.rc-award-who { margin-top: 5px; font-size: .78rem; letter-spacing: .12em; color: #f0c65d; }
+.rc-award-who i { font-style: normal; color: #6f7a87; }
+.rc-evidence { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.rc-evidence li {
+  padding: 3px 8px;
+  border: 1px solid #3a424d;
+  border-radius: 2px;
+  background: rgba(0,0,0,.35);
+  font-size: .55rem;
+  letter-spacing: .1em;
+  color: #b3bcc8;
+}
+.rc-commentary { margin-top: 11px; font: italic 400 .74rem/1.55 var(--font-system, sans-serif); color: #9aa5b1; }
+.rc-empty { margin-top: 10px; padding: 14px; border: 1px dashed #39414c; color: #6f7a87; font-size: .6rem; letter-spacing: .16em; text-align: center; }
+
+.rc-hide-sm { }
+@media (max-width: 560px) {
+  .rc-hide-sm { display: none; }
+  .recount-head { flex-wrap: wrap; }
+  .recount-controls { width: 100%; }
+  .recount-controls button { flex: 1; min-height: 40px; }
+  .rc-table td, .rc-table th { padding: 7px 5px; }
+  .recount-pill { bottom: 70px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rc-step { transition: none; }
 }
 
 /* Final cascade lock: the legacy GAME WON overlay retains useful shared

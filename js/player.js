@@ -1,6 +1,8 @@
 const PlayerApp = {
   ws: null,
-  roomCode: '',
+  roomCode: 'MASTER',
+  masterArmed: false,
+  _masterStateBaselined: false,
   playerId: '',
   playerName: '',
   avatarData: '',
@@ -87,12 +89,7 @@ const PlayerApp = {
 
   bindJoinForm() {
     const form = document.getElementById('join-form');
-    const roomInput = document.getElementById('room-code');
     const nameInput = document.getElementById('player-name');
-
-    roomInput.addEventListener('input', (e) => {
-      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    });
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -266,14 +263,12 @@ const PlayerApp = {
   },
 
   loadStoredCredentials() {
-    const storedRoom = sessionStorage.getItem('asoc_room_code');
     const storedName = sessionStorage.getItem('asoc_player_name');
     const storedId = sessionStorage.getItem('asoc_player_id');
     const storedAvatar = localStorage.getItem('asoc_little_hero_avatar');
     const storedFrame = localStorage.getItem('asoc_little_hero_frame');
     const storedThemeId = localStorage.getItem('asoc_little_hero_theme_id');
 
-    if (storedRoom) document.getElementById('room-code').value = storedRoom;
     if (storedName) document.getElementById('player-name').value = storedName;
     if (storedId) this.playerId = storedId;
 
@@ -480,25 +475,18 @@ const PlayerApp = {
   },
 
   async joinGame() {
-    const roomCode = document.getElementById('room-code').value.trim().toUpperCase();
     const playerName = document.getElementById('player-name').value.trim();
-
-    if (!roomCode || roomCode.length !== 4) {
-      this.showError('Room code must be 4 characters');
-      return;
-    }
 
     if (!playerName) {
       this.showError('Please enter your name');
       return;
     }
 
-    this.roomCode = roomCode;
+    this.roomCode = 'MASTER';
     this.playerName = playerName;
     // Fresh join attempt — any previous room-closed state no longer applies.
     this._roomClosedByServer = false;
 
-    sessionStorage.setItem('asoc_room_code', roomCode);
     sessionStorage.setItem('asoc_player_name', playerName);
     if (this.playerId) sessionStorage.setItem('asoc_player_id', this.playerId);
 
@@ -556,7 +544,6 @@ const PlayerApp = {
         // server (or vice versa).
         const joinMessage = {
           type: 'room:join',
-          roomCode: this.roomCode,
           name: this.playerName,
           authToken: localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || ''
         };
@@ -577,23 +564,27 @@ const PlayerApp = {
         alert(message.message || 'SYSTEM VERSION MISMATCH // REFRESH REQUIRED');
         break;
 
-      case 'state:public':
+      case 'state:public': {
         this.lastPublicState = message;
-        this.renderBoard(message);
-        this.applyVictoryState(message.gameWon === true, message.matchResult || null);
-        this.applyLossState(message.matchResult || null);
+        const armed = message.armed === true;
+        this.applyMasterRoomState(armed);
+        if (armed) this.renderBoard(message);
+        this.applyVictoryState(armed && message.gameWon === true, armed ? (message.matchResult || null) : null);
+        this.applyLossState(armed ? (message.matchResult || null) : null);
         // Read-only: no controls are ever exposed here, only the same
         // charge/state the GM sees, sourced from the same broadcast.
-        Womf.update('womf-tracker-player', message.womf || { charge: 0, armed: false });
-        Wheel.update('wheel-overlay', message.wheel, false);
-        this.updateBloodTributeDemand(message.bloodTribute || { status: 'idle' });
-        Timer.update('timer-tracker-player', message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
-        this.updateTerminalPhase(message);
-        document.getElementById('game-screen')?.classList.toggle('phase-final', message.finalSolution?.revealed === true);
+        Womf.update('womf-tracker-player', armed ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
+        Wheel.update('wheel-overlay', armed ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false);
+        this.updateBloodTributeDemand(armed ? (message.bloodTribute || { status: 'idle' }) : { status: 'idle' });
+        Timer.update('timer-tracker-player', armed ? (message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }) : { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
+        if (armed) this.updateTerminalPhase(message);
+        else Recount.apply(null);
+        document.getElementById('game-screen')?.classList.toggle('phase-final', armed && message.finalSolution?.revealed === true);
         this.showGameScreen();
         this.setConnectionStatus('connected');
         this.reconnectAttempts = 0;
         break;
+      }
 
       case 'join:success':
         this.playerId = message.playerId;
@@ -667,7 +658,7 @@ const PlayerApp = {
         this.chatMessages = incoming;
         this.solvedTargets = message.solvedTargets || {};
         const solvedCount = document.getElementById('chat-solved-count');
-        if (solvedCount) solvedCount.textContent = `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
+        if (solvedCount) solvedCount.textContent = this.masterArmed ? `SOLVED: ${Object.keys(this.solvedTargets).length}/5` : 'CHANNEL OPEN';
         this.renderChat();
         break;
       }
@@ -680,7 +671,7 @@ const PlayerApp = {
         this.updatePlayerLeaderboard(message.players);
         const commsRoom = document.getElementById('battle-comms-room');
         const commsOnline = document.getElementById('battle-comms-online');
-        if (commsRoom) commsRoom.textContent = 'MONITORED // ROOM ' + (this.roomCode || '----');
+        if (commsRoom) commsRoom.textContent = 'MONITORED // MASTER ROOM';
         if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' LINKED';
         break;
 
@@ -720,6 +711,12 @@ const PlayerApp = {
 
       case 'score:finalResults':
         this.revealFinalResults(message);
+        break;
+
+      case 'recount:update':
+        // Server-authoritative: live only at the moment the host pressed SHOW
+        // RESULTS; hydration (live:false) never replays; null closes it.
+        Recount.apply(message.recount, { live: message.live === true });
         break;
 
       case 'leaderboard:allTime':
@@ -951,12 +948,32 @@ const PlayerApp = {
     bgLayer.src = path;
   },
 
+  applyMasterRoomState(armed) {
+    const wasArmed = this.masterArmed;
+    const hadBaseline = this._masterStateBaselined;
+    this.masterArmed = armed === true;
+    this._masterStateBaselined = true;
+    const screen = document.getElementById('game-screen');
+    const standby = document.getElementById('master-room-standby');
+    screen?.classList.toggle('master-room-unarmed', !this.masterArmed);
+    if (standby) standby.hidden = this.masterArmed;
+    const solvedCount = document.getElementById('chat-solved-count');
+    if (solvedCount) solvedCount.textContent = this.masterArmed ? `SOLVED: ${Object.keys(this.solvedTargets).length}/5` : 'CHANNEL OPEN';
+    if (hadBaseline && !wasArmed && this.masterArmed) {
+      this.addBattleEvent('BATTLE CONTROL SIGNAL DETECTED');
+      this.addBattleEvent('ASOC ENGINE ONLINE');
+    } else if (hadBaseline && wasArmed && !this.masterArmed) {
+      this.addBattleEvent('SYSTEM UNARMED // COMMUNICATION CHANNEL OPEN');
+    }
+  },
+
   showGameScreen() {
     document.getElementById('join-screen').style.display = 'none';
     document.getElementById('game-screen').classList.add('active');
     document.getElementById('reconnecting-overlay').classList.remove('active');
     this.bindChatForm();
     this.bindLeaderboardToggle();
+    Recount.mountPill();
   },
 
   // Completed state = body.game-won (CSS), driven only by server state.
@@ -990,6 +1007,7 @@ const PlayerApp = {
     this._lossResultKey = null;
     document.body.classList.remove('game-won');
     document.body.classList.remove('game-lost');
+    Recount.apply(null);
     document.querySelector('.defeat-overlay')?.remove();
     document.getElementById('game-screen').classList.remove('active');
     document.getElementById('join-screen').style.display = 'flex';

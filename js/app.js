@@ -117,10 +117,11 @@ const App = {
       // it was hosting, even though the credentials are sitting in
       // sessionStorage. mode stays 'local' until the server actually
       // confirms the reconnect (host:reconnected) or we create a new room.
-      const storedRoom = sessionStorage.getItem('asoc_host_room');
+      // The room code itself is no longer persisted: the Master Room is the
+      // only room, so a stored token always implies the canonical code.
       const storedToken = sessionStorage.getItem('asoc_host_token');
-      if (storedRoom && storedToken) {
-        this.roomCode = storedRoom;
+      if (storedToken) {
+        this.roomCode = 'MASTER';
         this.hostToken = storedToken;
       }
 
@@ -161,9 +162,6 @@ const App = {
       this.updatePublicView();
       this.updateWomfTracker();
       this.updateTimerUI();
-      // Establish local/hosted control states on the first render. Without
-      // this, controls whose HTML defaults are conservative (GAME LOST in
-      // particular) remain disabled until a room-state transition occurs.
       this.updateMultiplayerUI();
       this.connectWebSocket();
     } catch (e) {
@@ -249,6 +247,8 @@ const App = {
     document.getElementById('nema-asoc-btn')?.addEventListener('click', () => this.triggerNemaAsoc());
     document.getElementById('game-won-btn')?.addEventListener('click', () => this.triggerGameWon());
     document.getElementById('game-lost-btn')?.addEventListener('click', () => this.testGameLost());
+    document.getElementById('recount-btn')?.addEventListener('click', () => this.triggerRecount());
+    Recount.onChange(() => this.updateRecountButton());
 
     document.getElementById('library-btn').addEventListener('click', () => Forge.open());
     document.getElementById('library-btn-footer').addEventListener('click', () => ControlSurfaces.toggle());
@@ -402,6 +402,7 @@ const App = {
     document.getElementById('womf-subtract-btn')?.addEventListener('click', () => this.declareWomfSubtract());
     document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
     document.getElementById('blood-tribute-vault-clear')?.addEventListener('click', () => this.clearBloodTributeVault());
+    document.getElementById('blood-tribute-override-btn')?.addEventListener('click', () => this.overrideBloodTribute());
     document.getElementById('alltime-toggle-btn').addEventListener('click', () => this.toggleAllTimeView());
     document.getElementById('womf-open-btn')?.addEventListener('click', () => this.openWomf());
 
@@ -559,6 +560,23 @@ const App = {
   // it (state:public -> every client, this one included, plays the sequence);
   // with no room there is no server, so it is applied locally. Idempotent: a
   // completed game never replays.
+  // RECOUNT: SHOW RESULTS asks the server to reveal the (already computed and
+  // stored) RECOUNT to everyone; once it exists the same button just reopens it.
+  triggerRecount() {
+    if (Recount.has()) { Recount.open({ live: false }); return; }
+    if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+      this.send({ type: 'gm:showRecount' });
+    }
+  },
+
+  updateRecountButton() {
+    const btn = document.getElementById('recount-btn');
+    if (!btn) return;
+    const has = Recount.has();
+    btn.classList.toggle('has-recount', has);
+    btn.textContent = has ? 'RECOUNT' : 'SHOW RESULTS';
+  },
+
   triggerGameWon() {
     if (this.gameWon || this._victoryLive) return;
     if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
@@ -614,14 +632,10 @@ const App = {
   },
 
   testGameLost() {
-    // Preview only. A hosted match can enter LOST exclusively through the
-    // server's authoritative timer transition; this path deliberately sends
-    // no message, changes no score, and persists nothing.
     if (this.mode === 'multiplayer' || this.roomCode) return;
     const game = GameData.currentGame || {};
     const result = {
-      outcome: 'LOST',
-      occurredAt: Date.now(),
+      outcome: 'LOST', occurredAt: Date.now(),
       message: 'Final association unresolved. Time exhausted. Cognitive adaptation insufficient. Expected result.',
       finalSolution: game.finalSolution || 'UNRESOLVED',
       columnSolutions: {
@@ -644,10 +658,7 @@ const App = {
       if (onKey) document.removeEventListener('keydown', onKey);
     };
     overlay.addEventListener('click', close, { once: true });
-    onKey = event => {
-      if (event.key !== 'Escape') return;
-      close();
-    };
+    onKey = event => { if (event.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
   },
 
@@ -785,7 +796,6 @@ const App = {
         this.hostToken = message.hostToken;
         this.mode = 'multiplayer';
         this.updateMultiplayerUI();
-        sessionStorage.setItem('asoc_host_room', this.roomCode);
         sessionStorage.setItem('asoc_host_token', this.hostToken);
         break;
 
@@ -793,6 +803,7 @@ const App = {
         this._reconnectPending = false;
         this.roomCode = message.roomCode;
         this.mode = 'multiplayer';
+        sessionStorage.setItem('asoc_host_token', this.hostToken);
         this.updateMultiplayerUI();
         break;
 
@@ -810,6 +821,7 @@ const App = {
           this.finalRevealed = false;
           this.setGameWon(false);
           this.setGameComplete(false);
+          Recount.apply(null);
           this._lastAnnouncedStreak = {};
           this.updateFailFinalButtonVisibility();
           this.buildGMControls();
@@ -858,6 +870,12 @@ const App = {
 
       case 'score:warning':
         this.showScoreWarning(message.message);
+        break;
+
+      case 'recount:update':
+        // Server-authoritative: live only at the moment the host pressed SHOW
+        // RESULTS; hydration (live:false) never replays; null closes it.
+        Recount.apply(message.recount, { live: message.live === true });
         break;
 
       case 'leaderboard:allTime':
@@ -975,6 +993,10 @@ const App = {
         alert(message.message);
         break;
 
+      case 'room:disarmed':
+        this.cleanupRoom();
+        break;
+
       case 'room:closed':
         this.handleRoomClosed(message.message);
         break;
@@ -1072,7 +1094,7 @@ const App = {
     if (roomToggle) {
       roomToggle.style.display = 'block';
       roomToggle.disabled = false;
-      roomToggle.textContent = isMultiplayer ? 'KILL SESSION' : 'HOST GAME';
+      roomToggle.textContent = isMultiplayer ? 'KILL SESSION' : 'ARM GAME';
       roomToggle.classList.toggle('primary', !isMultiplayer);
       roomToggle.classList.toggle('kill-session-btn', isMultiplayer);
     }
@@ -1096,8 +1118,8 @@ const App = {
     this.updateWomfControlsVisibility();
 
     if (isMultiplayer) {
-      document.getElementById('mp-room-code').textContent = this.roomCode;
-      document.getElementById('mp-status').textContent = 'LIVE';
+      document.getElementById('mp-room-code').textContent = 'MASTER ROOM';
+      document.getElementById('mp-status').textContent = 'ARMED';
     }
   },
 
@@ -1333,17 +1355,20 @@ const App = {
     const list = document.getElementById('blood-tribute-vault-list');
     const status = document.getElementById('blood-tribute-vault-status');
     const clearBtn = document.getElementById('blood-tribute-vault-clear');
+    const overrideBtn = document.getElementById('blood-tribute-override-btn');
     if (!list || !status) return;
 
     const tributes = Array.isArray(this.bloodTributes) ? this.bloodTributes : [];
     if (this.bloodTribute?.status === 'required') {
       status.textContent = `DEBT OUTSTANDING // ${this.bloodTribute.playerName || 'UNKNOWN'}`;
       status.classList.add('debt-outstanding');
+      if (overrideBtn) overrideBtn.style.display = 'block';
     } else {
       status.textContent = tributes.length
         ? `${tributes.length} TRIBUTE${tributes.length === 1 ? '' : 'S'} ARCHIVED // GM PRIVATE`
         : 'NO TRIBUTES ARCHIVED';
       status.classList.remove('debt-outstanding');
+      if (overrideBtn) overrideBtn.style.display = 'none';
     }
 
     const now = Date.now();
@@ -1368,6 +1393,14 @@ const App = {
     if (this.mode !== 'multiplayer' || !this.bloodTributes.length) return;
     if (!confirm('Purge every archived Blood Tribute from the private vault? This cannot be undone.')) return;
     this.send({ type: 'gm:tributeVaultClear' });
+  },
+
+  overrideBloodTribute() {
+    if (this.mode !== 'multiplayer') return;
+    if (this.bloodTribute?.status !== 'required') return;
+    const debtor = this.bloodTribute.playerName || 'UNKNOWN';
+    if (!confirm(`Override the Blood Tribute owed by ${debtor}? The debt is released without payment; nothing is archived in the vault.`)) return;
+    this.send({ type: 'gm:tributeForgive' });
   },
 
   // ---------------------------------------------------------------------
@@ -1556,7 +1589,7 @@ const App = {
     const roomToggle = document.getElementById('host-room-btn');
     if (roomToggle) {
       roomToggle.disabled = true;
-      roomToggle.textContent = 'INITIALIZING...';
+      roomToggle.textContent = 'ARMING...';
     }
     const gameId = GameData.currentGame?.id || 'sample-game';
     this.send({ type: 'room:create', gameId, gmToken: GameData.gmToken });
@@ -1570,22 +1603,21 @@ const App = {
 
   closeRoom() {
     if (this.mode !== 'multiplayer') return;
-    if (!window.confirm('KILL ACTIVE SESSION?\n\nAll connected players will be disconnected and the room will be destroyed.')) return;
+    if (!window.confirm('KILL ACTIVE GAME SESSION?\n\nGameplay will be disarmed. Players, identities, and Battle Comms will remain in the Master Room.')) return;
 
     const roomToggle = document.getElementById('host-room-btn');
     if (roomToggle) {
       roomToggle.disabled = true;
-      roomToggle.textContent = 'TERMINATING...';
+      roomToggle.textContent = 'DISARMING...';
     }
 
     this.send({ type: 'room:close' });
-    this.cleanupRoom();
   },
 
   async logoutShadowBroker() {
     const hostingRoom = this.mode === 'multiplayer' && !!this.roomCode;
     const warning = hostingRoom
-      ? 'SEVER SHADOW BROKER SESSION?\n\nThe active hosted room will be closed and command authentication will be cleared.'
+      ? 'SEVER SHADOW BROKER SESSION?\n\nThe active game will be disarmed. The Master Room and Battle Comms will remain online.'
       : 'SEVER SHADOW BROKER SESSION?\n\nCommand authentication will be cleared and you will return to the access terminal.';
     if (!window.confirm(warning)) return;
 
@@ -1611,7 +1643,6 @@ const App = {
       // Local session cleanup still proceeds if the server link is unavailable.
     } finally {
       sessionStorage.removeItem('asoc_gm_token');
-      sessionStorage.removeItem('asoc_host_room');
       sessionStorage.removeItem('asoc_host_token');
       GameData.setGMToken('');
       location.replace('/join.html');
@@ -1622,12 +1653,12 @@ const App = {
     this.roomCode = '';
     this.hostToken = '';
     this.mode = 'local';
-    sessionStorage.removeItem('asoc_host_room');
     sessionStorage.removeItem('asoc_host_token');
     // No room -> no authoritative victory state either.
     this._victoryBaselined = false;
     this.setGameWon(false);
     this.setGameComplete(false);
+    Recount.apply(null);
     this.updateMultiplayerUI();
     this.updatePlayerList([]);
     // No room -> no authoritative WOMF value anymore. Local mode has no
@@ -2251,7 +2282,7 @@ const App = {
     const agedRejected = msg.verdict === 'wrong' && (now - wrongSeenAt) >= 3000;
     const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
     const hasVerdict = msg.verdict !== null;
-    const showControls = !hasVerdict;
+    const showControls = !hasVerdict && msg.adjudicable === true;
     const themeStyle = ASOCThemes.messageStyle(identity.themeId);
     const frameColor = /^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885';
 
