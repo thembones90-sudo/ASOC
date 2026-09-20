@@ -728,7 +728,9 @@ const App = {
 
     if (!this.roomCode) return;
 
-    const cmdId = ++this.commandId;
+    const cmdId = globalThis.crypto?.randomUUID
+      ? globalThis.crypto.randomUUID()
+      : `cmd-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     this.pendingCommands.set(cmdId, { command, payload, timestamp: Date.now() });
 
     this.send({
@@ -739,6 +741,18 @@ const App = {
     });
 
     this.executeLocalCommand(command, payload);
+  },
+
+  resendPendingCommands() {
+    if (this.mode !== 'multiplayer' || !this.roomCode) return;
+    for (const [cmdId, pending] of this.pendingCommands) {
+      this.send({
+        type: 'gm:command',
+        command: pending.command,
+        payload: pending.payload,
+        cmdId
+      });
+    }
   },
 
   executeLocalCommand(command, payload) {
@@ -826,6 +840,7 @@ const App = {
         this.mode = 'multiplayer';
         sessionStorage.setItem('asoc_host_token', this.hostToken);
         this.updateMultiplayerUI();
+        this.resendPendingCommands();
         break;
 
       case 'host:recovered':
@@ -835,6 +850,7 @@ const App = {
         this.mode = 'multiplayer';
         sessionStorage.setItem('asoc_host_token', this.hostToken);
         this.updateMultiplayerUI();
+        this.resendPendingCommands();
         break;
 
       case 'host:recovery-none':
@@ -1010,6 +1026,7 @@ const App = {
 
       case 'error':
         console.error('[GM] Server error:', message.message);
+        if (message.cmdId !== undefined) this.pendingCommands.delete(message.cmdId);
         // Clear unconditionally: whatever failed, we're not waiting on a
         // room:create response anymore, so don't leave HOST ROOM
         // permanently blocked by a stuck flag.
@@ -1697,6 +1714,7 @@ const App = {
     this.roomCode = '';
     this.hostToken = '';
     this.mode = 'local';
+    this.pendingCommands.clear();
     sessionStorage.removeItem('asoc_host_token');
     // No room -> no authoritative victory state either.
     this._victoryBaselined = false;

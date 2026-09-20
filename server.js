@@ -1,3 +1,6 @@
+const durableIO = require('./durable-io');
+const playerSessionStore = require('./player-session-store');
+const net = require('net');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -26,6 +29,8 @@ const BLOOD_TRIBUTE_PUBLIC_MS = 2 * 60 * 1000;
 const BLOOD_TRIBUTE_VAULT_LIMIT = 24;
 const CHAT_HISTORY_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
+const WS_HANDSHAKE_TIMEOUT_MS = Math.max(100, Number(process.env.ASOC_WS_HANDSHAKE_TIMEOUT_MS) || 10000);
+const COLUMN_REVEAL_DELAY_MS = Math.max(100, Number(process.env.ASOC_COLUMN_REVEAL_DELAY_MS) || 5000);
 const PROTOCOL_VERSION = 1;
 const EMAIL_VERIFICATION_REQUIRED = process.env.ASOC_EMAIL_VERIFICATION !== '0';
 const GAME_LOST_MESSAGES = Object.freeze([
@@ -128,6 +133,34 @@ const ACTIVE_ROOMS_FILE = process.env.ASOC_SESSION_FILE
 const RECOVERY_STORE_FORMAT = 'asoc-recovery-store';
 const CURRENT_STORE_VERSION = 2;
 let recoveryStoreLocked = false;
+let persistenceFailed = false;
+let outbound = null;
+function failPersistence() {
+  if (!persistenceFailed) {
+    persistenceFailed = true;
+    console.error('[persistence] Runtime unavailable; restarting from durable state');
+    setTimeout(() => process.exit(1), 500).unref();
+  }
+}
+durableIO.onFailure(() => failPersistence());
+
+function runtimeAction(action) {
+  if (persistenceFailed || recoveryStoreLocked || shuttingDown) return;
+  if (outbound) return action();
+  outbound = [];
+  durableIO.begin();
+  try {
+    action();
+    if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
+    durableIO.commit();
+    const frames = outbound; outbound = null;
+    for (const [ws, data] of frames) if (ws.readyState === 1) ws.durableSend(data);
+  } catch (error) {
+    outbound = null;
+    durableIO.abort();
+    failPersistence();
+  }
+}
 
 function makeOfflinePlayerSocket() {
   return {
@@ -169,45 +202,23 @@ function serializeRoomForRecovery(room) {
     bloodTributes: room.bloodTributes || [],
     pendingTribute: room.pendingTribute || null,
     timer: room.timer,
+    pendingReveals: room.pendingReveals || {},
+    commandReceipts: room.commandReceipts || [],
     players
   };
 }
 
 function persistActiveRooms() {
-  if (recoveryStoreLocked) {
-    console.error(`[recovery] CRITICAL: recovery store ${ACTIVE_ROOMS_FILE} is locked (unsupported/future format detected). Refusing to overwrite it.`);
-    return;
-  }
-  const payload = {
-    format: RECOVERY_STORE_FORMAT,
-    version: CURRENT_STORE_VERSION,
-    savedAt: Date.now(),
-    rooms: Array.from(rooms.values(), serializeRoomForRecovery)
-  };
-  const tmpFile = ACTIVE_ROOMS_FILE + '.tmp-' + process.pid + '-' + Date.now();
-
+  if (recoveryStoreLocked) return false;
+  if (persistenceFailed) throw Error('Persistence unavailable');
+  if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
   try {
-    fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
-    fs.renameSync(tmpFile, ACTIVE_ROOMS_FILE);
-  } catch (error) {
-    // Windows can deny rename-over-existing even when the file itself is
-    // writable (AV/indexer/share-mode contention). Preserve the atomic path
-    // as the default, but fall back to a direct overwrite so MASTER state is
-    // not silently stuck on an ancient recovery snapshot.
-    if ((error.code === 'EPERM' || error.code === 'EACCES') && fs.existsSync(tmpFile)) {
-      try {
-        fs.writeFileSync(ACTIVE_ROOMS_FILE, fs.readFileSync(tmpFile));
-        fs.unlinkSync(tmpFile);
-        console.warn('[recovery] Atomic replace blocked; recovery snapshot saved via direct-write fallback');
-        return;
-      } catch (fallbackError) {
-        console.error('[recovery] Failed to save active rooms:', fallbackError.message);
-      }
-    } else {
-      console.error('[recovery] Failed to save active rooms:', error.message);
-    }
-    try { fs.unlinkSync(tmpFile); } catch {}
-  }
+    durableIO.writeJson(ACTIVE_ROOMS_FILE, {
+      format: RECOVERY_STORE_FORMAT, version: CURRENT_STORE_VERSION,
+      savedAt: Date.now(), rooms: Array.from(rooms.values(), serializeRoomForRecovery)
+    });
+    return true;
+  } catch (error) { failPersistence(); throw error; }
 }
 
 function restoreActiveRooms() {
@@ -289,6 +300,8 @@ function restoreActiveRooms() {
         bloodTributes: Array.isArray(saved.bloodTributes) ? saved.bloodTributes : [],
         pendingTribute: saved.pendingTribute || null,
         timer: saved.timer || null,
+        pendingReveals: saved.pendingReveals || {},
+        commandReceipts: Array.isArray(saved.commandReceipts) ? saved.commandReceipts.slice(-2048) : [],
         // Per-board match ledger (RECOUNT data capture). Only trusted when it
         // belongs to the restored board; an older snapshot without one just
         // starts a fresh ledger for the current board.
@@ -365,24 +378,11 @@ const PLAYER_AUTH_SESSIONS_FILE = process.env.ASOC_PLAYER_AUTH_SESSIONS_FILE
 function playerTokenKey(token) {
   return crypto.createHash('sha256').update(String(token || '')).digest('hex');
 }
-function loadPlayerAuthSessions() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(PLAYER_AUTH_SESSIONS_FILE, 'utf8'));
-    const sessions = parsed && typeof parsed === 'object' ? (parsed.sessions || parsed) : {};
-    return new Map(Object.entries(sessions).filter(([, record]) => record && record.playerId));
-  } catch (e) {
-    return new Map();
-  }
-}
+function loadPlayerAuthSessions() { return playerSessionStore.load(); }
 const playerAuthTokens = loadPlayerAuthSessions();
 function savePlayerAuthSessions() {
-  try {
-    const tmp = PLAYER_AUTH_SESSIONS_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify({ sessions: Object.fromEntries(playerAuthTokens) }, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, PLAYER_AUTH_SESSIONS_FILE);
-  } catch (e) {
-    console.error('[player-auth] Failed to persist sessions:', e.message);
-  }
+  try { return playerSessionStore.save(playerAuthTokens); }
+  catch (error) { failPersistence(); throw error; }
 }
 let currentGMToken = '';
 function tokenRecordValid(record) {
@@ -396,11 +396,20 @@ const GM_LOCKOUT_FILE = path.join(ASOC_DATA_DIR, 'gm-lockouts.json');
 let gmLockouts = {};
 try { gmLockouts = JSON.parse(fs.readFileSync(GM_LOCKOUT_FILE, 'utf8')); } catch (e) { gmLockouts = {}; }
 function gmClientKey(req) {
-  const address = String(req.socket?.remoteAddress || 'unknown');
+  // Forwarded client addresses are attacker-controlled unless this process is
+  // explicitly running behind a trusted reverse proxy. Railway production
+  // sets ASOC_TRUST_PROXY=1; local/direct deployments safely ignore XFF.
+  const trustProxy = process.env.ASOC_TRUST_PROXY === '1';
+  const direct = String(req.socket?.remoteAddress || 'unknown');
+  let address = direct;
+  if (trustProxy) {
+    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',').map(v => v.trim()).filter(Boolean);
+    if (forwarded.length > 0 && forwarded.length <= 16 && forwarded.every(v => net.isIP(v))) address = forwarded[0];
+  }
   return crypto.createHash('sha256').update(address).digest('hex');
 }
 function saveGmLockouts() {
-  try { fs.writeFileSync(GM_LOCKOUT_FILE, JSON.stringify(gmLockouts, null, 2)); } catch (e) { console.error('[gm-auth] Failed to persist lockouts:', e.message); }
+  try { durableIO.writeJson(GM_LOCKOUT_FILE, gmLockouts); } catch (e) { console.error('[gm-auth] Failed to persist lockouts:', e.message); }
 }
 let GM_PASSWORD = String(process.env.ASOC_GM_PASSWORD || '');
 if (!GM_PASSWORD) {
@@ -544,6 +553,7 @@ function resetMasterGameSession(room, gameData) {
   room.gameData = gameData;
   room.revision = (room.revision || 0) + 1;
   room.boardId = generateBoardId();
+  room.pendingReveals = {};
   room.sessionState = {
     cells: {}, finalSolution: false, finalOutcome: null, gameWon: false,
     matchResult: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] }
@@ -592,6 +602,7 @@ function createRoom(gameId, hostWs) {
   const roomCode = MASTER_ROOM_CODE;
   const existingRoom = rooms.get(roomCode);
   if (existingRoom) {
+    if (existingRoom.armed === true) return { code: 'MASTER_ALREADY_ARMED', error: 'MASTER is already armed. Recover or reconnect to the existing session.' };
     if (existingRoom.hostConnection && existingRoom.hostConnection !== hostWs && existingRoom.hostConnection.readyState === 1) {
       return { error: 'Master Room already has an active Shadow Broker connection' };
     }
@@ -722,6 +733,12 @@ function createRoom(gameId, hostWs) {
     // gm:timerStart. See resetTimer() just below for the full field list and
     // the phase state machine.
     timer: null,
+    // Delayed column reveals are persisted as deadlines so a process restart
+    // cannot silently cancel a correctly judged solve.
+    pendingReveals: {},
+    // Recent UUID command receipts survive reconnect/restart, making GM board
+    // commands safely idempotent when an ACK was lost in transit.
+    commandReceipts: [],
     // MATCH LEDGER -- per-board data capture for the post-game RECOUNT (see
     // match-ledger.js). Replaced with a fresh ledger whenever a new board id
     // is minted (RESET BOARD / NEXT GAME).
@@ -853,7 +870,7 @@ function getWomfPublicState(room) {
   };
 }
 
-const WHEEL_SPIN_DURATION_MS = 4200;
+const WHEEL_SPIN_DURATION_MS = Math.max(100, Number(process.env.ASOC_WHEEL_SPIN_DURATION_MS) || 4200);
 const WHEEL_MIN_SEGMENTS = 2;
 const WHEEL_MAX_SEGMENTS = 12;
 
@@ -1131,23 +1148,28 @@ function handleWheelRoll(ws) {
   room.wheel.phase = 'spinning';
   room.wheel.winnerIndex = winnerIndex;
   room.wheel.spinToken = spinToken;
+  room.wheel.settleAt = Date.now() + WHEEL_SPIN_DURATION_MS;
   room.revision++;
 
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   console.log(`[ROOM ${room.code}] GM rolled the Wheel -- landed on "${room.wheel.segments[winnerIndex]}"`);
 
-  setTimeout(() => {
-    const stillRoom = rooms.get(room.code);
-    // Bail if the room is gone, or a newer spin/close superseded this one.
-    if (!stillRoom || !stillRoom.wheel || stillRoom.wheel.spinToken !== spinToken) return;
-    stillRoom.wheel.phase = 'result';
-    armBloodTributeForWheelResult(stillRoom);
-    stillRoom.revision++;
-    // Do not display a Tribute demand that could vanish on an immediate crash.
+  armWheelSettlement(room);
+}
+
+function armWheelSettlement(room) {
+  const token = room.wheel.spinToken;
+  setTimeout(() => runtimeAction(() => {
+    const live = rooms.get(room.code);
+    if (!live || live.wheel?.spinToken !== token || live.wheel.phase !== 'spinning') return;
+    live.wheel.phase = 'result';
+    delete live.wheel.settleAt;
+    armBloodTributeForWheelResult(live);
+    live.revision++;
     persistActiveRooms();
-    broadcastToRoom(stillRoom, { type: 'state:public', ...getPublicState(stillRoom) });
-  }, WHEEL_SPIN_DURATION_MS);
+    broadcastToRoom(live, { type: 'state:public', ...getPublicState(live) });
+  }), Math.max(0, Number(room.wheel.settleAt || 0) - Date.now()));
 }
 
 function handleWheelClose(ws) {
@@ -1291,6 +1313,7 @@ function handleTimerStart(ws) {
 
   room.timer.phase = 'running';
   room.revision++;
+  persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastToRoom(room, { type: 'battle:controlsOnline' });
   console.log(`[ROOM ${room.code}] GM started the Timer (${Math.round(room.timer.duration / 1000)}s) â€” BATTLE CONTROLS ONLINE`);
@@ -1313,6 +1336,7 @@ function handleTimerPause(ws) {
 
   room.timer.phase = room.timer.phase === 'borrowed' ? 'borrowed_paused' : 'paused';
   room.revision++;
+  persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   console.log(`[ROOM ${room.code}] GM paused the Timer`);
 }
@@ -1334,6 +1358,7 @@ function handleTimerResume(ws) {
 
   room.timer.phase = room.timer.phase === 'borrowed_paused' ? 'borrowed' : 'running';
   room.revision++;
+  persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   console.log(`[ROOM ${room.code}] GM resumed the Timer`);
 }
@@ -1388,6 +1413,7 @@ function handleTimerAdjust(ws, message) {
   }
 
   room.revision++;
+  persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   console.log(`[ROOM ${room.code}] GM adjusted the Timer by ${deltaMs > 0 ? '+' : ''}${Math.round(deltaMs / 1000)}s (${inBorrowed ? 'Borrowed Time' : 'normal'})`);
 }
@@ -1503,7 +1529,7 @@ function declareGameLost(room) {
 // changes with no side effects on scoring, WOMF, or the Final's own reveal
 // state (per the locked spec's explicit "do not auto-fail / do not
 // auto-charge WOMF" requirement).
-setInterval(() => {
+setInterval(() => runtimeAction(() => {
   const dirty = [];
   rooms.forEach((room) => {
     if (!room.timer) return;
@@ -1533,12 +1559,12 @@ setInterval(() => {
 
     dirty.push(room);
   });
+  dirty.forEach(room => room.revision++);
   if (dirty.length) persistActiveRooms();
   dirty.forEach((room) => {
-    room.revision++;
     broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   });
-}, TIMER_TICK_MS);
+}), TIMER_TICK_MS);
 
 // Resolves the clue TEXT for a given physical slot per the Progressive
 // Clue Queue: for rows 1-4, the difficulty index is this column's reveal
@@ -1726,14 +1752,13 @@ function archiveCompletedMatch(room, fields) {
   const ledger = room.match;
   const points = matchLedger.matchPointsByPlayer(room.scoring.events, room.boardId);
   const pointsByKey = {};
-  Object.values(points).forEach(entry => {
-    const key = playerStore.normalizeNameKey(entry.name);
-    pointsByKey[key] = (pointsByKey[key] || 0) + entry.points;
+  Object.entries(points).forEach(([playerId, entry]) => {
+    pointsByKey[playerId] = (pointsByKey[playerId] || 0) + entry.points;
   });
   // Any judged/active/present player with no scoring event still took part.
-  Object.values(ledger.presence).forEach(entry => {
-    const key = playerStore.normalizeNameKey(entry.name);
-    if (!(key in pointsByKey)) pointsByKey[key] = 0;
+  // ledger.presence is keyed by the authenticated player/account id.
+  Object.entries(ledger.presence).forEach(([playerId]) => {
+    if (!(playerId in pointsByKey)) pointsByKey[playerId] = 0;
   });
 
   const record = matchLedger.buildArchiveRecord({
@@ -1748,7 +1773,7 @@ function archiveCompletedMatch(room, fields) {
     gameWon: room.sessionState.gameWon === true,
     matchResult: room.sessionState.matchResult || null,
     standings: matchLedger.computeStandings(playerStore.loadPlayers(), pointsByKey),
-    keyFn: playerStore.normalizeNameKey,
+    keyFn: (name, id) => id || playerStore.normalizeNameKey(name),
     now: Date.now()
   });
   // Only matches whose RESULTS WERE SHOWN count as history: a REVEAL ALL /
@@ -1758,7 +1783,7 @@ function archiveCompletedMatch(room, fields) {
     match: record,
     history,
     profiles: playerStore.loadPlayers(),
-    keyFn: playerStore.normalizeNameKey,
+    keyFn: (name, id) => id || playerStore.normalizeNameKey(name),
     seed: record.matchId
   });
   if (room.sessionState.matchResult?.outcome === 'LOST') {
@@ -1788,7 +1813,7 @@ function ensureSessionPlayerEntry(room, playerId, playerName) {
 function adjustPlayerScore(room, playerId, playerName, points) {
   const entry = ensureSessionPlayerEntry(room, playerId, playerName);
   entry.sessionScore += points;
-  playerStore.adjustProfile(playerName, { pointsDelta: points });
+  playerStore.adjustProfile({ id: playerId, name: playerName }, { pointsDelta: points });
 }
 
 function recordEvent(room, fields) {
@@ -1883,7 +1908,7 @@ function awardColumnSolve(room, target, message) {
   if (cluesRevealed === 1) statDeltas.oneClueColumnSolutions = 1;
   if (difficulty === 'PURPLE') statDeltas.purpleSolves = 1;
   if (difficulty === 'BLACK') statDeltas.blackSolves = 1;
-  playerStore.adjustProfile(message.playerName, { statDeltas });
+  playerStore.adjustProfile({ id: message.playerId, name: message.playerName }, { statDeltas });
 
   rebuildColumnStreaks(room);
 
@@ -1907,7 +1932,7 @@ function reverseColumnSolve(room, target) {
   if (event.cluesRevealed === 1) statDeltas.oneClueColumnSolutions = -1;
   if (event.difficulty === 'PURPLE') statDeltas.purpleSolves = -1;
   if (event.difficulty === 'BLACK') statDeltas.blackSolves = -1;
-  playerStore.adjustProfile(event.playerName, { statDeltas });
+  playerStore.adjustProfile({ id: event.playerId, name: event.playerName }, { statDeltas });
 
   rebuildColumnStreaks(room);
 }
@@ -1935,8 +1960,8 @@ function awardFinalSolve(room, message) {
   const isEarly = columnsKnownAtSolve < 4;
   const statDeltas = { finalSolutions: 1 };
   if (isEarly) statDeltas.earlyFinalSolutions = 1;
-  playerStore.adjustProfile(message.playerName, { statDeltas });
-  playerStore.maybeRecordEarliestFinal(message.playerName, columnsKnownAtSolve);
+  playerStore.adjustProfile({ id: message.playerId, name: message.playerName }, { statDeltas });
+  playerStore.maybeRecordEarliestFinal({ id: message.playerId, name: message.playerName }, columnsKnownAtSolve);
 
   return { event };
 }
@@ -1951,7 +1976,7 @@ function reverseFinalSolve(room) {
 
   const statDeltas = { finalSolutions: -1 };
   if (event.columnsKnownAtSolve < 4) statDeltas.earlyFinalSolutions = -1;
-  playerStore.adjustProfile(event.playerName, { statDeltas });
+  playerStore.adjustProfile({ id: event.playerId, name: event.playerName }, { statDeltas });
   // earliestFinalColumnsKnown is an intentionally one-way "best ever"
   // record (see player-store.js) -- a reversal does not attempt to roll
   // it back to some previous value we no longer know.
@@ -2004,7 +2029,7 @@ function rebuildColumnStreaks(room) {
         streakLength
       });
       adjustPlayerScore(room, streakPlayerId, streakPlayerName, bonus);
-      playerStore.maybeRecordBestStreak(streakPlayerName, streakLength);
+      playerStore.maybeRecordBestStreak({ id: streakPlayerId, name: streakPlayerName }, streakLength);
     }
   }
 
@@ -2038,7 +2063,7 @@ function finalizeBoard(room, outcome) {
 
   participants.forEach(({ playerId, playerName }) => {
     if (outcome === 'success') {
-      playerStore.recordBoardFinalization(playerName, { won: true });
+      playerStore.recordBoardFinalization({ id: playerId, name: playerName }, { won: true });
     } else {
       const event = recordEvent(room, {
         type: 'failedFinal',
@@ -2048,7 +2073,7 @@ function finalizeBoard(room, outcome) {
         points: -scoring.FAILED_FINAL_PENALTY
       });
       adjustPlayerScore(room, playerId, playerName, -scoring.FAILED_FINAL_PENALTY);
-      playerStore.recordBoardFinalization(playerName, { won: false });
+      playerStore.recordBoardFinalization({ id: playerId, name: playerName }, { won: false });
       penaltyEvents.push(event);
     }
   });
@@ -2214,6 +2239,7 @@ function applyCommand(room, command, payload) {
       // happened after this reset) and clear per-board scoring state.
       // Session score and all-time profiles are untouched.
       room.boardId = generateBoardId();
+      room.pendingReveals = {};
       startMatchLedger(room); // new board id => new match ledger
       room.scoring.activeStreak = null;
       room.scoring.boardFinalized = false;
@@ -2302,6 +2328,11 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
   const message = room.chat.messages[msgIndex];
   if (room.armed !== true || message.source || message.boardId !== room.boardId) {
     return { success: false, error: 'Historical transmission is outside the active game and cannot be judged' };
+  }
+  if (room.pendingReveals) {
+    for (const [column, action] of Object.entries(room.pendingReveals)) {
+      if (action.messageId === messageId && (verdict !== 'correct' || column !== target)) delete room.pendingReveals[column];
+    }
   }
   const oldVerdict = message.verdict;
   const oldTarget = message.target;
@@ -2522,7 +2553,7 @@ function broadcastToRoom(room, message, excludeWs = null) {
 }
 
 function sendToWs(ws, message) {
-  if (ws.readyState === 1) {
+  if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify(message));
   }
 }
@@ -2575,28 +2606,65 @@ function handleHostCommand(ws, message) {
     return;
   }
 
-  const result = applyCommand(room, message.command, message.payload || {});
+  const cmdId = message.cmdId;
+  if (cmdId !== undefined && (
+    (typeof cmdId !== 'string' && typeof cmdId !== 'number') ||
+    String(cmdId).length > 128
+  )) {
+    sendToWs(ws, { type: 'error', code: 'INVALID_COMMAND_ID', message: 'Invalid command ID' });
+    return;
+  }
 
-  if (result.success && result.changed) {
-    // Authoritative command mutations must reach the recovery snapshot before
-    // any client hears about them (incl. a RECOUNT close triggered inside).
+  // Current clients use UUID strings. Persist those receipts so a retry after
+  // reconnect or process restart cannot apply a destructive command twice.
+  // Numeric ids remain accepted as legacy compatibility, but are deliberately
+  // not deduplicated because old clients reset their counter after refresh.
+  const replayProtected = typeof cmdId === 'string' && cmdId.length > 0;
+  room.commandReceipts ||= [];
+  if (replayProtected) {
+    const receipt = room.commandReceipts.find(entry => entry.cmdId === cmdId);
+    if (receipt) {
+      sendToWs(ws, receipt.ack);
+      return;
+    }
+  }
+
+  const result = applyCommand(room, message.command, message.payload || {});
+  if (!result.success) {
+    sendToWs(ws, { type: 'error', cmdId, message: result.error });
+    return;
+  }
+
+  const ack = {
+    type: 'command:ack',
+    cmdId,
+    revision: room.revision,
+    ...(result.changed ? {} : { unchanged: true })
+  };
+
+  if (replayProtected) {
+    room.commandReceipts.push({ cmdId, ack });
+    if (room.commandReceipts.length > 2048) {
+      room.commandReceipts.splice(0, room.commandReceipts.length - 2048);
+    }
+  }
+
+  if (result.changed || replayProtected) {
+    // The receipt and the mutation reach the same recovery snapshot, so a
+    // client can safely retry whenever it is unsure whether an ACK arrived.
     persistActiveRooms();
+  }
+
+  if (result.changed) {
     if (result.recountClosed) broadcastRecount(room, null, false);
-    const publicState = getPublicState(room);
-    broadcastToRoom(room, { type: 'state:public', ...publicState });
+    broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
     if (message.command === 'resetBoard') {
-      // resetBoard also clears chat.solvedTargets (see applyCommand) so a
-      // replayed board can be scored again -- clients' cached solved-target
-      // state must be told about that too, same as any other chat change.
       broadcastChatUpdate(room);
       broadcastPlayersUpdate(room);
     }
-    sendToWs(ws, { type: 'command:ack', revision: room.revision });
-  } else if (result.success) {
-    sendToWs(ws, { type: 'command:ack', revision: room.revision, unchanged: true });
-  } else {
-    sendToWs(ws, { type: 'error', message: result.error });
   }
+
+  sendToWs(ws, ack);
 }
 
 function handlePlayerJoin(ws, message) {
@@ -2631,7 +2699,9 @@ function handlePlayerJoin(ws, message) {
     return;
   }
 
-  const cleanName = sanitizeText(name).slice(0, 20);
+  // The account owns the display identity. A browser-supplied name is only
+  // a compatibility fallback for very old accounts that predate stored names.
+  const cleanName = sanitizeText(account.name || name).slice(0, 20);
   if (!cleanName) {
     sendToWs(ws, { type: 'error', message: 'Name cannot be empty' });
     return;
@@ -2654,9 +2724,9 @@ function handlePlayerJoin(ws, message) {
     return;
   }
 
-  let littleHeroProfile = playerStore.getOrCreateProfile(cleanName).profile;
+  let littleHeroProfile = playerStore.getOrCreateProfile({ id: requestedId, name: cleanName }).profile;
   if (hasAvatarUpdate || requestedFrameColor || requestedThemeId) {
-    littleHeroProfile = playerStore.updateProfileAppearance(cleanName, {
+    littleHeroProfile = playerStore.updateProfileAppearance({ id: requestedId, name: cleanName }, {
       avatarData: hasAvatarUpdate ? requestedAvatar : undefined,
       frameColor: requestedFrameColor || undefined,
       themeId: requestedThemeId || undefined,
@@ -2836,6 +2906,15 @@ function handleHostRecover(ws) {
   console.log('[MASTER ROOM] Shadow Broker recovered armed session without browser host token');
 }
 
+function playerCooldown(room, ws) {
+  const id = ws === room.hostConnection ? '__GM__' : room.players.get(ws)?.id;
+  if (!id) return null;
+  room.cooldowns ||= new Map();
+  const now = Date.now();
+  for (const [key, value] of room.cooldowns) if (now - Math.max(value.chatAt || 0, value.reactionAt || 0) > 1000) room.cooldowns.delete(key);
+  if (!room.cooldowns.has(id)) room.cooldowns.set(id, {});
+  return room.cooldowns.get(id);
+}
 function handleChatGuess(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -2860,14 +2939,16 @@ function handleChatGuess(ws, message) {
   }
 
   const now = Date.now();
-  if (ws._lastChatAt && now - ws._lastChatAt < PLAYER_CHAT_MIN_INTERVAL_MS) {
+  const cooldown = playerCooldown(room, ws);
+  if (!cooldown) return;
+  if (cooldown.chatAt && now - cooldown.chatAt < PLAYER_CHAT_MIN_INTERVAL_MS) {
     sendToWs(ws, { type: 'error', message: 'Battle Comms cooling down' });
     return;
   }
 
   const result = addChatMessage(room, ws.playerId, ws.playerName, text);
   if (result.success) {
-    ws._lastChatAt = now;
+    cooldown.chatAt = now;
     // Permanent channel contract: if clients can see a transmission, it has
     // already reached the recovery snapshot.
     persistActiveRooms();
@@ -2891,7 +2972,9 @@ function handleChatReaction(ws, message) {
   }
 
   const now = Date.now();
-  if (ws._lastReactionAt && now - ws._lastReactionAt < PLAYER_REACTION_MIN_INTERVAL_MS) {
+  const cooldown = playerCooldown(room, ws);
+  if (!cooldown) return;
+  if (cooldown.reactionAt && now - cooldown.reactionAt < PLAYER_REACTION_MIN_INTERVAL_MS) {
     return;
   }
 
@@ -2918,7 +3001,7 @@ function handleChatReaction(ws, message) {
   if (current.length) target.reactions[emoji] = current;
   else delete target.reactions[emoji];
 
-  ws._lastReactionAt = now;
+  cooldown.reactionAt = now;
   persistActiveRooms();
   broadcastChatUpdate(room);
 }
@@ -3047,25 +3130,33 @@ function handleGmGameWon(ws) {
 
 function scheduleSolvedColumnReveal(room, messageId, column) {
   if (!SCORABLE_COLUMNS.includes(column)) return;
-
-  const roomCode = room.code;
-  const boardId = room.boardId;
-
-  setTimeout(() => {
-    const liveRoom = rooms.get(roomCode);
-    if (!liveRoom || liveRoom.boardId !== boardId) return;
-
-    const solved = liveRoom.chat.solvedTargets[column];
-    const judgedMessage = liveRoom.chat.messages.find(m => m.id === messageId);
-    if (!solved || solved.messageId !== messageId) return;
-    if (!judgedMessage || judgedMessage.verdict !== 'correct' || judgedMessage.target !== column) return;
-
-    const revealResult = applyCommand(liveRoom, 'revealColumn', { column });
-    if (revealResult.success && revealResult.changed) {
+  room.pendingReveals ||= {};
+  if (room.pendingReveals[column]?.messageId === messageId) return;
+  const action = {
+    messageId,
+    column,
+    boardId: room.boardId,
+    deadline: Date.now() + COLUMN_REVEAL_DELAY_MS,
+    token: crypto.randomUUID()
+  };
+  room.pendingReveals[column] = action;
+  persistActiveRooms();
+  armColumnReveal(room, action);
+}
+function armColumnReveal(room, action) {
+  setTimeout(() => runtimeAction(() => {
+    const live = rooms.get(room.code);
+    if (!live || live.pendingReveals?.[action.column]?.token !== action.token) return;
+    delete live.pendingReveals[action.column];
+    const judged = live.chat.messages.find(m => m.id === action.messageId);
+    if (live.armed && live.boardId === action.boardId &&
+        live.chat.solvedTargets[action.column]?.messageId === action.messageId &&
+        judged?.verdict === 'correct' && judged.target === action.column) {
+      const result = applyCommand(live, 'revealColumn', { column: action.column });
       persistActiveRooms();
-      broadcastToRoom(liveRoom, { type: 'state:public', ...getPublicState(liveRoom) });
-    }
-  }, 5000);
+      if (result.success && result.changed) broadcastToRoom(live, { type: 'state:public', ...getPublicState(live) });
+    } else persistActiveRooms();
+  }), Math.max(0, action.deadline - Date.now()));
 }
 
 function handleJudgeGuess(ws, message) {
@@ -3187,6 +3278,7 @@ function handleSwitchGame(ws, message) {
   // untouched. Only per-board state resets, exactly like ending a streak
   // when the board changes.
   room.boardId = generateBoardId();
+  room.pendingReveals = {};
   startMatchLedger(room); // new board id => new match ledger
   room.scoring.activeStreak = null;
   room.scoring.boardFinalized = false;
@@ -3951,10 +4043,11 @@ function resolveAllowedStaticPath(requestUrl) {
 const server = http.createServer((req, res) => {
   const urlPath = req.url.split('?')[0];
   if (req.method === 'GET' && urlPath === '/health') {
-    return sendJson(res, shuttingDown ? 503 : 200, {
-      ok: !shuttingDown,
+    const ready = !shuttingDown && !persistenceFailed && !recoveryStoreLocked && durableIO.healthy() && authStore.isHealthy() && playerStore.isHealthy() && matchStore.isHealthy() && playerSessionStore.isHealthy();
+    return sendJson(res, ready ? 200 : 503, {
+      ok: ready,
       service: 'asoc-engine',
-      status: shuttingDown ? 'shutting-down' : 'ready'
+      status: shuttingDown ? 'shutting-down' : ready ? 'ready' : 'storage-unavailable'
     });
   }
   if (urlPath.startsWith('/api/')) {
@@ -3990,6 +4083,18 @@ wss.on('connection', (ws) => {
     ws.close(1012, 'Server shutting down');
     return;
   }
+  ws.durableSend = ws.send.bind(ws);
+  ws.send = data => {
+    if (persistenceFailed) return;
+    if (outbound) outbound.push([ws, data]);
+    else ws.durableSend(data);
+  };
+  const handshakeTimer = setTimeout(() => {
+    if (!ws.protocolVerified) ws.terminate();
+  }, WS_HANDSHAKE_TIMEOUT_MS);
+  handshakeTimer.unref();
+  ws.on('close', () => clearTimeout(handshakeTimer));
+  let trafficTokens = 80, trafficAt = Date.now();
   ws.isAlive = true;
   ws.protocolVerified = false;
   ws.on('pong', () => { ws.isAlive = true; });
@@ -4002,11 +4107,18 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (data) => {
     try {
+      const trafficNow = Date.now();
+      trafficTokens = Math.min(80, trafficTokens + (trafficNow - trafficAt) * 0.02);
+      trafficAt = trafficNow;
+      if (trafficTokens < 1) { ws.close(1008, 'Message rate exceeded'); return; }
+      trafficTokens--;
+      if (persistenceFailed || recoveryStoreLocked) { ws.close(1013, 'Storage unavailable'); return; }
       if (shuttingDown) {
         sendToWs(ws, { type: 'error', message: 'SERVER SHUTDOWN IN PROGRESS // RECONNECT REQUIRED' });
         return;
       }
       const message = JSON.parse(data.toString());
+      if (!message || typeof message !== 'object' || Array.isArray(message)) return;
 
       if (!ws.protocolVerified) {
         if (message.type !== 'protocol:hello' || message.protocolVersion !== PROTOCOL_VERSION) {
@@ -4020,10 +4132,12 @@ wss.on('connection', (ws) => {
           return;
         }
         ws.protocolVerified = true;
+        clearTimeout(handshakeTimer);
         sendToWs(ws, { type: 'protocol:ready', protocolVersion: PROTOCOL_VERSION });
         return;
       }
 
+      runtimeAction(() => {
       switch (message.type) {
         case 'room:create': {
           if (!isValidGmToken(message.gmToken)) {
@@ -4033,7 +4147,7 @@ wss.on('connection', (ws) => {
           ws.gmAuthenticated = true;
           const result = createRoom(message.gameId || 'sample-game', ws);
           if (result.error) {
-            sendToWs(ws, { type: 'error', message: result.error });
+            sendToWs(ws, { type: 'error', code: result.code, message: result.error });
           } else {
             sendToWs(ws, { type: 'room:created', roomCode: result.roomCode, hostToken: result.hostToken });
             // Send the host its own initial state:public immediately -- without
@@ -4206,19 +4320,23 @@ wss.on('connection', (ws) => {
         default:
           sendToWs(ws, { type: 'error', message: 'Unknown message type' });
       }
-      persistActiveRooms();
+      });
     } catch (e) {
       console.error('WebSocket message error:', e);
       sendToWs(ws, { type: 'error', message: 'Malformed message' });
     }
   });
 
-  ws.on('close', () => handleClose(ws));
+  ws.on('close', () => runtimeAction(() => handleClose(ws)));
   ws.on('error', (err) => console.error('WebSocket error:', err));
 });
 
 const restoredRoomCount = restoreActiveRooms();
 ensureMasterRoom();
+for (const room of rooms.values()) {
+  if (room.wheel?.phase === 'spinning') armWheelSettlement(room);
+  for (const action of Object.values(room.pendingReveals || {})) armColumnReveal(room, action);
+}
 
 server.listen(PORT, '0.0.0.0', () => {
   refreshGMToken();

@@ -102,9 +102,41 @@ function openWs() {
 }
 
 async function createRoom(host) {
-  const response = waitForMessage(host, m => m.type === 'room:created', 'room:created');
-  host.send(JSON.stringify({ type: 'room:create', gameId: 'sample-game', gmToken: TEST_GM_TOKEN }));
-  return response;
+  const arm = async () => {
+    const response = waitForMessage(
+      host,
+      m => m.type === 'room:created' || (m.type === 'error' && m.code === 'MASTER_ALREADY_ARMED'),
+      'room:create response'
+    );
+    host.send(JSON.stringify({ type: 'room:create', gameId: 'sample-game', gmToken: TEST_GM_TOKEN }));
+    return response;
+  };
+
+  let response = await arm();
+  if (response.type === 'room:created') return response;
+
+  // Tests are sequential but MASTER is intentionally permanent. If a prior
+  // test left an armed session behind, reclaim and explicitly disarm it
+  // rather than relying on room:create to destroy live state.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const recovered = waitForMessage(
+      host,
+      m => m.type === 'host:recovered' || (m.type === 'error' && m.code === 'recover_host_already_connected'),
+      'host recovery before test arm'
+    );
+    host.send(JSON.stringify({ type: 'host:recover', gmToken: TEST_GM_TOKEN }));
+    const recovery = await recovered;
+    if (recovery.type === 'host:recovered') {
+      const disarmed = waitForMessage(host, m => m.type === 'room:disarmed', 'test cleanup disarm');
+      host.send(JSON.stringify({ type: 'room:close' }));
+      await disarmed;
+      response = await arm();
+      if (response.type === 'room:created') return response;
+    }
+    await delay(100);
+  }
+
+  throw new Error('Could not obtain a clean unarmed MASTER for test');
 }
 
 function closeWs(ws) {
@@ -347,6 +379,7 @@ async function testChatTransportHygiene() {
     frameColor: '#123ABC'
   }));
   await joined;
+  await delay(400); // identity-scoped chat cooldown survives socket churn
 
   const firstUpdate = waitForMessage(
     player,
@@ -395,6 +428,11 @@ async function testChatEmojiReactions() {
     name: 'REACTION TEST'
   }));
   const joined = await joinedPromise;
+
+  // Cooldowns are identity-scoped now, so reconnecting/new sockets cannot
+  // bypass them. The preceding transport test intentionally used this same
+  // authenticated identity and ended with a chat message.
+  await delay(400);
 
   const emojiMessageUpdate = waitForMessage(
     player,
@@ -995,7 +1033,7 @@ async function testCrashInjectionPersistence(server) {
 
   // Wheel OPEN (the armed wheel itself must survive) and then ROLL -> result.
   const wheelOpened = waitForMessage(host, m => m.type === 'state:public' && m.wheel?.open === true, 'crash wheel open');
-  host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['CRASH PLAYER', 'CRASH TWO'] }));
+  host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['REGRESSION TEST', 'CRASH TWO'] }));
   await wheelOpened;
 
   const resultPromise = waitForMessage(
@@ -1149,7 +1187,7 @@ async function testBloodTributeLifecycle() {
   await failColumnsToCharge(['A', 'B'], 10);
 
   const wheelOpened = waitForMessage(host, m => m.type === 'state:public' && m.wheel?.open === true, 'tribute wheel open');
-  host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['TRIBUTE ONE', 'TRIBUTE TWO'] }));
+  host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['REGRESSION TEST', 'TRIBUTE TWO'] }));
   await wheelOpened;
 
   const resultPromise = waitForMessage(
@@ -1281,7 +1319,7 @@ async function testTributeForgive(server) {
     await failColumnsToCharge(['A', 'B'], 10);
 
     const wheelOpened = waitForMessage(host, m => m.type === 'state:public' && m.wheel?.open === true, 'forgive wheel open');
-    host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['FORGIVE ONE', 'FORGIVE TWO'] }));
+    host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['REGRESSION TEST', 'FORGIVE TWO'] }));
     await wheelOpened;
 
     const demandPromise = waitForMessage(
@@ -1428,13 +1466,13 @@ async function testMatchCaptureAndCompletion() {
   assert.equal(a.fields.A.status, 'solved');
   for (const field of ['B', 'C', 'D', 'FINAL']) assert.equal(a.fields[field].status, 'failed');
   assert.equal(a.gameWon, false, 'a failed Final is not a victory');
-  const me = a.players.find(p => p.name === 'MATCH CAPTURE');
+  const me = a.players.find(p => p.name === 'REGRESSION TEST');
   assert.ok(me, 'the participant is in the archive');
   assert.deepEqual(me.judged, { total: 2, correct: 1, wrong: 1 }, 'only GM-judged messages are attempts');
   assert.equal(me.messages, 3, 'unjudged chatter is counted as activity');
   assert.equal(me.matchPoints, -200, 'this match only: the failed-Final penalty (column A had no clues to score)');
   assert.ok(a.attempts.some(x => x.textKey === 'a wrong answer' && x.verdict === 'wrong' && x.target === null));
-  const standing = a.standings.find(s => s.key === 'match capture');
+  const standing = a.standings.find(s => s.key === TEST_PLAYER_ID);
   assert.ok(standing, 'standings are captured for participants');
   assert.equal(standing.lifetimeAfter - standing.lifetimeBefore, -200);
 
@@ -1515,7 +1553,7 @@ async function testColumnScoreAfterFinal() {
     try {
       const m = JSON.parse(raw);
       if (m.type === 'players:update') {
-        const me = m.players.find(p => p.name === 'AFTER FINAL');
+        const me = m.players.find(p => p.id === TEST_PLAYER_ID);
         if (me) lastScore = me.score;
       }
     } catch {}
@@ -1523,7 +1561,7 @@ async function testColumnScoreAfterFinal() {
 
   let cmdId = 9000;
   async function reveal(cell) {
-    // command:ack carries only a revision (no cmdId); commands here are sequential.
+    // command:ack echoes cmdId; commands here are sequential.
     const ack = waitForMessage(host, m => m.type === 'command:ack', `reveal ${cell}`);
     host.send(JSON.stringify({ type: 'gm:command', command: 'revealCell', payload: { cell, reveal: true }, cmdId: ++cmdId }));
     await ack;
@@ -1692,7 +1730,7 @@ async function testRecountShowFlow() {
   const rc = hostMsg.recount;
   assert.equal(rc.summary.complete, true);
   assert.ok(Array.isArray(rc.scoreboard) && rc.scoreboard.length >= 2);
-  assert.ok(rc.scoreboard.some(r => r.name === 'RECOUNT ONE') && rc.scoreboard.some(r => r.name === 'RECOUNT TWO'));
+  assert.ok(rc.scoreboard.some(r => r.name === 'REGRESSION TEST') && rc.scoreboard.some(r => r.name === 'RECOUNT TWO'));
   const two = rc.scoreboard.find(r => r.name === 'RECOUNT TWO');
   assert.deepEqual(two.judged, { total: 2, correct: 0, wrong: 2 }, 'answers judged after completion but before SHOW RESULTS are included');
   assert.ok(Array.isArray(rc.awards) && rc.awards.length <= 3);

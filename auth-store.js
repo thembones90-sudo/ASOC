@@ -1,4 +1,4 @@
-const fs=require('fs'), path=require('path'), crypto=require('crypto');
+const fs=require('./durable-io').fs, path=require('path'), crypto=require('crypto');
 const dataDir=process.env.ASOC_DATA_DIR?path.resolve(process.env.ASOC_DATA_DIR):__dirname;
 const file=process.env.ASOC_AUTH_FILE?path.resolve(process.env.ASOC_AUTH_FILE):path.join(dataDir,'auth-store.json');
 fs.mkdirSync(path.dirname(file),{recursive:true});
@@ -25,20 +25,8 @@ function validate(d){
   return d;
 }
 function read(filePath){return validate(JSON.parse(fs.readFileSync(filePath,'utf8')))}
-function atomic(filePath,d){
-  const tmp=filePath+'.tmp-'+process.pid+'-'+crypto.randomBytes(8).toString('hex');
-  let fd;
-  try{
-    fd=fs.openSync(tmp,'wx',0o600);
-    fs.writeFileSync(fd,JSON.stringify(d,null,2),'utf8');
-    fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;
-    fs.renameSync(tmp,filePath);
-  }catch(error){
-    if(fd!==undefined)try{fs.closeSync(fd)}catch{}
-    try{fs.unlinkSync(tmp)}catch{}
-    throw error;
-  }
-}
+function atomic(filePath, value) { require('./durable-io').writeJson(filePath, value); }
+
 function unavailable(){return Error('Auth storage unavailable; repair or restore the database before retrying')}
 function load(){
   let mainError;
@@ -146,6 +134,7 @@ function issueVerificationToken(email){
 }
 
 module.exports={
+  isHealthy() { try { load(); return true; } catch { return false; } },
   register,login,getById,verifyEmail,issueVerificationToken,isVerified,
   VERIFY_TTL_MS,RESEND_COOLDOWN_MS
 };

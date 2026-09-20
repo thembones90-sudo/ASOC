@@ -19,7 +19,7 @@
  * backfilled.
  */
 
-const fs = require('fs');
+const fs = require('./durable-io').fs;
 const path = require('path');
 
 const DATA_DIR = process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_DIR) : __dirname;
@@ -50,16 +50,7 @@ function readFile(filePath) {
   return validate(JSON.parse(fs.readFileSync(filePath, 'utf8')));
 }
 
-function writeJsonAtomic(filePath, value) {
-  const tmp = filePath + '.tmp-' + process.pid + '-' + Date.now();
-  try {
-    fs.writeFileSync(tmp, JSON.stringify(value, null, 2), 'utf8');
-    fs.renameSync(tmp, filePath);
-  } catch (error) {
-    try { fs.unlinkSync(tmp); } catch {}
-    throw error;
-  }
-}
+function writeJsonAtomic(filePath, value) { require('./durable-io').writeJson(filePath, value); }
 
 function load() {
   if (!fs.existsSync(MATCHES_FILE)) {
@@ -154,4 +145,4 @@ function listMatches() {
   return Object.values(load().matches).sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
 }
 
-module.exports = { MATCHES_FILE, upsertMatch, removeMatch, getMatch, listMatches };
+module.exports = { isHealthy() { load(); return storageHealthy; }, storageHealthy() { return storageHealthy; }, MATCHES_FILE, upsertMatch, removeMatch, getMatch, listMatches };

@@ -250,7 +250,7 @@ function buildArchiveRecord(input) {
     return {
       playerId,
       name,
-      nameKey: keyFn(name),
+      nameKey: keyFn(name, playerId),
       matchPoints: points[playerId] ? points[playerId].points : 0,
       judged: {
         total: mine.length,

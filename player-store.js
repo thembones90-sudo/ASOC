@@ -6,16 +6,14 @@
  * file (players.json) rather than one file per profile, since profiles are
  * small and updated far more often than games are.
  *
- * IDENTITY (v1, approved): a profile is matched by normalized display name
- * -- trimmed, case-insensitive. Two people who both type "Alex" share a
- * profile; that is an accepted, known limitation for a small recurring
- * group, not a bug. Matching never strips or mangles Unicode characters
- * (Serbian/etc. names are preserved exactly as typed) -- only trimming and
- * case-folding are applied to derive the lookup key. The profile's stored
- * display name always reflects the most recently typed capitalization.
+ * IDENTITY: authenticated accounts own lifetime profiles by account id.
+ * Legacy profiles that were keyed by normalized display name are migrated
+ * once, on the account's first authenticated use. This preserves old totals
+ * while allowing two different accounts to use the same visible name without
+ * sharing points, appearance, or career statistics.
  */
 
-const fs = require('fs');
+const fs = require('./durable-io').fs;
 const path = require('path');
 
 const DATA_DIR = process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_DIR) : __dirname;
@@ -27,7 +25,7 @@ const PLAYERS_BACKUP_FILE = PLAYERS_FILE + '.bak';
 let storageHealthy = true;
 
 function normalizeNameKey(name) {
-  return String(name || '').trim().toLocaleLowerCase();
+  return name && typeof name === 'object' ? String(name.id) : String(name || '').trim().toLocaleLowerCase();
 }
 
 function nowISO() {
@@ -35,8 +33,11 @@ function nowISO() {
 }
 
 function blankProfile(displayName) {
+  const identity = displayName;
+  displayName = typeof identity === 'object' ? identity.name : identity;
   return {
-    id: normalizeNameKey(displayName),
+    id: normalizeNameKey(identity),
+    ...(identity && typeof identity === 'object' ? { accountId: identity.id } : {}),
     name: String(displayName || '').trim(),
     avatarData: '',
     frameColor: '#9B5DE0',
@@ -92,7 +93,15 @@ function validateAndNormalizePlayers(raw) {
     const profile = { ...base, ...candidate };
 
     profile.name = displayName;
-    if (typeof profile.id !== 'string' || !profile.id.trim()) profile.id = fallbackName || normalizeNameKey(displayName);
+    if (candidate.accountId !== undefined) {
+      if (typeof candidate.accountId !== 'string' || !candidate.accountId.trim() || candidate.accountId !== key) {
+        throw new Error(`Player profile "${key}" has invalid account identity`);
+      }
+      profile.accountId = candidate.accountId;
+      profile.id = candidate.accountId;
+    } else if (typeof profile.id !== 'string' || !profile.id.trim()) {
+      profile.id = fallbackName || normalizeNameKey(displayName);
+    }
     if (typeof profile.avatarData !== 'string') profile.avatarData = '';
     if (typeof profile.frameColor !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(profile.frameColor)) profile.frameColor = '#9B5DE0';
     if (typeof profile.themeId !== 'string' || !/^[a-z0-9-]{1,32}$/.test(profile.themeId)) profile.themeId = 'gunmetal';
@@ -128,16 +137,7 @@ function readPlayersFile(filePath) {
   return validateAndNormalizePlayers(parsed);
 }
 
-function writeJsonAtomic(filePath, value) {
-  const tmpFile = filePath + '.tmp-' + process.pid + '-' + Date.now();
-  try {
-    fs.writeFileSync(tmpFile, JSON.stringify(value, null, 2), 'utf8');
-    fs.renameSync(tmpFile, filePath);
-  } catch (error) {
-    try { fs.unlinkSync(tmpFile); } catch {}
-    throw error;
-  }
-}
+function writeJsonAtomic(filePath, value) { require('./durable-io').writeJson(filePath, value); }
 
 function loadPlayers() {
   if (!fs.existsSync(PLAYERS_FILE)) {
@@ -228,8 +228,14 @@ function savePlayersAtomic(players) {
 function getOrCreateProfile(displayName) {
   const key = normalizeNameKey(displayName);
   const players = loadPlayers();
+  if (!storageHealthy) throw Error('Player storage unavailable');
   if (!players[key]) {
-    players[key] = blankProfile(displayName);
+    const legacyKey = typeof displayName === 'object' ? normalizeNameKey(displayName.name) : null;
+    const legacy = legacyKey && players[legacyKey];
+    if (legacy && !legacy.accountId && legacyKey !== key) {
+      players[key] = { ...legacy, id: key, accountId: key, name: displayName.name };
+      delete players[legacyKey];
+    } else players[key] = blankProfile(displayName);
     savePlayersAtomic(players);
   }
   return { key, profile: players[key] };
@@ -246,7 +252,7 @@ function updateProfileAppearance(displayName, { avatarData, frameColor, themeId,
   if (!players[key]) players[key] = blankProfile(displayName);
 
   const profile = players[key];
-  profile.name = String(displayName || '').trim() || profile.name;
+  profile.name = String((typeof displayName === 'object' ? displayName.name : displayName) || '').trim() || profile.name;
 
   if (typeof avatarData === 'string') profile.avatarData = avatarData;
   if (typeof frameColor === 'string' && /^#[0-9A-Fa-f]{6}$/.test(frameColor)) {
@@ -269,7 +275,7 @@ function adjustProfile(displayName, { pointsDelta = 0, statDeltas = {} } = {}) {
   if (!players[key]) players[key] = blankProfile(displayName);
 
   const profile = players[key];
-  profile.name = String(displayName || '').trim() || profile.name;
+  profile.name = String((typeof displayName === 'object' ? displayName.name : displayName) || '').trim() || profile.name;
   profile.lastPlayed = nowISO();
   profile.lifetimeScore += pointsDelta;
 
@@ -315,7 +321,7 @@ function recordBoardFinalization(displayName, { won }) {
   const players = loadPlayers();
   if (!players[key]) players[key] = blankProfile(displayName);
   const profile = players[key];
-  profile.name = String(displayName || '').trim() || profile.name;
+  profile.name = String((typeof displayName === 'object' ? displayName.name : displayName) || '').trim() || profile.name;
   profile.lastPlayed = nowISO();
   profile.gamesPlayed += 1;
   if (won) profile.gamesWon += 1;
@@ -331,6 +337,8 @@ function getAllTimeLeaderboard(limit = 50) {
 }
 
 module.exports = {
+  isHealthy() { loadPlayers(); return storageHealthy; },
+  storageHealthy() { return storageHealthy; },
   PLAYERS_FILE,
   normalizeNameKey,
   loadPlayers,

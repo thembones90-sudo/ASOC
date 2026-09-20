@@ -156,8 +156,22 @@ function buildStats(match, history, keyFn) {
     const half = Math.ceil(mine.length / 2);
     const acc = list => (list.length ? list.filter(a => a.verdict === 'correct').length / list.length : null);
 
-    const nameKey = pl.nameKey || keyFn(pl.name);
-    const prior = (history || []).map(h => (h.players || []).find(p => p.nameKey === nameKey)).filter(Boolean);
+    // Authenticated playerId has always been archived, even in older
+    // name-keyed profile versions. Prefer it so historical RECOUNT comparisons
+    // survive the migration from display-name keys to account identity keys.
+    const accountKey = pl.playerId || null;
+    const legacyKey = pl.nameKey || keyFn(pl.name);
+    const nameKey = accountKey || legacyKey;
+    const prior = (history || []).map(h => {
+      const archived = h.players || [];
+      if (accountKey) {
+        const exact = archived.find(p => p.playerId === accountKey);
+        if (exact) return exact;
+      }
+      // Older archives predate account-keyed profiles. Fall back to the
+      // historical name key only when no exact account-id match exists.
+      return archived.find(p => (p.nameKey || keyFn(p.name)) === legacyKey);
+    }).filter(Boolean);
     const priorPoints = prior.map(p => p.matchPoints);
 
     return {
@@ -579,7 +593,7 @@ function buildScoreboard(match) {
 }
 
 function buildOverall(match, profiles, keyFn) {
-  const rows = Object.values(profiles || {}).map(p => ({ key: keyFn(p.name), name: p.name, total: p.lifetimeScore || 0, gamesPlayed: p.gamesPlayed || 0 }));
+  const rows = Object.values(profiles || {}).map(p => ({ key: p.accountId || keyFn(p.name), name: p.name, total: p.lifetimeScore || 0, gamesPlayed: p.gamesPlayed || 0 }));
   const ranked = rankByKeys(rows, r => [r.total]);
   const moves = {};
   (match.standings || []).forEach(s => { moves[s.key] = s; });
