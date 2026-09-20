@@ -3872,6 +3872,24 @@
         linear-gradient(180deg,#44371b,#201708);
       box-shadow:inset 4px 0 #9b5de0,inset -4px 0 #d63b4a,inset 0 1px rgba(255,236,170,.18),0 0 18px rgba(212,168,67,.11),0 10px 24px rgba(0,0,0,.34);
     }
+    #join-screen .join-btn {
+      border:1px solid transparent;
+      color:#f4eef8;
+      background:
+        radial-gradient(ellipse at 50% 50%,rgba(245,222,255,.18) 0 1%,rgba(205,68,178,.16) 2% 7%,transparent 15%) padding-box,
+        linear-gradient(90deg,#241132 0%,#4d1d70 38%,#862d91 47%,#c849ac 49.4%,#ead8f3 50%,#d34379 50.6%,#8d203d 53%,#531522 62%,#220d13 100%) padding-box,
+        linear-gradient(90deg,#9b5de0 0%,#b74ccb 46%,#ead8f3 50%,#df415d 54%,#d63b4a 100%) border-box;
+      box-shadow:inset 3px 0 rgba(174,91,235,.72),inset -3px 0 rgba(224,64,82,.70),0 0 18px rgba(161,49,132,.15),0 8px 20px rgba(0,0,0,.34);
+      text-shadow:-2px 0 9px rgba(155,93,224,.46),2px 0 9px rgba(214,59,74,.42),0 1px 2px #000;
+    }
+    #join-screen .join-btn:hover:not(:disabled) {
+      color:#fff;
+      background:
+        radial-gradient(ellipse at 50% 50%,rgba(255,244,255,.30) 0 1.5%,rgba(224,84,190,.23) 2% 9%,transparent 18%) padding-box,
+        linear-gradient(90deg,#2f1543 0%,#63258e 39%,#a138a7 47%,#dc5fc1 49.2%,#fff2ff 50%,#eb527f 50.8%,#ad294a 53%,#671a2a 62%,#2d0f18 100%) padding-box,
+        linear-gradient(90deg,#b26cf2 0%,#d05cda 46%,#fff2ff 50%,#f05470 54%,#ed4b5c 100%) border-box;
+      box-shadow:inset 4px 0 #a964ec,inset -4px 0 #e74259,0 0 24px rgba(189,58,153,.22),0 10px 24px rgba(0,0,0,.36);
+    }
     @keyframes hero-conflict-pulse {
       0%,100% { box-shadow:0 0 0 1px rgba(185,116,244,.24),0 0 20px rgba(139,61,240,.15); }
       50% { box-shadow:0 0 0 1px rgba(200,142,250,.40),0 0 30px rgba(139,61,240,.27); }
