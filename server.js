@@ -20,6 +20,7 @@ const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_WS_PAYLOAD_BYTES = 5 * 1024 * 1024;
 const MASTER_ROOM_CODE = 'MASTER';
 const MAX_CHAT_LENGTH = 100;
+const MAX_MODERATION_REASON_LENGTH = 180;
 const PLAYER_CHAT_MIN_INTERVAL_MS = 350;
 const PLAYER_REACTION_MIN_INTERVAL_MS = 120;
 const COMMANDER_REACTION_EMOJIS = new Set([':cmd-heart:', ':cmd-unamused:', ':cmd-eye:', ':cmd-love:']);
@@ -2706,9 +2707,12 @@ function handlePlayerJoin(ws, message) {
 
   const moderation = playerStore.getModerationStatus(requestedId);
   if (moderation.banned) {
+    const banReason = sanitizeText(typeof moderation.reason === 'string' ? moderation.reason : '');
     sendToWs(ws, {
       type: 'moderation:banned',
-      message: moderation.reason || 'ACCESS DENIED // This Little Hero is banned from the Master Room.'
+      message: banReason
+        ? `ACCESS DENIED // This Little Hero is banned from the Master Room. // REASON: ${banReason}`
+        : 'ACCESS DENIED // This Little Hero is banned from the Master Room.'
     });
     setImmediate(() => {
       try { if (ws.readyState === 1) ws.close(4003, 'Banned from Master Room'); } catch {}
@@ -2871,6 +2875,16 @@ function handleModeratePlayer(ws, message, shouldBan) {
     return;
   }
 
+  const reason = sanitizeText(typeof message.reason === 'string' ? message.reason : '');
+  if (!reason) {
+    sendToWs(ws, { type: 'error', message: 'A moderation reason is required' });
+    return;
+  }
+  if (reason.length > MAX_MODERATION_REASON_LENGTH) {
+    sendToWs(ws, { type: 'error', message: `Moderation reason is too long (max ${MAX_MODERATION_REASON_LENGTH} characters)` });
+    return;
+  }
+
   let targetWs = null;
   let targetPlayer = null;
   for (const [candidateWs, player] of room.players) {
@@ -2888,25 +2902,36 @@ function handleModeratePlayer(ws, message, shouldBan) {
   }
 
   const action = shouldBan ? 'ban' : 'kick';
+  const actionPast = shouldBan ? 'BANNED' : 'KICKED';
   if (shouldBan) {
     playerStore.setBan(
       { id: targetPlayer.id, name: targetPlayer.name },
       true,
-      'Banned by Shadow Broker'
+      reason
     );
+  }
+
+  const announcement = addShadowBrokerMessage(
+    room,
+    `MODERATION // ${targetPlayer.name} was ${actionPast} from the Master Room. // REASON: ${reason}`
+  );
+  if (announcement.success) {
+    persistActiveRooms();
+    broadcastChatUpdate(room);
   }
 
   sendToWs(targetWs, {
     type: shouldBan ? 'moderation:banned' : 'moderation:kicked',
     message: shouldBan
-      ? 'ACCESS DENIED // Shadow Broker has banned this Little Hero from the Master Room.'
-      : 'CONNECTION TERMINATED // Shadow Broker removed you from the Master Room.'
+      ? `ACCESS DENIED // Shadow Broker has banned this Little Hero from the Master Room. // REASON: ${reason}`
+      : `CONNECTION TERMINATED // Shadow Broker removed you from the Master Room. // REASON: ${reason}`
   });
   sendToWs(ws, {
     type: 'moderation:ack',
     action,
     playerId: targetPlayer.id,
-    playerName: targetPlayer.name
+    playerName: targetPlayer.name,
+    reason
   });
 
   try {
