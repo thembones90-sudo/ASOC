@@ -162,6 +162,7 @@ const App = {
       ControlSurfaces.init(this);
       this.setupEventListeners();
       this.setupGMLayoutSplitter();
+      this.setupGMChatHeightSplitter();
       Forge.init();
       this.populateBackgroundSelector();
       Board.init('#asoc-board');
@@ -298,6 +299,118 @@ const App = {
       const base = currentRatio ?? computedRatio();
       const delta = event.key === 'ArrowLeft' ? 0.02 : -0.02;
       applyRatio(base + delta, true);
+    });
+  },
+
+  setupGMChatHeightSplitter() {
+    const splitter = document.getElementById('gm-chat-height-splitter');
+    const chatPanel = document.querySelector('.gm-module-chat .gm-chat-panel');
+    if (!splitter || !chatPanel) return;
+
+    const STORAGE_KEY = 'asoc_gm_chat_height_px';
+    const MOBILE_QUERY = '(max-width: 760px)';
+    const DEFAULT_HEIGHT = 220;
+    const MIN_HEIGHT = 120;
+    const MAX_VIEWPORT_RATIO = 0.78;
+    const MAX_ABSOLUTE_HEIGHT = 820;
+    let dragging = false;
+    let dragTop = 0;
+    let currentHeight = null;
+
+    const maxHeight = () => Math.max(
+      MIN_HEIGHT,
+      Math.min(MAX_ABSOLUTE_HEIGHT, Math.floor(Math.max(window.innerHeight || 0, 1) * MAX_VIEWPORT_RATIO))
+    );
+
+    const clampHeight = (height) => Math.max(MIN_HEIGHT, Math.min(maxHeight(), height));
+
+    const updateAria = (height) => {
+      splitter.setAttribute('aria-valuemin', String(MIN_HEIGHT));
+      splitter.setAttribute('aria-valuemax', String(maxHeight()));
+      splitter.setAttribute('aria-valuenow', String(Math.round(height)));
+      splitter.setAttribute('aria-valuetext', `Battle Chat height ${Math.round(height)} pixels`);
+    };
+
+    const applyHeight = (height, persist = false) => {
+      if (!Number.isFinite(height)) return;
+      currentHeight = clampHeight(height);
+      chatPanel.style.height = `${Math.round(currentHeight)}px`;
+      updateAria(currentHeight);
+      if (persist) {
+        try { localStorage.setItem(STORAGE_KEY, String(Math.round(currentHeight))); } catch (_) {}
+      }
+    };
+
+    const computedHeight = () => clampHeight(chatPanel.getBoundingClientRect().height || DEFAULT_HEIGHT);
+
+    const resetHeight = () => {
+      currentHeight = null;
+      chatPanel.style.removeProperty('height');
+      try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+      requestAnimationFrame(() => updateAria(computedHeight()));
+    };
+
+    try {
+      const saved = Number.parseFloat(localStorage.getItem(STORAGE_KEY));
+      if (Number.isFinite(saved)) applyHeight(saved, false);
+      else updateAria(computedHeight());
+    } catch (_) {
+      updateAria(computedHeight());
+    }
+
+    splitter.addEventListener('pointerdown', (event) => {
+      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      dragging = true;
+      dragTop = chatPanel.getBoundingClientRect().top;
+      document.body.classList.add('gm-chat-height-resizing');
+      splitter.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+
+    splitter.addEventListener('pointermove', (event) => {
+      if (!dragging || window.matchMedia(MOBILE_QUERY).matches) return;
+      applyHeight(event.clientY - dragTop, false);
+    });
+
+    const finishDrag = (event) => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.classList.remove('gm-chat-height-resizing');
+      try { splitter.releasePointerCapture?.(event.pointerId); } catch (_) {}
+      if (currentHeight !== null) {
+        try { localStorage.setItem(STORAGE_KEY, String(Math.round(currentHeight))); } catch (_) {}
+      }
+    };
+
+    splitter.addEventListener('pointerup', finishDrag);
+    splitter.addEventListener('pointercancel', finishDrag);
+    splitter.addEventListener('dblclick', (event) => {
+      event.preventDefault();
+      resetHeight();
+    });
+
+    splitter.addEventListener('keydown', (event) => {
+      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (event.key === 'Home') {
+        event.preventDefault();
+        resetHeight();
+        return;
+      }
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      const base = currentHeight ?? computedHeight();
+      applyHeight(base + (event.key === 'ArrowDown' ? 16 : -16), true);
+    });
+
+    window.addEventListener('resize', () => {
+      if (currentHeight === null) {
+        updateAria(computedHeight());
+        return;
+      }
+      const clamped = clampHeight(currentHeight);
+      if (clamped !== currentHeight) applyHeight(clamped, true);
+      else updateAria(currentHeight);
     });
   },
 
