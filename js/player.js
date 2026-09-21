@@ -1793,6 +1793,7 @@ const PlayerApp = {
     });
 
     emojiPicker?.addEventListener('click', (e) => {
+      e.stopPropagation();
       const editToggle = e.target.closest('.chat-emoji-edit-toggle');
       if (editToggle) {
         this._emojiFavoritesEditing = !this._emojiFavoritesEditing;
@@ -1824,6 +1825,7 @@ const PlayerApp = {
     });
 
     reactionPicker?.addEventListener('click', (e) => {
+      e.stopPropagation();
       const editToggle = e.target.closest('.chat-emoji-edit-toggle');
       if (editToggle) {
         this._emojiFavoritesEditing = !this._emojiFavoritesEditing;
