@@ -2076,12 +2076,11 @@ body.game-won #board-layer {
 }
 /* Game over = ALL FIVE fields resolved, solved or failed (body.game-complete,
    from the server's gameComplete) -- NOT merely the Final being solved: an
-   early Final leaves columns that still need the clue grid and FAIL A-D.
+   early Final leaves columns that still need clues and A5-D5 adjudication.
    Chat, judging, RESET BOARD and NEXT GAME deliberately stay live. */
 body.game-complete .gm-cell-btn,
 body.game-complete #reveal-hide-all-btn,
-body.game-complete #undo-btn,
-body.game-complete .fail-final-btn {
+body.game-complete #undo-btn {
   pointer-events: none;
   opacity: .4;
   filter: saturate(.5);
@@ -5401,9 +5400,8 @@ body.gm-layout-locked .gm-module-height-splitter {
   inset: 0;
   background: rgba(6, 8, 12, 0.97);
   /* Above #score-announcement-layer (500) and .final-outcome-banner (600):
-     FAIL K -- one of the two ways WOMF actually reaches 10/10 -- shows
-     that banner too, and it stays up until the GM dismisses it, so a
-     deliberately-opened Wheel must never end up hidden behind it. */
+     a resolved/failed Final can leave that banner up until the GM dismisses
+     it, so a deliberately-opened Wheel must never end up hidden behind it. */
   z-index: 650;
   justify-content: center;
   align-items: center;
