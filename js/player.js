@@ -615,7 +615,12 @@ const PlayerApp = {
         this.lastPublicState = message;
         const armed = message.armed === true;
         this.applyMasterRoomState(armed);
-        if (armed) this.renderBoard(message);
+        if (armed) {
+          window.AsocAudio?.syncBoard?.('player', message);
+          this.renderBoard(message);
+        } else {
+          window.AsocAudio?.resetObservers?.();
+        }
         this.applyVictoryState(armed && message.gameWon === true, armed ? (message.matchResult || null) : null);
         this.applyLossState(armed ? (message.matchResult || null) : null);
         // Read-only: no controls are ever exposed here, only the same
@@ -676,6 +681,9 @@ const PlayerApp = {
             const previous = previousById.get(m.id);
             return previous && previous.verdict !== m.verdict && m.verdict;
           });
+          if (verdictUpdates.some(m => m.verdict === 'correct')) {
+            window.AsocAudio?.correct?.();
+          }
           const newActivityCount = newMessages.length + verdictUpdates.length;
           if (this.userScrolledUp && newActivityCount) {
             this._newMessageCount += newActivityCount;
@@ -745,6 +753,8 @@ const PlayerApp = {
 
       case 'score:event':
         this.showScoreToast(message);
+        if (message.awardType === 'final') window.AsocAudio?.finalSolved?.();
+        else window.AsocAudio?.columnSolved?.();
         this.addBattleEvent(`${message.playerName} // ${message.awardType === 'final' ? 'FINAL SOLUTION' : 'COLUMN ' + message.target} // +${message.points}`);
         break;
 
@@ -1233,6 +1243,7 @@ const PlayerApp = {
   },
 
   showBattleControlsOnline() {
+    window.AsocAudio?.gameStart?.();
     const layer = document.getElementById('score-announcement-layer');
     if (!layer) return;
     const existing = layer.querySelector('.battle-controls-online');
