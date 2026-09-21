@@ -22,7 +22,14 @@ const MASTER_ROOM_CODE = 'MASTER';
 const MAX_CHAT_LENGTH = 100;
 const PLAYER_CHAT_MIN_INTERVAL_MS = 350;
 const PLAYER_REACTION_MIN_INTERVAL_MS = 120;
-const CHAT_REACTION_EMOJIS = new Set(['😂', '❤️', '🔥', '👍', '🤏', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺']);
+const COMMANDER_REACTION_EMOJIS = new Set([':cmd-heart:', ':cmd-unamused:', ':cmd-eye:', ':cmd-love:']);
+const CHAT_REACTION_EMOJIS = new Set([
+  '😂', '❤️', '🔥', '👍', '🤏', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷',
+  '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶',
+  '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤',
+  '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺',
+  ...COMMANDER_REACTION_EMOJIS
+]);
 const MAX_AVATAR_DATA_LENGTH = 200000;
 const MAX_TRIBUTE_DATA_LENGTH = 3000000;
 const BLOOD_TRIBUTE_PUBLIC_MS = 2 * 60 * 1000;
@@ -2962,6 +2969,12 @@ function handleChatGuess(ws, message) {
     return;
   }
 
+  const isHost = ws === room.hostConnection;
+  if (COMMANDER_REACTION_EMOJIS.has(emoji) && !isHost) {
+    sendToWs(ws, { type: 'error', message: 'Commander reactions are Shadow Broker only' });
+    return;
+  }
+
   const now = Date.now();
   const cooldown = playerCooldown(room, ws);
   if (!cooldown) return;
@@ -3067,7 +3080,7 @@ function handleChatReaction(ws, message) {
   }
 
   const current = Array.isArray(target.reactions[emoji]) ? target.reactions[emoji] : [];
-  const actorId = ws.isHost ? '__GM__' : String(ws.playerId || '');
+  const actorId = isHost ? '__GM__' : String(ws.playerId || '');
   if (!actorId) return;
   const index = current.indexOf(actorId);
   if (index >= 0) {
