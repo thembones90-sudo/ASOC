@@ -11024,3 +11024,79 @@ body.room-mode-casual #gm-broker-bar {
     padding:8px !important;
   }
 }
+
+
+/* CASUAL = THE EXACT SAME GM CHAT MODULE AS BATTLE.
+   No alternate chat sizing, no duplicate chat surface, no special flex/grid chain. */
+body.room-mode-casual #gm-panel {
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:visible !important;
+}
+
+body.room-mode-casual #gm-panel .gm-content {
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:visible !important;
+  padding:10px !important;
+}
+
+body.room-mode-casual #gm-panel .gm-module-chat {
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:visible !important;
+}
+
+body.room-mode-casual #gm-panel .gm-chat-panel {
+  display:flex !important;
+  flex-direction:column !important;
+  width:100% !important;
+  height:var(--gm-chat-height, clamp(360px,58vh,680px)) !important;
+  min-height:280px !important;
+  max-height:none !important;
+  overflow:hidden !important;
+}
+
+body.room-mode-casual #gm-chat-messages {
+  display:block !important;
+  flex:1 1 auto !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  max-height:none !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+
+body.room-mode-casual .gm-chat-header,
+body.room-mode-casual #gm-broker-bar {
+  display:flex !important;
+  flex:0 0 auto !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+
+body.room-mode-casual #gm-panel .gm-module:not(.gm-module-chat),
+body.room-mode-casual #gm-layout-splitter,
+body.room-mode-casual #gm-chat-height-splitter,
+body.room-mode-casual #gm-clue-height-splitter,
+body.room-mode-casual #womf-controls-section,
+body.room-mode-casual #womf-tracker-gm,
+body.room-mode-casual #blood-tribute-vault-section {
+  display:none !important;
+}
+
+@media (max-width:760px) {
+  body.room-mode-casual #gm-panel .gm-chat-panel {
+    height:min(72dvh,680px) !important;
+    min-height:360px !important;
+  }
+}
