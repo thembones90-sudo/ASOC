@@ -8751,8 +8751,8 @@ body.game-complete .recount-btn,
   }
 
   .gm-module-chat .gm-chat-message.gm-flow-message {
-    grid-template-columns: 36px minmax(0,1fr) auto !important;
-    column-gap: 5px !important;
+    grid-template-columns: 44px minmax(0,1fr) auto !important;
+    column-gap: 6px !important;
     padding: 2px 3px 2px 0 !important;
   }
 
@@ -8761,8 +8761,8 @@ body.game-complete .recount-btn,
   }
 
   .gm-module-chat .gm-chat-avatar-rail {
-    width: 36px !important;
-    min-width: 36px !important;
+    width: 44px !important;
+    min-width: 44px !important;
     display: flex !important;
     justify-content: center !important;
     align-items: flex-start !important;
@@ -8771,9 +8771,9 @@ body.game-complete .recount-btn,
 
   .gm-module-chat .gm-chat-avatar-rail .little-hero-avatar,
   .gm-module-chat .gm-chat-avatar-rail .little-hero-avatar-compact {
-    width: 32px !important;
-    height: 32px !important;
-    flex: 0 0 32px !important;
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
     border-width: 2px !important;
   }
 
