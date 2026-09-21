@@ -12259,14 +12259,15 @@ body.room-mode-casual #gm-panel .gm-footer {
   margin-bottom:4px !important;
 }
 
-/* BATTLE CHAT // ONLINE BADGE POSITION
-   Explicit positioning: lower by ~2mm and move from the far right
-   into the middle-left area of the chat header. */
+/* BATTLE CHAT // ONLINE BADGE DEAD-CENTER
+   The working requirement is simple: keep the current vertical position,
+   move the ONLINE control from the far-right edge to the horizontal center
+   of the chat header. Center the entire wrapper so older flex rules cannot
+   drag it back to the right. */
 body.room-mode-battle .gm-module-chat .gm-chat-header,
 body.room-mode-battle-armed .gm-module-chat .gm-chat-header,
 body.room-mode-recount .gm-module-chat .gm-chat-header {
   position:relative !important;
-  justify-content:flex-start !important;
   min-height:42px !important;
   padding:4px 8px 12px !important;
   margin-bottom:4px !important;
@@ -12276,11 +12277,31 @@ body.room-mode-battle .gm-module-chat .gm-chat-presence-wrap,
 body.room-mode-battle-armed .gm-module-chat .gm-chat-presence-wrap,
 body.room-mode-recount .gm-module-chat .gm-chat-presence-wrap {
   position:absolute !important;
-  left:50% !important;
-  top:50% !important;
-  margin-left:0 !important;
-  transform:translate(-62%, calc(-50% + 8px)) !important;
+  left:0 !important;
+  right:0 !important;
+  top:0 !important;
+  bottom:0 !important;
+  width:100% !important;
+  height:100% !important;
+  margin:0 !important;
+  transform:none !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
   z-index:5 !important;
+  pointer-events:none !important;
+}
+
+body.room-mode-battle .gm-module-chat #gm-chat-presence,
+body.room-mode-battle-armed .gm-module-chat #gm-chat-presence,
+body.room-mode-recount .gm-module-chat #gm-chat-presence {
+  position:relative !important;
+  left:auto !important;
+  right:auto !important;
+  top:auto !important;
+  margin:0 !important;
+  transform:none !important;
+  pointer-events:auto !important;
 }
 
 body.room-mode-battle .gm-module-chat .gm-chat-solved,
@@ -12292,8 +12313,11 @@ body.room-mode-recount .gm-module-chat .gm-chat-solved {
 body.room-mode-battle .gm-module-chat .gm-online-dropdown,
 body.room-mode-battle-armed .gm-module-chat .gm-online-dropdown,
 body.room-mode-recount .gm-module-chat .gm-online-dropdown {
+  left:50% !important;
   right:auto !important;
-  left:0 !important;
+  top:calc(50% + 18px) !important;
+  transform:translateX(-50%) !important;
+  pointer-events:auto !important;
 }
 
 .gm-chat-presence-wrap {
