@@ -6889,6 +6889,150 @@
       }
     }
 
+  
+
+    /* PLAYER CHAT VISUAL RELIEF + MEDIA SHRINKWRAP V1 */
+    /* Same ~50% reduction on Little Hero frame intensity in the player transcript. */
+    #game-screen .battle-comms-lobby .chat-message:not(.wrong):not(.correct) .chat-message-main {
+      border-color:color-mix(in srgb,var(--little-hero-accent,#6f7885) 28%,#596573) !important;
+      box-shadow:inset 0 1px rgba(255,255,255,.045),0 1px 3px rgba(0,0,0,.34) !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message:not(.wrong):not(.correct) .chat-message-main::before {
+      filter:drop-shadow(-1px 0 0 color-mix(in srgb,var(--little-hero-accent,#6f7885) 21%,#596573)) !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message:not(.wrong):not(.correct):hover .chat-message-main,
+    #game-screen .battle-comms-lobby .chat-message:not(.wrong):not(.correct):focus-within .chat-message-main {
+      border-color:color-mix(in srgb,var(--little-hero-accent,#6f7885) 34%,#7b8793) !important;
+    }
+
+    /* Image-only messages: image is the bubble. Identity/reactions become overlays. */
+    #game-screen .battle-comms-lobby .chat-message-main:has(> .chat-image-link):has(.chat-message-text:empty) {
+      position:relative !important;
+      width:fit-content !important;
+      min-width:0 !important;
+      max-width:min(96%,430px) !important;
+      padding:0 !important;
+      border:0 !important;
+      border-radius:8px !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      overflow:visible !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message-main:has(> .chat-image-link):has(.chat-message-text:empty)::before {
+      display:none !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message-main:has(> .chat-image-link):has(.chat-message-text:empty) .chat-message-line {
+      display:none !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message-main:has(> .chat-image-link):has(.chat-message-text:empty) .chat-message-header {
+      position:absolute !important;
+      top:5px !important;
+      left:6px !important;
+      z-index:4 !important;
+      min-height:0 !important;
+      margin:0 !important;
+      padding:3px 5px !important;
+      border-radius:5px !important;
+      background:rgba(7,9,13,.76) !important;
+      backdrop-filter:blur(3px);
+    }
+    #game-screen .battle-comms-lobby .chat-message-main:has(> .chat-image-link):has(.chat-message-text:empty) > .chat-image-link {
+      display:block !important;
+      width:fit-content !important;
+      max-width:100% !important;
+      margin:0 !important;
+      padding:0 !important;
+      line-height:0 !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message-main:has(> .chat-image-link):has(.chat-message-text:empty) .chat-image-attachment {
+      display:block !important;
+      width:auto !important;
+      height:auto !important;
+      max-width:min(420px,100%) !important;
+      max-height:360px !important;
+      margin:0 !important;
+      border:1px solid color-mix(in srgb,var(--little-hero-accent,#6f7885) 20%,#59636e) !important;
+      border-radius:8px !important;
+      box-shadow:0 3px 10px rgba(0,0,0,.30) !important;
+    }
+
+    /* GIF-only messages: no empty shell; keep controls/branding as overlays. */
+    #game-screen .battle-comms-lobby .chat-gif-message .chat-message-main {
+      position:relative !important;
+      width:fit-content !important;
+      min-width:0 !important;
+      max-width:min(96%,430px) !important;
+      padding:0 !important;
+      border:0 !important;
+      border-radius:8px !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      overflow:visible !important;
+    }
+    #game-screen .battle-comms-lobby .chat-gif-message .chat-message-main::before {
+      display:none !important;
+    }
+    #game-screen .battle-comms-lobby .chat-gif-message .chat-message-header {
+      position:absolute !important;
+      top:5px !important;
+      left:6px !important;
+      z-index:4 !important;
+      min-height:0 !important;
+      margin:0 !important;
+      padding:3px 5px !important;
+      border-radius:5px !important;
+      background:rgba(7,9,13,.76) !important;
+      backdrop-filter:blur(3px);
+    }
+    #game-screen .battle-comms-lobby .chat-gif-message .chat-reply-btn {
+      top:5px !important;
+      right:5px !important;
+      z-index:5 !important;
+    }
+    #game-screen .battle-comms-lobby .chat-gif-message .chat-gif-link {
+      display:block !important;
+      width:fit-content !important;
+      max-width:100% !important;
+      margin:0 !important;
+      padding:0 !important;
+      overflow:hidden !important;
+      line-height:0 !important;
+      border:1px solid color-mix(in srgb,var(--little-hero-accent,#6f7885) 20%,#59636e) !important;
+      border-radius:8px !important;
+      background:transparent !important;
+    }
+    #game-screen .battle-comms-lobby .chat-gif-message .chat-gif-attachment {
+      display:block !important;
+      width:auto !important;
+      height:auto !important;
+      max-width:min(390px,100%) !important;
+      max-height:300px !important;
+      object-fit:contain !important;
+      margin:0 !important;
+      border:0 !important;
+      border-radius:7px !important;
+      background:#050709 !important;
+    }
+    #game-screen .battle-comms-lobby .chat-gif-message .chat-gif-provider-mark {
+      position:absolute !important;
+      right:5px !important;
+      bottom:4px !important;
+      z-index:4 !important;
+      margin:0 !important;
+      padding:2px 4px !important;
+      border-radius:4px !important;
+      background:rgba(5,7,10,.72) !important;
+      color:#828b95 !important;
+    }
+    #game-screen .battle-comms-lobby .chat-gif-message .chat-reactions,
+    #game-screen .battle-comms-lobby .chat-message-main:has(> .chat-image-link):has(.chat-message-text:empty) .chat-reactions {
+      position:absolute !important;
+      left:5px !important;
+      bottom:5px !important;
+      z-index:5 !important;
+      margin:0 !important;
+    }
+
   </style>
 </head>
 <body>
