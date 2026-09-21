@@ -670,6 +670,21 @@ const App = {
     this._cancelGMFinalHold = closeOutcomeChooser;
     window.addEventListener('resize', syncOutcomeChooser);
 
+    // GREEN/RED adjudication behaves like a proper transient menu:
+    // Escape cancels it, and clicking anywhere outside the chooser cancels it.
+    // Clicking either verdict button remains inside the dialog and proceeds.
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !this._gmColumnOutcomeDialog) return;
+      event.preventDefault();
+      closeOutcomeChooser();
+    });
+
+    document.addEventListener('pointerdown', (event) => {
+      const dialog = this._gmColumnOutcomeDialog;
+      if (!dialog || dialog.contains(event.target)) return;
+      closeOutcomeChooser();
+    });
+
     const revealCell = (cell) => {
       if (!cell?.classList.contains('gm-board-hitbox') || this.gameComplete) return;
       const key = cell.dataset.cell || '';
