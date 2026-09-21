@@ -969,6 +969,10 @@ const App = {
     this.renderGMMentionPicker(picker);
     const emojiPicker = document.getElementById('gm-emoji-picker');
     if (emojiPicker) emojiPicker.hidden = true;
+    document.getElementById('gm-emoji-toggle')?.setAttribute('aria-expanded', 'false');
+    const attachmentMenu = document.getElementById('gm-attachment-menu');
+    if (attachmentMenu) attachmentMenu.hidden = true;
+    document.getElementById('gm-image-upload-btn')?.setAttribute('aria-expanded', 'false');
   },
 
   closeGMMentionPicker(picker = document.getElementById('gm-mention-picker')) {
@@ -1256,6 +1260,11 @@ const App = {
       gmContextMenu.hidden = false;
       if (gmReactionPicker) gmReactionPicker.hidden = true;
       if (gmEmojiPicker) gmEmojiPicker.hidden = true;
+      gmEmojiToggle?.setAttribute('aria-expanded', 'false');
+      const attachmentMenu = document.getElementById('gm-attachment-menu');
+      const attachmentToggle = document.getElementById('gm-image-upload-btn');
+      if (attachmentMenu) attachmentMenu.hidden = true;
+      attachmentToggle?.setAttribute('aria-expanded', 'false');
       requestAnimationFrame(() => {
         const rect = gmContextMenu.getBoundingClientRect();
         const left = Math.max(8, Math.min(clientX, window.innerWidth - rect.width - 8));
@@ -3784,6 +3793,10 @@ const App = {
 
     const emojiPicker = document.getElementById('gm-emoji-picker');
     if (emojiPicker) emojiPicker.hidden = true;
+    document.getElementById('gm-emoji-toggle')?.setAttribute('aria-expanded', 'false');
+    const attachmentMenu = document.getElementById('gm-attachment-menu');
+    if (attachmentMenu) attachmentMenu.hidden = true;
+    document.getElementById('gm-image-upload-btn')?.setAttribute('aria-expanded', 'false');
 
     const x = Number(clickPoint?.x);
     const y = Number(clickPoint?.y);
