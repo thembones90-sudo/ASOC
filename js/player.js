@@ -97,6 +97,10 @@ const PlayerApp = {
   // every broadcast, so this flag is what keeps the animation from
   // replaying on every incidental re-render while the Final stays revealed.
   _finalFlourishPlayed: false,
+  // GREEN column solve cascade. Baseline guard prevents reconnect/join from
+  // replaying columns that were solved before this client arrived.
+  _columnCascadeBaselined: false,
+  _columnCascadeStarts: {},
   // GAME WON -- mirrors the server's authoritative sessionState.gameWon.
   // Same contract as the GM: the live sequence plays only on a false->true
   // flip after this connection's baseline state; the first state after every
@@ -1010,6 +1014,8 @@ const PlayerApp = {
       if (this.ws !== socket) return;
       console.log('[PLAYER] WebSocket connected');
       this._victoryBaselined = false;
+      this._columnCascadeBaselined = false;
+      this._columnCascadeStarts = {};
       this.setConnectionStatus('connecting');
     };
 
@@ -1109,9 +1115,22 @@ const PlayerApp = {
         break;
 
       case 'state:public': {
-        this.lastPublicState = message;
+        const previousState = this.lastPublicState;
         const roomMode = message.roomMode || (message.armed === true ? 'BATTLE_ARMED' : 'CASUAL');
         const battleVisible = roomMode !== 'CASUAL';
+
+        const cascadeNow = Date.now();
+        if (battleVisible && this._columnCascadeBaselined) {
+          ['A', 'B', 'C', 'D'].forEach(column => {
+            const previousOutcome = previousState?.cells?.[`${column}5`]?.outcome || null;
+            const nextOutcome = message.cells?.[`${column}5`]?.outcome || null;
+            if (previousOutcome !== 'success' && nextOutcome === 'success') {
+              this._columnCascadeStarts[column] = cascadeNow;
+            }
+          });
+        }
+        this._columnCascadeBaselined = true;
+        this.lastPublicState = message;
         this.applyRoomMode(roomMode);
         if (battleVisible) {
           window.AsocAudio?.syncBoard?.('player', message);
@@ -1519,11 +1538,34 @@ const PlayerApp = {
     if (outcome === 'failed') classes.push('outcome-failed');
     if (flourish) classes.push('final-flourish');
 
+    const cascade = revealed ? this.columnCascadePresentation(key) : { active: false, className: '', style: '' };
+    if (cascade.active) classes.push(...cascade.className.split(' '));
+
     return `
-      <div class="${classes.join(' ')}" data-label="${label}" style="${Skeleton.cellStyle(label)}">
+      <div class="${classes.join(' ')}" data-label="${label}" style="${Skeleton.cellStyle(label)}${cascade.style}">
         <div class="cell-content"><span class="cell-text">${this.escapeHtml(content)}</span></div>
       </div>
     `;
+  },
+
+  columnCascadePresentation(key) {
+    const match = /^([A-D])([1-5])$/.exec(String(key || ''));
+    if (!match) return { active: false, className: '', style: '' };
+    const column = match[1];
+    const row = Number(match[2]);
+    const startedAt = Number(this._columnCascadeStarts[column] || 0);
+    if (!startedAt) return { active: false, className: '', style: '' };
+    const elapsed = Math.max(0, Date.now() - startedAt);
+    if (elapsed >= 1650) {
+      delete this._columnCascadeStarts[column];
+      return { active: false, className: '', style: '' };
+    }
+    const delay = row <= 4 ? (row - 1) * 180 : 790;
+    return {
+      active: true,
+      className: 'column-solve-cascade' + (row === 5 ? ' column-solve-cascade-solution' : ''),
+      style: `;--column-cascade-delay:${delay}ms;--column-cascade-elapsed:${elapsed}ms`
+    };
   },
 
   applyBackground(path) {
@@ -1959,6 +2001,8 @@ const PlayerApp = {
   showJoinScreen() {
     this.gameWon = false;
     this._victoryBaselined = false;
+    this._columnCascadeBaselined = false;
+    this._columnCascadeStarts = {};
     this.gameLost = false;
     this._lossBaselined = false;
     this._lossResultKey = null;

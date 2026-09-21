@@ -310,6 +310,85 @@ textarea {
   scale: 1.20 1;
 }
 
+/* SOLVED COLUMN CASCADE
+   GREEN adjudication is authoritative immediately, but the reveal is staged
+   visually from row 1 -> 4, with the solution pill locking in last. Elapsed
+   time is injected per render so timer/state rebuilds resume instead of
+   restarting the animation. */
+.board-cell.column-solve-cascade .cell-content {
+  animation: column-solve-cascade-in 720ms cubic-bezier(.16,.82,.18,1) both;
+  animation-delay: calc(var(--column-cascade-delay, 0ms) - var(--column-cascade-elapsed, 0ms));
+  transform-origin: center center;
+  will-change: transform, opacity, filter, text-shadow;
+}
+
+.board-cell.column-solve-cascade-solution .cell-content {
+  animation-name: column-solve-cascade-lock;
+  animation-duration: 820ms;
+}
+
+@keyframes column-solve-cascade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(7px) scale(.78);
+    filter: brightness(.45) blur(2px);
+    text-shadow: 0 0 0 rgba(88,255,136,0);
+  }
+  28% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.11);
+    filter: brightness(1.75) blur(0);
+    text-shadow: 0 0 16px rgba(88,255,136,.72);
+  }
+  58% {
+    transform: translateY(0) scale(1.025);
+    filter: brightness(1.2);
+    text-shadow: 0 0 9px rgba(88,255,136,.34);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    text-shadow: 0 1px 1px rgba(0,0,0,.72);
+  }
+}
+
+@keyframes column-solve-cascade-lock {
+  0% {
+    opacity: 0;
+    transform: scale(.68);
+    filter: brightness(.45) blur(2px);
+    text-shadow: 0 0 0 rgba(46,204,113,0);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.18);
+    filter: brightness(1.95) blur(0);
+    text-shadow: 0 0 24px rgba(72,255,132,.92);
+  }
+  55% {
+    transform: scale(.98);
+    filter: brightness(1.35);
+    text-shadow: 0 0 14px rgba(72,255,132,.52);
+  }
+  76% {
+    transform: scale(1.045);
+    filter: brightness(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    text-shadow: 0 1px 1px rgba(0,0,0,.72);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-cell.column-solve-cascade .cell-content {
+    animation: none !important;
+  }
+}
+
 /* Revealed column solutions (A5-D5) default to green -- red only when
    WOMF-tagged 'failed' via the .outcome-failed override further down
    this file (kept at equal selector specificity so source order wins). */

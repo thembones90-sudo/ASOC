@@ -135,6 +135,10 @@ const App = {
   //      unrelated reveal is unaffected either way, since finalRevealed
   //      was already true and this deadline is never extended by one.
   _finalFlourishUntil: 0,
+  // One-shot GREEN column cascade, baselined like the victory sequence so
+  // reconnecting into an already-solved board never replays old theatre.
+  _columnCascadeBaselined: false,
+  _columnCascadeStarts: {},
   _lastAnnouncedStreak: {},
   // SHADOW BROKER BOARD LINE -- same time-window rendering philosophy as
   // _finalFlourishUntil just above: renderShadowBrokerLineHTML() recomputes
@@ -2000,6 +2004,9 @@ const App = {
       console.log('[GM] WebSocket connected');
       this.reconnectAttempts = 0;
       this._victoryBaselined = false;
+      this._columnCascadeBaselined = false;
+      this._columnCascadeStarts = {};
+      if (window.Board) Board._columnCascadeStarts = {};
     };
 
     this.ws.onmessage = (event) => {
@@ -2258,8 +2265,11 @@ const App = {
         const { column, outcome } = payload || {};
         if (!['A', 'B', 'C', 'D'].includes(column) || !['success', 'failed'].includes(outcome)) break;
         if (outcome === 'success') {
-          // Mirror the authoritative GREEN behavior locally: a solved column
-          // exposes every remaining clue pill and its solution immediately.
+          // Mirror the authoritative GREEN behavior locally and start the same
+          // visual cascade used by multiplayer clients.
+          const cascadeStart = Date.now();
+          this._columnCascadeStarts[column] = cascadeStart;
+          Board.startColumnCascade(column, cascadeStart);
           if (Board.revealColumn(column)) changed = true;
         } else if (Board.setRevealed(column, 5, true)) {
           // RED only reveals the solution pill; clues should already be open.
@@ -2589,6 +2599,20 @@ const App = {
   applyServerState(state) {
     this.applyRoomMode(state.roomMode || (state.armed === true ? 'BATTLE_ARMED' : 'CASUAL'));
     window.AsocAudio?.syncBoard?.('gm', state);
+
+    // Detect only a fresh authoritative GREEN transition. The first state
+    // after connect/reconnect is baseline data and must never replay a solved
+    // column's cascade.
+    const cascadeNow = Date.now();
+    ['A', 'B', 'C', 'D'].forEach(column => {
+      const previousOutcome = Board.getCellOutcome(column, 5);
+      const nextOutcome = state.cells?.[`${column}5`]?.outcome || null;
+      if (this._columnCascadeBaselined && previousOutcome !== 'success' && nextOutcome === 'success') {
+        this._columnCascadeStarts[column] = cascadeNow;
+        Board.startColumnCascade(column, cascadeNow);
+      }
+    });
+    this._columnCascadeBaselined = true;
     // Victory is authoritative server state. Play the live sequence only on
     // a false->true flip AFTER this connection's baseline state; the baseline
     // itself (first state after load/reconnect) just renders the completed
@@ -3867,13 +3891,35 @@ const App = {
     if (outcome === 'failed') classes.push('outcome-failed');
     if (flourish) classes.push('final-flourish');
 
+    const cascade = revealed ? this.columnCascadePresentation(key) : { active: false, className: '', style: '' };
+    if (cascade.active) classes.push(...cascade.className.split(' '));
     const displayContent = revealed ? (content || '—') : (isFinal ? '???' : '■■■');
 
     return `
-      <div class="${classes.join(' ')}" data-label="${label}" style="${Skeleton.cellStyle(label)}">
+      <div class="${classes.join(' ')}" data-label="${label}" style="${Skeleton.cellStyle(label)}${cascade.style}">
         <div class="cell-content"><span class="cell-text">${this.escapeHtml(displayContent)}</span></div>
       </div>
     `;
+  },
+
+  columnCascadePresentation(key) {
+    const match = /^([A-D])([1-5])$/.exec(String(key || ''));
+    if (!match) return { active: false, className: '', style: '' };
+    const column = match[1];
+    const row = Number(match[2]);
+    const startedAt = Number(this._columnCascadeStarts[column] || 0);
+    if (!startedAt) return { active: false, className: '', style: '' };
+    const elapsed = Math.max(0, Date.now() - startedAt);
+    if (elapsed >= 1650) {
+      delete this._columnCascadeStarts[column];
+      return { active: false, className: '', style: '' };
+    }
+    const delay = row <= 4 ? (row - 1) * 180 : 790;
+    return {
+      active: true,
+      className: 'column-solve-cascade' + (row === 5 ? ' column-solve-cascade-solution' : ''),
+      style: `;--column-cascade-delay:${delay}ms;--column-cascade-elapsed:${elapsed}ms`
+    };
   },
 
   showLoading(show) {

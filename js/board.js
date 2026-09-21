@@ -6,6 +6,9 @@ const Board = {
   // Track if we're in a bulk action to group undo
   _bulkAction: false,
   _bulkActionSnapshot: null,
+  // GREEN column solve presentation. Server state resolves the whole column
+  // atomically; this timestamp map only stages the visual 1 -> 5 cascade.
+  _columnCascadeStarts: {},
 
   // SHADOW BROKER BOARD LINE, on the GM's OWN working board this time --
   // the GM was previously expected to confirm a sent transmission via the
@@ -55,6 +58,7 @@ const Board = {
     this.history = [];
     this._bulkAction = false;
     this._bulkActionSnapshot = null;
+    this._columnCascadeStarts = {};
     this.updateGMButtons();
   },
 
@@ -76,6 +80,34 @@ const Board = {
 
   getFinalOutcome() {
     return this.sessionState.finalOutcome || null;
+  },
+
+  startColumnCascade(column, startedAt = Date.now()) {
+    if (!['A', 'B', 'C', 'D'].includes(column)) return;
+    this._columnCascadeStarts[column] = Number(startedAt) || Date.now();
+  },
+
+  columnCascadePresentation(key) {
+    const match = /^([A-D])([1-5])$/.exec(String(key || ''));
+    if (!match) return { active: false, className: '', style: '' };
+    const column = match[1];
+    const row = Number(match[2]);
+    const startedAt = Number(this._columnCascadeStarts[column] || 0);
+    if (!startedAt) return { active: false, className: '', style: '' };
+
+    const elapsed = Math.max(0, Date.now() - startedAt);
+    const lifetime = 1650;
+    if (elapsed >= lifetime) {
+      delete this._columnCascadeStarts[column];
+      return { active: false, className: '', style: '' };
+    }
+
+    const delay = row <= 4 ? (row - 1) * 180 : 790;
+    return {
+      active: true,
+      className: 'column-solve-cascade' + (row === 5 ? ' column-solve-cascade-solution' : ''),
+      style: `;--column-cascade-delay:${delay}ms;--column-cascade-elapsed:${elapsed}ms`
+    };
   },
 
   isFinalRevealed() {
@@ -560,8 +592,11 @@ const Board = {
     else classes.push('revealed');
     if (outcome === 'failed') classes.push('outcome-failed');
 
+    const cascade = revealed ? this.columnCascadePresentation(key) : { active: false, className: '', style: '' };
+    if (cascade.active) classes.push(...cascade.className.split(' '));
+
     return `
-      <div class="${classes.join(' ')}" data-cell="${key}" data-label="${label}" style="${Skeleton.cellStyle(label)}">
+      <div class="${classes.join(' ')}" data-cell="${key}" data-label="${label}" style="${Skeleton.cellStyle(label)}${cascade.style}">
         <div class="cell-content"><span class="cell-text">${this.escapeHtml(content || '—')}</span></div>
       </div>
     `;
