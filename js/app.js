@@ -1085,27 +1085,64 @@ const App = {
     // same as the player's own chat-form.
     const shadowBrokerForm = document.getElementById('shadow-broker-form');
     const shadowBrokerInput = document.getElementById('shadow-broker-input');
+    const shadowBrokerComposer = this.getGMComposerElement();
     const gmMentionPicker = this.ensureGMMentionPicker(shadowBrokerForm);
+    this.setGMComposerText(shadowBrokerInput?.value || '', 0);
+
     shadowBrokerForm?.addEventListener('submit', (e) => {
       e.preventDefault();
+      this.syncGMComposerModel();
       this.sendShadowBrokerBroadcast();
     });
-    shadowBrokerInput?.addEventListener('keydown', (e) => {
+
+    shadowBrokerComposer?.addEventListener('keydown', (e) => {
+      this.syncGMComposerModel();
       if (this.handleGMMentionKeydown(e, shadowBrokerInput, gmMentionPicker)) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.sendShadowBrokerBroadcast();
+        return;
+      }
+
       if (e.key === 'Escape' && this._editingBroadcast) {
         e.preventDefault();
         this.cancelGMChatEdit();
         return;
       }
+
       if (e.key === 'Delete') {
         e.preventDefault();
-        e.currentTarget.value = '';
+        this.setGMComposerText('', 0);
         this.closeGMMentionPicker(gmMentionPicker);
         this.clearShadowBrokerBroadcast();
       }
     });
-    shadowBrokerInput?.addEventListener('input', () => this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker));
-    shadowBrokerInput?.addEventListener('click', () => this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker));
+
+    shadowBrokerComposer?.addEventListener('beforeinput', (e) => {
+      if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') e.preventDefault();
+    });
+
+    shadowBrokerComposer?.addEventListener('input', () => {
+      this.syncGMComposerModel();
+      this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker);
+    });
+
+    shadowBrokerComposer?.addEventListener('click', () => {
+      this.syncGMComposerModel();
+      this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker);
+    });
+
+    shadowBrokerComposer?.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const plain = e.clipboardData?.getData('text/plain') || '';
+      this.insertGMComposerPlainText(plain);
+      this.syncGMComposerModel();
+      this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker);
+    });
+
+    shadowBrokerComposer?.addEventListener('drop', (e) => e.preventDefault());
+
     gmMentionPicker?.addEventListener('mousedown', (e) => e.preventDefault());
     gmMentionPicker?.addEventListener('click', (e) => {
       const option = e.target.closest('.gm-chat-mention-option');
@@ -1259,8 +1296,8 @@ const App = {
         return;
       }
       if (action === 'reply') {
-        const input = document.getElementById('shadow-broker-input');
-        if (!input) return;
+        const composer = this.getGMComposerElement();
+        if (!composer) return;
         const name = messageEl.dataset.playerName || (messageEl.classList.contains('gm-shadow-broker-entry') ? 'SHADOW BROKER' : 'LITTLE HERO');
         const excerpt = (messageEl.querySelector('.gm-chat-message-text, .shadow-broker-text')?.textContent || '')
           .replace(/[:\r\n]+/g, ' ')
@@ -1268,9 +1305,10 @@ const App = {
           .trim()
           .slice(0, 30);
         const prefix = `↳ @${name}${excerpt ? ` // ${excerpt}` : ''}: `;
-        input.value = prefix + input.value.replace(/^↳ @[^:]{1,80}:\s*/, '');
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
+        const current = this.getGMComposerText().replace(/^↳ @[^:]{1,80}:\s*/, '');
+        const next = prefix + current;
+        this.setGMComposerText(next, next.length);
+        composer.focus();
       }
     });
 
@@ -3363,8 +3401,8 @@ const App = {
   },
 
   startGMChatEdit(messageId) {
-    const input = document.getElementById('shadow-broker-input');
-    if (!input || !messageId) return;
+    const composer = this.getGMComposerElement();
+    if (!composer || !messageId) return;
 
     const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
     if (!msg || msg.source !== 'shadowBroker' || msg.editableByHost !== true) return;
@@ -3374,23 +3412,20 @@ const App = {
     const prefix = replyMatch ? replyMatch[1] : '';
     const body = replyMatch ? replyMatch[2] : raw;
     this._editingBroadcast = { id: messageId, prefix };
-    input.value = body;
-    input.placeholder = 'Edit transmission // Enter to save // Esc to cancel';
+    this.setGMComposerText(body, body.length);
+    this.setGMComposerPlaceholder('Edit transmission // Enter to save // Esc to cancel');
     const label = document.querySelector('#shadow-broker-form .shadow-broker-form-label');
     if (label) label.textContent = 'EDITING TRANSMISSION';
     document.getElementById('shadow-broker-form')?.classList.add('editing-message');
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
+    composer.focus();
+    this.placeGMComposerCaret(body.length);
   },
 
   cancelGMChatEdit() {
     this._editingBroadcast = null;
-    const input = document.getElementById('shadow-broker-input');
-    if (input) {
-      input.value = '';
-      input.placeholder = 'Transmit to players...';
-      input.focus();
-    }
+    this.setGMComposerText('', 0);
+    this.setGMComposerPlaceholder('Transmit to players...');
+    this.getGMComposerElement()?.focus();
     const label = document.querySelector('#shadow-broker-form .shadow-broker-form-label');
     if (label) label.textContent = 'SHADOW BROKER';
     document.getElementById('shadow-broker-form')?.classList.remove('editing-message');
@@ -3552,16 +3587,16 @@ const App = {
 
   insertGMEmoji(emoji) {
     if (!emoji) return;
-    const input = document.getElementById('shadow-broker-input');
-    if (!input) return;
+    const composer = this.getGMComposerElement();
+    if (!composer) return;
 
-    const start = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
-    const end = Number.isInteger(input.selectionEnd) ? input.selectionEnd : start;
-    const next = input.value.slice(0, start) + emoji + input.value.slice(end);
-    input.value = next;
-    const caret = Math.min(start + emoji.length, input.value.length);
-    input.setSelectionRange(caret, caret);
-    input.focus();
+    const current = this.getGMComposerText();
+    const selection = this.getGMComposerSelectionRange();
+    const next = current.slice(0, selection.start) + emoji + current.slice(selection.end);
+    const caret = selection.start + emoji.length;
+    this.setGMComposerText(next, caret);
+    composer.focus();
+    this.placeGMComposerCaret(caret);
   },
 
   sendGMChatReaction(messageId, emoji) {
