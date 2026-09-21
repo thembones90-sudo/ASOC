@@ -2,6 +2,7 @@ const App = {
   currentView: 'gm',
   backgrounds: [],
   mode: 'local',
+  roomMode: 'CASUAL',
   ws: null,
   roomCode: '',
   hostToken: '',
@@ -579,8 +580,8 @@ const App = {
     document.getElementById('next-game-btn').addEventListener('click', () => Forge.open());
 
     document.getElementById('host-room-btn').addEventListener('click', () => {
-      if (this.mode === 'multiplayer') this.closeRoom();
-      else this.hostRoom();
+      if (this.roomMode === 'CASUAL') this.hostRoom();
+      else this.closeRoom();
     });
 
     // SHADOW BROKER free-form broadcast -- presentation layer only, see
@@ -1234,6 +1235,7 @@ const App = {
         this.roomCode = message.roomCode;
         this.hostToken = message.hostToken;
         this.mode = 'multiplayer';
+        this.applyRoomMode('BATTLE_ARMED');
         this.updateMultiplayerUI();
         sessionStorage.setItem('asoc_host_token', this.hostToken);
         break;
@@ -1467,8 +1469,14 @@ const App = {
         alert(message.message);
         break;
 
+      case 'room:casual':
       case 'room:disarmed':
-        this.cleanupRoom();
+        // Legacy room:disarmed is treated as the new permanent-room CASUAL
+        // state. The Shadow Broker remains attached to MASTER.
+        this.roomCode = message.roomCode || this.roomCode || 'MASTER';
+        this.mode = 'multiplayer';
+        this.applyRoomMode('CASUAL');
+        this.updateMultiplayerUI();
         break;
 
       case 'room:closed':
@@ -1481,6 +1489,7 @@ const App = {
   },
 
   applyServerState(state) {
+    this.applyRoomMode(state.roomMode || (state.armed === true ? 'BATTLE_ARMED' : 'CASUAL'));
     window.AsocAudio?.syncBoard?.('gm', state);
     // Victory is authoritative server state. Play the live sequence only on
     // a false->true flip AFTER this connection's baseline state; the baseline
@@ -1555,13 +1564,53 @@ const App = {
   },
 
   updateMultiplayerStatus(revision) {
-    document.getElementById('mp-status').textContent = `LIVE (rev ${revision})`;
+    const status = document.getElementById('mp-status');
+    if (status) status.textContent = `${this.roomMode} // rev ${revision}`;
+  },
+
+  applyRoomMode(mode) {
+    const allowed = new Set(['CASUAL', 'BATTLE_ARMED', 'BATTLE', 'RECOUNT']);
+    const next = allowed.has(mode) ? mode : 'CASUAL';
+    const previous = this.roomMode;
+    this.roomMode = next;
+
+    document.body.classList.toggle('room-mode-casual', next === 'CASUAL');
+    document.body.classList.toggle('room-mode-battle-armed', next === 'BATTLE_ARMED');
+    document.body.classList.toggle('room-mode-battle', next === 'BATTLE');
+    document.body.classList.toggle('room-mode-recount', next === 'RECOUNT');
+    document.body.dataset.roomMode = next;
+
+    // In Casual the existing Shadow Broker composer becomes the bottom edge
+    // of the enlarged chat. In Battle it returns beneath the board.
+    const brokerBar = document.getElementById('gm-broker-bar');
+    const chatPanel = document.querySelector('.gm-module-chat .gm-chat-panel');
+    const main = document.getElementById('main-content');
+    const battleControls = document.getElementById('battle-controls-panel');
+    if (brokerBar) {
+      if (next === 'CASUAL' && chatPanel && brokerBar.parentElement !== chatPanel) {
+        chatPanel.appendChild(brokerBar);
+      } else if (next !== 'CASUAL' && main && brokerBar.parentElement !== main) {
+        main.insertBefore(brokerBar, battleControls || null);
+      }
+    }
+
+    const title = document.querySelector('.gm-chat-title');
+    if (title) title.textContent = next === 'CASUAL' ? 'ASOC NETWORK // CASUAL' : 'BATTLE CHAT';
+    if (next === 'CASUAL') {
+      Recount.apply(null);
+      window.AsocAudio?.resetObservers?.();
+    }
+    this.updateSolvedCount();
+    if (previous !== next) this.updateMultiplayerUI();
   },
 
   updateMultiplayerUI() {
     const isMultiplayer = this.mode === 'multiplayer';
+    const inCasual = this.roomMode === 'CASUAL';
+    const inRecount = this.roomMode === 'RECOUNT';
+    const battleSession = isMultiplayer && !inCasual;
 
-    document.getElementById('mp-mode').textContent = isMultiplayer ? 'MULTIPLAYER' : 'LOCAL';
+    document.getElementById('mp-mode').textContent = isMultiplayer ? 'MASTER ROOM' : 'LOCAL';
     document.getElementById('mp-room-row').style.display = isMultiplayer ? 'flex' : 'none';
     document.getElementById('mp-status-row').style.display = isMultiplayer ? 'flex' : 'none';
     document.getElementById('mp-players-row').style.display = isMultiplayer ? 'flex' : 'none';
@@ -1569,9 +1618,9 @@ const App = {
     if (roomToggle) {
       roomToggle.style.display = 'block';
       roomToggle.disabled = false;
-      roomToggle.textContent = isMultiplayer ? 'KILL SESSION' : 'ARM GAME';
-      roomToggle.classList.toggle('primary', !isMultiplayer);
-      roomToggle.classList.toggle('kill-session-btn', isMultiplayer);
+      roomToggle.textContent = inCasual ? 'ARM BATTLE' : (inRecount ? 'RETURN TO CASUAL' : 'KILL SESSION');
+      roomToggle.classList.toggle('primary', inCasual);
+      roomToggle.classList.toggle('kill-session-btn', !inCasual);
     }
     const lostButton = document.getElementById('game-lost-btn');
     if (lostButton) {
@@ -1580,19 +1629,19 @@ const App = {
       lostButton.textContent = 'TEST GAME LOST';
       lostButton.title = 'Preview the GAME LOST sequence locally without changing authoritative match state';
     }
-    document.getElementById('next-game-btn').style.display = isMultiplayer ? 'block' : 'none';
-    document.getElementById('scoring-section').style.display = isMultiplayer ? 'block' : 'none';
+    document.getElementById('next-game-btn').style.display = battleSession ? 'block' : 'none';
+    document.getElementById('scoring-section').style.display = battleSession ? 'block' : 'none';
     const tributeVaultSection = document.getElementById('blood-tribute-vault-section');
-    if (tributeVaultSection) tributeVaultSection.style.display = isMultiplayer ? 'block' : 'none';
+    if (tributeVaultSection) tributeVaultSection.style.display = battleSession ? 'block' : 'none';
     const recordsSection = document.getElementById('records-section');
-    if (recordsSection) recordsSection.style.display = isMultiplayer ? 'block' : 'none';
+    if (recordsSection) recordsSection.style.display = battleSession ? 'block' : 'none';
     ControlSurfaces.updateSessionSummary();
     this.updateFailFinalButtonVisibility();
     this.updateWomfControlsVisibility();
 
     if (isMultiplayer) {
       document.getElementById('mp-room-code').textContent = 'MASTER ROOM';
-      document.getElementById('mp-status').textContent = 'ARMED';
+      document.getElementById('mp-status').textContent = this.roomMode;
     }
   },
 
@@ -1908,12 +1957,12 @@ const App = {
   // ---------------------------------------------------------------------
 
   announceTimerLaunch() {
-    if (this.mode !== 'multiplayer') return;
+    if (this.mode !== 'multiplayer' || this.roomMode !== 'BATTLE_ARMED') return;
     this.send({ type: 'gm:timerLaunchCountdown' });
   },
 
   startTimer() {
-    if (this.mode !== 'multiplayer') return;
+    if (this.mode !== 'multiplayer' || this.roomMode !== 'BATTLE_ARMED') return;
     this.send({ type: 'gm:timerStart' });
   },
 
@@ -1957,7 +2006,7 @@ const App = {
   updateFailFinalButtonVisibility() {
     const btn = document.getElementById('declare-final-failed-btn');
     if (!btn) return;
-    btn.style.display = (this.mode === 'multiplayer' && !this.finalRevealed) ? 'block' : 'none';
+    btn.style.display = (this.mode === 'multiplayer' && this.roomMode === 'BATTLE' && !this.finalRevealed) ? 'block' : 'none';
   },
 
   showBattleControlsOnline() {
@@ -2085,10 +2134,9 @@ const App = {
   },
 
   hostRoom() {
-    // Guard against a double-click (or double-tap) sending room:create
-    // twice before the first room:created response comes back — the
-    // server has no such guard itself and would happily spin up two rooms.
-    if (this.mode === 'multiplayer' || this._hostingInFlight) return;
+    // CASUAL is still multiplayer. Arming a battle therefore reuses the
+    // existing Master Room/socket rather than creating a second room.
+    if ((this.mode === 'multiplayer' && this.roomMode !== 'CASUAL') || this._hostingInFlight) return;
 
     this._hostingInFlight = true;
     const roomToggle = document.getElementById('host-room-btn');
@@ -2107,13 +2155,16 @@ const App = {
   },
 
   closeRoom() {
-    if (this.mode !== 'multiplayer') return;
-    if (!window.confirm('KILL ACTIVE GAME SESSION?\n\nGameplay will be disarmed. Players, identities, and Battle Comms will remain in the Master Room.')) return;
+    if (this.mode !== 'multiplayer' || this.roomMode === 'CASUAL') return;
+    const prompt = this.roomMode === 'RECOUNT'
+      ? 'RETURN EVERYONE TO CASUAL MODE?\n\nThe battle state will reset. Chat, identities, profiles, themes and message history stay online.'
+      : 'KILL ACTIVE BATTLE?\n\nThe battle state will reset and everyone returns to Casual Mode. Chat and identities remain online.';
+    if (!window.confirm(prompt)) return;
 
     const roomToggle = document.getElementById('host-room-btn');
     if (roomToggle) {
       roomToggle.disabled = true;
-      roomToggle.textContent = 'DISARMING...';
+      roomToggle.textContent = 'RETURNING...';
     }
 
     this.send({ type: 'room:close' });
@@ -2121,9 +2172,10 @@ const App = {
 
   async logoutShadowBroker() {
     const hostingRoom = this.mode === 'multiplayer' && !!this.roomCode;
-    const warning = hostingRoom
-      ? 'SEVER SHADOW BROKER SESSION?\n\nThe active game will be disarmed. The Master Room and Battle Comms will remain online.'
-      : 'SEVER SHADOW BROKER SESSION?\n\nCommand authentication will be cleared and you will return to the access terminal.';
+    const activeBattle = hostingRoom && this.roomMode !== 'CASUAL';
+    const warning = activeBattle
+      ? 'SEVER SHADOW BROKER SESSION?\n\nThe active battle will return to Casual Mode before your command link is closed.'
+      : 'SEVER SHADOW BROKER SESSION?\n\nThe Master Room remains online for Little Heroes; your command authentication will be cleared.';
     if (!window.confirm(warning)) return;
 
     const button = document.getElementById('gm-logout-btn');
@@ -2134,10 +2186,8 @@ const App = {
 
     const gmToken = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
     try {
-      if (hostingRoom) {
-        this.send({ type: 'room:close' });
-        this.cleanupRoom();
-      }
+      if (activeBattle) this.send({ type: 'room:close' });
+      if (hostingRoom) this.cleanupRoom();
       if (gmToken) {
         await fetch('/api/auth/gm/logout', {
           method: 'POST',
@@ -2159,6 +2209,13 @@ const App = {
     this.roomCode = '';
     this.hostToken = '';
     this.mode = 'local';
+    this.roomMode = 'CASUAL';
+    document.body.classList.remove('room-mode-casual', 'room-mode-battle-armed', 'room-mode-battle', 'room-mode-recount');
+    delete document.body.dataset.roomMode;
+    const brokerBar = document.getElementById('gm-broker-bar');
+    const main = document.getElementById('main-content');
+    const battleControls = document.getElementById('battle-controls-panel');
+    if (brokerBar && main && brokerBar.parentElement !== main) main.insertBefore(brokerBar, battleControls || null);
     this.pendingCommands.clear();
     sessionStorage.removeItem('asoc_host_token');
     // No room -> no authoritative victory state either.
@@ -3127,6 +3184,14 @@ const App = {
   updateSolvedCount() {
     const countEl = document.getElementById('gm-chat-solved-count');
     if (!countEl) return;
+    if (this.roomMode === 'CASUAL') {
+      countEl.textContent = 'CHANNEL OPEN';
+      return;
+    }
+    if (this.roomMode === 'BATTLE_ARMED') {
+      countEl.textContent = 'BATTLE ARMED';
+      return;
+    }
     const solved = Object.keys(this.solvedTargets).length;
     countEl.textContent = `SOLVED: ${solved}/5`;
   },
