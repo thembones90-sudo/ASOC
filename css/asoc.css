@@ -12259,6 +12259,14 @@ body.room-mode-casual #gm-panel .gm-footer {
   margin-bottom:4px !important;
 }
 
+/* BATTLE MODE needs a higher-specificity override because the older
+   operator-density rule (.gm-module-chat .gm-chat-header) otherwise wins
+   and crushes the ONLINE pill against the divider. Casual mode is left alone. */
+body:not(.room-mode-casual) .gm-module-chat .gm-chat-header {
+  padding:4px 8px 12px !important;
+  margin-bottom:4px !important;
+}
+
 .gm-chat-presence-wrap {
   position:relative;
   display:flex;
