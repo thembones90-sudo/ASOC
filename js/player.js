@@ -2,6 +2,7 @@ const PlayerApp = {
   ws: null,
   roomCode: 'MASTER',
   masterArmed: false,
+  roomMode: 'CASUAL',
   _masterStateBaselined: false,
   playerId: '',
   playerName: '',
@@ -695,25 +696,26 @@ const PlayerApp = {
 
       case 'state:public': {
         this.lastPublicState = message;
-        const armed = message.armed === true;
-        this.applyMasterRoomState(armed);
-        if (armed) {
+        const roomMode = message.roomMode || (message.armed === true ? 'BATTLE_ARMED' : 'CASUAL');
+        const battleVisible = roomMode === 'BATTLE' || roomMode === 'RECOUNT';
+        this.applyRoomMode(roomMode);
+        if (battleVisible) {
           window.AsocAudio?.syncBoard?.('player', message);
           this.renderBoard(message);
         } else {
           window.AsocAudio?.resetObservers?.();
         }
-        this.applyVictoryState(armed && message.gameWon === true, armed ? (message.matchResult || null) : null);
-        this.applyLossState(armed ? (message.matchResult || null) : null);
-        // Read-only: no controls are ever exposed here, only the same
-        // charge/state the GM sees, sourced from the same broadcast.
-        Womf.update('womf-tracker-player', armed ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
-        Wheel.update('wheel-overlay', armed ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false);
-        this.updateBloodTributeDemand(armed ? (message.bloodTribute || { status: 'idle' }) : { status: 'idle' });
-        Timer.update('timer-tracker-player', armed ? (message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }) : { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
-        if (armed) this.updateTerminalPhase(message);
+        this.applyVictoryState(battleVisible && message.gameWon === true, battleVisible ? (message.matchResult || null) : null);
+        this.applyLossState(battleVisible ? (message.matchResult || null) : null);
+        // Battle systems stay dormant during CASUAL and BATTLE_ARMED. The
+        // board becomes public only when the authoritative mode reaches BATTLE.
+        Womf.update('womf-tracker-player', battleVisible ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
+        Wheel.update('wheel-overlay', battleVisible ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false);
+        this.updateBloodTributeDemand(battleVisible ? (message.bloodTribute || { status: 'idle' }) : { status: 'idle' });
+        Timer.update('timer-tracker-player', battleVisible ? (message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }) : { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
+        if (battleVisible) this.updateTerminalPhase(message);
         else Recount.apply(null);
-        document.getElementById('game-screen')?.classList.toggle('phase-final', armed && message.finalSolution?.revealed === true);
+        document.getElementById('game-screen')?.classList.toggle('phase-final', battleVisible && message.finalSolution?.revealed === true);
         this.showGameScreen();
         this.setConnectionStatus('connected');
         this.reconnectAttempts = 0;
@@ -806,7 +808,7 @@ const PlayerApp = {
         this.chatMessages = incoming;
         this.solvedTargets = message.solvedTargets || {};
         const solvedCount = document.getElementById('chat-solved-count');
-        if (solvedCount) solvedCount.textContent = this.masterArmed ? `SOLVED: ${Object.keys(this.solvedTargets).length}/5` : 'CHANNEL OPEN';
+        if (solvedCount) solvedCount.textContent = this.roomMode === 'CASUAL' ? 'CHANNEL OPEN' : (this.roomMode === 'BATTLE_ARMED' ? 'BATTLE ARMED' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`);
         this.renderChat();
         break;
       }
@@ -819,7 +821,9 @@ const PlayerApp = {
         this.updatePlayerLeaderboard(message.players);
         const commsRoom = document.getElementById('battle-comms-room');
         const commsOnline = document.getElementById('battle-comms-online');
-        if (commsRoom) commsRoom.textContent = 'MONITORED // MASTER ROOM';
+        if (commsRoom) commsRoom.textContent = this.roomMode === 'CASUAL'
+          ? 'CASUAL // MASTER ROOM'
+          : (this.roomMode === 'BATTLE_ARMED' ? 'BATTLE ARMED // MASTER ROOM' : 'MONITORED // MASTER ROOM');
         if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' LINKED';
         break;
 
@@ -1122,21 +1126,41 @@ const PlayerApp = {
     bgLayer.src = path;
   },
 
-  applyMasterRoomState(armed) {
-    const wasArmed = this.masterArmed;
+  applyRoomMode(mode) {
+    const allowed = new Set(['CASUAL', 'BATTLE_ARMED', 'BATTLE', 'RECOUNT']);
+    const next = allowed.has(mode) ? mode : 'CASUAL';
+    const previous = this.roomMode;
     const hadBaseline = this._masterStateBaselined;
-    this.masterArmed = armed === true;
+    this.roomMode = next;
+    this.masterArmed = next !== 'CASUAL';
     this._masterStateBaselined = true;
+
     const screen = document.getElementById('game-screen');
     const standby = document.getElementById('master-room-standby');
-    screen?.classList.toggle('master-room-unarmed', !this.masterArmed);
-    if (standby) standby.hidden = this.masterArmed;
+    if (screen) {
+      screen.classList.toggle('master-room-unarmed', next === 'CASUAL');
+      screen.classList.toggle('room-mode-casual', next === 'CASUAL');
+      screen.classList.toggle('room-mode-battle-armed', next === 'BATTLE_ARMED');
+      screen.classList.toggle('room-mode-battle', next === 'BATTLE');
+      screen.classList.toggle('room-mode-recount', next === 'RECOUNT');
+      screen.dataset.roomMode = next;
+    }
+    if (standby) standby.hidden = true;
+
+    const title = document.querySelector('.chat-title');
+    const roomLabel = document.getElementById('battle-comms-room');
     const solvedCount = document.getElementById('chat-solved-count');
-    if (solvedCount) solvedCount.textContent = this.masterArmed ? `SOLVED: ${Object.keys(this.solvedTargets).length}/5` : 'CHANNEL OPEN';
-    if (hadBaseline && !wasArmed && this.masterArmed) {
+    if (title) title.textContent = next === 'CASUAL' || next === 'BATTLE_ARMED' ? 'ASOC NETWORK' : 'BATTLE COMMS';
+    if (roomLabel) roomLabel.textContent = next === 'CASUAL'
+      ? 'CASUAL // MASTER ROOM'
+      : (next === 'BATTLE_ARMED' ? 'BATTLE ARMED // MASTER ROOM' : 'MONITORED // MASTER ROOM');
+    if (solvedCount) solvedCount.textContent = next === 'CASUAL'
+      ? 'CHANNEL OPEN'
+      : (next === 'BATTLE_ARMED' ? 'BATTLE ARMED' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`);
+
+    if (hadBaseline && previous === 'CASUAL' && next === 'BATTLE_ARMED') {
       this.addBattleEvent('BATTLE CONTROL SIGNAL DETECTED');
-      this.addBattleEvent('ASOC ENGINE ONLINE');
-    } else if (hadBaseline && wasArmed && !this.masterArmed) {
+    } else if (hadBaseline && (previous === 'BATTLE' || previous === 'RECOUNT') && next === 'CASUAL') {
       this.addBattleEvent('SYSTEM UNARMED // COMMUNICATION CHANNEL OPEN');
     }
   },
