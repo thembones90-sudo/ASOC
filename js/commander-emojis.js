@@ -35,5 +35,37 @@
     return ITEMS[String(token || '')]?.label || '';
   }
 
-  window.CommanderEmojis = Object.freeze({ items: ITEMS, tokens: TOKENS, has, html, label });
+  function escapeHtml(text) {
+    return String(text ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function renderText(text, className = 'commander-inline-emoji') {
+    const input = String(text ?? '');
+    if (!TOKENS.some(token => input.includes(token))) return escapeHtml(input);
+    let out = '';
+    let cursor = 0;
+    while (cursor < input.length) {
+      let nextToken = null;
+      let nextIndex = input.length;
+      for (const token of TOKENS) {
+        const index = input.indexOf(token, cursor);
+        if (index >= 0 && index < nextIndex) {
+          nextIndex = index;
+          nextToken = token;
+        }
+      }
+      out += escapeHtml(input.slice(cursor, nextIndex));
+      if (!nextToken) break;
+      out += html(nextToken, className);
+      cursor = nextIndex + nextToken.length;
+    }
+    return out;
+  }
+
+  window.CommanderEmojis = Object.freeze({ items: ITEMS, tokens: TOKENS, has, html, label, renderText });
 })();
