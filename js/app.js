@@ -1106,7 +1106,45 @@ const App = {
 
     const gmImageButton = document.getElementById('gm-image-upload-btn');
     const gmImageInput = document.getElementById('gm-image-upload-input');
-    gmImageButton?.addEventListener('click', () => gmImageInput?.click());
+    const gmAttachmentMenu = document.getElementById('gm-attachment-menu');
+    const gmAttachmentWrap = gmImageButton?.closest('.gm-attachment-wrap');
+
+    const closeGMAttachmentMenu = () => {
+      if (!gmAttachmentMenu || !gmImageButton) return;
+      gmAttachmentMenu.hidden = true;
+      gmImageButton.setAttribute('aria-expanded', 'false');
+    };
+
+    gmImageButton?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (!gmAttachmentMenu) return gmImageInput?.click();
+      const opening = gmAttachmentMenu.hidden;
+      gmAttachmentMenu.hidden = !opening;
+      gmImageButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      if (opening) {
+        const emojiPicker = document.getElementById('gm-emoji-picker');
+        const emojiToggle = document.getElementById('gm-emoji-toggle');
+        if (emojiPicker) emojiPicker.hidden = true;
+        emojiToggle?.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    gmAttachmentMenu?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const action = event.target.closest('[data-gm-attachment]')?.dataset.gmAttachment;
+      if (action !== 'image') return;
+      closeGMAttachmentMenu();
+      gmImageInput?.click();
+    });
+
+    document.addEventListener('click', (event) => {
+      if (gmAttachmentWrap && !gmAttachmentWrap.contains(event.target)) closeGMAttachmentMenu();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeGMAttachmentMenu();
+    });
+
     gmImageInput?.addEventListener('change', async () => {
       const file = gmImageInput.files?.[0];
       gmImageInput.value = '';
@@ -1116,6 +1154,8 @@ const App = {
       const caption = this.syncGMComposerModel().text.trim();
       const token = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
       gmImageButton.disabled = true;
+      gmImageButton.classList.add('is-uploading');
+      gmImageButton.setAttribute('aria-busy', 'true');
       try {
         const res = await fetch('/api/chat/image?caption=' + encodeURIComponent(caption), {
           method: 'POST',
@@ -1129,6 +1169,8 @@ const App = {
         alert(error.message || 'Image upload failed');
       } finally {
         gmImageButton.disabled = false;
+        gmImageButton.classList.remove('is-uploading');
+        gmImageButton.removeAttribute('aria-busy');
       }
     });
 
@@ -1230,9 +1272,14 @@ const App = {
       if (!gmEmojiPicker) return;
       const opening = gmEmojiPicker.hidden;
       gmEmojiPicker.hidden = !opening;
+      gmEmojiToggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
       if (opening) {
         this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
         this.closeGMMentionPicker(gmMentionPicker);
+        const attachmentMenu = document.getElementById('gm-attachment-menu');
+        const attachmentToggle = document.getElementById('gm-image-upload-btn');
+        if (attachmentMenu) attachmentMenu.hidden = true;
+        attachmentToggle?.setAttribute('aria-expanded', 'false');
       }
       if (gmReactionPicker) gmReactionPicker.hidden = true;
     });
@@ -1267,6 +1314,7 @@ const App = {
 
       this.insertGMEmoji(option.dataset.emoji || '');
       gmEmojiPicker.hidden = true;
+      gmEmojiToggle?.setAttribute('aria-expanded', 'false');
     });
 
     gmReactionPicker?.addEventListener('click', (e) => {
@@ -1410,6 +1458,7 @@ const App = {
       const liveReactionPicker = document.getElementById('gm-chat-reaction-picker');
       if (liveEmojiPicker && !liveEmojiPicker.hidden && !liveEmojiPicker.contains(e.target) && !e.target.closest('#gm-emoji-toggle')) {
         liveEmojiPicker.hidden = true;
+        document.getElementById('gm-emoji-toggle')?.setAttribute('aria-expanded', 'false');
         this._gmEmojiFavoritesEditing = false;
         this._gmEmojiFavoriteSlot = 0;
       }
@@ -3676,6 +3725,7 @@ const App = {
         ${this.commanderReactionPickerHTML(editing, favorites)}
         ${favoriteButtons}
         ${divider}
+        <div class="gm-emoji-section-label">EMOJI PACK</div>
         ${bodyButtons}
       `;
     }
@@ -3696,6 +3746,7 @@ const App = {
         ${this.commanderReactionPickerHTML(editing, favorites)}
         ${favoriteButtons}
         ${divider}
+        <div class="gm-emoji-section-label">EMOJI PACK</div>
         ${reactionBody}
       `;
     }
