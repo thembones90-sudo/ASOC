@@ -12909,3 +12909,11 @@ body.room-mode-recount .gm-module-chat .gm-online-dropdown {
   justify-content:flex-end !important;
   margin:3px 3px 0 auto !important;
 }
+
+
+/* FINAL word only: tiny optical correction.
+   Keep the canonical FINAL slot and shared centering frame untouched. */
+.board-cell.final-solution .cell-text,
+.asoc-board .board-cell.final-solution .cell-text {
+  translate: 0.28cqw 0.10cqh;
+}
