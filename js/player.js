@@ -1726,7 +1726,10 @@ const PlayerApp = {
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeContextMenu();
+      if (e.key === 'Escape') {
+        closeContextMenu();
+        if (this._editingMessage) this.cancelChatReply();
+      }
     });
     window.addEventListener('resize', closeContextMenu, { passive:true });
 
@@ -1836,10 +1839,14 @@ const PlayerApp = {
   },
 
   cancelChatReply() {
+    const wasEditing = !!this._editingMessage;
     this._replyTo = null;
     this._editingMessage = null;
     const input = document.getElementById('chat-input');
-    if (input) input.maxLength = 100;
+    if (input) {
+      input.maxLength = 100;
+      if (wasEditing) input.value = '';
+    }
     const preview = document.getElementById('chat-reply-preview');
     if (preview) preview.style.display = 'none';
     const previewText = document.getElementById('chat-reply-preview-text');
