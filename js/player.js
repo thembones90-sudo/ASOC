@@ -1178,7 +1178,6 @@ const PlayerApp = {
     document.getElementById('reconnecting-overlay').classList.remove('active');
     this.bindChatForm();
     this.bindLeaderboardToggle();
-    this.setupPlayerLayoutSplitter();
     Recount.mountPill();
   },
 

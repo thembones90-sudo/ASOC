@@ -5508,6 +5508,70 @@
       }
     }
 
+
+
+    /* PLAYER SPLITTER REMOVED // board + comms only */
+    @media (min-width:901px) {
+      .player-battle-layout {
+        grid-template-columns:minmax(0,1fr) var(--player-comms-width,clamp(286px,20vw,332px)) !important;
+        column-gap:0 !important;
+      }
+
+      #board-layer {
+        grid-column:1 !important;
+      }
+
+      .battle-comms-lobby {
+        grid-column:2 !important;
+        min-width:0 !important;
+        width:100% !important;
+        border-left:1px solid rgba(116,126,139,.28) !important;
+      }
+    }
+
+    .player-layout-splitter {
+      display:none !important;
+    }
+
+    /* COMPOSER EMOJI ALIGNMENT // same row, same vertical center */
+    .battle-comms-lobby .chat-form {
+      align-items:center !important;
+    }
+
+    .battle-comms-lobby #chat-input {
+      order:1;
+      padding-right:14px !important;
+    }
+
+    .battle-comms-lobby .chat-emoji-toggle {
+      order:2;
+      position:static !important;
+      right:auto !important;
+      bottom:auto !important;
+      top:auto !important;
+      transform:none !important;
+      flex:0 0 32px !important;
+      width:32px !important;
+      height:32px !important;
+      min-width:32px !important;
+      min-height:32px !important;
+      margin:0 !important;
+      padding:0 !important;
+      display:inline-flex !important;
+      align-items:center !important;
+      justify-content:center !important;
+      align-self:center !important;
+      line-height:1 !important;
+    }
+
+    .battle-comms-lobby .chat-input-emoji-picker {
+      order:3;
+    }
+
+    .battle-comms-lobby .chat-reply-preview {
+      order:0;
+    }
+
   </style>
 </head>
 <body>
@@ -5751,9 +5815,6 @@
       </form>
     </div>
 
-    <div id="player-layout-splitter" class="player-layout-splitter" role="separator" aria-orientation="vertical" aria-label="Resize Battle Comms" tabindex="0" title="Drag to resize Battle Comms // Double-click to reset">
-      <span class="player-layout-splitter-grip" aria-hidden="true"></span>
-    </div>
 
     <aside id="battle-comms-lobby" class="battle-comms-lobby">
     <section class="detainee-status-module">
@@ -5808,9 +5869,9 @@
           <span id="chat-reply-preview-text"></span>
           <button type="button" id="chat-reply-cancel" class="chat-reply-cancel" title="Cancel reply" aria-label="Cancel reply">×</button>
         </div>
-        <button type="button" id="chat-emoji-toggle" class="chat-emoji-toggle" title="Emoji">☺</button>
-        <div id="chat-emoji-picker" class="chat-input-emoji-picker" hidden></div>
         <input type="text" id="chat-input" placeholder="Insult here" maxlength="100" autocomplete="off">
+        <button type="button" id="chat-emoji-toggle" class="chat-emoji-toggle" title="Emoji" aria-label="Open emoji picker">☺</button>
+        <div id="chat-emoji-picker" class="chat-input-emoji-picker" hidden></div>
       </form>
     </div>
     </aside>
