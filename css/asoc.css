@@ -12248,3 +12248,104 @@ body.room-mode-casual #gm-panel .gm-footer {
     max-width:min(228px,calc(100vw - 16px)) !important;
   }
 }
+
+
+/* GM CHAT HEADER // presence only, no redundant title/mode labels */
+.gm-chat-header {
+  position:relative;
+  justify-content:flex-end !important;
+  min-height:30px;
+  padding:4px 8px !important;
+  margin-bottom:4px !important;
+}
+
+.gm-chat-presence-wrap {
+  position:relative;
+  display:flex;
+  align-items:center;
+  margin-left:auto;
+}
+
+.gm-chat-presence {
+  appearance:none;
+  border:1px solid rgba(79,201,116,.38);
+  border-radius:999px;
+  background:linear-gradient(180deg,rgba(18,38,26,.78),rgba(8,19,12,.88));
+  color:#75e596 !important;
+  font:800 11px/1 var(--font-tech) !important;
+  letter-spacing:1.05px !important;
+  min-height:26px;
+  padding:0 10px;
+  margin:0 !important;
+  cursor:pointer;
+  white-space:nowrap;
+  text-shadow:0 0 8px rgba(79,220,113,.45);
+  box-shadow:inset 0 0 0 1px rgba(6,12,8,.9),0 0 10px rgba(79,220,113,.08);
+}
+
+.gm-chat-presence:hover,
+.gm-chat-presence[aria-expanded="true"] {
+  border-color:rgba(94,235,130,.72);
+  color:#a4ffbb !important;
+  box-shadow:inset 0 0 0 1px rgba(6,12,8,.9),0 0 13px rgba(79,220,113,.20);
+}
+
+.gm-chat-presence::first-letter {
+  color:#4fdd71;
+}
+
+.gm-online-dropdown {
+  position:absolute;
+  top:calc(100% + 6px);
+  right:0;
+  z-index:120;
+  width:min(280px,72vw);
+  max-height:320px;
+  overflow-y:auto;
+  padding:6px;
+  border:1px solid rgba(88,119,98,.72);
+  border-radius:8px;
+  background:linear-gradient(180deg,rgba(14,21,17,.985),rgba(7,11,9,.995));
+  box-shadow:0 14px 34px rgba(0,0,0,.52),0 0 14px rgba(79,220,113,.08);
+}
+
+.gm-online-dropdown[hidden] {
+  display:none !important;
+}
+
+.gm-online-player {
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:40px;
+  padding:5px 7px;
+  border-radius:6px;
+  color:#d9f6e1;
+  font:800 11px/1.15 var(--font-human);
+  letter-spacing:.35px;
+}
+
+.gm-online-player + .gm-online-player {
+  border-top:1px solid rgba(99,120,106,.18);
+}
+
+.gm-online-player .little-hero-avatar,
+.gm-online-player .little-hero-avatar-compact {
+  width:30px !important;
+  height:30px !important;
+  flex:0 0 30px !important;
+  border-color:#62b77c !important;
+  box-shadow:0 0 7px rgba(98,183,124,.34) !important;
+}
+
+.gm-online-empty {
+  padding:10px;
+  color:#738078;
+  font:700 9px/1.2 var(--font-tech);
+  letter-spacing:1px;
+  text-align:center;
+}
+
+.gm-chat-solved[hidden] {
+  display:none !important;
+}

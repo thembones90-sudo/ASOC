@@ -95,9 +95,11 @@
         <section class="gm-section gm-module gm-module-chat">
           <div class="gm-chat-panel">
             <div class="gm-chat-header">
-              <span class="gm-chat-title">BATTLE CHAT</span>
-              <span class="gm-chat-presence" id="gm-chat-presence">● 0 ONLINE</span>
-              <span class="gm-chat-solved" id="gm-chat-solved-count">SOLVED: 0/5</span>
+              <div class="gm-chat-presence-wrap">
+                <button type="button" class="gm-chat-presence" id="gm-chat-presence" aria-haspopup="true" aria-expanded="false">● 0 ONLINE</button>
+                <div class="gm-online-dropdown" id="gm-online-dropdown" hidden></div>
+              </div>
+              <span class="gm-chat-solved" id="gm-chat-solved-count" hidden></span>
             </div>
             <div id="gm-chat-messages" class="gm-chat-messages"></div>
           <button type="button" id="gm-chat-new-messages" class="gm-chat-new-messages" hidden>↓ 0 NEW TRANSMISSIONS</button>
