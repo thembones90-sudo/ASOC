@@ -167,11 +167,12 @@ const App = {
       this.setupEventListeners();
       this.setupGMLayoutSplitter();
       this.setupGMChatHeightSplitter();
-      this.setupGMClueHeightSplitter();
       this.syncGMLayoutLockUI();
       Forge.init();
       this.populateBackgroundSelector();
       Board.init('#asoc-board');
+      this.setupGMBoardDirectControls();
+      this.syncGMBoardInteractionState();
       this.applyPersistedOrDefaultBackground();
       this.updatePublicView();
       this.updateWomfTracker();
@@ -225,7 +226,7 @@ const App = {
         : 'LAYOUT UNLOCKED // RESIZE CONTROLS ACTIVE';
     }
 
-    ['gm-layout-splitter', 'gm-chat-height-splitter', 'gm-clue-height-splitter'].forEach(id => {
+    ['gm-layout-splitter', 'gm-chat-height-splitter'].forEach(id => {
       const splitter = document.getElementById(id);
       if (!splitter) return;
       if (!splitter.dataset.unlockedTitle) splitter.dataset.unlockedTitle = splitter.getAttribute('title') || '';
@@ -238,7 +239,6 @@ const App = {
     try {
       localStorage.removeItem('asoc_gm_panel_ratio');
       localStorage.removeItem('asoc_gm_chat_height_px');
-      localStorage.removeItem('asoc_gm_clue_height_px');
     } catch (_) {}
     window.dispatchEvent(new Event('asoc:gm-layout-reset'));
   },
@@ -506,127 +506,141 @@ const App = {
     window.addEventListener('asoc:gm-layout-reset', resetHeight);
   },
 
-  setupGMClueHeightSplitter() {
-    const splitter = document.getElementById('gm-clue-height-splitter');
-    const clueModule = document.querySelector('.gm-module-clues');
-    const clueGrid = document.getElementById('gm-clue-grid');
-    if (!splitter || !clueModule) return;
+  setupGMBoardDirectControls() {
+    const board = document.getElementById('asoc-board');
+    if (!board || board.dataset.gmDirectControlsBound === '1') return;
+    board.dataset.gmDirectControlsBound = '1';
 
-    const STORAGE_KEY = 'asoc_gm_clue_height_px';
-    const MOBILE_QUERY = '(max-width: 760px)';
-    const DEFAULT_HEIGHT = Math.max(300, Math.round(clueModule.getBoundingClientRect().height || 300));
-    const MIN_HEIGHT = 190;
-    const MAX_VIEWPORT_RATIO = 0.82;
-    const MAX_ABSOLUTE_HEIGHT = 920;
-    const isLocked = () => this.isGMLayoutLocked();
-    let dragging = false;
-    let dragStartY = 0;
-    let dragStartHeight = 0;
-    let currentHeight = null;
+    const FINAL_HOLD_MS = 450;
+    let finalHoldTimer = null;
+    let finalHoldCell = null;
+    let finalHoldPointerId = null;
 
-    const maxHeight = () => Math.max(
-      MIN_HEIGHT,
-      Math.min(MAX_ABSOLUTE_HEIGHT, Math.floor(Math.max(window.innerHeight || 0, 1) * MAX_VIEWPORT_RATIO))
-    );
-
-    const clampHeight = (height) => Math.max(MIN_HEIGHT, Math.min(maxHeight(), height));
-
-    const updateAria = (height) => {
-      const px = Math.round(height);
-      splitter.setAttribute('aria-valuemin', String(MIN_HEIGHT));
-      splitter.setAttribute('aria-valuemax', String(maxHeight()));
-      splitter.setAttribute('aria-valuenow', String(px));
-      splitter.setAttribute('aria-valuetext', `Clue Grid height ${px} pixels`);
-      splitter.dataset.resizeReadout = `CLUES ${px}PX`;
+    const cancelFinalHold = () => {
+      if (finalHoldTimer) clearTimeout(finalHoldTimer);
+      finalHoldTimer = null;
+      finalHoldCell?.classList.remove('gm-final-holding');
+      finalHoldCell = null;
+      finalHoldPointerId = null;
     };
 
-    const applyHeight = (height, persist = false) => {
-      if (!Number.isFinite(height)) return;
-      const previousScrollTop = clueGrid?.scrollTop ?? 0;
-      currentHeight = clampHeight(height);
-      clueModule.style.height = `${Math.round(currentHeight)}px`;
-      updateAria(currentHeight);
-      if (clueGrid) clueGrid.scrollTop = previousScrollTop;
-      if (persist) {
-        try { localStorage.setItem(STORAGE_KEY, String(Math.round(currentHeight))); } catch (_) {}
-      }
+    const revealCell = (cell) => {
+      if (!cell?.classList.contains('gm-board-hitbox') || this.gameComplete) return;
+      const key = cell.dataset.cell || '';
+      if (!/^[A-D][1-5]$/.test(key)) return;
+      const column = key[0];
+      const row = Number(key.slice(1));
+      if (Board.isRevealed(column, row)) return;
+      if (this.solvedTargets?.[column] || Board.getCellOutcome(column, 5) === 'failed') return;
+
+      this.sendCommand('revealCell', { cell: key, reveal: true });
+      this.updatePublicView();
     };
 
-    const computedHeight = () => clampHeight(clueModule.getBoundingClientRect().height || DEFAULT_HEIGHT);
-
-    const resetHeight = () => {
-      currentHeight = null;
-      clueModule.style.removeProperty('height');
-      try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
-      requestAnimationFrame(() => updateAria(computedHeight()));
-    };
-
-    try {
-      const saved = Number.parseFloat(localStorage.getItem(STORAGE_KEY));
-      if (Number.isFinite(saved)) applyHeight(saved, false);
-      else updateAria(computedHeight());
-    } catch (_) {
-      updateAria(computedHeight());
-    }
-
-    splitter.addEventListener('pointerdown', (event) => {
-      if (isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
-      if (event.pointerType === 'mouse' && event.button !== 0) return;
-      dragging = true;
-      dragStartY = event.clientY;
-      dragStartHeight = currentHeight ?? computedHeight();
-      document.body.classList.add('gm-clue-height-resizing');
-      splitter.setPointerCapture?.(event.pointerId);
-      event.preventDefault();
-    });
-
-    splitter.addEventListener('pointermove', (event) => {
-      if (!dragging || isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
-      applyHeight(dragStartHeight + (event.clientY - dragStartY), false);
-    });
-
-    const finishDrag = (event) => {
-      if (!dragging) return;
-      dragging = false;
-      document.body.classList.remove('gm-clue-height-resizing');
-      try { splitter.releasePointerCapture?.(event.pointerId); } catch (_) {}
-      if (currentHeight !== null) {
-        try { localStorage.setItem(STORAGE_KEY, String(Math.round(currentHeight))); } catch (_) {}
-      }
-    };
-
-    splitter.addEventListener('pointerup', finishDrag);
-    splitter.addEventListener('pointercancel', finishDrag);
-    splitter.addEventListener('dblclick', (event) => {
-      if (isLocked()) return;
-      event.preventDefault();
-      resetHeight();
-    });
-
-    splitter.addEventListener('keydown', (event) => {
-      if (isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
-      if (event.key === 'Home') {
+    board.addEventListener('click', (event) => {
+      const cell = event.target.closest('.board-cell[data-cell]');
+      if (!cell || !board.contains(cell) || !cell.classList.contains('gm-board-hitbox')) return;
+      if (cell.dataset.cell === 'FINAL') {
         event.preventDefault();
-        resetHeight();
         return;
       }
-      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+      revealCell(cell);
+    });
+
+    board.addEventListener('pointerdown', (event) => {
+      const cell = event.target.closest('.board-cell[data-cell="FINAL"].gm-board-hitbox');
+      if (!cell || (event.pointerType === 'mouse' && event.button !== 0)) return;
+
+      cancelFinalHold();
       event.preventDefault();
-      const base = currentHeight ?? computedHeight();
-      applyHeight(base + (event.key === 'ArrowDown' ? 16 : -16), true);
+      finalHoldCell = cell;
+      finalHoldPointerId = event.pointerId;
+      cell.classList.add('gm-final-holding');
+      try { cell.setPointerCapture?.(event.pointerId); } catch (_) {}
+
+      finalHoldTimer = setTimeout(() => {
+        finalHoldTimer = null;
+        const target = finalHoldCell;
+        finalHoldCell = null;
+        finalHoldPointerId = null;
+        target?.classList.remove('gm-final-holding');
+        if (!target?.isConnected || !target.classList.contains('gm-board-hitbox')) return;
+        if (Board.isFinalRevealed() || Board.getFinalOutcome() === 'failed') return;
+
+        this.sendCommand('revealFinal', { reveal: true });
+        this.updatePublicView();
+      }, FINAL_HOLD_MS);
     });
 
-    window.addEventListener('resize', () => {
-      if (currentHeight === null) {
-        updateAria(computedHeight());
+    board.addEventListener('pointermove', (event) => {
+      if (!finalHoldCell || event.pointerId !== finalHoldPointerId) return;
+      const rect = finalHoldCell.getBoundingClientRect();
+      const inside = event.clientX >= rect.left && event.clientX <= rect.right &&
+        event.clientY >= rect.top && event.clientY <= rect.bottom;
+      if (!inside) cancelFinalHold();
+    });
+
+    board.addEventListener('pointerup', cancelFinalHold);
+    board.addEventListener('pointercancel', cancelFinalHold);
+    board.addEventListener('lostpointercapture', cancelFinalHold);
+    board.addEventListener('pointerleave', cancelFinalHold);
+
+    board.addEventListener('keydown', (event) => {
+      const cell = event.target.closest('.board-cell[data-cell].gm-board-hitbox');
+      if (!cell || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+
+      if (cell.dataset.cell === 'FINAL') {
+        if (!Board.isFinalRevealed() && Board.getFinalOutcome() !== 'failed') {
+          this.sendCommand('revealFinal', { reveal: true });
+          this.updatePublicView();
+        }
         return;
       }
-      const clamped = clampHeight(currentHeight);
-      if (clamped !== currentHeight) applyHeight(clamped, true);
-      else updateAria(currentHeight);
+      revealCell(cell);
     });
+  },
 
-    window.addEventListener('asoc:gm-layout-reset', resetHeight);
+  syncGMBoardInteractionState() {
+    const board = document.getElementById('asoc-board');
+    if (!board) return;
+
+    const gameLoaded = !!window.GameData?.currentGame;
+    board.classList.toggle('gm-board-direct-controls', gameLoaded);
+
+    board.querySelectorAll('.board-cell[data-cell]').forEach(cell => {
+      const key = cell.dataset.cell || '';
+      const isFinal = key === 'FINAL';
+      const normalCell = /^[A-D][1-5]$/.test(key);
+      const column = normalCell ? key[0] : '';
+      const row = normalCell ? Number(key.slice(1)) : 0;
+      const revealed = isFinal
+        ? Board.isFinalRevealed()
+        : (normalCell && Board.isRevealed(column, row));
+      const resolved = isFinal
+        ? (Board.getFinalOutcome() === 'failed' || !!this.solvedTargets?.FINAL)
+        : (normalCell && (!!this.solvedTargets?.[column] || Board.getCellOutcome(column, 5) === 'failed'));
+      const actionable = gameLoaded && !this.gameComplete && (isFinal || normalCell) && !revealed && !resolved;
+
+      cell.classList.toggle('gm-board-hitbox', actionable);
+      cell.classList.toggle('gm-board-inert', !actionable);
+      cell.classList.toggle('gm-final-hitbox', isFinal && actionable);
+
+      if (actionable) {
+        cell.setAttribute('role', 'button');
+        cell.tabIndex = 0;
+        const description = isFinal
+          ? 'Hold to reveal FINAL'
+          : (row === 5 ? `Reveal ${key} // column solution` : `Reveal ${key} // next queued clue`);
+        cell.title = description;
+        cell.setAttribute('aria-label', description);
+      } else {
+        cell.removeAttribute('role');
+        cell.removeAttribute('tabindex');
+        cell.removeAttribute('title');
+        cell.removeAttribute('aria-label');
+      }
+    });
   },
 
   async loadFirstAvailableGame() {
@@ -1764,18 +1778,6 @@ const App = {
       }
       if (gmContextMenu && !gmContextMenu.hidden && !gmContextMenu.contains(e.target)) closeGMContextMenu();
       if (gmMentionPicker && !gmMentionPicker.hidden && !shadowBrokerForm?.contains(e.target)) this.closeGMMentionPicker(gmMentionPicker);
-
-      const btn = e.target.closest('.gm-cell-btn');
-      if (btn) {
-        if (btn.dataset.final === 'true') {
-          this.sendCommand('revealFinal', { reveal: !Board.isFinalRevealed() });
-        } else {
-          const col = btn.dataset.column;
-          const row = parseInt(btn.dataset.row, 10);
-          this.sendCommand('revealCell', { cell: `${col}${row}`, reveal: !Board.isRevealed(col, row) });
-        }
-        this.updatePublicView();
-      }
 
       const diffBtn = e.target.closest('.diff-swatch');
       if (diffBtn) {
@@ -3677,156 +3679,24 @@ const App = {
   },
 
   buildGMControls() {
-    const gmClueGrid = document.getElementById('gm-clue-grid');
-    const columns = ['A', 'B', 'C', 'D'];
-
-    if (!window.GameData.currentGame) {
-      this.buildEmptyGMControls();
-      return;
-    }
-
-    let clueHtml = '';
-    for (let row = 1; row <= 4; row++) {
-      columns.forEach(col => {
-        const key = `${col}${row}`;
-        const content = GameData.getCellData(col, row);
-        const revealed = Board.isRevealed(col, row);
-        clueHtml += `
-          <button class="gm-cell-btn ${revealed ? 'revealed' : ''}"
-                  data-column="${col}" data-row="${row}"
-                  title="${this.escapeHtmlAttr(content)}">
-            <span style="font-size:0.55rem; color:var(--text-dim);">${col}${row}</span>
-            <span>${this.escapeHtml(content)}</span>
-          </button>
-        `;
-      });
-    }
-
-    columns.forEach(col => {
-      const solutionContent = GameData.getCellData(col, 5);
-      const revealed = Board.isRevealed(col, 5);
-      const failed = Board.getCellOutcome(col, 5) === 'failed';
-      clueHtml += `
-        <button class="gm-cell-btn solution-btn ${revealed ? 'revealed' : ''} ${failed ? 'outcome-failed' : ''}"
-                data-column="${col}" data-row="5"
-                title="${this.escapeHtmlAttr(solutionContent)}">
-          <span style="font-size:0.55rem; color:var(--accent-gold);">${col}5</span>
-          <span>${this.escapeHtml(solutionContent)}</span>
-        </button>
-      `;
-    });
-
-    const finalRevealed = Board.isFinalRevealed();
-    const finalContent = GameData.getFinalSolution();
-    const finalFailed = Board.getFinalOutcome() === 'failed';
-    clueHtml += `
-      <button class="gm-cell-btn final-btn ${finalRevealed ? 'revealed' : ''} ${finalFailed ? 'outcome-failed' : ''}"
-              data-final="true"
-              title="${this.escapeHtmlAttr(finalContent)}">
-        <span style="font-size:0.55rem; color:var(--accent-gold);">FINAL</span>
-        <span>${this.escapeHtml(finalContent)}</span>
-      </button>
-    `;
-
-    gmClueGrid.innerHTML = clueHtml;
+    this.syncGMBoardInteractionState();
 
     const revealHideAllBtn = document.getElementById('reveal-hide-all-btn');
     if (revealHideAllBtn) {
-      const allRevealed = Board.isAllRevealed();
+      const allRevealed = !!window.GameData.currentGame && Board.isAllRevealed();
       revealHideAllBtn.textContent = allRevealed ? 'HIDE ALL' : 'REVEAL ALL';
       revealHideAllBtn.classList.toggle('revealed', allRevealed);
     }
   },
 
-  // No game loaded (or the active game was cleared): render the same grid
-  // shape with coordinate labels only -- no REVEAL/HIDE text, no stale
-  // words from whatever game was loaded before, no revealed/green state.
-  // Buttons are disabled so an empty slot can't send a reveal command.
   buildEmptyGMControls() {
-    const gmClueGrid = document.getElementById('gm-clue-grid');
-    const columns = ['A', 'B', 'C', 'D'];
-
-    let clueHtml = '';
-    for (let row = 1; row <= 4; row++) {
-      columns.forEach(col => {
-        clueHtml += `
-          <button class="gm-cell-btn" data-column="${col}" data-row="${row}" disabled>
-            <span style="font-size:0.55rem; color:var(--text-dim);">${col}${row}</span>
-            <span></span>
-          </button>
-        `;
-      });
-    }
-
-    columns.forEach(col => {
-      clueHtml += `
-        <button class="gm-cell-btn solution-btn" data-column="${col}" data-row="5" disabled>
-          <span style="font-size:0.55rem; color:var(--accent-gold);">${col}5</span>
-          <span></span>
-        </button>
-      `;
-    });
-
-    clueHtml += `
-      <button class="gm-cell-btn final-btn" data-final="true" disabled>
-        <span style="font-size:0.55rem; color:var(--accent-gold);">FINAL</span>
-        <span></span>
-      </button>
-    `;
-
-    if (gmClueGrid) gmClueGrid.innerHTML = clueHtml;
+    this.syncGMBoardInteractionState();
 
     const revealHideAllBtn = document.getElementById('reveal-hide-all-btn');
     if (revealHideAllBtn) {
       revealHideAllBtn.textContent = 'REVEAL ALL';
       revealHideAllBtn.classList.remove('revealed');
     }
-  },
-
-  createGMPollCardHTML(msg) {
-    const poll = msg?.poll || {};
-    const options = Array.isArray(poll.options) ? poll.options : [];
-    const votes = poll.votes && typeof poll.votes === 'object' ? poll.votes : {};
-    const voters = poll.voters && typeof poll.voters === 'object' ? poll.voters : {};
-    const voterIds = new Set();
-    Object.values(votes).forEach(ids => {
-      if (Array.isArray(ids)) ids.forEach(id => voterIds.add(String(id)));
-    });
-    const totalVoters = voterIds.size;
-    const closed = Number(poll.closedAt) > 0;
-
-    const optionHtml = options.map((option, index) => {
-      const ids = Array.isArray(votes[String(index)]) ? votes[String(index)].map(String) : [];
-      const selected = ids.includes('__GM__');
-      const percent = totalVoters ? Math.round((ids.length / totalVoters) * 100) : 0;
-      const voterNames = ids.map(id => {
-        if (id === '__GM__') return 'SHADOW BROKER';
-        return String(voters[id]?.name || (this.currentPlayers || []).find(player => String(player.id) === id)?.name || 'LITTLE HERO');
-      });
-      const voterTitle = voterNames.length ? 'VOTERS // ' + voterNames.join(', ') : 'NO VOTES';
-      return `
-        <button type="button" class="gm-poll-choice${selected ? ' selected' : ''}" data-gm-poll-vote="${index}" data-message-id="${this.escapeHtml(msg.id)}" ${closed ? 'disabled' : ''}>
-          <span class="gm-poll-choice-fill" style="width:${percent}%"></span>
-          <span class="gm-poll-choice-label">${this.escapeHtml(option)}</span>
-          <span class="gm-poll-choice-result" title="${this.escapeHtml(voterTitle)}"><b>${percent}%</b><small>${ids.length}</small></span>
-        </button>
-      `;
-    }).join('');
-
-    return `
-      <div class="gm-poll-card${closed ? ' is-closed' : ''}">
-        <div class="gm-poll-card-head">
-          <span>POLL${poll.allowMultiple ? ' // MULTIPLE' : ''}</span>
-          <b>${closed ? 'CLOSED' : 'LIVE'}</b>
-        </div>
-        <div class="gm-poll-question">${this.escapeHtml(poll.question || msg.text || '')}</div>
-        <div class="gm-poll-choice-list">${optionHtml}</div>
-        <div class="gm-poll-card-foot">
-          <span>${totalVoters} VOTER${totalVoters === 1 ? '' : 'S'}</span>
-          ${closed ? '' : `<button type="button" class="gm-poll-close" data-gm-poll-close="${this.escapeHtml(msg.id)}">CLOSE POLL</button>`}
-        </div>
-      </div>
-    `;
   },
 
   renderGMChat() {
