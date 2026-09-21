@@ -5858,6 +5858,270 @@
       border:0 !important;
     }
 
+  
+
+    /* CHAT COMPOSER POLISH // in-game only, access pages untouched */
+    #game-screen .battle-comms-lobby .chat-form {
+      position:relative !important;
+      display:flex !important;
+      flex-wrap:wrap !important;
+      align-items:center !important;
+      gap:5px !important;
+      padding:7px !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-composer-shell {
+      position:relative;
+      display:flex;
+      align-items:center;
+      flex:1 1 100%;
+      min-width:0;
+      min-height:46px;
+      padding:4px 7px;
+      gap:2px;
+      border:1px solid rgba(112,122,135,.42);
+      border-radius:24px;
+      background:linear-gradient(180deg,rgba(27,32,38,.96),rgba(20,24,29,.98));
+      box-shadow:inset 0 1px rgba(255,255,255,.035),0 4px 16px rgba(0,0,0,.18);
+      box-sizing:border-box;
+      transition:border-color .15s ease,box-shadow .15s ease,background .15s ease;
+    }
+
+    #game-screen .battle-comms-lobby .chat-composer-shell:focus-within {
+      border-color:color-mix(in srgb,var(--player-theme,#9b5de0) 56%,#6f7885);
+      box-shadow:inset 0 1px rgba(255,255,255,.045),0 0 0 1px color-mix(in srgb,var(--player-theme,#9b5de0) 18%,transparent),0 5px 18px rgba(0,0,0,.24);
+    }
+
+    #game-screen .battle-comms-lobby #chat-input {
+      order:initial !important;
+      position:static !important;
+      flex:1 1 auto !important;
+      width:auto !important;
+      min-width:0 !important;
+      height:36px !important;
+      min-height:36px !important;
+      padding:0 8px !important;
+      border:0 !important;
+      border-radius:0 !important;
+      outline:0 !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      color:#edf1f5 !important;
+      font-size:.86rem !important;
+      line-height:36px !important;
+    }
+
+    #game-screen .battle-comms-lobby #chat-input::placeholder {
+      color:#7f8791 !important;
+      opacity:1;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-wrap {
+      position:relative;
+      flex:0 0 36px;
+      width:36px;
+      height:36px;
+    }
+
+    #game-screen .battle-comms-lobby .chat-image-upload-btn,
+    #game-screen .battle-comms-lobby .chat-emoji-toggle {
+      position:static !important;
+      inset:auto !important;
+      transform:none !important;
+      display:inline-flex !important;
+      align-items:center !important;
+      justify-content:center !important;
+      flex:0 0 36px !important;
+      width:36px !important;
+      height:36px !important;
+      min-width:36px !important;
+      min-height:36px !important;
+      margin:0 !important;
+      padding:0 !important;
+      border:0 !important;
+      border-radius:50% !important;
+      background:transparent !important;
+      color:#a4abb4 !important;
+      cursor:pointer;
+      transition:background .13s ease,color .13s ease,transform .13s ease !important;
+      z-index:5 !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-image-upload-btn {
+      font:400 1.72rem/1 Arial,sans-serif !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-emoji-toggle {
+      font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif !important;
+      font-size:1.18rem !important;
+      line-height:1 !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-image-upload-btn:hover,
+    #game-screen .battle-comms-lobby .chat-emoji-toggle:hover,
+    #game-screen .battle-comms-lobby .chat-image-upload-btn[aria-expanded="true"],
+    #game-screen .battle-comms-lobby .chat-emoji-toggle[aria-expanded="true"] {
+      color:#f2f4f7 !important;
+      background:color-mix(in srgb,var(--player-theme,#9b5de0) 18%,#242a31) !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-image-upload-btn:active,
+    #game-screen .battle-comms-lobby .chat-emoji-toggle:active {
+      transform:scale(.94) !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-image-upload-btn.is-uploading {
+      opacity:.52 !important;
+      pointer-events:none;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-menu {
+      position:absolute;
+      left:0;
+      bottom:calc(100% + 9px);
+      z-index:90;
+      width:210px;
+      padding:6px;
+      border:1px solid rgba(100,111,124,.62);
+      border-radius:10px;
+      background:linear-gradient(180deg,rgba(28,33,39,.995),rgba(15,18,22,.995));
+      box-shadow:0 14px 34px rgba(0,0,0,.62),inset 0 1px rgba(255,255,255,.045);
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-menu[hidden] {
+      display:none !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option {
+      display:grid;
+      grid-template-columns:34px minmax(0,1fr);
+      align-items:center;
+      gap:9px;
+      width:100%;
+      min-height:48px;
+      padding:6px 8px;
+      border:0;
+      border-radius:7px;
+      background:transparent;
+      color:#e7ebef;
+      text-align:left;
+      cursor:pointer;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option:hover,
+    #game-screen .battle-comms-lobby .chat-attachment-option:focus-visible {
+      background:color-mix(in srgb,var(--player-theme,#9b5de0) 14%,#252b32);
+      outline:none;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option-icon {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:30px;
+      height:30px;
+      border-radius:8px;
+      background:rgba(45,124,202,.16);
+      color:#67aef1;
+      font:700 1rem/1 var(--font-tech);
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option-copy {
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      min-width:0;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option-copy b {
+      font:800 .62rem/1.15 var(--font-system);
+      letter-spacing:.06em;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option-copy small {
+      color:#7f8994;
+      font:700 .48rem/1.2 var(--font-system);
+      letter-spacing:.03em;
+    }
+
+    #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker {
+      position:absolute !important;
+      left:42px !important;
+      right:auto !important;
+      bottom:calc(100% + 9px) !important;
+      width:228px !important;
+      max-width:min(228px,calc(100vw - 26px)) !important;
+      max-height:318px !important;
+      grid-template-columns:repeat(5,40px) !important;
+      gap:4px !important;
+      padding:8px !important;
+      border:1px solid rgba(100,111,124,.68) !important;
+      border-radius:11px !important;
+      background:linear-gradient(180deg,rgba(28,33,39,.997),rgba(13,16,20,.997)) !important;
+      box-shadow:0 16px 38px rgba(0,0,0,.66),inset 0 1px rgba(255,255,255,.045) !important;
+      z-index:95 !important;
+    }
+
+    #game-screen .battle-comms-lobby #chat-emoji-picker .chat-emoji-option {
+      width:40px !important;
+      min-width:40px !important;
+      height:38px !important;
+      border-radius:7px !important;
+      font-size:1.28rem !important;
+    }
+
+    #game-screen .battle-comms-lobby #chat-emoji-picker .chat-emoji-picker-head {
+      min-height:34px !important;
+      margin:-2px -2px 3px !important;
+      padding:5px 6px !important;
+      border-radius:7px 7px 0 0;
+      font-size:.58rem !important;
+    }
+
+    #game-screen .battle-comms-lobby #chat-emoji-picker .chat-emoji-edit-status {
+      font-size:.48rem !important;
+    }
+
+    #game-screen .battle-comms-lobby #chat-emoji-picker .chat-emoji-edit-toggle {
+      min-width:46px !important;
+      height:25px !important;
+      font-size:.48rem !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-emoji-section-label {
+      grid-column:1 / -1;
+      padding:3px 2px 1px;
+      color:#737e8a;
+      font:800 .48rem/1 var(--font-system);
+      letter-spacing:.12em;
+    }
+
+    @media (max-width:420px) {
+      #game-screen .battle-comms-lobby .chat-composer-shell {
+        min-height:44px;
+        padding:3px 5px;
+      }
+
+      #game-screen .battle-comms-lobby .chat-image-upload-btn,
+      #game-screen .battle-comms-lobby .chat-emoji-toggle,
+      #game-screen .battle-comms-lobby .chat-attachment-wrap {
+        width:34px !important;
+        height:34px !important;
+        min-width:34px !important;
+        min-height:34px !important;
+        flex-basis:34px !important;
+      }
+
+      #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker {
+        left:0 !important;
+        width:min(228px,calc(100vw - 34px)) !important;
+      }
+
+      #game-screen .battle-comms-lobby .chat-attachment-menu {
+        width:min(210px,calc(100vw - 34px));
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -6155,11 +6419,21 @@
           <span id="chat-reply-preview-text"></span>
           <button type="button" id="chat-reply-cancel" class="chat-reply-cancel" title="Cancel reply" aria-label="Cancel reply">×</button>
         </div>
-        <input type="text" id="chat-input" placeholder="Insult here" maxlength="100" autocomplete="off">
-        <button type="button" id="chat-image-upload-btn" class="chat-image-upload-btn" title="Upload image" aria-label="Upload image">▧</button>
-        <button type="button" id="chat-emoji-toggle" class="chat-emoji-toggle" title="Emoji" aria-label="Open emoji picker">☺</button>
+        <div class="chat-composer-shell">
+          <div class="chat-attachment-wrap">
+            <button type="button" id="chat-image-upload-btn" class="chat-image-upload-btn chat-attach-toggle" title="Attachments" aria-label="Open attachments" aria-expanded="false">+</button>
+            <div id="chat-attachment-menu" class="chat-attachment-menu" hidden role="menu" aria-label="Attachments">
+              <button type="button" class="chat-attachment-option" data-chat-attachment="image" role="menuitem">
+                <span class="chat-attachment-option-icon" aria-hidden="true">▧</span>
+                <span class="chat-attachment-option-copy"><b>PHOTOS</b><small>PNG, JPG, WEBP · 5 MB</small></span>
+              </button>
+            </div>
+          </div>
+          <button type="button" id="chat-emoji-toggle" class="chat-emoji-toggle" title="Emoji" aria-label="Open emoji picker" aria-expanded="false">☺</button>
+          <input type="text" id="chat-input" placeholder="Insult here" maxlength="100" autocomplete="off">
+          <div id="chat-emoji-picker" class="chat-input-emoji-picker" hidden></div>
+        </div>
         <input type="file" id="chat-image-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
-        <div id="chat-emoji-picker" class="chat-input-emoji-picker" hidden></div>
       </form>
     </div>
     </aside>
