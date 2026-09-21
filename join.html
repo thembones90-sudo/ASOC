@@ -2794,6 +2794,111 @@
       font-size:.48rem !important;
     }
 
+    /* CHAT READABILITY PASS // speaker-first, clean bubbles, human-readable body copy. */
+    .battle-comms-lobby #chat-messages {
+      padding:10px 9px 12px;
+    }
+    .battle-comms-lobby .chat-message {
+      grid-template-columns:42px minmax(0,1fr);
+      column-gap:9px;
+      padding:4px 5px 6px 2px !important;
+    }
+    .battle-comms-lobby .chat-message:not(.grouped),
+    .battle-comms-lobby .chat-message.grouped {
+      margin-top:7px !important;
+    }
+    .battle-comms-lobby .chat-avatar-rail,
+    .battle-comms-lobby .chat-message.grouped .chat-avatar-rail {
+      width:42px !important;
+      min-width:42px !important;
+    }
+    .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
+    .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact {
+      width:38px !important;
+      height:38px !important;
+      flex-basis:38px !important;
+    }
+    .battle-comms-lobby .chat-message-main {
+      min-width:122px;
+      max-width:min(78%,620px);
+      padding:8px 38px 7px 10px !important;
+      border:1px solid color-mix(in srgb,var(--little-hero-accent,#6f7885) 56%,#596573);
+      border-radius:10px 10px 10px 4px;
+      background:
+        linear-gradient(180deg,
+          color-mix(in srgb,var(--theme-message-top,#151A20) 84%,#394552 16%),
+          color-mix(in srgb,var(--theme-message-bottom,#0C0F13) 88%,#17202a 12%));
+      box-shadow:inset 0 1px rgba(255,255,255,.065),0 2px 6px rgba(0,0,0,.38);
+    }
+    .battle-comms-lobby .chat-message-main::before {
+      left:-6px;
+      top:12px;
+      width:7px;
+      height:11px;
+    }
+    .battle-comms-lobby .chat-message-header,
+    .battle-comms-lobby .chat-message.grouped .chat-message-header {
+      display:flex !important;
+      min-height:14px;
+      margin:0 0 3px;
+      padding-right:28px;
+    }
+    .battle-comms-lobby .chat-player-name {
+      font-family:var(--font-human);
+      font-size:.72rem !important;
+      font-weight:800;
+      letter-spacing:.035em !important;
+      line-height:1.15;
+    }
+    .battle-comms-lobby .chat-message-text {
+      font-family:var(--font-human);
+      font-size:.95rem !important;
+      font-weight:500;
+      line-height:1.36 !important;
+      color:#f0f3f7 !important;
+      text-rendering:optimizeLegibility;
+      -webkit-font-smoothing:antialiased;
+    }
+    .battle-comms-lobby .chat-message-line {
+      gap:8px;
+      align-items:flex-end;
+    }
+    .battle-comms-lobby .chat-message-line .chat-time {
+      font-size:.61rem !important;
+      line-height:1;
+      color:#929ba6 !important;
+      opacity:.9;
+      padding:0 0 2px 4px !important;
+    }
+    .battle-comms-lobby .chat-reply-btn {
+      top:5px;
+      right:5px;
+      width:32px;
+      height:32px;
+      line-height:30px;
+      font-size:1.18rem;
+      opacity:.82;
+    }
+    .battle-comms-lobby .chat-reaction-chip,
+    .battle-comms-lobby .chat-reaction-add {
+      min-height:22px !important;
+      font-size:.58rem !important;
+    }
+    .battle-comms-lobby .chat-reaction-chip > span {
+      font-size:.92rem;
+    }
+    .battle-comms-lobby .chat-message.correct .chat-message-text {
+      font-size:1rem !important;
+    }
+    .battle-comms-lobby .chat-message.wrong .chat-message-text {
+      color:#df766e !important;
+    }
+    .battle-comms-lobby #chat-input {
+      font-family:var(--font-human);
+      font-size:1rem;
+      line-height:1.35;
+    }
+
     @media (max-width: 900px) {
       #game-screen { overflow-y:auto; }
       .player-battle-layout { display:flex; flex-direction:column; height:auto; min-height:100%; padding:8px; }
