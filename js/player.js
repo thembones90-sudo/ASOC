@@ -1640,8 +1640,8 @@ const PlayerApp = {
       .sort((a, b) => b.length - a.length);
     if (!names.length) return;
 
-    const escaped = names.map(name => name.replace(/[.*+?^\${}()|[\]\\]/g, '\\
-  bindChatForm() {'));
+    const regexSpecials = '\\^$.*+?()[]{}|';
+    const escaped = names.map(name => [...name].map(char => regexSpecials.includes(char) ? '\\\\' + char : char).join(''));
     const pattern = new RegExp('@(' + escaped.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
     const me = String(this.playerName || '').trim().toLocaleLowerCase();
     const targets = container.querySelectorAll('.chat-message-text, .shadow-broker-text');
