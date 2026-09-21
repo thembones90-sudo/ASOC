@@ -203,8 +203,8 @@ const Skeleton = (() => {
       //    height and reads from across the room.
       const baseFont = Math.max(4, pillH * ratioFor(label));
       txt.style.fontSize = baseFont + 'px';
-      // Barlow Condensed is self-hosted and deterministic now, so the
-      // tighter line box keeps the visible uppercase ink centered cleanly.
+      // Board text uses the high-legibility gameplay font from CSS. Keep a
+      // tight deterministic line box so the visible ink stays centered.
       txt.style.lineHeight = '1';
       txt.style.fontWeight = String(weightFor(label));
 
@@ -335,12 +335,35 @@ const Skeleton = (() => {
   function scheduleFit(container) {
     if (!container || !supported || !window.requestAnimationFrame) return;
     if (resizeHandler.has(container)) return;
+
+    // The board can change size without the browser window changing size
+    // (notably the GM's draggable chat/board splitter). Listening only for
+    // window.resize leaves the font-fit calculation stale while the slots,
+    // which use cqw/cqh, immediately move with the board. That mismatch is
+    // what makes text appear to drift. Observe the BOARD ITSELF and refit on
+    // every real element-size change.
+    let rafId = 0;
     const handler = () => {
-      const run = () => fit(container);
-      window.requestAnimationFrame(run);
+      if (rafId && window.cancelAnimationFrame) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        fit(container);
+      });
     };
-    resizeHandler.set(container, handler);
-    window.addEventListener('resize', handler);
+
+    let observer = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(handler);
+      observer.observe(container);
+    }
+
+    // Keep the window listener as a fallback for older browsers and for
+    // viewport changes that may precede the element observer notification.
+    window.addEventListener('resize', handler, { passive: true });
+    resizeHandler.set(container, { handler, observer });
+    handler();
   }
 
   function attach(container) {
