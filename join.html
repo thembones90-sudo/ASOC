@@ -5732,6 +5732,71 @@
       }
     }
 
+
+
+    /* ROOM PRESENCE // authoritative connected state, in-game only */
+    #game-screen .pl-entry,
+    #game-screen .hero-roster-card {
+      transition:color .18s ease,opacity .18s ease,filter .18s ease,text-shadow .18s ease;
+    }
+
+    #game-screen .pl-entry .little-hero-avatar,
+    #game-screen .hero-roster-card .little-hero-avatar {
+      transition:border-color .18s ease,box-shadow .18s ease,filter .18s ease,opacity .18s ease;
+    }
+
+    /* ONLINE / PRESENT */
+    #game-screen .pl-entry.is-online .pl-entry-name,
+    #game-screen .hero-roster-card.is-online > span:not(.little-hero-avatar) {
+      color:#c9ffd8 !important;
+      text-shadow:
+        0 0 5px rgba(98,183,124,.52),
+        0 0 11px rgba(98,183,124,.24) !important;
+    }
+
+    #game-screen .pl-entry.is-online .little-hero-avatar,
+    #game-screen .hero-roster-card.is-online .little-hero-avatar {
+      border-color:#62b77c !important;
+      box-shadow:
+        0 0 7px rgba(98,183,124,.48),
+        0 0 15px rgba(98,183,124,.22) !important;
+      filter:saturate(1.08) brightness(1.04) !important;
+      opacity:1 !important;
+    }
+
+    /* OFFLINE */
+    #game-screen .pl-entry.is-offline,
+    #game-screen .hero-roster-card.is-offline {
+      color:#707780 !important;
+      opacity:.72 !important;
+      text-shadow:none !important;
+    }
+
+    #game-screen .pl-entry.is-offline .pl-entry-name,
+    #game-screen .hero-roster-card.is-offline > span:not(.little-hero-avatar) {
+      color:#707780 !important;
+      text-shadow:none !important;
+    }
+
+    #game-screen .pl-entry.is-offline .little-hero-avatar,
+    #game-screen .hero-roster-card.is-offline .little-hero-avatar {
+      border-color:#596068 !important;
+      box-shadow:none !important;
+      filter:grayscale(1) saturate(0) brightness(.68) !important;
+      opacity:.72 !important;
+    }
+
+    /* Keep score legible, but let presence remain visually dominant. */
+    #game-screen .pl-entry.is-online b,
+    #game-screen .hero-roster-card.is-online b {
+      color:#9edcad !important;
+    }
+
+    #game-screen .pl-entry.is-offline b,
+    #game-screen .hero-roster-card.is-offline b {
+      color:#697078 !important;
+    }
+
   </style>
 </head>
 <body>
