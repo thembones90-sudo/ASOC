@@ -12219,3 +12219,32 @@ body.room-mode-casual #gm-panel .gm-footer {
     max-width:min(236px,calc(100vw - 34px)) !important;
   }
 }
+
+
+/* EMOJI PICKER RIGHT ANCHOR + HIDDEN SCROLLBAR V1 */
+#gm-broker-bar #gm-emoji-picker.gm-emoji-picker {
+  left:auto !important;
+  right:4px !important;
+  bottom:calc(100% + 9px) !important;
+  width:228px !important;
+  max-width:min(228px,calc(100vw - 18px)) !important;
+  padding-right:8px !important;
+  overflow-y:auto !important;
+  scrollbar-width:none !important;
+  -ms-overflow-style:none !important;
+}
+
+#gm-broker-bar #gm-emoji-picker.gm-emoji-picker::-webkit-scrollbar {
+  display:none !important;
+  width:0 !important;
+  height:0 !important;
+}
+
+@media (max-width:760px) {
+  #gm-broker-bar #gm-emoji-picker.gm-emoji-picker {
+    left:auto !important;
+    right:0 !important;
+    width:min(228px,calc(100vw - 16px)) !important;
+    max-width:min(228px,calc(100vw - 16px)) !important;
+  }
+}
