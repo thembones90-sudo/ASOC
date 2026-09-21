@@ -1110,13 +1110,63 @@ const App = {
 
     const gmImageButton = document.getElementById('gm-image-upload-btn');
     const gmImageInput = document.getElementById('gm-image-upload-input');
+    const gmGifInput = document.getElementById('gm-gif-upload-input');
     const gmAttachmentMenu = document.getElementById('gm-attachment-menu');
     const gmAttachmentWrap = gmImageButton?.closest('.gm-attachment-wrap');
+    const gmPollComposer = document.getElementById('gm-poll-composer');
+    const gmPollQuestion = document.getElementById('gm-poll-question');
+    const gmPollOptionsEditor = document.getElementById('gm-poll-options');
+    const gmPollMultiple = document.getElementById('gm-poll-multiple');
+
+    const closeGMPollComposer = () => {
+      if (!gmPollComposer) return;
+      gmPollComposer.hidden = true;
+    };
 
     const closeGMAttachmentMenu = () => {
       if (!gmAttachmentMenu || !gmImageButton) return;
       gmAttachmentMenu.hidden = true;
       gmImageButton.setAttribute('aria-expanded', 'false');
+    };
+
+    const currentGMPollOptions = () => Array.from(
+      gmPollOptionsEditor?.querySelectorAll('.gm-poll-option-input') || []
+    ).map(input => input.value);
+
+    const renderGMPollOptionsEditor = (values = ['', '']) => {
+      if (!gmPollOptionsEditor) return;
+      const clean = values.slice(0, 8);
+      while (clean.length < 2) clean.push('');
+      gmPollOptionsEditor.replaceChildren();
+      clean.forEach((value, index) => {
+        const row = document.createElement('div');
+        row.className = 'gm-poll-option-row';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 80;
+        input.className = 'gm-poll-option-input';
+        input.placeholder = 'Option ' + (index + 1);
+        input.value = value;
+        row.appendChild(input);
+        if (clean.length > 2) {
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'gm-poll-option-remove';
+          remove.dataset.gmPollRemove = String(index);
+          remove.textContent = '×';
+          remove.setAttribute('aria-label', 'Remove option ' + (index + 1));
+          row.appendChild(remove);
+        }
+        gmPollOptionsEditor.appendChild(row);
+      });
+    };
+
+    const openGMPollComposer = () => {
+      closeGMAttachmentMenu();
+      if (!gmPollComposer) return;
+      if (!gmPollOptionsEditor?.children.length) renderGMPollOptionsEditor();
+      gmPollComposer.hidden = false;
+      gmPollQuestion?.focus();
     };
 
     gmImageButton?.addEventListener('click', (event) => {
@@ -1126,6 +1176,7 @@ const App = {
       gmAttachmentMenu.hidden = !opening;
       gmImageButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
       if (opening) {
+        closeGMPollComposer();
         const emojiPicker = document.getElementById('gm-emoji-picker');
         const emojiToggle = document.getElementById('gm-emoji-toggle');
         if (emojiPicker) emojiPicker.hidden = true;
@@ -1136,25 +1187,90 @@ const App = {
     gmAttachmentMenu?.addEventListener('click', (event) => {
       event.stopPropagation();
       const action = event.target.closest('[data-gm-attachment]')?.dataset.gmAttachment;
-      if (action !== 'image') return;
-      closeGMAttachmentMenu();
-      gmImageInput?.click();
+      if (!action) return;
+      if (action === 'image') {
+        closeGMAttachmentMenu();
+        gmImageInput?.click();
+        return;
+      }
+      if (action === 'gif') {
+        closeGMAttachmentMenu();
+        gmGifInput?.click();
+        return;
+      }
+      if (action === 'poll') openGMPollComposer();
     });
 
+    document.getElementById('gm-poll-cancel')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      closeGMPollComposer();
+    });
+
+    document.getElementById('gm-poll-add-option')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const values = currentGMPollOptions();
+      if (values.length >= 8) return;
+      renderGMPollOptionsEditor([...values, '']);
+      gmPollOptionsEditor?.querySelector('.gm-poll-option-row:last-child input')?.focus();
+    });
+
+    gmPollOptionsEditor?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const remove = event.target.closest('[data-gm-poll-remove]');
+      if (!remove) return;
+      const index = Number(remove.dataset.gmPollRemove);
+      const values = currentGMPollOptions();
+      if (!Number.isInteger(index) || values.length <= 2) return;
+      values.splice(index, 1);
+      renderGMPollOptionsEditor(values);
+    });
+
+    document.getElementById('gm-poll-create')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const question = gmPollQuestion?.value.trim() || '';
+      const options = currentGMPollOptions().map(value => value.trim()).filter(Boolean);
+      if (!question) return alert('Poll question required.');
+      if (options.length < 2) return alert('Poll needs at least two options.');
+      if (new Set(options.map(value => value.toLocaleLowerCase())).size !== options.length) {
+        return alert('Poll options must be unique.');
+      }
+      if (!this.ws || this.ws.readyState !== 1 || this.mode !== 'multiplayer') {
+        return alert('MASTER ROOM connection required.');
+      }
+      this.send({
+        type: 'chat:poll:create',
+        question,
+        options,
+        allowMultiple: gmPollMultiple?.checked === true
+      });
+      if (gmPollQuestion) gmPollQuestion.value = '';
+      if (gmPollMultiple) gmPollMultiple.checked = false;
+      renderGMPollOptionsEditor();
+      closeGMPollComposer();
+    });
+
+    gmPollComposer?.addEventListener('click', event => event.stopPropagation());
+
     document.addEventListener('click', (event) => {
-      if (gmAttachmentWrap && !gmAttachmentWrap.contains(event.target)) closeGMAttachmentMenu();
+      if (gmAttachmentWrap && !gmAttachmentWrap.contains(event.target)) {
+        closeGMAttachmentMenu();
+        closeGMPollComposer();
+      }
     });
 
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeGMAttachmentMenu();
+      if (event.key === 'Escape') {
+        closeGMAttachmentMenu();
+        closeGMPollComposer();
+      }
     });
 
-    gmImageInput?.addEventListener('change', async () => {
-      const file = gmImageInput.files?.[0];
-      gmImageInput.value = '';
+    const uploadGMChatMedia = async (file, expectedType, failureLabel) => {
       if (!file) return;
-      if (!['image/png','image/jpeg','image/webp'].includes(file.type)) return alert('PNG, JPG or WEBP only.');
-      if (file.size > 5 * 1024 * 1024) return alert('Image must be 5 MB or smaller.');
+      if (file.type !== expectedType && !(expectedType === 'image' && ['image/png','image/jpeg','image/webp'].includes(file.type))) {
+        return alert(expectedType === 'image/gif' ? 'GIF files only.' : 'PNG, JPG or WEBP only.');
+      }
+      if (file.size > 5 * 1024 * 1024) return alert((failureLabel || 'File') + ' must be 5 MB or smaller.');
       const caption = this.syncGMComposerModel().text.trim();
       const token = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
       gmImageButton.disabled = true;
@@ -1167,15 +1283,27 @@ const App = {
           body: file
         });
         const result = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(result.error || 'Image upload failed');
+        if (!res.ok) throw new Error(result.error || (failureLabel || 'Media') + ' upload failed');
         this.setGMComposerText('', 0);
       } catch (error) {
-        alert(error.message || 'Image upload failed');
+        alert(error.message || (failureLabel || 'Media') + ' upload failed');
       } finally {
         gmImageButton.disabled = false;
         gmImageButton.classList.remove('is-uploading');
         gmImageButton.removeAttribute('aria-busy');
       }
+    };
+
+    gmImageInput?.addEventListener('change', async () => {
+      const file = gmImageInput.files?.[0];
+      gmImageInput.value = '';
+      await uploadGMChatMedia(file, 'image', 'Image');
+    });
+
+    gmGifInput?.addEventListener('change', async () => {
+      const file = gmGifInput.files?.[0];
+      gmGifInput.value = '';
+      await uploadGMChatMedia(file, 'image/gif', 'GIF');
     });
 
     shadowBrokerComposer?.addEventListener('keydown', (e) => {
