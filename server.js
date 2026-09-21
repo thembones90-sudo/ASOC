@@ -2331,6 +2331,10 @@ function applyCommand(room, command, payload) {
   // complete or re-open the match: the whole field opened is the game's end.
   const transition = refreshGameComplete(room);
   if (transition) changed = true;
+  if (transition === 'reopened' && room.roomMode === ROOM_MODES.RECOUNT) {
+    room.roomMode = room.timer?.phase === 'ready' ? ROOM_MODES.BATTLE_ARMED : ROOM_MODES.BATTLE;
+    room.armed = true;
+  }
 
   if (changed) {
     room.revision++;
@@ -3146,6 +3150,12 @@ function handleChatReaction(ws, message) {
   const emoji = typeof message.emoji === 'string' ? message.emoji : '';
   if (!messageId || !CHAT_REACTION_EMOJIS.has(emoji)) {
     sendToWs(ws, { type: 'error', message: 'Invalid reaction' });
+    return;
+  }
+
+  const isHost = ws === room.hostConnection;
+  if (COMMANDER_REACTION_EMOJIS.has(emoji) && !isHost) {
+    sendToWs(ws, { type: 'error', message: 'Commander reactions are Shadow Broker only' });
     return;
   }
 
