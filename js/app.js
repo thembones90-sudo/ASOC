@@ -315,7 +315,8 @@ const App = {
     const MAX_VIEWPORT_RATIO = 0.78;
     const MAX_ABSOLUTE_HEIGHT = 820;
     let dragging = false;
-    let dragTop = 0;
+    let dragStartY = 0;
+    let dragStartHeight = 0;
     let currentHeight = null;
 
     const maxHeight = () => Math.max(
@@ -363,7 +364,8 @@ const App = {
       if (window.matchMedia(MOBILE_QUERY).matches) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       dragging = true;
-      dragTop = chatPanel.getBoundingClientRect().top;
+      dragStartY = event.clientY;
+      dragStartHeight = currentHeight ?? computedHeight();
       document.body.classList.add('gm-chat-height-resizing');
       splitter.setPointerCapture?.(event.pointerId);
       event.preventDefault();
@@ -371,7 +373,7 @@ const App = {
 
     splitter.addEventListener('pointermove', (event) => {
       if (!dragging || window.matchMedia(MOBILE_QUERY).matches) return;
-      applyHeight(event.clientY - dragTop, false);
+      applyHeight(dragStartHeight + (event.clientY - dragStartY), false);
     });
 
     const finishDrag = (event) => {
@@ -427,7 +429,8 @@ const App = {
     const MAX_VIEWPORT_RATIO = 0.82;
     const MAX_ABSOLUTE_HEIGHT = 920;
     let dragging = false;
-    let dragTop = 0;
+    let dragStartY = 0;
+    let dragStartHeight = 0;
     let currentHeight = null;
 
     const maxHeight = () => Math.max(
@@ -475,7 +478,8 @@ const App = {
       if (window.matchMedia(MOBILE_QUERY).matches) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       dragging = true;
-      dragTop = clueModule.getBoundingClientRect().top;
+      dragStartY = event.clientY;
+      dragStartHeight = currentHeight ?? computedHeight();
       document.body.classList.add('gm-clue-height-resizing');
       splitter.setPointerCapture?.(event.pointerId);
       event.preventDefault();
@@ -483,7 +487,7 @@ const App = {
 
     splitter.addEventListener('pointermove', (event) => {
       if (!dragging || window.matchMedia(MOBILE_QUERY).matches) return;
-      applyHeight(event.clientY - dragTop, false);
+      applyHeight(dragStartHeight + (event.clientY - dragStartY), false);
     });
 
     const finishDrag = (event) => {
