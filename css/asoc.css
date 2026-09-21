@@ -290,13 +290,24 @@ textarea {
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.72);
-  /* Horizontal stretch is presentation-only. Do not translate the glyph
-     layer here: board text must remain geometrically centered in its slot. */
-  scale: 1.20 1;
+  /* Keep the wrapper itself transform-free. Horizontal presentation stretch
+     belongs to .cell-text, so the centering box can never drift. */
   color: var(--text-primary);
   word-wrap: break-word;
   max-width: 100%;
   transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+/* Natural-width glyph box. The outer .cell-content is only a centering
+   frame; this span is what Skeleton.fit() measures and scales. */
+.cell-text {
+  display: inline-block;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  transform-origin: center center;
+  scale: 1.20 1;
 }
 
 /* Revealed column solutions (A5-D5) default to green -- red only when
@@ -442,32 +453,34 @@ textarea {
   }
 
   .asoc-board .cell-content {
-    display: inline-block;
-    /* Anchor the NATURAL text box to the exact center of the canonical slot.
-       This is deliberately independent of pill width, clue length and board
-       resize, so no optical nudge can push labels toward one edge. */
+    /* Full-slot centering frame. It occupies the canonical pill box exactly,
+       while .cell-text remains a natural-width child. This removes every
+       dependency on text width from the alignment calculation. */
     position: absolute;
-    left: 50%;
-    top: 50%;
-    translate: -50% -50%;
-    width: max-content;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     max-width: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
     text-align: center;
-    transform-origin: center center;
     font-family: var(--font-board);
     font-size: var(--asoc-font, 2.1cqh);
     font-weight: 700;
     letter-spacing: 0.025em;
     line-height: 1;
+  }
+
+  .asoc-board .cell-text {
+    display: inline-block;
+    width: max-content;
+    max-width: none;
     white-space: nowrap;
     overflow-wrap: normal;
-    /* No max-width/overflow/text-overflow here on purpose: this box must be
-       allowed to lay out at its FULL natural (unclipped) size so Skeleton.fit()
-       can measure the true scrollWidth/scrollHeight and shrink it with
-       transform:scale(). Clipping here would cut text off at layout time,
-       before the JS ever gets a chance to shrink it — the pill itself
-       (.board-cell, overflow: visible) is what keeps the scaled-down result
-       visually contained. */
+    transform-origin: center center;
+    scale: 1.20 1;
   }
 
   .asoc-board .board-cell.solution-cell .cell-content {
