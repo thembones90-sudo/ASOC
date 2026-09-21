@@ -10432,92 +10432,89 @@ body.room-mode-casual #gm-logout-btn {
 }
 
 
-/* ROOM MODE TOGGLE // CASUAL <-> BATTLE */
-#host-room-btn.room-mode-toggle {
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:9px;
+/* ROOM MODE SELECTOR // SEGMENTED ASOC CONTROL */
+.room-mode-toggle {
+  display:grid;
+  grid-template-columns:1fr 1fr;
   width:100%;
-  min-height:42px;
-  padding:7px 10px;
-  border:1px solid rgba(141,151,162,.42);
-  border-radius:999px;
-  background:linear-gradient(180deg,#171c22,#0c1015);
-  color:#9aa4ae;
-  box-shadow:inset 0 1px rgba(255,255,255,.04),0 6px 18px rgba(0,0,0,.22);
-  cursor:pointer;
+  min-height:46px;
+  padding:3px;
+  border:1px solid rgba(128,139,151,.46);
+  border-radius:7px;
+  background:linear-gradient(180deg,#090c10,#05070a);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.025),inset 0 0 18px rgba(0,0,0,.8),0 7px 18px rgba(0,0,0,.24);
+  overflow:hidden;
 }
 
-#host-room-btn.room-mode-toggle:hover {
-  border-color:rgba(171,181,192,.66);
-}
-
-#host-room-btn .room-mode-option {
-  font-size:11px;
-  font-weight:800;
-  letter-spacing:1.5px;
-  transition:color .18s ease,text-shadow .18s ease;
-}
-
-#host-room-btn .room-mode-option-casual {
-  color:#d4d9df;
-  text-shadow:0 0 9px rgba(170,180,190,.16);
-}
-
-#host-room-btn .room-mode-option-battle {
-  color:#616973;
-}
-
-#host-room-btn .room-mode-track {
+.room-mode-segment {
   position:relative;
-  width:46px;
-  height:22px;
-  flex:0 0 46px;
-  border:1px solid rgba(132,143,154,.38);
-  border-radius:999px;
-  background:#080b0f;
-  box-shadow:inset 0 0 10px rgba(0,0,0,.7);
+  min-width:0;
+  min-height:40px;
+  padding:0 12px;
+  border:0;
+  background:linear-gradient(180deg,rgba(29,35,42,.86),rgba(14,18,23,.94));
+  color:#68727d;
+  font:800 12px/1 var(--font-tech);
+  letter-spacing:1.8px;
+  cursor:pointer;
+  transition:color .16s ease,background .16s ease,box-shadow .16s ease,filter .16s ease;
 }
 
-#host-room-btn .room-mode-knob {
+.room-mode-option-casual {
+  border-radius:4px 0 0 4px;
+  border-right:1px solid rgba(128,139,151,.28);
+}
+
+.room-mode-option-battle {
+  border-radius:0 4px 4px 0;
+}
+
+.room-mode-segment::before {
+  content:'';
   position:absolute;
-  top:3px;
-  left:3px;
-  width:14px;
-  height:14px;
-  border-radius:50%;
-  background:#c8cfd6;
-  box-shadow:0 0 8px rgba(200,207,214,.32);
-  transition:left .2s ease,background .2s ease,box-shadow .2s ease;
+  inset:0;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .16s ease;
 }
 
-#host-room-btn.is-battle .room-mode-knob {
-  left:27px;
-  background:#8d43b5;
-  box-shadow:0 0 12px rgba(155,93,208,.72);
+.room-mode-segment.is-active {
+  color:#edf2f7;
+  background:linear-gradient(180deg,rgba(70,79,89,.96),rgba(31,37,44,.98));
+  box-shadow:inset 0 0 0 1px rgba(205,216,226,.42),inset 0 0 18px rgba(179,194,207,.10);
+  text-shadow:0 0 8px rgba(220,230,239,.26);
 }
 
-#host-room-btn.is-battle .room-mode-option-casual {
-  color:#5f6770;
-  text-shadow:none;
+.room-mode-option-battle.is-active {
+  color:#e7c7ff;
+  background:linear-gradient(180deg,rgba(75,35,99,.98),rgba(34,15,47,.99));
+  box-shadow:inset 0 0 0 1px rgba(180,93,226,.62),inset 0 0 20px rgba(139,58,181,.24),0 0 12px rgba(130,48,174,.18);
+  text-shadow:0 0 9px rgba(190,111,235,.48);
 }
 
-#host-room-btn.is-battle .room-mode-option-battle {
-  color:#d8b9ef;
-  text-shadow:0 0 10px rgba(155,93,208,.38);
+.room-mode-segment.is-active::before {
+  opacity:1;
+  background:linear-gradient(105deg,transparent 20%,rgba(255,255,255,.07) 45%,transparent 68%);
 }
 
-#host-room-btn.room-mode-toggle:disabled {
-  opacity:.45;
+.room-mode-segment:not(.is-active):hover:not(:disabled) {
+  color:#a9b2bb;
+  background:linear-gradient(180deg,rgba(37,43,51,.94),rgba(17,21,27,.98));
+}
+
+.room-mode-segment:disabled {
   cursor:default;
+  opacity:.48;
 }
 
-
-
+.room-mode-label {
+  position:relative;
+  z-index:1;
+  white-space:nowrap;
+}
 
 /* CASUAL/BATTLE toggle lives in the former ARM button slot. */
-.battle-controls-host-slot #host-room-btn.room-mode-toggle {
+.battle-controls-host-slot .room-mode-toggle {
   width:100%;
   min-width:0;
   min-height:42px;
@@ -10557,7 +10554,7 @@ body.room-mode-casual #battle-controls-panel > * {
 
 body.room-mode-casual #battle-controls-panel .battle-controls-grid,
 body.room-mode-casual #battle-controls-panel .battle-controls-host-slot,
-body.room-mode-casual #battle-controls-panel #host-room-btn {
+body.room-mode-casual #battle-controls-panel .room-mode-toggle {
   display:flex !important;
 }
 

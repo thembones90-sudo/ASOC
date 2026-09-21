@@ -1082,8 +1082,11 @@ const App = {
     document.getElementById('new-game-btn').addEventListener('click', () => Forge.open().then(() => Forge.openCreator(null, true)));
     document.getElementById('next-game-btn').addEventListener('click', () => Forge.open());
 
-    document.getElementById('host-room-btn').addEventListener('click', () => {
-      this.toggleRoomMode();
+    document.getElementById('room-mode-casual-btn').addEventListener('click', () => {
+      this.setRoomMode('CASUAL');
+    });
+    document.getElementById('room-mode-battle-btn').addEventListener('click', () => {
+      this.setRoomMode('BATTLE');
     });
 
     // SHADOW BROKER free-form broadcast -- presentation layer only, see
@@ -2150,15 +2153,19 @@ const App = {
     document.getElementById('mp-room-row').style.display = isMultiplayer ? 'flex' : 'none';
     document.getElementById('mp-status-row').style.display = isMultiplayer ? 'flex' : 'none';
     document.getElementById('mp-players-row').style.display = isMultiplayer ? 'flex' : 'none';
-    const roomToggle = document.getElementById('host-room-btn');
-    if (roomToggle) {
-      roomToggle.style.display = 'block';
-      roomToggle.disabled = !isMultiplayer;
-      roomToggle.classList.toggle('is-battle', !inCasual);
-      roomToggle.classList.remove('kill-session-btn');
-      roomToggle.setAttribute('aria-pressed', String(!inCasual));
-      roomToggle.setAttribute('aria-label', inCasual ? 'Switch to Battle Mode' : 'Switch to Casual Mode');
-      roomToggle.innerHTML = '<span class="room-mode-option room-mode-option-casual">CASUAL</span><span class="room-mode-track"><span class="room-mode-knob"></span></span><span class="room-mode-option room-mode-option-battle">BATTLE</span>';
+    const roomToggle = document.getElementById('room-mode-toggle');
+    const casualModeBtn = document.getElementById('room-mode-casual-btn');
+    const battleModeBtn = document.getElementById('room-mode-battle-btn');
+    if (roomToggle) roomToggle.classList.toggle('is-battle', !inCasual);
+    if (casualModeBtn) {
+      casualModeBtn.disabled = !isMultiplayer;
+      casualModeBtn.classList.toggle('is-active', inCasual);
+      casualModeBtn.setAttribute('aria-pressed', String(inCasual));
+    }
+    if (battleModeBtn) {
+      battleModeBtn.disabled = !isMultiplayer;
+      battleModeBtn.classList.toggle('is-active', !inCasual);
+      battleModeBtn.setAttribute('aria-pressed', String(!inCasual));
     }
     const lostButton = document.getElementById('game-lost-btn');
     if (lostButton) {
@@ -2693,9 +2700,11 @@ const App = {
     this._activeFinalBanner = null;
   },
 
-  toggleRoomMode() {
+  setRoomMode(target) {
     if (this.mode !== 'multiplayer') return;
-    const target = this.roomMode === 'CASUAL' ? 'BATTLE' : 'CASUAL';
+    if (target !== 'CASUAL' && target !== 'BATTLE') return;
+    const currentlyCasual = this.roomMode === 'CASUAL';
+    if ((target === 'CASUAL' && currentlyCasual) || (target === 'BATTLE' && !currentlyCasual)) return;
     this.send({ type: 'gm:setRoomMode', mode: target });
   },
 
