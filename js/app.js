@@ -2711,10 +2711,11 @@ const App = {
   createGMReactionSummaryHTML(msg) {
     const reactions = msg?.reactions && typeof msg.reactions === 'object' ? msg.reactions : {};
     const chips = Object.entries(reactions)
-      .filter(([emoji, playerIds]) => this.chatReactionEmojis.includes(emoji) && Array.isArray(playerIds) && playerIds.length)
+      .filter(([emoji, playerIds]) => this.isGMReactionEmoji(emoji) && Array.isArray(playerIds) && playerIds.length)
       .map(([emoji, playerIds]) => {
         const mine = playerIds.map(String).includes('__GM__');
-        return `<button type="button" class="gm-chat-reaction-chip${mine ? ' mine' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" aria-pressed="${mine ? 'true' : 'false'}"><span>${this.escapeHtml(emoji)}</span><b>${playerIds.length}</b></button>`;
+        const emojiHtml = this.renderGMReactionEmojiHTML(emoji, 'commander-reaction-emoji');
+        return `<button type="button" class="gm-chat-reaction-chip${mine ? ' mine' : ''}${window.CommanderEmojis?.has?.(emoji) ? ' commander-reaction-chip' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" aria-pressed="${mine ? 'true' : 'false'}"><span>${emojiHtml}</span><b>${playerIds.length}</b></button>`;
       })
       .join('');
 
@@ -2927,6 +2928,29 @@ const App = {
     this.saveGMEmojiFavorites(favorites);
   },
 
+  isGMReactionEmoji(emoji) {
+    return this.chatReactionEmojis.includes(emoji) || window.CommanderEmojis?.has?.(emoji) === true;
+  },
+
+  renderGMReactionEmojiHTML(emoji, className = 'commander-reaction-emoji') {
+    if (window.CommanderEmojis?.has?.(emoji)) {
+      return window.CommanderEmojis.html(emoji, className);
+    }
+    return this.escapeHtml(emoji);
+  },
+
+  commanderReactionPickerHTML() {
+    const tokens = window.CommanderEmojis?.tokens || [];
+    if (!tokens.length) return '';
+    const buttons = tokens.map(token => {
+      const label = window.CommanderEmojis.label(token);
+      return '<button type="button" class="gm-emoji-option gm-commander-emoji-option" data-emoji="' + this.escapeHtml(token) + '" title="' + this.escapeHtml(label) + '">' +
+        window.CommanderEmojis.html(token, 'commander-emoji-picker-icon') +
+        '</button>';
+    }).join('');
+    return '<div class="gm-commander-emoji-head">COMMANDER</div>' + buttons + '<div class="gm-emoji-divider gm-commander-divider" aria-hidden="true"></div>';
+  },
+
   renderGMEmojiPickers(emojiPicker = document.getElementById('gm-emoji-picker'), reactionPicker = document.getElementById('gm-chat-reaction-picker')) {
     const favorites = this.loadGMEmojiFavorites();
     const editing = this._gmEmojiFavoritesEditing === true;
@@ -2967,6 +2991,7 @@ const App = {
           <span class="gm-emoji-edit-status">${editing ? 'SLOT ' + (this._gmEmojiFavoriteSlot + 1) : '5 SAVED'}</span>
           <button type="button" class="gm-emoji-edit-toggle">${editing ? 'DONE' : 'EDIT'}</button>
         </div>
+        ${this.commanderReactionPickerHTML()}
         ${favoriteButtons}
         ${divider}
         ${reactionBody}
@@ -2990,7 +3015,7 @@ const App = {
 
   sendGMChatReaction(messageId, emoji) {
     if (this.mode !== 'multiplayer') return;
-    if (!messageId || !this.chatReactionEmojis.includes(emoji)) return;
+    if (!messageId || !this.isGMReactionEmoji(emoji)) return;
     this.send({ type: 'chat:react', messageId, emoji });
   },
 
