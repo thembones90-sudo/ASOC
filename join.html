@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ASOC - Join Game</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css">
+  <link rel="stylesheet" href="css/asoc.css?v=20260921-board-center-2">
   <style>
     #join-screen {
       display: flex;
@@ -718,7 +718,7 @@
     /* LOCKED geometry rule: the board is canonically 1900x1267 and that
        ratio is sacred everywhere it's shown -- it may scale uniformly but
        must never stretch independently on X or Y. Same two-box split as
-       index.html's #public-view (see that file's css/asoc.css comment for
+       index.html's #public-view (see that file's css/asoc.css?v=20260921-board-center-2 comment for
        the full "why" -- flex-grow + an explicit width together make
        aspect-ratio get ignored, since both axes end up independently
        definite), plus one more wrapper here specifically:
@@ -789,7 +789,7 @@
        fits the layer AFTER the HUD band is deducted -- which is by
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
-       --hud-band is measured and set by js/player.js (ResizeObserver),
+       --hud-band is measured and set by js/player.js?v=20260921-board-center-2 (ResizeObserver),
        so the real strip/header heights are authoritative, never guessed.
        Guarded to desktop (>=901px, matching the splitter's own MOBILE_QUERY
        boundary): the narrow layouts already aspect-lock the frame, so
@@ -1296,9 +1296,9 @@
 
     /* SHADOW BROKER transmission bubble styling (.shadow-broker-transmission
        and friends, incl. the .sb-glitch-in arrival animation) now lives in
-       css/asoc.css, shared with index.html -- the GM console renders the
+       css/asoc.css?v=20260921-board-center-2, shared with index.html -- the GM console renders the
        exact same markup/styling now (see Skeleton.shadowBrokerTransmissionHTML
-       in js/skeleton.js), so it's defined in exactly one place. */
+       in js/skeleton.js?v=20260921-board-center-2), so it's defined in exactly one place. */
 
     .chat-form {
       display: flex;
@@ -7398,7 +7398,7 @@
     </div>
 
 <!-- PLAYER DESKTOP BOARD/CHAT SPLITTER -- unarmed-but-present drag separator
-         between the battlefield and Battle Comms (js/player.js
+         between the battlefield and Battle Comms (js/player.js?v=20260921-board-center-2
          setupPlayerLayoutSplitter). The adjacent aside selector
          (.player-layout-splitter + .battle-comms-lobby) fixes its grid column.
          Hides itself on narrow/mobile layouts. -->
@@ -7756,14 +7756,14 @@
   })();
   </script>
   <script src="js/themes.js"></script>
-  <script src="js/skeleton.js"></script>
+  <script src="js/skeleton.js?v=20260921-board-center-2"></script>
   <script src="js/recount.js"></script>
   <script src="js/womf.js"></script>
   <script src="js/wheel.js"></script>
   <script src="js/timer.js"></script>
   <script src="js/game-data.js"></script>
-  <script src="js/board.js"></script>
+  <script src="js/board.js?v=20260921-board-center-2"></script>
   <script src="js/commander-emojis.js"></script>
-  <script src="js/player.js?v=20260921-broker-gif-1"></script>
+  <script src="js/player.js?v=20260921-board-center-2"></script>
 </body>
 </html>
