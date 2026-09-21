@@ -179,7 +179,7 @@ const Skeleton = (() => {
     const cells = container.querySelectorAll('.asoc-board .board-cell');
     for (let i = 0; i < cells.length; i++) {
       const cell = cells[i];
-      const txt = cell.querySelector('.cell-content');
+      const txt = cell.querySelector('.cell-text') || cell.querySelector('.cell-content');
       if (!txt) continue;
 
       // Reset any previously applied autofit scale BEFORE measuring, so
@@ -524,7 +524,7 @@ const Skeleton = (() => {
     const targetRect = (label) => {
       const candidates = Array.from(document.querySelectorAll(`.board-cell[data-label="${label}"]`))
         .map(cell => {
-          const text = cell.querySelector('.cell-content');
+          const text = cell.querySelector('.cell-text') || cell.querySelector('.cell-content');
           const rect = text?.getBoundingClientRect() || cell.getBoundingClientRect();
           return { rect, area: rect.width * rect.height };
         })
