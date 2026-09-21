@@ -87,6 +87,7 @@ const PlayerApp = {
   init() {
     this.bindJoinForm();
     this.loadStoredCredentials();
+    this.bindDesignationEditor();
     window.addEventListener('asoc:player-session-restored', () => this.resumeStoredMasterSession());
     Womf.init('womf-tracker-player');
     Wheel.init('wheel-overlay');
@@ -495,6 +496,54 @@ const PlayerApp = {
     });
   },
 
+  async updateDesignation(requestedName) {
+    const playerName = String(requestedName || '').trim().slice(0, 20);
+    if (!playerName) throw new Error('Name cannot be empty');
+
+    const authToken = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+    if (!authToken) throw new Error('Little Hero authentication required');
+
+    const res = await fetch('/api/auth/player/profile', {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        'x-player-token': authToken
+      },
+      body: JSON.stringify({ name: playerName })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not update Little Hero designation');
+
+    const canonicalName = String(data.player?.name || playerName).trim();
+    this.playerName = canonicalName;
+    sessionStorage.setItem('asoc_player_name', canonicalName);
+    const input = document.getElementById('player-name');
+    if (input) input.value = canonicalName;
+    this.updateAppearancePreview();
+    return canonicalName;
+  },
+
+  bindDesignationEditor() {
+    const identity = document.getElementById('hero-hud-identity');
+    if (!identity || identity._designationEditorBound) return;
+    identity._designationEditorBound = true;
+    identity.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-action="rename-little-hero"]');
+      if (!button) return;
+      const currentName = this.playerName || sessionStorage.getItem('asoc_player_name') || '';
+      const requested = window.prompt('NEW LITTLE HERO DESIGNATION', currentName);
+      if (requested === null) return;
+      button.disabled = true;
+      try {
+        await this.updateDesignation(requested);
+      } catch (error) {
+        this.showError(error.message || 'Could not update Little Hero designation');
+      } finally {
+        button.disabled = false;
+      }
+    });
+  },
+
   async joinGame() {
     let playerName = document.getElementById('player-name').value.trim();
 
@@ -507,19 +556,7 @@ const PlayerApp = {
     const storedName = (sessionStorage.getItem('asoc_player_name') || '').trim();
     if (authToken && playerName !== storedName) {
       try {
-        const res = await fetch('/api/auth/player/profile', {
-          method: 'PATCH',
-          headers: {
-            'content-type': 'application/json',
-            'x-player-token': authToken
-          },
-          body: JSON.stringify({ name: playerName })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Could not update Little Hero designation');
-        playerName = String(data.player?.name || playerName).trim();
-        document.getElementById('player-name').value = playerName;
-        this.updateAppearancePreview();
+        playerName = await this.updateDesignation(playerName);
       } catch (error) {
         this.showError(error.message || 'Could not update Little Hero designation');
         return;
@@ -1219,7 +1256,7 @@ const PlayerApp = {
     const meIndex = ranked.findIndex(p => p.id === this.playerId);
     const me = meIndex >= 0 ? ranked[meIndex] : null;
     if (me) {
-      if (identity) identity.innerHTML = `${this.littleHeroAvatarHTML(me, true)}<span>${this.escapeHtml(me.name)} // LITTLE HERO</span>`;
+      if (identity) identity.innerHTML = `${this.littleHeroAvatarHTML(me, true)}<span>${this.escapeHtml(me.name)} // LITTLE HERO</span><button type="button" class="hero-designation-edit" data-action="rename-little-hero" title="Change in-game name" aria-label="Change Little Hero designation">EDIT DESIGNATION</button>`;
       const score = document.getElementById('hero-hud-score');
       const rank = document.getElementById('hero-hud-rank');
       if (score) {
