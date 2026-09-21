@@ -10591,3 +10591,62 @@ body.room-mode-casual #gm-panel {
     width:100% !important;
   }
 }
+
+
+/* MODE SELECTOR SIZE FIX // match the old ARM control footprint */
+.battle-controls-host-slot {
+  grid-template-columns:1fr !important;
+}
+
+.battle-controls-host-slot .room-mode-toggle {
+  grid-column:1 / -1;
+  width:100% !important;
+  min-width:220px;
+  height:46px;
+  min-height:46px;
+  padding:3px;
+  box-sizing:border-box;
+}
+
+.battle-controls-host-slot .room-mode-segment {
+  width:100%;
+  min-width:0;
+  height:38px;
+  min-height:38px;
+  padding:0 10px;
+  font-size:clamp(10px,.72vw,12px);
+  letter-spacing:clamp(.8px,.09vw,1.4px);
+  overflow:hidden;
+}
+
+.battle-controls-host-slot .room-mode-label {
+  display:block;
+  width:100%;
+  overflow:hidden;
+  text-overflow:clip;
+  text-align:center;
+}
+
+@media (max-width:1180px) {
+  .battle-controls-host-slot .room-mode-toggle {
+    min-width:190px;
+  }
+
+  .battle-controls-host-slot .room-mode-segment {
+    padding:0 7px;
+    font-size:10px;
+    letter-spacing:.7px;
+  }
+}
+
+@media (max-width:760px) {
+  .battle-controls-host-slot .room-mode-toggle {
+    min-width:0;
+    width:100% !important;
+  }
+
+  .battle-controls-host-slot .room-mode-segment {
+    font-size:11px;
+    letter-spacing:1px;
+  }
+}
