@@ -10826,3 +10826,72 @@ body.room-mode-casual #blood-tribute-vault-section {
     letter-spacing:.8px;
   }
 }
+
+
+/* CASUAL ROOM // use the viewport instead of leaving a dead lower half */
+body.room-mode-casual #app-layout {
+  min-height:calc(100vh - 18px) !important;
+  height:calc(100vh - 18px) !important;
+  align-items:stretch !important;
+}
+
+body.room-mode-casual #gm-panel {
+  min-height:0 !important;
+  height:100% !important;
+}
+
+body.room-mode-casual #gm-panel .gm-content,
+body.room-mode-casual #gm-panel .gm-module-chat,
+body.room-mode-casual #gm-panel .gm-chat-panel {
+  min-height:0 !important;
+  height:100% !important;
+}
+
+body.room-mode-casual #gm-panel .gm-chat-panel {
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+body.room-mode-casual #gm-chat-messages {
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  height:auto !important;
+  max-height:none !important;
+}
+
+body.room-mode-casual #gm-broker-bar {
+  flex:0 0 auto !important;
+}
+
+body.room-mode-casual #disconnect-host-btn,
+body.room-mode-casual .disconnect-host-btn {
+  position:fixed !important;
+  right:14px !important;
+  bottom:10px !important;
+  width:auto !important;
+  min-width:180px !important;
+  height:28px !important;
+  min-height:28px !important;
+  padding:4px 12px !important;
+  z-index:40 !important;
+  opacity:.68;
+}
+
+@media (max-width:760px) {
+  body.room-mode-casual #app-layout {
+    min-height:100dvh !important;
+    height:auto !important;
+  }
+
+  body.room-mode-casual #gm-panel {
+    min-height:calc(100dvh - 62px) !important;
+    height:calc(100dvh - 62px) !important;
+  }
+
+  body.room-mode-casual #disconnect-host-btn,
+  body.room-mode-casual .disconnect-host-btn {
+    right:8px !important;
+    bottom:6px !important;
+    min-width:0 !important;
+  }
+}
