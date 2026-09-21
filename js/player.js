@@ -1644,7 +1644,7 @@ const PlayerApp = {
     requestAnimationFrame(() => overlay.classList.add('is-live'));
 
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-    const holdMs = reducedMotion ? (battle ? 1800 : 300) : 4000;
+    const holdMs = reducedMotion ? (battle ? 1800 : 300) : 7000;
 
     if (battle) {
       const line = overlay.querySelector('.asoc-mode-transition-omen');
