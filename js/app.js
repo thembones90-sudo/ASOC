@@ -25,6 +25,7 @@ const App = {
   _gmEmojiFavoritesEditing: false,
   _gmEmojiFavoriteSlot: 0,
   _editingBroadcast: null,
+  _gmComposerSelection: { start: 0, end: 0 },
   pendingVerdict: null,
   _reconnectPending: false,
   _recoverPending: false,
@@ -729,7 +730,10 @@ const App = {
 
     const selection = window.getSelection?.();
     if (!selection || selection.rangeCount < 1 || !selection.anchorNode || !composer.contains(selection.anchorNode) || !selection.focusNode || !composer.contains(selection.focusNode)) {
-      return { start: text.length, end: text.length };
+      const saved = this._gmComposerSelection || {};
+      const start = Math.max(0, Math.min(text.length, Number(saved.start) || 0));
+      const end = Math.max(start, Math.min(text.length, Number(saved.end) || start));
+      return { start, end };
     }
 
     const offsetTo = (node, offset) => {
@@ -838,6 +842,7 @@ const App = {
 
     if (!value.length) composer.replaceChildren();
     const caret = caretOffset == null ? value.length : Math.max(0, Math.min(value.length, Number(caretOffset) || 0));
+    this._gmComposerSelection = { start: caret, end: caret };
     this.placeGMComposerCaret(caret);
   },
 
@@ -853,6 +858,7 @@ const App = {
         // Hidden transport field does not need a visible selection.
       }
     }
+    this._gmComposerSelection = { start: selection.start, end: selection.end };
     return { text, ...selection };
   },
 
@@ -1124,6 +1130,7 @@ const App = {
     });
 
     shadowBrokerComposer?.addEventListener('input', () => {
+      if (!this.getGMComposerText()) shadowBrokerComposer.replaceChildren();
       this.syncGMComposerModel();
       this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker);
     });
