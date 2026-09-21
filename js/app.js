@@ -700,10 +700,185 @@ const App = {
     return picker;
   },
 
+  getGMComposerElement() {
+    return document.getElementById('shadow-broker-composer');
+  },
+
+  serializeGMComposerNode(node) {
+    if (!node) return '';
+    if (node.nodeType === Node.TEXT_NODE) return node.nodeValue || '';
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.matches?.('img[data-commander-token]')) return node.dataset.commanderToken || '';
+      if (node.tagName === 'BR') return '';
+    }
+    let out = '';
+    node.childNodes?.forEach?.(child => { out += this.serializeGMComposerNode(child); });
+    return out;
+  },
+
+  getGMComposerText() {
+    const composer = this.getGMComposerElement();
+    if (composer) return this.serializeGMComposerNode(composer).replace(/[\r\n]+/g, '');
+    return document.getElementById('shadow-broker-input')?.value || '';
+  },
+
+  getGMComposerSelectionRange() {
+    const composer = this.getGMComposerElement();
+    const text = this.getGMComposerText();
+    if (!composer) return { start: text.length, end: text.length };
+
+    const selection = window.getSelection?.();
+    if (!selection || selection.rangeCount < 1 || !selection.anchorNode || !composer.contains(selection.anchorNode) || !selection.focusNode || !composer.contains(selection.focusNode)) {
+      return { start: text.length, end: text.length };
+    }
+
+    const offsetTo = (node, offset) => {
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(composer);
+        range.setEnd(node, offset);
+        return this.serializeGMComposerNode(range.cloneContents()).length;
+      } catch (e) {
+        return text.length;
+      }
+    };
+
+    const anchor = offsetTo(selection.anchorNode, selection.anchorOffset);
+    const focus = offsetTo(selection.focusNode, selection.focusOffset);
+    return { start: Math.min(anchor, focus), end: Math.max(anchor, focus) };
+  },
+
+  placeGMComposerCaret(targetOffset) {
+    const composer = this.getGMComposerElement();
+    if (!composer) return;
+    const target = Math.max(0, Number(targetOffset) || 0);
+    let consumed = 0;
+    let placed = false;
+    const range = document.createRange();
+
+    const placeIn = (node) => {
+      if (placed) return;
+      if (node.nodeType === Node.TEXT_NODE) {
+        const len = (node.nodeValue || '').length;
+        if (target <= consumed + len) {
+          range.setStart(node, Math.max(0, Math.min(len, target - consumed)));
+          placed = true;
+          return;
+        }
+        consumed += len;
+        return;
+      }
+
+      if (node.nodeType === Node.ELEMENT_NODE && node.matches?.('img[data-commander-token]')) {
+        const token = node.dataset.commanderToken || '';
+        const len = token.length;
+        if (target <= consumed + len) {
+          const parent = node.parentNode;
+          const index = Array.prototype.indexOf.call(parent.childNodes, node);
+          range.setStart(parent, target - consumed < len / 2 ? index : index + 1);
+          placed = true;
+          return;
+        }
+        consumed += len;
+        return;
+      }
+
+      node.childNodes?.forEach?.(placeIn);
+    };
+
+    composer.childNodes.forEach(placeIn);
+    if (!placed) range.selectNodeContents(composer), range.collapse(false);
+    else range.collapse(true);
+
+    const selection = window.getSelection?.();
+    selection?.removeAllRanges?.();
+    selection?.addRange?.(range);
+  },
+
+  setGMComposerText(text, caretOffset = null) {
+    const value = String(text ?? '').replace(/[\r\n]+/g, '');
+    const model = document.getElementById('shadow-broker-input');
+    const composer = this.getGMComposerElement();
+    if (model) model.value = value;
+    if (!composer) return;
+
+    composer.replaceChildren();
+    const tokens = window.CommanderEmojis?.tokens || [];
+    let cursor = 0;
+
+    while (cursor < value.length) {
+      let nextToken = null;
+      let nextIndex = value.length;
+      for (const token of tokens) {
+        const index = value.indexOf(token, cursor);
+        if (index >= 0 && index < nextIndex) {
+          nextIndex = index;
+          nextToken = token;
+        }
+      }
+
+      if (nextIndex > cursor) composer.appendChild(document.createTextNode(value.slice(cursor, nextIndex)));
+      if (!nextToken) break;
+
+      const item = window.CommanderEmojis?.items?.[nextToken];
+      if (item?.src) {
+        const img = document.createElement('img');
+        img.className = 'commander-inline-emoji commander-composer-emoji';
+        img.src = item.src;
+        img.alt = item.label || 'Commander emoji';
+        img.dataset.commanderToken = nextToken;
+        img.contentEditable = 'false';
+        img.draggable = false;
+        composer.appendChild(img);
+      } else {
+        composer.appendChild(document.createTextNode(nextToken));
+      }
+      cursor = nextIndex + nextToken.length;
+    }
+
+    if (!value.length) composer.replaceChildren();
+    const caret = caretOffset == null ? value.length : Math.max(0, Math.min(value.length, Number(caretOffset) || 0));
+    this.placeGMComposerCaret(caret);
+  },
+
+  syncGMComposerModel() {
+    const model = document.getElementById('shadow-broker-input');
+    const text = this.getGMComposerText();
+    const selection = this.getGMComposerSelectionRange();
+    if (model) {
+      model.value = text;
+      try {
+        model.setSelectionRange(selection.start, selection.end);
+      } catch (e) {
+        // Hidden transport field does not need a visible selection.
+      }
+    }
+    return { text, ...selection };
+  },
+
+  setGMComposerPlaceholder(text) {
+    const value = String(text || '');
+    const model = document.getElementById('shadow-broker-input');
+    const composer = this.getGMComposerElement();
+    if (model) model.placeholder = value;
+    if (composer) composer.dataset.placeholder = value;
+  },
+
+  insertGMComposerPlainText(text) {
+    const insert = String(text || '').replace(/[\r\n]+/g, ' ');
+    if (!insert) return;
+    const current = this.getGMComposerText();
+    const selection = this.getGMComposerSelectionRange();
+    const next = current.slice(0, selection.start) + insert + current.slice(selection.end);
+    this.setGMComposerText(next, selection.start + insert.length);
+  },
+
   getGMMentionContext(input) {
-    if (!input) return null;
-    const caret = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
-    const before = input.value.slice(0, caret);
+    if (!input && !this.getGMComposerElement()) return null;
+    const state = this.syncGMComposerModel();
+    const value = state.text;
+    const caret = state.start;
+    const before = value.slice(0, caret);
     const at = before.lastIndexOf('@');
     if (at < 0) return null;
     if (at > 0 && /[\\p{L}\\p{N}_]/u.test(before.charAt(at - 1))) return null;
@@ -802,14 +977,13 @@ const App = {
   selectGMMention(index, input = document.getElementById('shadow-broker-input'), picker = document.getElementById('gm-mention-picker')) {
     const candidate = (this._gmMentionCandidates || [])[Number(index)];
     const context = this._gmMentionContext;
-    if (!candidate || !context || !input) return false;
+    if (!candidate || !context) return false;
     const replacement = candidate.mentionAll ? '@all ' : '@' + String(candidate.name) + ' ';
-    const next = input.value.slice(0, context.start) + replacement + input.value.slice(context.end);
-    if (Number(input.maxLength) > 0 && next.length > Number(input.maxLength)) return false;
-    input.value = next;
+    const value = this.getGMComposerText();
+    const next = value.slice(0, context.start) + replacement + value.slice(context.end);
     const caret = context.start + replacement.length;
-    input.focus();
-    input.setSelectionRange(caret, caret);
+    this.setGMComposerText(next, caret);
+    this.getGMComposerElement()?.focus();
     this.closeGMMentionPicker(picker);
     return true;
   },
