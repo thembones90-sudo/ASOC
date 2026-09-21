@@ -1120,6 +1120,155 @@ const App = {
     const gmPollOptionsEditor = document.getElementById('gm-poll-options');
     const gmPollMultiple = document.getElementById('gm-poll-multiple');
 
+    let gmGifPicker = document.getElementById('gm-gif-picker');
+    if (!gmGifPicker && gmAttachmentWrap) {
+      gmGifPicker = document.createElement('div');
+      gmGifPicker.id = 'gm-gif-picker';
+      gmGifPicker.className = 'gm-gif-picker';
+      gmGifPicker.hidden = true;
+      gmGifPicker.innerHTML = `
+        <div class="gm-gif-picker-head">
+          <div><b>GIF // ASOC NETWORK</b><small>GIPHY LINK</small></div>
+          <button type="button" data-gm-gif-close aria-label="Close GIF browser">×</button>
+        </div>
+        <div class="gm-gif-search-row">
+          <input type="search" maxlength="60" autocomplete="off" spellcheck="false" placeholder="Search GIFs..." data-gm-gif-search>
+        </div>
+        <div class="gm-gif-status" data-gm-gif-status>TRENDING // STANDBY</div>
+        <div class="gm-gif-grid" data-gm-gif-grid></div>
+        <div class="gm-gif-actions">
+          <button type="button" data-gm-gif-upload>UPLOAD GIF</button>
+          <button type="button" data-gm-gif-more hidden>LOAD MORE</button>
+        </div>
+        <div class="gm-gif-provider"><span>Powered by GIPHY</span><b data-gm-gif-quota>GIF API // -- / 90</b></div>
+      `;
+      gmAttachmentWrap.appendChild(gmGifPicker);
+    }
+    const gmGifSearchInput = gmGifPicker?.querySelector('[data-gm-gif-search]');
+    const gmGifStatus = gmGifPicker?.querySelector('[data-gm-gif-status]');
+    const gmGifGrid = gmGifPicker?.querySelector('[data-gm-gif-grid]');
+    const gmGifMoreButton = gmGifPicker?.querySelector('[data-gm-gif-more]');
+    const gmGifQuota = gmGifPicker?.querySelector('[data-gm-gif-quota]');
+    let gmGifResults = [];
+    let gmGifOffset = 0;
+    let gmGifMode = 'trending';
+    let gmGifLoading = false;
+    let gmGifSearchTimer = null;
+
+    const setGMGifStatus = (text, danger = false) => {
+      if (!gmGifStatus) return;
+      gmGifStatus.textContent = text;
+      gmGifStatus.classList.toggle('is-danger', danger);
+    };
+
+    const closeGMGifPicker = () => {
+      if (!gmGifPicker) return;
+      gmGifPicker.hidden = true;
+      clearTimeout(gmGifSearchTimer);
+    };
+
+    const renderGMGifResults = () => {
+      if (!gmGifGrid) return;
+      gmGifGrid.replaceChildren();
+      gmGifResults.forEach((gif, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'gm-gif-result';
+        button.dataset.gmGifIndex = String(index);
+        button.title = gif.title || 'GIF';
+        const img = document.createElement('img');
+        img.src = gif.previewUrl;
+        img.alt = gif.title || 'GIF';
+        img.loading = 'lazy';
+        button.appendChild(img);
+        gmGifGrid.appendChild(button);
+      });
+    };
+
+    const loadGMGifPage = async ({ append = false } = {}) => {
+      if (!gmGifPicker || gmGifLoading) return;
+      const query = String(gmGifSearchInput?.value || '').trim();
+      if (query.length === 1) {
+        setGMGifStatus('TYPE AT LEAST 2 CHARACTERS');
+        return;
+      }
+      gmGifMode = query.length >= 2 ? 'search' : 'trending';
+      if (!append) gmGifOffset = 0;
+      gmGifLoading = true;
+      gmGifMoreButton?.setAttribute('disabled', 'disabled');
+      setGMGifStatus(gmGifMode === 'search' ? 'SEARCHING // ' + query.toUpperCase() : 'TRENDING // ACQUIRING');
+      try {
+        const token = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
+        const params = new URLSearchParams({ offset: String(gmGifOffset), limit: '12' });
+        if (gmGifMode === 'search') params.set('q', query);
+        const response = await fetch('/api/gif/' + gmGifMode + '?' + params.toString(), {
+          headers: { 'x-gm-token': token }
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (payload.code === 'GIF_LIMIT_REACHED') {
+            setGMGifStatus('FUCK OFF, LIMIT REACHED', true);
+            if (gmGifMoreButton) gmGifMoreButton.hidden = true;
+            if (gmGifQuota && payload.quota) gmGifQuota.textContent = 'GIF API // ' + payload.quota.globalUsed + ' / ' + payload.quota.globalLimit;
+            return;
+          }
+          throw new Error(payload.message || payload.error || 'GIF NETWORK // OFFLINE');
+        }
+        const incoming = Array.isArray(payload.results) ? payload.results : [];
+        gmGifResults = append ? gmGifResults.concat(incoming) : incoming;
+        gmGifOffset = Number(payload.pagination?.nextOffset) || (gmGifOffset + incoming.length);
+        renderGMGifResults();
+        if (gmGifMoreButton) gmGifMoreButton.hidden = payload.pagination?.hasMore !== true;
+        if (gmGifQuota && payload.quota) gmGifQuota.textContent = 'GIF API // ' + payload.quota.globalUsed + ' / ' + payload.quota.globalLimit;
+        setGMGifStatus(gmGifMode === 'search' ? 'RESULTS // ' + gmGifResults.length : 'TRENDING // ' + gmGifResults.length);
+      } catch (error) {
+        setGMGifStatus(error.message || 'GIF NETWORK // OFFLINE', true);
+      } finally {
+        gmGifLoading = false;
+        gmGifMoreButton?.removeAttribute('disabled');
+      }
+    };
+
+    const openGMGifPicker = () => {
+      closeGMAttachmentMenu();
+      closeGMPollComposer();
+      if (!gmGifPicker) return gmGifInput?.click();
+      gmGifPicker.hidden = false;
+      gmGifSearchInput?.focus();
+      if (!gmGifResults.length) loadGMGifPage({ append: false });
+    };
+
+    gmGifPicker?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (event.target.closest('[data-gm-gif-close]')) {
+        closeGMGifPicker();
+        return;
+      }
+      if (event.target.closest('[data-gm-gif-upload]')) {
+        closeGMGifPicker();
+        gmGifInput?.click();
+        return;
+      }
+      if (event.target.closest('[data-gm-gif-more]')) {
+        loadGMGifPage({ append: true });
+        return;
+      }
+      const resultButton = event.target.closest('[data-gm-gif-index]');
+      if (!resultButton) return;
+      const gif = gmGifResults[Number(resultButton.dataset.gmGifIndex)];
+      if (!gif || !this.ws || this.ws.readyState !== 1) return;
+      this.send({ type: 'chat:gif', gif });
+      closeGMGifPicker();
+    });
+
+    gmGifSearchInput?.addEventListener('input', () => {
+      clearTimeout(gmGifSearchTimer);
+      gmGifSearchTimer = setTimeout(() => {
+        gmGifResults = [];
+        loadGMGifPage({ append: false });
+      }, 500);
+    });
+
     const closeGMPollComposer = () => {
       if (!gmPollComposer) return;
       gmPollComposer.hidden = true;
@@ -1165,6 +1314,7 @@ const App = {
 
     const openGMPollComposer = () => {
       closeGMAttachmentMenu();
+      closeGMGifPicker();
       if (!gmPollComposer) return;
       if (!gmPollOptionsEditor?.children.length) renderGMPollOptionsEditor();
       gmPollComposer.hidden = false;
@@ -1179,6 +1329,7 @@ const App = {
       gmImageButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
       if (opening) {
         closeGMPollComposer();
+        closeGMGifPicker();
         const emojiPicker = document.getElementById('gm-emoji-picker');
         const emojiToggle = document.getElementById('gm-emoji-toggle');
         if (emojiPicker) emojiPicker.hidden = true;
@@ -1196,8 +1347,7 @@ const App = {
         return;
       }
       if (action === 'gif') {
-        closeGMAttachmentMenu();
-        gmGifInput?.click();
+        openGMGifPicker();
         return;
       }
       if (action === 'poll') openGMPollComposer();
@@ -1257,6 +1407,7 @@ const App = {
       if (gmAttachmentWrap && !gmAttachmentWrap.contains(event.target)) {
         closeGMAttachmentMenu();
         closeGMPollComposer();
+        closeGMGifPicker();
       }
     });
 
@@ -1264,6 +1415,7 @@ const App = {
       if (event.key === 'Escape') {
         closeGMAttachmentMenu();
         closeGMPollComposer();
+        closeGMGifPicker();
       }
     });
 
@@ -1419,6 +1571,8 @@ const App = {
         const attachmentToggle = document.getElementById('gm-image-upload-btn');
         if (attachmentMenu) attachmentMenu.hidden = true;
         attachmentToggle?.setAttribute('aria-expanded', 'false');
+        const gifPicker = document.getElementById('gm-gif-picker');
+        if (gifPicker) gifPicker.hidden = true;
       }
       if (gmReactionPicker) gmReactionPicker.hidden = true;
     });
@@ -3722,6 +3876,40 @@ const App = {
         <div class="gm-chat-blood-tribute-entry" data-message-id="${this.escapeHtml(msg.id)}">
           <div class="blood-tribute-chat-head"><span>BLOOD TRIBUTE // ${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><b>PUBLIC PURGE ${minutes}:${seconds}</b></div>
           <img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image">
+        </div>
+      `;
+    }
+
+    if (msg.messageType === 'gifRemote' && msg.gif) {
+      const isBrokerGif = msg.source === 'chatGifGm';
+      const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const avatar = isBrokerGif
+        ? '<span class="gm-poll-broker-avatar" aria-hidden="true">SB</span>'
+        : this.littleHeroAvatarHTML(identity, true);
+      const themeId = isBrokerGif ? 'gunmetal' : ASOCThemes.get(identity.themeId).id;
+      const themeStyle = isBrokerGif ? '' : ASOCThemes.messageStyle(identity.themeId);
+      const frameColor = isBrokerGif
+        ? '#9B5DE0'
+        : (/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885');
+      const title = this.escapeHtml(msg.gif.title || 'GIF');
+      const gifUrl = this.escapeHtml(msg.gif.gifUrl || msg.gif.previewUrl || '#');
+      const preview = this.escapeHtml(msg.gif.previewUrl || '');
+      const media = msg.gif.mp4Url
+        ? `<video class="gm-chat-gif-attachment" autoplay loop muted playsinline preload="metadata" poster="${preview}"><source src="${this.escapeHtml(msg.gif.mp4Url)}" type="video/mp4"></video>`
+        : `<img class="gm-chat-gif-attachment" src="${gifUrl}" alt="${title}">`;
+      return `
+        <div class="gm-chat-message gm-flow-message gm-gif-message" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+          <div class="gm-chat-avatar-rail">${avatar}</div>
+          <div class="gm-chat-bubble-cluster">
+            <div class="gm-chat-message-main">
+              <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><span class="gm-chat-time">${time}</span></div>
+              <a class="gm-chat-gif-link" href="${gifUrl}" target="_blank" rel="noopener" title="${title}">${media}</a>
+              <div class="gm-chat-gif-provider-mark">GIPHY</div>
+              ${this.createGMReactionSummaryHTML(msg)}
+            </div>
+            <div class="gm-chat-quick-actions adjudicated" aria-hidden="true"></div>
+          </div>
         </div>
       `;
     }
