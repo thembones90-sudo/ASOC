@@ -324,7 +324,7 @@ const Skeleton = (() => {
         <img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">
         <div class="shadow-broker-body">
           <span class="shadow-broker-name">SHADOW BROKER</span>
-          <span class="shadow-broker-text">${escapeHtmlText(text)}</span>
+          <span class="shadow-broker-text">${window.CommanderEmojis?.renderText?.(text, 'commander-inline-emoji') || escapeHtmlText(text)}</span>
         </div>
       </div>
     `;
