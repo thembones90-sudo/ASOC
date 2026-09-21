@@ -371,6 +371,21 @@ const Skeleton = (() => {
     };
   }
 
+  let mentionAllTimer = null;
+
+  function playMentionAllShake() {
+    if (!document?.body) return;
+    if (mentionAllTimer) clearTimeout(mentionAllTimer);
+    document.body.classList.remove('asoc-mention-all-active');
+    // Restart the one-shot animation even when @all is fired twice quickly.
+    void document.body.offsetWidth;
+    document.body.classList.add('asoc-mention-all-active');
+    mentionAllTimer = setTimeout(() => {
+      document.body.classList.remove('asoc-mention-all-active');
+      mentionAllTimer = null;
+    }, 720);
+  }
+
   let nemaAsocTimers = [];
 
   function playNemaAsoc() {
@@ -737,6 +752,7 @@ const Skeleton = (() => {
     BROKER_LINE_HOLD_PER_CHAR_MS,
     BROKER_LINE_FADE_MS,
     shadowBrokerTransmissionHTML,
+    playMentionAllShake,
     playNemaAsoc,
     playGameWon,
     playGameLost
