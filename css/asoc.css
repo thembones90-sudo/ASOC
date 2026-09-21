@@ -66,6 +66,10 @@
 
   /* Typography */
   --font-system: 'Barlow Condensed', 'Segoe UI', system-ui, sans-serif;
+  /* Board words are gameplay information, not decorative UI chrome. Use a
+     normal-width, high-legibility face so clues remain readable at a glance
+     on the GM, public and player boards. */
+  --font-board: 'Segoe UI Semibold', 'Segoe UI', 'Noto Sans', Arial, system-ui, sans-serif;
   --font-human: 'Segoe UI', system-ui, -apple-system, sans-serif;
   /* Dedicated chat stack with complete Serbian Latin / Latin Extended glyphs.
      Do not route human-entered chat through the condensed ASOC display face:
@@ -277,10 +281,15 @@ textarea {
 
 /* CELL CONTENT */
 .cell-content {
-  font-family: var(--font-system);
+  font-family: var(--font-board);
   font-size: clamp(1.1rem, 2.7vw, 1.5rem);
-  letter-spacing: 0.72px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
   line-height: 1;
+  font-kerning: normal;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.72);
   /* Optical text correction only: keep every canonical pill/slot fixed.
      The visible glyphs stay ~3 mm right; vertical placement is tuned by eye.
      The 20% horizontal stretch is presentation-only: no pill geometry or
@@ -300,7 +309,7 @@ textarea {
   color: #2ecc71;
   font-weight: 700;
   font-size: clamp(1.25rem, 3vw, 1.75rem);
-  letter-spacing: 1.08px;
+  letter-spacing: 0.035em;
 }
 
 /* Final solution ("K") -- same green-default/red-on-fail model as the
@@ -309,7 +318,7 @@ textarea {
   color: #35d57a;
   font-weight: 900;
   font-size: clamp(1.8rem, 4.4vw, 2.8rem);
-  letter-spacing: 3px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   text-shadow: 0 0 5px rgba(53, 213, 122, 0.32);
 }
@@ -437,10 +446,10 @@ textarea {
 
   .asoc-board .cell-content {
     display: inline-block;
-    font-family: var(--font-system);
+    font-family: var(--font-board);
     font-size: var(--asoc-font, 2.1cqh);
-    font-weight: 600;
-    letter-spacing: 0.72px;
+    font-weight: 700;
+    letter-spacing: 0.025em;
     line-height: 1;
     white-space: nowrap;
     overflow-wrap: normal;
@@ -455,16 +464,16 @@ textarea {
 
   .asoc-board .board-cell.solution-cell .cell-content {
     color: #2ecc71;
-    font-weight: 700;
-    letter-spacing: 1.08px;
+    font-weight: 800;
+    letter-spacing: 0.035em;
   }
 
   .asoc-board .board-cell.final-solution .cell-content {
     color: #35d57a;
     font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 3px;
-    text-shadow: 0 0 5px rgba(53, 213, 122, 0.32);
+    letter-spacing: 0.08em;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.72), 0 0 5px rgba(53, 213, 122, 0.32);
   }
 
   /* SHADOW BROKER BOARD LINE -- positioned via Skeleton.shadowBrokerLineStyle(),
