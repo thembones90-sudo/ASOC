@@ -19,7 +19,11 @@ const App = {
   _gmTributeExpiryTimer: null,
   bloodTribute: { status: 'idle' },
   bloodTributes: [],
-  chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '😏', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🫠', '🥴', '🤯', '🥳', '😴', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
+  chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '😏', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🫠', '🥴', '🤯', '🥳', '😴', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
+  gmEmojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭'],
+  gmEmojiFavorites: [],
+  _gmEmojiFavoritesEditing: false,
+  _gmEmojiFavoriteSlot: 0,
   _editingBroadcast: null,
   pendingVerdict: null,
   _reconnectPending: false,
@@ -441,22 +445,44 @@ const App = {
         gmContextMenu.querySelector('button')?.focus({ preventScroll:true });
       });
     };
-    const gmPickerButtons = this.chatReactionEmojis
-      .map(emoji => `<button type="button" class="gm-emoji-option" data-emoji="${emoji}">${emoji}</button>`)
-      .join('');
-    if (gmEmojiPicker) gmEmojiPicker.innerHTML = gmPickerButtons;
-    if (gmReactionPicker) gmReactionPicker.innerHTML = gmPickerButtons;
+    this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
 
     gmEmojiToggle?.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!gmEmojiPicker) return;
-      gmEmojiPicker.hidden = !gmEmojiPicker.hidden;
+      const opening = gmEmojiPicker.hidden;
+      gmEmojiPicker.hidden = !opening;
+      if (opening) this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
       if (gmReactionPicker) gmReactionPicker.hidden = true;
     });
 
     gmEmojiPicker?.addEventListener('click', (e) => {
+      const editToggle = e.target.closest('.gm-emoji-edit-toggle');
+      if (editToggle) {
+        this._gmEmojiFavoritesEditing = !this._gmEmojiFavoritesEditing;
+        this._gmEmojiFavoriteSlot = Math.max(0, Math.min(4, this._gmEmojiFavoriteSlot || 0));
+        this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
+        return;
+      }
+
       const option = e.target.closest('.gm-emoji-option');
       if (!option) return;
+
+      if (this._gmEmojiFavoritesEditing) {
+        const favoriteSlot = option.dataset.favoriteSlot;
+        if (favoriteSlot !== undefined) {
+          this._gmEmojiFavoriteSlot = Math.max(0, Math.min(4, Number(favoriteSlot) || 0));
+          this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
+          return;
+        }
+
+        const emoji = option.dataset.emoji || '';
+        this.replaceGMEmojiFavorite(this._gmEmojiFavoriteSlot, emoji);
+        this._gmEmojiFavoriteSlot = (this._gmEmojiFavoriteSlot + 1) % 5;
+        this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
+        return;
+      }
+
       this.insertGMEmoji(option.dataset.emoji || '');
       gmEmojiPicker.hidden = true;
     });
@@ -573,6 +599,8 @@ const App = {
       const liveReactionPicker = document.getElementById('gm-chat-reaction-picker');
       if (liveEmojiPicker && !liveEmojiPicker.hidden && !liveEmojiPicker.contains(e.target) && !e.target.closest('#gm-emoji-toggle')) {
         liveEmojiPicker.hidden = true;
+        this._gmEmojiFavoritesEditing = false;
+        this._gmEmojiFavoriteSlot = 0;
       }
       if (liveReactionPicker && !liveReactionPicker.hidden && !liveReactionPicker.contains(e.target) && !e.target.closest('.gm-chat-reaction-add')) {
         liveReactionPicker.hidden = true;
@@ -2597,6 +2625,92 @@ const App = {
       menu.querySelector('button')?.focus({ preventScroll:true });
     });
     return false;
+  },
+
+  loadGMEmojiFavorites() {
+    const fallback = [...this.gmEmojiFavoriteDefaults];
+    try {
+      const raw = localStorage.getItem('asoc_gm_chat_emoji_favorites_v1');
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (
+        Array.isArray(parsed) &&
+        parsed.length === 5 &&
+        new Set(parsed).size === 5 &&
+        parsed.every(emoji => this.chatReactionEmojis.includes(emoji))
+      ) {
+        this.gmEmojiFavorites = [...parsed];
+        return this.gmEmojiFavorites;
+      }
+    } catch (e) {
+      // Emoji shortcuts are convenience state; storage failure must not affect chat.
+    }
+    this.gmEmojiFavorites = fallback;
+    return this.gmEmojiFavorites;
+  },
+
+  saveGMEmojiFavorites(favorites) {
+    const clean = Array.isArray(favorites)
+      ? favorites.filter((emoji, index, list) => this.chatReactionEmojis.includes(emoji) && list.indexOf(emoji) === index).slice(0, 5)
+      : [];
+    if (clean.length !== 5) return false;
+    this.gmEmojiFavorites = clean;
+    try {
+      localStorage.setItem('asoc_gm_chat_emoji_favorites_v1', JSON.stringify(clean));
+    } catch (e) {
+      // Keep the in-memory selection if persistence is unavailable.
+    }
+    return true;
+  },
+
+  replaceGMEmojiFavorite(slot, emoji) {
+    const index = Math.max(0, Math.min(4, Number(slot) || 0));
+    if (!this.chatReactionEmojis.includes(emoji)) return;
+    const favorites = [...this.loadGMEmojiFavorites()];
+    const existing = favorites.indexOf(emoji);
+    if (existing >= 0 && existing !== index) {
+      const displaced = favorites[index];
+      favorites[index] = emoji;
+      favorites[existing] = displaced;
+    } else {
+      favorites[index] = emoji;
+    }
+    this.saveGMEmojiFavorites(favorites);
+  },
+
+  renderGMEmojiPickers(emojiPicker = document.getElementById('gm-emoji-picker'), reactionPicker = document.getElementById('gm-chat-reaction-picker')) {
+    const favorites = this.loadGMEmojiFavorites();
+    const editing = this._gmEmojiFavoritesEditing === true;
+    const favoriteButtons = favorites
+      .map((emoji, index) => `<button type="button" class="gm-emoji-option gm-emoji-favorite${editing ? ' editing' : ''}${editing && index === this._gmEmojiFavoriteSlot ? ' active-slot' : ''}" data-emoji="${emoji}" data-favorite-slot="${index}" title="${editing ? 'Top 5 slot ' + (index + 1) : 'Top 5 shortcut'}">${emoji}</button>`)
+      .join('');
+    const bodyEmojis = editing
+      ? this.chatReactionEmojis
+      : this.chatReactionEmojis.filter(emoji => !favorites.includes(emoji));
+    const bodyButtons = bodyEmojis
+      .map(emoji => `<button type="button" class="gm-emoji-option gm-emoji-library${editing && favorites.includes(emoji) ? ' is-favorite' : ''}" data-emoji="${emoji}">${emoji}</button>`)
+      .join('');
+    const divider = '<div class="gm-emoji-divider" aria-hidden="true"></div>';
+
+    if (emojiPicker) {
+      emojiPicker.innerHTML = `
+        <div class="gm-emoji-picker-head">
+          <span>TOP 5 EMOJIS</span>
+          <span class="gm-emoji-edit-status">${editing ? 'SLOT ' + (this._gmEmojiFavoriteSlot + 1) : '5 SAVED'}</span>
+          <button type="button" class="gm-emoji-edit-toggle">${editing ? 'DONE' : 'EDIT'}</button>
+        </div>
+        ${favoriteButtons}
+        ${divider}
+        ${bodyButtons}
+      `;
+    }
+
+    if (reactionPicker) {
+      const reactionBody = this.chatReactionEmojis
+        .filter(emoji => !favorites.includes(emoji))
+        .map(emoji => `<button type="button" class="gm-emoji-option gm-emoji-library" data-emoji="${emoji}">${emoji}</button>`)
+        .join('');
+      reactionPicker.innerHTML = favoriteButtons.replace(/ editing| active-slot/g, '') + divider + reactionBody;
+    }
   },
 
   insertGMEmoji(emoji) {
