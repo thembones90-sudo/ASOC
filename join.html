@@ -4878,6 +4878,126 @@
         white-space:nowrap !important;
       }
     }
+
+
+    /* PLAYER DESKTOP BOARD/CHAT SPLITTER V1 */
+    @media (min-width: 901px) {
+      .player-battle-layout {
+        grid-template-columns:minmax(0,1fr) 14px var(--player-comms-width,clamp(286px,20vw,332px)) !important;
+        column-gap:0 !important;
+      }
+
+      .player-layout-splitter {
+        position:relative;
+        grid-column:2;
+        grid-row:1;
+        width:14px;
+        min-width:14px;
+        height:100%;
+        align-self:stretch;
+        cursor:col-resize;
+        touch-action:none;
+        user-select:none;
+        z-index:30;
+        background:linear-gradient(90deg,rgba(0,0,0,.10),rgba(14,16,20,.32) 50%,rgba(0,0,0,.10));
+      }
+
+      .player-layout-splitter::before,
+      .player-layout-splitter::after {
+        content:"";
+        position:absolute;
+        top:8px;
+        bottom:8px;
+        width:1px;
+        border-radius:2px;
+        background:rgba(146,38,49,.82);
+        box-shadow:0 0 5px rgba(201,48,64,.25);
+        transition:opacity .14s ease,box-shadow .14s ease,background .14s ease;
+      }
+
+      .player-layout-splitter::before { left:3px; }
+      .player-layout-splitter::after { right:3px; }
+
+      .player-layout-splitter-grip {
+        position:absolute;
+        left:50%;
+        top:50%;
+        width:5px;
+        height:56px;
+        transform:translate(-50%,-50%);
+        border-radius:4px;
+        background:repeating-linear-gradient(
+          180deg,
+          rgba(178,52,66,.10) 0 5px,
+          rgba(214,67,82,.62) 5px 7px,
+          rgba(178,52,66,.10) 7px 12px
+        );
+        opacity:.62;
+        pointer-events:none;
+      }
+
+      .player-layout-splitter-grip::after {
+        content:attr(data-resize-readout);
+        position:absolute;
+        left:50%;
+        top:50%;
+        transform:translate(-50%,-50%) rotate(-90deg);
+        color:#aeb6c1;
+        font:800 .34rem var(--font-machine);
+        letter-spacing:.08em;
+        white-space:nowrap;
+        opacity:0;
+        transition:opacity .14s ease;
+      }
+
+      .player-layout-splitter:hover::before,
+      .player-layout-splitter:hover::after,
+      .player-layout-splitter:focus-visible::before,
+      .player-layout-splitter:focus-visible::after,
+      body.player-layout-resizing .player-layout-splitter::before,
+      body.player-layout-resizing .player-layout-splitter::after {
+        background:#d44050;
+        box-shadow:0 0 10px rgba(212,64,80,.5);
+      }
+
+      .player-layout-splitter:hover .player-layout-splitter-grip,
+      .player-layout-splitter:focus-visible .player-layout-splitter-grip,
+      body.player-layout-resizing .player-layout-splitter-grip {
+        opacity:1;
+      }
+
+      body.player-layout-resizing .player-layout-splitter-grip::after {
+        opacity:1;
+      }
+
+      .player-layout-splitter:focus-visible {
+        outline:none;
+      }
+
+      body.player-layout-resizing,
+      body.player-layout-resizing * {
+        cursor:col-resize !important;
+        user-select:none !important;
+      }
+
+      .player-layout-splitter + .battle-comms-lobby {
+        grid-column:3;
+        min-width:0;
+        width:100%;
+        border-left:0 !important;
+      }
+
+      #board-layer {
+        grid-column:1;
+        min-width:0;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .player-layout-splitter {
+        display:none !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -5119,6 +5239,10 @@
         <button id="blood-tribute-submit" class="blood-tribute-submit" type="submit">PAY TRIBUTE</button>
         <div id="blood-tribute-status" class="blood-tribute-status"></div>
       </form>
+    </div>
+
+    <div id="player-layout-splitter" class="player-layout-splitter" role="separator" aria-orientation="vertical" aria-label="Resize Battle Comms" tabindex="0" title="Drag to resize Battle Comms // Double-click to reset">
+      <span class="player-layout-splitter-grip" aria-hidden="true"></span>
     </div>
 
     <aside id="battle-comms-lobby" class="battle-comms-lobby">
