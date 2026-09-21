@@ -188,6 +188,22 @@ async function setupAuth() {
   assert.ok(player.status === 200 || player.status === 201);
   TEST_PLAYER_TOKEN = player.data.token;
   TEST_PLAYER_ID = player.data.player.id;
+
+  const renamed = await requestJson('/api/auth/player/profile', 'PATCH',
+    { name: 'REGRESSION RENAMED' }, { 'x-player-token': TEST_PLAYER_TOKEN });
+  assert.equal(renamed.status, 200);
+  assert.equal(renamed.data.player.id, TEST_PLAYER_ID, 'renaming keeps the stable account identity');
+  assert.equal(renamed.data.player.name, 'REGRESSION RENAMED');
+
+  const renamedSession = await requestJson('/api/auth/player/session', 'GET', null,
+    { 'x-player-token': TEST_PLAYER_TOKEN });
+  assert.equal(renamedSession.status, 200);
+  assert.equal(renamedSession.data.player.name, 'REGRESSION RENAMED', 'renamed designation persists through session hydration');
+
+  const restored = await requestJson('/api/auth/player/profile', 'PATCH',
+    { name: 'REGRESSION TEST' }, { 'x-player-token': TEST_PLAYER_TOKEN });
+  assert.equal(restored.status, 200);
+  assert.equal(restored.data.player.name, 'REGRESSION TEST');
 }
 
 async function testMasterRoomLifecycle() {
