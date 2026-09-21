@@ -4609,7 +4609,7 @@
         <button class="access-back" type="button">RETURN</button><h2>LITTLE HERO ACCESS</h2><p id="player-auth-copy">Sign in with your ASOC identity.</p>
         <label class="access-field"><span id="auth-email-label">EMAIL / IDENTITY ID</span><input id="auth-email" type="text" autocomplete="username" minlength="3" maxlength="254" required></label>
         <label class="access-field"><span>PASSWORD</span><input id="auth-password" type="password" autocomplete="current-password" minlength="6" required></label>
-        <label class="access-field" id="auth-name-field" hidden><span>LITTLE HERO DESIGNATION</span><input id="auth-name" type="text" maxlength="20" autocomplete="nickname"></label>
+        <label class="access-field" id="auth-name-field" hidden><span>INITIAL LITTLE HERO DESIGNATION</span><input id="auth-name" type="text" maxlength="20" autocomplete="nickname"></label>
         <button class="access-submit" type="submit" id="player-auth-submit">AUTHENTICATE</button>
         <button class="access-alt" type="button" id="player-auth-mode">NEW HERO? CREATE ID</button><button class="access-alt" type="button" id="player-auth-resend" hidden>RESEND VERIFICATION</button><div class="access-success" id="player-auth-status" role="status"></div><div class="access-error" id="player-auth-error" role="alert"></div>
       </form>
@@ -4644,8 +4644,8 @@
       </div>
       <div class="join-primary-grid">
       <div class="form-group">
-        <label class="form-label" for="player-name">Little Hero Designation</label>
-        <input type="text" class="form-input" id="player-name" placeholder="USERNAME" maxlength="20" autocomplete="off" required>
+        <label class="form-label" for="player-name">Little Hero Designation // Editable</label>
+        <input type="text" class="form-input" id="player-name" placeholder="IN-GAME NAME" maxlength="20" autocomplete="nickname" title="Edit this designation before entering MASTER to save a new in-game name." required>
       </div>
 
       </div>
