@@ -27,6 +27,10 @@ const PlayerApp = {
   bloodTribute: { status: 'idle' },
   tributeUploading: false,
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '😏', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🫠', '🥴', '🤯', '🥳', '😴', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
+  emojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭', '😍', '💀'],
+  emojiFavorites: [],
+  _emojiFavoritesEditing: false,
+  _emojiFavoriteSlot: 0,
   // FINAL SOLUTION REVEAL FLOURISH -- same one-shot guard as App's copy in
   // js/app.js (see its comment): renderBoard() fully rebuilds the board on
   // every broadcast, so this flag is what keeps the animation from
@@ -1342,6 +1346,101 @@ const PlayerApp = {
     this._activeFinalBanner = null;
   },
 
+  emojiFavoritesStorageKey() {
+    const identity = String(
+      this.playerName ||
+      sessionStorage.getItem('asoc_player_name') ||
+      'little-hero'
+    ).trim().toLowerCase();
+    return 'asoc_chat_emoji_favorites_v1:' + encodeURIComponent(identity || 'little-hero');
+  },
+
+  loadChatEmojiFavorites() {
+    const fallback = [...this.emojiFavoriteDefaults];
+    try {
+      const raw = localStorage.getItem(this.emojiFavoritesStorageKey());
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (
+        Array.isArray(parsed) &&
+        parsed.length === 7 &&
+        new Set(parsed).size === 7 &&
+        parsed.every(emoji => this.chatReactionEmojis.includes(emoji))
+      ) {
+        this.emojiFavorites = [...parsed];
+        return this.emojiFavorites;
+      }
+    } catch (e) {
+      // A blocked/corrupt localStorage preference should never break chat.
+    }
+    this.emojiFavorites = fallback;
+    return this.emojiFavorites;
+  },
+
+  saveChatEmojiFavorites(favorites) {
+    const clean = Array.isArray(favorites)
+      ? favorites.filter((emoji, index, list) => this.chatReactionEmojis.includes(emoji) && list.indexOf(emoji) === index).slice(0, 7)
+      : [];
+    if (clean.length !== 7) return false;
+    this.emojiFavorites = clean;
+    try {
+      localStorage.setItem(this.emojiFavoritesStorageKey(), JSON.stringify(clean));
+    } catch (e) {
+      // Keep the in-memory choice even if storage is unavailable.
+    }
+    return true;
+  },
+
+  replaceChatEmojiFavorite(slot, emoji) {
+    const index = Math.max(0, Math.min(6, Number(slot) || 0));
+    if (!this.chatReactionEmojis.includes(emoji)) return;
+    const favorites = [...this.loadChatEmojiFavorites()];
+    const existing = favorites.indexOf(emoji);
+    if (existing >= 0 && existing !== index) {
+      const displaced = favorites[index];
+      favorites[index] = emoji;
+      favorites[existing] = displaced;
+    } else {
+      favorites[index] = emoji;
+    }
+    this.saveChatEmojiFavorites(favorites);
+  },
+
+  renderChatEmojiPickers(emojiPicker = document.getElementById('chat-emoji-picker'), reactionPicker = document.getElementById('chat-reaction-picker')) {
+    const favorites = this.loadChatEmojiFavorites();
+    const editing = this._emojiFavoritesEditing === true;
+    const favoriteButtons = favorites
+      .map((emoji, index) => `<button type="button" class="chat-emoji-option chat-emoji-favorite${editing ? ' editing' : ''}${editing && index === this._emojiFavoriteSlot ? ' active-slot' : ''}" data-emoji="${emoji}" data-favorite-slot="${index}" title="${editing ? 'Shortcut slot ' + (index + 1) : 'Favorite shortcut'}">${emoji}</button>`)
+      .join('');
+    const bodyEmojis = editing
+      ? this.chatReactionEmojis
+      : this.chatReactionEmojis.filter(emoji => !favorites.includes(emoji));
+    const bodyButtons = bodyEmojis
+      .map(emoji => `<button type="button" class="chat-emoji-option chat-emoji-library${editing && favorites.includes(emoji) ? ' is-favorite' : ''}" data-emoji="${emoji}">${emoji}</button>`)
+      .join('');
+    const divider = '<div class="chat-emoji-divider" aria-hidden="true"></div>';
+
+    if (emojiPicker) {
+      emojiPicker.innerHTML = `
+        <div class="chat-emoji-picker-head">
+          <span>SHORTCUTS</span>
+          <span class="chat-emoji-edit-status">${editing ? 'SLOT ' + (this._emojiFavoriteSlot + 1) : '7 SAVED'}</span>
+          <button type="button" class="chat-emoji-edit-toggle">${editing ? 'DONE' : 'EDIT'}</button>
+        </div>
+        ${favoriteButtons}
+        ${divider}
+        ${bodyButtons}
+      `;
+    }
+
+    if (reactionPicker) {
+      const reactionBody = this.chatReactionEmojis
+        .filter(emoji => !favorites.includes(emoji))
+        .map(emoji => `<button type="button" class="chat-emoji-option chat-emoji-library" data-emoji="${emoji}">${emoji}</button>`)
+        .join('');
+      reactionPicker.innerHTML = favoriteButtons.replace(/ editing| active-slot/g, '') + divider + reactionBody;
+    }
+  },
+
   bindChatForm() {
     const form = document.getElementById('chat-form');
     const input = document.getElementById('chat-input');
@@ -1384,11 +1483,7 @@ const PlayerApp = {
       });
     };
 
-    const pickerButtons = this.chatReactionEmojis
-      .map(emoji => `<button type="button" class="chat-emoji-option" data-emoji="${emoji}">${emoji}</button>`)
-      .join('');
-    if (emojiPicker) emojiPicker.innerHTML = pickerButtons;
-    if (reactionPicker) reactionPicker.innerHTML = pickerButtons;
+    this.renderChatEmojiPickers(emojiPicker, reactionPicker);
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -1405,13 +1500,39 @@ const PlayerApp = {
     emojiToggle?.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!emojiPicker) return;
-      emojiPicker.hidden = !emojiPicker.hidden;
+      const opening = emojiPicker.hidden;
+      emojiPicker.hidden = !opening;
+      if (opening) this.renderChatEmojiPickers(emojiPicker, reactionPicker);
       if (reactionPicker) reactionPicker.hidden = true;
     });
 
     emojiPicker?.addEventListener('click', (e) => {
+      const editToggle = e.target.closest('.chat-emoji-edit-toggle');
+      if (editToggle) {
+        this._emojiFavoritesEditing = !this._emojiFavoritesEditing;
+        this._emojiFavoriteSlot = Math.max(0, Math.min(6, this._emojiFavoriteSlot || 0));
+        this.renderChatEmojiPickers(emojiPicker, reactionPicker);
+        return;
+      }
+
       const option = e.target.closest('.chat-emoji-option');
       if (!option) return;
+
+      if (this._emojiFavoritesEditing) {
+        const favoriteSlot = option.dataset.favoriteSlot;
+        if (favoriteSlot !== undefined) {
+          this._emojiFavoriteSlot = Math.max(0, Math.min(6, Number(favoriteSlot) || 0));
+          this.renderChatEmojiPickers(emojiPicker, reactionPicker);
+          return;
+        }
+
+        const emoji = option.dataset.emoji || '';
+        this.replaceChatEmojiFavorite(this._emojiFavoriteSlot, emoji);
+        this._emojiFavoriteSlot = (this._emojiFavoriteSlot + 1) % 7;
+        this.renderChatEmojiPickers(emojiPicker, reactionPicker);
+        return;
+      }
+
       this.insertChatEmoji(option.dataset.emoji || '');
       emojiPicker.hidden = true;
     });
@@ -1427,6 +1548,8 @@ const PlayerApp = {
     document.addEventListener('click', (e) => {
       if (emojiPicker && !emojiPicker.hidden && !emojiPicker.contains(e.target) && e.target !== emojiToggle) {
         emojiPicker.hidden = true;
+        this._emojiFavoritesEditing = false;
+        this._emojiFavoriteSlot = 0;
       }
       if (
         reactionPicker &&
