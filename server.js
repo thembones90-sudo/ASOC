@@ -19,6 +19,17 @@ const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_WS_PAYLOAD_BYTES = 5 * 1024 * 1024;
 const MASTER_ROOM_CODE = 'MASTER';
+const ROOM_MODES = Object.freeze({
+  CASUAL: 'CASUAL',
+  BATTLE_ARMED: 'BATTLE_ARMED',
+  BATTLE: 'BATTLE',
+  RECOUNT: 'RECOUNT'
+});
+function normalizeRoomMode(value, armed = false) {
+  return Object.values(ROOM_MODES).includes(value)
+    ? value
+    : (armed ? ROOM_MODES.BATTLE_ARMED : ROOM_MODES.CASUAL);
+}
 const MAX_CHAT_LENGTH = 100;
 const PLAYER_CHAT_MIN_INTERVAL_MS = 350;
 const PLAYER_REACTION_MIN_INTERVAL_MS = 120;
@@ -192,6 +203,7 @@ function serializeRoomForRecovery(room) {
 
   return {
     code: room.code,
+    roomMode: normalizeRoomMode(room.roomMode, room.armed === true),
     armed: room.armed === true,
     gameId: room.gameId,
     gameData: room.gameData,
@@ -266,9 +278,11 @@ function restoreActiveRooms() {
         continue;
       }
 
+      const restoredRoomMode = normalizeRoomMode(saved.roomMode, saved.armed !== false);
       const room = {
         code: saved.code.toUpperCase(),
-        armed: saved.armed !== false,
+        roomMode: restoredRoomMode,
+        armed: restoredRoomMode !== ROOM_MODES.CASUAL,
         gameId: saved.gameId || gameData.id || 'sample-game',
         gameData,
         revision: Number.isFinite(saved.revision) ? saved.revision : 0,
@@ -589,7 +603,8 @@ function ensureMasterRoom() {
     master.code = MASTER_ROOM_CODE;
     master.hostConnection = null;
     master.hostReconnectTimer = null;
-    master.armed = master.armed !== false;
+    master.roomMode = normalizeRoomMode(master.roomMode, master.armed !== false);
+    master.armed = master.roomMode !== ROOM_MODES.CASUAL;
     rooms.set(MASTER_ROOM_CODE, master);
     console.log(`[MASTER ROOM] Migrated persisted room into ${MASTER_ROOM_CODE}`);
   }
@@ -616,6 +631,7 @@ function createRoom(gameId, hostWs) {
     const hostToken = generateHostToken();
     existingRoom.hostConnection = hostWs;
     existingRoom.hostToken = hostToken;
+    existingRoom.roomMode = ROOM_MODES.BATTLE_ARMED;
     existingRoom.armed = true;
     resetMasterGameSession(existingRoom, gameData);
     hostWs.roomCode = roomCode;
@@ -629,6 +645,7 @@ function createRoom(gameId, hostWs) {
   const hostToken = hostWs ? generateHostToken() : '';
 
   const room = {
+    roomMode: hostWs ? ROOM_MODES.BATTLE_ARMED : ROOM_MODES.CASUAL,
     armed: !!hostWs,
     code: roomCode,
     gameId,
@@ -821,6 +838,7 @@ function getPublicState(room) {
 
   return {
     roomCode: room.code,
+    roomMode: normalizeRoomMode(room.roomMode, room.armed === true),
     armed: room.armed === true,
     gameId: game.id,
     title: game.title,
@@ -1289,8 +1307,8 @@ function handleTimerLaunchCountdown(ws) {
     return;
   }
   if (!room.timer) resetTimer(room);
-  if (room.timer.phase !== 'ready') {
-    sendToWs(ws, { type: 'error', message: 'The Timer has already been started' });
+  if (room.roomMode !== ROOM_MODES.BATTLE_ARMED || room.timer.phase !== 'ready') {
+    sendToWs(ws, { type: 'error', message: 'Battle must be armed and the Timer ready before launch' });
     return;
   }
 
@@ -1319,6 +1337,8 @@ function handleTimerStart(ws) {
   }
 
   room.timer.phase = 'running';
+  room.roomMode = ROOM_MODES.BATTLE;
+  room.armed = true;
   room.revision++;
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -2263,6 +2283,8 @@ function applyCommand(room, command, payload) {
       // the Timer goes back to a fresh, un-started 'ready' countdown at the
       // current difficulty's duration -- the GM must press START GAME again.
       resetTimer(room);
+      room.roomMode = ROOM_MODES.BATTLE_ARMED;
+      room.armed = true;
       break;
     }
     case 'changeBackground': {
@@ -2333,7 +2355,7 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
   }
 
   const message = room.chat.messages[msgIndex];
-  if (room.armed !== true || message.source || message.boardId !== room.boardId) {
+  if (room.roomMode !== ROOM_MODES.BATTLE || room.sessionState.matchResult || message.source || message.boardId !== room.boardId) {
     return { success: false, error: 'Historical transmission is outside the active game and cannot be judged' };
   }
   if (room.pendingReveals) {
@@ -2494,9 +2516,10 @@ function addChatMessage(room, playerId, playerName, text) {
     themeColor: liveIdentity.themeColor || '#343A42',
     text: sanitized,
     timestamp: Date.now(),
-    // Chat is permanent, adjudication is not. Bind each player transmission
-    // to the board that existed when it was sent so later games cannot score it.
-    boardId: room.boardId,
+    // Chat is permanent, adjudication is not. Only transmissions created
+    // during a LIVE battle belong to a board. Casual/armed/recount chatter
+    // deliberately carries no board id and can never be scored later.
+    boardId: room.roomMode === ROOM_MODES.BATTLE && !room.sessionState.matchResult ? room.boardId : null,
     verdict: null,
     target: null,
     verdictResponse: null,
@@ -2508,9 +2531,11 @@ function addChatMessage(room, playerId, playerName, text) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   }
 
-  // MATCH LEDGER: any guess-channel message is ACTIVITY (participation), but
-  // it only ever becomes an ATTEMPT once the GM judges it.
-  matchLedger.recordActivity(ensureMatchLedger(room), playerId, playerName, Date.now());
+  // MATCH LEDGER is battle telemetry, not social telemetry. Casual chatter
+  // must never inflate participation or RECOUNT activity.
+  if (room.roomMode === ROOM_MODES.BATTLE && !room.sessionState.matchResult) {
+    matchLedger.recordActivity(ensureMatchLedger(room), playerId, playerName, Date.now());
+  }
 
   return { success: true, message };
 }
@@ -2585,7 +2610,7 @@ function getChatState(room) {
           editableByHost: m.source === 'shadowBroker' ? m.editableByHost !== false : false,
           // Persistent chat spans many games. Only a player transmission
           // created on the currently armed board may be adjudicated now.
-          adjudicable: room.armed === true && !m.source && m.boardId === room.boardId,
+          adjudicable: room.roomMode === ROOM_MODES.BATTLE && !room.sessionState.matchResult && !m.source && m.boardId === room.boardId,
           verdict: m.verdict,
           target: m.target,
           verdictResponse: m.verdictResponse || null,
@@ -2977,7 +3002,7 @@ function handleHostReconnect(ws, message) {
 function handleHostRecover(ws) {
   const room = rooms.get(MASTER_ROOM_CODE);
 
-  if (!room || room.armed !== true) {
+  if (!room) {
     sendToWs(ws, { type: 'host:recovery-none', roomCode: MASTER_ROOM_CODE });
     return;
   }
@@ -3003,7 +3028,7 @@ function handleHostRecover(ws) {
   sendRecountHydration(ws, room);
   sendTributeVaultToHost(room);
   broadcastPlayersUpdate(room);
-  console.log('[MASTER ROOM] Shadow Broker recovered armed session without browser host token');
+  console.log(`[MASTER ROOM] Shadow Broker recovered ${normalizeRoomMode(room.roomMode, room.armed)} session without browser host token`);
 }
 
 function playerCooldown(room, ws) {
@@ -3027,20 +3052,9 @@ function handleChatGuess(ws, message) {
     return;
   }
 
-  if (room.sessionState.matchResult) {
-    sendToWs(ws, { type: 'error', message: `GAME ${room.sessionState.matchResult.outcome} // Battle Comms locked` });
-    return;
-  }
-
   const { text } = message;
   if (!text || typeof text !== 'string') {
     sendToWs(ws, { type: 'error', message: 'Invalid guess' });
-    return;
-  }
-
-  const isHost = ws === room.hostConnection;
-  if (COMMANDER_REACTION_EMOJIS.has(emoji) && !isHost) {
-    sendToWs(ws, { type: 'error', message: 'Commander reactions are Shadow Broker only' });
     return;
   }
 
@@ -3467,6 +3481,8 @@ function handleSwitchGame(ws, message) {
   // NEXT GAME is a new board -- same treatment as resetBoard: a fresh,
   // un-started Timer at the new game's difficulty default.
   resetTimer(room);
+  room.roomMode = ROOM_MODES.BATTLE_ARMED;
+  room.armed = true;
 
   // NEXT GAME becomes authoritative on disk before connected clients switch.
   persistActiveRooms();
@@ -3751,10 +3767,18 @@ function handleGmShowRecount(ws) {
   record.resultsShownAt = ledger.resultsShownAt;
   try { matchStore.upsertMatch(record); } catch (error) { console.error('[match] Archive update failed:', error.message); }
 
+  // RECOUNT is a first-class room state. The battle remains mounted behind
+  // the results overlay, but new chat is social-only until the host returns
+  // the permanent room to CASUAL.
+  room.roomMode = ROOM_MODES.RECOUNT;
+  room.armed = true;
+  room.revision++;
+
   // Mutate -> persist -> broadcast: shown results and any released Final
   // points must be durable before clients see them.
   const results = releasePendingResults(room);
   persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   if (results) {
     broadcastToRoom(room, { type: 'score:finalResults', ...results });
     broadcastPlayersUpdate(room);
@@ -3778,20 +3802,18 @@ function handleCloseRoom(ws) {
   }
 
   resetMasterGameSession(room, room.gameData);
+  room.roomMode = ROOM_MODES.CASUAL;
   room.armed = false;
-  room.hostConnection = null;
-  room.hostToken = '';
-  ws.roomCode = '';
-  ws.isHost = false;
-  ws.hostToken = '';
 
-  // Commit the unarmed Master Room before telling anyone the session died.
+  // CASUAL is still the same hosted Master Room. Keep the Shadow Broker's
+  // socket/token attached so chat and moderation continue without a reload.
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastRecount(room, null, false);
   broadcastChatUpdate(room);
   broadcastPlayersUpdate(room);
-  sendToWs(ws, { type: 'room:disarmed', roomCode: MASTER_ROOM_CODE, message: 'Game session disarmed. Master Room remains online.' });
-  console.log('[MASTER ROOM] Game session disarmed; players and chat remain online');
+  sendToWs(ws, { type: 'room:casual', roomCode: MASTER_ROOM_CODE, message: 'CASUAL MODE // Master Room remains online.' });
+  console.log('[MASTER ROOM] Returned to CASUAL; identities and chat remain online');
 }
 
 function handleClose(ws) {
