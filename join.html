@@ -4820,6 +4820,64 @@
         box-sizing:border-box !important;
       }
     }
+
+
+    /* DESKTOP PLAYER CHAT WIDTH LOCK V1 */
+    @media (min-width: 761px) {
+      .battle-comms-lobby #chat-messages {
+        overflow-x:hidden !important;
+      }
+
+      .battle-comms-lobby .chat-message {
+        width:100% !important;
+        max-width:100% !important;
+        min-width:0 !important;
+        box-sizing:border-box !important;
+      }
+
+      .battle-comms-lobby .chat-message-main {
+        justify-self:start !important;
+        width:min(94%,620px) !important;
+        min-width:min(220px,94%) !important;
+        max-width:min(94%,620px) !important;
+        box-sizing:border-box !important;
+        padding:8px 10px 7px !important;
+      }
+
+      .battle-comms-lobby .chat-message-header,
+      .battle-comms-lobby .chat-message.grouped .chat-message-header {
+        width:100% !important;
+        min-width:0 !important;
+        box-sizing:border-box !important;
+        padding-right:38px !important;
+      }
+
+      .battle-comms-lobby .chat-message-line {
+        display:grid !important;
+        grid-template-columns:minmax(0,1fr) !important;
+        gap:2px !important;
+        width:100% !important;
+        min-width:0 !important;
+        max-width:100% !important;
+      }
+
+      .battle-comms-lobby .chat-message-text {
+        width:100% !important;
+        min-width:0 !important;
+        max-width:100% !important;
+        overflow-wrap:break-word !important;
+        word-break:normal !important;
+        white-space:normal !important;
+        hyphens:auto;
+      }
+
+      .battle-comms-lobby .chat-message-line .chat-time {
+        justify-self:end !important;
+        margin:2px 0 0 !important;
+        padding:0 !important;
+        white-space:nowrap !important;
+      }
+    }
   </style>
 </head>
 <body>
