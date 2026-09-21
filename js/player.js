@@ -1925,6 +1925,10 @@ const PlayerApp = {
     this.renderChatMentionPicker(picker);
     const emojiPicker = document.getElementById('chat-emoji-picker');
     if (emojiPicker) emojiPicker.hidden = true;
+    document.getElementById('chat-emoji-toggle')?.setAttribute('aria-expanded', 'false');
+    const attachmentMenu = document.getElementById('chat-attachment-menu');
+    if (attachmentMenu) attachmentMenu.hidden = true;
+    document.getElementById('chat-image-upload-btn')?.setAttribute('aria-expanded', 'false');
   },
 
   closeChatMentionPicker(picker = document.getElementById('chat-mention-picker')) {
@@ -2057,6 +2061,11 @@ const PlayerApp = {
       contextMenu.hidden = false;
       if (reactionPicker) reactionPicker.hidden = true;
       if (emojiPicker) emojiPicker.hidden = true;
+      emojiToggle?.setAttribute('aria-expanded', 'false');
+      const attachmentMenu = document.getElementById('chat-attachment-menu');
+      const attachmentToggle = document.getElementById('chat-image-upload-btn');
+      if (attachmentMenu) attachmentMenu.hidden = true;
+      attachmentToggle?.setAttribute('aria-expanded', 'false');
       requestAnimationFrame(() => {
         const rect = contextMenu.getBoundingClientRect();
         const left = Math.max(8, Math.min(clientX, window.innerWidth - rect.width - 8));
@@ -2324,6 +2333,10 @@ const PlayerApp = {
     const emojiPicker = document.getElementById('chat-emoji-picker');
     if (reactionPicker) reactionPicker.hidden = true;
     if (emojiPicker) emojiPicker.hidden = true;
+    document.getElementById('chat-emoji-toggle')?.setAttribute('aria-expanded', 'false');
+    const attachmentMenu = document.getElementById('chat-attachment-menu');
+    if (attachmentMenu) attachmentMenu.hidden = true;
+    document.getElementById('chat-image-upload-btn')?.setAttribute('aria-expanded', 'false');
 
     const x = Number(event?.clientX) || 8;
     const y = Number(event?.clientY) || 8;
@@ -2449,6 +2462,10 @@ const PlayerApp = {
 
     const inputEmojiPicker = document.getElementById('chat-emoji-picker');
     if (inputEmojiPicker) inputEmojiPicker.hidden = true;
+    document.getElementById('chat-emoji-toggle')?.setAttribute('aria-expanded', 'false');
+    const attachmentMenu = document.getElementById('chat-attachment-menu');
+    if (attachmentMenu) attachmentMenu.hidden = true;
+    document.getElementById('chat-image-upload-btn')?.setAttribute('aria-expanded', 'false');
 
     const x = Number(clickPoint?.x);
     const y = Number(clickPoint?.y);
