@@ -6122,6 +6122,69 @@
       }
     }
 
+  
+
+    /* PLAYER REACTION PICKER COMFORT V2 // portaled to body */
+    #chat-reaction-picker.chat-floating-emoji-picker {
+      grid-template-columns:repeat(5,40px) !important;
+      width:228px !important;
+      max-width:min(228px,calc(100vw - 18px)) !important;
+      max-height:318px !important;
+      gap:4px !important;
+      padding:8px !important;
+      border:1px solid rgba(100,111,124,.68) !important;
+      border-radius:11px !important;
+      background:linear-gradient(180deg,rgba(28,33,39,.997),rgba(13,16,20,.997)) !important;
+      box-shadow:0 16px 38px rgba(0,0,0,.68),inset 0 1px rgba(255,255,255,.045) !important;
+      box-sizing:border-box;
+    }
+
+    #chat-reaction-picker .chat-emoji-option {
+      width:40px !important;
+      min-width:40px !important;
+      height:38px !important;
+      border-radius:7px !important;
+      font-size:1.28rem !important;
+    }
+
+    #chat-reaction-picker .chat-emoji-picker-head {
+      grid-column:1 / -1;
+      min-height:34px !important;
+      margin:-2px -2px 3px !important;
+      padding:5px 6px !important;
+      border-radius:7px 7px 0 0;
+      font-size:.58rem !important;
+    }
+
+    #chat-reaction-picker .chat-emoji-edit-status {
+      font-size:.48rem !important;
+    }
+
+    #chat-reaction-picker .chat-emoji-edit-toggle {
+      min-width:46px !important;
+      height:25px !important;
+      font-size:.48rem !important;
+    }
+
+    #chat-reaction-picker .chat-emoji-section-label {
+      grid-column:1 / -1;
+      padding:3px 2px 1px;
+      color:#737e8a;
+      font:800 .48rem/1 var(--font-system);
+      letter-spacing:.12em;
+    }
+
+    #chat-reaction-picker .chat-emoji-divider {
+      grid-column:1 / -1;
+    }
+
+    @media (max-width:420px) {
+      #chat-reaction-picker.chat-floating-emoji-picker {
+        width:min(228px,calc(100vw - 16px)) !important;
+        grid-template-columns:repeat(5,minmax(36px,40px)) !important;
+      }
+    }
+
   </style>
 </head>
 <body>
