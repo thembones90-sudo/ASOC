@@ -387,6 +387,12 @@ const Board = {
 
     // GM controls are the canonical board slots themselves. render() replaces
     // every cell, so re-arm the interaction state after every rebuild.
+    const omenTrigger = this.container?.querySelector('.omen-trigger');
+    if (omenTrigger) {
+      omenTrigger.disabled = window.App?.roomMode !== 'BATTLE';
+      omenTrigger.onclick = () => window.App?.triggerOmen?.();
+    }
+
     window.App?.syncGMBoardInteractionState?.();
   },
 
@@ -508,7 +514,10 @@ const Board = {
     const finalOutcome = this.getFinalOutcome();
     html += this.createCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome);
 
-    return Skeleton.skeletonHTML(game.difficulty) + this.renderShadowBrokerLineHTML() + html;
+    return Skeleton.skeletonHTML(game.difficulty)
+      + '<button type="button" class="omen-trigger" aria-label="Trigger Omen" title="OMEN"></button>'
+      + this.renderShadowBrokerLineHTML()
+      + html;
   },
 
   // See PlayerApp's identical copy in js/player.js for the full rationale.
