@@ -8629,3 +8629,30 @@ body.game-complete .recount-btn,
   .defeat-overlay.is-virus-prelude .defeat-virus-shroud { display:none!important; }
 }
 
+
+
+/* ASOC EMOJI PACK V1 */
+#chat-emoji-picker,
+#chat-reaction-picker,
+.gm-emoji-picker,
+.gm-chat-floating-emoji-picker {
+  grid-template-columns: repeat(7, 34px);
+  max-width: min(278px, calc(100vw - 24px));
+  max-height: 226px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+#chat-emoji-picker .chat-emoji-option,
+#chat-reaction-picker .chat-emoji-option,
+.gm-emoji-picker .gm-emoji-option,
+.gm-chat-floating-emoji-picker .gm-emoji-option {
+  width: 34px;
+  min-width: 34px;
+  height: 30px;
+  line-height: 1;
+  font-family: "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;
+  font-size: 1.15rem;
+}
