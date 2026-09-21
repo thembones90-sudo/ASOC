@@ -73,6 +73,7 @@ const Womf = {
     if (!el) return;
 
     const charge = Math.max(0, Math.min(10, (womfState && womfState.charge) || 0));
+    window.AsocAudio?.syncWomf?.(charge);
     const prevCharge = this._lastCharge[containerId] || 0;
     const wasReady = el.dataset.state === 'ready';
     const state = this.classify(charge);
