@@ -1846,6 +1846,11 @@ const App = {
 
       case 'players:update':
         this.updatePlayerList(message.players);
+        {
+          const online = (message.players || []).filter(p => p.connected !== false).length;
+          const presence = document.getElementById('gm-chat-presence');
+          if (presence) presence.textContent = `● ${online} ONLINE`;
+        }
         break;
 
       case 'moderation:ack':
@@ -2135,7 +2140,11 @@ const App = {
     }
 
     const title = document.querySelector('.gm-chat-title');
-    if (title) title.textContent = next === 'CASUAL' ? 'ASOC NETWORK // CASUAL' : 'BATTLE CHAT';
+    if (title) {
+      title.innerHTML = next === 'CASUAL'
+        ? '<span class="casual-network-name">ASOC NETWORK</span><span class="casual-network-state"> // CASUAL</span>'
+        : 'BATTLE CHAT';
+    }
     if (next === 'CASUAL') {
       Recount.apply(null);
       window.AsocAudio?.resetObservers?.();

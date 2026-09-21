@@ -823,7 +823,7 @@ const PlayerApp = {
         if (commsRoom) commsRoom.textContent = this.roomMode === 'CASUAL'
           ? 'CASUAL // MASTER ROOM'
           : 'BATTLE // MASTER ROOM';
-        if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' LINKED';
+        if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' ONLINE';
         break;
 
       case 'battle:launchCountdown':
@@ -1149,9 +1149,13 @@ const PlayerApp = {
     const title = document.querySelector('.chat-title');
     const roomLabel = document.getElementById('battle-comms-room');
     const solvedCount = document.getElementById('chat-solved-count');
-    if (title) title.textContent = next === 'CASUAL' ? 'ASOC NETWORK' : 'BATTLE COMMS';
+    if (title) {
+      title.innerHTML = next === 'CASUAL'
+        ? '<span class="casual-network-name">ASOC NETWORK</span><span class="casual-network-state"> // CASUAL</span>'
+        : 'BATTLE COMMS';
+    }
     if (roomLabel) roomLabel.textContent = next === 'CASUAL'
-      ? 'CASUAL // MASTER ROOM'
+      ? 'MASTER ROOM'
       : 'BATTLE // MASTER ROOM';
     if (solvedCount) solvedCount.textContent = next === 'CASUAL'
       ? 'CHANNEL OPEN'

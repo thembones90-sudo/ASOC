@@ -10705,3 +10705,124 @@ body.room-mode-casual #gm-chat-height-splitter,
 body.room-mode-casual #gm-clue-height-splitter {
   display:none !important;
 }
+
+
+/* SHARED CASUAL ROOM // GM and Little Hero use the same social language */
+body.room-mode-casual .gm-chat-header {
+  min-height:42px;
+  padding:9px 12px;
+}
+
+body.room-mode-casual .gm-chat-title,
+#game-screen.room-mode-casual .chat-title {
+  display:inline-flex;
+  align-items:center;
+  gap:0;
+}
+
+.casual-network-name {
+  color:#d6dde4;
+  text-shadow:0 0 8px rgba(215,224,232,.12);
+}
+
+.casual-network-state {
+  color:#a66bc8;
+  text-shadow:0 0 9px rgba(157,87,194,.28);
+}
+
+.gm-chat-presence {
+  margin-left:auto;
+  color:#6fc68a;
+  font:700 10px/1 var(--font-tech);
+  letter-spacing:1.15px;
+  white-space:nowrap;
+}
+
+body.room-mode-casual .gm-chat-solved {
+  margin-left:10px;
+}
+
+body.room-mode-casual .gm-chat-messages,
+#game-screen.room-mode-casual #chat-messages {
+  background:
+    radial-gradient(circle at 50% 45%,rgba(109,69,137,.035),transparent 36%),
+    linear-gradient(120deg,transparent 0 48%,rgba(133,147,160,.018) 49% 50%,transparent 51% 100%);
+}
+
+body.room-mode-casual .gm-chat-message,
+#game-screen.room-mode-casual .chat-message {
+  margin-bottom:clamp(5px,.65vh,9px) !important;
+}
+
+body.room-mode-casual #gm-broker-bar {
+  min-height:58px;
+}
+
+body.room-mode-casual #gm-broker-bar .shadow-broker-form {
+  min-height:46px;
+}
+
+body.room-mode-casual #shadow-broker-composer {
+  min-height:38px;
+  font-size:clamp(14px,.9vw,17px);
+}
+
+#game-screen.room-mode-casual .chat-form {
+  min-height:58px;
+  padding:9px 11px;
+}
+
+#game-screen.room-mode-casual #chat-input {
+  min-height:40px;
+  font-size:clamp(14px,.95vw,17px);
+}
+
+#game-screen.room-mode-casual .chat-header {
+  min-height:42px;
+  padding:9px 12px;
+}
+
+#game-screen.room-mode-casual .battle-comms-room {
+  color:#78838e;
+}
+
+#game-screen.room-mode-casual .battle-comms-online {
+  display:inline-block !important;
+  color:#6fc68a;
+}
+
+#game-screen.room-mode-casual .chat-solved {
+  color:#7d8791;
+}
+
+body.room-mode-casual #gm-panel .gm-content,
+#game-screen.room-mode-casual .player-battle-layout {
+  padding-left:clamp(12px,1.2vw,20px);
+  padding-right:clamp(12px,1.2vw,20px);
+}
+
+/* Casual has no battle splitters, WOMF, clue/timer/scoring/result command surfaces. */
+body.room-mode-casual #gm-layout-splitter,
+body.room-mode-casual #gm-chat-height-splitter,
+body.room-mode-casual #gm-clue-height-splitter,
+body.room-mode-casual #womf-controls-section,
+body.room-mode-casual #womf-tracker-gm,
+body.room-mode-casual .gm-module-clues,
+body.room-mode-casual .gm-module-scoring,
+body.room-mode-casual .gm-module-assets,
+body.room-mode-casual #blood-tribute-vault-section {
+  display:none !important;
+}
+
+@media (max-width:760px) {
+  body.room-mode-casual #gm-panel .gm-content,
+  #game-screen.room-mode-casual .player-battle-layout {
+    padding-left:8px;
+    padding-right:8px;
+  }
+
+  .gm-chat-presence {
+    font-size:9px;
+    letter-spacing:.8px;
+  }
+}
