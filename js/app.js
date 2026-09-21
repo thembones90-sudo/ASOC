@@ -389,12 +389,28 @@ const App = {
   },
 
   getGMMentionCandidates(query = '') {
-    const needle = String(query || '').toLocaleLowerCase();
+    const needle = String(query || '').trim().toLocaleLowerCase();
     return (this.currentPlayers || [])
-      .filter(player => player && player.connected !== false && String(player.name || '').trim())
-      .filter(player => String(player.name).toLocaleLowerCase().startsWith(needle))
-      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .filter(player => player && String(player.name || '').trim())
+      .filter(player => !needle || String(player.name).toLocaleLowerCase().includes(needle))
+      .sort((a, b) => {
+        const aName = String(a.name).toLocaleLowerCase();
+        const bName = String(b.name).toLocaleLowerCase();
+        const aPrefix = needle && aName.startsWith(needle) ? 0 : 1;
+        const bPrefix = needle && bName.startsWith(needle) ? 0 : 1;
+        if (aPrefix !== bPrefix) return aPrefix - bPrefix;
+        if ((a.connected !== false) !== (b.connected !== false)) return a.connected !== false ? -1 : 1;
+        return String(a.name).localeCompare(String(b.name));
+      })
       .slice(0, 8);
+  },
+
+  refreshGMMentionRoster() {
+    if (this.mode !== 'multiplayer' || !this.roomCode || this.ws?.readyState !== 1) return;
+    const now = Date.now();
+    if (now - Number(this._gmMentionRosterRequestedAt || 0) < 900) return;
+    this._gmMentionRosterRequestedAt = now;
+    this.send({ type: 'players:list' });
   },
 
   renderGMMentionPicker(picker) {
@@ -403,7 +419,7 @@ const App = {
     picker.innerHTML = candidates.map((player, index) =>
       '<button type="button" class="gm-chat-mention-option' + (index === this._gmMentionIndex ? ' active' : '') + '" data-mention-index="' + index + '" role="option" aria-selected="' + (index === this._gmMentionIndex ? 'true' : 'false') + '">' +
         this.littleHeroAvatarHTML(player, true) +
-        '<span>' + this.escapeHtml(player.name) + '</span><small>TAG</small></button>'
+        '<span>' + this.escapeHtml(player.name) + '</span><small>' + (player.connected === false ? 'OFFLINE' : 'TAG') + '</small></button>'
     ).join('');
   },
 
@@ -414,9 +430,19 @@ const App = {
       this.closeGMMentionPicker(picker);
       return;
     }
+
+    // Mentions target the authoritative MASTER session roster. Refresh it
+    // when @ is active instead of trusting whatever player snapshot happened
+    // to be cached when this browser last received a players:update frame.
+    this.refreshGMMentionRoster();
+
     const candidates = this.getGMMentionCandidates(context.query);
     if (!candidates.length) {
-      this.closeGMMentionPicker(picker);
+      this._gmMentionContext = context;
+      this._gmMentionCandidates = [];
+      this._gmMentionIndex = 0;
+      picker.hidden = false;
+      picker.innerHTML = '<div class="gm-chat-mention-empty">NO MATCHING SESSION PLAYER</div>';
       return;
     }
     this._gmMentionContext = context;
