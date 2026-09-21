@@ -1304,11 +1304,6 @@ const PlayerApp = {
     const publicBoard = document.getElementById('public-board');
     if (!publicBoard) return;
 
-    const headerBar = document.getElementById('player-public-header-bar');
-    if (headerBar) {
-      headerBar.innerHTML = `<div class="public-title">${this.escapeHtml(state.title || '')}</div>`;
-    }
-
     const gameData = {
       id: state.gameId,
       title: state.title,
