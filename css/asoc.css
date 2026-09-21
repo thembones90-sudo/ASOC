@@ -290,11 +290,8 @@ textarea {
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.72);
-  /* Optical text correction only: keep every canonical pill/slot fixed.
-     The visible glyphs stay ~3 mm right; vertical placement is tuned by eye.
-     The 20% horizontal stretch is presentation-only: no pill geometry or
-     hit area moves. */
-  translate: 0.60cqw calc(0.10em - 0.15cqh);
+  /* Horizontal stretch is presentation-only. Do not translate the glyph
+     layer here: board text must remain geometrically centered in its slot. */
   scale: 1.20 1;
   color: var(--text-primary);
   word-wrap: break-word;
@@ -446,6 +443,17 @@ textarea {
 
   .asoc-board .cell-content {
     display: inline-block;
+    /* Anchor the NATURAL text box to the exact center of the canonical slot.
+       This is deliberately independent of pill width, clue length and board
+       resize, so no optical nudge can push labels toward one edge. */
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    width: max-content;
+    max-width: none;
+    text-align: center;
+    transform-origin: center center;
     font-family: var(--font-board);
     font-size: var(--asoc-font, 2.1cqh);
     font-weight: 700;
