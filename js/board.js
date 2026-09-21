@@ -314,7 +314,7 @@ const Board = {
     // so it always reflects the column's current queue -- mirrors what
     // updateGMButtons() already does for the CLUE GRID sidebar buttons.
     if (window.GameData && window.GameData.currentGame) {
-      const contentEl = cell.querySelector('.cell-content');
+      const contentEl = cell.querySelector('.cell-text') || cell.querySelector('.cell-content');
       if (contentEl) {
         const content = GameData.getCellData(column, row);
         contentEl.textContent = content || '—';
@@ -561,7 +561,7 @@ const Board = {
 
     return `
       <div class="${classes.join(' ')}" data-cell="${key}" data-label="${label}" style="${Skeleton.cellStyle(label)}">
-        <div class="cell-content">${this.escapeHtml(content || '—')}</div>
+        <div class="cell-content"><span class="cell-text">${this.escapeHtml(content || '—')}</span></div>
       </div>
     `;
   },
