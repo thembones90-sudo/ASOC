@@ -45,6 +45,8 @@ function blankProfile(displayName) {
     themeColor: '#343A42',
     createdAt: nowISO(),
     lastPlayed: nowISO(),
+    bannedAt: null,
+    bannedReason: '',
     lifetimeScore: 0,
     gamesPlayed: 0,
     gamesWon: 0,
@@ -108,6 +110,8 @@ function validateAndNormalizePlayers(raw) {
     if (typeof profile.themeColor !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(profile.themeColor)) profile.themeColor = '#343A42';
     if (typeof profile.createdAt !== 'string') profile.createdAt = base.createdAt;
     if (typeof profile.lastPlayed !== 'string') profile.lastPlayed = base.lastPlayed;
+    if (profile.bannedAt !== null && typeof profile.bannedAt !== 'string') profile.bannedAt = null;
+    if (typeof profile.bannedReason !== 'string') profile.bannedReason = '';
 
     for (const field of NUMERIC_PROFILE_FIELDS) {
       if (candidate[field] === undefined) {
@@ -329,6 +333,34 @@ function recordBoardFinalization(displayName, { won }) {
   return profile;
 }
 
+function getModerationStatus(identity) {
+  const players = loadPlayers();
+  const profile = players[normalizeNameKey(identity)];
+  return {
+    banned: !!profile?.bannedAt,
+    bannedAt: profile?.bannedAt || null,
+    reason: profile?.bannedReason || ''
+  };
+}
+
+function setBan(identity, banned = true, reason = '') {
+  const key = normalizeNameKey(identity);
+  if (!key) throw new Error('Player identity is required for moderation');
+  const players = loadPlayers();
+  if (!players[key]) players[key] = blankProfile(identity);
+  const profile = players[key];
+  const displayName = typeof identity === 'object' ? identity.name : identity;
+  if (String(displayName || '').trim()) profile.name = String(displayName).trim();
+  profile.bannedAt = banned ? nowISO() : null;
+  profile.bannedReason = banned ? String(reason || '').trim().slice(0, 160) : '';
+  savePlayersAtomic(players);
+  return {
+    banned: !!profile.bannedAt,
+    bannedAt: profile.bannedAt,
+    reason: profile.bannedReason
+  };
+}
+
 function getAllTimeLeaderboard(limit = 50) {
   const players = loadPlayers();
   return Object.values(players)
@@ -349,5 +381,7 @@ module.exports = {
   maybeRecordBestStreak,
   maybeRecordEarliestFinal,
   recordBoardFinalization,
+  getModerationStatus,
+  setBan,
   getAllTimeLeaderboard
 };
