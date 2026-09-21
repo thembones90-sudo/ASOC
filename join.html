@@ -4889,6 +4889,10 @@
       display:none !important;
     }
 
+    #game-screen.room-mode-casual .player-layout-splitter {
+      display:none !important;
+    }
+
     #game-screen.room-mode-casual .battle-comms-lobby {
       flex:1 1 auto;
       width:100%;
@@ -4896,6 +4900,7 @@
       min-height:0;
       padding:0;
       border:1px solid rgba(116,126,139,.38);
+      border-left:1px solid rgba(116,126,139,.38) !important;
       border-radius:8px;
       background:
         radial-gradient(circle at 82% 14%,rgba(112,71,146,.06),transparent 32%),
@@ -4932,6 +4937,13 @@
       background:
         linear-gradient(180deg,rgba(18,23,29,.72),rgba(7,9,12,.94));
       box-shadow:none;
+    }
+
+    #game-screen.room-mode-casual #chat-form {
+      width:100% !important;
+      max-width:760px !important;
+      margin:0 auto !important;
+      align-self:center;
     }
 
     #game-screen.room-mode-casual #chat-messages {
