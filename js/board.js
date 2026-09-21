@@ -389,7 +389,7 @@ const Board = {
     // every cell, so re-arm the interaction state after every rebuild.
     const omenTrigger = this.container?.querySelector('.omen-trigger');
     if (omenTrigger) {
-      omenTrigger.disabled = window.App?.roomMode !== 'BATTLE';
+      omenTrigger.disabled = false;
       omenTrigger.onclick = () => window.App?.triggerOmen?.();
     }
 
