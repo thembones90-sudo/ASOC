@@ -1276,6 +1276,10 @@ const PlayerApp = {
         Skeleton.playNemaAsoc();
         break;
 
+      case 'board:omen':
+        Skeleton.playOmen?.();
+        break;
+
       case 'chat:mentionAll':
         Skeleton.playMentionAllShake?.();
         break;
