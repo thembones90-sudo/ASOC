@@ -2748,6 +2748,33 @@
       font-size:.44rem !important;
       line-height:1.1;
     }
+
+    /* PLAYER CHAT AVATAR PARITY // desktop avatars match a normal one-line
+       message bubble, while taller messages keep the portrait fixed and top-aligned. */
+    @media (min-width: 761px) {
+      .battle-comms-lobby .chat-message {
+        grid-template-columns:44px minmax(0,1fr) !important;
+        column-gap:6px !important;
+      }
+
+      .battle-comms-lobby .chat-avatar-rail,
+      .battle-comms-lobby .chat-message.grouped .chat-avatar-rail {
+        width:44px !important;
+        min-width:44px !important;
+        display:flex !important;
+        justify-content:center !important;
+        align-items:flex-start !important;
+        padding-top:0 !important;
+      }
+
+      .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
+      .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact {
+        width:40px !important;
+        height:40px !important;
+        flex:0 0 40px !important;
+        border-width:2px !important;
+      }
+    }
     .battle-comms-lobby .shadow-broker-verdict-response,
     .battle-comms-lobby .chat-message.correct .shadow-broker-transmission,
     .battle-comms-lobby .chat-message.wrong .shadow-broker-transmission {
