@@ -1504,11 +1504,22 @@ const PlayerApp = {
     }
 
     if (reactionPicker) {
-      const reactionBody = this.chatReactionEmojis
-        .filter(emoji => !favorites.includes(emoji))
-        .map(emoji => `<button type="button" class="chat-emoji-option chat-emoji-library" data-emoji="${emoji}">${emoji}</button>`)
+      const reactionBodyEmojis = editing
+        ? this.chatReactionEmojis
+        : this.chatReactionEmojis.filter(emoji => !favorites.includes(emoji));
+      const reactionBody = reactionBodyEmojis
+        .map(emoji => `<button type="button" class="chat-emoji-option chat-emoji-library${editing && favorites.includes(emoji) ? ' is-favorite' : ''}" data-emoji="${emoji}">${emoji}</button>`)
         .join('');
-      reactionPicker.innerHTML = favoriteButtons.replace(/ editing| active-slot/g, '') + divider + reactionBody;
+      reactionPicker.innerHTML = `
+        <div class="chat-emoji-picker-head">
+          <span>TOP 5 EMOJIS</span>
+          <span class="chat-emoji-edit-status">${editing ? 'SLOT ' + (this._emojiFavoriteSlot + 1) : '5 SAVED'}</span>
+          <button type="button" class="chat-emoji-edit-toggle">${editing ? 'DONE' : 'EDIT'}</button>
+        </div>
+        ${favoriteButtons}
+        ${divider}
+        ${reactionBody}
+      `;
     }
   },
 
@@ -1787,8 +1798,32 @@ const PlayerApp = {
     });
 
     reactionPicker?.addEventListener('click', (e) => {
+      const editToggle = e.target.closest('.chat-emoji-edit-toggle');
+      if (editToggle) {
+        this._emojiFavoritesEditing = !this._emojiFavoritesEditing;
+        this._emojiFavoriteSlot = Math.max(0, Math.min(4, this._emojiFavoriteSlot || 0));
+        this.renderChatEmojiPickers(emojiPicker, reactionPicker);
+        return;
+      }
+
       const option = e.target.closest('.chat-emoji-option');
       if (!option) return;
+
+      if (this._emojiFavoritesEditing) {
+        const favoriteSlot = option.dataset.favoriteSlot;
+        if (favoriteSlot !== undefined) {
+          this._emojiFavoriteSlot = Math.max(0, Math.min(4, Number(favoriteSlot) || 0));
+          this.renderChatEmojiPickers(emojiPicker, reactionPicker);
+          return;
+        }
+
+        const emoji = option.dataset.emoji || '';
+        this.replaceChatEmojiFavorite(this._emojiFavoriteSlot, emoji);
+        this._emojiFavoriteSlot = (this._emojiFavoriteSlot + 1) % 5;
+        this.renderChatEmojiPickers(emojiPicker, reactionPicker);
+        return;
+      }
+
       const messageId = reactionPicker.dataset.messageId || '';
       if (messageId) this.sendChatReaction(messageId, option.dataset.emoji || '');
       reactionPicker.hidden = true;
@@ -1807,6 +1842,8 @@ const PlayerApp = {
         !e.target.closest('.chat-reaction-add')
       ) {
         reactionPicker.hidden = true;
+        this._emojiFavoritesEditing = false;
+        this._emojiFavoriteSlot = 0;
       }
       if (contextMenu && !contextMenu.hidden && !contextMenu.contains(e.target)) closeContextMenu();
       if (mentionPicker && !mentionPicker.hidden && !form.contains(e.target)) this.closeChatMentionPicker(mentionPicker);
@@ -1832,7 +1869,7 @@ const PlayerApp = {
 
         const reactionAdd = e.target.closest('.chat-reaction-add');
         if (reactionAdd) {
-          this.openChatReactionPicker(reactionAdd.dataset.messageId || '', reactionAdd);
+          this.openChatReactionPicker(reactionAdd.dataset.messageId || '', { x: e.clientX, y: e.clientY });
           return;
         }
 
@@ -1902,7 +1939,7 @@ const PlayerApp = {
         this.startChatEdit(messageEl, messageId);
       } else if (action === 'react') {
         // A detached anchor has a zero rect; the message is gone, nothing to react to.
-        if (messageEl.isConnected) this.openChatReactionPicker(messageId, messageEl);
+        if (messageEl.isConnected) this.openChatReactionPicker(messageId, { x: e.clientX, y: e.clientY });
       }
     });
 
@@ -2055,27 +2092,39 @@ const PlayerApp = {
     this.send({ type: 'chat:react', messageId, emoji });
   },
 
-  openChatReactionPicker(messageId, anchor) {
+  openChatReactionPicker(messageId, clickPoint = null) {
     const picker = document.getElementById('chat-reaction-picker');
-    if (!picker || !messageId || !anchor) return;
+    if (!picker || !messageId) return;
 
+    this._emojiFavoritesEditing = false;
+    this._emojiFavoriteSlot = 0;
     picker.dataset.messageId = messageId;
+    this.renderChatEmojiPickers(document.getElementById('chat-emoji-picker'), picker);
     picker.hidden = false;
+
     const inputEmojiPicker = document.getElementById('chat-emoji-picker');
     if (inputEmojiPicker) inputEmojiPicker.hidden = true;
-    requestAnimationFrame(() => {
-      const anchorRect = anchor.getBoundingClientRect();
-      const pickerRect = picker.getBoundingClientRect();
-      let left = anchorRect.right - pickerRect.width;
-      let top = anchorRect.bottom + 4;
 
-      left = Math.max(8, Math.min(left, window.innerWidth - pickerRect.width - 8));
+    const x = Number(clickPoint?.x);
+    const y = Number(clickPoint?.y);
+    requestAnimationFrame(() => {
+      const pickerRect = picker.getBoundingClientRect();
+      const clickX = Number.isFinite(x) ? x : window.innerWidth / 2;
+      const clickY = Number.isFinite(y) ? y : window.innerHeight / 2;
+      const gap = 6;
+
+      let left = clickX + gap;
+      let top = clickY + gap;
+
+      if (left + pickerRect.width > window.innerWidth - 8) {
+        left = clickX - pickerRect.width - gap;
+      }
       if (top + pickerRect.height > window.innerHeight - 8) {
-        top = Math.max(8, anchorRect.top - pickerRect.height - 4);
+        top = clickY - pickerRect.height - gap;
       }
 
-      picker.style.left = left + 'px';
-      picker.style.top = top + 'px';
+      picker.style.left = Math.max(8, Math.min(left, window.innerWidth - pickerRect.width - 8)) + 'px';
+      picker.style.top = Math.max(8, Math.min(top, window.innerHeight - pickerRect.height - 8)) + 'px';
     });
   },
 
