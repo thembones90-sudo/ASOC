@@ -1331,6 +1331,10 @@ function handleTimerStart(ws) {
     return;
   }
   if (!room.timer) resetTimer(room);
+  if (room.roomMode !== ROOM_MODES.BATTLE_ARMED) {
+    sendToWs(ws, { type: 'error', message: 'Battle is not armed' });
+    return;
+  }
   if (room.timer.phase !== 'ready') {
     sendToWs(ws, { type: 'error', message: 'The Timer has already been started' });
     return;
