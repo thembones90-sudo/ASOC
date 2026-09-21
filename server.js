@@ -4055,6 +4055,27 @@ function handleGmNemaAsoc(ws) {
   broadcastToRoom(room, { type: 'nemaAsoc', timestamp: Date.now() });
 }
 
+
+// OMEN -- host-only, Battle-only theatrical signal. It carries no answer,
+// score, timer or persistence state: the board merely reacts to something
+// the Shadow Broker decided was ominously close to the Final Solution.
+function handleGmOmen(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can trigger OMEN' });
+    return;
+  }
+  if (room.roomMode !== ROOM_MODES.BATTLE) {
+    sendToWs(ws, { type: 'error', message: 'OMEN is only available in Battle mode' });
+    return;
+  }
+  broadcastToRoom(room, { type: 'board:omen', timestamp: Date.now() });
+}
+
 // GAME WON -- the host's manual declaration of victory, and the ONLY way
 // sessionState.gameWon is set. (Accepting a Final guess is not the end of the
 // game: columns can still be solved, so it never triggers this.) It only flips
@@ -5373,6 +5394,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:nemaAsoc': {
           handleGmNemaAsoc(ws);
+          break;
+        }
+        case 'gm:omen': {
+          handleGmOmen(ws);
           break;
         }
         case 'gm:gameWon': {
