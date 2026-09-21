@@ -2485,7 +2485,6 @@ body.game-complete .fail-final-btn {
   height: 220px;
   min-height: 110px;
   max-height: none;
-  resize: vertical;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -2529,23 +2528,84 @@ body.game-complete .fail-final-btn {
   min-height: 0;
 }
 
-/* Vertical-only GM chat resize. Drag the bottom edge/handle to make the
-   Battle Chat taller or shorter; width stays locked to the sidebar. */
+/* GM BATTLE CHAT HEIGHT SPLITTER
+   Full-width grab rail placed directly below Battle Chat. The old browser
+   resize nub is deliberately removed: resizing now has one obvious target
+   and the selected height is persisted by app.js. */
 .gm-module-chat {
   min-width: 0;
+  margin-bottom: 0;
 }
 .gm-module-chat .gm-chat-panel {
   max-width: 100%;
 }
-.gm-module-chat .gm-chat-panel::after {
-  content: "↕ DRAG";
-  flex: 0 0 auto;
-  align-self: flex-end;
-  margin: 1px 6px 3px 0;
-  color: rgba(122,132,145,.55);
-  font: 700 .36rem var(--font-machine);
-  letter-spacing: .7px;
+
+.gm-chat-height-splitter {
+  position: relative;
+  height: 14px;
+  margin: 0 3px 10px;
+  cursor: row-resize;
+  touch-action: none;
+  user-select: none;
+  border-radius: 5px;
+  z-index: 3;
+}
+
+.gm-chat-height-splitter::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(118,129,143,.62) 10%, rgba(118,129,143,.62) 90%, transparent);
+  box-shadow: 0 1px 0 rgba(0,0,0,.58);
+  transition: background .14s ease, box-shadow .14s ease, opacity .14s ease;
+  opacity: .72;
+}
+
+.gm-chat-height-splitter-grip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 74px;
+  height: 6px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(112,122,136,.62);
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(90deg, rgba(179,188,199,.16) 0 5px, rgba(179,188,199,.52) 5px 7px, rgba(179,188,199,.16) 7px 12px),
+    #151a20;
+  box-shadow: inset 0 1px rgba(255,255,255,.04), 0 1px 4px rgba(0,0,0,.5);
   pointer-events: none;
+  transition: border-color .14s ease, box-shadow .14s ease, background .14s ease;
+}
+
+.gm-chat-height-splitter:hover::before,
+.gm-chat-height-splitter:focus-visible::before,
+body.gm-chat-height-resizing .gm-chat-height-splitter::before {
+  background: linear-gradient(90deg, transparent, rgba(212,168,67,.82) 10%, rgba(212,168,67,.82) 90%, transparent);
+  box-shadow: 0 0 8px rgba(212,168,67,.22);
+  opacity: 1;
+}
+
+.gm-chat-height-splitter:hover .gm-chat-height-splitter-grip,
+.gm-chat-height-splitter:focus-visible .gm-chat-height-splitter-grip,
+body.gm-chat-height-resizing .gm-chat-height-splitter-grip {
+  border-color: rgba(212,168,67,.82);
+  box-shadow: inset 0 1px rgba(255,255,255,.05), 0 0 9px rgba(212,168,67,.20);
+}
+
+.gm-chat-height-splitter:focus-visible {
+  outline: none;
+}
+
+body.gm-chat-height-resizing,
+body.gm-chat-height-resizing * {
+  cursor: row-resize !important;
+  user-select: none !important;
 }
 
 /* SHADOW BROKER broadcast box -- a compact operator control under the
@@ -7945,6 +8005,15 @@ body.game-complete .recount-btn,
    Functional game geometry remains untouched.
    ========================================================= */
 @media (max-width: 760px) {
+  .gm-chat-height-splitter {
+    display: none;
+  }
+
+  .gm-module-chat .gm-chat-panel {
+    height: auto !important;
+    min-height: 220px;
+  }
+
   #gm-panel {
     max-width:none;
   }
