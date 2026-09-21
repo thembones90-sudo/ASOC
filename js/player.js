@@ -1464,7 +1464,7 @@ const PlayerApp = {
 
     return `
       <div class="${classes.join(' ')}" data-label="${label}" style="${Skeleton.cellStyle(label)}">
-        <div class="cell-content">${this.escapeHtml(content)}</div>
+        <div class="cell-content"><span class="cell-text">${this.escapeHtml(content)}</span></div>
       </div>
     `;
   },
