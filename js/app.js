@@ -19,7 +19,7 @@ const App = {
   _gmTributeExpiryTimer: null,
   bloodTribute: { status: 'idle' },
   bloodTributes: [],
-  chatReactionEmojis: ['😂', '💀', '🤡', '🖤', '🔥', '👀', '👍', '👎', '😭', '😈', '🤔', '🫡'],
+  chatReactionEmojis: ['😂', '🤣', '💀', '❤️', '🔥', '👍', '👎', '😭', '😍', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '😏', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🫠', '🥴', '🤯', '🥳', '😴', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
   pendingVerdict: null,
   _reconnectPending: false,
   _recoverPending: false,
