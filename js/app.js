@@ -565,22 +565,6 @@ const App = {
     if (!board || board.dataset.gmDirectControlsBound === '1') return;
     board.dataset.gmDirectControlsBound = '1';
 
-    const FINAL_HOLD_MS = 450;
-    let finalHoldTimer = null;
-    let finalHoldCell = null;
-    let finalHoldPointerId = null;
-
-    const cancelFinalHold = () => {
-      if (finalHoldTimer) clearTimeout(finalHoldTimer);
-      finalHoldTimer = null;
-      finalHoldCell?.classList.remove('gm-final-holding');
-      finalHoldCell = null;
-      finalHoldPointerId = null;
-    };
-    // Expose cancellation to authoritative state/mode sync. Pointer events
-    // alone are not enough: FINAL can resolve or Battle can end mid-hold.
-    this._cancelGMFinalHold = cancelFinalHold;
-
     const markPending = (cell, pending = true) => {
       if (!cell) return;
       cell.classList.toggle('gm-board-pending', pending);
@@ -592,22 +576,26 @@ const App = {
       }
     };
 
-    const closeColumnOutcomeChooser = () => {
+    const closeOutcomeChooser = () => {
       this._gmColumnOutcomeDialog?.remove();
       this._gmColumnOutcomeDialog = null;
       this._gmColumnOutcomeColumn = null;
     };
 
-    const syncColumnOutcomeChooser = () => {
+    const syncOutcomeChooser = () => {
       const dialog = this._gmColumnOutcomeDialog;
-      const column = this._gmColumnOutcomeColumn;
-      if (!dialog || !column) return;
+      const target = this._gmColumnOutcomeColumn;
+      if (!dialog || !target) return;
 
-      const cell = board.querySelector(`.board-cell[data-cell="${column}5"]`);
-      const outcome = Board.getCellOutcome(column, 5);
-      const resolved = !!this.solvedTargets?.[column] || outcome === 'success' || outcome === 'failed';
-      if (!cell || this.gameComplete || Board.isRevealed(column, 5) || resolved) {
-        closeColumnOutcomeChooser();
+      const isFinal = target === 'FINAL';
+      const cell = board.querySelector(`.board-cell[data-cell="${isFinal ? 'FINAL' : target + '5'}"]`);
+      const outcome = isFinal ? Board.getFinalOutcome() : Board.getCellOutcome(target, 5);
+      const resolved = isFinal
+        ? (this.gameWon || this.gameLost || Board.isFinalRevealed() || outcome === 'success' || outcome === 'failed' || !!this.solvedTargets?.FINAL)
+        : (!!this.solvedTargets?.[target] || outcome === 'success' || outcome === 'failed');
+
+      if (!cell || this.gameComplete || resolved) {
+        closeOutcomeChooser();
         return;
       }
 
@@ -616,21 +604,28 @@ const App = {
       dialog.style.top = `${rect.top}px`;
     };
 
-    const openColumnOutcomeChooser = (cell) => {
+    const openOutcomeChooser = (cell) => {
       const key = cell?.dataset.cell || '';
-      if (!/^[A-D]5$/.test(key)) return;
-      const column = key[0];
+      const isFinal = key === 'FINAL';
+      if (!isFinal && !/^[A-D]5$/.test(key)) return;
+      const target = isFinal ? 'FINAL' : key[0];
 
-      closeColumnOutcomeChooser();
-      this._gmColumnOutcomeColumn = column;
+      closeOutcomeChooser();
+      this._gmColumnOutcomeColumn = target;
 
       const dialog = document.createElement('div');
-      dialog.className = 'gm-column-outcome-dialog';
-      dialog.dataset.column = column;
+      dialog.className = 'gm-column-outcome-dialog' + (isFinal ? ' is-final' : '');
+      dialog.dataset.column = target;
       dialog.setAttribute('role', 'dialog');
-      dialog.setAttribute('aria-label', `Resolve column ${column}`);
-      dialog.innerHTML = `
-        <div class="gm-column-outcome-title">${column}5 // RESOLVE</div>
+      dialog.setAttribute('aria-label', isFinal ? 'Resolve Final Solution' : `Resolve column ${target}`);
+      dialog.innerHTML = isFinal ? `
+        <div class="gm-column-outcome-title">FINAL SOLUTION // RESOLVE</div>
+        <div class="gm-column-outcome-actions">
+          <button type="button" class="gm-column-outcome-btn is-green" data-outcome="success">GREEN // GAME WON</button>
+          <button type="button" class="gm-column-outcome-btn is-red" data-outcome="failed">RED // GAME LOST</button>
+        </div>
+      ` : `
+        <div class="gm-column-outcome-title">${target}5 // RESOLVE</div>
         <div class="gm-column-outcome-actions">
           <button type="button" class="gm-column-outcome-btn is-green" data-outcome="success">GREEN</button>
           <button type="button" class="gm-column-outcome-btn is-red" data-outcome="failed">RED</button>
@@ -643,22 +638,37 @@ const App = {
         const outcome = button.dataset.outcome;
         if (outcome !== 'success' && outcome !== 'failed') return;
 
-        const liveCell = board.querySelector(`.board-cell[data-cell="${column}5"]`);
+        const liveCell = board.querySelector(`.board-cell[data-cell="${isFinal ? 'FINAL' : target + '5'}"]`);
         markPending(liveCell, true);
-        closeColumnOutcomeChooser();
-        this.sendCommand('resolveColumn', { column, outcome });
-        this.updatePublicView();
+        closeOutcomeChooser();
+
+        if (isFinal) {
+          if (outcome === 'success') {
+            this.triggerGameWon();
+          } else if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+            this.send({ type: 'gm:failFinal' });
+          } else {
+            Board.setFinalRevealed(true);
+            Board.sessionState.finalOutcome = 'failed';
+            Board.render();
+            this.testGameLost();
+          }
+        } else {
+          this.sendCommand('resolveColumn', { column: target, outcome });
+          this.updatePublicView();
+        }
       });
 
       document.body.appendChild(dialog);
       this._gmColumnOutcomeDialog = dialog;
-      syncColumnOutcomeChooser();
+      syncOutcomeChooser();
       requestAnimationFrame(() => dialog.querySelector('.is-green')?.focus());
     };
 
-    this._closeGMColumnOutcomeChooser = closeColumnOutcomeChooser;
-    this._syncGMColumnOutcomeChooser = syncColumnOutcomeChooser;
-    window.addEventListener('resize', syncColumnOutcomeChooser);
+    this._closeGMColumnOutcomeChooser = closeOutcomeChooser;
+    this._syncGMColumnOutcomeChooser = syncOutcomeChooser;
+    this._cancelGMFinalHold = closeOutcomeChooser;
+    window.addEventListener('resize', syncOutcomeChooser);
 
     const revealCell = (cell) => {
       if (!cell?.classList.contains('gm-board-hitbox') || this.gameComplete) return;
@@ -670,16 +680,13 @@ const App = {
       const columnOutcome = Board.getCellOutcome(column, 5);
       if (this.solvedTargets?.[column] || columnOutcome === 'success' || columnOutcome === 'failed') return;
 
-      // Solution pills are adjudication controls, not ordinary reveal
-      // buttons. Clicking A5-D5 asks GREEN/RED first; the selected outcome
-      // is then revealed and committed atomically by resolveColumn.
+      // Every solution surface is an adjudication control. A5-D5 resolve
+      // the column GREEN/RED; FINAL resolves the whole match GREEN/RED.
       if (row === 5) {
-        openColumnOutcomeChooser(cell);
+        openOutcomeChooser(cell);
         return;
       }
 
-      // Lock this physical slot immediately. Server state will clear the
-      // pending marker on the next authoritative sync.
       markPending(cell, true);
       this.sendCommand('revealCell', { cell: key, reveal: true });
       this.updatePublicView();
@@ -688,51 +695,14 @@ const App = {
     board.addEventListener('click', (event) => {
       const cell = event.target.closest('.board-cell[data-cell]');
       if (!cell || !board.contains(cell) || !cell.classList.contains('gm-board-hitbox')) return;
+      event.preventDefault();
+
       if (cell.dataset.cell === 'FINAL') {
-        event.preventDefault();
+        if (!Board.isFinalRevealed() && !this.gameWon && !this.gameLost) openOutcomeChooser(cell);
         return;
       }
       revealCell(cell);
     });
-
-    board.addEventListener('pointerdown', (event) => {
-      const cell = event.target.closest('.board-cell[data-cell="FINAL"].gm-board-hitbox');
-      if (!cell || (event.pointerType === 'mouse' && event.button !== 0)) return;
-
-      cancelFinalHold();
-      event.preventDefault();
-      finalHoldCell = cell;
-      finalHoldPointerId = event.pointerId;
-      cell.classList.add('gm-final-holding');
-      try { cell.setPointerCapture?.(event.pointerId); } catch (_) {}
-
-      finalHoldTimer = setTimeout(() => {
-        finalHoldTimer = null;
-        const target = finalHoldCell;
-        finalHoldCell = null;
-        finalHoldPointerId = null;
-        target?.classList.remove('gm-final-holding');
-        if (!target?.isConnected || !target.classList.contains('gm-board-hitbox')) return;
-        if (Board.isFinalRevealed() || Board.getFinalOutcome() === 'failed') return;
-
-        markPending(target, true);
-        this.sendCommand('revealFinal', { reveal: true });
-        this.updatePublicView();
-      }, FINAL_HOLD_MS);
-    });
-
-    board.addEventListener('pointermove', (event) => {
-      if (!finalHoldCell || event.pointerId !== finalHoldPointerId) return;
-      const rect = finalHoldCell.getBoundingClientRect();
-      const inside = event.clientX >= rect.left && event.clientX <= rect.right &&
-        event.clientY >= rect.top && event.clientY <= rect.bottom;
-      if (!inside) cancelFinalHold();
-    });
-
-    board.addEventListener('pointerup', cancelFinalHold);
-    board.addEventListener('pointercancel', cancelFinalHold);
-    board.addEventListener('lostpointercapture', cancelFinalHold);
-    board.addEventListener('pointerleave', cancelFinalHold);
 
     board.addEventListener('keydown', (event) => {
       const cell = event.target.closest('.board-cell[data-cell].gm-board-hitbox');
@@ -740,11 +710,7 @@ const App = {
       event.preventDefault();
 
       if (cell.dataset.cell === 'FINAL') {
-        if (!Board.isFinalRevealed() && Board.getFinalOutcome() !== 'failed') {
-          markPending(cell, true);
-          this.sendCommand('revealFinal', { reveal: true });
-          this.updatePublicView();
-        }
+        if (!Board.isFinalRevealed() && !this.gameWon && !this.gameLost) openOutcomeChooser(cell);
         return;
       }
       revealCell(cell);

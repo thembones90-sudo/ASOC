@@ -1563,7 +1563,7 @@ function buildWinPerformance(room) {
 
 // Sole server-authoritative loss transition. Clients never infer loss from
 // their interpolated clocks; they only react to this persisted matchResult.
-function declareGameLost(room) {
+function declareGameLost(room, source = 'timer') {
   if (room.sessionState.matchResult || room.sessionState.gameWon === true) return false;
   if (room.sessionState.finalOutcome === 'success') return false;
 
@@ -1609,7 +1609,7 @@ function declareGameLost(room) {
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastPlayersUpdate(room);
-  console.log(`[ROOM ${room.code}] GAME LOST -- authoritative timer expiry`);
+  console.log(`[ROOM ${room.code}] GAME LOST -- ${source === 'gm-final' ? 'GM resolved FINAL RED' : 'authoritative timer expiry'}`);
   return true;
 }
 
@@ -4060,6 +4060,9 @@ function handleGmGameWon(ws) {
     return;
   }
   if (room.sessionState.gameWon === true) return;
+  // FINAL GREEN is a real completed board. Record participation/win stats and
+  // stop the timer before publishing the authoritative GAME WON state.
+  finalizeBoard(room, 'success');
   const performance = buildWinPerformance(room);
   room.sessionState.gameWon = true;
   room.sessionState.finalSolution = true;
@@ -4300,65 +4303,23 @@ function handleFailFinal(ws, message) {
     return;
   }
 
-  if (room.scoring.boardFinalized) {
-    sendToWs(ws, { type: 'error', message: 'This board has already been finalized' });
+  if (room.sessionState.matchResult || room.sessionState.gameWon === true) {
+    sendToWs(ws, { type: 'error', message: 'This match has already been resolved' });
     return;
   }
 
-  if (room.sessionState.finalSolution === true) {
-    sendToWs(ws, { type: 'error', message: 'The Final has already been revealed for this board' });
+  if (room.sessionState.finalSolution === true || room.sessionState.finalOutcome === 'success') {
+    sendToWs(ws, { type: 'error', message: 'The Final has already been resolved for this board' });
     return;
   }
 
-  // finalizeBoard() is the single, guarded place gamesPlayed/gamesWon and
-  // the penalty are applied -- boardFinalized flips true inside it, so a
-  // duplicate gm:failFinal (double-click) can never double-apply the loss.
-  const finalizeResult = finalizeBoard(room, 'failed');
-
-  // WOMF: a failed FINAL SOLUTION charges +3 (capped at 10). This sits
-  // behind the same boardFinalized guard above, so a double-click can
-  // never double-charge it.
-  addWomfCharge(room, 3);
-
-  room.sessionState.finalSolution = true;
-  room.sessionState.finalOutcome = 'failed';
-  // MATCH LEDGER: a declared Final failure resolves the FINAL field.
-  matchLedger.markFailed(ensureMatchLedger(room), 'FINAL', Date.now());
-  refreshGameComplete(room);
-  room.revision++;
-
-  // Same pacing rule as a successful Final: everyone sees the reveal +
-  // story immediately, the penalty amount waits for gm:revealResults.
-  room.scoring.pendingResults = {
-    outcome: 'failed',
-    penalty: scoring.FAILED_FINAL_PENALTY,
-    participants: finalizeResult.participants ? finalizeResult.participants.map(p => p.playerName) : []
-  };
-
-  persistActiveRooms();
-  const publicState = getPublicState(room);
-  broadcastToRoom(room, { type: 'state:public', ...publicState });
-  // players:update is deliberately NOT broadcast here. The -200 penalty was
-  // just committed to room.scoring.players and players.json above (inside
-  // finalizeBoard) -- COMMIT SCORE NOW -- but per the locked pacing spec
-  // the visible leaderboard movement stays held back until the GM clicks
-  // SHOW RESULTS -- DISPLAY SCORE LATER. handleRevealResults() is the one
-  // place that broadcasts players:update for this outcome, exactly
-  // mirroring the Successful Final path below.
-  broadcastToRoom(room, {
-    type: 'score:finalReveal',
-    outcome: 'failed',
-    correctSolution: room.gameData.finalSolution || '',
-    story: room.gameData.story || '',
-    columnSolutions: {
-      A: room.gameData.columns?.A?.solution || '',
-      B: room.gameData.columns?.B?.solution || '',
-      C: room.gameData.columns?.C?.solution || '',
-      D: room.gameData.columns?.D?.solution || ''
-    }
-  });
-
-  console.log(`[ROOM ${room.code}] GM declared Final FAILED`);
+  // FINAL RED is now the canonical manual GAME LOST action. Reuse the same
+  // authoritative terminal-state path as timer expiry so scoring, WOMF +3,
+  // persistence, match archival and every client-side GAME LOST sequence
+  // remain one coherent transaction.
+  if (!declareGameLost(room, 'gm-final')) {
+    sendToWs(ws, { type: 'error', message: 'GAME LOST could not be declared from the current state' });
+  }
 }
 
 // Explicit GM action -- mirrors handleFailFinal exactly, one guarded,

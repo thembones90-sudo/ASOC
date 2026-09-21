@@ -13486,6 +13486,16 @@ body.asoc-transition-to-battle #game-screen .player-battle-layout {
   font-family: var(--font-machine);
   pointer-events: auto;
 }
+.gm-column-outcome-dialog.is-final {
+  min-width: 330px;
+}
+.gm-column-outcome-dialog.is-final .gm-column-outcome-btn {
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
 .gm-column-outcome-title {
   margin: 0 0 6px;
   color: rgba(216, 224, 232, .84);
