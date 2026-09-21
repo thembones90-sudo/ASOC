@@ -1302,6 +1302,10 @@ const App = {
         this.updatePlayerList(message.players);
         break;
 
+      case 'moderation:ack':
+        console.log('[GM] Moderation action:', message.action, message.playerName || message.playerId);
+        break;
+
       case 'battle:launchCountdown':
         // The GM already started the same local sequence from the button
         // click that caused this broadcast. Players consume this event.
@@ -1593,34 +1597,57 @@ const App = {
   },
 
   updatePlayerList(players) {
-    // Cached for the Wheel's setup step (js/app.js openWheelSetup()), so it
-    // can default to "everyone currently connected" without a separate
-    // round-trip to the server.
+    // Keep the full authoritative roster cached for mentions, scoring and
+    // reconnect continuity, while the compact moderation panel shows only
+    // sockets that are actually online right now.
     this.currentPlayers = players;
     const gmMentionPicker = document.getElementById('gm-mention-picker');
     if (gmMentionPicker && !gmMentionPicker.hidden) this.updateGMMentionPicker(document.getElementById('shadow-broker-input'), gmMentionPicker);
 
+    const onlinePlayers = players.filter(player => player.connected === true);
     const countEl = document.getElementById('mp-players-count');
     const listEl = document.getElementById('mp-player-list');
 
-    countEl.textContent = players.length;
+    countEl.textContent = onlinePlayers.length;
     const battleCount = document.getElementById('battle-session-player-count');
-    if (battleCount) battleCount.textContent = String(players.length);
-    listEl.style.display = players.length > 0 ? 'block' : 'none';
+    if (battleCount) battleCount.textContent = String(onlinePlayers.length);
+    listEl.style.display = onlinePlayers.length > 0 ? 'flex' : 'none';
 
-    listEl.innerHTML = players.map(p => `
-      <div class="mp-player">
+    listEl.innerHTML = onlinePlayers.map(p => `
+      <div class="mp-player mp-player-online">
         <span class="mp-player-name mp-little-hero">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span></span>
-        <span class="mp-player-status">
-          <span class="mp-status-dot ${p.connected ? 'connected' : 'disconnected'}"></span>
-          <span class="mp-status-text">${p.connected ? 'CONNECTED' : 'DISCONNECTED'}</span>
+        <span class="mp-player-actions">
+          <span class="mp-status-dot connected" title="Online"></span>
+          <button type="button" class="mp-moderation-btn mp-kick-btn" data-action="kick" data-player-id="${encodeURIComponent(String(p.id))}" data-player-name="${encodeURIComponent(String(p.name))}">KICK</button>
+          <button type="button" class="mp-moderation-btn mp-ban-btn" data-action="ban" data-player-id="${encodeURIComponent(String(p.id))}" data-player-name="${encodeURIComponent(String(p.name))}">BAN</button>
         </span>
       </div>
     `).join('');
 
+    listEl.querySelectorAll('.mp-moderation-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        const playerId = decodeURIComponent(button.dataset.playerId || '');
+        const playerName = decodeURIComponent(button.dataset.playerName || '');
+        if (button.dataset.action === 'ban') this.banPlayer(playerId, playerName);
+        else this.kickPlayer(playerId, playerName);
+      });
+    });
+
     this.renderSessionLeaderboard(players);
     if (this.chatMessages?.length) this.renderGMChat();
     document.getElementById('scoring-section').style.display = this.mode === 'multiplayer' ? 'block' : 'none';
+  },
+
+  kickPlayer(playerId, playerName) {
+    if (this.mode !== 'multiplayer' || !playerId) return;
+    if (!confirm(`Kick ${playerName || 'this Little Hero'} from the Master Room? They can manually rejoin afterwards.`)) return;
+    this.send({ type: 'gm:kickPlayer', playerId });
+  },
+
+  banPlayer(playerId, playerName) {
+    if (this.mode !== 'multiplayer' || !playerId) return;
+    if (!confirm(`BAN ${playerName || 'this Little Hero'} from the Master Room? This blocks the authenticated account from rejoining.`)) return;
+    this.send({ type: 'gm:banPlayer', playerId });
   },
 
   // ---------------------------------------------------------------------
