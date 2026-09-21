@@ -3884,9 +3884,6 @@ const App = {
       const isBrokerGif = msg.source === 'chatGifGm';
       const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
       const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const avatar = isBrokerGif
-        ? '<span class="gm-poll-broker-avatar" aria-hidden="true">SB</span>'
-        : this.littleHeroAvatarHTML(identity, true);
       const themeId = isBrokerGif ? 'gunmetal' : ASOCThemes.get(identity.themeId).id;
       const themeStyle = isBrokerGif ? '' : ASOCThemes.messageStyle(identity.themeId);
       const frameColor = isBrokerGif
@@ -3898,6 +3895,24 @@ const App = {
       const media = msg.gif.mp4Url
         ? `<video class="gm-chat-gif-attachment" autoplay loop muted playsinline preload="metadata" poster="${preview}"><source src="${this.escapeHtml(msg.gif.mp4Url)}" type="video/mp4"></video>`
         : `<img class="gm-chat-gif-attachment" src="${gifUrl}" alt="${title}">`;
+
+      if (isBrokerGif) {
+        return `
+          <div class="gm-shadow-broker-entry gm-shadow-broker-media-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+            <div class="shadow-broker-transmission shadow-broker-broadcast">
+              <img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">
+              <div class="shadow-broker-body">
+                <div class="gm-shadow-broker-media-head"><span class="shadow-broker-name">SHADOW BROKER</span><span class="gm-chat-time">${time}</span></div>
+                <a class="gm-chat-gif-link" href="${gifUrl}" target="_blank" rel="noopener" title="${title}">${media}</a>
+                <div class="gm-chat-gif-provider-mark">GIPHY</div>
+              </div>
+            </div>
+            ${this.createGMReactionSummaryHTML(msg)}
+          </div>
+        `;
+      }
+
+      const avatar = this.littleHeroAvatarHTML(identity, true);
       return `
         <div class="gm-chat-message gm-flow-message gm-gif-message" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           <div class="gm-chat-avatar-rail">${avatar}</div>
