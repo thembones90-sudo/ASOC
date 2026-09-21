@@ -1104,6 +1104,34 @@ const App = {
       this.sendShadowBrokerBroadcast();
     });
 
+    const gmImageButton = document.getElementById('gm-image-upload-btn');
+    const gmImageInput = document.getElementById('gm-image-upload-input');
+    gmImageButton?.addEventListener('click', () => gmImageInput?.click());
+    gmImageInput?.addEventListener('change', async () => {
+      const file = gmImageInput.files?.[0];
+      gmImageInput.value = '';
+      if (!file) return;
+      if (!['image/png','image/jpeg','image/webp'].includes(file.type)) return alert('PNG, JPG or WEBP only.');
+      if (file.size > 5 * 1024 * 1024) return alert('Image must be 5 MB or smaller.');
+      const caption = this.syncGMComposerModel().text.trim();
+      const token = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
+      gmImageButton.disabled = true;
+      try {
+        const res = await fetch('/api/chat/image?caption=' + encodeURIComponent(caption), {
+          method: 'POST',
+          headers: { 'Content-Type': file.type, 'x-gm-token': token },
+          body: file
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(result.error || 'Image upload failed');
+        this.setGMComposerText('', 0);
+      } catch (error) {
+        alert(error.message || 'Image upload failed');
+      } finally {
+        gmImageButton.disabled = false;
+      }
+    });
+
     shadowBrokerComposer?.addEventListener('keydown', (e) => {
       this.syncGMComposerModel();
       if (this.handleGMMentionKeydown(e, shadowBrokerInput, gmMentionPicker)) return;
@@ -3425,7 +3453,7 @@ const App = {
       return `
         <div class="gm-shadow-broker-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${replyContextHtml}
-          ${Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchIn: isNew })}
+          ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchIn: isNew })}\n          ${msg.imageUrl ? `<a class="chat-image-link" href="${this.escapeHtml(msg.imageUrl)}" target="_blank" rel="noopener"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></a>` : ''}
           ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
           ${this.createGMReactionSummaryHTML(msg)}
         </div>
@@ -3474,7 +3502,7 @@ const App = {
           <div class="gm-chat-message-main">
             <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>
             ${replyContextHtml}
-            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>
+            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<a class="chat-image-link" href="${this.escapeHtml(msg.imageUrl)}" target="_blank" rel="noopener"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></a>` : ''}
             ${verdictMetaHtml}
             ${verdictResponseHtml}
             ${this.createGMReactionSummaryHTML(msg)}
