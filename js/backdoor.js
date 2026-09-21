@@ -12,6 +12,8 @@ const ControlSurfaces = {
     const global = content.querySelector('.gm-module-global');
     const background = content.querySelector('.gm-module-background');
     const chat = content.querySelector('.gm-module-chat');
+    const chatHeightSplitter = content.querySelector('#gm-chat-height-splitter');
+    const clueHeightSplitter = content.querySelector('#gm-clue-height-splitter');
     const scoring = content.querySelector('.gm-module-scoring');
     const multiplayer = content.querySelector('.gm-module-multiplayer');
 
@@ -19,7 +21,7 @@ const ControlSurfaces = {
     battle.id = 'gm-battle-control';
     battle.className = 'gm-control-surface gm-battle-control';
     content.insertBefore(battle, content.firstChild);
-    [chat, clues, womf, scoring, global].forEach(section => {
+    [chat, chatHeightSplitter, clues, clueHeightSplitter, womf, scoring, global].forEach(section => {
       if (section) battle.appendChild(section);
     });
 
