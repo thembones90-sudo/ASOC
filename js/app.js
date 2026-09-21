@@ -1083,8 +1083,7 @@ const App = {
     document.getElementById('next-game-btn').addEventListener('click', () => Forge.open());
 
     document.getElementById('host-room-btn').addEventListener('click', () => {
-      if (this.roomMode === 'CASUAL') this.hostRoom();
-      else this.closeRoom();
+      this.toggleRoomMode();
     });
 
     // SHADOW BROKER free-form broadcast -- presentation layer only, see
@@ -2145,7 +2144,6 @@ const App = {
   updateMultiplayerUI() {
     const isMultiplayer = this.mode === 'multiplayer';
     const inCasual = this.roomMode === 'CASUAL';
-    const inRecount = this.roomMode === 'RECOUNT';
     const battleSession = isMultiplayer && !inCasual;
 
     document.getElementById('mp-mode').textContent = isMultiplayer ? 'MASTER ROOM' : 'LOCAL';
@@ -2155,10 +2153,12 @@ const App = {
     const roomToggle = document.getElementById('host-room-btn');
     if (roomToggle) {
       roomToggle.style.display = 'block';
-      roomToggle.disabled = false;
-      roomToggle.textContent = inCasual ? 'ARM BATTLE' : (inRecount ? 'RETURN TO CASUAL' : 'KILL SESSION');
-      roomToggle.classList.toggle('primary', inCasual);
-      roomToggle.classList.toggle('kill-session-btn', !inCasual);
+      roomToggle.disabled = !isMultiplayer;
+      roomToggle.classList.toggle('is-battle', !inCasual);
+      roomToggle.classList.remove('kill-session-btn');
+      roomToggle.setAttribute('aria-pressed', String(!inCasual));
+      roomToggle.setAttribute('aria-label', inCasual ? 'Switch to Battle Mode' : 'Switch to Casual Mode');
+      roomToggle.innerHTML = '<span class="room-mode-option room-mode-option-casual">CASUAL</span><span class="room-mode-track"><span class="room-mode-knob"></span></span><span class="room-mode-option room-mode-option-battle">BATTLE</span>';
     }
     const lostButton = document.getElementById('game-lost-btn');
     if (lostButton) {
@@ -2693,8 +2693,14 @@ const App = {
     this._activeFinalBanner = null;
   },
 
+  toggleRoomMode() {
+    if (this.mode !== 'multiplayer') return;
+    const target = this.roomMode === 'CASUAL' ? 'BATTLE' : 'CASUAL';
+    this.send({ type: 'gm:setRoomMode', mode: target });
+  },
+
   hostRoom() {
-    // CASUAL is still multiplayer: arming reuses the permanent Master Room.
+    // Legacy arming path retained for recovery/backward compatibility only.
     if ((this.mode === 'multiplayer' && this.roomMode !== 'CASUAL') || this._hostingInFlight) return;
 
     this._hostingInFlight = true;
@@ -3745,7 +3751,7 @@ const App = {
       return;
     }
     if (this.roomMode === 'BATTLE_ARMED') {
-      countEl.textContent = 'BATTLE ARMED';
+      countEl.textContent = 'BATTLE MODE';
       return;
     }
     const solved = Object.keys(this.solvedTargets).length;

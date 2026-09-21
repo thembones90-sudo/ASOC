@@ -3821,6 +3821,41 @@ function handleGmShowRecount(ws) {
   console.log(`[ROOM ${room.code}] RECOUNT shown`);
 }
 
+function handleSetRoomMode(ws, message) {
+  const room = rooms.get(MASTER_ROOM_CODE);
+  if (!room) return;
+
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only Shadow Broker can switch room mode' });
+    return;
+  }
+
+  const requested = String(message.mode || '').toUpperCase();
+  if (requested !== 'CASUAL' && requested !== 'BATTLE') {
+    sendToWs(ws, { type: 'error', message: 'Invalid room mode' });
+    return;
+  }
+
+  if (requested === 'CASUAL') {
+    // Presentation-only switch. Do NOT reset the battle. Timer, board,
+    // WOMF, scoring, clue state and chat all remain exactly where they are.
+    room.roomMode = ROOM_MODES.CASUAL;
+  } else {
+    // Restore the battle surface where it left off. READY means pre-start;
+    // running/borrowed/finished means an already-started battle.
+    if (room.match?.resultsShownAt) room.roomMode = ROOM_MODES.RECOUNT;
+    else room.roomMode = room.timer?.phase === 'ready' ? ROOM_MODES.BATTLE_ARMED : ROOM_MODES.BATTLE;
+    room.armed = true;
+  }
+
+  room.revision++;
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastChatUpdate(room);
+  broadcastPlayersUpdate(room);
+  console.log(`[MASTER ROOM] Display mode -> ${requested}`);
+}
+
 function handleCloseRoom(ws) {
   const room = rooms.get(MASTER_ROOM_CODE);
   if (!room) return;
@@ -4610,6 +4645,10 @@ wss.on('connection', (ws) => {
         }
         case 'leaderboard:getAllTime': {
           sendToWs(ws, { type: 'leaderboard:allTime', players: playerStore.getAllTimeLeaderboard(50) });
+          break;
+        }
+        case 'gm:setRoomMode': {
+          handleSetRoomMode(ws, message);
           break;
         }
         case 'room:close': {
