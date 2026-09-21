@@ -1505,7 +1505,7 @@ const PlayerApp = {
       <div class="asoc-mode-transition-grid"></div>
       <div class="asoc-mode-transition-scan"></div>
       <div class="asoc-mode-transition-core">
-        <div class="asoc-mode-transition-eye"><span></span></div>
+        <div class="asoc-mode-transition-eye"><img src="/assets/ui/asoc-favicon.svg?v=1" alt=""></div>
         <div class="asoc-mode-transition-kicker">A.S.O.C. // MASTER ROOM</div>
         <div class="asoc-mode-transition-title">${battle ? 'BATTLE INTERFACE DEPLOYING' : 'BATTLE INTERFACE SUSPENDED'}</div>
         <div class="asoc-mode-transition-sub">${battle ? 'TACTICAL SURFACE // RESTORED' : 'CASUAL CHANNEL // RESTORED'}</div>
@@ -1516,7 +1516,7 @@ const PlayerApp = {
     requestAnimationFrame(() => overlay.classList.add('is-live'));
 
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-    const holdMs = reducedMotion ? 300 : (battle ? 1320 : 1040);
+    const holdMs = reducedMotion ? 300 : 4000;
     this._roomModeTransitionTimer = setTimeout(() => {
       overlay.classList.add('is-leaving');
       document.body.classList.remove('asoc-transition-to-battle', 'asoc-transition-to-casual');
