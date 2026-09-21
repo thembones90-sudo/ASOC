@@ -121,6 +121,7 @@ const Timer = {
 
     const state = timerState || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 };
     const phase = state.phase || 'ready';
+    window.AsocAudio?.syncTimerPhase?.(phase);
     const inBorrowed = phase === 'borrowed' || phase === 'borrowed_paused';
 
     // BORROWED TIME CALLOUT: fire exactly on a fresh transition INTO
@@ -236,6 +237,7 @@ const Timer = {
 
     const showStep = () => {
       if (i < steps.length) {
+        window.AsocAudio?.countdown?.(steps[i]);
         this._flashCountdownDigit(el, steps[i]);
         i++;
         setTimeout(showStep, STEP_MS);
