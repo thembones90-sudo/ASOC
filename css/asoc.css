@@ -4385,17 +4385,6 @@ body.gm-layout-locked .gm-module-height-splitter {
   padding: 6px;
 }
 
-.gm-global-btn.fail-final-btn {
-  border-color: #8a4a4a;
-  color: #e8a0a0;
-}
-
-.gm-global-btn.fail-final-btn:hover {
-  background: rgba(138, 74, 74, 0.2);
-  border-color: #c86a6a;
-  color: #ffb0b0;
-}
-
 /* --- Player-facing compact leaderboard strip (join.html) --- */
 .player-leaderboard-strip {
   display: flex;
