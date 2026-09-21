@@ -697,7 +697,7 @@ const PlayerApp = {
       case 'state:public': {
         this.lastPublicState = message;
         const roomMode = message.roomMode || (message.armed === true ? 'BATTLE_ARMED' : 'CASUAL');
-        const battleVisible = roomMode === 'BATTLE' || roomMode === 'RECOUNT';
+        const battleVisible = roomMode !== 'CASUAL';
         this.applyRoomMode(roomMode);
         if (battleVisible) {
           window.AsocAudio?.syncBoard?.('player', message);
@@ -807,7 +807,7 @@ const PlayerApp = {
         this.chatMessages = incoming;
         this.solvedTargets = message.solvedTargets || {};
         const solvedCount = document.getElementById('chat-solved-count');
-        if (solvedCount) solvedCount.textContent = this.roomMode === 'CASUAL' ? 'CHANNEL OPEN' : (this.roomMode === 'BATTLE_ARMED' ? 'BATTLE ARMED' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`);
+        if (solvedCount) solvedCount.textContent = this.roomMode === 'CASUAL' ? 'CHANNEL OPEN' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
         this.renderChat();
         break;
       }
@@ -822,7 +822,7 @@ const PlayerApp = {
         const commsOnline = document.getElementById('battle-comms-online');
         if (commsRoom) commsRoom.textContent = this.roomMode === 'CASUAL'
           ? 'CASUAL // MASTER ROOM'
-          : (this.roomMode === 'BATTLE_ARMED' ? 'BATTLE ARMED // MASTER ROOM' : 'MONITORED // MASTER ROOM');
+          : 'BATTLE // MASTER ROOM';
         if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' LINKED';
         break;
 
@@ -1149,13 +1149,13 @@ const PlayerApp = {
     const title = document.querySelector('.chat-title');
     const roomLabel = document.getElementById('battle-comms-room');
     const solvedCount = document.getElementById('chat-solved-count');
-    if (title) title.textContent = next === 'CASUAL' || next === 'BATTLE_ARMED' ? 'ASOC NETWORK' : 'BATTLE COMMS';
+    if (title) title.textContent = next === 'CASUAL' ? 'ASOC NETWORK' : 'BATTLE COMMS';
     if (roomLabel) roomLabel.textContent = next === 'CASUAL'
       ? 'CASUAL // MASTER ROOM'
-      : (next === 'BATTLE_ARMED' ? 'BATTLE ARMED // MASTER ROOM' : 'MONITORED // MASTER ROOM');
+      : 'BATTLE // MASTER ROOM';
     if (solvedCount) solvedCount.textContent = next === 'CASUAL'
       ? 'CHANNEL OPEN'
-      : (next === 'BATTLE_ARMED' ? 'BATTLE ARMED' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`);
+      : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
 
     if (hadBaseline && previous === 'CASUAL' && next === 'BATTLE_ARMED') {
       this.addBattleEvent('BATTLE CONTROL SIGNAL DETECTED');
