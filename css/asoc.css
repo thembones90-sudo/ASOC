@@ -11424,3 +11424,38 @@ body.room-mode-casual #gm-panel .gm-footer {
     flex:1 1 auto !important;
   }
 }
+
+
+/* CHAT IMAGE ATTACHMENTS // in-game only */
+.chat-image-upload-btn {
+  flex:0 0 30px;
+  width:30px;
+  height:30px;
+  min-width:30px;
+  min-height:30px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid rgba(155,93,224,.34);
+  border-radius:4px;
+  background:rgba(12,8,18,.72);
+  color:#bca0d2;
+  font:700 16px/1 var(--font-tech);
+  cursor:pointer;
+}
+.chat-image-upload-btn:hover { border-color:#9b5de0; color:#fff; }
+.chat-image-upload-btn:disabled { opacity:.45; cursor:wait; }
+.chat-image-link { display:block; width:fit-content; max-width:100%; margin-top:6px; }
+.chat-image-attachment {
+  display:block;
+  width:auto;
+  height:auto;
+  max-width:min(420px,100%);
+  max-height:360px;
+  object-fit:contain;
+  border:1px solid rgba(155,93,224,.42);
+  border-radius:8px;
+  box-shadow:0 5px 18px rgba(0,0,0,.38);
+  cursor:zoom-in;
+}
