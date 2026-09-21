@@ -824,18 +824,6 @@ body.gm-layout-resizing * {
   margin-bottom: 16px;
 }
 
-/* WOMF fail-declare row: FAIL A/B/C/D keep the inherited 4-column grid,
-   FAIL K (the Final) gets its own full-width row underneath rather than
-   wrapping awkwardly into a 5th narrow column. */
-.womf-fail-grid {
-  margin-bottom: 8px;
-}
-
-.womf-fail-grid #womf-fail-final-btn {
-  grid-column: 1 / -1;
-  margin-top: 2px;
-}
-
 .gm-col-btn {
   background: var(--button-bg);
   border: 1px solid var(--button-border);
@@ -1340,22 +1328,6 @@ body.gm-layout-resizing * {
 
 .gm-module-womf::before {
   background: linear-gradient(90deg, rgba(231,76,60,0.9), transparent);
-}
-
-.womf-fail-btn {
-  background:
-    linear-gradient(180deg, rgba(75,31,35,0.88), rgba(31,20,23,0.96));
-  border-color: rgba(200, 84, 84, 0.75) !important;
-  color: #efaaaa !important;
-  font-weight: 700;
-}
-
-#womf-fail-final-btn {
-  min-height: 44px;
-  border-color: rgba(231,76,60,0.92) !important;
-  box-shadow:
-    inset 0 0 16px rgba(231,76,60,0.08),
-    0 0 10px rgba(231,76,60,0.08);
 }
 
 #reset-board-btn {
