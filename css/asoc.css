@@ -536,8 +536,7 @@ textarea {
 
 /* GM DESKTOP LAYOUT SPLITTER
    Shadow Broker only. This element exists in index.html, never join.html.
-   The two red rails deliberately occupy the old visual gutter between the
-   battlefield and GM command rail while the transparent center is the grab zone. */
+   Chrome-gunmetal rail matching the player-side battlefield splitter. */
 .gm-layout-splitter {
   position: relative;
   flex: 0 0 16px;
@@ -548,7 +547,16 @@ textarea {
   touch-action: none;
   user-select: none;
   z-index: 24;
-  background: linear-gradient(90deg, rgba(0,0,0,.18), rgba(18,5,8,.34) 50%, rgba(0,0,0,.18));
+  background:
+    linear-gradient(90deg,
+      rgba(7,9,12,.94) 0 2px,
+      rgba(104,116,129,.44) 2px 4px,
+      rgba(31,36,43,.98) 4px 12px,
+      rgba(104,116,129,.44) 12px 14px,
+      rgba(7,9,12,.94) 14px 16px);
+  box-shadow:
+    inset 1px 0 rgba(214,221,228,.06),
+    inset -1px 0 rgba(0,0,0,.72);
 }
 
 .gm-layout-splitter::before,
@@ -559,9 +567,9 @@ textarea {
   bottom: 8px;
   width: 2px;
   border-radius: 2px;
-  background: #b71924;
-  box-shadow: 0 0 7px rgba(229, 32, 48, .38);
-  opacity: .72;
+  background: rgba(138,149,161,.78);
+  box-shadow: 0 0 5px rgba(171,182,194,.20);
+  opacity: .88;
   transition: opacity .14s ease, box-shadow .14s ease, background .14s ease;
 }
 
@@ -578,11 +586,12 @@ textarea {
   border-radius: 4px;
   background: repeating-linear-gradient(
     180deg,
-    rgba(231, 76, 92, .12) 0 5px,
-    rgba(231, 76, 92, .62) 5px 7px,
-    rgba(231, 76, 92, .12) 7px 12px
+    rgba(93,104,116,.18) 0 5px,
+    rgba(188,197,207,.88) 5px 7px,
+    rgba(93,104,116,.18) 7px 12px
   );
-  opacity: .58;
+  box-shadow: 0 0 8px rgba(177,187,198,.16);
+  opacity: .72;
   pointer-events: none;
 }
 
@@ -591,10 +600,23 @@ textarea {
 .gm-layout-splitter:focus-visible::before,
 .gm-layout-splitter:focus-visible::after,
 body.gm-layout-resizing .gm-layout-splitter::before,
-body.gm-layout-resizing .gm-layout-splitter-grip::after {
+body.gm-layout-resizing .gm-layout-splitter::after {
   opacity: 1;
-  background: #ff2638;
-  box-shadow: 0 0 13px rgba(255, 38, 56, .72);
+  background: rgba(185,195,205,.92);
+  box-shadow: 0 0 10px rgba(166,177,189,.28);
+}
+
+.gm-layout-splitter:hover,
+.gm-layout-splitter:focus-visible,
+body.gm-layout-resizing .gm-layout-splitter {
+  background:
+    linear-gradient(90deg,
+      rgba(7,9,12,.96) 0 2px,
+      rgba(154,166,178,.70) 2px 4px,
+      rgba(38,43,51,.99) 4px 12px,
+      rgba(154,166,178,.70) 12px 14px,
+      rgba(7,9,12,.96) 14px 16px);
+  box-shadow: 0 0 12px rgba(166,177,189,.18);
 }
 
 .gm-layout-splitter:focus-visible {
