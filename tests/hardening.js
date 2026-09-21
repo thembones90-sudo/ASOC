@@ -61,11 +61,13 @@ function wait(ws, predicate, label = 'message', timeout = 4000) {
 
 async function openWs(handshake = true) {
   const ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
+  const helloP = handshake ? wait(ws, m => m.type === 'protocol:hello', 'protocol hello') : null;
   await once(ws, 'open');
   if (!handshake) return ws;
-  await wait(ws, m => m.type === 'protocol:hello', 'protocol hello');
+  await helloP;
+  const readyP = wait(ws, m => m.type === 'protocol:ready', 'protocol ready');
   ws.send(JSON.stringify({ type: 'protocol:hello', protocolVersion: 1 }));
-  await wait(ws, m => m.type === 'protocol:ready', 'protocol ready');
+  await readyP;
   return ws;
 }
 
