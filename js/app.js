@@ -272,7 +272,8 @@ const App = {
       splitter.setAttribute('aria-valuemax', String(Math.round(MAX_RATIO * 100)));
       splitter.setAttribute('aria-valuenow', String(pct));
       splitter.setAttribute('aria-valuetext', `GM rail ${pct}% // battlefield ${100 - pct}%`);
-      splitter.dataset.resizeReadout = `GM WIDTH ${pct}%`;
+      const grip = splitter.querySelector('.gm-layout-splitter-grip');
+      if (grip) grip.dataset.resizeReadout = `GM WIDTH ${pct}%`;
     };
 
     const refitBoard = () => {
