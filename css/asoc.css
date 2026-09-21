@@ -11100,3 +11100,174 @@ body.room-mode-casual #blood-tribute-vault-section {
     min-height:360px !important;
   }
 }
+
+
+/* CASUAL FINAL SHELL // same chat, full viewport */
+body.room-mode-casual #app-layout {
+  display:grid !important;
+  grid-template-columns:clamp(190px,16vw,240px) minmax(0,1fr) !important;
+  width:100vw !important;
+  height:100dvh !important;
+  min-height:100dvh !important;
+  overflow:hidden !important;
+  align-items:stretch !important;
+}
+
+body.room-mode-casual #main-content {
+  display:block !important;
+  grid-column:1 !important;
+  width:auto !important;
+  max-width:none !important;
+  height:100dvh !important;
+  min-height:0 !important;
+  padding:10px 8px !important;
+  overflow:hidden !important;
+  background:linear-gradient(180deg,rgba(14,18,23,.96),rgba(7,9,12,.98)) !important;
+  border-right:1px solid rgba(116,126,139,.26);
+}
+
+body.room-mode-casual #main-content > * {
+  display:none !important;
+}
+
+body.room-mode-casual #battle-controls-panel {
+  display:block !important;
+  width:100% !important;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+body.room-mode-casual #battle-controls-panel > * {
+  display:none !important;
+}
+
+body.room-mode-casual #battle-controls-panel .battle-controls-grid,
+body.room-mode-casual #battle-controls-panel .battle-controls-host-slot,
+body.room-mode-casual #battle-controls-panel .room-mode-toggle {
+  display:flex !important;
+}
+
+body.room-mode-casual #battle-controls-panel .battle-controls-grid {
+  width:100% !important;
+}
+
+body.room-mode-casual #gm-panel {
+  grid-column:2 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  width:auto !important;
+  max-width:none !important;
+  height:100dvh !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+  border-left:0 !important;
+}
+
+body.room-mode-casual #gm-panel .gm-content {
+  flex:1 1 auto !important;
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+  padding:8px 10px 10px !important;
+}
+
+body.room-mode-casual #gm-panel .gm-module-chat {
+  display:block !important;
+  width:100% !important;
+  height:100% !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+  margin:0 !important;
+}
+
+body.room-mode-casual #gm-panel .gm-chat-panel {
+  display:flex !important;
+  flex-direction:column !important;
+  width:100% !important;
+  height:100% !important;
+  min-height:0 !important;
+  max-height:none !important;
+  resize:none !important;
+  overflow:hidden !important;
+}
+
+body.room-mode-casual #gm-chat-messages {
+  display:block !important;
+  flex:1 1 0 !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  max-height:none !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+}
+
+body.room-mode-casual .gm-chat-header,
+body.room-mode-casual #gm-broker-bar {
+  flex:0 0 auto !important;
+}
+
+body.room-mode-casual #gm-panel .gm-footer {
+  position:fixed !important;
+  left:8px !important;
+  bottom:8px !important;
+  width:calc(clamp(190px,16vw,240px) - 16px) !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  z-index:30 !important;
+}
+
+body.room-mode-casual #gm-logout-btn {
+  width:100% !important;
+  min-height:30px !important;
+  height:30px !important;
+  margin:0 !important;
+  padding:4px 8px !important;
+  font-size:9px !important;
+  opacity:.58;
+}
+
+body.room-mode-casual #library-btn-footer {
+  display:none !important;
+}
+
+@media (max-width:760px) {
+  body.room-mode-casual #app-layout {
+    display:flex !important;
+    flex-direction:column !important;
+    width:100% !important;
+    height:100dvh !important;
+    min-height:100dvh !important;
+  }
+
+  body.room-mode-casual #main-content {
+    flex:0 0 auto !important;
+    width:100% !important;
+    height:auto !important;
+    padding:6px 8px !important;
+    border-right:0;
+    border-bottom:1px solid rgba(116,126,139,.26);
+  }
+
+  body.room-mode-casual #gm-panel {
+    flex:1 1 auto !important;
+    width:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+  }
+
+  body.room-mode-casual #gm-panel .gm-content {
+    height:100% !important;
+    padding:6px 8px 8px !important;
+  }
+
+  body.room-mode-casual #gm-panel .gm-footer {
+    display:none !important;
+  }
+}
