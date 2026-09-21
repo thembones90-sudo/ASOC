@@ -10122,3 +10122,70 @@ body.game-complete .recount-btn,
     -webkit-font-smoothing: antialiased;
   }
 }
+
+
+/* GM PLAYER MESSAGE GEOMETRY LOCK // 2026-09-21
+   Keep one-line player bubbles exactly level with the bottom of the stacked
+   X + black-heart controls. Long messages may grow naturally. */
+@media (min-width: 761px) {
+  .gm-module-chat .gm-chat-message.gm-flow-message {
+    padding: 2px 4px 2px 0 !important;
+  }
+
+  .gm-module-chat .gm-flow-message:not(.grouped),
+  .gm-module-chat .gm-flow-message.grouped {
+    margin-top: 3px !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster {
+    align-items: flex-start !important;
+    gap: 5px !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-message-main {
+    box-sizing: border-box !important;
+    min-height: 68px !important;
+    padding: 5px 9px 5px !important;
+    border-radius: 9px 9px 9px 4px !important;
+  }
+
+  .gm-module-chat .gm-chat-flow-header {
+    min-height: 12px !important;
+    margin: 0 0 2px !important;
+  }
+
+  .gm-module-chat .gm-chat-flow-header .gm-chat-player-name {
+    font-size: .68rem !important;
+    line-height: 1.1 !important;
+  }
+
+  .gm-module-chat .gm-flow-message .gm-chat-message-text {
+    font-size: .90rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .gm-module-chat .gm-chat-message-line {
+    gap: 6px !important;
+  }
+
+  .gm-module-chat .gm-chat-message-line .gm-chat-time {
+    font-size: .54rem !important;
+    padding: 0 0 1px 3px !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-quick-actions {
+    flex: 0 0 32px !important;
+    min-width: 32px !important;
+    width: 32px !important;
+    height: 68px !important;
+    gap: 4px !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-quick-actions .gm-verdict-btn {
+    flex: 0 0 32px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+}
