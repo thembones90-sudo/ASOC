@@ -10696,3 +10696,12 @@ body.room-mode-casual #gm-panel {
     grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   }
 }
+
+
+/* CASUAL MODE // no battle-only WOMF controls */
+body.room-mode-casual #womf-controls-section,
+body.room-mode-casual #womf-tracker-gm,
+body.room-mode-casual #gm-chat-height-splitter,
+body.room-mode-casual #gm-clue-height-splitter {
+  display:none !important;
+}
