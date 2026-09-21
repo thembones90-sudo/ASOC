@@ -14092,3 +14092,18 @@ body.room-mode-casual #gm-broker-bar {
     inset 0 1px 0 rgba(255,255,255,.018),
     0 -10px 22px rgba(83,48,112,.08) !important;
 }
+
+
+/* CASUAL COMPOSER BOTTOM INSET
+   Keep the Shadow Broker composer docked, but lift its controls away from
+   the viewport edge so the Casual chat does not visually fuse to the bezel. */
+body.room-mode-casual #gm-broker-bar {
+  box-sizing:border-box !important;
+  padding:8px 10px 14px !important;
+}
+
+@media (max-width:760px) {
+  body.room-mode-casual #gm-broker-bar {
+    padding:8px 10px max(14px, env(safe-area-inset-bottom)) !important;
+  }
+}
