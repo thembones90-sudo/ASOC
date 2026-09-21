@@ -582,7 +582,7 @@ textarea {
 .gm-layout-splitter:focus-visible::before,
 .gm-layout-splitter:focus-visible::after,
 body.gm-layout-resizing .gm-layout-splitter::before,
-body.gm-layout-resizing .gm-layout-splitter::after {
+body.gm-layout-resizing .gm-layout-splitter-grip::after {
   opacity: 1;
   background: #ff2638;
   box-shadow: 0 0 13px rgba(255, 38, 56, .72);
@@ -2646,7 +2646,7 @@ body.gm-clue-height-resizing * {
 /* Temporary precision readouts appear only while a splitter is actively
    moving. The stored dimensions remain invisible during normal play. */
 .gm-module-height-splitter::after,
-.gm-layout-splitter::after {
+.gm-layout-splitter-grip::after {
   content: attr(data-resize-readout);
   position: absolute;
   z-index: 120;
@@ -2670,13 +2670,11 @@ body.gm-clue-height-resizing * {
   transform: translateX(-50%);
 }
 
-.gm-layout-splitter::after {
+.gm-layout-splitter-grip::after {
   left: 50%;
   top: 50%;
   width: auto;
   height: auto;
-  bottom: auto;
-  right: auto;
   transform: translate(-50%,-50%) rotate(-90deg);
 }
 
