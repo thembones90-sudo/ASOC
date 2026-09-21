@@ -11459,3 +11459,310 @@ body.room-mode-casual #gm-panel .gm-footer {
   box-shadow:0 5px 18px rgba(0,0,0,.38);
   cursor:zoom-in;
 }
+
+
+/* CHAT COMPOSER POLISH V2 // unified in-game GM composer */
+#gm-broker-bar .shadow-broker-form {
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+}
+
+#gm-broker-bar .shadow-broker-form-label {
+  flex:0 0 auto;
+}
+
+#gm-broker-bar .gm-composer-shell {
+  position:relative;
+  display:flex;
+  align-items:center;
+  flex:1 1 auto;
+  min-width:0;
+  min-height:46px;
+  padding:4px 7px;
+  gap:2px;
+  border:1px solid rgba(112,122,135,.46);
+  border-radius:24px;
+  background:linear-gradient(180deg,rgba(27,31,38,.97),rgba(16,19,24,.99));
+  box-shadow:inset 0 1px rgba(255,255,255,.04),0 4px 16px rgba(0,0,0,.22);
+  box-sizing:border-box;
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+
+#gm-broker-bar .gm-composer-shell:focus-within {
+  border-color:rgba(155,93,224,.72);
+  box-shadow:inset 0 1px rgba(255,255,255,.05),0 0 0 1px rgba(155,93,224,.16),0 5px 20px rgba(0,0,0,.28);
+}
+
+#gm-broker-bar .gm-attachment-wrap {
+  position:relative;
+  flex:0 0 36px;
+  width:36px;
+  height:36px;
+}
+
+#gm-broker-bar #gm-image-upload-btn,
+#gm-broker-bar #gm-emoji-toggle {
+  position:static !important;
+  inset:auto !important;
+  transform:none !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  flex:0 0 36px !important;
+  width:36px !important;
+  height:36px !important;
+  min-width:36px !important;
+  min-height:36px !important;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:50% !important;
+  background:transparent !important;
+  color:#a7aeb8 !important;
+  cursor:pointer;
+  z-index:5 !important;
+  transition:background .13s ease,color .13s ease,transform .13s ease !important;
+}
+
+#gm-broker-bar #gm-image-upload-btn {
+  font:400 1.72rem/1 Arial,sans-serif !important;
+}
+
+#gm-broker-bar #gm-emoji-toggle {
+  font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif !important;
+  font-size:1.18rem !important;
+  line-height:1 !important;
+}
+
+#gm-broker-bar #gm-image-upload-btn:hover,
+#gm-broker-bar #gm-emoji-toggle:hover,
+#gm-broker-bar #gm-image-upload-btn[aria-expanded="true"],
+#gm-broker-bar #gm-emoji-toggle[aria-expanded="true"] {
+  color:#f6f2fa !important;
+  background:rgba(155,93,224,.17) !important;
+}
+
+#gm-broker-bar #gm-image-upload-btn:active,
+#gm-broker-bar #gm-emoji-toggle:active {
+  transform:scale(.94) !important;
+}
+
+#gm-broker-bar #gm-image-upload-btn.is-uploading {
+  opacity:.52 !important;
+  pointer-events:none;
+}
+
+#gm-broker-bar #shadow-broker-composer {
+  position:static !important;
+  flex:1 1 auto !important;
+  width:auto !important;
+  min-width:0 !important;
+  min-height:36px !important;
+  max-width:none !important;
+  padding:8px 9px !important;
+  border:0 !important;
+  border-radius:0 !important;
+  outline:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  color:#edf0f4 !important;
+  line-height:1.35 !important;
+  box-sizing:border-box;
+}
+
+#gm-broker-bar #shadow-broker-composer:empty::before {
+  color:#7f8791 !important;
+}
+
+#gm-broker-bar .gm-attachment-menu {
+  position:absolute;
+  left:0;
+  bottom:calc(100% + 9px);
+  z-index:210;
+  width:218px;
+  padding:6px;
+  border:1px solid rgba(100,111,124,.66);
+  border-radius:10px;
+  background:linear-gradient(180deg,rgba(28,33,39,.997),rgba(13,16,20,.997));
+  box-shadow:0 15px 36px rgba(0,0,0,.68),inset 0 1px rgba(255,255,255,.045);
+}
+
+#gm-broker-bar .gm-attachment-menu[hidden] {
+  display:none !important;
+}
+
+#gm-broker-bar .gm-attachment-option {
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr);
+  align-items:center;
+  gap:9px;
+  width:100%;
+  min-height:48px;
+  padding:6px 8px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:#e8ebef;
+  text-align:left;
+  cursor:pointer;
+}
+
+#gm-broker-bar .gm-attachment-option:hover,
+#gm-broker-bar .gm-attachment-option:focus-visible {
+  background:rgba(155,93,224,.13);
+  outline:none;
+}
+
+#gm-broker-bar .gm-attachment-option-icon {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:30px;
+  height:30px;
+  border-radius:8px;
+  background:rgba(45,124,202,.16);
+  color:#67aef1;
+  font:700 1rem/1 var(--font-tech);
+}
+
+#gm-broker-bar .gm-attachment-option-copy {
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+
+#gm-broker-bar .gm-attachment-option-copy b {
+  font:800 .62rem/1.15 var(--font-system);
+  letter-spacing:.06em;
+}
+
+#gm-broker-bar .gm-attachment-option-copy small {
+  color:#7f8994;
+  font:700 .48rem/1.2 var(--font-system);
+  letter-spacing:.03em;
+}
+
+#gm-broker-bar #gm-emoji-picker.gm-emoji-picker {
+  position:absolute !important;
+  left:42px !important;
+  right:auto !important;
+  bottom:calc(100% + 9px) !important;
+  width:228px !important;
+  max-width:min(228px,calc(100vw - 26px)) !important;
+  max-height:318px !important;
+  grid-template-columns:repeat(5,40px) !important;
+  gap:4px !important;
+  padding:8px !important;
+  border:1px solid rgba(100,111,124,.68) !important;
+  border-radius:11px !important;
+  background:linear-gradient(180deg,rgba(28,33,39,.997),rgba(13,16,20,.997)) !important;
+  box-shadow:0 16px 38px rgba(0,0,0,.68),inset 0 1px rgba(255,255,255,.045) !important;
+  z-index:215 !important;
+  box-sizing:border-box;
+}
+
+#gm-broker-bar #gm-emoji-picker .gm-emoji-option {
+  width:40px !important;
+  min-width:40px !important;
+  height:38px !important;
+  border-radius:7px !important;
+  font-size:1.28rem !important;
+}
+
+#gm-broker-bar #gm-emoji-picker .gm-emoji-picker-head,
+#gm-chat-reaction-picker .gm-emoji-picker-head {
+  grid-column:1 / -1;
+  min-height:34px !important;
+  margin:-2px -2px 3px !important;
+  padding:5px 6px !important;
+  border-radius:7px 7px 0 0;
+  font-size:.58rem !important;
+}
+
+#gm-broker-bar #gm-emoji-picker .gm-emoji-edit-status,
+#gm-chat-reaction-picker .gm-emoji-edit-status {
+  font-size:.48rem !important;
+}
+
+#gm-broker-bar #gm-emoji-picker .gm-emoji-edit-toggle,
+#gm-chat-reaction-picker .gm-emoji-edit-toggle {
+  min-width:46px !important;
+  height:25px !important;
+  font-size:.48rem !important;
+}
+
+.gm-emoji-section-label {
+  grid-column:1 / -1;
+  padding:3px 2px 1px;
+  color:#737e8a;
+  font:800 .48rem/1 var(--font-system);
+  letter-spacing:.12em;
+}
+
+#gm-chat-reaction-picker.gm-chat-floating-emoji-picker {
+  grid-template-columns:repeat(5,40px) !important;
+  width:228px !important;
+  max-width:min(228px,calc(100vw - 18px)) !important;
+  max-height:318px !important;
+  gap:4px !important;
+  padding:8px !important;
+  border:1px solid rgba(100,111,124,.68) !important;
+  border-radius:11px !important;
+  background:linear-gradient(180deg,rgba(28,33,39,.997),rgba(13,16,20,.997)) !important;
+  box-shadow:0 16px 38px rgba(0,0,0,.68),inset 0 1px rgba(255,255,255,.045) !important;
+  box-sizing:border-box;
+}
+
+#gm-chat-reaction-picker .gm-emoji-option {
+  width:40px !important;
+  min-width:40px !important;
+  height:38px !important;
+  border-radius:7px !important;
+  font-size:1.28rem !important;
+}
+
+@media (max-width:760px) {
+  #gm-broker-bar .shadow-broker-form {
+    gap:5px !important;
+  }
+
+  #gm-broker-bar .shadow-broker-form-label {
+    display:none !important;
+  }
+
+  #gm-broker-bar .gm-composer-shell {
+    width:100%;
+    min-height:44px;
+    padding:3px 5px;
+  }
+
+  #gm-broker-bar #gm-image-upload-btn,
+  #gm-broker-bar #gm-emoji-toggle,
+  #gm-broker-bar .gm-attachment-wrap {
+    width:34px !important;
+    height:34px !important;
+    min-width:34px !important;
+    min-height:34px !important;
+    flex-basis:34px !important;
+  }
+
+  #gm-broker-bar #gm-emoji-picker.gm-emoji-picker {
+    left:0 !important;
+    width:min(228px,calc(100vw - 34px)) !important;
+  }
+
+  #gm-broker-bar .gm-attachment-menu {
+    width:min(218px,calc(100vw - 34px));
+  }
+}
+
+/* CHAT REACTION PICKER COMFORT // GM + shared definitions */
+#gm-chat-reaction-picker .gm-emoji-divider {
+  grid-column:1 / -1;
+}
+
+#gm-chat-reaction-picker .commander-reaction-picker {
+  grid-column:1 / -1;
+}
