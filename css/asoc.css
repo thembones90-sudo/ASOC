@@ -11396,3 +11396,31 @@ body.room-mode-casual #gm-panel .gm-footer {
     min-height:calc(100dvh - 74px) !important;
   }
 }
+
+
+/* COMPOSER WIDTH // GM
+   Only the typing control grows. Transcript geometry stays untouched. */
+#gm-broker-bar .shadow-broker-form {
+  width:min(760px,100%) !important;
+  max-width:760px !important;
+  box-sizing:border-box !important;
+}
+
+#gm-broker-bar #shadow-broker-composer {
+  flex:1 1 520px !important;
+  width:auto !important;
+  min-width:min(360px,52vw) !important;
+  max-width:none !important;
+}
+
+@media (max-width:760px) {
+  #gm-broker-bar .shadow-broker-form {
+    width:100% !important;
+    max-width:none !important;
+  }
+
+  #gm-broker-bar #shadow-broker-composer {
+    min-width:0 !important;
+    flex:1 1 auto !important;
+  }
+}

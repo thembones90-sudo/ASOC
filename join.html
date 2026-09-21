@@ -5148,6 +5148,35 @@
       }
     }
 
+
+
+    /* COMPOSER WIDTH // LITTLE HERO
+       Match the GM's longer typing field without touching the transcript. */
+    .battle-comms-lobby .chat-form {
+      width:min(760px,100%) !important;
+      max-width:760px !important;
+      box-sizing:border-box !important;
+    }
+
+    .battle-comms-lobby #chat-input {
+      flex:1 1 520px !important;
+      width:auto !important;
+      min-width:min(360px,52vw) !important;
+      max-width:none !important;
+    }
+
+    @media (max-width:760px) {
+      .battle-comms-lobby .chat-form {
+        width:100% !important;
+        max-width:none !important;
+      }
+
+      .battle-comms-lobby #chat-input {
+        min-width:0 !important;
+        flex:1 1 auto !important;
+      }
+    }
+
   </style>
 </head>
 <body>
