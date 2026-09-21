@@ -4725,6 +4725,101 @@
       }
     }
 
+
+
+    /* MOBILE PLAYER CHAT WIDTH LOCK V1 */
+    @media (max-width: 760px) {
+      .battle-comms-lobby,
+      .battle-comms-lobby #chat-panel,
+      .battle-comms-lobby #chat-messages {
+        width:100% !important;
+        max-width:100% !important;
+        min-width:0 !important;
+        box-sizing:border-box !important;
+      }
+
+      .battle-comms-lobby #chat-panel,
+      .battle-comms-lobby #chat-messages {
+        overflow-x:hidden !important;
+      }
+
+      .battle-comms-lobby #chat-messages {
+        padding:8px 6px 12px !important;
+      }
+
+      .battle-comms-lobby .chat-message {
+        width:100% !important;
+        max-width:100% !important;
+        min-width:0 !important;
+        box-sizing:border-box !important;
+        grid-template-columns:42px minmax(0,1fr) !important;
+        column-gap:8px !important;
+        padding:4px 2px 6px 0 !important;
+      }
+
+      .battle-comms-lobby .chat-avatar-rail,
+      .battle-comms-lobby .chat-message.grouped .chat-avatar-rail {
+        width:42px !important;
+        min-width:42px !important;
+        max-width:42px !important;
+      }
+
+      .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
+      .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact {
+        width:38px !important;
+        height:38px !important;
+        flex:0 0 38px !important;
+      }
+
+      .battle-comms-lobby .chat-message-main {
+        justify-self:stretch !important;
+        width:100% !important;
+        min-width:0 !important;
+        max-width:100% !important;
+        box-sizing:border-box !important;
+        padding:8px 10px 7px !important;
+      }
+
+      .battle-comms-lobby .chat-message-header,
+      .battle-comms-lobby .chat-message.grouped .chat-message-header {
+        width:100% !important;
+        min-width:0 !important;
+        box-sizing:border-box !important;
+        padding-right:38px !important;
+      }
+
+      .battle-comms-lobby .chat-message-line {
+        display:grid !important;
+        grid-template-columns:minmax(0,1fr) auto !important;
+        align-items:end !important;
+        gap:8px !important;
+        width:100% !important;
+        min-width:0 !important;
+        max-width:100% !important;
+      }
+
+      .battle-comms-lobby .chat-message-text {
+        min-width:0 !important;
+        max-width:100% !important;
+        overflow-wrap:break-word !important;
+        word-break:normal !important;
+        hyphens:auto;
+        white-space:normal !important;
+      }
+
+      .battle-comms-lobby .chat-message-line .chat-time,
+      .battle-comms-lobby .chat-edited-marker {
+        flex:none !important;
+        white-space:nowrap !important;
+      }
+
+      .battle-comms-lobby .chat-reply-context,
+      .battle-comms-lobby .chat-reactions,
+      .battle-comms-lobby .shadow-broker-transmission {
+        max-width:100% !important;
+        box-sizing:border-box !important;
+      }
+    }
   </style>
 </head>
 <body>
