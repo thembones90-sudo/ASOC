@@ -2754,18 +2754,20 @@ const App = {
     return `
       <div class="gm-chat-message gm-flow-message ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
         <div class="gm-chat-avatar-rail">${grouped ? '' : this.littleHeroAvatarHTML(identity, true)}</div>
-        <div class="gm-chat-message-main">
-          ${grouped ? '' : `<div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>`}
-          ${replyContextHtml}
-          <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>
-          ${verdictMetaHtml}
-          ${verdictResponseHtml}
-          ${this.createGMReactionSummaryHTML(msg)}
+        <div class="gm-chat-bubble-cluster">
+          <div class="gm-chat-message-main">
+            ${grouped ? '' : `<div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>`}
+            ${replyContextHtml}
+            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>
+            ${verdictMetaHtml}
+            ${verdictResponseHtml}
+            ${this.createGMReactionSummaryHTML(msg)}
+          </div>
+          ${showControls ? `<div class="gm-chat-quick-actions" aria-label="Judge message if it is an answer">
+            <button class="gm-verdict-btn wrong" data-message-id="${this.escapeHtml(msg.id)}" data-verdict="wrong" title="Reject as answer">×</button>
+            <button class="gm-verdict-btn correct" data-message-id="${this.escapeHtml(msg.id)}" data-verdict="correct" title="Accept as answer">🖤</button>
+          </div>` : '<div class="gm-chat-quick-actions adjudicated" aria-hidden="true"></div>'}
         </div>
-        ${showControls ? `<div class="gm-chat-quick-actions" aria-label="Judge message if it is an answer">
-          <button class="gm-verdict-btn wrong" data-message-id="${this.escapeHtml(msg.id)}" data-verdict="wrong" title="Reject as answer">×</button>
-          <button class="gm-verdict-btn correct" data-message-id="${this.escapeHtml(msg.id)}" data-verdict="correct" title="Accept as answer">🖤</button>
-        </div>` : '<div class="gm-chat-quick-actions adjudicated" aria-hidden="true"></div>'}
       </div>
     `;
   },
