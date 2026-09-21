@@ -85,6 +85,10 @@
         <!-- RECOUNT gate: appears only when the game is over (whole field opened, or lost
              on time). SHOW RESULTS broadcasts the RECOUNT to everyone; afterwards it reopens it. -->
         <button class="gm-global-btn recount-btn" id="recount-btn" type="button">SHOW RESULTS</button>
+        <div class="battle-controls-utility-row" style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr);gap:10px;margin-top:10px;">
+          <button class="toolbar-btn" id="library-btn-footer" style="width:100%;margin:0;">GAME LIBRARY</button>
+          <button class="toolbar-btn gm-logout-btn" id="gm-logout-btn" type="button" title="Log out of the Shadow Broker session" style="width:100%;margin:0;">DISCONNECT SHADOW BROKER</button>
+        </div>
       </section>
     </main>
 
@@ -224,10 +228,6 @@
         </section>
       </div>
 
-      <footer class="gm-footer">
-        <button class="toolbar-btn" id="library-btn-footer" style="width: 100%; margin-top: 8px;">GAME LIBRARY</button>
-        <button class="toolbar-btn gm-logout-btn" id="gm-logout-btn" type="button" title="Log out of the Shadow Broker session">DISCONNECT SHADOW BROKER</button>
-      </footer>
     </aside>
   </div>
 
