@@ -1551,12 +1551,28 @@ const PlayerApp = {
   },
 
   getChatMentionCandidates(query = '') {
-    const needle = String(query || '').toLocaleLowerCase();
+    const needle = String(query || '').trim().toLocaleLowerCase();
     return (this.currentPlayers || [])
-      .filter(player => player && player.connected !== false && String(player.name || '').trim())
-      .filter(player => String(player.name).toLocaleLowerCase().startsWith(needle))
-      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .filter(player => player && String(player.name || '').trim())
+      .filter(player => !needle || String(player.name).toLocaleLowerCase().includes(needle))
+      .sort((a, b) => {
+        const aName = String(a.name).toLocaleLowerCase();
+        const bName = String(b.name).toLocaleLowerCase();
+        const aPrefix = needle && aName.startsWith(needle) ? 0 : 1;
+        const bPrefix = needle && bName.startsWith(needle) ? 0 : 1;
+        if (aPrefix !== bPrefix) return aPrefix - bPrefix;
+        if ((a.connected !== false) !== (b.connected !== false)) return a.connected !== false ? -1 : 1;
+        return String(a.name).localeCompare(String(b.name));
+      })
       .slice(0, 8);
+  },
+
+  refreshChatMentionRoster() {
+    if (!this.roomCode || this.ws?.readyState !== 1) return;
+    const now = Date.now();
+    if (now - Number(this._chatMentionRosterRequestedAt || 0) < 900) return;
+    this._chatMentionRosterRequestedAt = now;
+    this.send({ type: 'players:list' });
   },
 
   renderChatMentionPicker(picker) {
@@ -1566,7 +1582,7 @@ const PlayerApp = {
       <button type="button" class="chat-mention-option${index === this._chatMentionIndex ? ' active' : ''}" data-mention-index="${index}" role="option" aria-selected="${index === this._chatMentionIndex ? 'true' : 'false'}">
         ${this.littleHeroAvatarHTML(player, true)}
         <span>${this.escapeHtml(player.name)}</span>
-        <small>TAG</small>
+        <small>${player.connected === false ? 'OFFLINE' : 'TAG'}</small>
       </button>
     `).join('');
   },
@@ -1578,9 +1594,19 @@ const PlayerApp = {
       this.closeChatMentionPicker(picker);
       return;
     }
+
+    // @ always resolves against the authoritative MASTER session roster.
+    // Ask the server for a fresh snapshot while mention mode is active so
+    // reconnects, renames and restored session participants are targetable.
+    this.refreshChatMentionRoster();
+
     const candidates = this.getChatMentionCandidates(context.query);
     if (!candidates.length) {
-      this.closeChatMentionPicker(picker);
+      this._chatMentionContext = context;
+      this._chatMentionCandidates = [];
+      this._chatMentionIndex = 0;
+      picker.hidden = false;
+      picker.innerHTML = '<div class="chat-mention-empty">NO MATCHING SESSION PLAYER</div>';
       return;
     }
     this._chatMentionContext = context;
