@@ -2806,7 +2806,7 @@ function handlePlayerJoin(ws, message) {
   console.log(`[ROOM ${room.code}] Player joined: ${cleanName} (${playerId})`);
 }
 
-function broadcastPlayersUpdate(room) {
+function getPlayersSnapshot(room) {
   const players = [];
   room.players.forEach((player, ws) => {
     players.push({
@@ -2820,14 +2820,31 @@ function broadcastPlayersUpdate(room) {
       score: room.scoring.players[player.id]?.sessionScore || 0
     });
   });
+  return players;
+}
 
-  const message = { type: 'players:update', players };
+function sendPlayersUpdateTo(room, ws) {
+  if (!room || !ws || ws.readyState !== 1) return;
+  sendToWs(ws, { type: 'players:update', players: getPlayersSnapshot(room) });
+}
+
+function broadcastPlayersUpdate(room) {
+  const message = { type: 'players:update', players: getPlayersSnapshot(room) };
   room.players.forEach((player, ws) => {
     if (ws.readyState === 1) ws.send(JSON.stringify(message));
   });
   if (room.hostConnection?.readyState === 1) {
     room.hostConnection.send(JSON.stringify(message));
   }
+}
+
+function handlePlayersList(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  sendPlayersUpdateTo(room, ws);
 }
 
 function handleHostReconnect(ws, message) {
@@ -4418,6 +4435,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:showRecount': {
           handleGmShowRecount(ws);
+          break;
+        }
+        case 'players:list': {
+          handlePlayersList(ws);
           break;
         }
         case 'leaderboard:getAllTime': {
