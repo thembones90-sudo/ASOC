@@ -105,6 +105,17 @@ function getById(id){
   return p?safe(p):null;
 }
 
+function updateName(id,name){
+  name=String(name||'').trim().slice(0,20);
+  if(!name)throw Error('Name cannot be empty');
+  const d=load();
+  const p=Object.values(d.players||{}).find(player=>player&&player.id===id);
+  if(!p)throw Error('Player account not found');
+  p.name=name;
+  save(d);
+  return safe(p);
+}
+
 function verifyEmail(token){
   const tokenHash=digestToken(token);
   const d=load();
@@ -135,6 +146,6 @@ function issueVerificationToken(email){
 
 module.exports={
   isHealthy() { try { load(); return true; } catch { return false; } },
-  register,login,getById,verifyEmail,issueVerificationToken,isVerified,
+  register,login,getById,updateName,verifyEmail,issueVerificationToken,isVerified,
   VERIFY_TTL_MS,RESEND_COOLDOWN_MS
 };
