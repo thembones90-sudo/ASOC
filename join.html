@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ASOC - Join Game</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260921-media-lightbox-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260921-battle-typewriter-live">
   <style>
     #join-screen {
       display: flex;
@@ -788,84 +788,7 @@
        fits the layer AFTER the HUD band is deducted -- which is by
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
-       --hud-band is measured and set by js/player.js?v=20260921-battle-messages-1 (ResizeObserver),
-       so the real strip/header heights are authoritative, never guessed.
-       Guarded to desktop (>=901px, matching the splitter's own MOBILE_QUERY
-       boundary): the narrow layouts already aspect-lock the frame, so
-       strips and board share a width there. Fallback (no container
-       queries) = width:100%, i.e. the exact old behavior. */
-    .board-hud-rail {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      flex-shrink: 0;
-      min-width: 0;
-    }
-
-    @supports (container-type: size) {
-      @media (min-width: 901px) {
-        #board-layer {
-          container-type: size;
-        }
-
-        #board-hud-rail {
-          width: min(100cqw, max(0px, calc((100cqh - var(--hud-band, 0px)) * var(--board-aspect))), var(--canvas-width));
-        }
-      }
-    }
-
-    .battle-comms-lobby .player-leaderboard-strip {
-      flex: 0 0 auto;
-      border: 1px solid rgba(116,126,139,.38);
-      margin-bottom: 8px;
-    }
-
-    /* Right rail hierarchy: CHAT is the tool. Identity/scoring is a compact
-       status bar, not three separate dashboards fighting for attention. */
-    .battle-comms-lobby .player-leaderboard-strip {
-      padding: 4px 7px;
-      min-height: 30px;
-    }
-    .battle-comms-lobby .player-leaderboard-list { gap: 7px; }
-    .battle-comms-lobby .player-leaderboard-entry { font-size: .5rem; }
-    .battle-comms-lobby .player-alltime-toggle-btn { padding: 4px 7px; font-size: .48rem; }
-    .battle-comms-lobby .little-hero-hud {
-      margin-top: 0;
-      padding: 6px 8px;
-      gap: 8px;
-    }
-    .battle-comms-lobby .hero-hud-identity { font-size: .58rem; gap: 6px; }
-    .battle-comms-lobby .hero-hud-identity .little-hero-avatar { width:26px; height:26px; flex-basis:26px; }
-    .battle-comms-lobby .hero-hud-stats { gap: 7px; font-size: .48rem; flex-wrap:nowrap; }
-    .battle-comms-lobby .little-hero-roster { display:none; }
-    .battle-comms-lobby #chat-panel { margin-top:8px; }
-    .battle-comms-lobby .chat-header { padding:8px 9px; gap:7px; }
-    .battle-comms-lobby .battle-comms-heading,
-    .battle-comms-lobby .battle-comms-status { gap:6px; }
-    .battle-comms-lobby .battle-comms-room,
-    .battle-comms-lobby .battle-comms-online,
-    .battle-comms-lobby .chat-solved { font-size:.46rem; letter-spacing:.6px; }
-    .battle-comms-lobby .battle-comms-room { padding-left:6px; }
-    .battle-comms-lobby .chat-title { font-size:.58rem; }
-    .battle-comms-lobby .chat-form { padding:7px; gap:7px; }
-    .battle-comms-lobby #chat-input { padding:10px 9px; font-size:.8rem; }
-    .battle-comms-lobby .chat-send-btn { padding:10px 11px; font-size:.62rem; }
-
-    /* SKYNET DETENTION TERMINAL: the player rail should feel like a cell
-       terminal bolted into gunmetal, not a generic web-chat card. */
-    .battle-comms-lobby {
-      position: relative;
-      padding: 10px 10px 8px 16px;
-      border-left: 2px solid #343a42;
-      overflow:hidden; /* LOCKED: theme ornamentation must never escape this rail. */
-      background:
-        linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 100%),
-        linear-gradient(180deg, var(--theme-rail-top,#151A20), var(--theme-rail-bottom,#080A0D) 72%);
-      box-shadow: inset 5px 0 15px rgba(0,0,0,.5), inset 1px 0 rgba(185,194,204,.14);
-    }
-    .battle-comms-lobby::before,
-    .battle-comms-lobby::after {
-      content:"";
+       --hud-band is measured and set by js/player.js?v=20260921-battle-typewriter-live"";
       position:absolute;
       left:5px;
       width:5px;
