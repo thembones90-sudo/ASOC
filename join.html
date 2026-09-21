@@ -5422,6 +5422,92 @@
       }
     }
 
+
+
+    /* PLAYER UTILITY PLACEMENT // keep utilities in the header, never below chat */
+    .hero-hud-identity-block {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      flex-wrap:wrap;
+    }
+
+    .hero-hud-identity-block .player-logout-control {
+      position:static !important;
+      left:auto !important;
+      right:auto !important;
+      top:auto !important;
+      bottom:auto !important;
+      transform:none !important;
+      z-index:auto !important;
+      min-height:28px !important;
+      height:28px !important;
+      padding:0 9px !important;
+      font-size:8px !important;
+      letter-spacing:.9px !important;
+      opacity:.72;
+      flex:0 0 auto;
+    }
+
+    .battle-comms-status .connection-status {
+      position:static !important;
+      left:auto !important;
+      right:auto !important;
+      top:auto !important;
+      bottom:auto !important;
+      transform:none !important;
+      z-index:auto !important;
+      display:inline-flex !important;
+      min-height:0 !important;
+      padding:0 !important;
+      gap:5px !important;
+      border:0 !important;
+      border-radius:0 !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      backdrop-filter:none !important;
+      font-size:.5rem !important;
+      line-height:1 !important;
+      letter-spacing:.8px !important;
+      color:#78838e !important;
+      white-space:nowrap;
+    }
+
+    .battle-comms-status .connection-status.connected {
+      color:#62b77c !important;
+    }
+
+    .battle-comms-status .connection-status .status-dot {
+      width:6px !important;
+      height:6px !important;
+      flex:0 0 6px;
+    }
+
+    .battle-comms-status {
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    @media (max-width:760px) {
+      .hero-hud-identity-block {
+        width:100%;
+        justify-content:space-between;
+      }
+
+      .hero-hud-identity-block .player-logout-control {
+        min-height:30px !important;
+        height:30px !important;
+      }
+
+      .battle-comms-status {
+        gap:7px;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -5679,7 +5765,10 @@
     <div id="player-alltime-panel" class="player-alltime-panel" style="display: none;"></div>
 
     <div id="little-hero-hud" class="little-hero-hud">
-      <div id="hero-hud-identity" class="hero-hud-identity"></div>
+      <div class="hero-hud-identity-block">
+        <div id="hero-hud-identity" class="hero-hud-identity"></div>
+        <button type="button" id="player-logout-control" class="player-logout-control" hidden aria-label="Log out and disconnect Little Hero identity">DISCONNECT IDENTITY</button>
+      </div>
       <div class="hero-hud-stats">
         <span>SCORE <b id="hero-hud-score">0</b></span>
         <span>RANK <b id="hero-hud-rank">#-</b></span>
@@ -5698,6 +5787,10 @@
         </div>
         <div class="battle-comms-status">
           <span class="battle-comms-online" id="battle-comms-online">● 0 ONLINE</span>
+          <div class="connection-status" id="connection-status">
+            <span class="status-dot"></span>
+            <span class="status-text">CONNECTING</span>
+          </div>
           <span class="chat-solved" id="chat-solved-count">SOLVED: 0/5</span>
         </div>
       </div>
@@ -5722,17 +5815,11 @@
     </div>
     </aside>
     </div>
-    <div class="connection-status" id="connection-status">
-      <span class="status-dot"></span>
-      <span class="status-text">CONNECTING</span>
-    </div>
     <div class="reconnecting" id="reconnecting-overlay">
       <div class="loading-spinner"></div>
       <div>RECONNECTING</div>
     </div>
   </div>
-
-  <button type="button" id="player-logout-control" class="player-logout-control" hidden aria-label="Log out and disconnect Little Hero identity">DISCONNECT IDENTITY</button>
 
   <div id="score-announcement-layer"></div>
 
