@@ -14049,3 +14049,46 @@ body.room-mode-casual .gm-module-chat .gm-shadow-broker-media-entry .gm-chat-gif
   border-radius:8px !important;
   object-fit:contain !important;
 }
+
+
+
+/* CASUAL MODE POLISH PASS // chronology, scrollbar, composer dock */
+body.room-mode-casual .gm-module-chat .gm-flow-message {
+  padding-top:1px !important;
+  padding-bottom:2px !important;
+}
+body.room-mode-casual .gm-module-chat .gm-flow-message:not(.grouped) {
+  margin-top:6px !important;
+  padding-top:3px !important;
+}
+body.room-mode-casual .gm-module-chat .gm-shadow-broker-entry {
+  margin-top:5px !important;
+  margin-bottom:6px !important;
+}
+body.room-mode-casual .gm-module-chat .gm-shadow-broker-media-entry {
+  margin-top:4px !important;
+  margin-bottom:4px !important;
+}
+body.room-mode-casual #gm-chat-messages {
+  scrollbar-width:thin;
+  scrollbar-color:#56616d #0b0f13;
+}
+body.room-mode-casual #gm-chat-messages::-webkit-scrollbar {
+  width:8px;
+}
+body.room-mode-casual #gm-chat-messages::-webkit-scrollbar-track {
+  background:linear-gradient(180deg,#0c1015,#080b0f);
+}
+body.room-mode-casual #gm-chat-messages::-webkit-scrollbar-thumb {
+  border:2px solid #0a0e12;
+  border-radius:999px;
+  background:linear-gradient(180deg,#626d79,#3f4852);
+}
+body.room-mode-casual #gm-chat-messages::-webkit-scrollbar-thumb:hover {
+  background:linear-gradient(180deg,#7b8794,#56616d);
+}
+body.room-mode-casual #gm-broker-bar {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.018),
+    0 -10px 22px rgba(83,48,112,.08) !important;
+}
