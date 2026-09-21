@@ -12255,7 +12255,7 @@ body.room-mode-casual #gm-panel .gm-footer {
   position:relative;
   justify-content:flex-end !important;
   min-height:30px;
-  padding:4px 8px !important;
+  padding:4px 8px 12px !important;
   margin-bottom:4px !important;
 }
 
