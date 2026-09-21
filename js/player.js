@@ -2161,13 +2161,26 @@ const PlayerApp = {
     });
   },
 
+  isDisplayableReactionEmoji(emoji) {
+    return this.chatReactionEmojis.includes(emoji) || window.CommanderEmojis?.has?.(emoji) === true;
+  },
+
+  renderReactionEmojiHTML(emoji, className = 'commander-reaction-emoji') {
+    if (window.CommanderEmojis?.has?.(emoji)) {
+      return window.CommanderEmojis.html(emoji, className);
+    }
+    return this.escapeHtml(emoji);
+  },
+
   createReactionBarHTML(msg) {
     const reactions = msg?.reactions && typeof msg.reactions === 'object' ? msg.reactions : {};
     const chips = Object.entries(reactions)
-      .filter(([emoji, playerIds]) => this.chatReactionEmojis.includes(emoji) && Array.isArray(playerIds) && playerIds.length)
+      .filter(([emoji, playerIds]) => this.isDisplayableReactionEmoji(emoji) && Array.isArray(playerIds) && playerIds.length)
       .map(([emoji, playerIds]) => {
         const mine = playerIds.map(String).includes(String(this.playerId));
-        return `<button type="button" class="chat-reaction-chip${mine ? ' mine' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" aria-pressed="${mine ? 'true' : 'false'}"><span class="chat-reaction-emoji">${this.escapeHtml(emoji)}</span><span class="chat-reaction-count">${playerIds.length}</span></button>`;
+        const commanderOnly = window.CommanderEmojis?.has?.(emoji) === true;
+        const emojiHtml = this.renderReactionEmojiHTML(emoji, 'commander-reaction-emoji');
+        return `<button type="button" class="chat-reaction-chip${mine ? ' mine' : ''}${commanderOnly ? ' commander-reaction-chip' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" aria-pressed="${mine ? 'true' : 'false'}" title="${commanderOnly ? 'Commander reaction' : 'React'}"><span class="chat-reaction-emoji">${emojiHtml}</span><span class="chat-reaction-count">${playerIds.length}</span></button>`;
       })
       .join('');
 
