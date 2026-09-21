@@ -432,6 +432,7 @@ const Skeleton = (() => {
   function playGameWon(result = {}, options = {}) {
     const onStage = typeof options.onStage === 'function' ? options.onStage : () => {};
     const live = options.live !== false;
+    if (live) window.AsocAudio?.gameWon?.();
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
     document.querySelector('.victory-link-overlay')?.remove();
@@ -582,6 +583,7 @@ const Skeleton = (() => {
   // word and result from the server-authored persisted matchResult.
   function playGameLost(result, options = {}) {
     const live = options.live !== false;
+    if (live) window.AsocAudio?.gameLost?.();
     document.querySelector('.defeat-overlay')?.remove();
     if (gameLostTimer) clearTimeout(gameLostTimer);
     if (gameLostPreludeTimer) clearTimeout(gameLostPreludeTimer);
