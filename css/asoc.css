@@ -9517,3 +9517,84 @@ body.game-complete .recount-btn,
     margin: 0 !important;
   }
 }
+
+
+/* COMMANDER REACTION PACK V1
+   Shadow Broker-only custom reactions. The artwork itself is embedded once
+   in js/commander-emojis.js; these rules only size and frame it. */
+.gm-commander-emoji-head {
+  grid-column: 1 / -1;
+  padding: 4px 6px 2px;
+  color: #c89cf0;
+  font: 900 .43rem var(--font-system);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  text-align: left;
+  text-shadow: 0 0 7px rgba(155,93,224,.28);
+}
+
+.gm-commander-emoji-option {
+  border-color: rgba(155,93,224,.44) !important;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(112,58,150,.16), transparent 70%),
+    linear-gradient(180deg, rgba(29,24,36,.98), rgba(9,9,12,.99)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.025),
+    0 0 8px rgba(155,93,224,.08);
+}
+
+.gm-commander-emoji-option:hover,
+.gm-commander-emoji-option:focus-visible {
+  border-color: #b66cf0 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.04),
+    0 0 10px rgba(155,93,224,.26) !important;
+}
+
+.commander-emoji-picker-icon {
+  display: block;
+  width: 28px;
+  height: 28px;
+  margin: auto;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 0 3px rgba(155,93,224,.28));
+}
+
+.commander-reaction-emoji {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  vertical-align: middle;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.gm-chat-reaction-chip.commander-reaction-chip,
+.chat-reaction-chip.commander-reaction-chip {
+  border-color: rgba(155,93,224,.48) !important;
+  background: linear-gradient(180deg, rgba(39,28,49,.92), rgba(16,13,21,.96)) !important;
+}
+
+.gm-chat-reaction-chip.commander-reaction-chip > span,
+.chat-reaction-chip.commander-reaction-chip .chat-reaction-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 760px) {
+  .commander-emoji-picker-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .commander-reaction-emoji {
+    width: 22px;
+    height: 22px;
+  }
+}
