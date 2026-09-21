@@ -10650,3 +10650,49 @@ body.room-mode-casual #gm-panel {
     letter-spacing:1px;
   }
 }
+
+
+/* BATTLE CONTROLS // four geometrically identical command slots */
+.battle-controls-grid {
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:10px !important;
+  align-items:stretch !important;
+}
+
+.battle-controls-host-slot {
+  display:block !important;
+  width:100% !important;
+  min-width:0 !important;
+  height:46px !important;
+}
+
+.battle-controls-host-slot .room-mode-toggle,
+#nema-asoc-btn,
+#game-won-btn,
+#game-lost-btn {
+  width:100% !important;
+  min-width:0 !important;
+  max-width:none !important;
+  height:46px !important;
+  min-height:46px !important;
+  max-height:46px !important;
+  margin:0 !important;
+  box-sizing:border-box !important;
+  align-self:stretch !important;
+}
+
+.battle-controls-host-slot .room-mode-toggle {
+  padding:3px !important;
+}
+
+.battle-controls-host-slot .room-mode-segment {
+  height:38px !important;
+  min-height:38px !important;
+  max-height:38px !important;
+}
+
+@media (max-width:760px) {
+  .battle-controls-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
