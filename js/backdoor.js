@@ -81,6 +81,41 @@ const ControlSurfaces = {
       }
     }
 
+    const layoutMaintenance = makeModule('Interface Layout');
+    layoutMaintenance.classList.add('gm-layout-maintenance');
+
+    const layoutStatus = document.createElement('div');
+    layoutStatus.id = 'gm-layout-lock-status';
+    layoutStatus.className = 'gm-layout-lock-status';
+    layoutMaintenance.appendChild(layoutStatus);
+
+    const layoutControls = document.createElement('div');
+    layoutControls.className = 'gm-global-controls gm-layout-maintenance-controls';
+    layoutControls.style.gridTemplateColumns = '1fr 1fr';
+
+    const layoutLock = document.createElement('button');
+    layoutLock.type = 'button';
+    layoutLock.id = 'gm-layout-lock-btn';
+    layoutLock.className = 'gm-global-btn gm-layout-lock-btn';
+    layoutLock.setAttribute('aria-pressed', 'false');
+    layoutLock.addEventListener('click', () => this.app?.toggleGMLayoutLock?.());
+
+    const layoutReset = document.createElement('button');
+    layoutReset.type = 'button';
+    layoutReset.id = 'gm-layout-reset-btn';
+    layoutReset.className = 'gm-global-btn reset-btn gm-layout-reset-btn';
+    layoutReset.textContent = 'RESET PANEL LAYOUT';
+    layoutReset.addEventListener('click', () => {
+      const confirmed = confirm('Reset GM panel width, Battle Chat height, and Clue Grid height to defaults?');
+      if (!confirmed) return;
+      this.app?.resetGMPanelLayout?.();
+    });
+
+    layoutControls.appendChild(layoutLock);
+    layoutControls.appendChild(layoutReset);
+    layoutMaintenance.appendChild(layoutControls);
+    this.app?.syncGMLayoutLockUI?.();
+
     const boardMaintenance = makeModule('Board Maintenance');
     const undo = document.getElementById('undo-btn');
     const resetBoard = document.getElementById('reset-board-btn');
