@@ -5510,27 +5510,90 @@
 
 
 
-    /* PLAYER SPLITTER REMOVED // board + comms only */
+    /* PLAYER DESKTOP SPLITTER // AUTHORITATIVE RESTORE V2
+       Keep the board + 14px drag rail + Battle Comms as three real grid columns.
+       This intentionally overrides the old "splitter removed" regression that
+       left --player-comms-width active while hiding the only control able to
+       change it. */
     @media (min-width:901px) {
       .player-battle-layout {
-        grid-template-columns:minmax(0,1fr) var(--player-comms-width,clamp(286px,20vw,332px)) !important;
+        grid-template-columns:minmax(0,1fr) 14px var(--player-comms-width,clamp(286px,20vw,332px)) !important;
         column-gap:0 !important;
       }
 
       #board-layer {
         grid-column:1 !important;
+        min-width:0 !important;
+      }
+
+      .player-layout-splitter {
+        display:block !important;
+        position:relative !important;
+        grid-column:2 !important;
+        grid-row:1 !important;
+        width:14px !important;
+        min-width:14px !important;
+        height:100% !important;
+        align-self:stretch !important;
+        cursor:col-resize !important;
+        touch-action:none !important;
+        user-select:none !important;
+        z-index:80 !important;
+        background:
+          linear-gradient(90deg,
+            rgba(6,8,11,.88) 0 2px,
+            rgba(128,36,47,.40) 2px 4px,
+            rgba(27,31,38,.96) 4px 10px,
+            rgba(128,36,47,.40) 10px 12px,
+            rgba(6,8,11,.88) 12px 14px) !important;
+        box-shadow:
+          inset 1px 0 rgba(255,255,255,.025),
+          inset -1px 0 rgba(0,0,0,.7) !important;
+      }
+
+      .player-layout-splitter::before,
+      .player-layout-splitter::after {
+        opacity:.92 !important;
+      }
+
+      .player-layout-splitter-grip {
+        width:6px !important;
+        height:70px !important;
+        opacity:.82 !important;
+        background:repeating-linear-gradient(
+          180deg,
+          rgba(127,36,48,.15) 0 5px,
+          rgba(224,67,82,.90) 5px 7px,
+          rgba(127,36,48,.15) 7px 12px
+        ) !important;
+        box-shadow:0 0 8px rgba(212,64,80,.18);
+      }
+
+      .player-layout-splitter:hover,
+      .player-layout-splitter:focus-visible,
+      body.player-layout-resizing .player-layout-splitter {
+        background:
+          linear-gradient(90deg,
+            rgba(6,8,11,.92) 0 2px,
+            rgba(212,64,80,.68) 2px 4px,
+            rgba(31,35,43,.98) 4px 10px,
+            rgba(212,64,80,.68) 10px 12px,
+            rgba(6,8,11,.92) 12px 14px) !important;
+        box-shadow:0 0 12px rgba(212,64,80,.20) !important;
       }
 
       .battle-comms-lobby {
-        grid-column:2 !important;
+        grid-column:3 !important;
         min-width:0 !important;
         width:100% !important;
-        border-left:1px solid rgba(116,126,139,.28) !important;
+        border-left:0 !important;
       }
     }
 
-    .player-layout-splitter {
-      display:none !important;
+    @media (max-width:900px) {
+      .player-layout-splitter {
+        display:none !important;
+      }
     }
 
     /* COMPOSER EMOJI ALIGNMENT // same row, same vertical center */
