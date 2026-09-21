@@ -9008,6 +9008,15 @@ body.game-complete .recount-btn,
   display: none !important;
 }
 
+.chat-mention-empty,
+.gm-chat-mention-empty {
+  padding: 9px 10px;
+  color: #707b88;
+  font: 800 .48rem var(--font-system);
+  letter-spacing: .10em;
+  text-align: center;
+}
+
 .chat-mention-option,
 .gm-chat-mention-option {
   display: grid;
