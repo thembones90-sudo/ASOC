@@ -740,7 +740,7 @@ const App = {
         cell.tabIndex = 0;
         const description = isFinal
           ? 'Hold to reveal FINAL'
-          : (row === 5 ? `Reveal ${key} // column solution` : `Reveal ${key} // next queued clue`);
+          : (row === 5 ? `Resolve ${key} // GREEN or RED` : `Reveal ${key} // next queued clue`);
         cell.title = description;
         cell.setAttribute('aria-label', description);
       } else {
