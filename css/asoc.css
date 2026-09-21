@@ -8960,3 +8960,41 @@ body.game-complete .recount-btn,
     min-width: 30px !important;
   }
 }
+
+
+/* ASOC CHAT MESSAGE EDITING V1 */
+.chat-message-context-menu [data-chat-action="edit"][hidden],
+.gm-chat-context-menu [data-gm-chat-action="edit"][hidden] {
+  display: none !important;
+}
+
+.chat-edited-marker,
+.gm-chat-edited-marker {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: 3px;
+  color: #6f7885;
+  font: 800 .34rem var(--font-system);
+  letter-spacing: .10em;
+  opacity: .72;
+  vertical-align: middle;
+}
+
+.chat-broker-entry > .chat-edited-marker,
+.gm-shadow-broker-entry > .gm-chat-edited-marker {
+  margin: 2px 0 0 34px;
+}
+
+#shadow-broker-form.editing-message {
+  border-color: rgba(155,93,224,.82);
+  box-shadow: inset 0 0 0 1px rgba(155,93,224,.16), 0 0 12px rgba(155,93,224,.12);
+}
+
+#shadow-broker-form.editing-message .shadow-broker-form-label {
+  color: #c9a7e8;
+}
+
+#shadow-broker-form.editing-message #shadow-broker-input {
+  color: #f0e7f8;
+}
