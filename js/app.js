@@ -1096,6 +1096,8 @@ const App = {
     // SHADOW BROKER free-form broadcast -- presentation layer only, see
     // handleGmBroadcast in server.js. Enter submits (native form submit),
     // same as the player's own chat-form.
+    this.bindGMOnlinePresence();
+
     const shadowBrokerForm = document.getElementById('shadow-broker-form');
     const shadowBrokerInput = document.getElementById('shadow-broker-input');
     const shadowBrokerComposer = this.getGMComposerElement();
@@ -2076,11 +2078,7 @@ const App = {
 
       case 'players:update':
         this.updatePlayerList(message.players);
-        {
-          const online = (message.players || []).filter(p => p.connected !== false).length;
-          const presence = document.getElementById('gm-chat-presence');
-          if (presence) presence.textContent = `● ${online} ONLINE`;
-        }
+        this.renderGMOnlinePresence(message.players || []);
         break;
 
       case 'moderation:ack':
@@ -2369,12 +2367,6 @@ const App = {
       }
     }
 
-    const title = document.querySelector('.gm-chat-title');
-    if (title) {
-      title.innerHTML = next === 'CASUAL'
-        ? '<span class="casual-network-name">ASOC NETWORK</span><span class="casual-network-state"> // CASUAL</span>'
-        : 'BATTLE CHAT';
-    }
     if (next === 'CASUAL') {
       Recount.apply(null);
       window.AsocAudio?.resetObservers?.();
@@ -2434,7 +2426,53 @@ const App = {
     }
   },
 
+  renderGMOnlinePresence(players = this.currentPlayers || []) {
+    const presence = document.getElementById('gm-chat-presence');
+    const dropdown = document.getElementById('gm-online-dropdown');
+    if (!presence || !dropdown) return;
+
+    const onlinePlayers = (players || []).filter(player => player.connected === true);
+    presence.textContent = `● ${onlinePlayers.length} ONLINE`;
+    presence.classList.toggle('has-online', onlinePlayers.length > 0);
+
+    dropdown.innerHTML = onlinePlayers.length
+      ? onlinePlayers.map(player => `
+          <div class="gm-online-player">
+            ${this.littleHeroAvatarHTML(player, true)}
+            <span>${this.escapeHtml(player.name || 'LITTLE HERO')}</span>
+          </div>
+        `).join('')
+      : '<div class="gm-online-empty">NO LITTLE HEROES ONLINE</div>';
+  },
+
+  bindGMOnlinePresence() {
+    const presence = document.getElementById('gm-chat-presence');
+    const dropdown = document.getElementById('gm-online-dropdown');
+    if (!presence || !dropdown || presence.dataset.bound === '1') return;
+    presence.dataset.bound = '1';
+
+    const close = () => {
+      dropdown.hidden = true;
+      presence.setAttribute('aria-expanded', 'false');
+    };
+
+    presence.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const opening = dropdown.hidden;
+      if (opening) this.renderGMOnlinePresence(this.currentPlayers || []);
+      dropdown.hidden = !opening;
+      presence.setAttribute('aria-expanded', String(opening));
+    });
+
+    dropdown.addEventListener('click', event => event.stopPropagation());
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') close();
+    });
+  },
+
   updatePlayerList(players) {
+    this.renderGMOnlinePresence(players || []);
     // Keep the full authoritative roster cached for mentions, scoring and
     // reconnect continuity, while the compact moderation panel shows only
     // sockets that are actually online right now.
@@ -4078,15 +4116,13 @@ const App = {
   updateSolvedCount() {
     const countEl = document.getElementById('gm-chat-solved-count');
     if (!countEl) return;
-    if (this.roomMode === 'CASUAL') {
-      countEl.textContent = 'CHANNEL OPEN';
-      return;
-    }
-    if (this.roomMode === 'BATTLE_ARMED') {
-      countEl.textContent = 'BATTLE MODE';
+    if (this.roomMode !== 'BATTLE') {
+      countEl.hidden = true;
+      countEl.textContent = '';
       return;
     }
     const solved = Object.keys(this.solvedTargets).length;
+    countEl.hidden = false;
     countEl.textContent = `SOLVED: ${solved}/5`;
   },
 
