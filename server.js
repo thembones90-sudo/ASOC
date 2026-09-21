@@ -883,9 +883,8 @@ function getPublicState(room) {
       publicCells[key] = {
         revealed: true,
         value: getCellData(room, col, 5),
-        // Only ever set when the GM declared this column FAILED (see
-        // handleFailColumn) -- drives the same red "failed" treatment the
-        // Final's outcome already gets. Absent for an ordinary reveal.
+        // Direct A5-D5 adjudication stores 'success' (GREEN) or 'failed'
+        // (RED). Ordinary reveal paths may still leave this null.
         outcome: (room.sessionState.cellOutcomes && room.sessionState.cellOutcomes[key]) || null
       };
     } else {
@@ -1586,8 +1585,8 @@ function declareGameLost(room) {
       C: room.gameData.columns?.C?.solution || '', D: room.gameData.columns?.D?.solution || ''
     },
     columnResults: {
-      A: !!room.chat.solvedTargets.A, B: !!room.chat.solvedTargets.B,
-      C: !!room.chat.solvedTargets.C, D: !!room.chat.solvedTargets.D
+      A: isColumnSolvedGreen(room, 'A'), B: isColumnSolvedGreen(room, 'B'),
+      C: isColumnSolvedGreen(room, 'C'), D: isColumnSolvedGreen(room, 'D')
     },
     topPerformer: performance.topPerformer,
     performers: performance.performers,
@@ -1599,7 +1598,7 @@ function declareGameLost(room) {
   };
   room.match.completedAt = room.sessionState.matchResult.occurredAt;
   const fields = matchLedger.resolveFields({
-    solvedTargets: room.chat.solvedTargets,
+    solvedTargets: solvedTargetsForFieldState(room),
     failedColumns: (room.womf && room.womf.failedColumns) || {},
     revealed: { A: room.sessionState.cells.A5 === true, B: room.sessionState.cells.B5 === true,
       C: room.sessionState.cells.C5 === true, D: room.sessionState.cells.D5 === true, FINAL: true },
@@ -1730,8 +1729,30 @@ function countRevealedCluesInColumn(room, col) {
   return count;
 }
 
+function isColumnSolvedGreen(room, column) {
+  return !!room.chat?.solvedTargets?.[column]
+    || room.sessionState?.cellOutcomes?.[`${column}5`] === 'success';
+}
+
+function solvedTargetsForFieldState(room) {
+  const solved = { ...(room.chat?.solvedTargets || {}) };
+  for (const column of SCORABLE_COLUMNS) {
+    if (!solved[column] && room.sessionState?.cellOutcomes?.[`${column}5`] === 'success') {
+      solved[column] = {
+        solved: true,
+        playerId: null,
+        playerName: '',
+        messageId: null,
+        timestamp: null,
+        manual: true
+      };
+    }
+  }
+  return solved;
+}
+
 function countKnownColumns(room) {
-  return SCORABLE_COLUMNS.filter(col => !!room.chat.solvedTargets[col]).length;
+  return SCORABLE_COLUMNS.filter(col => isColumnSolvedGreen(room, col)).length;
 }
 
 // Per-column/per-target difficulty metadata does not exist in the game
@@ -1806,7 +1827,7 @@ function countRevealedClueCells(room) {
 function currentMatchFields(room) {
   const cells = room.sessionState.cells || {};
   return matchLedger.resolveFields({
-    solvedTargets: room.chat.solvedTargets,
+    solvedTargets: solvedTargetsForFieldState(room),
     failedColumns: (room.womf && room.womf.failedColumns) || {},
     // "Opened" is the ending parameter: the four column solutions (A5-D5) and
     // the Final solution are each revealed on the board, however that happened.
@@ -2215,6 +2236,45 @@ function applyCommand(room, command, payload) {
           changed = true;
         }
       }
+      break;
+    }
+    case 'resolveColumn': {
+      const { column, outcome } = payload || {};
+      if (!SCORABLE_COLUMNS.includes(column)) return { success: false, error: 'Invalid column' };
+      if (!['success', 'failed'].includes(outcome)) return { success: false, error: 'Invalid column outcome' };
+
+      const key = `${column}5`;
+      const existingOutcome = room.sessionState.cellOutcomes?.[key] || null;
+
+      if (room.chat.solvedTargets[column]) {
+        return { success: false, error: `Column ${column} has already been solved from chat` };
+      }
+      if (existingOutcome && existingOutcome !== outcome) {
+        return { success: false, error: `Column ${column} has already been resolved ${existingOutcome.toUpperCase()}` };
+      }
+      if (outcome === 'success' && room.womf?.failedColumns?.[column]) {
+        return { success: false, error: `Column ${column} has already been declared failed` };
+      }
+
+      if (room.sessionState.cells[key] !== true) {
+        room.sessionState.cells[key] = true;
+        changed = true;
+      }
+      room.sessionState.cellOutcomes ||= {};
+      if (room.sessionState.cellOutcomes[key] !== outcome) {
+        room.sessionState.cellOutcomes[key] = outcome;
+        changed = true;
+      }
+
+      if (outcome === 'failed') {
+        if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
+        if (!room.womf.failedColumns[column]) {
+          room.womf.failedColumns[column] = true;
+          addWomfCharge(room, 1);
+        }
+        matchLedger.markFailed(ensureMatchLedger(room), column, Date.now());
+      }
+
       break;
     }
     case 'hideCell': {
@@ -4014,8 +4074,8 @@ function handleGmGameWon(ws) {
       C: room.gameData.columns?.C?.solution || '', D: room.gameData.columns?.D?.solution || ''
     },
     columnResults: {
-      A: !!room.chat.solvedTargets.A, B: !!room.chat.solvedTargets.B,
-      C: !!room.chat.solvedTargets.C, D: !!room.chat.solvedTargets.D
+      A: isColumnSolvedGreen(room, 'A'), B: isColumnSolvedGreen(room, 'B'),
+      C: isColumnSolvedGreen(room, 'C'), D: isColumnSolvedGreen(room, 'D')
     },
     matchWinner: performance.matchWinner,
     winners: performance.winners,
@@ -4025,7 +4085,7 @@ function handleGmGameWon(ws) {
   const ledger = ensureMatchLedger(room);
   if (!ledger.completedAt) ledger.completedAt = room.sessionState.matchResult.occurredAt;
   const fields = matchLedger.resolveFields({
-    solvedTargets: room.chat.solvedTargets,
+    solvedTargets: solvedTargetsForFieldState(room),
     failedColumns: (room.womf && room.womf.failedColumns) || {},
     revealed: { A: room.sessionState.cells.A5 === true, B: room.sessionState.cells.B5 === true,
       C: room.sessionState.cells.C5 === true, D: room.sessionState.cells.D5 === true, FINAL: true },
@@ -4093,6 +4153,15 @@ function handleJudgeGuess(ws, message) {
 
   if (verdict === 'correct' && !target) {
     sendToWs(ws, { type: 'error', message: 'Target required for correct verdict' });
+    return;
+  }
+
+  if (
+    verdict === 'correct' &&
+    SCORABLE_COLUMNS.includes(target) &&
+    ['success', 'failed'].includes(room.sessionState?.cellOutcomes?.[`${target}5`])
+  ) {
+    sendToWs(ws, { type: 'error', message: `Column ${target} has already been resolved on the board` });
     return;
   }
 
@@ -4322,7 +4391,7 @@ function handleFailColumn(ws, message) {
 
   if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
 
-  if (room.chat.solvedTargets[column]) {
+  if (isColumnSolvedGreen(room, column)) {
     sendToWs(ws, { type: 'error', message: `Column ${column} has already been solved` });
     return;
   }
