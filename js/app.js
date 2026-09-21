@@ -20,6 +20,7 @@ const App = {
   bloodTribute: { status: 'idle' },
   bloodTributes: [],
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '😏', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🫠', '🥴', '🤯', '🥳', '😴', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
+  _editingBroadcast: null,
   pendingVerdict: null,
   _reconnectPending: false,
   _recoverPending: false,
@@ -393,6 +394,11 @@ const App = {
       this.sendShadowBrokerBroadcast();
     });
     document.getElementById('shadow-broker-input')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this._editingBroadcast) {
+        e.preventDefault();
+        this.cancelGMChatEdit();
+        return;
+      }
       if (e.key === 'Delete') {
         e.preventDefault();
         e.currentTarget.value = '';
@@ -421,6 +427,8 @@ const App = {
       gmContextMessageEl = messageEl;
       gmContextMenu._messageEl = messageEl;
       gmContextMenu.dataset.messageId = messageId;
+      const editButton = gmContextMenu.querySelector('[data-gm-chat-action="edit"]');
+      if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
       gmContextMenu.hidden = false;
       if (gmReactionPicker) gmReactionPicker.hidden = true;
       if (gmEmojiPicker) gmEmojiPicker.hidden = true;
@@ -486,6 +494,10 @@ const App = {
       if (action === 'react') {
         // A detached anchor has a zero rect; the message is gone, nothing to react to.
         if (messageEl.isConnected) this.openGMChatReactionPicker(messageId, messageEl);
+        return;
+      }
+      if (action === 'edit') {
+        this.startGMChatEdit(messageId);
         return;
       }
       if (action === 'reply') {
@@ -2462,9 +2474,10 @@ const App = {
         ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
       return `
-        <div class="gm-shadow-broker-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+        <div class="gm-shadow-broker-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${replyContextHtml}
           ${Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchIn: isNew })}
+          ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
           ${this.createGMReactionSummaryHTML(msg)}
         </div>
       `;
@@ -2506,12 +2519,12 @@ const App = {
     }
 
     return `
-      <div class="gm-chat-message gm-flow-message ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+      <div class="gm-chat-message gm-flow-message ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
         <div class="gm-chat-avatar-rail">${grouped ? '' : this.littleHeroAvatarHTML(identity, true)}</div>
         <div class="gm-chat-message-main">
           ${grouped ? '' : `<div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>`}
           ${replyContextHtml}
-          <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span></div>
+          <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>
           ${verdictMetaHtml}
           ${verdictResponseHtml}
           ${this.createGMReactionSummaryHTML(msg)}
@@ -2524,6 +2537,40 @@ const App = {
     `;
   },
 
+  startGMChatEdit(messageId) {
+    const input = document.getElementById('shadow-broker-input');
+    if (!input || !messageId) return;
+
+    const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
+    if (!msg || msg.source !== 'shadowBroker' || msg.editableByHost !== true) return;
+
+    const raw = String(msg.text || '');
+    const replyMatch = raw.match(/^((?:↳ @[^:]{1,40}?)(?: \/\/ [^:]{1,30})?:\s*)([\s\S]*)$/);
+    const prefix = replyMatch ? replyMatch[1] : '';
+    const body = replyMatch ? replyMatch[2] : raw;
+    this._editingBroadcast = { id: messageId, prefix };
+    input.value = body;
+    input.placeholder = 'Edit transmission // Enter to save // Esc to cancel';
+    const label = document.querySelector('#shadow-broker-form .shadow-broker-form-label');
+    if (label) label.textContent = 'EDITING TRANSMISSION';
+    document.getElementById('shadow-broker-form')?.classList.add('editing-message');
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  },
+
+  cancelGMChatEdit() {
+    this._editingBroadcast = null;
+    const input = document.getElementById('shadow-broker-input');
+    if (input) {
+      input.value = '';
+      input.placeholder = 'Transmit to players...';
+      input.focus();
+    }
+    const label = document.querySelector('#shadow-broker-form .shadow-broker-form-label');
+    if (label) label.textContent = 'SHADOW BROKER';
+    document.getElementById('shadow-broker-form')?.classList.remove('editing-message');
+  },
+
   openGMMessageActionMenu(event, messageEl) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -2533,6 +2580,8 @@ const App = {
 
     menu._messageEl = messageEl;
     menu.dataset.messageId = messageId;
+    const editButton = menu.querySelector('[data-gm-chat-action="edit"]');
+    if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
     menu.hidden = false;
     const reactionPicker = document.getElementById('gm-chat-reaction-picker');
     const emojiPicker = document.getElementById('gm-emoji-picker');
@@ -2650,6 +2699,24 @@ const App = {
     const text = input.value.trim();
     if (!text) return;
 
+    const editing = this._editingBroadcast;
+    if (editing) {
+      const editedText = (editing.prefix || '') + text;
+      if (this.mode === 'multiplayer' && this.roomCode) {
+        this.send({ type: 'chat:edit', messageId: editing.id, text: editedText });
+      } else {
+        const localMsg = this.chatMessages.find(msg => String(msg.id) === String(editing.id));
+        if (localMsg && localMsg.source === 'shadowBroker') {
+          localMsg.text = editedText;
+          localMsg.editedAt = Date.now();
+          localMsg.editableByHost = true;
+          this.renderGMChat();
+        }
+      }
+      this.cancelGMChatEdit();
+      return;
+    }
+
     if (this.mode === 'multiplayer' && this.roomCode) {
       // Live room: let the authoritative server broadcast it to every
       // connected surface exactly as before.
@@ -2663,7 +2730,9 @@ const App = {
         source: 'shadowBroker',
         text,
         timestamp: Date.now(),
-        verdict: null
+        verdict: null,
+        editableByHost: true,
+        editedAt: null
       };
       this.chatMessages.push(localMsg);
       this.playShadowBrokerBoardLine(text);
