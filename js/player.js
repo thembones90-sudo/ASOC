@@ -2341,6 +2341,22 @@ const PlayerApp = {
         closeContextMenu();
       });
       chatContainer.addEventListener('click', (e) => {
+        const pollVote = e.target.closest('[data-poll-vote]');
+        if (pollVote) {
+          this.send({
+            type: 'chat:poll:vote',
+            messageId: pollVote.dataset.messageId || '',
+            optionIndex: Number(pollVote.dataset.pollVote)
+          });
+          return;
+        }
+
+        const pollClose = e.target.closest('[data-poll-close]');
+        if (pollClose) {
+          this.send({ type: 'chat:poll:close', messageId: pollClose.dataset.pollClose || '' });
+          return;
+        }
+
         const reactionChip = e.target.closest('.chat-reaction-chip');
         if (reactionChip) {
           this.sendChatReaction(reactionChip.dataset.messageId || '', reactionChip.dataset.emoji || '');
@@ -2745,6 +2761,54 @@ const PlayerApp = {
     reader.readAsDataURL(file);
   },
 
+  createPollCardHTML(msg) {
+    const poll = msg?.poll || {};
+    const options = Array.isArray(poll.options) ? poll.options : [];
+    const votes = poll.votes && typeof poll.votes === 'object' ? poll.votes : {};
+    const voters = poll.voters && typeof poll.voters === 'object' ? poll.voters : {};
+    const voterIds = new Set();
+    Object.values(votes).forEach(ids => {
+      if (Array.isArray(ids)) ids.forEach(id => voterIds.add(String(id)));
+    });
+    const totalVoters = voterIds.size;
+    const myId = String(this.playerId || '');
+    const closed = Number(poll.closedAt) > 0;
+    const canClose = !closed && poll.createdByRole === 'player' && String(poll.createdById || '') === myId;
+
+    const optionHtml = options.map((option, index) => {
+      const ids = Array.isArray(votes[String(index)]) ? votes[String(index)].map(String) : [];
+      const selected = myId && ids.includes(myId);
+      const percent = totalVoters ? Math.round((ids.length / totalVoters) * 100) : 0;
+      const voterNames = ids.map(id => {
+        if (id === '__GM__') return 'SHADOW BROKER';
+        return String(voters[id]?.name || 'LITTLE HERO');
+      });
+      const voterTitle = voterNames.length ? 'VOTERS // ' + voterNames.join(', ') : 'NO VOTES';
+      return `
+        <button type="button" class="chat-poll-choice${selected ? ' selected' : ''}" data-poll-vote="${index}" data-message-id="${this.escapeHtml(msg.id)}" ${closed ? 'disabled' : ''}>
+          <span class="chat-poll-choice-fill" style="width:${percent}%"></span>
+          <span class="chat-poll-choice-label">${this.escapeHtml(option)}</span>
+          <span class="chat-poll-choice-result" title="${this.escapeHtml(voterTitle)}"><b>${percent}%</b><small>${ids.length}</small></span>
+        </button>
+      `;
+    }).join('');
+
+    return `
+      <div class="chat-poll-card${closed ? ' is-closed' : ''}">
+        <div class="chat-poll-card-head">
+          <span>POLL${poll.allowMultiple ? ' // MULTIPLE' : ''}</span>
+          <b>${closed ? 'CLOSED' : 'LIVE'}</b>
+        </div>
+        <div class="chat-poll-question">${this.escapeHtml(poll.question || msg.text || '')}</div>
+        <div class="chat-poll-choice-list">${optionHtml}</div>
+        <div class="chat-poll-card-foot">
+          <span>${totalVoters} VOTER${totalVoters === 1 ? '' : 'S'}</span>
+          ${canClose ? `<button type="button" class="chat-poll-close" data-poll-close="${this.escapeHtml(msg.id)}">CLOSE POLL</button>` : ''}
+        </div>
+      </div>
+    `;
+  },
+
   renderChat() {
     const container = document.getElementById('chat-messages');
     if (!container) return;
@@ -2819,6 +2883,31 @@ const PlayerApp = {
         <div class="chat-blood-tribute-entry" data-message-id="${this.escapeHtml(msg.id)}">
           <div class="blood-tribute-chat-head"><span>BLOOD TRIBUTE // ${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><b>PUBLIC PURGE ${minutes}:${seconds}</b></div>
           <img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image">
+        </div>
+      `;
+    }
+
+    if (msg.messageType === 'poll' && msg.poll) {
+      const isBrokerPoll = msg.poll.createdByRole === 'gm';
+      const isOwn = !isBrokerPoll && String(msg.playerId || '') === String(this.playerId || '');
+      const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const avatar = isBrokerPoll
+        ? '<span class="chat-poll-broker-avatar" aria-hidden="true">SB</span>'
+        : this.littleHeroAvatarHTML(identity);
+      const themeId = isBrokerPoll ? 'gunmetal' : ASOCThemes.get(identity.themeId).id;
+      const style = isBrokerPoll
+        ? '--little-hero-accent:#9B5DE0;'
+        : ASOCThemes.messageStyle(identity.themeId) + '--little-hero-accent:' + (/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885');
+      return `
+        <div class="chat-message chat-poll-message ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+          <div class="chat-avatar-rail">${avatar}</div>
+          <div class="chat-message-main">
+            <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><span class="chat-time">${time}</span></div>
+            <button type="button" class="chat-reply-btn" data-reply-id="${this.escapeHtml(msg.id)}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName || 'poll')}">&#8617;</button>
+            ${this.createPollCardHTML(msg)}
+            ${this.createReactionBarHTML(msg)}
+          </div>
         </div>
       `;
     }
