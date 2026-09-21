@@ -1235,6 +1235,8 @@ const PlayerApp = {
 
   updatePlayerLeaderboard(players) {
     this.currentPlayers = players || [];
+    const mentionPicker = document.getElementById('chat-mention-picker');
+    if (mentionPicker && !mentionPicker.hidden) this.updateChatMentionPicker(document.getElementById('chat-input'), mentionPicker);
     const strip = document.getElementById('player-leaderboard-strip');
     const list = document.getElementById('player-leaderboard-list');
     const roster = document.getElementById('little-hero-roster');
@@ -1510,6 +1512,169 @@ const PlayerApp = {
     }
   },
 
+
+  ensureChatMentionPicker(form) {
+    if (!form) return null;
+    let picker = form.querySelector('#chat-mention-picker');
+    if (picker) return picker;
+    picker = document.createElement('div');
+    picker.id = 'chat-mention-picker';
+    picker.className = 'chat-mention-picker';
+    picker.hidden = true;
+    picker.setAttribute('role', 'listbox');
+    picker.setAttribute('aria-label', 'Tag a player');
+    form.appendChild(picker);
+    return picker;
+  },
+
+  getChatMentionContext(input) {
+    if (!input) return null;
+    const caret = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
+    const before = input.value.slice(0, caret);
+    const at = before.lastIndexOf('@');
+    if (at < 0) return null;
+    if (at > 0 && !/[\s([{"'«]/.test(before.charAt(at - 1))) return null;
+    const query = before.slice(at + 1);
+    if (query.length > 40 || /[\r\n:]/.test(query)) return null;
+    return { start: at, end: caret, query };
+  },
+
+  getChatMentionCandidates(query = '') {
+    const needle = String(query || '').toLocaleLowerCase();
+    return (this.currentPlayers || [])
+      .filter(player => player && player.connected !== false && String(player.name || '').trim())
+      .filter(player => String(player.name).toLocaleLowerCase().startsWith(needle))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .slice(0, 8);
+  },
+
+  renderChatMentionPicker(picker) {
+    if (!picker || picker.hidden) return;
+    const candidates = this._chatMentionCandidates || [];
+    picker.innerHTML = candidates.map((player, index) => `
+      <button type="button" class="chat-mention-option${index === this._chatMentionIndex ? ' active' : ''}" data-mention-index="${index}" role="option" aria-selected="${index === this._chatMentionIndex ? 'true' : 'false'}">
+        ${this.littleHeroAvatarHTML(player, true)}
+        <span>${this.escapeHtml(player.name)}</span>
+        <small>TAG</small>
+      </button>
+    `).join('');
+  },
+
+  updateChatMentionPicker(input = document.getElementById('chat-input'), picker = document.getElementById('chat-mention-picker')) {
+    if (!input || !picker) return;
+    const context = this.getChatMentionContext(input);
+    if (!context) {
+      this.closeChatMentionPicker(picker);
+      return;
+    }
+    const candidates = this.getChatMentionCandidates(context.query);
+    if (!candidates.length) {
+      this.closeChatMentionPicker(picker);
+      return;
+    }
+    this._chatMentionContext = context;
+    this._chatMentionCandidates = candidates;
+    this._chatMentionIndex = Math.max(0, Math.min(this._chatMentionIndex || 0, candidates.length - 1));
+    picker.hidden = false;
+    this.renderChatMentionPicker(picker);
+    const emojiPicker = document.getElementById('chat-emoji-picker');
+    if (emojiPicker) emojiPicker.hidden = true;
+  },
+
+  closeChatMentionPicker(picker = document.getElementById('chat-mention-picker')) {
+    if (picker) {
+      picker.hidden = true;
+      picker.innerHTML = '';
+    }
+    this._chatMentionContext = null;
+    this._chatMentionCandidates = [];
+    this._chatMentionIndex = 0;
+  },
+
+  selectChatMention(index, input = document.getElementById('chat-input'), picker = document.getElementById('chat-mention-picker')) {
+    const candidate = (this._chatMentionCandidates || [])[Number(index)];
+    const context = this._chatMentionContext;
+    if (!candidate || !context || !input) return false;
+    const replacement = '@' + String(candidate.name) + ' ';
+    const next = input.value.slice(0, context.start) + replacement + input.value.slice(context.end);
+    const maxLength = Number(input.maxLength) > 0 ? Number(input.maxLength) : 100;
+    if (next.length > maxLength) return false;
+    input.value = next;
+    const caret = context.start + replacement.length;
+    input.focus();
+    input.setSelectionRange(caret, caret);
+    this.closeChatMentionPicker(picker);
+    return true;
+  },
+
+  handleChatMentionKeydown(event, input, picker) {
+    if (!picker || picker.hidden) return false;
+    const candidates = this._chatMentionCandidates || [];
+    if (!candidates.length) return false;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      this._chatMentionIndex = (this._chatMentionIndex + delta + candidates.length) % candidates.length;
+      this.renderChatMentionPicker(picker);
+      picker.querySelector('.chat-mention-option.active')?.scrollIntoView({ block: 'nearest' });
+      return true;
+    }
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault();
+      this.selectChatMention(this._chatMentionIndex || 0, input, picker);
+      return true;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeChatMentionPicker(picker);
+      return true;
+    }
+    return false;
+  },
+
+  decorateChatMentions(container) {
+    if (!container) return;
+    const names = [...new Set((this.currentPlayers || [])
+      .map(player => String(player?.name || '').trim())
+      .filter(Boolean))]
+      .sort((a, b) => b.length - a.length);
+    if (!names.length) return;
+
+    const escaped = names.map(name => name.replace(/[.*+?^\${}()|[\]\\]/g, '\\
+  bindChatForm() {'));
+    const pattern = new RegExp('@(' + escaped.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
+    const me = String(this.playerName || '').trim().toLocaleLowerCase();
+    const targets = container.querySelectorAll('.chat-message-text, .shadow-broker-text');
+
+    targets.forEach(target => {
+      const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(node => {
+        const value = node.nodeValue || '';
+        pattern.lastIndex = 0;
+        let match;
+        let last = 0;
+        const fragment = document.createDocumentFragment();
+        let changed = false;
+        while ((match = pattern.exec(value))) {
+          changed = true;
+          if (match.index > last) fragment.appendChild(document.createTextNode(value.slice(last, match.index)));
+          const span = document.createElement('span');
+          const isMe = String(match[1] || '').toLocaleLowerCase() === me;
+          span.className = 'chat-mention' + (isMe ? ' mention-me' : '');
+          span.textContent = match[0];
+          fragment.appendChild(span);
+          if (isMe) target.closest('.chat-message, .chat-broker-entry')?.classList.add('chat-mentions-me');
+          last = match.index + match[0].length;
+        }
+        if (!changed) return;
+        if (last < value.length) fragment.appendChild(document.createTextNode(value.slice(last)));
+        node.replaceWith(fragment);
+      });
+    });
+  },
+
   bindChatForm() {
     const form = document.getElementById('chat-form');
     const input = document.getElementById('chat-input');
@@ -1522,6 +1687,7 @@ const PlayerApp = {
     const emojiPicker = document.getElementById('chat-emoji-picker');
     const reactionPicker = document.getElementById('chat-reaction-picker');
     const contextMenu = document.getElementById('chat-message-context-menu');
+    const mentionPicker = this.ensureChatMentionPicker(form);
     if (reactionPicker && reactionPicker.parentElement !== document.body) document.body.appendChild(reactionPicker);
     if (contextMenu && contextMenu.parentElement !== document.body) document.body.appendChild(contextMenu);
     let contextMessageEl = null;
@@ -1562,10 +1728,19 @@ const PlayerApp = {
     });
 
     input.addEventListener('keydown', (e) => {
+      if (this.handleChatMentionKeydown(e, input, mentionPicker)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         this.submitGuess();
       }
+    });
+    input.addEventListener('input', () => this.updateChatMentionPicker(input, mentionPicker));
+    input.addEventListener('click', () => this.updateChatMentionPicker(input, mentionPicker));
+    mentionPicker?.addEventListener('mousedown', (e) => e.preventDefault());
+    mentionPicker?.addEventListener('click', (e) => {
+      const option = e.target.closest('.chat-mention-option');
+      if (!option) return;
+      this.selectChatMention(option.dataset.mentionIndex || 0, input, mentionPicker);
     });
 
     emojiToggle?.addEventListener('click', (e) => {
@@ -1573,7 +1748,10 @@ const PlayerApp = {
       if (!emojiPicker) return;
       const opening = emojiPicker.hidden;
       emojiPicker.hidden = !opening;
-      if (opening) this.renderChatEmojiPickers(emojiPicker, reactionPicker);
+      if (opening) {
+        this.renderChatEmojiPickers(emojiPicker, reactionPicker);
+        this.closeChatMentionPicker(mentionPicker);
+      }
       if (reactionPicker) reactionPicker.hidden = true;
     });
 
@@ -1631,6 +1809,7 @@ const PlayerApp = {
         reactionPicker.hidden = true;
       }
       if (contextMenu && !contextMenu.hidden && !contextMenu.contains(e.target)) closeContextMenu();
+      if (mentionPicker && !mentionPicker.hidden && !form.contains(e.target)) this.closeChatMentionPicker(mentionPicker);
     });
 
     const chatContainer = document.getElementById('chat-messages');
@@ -1730,6 +1909,7 @@ const PlayerApp = {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeContextMenu();
+        this.closeChatMentionPicker(mentionPicker);
         if (this._editingMessage) this.cancelChatReply();
       }
     });
@@ -1938,6 +2118,7 @@ const PlayerApp = {
     if (!text) return;
 
     const editing = this._editingMessage;
+    this.closeChatMentionPicker();
     input.value = '';
     this._editingMessage = null;
     const reply = this._replyTo;
@@ -2044,6 +2225,7 @@ const PlayerApp = {
     });
 
     container.innerHTML = html;
+    this.decorateChatMentions(container);
 
     clearTimeout(this._wrongFadeTimer);
     if (Number.isFinite(nextWrongFadeMs)) {
