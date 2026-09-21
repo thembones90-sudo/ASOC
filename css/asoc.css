@@ -13653,3 +13653,73 @@ body.chat-media-preview-open {
     right: -8px;
   }
 }
+
+
+/* BATTLE OMEN TYPEWRITER
+   The random transformation line begins 0.5s into Battle entry and stays
+   readable for the rest of the four-second sequence. Black core, purple glow. */
+.asoc-mode-transition--battle .asoc-mode-transition-sub {
+  width: min(92vw, 1080px);
+  min-height: 2.7em;
+  margin-top: 14px;
+  opacity: 1;
+  transform: none;
+  animation: none;
+  color: #020005;
+  font-size: clamp(1.05rem, 1.65vw, 1.75rem);
+  font-weight: 1000;
+  line-height: 1.22;
+  letter-spacing: .055em;
+  text-transform: none;
+  -webkit-text-stroke: .35px rgba(184, 83, 255, .72);
+  text-shadow:
+    0 0 1px rgba(226, 187, 255, .95),
+    0 0 4px rgba(181, 74, 255, .95),
+    0 0 10px rgba(151, 48, 255, .88),
+    0 0 20px rgba(129, 35, 228, .72),
+    0 0 36px rgba(94, 24, 178, .52);
+}
+
+.asoc-mode-transition--battle .asoc-mode-transition-sub.is-typing::after {
+  content: "▌";
+  display: inline-block;
+  margin-left: .08em;
+  color: #020005;
+  -webkit-text-stroke: .3px rgba(184, 83, 255, .78);
+  text-shadow:
+    0 0 3px rgba(193, 91, 255, .95),
+    0 0 11px rgba(151, 48, 255, .86);
+  animation: asoc-battle-omen-cursor 520ms steps(1, end) infinite;
+}
+
+.asoc-mode-transition--battle .asoc-mode-transition-sub.is-typed {
+  text-shadow:
+    0 0 1px rgba(235, 207, 255, .98),
+    0 0 5px rgba(191, 84, 255, 1),
+    0 0 12px rgba(155, 51, 255, .95),
+    0 0 24px rgba(124, 34, 222, .76),
+    0 0 42px rgba(92, 24, 170, .55);
+}
+
+@keyframes asoc-battle-omen-cursor {
+  0%, 48% { opacity: 1; }
+  49%, 100% { opacity: .08; }
+}
+
+@media (max-width: 760px) {
+  .asoc-mode-transition--battle .asoc-mode-transition-sub {
+    width: min(94vw, 760px);
+    min-height: 3.2em;
+    margin-top: 12px;
+    font-size: clamp(.98rem, 4.5vw, 1.35rem);
+    line-height: 1.26;
+    letter-spacing: .035em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asoc-mode-transition--battle .asoc-mode-transition-sub::after {
+    display: none !important;
+    animation: none !important;
+  }
+}
