@@ -7,13 +7,11 @@ const ControlSurfaces = {
     if (!content || document.getElementById('gm-maintenance')) return;
 
     const game = content.querySelector('.gm-module-game');
-    const clues = content.querySelector('.gm-module-clues');
     const womf = content.querySelector('.gm-module-womf');
     const global = content.querySelector('.gm-module-global');
     const background = content.querySelector('.gm-module-background');
     const chat = content.querySelector('.gm-module-chat');
     const chatHeightSplitter = content.querySelector('#gm-chat-height-splitter');
-    const clueHeightSplitter = content.querySelector('#gm-clue-height-splitter');
     const scoring = content.querySelector('.gm-module-scoring');
     const multiplayer = content.querySelector('.gm-module-multiplayer');
     const tributeVault = content.querySelector('.gm-module-tribute-vault');
@@ -22,7 +20,7 @@ const ControlSurfaces = {
     battle.id = 'gm-battle-control';
     battle.className = 'gm-control-surface gm-battle-control';
     content.insertBefore(battle, content.firstChild);
-    [chat, chatHeightSplitter, clues, clueHeightSplitter, womf, scoring, global].forEach(section => {
+    [chat, chatHeightSplitter, womf, scoring, global].forEach(section => {
       if (section) battle.appendChild(section);
     });
 
@@ -116,7 +114,7 @@ const ControlSurfaces = {
     layoutReset.className = 'gm-global-btn reset-btn gm-layout-reset-btn';
     layoutReset.textContent = 'RESET PANEL LAYOUT';
     layoutReset.addEventListener('click', () => {
-      const confirmed = confirm('Reset GM panel width, Battle Chat height, and Clue Grid height to defaults?');
+      const confirmed = confirm('Reset GM panel width and Battle Chat height to defaults?');
       if (!confirmed) return;
       this.app?.resetGMPanelLayout?.();
     });
