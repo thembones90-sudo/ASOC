@@ -390,7 +390,7 @@ const App = {
 
   getGMMentionCandidates(query = '') {
     const needle = String(query || '').trim().toLocaleLowerCase();
-    return (this.currentPlayers || [])
+    const players = (this.currentPlayers || [])
       .filter(player => player && String(player.name || '').trim())
       .filter(player => !needle || String(player.name).toLocaleLowerCase().includes(needle))
       .sort((a, b) => {
@@ -401,8 +401,15 @@ const App = {
         if (aPrefix !== bPrefix) return aPrefix - bPrefix;
         if ((a.connected !== false) !== (b.connected !== false)) return a.connected !== false ? -1 : 1;
         return String(a.name).localeCompare(String(b.name));
-      })
-      .slice(0, 8);
+      });
+
+    // Host-only mass mention. Keep it first so typing just "@" exposes the
+    // command immediately, Discord-style, without pretending it is a player.
+    const allMatches = !needle || 'all'.includes(needle);
+    const candidates = allMatches
+      ? [{ id: '__ALL__', name: 'all', connected: true, mentionAll: true }, ...players]
+      : players;
+    return candidates.slice(0, 8);
   },
 
   refreshGMMentionRoster() {
@@ -416,11 +423,15 @@ const App = {
   renderGMMentionPicker(picker) {
     if (!picker || picker.hidden) return;
     const candidates = this._gmMentionCandidates || [];
-    picker.innerHTML = candidates.map((player, index) =>
-      '<button type="button" class="gm-chat-mention-option' + (index === this._gmMentionIndex ? ' active' : '') + '" data-mention-index="' + index + '" role="option" aria-selected="' + (index === this._gmMentionIndex ? 'true' : 'false') + '">' +
+    picker.innerHTML = candidates.map((player, index) => {
+      if (player.mentionAll) {
+        return '<button type="button" class="gm-chat-mention-option gm-chat-mention-all' + (index === this._gmMentionIndex ? ' active' : '') + '" data-mention-index="' + index + '" role="option" aria-selected="' + (index === this._gmMentionIndex ? 'true' : 'false') + '">' +
+          '<span class="gm-mention-all-mark">@</span><span>@all</span><small>EVERYONE</small></button>';
+      }
+      return '<button type="button" class="gm-chat-mention-option' + (index === this._gmMentionIndex ? ' active' : '') + '" data-mention-index="' + index + '" role="option" aria-selected="' + (index === this._gmMentionIndex ? 'true' : 'false') + '">' +
         this.littleHeroAvatarHTML(player, true) +
-        '<span>' + this.escapeHtml(player.name) + '</span><small>' + (player.connected === false ? 'OFFLINE' : 'TAG') + '</small></button>'
-    ).join('');
+        '<span>' + this.escapeHtml(player.name) + '</span><small>' + (player.connected === false ? 'OFFLINE' : 'TAG') + '</small></button>';
+    }).join('');
   },
 
   updateGMMentionPicker(input = document.getElementById('shadow-broker-input'), picker = document.getElementById('gm-mention-picker')) {
@@ -468,7 +479,7 @@ const App = {
     const candidate = (this._gmMentionCandidates || [])[Number(index)];
     const context = this._gmMentionContext;
     if (!candidate || !context || !input) return false;
-    const replacement = '@' + String(candidate.name) + ' ';
+    const replacement = candidate.mentionAll ? '@all ' : '@' + String(candidate.name) + ' ';
     const next = input.value.slice(0, context.start) + replacement + input.value.slice(context.end);
     if (Number(input.maxLength) > 0 && next.length > Number(input.maxLength)) return false;
     input.value = next;
@@ -510,10 +521,9 @@ const App = {
       .map(player => String(player?.name || '').trim())
       .filter(Boolean))]
       .sort((a, b) => b.length - a.length);
-    if (!names.length) return;
 
     const regexSpecials = '^$.*+?()[]{}|' + String.fromCharCode(92);
-    const escaped = names.map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
+    const escaped = ['all', ...names].map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
     const pattern = new RegExp('@(' + escaped.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
     const targets = container.querySelectorAll('.gm-chat-message-text, .shadow-broker-text');
 
@@ -532,7 +542,8 @@ const App = {
           changed = true;
           if (match.index > last) fragment.appendChild(document.createTextNode(value.slice(last, match.index)));
           const span = document.createElement('span');
-          span.className = 'chat-mention';
+          const mentionAll = String(match[1] || '').toLocaleLowerCase() === 'all';
+          span.className = 'chat-mention' + (mentionAll ? ' mention-all' : '');
           span.textContent = match[0];
           fragment.appendChild(span);
           last = match.index + match[0].length;
@@ -1406,6 +1417,10 @@ const App = {
 
       case 'nemaAsoc':
         Skeleton.playNemaAsoc();
+        break;
+
+      case 'chat:mentionAll':
+        Skeleton.playMentionAllShake?.();
         break;
 
       case 'command:ack':
@@ -3109,6 +3124,9 @@ const App = {
       this.chatMessages.push(localMsg);
       this.playShadowBrokerBoardLine(text);
       Board.playShadowBrokerBoardLine(text);
+      if (/(^|[^\\p{L}\\p{N}_])@all(?![\\p{L}\\p{N}_])/iu.test(text)) {
+        Skeleton.playMentionAllShake?.();
+      }
       this.renderGMChat();
     }
 
