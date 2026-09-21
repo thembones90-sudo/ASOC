@@ -6534,6 +6534,24 @@
                 <span class="chat-attachment-option-icon" aria-hidden="true">▧</span>
                 <span class="chat-attachment-option-copy"><b>PHOTOS</b><small>PNG, JPG, WEBP · 5 MB</small></span>
               </button>
+              <button type="button" class="chat-attachment-option" data-chat-attachment="gif" role="menuitem">
+                <span class="chat-attachment-option-icon chat-attachment-gif-icon" aria-hidden="true">GIF</span>
+                <span class="chat-attachment-option-copy"><b>GIF</b><small>Animated GIF · 5 MB</small></span>
+              </button>
+              <button type="button" class="chat-attachment-option" data-chat-attachment="poll" role="menuitem">
+                <span class="chat-attachment-option-icon chat-attachment-poll-icon" aria-hidden="true">▤</span>
+                <span class="chat-attachment-option-copy"><b>POLL</b><small>2–8 options · live results</small></span>
+              </button>
+            </div>
+            <div id="chat-poll-composer" class="chat-poll-composer" hidden>
+              <div class="chat-poll-composer-head"><b>CREATE POLL</b><button type="button" id="chat-poll-cancel" aria-label="Close poll composer">×</button></div>
+              <input type="text" id="chat-poll-question" maxlength="160" placeholder="Ask the room...">
+              <div id="chat-poll-options" class="chat-poll-options-editor"></div>
+              <div class="chat-poll-composer-actions">
+                <button type="button" id="chat-poll-add-option">+ OPTION</button>
+                <label><input type="checkbox" id="chat-poll-multiple"> MULTIPLE ANSWERS</label>
+                <button type="button" id="chat-poll-create">CREATE</button>
+              </div>
             </div>
           </div>
           <button type="button" id="chat-emoji-toggle" class="chat-emoji-toggle" title="Emoji" aria-label="Open emoji picker" aria-expanded="false">☺</button>
@@ -6541,6 +6559,7 @@
           <div id="chat-emoji-picker" class="chat-input-emoji-picker" hidden></div>
         </div>
         <input type="file" id="chat-image-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+        <input type="file" id="chat-gif-upload-input" accept="image/gif" hidden>
       </form>
     </div>
     </aside>
