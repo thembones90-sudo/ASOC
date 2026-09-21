@@ -3691,9 +3691,11 @@ const App = {
   // completely separate, additive chat-message type.
   sendShadowBrokerBroadcast() {
     const input = document.getElementById('shadow-broker-input');
-    if (!input) return;
+    const composer = this.getGMComposerElement();
+    if (!input || !composer) return;
 
-    const text = input.value.trim();
+    const state = this.syncGMComposerModel();
+    const text = state.text.trim();
     if (!text) return;
 
     const editing = this._editingBroadcast;
@@ -3741,41 +3743,40 @@ const App = {
       this.renderGMChat();
     }
 
-    input.value = '';
-    // Keep focus in the box so Enter can fire the next transmission
+    this.setGMComposerText('', 0);
+    // Keep focus in the composer so Enter can fire the next transmission
     // immediately. There is deliberately no character counter or GM-side
     // transmission length cap.
-    input.focus();
+    composer.focus();
   },
 
   clearShadowBrokerBroadcast() {
-    const input = document.getElementById('shadow-broker-input');
     this.clearShadowBrokerBoardLine();
     Board.clearShadowBrokerBoardLine();
     if (this.mode === 'multiplayer' && this.roomCode) {
       this.send({ type: 'gm:clearBroadcast' });
     }
-    if (input) input.focus();
+    this.getGMComposerElement()?.focus();
   },
 
   flashShadowBrokerNoRoom() {
     const form = document.getElementById('shadow-broker-form');
-    const input = document.getElementById('shadow-broker-input');
-    if (!form || !input) return;
+    const composer = this.getGMComposerElement();
+    if (!form || !composer) return;
     if (this._brokerNoRoomTimeout) {
       clearTimeout(this._brokerNoRoomTimeout);
     } else {
-      this._brokerNoRoomPlaceholder = input.placeholder;
+      this._brokerNoRoomPlaceholder = composer.dataset.placeholder || 'Transmit to players...';
     }
     form.classList.remove('shadow-broker-no-room');
     // Force reflow so re-triggering the class restarts the CSS animation
     // if the operator clicks TRANSMIT again before the first flash ends.
     void form.offsetWidth;
     form.classList.add('shadow-broker-no-room');
-    input.placeholder = 'HOST A ROOM FIRST';
+    this.setGMComposerPlaceholder('HOST A ROOM FIRST');
     this._brokerNoRoomTimeout = setTimeout(() => {
       form.classList.remove('shadow-broker-no-room');
-      input.placeholder = this._brokerNoRoomPlaceholder;
+      this.setGMComposerPlaceholder(this._brokerNoRoomPlaceholder || 'Transmit to players...');
       this._brokerNoRoomTimeout = null;
     }, 1400);
   },
