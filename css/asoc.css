@@ -12259,19 +12259,15 @@ body.room-mode-casual #gm-panel .gm-footer {
   margin-bottom:4px !important;
 }
 
-/* BATTLE MODE needs a higher-specificity override because the older
-   operator-density rule (.gm-module-chat .gm-chat-header) otherwise wins
-   and crushes the ONLINE pill against the divider. Casual mode is left alone. */
-body:not(.room-mode-casual) .gm-module-chat .gm-chat-header {
+/* BATTLE FAMILY // copy the working CASUAL header geometry exactly.
+   CASUAL's effective distinguishing geometry is a 42px header. Keep the same
+   padding/margin and do not fake the position with transforms. */
+body.room-mode-battle .gm-module-chat .gm-chat-header,
+body.room-mode-battle-armed .gm-module-chat .gm-chat-header,
+body.room-mode-recount .gm-module-chat .gm-chat-header {
+  min-height:42px !important;
   padding:4px 8px 12px !important;
   margin-bottom:4px !important;
-}
-
-/* BATTLE MODE // physically lift the ONLINE control away from the divider.
-   Transform is intentional: unlike padding, it cannot reflow/recenter the pill
-   and silently preserve the same visual gap. */
-body:not(.room-mode-casual) .gm-module-chat .gm-chat-presence-wrap {
-  transform:translateY(-7px) !important;
 }
 
 .gm-chat-presence-wrap {
