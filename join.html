@@ -5797,6 +5797,45 @@
       color:#697078 !important;
     }
 
+
+
+    /* IN-GAME CHAT IMAGE UPLOAD // access pages untouched */
+    #game-screen .chat-image-upload-btn {
+      order:2;
+      flex:0 0 30px;
+      width:30px;
+      height:30px;
+      min-width:30px;
+      min-height:30px;
+      padding:0;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      align-self:center;
+      border:0;
+      background:transparent;
+      color:#858f9b;
+      font-size:1rem;
+      cursor:pointer;
+    }
+    #game-screen .chat-image-upload-btn:hover { color:var(--player-theme,#d6a843); }
+    #game-screen .chat-image-upload-btn:disabled { opacity:.45; cursor:wait; }
+    #game-screen .chat-emoji-toggle { order:3 !important; }
+    #game-screen .chat-input-emoji-picker { order:4 !important; }
+    #game-screen .chat-image-link { display:block; width:fit-content; max-width:100%; margin-top:6px; }
+    #game-screen .chat-image-attachment {
+      display:block;
+      width:auto;
+      height:auto;
+      max-width:min(420px,100%);
+      max-height:360px;
+      object-fit:contain;
+      border:1px solid rgba(155,93,224,.42);
+      border-radius:8px;
+      box-shadow:0 5px 18px rgba(0,0,0,.38);
+      cursor:zoom-in;
+    }
+
   </style>
 </head>
 <body>
@@ -6095,7 +6134,9 @@
           <button type="button" id="chat-reply-cancel" class="chat-reply-cancel" title="Cancel reply" aria-label="Cancel reply">×</button>
         </div>
         <input type="text" id="chat-input" placeholder="Insult here" maxlength="100" autocomplete="off">
+        <button type="button" id="chat-image-upload-btn" class="chat-image-upload-btn" title="Upload image" aria-label="Upload image">▧</button>
         <button type="button" id="chat-emoji-toggle" class="chat-emoji-toggle" title="Emoji" aria-label="Open emoji picker">☺</button>
+        <input type="file" id="chat-image-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
         <div id="chat-emoji-picker" class="chat-input-emoji-picker" hidden></div>
       </form>
     </div>
