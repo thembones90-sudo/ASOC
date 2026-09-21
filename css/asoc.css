@@ -14107,3 +14107,279 @@ body.room-mode-casual #gm-broker-bar {
     padding:8px 10px max(34px, env(safe-area-inset-bottom)) !important;
   }
 }
+
+
+/* =========================================================
+   OMEN // DARKSIDERS SIGIL
+   The left sigil itself is the GM trigger in live BATTLE mode.
+   Hitbox is measured to the glyph, not the old red annotation.
+   ========================================================= */
+.omen-trigger { display:none; }
+
+body.room-mode-battle #asoc-board > .omen-trigger {
+  display:block;
+  position:absolute;
+  left:7.16%;
+  top:44.04%;
+  width:6.32%;
+  height:11.84%;
+  z-index:8;
+  padding:0;
+  border:0;
+  border-radius:38%;
+  background:transparent;
+  cursor:pointer;
+  appearance:none;
+  -webkit-appearance:none;
+  outline:none;
+}
+
+body.room-mode-battle #asoc-board > .omen-trigger::before {
+  content:"";
+  position:absolute;
+  inset:12%;
+  border-radius:44%;
+  opacity:0;
+  background:radial-gradient(circle,rgba(70,255,125,.18) 0%,rgba(18,92,51,.08) 42%,transparent 72%);
+  box-shadow:0 0 0 rgba(79,255,137,0);
+  transition:opacity 150ms ease,box-shadow 150ms ease,transform 150ms ease;
+}
+
+body.room-mode-battle #asoc-board > .omen-trigger:hover::before,
+body.room-mode-battle #asoc-board > .omen-trigger:focus-visible::before {
+  opacity:1;
+  transform:scale(1.08);
+  box-shadow:0 0 14px rgba(79,255,137,.20);
+}
+
+body.room-mode-battle #asoc-board > .omen-trigger:active::before {
+  transform:scale(.94);
+  opacity:.72;
+}
+
+.asoc-omen-layer {
+  position:fixed;
+  pointer-events:none;
+  overflow:hidden;
+  z-index:200020;
+  border-radius:8px;
+  isolation:isolate;
+  opacity:0;
+}
+
+.asoc-omen-layer.is-active { opacity:1; }
+
+.asoc-omen-wash {
+  position:absolute;
+  inset:0;
+  background:rgba(0,9,5,0);
+  backdrop-filter:brightness(1) contrast(1) saturate(1);
+  -webkit-backdrop-filter:brightness(1) contrast(1) saturate(1);
+  animation:omen-board-wash 4.5s cubic-bezier(.22,.72,.18,1) both;
+}
+
+.asoc-omen-field {
+  position:absolute;
+  left:10.44%;
+  top:49.56%;
+  width:5.68%;
+  height:10.68%;
+  transform:translate(-50%,-50%);
+  transform-origin:center;
+  filter:drop-shadow(0 0 4px rgba(69,255,127,.30));
+  animation:omen-field-heartbeat 4.5s ease-in-out both;
+}
+
+.asoc-omen-field::before {
+  content:"";
+  position:absolute;
+  inset:-95%;
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 50% 50%,rgba(101,255,145,.34) 0 10%,rgba(28,121,64,.22) 24%,rgba(7,31,18,.14) 45%,transparent 72%),
+    conic-gradient(from 30deg,transparent 0 14%,rgba(86,255,134,.13) 19%,transparent 28% 56%,rgba(77,27,112,.12) 64%,transparent 76%);
+  filter:blur(5px);
+  mix-blend-mode:screen;
+  animation:omen-aura 4.5s ease-out both;
+}
+
+.asoc-omen-field::after {
+  content:"";
+  position:absolute;
+  inset:-38%;
+  border-radius:48%;
+  backdrop-filter:hue-rotate(28deg) saturate(1.7) contrast(1.24) blur(.55px);
+  -webkit-backdrop-filter:hue-rotate(28deg) saturate(1.7) contrast(1.24) blur(.55px);
+  -webkit-mask-image:radial-gradient(ellipse at center,#000 0 48%,transparent 78%);
+  mask-image:radial-gradient(ellipse at center,#000 0 48%,transparent 78%);
+  opacity:0;
+  animation:omen-local-warp 4.5s steps(2,end) both;
+}
+
+.asoc-omen-ghost {
+  position:absolute;
+  inset:-7%;
+  border-radius:42%;
+  border:1px solid rgba(165,71,214,.32);
+  box-shadow:-4px 1px 0 rgba(126,34,174,.13),3px -1px 0 rgba(63,255,129,.14),0 0 19px rgba(87,255,137,.18);
+  opacity:0;
+  animation:omen-ghost 4.5s steps(2,end) both;
+}
+
+.asoc-omen-ring {
+  position:absolute;
+  inset:2%;
+  border:1px solid rgba(87,255,137,.42);
+  border-radius:50%;
+  opacity:0;
+  transform:scale(.7);
+  box-shadow:0 0 8px rgba(87,255,137,.18),inset 0 0 7px rgba(87,255,137,.12);
+}
+.omen-ring-a { animation:omen-ring 1.85s .45s ease-out both; }
+.omen-ring-b { animation:omen-ring 2.15s .85s ease-out both; }
+.omen-ring-c { animation:omen-ring 2.35s 1.25s ease-out both; }
+
+.asoc-omen-rift {
+  position:absolute;
+  left:48%;
+  top:-20%;
+  width:7%;
+  height:142%;
+  opacity:0;
+  background:linear-gradient(180deg,transparent,rgba(122,255,160,.7) 32%,rgba(75,18,106,.55) 53%,rgba(98,255,149,.55) 72%,transparent);
+  filter:blur(.8px);
+  transform:rotate(2deg) scaleY(.7);
+  mix-blend-mode:screen;
+  animation:omen-rift 4.5s ease both;
+}
+
+.asoc-omen-smoke {
+  position:absolute;
+  width:120%;
+  height:76%;
+  border-radius:50%;
+  opacity:0;
+  background:radial-gradient(ellipse at 50% 50%,rgba(11,61,31,.28),rgba(1,8,5,.46) 48%,transparent 72%);
+  filter:blur(7px);
+  transform-origin:50% 50%;
+  mix-blend-mode:multiply;
+}
+.smoke-a { left:-92%; top:-5%; animation:omen-smoke-a 4.5s ease-in-out both; }
+.smoke-b { right:-94%; top:16%; animation:omen-smoke-b 4.5s ease-in-out both; }
+.smoke-c { left:-18%; bottom:-72%; animation:omen-smoke-c 4.5s ease-in-out both; }
+
+.asoc-omen-tear {
+  position:absolute;
+  left:4%;
+  width:25%;
+  height:2px;
+  opacity:0;
+  background:linear-gradient(90deg,transparent,rgba(77,255,134,.46),rgba(141,63,180,.36),transparent);
+  filter:blur(.2px);
+  mix-blend-mode:screen;
+}
+.tear-a { top:46.5%; animation:omen-tear-a 4.5s steps(2,end) both; }
+.tear-b { top:51.2%; animation:omen-tear-b 4.5s steps(2,end) both; }
+.tear-c { top:55.4%; animation:omen-tear-c 4.5s steps(2,end) both; }
+
+@keyframes omen-board-wash {
+  0%,7% { background:rgba(0,9,5,0); backdrop-filter:brightness(1) contrast(1) saturate(1); }
+  13% { background:rgba(0,8,4,.10); backdrop-filter:brightness(.90) contrast(1.05) saturate(.92); }
+  31% { background:rgba(0,10,5,.13); backdrop-filter:brightness(.87) contrast(1.08) saturate(.88); }
+  62% { background:rgba(0,8,4,.09); backdrop-filter:brightness(.91) contrast(1.05) saturate(.92); }
+  86% { background:rgba(0,7,4,.04); backdrop-filter:brightness(.97) contrast(1.02) saturate(.97); }
+  100% { background:rgba(0,9,5,0); backdrop-filter:brightness(1) contrast(1) saturate(1); }
+}
+@keyframes omen-field-heartbeat {
+  0%,8% { transform:translate(-50%,-50%) scale(1); filter:brightness(1); }
+  16% { transform:translate(-50%,-50%) scale(1.035); filter:brightness(1.25); }
+  24% { transform:translate(-50%,-50%) scale(.995); }
+  35% { transform:translate(-50%,-50%) scale(1.025); filter:brightness(1.12); }
+  66% { transform:translate(-50%,-50%) scale(1.012); }
+  100% { transform:translate(-50%,-50%) scale(1); filter:brightness(1); }
+}
+@keyframes omen-aura {
+  0%,7% { opacity:0; transform:scale(.72) rotate(-8deg); }
+  18% { opacity:.86; transform:scale(1.02) rotate(2deg); }
+  36% { opacity:.70; transform:scale(1.28) rotate(8deg); }
+  66% { opacity:.54; transform:scale(1.42) rotate(16deg); }
+  88% { opacity:.18; transform:scale(1.55) rotate(21deg); }
+  100% { opacity:0; transform:scale(1.62) rotate(24deg); }
+}
+@keyframes omen-local-warp {
+  0%,18%,100% { opacity:0; transform:translate(0,0) scale(1); }
+  23% { opacity:.58; transform:translate(-2%,1%) scale(1.08,.95); }
+  28% { opacity:.36; transform:translate(2%,-1%) scale(.96,1.07); }
+  34% { opacity:.48; transform:translate(-1%,0) scale(1.04,.98); }
+  42% { opacity:.18; transform:translate(1%,0) scale(1); }
+  48% { opacity:0; }
+}
+@keyframes omen-ghost {
+  0%,10% { opacity:0; transform:translate(0,0) scale(1); }
+  17% { opacity:.58; transform:translate(-7%,2%) scale(1.05); }
+  24% { opacity:.24; transform:translate(6%,-2%) scale(.98); }
+  33% { opacity:.47; transform:translate(-3%,1%) scale(1.03); }
+  48% { opacity:.18; transform:translate(2%,0) scale(1.01); }
+  70%,100% { opacity:0; transform:none; }
+}
+@keyframes omen-ring {
+  0% { opacity:0; transform:scale(.66); }
+  14% { opacity:.72; }
+  100% { opacity:0; transform:scale(3.25); }
+}
+@keyframes omen-rift {
+  0%,17% { opacity:0; transform:rotate(2deg) scaleY(.6); }
+  24% { opacity:.78; transform:rotate(-1deg) scaleY(1.02); }
+  29% { opacity:.28; transform:rotate(3deg) scaleY(.84); }
+  36% { opacity:.62; transform:rotate(1deg) scaleY(1.08); }
+  49% { opacity:.16; transform:rotate(-2deg) scaleY(.96); }
+  62%,100% { opacity:0; }
+}
+@keyframes omen-smoke-a {
+  0%,18% { opacity:0; transform:translate(18%,4%) scale(.62) rotate(8deg); }
+  37% { opacity:.62; transform:translate(-8%,-3%) scale(1.08) rotate(-9deg); }
+  70% { opacity:.34; transform:translate(-32%,-8%) scale(1.32) rotate(-18deg); }
+  100% { opacity:0; transform:translate(-52%,-14%) scale(1.48) rotate(-24deg); }
+}
+@keyframes omen-smoke-b {
+  0%,22% { opacity:0; transform:translate(-15%,0) scale(.66) rotate(-7deg); }
+  42% { opacity:.54; transform:translate(8%,-6%) scale(1.06) rotate(9deg); }
+  72% { opacity:.28; transform:translate(29%,-12%) scale(1.31) rotate(17deg); }
+  100% { opacity:0; transform:translate(48%,-18%) scale(1.45) rotate(22deg); }
+}
+@keyframes omen-smoke-c {
+  0%,25% { opacity:0; transform:translateY(-18%) scale(.64); }
+  45% { opacity:.48; transform:translateY(4%) scale(1.04); }
+  76% { opacity:.24; transform:translateY(30%) scale(1.30); }
+  100% { opacity:0; transform:translateY(48%) scale(1.45); }
+}
+@keyframes omen-tear-a {
+  0%,19%,100% { opacity:0; transform:translateX(0) scaleX(.2); }
+  23% { opacity:.62; transform:translateX(8%) scaleX(1); }
+  26% { opacity:.12; transform:translateX(-5%) scaleX(.72); }
+  31% { opacity:.42; transform:translateX(4%) scaleX(.92); }
+  36% { opacity:0; }
+}
+@keyframes omen-tear-b {
+  0%,23%,100% { opacity:0; transform:translateX(0) scaleX(.2); }
+  28% { opacity:.48; transform:translateX(-4%) scaleX(.88); }
+  33% { opacity:.18; transform:translateX(7%) scaleX(1.12); }
+  39% { opacity:.36; transform:translateX(2%) scaleX(.76); }
+  44% { opacity:0; }
+}
+@keyframes omen-tear-c {
+  0%,27%,100% { opacity:0; transform:translateX(0) scaleX(.18); }
+  32% { opacity:.40; transform:translateX(5%) scaleX(.94); }
+  38% { opacity:.14; transform:translateX(-6%) scaleX(.68); }
+  43% { opacity:.31; transform:translateX(3%) scaleX(.82); }
+  48% { opacity:0; }
+}
+
+.asoc-omen-layer.is-reduced .asoc-omen-wash { animation-duration:1.2s; }
+.asoc-omen-layer.is-reduced .asoc-omen-field::before { animation:none; opacity:.36; }
+.asoc-omen-layer.is-reduced .asoc-omen-field::after,
+.asoc-omen-layer.is-reduced .asoc-omen-ring,
+.asoc-omen-layer.is-reduced .asoc-omen-rift,
+.asoc-omen-layer.is-reduced .asoc-omen-smoke,
+.asoc-omen-layer.is-reduced .asoc-omen-tear,
+.asoc-omen-layer.is-reduced .asoc-omen-ghost { display:none; }
