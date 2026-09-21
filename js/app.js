@@ -523,6 +523,20 @@ const App = {
       finalHoldCell = null;
       finalHoldPointerId = null;
     };
+    // Expose cancellation to authoritative state/mode sync. Pointer events
+    // alone are not enough: FINAL can resolve or Battle can end mid-hold.
+    this._cancelGMFinalHold = cancelFinalHold;
+
+    const markPending = (cell, pending = true) => {
+      if (!cell) return;
+      cell.classList.toggle('gm-board-pending', pending);
+      if (pending) {
+        cell.classList.remove('gm-board-hitbox');
+        cell.setAttribute('aria-disabled', 'true');
+      } else {
+        cell.removeAttribute('aria-disabled');
+      }
+    };
 
     const revealCell = (cell) => {
       if (!cell?.classList.contains('gm-board-hitbox') || this.gameComplete) return;
@@ -533,6 +547,9 @@ const App = {
       if (Board.isRevealed(column, row)) return;
       if (this.solvedTargets?.[column] || Board.getCellOutcome(column, 5) === 'failed') return;
 
+      // Lock this physical slot immediately. Server state will clear the
+      // pending marker on the next authoritative sync.
+      markPending(cell, true);
       this.sendCommand('revealCell', { cell: key, reveal: true });
       this.updatePublicView();
     };
@@ -567,6 +584,7 @@ const App = {
         if (!target?.isConnected || !target.classList.contains('gm-board-hitbox')) return;
         if (Board.isFinalRevealed() || Board.getFinalOutcome() === 'failed') return;
 
+        markPending(target, true);
         this.sendCommand('revealFinal', { reveal: true });
         this.updatePublicView();
       }, FINAL_HOLD_MS);
@@ -592,6 +610,7 @@ const App = {
 
       if (cell.dataset.cell === 'FINAL') {
         if (!Board.isFinalRevealed() && Board.getFinalOutcome() !== 'failed') {
+          markPending(cell, true);
           this.sendCommand('revealFinal', { reveal: true });
           this.updatePublicView();
         }
@@ -606,9 +625,17 @@ const App = {
     if (!board) return;
 
     const gameLoaded = !!window.GameData?.currentGame;
+
+    // Any authoritative interaction-state refresh invalidates an in-flight
+    // FINAL hold. This covers verdicts, WOMF resolution, mode changes,
+    // reconnect hydration, board resets and completion.
+    this._cancelGMFinalHold?.();
+
     board.classList.toggle('gm-board-direct-controls', gameLoaded);
 
     board.querySelectorAll('.board-cell[data-cell]').forEach(cell => {
+      cell.classList.remove('gm-board-pending');
+      cell.removeAttribute('aria-disabled');
       const key = cell.dataset.cell || '';
       const isFinal = key === 'FINAL';
       const normalCell = /^[A-D][1-5]$/.test(key);
@@ -617,9 +644,13 @@ const App = {
       const revealed = isFinal
         ? Board.isFinalRevealed()
         : (normalCell && Board.isRevealed(column, row));
+      // Revealing a column solution manually resolves that column's direct
+      // controls too. FINAL deliberately remains independent: players may
+      // legitimately solve it after any number of columns, including one.
+      const columnSolutionRevealed = normalCell && Board.isRevealed(column, 5);
       const resolved = isFinal
         ? (Board.getFinalOutcome() === 'failed' || !!this.solvedTargets?.FINAL)
-        : (normalCell && (!!this.solvedTargets?.[column] || Board.getCellOutcome(column, 5) === 'failed'));
+        : (normalCell && (columnSolutionRevealed || !!this.solvedTargets?.[column] || Board.getCellOutcome(column, 5) === 'failed'));
       const actionable = gameLoaded && !this.gameComplete && (isFinal || normalCell) && !revealed && !resolved;
 
       cell.classList.toggle('gm-board-hitbox', actionable);

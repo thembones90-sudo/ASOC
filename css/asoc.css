@@ -13238,3 +13238,38 @@ body.asoc-transition-to-casual #game-screen .player-battle-layout {
     transition: none;
   }
 }
+
+
+/* Direct-board command pending state: immediate local lock while the
+   authoritative server mutation is in flight. */
+#asoc-board.gm-board-direct-controls .board-cell.gm-board-pending {
+  cursor: wait;
+  pointer-events: none;
+}
+#asoc-board.gm-board-direct-controls .board-cell.gm-board-pending::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: 1px;
+  border: 1px solid rgba(183, 196, 209, .46);
+  border-radius: 999px;
+  background: rgba(145, 160, 174, .035);
+  box-shadow: 0 0 10px rgba(145, 160, 174, .14);
+  opacity: 1;
+  pointer-events: none;
+  animation: gm-board-pending-pulse 620ms ease-in-out infinite alternate;
+}
+#asoc-board.gm-board-direct-controls .board-cell.final-solution.gm-board-pending::after {
+  inset: -2px;
+  border-radius: 12px;
+}
+@keyframes gm-board-pending-pulse {
+  from { opacity: .42; }
+  to { opacity: .88; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #asoc-board.gm-board-direct-controls .board-cell.gm-board-pending::after {
+    animation: none;
+    opacity: .66;
+  }
+}
