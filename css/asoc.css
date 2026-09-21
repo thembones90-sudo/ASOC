@@ -323,12 +323,16 @@ textarea {
 /* Final solution ("K") -- same green-default/red-on-fail model as the
    column solutions; gold is no longer used here. */
 .board-cell.final-solution .cell-content {
-  color: #35d57a;
+  color: #020503;
   font-weight: 900;
   font-size: clamp(1.8rem, 4.4vw, 2.8rem);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  text-shadow: 0 0 5px rgba(53, 213, 122, 0.32);
+  text-shadow:
+    0 0 2px #39ff14,
+    0 0 6px rgba(57, 255, 20, 0.96),
+    0 0 13px rgba(57, 255, 20, 0.78),
+    0 0 24px rgba(57, 255, 20, 0.52);
 }
 
 /* FINAL SOLUTION REVEAL FLOURISH -- Public View / join.html only (see
@@ -490,11 +494,15 @@ textarea {
   }
 
   .asoc-board .board-cell.final-solution .cell-content {
-    color: #35d57a;
+    color: #020503;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.72), 0 0 5px rgba(53, 213, 122, 0.32);
+    text-shadow:
+      0 0 2px #39ff14,
+      0 0 6px rgba(57, 255, 20, 0.96),
+      0 0 13px rgba(57, 255, 20, 0.78),
+      0 0 24px rgba(57, 255, 20, 0.52);
   }
 
   /* SHADOW BROKER BOARD LINE -- positioned via Skeleton.shadowBrokerLineStyle(),
