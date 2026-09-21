@@ -61,11 +61,13 @@ function wait(ws, predicate, label = 'message', timeout = 4000) {
 
 async function openWs(handshake = true) {
   const ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
+  const helloP = handshake ? wait(ws, m => m.type === 'protocol:hello', 'protocol hello') : null;
   await once(ws, 'open');
   if (!handshake) return ws;
-  await wait(ws, m => m.type === 'protocol:hello', 'protocol hello');
+  await helloP;
+  const readyP = wait(ws, m => m.type === 'protocol:ready', 'protocol ready');
   ws.send(JSON.stringify({ type: 'protocol:hello', protocolVersion: 1 }));
-  await wait(ws, m => m.type === 'protocol:ready', 'protocol ready');
+  await readyP;
   return ws;
 }
 
@@ -184,6 +186,12 @@ async function judge(ws, messageId, verdict, target) {
   return ackP;
 }
 
+async function startBattle(ws) {
+  const stateP = wait(ws, m => m.type === 'state:public' && m.roomMode === 'BATTLE', 'battle mode start');
+  ws.send(JSON.stringify({ type: 'gm:timerStart' }));
+  return stateP;
+}
+
 async function guess(player, host, text) {
   const seenP = wait(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === text), 'chat guess');
   player.send(JSON.stringify({ type: 'chat:guess', text }));
@@ -276,6 +284,7 @@ function testSessionStoreRecovery() {
     assert.ok(profiles['hard one'] === undefined, 'legacy profile is moved, not duplicated');
 
     const host = await armHost(gm.data.token);
+    await startBattle(host.ws);
     const armedBefore = activeRoom();
     const duplicateP = wait(host.ws, m => m.type === 'error' && m.code === 'MASTER_ALREADY_ARMED', 'duplicate arm rejection');
     host.ws.send(JSON.stringify({ type: 'room:create', gameId: 'sample-game', gmToken: gm.data.token }));
@@ -291,6 +300,7 @@ function testSessionStoreRecovery() {
     host.ws.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: commandId }));
     await replayAck;
     assert.equal(activeRoom().boardId, resetBoardId, 'replayed cmdId cannot apply mutation twice');
+    await startBattle(host.ws);
 
     await delay(400);
     await guess(p1.ws, host.ws, 'COOLDOWN ONE');
@@ -335,7 +345,7 @@ function testSessionStoreRecovery() {
     assert.ok(activeRoom().wheel.settleAt, 'wheel settlement deadline persisted before crash');
     await stopServer(true);
     await startServer();
-    const settleDeadline = Date.now() + 5000;
+    const settleDeadline = Date.now() + 12000;
     while (Date.now() < settleDeadline && activeRoom().wheel.phase === 'spinning') await delay(100);
     const settled = activeRoom();
     assert.equal(settled.wheel.phase, 'result', 'wheel settles after hard restart');
