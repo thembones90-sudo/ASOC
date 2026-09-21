@@ -2406,12 +2406,9 @@ function applyCommand(room, command, payload) {
 }
 
 function isValidCell(cell) {
-  if (!cell || cell.length < 2) return false;
-  const col = cell[0];
-  const row = parseInt(cell.slice(1), 10);
-  if (!['A', 'B', 'C', 'D'].includes(col)) return false;
-  if (isNaN(row) || row < 1 || row > 5) return false;
-  return true;
+  // Commands must address one exact physical board slot. parseInt-based
+  // validation accepted malformed values such as "A1junk" as A1.
+  return typeof cell === 'string' && /^[A-D][1-5]$/.test(cell);
 }
 
 function isValidTarget(target) {
