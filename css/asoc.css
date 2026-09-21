@@ -10189,3 +10189,63 @@ body.game-complete .recount-btn,
     min-height: 32px !important;
   }
 }
+
+
+/* SHADOW BROKER RICH EMOJI COMPOSER V1 */
+.shadow-broker-input-model {
+  display: none !important;
+}
+
+.shadow-broker-rich-input {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  max-height: 36px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: pre;
+  scrollbar-width: none;
+  line-height: 1.25;
+  cursor: text;
+}
+
+.shadow-broker-rich-input::-webkit-scrollbar {
+  display: none;
+}
+
+.shadow-broker-rich-input:empty::before {
+  content: attr(data-placeholder);
+  color: #6f7480;
+  pointer-events: none;
+  user-select: none;
+}
+
+.shadow-broker-form.shadow-broker-no-room .shadow-broker-rich-input:empty::before {
+  color: #e74c3c;
+}
+
+.shadow-broker-rich-input .commander-composer-emoji {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  margin: 0 2px;
+  vertical-align: middle;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 0 4px rgba(155,93,224,.28));
+}
+
+.shadow-broker-rich-input:focus {
+  outline: none;
+  border-color: #9b5de0;
+}
+
+@media (max-width: 760px) {
+  .shadow-broker-rich-input .commander-composer-emoji {
+    width: 26px;
+    height: 26px;
+    flex-basis: 26px;
+  }
+}
