@@ -9790,6 +9790,17 @@ body.room-mode-casual #gm-panel .gm-module-multiplayer .gm-section-title {
   margin-bottom: 10px;
 }
 
+body.room-mode-casual #gm-panel .gm-module-multiplayer .battle-controls-host-slot {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+}
+
+body.room-mode-casual #gm-panel .gm-module-multiplayer .battle-host-btn,
+body.room-mode-casual #gm-panel .gm-module-multiplayer .battle-next-btn {
+  width: 100%;
+}
+
 body.room-mode-casual #public-view-btn,
 body.room-mode-casual #library-btn-footer {
   display: none !important;
