@@ -1533,7 +1533,7 @@ const PlayerApp = {
     const before = input.value.slice(0, caret);
     const at = before.lastIndexOf('@');
     if (at < 0) return null;
-    if (at > 0 && !/[\s([{"'«]/.test(before.charAt(at - 1))) return null;
+    if (at > 0 && /[\\p{L}\\p{N}_]/u.test(before.charAt(at - 1))) return null;
     const query = before.slice(at + 1);
     if (query.length > 40 || /[\r\n:]/.test(query)) return null;
     return { start: at, end: caret, query };
