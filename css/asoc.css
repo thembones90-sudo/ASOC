@@ -2643,6 +2643,57 @@ body.gm-clue-height-resizing * {
   user-select: none !important;
 }
 
+/* Temporary precision readouts appear only while a splitter is actively
+   moving. The stored dimensions remain invisible during normal play. */
+.gm-module-height-splitter::after,
+.gm-layout-splitter::after {
+  content: attr(data-resize-readout);
+  position: absolute;
+  z-index: 120;
+  padding: 5px 8px;
+  border: 1px solid rgba(212,168,67,.68);
+  border-radius: 4px;
+  background: rgba(9,12,16,.96);
+  color: #e7c65f;
+  box-shadow: 0 4px 14px rgba(0,0,0,.55), inset 0 1px rgba(255,255,255,.035);
+  font: 800 .48rem var(--font-machine);
+  letter-spacing: .08em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .08s ease;
+}
+
+.gm-module-height-splitter::after {
+  left: 50%;
+  top: -24px;
+  transform: translateX(-50%);
+}
+
+.gm-layout-splitter::after {
+  left: 50%;
+  top: 50%;
+  width: auto;
+  height: auto;
+  bottom: auto;
+  right: auto;
+  transform: translate(-50%,-50%) rotate(-90deg);
+}
+
+body.gm-chat-height-resizing .gm-chat-height-splitter::after,
+body.gm-clue-height-resizing .gm-clue-height-splitter::after,
+body.gm-layout-resizing .gm-layout-splitter::after {
+  opacity: 1;
+}
+
+body.gm-layout-locked .gm-layout-splitter,
+body.gm-layout-locked .gm-module-height-splitter {
+  cursor: default !important;
+  pointer-events: none;
+  opacity: .34;
+  filter: saturate(.45) brightness(.8);
+}
+
 /* SHADOW BROKER broadcast box -- a compact operator control under the
    GUESSES panel, not another full section. Sends a freestanding
    transmission to players (gm:broadcast); does not touch judging. */
@@ -6502,6 +6553,39 @@ body.gm-clue-height-resizing * {
 .battle-session-strip b { color: #d6b565; font-weight: 900; }
 .gm-maintenance .gm-module-game .current-game { margin-bottom: 14px; }
 .gm-maintenance { position: relative; }
+
+.gm-layout-maintenance {
+  border-color: rgba(109,118,132,.62) !important;
+  background:
+    linear-gradient(90deg, rgba(212,168,67,.035), transparent 34%),
+    linear-gradient(180deg, rgba(27,31,38,.92), rgba(15,18,23,.96)) !important;
+}
+
+.gm-layout-lock-status {
+  margin: 0 0 10px;
+  padding: 7px 9px;
+  border: 1px solid rgba(111,121,136,.42);
+  border-radius: 4px;
+  background: rgba(8,11,15,.52);
+  color: #8c96a4;
+  font: 800 .52rem var(--font-machine);
+  letter-spacing: .08em;
+  text-align: center;
+}
+
+.gm-layout-maintenance-controls {
+  gap: 8px !important;
+}
+
+.gm-layout-lock-btn.active {
+  border-color: rgba(212,168,67,.9) !important;
+  color: #f0cc68 !important;
+  background:
+    linear-gradient(180deg, rgba(67,56,24,.72), rgba(24,22,15,.96)) !important;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.04),
+    0 0 10px rgba(212,168,67,.12);
+}
 
 .gm-maintenance .maintenance-module {
   margin-bottom: 22px;
