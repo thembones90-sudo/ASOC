@@ -48,7 +48,7 @@ const App = {
   // GAME COMPLETE -- the server's authoritative "all five fields resolved"
   // (solved OR failed). This, not gameWon, is what locks the board: the Final
   // can be solved early while columns are still open, and those columns still
-  // need the clue grid and FAIL A-D to be finished.
+  // need their remaining clues and A5-D5 GREEN/RED adjudication to finish.
   gameComplete: false,
   _gameWonLockedCommands: new Set([
     'revealCell', 'hideCell', 'revealColumn', 'hideColumn', 'resolveColumn',
