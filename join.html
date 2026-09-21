@@ -752,7 +752,7 @@
     .public-board-ratio {
       position: absolute;
       inset: 0;
-      margin: auto;
+      margin: 0 auto auto;
       aspect-ratio: var(--board-aspect);
       width: auto;
       height: auto;
@@ -7091,6 +7091,30 @@
       margin:0 !important;
     }
 
+  
+
+    /* PLAYER BOARD GAP REMOVAL V1 */
+    /* No game-title chrome above the battlefield. Keep only a compact gap
+       beneath WOMF, then let the ratio-locked board occupy the top of the
+       remaining board frame instead of vertically centering in dead space. */
+    #game-screen #board-layer {
+      justify-content:flex-start !important;
+    }
+
+    #game-screen #womf-tracker-player {
+      margin-bottom:clamp(4px,.55vh,7px) !important;
+    }
+
+    #game-screen .public-board-frame {
+      margin-top:0 !important;
+    }
+
+    #game-screen .public-board-ratio {
+      top:0 !important;
+      bottom:0 !important;
+      margin:0 auto auto !important;
+    }
+
   </style>
 </head>
 <body>
@@ -7305,7 +7329,6 @@
       </div>
       <div class="timer-tracker" id="timer-tracker-player"></div>
       <div class="womf-tracker" id="womf-tracker-player"></div>
-      <div class="public-header" id="player-public-header-bar"></div>
       <div id="public-board-frame" class="public-board-frame">
         <div class="public-board-ratio">
           <img id="background-layer" alt="Game background">
