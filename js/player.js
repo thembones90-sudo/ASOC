@@ -3051,7 +3051,7 @@ const PlayerApp = {
       const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
       const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const avatar = isBrokerGif
-        ? '<span class="chat-poll-broker-avatar" aria-hidden="true">SB</span>'
+        ? '<img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">'
         : this.littleHeroAvatarHTML(identity);
       const themeId = isBrokerGif ? 'gunmetal' : ASOCThemes.get(identity.themeId).id;
       const style = isBrokerGif
