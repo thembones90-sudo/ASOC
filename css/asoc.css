@@ -525,6 +525,84 @@ textarea {
   }
 }
 
+/* GM DESKTOP LAYOUT SPLITTER
+   Shadow Broker only. This element exists in index.html, never join.html.
+   The two red rails deliberately occupy the old visual gutter between the
+   battlefield and GM command rail while the transparent center is the grab zone. */
+.gm-layout-splitter {
+  position: relative;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 100vh;
+  align-self: stretch;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  z-index: 24;
+  background: linear-gradient(90deg, rgba(0,0,0,.18), rgba(18,5,8,.34) 50%, rgba(0,0,0,.18));
+}
+
+.gm-layout-splitter::before,
+.gm-layout-splitter::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  background: #b71924;
+  box-shadow: 0 0 7px rgba(229, 32, 48, .38);
+  opacity: .72;
+  transition: opacity .14s ease, box-shadow .14s ease, background .14s ease;
+}
+
+.gm-layout-splitter::before { left: 2px; }
+.gm-layout-splitter::after { right: 2px; }
+
+.gm-layout-splitter-grip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 58px;
+  transform: translate(-50%, -50%);
+  border-radius: 4px;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(231, 76, 92, .12) 0 5px,
+    rgba(231, 76, 92, .62) 5px 7px,
+    rgba(231, 76, 92, .12) 7px 12px
+  );
+  opacity: .58;
+  pointer-events: none;
+}
+
+.gm-layout-splitter:hover::before,
+.gm-layout-splitter:hover::after,
+.gm-layout-splitter:focus-visible::before,
+.gm-layout-splitter:focus-visible::after,
+body.gm-layout-resizing .gm-layout-splitter::before,
+body.gm-layout-resizing .gm-layout-splitter::after {
+  opacity: 1;
+  background: #ff2638;
+  box-shadow: 0 0 13px rgba(255, 38, 56, .72);
+}
+
+.gm-layout-splitter:focus-visible {
+  outline: none;
+}
+
+body.gm-layout-resizing,
+body.gm-layout-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* The splitter now owns the visual boundary, so don't paint a third line. */
+.gm-layout-splitter + #gm-panel {
+  border-left: 0;
+}
+
 /* GM SIDEBAR */
 #gm-panel {
   width: 380px;
@@ -7603,6 +7681,9 @@ body.game-complete .recount-btn,
    Preserve the canonical board geometry; adapt only the shell.
    ========================================================= */
 @media (max-width: 760px) {
+  .gm-layout-splitter { display: none !important; }
+  #gm-panel { width: 100% !important; }
+
   html, body {
     height: auto;
     min-height: 100%;
