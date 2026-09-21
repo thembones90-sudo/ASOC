@@ -2042,6 +2042,15 @@ const App = {
     Skeleton.playNemaAsoc();
   },
 
+  triggerOmen() {
+    if (this.roomMode !== 'BATTLE') return;
+    if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+      this.send({ type: 'gm:omen' });
+      return;
+    }
+    Skeleton.playOmen?.();
+  },
+
   // The host's manual entry into the SAME authoritative victory state the
   // server sets when the judge accepts the Final. In a room the server owns
   // it (state:public -> every client, this one included, plays the sequence);
@@ -2533,6 +2542,10 @@ const App = {
 
       case 'nemaAsoc':
         Skeleton.playNemaAsoc();
+        break;
+
+      case 'board:omen':
+        Skeleton.playOmen?.();
         break;
 
       case 'chat:mentionAll':
