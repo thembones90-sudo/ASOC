@@ -12774,3 +12774,87 @@ body.room-mode-recount .gm-module-chat .gm-online-dropdown {
   z-index:5 !important;
   margin:0 !important;
 }
+
+
+/* GM SHADOW BROKER MEDIA SELF-ALIGNMENT V1 */
+/* GIFs sent by the GM are Shadow Broker transmissions, not Little Hero messages.
+   Keep them on the GM self-message side and use the permanent Broker portrait. */
+.gm-module-chat .gm-shadow-broker-media-entry {
+  width:fit-content !important;
+  max-width:86% !important;
+  margin:5px 6px 5px auto !important;
+}
+.gm-module-chat .gm-shadow-broker-media-entry > .shadow-broker-transmission {
+  width:fit-content !important;
+  max-width:100% !important;
+  margin:0 !important;
+  padding:3px 5px !important;
+  gap:6px !important;
+  flex-direction:row-reverse !important;
+  align-items:flex-start !important;
+  border-radius:8px 8px 3px 8px !important;
+}
+.gm-module-chat .gm-shadow-broker-media-entry .shadow-broker-avatar {
+  width:40px !important;
+  height:40px !important;
+  flex:0 0 40px !important;
+  border-width:2px !important;
+}
+.gm-module-chat .gm-shadow-broker-media-entry .shadow-broker-body {
+  position:relative !important;
+  align-items:flex-end !important;
+  text-align:right !important;
+}
+.gm-module-chat .gm-shadow-broker-media-entry .gm-shadow-broker-media-head {
+  display:flex;
+  align-items:baseline;
+  justify-content:flex-end;
+  gap:6px;
+  width:100%;
+  margin:0 0 3px;
+}
+.gm-module-chat .gm-shadow-broker-media-entry .shadow-broker-name {
+  margin:0 !important;
+  font-size:.56rem !important;
+  letter-spacing:.4px !important;
+}
+.gm-module-chat .gm-shadow-broker-media-entry .gm-chat-time {
+  margin:0 !important;
+  color:#78818c !important;
+  font-size:.36rem !important;
+  opacity:.72;
+}
+.gm-module-chat .gm-shadow-broker-media-entry .gm-chat-gif-link {
+  display:block !important;
+  width:fit-content !important;
+  max-width:min(400px,100%) !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+  line-height:0 !important;
+  border:1px solid rgba(155,93,224,.22) !important;
+  border-radius:8px !important;
+  background:transparent !important;
+}
+.gm-module-chat .gm-shadow-broker-media-entry .gm-chat-gif-attachment {
+  display:block !important;
+  width:auto !important;
+  height:auto !important;
+  max-width:min(400px,100%) !important;
+  max-height:310px !important;
+  margin:0 !important;
+  border:0 !important;
+  border-radius:7px !important;
+  object-fit:contain !important;
+  background:#050709 !important;
+}
+.gm-module-chat .gm-shadow-broker-media-entry .gm-chat-gif-provider-mark {
+  margin-top:2px !important;
+  color:#69727d !important;
+  font-size:.40rem !important;
+  text-align:right !important;
+}
+.gm-module-chat .gm-shadow-broker-media-entry > .gm-chat-reactions {
+  justify-content:flex-end !important;
+  margin:3px 3px 0 auto !important;
+}
