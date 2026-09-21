@@ -628,6 +628,23 @@ const PlayerApp = {
         return;
       }
 
+      // Deliberate moderation closes must never enter the automatic reconnect
+      // loop. Kicks may be manually retried; bans will be rejected server-side
+      // against the authenticated account id on every future join attempt.
+      if (event.code === 4002 || event.code === 4003) {
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
+        localStorage.removeItem('asoc_player_in_master');
+        this.setConnectionStatus('disconnected');
+        this.showJoinScreen();
+        this.showError(event.code === 4003
+          ? 'ACCESS DENIED // Shadow Broker has banned this Little Hero from the Master Room.'
+          : 'CONNECTION TERMINATED // Shadow Broker removed you from the Master Room.');
+        return;
+      }
+
       this.handleDisconnect();
     };
 
@@ -875,6 +892,14 @@ const PlayerApp = {
         if (file) file.value = '';
         break;
       }
+
+      case 'moderation:kicked':
+      case 'moderation:banned':
+        localStorage.removeItem('asoc_player_in_master');
+        this.showError(message.message || (message.type === 'moderation:banned'
+          ? 'ACCESS DENIED // This Little Hero is banned from the Master Room.'
+          : 'CONNECTION TERMINATED // Shadow Broker removed you from the Master Room.'));
+        break;
 
       case 'auth:required':
         localStorage.removeItem('asoc_player_auth_token');
