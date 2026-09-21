@@ -22,6 +22,15 @@ const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_POLL_QUESTION_LENGTH = 160;
 const MAX_POLL_OPTION_LENGTH = 80;
 const MAX_POLL_OPTIONS = 8;
+const GIF_API_WINDOW_MS = 60 * 60 * 1000;
+const GIF_API_GLOBAL_LIMIT = 90;
+const GIF_API_PLAYER_LIMIT = 10;
+const GIF_API_RESULT_LIMIT = 12;
+const GIF_SEARCH_CACHE_MS = 15 * 60 * 1000;
+const GIF_TRENDING_CACHE_MS = 10 * 60 * 1000;
+const GIPHY_API_BASE = 'https://api.giphy.com/v1/gifs';
+const GIPHY_API_KEY = String(process.env.GIPHY_API_KEY || '').trim();
+const GIPHY_RATING = String(process.env.GIPHY_RATING || 'pg-13').trim() || 'pg-13';
 const MASTER_ROOM_CODE = 'MASTER';
 const ROOM_MODES = Object.freeze({
   CASUAL: 'CASUAL',
@@ -151,6 +160,51 @@ fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
 const ACTIVE_ROOMS_FILE = process.env.ASOC_SESSION_FILE
   ? path.resolve(process.env.ASOC_SESSION_FILE)
   : path.join(ASOC_DATA_DIR, 'active-rooms.json');
+const GIF_API_USAGE_FILE = path.join(ASOC_DATA_DIR, 'gif-api-usage.json');
+const gifApiCache = new Map();
+const gifApiUsage = { globalHits: [], playerHits: {} };
+
+function pruneGifApiHits(now = Date.now()) {
+  const cutoff = now - GIF_API_WINDOW_MS;
+  gifApiUsage.globalHits = (gifApiUsage.globalHits || []).filter(ts => Number(ts) > cutoff);
+  const nextPlayers = {};
+  Object.entries(gifApiUsage.playerHits || {}).forEach(([playerId, hits]) => {
+    const fresh = Array.isArray(hits) ? hits.filter(ts => Number(ts) > cutoff) : [];
+    if (fresh.length) nextPlayers[playerId] = fresh;
+  });
+  gifApiUsage.playerHits = nextPlayers;
+}
+
+function loadGifApiUsage() {
+  try {
+    if (!fs.existsSync(GIF_API_USAGE_FILE)) return;
+    const saved = JSON.parse(fs.readFileSync(GIF_API_USAGE_FILE, 'utf8'));
+    gifApiUsage.globalHits = Array.isArray(saved?.globalHits) ? saved.globalHits.map(Number).filter(Number.isFinite) : [];
+    gifApiUsage.playerHits = saved?.playerHits && typeof saved.playerHits === 'object' && !Array.isArray(saved.playerHits)
+      ? Object.fromEntries(Object.entries(saved.playerHits).map(([id, hits]) => [
+          String(id),
+          Array.isArray(hits) ? hits.map(Number).filter(Number.isFinite) : []
+        ]))
+      : {};
+    pruneGifApiHits();
+  } catch (error) {
+    console.error('[gif-api] Could not read quota ledger:', error.message);
+    gifApiUsage.globalHits = [];
+    gifApiUsage.playerHits = {};
+  }
+}
+
+function saveGifApiUsage() {
+  try {
+    pruneGifApiHits();
+    const temp = GIF_API_USAGE_FILE + '.tmp-' + process.pid;
+    fs.writeFileSync(temp, JSON.stringify(gifApiUsage), { mode: 0o600 });
+    fs.renameSync(temp, GIF_API_USAGE_FILE);
+  } catch (error) {
+    console.error('[gif-api] Could not persist quota ledger:', error.message);
+  }
+}
+loadGifApiUsage();
 
 // Recovery store schema: v1 is the legacy pre-MASTER snapshot; v2 adds an
 // explicit format marker and may carry a migration block. Anything newer or
@@ -2515,6 +2569,329 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
 }
 
 
+
+function resolveGifRequestActor(req, room) {
+  const gmToken = String(req.headers['x-gm-token'] || '');
+  if (gmToken && isValidGmToken(gmToken)) {
+    return { role: 'gm', id: '__GM__', name: 'SHADOW BROKER' };
+  }
+  const playerToken = String(req.headers['x-player-token'] || '');
+  const auth = getPlayerAuth(playerToken);
+  if (!auth?.playerId) return null;
+  const live = Array.from(room.players.values()).find(player => String(player.id) === String(auth.playerId));
+  if (!live) return null;
+  return { role: 'player', id: String(live.id), name: live.name || 'LITTLE HERO' };
+}
+
+function gifQuotaFor(actor, now = Date.now()) {
+  pruneGifApiHits(now);
+  const globalHits = gifApiUsage.globalHits || [];
+  const playerHits = actor?.role === 'player'
+    ? (gifApiUsage.playerHits[String(actor.id)] || [])
+    : [];
+  const globalUsed = globalHits.length;
+  const playerUsed = playerHits.length;
+  const globalResetAt = globalHits.length ? Number(globalHits[0]) + GIF_API_WINDOW_MS : now;
+  const playerResetAt = playerHits.length ? Number(playerHits[0]) + GIF_API_WINDOW_MS : now;
+  return {
+    globalUsed,
+    globalLimit: GIF_API_GLOBAL_LIMIT,
+    globalRemaining: Math.max(0, GIF_API_GLOBAL_LIMIT - globalUsed),
+    globalResetAt,
+    playerUsed,
+    playerLimit: actor?.role === 'player' ? GIF_API_PLAYER_LIMIT : null,
+    playerRemaining: actor?.role === 'player' ? Math.max(0, GIF_API_PLAYER_LIMIT - playerUsed) : null,
+    playerResetAt: actor?.role === 'player' ? playerResetAt : null
+  };
+}
+
+function reserveGifApiCall(actor) {
+  const now = Date.now();
+  const quota = gifQuotaFor(actor, now);
+  if (quota.globalRemaining <= 0) {
+    return { ok: false, scope: 'global', quota, retryAfterMs: Math.max(1000, quota.globalResetAt - now) };
+  }
+  if (actor?.role === 'player' && quota.playerRemaining <= 0) {
+    return { ok: false, scope: 'player', quota, retryAfterMs: Math.max(1000, quota.playerResetAt - now) };
+  }
+  gifApiUsage.globalHits.push(now);
+  if (actor?.role === 'player') {
+    const id = String(actor.id);
+    gifApiUsage.playerHits[id] ||= [];
+    gifApiUsage.playerHits[id].push(now);
+  }
+  saveGifApiUsage();
+  return { ok: true, quota: gifQuotaFor(actor, now) };
+}
+
+function isAllowedGiphyUrl(value) {
+  if (typeof value !== 'string' || !value || value.length > 4096) return false;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    return host === 'giphy.com' || host.endsWith('.giphy.com') || host.endsWith('.giphy.net');
+  } catch {
+    return false;
+  }
+}
+
+function normalizeGiphyItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  const images = item.images || {};
+  const previewUrl =
+    images.fixed_width_small?.webp ||
+    images.fixed_width?.webp ||
+    images.fixed_width_small?.url ||
+    images.fixed_width?.url ||
+    images.downsized_still?.url ||
+    '';
+  const mp4Url =
+    images.fixed_width?.mp4 ||
+    images.downsized_small?.mp4 ||
+    images.original?.mp4 ||
+    '';
+  const gifUrl =
+    images.original?.url ||
+    images.downsized?.url ||
+    images.fixed_width?.url ||
+    '';
+  const pageUrl = typeof item.url === 'string' ? item.url : '';
+  if (!isAllowedGiphyUrl(previewUrl) || !isAllowedGiphyUrl(gifUrl)) return null;
+  if (mp4Url && !isAllowedGiphyUrl(mp4Url)) return null;
+  if (pageUrl && !isAllowedGiphyUrl(pageUrl)) return null;
+  const rawWidth = Number(images.fixed_width?.width || images.original?.width || 0);
+  const rawHeight = Number(images.fixed_width?.height || images.original?.height || 0);
+  return {
+    provider: 'giphy',
+    providerId: String(item.id || '').slice(0, 120),
+    title: sanitizeText(item.title || 'GIF').slice(0, 120),
+    previewUrl,
+    mp4Url,
+    gifUrl,
+    pageUrl,
+    width: Number.isFinite(rawWidth) && rawWidth > 0 ? Math.min(2000, rawWidth) : 320,
+    height: Number.isFinite(rawHeight) && rawHeight > 0 ? Math.min(2000, rawHeight) : 240
+  };
+}
+
+function normalizeRemoteGifPayload(raw) {
+  if (!raw || typeof raw !== 'object' || raw.provider !== 'giphy') return null;
+  const normalized = {
+    provider: 'giphy',
+    providerId: String(raw.providerId || '').slice(0, 120),
+    title: sanitizeText(raw.title || 'GIF').slice(0, 120),
+    previewUrl: String(raw.previewUrl || ''),
+    mp4Url: String(raw.mp4Url || ''),
+    gifUrl: String(raw.gifUrl || ''),
+    pageUrl: String(raw.pageUrl || ''),
+    width: Math.min(2000, Math.max(1, Number(raw.width) || 320)),
+    height: Math.min(2000, Math.max(1, Number(raw.height) || 240))
+  };
+  if (!normalized.providerId || !/^[A-Za-z0-9_-]{1,120}$/.test(normalized.providerId)) return null;
+  if (!isAllowedGiphyUrl(normalized.previewUrl) || !isAllowedGiphyUrl(normalized.gifUrl)) return null;
+  if (normalized.mp4Url && !isAllowedGiphyUrl(normalized.mp4Url)) return null;
+  if (normalized.pageUrl && !isAllowedGiphyUrl(normalized.pageUrl)) return null;
+  return normalized;
+}
+
+async function requestGiphy(pathname, params) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+  try {
+    const url = new URL(GIPHY_API_BASE + pathname);
+    url.searchParams.set('api_key', GIPHY_API_KEY);
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+    });
+    const response = await fetch(url, {
+      headers: { Accept: 'application/json', 'User-Agent': 'ASOC-Engine/1.0' },
+      signal: controller.signal
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(payload?.message || ('GIPHY request failed with ' + response.status));
+      error.statusCode = response.status;
+      throw error;
+    }
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function handleGifApiRequest(req, res, url) {
+  const room = rooms.get(MASTER_ROOM_CODE);
+  if (!room) return sendJson(res, 409, { ok: false, error: 'Master Room is unavailable' });
+  const actor = resolveGifRequestActor(req, room);
+  if (!actor) return sendJson(res, 401, { ok: false, error: 'GIF browser authentication required' });
+
+  if (!GIPHY_API_KEY) {
+    return sendJson(res, 503, {
+      ok: false,
+      code: 'GIF_PROVIDER_NOT_CONFIGURED',
+      message: 'GIF NETWORK // API KEY NOT CONFIGURED',
+      configured: false
+    });
+  }
+
+  const isSearch = url.pathname === '/api/gif/search';
+  const rawQuery = sanitizeText(url.searchParams.get('q') || '');
+  if (isSearch && rawQuery.length < 2) {
+    return sendJson(res, 400, { ok: false, error: 'Search requires at least 2 characters' });
+  }
+  const query = rawQuery.slice(0, 60);
+  const offset = Math.min(240, Math.max(0, Number.parseInt(url.searchParams.get('offset') || '0', 10) || 0));
+  const limit = Math.min(GIF_API_RESULT_LIMIT, Math.max(1, Number.parseInt(url.searchParams.get('limit') || String(GIF_API_RESULT_LIMIT), 10) || GIF_API_RESULT_LIMIT));
+  const cacheKey = isSearch
+    ? 'search|' + query.toLocaleLowerCase() + '|' + offset + '|' + limit + '|' + GIPHY_RATING
+    : 'trending|' + offset + '|' + limit + '|' + GIPHY_RATING;
+  const now = Date.now();
+  const cached = gifApiCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return sendJson(res, 200, {
+      ok: true,
+      configured: true,
+      provider: 'giphy',
+      cached: true,
+      mode: isSearch ? 'search' : 'trending',
+      query: isSearch ? query : '',
+      ...cached.payload,
+      quota: gifQuotaFor(actor, now)
+    });
+  }
+  if (cached) gifApiCache.delete(cacheKey);
+
+  const reservation = reserveGifApiCall(actor);
+  if (!reservation.ok) {
+    return sendJson(res, 429, {
+      ok: false,
+      code: 'GIF_LIMIT_REACHED',
+      scope: reservation.scope,
+      message: 'FUCK OFF, LIMIT REACHED',
+      retryAfterMs: reservation.retryAfterMs,
+      quota: reservation.quota
+    });
+  }
+
+  try {
+    const upstream = await requestGiphy(isSearch ? '/search' : '/trending', {
+      q: isSearch ? query : undefined,
+      limit,
+      offset,
+      rating: GIPHY_RATING,
+      lang: 'en'
+    });
+    const results = (Array.isArray(upstream?.data) ? upstream.data : [])
+      .map(normalizeGiphyItem)
+      .filter(Boolean);
+    const count = Number(upstream?.pagination?.count) || results.length;
+    const totalCount = Number(upstream?.pagination?.total_count) || 0;
+    const nextOffset = offset + count;
+    const payload = {
+      results,
+      pagination: {
+        offset,
+        count,
+        nextOffset,
+        hasMore: count > 0 && (totalCount <= 0 || nextOffset < totalCount)
+      }
+    };
+    gifApiCache.set(cacheKey, {
+      expiresAt: now + (isSearch ? GIF_SEARCH_CACHE_MS : GIF_TRENDING_CACHE_MS),
+      payload
+    });
+    return sendJson(res, 200, {
+      ok: true,
+      configured: true,
+      provider: 'giphy',
+      cached: false,
+      mode: isSearch ? 'search' : 'trending',
+      query: isSearch ? query : '',
+      ...payload,
+      quota: gifQuotaFor(actor)
+    });
+  } catch (error) {
+    console.error('[gif-api] GIPHY request failed:', error.message);
+    if (Number(error.statusCode) === 429) {
+      return sendJson(res, 429, {
+        ok: false,
+        code: 'GIF_LIMIT_REACHED',
+        scope: 'provider',
+        message: 'FUCK OFF, LIMIT REACHED',
+        retryAfterMs: GIF_API_WINDOW_MS,
+        quota: gifQuotaFor(actor)
+      });
+    }
+    return sendJson(res, 502, {
+      ok: false,
+      code: 'GIF_PROVIDER_ERROR',
+      message: 'GIF NETWORK // PROVIDER OFFLINE'
+    });
+  }
+}
+
+function appendChatRemoteGifMessage(room, actor, gif) {
+  const isHost = actor.role === 'gm';
+  const liveIdentity = !isHost
+    ? (Array.from(room.players.values()).find(player => String(player.id) === String(actor.playerId)) || {})
+    : {};
+  const message = {
+    id: generateMessageId(),
+    playerId: isHost ? null : actor.playerId,
+    playerName: isHost ? 'SHADOW BROKER' : actor.playerName,
+    avatarData: isHost ? '' : (liveIdentity.avatarData || ''),
+    frameColor: isHost ? '#9B5DE0' : (liveIdentity.frameColor || '#9B5DE0'),
+    themeId: isHost ? 'gunmetal' : (liveIdentity.themeId || 'gunmetal'),
+    themeColor: isHost ? '#343A42' : (liveIdentity.themeColor || '#343A42'),
+    text: '',
+    messageType: 'gifRemote',
+    gif,
+    timestamp: Date.now(),
+    boardId: null,
+    verdict: null,
+    target: null,
+    verdictResponse: null,
+    source: isHost ? 'chatGifGm' : 'chatGif',
+    editableByHost: false,
+    editedAt: null,
+    reactions: {}
+  };
+  room.chat.messages.push(message);
+  if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
+  return message;
+}
+
+function handleChatRemoteGif(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
+  const actor = pollActorForSocket(room, ws);
+  if (!actor) return sendToWs(ws, { type: 'error', message: 'GIF authentication required' });
+  const gif = normalizeRemoteGifPayload(message.gif);
+  if (!gif) return sendToWs(ws, { type: 'error', message: 'Invalid GIF payload' });
+
+  if (actor.role === 'player') {
+    const now = Date.now();
+    const cooldown = playerCooldown(room, ws);
+    if (!cooldown) return;
+    if (cooldown.chatAt && now - cooldown.chatAt < PLAYER_CHAT_MIN_INTERVAL_MS) {
+      return sendToWs(ws, { type: 'error', message: 'Battle Comms cooling down' });
+    }
+    cooldown.chatAt = now;
+  }
+
+  appendChatRemoteGifMessage(
+    room,
+    actor.role === 'gm'
+      ? { role: 'gm' }
+      : { role: 'player', playerId: actor.id, playerName: actor.name },
+    gif
+  );
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+}
+
+
 function appendChatImageMessage(room, actor, imageUrl, caption = '') {
   const cleanCaption = sanitizeText(caption || '');
   const isHost = actor.role === 'gm';
@@ -2904,6 +3281,17 @@ function getChatState(room) {
           source: m.source || null,
           imageUrl: typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
           messageType: m.messageType || null,
+          gif: m.messageType === 'gifRemote' && m.gif ? {
+            provider: m.gif.provider === 'giphy' ? 'giphy' : undefined,
+            providerId: String(m.gif.providerId || '').slice(0, 120),
+            title: sanitizeText(m.gif.title || 'GIF').slice(0, 120),
+            previewUrl: isAllowedGiphyUrl(m.gif.previewUrl) ? m.gif.previewUrl : undefined,
+            mp4Url: isAllowedGiphyUrl(m.gif.mp4Url) ? m.gif.mp4Url : undefined,
+            gifUrl: isAllowedGiphyUrl(m.gif.gifUrl) ? m.gif.gifUrl : undefined,
+            pageUrl: isAllowedGiphyUrl(m.gif.pageUrl) ? m.gif.pageUrl : undefined,
+            width: Math.min(2000, Math.max(1, Number(m.gif.width) || 320)),
+            height: Math.min(2000, Math.max(1, Number(m.gif.height) || 240))
+          } : undefined,
           poll: m.messageType === 'poll' && m.poll ? {
             question: m.poll.question,
             options: Array.isArray(m.poll.options) ? m.poll.options.slice(0, MAX_POLL_OPTIONS) : [],
@@ -4241,6 +4629,14 @@ function handleApiRequest(req, res) {
   const parts = url.pathname.split('/').filter(Boolean);
   const method = req.method;
 
+  if (method === 'GET' && (url.pathname === '/api/gif/search' || url.pathname === '/api/gif/trending')) {
+    handleGifApiRequest(req, res, url).catch(error => {
+      console.error('[gif-api] Unhandled GIF route error:', error);
+      if (!res.headersSent) sendJson(res, 500, { ok: false, code: 'GIF_INTERNAL_ERROR', message: 'GIF NETWORK // INTERNAL ERROR' });
+    });
+    return;
+  }
+
   if (method === 'POST' && url.pathname === '/api/chat/image') {
     const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
     const extByType = {
@@ -4890,6 +5286,10 @@ wss.on('connection', (ws) => {
         }
         case 'chat:react': {
           handleChatReaction(ws, message);
+          break;
+        }
+        case 'chat:gif': {
+          handleChatRemoteGif(ws, message);
           break;
         }
         case 'chat:poll:create': {
