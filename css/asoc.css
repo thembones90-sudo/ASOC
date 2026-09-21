@@ -10514,19 +10514,83 @@ body.room-mode-casual #gm-logout-btn {
 }
 
 
-.gm-chat-header #host-room-btn.room-mode-toggle {
-  width:auto;
-  min-width:210px;
-  margin-left:auto;
-  margin-right:10px;
-  min-height:34px;
-  padding:5px 9px;
+
+
+/* CASUAL/BATTLE toggle lives in the former ARM button slot. */
+.battle-controls-host-slot #host-room-btn.room-mode-toggle {
+  width:100%;
+  min-width:0;
+  min-height:42px;
+  margin:0;
+}
+
+body.room-mode-casual #main-content {
+  display:block !important;
+  flex:0 0 auto !important;
+  width:clamp(250px,22vw,330px) !important;
+  max-width:330px !important;
+  height:auto !important;
+  min-height:0 !important;
+  padding:10px !important;
+  background:transparent !important;
+  overflow:visible !important;
+}
+
+body.room-mode-casual #main-content > * {
+  display:none !important;
+}
+
+body.room-mode-casual #battle-controls-panel {
+  display:block !important;
+  position:static !important;
+  width:100% !important;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+body.room-mode-casual #battle-controls-panel > * {
+  display:none !important;
+}
+
+body.room-mode-casual #battle-controls-panel .battle-controls-grid,
+body.room-mode-casual #battle-controls-panel .battle-controls-host-slot,
+body.room-mode-casual #battle-controls-panel #host-room-btn {
+  display:flex !important;
+}
+
+body.room-mode-casual #battle-controls-panel .battle-controls-grid {
+  grid-template-columns:1fr !important;
+  width:100% !important;
+}
+
+body.room-mode-casual #battle-controls-panel .battle-controls-grid > *:not(.battle-controls-host-slot),
+body.room-mode-casual #battle-controls-panel #next-game-btn {
+  display:none !important;
+}
+
+body.room-mode-casual #gm-panel {
+  width:auto !important;
+  flex:1 1 auto !important;
 }
 
 @media (max-width:760px) {
-  .gm-chat-header #host-room-btn.room-mode-toggle {
-    min-width:176px;
-    margin-right:6px;
-    gap:6px;
+  body.room-mode-casual #app-layout {
+    display:flex !important;
+    flex-direction:column !important;
+  }
+
+  body.room-mode-casual #main-content {
+    order:0;
+    width:100% !important;
+    max-width:none !important;
+    padding:8px !important;
+  }
+
+  body.room-mode-casual #gm-panel {
+    order:1;
+    width:100% !important;
   }
 }
