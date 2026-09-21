@@ -26,7 +26,7 @@ const PlayerApp = {
   _tributeExpiryTimer: null,
   bloodTribute: { status: 'idle' },
   tributeUploading: false,
-  chatReactionEmojis: ['😂', '🤣', '💀', '❤️', '🔥', '👍', '👎', '😭', '😍', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '😏', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🫠', '🥴', '🤯', '🥳', '😴', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
+  chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '😏', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🫠', '🥴', '🤯', '🥳', '😴', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
   // FINAL SOLUTION REVEAL FLOURISH -- same one-shot guard as App's copy in
   // js/app.js (see its comment): renderBoard() fully rebuilds the board on
   // every broadcast, so this flag is what keeps the animation from
