@@ -877,3 +877,5 @@ The screen is called **RECOUNT** — never "Results". Files: `recount-engine.js`
 - Successful payment resolves the WOMF cycle: charge resets to **0/10** and the Wheel closes.
 - Until the outstanding tribute is paid, another Wheel opening/roll is rejected.
 - Current vault lifetime is the active room/session, with active-room crash recovery; closing/destroying the room removes that room archive.
+
+<!-- railway-deploy-sync: casual-battle-modes-2026-09-21 -->
