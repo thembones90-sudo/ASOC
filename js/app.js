@@ -3175,16 +3175,18 @@ const App = {
     const quickActions = msgEl.querySelector('.gm-chat-quick-actions');
     if (quickActions) quickActions.classList.add('adjudicated');
 
+    const bubbleCluster = msgEl.querySelector('.gm-chat-bubble-cluster') || msgEl;
+
     let controlsEl = msgEl.querySelector('.gm-chat-target-controls');
     if (!controlsEl) {
       controlsEl = document.createElement('div');
-      controlsEl.className = 'gm-chat-target-controls';
-      msgEl.appendChild(controlsEl);
+      controlsEl.className = 'gm-chat-target-controls gm-chat-target-inline';
+      bubbleCluster.appendChild(controlsEl);
     }
 
     controlsEl.innerHTML = `
       <div class="gm-target-selector">
-        <span class="gm-target-label">MARK CORRECT AS:</span>
+        <span class="gm-target-label">CORRECT:</span>
         <div class="gm-target-buttons">
           <button class="gm-target-btn" data-target="A" title="Column A Solution">A</button>
           <button class="gm-target-btn" data-target="B" title="Column B Solution">B</button>
