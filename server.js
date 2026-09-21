@@ -3090,6 +3090,10 @@ function handleChatReaction(ws, message) {
 // same function every other chat mutation already uses), so this adds
 // exactly one new code path rather than a parallel message system. No
 // scoring, verdict, timer, clue, or reveal state is touched.
+function containsAllMention(text) {
+  return /(^|[^\p{L}\p{N}_])@all(?![\p{L}\p{N}_])/iu.test(String(text || ''));
+}
+
 function handleGmBroadcast(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -3112,6 +3116,17 @@ function handleGmBroadcast(ws, message) {
   if (result.success) {
     persistActiveRooms();
     broadcastChatUpdate(room);
+
+    // @all is a live host-only attention command. The chat message itself is
+    // persistent; the shake is deliberately ephemeral and never replays when
+    // somebody reconnects and hydrates old chat history.
+    if (containsAllMention(result.message.text)) {
+      broadcastToRoom(room, {
+        type: 'chat:mentionAll',
+        messageId: result.message.id,
+        timestamp: Date.now()
+      });
+    }
   } else {
     sendToWs(ws, { type: 'error', message: result.error });
   }
