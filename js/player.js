@@ -10,6 +10,8 @@ const PlayerApp = {
   frameColor: '#9B5DE0',
   themeId: 'gunmetal',
   themeColor: '#343A42',
+  finalSolverAura: null,
+  _finalSolverAuraTimer: null,
   _sendAvatarAppearance: false,
   _sendFrameAppearance: false,
   _sendThemeAppearance: false,
@@ -91,6 +93,7 @@ const PlayerApp = {
     this.loadStoredCredentials();
     this.bindDesignationEditor();
     window.addEventListener('asoc:player-session-restored', () => this.resumeStoredMasterSession());
+    this.setupPlayerLayoutSplitter();
     Womf.init('womf-tracker-player');
     Wheel.init('wheel-overlay');
     Timer.init('timer-tracker-player');
@@ -1060,6 +1063,7 @@ const PlayerApp = {
         }
         this.applyVictoryState(battleVisible && message.gameWon === true, battleVisible ? (message.matchResult || null) : null);
         this.applyLossState(battleVisible ? (message.matchResult || null) : null);
+        this.applyFinalSolverAura(battleVisible ? (message.finalSolverAura || null) : null, message.serverNow);
         Womf.update('womf-tracker-player', battleVisible ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
         Wheel.update('wheel-overlay', battleVisible ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false);
         this.updateBloodTributeDemand(battleVisible ? (message.bloodTribute || { status: 'idle' }) : { status: 'idle' });
@@ -3201,6 +3205,36 @@ const PlayerApp = {
     return labels[target] || target;
   },
 
+  applyFinalSolverAura(aura, serverNow = Date.now()) {
+    const remaining = aura && Number.isFinite(Number(aura.expiresAt))
+      ? Number(aura.expiresAt) - Number(serverNow || Date.now())
+      : 0;
+    const next = remaining > 0 && aura.playerId
+      ? { ...aura, localExpiresAt: Date.now() + remaining }
+      : null;
+    const currentKey = this.finalSolverAura
+      ? `${this.finalSolverAura.playerId}:${this.finalSolverAura.startedAt}:${this.finalSolverAura.expiresAt}`
+      : '';
+    const nextKey = next ? `${next.playerId}:${next.startedAt}:${next.expiresAt}` : '';
+    if (currentKey === nextKey) return;
+
+    clearTimeout(this._finalSolverAuraTimer);
+    this._finalSolverAuraTimer = null;
+    this.finalSolverAura = next;
+    if (next) {
+      this._finalSolverAuraTimer = setTimeout(() => {
+        const live = this.finalSolverAura;
+        if (!live || live.playerId !== next.playerId || live.expiresAt !== next.expiresAt) return;
+        this.finalSolverAura = null;
+        this._finalSolverAuraTimer = null;
+        if (this.currentPlayers) this.updatePlayerLeaderboard(this.currentPlayers);
+        else if (this.chatMessages?.length) this.renderChat();
+      }, Math.max(20, remaining + 20));
+    }
+    if (this.currentPlayers) this.updatePlayerLeaderboard(this.currentPlayers);
+    else if (this.chatMessages?.length) this.renderChat();
+  },
+
   littleHeroAvatarHTML(entity = {}, compact = false) {
     const frameColor = /^#[0-9A-Fa-f]{6}$/.test(entity.frameColor || '')
       ? entity.frameColor.toUpperCase()
@@ -3209,8 +3243,14 @@ const PlayerApp = {
       /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(entity.avatarData)
       ? entity.avatarData
       : '';
+    const entityId = entity.id || entity.playerId || '';
+    const auraActive = !!(
+      this.finalSolverAura &&
+      this.finalSolverAura.playerId === entityId &&
+      Date.now() < this.finalSolverAura.localExpiresAt
+    );
     return `
-      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}" style="--lh-frame:${frameColor}">
+      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${auraActive ? ' final-solver-aura' : ''}" style="--lh-frame:${frameColor};--lh-aura:${frameColor}">
         ${avatarData ? `<img src="${avatarData}" alt="">` : '<span class="little-hero-avatar-fallback">LH</span>'}
       </span>
     `;

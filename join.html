@@ -7276,6 +7276,14 @@
       </form>
     </div>
 
+<!-- PLAYER DESKTOP BOARD/CHAT SPLITTER -- unarmed-but-present drag separator
+         between the battlefield and Battle Comms (js/player.js
+         setupPlayerLayoutSplitter). The adjacent aside selector
+         (.player-layout-splitter + .battle-comms-lobby) fixes its grid column.
+         Hides itself on narrow/mobile layouts. -->
+    <div id="player-layout-splitter" class="player-layout-splitter" role="separator" aria-orientation="vertical" aria-label="Resize Little Hero battle sidebar" tabindex="0" title="Drag to resize // Double-click to reset">
+      <span class="player-layout-splitter-grip" data-resize-readout="" aria-hidden="true"></span>
+    </div>
 
     <aside id="battle-comms-lobby" class="battle-comms-lobby">
     <section class="detainee-status-module">
