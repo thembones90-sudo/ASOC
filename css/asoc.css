@@ -9717,9 +9717,26 @@ body.room-mode-casual #gm-panel .gm-module {
   margin: 0;
 }
 
-body.room-mode-casual #gm-panel .gm-module-chat,
-body.room-mode-casual #gm-panel .gm-module-multiplayer {
+body.room-mode-casual #gm-panel .gm-module-chat {
   display: block;
+}
+
+/* The Multiplayer module lives inside the normally hidden maintenance
+   control-surface wrapper. Casual needs that ONE module as its right rail,
+   not the rest of maintenance. */
+body.room-mode-casual #gm-maintenance {
+  display: block !important;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+body.room-mode-casual #gm-maintenance > .gm-module {
+  display: none !important;
+}
+
+body.room-mode-casual #gm-maintenance > .gm-module-multiplayer {
+  display: block !important;
 }
 
 body.room-mode-casual #gm-panel .gm-module-chat {
@@ -9846,8 +9863,13 @@ body.room-mode-casual #gm-logout-btn {
     height: 100%;
   }
 
+  body.room-mode-casual #gm-maintenance {
+    display: block !important;
+    overflow: visible !important;
+  }
+
   body.room-mode-casual #gm-panel .gm-module-multiplayer {
-    display: block;
+    display: block !important;
     overflow: visible;
   }
 
