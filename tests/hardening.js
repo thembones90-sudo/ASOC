@@ -184,6 +184,12 @@ async function judge(ws, messageId, verdict, target) {
   return ackP;
 }
 
+async function startBattle(ws) {
+  const stateP = wait(ws, m => m.type === 'state:public' && m.roomMode === 'BATTLE', 'battle mode start');
+  ws.send(JSON.stringify({ type: 'gm:timerStart' }));
+  return stateP;
+}
+
 async function guess(player, host, text) {
   const seenP = wait(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === text), 'chat guess');
   player.send(JSON.stringify({ type: 'chat:guess', text }));
@@ -276,6 +282,7 @@ function testSessionStoreRecovery() {
     assert.ok(profiles['hard one'] === undefined, 'legacy profile is moved, not duplicated');
 
     const host = await armHost(gm.data.token);
+    await startBattle(host.ws);
     const armedBefore = activeRoom();
     const duplicateP = wait(host.ws, m => m.type === 'error' && m.code === 'MASTER_ALREADY_ARMED', 'duplicate arm rejection');
     host.ws.send(JSON.stringify({ type: 'room:create', gameId: 'sample-game', gmToken: gm.data.token }));
@@ -291,6 +298,7 @@ function testSessionStoreRecovery() {
     host.ws.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: commandId }));
     await replayAck;
     assert.equal(activeRoom().boardId, resetBoardId, 'replayed cmdId cannot apply mutation twice');
+    await startBattle(host.ws);
 
     await delay(400);
     await guess(p1.ws, host.ws, 'COOLDOWN ONE');
