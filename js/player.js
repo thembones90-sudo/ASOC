@@ -1482,12 +1482,15 @@ const PlayerApp = {
     const ranked = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
     if (strip && list) {
       strip.style.display = 'flex';
-      list.innerHTML = ranked.map(p => `
-        <span class="pl-entry ${p.id === this.playerId ? 'pl-entry-me' : ''}">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
-      `).join('');
+      list.innerHTML = ranked.map(p => {
+        const presenceClass = p.connected === false ? 'is-offline' : 'is-online';
+        return `
+        <span class="pl-entry ${presenceClass} ${p.id === this.playerId ? 'pl-entry-me' : ''}">${this.littleHeroAvatarHTML(p, true)}<span class="pl-entry-name">${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
+      `;
+      }).join('');
     }
     if (roster) roster.innerHTML = ranked.map(p => `
-      <span class="hero-roster-card ${p.connected === false ? 'signal-lost' : ''}">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
+      <span class="hero-roster-card ${p.connected === false ? 'is-offline signal-lost' : 'is-online'}">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
     `).join('');
     const meIndex = ranked.findIndex(p => p.id === this.playerId);
     const me = meIndex >= 0 ? ranked[meIndex] : null;
