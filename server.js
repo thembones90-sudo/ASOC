@@ -3038,12 +3038,6 @@ function handleChatGuess(ws, message) {
     return;
   }
 
-  const isHost = ws === room.hostConnection;
-  if (COMMANDER_REACTION_EMOJIS.has(emoji) && !isHost) {
-    sendToWs(ws, { type: 'error', message: 'Commander reactions are Shadow Broker only' });
-    return;
-  }
-
   const now = Date.now();
   const cooldown = playerCooldown(room, ws);
   if (!cooldown) return;
@@ -3126,6 +3120,7 @@ function handleChatReaction(ws, message) {
   }
   const messageId = typeof message.messageId === 'string' ? message.messageId : '';
   const emoji = typeof message.emoji === 'string' ? message.emoji : '';
+  const isHost = ws === room.hostConnection;
   if (!messageId || !CHAT_REACTION_EMOJIS.has(emoji)) {
     sendToWs(ws, { type: 'error', message: 'Invalid reaction' });
     return;
