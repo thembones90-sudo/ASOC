@@ -1503,12 +1503,21 @@ const PlayerApp = {
     overlay.setAttribute('aria-hidden', 'true');
     overlay.innerHTML = `
       <div class="asoc-mode-transition-grid"></div>
+      <div class="asoc-mode-transition-lock-frame"></div>
       <div class="asoc-mode-transition-scan"></div>
+      ${battle ? `
+        <div class="asoc-mode-transition-status-stack">
+          <span>TACTICAL LINK ACQUIRED</span>
+          <span>CIVIL CHANNEL SUSPENDED</span>
+          <span>BATTLE SYSTEMS ARMING</span>
+        </div>
+        <div class="asoc-mode-transition-impact"></div>
+      ` : ''}
       <div class="asoc-mode-transition-core">
         <div class="asoc-mode-transition-eye"><img src="/assets/ui/asoc-favicon.svg?v=1" alt=""></div>
         <div class="asoc-mode-transition-kicker">A.S.O.C. // MASTER ROOM</div>
-        <div class="asoc-mode-transition-title">${battle ? 'BATTLE INTERFACE DEPLOYING' : 'BATTLE INTERFACE SUSPENDED'}</div>
-        <div class="asoc-mode-transition-sub">${battle ? 'TACTICAL SURFACE // RESTORED' : 'CASUAL CHANNEL // RESTORED'}</div>
+        <div class="asoc-mode-transition-title">${battle ? 'BATTLE PROTOCOL ENGAGED' : 'BATTLE INTERFACE SUSPENDED'}</div>
+        <div class="asoc-mode-transition-sub">${battle ? 'TACTICAL SURFACE // ONLINE' : 'CASUAL CHANNEL // RESTORED'}</div>
       </div>
     `;
     document.body.appendChild(overlay);
