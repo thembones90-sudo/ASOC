@@ -19,6 +19,9 @@ const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_WS_PAYLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_POLL_QUESTION_LENGTH = 160;
+const MAX_POLL_OPTION_LENGTH = 80;
+const MAX_POLL_OPTIONS = 8;
 const MASTER_ROOM_CODE = 'MASTER';
 const ROOM_MODES = Object.freeze({
   CASUAL: 'CASUAL',
@@ -118,6 +121,7 @@ const mimeTypes = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
+  '.gif': 'image/gif',
   '.ico': 'image/x-icon'
 };
 
@@ -2527,7 +2531,7 @@ function appendChatImageMessage(room, actor, imageUrl, caption = '') {
     themeColor: isHost ? '#343A42' : (liveIdentity.themeColor || '#343A42'),
     text: cleanCaption,
     imageUrl,
-    messageType: 'image',
+    messageType: /\.gif$/i.test(imageUrl) ? 'gif' : 'image',
     timestamp: Date.now(),
     boardId: room.roomMode === ROOM_MODES.BATTLE && !room.sessionState.matchResult ? room.boardId : null,
     verdict: null,
@@ -2543,6 +2547,180 @@ function appendChatImageMessage(room, actor, imageUrl, caption = '') {
   return message;
 }
 
+
+function normalizeChatPoll(question, options, allowMultiple) {
+  const cleanQuestion = sanitizeText(question || '').slice(0, MAX_POLL_QUESTION_LENGTH);
+  const rawOptions = Array.isArray(options) ? options : [];
+  const cleanOptions = rawOptions
+    .map(option => sanitizeText(option || '').slice(0, MAX_POLL_OPTION_LENGTH))
+    .filter(Boolean)
+    .slice(0, MAX_POLL_OPTIONS);
+  if (!cleanQuestion) return { error: 'Poll question required' };
+  if (cleanOptions.length < 2) return { error: 'Poll requires at least 2 options' };
+  if (new Set(cleanOptions.map(option => option.toLocaleLowerCase())).size !== cleanOptions.length) {
+    return { error: 'Poll options must be unique' };
+  }
+  return { question: cleanQuestion, options: cleanOptions, allowMultiple: allowMultiple === true };
+}
+
+function appendChatPollMessage(room, actor, question, options, allowMultiple) {
+  const normalized = normalizeChatPoll(question, options, allowMultiple);
+  if (normalized.error) return { success: false, error: normalized.error };
+  const isHost = actor.role === 'gm';
+  const liveIdentity = !isHost
+    ? (Array.from(room.players.values()).find(player => player.id === actor.playerId) || {})
+    : {};
+  const message = {
+    id: generateMessageId(),
+    playerId: isHost ? null : actor.playerId,
+    playerName: isHost ? 'SHADOW BROKER' : actor.playerName,
+    avatarData: isHost ? '' : (liveIdentity.avatarData || ''),
+    frameColor: isHost ? '#9B5DE0' : (liveIdentity.frameColor || '#9B5DE0'),
+    themeId: isHost ? 'gunmetal' : (liveIdentity.themeId || 'gunmetal'),
+    themeColor: isHost ? '#343A42' : (liveIdentity.themeColor || '#343A42'),
+    text: normalized.question,
+    messageType: 'poll',
+    timestamp: Date.now(),
+    boardId: null,
+    verdict: null,
+    target: null,
+    verdictResponse: null,
+    source: 'chatPoll',
+    editableByHost: false,
+    editedAt: null,
+    reactions: {},
+    poll: {
+      question: normalized.question,
+      options: normalized.options,
+      allowMultiple: normalized.allowMultiple,
+      createdByRole: isHost ? 'gm' : 'player',
+      createdById: isHost ? '__GM__' : actor.playerId,
+      createdAt: Date.now(),
+      closedAt: null,
+      votes: {},
+      voters: {}
+    }
+  };
+  room.chat.messages.push(message);
+  if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
+  return { success: true, message };
+}
+
+function pollActorForSocket(room, ws) {
+  if (ws === room.hostConnection) {
+    return { id: '__GM__', role: 'gm', name: 'SHADOW BROKER', avatarData: '', frameColor: '#9B5DE0' };
+  }
+  if (!ws.playerId) return null;
+  const live = Array.from(room.players.values()).find(player => String(player.id) === String(ws.playerId));
+  if (!live) return null;
+  return {
+    id: String(live.id),
+    role: 'player',
+    name: live.name || ws.playerName || 'LITTLE HERO',
+    avatarData: live.avatarData || '',
+    frameColor: live.frameColor || '#9B5DE0'
+  };
+}
+
+function handleChatPollCreate(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
+  const actor = pollActorForSocket(room, ws);
+  if (!actor) return sendToWs(ws, { type: 'error', message: 'Poll authentication required' });
+
+  if (actor.role === 'player') {
+    const now = Date.now();
+    const cooldown = playerCooldown(room, ws);
+    if (!cooldown) return;
+    if (cooldown.chatAt && now - cooldown.chatAt < PLAYER_CHAT_MIN_INTERVAL_MS) {
+      return sendToWs(ws, { type: 'error', message: 'Battle Comms cooling down' });
+    }
+    cooldown.chatAt = now;
+  }
+
+  const result = appendChatPollMessage(
+    room,
+    actor.role === 'gm' ? { role: 'gm' } : { role: 'player', playerId: actor.id, playerName: actor.name },
+    message.question,
+    message.options,
+    message.allowMultiple === true
+  );
+  if (!result.success) return sendToWs(ws, { type: 'error', message: result.error });
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+}
+
+function handleChatPollVote(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
+  const actor = pollActorForSocket(room, ws);
+  if (!actor) return sendToWs(ws, { type: 'error', message: 'Poll authentication required' });
+
+  const target = room.chat.messages.find(entry => entry.id === message.messageId && entry.messageType === 'poll');
+  if (!target?.poll) return sendToWs(ws, { type: 'error', message: 'Poll not found' });
+  if (target.poll.closedAt) return sendToWs(ws, { type: 'error', message: 'Poll is closed' });
+
+  const optionIndex = Number(message.optionIndex);
+  if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= target.poll.options.length) {
+    return sendToWs(ws, { type: 'error', message: 'Invalid poll option' });
+  }
+
+  target.poll.votes ||= {};
+  target.poll.voters ||= {};
+  const actorId = String(actor.id);
+  const key = String(optionIndex);
+  const selected = Array.isArray(target.poll.votes[key]) ? target.poll.votes[key] : [];
+
+  if (target.poll.allowMultiple === true) {
+    const existing = selected.indexOf(actorId);
+    if (existing >= 0) selected.splice(existing, 1);
+    else selected.push(actorId);
+    if (selected.length) target.poll.votes[key] = selected;
+    else delete target.poll.votes[key];
+  } else {
+    let alreadySelected = false;
+    for (const [voteKey, ids] of Object.entries(target.poll.votes)) {
+      if (!Array.isArray(ids)) continue;
+      const existing = ids.indexOf(actorId);
+      if (voteKey === key && existing >= 0) alreadySelected = true;
+      if (existing >= 0) ids.splice(existing, 1);
+      if (!ids.length) delete target.poll.votes[voteKey];
+    }
+    if (!alreadySelected) {
+      target.poll.votes[key] ||= [];
+      target.poll.votes[key].push(actorId);
+    } else {
+      target.poll.votes[key] ||= [];
+      target.poll.votes[key].push(actorId);
+    }
+  }
+
+  target.poll.voters[actorId] = {
+    name: actor.name,
+    avatarData: actor.avatarData || '',
+    frameColor: actor.frameColor || '#9B5DE0'
+  };
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+}
+
+function handleChatPollClose(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
+  const actor = pollActorForSocket(room, ws);
+  if (!actor) return sendToWs(ws, { type: 'error', message: 'Poll authentication required' });
+  const target = room.chat.messages.find(entry => entry.id === message.messageId && entry.messageType === 'poll');
+  if (!target?.poll) return sendToWs(ws, { type: 'error', message: 'Poll not found' });
+  const isCreator = String(target.poll.createdById || '') === String(actor.id);
+  if (actor.role !== 'gm' && !isCreator) {
+    return sendToWs(ws, { type: 'error', message: 'Only the poll creator or Shadow Broker can close this poll' });
+  }
+  if (target.poll.closedAt) return;
+  target.poll.closedAt = Date.now();
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+}
+
 function validChatImageBytes(buffer, contentType) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 12) return false;
   if (contentType === 'image/png') {
@@ -2553,6 +2731,10 @@ function validChatImageBytes(buffer, contentType) {
   }
   if (contentType === 'image/webp') {
     return buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+  }
+  if (contentType === 'image/gif') {
+    const signature = buffer.toString('ascii', 0, 6);
+    return signature === 'GIF87a' || signature === 'GIF89a';
   }
   return false;
 }
@@ -2581,7 +2763,7 @@ function readChatImageBody(req, cb) {
 }
 
 function serveChatUpload(req, res, urlPath) {
-  const match = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp))$/i.exec(urlPath);
+  const match = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp|gif))$/i.exec(urlPath);
   if (!match) return false;
   const filePath = path.join(CHAT_UPLOAD_DIR, match[1]);
   fs.readFile(filePath, (err, content) => {
@@ -2722,6 +2904,27 @@ function getChatState(room) {
           source: m.source || null,
           imageUrl: typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
           messageType: m.messageType || null,
+          poll: m.messageType === 'poll' && m.poll ? {
+            question: m.poll.question,
+            options: Array.isArray(m.poll.options) ? m.poll.options.slice(0, MAX_POLL_OPTIONS) : [],
+            allowMultiple: m.poll.allowMultiple === true,
+            createdByRole: m.poll.createdByRole || 'player',
+            createdById: m.poll.createdById || null,
+            createdAt: Number(m.poll.createdAt) || m.timestamp,
+            closedAt: Number(m.poll.closedAt) || null,
+            votes: Object.fromEntries(
+              Object.entries(m.poll.votes || {})
+                .filter(([key, ids]) => /^\d+$/.test(key) && Array.isArray(ids))
+                .map(([key, ids]) => [key, Array.from(new Set(ids.map(String)))])
+            ),
+            voters: Object.fromEntries(
+              Object.entries(m.poll.voters || {}).map(([id, voter]) => [String(id), {
+                name: sanitizeText(voter?.name || '').slice(0, 80),
+                avatarData: typeof voter?.avatarData === 'string' ? voter.avatarData : '',
+                frameColor: /^#[0-9A-Fa-f]{6}$/.test(voter?.frameColor || '') ? voter.frameColor : '#9B5DE0'
+              }])
+            )
+          } : undefined,
           imageData: tribute ? tribute.imageData : undefined,
           publicUntil: tribute ? tribute.publicUntil : undefined
         };
@@ -4043,10 +4246,11 @@ function handleApiRequest(req, res) {
     const extByType = {
       'image/png': 'png',
       'image/jpeg': 'jpg',
-      'image/webp': 'webp'
+      'image/webp': 'webp',
+      'image/gif': 'gif'
     };
     const ext = extByType[contentType];
-    if (!ext) return sendJson(res, 415, { error: 'Only PNG, JPEG and WEBP images are allowed' });
+    if (!ext) return sendJson(res, 415, { error: 'Only PNG, JPEG, WEBP and GIF images are allowed' });
 
     const room = rooms.get(MASTER_ROOM_CODE);
     if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
@@ -4686,6 +4890,18 @@ wss.on('connection', (ws) => {
         }
         case 'chat:react': {
           handleChatReaction(ws, message);
+          break;
+        }
+        case 'chat:poll:create': {
+          handleChatPollCreate(ws, message);
+          break;
+        }
+        case 'chat:poll:vote': {
+          handleChatPollVote(ws, message);
+          break;
+        }
+        case 'chat:poll:close': {
+          handleChatPollClose(ws, message);
           break;
         }
         case 'tribute:submit': {
