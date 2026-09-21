@@ -9977,3 +9977,148 @@ body.game-complete .recount-btn,
   user-select: none;
   -webkit-user-drag: none;
 }
+
+
+/* CHAT READABILITY FINAL LOCK // 2026-09-21
+   The live GM transcript must win over older compact-density passes.
+   Preserve the current bubble-cluster/adjudication architecture, but make
+   speaker identity, copy, time and hit targets readable at a glance. */
+@media (min-width: 761px) {
+  .gm-module-chat .gm-chat-message.gm-flow-message {
+    grid-template-columns: 44px minmax(0,1fr) !important;
+    column-gap: 8px !important;
+    padding: 4px 4px 6px 0 !important;
+  }
+
+  .gm-module-chat .gm-flow-message:not(.grouped),
+  .gm-module-chat .gm-flow-message.grouped {
+    margin-top: 7px !important;
+  }
+
+  .gm-module-chat .gm-chat-avatar-rail {
+    width: 44px !important;
+    min-width: 44px !important;
+    padding-top: 1px !important;
+  }
+
+  .gm-module-chat .gm-chat-avatar-rail .little-hero-avatar,
+  .gm-module-chat .gm-chat-avatar-rail .little-hero-avatar-compact {
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster {
+    gap: 5px !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-message-main {
+    min-width: 122px !important;
+    max-width: calc(100% - 38px) !important;
+    padding: 8px 10px 7px !important;
+    border-radius: 10px 10px 10px 4px !important;
+    border-color: color-mix(in srgb,var(--little-hero-accent,#6f7885) 58%,#5b6674) !important;
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb,var(--theme-message-top,#151A20) 82%,#3c4855 18%),
+        color-mix(in srgb,var(--theme-message-bottom,#0C0F13) 87%,#18212b 13%)) !important;
+    box-shadow: inset 0 1px rgba(255,255,255,.07),0 2px 6px rgba(0,0,0,.40) !important;
+  }
+
+  .gm-module-chat .gm-chat-flow-header {
+    display: flex !important;
+    min-height: 14px !important;
+    margin: 0 0 3px !important;
+  }
+
+  .gm-module-chat .gm-chat-flow-header .gm-chat-player-name {
+    font-family: var(--font-human) !important;
+    font-size: .72rem !important;
+    font-weight: 800 !important;
+    letter-spacing: .035em !important;
+    line-height: 1.15 !important;
+  }
+
+  .gm-module-chat .gm-flow-message .gm-chat-message-text,
+  .gm-module-chat .gm-flow-message.correct .gm-chat-message-text {
+    font-family: var(--font-human) !important;
+    font-size: .95rem !important;
+    line-height: 1.36 !important;
+    font-weight: 500 !important;
+    color: #f0f3f7 !important;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .gm-module-chat .gm-flow-message.correct .gm-chat-message-text {
+    color: #69bd83 !important;
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+  }
+
+  .gm-module-chat .gm-flow-message.wrong .gm-chat-message-text {
+    color: #df766e !important;
+  }
+
+  .gm-module-chat .gm-chat-message-line .gm-chat-time {
+    font-size: .61rem !important;
+    line-height: 1 !important;
+    color: #929ba6 !important;
+    opacity: .9 !important;
+    padding: 0 0 2px 4px !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-quick-actions {
+    flex: 0 0 32px !important;
+    min-width: 32px !important;
+    width: 32px !important;
+    gap: 4px !important;
+    margin: 0 !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-quick-actions .gm-verdict-btn {
+    flex: 0 0 32px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    line-height: 30px !important;
+    margin: 0 !important;
+    opacity: 1 !important;
+    border-radius: 5px !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-quick-actions .gm-verdict-btn.wrong {
+    font-size: 1.28rem !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-quick-actions .gm-verdict-btn.correct {
+    font-size: 1.05rem !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission {
+    min-height: 44px !important;
+    padding: 6px 9px !important;
+    gap: 8px !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-avatar {
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-name {
+    font-size: .64rem !important;
+    line-height: 1.1 !important;
+    letter-spacing: .5px !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-text {
+    font-family: var(--font-human) !important;
+    font-size: .92rem !important;
+    font-weight: 600 !important;
+    line-height: 1.32 !important;
+    letter-spacing: .01em !important;
+    -webkit-font-smoothing: antialiased;
+  }
+}
