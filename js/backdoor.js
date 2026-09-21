@@ -16,6 +16,7 @@ const ControlSurfaces = {
     const clueHeightSplitter = content.querySelector('#gm-clue-height-splitter');
     const scoring = content.querySelector('.gm-module-scoring');
     const multiplayer = content.querySelector('.gm-module-multiplayer');
+    const tributeVault = content.querySelector('.gm-module-tribute-vault');
 
     const battle = document.createElement('div');
     battle.id = 'gm-battle-control';
@@ -27,7 +28,7 @@ const ControlSurfaces = {
 
     if (game) {
       const title = game.querySelector('.gm-section-title');
-      if (title) title.textContent = 'Game Setup';
+      if (title) title.textContent = 'Game / Session';
       const strip = document.createElement('div');
       strip.id = 'battle-session-strip';
       strip.className = 'battle-session-strip';
@@ -59,20 +60,29 @@ const ControlSurfaces = {
     maintenance.hidden = true;
     content.appendChild(maintenance);
 
-    const makeModule = (titleText) => {
+    const header = document.createElement('div');
+    header.className = 'gm-backdoor-header';
+    header.innerHTML = '<strong>BACKDOOR // SYSTEM CONTROL</strong><span>SHADOW BROKER MAINTENANCE CONSOLE</span>';
+    maintenance.appendChild(header);
+
+    const primaryGrid = document.createElement('div');
+    primaryGrid.className = 'gm-backdoor-primary-grid';
+    maintenance.appendChild(primaryGrid);
+
+    const makeModule = (titleText, parent = maintenance) => {
       const section = document.createElement('section');
       section.className = 'gm-section gm-module maintenance-module';
       const title = document.createElement('h3');
       title.className = 'gm-section-title';
       title.textContent = titleText;
       section.appendChild(title);
-      maintenance.appendChild(section);
+      parent.appendChild(section);
       return section;
     };
 
     if (game) {
       game.classList.add('maintenance-module');
-      maintenance.appendChild(game);
+      primaryGrid.appendChild(game);
       const nextGame = document.getElementById('next-game-btn');
       if (nextGame) {
         nextGame.style.width = '100%';
@@ -81,7 +91,7 @@ const ControlSurfaces = {
       }
     }
 
-    const layoutMaintenance = makeModule('Interface Layout');
+    const layoutMaintenance = makeModule('Interface', primaryGrid);
     layoutMaintenance.classList.add('gm-layout-maintenance');
 
     const layoutStatus = document.createElement('div');
@@ -116,26 +126,39 @@ const ControlSurfaces = {
     layoutMaintenance.appendChild(layoutControls);
     this.app?.syncGMLayoutLockUI?.();
 
-    const boardMaintenance = makeModule('Board Maintenance');
+    const boardMaintenance = makeModule('Board Control');
+    boardMaintenance.classList.add('gm-board-maintenance');
     const undo = document.getElementById('undo-btn');
     const resetBoard = document.getElementById('reset-board-btn');
     const revealAll = document.getElementById('reveal-hide-all-btn');
-    const boardGrid = undo?.parentElement;
-    if (boardGrid && boardGrid.contains(resetBoard)) boardMaintenance.appendChild(boardGrid);
-    if (revealAll) {
-      revealAll.style.width = '100%';
-      revealAll.style.marginTop = '8px';
-      boardMaintenance.appendChild(revealAll);
-    }
+    const boardRow = document.createElement('div');
+    boardRow.className = 'gm-board-control-row';
+    [undo, revealAll, resetBoard].forEach(button => {
+      if (!button) return;
+      button.style.width = '';
+      button.style.marginTop = '';
+      boardRow.appendChild(button);
+    });
+    boardMaintenance.appendChild(boardRow);
 
     if (background) {
       const title = background.querySelector('.gm-section-title');
       if (title) title.textContent = 'Visual Systems';
-      background.classList.add('maintenance-module');
+      background.classList.add('maintenance-module', 'gm-visual-maintenance');
       maintenance.appendChild(background);
     }
 
-    const womfMaintenance = makeModule('WOMF Maintenance');
+    const advanced = document.createElement('details');
+    advanced.className = 'gm-advanced-maintenance';
+    const advancedSummary = document.createElement('summary');
+    advancedSummary.innerHTML = '<span>MAINTENANCE / EMERGENCY CONTROLS</span><small>WOMF · MULTIPLAYER · RECORDS · VAULT</small>';
+    const advancedBody = document.createElement('div');
+    advancedBody.className = 'gm-advanced-maintenance-body';
+    advanced.appendChild(advancedSummary);
+    advanced.appendChild(advancedBody);
+    maintenance.appendChild(advanced);
+
+    const womfMaintenance = makeModule('WOMF Reset', advancedBody);
     const womfReset = document.getElementById('womf-reset-btn');
     if (womfReset) {
       const oldParent = womfReset.parentElement;
@@ -144,14 +167,19 @@ const ControlSurfaces = {
       if (oldParent) oldParent.style.gridTemplateColumns = '1fr';
     }
 
+    if (tributeVault) {
+      tributeVault.classList.add('maintenance-module');
+      advancedBody.appendChild(tributeVault);
+    }
+
     if (multiplayer) {
       const title = multiplayer.querySelector('.gm-section-title');
       if (title) title.textContent = 'Multiplayer Administration';
       multiplayer.classList.add('maintenance-module');
-      maintenance.appendChild(multiplayer);
+      advancedBody.appendChild(multiplayer);
     }
 
-    const records = makeModule('Records');
+    const records = makeModule('Records', advancedBody);
     records.id = 'records-section';
     records.style.display = 'none';
     const allTimeButton = document.getElementById('alltime-toggle-btn');
@@ -171,6 +199,7 @@ const ControlSurfaces = {
         else group.style.gridTemplateColumns = '1fr';
       });
       if (nema) nema.style.width = '100%';
+      if (!global.querySelector('button')) global.remove();
     }
 
     const footerButton = document.getElementById('library-btn-footer');
@@ -219,8 +248,10 @@ const ControlSurfaces = {
     const code = document.getElementById('battle-session-code');
     const heroes = document.getElementById('battle-session-heroes');
     const count = document.getElementById('battle-session-player-count');
+    const strip = document.getElementById('battle-session-strip');
 
-    if (mode) mode.textContent = multiplayer ? 'MULTIPLAYER' : 'LOCAL';
+    if (strip) strip.hidden = !multiplayer;
+    if (mode) mode.textContent = 'MULTIPLAYER';
     if (room) room.style.display = multiplayer ? 'inline' : 'none';
     if (code) code.textContent = multiplayer ? 'MASTER ROOM' : '—';
     if (heroes) heroes.style.display = multiplayer ? 'inline' : 'none';

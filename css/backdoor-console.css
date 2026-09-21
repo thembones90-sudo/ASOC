@@ -1,0 +1,220 @@
+/* BACKDOOR // SYSTEM CONTROL — compact Shadow Broker maintenance console */
+#gm-panel.maintenance-open .gm-content {
+  padding: 12px 14px 22px;
+}
+#gm-panel.maintenance-open .gm-maintenance {
+  display: block;
+}
+.gm-backdoor-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 0 2px 8px;
+  border-bottom: 1px solid rgba(92, 118, 122, .36);
+}
+.gm-backdoor-header strong {
+  color: #92c2c1;
+  font: 900 .68rem var(--font-machine);
+  letter-spacing: .13em;
+}
+.gm-backdoor-header span {
+  color: #606c78;
+  font: 800 .48rem var(--font-machine);
+  letter-spacing: .11em;
+}
+.gm-backdoor-primary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+#gm-panel.maintenance-open .gm-maintenance .maintenance-module {
+  margin: 0 0 10px;
+  padding: 11px 12px;
+}
+#gm-panel.maintenance-open .gm-backdoor-primary-grid .maintenance-module {
+  margin-bottom: 0;
+}
+#gm-panel.maintenance-open .gm-maintenance .maintenance-module .gm-section-title {
+  margin-bottom: 9px;
+  padding-bottom: 6px;
+  font-size: .61rem;
+  letter-spacing: .12em;
+}
+#gm-panel.maintenance-open .gm-maintenance .current-game {
+  margin-bottom: 9px;
+}
+#gm-panel.maintenance-open .gm-maintenance .difficulty-picker {
+  margin: 8px 0 9px;
+  gap: 7px;
+}
+#gm-panel.maintenance-open .gm-maintenance .gm-global-btn {
+  min-height: 34px;
+  padding: 7px 9px;
+  font-size: .64rem;
+}
+#gm-panel.maintenance-open .gm-maintenance .gm-global-controls {
+  gap: 7px;
+}
+#gm-panel.maintenance-open .gm-maintenance .gm-global-controls + .gm-global-controls {
+  margin-top: 7px;
+}
+#gm-panel.maintenance-open .gm-layout-lock-status {
+  margin: 0 0 7px;
+  padding: 6px 8px;
+}
+#gm-panel.maintenance-open .gm-layout-maintenance-controls .gm-layout-reset-btn {
+  grid-column: auto !important;
+}
+.gm-board-control-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.gm-board-control-row .gm-global-btn {
+  grid-column: auto !important;
+  width: auto !important;
+  margin: 0 !important;
+}
+.gm-board-control-row #undo-btn {
+  border-color: rgba(85, 105, 112, .72);
+  color: #b5c1ca;
+}
+.gm-board-control-row #reveal-hide-all-btn {
+  border-color: rgba(212, 168, 67, .74);
+  color: #ecd277;
+}
+.gm-board-control-row #reset-board-btn {
+  border-color: rgba(201, 74, 74, .88);
+  color: #ffaaaa;
+}
+.gm-visual-maintenance .background-selector {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label label"
+    "select upload";
+  gap: 6px 10px;
+  align-items: end;
+}
+.gm-visual-maintenance .bg-label { grid-area: label; }
+.gm-visual-maintenance .bg-select {
+  grid-area: select;
+  min-height: 35px;
+}
+.gm-visual-maintenance .upload-zone {
+  grid-area: upload;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 35px;
+  padding: 0;
+  border-top: 0;
+}
+.gm-visual-maintenance .upload-label {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.gm-visual-maintenance .upload-note {
+  max-width: 150px;
+  font-size: .48rem;
+  line-height: 1.2;
+}
+.gm-visual-maintenance .upload-status {
+  display: none;
+}
+.battle-session-strip[hidden] {
+  display: none !important;
+}
+.gm-advanced-maintenance {
+  margin: 2px 0 4px;
+  border: 1px solid rgba(112, 88, 58, .58);
+  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(30, 27, 22, .78), rgba(13, 14, 17, .95));
+  overflow: hidden;
+}
+.gm-advanced-maintenance > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 8px 12px;
+  cursor: pointer;
+  list-style: none;
+  color: #d8b96a;
+  font: 900 .58rem var(--font-machine);
+  letter-spacing: .10em;
+}
+.gm-advanced-maintenance > summary::-webkit-details-marker {
+  display: none;
+}
+.gm-advanced-maintenance > summary::before {
+  content: "▸";
+  margin-right: 2px;
+  color: #c99f3f;
+}
+.gm-advanced-maintenance[open] > summary::before {
+  content: "▾";
+}
+.gm-advanced-maintenance > summary span {
+  margin-right: auto;
+}
+.gm-advanced-maintenance > summary small {
+  color: #746e63;
+  font-size: .45rem;
+  letter-spacing: .08em;
+}
+.gm-advanced-maintenance[open] > summary {
+  border-bottom: 1px solid rgba(112, 88, 58, .36);
+}
+.gm-advanced-maintenance-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 9px;
+}
+#gm-panel.maintenance-open .gm-advanced-maintenance-body .maintenance-module {
+  margin: 0;
+  padding: 10px;
+  background: rgba(18, 20, 24, .72);
+}
+#gm-panel.maintenance-open .gm-advanced-maintenance-body #records-section {
+  grid-column: 1 / -1;
+}
+#gm-panel.maintenance-open .gm-footer {
+  padding: 10px 20px 14px;
+}
+#gm-panel.maintenance-open #library-btn-footer {
+  margin-top: 0 !important;
+}
+#gm-panel.maintenance-open .gm-logout-btn {
+  margin-top: 8px;
+  opacity: .88;
+}
+@media (max-width: 760px) {
+  .gm-backdoor-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .gm-backdoor-primary-grid,
+  .gm-advanced-maintenance-body {
+    grid-template-columns: 1fr;
+  }
+  .gm-visual-maintenance .background-selector {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "label"
+      "select"
+      "upload";
+  }
+  .gm-visual-maintenance .upload-zone {
+    justify-content: flex-start;
+  }
+  .gm-board-control-row {
+    grid-template-columns: 1fr;
+  }
+}
