@@ -9125,3 +9125,63 @@ body.game-complete .recount-btn,
     width: min(192px, calc(100vw - 16px));
   }
 }
+
+
+/* GM SHADOW BROKER SELF-ALIGNMENT V1
+   Player messages remain on the left. The GM's own Shadow Broker
+   transmissions read as self-messages on the right and use the same
+   portrait scale as Little Heroes. */
+@media (min-width: 761px) {
+  .gm-module-chat .gm-shadow-broker-entry {
+    width: fit-content !important;
+    max-width: 86% !important;
+    margin: 5px 6px 5px auto !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission {
+    width: fit-content !important;
+    max-width: 100% !important;
+    min-height: 40px !important;
+    margin: 0 !important;
+    padding: 2px 6px !important;
+    gap: 6px !important;
+    flex-direction: row-reverse !important;
+    align-items: center !important;
+    border-radius: 8px 8px 3px 8px !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-avatar {
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
+    border-width: 2px !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-body {
+    align-items: flex-end !important;
+    text-align: right !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-name {
+    margin-bottom: 1px !important;
+    font-size: .56rem !important;
+    line-height: 1.05 !important;
+    letter-spacing: .4px !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-text {
+    font-size: .70rem !important;
+    line-height: 1.16 !important;
+    letter-spacing: .035em !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry > .gm-chat-reactions {
+    justify-content: flex-end !important;
+    margin: 3px 3px 0 auto !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry > .gm-chat-reply-context {
+    text-align: right !important;
+    margin-left: auto !important;
+  }
+}
