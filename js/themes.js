@@ -1,3 +1,10 @@
+// Load the shared procedural audio engine synchronously on surfaces that do
+// not include it explicitly (notably join.html). themes.js is parser-loaded,
+// so document.write inserts audio.js before the following game scripts run.
+if (!window.AsocAudio && document.readyState === 'loading') {
+  document.write('<script src="js/audio.js"><\\/script>');
+}
+
 /* ASOC Little Hero theme registry.
  * Themes may style surrounding UI BACKGROUND surfaces only.
  * They must never recolor the authored game-board artwork or board elements.
