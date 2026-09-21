@@ -9649,3 +9649,27 @@ body.game-complete .recount-btn,
     height: 22px;
   }
 }
+
+
+.commander-inline-emoji {
+  display: inline-block;
+  width: 1.35em;
+  height: 1.35em;
+  object-fit: contain;
+  vertical-align: -0.24em;
+  margin: 0 .06em;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 0 3px rgba(155,93,224,.22));
+}
+
+.commander-board-emoji {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  object-fit: contain;
+  vertical-align: -0.18em;
+  margin: 0 .05em;
+  user-select: none;
+  -webkit-user-drag: none;
+}
