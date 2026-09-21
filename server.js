@@ -2516,7 +2516,7 @@ function addChatMessage(room, playerId, playerName, text) {
 // `source` is set here, server-side, only -- addChatMessage (the player
 // guess path) never reads a client-supplied source field, so a player has
 // no way to spoof this tag on their own message.
-function addShadowBrokerMessage(room, text) {
+function addShadowBrokerMessage(room, text, options = {}) {
   const sanitized = sanitizeText(text);
   if (!sanitized) return { success: false, error: 'Empty message' };
 
@@ -2529,6 +2529,8 @@ function addShadowBrokerMessage(room, text) {
     verdict: null,
     target: null,
     source: 'shadowBroker',
+    editableByHost: options.editableByHost === true,
+    editedAt: null,
     reactions: {}
   };
 
@@ -2572,6 +2574,8 @@ function getChatState(room) {
           playerName: m.playerName,
           text: m.text,
           timestamp: m.timestamp,
+          editedAt: Number(m.editedAt) || null,
+          editableByHost: m.source === 'shadowBroker' ? m.editableByHost !== false : false,
           // Persistent chat spans many games. Only a player transmission
           // created on the currently armed board may be adjudicated now.
           adjudicable: room.armed === true && !m.source && m.boardId === room.boardId,
@@ -2961,6 +2965,60 @@ function handleChatGuess(ws, message) {
   }
 }
 
+function handleChatEdit(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+
+  const messageId = typeof message.messageId === 'string' ? message.messageId : '';
+  const rawText = typeof message.text === 'string' ? message.text : '';
+  if (!messageId || !rawText) {
+    sendToWs(ws, { type: 'error', message: 'Invalid edit' });
+    return;
+  }
+
+  const target = room.chat.messages.find(entry => entry.id === messageId);
+  if (!target) {
+    sendToWs(ws, { type: 'error', message: 'Message not found' });
+    return;
+  }
+
+  const isHost = ws === room.hostConnection;
+  if (isHost) {
+    if (target.source !== 'shadowBroker' || target.editableByHost === false) {
+      sendToWs(ws, { type: 'error', message: 'Shadow Broker can only edit its own transmissions' });
+      return;
+    }
+  } else {
+    if (target.source || String(target.playerId || '') !== String(ws.playerId || '')) {
+      sendToWs(ws, { type: 'error', message: 'You can only edit your own messages' });
+      return;
+    }
+    if (target.verdict !== null && target.verdict !== undefined) {
+      sendToWs(ws, { type: 'error', message: 'Judged messages are locked' });
+      return;
+    }
+  }
+
+  const sanitized = sanitizeText(rawText);
+  if (!sanitized) {
+    sendToWs(ws, { type: 'error', message: 'Empty message' });
+    return;
+  }
+  if (!isHost && sanitized.length > MAX_CHAT_LENGTH) {
+    sendToWs(ws, { type: 'error', message: `Message too long (max ${MAX_CHAT_LENGTH} chars)` });
+    return;
+  }
+  if (sanitized === target.text) return;
+
+  target.text = sanitized;
+  target.editedAt = Date.now();
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+}
+
 function handleChatReaction(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -3033,7 +3091,7 @@ function handleGmBroadcast(ws, message) {
     return;
   }
 
-  const result = addShadowBrokerMessage(room, text);
+  const result = addShadowBrokerMessage(room, text, { editableByHost: true });
   if (result.success) {
     persistActiveRooms();
     broadcastChatUpdate(room);
@@ -4260,6 +4318,10 @@ wss.on('connection', (ws) => {
         }
         case 'chat:guess': {
           handleChatGuess(ws, message);
+          break;
+        }
+        case 'chat:edit': {
+          handleChatEdit(ws, message);
           break;
         }
         case 'chat:react': {
