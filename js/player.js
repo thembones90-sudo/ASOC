@@ -126,6 +126,159 @@ const PlayerApp = {
     const pollOptionsEditor = document.getElementById('chat-poll-options');
     const pollMultiple = document.getElementById('chat-poll-multiple');
 
+    let gifPicker = document.getElementById('chat-gif-picker');
+    if (!gifPicker && attachmentWrap) {
+      gifPicker = document.createElement('div');
+      gifPicker.id = 'chat-gif-picker';
+      gifPicker.className = 'chat-gif-picker';
+      gifPicker.hidden = true;
+      gifPicker.innerHTML = `
+        <div class="chat-gif-picker-head">
+          <div><b>GIF // ASOC NETWORK</b><small>GIPHY LINK</small></div>
+          <button type="button" data-gif-close aria-label="Close GIF browser">×</button>
+        </div>
+        <div class="chat-gif-search-row">
+          <input type="search" maxlength="60" autocomplete="off" spellcheck="false" placeholder="Search GIFs..." data-gif-search>
+        </div>
+        <div class="chat-gif-status" data-gif-status>TRENDING // STANDBY</div>
+        <div class="chat-gif-grid" data-gif-grid></div>
+        <div class="chat-gif-actions">
+          <button type="button" data-gif-upload>UPLOAD GIF</button>
+          <button type="button" data-gif-more hidden>LOAD MORE</button>
+        </div>
+        <div class="chat-gif-provider">Powered by GIPHY</div>
+      `;
+      attachmentWrap.appendChild(gifPicker);
+    }
+    const gifSearchInput = gifPicker?.querySelector('[data-gif-search]');
+    const gifStatus = gifPicker?.querySelector('[data-gif-status]');
+    const gifGrid = gifPicker?.querySelector('[data-gif-grid]');
+    const gifMoreButton = gifPicker?.querySelector('[data-gif-more]');
+    let gifResults = [];
+    let gifOffset = 0;
+    let gifMode = 'trending';
+    let gifQuery = '';
+    let gifLoading = false;
+    let gifSearchTimer = null;
+
+    const setGifStatus = (text, danger = false) => {
+      if (!gifStatus) return;
+      gifStatus.textContent = text;
+      gifStatus.classList.toggle('is-danger', danger);
+    };
+
+    const closeGifPicker = () => {
+      if (!gifPicker) return;
+      gifPicker.hidden = true;
+      clearTimeout(gifSearchTimer);
+    };
+
+    const renderGifResults = () => {
+      if (!gifGrid) return;
+      gifGrid.replaceChildren();
+      gifResults.forEach((gif, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'chat-gif-result';
+        button.dataset.gifIndex = String(index);
+        button.title = gif.title || 'GIF';
+        const img = document.createElement('img');
+        img.src = gif.previewUrl;
+        img.alt = gif.title || 'GIF';
+        img.loading = 'lazy';
+        button.appendChild(img);
+        gifGrid.appendChild(button);
+      });
+    };
+
+    const loadGifPage = async ({ append = false } = {}) => {
+      if (!gifPicker || gifLoading) return;
+      const query = String(gifSearchInput?.value || '').trim();
+      if (query.length === 1) {
+        setGifStatus('TYPE AT LEAST 2 CHARACTERS');
+        return;
+      }
+      gifMode = query.length >= 2 ? 'search' : 'trending';
+      gifQuery = query;
+      if (!append) gifOffset = 0;
+      gifLoading = true;
+      gifMoreButton?.setAttribute('disabled', 'disabled');
+      setGifStatus(gifMode === 'search' ? 'SEARCHING // ' + query.toUpperCase() : 'TRENDING // ACQUIRING');
+      try {
+        const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+        const params = new URLSearchParams({ offset: String(gifOffset), limit: '12' });
+        if (gifMode === 'search') params.set('q', query);
+        const response = await fetch('/api/gif/' + gifMode + '?' + params.toString(), {
+          headers: { 'x-player-token': token }
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (payload.code === 'GIF_LIMIT_REACHED') {
+            setGifStatus('FUCK OFF, LIMIT REACHED', true);
+            if (gifMoreButton) gifMoreButton.hidden = true;
+            return;
+          }
+          throw new Error(payload.message || payload.error || 'GIF NETWORK // OFFLINE');
+        }
+        const incoming = Array.isArray(payload.results) ? payload.results : [];
+        gifResults = append ? gifResults.concat(incoming) : incoming;
+        gifOffset = Number(payload.pagination?.nextOffset) || (gifOffset + incoming.length);
+        renderGifResults();
+        if (gifMoreButton) gifMoreButton.hidden = payload.pagination?.hasMore !== true;
+        const playerRemaining = payload.quota?.playerRemaining;
+        setGifStatus(
+          gifMode === 'search'
+            ? 'RESULTS // ' + gifResults.length + (Number.isFinite(playerRemaining) ? ' // ' + playerRemaining + ' SEARCHES LEFT' : '')
+            : 'TRENDING // ' + gifResults.length
+        );
+      } catch (error) {
+        setGifStatus(error.message || 'GIF NETWORK // OFFLINE', true);
+      } finally {
+        gifLoading = false;
+        gifMoreButton?.removeAttribute('disabled');
+      }
+    };
+
+    const openGifPicker = () => {
+      closeAttachmentMenu();
+      closePollComposer();
+      if (!gifPicker) return gifInput?.click();
+      gifPicker.hidden = false;
+      gifSearchInput?.focus();
+      if (!gifResults.length) loadGifPage({ append: false });
+    };
+
+    gifPicker?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (event.target.closest('[data-gif-close]')) {
+        closeGifPicker();
+        return;
+      }
+      if (event.target.closest('[data-gif-upload]')) {
+        closeGifPicker();
+        gifInput?.click();
+        return;
+      }
+      if (event.target.closest('[data-gif-more]')) {
+        loadGifPage({ append: true });
+        return;
+      }
+      const resultButton = event.target.closest('[data-gif-index]');
+      if (!resultButton) return;
+      const gif = gifResults[Number(resultButton.dataset.gifIndex)];
+      if (!gif || !this.ws || this.ws.readyState !== 1) return;
+      this.send({ type: 'chat:gif', gif });
+      closeGifPicker();
+    });
+
+    gifSearchInput?.addEventListener('input', () => {
+      clearTimeout(gifSearchTimer);
+      gifSearchTimer = setTimeout(() => {
+        gifResults = [];
+        loadGifPage({ append: false });
+      }, 500);
+    });
+
     const closePollComposer = () => {
       if (!pollComposer) return;
       pollComposer.hidden = true;
@@ -171,6 +324,7 @@ const PlayerApp = {
 
     const openPollComposer = () => {
       closeAttachmentMenu();
+      closeGifPicker();
       if (!pollComposer) return;
       if (!pollOptionsEditor?.children.length) renderPollOptionsEditor();
       pollComposer.hidden = false;
@@ -185,6 +339,7 @@ const PlayerApp = {
       imageButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
       if (opening) {
         closePollComposer();
+        closeGifPicker();
         const emojiPicker = document.getElementById('chat-emoji-picker');
         const emojiToggle = document.getElementById('chat-emoji-toggle');
         if (emojiPicker) emojiPicker.hidden = true;
@@ -202,8 +357,7 @@ const PlayerApp = {
         return;
       }
       if (action === 'gif') {
-        closeAttachmentMenu();
-        gifInput?.click();
+        openGifPicker();
         return;
       }
       if (action === 'poll') openPollComposer();
@@ -261,6 +415,7 @@ const PlayerApp = {
       if (attachmentWrap && !attachmentWrap.contains(event.target)) {
         closeAttachmentMenu();
         closePollComposer();
+        closeGifPicker();
       }
     });
 
@@ -268,6 +423,7 @@ const PlayerApp = {
       if (event.key === 'Escape') {
         closeAttachmentMenu();
         closePollComposer();
+        closeGifPicker();
       }
     });
 
@@ -2238,6 +2394,8 @@ const PlayerApp = {
         const attachmentToggle = document.getElementById('chat-image-upload-btn');
         if (attachmentMenu) attachmentMenu.hidden = true;
         attachmentToggle?.setAttribute('aria-expanded', 'false');
+        const gifPicker = document.getElementById('chat-gif-picker');
+        if (gifPicker) gifPicker.hidden = true;
       }
       if (reactionPicker) reactionPicker.hidden = true;
     });
@@ -2883,6 +3041,38 @@ const PlayerApp = {
         <div class="chat-blood-tribute-entry" data-message-id="${this.escapeHtml(msg.id)}">
           <div class="blood-tribute-chat-head"><span>BLOOD TRIBUTE // ${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><b>PUBLIC PURGE ${minutes}:${seconds}</b></div>
           <img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image">
+        </div>
+      `;
+    }
+
+    if (msg.messageType === 'gifRemote' && msg.gif) {
+      const isBrokerGif = msg.source === 'chatGifGm';
+      const isOwn = !isBrokerGif && String(msg.playerId || '') === String(this.playerId || '');
+      const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const avatar = isBrokerGif
+        ? '<span class="chat-poll-broker-avatar" aria-hidden="true">SB</span>'
+        : this.littleHeroAvatarHTML(identity);
+      const themeId = isBrokerGif ? 'gunmetal' : ASOCThemes.get(identity.themeId).id;
+      const style = isBrokerGif
+        ? '--little-hero-accent:#9B5DE0;'
+        : ASOCThemes.messageStyle(identity.themeId) + '--little-hero-accent:' + (/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885');
+      const title = this.escapeHtml(msg.gif.title || 'GIF');
+      const gifUrl = this.escapeHtml(msg.gif.gifUrl || msg.gif.previewUrl || '#');
+      const preview = this.escapeHtml(msg.gif.previewUrl || '');
+      const media = msg.gif.mp4Url
+        ? `<video class="chat-gif-attachment" autoplay loop muted playsinline preload="metadata" poster="${preview}"><source src="${this.escapeHtml(msg.gif.mp4Url)}" type="video/mp4"></video>`
+        : `<img class="chat-gif-attachment" src="${gifUrl}" alt="${title}">`;
+      return `
+        <div class="chat-message chat-gif-message ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+          <div class="chat-avatar-rail">${avatar}</div>
+          <div class="chat-message-main">
+            <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><span class="chat-time">${time}</span></div>
+            <button type="button" class="chat-reply-btn" data-reply-id="${this.escapeHtml(msg.id)}" title="Reply" aria-label="Reply to GIF">&#8617;</button>
+            <a class="chat-gif-link" href="${gifUrl}" target="_blank" rel="noopener" title="${title}">${media}</a>
+            <div class="chat-gif-provider-mark">GIPHY</div>
+            ${this.createReactionBarHTML(msg)}
+          </div>
         </div>
       `;
     }
