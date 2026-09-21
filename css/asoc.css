@@ -10290,7 +10290,7 @@ body.room-mode-casual #gm-panel {
 
 body.room-mode-casual #gm-panel .gm-content {
   display: grid;
-  grid-template-columns: minmax(0,1fr) clamp(250px,21vw,330px);
+  grid-template-columns: minmax(0,1fr);
   gap: 12px;
   min-height: 0;
   overflow: hidden;
@@ -10302,9 +10302,12 @@ body.room-mode-casual #gm-panel .gm-module {
   margin: 0;
 }
 
-body.room-mode-casual #gm-panel .gm-module-chat,
-body.room-mode-casual #gm-panel .gm-module-multiplayer {
+body.room-mode-casual #gm-panel .gm-module-chat {
   display: block;
+}
+
+body.room-mode-casual #gm-panel .gm-module-multiplayer {
+  display: none !important;
 }
 
 body.room-mode-casual #gm-panel .gm-module-chat {
@@ -10420,12 +10423,7 @@ body.room-mode-casual #gm-logout-btn {
     height: 100%;
   }
 
-  body.room-mode-casual #gm-panel .gm-module-multiplayer {
-    display: block;
-    overflow: visible;
-  }
-
-  body.room-mode-casual #gm-broker-bar {
+    body.room-mode-casual #gm-broker-bar {
     position: sticky;
     bottom: 0;
     z-index: 8;
@@ -10513,4 +10511,22 @@ body.room-mode-casual #gm-logout-btn {
 #host-room-btn.room-mode-toggle:disabled {
   opacity:.45;
   cursor:default;
+}
+
+
+.gm-chat-header #host-room-btn.room-mode-toggle {
+  width:auto;
+  min-width:210px;
+  margin-left:auto;
+  margin-right:10px;
+  min-height:34px;
+  padding:5px 9px;
+}
+
+@media (max-width:760px) {
+  .gm-chat-header #host-room-btn.room-mode-toggle {
+    min-width:176px;
+    margin-right:6px;
+    gap:6px;
+  }
 }
