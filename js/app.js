@@ -3586,7 +3586,7 @@ const App = {
 
     return `
       <div class="${classes.join(' ')}" data-label="${label}" style="${Skeleton.cellStyle(label)}">
-        <div class="cell-content">${this.escapeHtml(displayContent)}</div>
+        <div class="cell-content"><span class="cell-text">${this.escapeHtml(displayContent)}</span></div>
       </div>
     `;
   },
