@@ -8737,3 +8737,130 @@ body.game-complete .recount-btn,
   font-family: "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;
   font-size: 1.15rem;
 }
+
+
+/* =========================================================
+   GM CHAT DESKTOP COMFORT PASS
+   The ultra-compact pass went too far for live hosting. Keep the compact
+   Skype/Discord structure, but restore ~15% visual scale on desktop only,
+   remove the speaker-side thread rail, and make adjudication controls
+   intentionally easier to hit. Player chat is unaffected. */
+@media (min-width: 761px) {
+  .gm-module-chat .gm-chat-message.gm-flow-message:not(.grouped) {
+    box-shadow: none !important;
+  }
+
+  .gm-module-chat .gm-chat-message.gm-flow-message {
+    grid-template-columns: 18px minmax(0,1fr) auto !important;
+    column-gap: 4px !important;
+    padding: 2px 3px 2px 0 !important;
+  }
+
+  .gm-module-chat .gm-flow-message:not(.grouped) {
+    margin-top: 4px !important;
+  }
+
+  .gm-module-chat .gm-chat-avatar-rail {
+    width: 18px !important;
+    min-width: 18px !important;
+  }
+
+  .gm-module-chat .gm-chat-avatar-rail .little-hero-avatar,
+  .gm-module-chat .gm-chat-avatar-rail .little-hero-avatar-compact {
+    width: 16px !important;
+    height: 16px !important;
+    flex-basis: 16px !important;
+  }
+
+  .gm-module-chat .gm-chat-message-main {
+    min-width: 78px !important;
+    max-width: 90% !important;
+    padding: 3px 6px 4px !important;
+    border-radius: 8px 8px 8px 3px !important;
+  }
+
+  .gm-module-chat .gm-chat-message-main::before {
+    left: -5px !important;
+    top: 7px !important;
+    width: 6px !important;
+    height: 8px !important;
+  }
+
+  .gm-module-chat .gm-chat-flow-header {
+    min-height: 9px !important;
+    gap: 4px !important;
+  }
+
+  .gm-module-chat .gm-chat-flow-header .gm-chat-player-name {
+    font-size: .56rem !important;
+    letter-spacing: .4px !important;
+  }
+
+  .gm-module-chat .gm-flow-message .gm-chat-message-text,
+  .gm-module-chat .gm-flow-message.correct .gm-chat-message-text {
+    font-size: .70rem !important;
+    line-height: 1.16 !important;
+  }
+
+  .gm-module-chat .gm-chat-message-line .gm-chat-time {
+    font-size: .31rem !important;
+  }
+
+  .gm-module-chat .gm-chat-reply-context {
+    font-size: .48rem !important;
+    line-height: 1.08 !important;
+  }
+
+  .gm-module-chat .gm-chat-machine-verdict {
+    font-size: .43rem !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry {
+    margin: 5px 3px 5px 30px !important;
+    max-width: 86% !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission {
+    gap: 6px !important;
+    padding: 5px 7px !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-avatar {
+    width: 25px !important;
+    height: 25px !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-name {
+    font-size: .52rem !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-text {
+    font-size: .74rem !important;
+    line-height: 1.16 !important;
+  }
+
+  .gm-module-chat .gm-chat-quick-actions {
+    gap: 3px !important;
+    margin-left: 4px !important;
+    min-width: 51px !important;
+  }
+
+  .gm-module-chat .gm-chat-quick-actions .gm-verdict-btn {
+    flex: 0 0 24px !important;
+    width: 24px !important;
+    min-width: 24px !important;
+    height: 20px !important;
+    padding: 0 !important;
+    border-radius: 4px !important;
+    font-size: .72rem !important;
+    opacity: .92 !important;
+  }
+
+  .gm-module-chat .gm-chat-quick-actions .gm-verdict-btn.wrong {
+    font-size: 1rem !important;
+  }
+
+  .gm-module-chat .gm-chat-quick-actions .gm-verdict-btn.correct {
+    font-size: .78rem !important;
+  }
+}
