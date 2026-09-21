@@ -12267,6 +12267,13 @@ body:not(.room-mode-casual) .gm-module-chat .gm-chat-header {
   margin-bottom:4px !important;
 }
 
+/* BATTLE MODE // physically lift the ONLINE control away from the divider.
+   Transform is intentional: unlike padding, it cannot reflow/recenter the pill
+   and silently preserve the same visual gap. */
+body:not(.room-mode-casual) .gm-module-chat .gm-chat-presence-wrap {
+  transform:translateY(-7px) !important;
+}
+
 .gm-chat-presence-wrap {
   position:relative;
   display:flex;
