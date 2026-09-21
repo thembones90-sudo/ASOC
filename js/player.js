@@ -1414,12 +1414,14 @@ const PlayerApp = {
   },
 
   emojiFavoritesStorageKey() {
-    const identity = String(
+    const stableIdentity = String(
+      this.playerId ||
+      sessionStorage.getItem('asoc_player_id') ||
       this.playerName ||
       sessionStorage.getItem('asoc_player_name') ||
       'little-hero'
     ).trim().toLowerCase();
-    return 'asoc_chat_emoji_favorites_v2:' + encodeURIComponent(identity || 'little-hero');
+    return 'asoc_chat_emoji_top5_v1:' + encodeURIComponent(stableIdentity || 'little-hero');
   },
 
   loadChatEmojiFavorites() {
