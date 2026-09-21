@@ -1586,11 +1586,24 @@ const App = {
     const chatPanel = document.querySelector('.gm-module-chat .gm-chat-panel');
     const main = document.getElementById('main-content');
     const battleControls = document.getElementById('battle-controls-panel');
+    const hostSlot = document.querySelector('.battle-controls-host-slot');
+    const battleGrid = document.querySelector('.battle-controls-grid');
+    const multiplayerModule = document.querySelector('.gm-module-multiplayer');
     if (brokerBar) {
       if (next === 'CASUAL' && chatPanel && brokerBar.parentElement !== chatPanel) {
         chatPanel.appendChild(brokerBar);
       } else if (next !== 'CASUAL' && main && brokerBar.parentElement !== main) {
         main.insertBefore(brokerBar, battleControls || null);
+      }
+    }
+    // CASUAL hides #main-content, so the battle arm control must live on a
+    // visible surface. Reuse the exact existing host slot rather than
+    // creating a second button/state path that could drift out of sync.
+    if (hostSlot) {
+      if (next === 'CASUAL' && multiplayerModule && hostSlot.parentElement !== multiplayerModule) {
+        multiplayerModule.appendChild(hostSlot);
+      } else if (next !== 'CASUAL' && battleGrid && hostSlot.parentElement !== battleGrid) {
+        battleGrid.insertBefore(hostSlot, battleGrid.firstChild);
       }
     }
 
