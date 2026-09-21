@@ -909,6 +909,8 @@ const App = {
 
       case 'score:event':
         this.showScoreToast(message);
+        if (message.awardType === 'final') window.AsocAudio?.finalSolved?.();
+        else window.AsocAudio?.columnSolved?.();
         break;
 
       case 'score:streak':
@@ -960,6 +962,9 @@ const App = {
             const previous = previousById.get(m.id);
             return previous && previous.verdict !== m.verdict && m.verdict;
           });
+          if (verdictUpdates.some(m => m.verdict === 'correct')) {
+            window.AsocAudio?.correct?.();
+          }
           const newActivityCount = newMessages.length + verdictUpdates.length;
           if (this.userScrolledUp && newActivityCount) {
             this._gmNewMessageCount += newActivityCount;
@@ -1064,6 +1069,7 @@ const App = {
   },
 
   applyServerState(state) {
+    window.AsocAudio?.syncBoard?.('gm', state);
     // Victory is authoritative server state. Play the live sequence only on
     // a false->true flip AFTER this connection's baseline state; the baseline
     // itself (first state after load/reconnect) just renders the completed
@@ -1518,6 +1524,7 @@ const App = {
   },
 
   showBattleControlsOnline() {
+    window.AsocAudio?.gameStart?.();
     const layer = document.getElementById('score-announcement-layer');
     if (!layer) return;
     const existing = layer.querySelector('.battle-controls-online');
@@ -1711,6 +1718,7 @@ const App = {
   },
 
   cleanupRoom() {
+    window.AsocAudio?.resetObservers?.();
     this.roomCode = '';
     this.hostToken = '';
     this.mode = 'local';
