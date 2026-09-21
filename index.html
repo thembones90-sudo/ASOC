@@ -28,12 +28,22 @@
       <div id="gm-broker-bar" class="gm-broker-bar">
         <form id="shadow-broker-form" class="shadow-broker-form">
           <span class="shadow-broker-form-label">SHADOW BROKER</span>
-          <button type="button" id="gm-emoji-toggle" class="gm-emoji-toggle" title="Emoji">☺</button>
-          <button type="button" id="gm-image-upload-btn" class="chat-image-upload-btn gm-image-upload-btn" title="Upload image" aria-label="Upload image">▧</button>
+          <div class="gm-composer-shell">
+            <div class="gm-attachment-wrap">
+              <button type="button" id="gm-image-upload-btn" class="chat-image-upload-btn gm-image-upload-btn gm-attach-toggle" title="Attachments" aria-label="Open attachments" aria-expanded="false">+</button>
+              <div id="gm-attachment-menu" class="gm-attachment-menu" hidden role="menu" aria-label="Attachments">
+                <button type="button" class="gm-attachment-option" data-gm-attachment="image" role="menuitem">
+                  <span class="gm-attachment-option-icon" aria-hidden="true">▧</span>
+                  <span class="gm-attachment-option-copy"><b>PHOTOS</b><small>PNG, JPG, WEBP · 5 MB</small></span>
+                </button>
+              </div>
+            </div>
+            <button type="button" id="gm-emoji-toggle" class="gm-emoji-toggle" title="Emoji" aria-label="Open emoji picker" aria-expanded="false">☺</button>
+            <div id="gm-emoji-picker" class="gm-emoji-picker" hidden></div>
+            <div id="shadow-broker-composer" class="shadow-broker-input shadow-broker-rich-input" contenteditable="true" role="textbox" aria-label="Shadow Broker transmission" aria-multiline="false" data-placeholder="Transmit to players..." spellcheck="true"></div>
+          </div>
           <input type="file" id="gm-image-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
-          <div id="gm-emoji-picker" class="gm-emoji-picker" hidden></div>
           <input type="text" id="shadow-broker-input" class="shadow-broker-input-model" placeholder="Transmit to players..." autocomplete="off" tabindex="-1" aria-hidden="true">
-          <div id="shadow-broker-composer" class="shadow-broker-input shadow-broker-rich-input" contenteditable="true" role="textbox" aria-label="Shadow Broker transmission" aria-multiline="false" data-placeholder="Transmit to players..." spellcheck="true"></div>
         </form>
       </div>
 
