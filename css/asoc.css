@@ -7220,11 +7220,11 @@ body.gm-layout-locked .gm-module-height-splitter {
 .gm-module-chat .gm-chat-time-separator {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 7px 4px 6px 28px;
-  color: #5f6874;
-  font: 700 .37rem var(--font-machine);
-  letter-spacing: .75px;
+  gap: 8px;
+  margin: 9px 4px 8px 28px;
+  color: #697582;
+  font: 700 .74rem var(--font-machine);
+  letter-spacing: 1px;
 }
 
 
