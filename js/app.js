@@ -2914,7 +2914,7 @@ const App = {
         Array.isArray(parsed) &&
         parsed.length === 5 &&
         new Set(parsed).size === 5 &&
-        parsed.every(emoji => this.chatReactionEmojis.includes(emoji))
+        parsed.every(emoji => this.isGMReactionEmoji(emoji))
       ) {
         this.gmEmojiFavorites = [...parsed];
         return this.gmEmojiFavorites;
@@ -2928,7 +2928,7 @@ const App = {
 
   saveGMEmojiFavorites(favorites) {
     const clean = Array.isArray(favorites)
-      ? favorites.filter((emoji, index, list) => this.chatReactionEmojis.includes(emoji) && list.indexOf(emoji) === index).slice(0, 5)
+      ? favorites.filter((emoji, index, list) => this.isGMReactionEmoji(emoji) && list.indexOf(emoji) === index).slice(0, 5)
       : [];
     if (clean.length !== 5) return false;
     this.gmEmojiFavorites = clean;
@@ -2942,7 +2942,7 @@ const App = {
 
   replaceGMEmojiFavorite(slot, emoji) {
     const index = Math.max(0, Math.min(4, Number(slot) || 0));
-    if (!this.chatReactionEmojis.includes(emoji)) return;
+    if (!this.isGMReactionEmoji(emoji)) return;
     const favorites = [...this.loadGMEmojiFavorites()];
     const existing = favorites.indexOf(emoji);
     if (existing >= 0 && existing !== index) {
@@ -2966,12 +2966,13 @@ const App = {
     return this.escapeHtml(emoji);
   },
 
-  commanderReactionPickerHTML() {
+  commanderReactionPickerHTML(editing = false, favorites = []) {
     const tokens = window.CommanderEmojis?.tokens || [];
     if (!tokens.length) return '';
     const buttons = tokens.map(token => {
       const label = window.CommanderEmojis.label(token);
-      return '<button type="button" class="gm-emoji-option gm-commander-emoji-option" data-emoji="' + this.escapeHtml(token) + '" title="' + this.escapeHtml(label) + '">' +
+      const favorite = favorites.includes(token);
+      return '<button type="button" class="gm-emoji-option gm-commander-emoji-option gm-emoji-library' + (editing && favorite ? ' is-favorite' : '') + '" data-emoji="' + this.escapeHtml(token) + '" title="' + this.escapeHtml(label) + '">' +
         window.CommanderEmojis.html(token, 'commander-emoji-picker-icon') +
         '</button>';
     }).join('');
@@ -2982,7 +2983,10 @@ const App = {
     const favorites = this.loadGMEmojiFavorites();
     const editing = this._gmEmojiFavoritesEditing === true;
     const favoriteButtons = favorites
-      .map((emoji, index) => `<button type="button" class="gm-emoji-option gm-emoji-favorite${editing ? ' editing' : ''}${editing && index === this._gmEmojiFavoriteSlot ? ' active-slot' : ''}" data-emoji="${emoji}" data-favorite-slot="${index}" title="${editing ? 'Top 5 slot ' + (index + 1) : 'Top 5 shortcut'}">${emoji}</button>`)
+      .map((emoji, index) => {
+        const content = this.renderGMReactionEmojiHTML(emoji, 'commander-emoji-picker-icon');
+        return `<button type="button" class="gm-emoji-option gm-emoji-favorite${editing ? ' editing' : ''}${editing && index === this._gmEmojiFavoriteSlot ? ' active-slot' : ''}" data-emoji="${this.escapeHtml(emoji)}" data-favorite-slot="${index}" title="${editing ? 'Top 5 slot ' + (index + 1) : 'Top 5 shortcut'}">${content}</button>`;
+      })
       .join('');
     const bodyEmojis = editing
       ? this.chatReactionEmojis
@@ -2999,6 +3003,7 @@ const App = {
           <span class="gm-emoji-edit-status">${editing ? 'SLOT ' + (this._gmEmojiFavoriteSlot + 1) : '5 SAVED'}</span>
           <button type="button" class="gm-emoji-edit-toggle">${editing ? 'DONE' : 'EDIT'}</button>
         </div>
+        ${this.commanderReactionPickerHTML(editing, favorites)}
         ${favoriteButtons}
         ${divider}
         ${bodyButtons}
@@ -3018,7 +3023,7 @@ const App = {
           <span class="gm-emoji-edit-status">${editing ? 'SLOT ' + (this._gmEmojiFavoriteSlot + 1) : '5 SAVED'}</span>
           <button type="button" class="gm-emoji-edit-toggle">${editing ? 'DONE' : 'EDIT'}</button>
         </div>
-        ${this.commanderReactionPickerHTML()}
+        ${this.commanderReactionPickerHTML(editing, favorites)}
         ${favoriteButtons}
         ${divider}
         ${reactionBody}
