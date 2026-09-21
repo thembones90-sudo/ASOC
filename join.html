@@ -5177,6 +5177,251 @@
       }
     }
 
+
+
+    /* PLAYER CHAT VISUAL PARITY // GM CHAT IS CANON
+       Same bubble geometry, avatar scale, density and reactions.
+       Perspective only: own Little Hero messages align right. */
+    @media (min-width:761px) {
+      .battle-comms-lobby #chat-messages {
+        padding:10px 9px 12px !important;
+        overflow-x:hidden !important;
+      }
+
+      .battle-comms-lobby .chat-message {
+        display:grid !important;
+        grid-template-columns:44px minmax(0,1fr) !important;
+        column-gap:8px !important;
+        width:100% !important;
+        max-width:100% !important;
+        min-width:0 !important;
+        margin-top:7px !important;
+        padding:4px 4px 6px 0 !important;
+        box-sizing:border-box !important;
+        background:transparent !important;
+        border:0 !important;
+        box-shadow:none !important;
+      }
+
+      .battle-comms-lobby .chat-avatar-rail,
+      .battle-comms-lobby .chat-message.grouped .chat-avatar-rail {
+        display:flex !important;
+        grid-column:1 !important;
+        width:44px !important;
+        min-width:44px !important;
+        max-width:44px !important;
+        padding-top:1px !important;
+        justify-content:center !important;
+        align-items:flex-start !important;
+      }
+
+      .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
+      .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact {
+        width:40px !important;
+        height:40px !important;
+        flex:0 0 40px !important;
+        border-width:2px !important;
+      }
+
+      .battle-comms-lobby .chat-message-main {
+        position:relative !important;
+        grid-column:2 !important;
+        justify-self:start !important;
+        width:fit-content !important;
+        min-width:122px !important;
+        max-width:min(86%,620px) !important;
+        padding:8px 10px 7px !important;
+        box-sizing:border-box !important;
+        border:1px solid color-mix(in srgb,var(--little-hero-accent,#6f7885) 58%,#5b6674) !important;
+        border-radius:10px 10px 10px 4px !important;
+        background:
+          linear-gradient(180deg,
+            color-mix(in srgb,var(--theme-message-top,#151A20) 82%,#3c4855 18%),
+            color-mix(in srgb,var(--theme-message-bottom,#0C0F13) 87%,#18212b 13%)) !important;
+        box-shadow:inset 0 1px rgba(255,255,255,.07),0 2px 6px rgba(0,0,0,.40) !important;
+      }
+
+      .battle-comms-lobby .chat-message-header,
+      .battle-comms-lobby .chat-message.grouped .chat-message-header {
+        display:flex !important;
+        width:auto !important;
+        min-width:0 !important;
+        min-height:14px !important;
+        margin:0 0 3px !important;
+        padding-right:28px !important;
+      }
+
+      .battle-comms-lobby .chat-player-name {
+        font-family:var(--font-human) !important;
+        font-size:.72rem !important;
+        font-weight:800 !important;
+        letter-spacing:.035em !important;
+        line-height:1.15 !important;
+      }
+
+      .battle-comms-lobby .chat-message-line {
+        display:flex !important;
+        align-items:flex-end !important;
+        gap:8px !important;
+        width:auto !important;
+        min-width:0 !important;
+        max-width:100% !important;
+      }
+
+      .battle-comms-lobby .chat-message-text {
+        width:auto !important;
+        min-width:0 !important;
+        max-width:100% !important;
+        font-family:var(--font-human) !important;
+        font-size:.95rem !important;
+        font-weight:500 !important;
+        line-height:1.36 !important;
+        color:#f0f3f7 !important;
+        overflow-wrap:break-word !important;
+        word-break:normal !important;
+        white-space:normal !important;
+        text-rendering:optimizeLegibility;
+        -webkit-font-smoothing:antialiased;
+      }
+
+      .battle-comms-lobby .chat-message-line .chat-time {
+        flex:0 0 auto !important;
+        margin:0 !important;
+        padding:0 0 2px 4px !important;
+        font-size:.61rem !important;
+        line-height:1 !important;
+        color:#929ba6 !important;
+        opacity:.9 !important;
+        white-space:nowrap !important;
+      }
+
+      .battle-comms-lobby .chat-reply-btn {
+        top:5px !important;
+        right:5px !important;
+        width:32px !important;
+        height:32px !important;
+        min-width:32px !important;
+        min-height:32px !important;
+        line-height:30px !important;
+        font-size:1.18rem !important;
+        opacity:.82 !important;
+      }
+
+      .battle-comms-lobby .chat-reactions.has-reactions {
+        width:fit-content !important;
+        margin-top:3px !important;
+      }
+
+      .battle-comms-lobby .chat-reaction-chip,
+      .battle-comms-lobby .chat-reaction-add {
+        min-height:22px !important;
+        height:22px !important;
+        padding:0 5px !important;
+        font-size:.58rem !important;
+      }
+
+      .battle-comms-lobby .chat-reaction-chip > span {
+        font-size:.92rem !important;
+      }
+
+      /* Own Little Hero messages use the same bubble, mirrored right. */
+      .battle-comms-lobby .chat-message.own {
+        grid-template-columns:minmax(0,1fr) 44px !important;
+        padding:4px 0 6px 4px !important;
+      }
+
+      .battle-comms-lobby .chat-message.own .chat-avatar-rail {
+        grid-column:2 !important;
+        grid-row:1 !important;
+      }
+
+      .battle-comms-lobby .chat-message.own .chat-message-main {
+        grid-column:1 !important;
+        grid-row:1 !important;
+        justify-self:end !important;
+        border-radius:10px 10px 4px 10px !important;
+      }
+
+      .battle-comms-lobby .chat-message.own .chat-message-main::before {
+        left:auto !important;
+        right:-6px !important;
+        transform:scaleX(-1) !important;
+      }
+
+      .battle-comms-lobby .chat-message.own .chat-message-header {
+        justify-content:flex-end !important;
+        padding-right:28px !important;
+      }
+
+      /* Shadow Broker matches the compact GM self-message exactly. */
+      .battle-comms-lobby .chat-broker-entry {
+        display:block !important;
+        width:fit-content !important;
+        max-width:86% !important;
+        margin:5px 6px 5px auto !important;
+        padding:0 !important;
+        border:0 !important;
+        background:transparent !important;
+        box-shadow:none !important;
+      }
+
+      .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission {
+        display:flex !important;
+        flex-direction:row-reverse !important;
+        align-items:center !important;
+        width:fit-content !important;
+        min-width:0 !important;
+        max-width:100% !important;
+        min-height:44px !important;
+        margin:0 !important;
+        padding:6px 9px !important;
+        gap:8px !important;
+        border-radius:8px 8px 3px 8px !important;
+        box-sizing:border-box !important;
+      }
+
+      .battle-comms-lobby .chat-broker-entry .shadow-broker-avatar {
+        width:40px !important;
+        height:40px !important;
+        flex:0 0 40px !important;
+        border-width:2px !important;
+      }
+
+      .battle-comms-lobby .chat-broker-entry .shadow-broker-body {
+        align-items:flex-end !important;
+        text-align:right !important;
+      }
+
+      .battle-comms-lobby .chat-broker-entry .shadow-broker-name {
+        margin-bottom:1px !important;
+        font-size:.64rem !important;
+        line-height:1.1 !important;
+        letter-spacing:.5px !important;
+      }
+
+      .battle-comms-lobby .chat-broker-entry .shadow-broker-text {
+        font-family:var(--font-human) !important;
+        font-size:.92rem !important;
+        font-weight:600 !important;
+        line-height:1.32 !important;
+        letter-spacing:.01em !important;
+        -webkit-font-smoothing:antialiased;
+      }
+
+      .battle-comms-lobby .chat-broker-entry > .chat-reactions {
+        justify-content:flex-end !important;
+        width:fit-content !important;
+        margin:3px 3px 0 auto !important;
+      }
+
+      .battle-comms-lobby .chat-broker-entry > .chat-reply-context {
+        width:fit-content !important;
+        max-width:100% !important;
+        margin-left:auto !important;
+        text-align:right !important;
+      }
+    }
+
   </style>
 </head>
 <body>
