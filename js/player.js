@@ -118,13 +118,63 @@ const PlayerApp = {
     const chatInput = document.getElementById('chat-input');
     const imageButton = document.getElementById('chat-image-upload-btn');
     const imageInput = document.getElementById('chat-image-upload-input');
+    const gifInput = document.getElementById('chat-gif-upload-input');
     const attachmentMenu = document.getElementById('chat-attachment-menu');
     const attachmentWrap = imageButton?.closest('.chat-attachment-wrap');
+    const pollComposer = document.getElementById('chat-poll-composer');
+    const pollQuestion = document.getElementById('chat-poll-question');
+    const pollOptionsEditor = document.getElementById('chat-poll-options');
+    const pollMultiple = document.getElementById('chat-poll-multiple');
+
+    const closePollComposer = () => {
+      if (!pollComposer) return;
+      pollComposer.hidden = true;
+    };
 
     const closeAttachmentMenu = () => {
       if (!attachmentMenu || !imageButton) return;
       attachmentMenu.hidden = true;
       imageButton.setAttribute('aria-expanded', 'false');
+    };
+
+    const currentPollOptions = () => Array.from(
+      pollOptionsEditor?.querySelectorAll('.chat-poll-option-input') || []
+    ).map(input => input.value);
+
+    const renderPollOptionsEditor = (values = ['', '']) => {
+      if (!pollOptionsEditor) return;
+      const clean = values.slice(0, 8);
+      while (clean.length < 2) clean.push('');
+      pollOptionsEditor.replaceChildren();
+      clean.forEach((value, index) => {
+        const row = document.createElement('div');
+        row.className = 'chat-poll-option-row';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 80;
+        input.className = 'chat-poll-option-input';
+        input.placeholder = 'Option ' + (index + 1);
+        input.value = value;
+        row.appendChild(input);
+        if (clean.length > 2) {
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'chat-poll-option-remove';
+          remove.dataset.pollRemove = String(index);
+          remove.textContent = '×';
+          remove.setAttribute('aria-label', 'Remove option ' + (index + 1));
+          row.appendChild(remove);
+        }
+        pollOptionsEditor.appendChild(row);
+      });
+    };
+
+    const openPollComposer = () => {
+      closeAttachmentMenu();
+      if (!pollComposer) return;
+      if (!pollOptionsEditor?.children.length) renderPollOptionsEditor();
+      pollComposer.hidden = false;
+      pollQuestion?.focus();
     };
 
     imageButton?.addEventListener('click', (event) => {
@@ -134,6 +184,7 @@ const PlayerApp = {
       attachmentMenu.hidden = !opening;
       imageButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
       if (opening) {
+        closePollComposer();
         const emojiPicker = document.getElementById('chat-emoji-picker');
         const emojiToggle = document.getElementById('chat-emoji-toggle');
         if (emojiPicker) emojiPicker.hidden = true;
@@ -144,25 +195,88 @@ const PlayerApp = {
     attachmentMenu?.addEventListener('click', (event) => {
       event.stopPropagation();
       const action = event.target.closest('[data-chat-attachment]')?.dataset.chatAttachment;
-      if (action !== 'image') return;
-      closeAttachmentMenu();
-      imageInput?.click();
+      if (!action) return;
+      if (action === 'image') {
+        closeAttachmentMenu();
+        imageInput?.click();
+        return;
+      }
+      if (action === 'gif') {
+        closeAttachmentMenu();
+        gifInput?.click();
+        return;
+      }
+      if (action === 'poll') openPollComposer();
     });
 
+    document.getElementById('chat-poll-cancel')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      closePollComposer();
+    });
+
+    document.getElementById('chat-poll-add-option')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const values = currentPollOptions();
+      if (values.length >= 8) return;
+      renderPollOptionsEditor([...values, '']);
+      pollOptionsEditor?.querySelector('.chat-poll-option-row:last-child input')?.focus();
+    });
+
+    pollOptionsEditor?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const remove = event.target.closest('[data-poll-remove]');
+      if (!remove) return;
+      const index = Number(remove.dataset.pollRemove);
+      const values = currentPollOptions();
+      if (!Number.isInteger(index) || values.length <= 2) return;
+      values.splice(index, 1);
+      renderPollOptionsEditor(values);
+    });
+
+    document.getElementById('chat-poll-create')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const question = pollQuestion?.value.trim() || '';
+      const options = currentPollOptions().map(value => value.trim()).filter(Boolean);
+      if (!question) return alert('Poll question required.');
+      if (options.length < 2) return alert('Poll needs at least two options.');
+      if (new Set(options.map(value => value.toLocaleLowerCase())).size !== options.length) {
+        return alert('Poll options must be unique.');
+      }
+      if (!this.ws || this.ws.readyState !== 1) return alert('Chat is not connected.');
+      this.send({
+        type: 'chat:poll:create',
+        question,
+        options,
+        allowMultiple: pollMultiple?.checked === true
+      });
+      if (pollQuestion) pollQuestion.value = '';
+      if (pollMultiple) pollMultiple.checked = false;
+      renderPollOptionsEditor();
+      closePollComposer();
+    });
+
+    pollComposer?.addEventListener('click', event => event.stopPropagation());
+
     document.addEventListener('click', (event) => {
-      if (attachmentWrap && !attachmentWrap.contains(event.target)) closeAttachmentMenu();
+      if (attachmentWrap && !attachmentWrap.contains(event.target)) {
+        closeAttachmentMenu();
+        closePollComposer();
+      }
     });
 
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeAttachmentMenu();
+      if (event.key === 'Escape') {
+        closeAttachmentMenu();
+        closePollComposer();
+      }
     });
 
-    imageInput?.addEventListener('change', async () => {
-      const file = imageInput.files?.[0];
-      imageInput.value = '';
+    const uploadChatMedia = async (file, expectedType, failureLabel) => {
       if (!file) return;
-      if (!['image/png','image/jpeg','image/webp'].includes(file.type)) return alert('PNG, JPG or WEBP only.');
-      if (file.size > 5 * 1024 * 1024) return alert('Image must be 5 MB or smaller.');
+      if (file.type !== expectedType && !(expectedType === 'image' && ['image/png','image/jpeg','image/webp'].includes(file.type))) {
+        return alert(expectedType === 'image/gif' ? 'GIF files only.' : 'PNG, JPG or WEBP only.');
+      }
+      if (file.size > 5 * 1024 * 1024) return alert((failureLabel || 'File') + ' must be 5 MB or smaller.');
       const caption = chatInput?.value.trim() || '';
       const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
       imageButton.disabled = true;
@@ -175,15 +289,27 @@ const PlayerApp = {
           body: file
         });
         const result = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(result.error || 'Image upload failed');
+        if (!res.ok) throw new Error(result.error || (failureLabel || 'Media') + ' upload failed');
         if (chatInput) chatInput.value = '';
       } catch (error) {
-        alert(error.message || 'Image upload failed');
+        alert(error.message || (failureLabel || 'Media') + ' upload failed');
       } finally {
         imageButton.disabled = false;
         imageButton.classList.remove('is-uploading');
         imageButton.removeAttribute('aria-busy');
       }
+    };
+
+    imageInput?.addEventListener('change', async () => {
+      const file = imageInput.files?.[0];
+      imageInput.value = '';
+      await uploadChatMedia(file, 'image', 'Image');
+    });
+
+    gifInput?.addEventListener('change', async () => {
+      const file = gifInput.files?.[0];
+      gifInput.value = '';
+      await uploadChatMedia(file, 'image/gif', 'GIF');
     });
 
     form.addEventListener('submit', (e) => {
