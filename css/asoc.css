@@ -985,6 +985,57 @@ body.gm-layout-resizing * {
   letter-spacing: 0.06em;
 }
 
+.mp-player-online {
+  gap: 8px;
+}
+
+.mp-player-online .mp-player-name {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.mp-player-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.mp-moderation-btn {
+  min-width: 38px;
+  min-height: 25px;
+  padding: 3px 7px;
+  border: 1px solid rgba(126, 137, 157, 0.62);
+  border-radius: 4px;
+  background: rgba(20, 24, 31, 0.92);
+  color: #d9dee8;
+  font: 800 0.48rem var(--font-machine);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.mp-kick-btn:hover,
+.mp-kick-btn:focus-visible {
+  border-color: rgba(226, 173, 73, 0.9);
+  color: #ffd784;
+  outline: none;
+}
+
+.mp-ban-btn {
+  border-color: rgba(156, 54, 66, 0.72);
+  color: #eaa2aa;
+  background: rgba(53, 18, 23, 0.78);
+}
+
+.mp-ban-btn:hover,
+.mp-ban-btn:focus-visible {
+  border-color: #eb6571;
+  color: #fff;
+  background: rgba(87, 23, 31, 0.92);
+  outline: none;
+}
+
 
 /* =========================================================
    GM COMMAND CONSOLE POLISH
