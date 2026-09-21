@@ -3126,6 +3126,11 @@ function handleChatReaction(ws, message) {
     return;
   }
 
+  if (COMMANDER_REACTION_EMOJIS.has(emoji) && !isHost) {
+    sendToWs(ws, { type: 'error', message: 'Commander reactions are Shadow Broker only' });
+    return;
+  }
+
   const now = Date.now();
   const cooldown = playerCooldown(room, ws);
   if (!cooldown) return;
