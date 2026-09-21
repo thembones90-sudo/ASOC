@@ -457,6 +457,54 @@ const Skeleton = (() => {
     }, 5000));
   }
 
+
+  let omenTimer = null;
+
+  function playOmen() {
+    const boards = Array.from(document.querySelectorAll('.asoc-board'))
+      .map(node => {
+        const rect = node.getBoundingClientRect();
+        const style = window.getComputedStyle(node);
+        return { node, rect, area: rect.width * rect.height, visible: style.display !== 'none' && style.visibility !== 'hidden' };
+      })
+      .filter(item => item.visible && item.rect.width > 120 && item.rect.height > 80)
+      .sort((a, b) => b.area - a.area);
+    const target = boards[0];
+    if (!target) return;
+
+    document.querySelector('.asoc-omen-layer')?.remove();
+    if (omenTimer) clearTimeout(omenTimer);
+
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    const rect = target.rect;
+    const layer = document.createElement('div');
+    layer.className = 'asoc-omen-layer' + (reduced ? ' is-reduced' : '');
+    layer.setAttribute('aria-hidden', 'true');
+    layer.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;`;
+    layer.innerHTML = `
+      <div class="asoc-omen-wash"></div>
+      <div class="asoc-omen-field">
+        <i class="asoc-omen-ghost"></i>
+        <i class="asoc-omen-ring omen-ring-a"></i>
+        <i class="asoc-omen-ring omen-ring-b"></i>
+        <i class="asoc-omen-ring omen-ring-c"></i>
+        <i class="asoc-omen-rift"></i>
+        <i class="asoc-omen-smoke smoke-a"></i>
+        <i class="asoc-omen-smoke smoke-b"></i>
+        <i class="asoc-omen-smoke smoke-c"></i>
+      </div>
+      <div class="asoc-omen-tear tear-a"></div>
+      <div class="asoc-omen-tear tear-b"></div>
+      <div class="asoc-omen-tear tear-c"></div>`;
+    document.body.appendChild(layer);
+    requestAnimationFrame(() => layer.classList.add('is-active'));
+
+    omenTimer = setTimeout(() => {
+      layer.remove();
+      omenTimer = null;
+    }, reduced ? 1300 : 4600);
+  }
+
   let gameWonTimers = [];
 
   // GAME WON -- the live victory sequence. Cold and clinical: the system
@@ -777,6 +825,7 @@ const Skeleton = (() => {
     shadowBrokerTransmissionHTML,
     playMentionAllShake,
     playNemaAsoc,
+    playOmen,
     playGameWon,
     playGameLost
   };
