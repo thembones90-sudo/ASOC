@@ -362,6 +362,162 @@ const App = {
     }
   },
 
+  ensureGMMentionPicker(form) {
+    if (!form) return null;
+    let picker = form.querySelector('#gm-mention-picker');
+    if (picker) return picker;
+    picker = document.createElement('div');
+    picker.id = 'gm-mention-picker';
+    picker.className = 'gm-chat-mention-picker';
+    picker.hidden = true;
+    picker.setAttribute('role', 'listbox');
+    picker.setAttribute('aria-label', 'Tag a player');
+    form.appendChild(picker);
+    return picker;
+  },
+
+  getGMMentionContext(input) {
+    if (!input) return null;
+    const caret = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
+    const before = input.value.slice(0, caret);
+    const at = before.lastIndexOf('@');
+    if (at < 0) return null;
+    if (at > 0 && !/[\s([{\"'«]/.test(before.charAt(at - 1))) return null;
+    const query = before.slice(at + 1);
+    if (query.length > 40 || /[\r\n:]/.test(query)) return null;
+    return { start: at, end: caret, query };
+  },
+
+  getGMMentionCandidates(query = '') {
+    const needle = String(query || '').toLocaleLowerCase();
+    return (this.currentPlayers || [])
+      .filter(player => player && player.connected !== false && String(player.name || '').trim())
+      .filter(player => String(player.name).toLocaleLowerCase().startsWith(needle))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .slice(0, 8);
+  },
+
+  renderGMMentionPicker(picker) {
+    if (!picker || picker.hidden) return;
+    const candidates = this._gmMentionCandidates || [];
+    picker.innerHTML = candidates.map((player, index) =>
+      '<button type="button" class="gm-chat-mention-option' + (index === this._gmMentionIndex ? ' active' : '') + '" data-mention-index="' + index + '" role="option" aria-selected="' + (index === this._gmMentionIndex ? 'true' : 'false') + '">' +
+        this.littleHeroAvatarHTML(player, true) +
+        '<span>' + this.escapeHtml(player.name) + '</span><small>TAG</small></button>'
+    ).join('');
+  },
+
+  updateGMMentionPicker(input = document.getElementById('shadow-broker-input'), picker = document.getElementById('gm-mention-picker')) {
+    if (!input || !picker) return;
+    const context = this.getGMMentionContext(input);
+    if (!context) {
+      this.closeGMMentionPicker(picker);
+      return;
+    }
+    const candidates = this.getGMMentionCandidates(context.query);
+    if (!candidates.length) {
+      this.closeGMMentionPicker(picker);
+      return;
+    }
+    this._gmMentionContext = context;
+    this._gmMentionCandidates = candidates;
+    this._gmMentionIndex = Math.max(0, Math.min(this._gmMentionIndex || 0, candidates.length - 1));
+    picker.hidden = false;
+    this.renderGMMentionPicker(picker);
+    const emojiPicker = document.getElementById('gm-emoji-picker');
+    if (emojiPicker) emojiPicker.hidden = true;
+  },
+
+  closeGMMentionPicker(picker = document.getElementById('gm-mention-picker')) {
+    if (picker) {
+      picker.hidden = true;
+      picker.innerHTML = '';
+    }
+    this._gmMentionContext = null;
+    this._gmMentionCandidates = [];
+    this._gmMentionIndex = 0;
+  },
+
+  selectGMMention(index, input = document.getElementById('shadow-broker-input'), picker = document.getElementById('gm-mention-picker')) {
+    const candidate = (this._gmMentionCandidates || [])[Number(index)];
+    const context = this._gmMentionContext;
+    if (!candidate || !context || !input) return false;
+    const replacement = '@' + String(candidate.name) + ' ';
+    const next = input.value.slice(0, context.start) + replacement + input.value.slice(context.end);
+    if (Number(input.maxLength) > 0 && next.length > Number(input.maxLength)) return false;
+    input.value = next;
+    const caret = context.start + replacement.length;
+    input.focus();
+    input.setSelectionRange(caret, caret);
+    this.closeGMMentionPicker(picker);
+    return true;
+  },
+
+  handleGMMentionKeydown(event, input, picker) {
+    if (!picker || picker.hidden) return false;
+    const candidates = this._gmMentionCandidates || [];
+    if (!candidates.length) return false;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      this._gmMentionIndex = (this._gmMentionIndex + delta + candidates.length) % candidates.length;
+      this.renderGMMentionPicker(picker);
+      picker.querySelector('.gm-chat-mention-option.active')?.scrollIntoView({ block: 'nearest' });
+      return true;
+    }
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault();
+      this.selectGMMention(this._gmMentionIndex || 0, input, picker);
+      return true;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeGMMentionPicker(picker);
+      return true;
+    }
+    return false;
+  },
+
+  decorateGMChatMentions(container) {
+    if (!container) return;
+    const names = [...new Set((this.currentPlayers || [])
+      .map(player => String(player?.name || '').trim())
+      .filter(Boolean))]
+      .sort((a, b) => b.length - a.length);
+    if (!names.length) return;
+
+    const regexSpecials = '^$.*+?()[]{}|' + String.fromCharCode(92);
+    const escaped = names.map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
+    const pattern = new RegExp('@(' + escaped.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
+    const targets = container.querySelectorAll('.gm-chat-message-text, .shadow-broker-text');
+
+    targets.forEach(target => {
+      const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(node => {
+        const value = node.nodeValue || '';
+        pattern.lastIndex = 0;
+        let match;
+        let last = 0;
+        const fragment = document.createDocumentFragment();
+        let changed = false;
+        while ((match = pattern.exec(value))) {
+          changed = true;
+          if (match.index > last) fragment.appendChild(document.createTextNode(value.slice(last, match.index)));
+          const span = document.createElement('span');
+          span.className = 'chat-mention';
+          span.textContent = match[0];
+          fragment.appendChild(span);
+          last = match.index + match[0].length;
+        }
+        if (!changed) return;
+        if (last < value.length) fragment.appendChild(document.createTextNode(value.slice(last)));
+        node.replaceWith(fragment);
+      });
+    });
+  },
+
   setupEventListeners() {
     document.getElementById('public-view-btn').addEventListener('click', () => this.togglePublicView());
     document.getElementById('back-to-gm-btn').addEventListener('click', () => this.togglePublicView(false));
@@ -393,11 +549,15 @@ const App = {
     // SHADOW BROKER free-form broadcast -- presentation layer only, see
     // handleGmBroadcast in server.js. Enter submits (native form submit),
     // same as the player's own chat-form.
-    document.getElementById('shadow-broker-form')?.addEventListener('submit', (e) => {
+    const shadowBrokerForm = document.getElementById('shadow-broker-form');
+    const shadowBrokerInput = document.getElementById('shadow-broker-input');
+    const gmMentionPicker = this.ensureGMMentionPicker(shadowBrokerForm);
+    shadowBrokerForm?.addEventListener('submit', (e) => {
       e.preventDefault();
       this.sendShadowBrokerBroadcast();
     });
-    document.getElementById('shadow-broker-input')?.addEventListener('keydown', (e) => {
+    shadowBrokerInput?.addEventListener('keydown', (e) => {
+      if (this.handleGMMentionKeydown(e, shadowBrokerInput, gmMentionPicker)) return;
       if (e.key === 'Escape' && this._editingBroadcast) {
         e.preventDefault();
         this.cancelGMChatEdit();
@@ -406,8 +566,17 @@ const App = {
       if (e.key === 'Delete') {
         e.preventDefault();
         e.currentTarget.value = '';
+        this.closeGMMentionPicker(gmMentionPicker);
         this.clearShadowBrokerBroadcast();
       }
+    });
+    shadowBrokerInput?.addEventListener('input', () => this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker));
+    shadowBrokerInput?.addEventListener('click', () => this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker));
+    gmMentionPicker?.addEventListener('mousedown', (e) => e.preventDefault());
+    gmMentionPicker?.addEventListener('click', (e) => {
+      const option = e.target.closest('.gm-chat-mention-option');
+      if (!option) return;
+      this.selectGMMention(option.dataset.mentionIndex || 0, shadowBrokerInput, gmMentionPicker);
     });
 
     const gmEmojiToggle = document.getElementById('gm-emoji-toggle');
@@ -452,7 +621,10 @@ const App = {
       if (!gmEmojiPicker) return;
       const opening = gmEmojiPicker.hidden;
       gmEmojiPicker.hidden = !opening;
-      if (opening) this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
+      if (opening) {
+        this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
+        this.closeGMMentionPicker(gmMentionPicker);
+      }
       if (gmReactionPicker) gmReactionPicker.hidden = true;
     });
 
@@ -579,7 +751,10 @@ const App = {
     document.getElementById('wheel-setup-confirm')?.addEventListener('click', () => this.confirmWheelSetup());
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeGMContextMenu();
+      if (e.key === 'Escape') {
+        closeGMContextMenu();
+        this.closeGMMentionPicker(gmMentionPicker);
+      }
       if (e.key === 'Escape' && this.currentView === 'public') {
         this.togglePublicView(false);
       }
@@ -606,6 +781,7 @@ const App = {
         liveReactionPicker.hidden = true;
       }
       if (gmContextMenu && !gmContextMenu.hidden && !gmContextMenu.contains(e.target)) closeGMContextMenu();
+      if (gmMentionPicker && !gmMentionPicker.hidden && !shadowBrokerForm?.contains(e.target)) this.closeGMMentionPicker(gmMentionPicker);
 
       const btn = e.target.closest('.gm-cell-btn');
       if (btn) {
@@ -1352,6 +1528,8 @@ const App = {
     // can default to "everyone currently connected" without a separate
     // round-trip to the server.
     this.currentPlayers = players;
+    const gmMentionPicker = document.getElementById('gm-mention-picker');
+    if (gmMentionPicker && !gmMentionPicker.hidden) this.updateGMMentionPicker(document.getElementById('shadow-broker-input'), gmMentionPicker);
 
     const countEl = document.getElementById('mp-players-count');
     const listEl = document.getElementById('mp-player-list');
@@ -2424,6 +2602,7 @@ const App = {
     });
 
     container.innerHTML = html;
+    this.decorateGMChatMentions(container);
 
     clearTimeout(this._gmWrongFadeTimer);
     if (Number.isFinite(nextWrongFadeMs)) {
@@ -2814,6 +2993,7 @@ const App = {
     if (!text) return;
 
     const editing = this._editingBroadcast;
+    this.closeGMMentionPicker();
     if (editing) {
       const editedText = (editing.prefix || '') + text;
       if (this.mode === 'multiplayer' && this.roomCode) {
