@@ -660,8 +660,32 @@ const App = {
     });
 
     gmReactionPicker?.addEventListener('click', (e) => {
+      const editToggle = e.target.closest('.gm-emoji-edit-toggle');
+      if (editToggle) {
+        this._gmEmojiFavoritesEditing = !this._gmEmojiFavoritesEditing;
+        this._gmEmojiFavoriteSlot = Math.max(0, Math.min(4, this._gmEmojiFavoriteSlot || 0));
+        this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
+        return;
+      }
+
       const option = e.target.closest('.gm-emoji-option');
       if (!option) return;
+
+      if (this._gmEmojiFavoritesEditing) {
+        const favoriteSlot = option.dataset.favoriteSlot;
+        if (favoriteSlot !== undefined) {
+          this._gmEmojiFavoriteSlot = Math.max(0, Math.min(4, Number(favoriteSlot) || 0));
+          this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
+          return;
+        }
+
+        const emoji = option.dataset.emoji || '';
+        this.replaceGMEmojiFavorite(this._gmEmojiFavoriteSlot, emoji);
+        this._gmEmojiFavoriteSlot = (this._gmEmojiFavoriteSlot + 1) % 5;
+        this.renderGMEmojiPickers(gmEmojiPicker, gmReactionPicker);
+        return;
+      }
+
       const messageId = gmReactionPicker.dataset.messageId || '';
       if (messageId) this.sendGMChatReaction(messageId, option.dataset.emoji || '');
       gmReactionPicker.hidden = true;
@@ -691,7 +715,7 @@ const App = {
       closeGMContextMenu();
       if (action === 'react') {
         // A detached anchor has a zero rect; the message is gone, nothing to react to.
-        if (messageEl.isConnected) this.openGMChatReactionPicker(messageId, messageEl);
+        if (messageEl.isConnected) this.openGMChatReactionPicker(messageId, { x: e.clientX, y: e.clientY });
         return;
       }
       if (action === 'edit') {
@@ -779,6 +803,8 @@ const App = {
       }
       if (liveReactionPicker && !liveReactionPicker.hidden && !liveReactionPicker.contains(e.target) && !e.target.closest('.gm-chat-reaction-add')) {
         liveReactionPicker.hidden = true;
+        this._gmEmojiFavoritesEditing = false;
+        this._gmEmojiFavoriteSlot = 0;
       }
       if (gmContextMenu && !gmContextMenu.hidden && !gmContextMenu.contains(e.target)) closeGMContextMenu();
       if (gmMentionPicker && !gmMentionPicker.hidden && !shadowBrokerForm?.contains(e.target)) this.closeGMMentionPicker(gmMentionPicker);
@@ -810,7 +836,7 @@ const App = {
 
       const gmReactionAdd = e.target.closest('.gm-chat-reaction-add');
       if (gmReactionAdd) {
-        this.openGMChatReactionPicker(gmReactionAdd.dataset.messageId || '', gmReactionAdd);
+        this.openGMChatReactionPicker(gmReactionAdd.dataset.messageId || '', { x: e.clientX, y: e.clientY });
       }
 
       if (e.target.closest('.gm-verdict-btn')) {
@@ -2884,11 +2910,22 @@ const App = {
     }
 
     if (reactionPicker) {
-      const reactionBody = this.chatReactionEmojis
-        .filter(emoji => !favorites.includes(emoji))
-        .map(emoji => `<button type="button" class="gm-emoji-option gm-emoji-library" data-emoji="${emoji}">${emoji}</button>`)
+      const reactionBodyEmojis = editing
+        ? this.chatReactionEmojis
+        : this.chatReactionEmojis.filter(emoji => !favorites.includes(emoji));
+      const reactionBody = reactionBodyEmojis
+        .map(emoji => `<button type="button" class="gm-emoji-option gm-emoji-library${editing && favorites.includes(emoji) ? ' is-favorite' : ''}" data-emoji="${emoji}">${emoji}</button>`)
         .join('');
-      reactionPicker.innerHTML = favoriteButtons.replace(/ editing| active-slot/g, '') + divider + reactionBody;
+      reactionPicker.innerHTML = `
+        <div class="gm-emoji-picker-head">
+          <span>TOP 5 EMOJIS</span>
+          <span class="gm-emoji-edit-status">${editing ? 'SLOT ' + (this._gmEmojiFavoriteSlot + 1) : '5 SAVED'}</span>
+          <button type="button" class="gm-emoji-edit-toggle">${editing ? 'DONE' : 'EDIT'}</button>
+        </div>
+        ${favoriteButtons}
+        ${divider}
+        ${reactionBody}
+      `;
     }
   },
 
@@ -2912,28 +2949,39 @@ const App = {
     this.send({ type: 'chat:react', messageId, emoji });
   },
 
-  openGMChatReactionPicker(messageId, anchor) {
+  openGMChatReactionPicker(messageId, clickPoint = null) {
     const picker = document.getElementById('gm-chat-reaction-picker');
-    if (!picker || !messageId || !anchor) return;
+    if (!picker || !messageId) return;
 
+    this._gmEmojiFavoritesEditing = false;
+    this._gmEmojiFavoriteSlot = 0;
     picker.dataset.messageId = messageId;
+    this.renderGMEmojiPickers(document.getElementById('gm-emoji-picker'), picker);
     picker.hidden = false;
+
     const emojiPicker = document.getElementById('gm-emoji-picker');
     if (emojiPicker) emojiPicker.hidden = true;
 
+    const x = Number(clickPoint?.x);
+    const y = Number(clickPoint?.y);
     requestAnimationFrame(() => {
-      const anchorRect = anchor.getBoundingClientRect();
       const pickerRect = picker.getBoundingClientRect();
-      let left = anchorRect.right - pickerRect.width;
-      let top = anchorRect.bottom + 4;
+      const clickX = Number.isFinite(x) ? x : window.innerWidth / 2;
+      const clickY = Number.isFinite(y) ? y : window.innerHeight / 2;
+      const gap = 6;
 
-      left = Math.max(8, Math.min(left, window.innerWidth - pickerRect.width - 8));
+      let left = clickX + gap;
+      let top = clickY + gap;
+
+      if (left + pickerRect.width > window.innerWidth - 8) {
+        left = clickX - pickerRect.width - gap;
+      }
       if (top + pickerRect.height > window.innerHeight - 8) {
-        top = Math.max(8, anchorRect.top - pickerRect.height - 4);
+        top = clickY - pickerRect.height - gap;
       }
 
-      picker.style.left = left + 'px';
-      picker.style.top = top + 'px';
+      picker.style.left = Math.max(8, Math.min(left, window.innerWidth - pickerRect.width - 8)) + 'px';
+      picker.style.top = Math.max(8, Math.min(top, window.innerHeight - pickerRect.height - 8)) + 'px';
     });
   },
 
