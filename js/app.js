@@ -2240,7 +2240,14 @@ const App = {
       case 'resolveColumn': {
         const { column, outcome } = payload || {};
         if (!['A', 'B', 'C', 'D'].includes(column) || !['success', 'failed'].includes(outcome)) break;
-        if (Board.setRevealed(column, 5, true)) changed = true;
+        if (outcome === 'success') {
+          // Mirror the authoritative GREEN behavior locally: a solved column
+          // exposes every remaining clue pill and its solution immediately.
+          if (Board.revealColumn(column)) changed = true;
+        } else if (Board.setRevealed(column, 5, true)) {
+          // RED only reveals the solution pill; clues should already be open.
+          changed = true;
+        }
         Board.sessionState.cellOutcomes ||= {};
         if (Board.sessionState.cellOutcomes[`${column}5`] !== outcome) {
           Board.sessionState.cellOutcomes[`${column}5`] = outcome;

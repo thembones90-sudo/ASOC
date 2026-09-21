@@ -2256,10 +2256,26 @@ function applyCommand(room, command, payload) {
         return { success: false, error: `Column ${column} has already been declared failed` };
       }
 
-      if (room.sessionState.cells[key] !== true) {
+      if (outcome === 'success') {
+        // GREEN means the column is officially solved. Reveal every remaining
+        // clue pill plus the solution pill in one authoritative transaction.
+        // assignClueOrder preserves the progressive clue-queue contract for
+        // any slots that had not been opened before the solve.
+        for (let row = 1; row <= 5; row++) {
+          const cellKey = `${column}${row}`;
+          if (room.sessionState.cells[cellKey] !== true) {
+            room.sessionState.cells[cellKey] = true;
+            assignClueOrder(room, column, row);
+            changed = true;
+          }
+        }
+      } else if (room.sessionState.cells[key] !== true) {
+        // RED is intentionally different: a failed column is only declared
+        // after its four clues are already active, so only force-reveal A5-D5.
         room.sessionState.cells[key] = true;
         changed = true;
       }
+
       room.sessionState.cellOutcomes ||= {};
       if (room.sessionState.cellOutcomes[key] !== outcome) {
         room.sessionState.cellOutcomes[key] = outcome;
