@@ -496,11 +496,34 @@ const PlayerApp = {
   },
 
   async joinGame() {
-    const playerName = document.getElementById('player-name').value.trim();
+    let playerName = document.getElementById('player-name').value.trim();
 
     if (!playerName) {
       this.showError('Please enter your name');
       return;
+    }
+
+    const authToken = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+    const storedName = (sessionStorage.getItem('asoc_player_name') || '').trim();
+    if (authToken && playerName !== storedName) {
+      try {
+        const res = await fetch('/api/auth/player/profile', {
+          method: 'PATCH',
+          headers: {
+            'content-type': 'application/json',
+            'x-player-token': authToken
+          },
+          body: JSON.stringify({ name: playerName })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not update Little Hero designation');
+        playerName = String(data.player?.name || playerName).trim();
+        document.getElementById('player-name').value = playerName;
+        this.updateAppearancePreview();
+      } catch (error) {
+        this.showError(error.message || 'Could not update Little Hero designation');
+        return;
+      }
     }
 
     this.roomCode = 'MASTER';
@@ -652,6 +675,12 @@ const PlayerApp = {
         localStorage.setItem('asoc_player_in_master', '1');
         this.updateBloodTributeDemand(this.lastPublicState?.bloodTribute || { status: 'idle' });
         if (message.littleHero) {
+          if (message.littleHero.name) {
+            this.playerName = String(message.littleHero.name);
+            sessionStorage.setItem('asoc_player_name', this.playerName);
+            const nameInput = document.getElementById('player-name');
+            if (nameInput) nameInput.value = this.playerName;
+          }
           this.avatarData = message.littleHero.avatarData || '';
           this.frameColor = /^#[0-9A-Fa-f]{6}$/.test(message.littleHero.frameColor || '')
             ? message.littleHero.frameColor.toUpperCase()
