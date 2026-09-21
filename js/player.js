@@ -1637,16 +1637,17 @@ const PlayerApp = {
         <div class="asoc-mode-transition-title">${battle ? 'BATTLE PROTOCOL ENGAGED' : 'BATTLE INTERFACE SUSPENDED'}</div>
         <div class="asoc-mode-transition-sub">${battle ? '' : 'CASUAL CHANNEL // RESTORED'}</div>
       </div>
+      ${battle ? '<div class="asoc-mode-transition-omen" aria-live="polite"></div>' : ''}
     `;
     document.body.appendChild(overlay);
     document.body.classList.add('asoc-transition-to-' + direction);
     requestAnimationFrame(() => overlay.classList.add('is-live'));
 
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-    const holdMs = reducedMotion ? 300 : 4000;
+    const holdMs = reducedMotion ? (battle ? 1800 : 300) : 4000;
 
     if (battle) {
-      const line = overlay.querySelector('.asoc-mode-transition-sub');
+      const line = overlay.querySelector('.asoc-mode-transition-omen');
       if (line) {
         if (reducedMotion) {
           line.textContent = transformationMessage;
