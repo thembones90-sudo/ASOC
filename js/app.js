@@ -1833,10 +1833,6 @@ const App = {
       this.jumpToLatestGMChat();
     });
 
-    // FAIL K ("K" is this GM's own shorthand for the Final/"Kraj" slot) --
-    // lives in the WOMF section alongside FAIL A-D now, replacing the old
-    // standalone DECLARE FINAL FAILED button under Scoring. Same action.
-    document.getElementById('womf-fail-final-btn')?.addEventListener('click', () => this.declareFinalFailed());
     document.getElementById('womf-subtract-btn')?.addEventListener('click', () => this.declareWomfSubtract());
     document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
     document.getElementById('blood-tribute-vault-clear')?.addEventListener('click', () => this.clearBloodTributeVault());
@@ -1945,10 +1941,6 @@ const App = {
         this.clearVerdictSelector();
       }
 
-      const womfFailBtn = e.target.closest('.womf-fail-btn');
-      if (womfFailBtn) {
-        this.declareColumnFailed(womfFailBtn.dataset.column);
-      }
     });
 
     document.getElementById('reveal-hide-all-btn').addEventListener('click', () => {
@@ -2939,22 +2931,6 @@ const App = {
     `).join('') || '<div class="leaderboard-empty">No recorded players yet</div>';
   },
 
-  declareFinalFailed() {
-    if (this.mode !== 'multiplayer' || this.finalRevealed) return;
-    if (!confirm('Declare the Final SOLUTION failed? This reveals the answer and applies the loss penalty to every connected player.')) return;
-    this.send({ type: 'gm:failFinal' });
-  },
-
-  // WOMF -- explicit GM action, mirrors declareFinalFailed() exactly. This
-  // is the ONLY way a column-failed event exists; it is never inferred
-  // from guess judging. It adds a WOMF charge only -- no scoring, reveal,
-  // or other column/board effect.
-  declareColumnFailed(column) {
-    if (this.mode !== 'multiplayer') return;
-    if (!confirm(`Declare column ${column} failed? This adds a WOMF charge and cannot be undone.`)) return;
-    this.send({ type: 'gm:failColumn', column });
-  },
-
   // Manual corrections for the WOMF meter itself (e.g. undoing an
   // accidental FAIL click, or clearing it for a fresh session). These only
   // ever touch the numeric charge -- they never touch any column/Final's
@@ -2991,9 +2967,9 @@ const App = {
     this.updateWomfControlsVisibility();
   },
 
-  // The DECLARE [X] FAILED controls are multiplayer-only, same gating as
-  // the Final-failed button -- WOMF charges only ever come from a live
-  // room (there is no local-mode equivalent).
+  // Manual WOMF correction controls are multiplayer-only. Normal column
+  // failure now comes from the A5-D5 RED adjudication path; this section is
+  // deliberately limited to operator correction tools.
   updateWomfControlsVisibility() {
     const section = document.getElementById('womf-controls-section');
     if (section) section.style.display = this.mode === 'multiplayer' ? 'block' : 'none';
