@@ -11766,3 +11766,45 @@ body.room-mode-casual #gm-panel .gm-footer {
 #gm-chat-reaction-picker .commander-reaction-picker {
   grid-column:1 / -1;
 }
+
+
+/* CHAT CONTROL READABILITY V2 // no microscopic command text */
+#gm-broker-bar #gm-emoji-picker .gm-emoji-picker-head,
+#gm-chat-reaction-picker .gm-emoji-picker-head {
+  font-size:.68rem !important;
+  letter-spacing:.08em !important;
+}
+
+#gm-broker-bar #gm-emoji-picker .gm-emoji-edit-status,
+#gm-chat-reaction-picker .gm-emoji-edit-status {
+  font-size:.56rem !important;
+  letter-spacing:.06em !important;
+}
+
+#gm-broker-bar #gm-emoji-picker .gm-emoji-edit-toggle,
+#gm-chat-reaction-picker .gm-emoji-edit-toggle {
+  min-width:50px !important;
+  height:27px !important;
+  font-size:.56rem !important;
+}
+
+.gm-emoji-section-label {
+  font-size:.55rem !important;
+}
+
+#gm-broker-bar .gm-attachment-option-copy b {
+  font-size:.68rem !important;
+}
+
+#gm-broker-bar .gm-attachment-option-copy small {
+  font-size:.54rem !important;
+}
+
+.gm-chat-context-menu button {
+  min-height:34px !important;
+  font-size:.64rem !important;
+}
+
+.gm-chat-context-menu::before {
+  font-size:.45rem !important;
+}
