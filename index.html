@@ -36,6 +36,24 @@
                   <span class="gm-attachment-option-icon" aria-hidden="true">▧</span>
                   <span class="gm-attachment-option-copy"><b>PHOTOS</b><small>PNG, JPG, WEBP · 5 MB</small></span>
                 </button>
+                <button type="button" class="gm-attachment-option" data-gm-attachment="gif" role="menuitem">
+                  <span class="gm-attachment-option-icon gm-attachment-gif-icon" aria-hidden="true">GIF</span>
+                  <span class="gm-attachment-option-copy"><b>GIF</b><small>Animated GIF · 5 MB</small></span>
+                </button>
+                <button type="button" class="gm-attachment-option" data-gm-attachment="poll" role="menuitem">
+                  <span class="gm-attachment-option-icon gm-attachment-poll-icon" aria-hidden="true">▤</span>
+                  <span class="gm-attachment-option-copy"><b>POLL</b><small>2–8 options · live results</small></span>
+                </button>
+              </div>
+              <div id="gm-poll-composer" class="gm-poll-composer" hidden>
+                <div class="gm-poll-composer-head"><b>CREATE POLL</b><button type="button" id="gm-poll-cancel" aria-label="Close poll composer">×</button></div>
+                <input type="text" id="gm-poll-question" maxlength="160" placeholder="Ask the room...">
+                <div id="gm-poll-options" class="gm-poll-options-editor"></div>
+                <div class="gm-poll-composer-actions">
+                  <button type="button" id="gm-poll-add-option">+ OPTION</button>
+                  <label><input type="checkbox" id="gm-poll-multiple"> MULTIPLE ANSWERS</label>
+                  <button type="button" id="gm-poll-create">CREATE</button>
+                </div>
               </div>
             </div>
             <button type="button" id="gm-emoji-toggle" class="gm-emoji-toggle" title="Emoji" aria-label="Open emoji picker" aria-expanded="false">☺</button>
@@ -43,6 +61,7 @@
             <div id="shadow-broker-composer" class="shadow-broker-input shadow-broker-rich-input" contenteditable="true" role="textbox" aria-label="Shadow Broker transmission" aria-multiline="false" data-placeholder="Transmit to players..." spellcheck="true"></div>
           </div>
           <input type="file" id="gm-image-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+          <input type="file" id="gm-gif-upload-input" accept="image/gif" hidden>
           <input type="text" id="shadow-broker-input" class="shadow-broker-input-model" placeholder="Transmit to players..." autocomplete="off" tabindex="-1" aria-hidden="true">
         </form>
       </div>
