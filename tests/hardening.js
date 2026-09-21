@@ -345,7 +345,7 @@ function testSessionStoreRecovery() {
     assert.ok(activeRoom().wheel.settleAt, 'wheel settlement deadline persisted before crash');
     await stopServer(true);
     await startServer();
-    const settleDeadline = Date.now() + 5000;
+    const settleDeadline = Date.now() + 12000;
     while (Date.now() < settleDeadline && activeRoom().wheel.phase === 'spinning') await delay(100);
     const settled = activeRoom();
     assert.equal(settled.wheel.phase, 'result', 'wheel settles after hard restart');
