@@ -3788,6 +3788,52 @@ function handleApiRequest(req, res) {
     return sendJson(res, 200, { ok: true, player });
   }
 
+  if (method === 'PATCH' && url.pathname === '/api/auth/player/profile') {
+    return readJsonBody(req, (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
+      const token = String(req.headers['x-player-token'] || '');
+      const auth = getPlayerAuth(token);
+      if (!auth) return sendJson(res, 401, { error: 'Player session invalid' });
+
+      let account;
+      try {
+        account = authStore.getById(auth.playerId);
+      } catch {
+        return sendJson(res, 503, { error: 'Authentication temporarily unavailable' });
+      }
+      if (!account) return sendJson(res, 401, { error: 'Player account not found' });
+      if (EMAIL_VERIFICATION_REQUIRED && !account.emailVerified) {
+        return sendJson(res, 403, { error: 'Email verification required', code: 'EMAIL_NOT_VERIFIED' });
+      }
+
+      const cleanName = sanitizeText(body.name).slice(0, 20);
+      if (!cleanName) return sendJson(res, 400, { error: 'Name cannot be empty' });
+
+      try {
+        const player = authStore.updateName(auth.playerId, cleanName);
+        playerStore.updateProfileAppearance({ id: auth.playerId, name: player.name });
+
+        let liveIdentityChanged = false;
+        for (const room of rooms.values()) {
+          let roomChanged = false;
+          room.players.forEach((info, socket) => {
+            if (info.id !== auth.playerId) return;
+            info.name = player.name;
+            socket.playerName = player.name;
+            roomChanged = true;
+            liveIdentityChanged = true;
+          });
+          if (roomChanged) broadcastPlayersUpdate(room);
+        }
+        if (liveIdentityChanged) persistActiveRooms();
+
+        return sendJson(res, 200, { ok: true, player });
+      } catch (e) {
+        return sendJson(res, /not found/i.test(e.message || '') ? 404 : 400, { error: e.message || 'Could not update player profile' });
+      }
+    });
+  }
+
   if (method === 'POST' && url.pathname === '/api/auth/player/logout') {
     const token = String(req.headers['x-player-token'] || '');
     if (token && playerAuthTokens.delete(playerTokenKey(token))) savePlayerAuthSessions();
