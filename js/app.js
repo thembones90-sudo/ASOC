@@ -2447,7 +2447,7 @@ const App = {
     const interruptStyle = interrupted ? `;animation-delay:-${Math.max(0, interruptElapsed)}ms` : '';
     return `
       <div class="shadow-broker-board-line${interrupted}" style="${Skeleton.shadowBrokerLineStyle()}">
-        <span class="shadow-broker-board-line-text" style="opacity:${state.opacity.toFixed(3)}${interruptStyle}">${this.escapeHtml(state.visibleText)}</span>
+        <span class="shadow-broker-board-line-text" style="opacity:${state.opacity.toFixed(3)}${interruptStyle}">${window.CommanderEmojis?.renderText?.(state.visibleText, 'commander-board-emoji') || this.escapeHtml(state.visibleText)}</span>
       </div>
     `;
   },
