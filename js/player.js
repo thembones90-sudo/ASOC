@@ -115,18 +115,59 @@ const PlayerApp = {
     const form = document.getElementById('join-form');
     const nameInput = document.getElementById('player-name');
 
+    const chatInput = document.getElementById('chat-input');
     const imageButton = document.getElementById('chat-image-upload-btn');
     const imageInput = document.getElementById('chat-image-upload-input');
-    imageButton?.addEventListener('click', () => imageInput?.click());
+    const attachmentMenu = document.getElementById('chat-attachment-menu');
+    const attachmentWrap = imageButton?.closest('.chat-attachment-wrap');
+
+    const closeAttachmentMenu = () => {
+      if (!attachmentMenu || !imageButton) return;
+      attachmentMenu.hidden = true;
+      imageButton.setAttribute('aria-expanded', 'false');
+    };
+
+    imageButton?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (!attachmentMenu) return imageInput?.click();
+      const opening = attachmentMenu.hidden;
+      attachmentMenu.hidden = !opening;
+      imageButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      if (opening) {
+        const emojiPicker = document.getElementById('chat-emoji-picker');
+        const emojiToggle = document.getElementById('chat-emoji-toggle');
+        if (emojiPicker) emojiPicker.hidden = true;
+        emojiToggle?.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    attachmentMenu?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const action = event.target.closest('[data-chat-attachment]')?.dataset.chatAttachment;
+      if (action !== 'image') return;
+      closeAttachmentMenu();
+      imageInput?.click();
+    });
+
+    document.addEventListener('click', (event) => {
+      if (attachmentWrap && !attachmentWrap.contains(event.target)) closeAttachmentMenu();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeAttachmentMenu();
+    });
+
     imageInput?.addEventListener('change', async () => {
       const file = imageInput.files?.[0];
       imageInput.value = '';
       if (!file) return;
       if (!['image/png','image/jpeg','image/webp'].includes(file.type)) return alert('PNG, JPG or WEBP only.');
       if (file.size > 5 * 1024 * 1024) return alert('Image must be 5 MB or smaller.');
-      const caption = input?.value.trim() || '';
+      const caption = chatInput?.value.trim() || '';
       const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
       imageButton.disabled = true;
+      imageButton.classList.add('is-uploading');
+      imageButton.setAttribute('aria-busy', 'true');
       try {
         const res = await fetch('/api/chat/image?caption=' + encodeURIComponent(caption), {
           method: 'POST',
@@ -135,11 +176,13 @@ const PlayerApp = {
         });
         const result = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(result.error || 'Image upload failed');
-        if (input) input.value = '';
+        if (chatInput) chatInput.value = '';
       } catch (error) {
         alert(error.message || 'Image upload failed');
       } finally {
         imageButton.disabled = false;
+        imageButton.classList.remove('is-uploading');
+        imageButton.removeAttribute('aria-busy');
       }
     });
 
@@ -1763,6 +1806,7 @@ const PlayerApp = {
         </div>
         ${favoriteButtons}
         ${divider}
+        <div class="chat-emoji-section-label">EMOJI PACK</div>
         ${bodyButtons}
       `;
     }
@@ -1782,6 +1826,7 @@ const PlayerApp = {
         </div>
         ${favoriteButtons}
         ${divider}
+        <div class="chat-emoji-section-label">EMOJI PACK</div>
         ${reactionBody}
       `;
     }
@@ -2050,9 +2095,14 @@ const PlayerApp = {
       if (!emojiPicker) return;
       const opening = emojiPicker.hidden;
       emojiPicker.hidden = !opening;
+      emojiToggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
       if (opening) {
         this.renderChatEmojiPickers(emojiPicker, reactionPicker);
         this.closeChatMentionPicker(mentionPicker);
+        const attachmentMenu = document.getElementById('chat-attachment-menu');
+        const attachmentToggle = document.getElementById('chat-image-upload-btn');
+        if (attachmentMenu) attachmentMenu.hidden = true;
+        attachmentToggle?.setAttribute('aria-expanded', 'false');
       }
       if (reactionPicker) reactionPicker.hidden = true;
     });
@@ -2087,6 +2137,7 @@ const PlayerApp = {
 
       this.insertChatEmoji(option.dataset.emoji || '');
       emojiPicker.hidden = true;
+      emojiToggle?.setAttribute('aria-expanded', 'false');
     });
 
     reactionPicker?.addEventListener('click', (e) => {
@@ -2125,6 +2176,7 @@ const PlayerApp = {
     document.addEventListener('click', (e) => {
       if (emojiPicker && !emojiPicker.hidden && !emojiPicker.contains(e.target) && e.target !== emojiToggle) {
         emojiPicker.hidden = true;
+        emojiToggle?.setAttribute('aria-expanded', 'false');
         this._emojiFavoritesEditing = false;
         this._emojiFavoriteSlot = 0;
       }
