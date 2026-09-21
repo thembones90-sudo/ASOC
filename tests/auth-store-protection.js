@@ -10,6 +10,10 @@ try{
   delete original.players.legacy.verificationRequired;delete original.players.legacy.emailVerifiedAt;
   fs.writeFileSync(file,JSON.stringify(original));
   assert.equal(store.login('legacy','password').emailVerified,true);
+  const legacyId=store.login('legacy','password').id;
+  assert.equal(store.updateName(legacyId,'Renamed Hero').name,'Renamed Hero');
+  assert.equal(store.login('legacy','password').name,'Renamed Hero');
+  assert.throws(()=>store.updateName(legacyId,'   '),/Name cannot be empty/);
   const pending=store.register('pending@example.com','password');
   assert.equal(store.verifyEmail(pending.verificationToken).ok,true);
   assert.equal(store.login('pending@example.com','password').emailVerified,true);
@@ -40,5 +44,5 @@ try{
   assert.equal(fs.readFileSync(file,'utf8'),backup);
   assert.ok(!fs.readdirSync(dir).some(n=>n.includes('.tmp-')));
   assert.ok(store.login('legacy','password'));
-  console.log('PASS auth durability, recovery, legacy/verified compatibility and write failures');
+  console.log('PASS auth durability, rename persistence, recovery, legacy/verified compatibility and write failures');
 }finally{fs.rmSync(dir,{recursive:true,force:true})}
