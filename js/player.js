@@ -1158,6 +1158,11 @@ const PlayerApp = {
     const comms = document.getElementById('battle-comms-lobby');
     if (!splitter || !layout || !comms) return;
 
+    if (splitter.dataset.bound === 'true') {
+      requestAnimationFrame(() => this._restorePlayerLayoutRatio?.());
+      return;
+    }
+
     const MOBILE_QUERY = '(max-width: 900px)';
     const MIN_CHAT_PX = 260;
     const MIN_BOARD_PX = 520;
@@ -1249,10 +1254,6 @@ const PlayerApp = {
 
     this._restorePlayerLayoutRatio = restoreSaved;
 
-    if (splitter.dataset.bound === 'true') {
-      requestAnimationFrame(restoreSaved);
-      return;
-    }
     splitter.dataset.bound = 'true';
 
     requestAnimationFrame(restoreSaved);
@@ -1312,8 +1313,15 @@ const PlayerApp = {
         document.body.classList.remove('player-layout-resizing');
         return;
       }
-      if (currentRatio !== null) applyRatio(currentRatio, false);
-      else updateAria(computedRatio());
+
+      if (currentRatio !== null) {
+        const { available } = metrics();
+        currentRatio = clampRatio(currentRatio);
+        layout.style.setProperty('--player-comms-width', Math.max(1, Math.round(available * currentRatio)) + 'px');
+        updateAria(currentRatio);
+      } else {
+        updateAria(computedRatio());
+      }
     });
   },
 
