@@ -727,6 +727,7 @@ const PlayerApp = {
       case 'join:success':
         this.playerId = message.playerId;
         sessionStorage.setItem('asoc_player_id', this.playerId);
+        requestAnimationFrame(() => this._restorePlayerLayoutRatio?.());
         localStorage.setItem('asoc_player_in_master', '1');
         this.updateBloodTributeDemand(this.lastPublicState?.bloodTribute || { status: 'idle' });
         if (message.littleHero) {
@@ -1147,7 +1148,173 @@ const PlayerApp = {
     document.getElementById('reconnecting-overlay').classList.remove('active');
     this.bindChatForm();
     this.bindLeaderboardToggle();
+    this.setupPlayerLayoutSplitter();
     Recount.mountPill();
+  },
+
+  setupPlayerLayoutSplitter() {
+    const splitter = document.getElementById('player-layout-splitter');
+    const layout = document.getElementById('player-battle-layout');
+    const comms = document.getElementById('battle-comms-lobby');
+    if (!splitter || !layout || !comms) return;
+
+    const MOBILE_QUERY = '(max-width: 900px)';
+    const MIN_CHAT_PX = 260;
+    const MIN_BOARD_PX = 520;
+    const MIN_RATIO = 0.18;
+    const MAX_RATIO = 0.50;
+
+    const storageKey = () => {
+      const identity = String(
+        this.playerId ||
+        sessionStorage.getItem('asoc_player_id') ||
+        this.playerName ||
+        sessionStorage.getItem('asoc_player_name') ||
+        'little-hero'
+      ).trim().toLowerCase();
+      return 'asoc_player_comms_ratio_v1:' + encodeURIComponent(identity || 'little-hero');
+    };
+
+    const metrics = () => {
+      const layoutWidth = Math.max(layout.getBoundingClientRect().width || window.innerWidth || 1, 1);
+      const splitterWidth = Math.max(splitter.getBoundingClientRect().width || 14, 1);
+      const available = Math.max(layoutWidth - splitterWidth, 1);
+      const min = Math.min(MAX_RATIO, Math.max(MIN_RATIO, MIN_CHAT_PX / available));
+      const boardLimitedMax = (available - MIN_BOARD_PX) / available;
+      const max = Math.max(min, Math.min(MAX_RATIO, Number.isFinite(boardLimitedMax) ? boardLimitedMax : MAX_RATIO));
+      return { available, min, max };
+    };
+
+    const clampRatio = (ratio) => {
+      const { min, max } = metrics();
+      return Math.max(min, Math.min(max, ratio));
+    };
+
+    const updateAria = (ratio) => {
+      const { min, max } = metrics();
+      const pct = Math.round(ratio * 100);
+      splitter.setAttribute('aria-valuemin', String(Math.round(min * 100)));
+      splitter.setAttribute('aria-valuemax', String(Math.round(max * 100)));
+      splitter.setAttribute('aria-valuenow', String(pct));
+      splitter.setAttribute('aria-valuetext', `Battle Comms ${pct}% // board ${100 - pct}%`);
+      const grip = splitter.querySelector('.player-layout-splitter-grip');
+      if (grip) grip.dataset.resizeReadout = `CHAT ${pct}%`;
+    };
+
+    const refitBoard = () => {
+      window.dispatchEvent(new Event('resize'));
+    };
+
+    let dragging = false;
+    let currentRatio = null;
+
+    const applyRatio = (ratio, persist = false) => {
+      if (!Number.isFinite(ratio) || window.matchMedia(MOBILE_QUERY).matches) return;
+      const { available } = metrics();
+      currentRatio = clampRatio(ratio);
+      const widthPx = Math.max(1, Math.round(available * currentRatio));
+      layout.style.setProperty('--player-comms-width', widthPx + 'px');
+      updateAria(currentRatio);
+      if (persist) {
+        try { localStorage.setItem(storageKey(), String(currentRatio)); } catch (_) {}
+      }
+      refitBoard();
+    };
+
+    const computedRatio = () => {
+      const { available } = metrics();
+      return clampRatio((comms.getBoundingClientRect().width || MIN_CHAT_PX) / available);
+    };
+
+    const resetRatio = () => {
+      currentRatio = null;
+      layout.style.removeProperty('--player-comms-width');
+      try { localStorage.removeItem(storageKey()); } catch (_) {}
+      requestAnimationFrame(() => {
+        if (!window.matchMedia(MOBILE_QUERY).matches) updateAria(computedRatio());
+        refitBoard();
+      });
+    };
+
+    const restoreSaved = () => {
+      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      try {
+        const saved = Number.parseFloat(localStorage.getItem(storageKey()));
+        if (Number.isFinite(saved)) applyRatio(saved, false);
+        else updateAria(computedRatio());
+      } catch (_) {
+        updateAria(computedRatio());
+      }
+    };
+
+    this._restorePlayerLayoutRatio = restoreSaved;
+
+    if (splitter.dataset.bound === 'true') {
+      requestAnimationFrame(restoreSaved);
+      return;
+    }
+    splitter.dataset.bound = 'true';
+
+    requestAnimationFrame(restoreSaved);
+
+    splitter.addEventListener('pointerdown', (event) => {
+      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      dragging = true;
+      document.body.classList.add('player-layout-resizing');
+      splitter.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+
+    splitter.addEventListener('pointermove', (event) => {
+      if (!dragging || window.matchMedia(MOBILE_QUERY).matches) return;
+      const rect = layout.getBoundingClientRect();
+      const splitterWidth = splitter.getBoundingClientRect().width || 14;
+      const available = Math.max(rect.width - splitterWidth, 1);
+      const chatWidth = Math.max(0, rect.right - event.clientX - splitterWidth / 2);
+      applyRatio(chatWidth / available, false);
+    });
+
+    const finishDrag = (event) => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.classList.remove('player-layout-resizing');
+      try { splitter.releasePointerCapture?.(event.pointerId); } catch (_) {}
+      if (currentRatio !== null) {
+        try { localStorage.setItem(storageKey(), String(currentRatio)); } catch (_) {}
+      }
+    };
+
+    splitter.addEventListener('pointerup', finishDrag);
+    splitter.addEventListener('pointercancel', finishDrag);
+
+    splitter.addEventListener('dblclick', (event) => {
+      event.preventDefault();
+      resetRatio();
+    });
+
+    splitter.addEventListener('keydown', (event) => {
+      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (event.key === 'Home') {
+        event.preventDefault();
+        resetRatio();
+        return;
+      }
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      const base = currentRatio ?? computedRatio();
+      const delta = event.key === 'ArrowLeft' ? 0.02 : -0.02;
+      applyRatio(base + delta, true);
+    });
+
+    window.addEventListener('resize', () => {
+      if (window.matchMedia(MOBILE_QUERY).matches) {
+        document.body.classList.remove('player-layout-resizing');
+        return;
+      }
+      if (currentRatio !== null) applyRatio(currentRatio, false);
+      else updateAria(computedRatio());
+    });
   },
 
   // Completed state = body.game-won (CSS), driven only by server state.
