@@ -822,6 +822,10 @@ const PlayerApp = {
         Skeleton.playNemaAsoc();
         break;
 
+      case 'chat:mentionAll':
+        Skeleton.playMentionAllShake?.();
+        break;
+
       case 'score:event':
         this.showScoreToast(message);
         if (message.awardType === 'final') window.AsocAudio?.finalSolved?.();
@@ -1675,10 +1679,9 @@ const PlayerApp = {
       .map(player => String(player?.name || '').trim())
       .filter(Boolean))]
       .sort((a, b) => b.length - a.length);
-    if (!names.length) return;
 
     const regexSpecials = '^$.*+?()[]{}|' + String.fromCharCode(92);
-    const escaped = names.map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
+    const escaped = ['all', ...names].map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
     const pattern = new RegExp('@(' + escaped.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
     const me = String(this.playerName || '').trim().toLocaleLowerCase();
     const targets = container.querySelectorAll('.chat-message-text, .shadow-broker-text');
@@ -1698,8 +1701,10 @@ const PlayerApp = {
           changed = true;
           if (match.index > last) fragment.appendChild(document.createTextNode(value.slice(last, match.index)));
           const span = document.createElement('span');
-          const isMe = String(match[1] || '').toLocaleLowerCase() === me;
-          span.className = 'chat-mention' + (isMe ? ' mention-me' : '');
+          const mentionName = String(match[1] || '').toLocaleLowerCase();
+          const isAll = mentionName === 'all';
+          const isMe = isAll || mentionName === me;
+          span.className = 'chat-mention' + (isAll ? ' mention-all' : '') + (isMe ? ' mention-me' : '');
           span.textContent = match[0];
           fragment.appendChild(span);
           if (isMe) target.closest('.chat-message, .chat-broker-entry')?.classList.add('chat-mentions-me');
