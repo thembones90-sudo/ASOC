@@ -10432,3 +10432,85 @@ body.room-mode-casual #gm-logout-btn {
     padding-bottom: max(8px,env(safe-area-inset-bottom));
   }
 }
+
+
+/* ROOM MODE TOGGLE // CASUAL <-> BATTLE */
+#host-room-btn.room-mode-toggle {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  width:100%;
+  min-height:42px;
+  padding:7px 10px;
+  border:1px solid rgba(141,151,162,.42);
+  border-radius:999px;
+  background:linear-gradient(180deg,#171c22,#0c1015);
+  color:#9aa4ae;
+  box-shadow:inset 0 1px rgba(255,255,255,.04),0 6px 18px rgba(0,0,0,.22);
+  cursor:pointer;
+}
+
+#host-room-btn.room-mode-toggle:hover {
+  border-color:rgba(171,181,192,.66);
+}
+
+#host-room-btn .room-mode-option {
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:1.5px;
+  transition:color .18s ease,text-shadow .18s ease;
+}
+
+#host-room-btn .room-mode-option-casual {
+  color:#d4d9df;
+  text-shadow:0 0 9px rgba(170,180,190,.16);
+}
+
+#host-room-btn .room-mode-option-battle {
+  color:#616973;
+}
+
+#host-room-btn .room-mode-track {
+  position:relative;
+  width:46px;
+  height:22px;
+  flex:0 0 46px;
+  border:1px solid rgba(132,143,154,.38);
+  border-radius:999px;
+  background:#080b0f;
+  box-shadow:inset 0 0 10px rgba(0,0,0,.7);
+}
+
+#host-room-btn .room-mode-knob {
+  position:absolute;
+  top:3px;
+  left:3px;
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  background:#c8cfd6;
+  box-shadow:0 0 8px rgba(200,207,214,.32);
+  transition:left .2s ease,background .2s ease,box-shadow .2s ease;
+}
+
+#host-room-btn.is-battle .room-mode-knob {
+  left:27px;
+  background:#8d43b5;
+  box-shadow:0 0 12px rgba(155,93,208,.72);
+}
+
+#host-room-btn.is-battle .room-mode-option-casual {
+  color:#5f6770;
+  text-shadow:none;
+}
+
+#host-room-btn.is-battle .room-mode-option-battle {
+  color:#d8b9ef;
+  text-shadow:0 0 10px rgba(155,93,208,.38);
+}
+
+#host-room-btn.room-mode-toggle:disabled {
+  opacity:.45;
+  cursor:default;
+}
