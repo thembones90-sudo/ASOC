@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ASOC - Join Game</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260921-final-center-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260921-mode-transition-1">
   <style>
     #join-screen {
       display: flex;
@@ -718,7 +718,7 @@
     /* LOCKED geometry rule: the board is canonically 1900x1267 and that
        ratio is sacred everywhere it's shown -- it may scale uniformly but
        must never stretch independently on X or Y. Same two-box split as
-       index.html's #public-view (see that file's css/asoc.css?v=20260921-final-center-1"why" -- flex-grow + an explicit width together make
+       index.html's #public-view (see that file's css/asoc.css?v=20260921-mode-transition-1"why" -- flex-grow + an explicit width together make
        aspect-ratio get ignored, since both axes end up independently
        definite), plus one more wrapper here specifically:
 
@@ -788,7 +788,7 @@
        fits the layer AFTER the HUD band is deducted -- which is by
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
-       --hud-band is measured and set by js/player.js?v=20260921-board-center-2 (ResizeObserver),
+       --hud-band is measured and set by js/player.js?v=20260921-mode-transition-1 (ResizeObserver),
        so the real strip/header heights are authoritative, never guessed.
        Guarded to desktop (>=901px, matching the splitter's own MOBILE_QUERY
        boundary): the narrow layouts already aspect-lock the frame, so
@@ -1295,7 +1295,7 @@
 
     /* SHADOW BROKER transmission bubble styling (.shadow-broker-transmission
        and friends, incl. the .sb-glitch-in arrival animation) now lives in
-       css/asoc.css?v=20260921-final-center-1"";
+       css/asoc.css?v=20260921-mode-transition-1"";
       position:absolute;
       right:5px;
       bottom:4px;
@@ -7314,7 +7314,7 @@
     </div>
 
 <!-- PLAYER DESKTOP BOARD/CHAT SPLITTER -- unarmed-but-present drag separator
-         between the battlefield and Battle Comms (js/player.js?v=20260921-board-center-2
+         between the battlefield and Battle Comms (js/player.js?v=20260921-mode-transition-1
          setupPlayerLayoutSplitter). The adjacent aside selector
          (.player-layout-splitter + .battle-comms-lobby) fixes its grid column.
          Hides itself on narrow/mobile layouts. -->
@@ -7680,6 +7680,6 @@
   <script src="js/game-data.js"></script>
   <script src="js/board.js?v=20260921-board-center-2"></script>
   <script src="js/commander-emojis.js"></script>
-  <script src="js/player.js?v=20260921-board-center-2"></script>
+  <script src="js/player.js?v=20260921-mode-transition-1"></script>
 </body>
 </html>

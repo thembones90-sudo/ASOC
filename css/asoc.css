@@ -12917,3 +12917,233 @@ body.room-mode-recount .gm-module-chat .gm-online-dropdown {
 .asoc-board .board-cell.final-solution .cell-text {
   translate: 0.28cqw 0.10cqh;
 }
+
+
+/* =========================================================
+   CASUAL <-> BATTLE MODE TRANSITION
+   Presentation only. The authoritative room state still changes instantly;
+   this layer simply makes the permanent Master Room feel like one machine
+   reconfiguring itself instead of two pages swapping costumes.
+   ========================================================= */
+.asoc-mode-transition {
+  --mt-accent:#b44cff;
+  --mt-accent-2:#d92f44;
+  position:fixed;
+  inset:0;
+  z-index:199950;
+  overflow:hidden;
+  pointer-events:none;
+  isolation:isolate;
+  opacity:1;
+  background:
+    radial-gradient(circle at 50% 46%,color-mix(in srgb,var(--mt-accent) 13%,transparent),transparent 28%),
+    linear-gradient(180deg,rgba(5,7,10,.82),rgba(2,3,5,.94));
+  transition:opacity 180ms ease;
+}
+.asoc-mode-transition--casual {
+  --mt-accent:#7bd7a0;
+  --mt-accent-2:#b7c1ca;
+  background:
+    radial-gradient(circle at 50% 46%,rgba(83,168,118,.10),transparent 30%),
+    linear-gradient(180deg,rgba(8,11,14,.76),rgba(3,5,7,.91));
+}
+.asoc-mode-transition.is-leaving { opacity:0; }
+.asoc-mode-transition::before,
+.asoc-mode-transition::after {
+  content:"";
+  position:absolute;
+  z-index:1;
+  left:-2%;
+  width:104%;
+  height:19vh;
+  min-height:110px;
+  background:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 48px),
+    linear-gradient(180deg,#191e24,#080b0f 58%,#020304);
+  border-color:rgba(154,165,176,.32);
+  box-shadow:0 0 42px rgba(0,0,0,.86),inset 0 1px rgba(255,255,255,.04);
+}
+.asoc-mode-transition::before {
+  top:0;
+  border-bottom:1px solid;
+  animation:asoc-mode-shutter-top 980ms cubic-bezier(.22,.78,.2,1) both;
+}
+.asoc-mode-transition::after {
+  bottom:0;
+  border-top:1px solid;
+  animation:asoc-mode-shutter-bottom 980ms cubic-bezier(.22,.78,.2,1) both;
+}
+.asoc-mode-transition-grid {
+  position:absolute;
+  z-index:0;
+  inset:-10%;
+  opacity:.44;
+  background:
+    linear-gradient(rgba(151,164,178,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(151,164,178,.035) 1px,transparent 1px);
+  background-size:52px 52px;
+  transform:perspective(520px) rotateX(64deg) translateY(17%);
+  transform-origin:center 70%;
+  animation:asoc-mode-grid 1200ms ease-out both;
+}
+.asoc-mode-transition-scan {
+  position:absolute;
+  z-index:2;
+  left:-8%;
+  top:-14vh;
+  width:116%;
+  height:92px;
+  opacity:0;
+  background:
+    linear-gradient(180deg,transparent 0 26%,color-mix(in srgb,var(--mt-accent) 11%,transparent) 35%,rgba(244,247,250,.78) 49%,color-mix(in srgb,var(--mt-accent-2) 32%,transparent) 53%,transparent 68%);
+  filter:drop-shadow(0 0 12px color-mix(in srgb,var(--mt-accent) 34%,transparent));
+  mix-blend-mode:screen;
+  animation:asoc-mode-scan 1050ms cubic-bezier(.19,.68,.24,1) 80ms both;
+}
+.asoc-mode-transition-core {
+  position:absolute;
+  z-index:4;
+  inset:0;
+  display:grid;
+  place-content:center;
+  justify-items:center;
+  padding:24px;
+  text-align:center;
+  font-family:var(--font-machine);
+}
+.asoc-mode-transition-eye {
+  position:relative;
+  width:118px;
+  height:46px;
+  margin-bottom:18px;
+  clip-path:polygon(0 50%,17% 14%,50% 0,83% 14%,100% 50%,83% 86%,50% 100%,17% 86%);
+  background:linear-gradient(180deg,#343b44,#10141a 52%,#05070a);
+  box-shadow:0 0 24px color-mix(in srgb,var(--mt-accent) 24%,transparent);
+  transform-origin:center;
+  animation:asoc-mode-eye-open 700ms cubic-bezier(.2,.72,.22,1) both;
+}
+.asoc-mode-transition-eye::before {
+  content:"";
+  position:absolute;
+  inset:5px 11px;
+  clip-path:inherit;
+  background:
+    radial-gradient(circle at 50% 50%,#f6f8fa 0 4%,var(--mt-accent) 5% 15%,color-mix(in srgb,var(--mt-accent-2) 72%,#090b0f) 17% 27%,#07090c 30% 100%);
+  box-shadow:inset 0 0 18px rgba(0,0,0,.82);
+}
+.asoc-mode-transition-eye::after {
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:10px;
+  height:26px;
+  border-radius:50%;
+  background:#030405;
+  transform:translate(-50%,-50%);
+  box-shadow:0 0 7px var(--mt-accent),0 0 18px color-mix(in srgb,var(--mt-accent) 72%,transparent);
+}
+.asoc-mode-transition-eye span {
+  position:absolute;
+  inset:0;
+  z-index:3;
+  border-top:1px solid rgba(255,255,255,.20);
+  opacity:.65;
+}
+.asoc-mode-transition-kicker,
+.asoc-mode-transition-title,
+.asoc-mode-transition-sub {
+  opacity:0;
+  transform:translateY(7px);
+  animation:asoc-mode-copy-in 420ms ease-out forwards;
+}
+.asoc-mode-transition-kicker {
+  color:#89949f;
+  font-size:clamp(9px,.72vw,12px);
+  font-weight:800;
+  letter-spacing:.28em;
+  animation-delay:210ms;
+}
+.asoc-mode-transition-title {
+  margin-top:7px;
+  color:#e3e7eb;
+  font:900 clamp(1.25rem,3.1vw,2.9rem)/1 var(--font-system);
+  letter-spacing:.09em;
+  text-shadow:0 0 18px color-mix(in srgb,var(--mt-accent) 38%,transparent);
+  animation-delay:300ms;
+}
+.asoc-mode-transition-sub {
+  margin-top:10px;
+  color:var(--mt-accent);
+  font-size:clamp(9px,.85vw,13px);
+  font-weight:800;
+  letter-spacing:.22em;
+  animation-delay:390ms;
+}
+body.asoc-transition-to-battle #main-content,
+body.asoc-transition-to-battle #gm-panel,
+body.asoc-transition-to-battle #game-screen .player-battle-layout {
+  animation:asoc-mode-surface-battle 680ms cubic-bezier(.2,.8,.2,1) both;
+}
+body.asoc-transition-to-casual #main-content,
+body.asoc-transition-to-casual #gm-panel,
+body.asoc-transition-to-casual #game-screen .player-battle-layout {
+  animation:asoc-mode-surface-casual 560ms cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes asoc-mode-shutter-top {
+  0%,20% { transform:translateY(0); }
+  100% { transform:translateY(-108%); }
+}
+@keyframes asoc-mode-shutter-bottom {
+  0%,20% { transform:translateY(0); }
+  100% { transform:translateY(108%); }
+}
+@keyframes asoc-mode-grid {
+  0% { opacity:0; transform:perspective(520px) rotateX(64deg) translateY(28%) scale(.96); }
+  42% { opacity:.44; }
+  100% { opacity:.18; transform:perspective(520px) rotateX(64deg) translateY(10%) scale(1.03); }
+}
+@keyframes asoc-mode-scan {
+  0% { opacity:0; transform:translateY(0); }
+  9% { opacity:.82; }
+  82% { opacity:.48; }
+  100% { opacity:0; transform:translateY(122vh); }
+}
+@keyframes asoc-mode-eye-open {
+  0% { opacity:0; transform:scaleX(.62) scaleY(.04); filter:brightness(.5); }
+  44% { opacity:1; transform:scaleX(1.06) scaleY(.16); filter:brightness(1.8); }
+  68% { transform:scaleX(.98) scaleY(1.08); }
+  100% { opacity:1; transform:scale(1); filter:brightness(1); }
+}
+@keyframes asoc-mode-copy-in {
+  to { opacity:1; transform:translateY(0); }
+}
+@keyframes asoc-mode-surface-battle {
+  0% { opacity:.58; transform:scale(.985); filter:brightness(.72) saturate(.72); }
+  100% { opacity:1; transform:scale(1); filter:none; }
+}
+@keyframes asoc-mode-surface-casual {
+  0% { opacity:.68; transform:scale(1.008); filter:brightness(.82) saturate(.78); }
+  100% { opacity:1; transform:scale(1); filter:none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .asoc-mode-transition::before,
+  .asoc-mode-transition::after,
+  .asoc-mode-transition-grid,
+  .asoc-mode-transition-scan,
+  .asoc-mode-transition-eye,
+  .asoc-mode-transition-kicker,
+  .asoc-mode-transition-title,
+  .asoc-mode-transition-sub,
+  body.asoc-transition-to-battle #main-content,
+  body.asoc-transition-to-battle #gm-panel,
+  body.asoc-transition-to-battle #game-screen .player-battle-layout,
+  body.asoc-transition-to-casual #main-content,
+  body.asoc-transition-to-casual #gm-panel,
+  body.asoc-transition-to-casual #game-screen .player-battle-layout {
+    animation:none !important;
+  }
+  .asoc-mode-transition-kicker,
+  .asoc-mode-transition-title,
+  .asoc-mode-transition-sub { opacity:1; transform:none; }
+}

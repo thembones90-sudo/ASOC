@@ -4,6 +4,7 @@ const PlayerApp = {
   masterArmed: false,
   roomMode: 'CASUAL',
   _masterStateBaselined: false,
+  _roomModeTransitionTimer: null,
   playerId: '',
   playerName: '',
   avatarData: '',
@@ -1478,6 +1479,52 @@ const PlayerApp = {
     bgLayer.src = path;
   },
 
+
+  playRoomModeTransition(previous, next) {
+    const fromCasual = previous === 'CASUAL';
+    const toCasual = next === 'CASUAL';
+    if (fromCasual === toCasual) return;
+
+    const direction = toCasual ? 'casual' : 'battle';
+    const active = document.querySelector('.asoc-mode-transition');
+    if (active?.dataset.direction === direction) return;
+
+    if (this._roomModeTransitionTimer) {
+      clearTimeout(this._roomModeTransitionTimer);
+      this._roomModeTransitionTimer = null;
+    }
+    active?.remove();
+    document.body.classList.remove('asoc-transition-to-battle', 'asoc-transition-to-casual');
+
+    const battle = direction === 'battle';
+    const overlay = document.createElement('div');
+    overlay.className = 'asoc-mode-transition asoc-mode-transition--' + direction;
+    overlay.dataset.direction = direction;
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = `
+      <div class="asoc-mode-transition-grid"></div>
+      <div class="asoc-mode-transition-scan"></div>
+      <div class="asoc-mode-transition-core">
+        <div class="asoc-mode-transition-eye"><span></span></div>
+        <div class="asoc-mode-transition-kicker">A.S.O.C. // MASTER ROOM</div>
+        <div class="asoc-mode-transition-title">${battle ? 'BATTLE INTERFACE DEPLOYING' : 'BATTLE INTERFACE SUSPENDED'}</div>
+        <div class="asoc-mode-transition-sub">${battle ? 'TACTICAL SURFACE // RESTORED' : 'CASUAL CHANNEL // RESTORED'}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add('asoc-transition-to-' + direction);
+    requestAnimationFrame(() => overlay.classList.add('is-live'));
+
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    const holdMs = reducedMotion ? 300 : (battle ? 1320 : 1040);
+    this._roomModeTransitionTimer = setTimeout(() => {
+      overlay.classList.add('is-leaving');
+      document.body.classList.remove('asoc-transition-to-battle', 'asoc-transition-to-casual');
+      setTimeout(() => overlay.remove(), reducedMotion ? 30 : 180);
+      this._roomModeTransitionTimer = null;
+    }, holdMs);
+  },
+
   applyRoomMode(mode) {
     const allowed = new Set(['CASUAL', 'BATTLE_ARMED', 'BATTLE', 'RECOUNT']);
     const next = allowed.has(mode) ? mode : 'CASUAL';
@@ -1486,6 +1533,7 @@ const PlayerApp = {
     this.roomMode = next;
     this.masterArmed = next !== 'CASUAL';
     this._masterStateBaselined = true;
+    if (hadBaseline) this.playRoomModeTransition(previous, next);
 
     const screen = document.getElementById('game-screen');
     const standby = document.getElementById('master-room-standby');
