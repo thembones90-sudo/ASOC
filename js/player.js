@@ -1161,6 +1161,10 @@ const PlayerApp = {
       ? 'CHANNEL OPEN'
       : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
 
+    // Casual and Battle are the SAME transcript. Never wait for a new
+    // websocket chat frame merely because the room chrome changed.
+    if (Array.isArray(this.chatMessages)) this.renderChat();
+
     if (hadBaseline && previous === 'CASUAL' && next === 'BATTLE_ARMED') {
       this.addBattleEvent('BATTLE CONTROL SIGNAL DETECTED');
     } else if (hadBaseline && (previous === 'BATTLE' || previous === 'RECOUNT') && next === 'CASUAL') {
