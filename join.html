@@ -6530,6 +6530,119 @@
       }
     }
 
+  
+
+    /* PLAYER SKYNET POLL ROW + EMOJI GUTTER V1 */
+    #game-screen .battle-comms-lobby .chat-attachment-option[data-chat-attachment="poll"] {
+      position:relative;
+      overflow:hidden;
+      border:1px solid rgba(117,128,142,.24);
+      background:
+        linear-gradient(180deg,rgba(40,46,55,.82),rgba(19,23,29,.94));
+      box-shadow:
+        inset 0 1px rgba(255,255,255,.045),
+        inset 0 -1px rgba(0,0,0,.35);
+      transition:
+        transform .14s ease,
+        border-color .14s ease,
+        box-shadow .14s ease,
+        background .14s ease;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option[data-chat-attachment="poll"]::after {
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:.42;
+      background:
+        linear-gradient(90deg,transparent 0 74%,color-mix(in srgb,var(--player-theme,#9b5de0) 10%,transparent) 74% 75%,transparent 75%),
+        repeating-linear-gradient(0deg,transparent 0 7px,rgba(255,255,255,.018) 7px 8px);
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option[data-chat-attachment="poll"]:hover,
+    #game-screen .battle-comms-lobby .chat-attachment-option[data-chat-attachment="poll"]:focus-visible {
+      transform:translateY(-1px);
+      border-color:color-mix(in srgb,var(--player-theme,#9b5de0) 62%,#6d7884);
+      background:
+        linear-gradient(180deg,rgba(47,52,63,.94),rgba(21,24,31,.98));
+      box-shadow:
+        inset 0 1px rgba(255,255,255,.06),
+        0 0 0 1px color-mix(in srgb,var(--player-theme,#9b5de0) 14%,transparent),
+        0 0 16px color-mix(in srgb,var(--player-theme,#9b5de0) 14%,transparent);
+      outline:none;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option[data-chat-attachment="poll"] .chat-attachment-poll-icon {
+      position:relative;
+      z-index:1;
+      width:30px;
+      height:30px;
+      border:1px solid rgba(168,177,191,.24);
+      border-radius:7px;
+      background:
+        linear-gradient(180deg,rgba(66,73,84,.98),rgba(27,31,38,.99)) !important;
+      color:#d6b85f !important;
+      box-shadow:
+        inset 0 1px rgba(255,255,255,.055),
+        0 0 10px rgba(214,184,95,.08);
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option[data-chat-attachment="poll"] .chat-attachment-option-copy {
+      position:relative;
+      z-index:1;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option[data-chat-attachment="poll"] .chat-attachment-option-copy b {
+      color:#f0f2f5;
+      text-shadow:0 0 8px color-mix(in srgb,var(--player-theme,#9b5de0) 10%,transparent);
+      letter-spacing:.08em;
+    }
+
+    #game-screen .battle-comms-lobby .chat-attachment-option[data-chat-attachment="poll"] .chat-attachment-option-copy small {
+      color:#8d97a3;
+    }
+
+    /* ~2 mm visual breathing room between emoji cells and the scrollbar. */
+    #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker,
+    #chat-reaction-picker.chat-floating-emoji-picker {
+      width:236px !important;
+      max-width:min(236px,calc(100vw - 18px)) !important;
+      padding-right:16px !important;
+      scrollbar-gutter:stable;
+      box-sizing:border-box !important;
+    }
+
+    #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker {
+      max-width:min(236px,calc(100vw - 26px)) !important;
+    }
+
+    #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker::-webkit-scrollbar,
+    #chat-reaction-picker.chat-floating-emoji-picker::-webkit-scrollbar {
+      width:8px;
+    }
+
+    #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker::-webkit-scrollbar-track,
+    #chat-reaction-picker.chat-floating-emoji-picker::-webkit-scrollbar-track {
+      background:rgba(255,255,255,.025);
+    }
+
+    #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker::-webkit-scrollbar-thumb,
+    #chat-reaction-picker.chat-floating-emoji-picker::-webkit-scrollbar-thumb {
+      border:2px solid transparent;
+      border-radius:8px;
+      background:color-mix(in srgb,var(--player-theme,#9b5de0) 42%,#6b7380);
+      background-clip:padding-box;
+    }
+
+    @media (max-width:420px) {
+      #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker,
+      #chat-reaction-picker.chat-floating-emoji-picker {
+        width:min(236px,calc(100vw - 16px)) !important;
+        max-width:min(236px,calc(100vw - 16px)) !important;
+      }
+    }
+
   </style>
 </head>
 <body>
