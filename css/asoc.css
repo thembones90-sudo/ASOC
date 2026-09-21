@@ -9158,7 +9158,9 @@ body.game-complete .recount-btn,
 }
 
 #chat-emoji-picker .chat-emoji-picker-head,
-.gm-emoji-picker .gm-emoji-picker-head {
+#chat-reaction-picker .chat-emoji-picker-head,
+.gm-emoji-picker .gm-emoji-picker-head,
+.gm-chat-floating-emoji-picker .gm-emoji-picker-head {
   grid-column: 1 / -1;
   position: sticky;
   top: -5px;
@@ -9178,14 +9180,18 @@ body.game-complete .recount-btn,
 }
 
 #chat-emoji-picker .chat-emoji-edit-status,
-.gm-emoji-picker .gm-emoji-edit-status {
+#chat-reaction-picker .chat-emoji-edit-status,
+.gm-emoji-picker .gm-emoji-edit-status,
+.gm-chat-floating-emoji-picker .gm-emoji-edit-status {
   color: #697481;
   font-size: .40rem;
   letter-spacing: .08em;
 }
 
 #chat-emoji-picker .chat-emoji-edit-toggle,
-.gm-emoji-picker .gm-emoji-edit-toggle {
+#chat-reaction-picker .chat-emoji-edit-toggle,
+.gm-emoji-picker .gm-emoji-edit-toggle,
+.gm-chat-floating-emoji-picker .gm-emoji-edit-toggle {
   min-width: 36px;
   height: 20px;
   padding: 0 6px;
@@ -9200,8 +9206,12 @@ body.game-complete .recount-btn,
 
 #chat-emoji-picker .chat-emoji-edit-toggle:hover,
 #chat-emoji-picker .chat-emoji-edit-toggle:focus-visible,
+#chat-reaction-picker .chat-emoji-edit-toggle:hover,
+#chat-reaction-picker .chat-emoji-edit-toggle:focus-visible,
 .gm-emoji-picker .gm-emoji-edit-toggle:hover,
-.gm-emoji-picker .gm-emoji-edit-toggle:focus-visible {
+.gm-emoji-picker .gm-emoji-edit-toggle:focus-visible,
+.gm-chat-floating-emoji-picker .gm-emoji-edit-toggle:hover,
+.gm-chat-floating-emoji-picker .gm-emoji-edit-toggle:focus-visible {
   border-color: rgba(188,128,238,.88);
   color: #f1dcff;
   outline: none;
@@ -9227,19 +9237,25 @@ body.game-complete .recount-btn,
 }
 
 #chat-emoji-picker .chat-emoji-favorite.editing,
-.gm-emoji-picker .gm-emoji-favorite.editing {
+#chat-reaction-picker .chat-emoji-favorite.editing,
+.gm-emoji-picker .gm-emoji-favorite.editing,
+.gm-chat-floating-emoji-picker .gm-emoji-favorite.editing {
   opacity: .72;
 }
 
 #chat-emoji-picker .chat-emoji-favorite.active-slot,
-.gm-emoji-picker .gm-emoji-favorite.active-slot {
+#chat-reaction-picker .chat-emoji-favorite.active-slot,
+.gm-emoji-picker .gm-emoji-favorite.active-slot,
+.gm-chat-floating-emoji-picker .gm-emoji-favorite.active-slot {
   opacity: 1;
   border-color: #b36df0 !important;
   box-shadow: 0 0 0 1px rgba(179,109,240,.28), 0 0 9px rgba(155,93,224,.24), inset 0 -2px rgba(155,93,224,.28);
 }
 
 #chat-emoji-picker .chat-emoji-library.is-favorite,
-.gm-emoji-picker .gm-emoji-library.is-favorite {
+#chat-reaction-picker .chat-emoji-library.is-favorite,
+.gm-emoji-picker .gm-emoji-library.is-favorite,
+.gm-chat-floating-emoji-picker .gm-emoji-library.is-favorite {
   border-color: rgba(155,93,224,.48) !important;
   background: rgba(38,25,48,.96) !important;
 }
@@ -9312,4 +9328,16 @@ body.game-complete .recount-btn,
     text-align: right !important;
     margin-left: auto !important;
   }
+}
+
+
+/* ASOC REACTION PICKER CLICK-ANCHOR V3 */
+#chat-reaction-picker,
+#gm-chat-reaction-picker {
+  transform-origin: top left;
+}
+
+#chat-reaction-picker .chat-emoji-picker-head,
+#gm-chat-reaction-picker .gm-emoji-picker-head {
+  cursor: default;
 }
