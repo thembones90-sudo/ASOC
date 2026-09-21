@@ -94,6 +94,7 @@ const PlayerApp = {
     this.bindDesignationEditor();
     window.addEventListener('asoc:player-session-restored', () => this.resumeStoredMasterSession());
     this.setupPlayerLayoutSplitter();
+    this.setupHudBoardWidthSync();
     Womf.init('womf-tracker-player');
     Wheel.init('wheel-overlay');
     Timer.init('timer-tracker-player');
@@ -1727,6 +1728,34 @@ const PlayerApp = {
     if (!lost) document.querySelector('.defeat-overlay')?.remove();
     else if (live) Skeleton.playGameLost(matchResult, { live: true });
     else if (changed && !document.querySelector('.defeat-overlay')) Skeleton.playGameLost(matchResult, { live: false });
+  },
+
+  // HUD-TO-BOARD WIDTH SYNC -- measures the combined height of the
+  // TIMER + WOMF rail and publishes it to CSS as --hud-band so the
+  // rail's width formula in join.html can deduct exactly that band from
+  // #board-layer's container height. The actual strip heights are
+  // content-driven and change with the viewport, so they are measured,
+  // never hardcoded. Writes are threshold-guarded to avoid any
+  // measure->resize loop.
+  setupHudBoardWidthSync() {
+    const rail = document.getElementById('board-hud-rail');
+    const layer = document.getElementById('board-layer');
+    if (!rail || !layer) return;
+
+    const sync = () => {
+      const band = Math.round(rail.getBoundingClientRect().height * 10) / 10;
+      const current = parseFloat(layer.style.getPropertyValue('--hud-band')) || 0;
+      if (Math.abs(band - current) > 0.4) {
+        layer.style.setProperty('--hud-band', `${band}px`);
+      }
+    };
+
+    sync();
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(sync).observe(rail);
+    } else {
+      window.addEventListener('resize', sync);
+    }
   },
 
   showJoinScreen() {

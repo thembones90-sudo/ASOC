@@ -778,6 +778,43 @@
       height: 100%;
     }
 
+    /* =========================================================
+       HUD-TO-BOARD WIDTH ANCHOR (TIMER + WOMF)
+       The player board is letterboxed inside its frame (.public-board-ratio
+       shrinks when vertical space runs out), so full-width HUD strips used
+       to drift wider than the board. Now TIMER + WOMF live inside
+       #board-hud-rail, sized by the exact same
+       container math as the board itself: #board-layer is the query
+       container, and the rail's width = the largest 1900:1267 rect that
+       fits the layer AFTER the HUD band is deducted -- which is by
+       construction exactly the .public-board-ratio rect, so left/right
+       edges always land on the board's own edges at every desktop width.
+       --hud-band is measured and set by js/player.js (ResizeObserver),
+       so the real strip/header heights are authoritative, never guessed.
+       Guarded to desktop (>=901px, matching the splitter's own MOBILE_QUERY
+       boundary): the narrow layouts already aspect-lock the frame, so
+       strips and board share a width there. Fallback (no container
+       queries) = width:100%, i.e. the exact old behavior. */
+    .board-hud-rail {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      flex-shrink: 0;
+      min-width: 0;
+    }
+
+    @supports (container-type: size) {
+      @media (min-width: 901px) {
+        #board-layer {
+          container-type: size;
+        }
+
+        #board-hud-rail {
+          width: min(100cqw, max(0px, calc((100cqh - var(--hud-band, 0px)) * var(--board-aspect))), var(--canvas-width));
+        }
+      }
+    }
+
     .battle-comms-lobby .player-leaderboard-strip {
       flex: 0 0 auto;
       border: 1px solid rgba(116,126,139,.38);
@@ -7328,8 +7365,10 @@
         <div class="master-room-standby-title">SYSTEM UNARMED</div>
         <div class="master-room-standby-copy">Battle Comms remain online. Awaiting Shadow Broker activation.</div>
       </div>
-      <div class="timer-tracker" id="timer-tracker-player"></div>
-      <div class="womf-tracker" id="womf-tracker-player"></div>
+<div id="board-hud-rail" class="board-hud-rail">
+        <div class="timer-tracker" id="timer-tracker-player"></div>
+        <div class="womf-tracker" id="womf-tracker-player"></div>
+      </div>
       <div id="public-board-frame" class="public-board-frame">
         <div class="public-board-ratio">
           <img id="background-layer" alt="Game background">
