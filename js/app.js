@@ -2190,7 +2190,13 @@ const App = {
       cmdId
     });
 
-    this.executeLocalCommand(command, payload);
+    // Column outcome adjudication is intentionally server-authoritative.
+    // GREEN/RED can affect WOMF, match completion and Final scoring context,
+    // so do not fabricate it optimistically and risk leaving stale local
+    // state if a concurrent authoritative action rejects the command.
+    if (command !== 'resolveColumn') {
+      this.executeLocalCommand(command, payload);
+    }
   },
 
   resendPendingCommands() {
