@@ -14099,11 +14099,11 @@ body.room-mode-casual #gm-broker-bar {
    the viewport edge so the Casual chat does not visually fuse to the bezel. */
 body.room-mode-casual #gm-broker-bar {
   box-sizing:border-box !important;
-  padding:8px 10px 14px !important;
+  padding:8px 10px 34px !important;
 }
 
 @media (max-width:760px) {
   body.room-mode-casual #gm-broker-bar {
-    padding:8px 10px max(14px, env(safe-area-inset-bottom)) !important;
+    padding:8px 10px max(34px, env(safe-area-inset-bottom)) !important;
   }
 }
