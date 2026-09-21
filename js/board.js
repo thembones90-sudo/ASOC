@@ -320,6 +320,11 @@ const Board = {
         contentEl.textContent = content || '—';
       }
     }
+
+    // A progressive-queue reveal can replace the hidden slot's preview text
+    // with a different-length clue. Re-fit immediately instead of waiting
+    // for the next full Board.render()/server round-trip.
+    Skeleton.fit(this.container);
   },
 
   updateFinalDisplay() {
@@ -330,6 +335,19 @@ const Board = {
     cell.classList.toggle('hidden', !revealed);
     cell.classList.toggle('revealed', revealed);
     cell.classList.toggle('outcome-failed', this.getFinalOutcome() === 'failed');
+
+    // buildBoardHTML deliberately stores only "???" while FINAL is hidden.
+    // A direct GM reveal updates the existing DOM node optimistically, so
+    // replace that placeholder here as well. Without this, local mode would
+    // reveal a beautifully centered "???" forever, which is technically a
+    // reveal only in the philosophical sense.
+    const contentEl = cell.querySelector('.cell-text') || cell.querySelector('.cell-content');
+    if (contentEl) {
+      contentEl.textContent = revealed
+        ? (window.GameData?.getFinalSolution?.() || '—')
+        : '???';
+    }
+    Skeleton.fit(this.container);
   },
 
   updateGMButtons() {
