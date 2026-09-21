@@ -164,6 +164,7 @@ const App = {
       this.setupGMLayoutSplitter();
       this.setupGMChatHeightSplitter();
       this.setupGMClueHeightSplitter();
+      this.syncGMLayoutLockUI();
       Forge.init();
       this.populateBackgroundSelector();
       Board.init('#asoc-board');
@@ -181,6 +182,63 @@ const App = {
     }
   },
 
+  isGMLayoutLocked() {
+    try { return localStorage.getItem('asoc_gm_layout_locked') === '1'; }
+    catch (_) { return false; }
+  },
+
+  setGMLayoutLocked(locked, persist = true) {
+    const next = !!locked;
+    if (persist) {
+      try {
+        if (next) localStorage.setItem('asoc_gm_layout_locked', '1');
+        else localStorage.removeItem('asoc_gm_layout_locked');
+      } catch (_) {}
+    }
+    document.body.classList.toggle('gm-layout-locked', next);
+    this.syncGMLayoutLockUI();
+  },
+
+  toggleGMLayoutLock() {
+    this.setGMLayoutLocked(!this.isGMLayoutLocked(), true);
+  },
+
+  syncGMLayoutLockUI() {
+    const locked = this.isGMLayoutLocked();
+    document.body.classList.toggle('gm-layout-locked', locked);
+
+    const button = document.getElementById('gm-layout-lock-btn');
+    if (button) {
+      button.textContent = locked ? 'UNLOCK LAYOUT' : 'LOCK LAYOUT';
+      button.classList.toggle('active', locked);
+      button.setAttribute('aria-pressed', locked ? 'true' : 'false');
+    }
+
+    const status = document.getElementById('gm-layout-lock-status');
+    if (status) {
+      status.textContent = locked
+        ? 'LAYOUT LOCKED // RESIZE CONTROLS SAFE'
+        : 'LAYOUT UNLOCKED // RESIZE CONTROLS ACTIVE';
+    }
+
+    ['gm-layout-splitter', 'gm-chat-height-splitter', 'gm-clue-height-splitter'].forEach(id => {
+      const splitter = document.getElementById(id);
+      if (!splitter) return;
+      if (!splitter.dataset.unlockedTitle) splitter.dataset.unlockedTitle = splitter.getAttribute('title') || '';
+      splitter.setAttribute('aria-disabled', locked ? 'true' : 'false');
+      splitter.setAttribute('title', locked ? 'Layout locked // unlock in BACKDOOR' : splitter.dataset.unlockedTitle);
+    });
+  },
+
+  resetGMPanelLayout() {
+    try {
+      localStorage.removeItem('asoc_gm_panel_ratio');
+      localStorage.removeItem('asoc_gm_chat_height_px');
+      localStorage.removeItem('asoc_gm_clue_height_px');
+    } catch (_) {}
+    window.dispatchEvent(new Event('asoc:gm-layout-reset'));
+  },
+
   setupGMLayoutSplitter() {
     const splitter = document.getElementById('gm-layout-splitter');
     const panel = document.getElementById('gm-panel');
@@ -191,6 +249,7 @@ const App = {
     const MIN_RATIO = 0.18;
     const MAX_RATIO = 0.45;
     const MIN_PANEL_PX = 300;
+    const isLocked = () => this.isGMLayoutLocked();
     let dragging = false;
     let currentRatio = null;
 
@@ -213,12 +272,10 @@ const App = {
       splitter.setAttribute('aria-valuemax', String(Math.round(MAX_RATIO * 100)));
       splitter.setAttribute('aria-valuenow', String(pct));
       splitter.setAttribute('aria-valuetext', `GM rail ${pct}% // battlefield ${100 - pct}%`);
+      splitter.dataset.resizeReadout = `GM WIDTH ${pct}%`;
     };
 
     const refitBoard = () => {
-      // Skeleton text fitting is window-resize driven. Dispatching here keeps
-      // every clue aligned while the host drags the rail instead of waiting
-      // for the next real browser resize.
       window.dispatchEvent(new Event('resize'));
     };
 
@@ -257,7 +314,7 @@ const App = {
     }
 
     splitter.addEventListener('pointerdown', (event) => {
-      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       dragging = true;
       document.body.classList.add('gm-layout-resizing');
@@ -266,7 +323,7 @@ const App = {
     });
 
     splitter.addEventListener('pointermove', (event) => {
-      if (!dragging || window.matchMedia(MOBILE_QUERY).matches) return;
+      if (!dragging || isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
       const viewport = Math.max(window.innerWidth || 0, 1);
       applyRatio((viewport - event.clientX) / viewport, false);
     });
@@ -284,12 +341,13 @@ const App = {
     splitter.addEventListener('pointerup', finishDrag);
     splitter.addEventListener('pointercancel', finishDrag);
     splitter.addEventListener('dblclick', (event) => {
+      if (isLocked()) return;
       event.preventDefault();
       resetRatio();
     });
 
     splitter.addEventListener('keydown', (event) => {
-      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
       if (event.key === 'Home') {
         event.preventDefault();
         resetRatio();
@@ -301,11 +359,14 @@ const App = {
       const delta = event.key === 'ArrowLeft' ? 0.02 : -0.02;
       applyRatio(base + delta, true);
     });
+
+    window.addEventListener('asoc:gm-layout-reset', resetRatio);
   },
 
   setupGMChatHeightSplitter() {
     const splitter = document.getElementById('gm-chat-height-splitter');
     const chatPanel = document.querySelector('.gm-module-chat .gm-chat-panel');
+    const messages = document.getElementById('gm-chat-messages');
     if (!splitter || !chatPanel) return;
 
     const STORAGE_KEY = 'asoc_gm_chat_height_px';
@@ -314,6 +375,7 @@ const App = {
     const MIN_HEIGHT = 120;
     const MAX_VIEWPORT_RATIO = 0.78;
     const MAX_ABSOLUTE_HEIGHT = 820;
+    const isLocked = () => this.isGMLayoutLocked();
     let dragging = false;
     let dragStartY = 0;
     let dragStartHeight = 0;
@@ -327,17 +389,36 @@ const App = {
     const clampHeight = (height) => Math.max(MIN_HEIGHT, Math.min(maxHeight(), height));
 
     const updateAria = (height) => {
+      const px = Math.round(height);
       splitter.setAttribute('aria-valuemin', String(MIN_HEIGHT));
       splitter.setAttribute('aria-valuemax', String(maxHeight()));
-      splitter.setAttribute('aria-valuenow', String(Math.round(height)));
-      splitter.setAttribute('aria-valuetext', `Battle Chat height ${Math.round(height)} pixels`);
+      splitter.setAttribute('aria-valuenow', String(px));
+      splitter.setAttribute('aria-valuetext', `Battle Chat height ${px} pixels`);
+      splitter.dataset.resizeReadout = `CHAT ${px}PX`;
     };
 
     const applyHeight = (height, persist = false) => {
       if (!Number.isFinite(height)) return;
+
+      const preserve = messages ? {
+        atBottom: (messages.scrollHeight - messages.scrollTop - messages.clientHeight) <= 24,
+        scrollTop: messages.scrollTop
+      } : null;
+
       currentHeight = clampHeight(height);
       chatPanel.style.height = `${Math.round(currentHeight)}px`;
       updateAria(currentHeight);
+
+      if (messages && preserve) {
+        if (preserve.atBottom) {
+          messages.scrollTop = messages.scrollHeight;
+          this.userScrolledUp = false;
+        } else {
+          messages.scrollTop = preserve.scrollTop;
+          this.userScrolledUp = true;
+        }
+      }
+
       if (persist) {
         try { localStorage.setItem(STORAGE_KEY, String(Math.round(currentHeight))); } catch (_) {}
       }
@@ -361,7 +442,7 @@ const App = {
     }
 
     splitter.addEventListener('pointerdown', (event) => {
-      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       dragging = true;
       dragStartY = event.clientY;
@@ -372,7 +453,7 @@ const App = {
     });
 
     splitter.addEventListener('pointermove', (event) => {
-      if (!dragging || window.matchMedia(MOBILE_QUERY).matches) return;
+      if (!dragging || isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
       applyHeight(dragStartHeight + (event.clientY - dragStartY), false);
     });
 
@@ -389,12 +470,13 @@ const App = {
     splitter.addEventListener('pointerup', finishDrag);
     splitter.addEventListener('pointercancel', finishDrag);
     splitter.addEventListener('dblclick', (event) => {
+      if (isLocked()) return;
       event.preventDefault();
       resetHeight();
     });
 
     splitter.addEventListener('keydown', (event) => {
-      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
       if (event.key === 'Home') {
         event.preventDefault();
         resetHeight();
@@ -415,11 +497,14 @@ const App = {
       if (clamped !== currentHeight) applyHeight(clamped, true);
       else updateAria(currentHeight);
     });
+
+    window.addEventListener('asoc:gm-layout-reset', resetHeight);
   },
 
   setupGMClueHeightSplitter() {
     const splitter = document.getElementById('gm-clue-height-splitter');
     const clueModule = document.querySelector('.gm-module-clues');
+    const clueGrid = document.getElementById('gm-clue-grid');
     if (!splitter || !clueModule) return;
 
     const STORAGE_KEY = 'asoc_gm_clue_height_px';
@@ -428,6 +513,7 @@ const App = {
     const MIN_HEIGHT = 190;
     const MAX_VIEWPORT_RATIO = 0.82;
     const MAX_ABSOLUTE_HEIGHT = 920;
+    const isLocked = () => this.isGMLayoutLocked();
     let dragging = false;
     let dragStartY = 0;
     let dragStartHeight = 0;
@@ -441,17 +527,21 @@ const App = {
     const clampHeight = (height) => Math.max(MIN_HEIGHT, Math.min(maxHeight(), height));
 
     const updateAria = (height) => {
+      const px = Math.round(height);
       splitter.setAttribute('aria-valuemin', String(MIN_HEIGHT));
       splitter.setAttribute('aria-valuemax', String(maxHeight()));
-      splitter.setAttribute('aria-valuenow', String(Math.round(height)));
-      splitter.setAttribute('aria-valuetext', `Clue Grid height ${Math.round(height)} pixels`);
+      splitter.setAttribute('aria-valuenow', String(px));
+      splitter.setAttribute('aria-valuetext', `Clue Grid height ${px} pixels`);
+      splitter.dataset.resizeReadout = `CLUES ${px}PX`;
     };
 
     const applyHeight = (height, persist = false) => {
       if (!Number.isFinite(height)) return;
+      const previousScrollTop = clueGrid?.scrollTop ?? 0;
       currentHeight = clampHeight(height);
       clueModule.style.height = `${Math.round(currentHeight)}px`;
       updateAria(currentHeight);
+      if (clueGrid) clueGrid.scrollTop = previousScrollTop;
       if (persist) {
         try { localStorage.setItem(STORAGE_KEY, String(Math.round(currentHeight))); } catch (_) {}
       }
@@ -475,7 +565,7 @@ const App = {
     }
 
     splitter.addEventListener('pointerdown', (event) => {
-      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       dragging = true;
       dragStartY = event.clientY;
@@ -486,7 +576,7 @@ const App = {
     });
 
     splitter.addEventListener('pointermove', (event) => {
-      if (!dragging || window.matchMedia(MOBILE_QUERY).matches) return;
+      if (!dragging || isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
       applyHeight(dragStartHeight + (event.clientY - dragStartY), false);
     });
 
@@ -503,12 +593,13 @@ const App = {
     splitter.addEventListener('pointerup', finishDrag);
     splitter.addEventListener('pointercancel', finishDrag);
     splitter.addEventListener('dblclick', (event) => {
+      if (isLocked()) return;
       event.preventDefault();
       resetHeight();
     });
 
     splitter.addEventListener('keydown', (event) => {
-      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (isLocked() || window.matchMedia(MOBILE_QUERY).matches) return;
       if (event.key === 'Home') {
         event.preventDefault();
         resetHeight();
@@ -529,6 +620,8 @@ const App = {
       if (clamped !== currentHeight) applyHeight(clamped, true);
       else updateAria(currentHeight);
     });
+
+    window.addEventListener('asoc:gm-layout-reset', resetHeight);
   },
 
   async loadFirstAvailableGame() {
