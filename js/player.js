@@ -1528,6 +1528,7 @@ const PlayerApp = {
   showGameScreen() {
     document.getElementById('join-screen').style.display = 'none';
     document.getElementById('game-screen').classList.add('active');
+    if (typeof this._hudBandSync === 'function') this._hudBandSync();
     document.getElementById('reconnecting-overlay').classList.remove('active');
     this.bindChatForm();
     this.bindLeaderboardToggle();
@@ -1545,6 +1546,11 @@ const PlayerApp = {
       return;
     }
 
+    // NOTE: this mobile boundary is hand-synced with the desktop-only
+    // `@media (min-width: 901px)` HUD rail block in join.html (near the
+    // `.board-hud-rail` rules). CSS media queries cannot share a variable,
+    // so if this boundary ever changes, that join.html block needs the
+    // same edit.
     const MOBILE_QUERY = '(max-width: 900px)';
     const MIN_CHAT_PX = 260;
     const MIN_BOARD_PX = 520;
@@ -1743,12 +1749,18 @@ const PlayerApp = {
     if (!rail || !layer) return;
 
     const sync = () => {
-      const band = Math.round(rail.getBoundingClientRect().height * 10) / 10;
+      const band = rail.getBoundingClientRect().height;
       const current = parseFloat(layer.style.getPropertyValue('--hud-band')) || 0;
-      if (Math.abs(band - current) > 0.4) {
+      if (Math.abs(band - current) > 0.2) {
         layer.style.setProperty('--hud-band', `${band}px`);
       }
     };
+
+    // Exposed for an on-activation re-sync (showGameScreen): the rail is
+    // unrendered (display:none) when init() runs, so the first measurement
+    // can be 0. Re-syncing once the screen shows removes any dependence on
+    // ResizeObserver timing for the first painted frame.
+    this._hudBandSync = sync;
 
     sync();
     if (typeof ResizeObserver !== 'undefined') {
