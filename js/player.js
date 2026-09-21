@@ -26,8 +26,8 @@ const PlayerApp = {
   _tributeExpiryTimer: null,
   bloodTribute: { status: 'idle' },
   tributeUploading: false,
-  chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '😏', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🫠', '🥴', '🤯', '🥳', '😴', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
-  emojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭', '😍', '💀'],
+  chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '😏', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🫠', '🥴', '🤯', '🥳', '😴', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
+  emojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭'],
   emojiFavorites: [],
   _emojiFavoritesEditing: false,
   _emojiFavoriteSlot: 0,
@@ -1419,7 +1419,7 @@ const PlayerApp = {
       sessionStorage.getItem('asoc_player_name') ||
       'little-hero'
     ).trim().toLowerCase();
-    return 'asoc_chat_emoji_favorites_v1:' + encodeURIComponent(identity || 'little-hero');
+    return 'asoc_chat_emoji_favorites_v2:' + encodeURIComponent(identity || 'little-hero');
   },
 
   loadChatEmojiFavorites() {
@@ -1429,8 +1429,8 @@ const PlayerApp = {
       const parsed = raw ? JSON.parse(raw) : null;
       if (
         Array.isArray(parsed) &&
-        parsed.length === 7 &&
-        new Set(parsed).size === 7 &&
+        parsed.length === 5 &&
+        new Set(parsed).size === 5 &&
         parsed.every(emoji => this.chatReactionEmojis.includes(emoji))
       ) {
         this.emojiFavorites = [...parsed];
@@ -1445,9 +1445,9 @@ const PlayerApp = {
 
   saveChatEmojiFavorites(favorites) {
     const clean = Array.isArray(favorites)
-      ? favorites.filter((emoji, index, list) => this.chatReactionEmojis.includes(emoji) && list.indexOf(emoji) === index).slice(0, 7)
+      ? favorites.filter((emoji, index, list) => this.chatReactionEmojis.includes(emoji) && list.indexOf(emoji) === index).slice(0, 5)
       : [];
-    if (clean.length !== 7) return false;
+    if (clean.length !== 5) return false;
     this.emojiFavorites = clean;
     try {
       localStorage.setItem(this.emojiFavoritesStorageKey(), JSON.stringify(clean));
@@ -1458,7 +1458,7 @@ const PlayerApp = {
   },
 
   replaceChatEmojiFavorite(slot, emoji) {
-    const index = Math.max(0, Math.min(6, Number(slot) || 0));
+    const index = Math.max(0, Math.min(4, Number(slot) || 0));
     if (!this.chatReactionEmojis.includes(emoji)) return;
     const favorites = [...this.loadChatEmojiFavorites()];
     const existing = favorites.indexOf(emoji);
@@ -1489,8 +1489,8 @@ const PlayerApp = {
     if (emojiPicker) {
       emojiPicker.innerHTML = `
         <div class="chat-emoji-picker-head">
-          <span>SHORTCUTS</span>
-          <span class="chat-emoji-edit-status">${editing ? 'SLOT ' + (this._emojiFavoriteSlot + 1) : '7 SAVED'}</span>
+          <span>TOP 5 EMOJIS</span>
+          <span class="chat-emoji-edit-status">${editing ? 'SLOT ' + (this._emojiFavoriteSlot + 1) : '5 SAVED'}</span>
           <button type="button" class="chat-emoji-edit-toggle">${editing ? 'DONE' : 'EDIT'}</button>
         </div>
         ${favoriteButtons}
@@ -1579,7 +1579,7 @@ const PlayerApp = {
       const editToggle = e.target.closest('.chat-emoji-edit-toggle');
       if (editToggle) {
         this._emojiFavoritesEditing = !this._emojiFavoritesEditing;
-        this._emojiFavoriteSlot = Math.max(0, Math.min(6, this._emojiFavoriteSlot || 0));
+        this._emojiFavoriteSlot = Math.max(0, Math.min(4, this._emojiFavoriteSlot || 0));
         this.renderChatEmojiPickers(emojiPicker, reactionPicker);
         return;
       }
@@ -1590,14 +1590,14 @@ const PlayerApp = {
       if (this._emojiFavoritesEditing) {
         const favoriteSlot = option.dataset.favoriteSlot;
         if (favoriteSlot !== undefined) {
-          this._emojiFavoriteSlot = Math.max(0, Math.min(6, Number(favoriteSlot) || 0));
+          this._emojiFavoriteSlot = Math.max(0, Math.min(4, Number(favoriteSlot) || 0));
           this.renderChatEmojiPickers(emojiPicker, reactionPicker);
           return;
         }
 
         const emoji = option.dataset.emoji || '';
         this.replaceChatEmojiFavorite(this._emojiFavoriteSlot, emoji);
-        this._emojiFavoriteSlot = (this._emojiFavoriteSlot + 1) % 7;
+        this._emojiFavoriteSlot = (this._emojiFavoriteSlot + 1) % 5;
         this.renderChatEmojiPickers(emojiPicker, reactionPicker);
         return;
       }
