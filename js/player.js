@@ -31,6 +31,7 @@ const PlayerApp = {
   emojiFavorites: [],
   _emojiFavoritesEditing: false,
   _emojiFavoriteSlot: 0,
+  _editingMessage: null,
   // FINAL SOLUTION REVEAL FLOURISH -- same one-shot guard as App's copy in
   // js/app.js (see its comment): renderBoard() fully rebuilds the board on
   // every broadcast, so this flag is what keeps the animation from
@@ -1536,6 +1537,8 @@ const PlayerApp = {
       contextMessageEl = messageEl;
       contextMenu._messageEl = messageEl;
       contextMenu.dataset.messageId = messageId;
+      const editButton = contextMenu.querySelector('[data-chat-action="edit"]');
+      if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
       contextMenu.hidden = false;
       if (reactionPicker) reactionPicker.hidden = true;
       if (emojiPicker) emojiPicker.hidden = true;
@@ -1714,6 +1717,8 @@ const PlayerApp = {
       closeContextMenu();
       if (action === 'reply') {
         this.startChatReply(messageEl, messageId);
+      } else if (action === 'edit') {
+        this.startChatEdit(messageEl, messageId);
       } else if (action === 'react') {
         // A detached anchor has a zero rect; the message is gone, nothing to react to.
         if (messageEl.isConnected) this.openChatReactionPicker(messageId, messageEl);
@@ -1745,6 +1750,8 @@ const PlayerApp = {
 
     menu._messageEl = messageEl;
     menu.dataset.messageId = messageId;
+    const editButton = menu.querySelector('[data-chat-action="edit"]');
+    if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
     menu.hidden = false;
     const reactionPicker = document.getElementById('chat-reaction-picker');
     const emojiPicker = document.getElementById('chat-emoji-picker');
@@ -1762,6 +1769,37 @@ const PlayerApp = {
     return false;
   },
 
+  startChatEdit(messageEl, messageId) {
+    const input = document.getElementById('chat-input');
+    if (!input || !messageEl || !messageId || messageEl.dataset.editable !== 'true') return;
+
+    const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
+    if (!msg || msg.source || String(msg.playerId || '') !== String(this.playerId || '') || msg.verdict != null) return;
+
+    const raw = String(msg.text || '');
+    const replyMatch = raw.match(/^((?:↳ @[^:]{1,40}?)(?: \/\/ [^:]{1,30})?:\s*)([\s\S]*)$/);
+    const prefix = replyMatch ? replyMatch[1] : '';
+    const body = replyMatch ? replyMatch[2] : raw;
+
+    this._replyTo = null;
+    this._editingMessage = { id: messageId, prefix };
+    input.maxLength = Math.max(1, 100 - prefix.length);
+    input.value = body.slice(0, input.maxLength);
+
+    const preview = document.getElementById('chat-reply-preview');
+    const previewText = document.getElementById('chat-reply-preview-text');
+    if (previewText) previewText.textContent = 'EDITING YOUR MESSAGE // ENTER TO SAVE';
+    if (preview) preview.style.display = 'flex';
+
+    const reactionPicker = document.getElementById('chat-reaction-picker');
+    const emojiPicker = document.getElementById('chat-emoji-picker');
+    if (reactionPicker) reactionPicker.hidden = true;
+    if (emojiPicker) emojiPicker.hidden = true;
+
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  },
+
   startChatReply(messageEl, replyId) {
     const input = document.getElementById('chat-input');
     if (!input || !messageEl || !replyId) return;
@@ -1773,6 +1811,7 @@ const PlayerApp = {
       .trim()
       .slice(0, 30);
 
+    this._editingMessage = null;
     this._replyTo = { id: replyId, name, excerpt };
 
     const replyPrefix = `↳ @${name}${excerpt ? ` // ${excerpt}` : ''}: `;
@@ -1798,10 +1837,13 @@ const PlayerApp = {
 
   cancelChatReply() {
     this._replyTo = null;
+    this._editingMessage = null;
     const input = document.getElementById('chat-input');
     if (input) input.maxLength = 100;
     const preview = document.getElementById('chat-reply-preview');
     if (preview) preview.style.display = 'none';
+    const previewText = document.getElementById('chat-reply-preview-text');
+    if (previewText) previewText.textContent = '';
     input?.focus();
   },
 
@@ -1886,12 +1928,22 @@ const PlayerApp = {
     const text = input.value.trim();
     if (!text) return;
 
+    const editing = this._editingMessage;
     input.value = '';
+    this._editingMessage = null;
     const reply = this._replyTo;
     this._replyTo = null;
     input.maxLength = 100;
     const preview = document.getElementById('chat-reply-preview');
     if (preview) preview.style.display = 'none';
+    const previewText = document.getElementById('chat-reply-preview-text');
+    if (previewText) previewText.textContent = '';
+
+    if (editing) {
+      this.send({ type: 'chat:edit', messageId: editing.id, text: (editing.prefix || '') + text });
+      return;
+    }
+
     const replyPrefix = reply
       ? `↳ @${reply.name}${reply.excerpt ? ` // ${reply.excerpt}` : ''}: `
       : '';
@@ -2044,9 +2096,10 @@ const PlayerApp = {
         ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
       return `
-        <div class="chat-broker-entry chat-reactable" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+        <div class="chat-broker-entry chat-reactable" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           ${replyContextHtml}
           ${Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchIn: isNew })}
+          ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
           ${this.createReactionBarHTML(msg)}
         </div>
       `;
@@ -2056,6 +2109,7 @@ const PlayerApp = {
     const wrongSeenAt = this._wrongVerdictSeenAt.get(msg.id) ?? (now - 3000);
     const agedRejected = msg.verdict === 'wrong' && (now - wrongSeenAt) >= 3000;
     const isOwn = msg.playerId === this.playerId;
+    const canEdit = isOwn && !msg.source && msg.verdict == null;
     const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
     const replyMatch = typeof msg.text === 'string'
       ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
@@ -2088,13 +2142,13 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+      <div class="chat-message ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
         <div class="chat-avatar-rail">${grouped ? '' : this.littleHeroAvatarHTML(identity)}</div>
         <div class="chat-message-main">
           ${grouped ? '' : `<div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>`}
           <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">&#8617;</button>
           ${replyContextHtml}
-          <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span></div>
+          <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>
           ${verdictMetaHtml}
           ${verdictResponseHtml}
           ${this.createReactionBarHTML(msg)}
