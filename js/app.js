@@ -51,7 +51,7 @@ const App = {
   // need the clue grid and FAIL A-D to be finished.
   gameComplete: false,
   _gameWonLockedCommands: new Set([
-    'revealCell', 'hideCell', 'revealColumn', 'hideColumn',
+    'revealCell', 'hideCell', 'revealColumn', 'hideColumn', 'resolveColumn',
     'revealAll', 'hideAll', 'revealFinal', 'hideFinal'
   ]),
   // FINAL SOLUTION REVEAL FLOURISH -- an epoch-ms deadline. Set once, in
@@ -538,6 +538,74 @@ const App = {
       }
     };
 
+    const closeColumnOutcomeChooser = () => {
+      this._gmColumnOutcomeDialog?.remove();
+      this._gmColumnOutcomeDialog = null;
+      this._gmColumnOutcomeColumn = null;
+    };
+
+    const syncColumnOutcomeChooser = () => {
+      const dialog = this._gmColumnOutcomeDialog;
+      const column = this._gmColumnOutcomeColumn;
+      if (!dialog || !column) return;
+
+      const cell = board.querySelector(`.board-cell[data-cell="${column}5"]`);
+      const outcome = Board.getCellOutcome(column, 5);
+      const resolved = !!this.solvedTargets?.[column] || outcome === 'success' || outcome === 'failed';
+      if (!cell || this.gameComplete || Board.isRevealed(column, 5) || resolved) {
+        closeColumnOutcomeChooser();
+        return;
+      }
+
+      const rect = cell.getBoundingClientRect();
+      dialog.style.left = `${rect.left + rect.width / 2}px`;
+      dialog.style.top = `${rect.top}px`;
+    };
+
+    const openColumnOutcomeChooser = (cell) => {
+      const key = cell?.dataset.cell || '';
+      if (!/^[A-D]5$/.test(key)) return;
+      const column = key[0];
+
+      closeColumnOutcomeChooser();
+      this._gmColumnOutcomeColumn = column;
+
+      const dialog = document.createElement('div');
+      dialog.className = 'gm-column-outcome-dialog';
+      dialog.dataset.column = column;
+      dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-label', `Resolve column ${column}`);
+      dialog.innerHTML = `
+        <div class="gm-column-outcome-title">${column}5 // RESOLVE</div>
+        <div class="gm-column-outcome-actions">
+          <button type="button" class="gm-column-outcome-btn is-green" data-outcome="success">GREEN</button>
+          <button type="button" class="gm-column-outcome-btn is-red" data-outcome="failed">RED</button>
+        </div>
+      `;
+
+      dialog.addEventListener('click', (event) => {
+        const button = event.target.closest('.gm-column-outcome-btn');
+        if (!button) return;
+        const outcome = button.dataset.outcome;
+        if (outcome !== 'success' && outcome !== 'failed') return;
+
+        const liveCell = board.querySelector(`.board-cell[data-cell="${column}5"]`);
+        markPending(liveCell, true);
+        closeColumnOutcomeChooser();
+        this.sendCommand('resolveColumn', { column, outcome });
+        this.updatePublicView();
+      });
+
+      document.body.appendChild(dialog);
+      this._gmColumnOutcomeDialog = dialog;
+      syncColumnOutcomeChooser();
+      requestAnimationFrame(() => dialog.querySelector('.is-green')?.focus());
+    };
+
+    this._closeGMColumnOutcomeChooser = closeColumnOutcomeChooser;
+    this._syncGMColumnOutcomeChooser = syncColumnOutcomeChooser;
+    window.addEventListener('resize', syncColumnOutcomeChooser);
+
     const revealCell = (cell) => {
       if (!cell?.classList.contains('gm-board-hitbox') || this.gameComplete) return;
       const key = cell.dataset.cell || '';
@@ -545,7 +613,16 @@ const App = {
       const column = key[0];
       const row = Number(key.slice(1));
       if (Board.isRevealed(column, row)) return;
-      if (this.solvedTargets?.[column] || Board.getCellOutcome(column, 5) === 'failed') return;
+      const columnOutcome = Board.getCellOutcome(column, 5);
+      if (this.solvedTargets?.[column] || columnOutcome === 'success' || columnOutcome === 'failed') return;
+
+      // Solution pills are adjudication controls, not ordinary reveal
+      // buttons. Clicking A5-D5 asks GREEN/RED first; the selected outcome
+      // is then revealed and committed atomically by resolveColumn.
+      if (row === 5) {
+        openColumnOutcomeChooser(cell);
+        return;
+      }
 
       // Lock this physical slot immediately. Server state will clear the
       // pending marker on the next authoritative sync.
@@ -644,13 +721,14 @@ const App = {
       const revealed = isFinal
         ? Board.isFinalRevealed()
         : (normalCell && Board.isRevealed(column, row));
-      // Revealing a column solution manually resolves that column's direct
-      // controls too. FINAL deliberately remains independent: players may
-      // legitimately solve it after any number of columns, including one.
-      const columnSolutionRevealed = normalCell && Board.isRevealed(column, 5);
+      // Opening A5-D5 is NOT by itself a resolution. A column locks only
+      // after it has actually been adjudicated GREEN/RED (or a correct chat
+      // verdict resolved it). This keeps B1-B4 available while B5 is merely
+      // being considered.
+      const columnOutcome = normalCell ? Board.getCellOutcome(column, 5) : null;
       const resolved = isFinal
         ? (Board.getFinalOutcome() === 'failed' || !!this.solvedTargets?.FINAL)
-        : (normalCell && (columnSolutionRevealed || !!this.solvedTargets?.[column] || Board.getCellOutcome(column, 5) === 'failed'));
+        : (normalCell && (!!this.solvedTargets?.[column] || columnOutcome === 'success' || columnOutcome === 'failed'));
       const actionable = gameLoaded && !this.gameComplete && (isFinal || normalCell) && !revealed && !resolved;
 
       cell.classList.toggle('gm-board-hitbox', actionable);
@@ -672,6 +750,8 @@ const App = {
         cell.removeAttribute('aria-label');
       }
     });
+
+    this._syncGMColumnOutcomeChooser?.();
   },
 
   async loadFirstAvailableGame() {
@@ -2137,6 +2217,18 @@ const App = {
       case 'revealFinal': {
         const { reveal } = payload;
         if (Board.setFinalRevealed(reveal)) changed = true;
+        break;
+      }
+      case 'resolveColumn': {
+        const { column, outcome } = payload || {};
+        if (!['A', 'B', 'C', 'D'].includes(column) || !['success', 'failed'].includes(outcome)) break;
+        if (Board.setRevealed(column, 5, true)) changed = true;
+        Board.sessionState.cellOutcomes ||= {};
+        if (Board.sessionState.cellOutcomes[`${column}5`] !== outcome) {
+          Board.sessionState.cellOutcomes[`${column}5`] = outcome;
+          Board.render();
+          changed = true;
+        }
         break;
       }
       case 'revealColumn': {
