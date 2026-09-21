@@ -8872,7 +8872,21 @@ body.game-complete .recount-btn,
 
 
 /* ASOC PLAYER EMOJI SHORTCUTS V1 */
-#chat-emoji-picker.chat-input-emoji-picker,
+#chat-emoji-picker.chat-input-emoji-picker {
+  /* The player rail can be narrower than the 7-slot tray. Keep the tray
+     anchored to the emoji button, but shrink its seven columns inside the
+     chat form instead of letting #chat-panel clip the left edge. */
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  width: min(278px, calc(100% - 14px)) !important;
+  max-width: calc(100% - 14px) !important;
+  box-sizing: border-box;
+}
+
+#chat-emoji-picker .chat-emoji-option {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
 #chat-reaction-picker.chat-floating-emoji-picker {
   grid-template-columns: repeat(7, 34px) !important;
   max-width: min(278px, calc(100vw - 18px)) !important;
