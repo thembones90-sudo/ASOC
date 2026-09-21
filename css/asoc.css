@@ -12364,3 +12364,226 @@ body:not(.room-mode-casual) .gm-module-chat .gm-chat-presence-wrap {
 .gm-chat-solved[hidden] {
   display:none !important;
 }
+
+
+/* GM GIPHY BROWSER V1 */
+#gm-broker-bar .gm-gif-picker {
+  position:absolute;
+  left:0;
+  bottom:calc(100% + 9px);
+  z-index:245;
+  width:min(350px,calc(100vw - 28px));
+  max-height:440px;
+  padding:9px;
+  border:1px solid rgba(103,114,128,.72);
+  border-radius:11px;
+  background:
+    linear-gradient(180deg,rgba(29,34,41,.997),rgba(10,13,17,.997));
+  box-shadow:
+    0 18px 44px rgba(0,0,0,.78),
+    inset 0 1px rgba(255,255,255,.045);
+  box-sizing:border-box;
+}
+
+#gm-broker-bar .gm-gif-picker[hidden] {
+  display:none !important;
+}
+
+#gm-broker-bar .gm-gif-picker-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+  padding-bottom:7px;
+  border-bottom:1px solid rgba(117,128,142,.22);
+}
+
+#gm-broker-bar .gm-gif-picker-head > div {
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+#gm-broker-bar .gm-gif-picker-head b {
+  color:#eef1f4;
+  font:900 .67rem/1 var(--font-system);
+  letter-spacing:.08em;
+}
+
+#gm-broker-bar .gm-gif-picker-head small {
+  color:#b28add;
+  font:800 .45rem/1 var(--font-system);
+  letter-spacing:.10em;
+}
+
+#gm-broker-bar .gm-gif-picker-head button {
+  width:28px;
+  height:28px;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  color:#8a94a0;
+  font:700 1rem/1 Arial,sans-serif;
+  cursor:pointer;
+}
+
+#gm-broker-bar .gm-gif-picker-head button:hover {
+  background:rgba(155,93,224,.16);
+  color:#fff;
+}
+
+#gm-broker-bar .gm-gif-search-row input {
+  width:100%;
+  min-height:39px;
+  padding:8px 11px;
+  border:1px solid rgba(111,122,135,.55);
+  border-radius:8px;
+  outline:0;
+  background:#10151a;
+  color:#edf1f5;
+  font:750 .72rem/1.2 var(--font-system);
+  box-sizing:border-box;
+}
+
+#gm-broker-bar .gm-gif-search-row input:focus {
+  border-color:rgba(155,93,224,.72);
+  box-shadow:0 0 0 1px rgba(155,93,224,.16);
+}
+
+#gm-broker-bar .gm-gif-status {
+  min-height:24px;
+  display:flex;
+  align-items:center;
+  margin:4px 0 5px;
+  color:#7f8b97;
+  font:850 .48rem/1 var(--font-system);
+  letter-spacing:.075em;
+}
+
+#gm-broker-bar .gm-gif-status.is-danger {
+  color:#ff6d73;
+  text-shadow:0 0 10px rgba(255,63,75,.24);
+}
+
+#gm-broker-bar .gm-gif-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  max-height:268px;
+  overflow-y:auto;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+
+#gm-broker-bar .gm-gif-grid::-webkit-scrollbar {
+  display:none;
+}
+
+#gm-broker-bar .gm-gif-result {
+  position:relative;
+  min-height:90px;
+  padding:0;
+  overflow:hidden;
+  border:1px solid rgba(97,108,121,.38);
+  border-radius:7px;
+  background:#0b0f13;
+  cursor:pointer;
+}
+
+#gm-broker-bar .gm-gif-result:hover,
+#gm-broker-bar .gm-gif-result:focus-visible {
+  border-color:rgba(155,93,224,.72);
+  box-shadow:0 0 12px rgba(155,93,224,.14);
+  outline:none;
+}
+
+#gm-broker-bar .gm-gif-result img {
+  display:block;
+  width:100%;
+  height:100%;
+  min-height:90px;
+  max-height:128px;
+  object-fit:cover;
+}
+
+#gm-broker-bar .gm-gif-actions {
+  display:flex;
+  gap:7px;
+  margin-top:8px;
+}
+
+#gm-broker-bar .gm-gif-actions button {
+  flex:1 1 0;
+  min-height:32px;
+  border:1px solid rgba(116,127,141,.46);
+  border-radius:6px;
+  background:linear-gradient(180deg,rgba(45,51,60,.9),rgba(20,24,30,.94));
+  color:#cbd1d8;
+  font:850 .52rem/1 var(--font-system);
+  letter-spacing:.055em;
+  cursor:pointer;
+}
+
+#gm-broker-bar .gm-gif-actions button:hover {
+  border-color:rgba(155,93,224,.60);
+  color:#fff;
+}
+
+#gm-broker-bar .gm-gif-provider {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-top:7px;
+  padding-top:6px;
+  border-top:1px solid rgba(111,122,135,.17);
+  color:#69737e;
+  font:800 .43rem/1 var(--font-system);
+  letter-spacing:.05em;
+}
+
+#gm-broker-bar .gm-gif-provider b {
+  color:#8e7aa4;
+  font:850 .43rem/1 var(--font-system);
+}
+
+.gm-chat-gif-link {
+  display:block;
+  width:min(400px,100%);
+  margin-top:4px;
+  overflow:hidden;
+  border:1px solid color-mix(in srgb,var(--little-hero-accent,#9b5de0) 40%,#4a5560);
+  border-radius:8px;
+  background:#080b0e;
+}
+
+.gm-chat-gif-attachment {
+  display:block;
+  width:100%;
+  max-height:310px;
+  object-fit:contain;
+  background:#050709;
+}
+
+.gm-chat-gif-provider-mark {
+  margin-top:3px;
+  color:#69727d;
+  font:800 .40rem/1 var(--font-system);
+  letter-spacing:.10em;
+  text-align:right;
+}
+
+.gm-gif-message .gm-chat-message-main {
+  max-width:min(96%,445px) !important;
+}
+
+@media (max-width:760px) {
+  #gm-broker-bar .gm-gif-picker {
+    width:min(325px,calc(100vw - 18px));
+  }
+  #gm-broker-bar .gm-gif-grid {
+    max-height:235px;
+  }
+}
