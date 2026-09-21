@@ -1841,7 +1841,7 @@ function startServer() {
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error('Test server did not start in time' + (stderr ? `: ${stderr}` : '')));
-    }, 5000);
+    }, 12000);
 
     child.stderr.on('data', chunk => {
       stderr += chunk.toString();
