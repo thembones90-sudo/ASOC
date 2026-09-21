@@ -156,6 +156,7 @@ const App = {
 
       ControlSurfaces.init(this);
       this.setupEventListeners();
+      this.setupGMLayoutSplitter();
       Forge.init();
       this.populateBackgroundSelector();
       Board.init('#asoc-board');
@@ -171,6 +172,128 @@ const App = {
     } finally {
       this.showLoading(false);
     }
+  },
+
+  setupGMLayoutSplitter() {
+    const splitter = document.getElementById('gm-layout-splitter');
+    const panel = document.getElementById('gm-panel');
+    if (!splitter || !panel) return;
+
+    const STORAGE_KEY = 'asoc_gm_panel_ratio';
+    const MOBILE_QUERY = '(max-width: 760px)';
+    const MIN_RATIO = 0.18;
+    const MAX_RATIO = 0.45;
+    const MIN_PANEL_PX = 300;
+    let dragging = false;
+    let currentRatio = null;
+
+    const bounds = () => {
+      const viewport = Math.max(window.innerWidth || 0, 1);
+      return {
+        min: Math.min(MAX_RATIO, Math.max(MIN_RATIO, MIN_PANEL_PX / viewport)),
+        max: MAX_RATIO
+      };
+    };
+
+    const clampRatio = (ratio) => {
+      const { min, max } = bounds();
+      return Math.max(min, Math.min(max, ratio));
+    };
+
+    const updateAria = (ratio) => {
+      const pct = Math.round(ratio * 100);
+      splitter.setAttribute('aria-valuemin', String(Math.round(bounds().min * 100)));
+      splitter.setAttribute('aria-valuemax', String(Math.round(MAX_RATIO * 100)));
+      splitter.setAttribute('aria-valuenow', String(pct));
+      splitter.setAttribute('aria-valuetext', `GM rail ${pct}% // battlefield ${100 - pct}%`);
+    };
+
+    const refitBoard = () => {
+      // Skeleton text fitting is window-resize driven. Dispatching here keeps
+      // every clue aligned while the host drags the rail instead of waiting
+      // for the next real browser resize.
+      window.dispatchEvent(new Event('resize'));
+    };
+
+    const applyRatio = (ratio, persist = false) => {
+      if (!Number.isFinite(ratio)) return;
+      currentRatio = clampRatio(ratio);
+      panel.style.width = `${(currentRatio * 100).toFixed(3)}vw`;
+      updateAria(currentRatio);
+      if (persist) {
+        try { localStorage.setItem(STORAGE_KEY, String(currentRatio)); } catch (_) {}
+      }
+      refitBoard();
+    };
+
+    const computedRatio = () => {
+      const viewport = Math.max(window.innerWidth || 0, 1);
+      return clampRatio(panel.getBoundingClientRect().width / viewport);
+    };
+
+    const resetRatio = () => {
+      currentRatio = null;
+      panel.style.removeProperty('width');
+      try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+      requestAnimationFrame(() => {
+        updateAria(computedRatio());
+        refitBoard();
+      });
+    };
+
+    try {
+      const saved = Number.parseFloat(localStorage.getItem(STORAGE_KEY));
+      if (Number.isFinite(saved)) applyRatio(saved, false);
+      else updateAria(computedRatio());
+    } catch (_) {
+      updateAria(computedRatio());
+    }
+
+    splitter.addEventListener('pointerdown', (event) => {
+      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      dragging = true;
+      document.body.classList.add('gm-layout-resizing');
+      splitter.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+
+    splitter.addEventListener('pointermove', (event) => {
+      if (!dragging || window.matchMedia(MOBILE_QUERY).matches) return;
+      const viewport = Math.max(window.innerWidth || 0, 1);
+      applyRatio((viewport - event.clientX) / viewport, false);
+    });
+
+    const finishDrag = (event) => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.classList.remove('gm-layout-resizing');
+      try { splitter.releasePointerCapture?.(event.pointerId); } catch (_) {}
+      if (currentRatio !== null) {
+        try { localStorage.setItem(STORAGE_KEY, String(currentRatio)); } catch (_) {}
+      }
+    };
+
+    splitter.addEventListener('pointerup', finishDrag);
+    splitter.addEventListener('pointercancel', finishDrag);
+    splitter.addEventListener('dblclick', (event) => {
+      event.preventDefault();
+      resetRatio();
+    });
+
+    splitter.addEventListener('keydown', (event) => {
+      if (window.matchMedia(MOBILE_QUERY).matches) return;
+      if (event.key === 'Home') {
+        event.preventDefault();
+        resetRatio();
+        return;
+      }
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      const base = currentRatio ?? computedRatio();
+      const delta = event.key === 'ArrowLeft' ? 0.02 : -0.02;
+      applyRatio(base + delta, true);
+    });
   },
 
   async loadFirstAvailableGame() {
