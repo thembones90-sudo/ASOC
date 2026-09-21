@@ -655,6 +655,7 @@ const App = {
     });
 
     gmEmojiPicker?.addEventListener('click', (e) => {
+      e.stopPropagation();
       const editToggle = e.target.closest('.gm-emoji-edit-toggle');
       if (editToggle) {
         this._gmEmojiFavoritesEditing = !this._gmEmojiFavoritesEditing;
@@ -686,6 +687,7 @@ const App = {
     });
 
     gmReactionPicker?.addEventListener('click', (e) => {
+      e.stopPropagation();
       const editToggle = e.target.closest('.gm-emoji-edit-toggle');
       if (editToggle) {
         this._gmEmojiFavoritesEditing = !this._gmEmojiFavoritesEditing;
