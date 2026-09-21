@@ -2533,7 +2533,7 @@ function appendChatImageMessage(room, actor, imageUrl, caption = '') {
     verdict: null,
     target: null,
     verdictResponse: null,
-    source: isHost ? 'shadowBroker' : null,
+    source: isHost ? 'shadowBroker' : 'chatImage',
     editableByHost: false,
     editedAt: null,
     reactions: {}
@@ -2706,6 +2706,8 @@ function getChatState(room) {
               .map(([emoji, playerIds]) => [emoji, Array.from(new Set(playerIds.filter(id => typeof id === 'string')))])
           ),
           source: m.source || null,
+          imageUrl: typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
+          messageType: m.messageType || null,
           imageData: tribute ? tribute.imageData : undefined,
           publicUntil: tribute ? tribute.publicUntil : undefined
         };
