@@ -115,6 +115,34 @@ const PlayerApp = {
     const form = document.getElementById('join-form');
     const nameInput = document.getElementById('player-name');
 
+    const imageButton = document.getElementById('chat-image-upload-btn');
+    const imageInput = document.getElementById('chat-image-upload-input');
+    imageButton?.addEventListener('click', () => imageInput?.click());
+    imageInput?.addEventListener('change', async () => {
+      const file = imageInput.files?.[0];
+      imageInput.value = '';
+      if (!file) return;
+      if (!['image/png','image/jpeg','image/webp'].includes(file.type)) return alert('PNG, JPG or WEBP only.');
+      if (file.size > 5 * 1024 * 1024) return alert('Image must be 5 MB or smaller.');
+      const caption = input?.value.trim() || '';
+      const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+      imageButton.disabled = true;
+      try {
+        const res = await fetch('/api/chat/image?caption=' + encodeURIComponent(caption), {
+          method: 'POST',
+          headers: { 'Content-Type': file.type, 'x-player-token': token },
+          body: file
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(result.error || 'Image upload failed');
+        if (input) input.value = '';
+      } catch (error) {
+        alert(error.message || 'Image upload failed');
+      } finally {
+        imageButton.disabled = false;
+      }
+    });
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       this.joinGame();
@@ -2616,7 +2644,7 @@ const PlayerApp = {
       return `
         <div class="chat-broker-entry chat-reactable" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           ${replyContextHtml}
-          ${Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchIn: isNew })}
+          ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchIn: isNew })}\n          ${msg.imageUrl ? `<a class="chat-image-link" href="${this.escapeHtml(msg.imageUrl)}" target="_blank" rel="noopener"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></a>` : ''}
           ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
           ${this.createReactionBarHTML(msg)}
         </div>
@@ -2666,7 +2694,7 @@ const PlayerApp = {
           <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>
           <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">&#8617;</button>
           ${replyContextHtml}
-          <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>
+          <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<a class="chat-image-link" href="${this.escapeHtml(msg.imageUrl)}" target="_blank" rel="noopener"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></a>` : ''}
           ${verdictMetaHtml}
           ${verdictResponseHtml}
           ${this.createReactionBarHTML(msg)}

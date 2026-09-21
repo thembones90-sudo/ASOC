@@ -18,6 +18,7 @@ const recountEngine = require('./recount-engine');
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_WS_PAYLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
 const MASTER_ROOM_CODE = 'MASTER';
 const ROOM_MODES = Object.freeze({
   CASUAL: 'CASUAL',
@@ -141,6 +142,8 @@ function assertDataDirectoryWritable(dataDir) {
   }
 }
 assertDataDirectoryWritable(ASOC_DATA_DIR);
+const CHAT_UPLOAD_DIR = path.join(ASOC_DATA_DIR, 'chat-uploads');
+fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
 const ACTIVE_ROOMS_FILE = process.env.ASOC_SESSION_FILE
   ? path.resolve(process.env.ASOC_SESSION_FILE)
   : path.join(ASOC_DATA_DIR, 'active-rooms.json');
@@ -2507,6 +2510,96 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
   return { success: true, changed, revision: room.revision, message, scoreWarning, newAward, finalOutcome, streakChanged };
 }
 
+
+function appendChatImageMessage(room, actor, imageUrl, caption = '') {
+  const cleanCaption = sanitizeText(caption || '');
+  const isHost = actor.role === 'gm';
+  const liveIdentity = !isHost
+    ? (Array.from(room.players.values()).find(player => player.id === actor.playerId) || {})
+    : {};
+  const message = {
+    id: generateMessageId(),
+    playerId: isHost ? null : actor.playerId,
+    playerName: isHost ? 'SHADOW BROKER' : actor.playerName,
+    avatarData: isHost ? '' : (liveIdentity.avatarData || ''),
+    frameColor: isHost ? '#9B5DE0' : (liveIdentity.frameColor || '#9B5DE0'),
+    themeId: isHost ? 'gunmetal' : (liveIdentity.themeId || 'gunmetal'),
+    themeColor: isHost ? '#343A42' : (liveIdentity.themeColor || '#343A42'),
+    text: cleanCaption,
+    imageUrl,
+    messageType: 'image',
+    timestamp: Date.now(),
+    boardId: room.roomMode === ROOM_MODES.BATTLE && !room.sessionState.matchResult ? room.boardId : null,
+    verdict: null,
+    target: null,
+    verdictResponse: null,
+    source: isHost ? 'shadowBroker' : 'chatImage',
+    editableByHost: false,
+    editedAt: null,
+    reactions: {}
+  };
+  room.chat.messages.push(message);
+  if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
+  return message;
+}
+
+function validChatImageBytes(buffer, contentType) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return false;
+  if (contentType === 'image/png') {
+    return buffer.subarray(0, 8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]));
+  }
+  if (contentType === 'image/jpeg') {
+    return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+  if (contentType === 'image/webp') {
+    return buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+  }
+  return false;
+}
+
+function readChatImageBody(req, cb) {
+  const chunks = [];
+  let size = 0;
+  let rejected = false;
+  req.on('data', chunk => {
+    if (rejected) return;
+    size += chunk.length;
+    if (size > MAX_CHAT_IMAGE_BYTES) {
+      rejected = true;
+      cb(Object.assign(new Error('Image too large'), { code: 'TOO_LARGE' }));
+      req.resume();
+      return;
+    }
+    chunks.push(chunk);
+  });
+  req.on('end', () => {
+    if (!rejected) cb(null, Buffer.concat(chunks));
+  });
+  req.on('error', err => {
+    if (!rejected) cb(err);
+  });
+}
+
+function serveChatUpload(req, res, urlPath) {
+  const match = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp))$/i.exec(urlPath);
+  if (!match) return false;
+  const filePath = path.join(CHAT_UPLOAD_DIR, match[1]);
+  fs.readFile(filePath, (err, content) => {
+    if (err) {
+      res.writeHead(err.code === 'ENOENT' ? 404 : 500, { 'Content-Type': 'text/plain' });
+      res.end(err.code === 'ENOENT' ? 'Not Found' : 'Server Error');
+      return;
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    res.writeHead(200, {
+      'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+      'Cache-Control': 'public, max-age=31536000, immutable'
+    });
+    res.end(content);
+  });
+  return true;
+}
+
 function addChatMessage(room, playerId, playerName, text) {
   const sanitized = sanitizeText(text);
   if (!sanitized) return { success: false, error: 'Empty message' };
@@ -2627,6 +2720,8 @@ function getChatState(room) {
               .map(([emoji, playerIds]) => [emoji, Array.from(new Set(playerIds.filter(id => typeof id === 'string')))])
           ),
           source: m.source || null,
+          imageUrl: typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
+          messageType: m.messageType || null,
           imageData: tribute ? tribute.imageData : undefined,
           publicUntil: tribute ? tribute.publicUntil : undefined
         };
@@ -3943,6 +4038,57 @@ function handleApiRequest(req, res) {
   const parts = url.pathname.split('/').filter(Boolean);
   const method = req.method;
 
+  if (method === 'POST' && url.pathname === '/api/chat/image') {
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    const extByType = {
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/webp': 'webp'
+    };
+    const ext = extByType[contentType];
+    if (!ext) return sendJson(res, 415, { error: 'Only PNG, JPEG and WEBP images are allowed' });
+
+    const room = rooms.get(MASTER_ROOM_CODE);
+    if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
+
+    let actor = null;
+    const gmToken = String(req.headers['x-gm-token'] || '');
+    if (gmToken && isValidGmToken(gmToken)) {
+      actor = { role: 'gm' };
+    } else {
+      const playerToken = String(req.headers['x-player-token'] || '');
+      const auth = getPlayerAuth(playerToken);
+      if (auth?.playerId) {
+        const live = Array.from(room.players.values()).find(p => p.id === auth.playerId);
+        if (live) actor = { role: 'player', playerId: live.id, playerName: live.name };
+      }
+    }
+    if (!actor) return sendJson(res, 401, { error: 'Chat upload authentication required' });
+
+    const captionLimit = actor.role === 'gm' ? 500 : MAX_CHAT_LENGTH;
+    const caption = sanitizeText(url.searchParams.get('caption') || '').slice(0, captionLimit);
+
+    return readChatImageBody(req, (err, body) => {
+      if (err) return sendJson(res, err.code === 'TOO_LARGE' ? 413 : 400, { error: err.code === 'TOO_LARGE' ? 'Image exceeds 5 MB limit' : 'Image upload failed' });
+      if (!body || body.length === 0) return sendJson(res, 400, { error: 'Empty image upload' });
+      if (!validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Image file signature does not match its declared type' });
+
+      const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
+      const filePath = path.join(CHAT_UPLOAD_DIR, filename);
+      try {
+        fs.writeFileSync(filePath, body, { flag: 'wx', mode: 0o600 });
+        const imageUrl = '/uploads/chat/' + filename;
+        const message = appendChatImageMessage(room, actor, imageUrl, caption);
+        persistActiveRooms();
+        broadcastChatUpdate(room);
+        return sendJson(res, 201, { ok: true, imageUrl, messageId: message.id });
+      } catch (writeError) {
+        console.error('[chat-image] upload failed', writeError);
+        return sendJson(res, 500, { error: 'Image could not be stored' });
+      }
+    });
+  }
+
   if (method === 'POST' && url.pathname === '/api/auth/player/register') {
     return readJsonBody(req, async (err, body) => {
       if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
@@ -4360,6 +4506,9 @@ function resolveAllowedStaticPath(requestUrl) {
 
 const server = http.createServer((req, res) => {
   const urlPath = req.url.split('?')[0];
+  if ((req.method === 'GET' || req.method === 'HEAD') && urlPath.startsWith('/uploads/chat/')) {
+    if (serveChatUpload(req, res, urlPath)) return;
+  }
   if (req.method === 'GET' && urlPath === '/health') {
     const ready = !shuttingDown && !persistenceFailed && !recoveryStoreLocked && durableIO.healthy() && authStore.isHealthy() && playerStore.isHealthy() && matchStore.isHealthy() && playerSessionStore.isHealthy();
     return sendJson(res, ready ? 200 : 503, {
