@@ -20,7 +20,7 @@ const ControlSurfaces = {
     battle.id = 'gm-battle-control';
     battle.className = 'gm-control-surface gm-battle-control';
     content.insertBefore(battle, content.firstChild);
-    [chat, chatHeightSplitter, womf, scoring, global].forEach(section => {
+    [chat, chatHeightSplitter, scoring, global].forEach(section => {
       if (section) battle.appendChild(section);
     });
 
@@ -35,11 +35,6 @@ const ControlSurfaces = {
         '<span id="battle-session-room" style="display:none;">ROOM <b id="battle-session-code">—</b></span>' +
         '<span id="battle-session-heroes" style="display:none;"><b id="battle-session-player-count">0</b> HEROES</span>';
       game.appendChild(strip);
-    }
-
-    if (womf) {
-      const title = womf.querySelector('.gm-section-title');
-      if (title) title.textContent = 'WOMF Commands';
     }
 
     if (scoring) {
@@ -156,13 +151,11 @@ const ControlSurfaces = {
     advanced.appendChild(advancedBody);
     maintenance.appendChild(advanced);
 
-    const womfMaintenance = makeModule('WOMF Reset', advancedBody);
-    const womfReset = document.getElementById('womf-reset-btn');
-    if (womfReset) {
-      const oldParent = womfReset.parentElement;
-      womfReset.style.width = '100%';
-      womfMaintenance.appendChild(womfReset);
-      if (oldParent) oldParent.style.gridTemplateColumns = '1fr';
+    if (womf) {
+      const title = womf.querySelector('.gm-section-title');
+      if (title) title.textContent = 'WOMF Maintenance';
+      womf.classList.add('maintenance-module');
+      advancedBody.appendChild(womf);
     }
 
     if (tributeVault) {
