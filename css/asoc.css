@@ -1492,6 +1492,58 @@ body.gm-layout-resizing * {
   .nema-asoc-btn .nema-nuclear-mark { animation: none !important; }
 }
 
+/* @ALL MASS MENTION // host attention pulse.
+   This is intentionally brief: enough to make every Little Hero look at the
+   transmission without hijacking the screen like NEMA ASOC does. */
+body.asoc-mention-all-active #app-layout,
+body.asoc-mention-all-active #game-screen {
+  transform-origin: center center;
+  animation: asoc-mention-all-shake 720ms cubic-bezier(.2,.75,.25,1) both;
+}
+
+@keyframes asoc-mention-all-shake {
+  0%   { transform: translate3d(0,0,0) rotate(0); }
+  8%   { transform: translate3d(-8px,2px,0) rotate(-.10deg); }
+  17%  { transform: translate3d(8px,-3px,0) rotate(.10deg); }
+  27%  { transform: translate3d(-6px,-2px,0) rotate(-.08deg); }
+  38%  { transform: translate3d(6px,3px,0) rotate(.07deg); }
+  50%  { transform: translate3d(-4px,1px,0) rotate(-.05deg); }
+  63%  { transform: translate3d(4px,-2px,0) rotate(.04deg); }
+  76%  { transform: translate3d(-2px,1px,0) rotate(-.02deg); }
+  88%  { transform: translate3d(2px,0,0) rotate(.01deg); }
+  100% { transform: translate3d(0,0,0) rotate(0); }
+}
+
+.chat-mention.mention-all {
+  background: rgba(155,93,224,.34);
+  color: #f1dcff;
+  box-shadow: inset 0 0 0 1px rgba(196,145,238,.28), 0 0 8px rgba(155,93,224,.18);
+}
+
+.gm-chat-mention-option.gm-chat-mention-all {
+  border-color: rgba(181,108,236,.38);
+  background: linear-gradient(90deg, rgba(155,93,224,.16), rgba(24,18,31,.94));
+}
+
+.gm-mention-all-mark {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(190,137,234,.55);
+  border-radius: 50%;
+  color: #e4c7f8;
+  font: 900 .72rem var(--font-system);
+  box-shadow: 0 0 9px rgba(155,93,224,.24), inset 0 0 8px rgba(155,93,224,.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.asoc-mention-all-active #app-layout,
+  body.asoc-mention-all-active #game-screen {
+    animation: none !important;
+  }
+}
+
 /* NEMA ASOC threat effect: five seconds of deliberate audiovisual-style
    visual chaos. No game state changes; this is pure presentation. */
 .nema-asoc-overlay {
