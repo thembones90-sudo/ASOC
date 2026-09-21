@@ -4207,7 +4207,13 @@ function serveStaticFile(req, res) {
       respondMissing();
       return;
     }
-    res.writeHead(200, { 'Content-Type': contentType });
+    const headers = { 'Content-Type': contentType };
+    if (ext === '.html' || ext === '.js' || ext === '.css') {
+      headers['Cache-Control'] = 'no-store, max-age=0';
+      headers.Pragma = 'no-cache';
+      headers.Expires = '0';
+    }
+    res.writeHead(200, headers);
     res.end(content);
 
     function respondMissing() {
