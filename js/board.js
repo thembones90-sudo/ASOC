@@ -35,9 +35,9 @@ const Board = {
     this.sessionState = {
       cells: {},
       finalSolution: false,
-      // Per-cell equivalent of a WOMF-declared column failure -- only ever
-      // set on a solution slot (A5/B5/C5/D5) by the server, keyed by cell
-      // key, value 'failed'. See getCellOutcome()/applyServerState().
+      // Direct solution adjudication state for A5/B5/C5/D5, keyed by cell:
+      // 'success' = GREEN, 'failed' = RED. Ordinary reveal paths may leave
+      // a solution with no outcome. See getCellOutcome()/applyServerState().
       cellOutcomes: {},
       // 'success' | 'failed' | null -- mirrors the server's
       // sessionState.finalOutcome (already sent as state.finalSolution.outcome
@@ -67,9 +67,8 @@ const Board = {
     return this.sessionState.cells[key] === true;
   },
 
-  // WOMF-only: null unless the server tagged this cell 'failed' (a
-  // declared column failure force-reveals its solution slot in red rather
-  // than the normal reveal color). Always null in local/solo mode.
+  // A5-D5 direct adjudication outcome: 'success' (GREEN), 'failed' (RED),
+  // or null when the solution has not been adjudicated.
   getCellOutcome(column, row) {
     const key = this.getCellKey(column, row);
     return (this.sessionState.cellOutcomes && this.sessionState.cellOutcomes[key]) || null;
@@ -623,7 +622,8 @@ const Board = {
       if (revealed) {
         publicCells[key] = {
           revealed: true,
-          value: GameData.getCellData(col, 5)
+          value: GameData.getCellData(col, 5),
+          outcome: this.getCellOutcome(col, 5)
         };
       } else {
         publicCells[key] = { revealed: false };
