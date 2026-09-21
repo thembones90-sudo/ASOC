@@ -101,7 +101,13 @@ function openWs() {
   });
 }
 
-async function createRoom(host) {
+async function startBattle(host) {
+  const started = waitForMessage(host, m => m.type === 'state:public' && m.roomMode === 'BATTLE', 'battle mode start');
+  host.send(JSON.stringify({ type: 'gm:timerStart' }));
+  return started;
+}
+
+async function createRoom(host, { startBattle: shouldStartBattle = true } = {}) {
   const arm = async () => {
     const response = waitForMessage(
       host,
@@ -111,13 +117,14 @@ async function createRoom(host) {
     host.send(JSON.stringify({ type: 'room:create', gameId: 'sample-game', gmToken: TEST_GM_TOKEN }));
     return response;
   };
+  const finishArm = async response => {
+    if (response.type === 'room:created' && shouldStartBattle) await startBattle(host);
+    return response;
+  };
 
   let response = await arm();
-  if (response.type === 'room:created') return response;
+  if (response.type === 'room:created') return finishArm(response);
 
-  // Tests are sequential but MASTER is intentionally permanent. If a prior
-  // test left an armed session behind, reclaim and explicitly disarm it
-  // rather than relying on room:create to destroy live state.
   for (let attempt = 0; attempt < 5; attempt++) {
     const recovered = waitForMessage(
       host,
@@ -127,16 +134,16 @@ async function createRoom(host) {
     host.send(JSON.stringify({ type: 'host:recover', gmToken: TEST_GM_TOKEN }));
     const recovery = await recovered;
     if (recovery.type === 'host:recovered') {
-      const disarmed = waitForMessage(host, m => m.type === 'room:disarmed', 'test cleanup disarm');
+      const casual = waitForMessage(host, m => m.type === 'room:casual', 'test cleanup return to casual');
       host.send(JSON.stringify({ type: 'room:close' }));
-      await disarmed;
+      await casual;
       response = await arm();
-      if (response.type === 'room:created') return response;
+      if (response.type === 'room:created') return finishArm(response);
     }
     await delay(100);
   }
 
-  throw new Error('Could not obtain a clean unarmed MASTER for test');
+  throw new Error('Could not obtain a clean CASUAL MASTER for test');
 }
 
 function closeWs(ws) {
@@ -238,9 +245,10 @@ async function testMasterRoomLifecycle() {
     m => m.type === 'chat:update' && m.messages?.some(x => x.text === beforeText),
     'Master Room chat survives arm'
   );
-  const room = await createRoom(host);
+  const room = await createRoom(host, { startBattle: false });
   assert.equal(room.roomCode, 'MASTER');
-  await armedState;
+  const armedSnapshot = await armedState;
+  assert.equal(armedSnapshot.roomMode, 'BATTLE_ARMED');
   const armedChatState = await armedChat;
   assert.equal(
     armedChatState.messages.find(x => x.id === historicalMessage.id)?.adjudicable,
@@ -255,6 +263,9 @@ async function testMasterRoomLifecycle() {
   );
   host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: historicalMessage.id, verdict: 'wrong' }));
   await historicalReject;
+
+  const liveState = await startBattle(host);
+  assert.equal(liveState.roomMode, 'BATTLE');
 
   await delay(400);
   const activeText = 'MASTER ROOM ACTIVE GUESS';
@@ -280,19 +291,19 @@ async function testMasterRoomLifecycle() {
     m => m.type === 'chat:update' && m.messages?.some(x => x.text === beforeText),
     'Master Room chat survives disarm'
   );
-  const disarmedAck = waitForMessage(host, m => m.type === 'room:disarmed', 'Master Room disarm acknowledgement');
+  const disarmedAck = waitForMessage(host, m => m.type === 'room:casual', 'Master Room disarm acknowledgement');
   host.send(JSON.stringify({ type: 'room:close' }));
   const [idleState] = await Promise.all([disarmedState, disarmedChat, disarmedAck]);
   assert.equal(idleState.womf.charge, 1, 'KILL SESSION must preserve Master Room WOMF charge');
   assert.equal(player.readyState, WebSocket.OPEN, 'disarming gameplay must not disconnect players');
 
   const rearmedState = waitForMessage(player, m => m.type === 'state:public' && m.armed === true, 'Master Room rearmed');
-  await createRoom(host);
-  assert.equal((await rearmedState).womf.charge, 1, 'ARM GAME must preserve accumulated WOMF charge');
+  await createRoom(host, { startBattle: false });
+  assert.equal((await rearmedState).womf.charge, 1, 'ARM BATTLE must preserve accumulated WOMF charge');
   const womfReset = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 0, 'WOMF cleanup for later tests');
   host.send(JSON.stringify({ type: 'gm:womfReset' }));
   await womfReset;
-  const redisarmed = waitForMessage(host, m => m.type === 'room:disarmed', 'Master Room second disarm');
+  const redisarmed = waitForMessage(host, m => m.type === 'room:casual', 'Master Room second disarm');
   host.send(JSON.stringify({ type: 'room:close' }));
   await redisarmed;
 
@@ -684,6 +695,7 @@ async function testGameWonReward() {
   const cleared = bothSee(m => m.finalSolution?.revealed !== true, 'reset after reveal all');
   command('resetBoard', 902);
   await cleared;
+  await startBattle(host);
 
   // 3. Accepting the FINAL is NOT the end of the game -- columns can still be
   //    solved -- so it must never trigger the victory. GAME WON is the host's
@@ -764,7 +776,7 @@ async function testGameWonReward() {
 
 async function testAuthoritativeGameLost() {
   const host = await openWs();
-  const room = await createRoom(host);
+  const room = await createRoom(host, { startBattle: false });
   const player = await openWs();
   const joined = waitForMessage(player, m => m.type === 'join:success', 'game lost player join');
   player.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'LOSS TEST' }));
@@ -787,9 +799,15 @@ async function testAuthoritativeGameLost() {
   assert.ok(Array.isArray(hostState.matchResult.awards));
   assert.ok(hostState.matchResult.awards.some(a => a.type === 'COLLECTIVE FAILURE'));
 
-  const locked = waitForMessage(player, m => m.type === 'error' && /game lost/i.test(m.message || ''), 'post-loss input locked');
+  const postLossChat = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'TOO LATE'),
+    'post-loss social chat remains open'
+  );
   player.send(JSON.stringify({ type: 'chat:guess', text: 'TOO LATE' }));
-  await locked;
+  const postLoss = await postLossChat;
+  assert.equal(postLoss.messages.find(x => x.text === 'TOO LATE')?.adjudicable, false,
+    'post-loss chat is social-only and cannot be judged');
 
   const late = await openWs();
   const credentials = { email: `loss-late-${process.pid}@asoc.test`, password: 'test-player-password', name: 'LOSS LATE' };
@@ -799,7 +817,7 @@ async function testAuthoritativeGameLost() {
   late.send(JSON.stringify({ type: 'room:join', authToken: auth.data.token, roomCode: room.roomCode, name: 'LOSS LATE' }));
   assert.equal((await lateState).matchResult.message, hostState.matchResult.message, 'late join does not reroll the loss message');
 
-  console.log('PASS GAME LOST is timer-authoritative, synchronized, locked and reconnect-safe');
+  console.log('PASS GAME LOST is timer-authoritative, synchronized, reconnect-safe, and leaves social chat open');
   closeWs(late);
   closeWs(player);
   closeWs(host);
@@ -942,7 +960,7 @@ async function testUnarmedMasterRoomRecovery(server) {
   await womfCharged;
 
   const idleState = waitForMessage(player, m => m.type === 'state:public' && m.armed === false, 'unarmed recovery disarm state');
-  const disarmedAck = waitForMessage(host, m => m.type === 'room:disarmed', 'unarmed recovery disarm ack');
+  const disarmedAck = waitForMessage(host, m => m.type === 'room:casual', 'unarmed recovery disarm ack');
   host.send(JSON.stringify({ type: 'room:close' }));
   const [idle] = await Promise.all([idleState, disarmedAck]);
   assert.equal(idle.womf.charge, 1, 'WOMF survives transition into the unarmed Master Room');
@@ -1038,6 +1056,7 @@ async function testCrashInjectionPersistence(server) {
   await resetKeptCharge;
   // FAIL batch #2: B,D (+2) then FINAL (+3) => WOMF 10/10, Wheel can open.
   await failBatches(10, 'crash WOMF 10 after second FAIL batch');
+  await startBattle(host);
 
   // A judged correct column verdict + solved target + scoring event.
   const guessSeen = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'CRASH VERDICT SURVIVES'), 'crash verdict guess chat');
@@ -1111,7 +1130,6 @@ async function testCrashInjectionPersistence(server) {
   await womfDrained;
 
   const borrowed = waitForMessage(host2, m => m.type === 'state:public' && m.timer?.phase === 'borrowed', 'crash-test borrowed transition');
-  host2.send(JSON.stringify({ type: 'gm:timerStart' }));
   host2.send(JSON.stringify({ type: 'gm:timerAdjust', deltaMs: -99 * 60 * 1000 }));
   await borrowed;
   const hostLost = waitForMessage(host2, m => m.type === 'state:public' && m.matchResult?.outcome === 'LOST', 'crash-test GAME LOST', 5000);
@@ -1226,7 +1244,7 @@ async function testBloodTributeLifecycle() {
     m => m.type === 'state:public' && m.armed === false && m.bloodTribute?.status === 'required',
     'tribute survives KILL SESSION'
   );
-  const tributeDisarmed = waitForMessage(host, m => m.type === 'room:disarmed', 'tribute session disarm');
+  const tributeDisarmed = waitForMessage(host, m => m.type === 'room:casual', 'tribute session disarm');
   host.send(JSON.stringify({ type: 'room:close' }));
   const [idleTribute] = await Promise.all([tributeIdle, tributeDisarmed]);
   assert.equal(idleTribute.bloodTribute.playerId, result.bloodTribute.playerId);
@@ -1517,6 +1535,7 @@ async function testMatchCaptureAndCompletion() {
   const cleared2 = stateWhere(m => m.finalSolution?.revealed !== true, 'reset for the early-final scenario');
   command('resetBoard');
   await cleared2;
+  await startBattle(host);
 
   const finalId = await guess('the final answer');
   await judge(finalId, 'correct', 'FINAL');
@@ -1634,6 +1653,7 @@ async function testColumnScoreAfterFinal() {
   const cleared = waitForMessage(host, m => m.type === 'state:public' && m.finalSolution?.revealed !== true, 'reset for failed-final board');
   host.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: ++cmdId }));
   await cleared;
+  await startBattle(host);
   await reveal('C1');
   const failedFinal = waitForMessage(host, m => m.type === 'score:finalReveal', 'final failed reveal');
   host.send(JSON.stringify({ type: 'gm:failFinal' }));
@@ -1818,7 +1838,7 @@ function startServer() {
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error('Test server did not start in time' + (stderr ? `: ${stderr}` : '')));
-    }, 5000);
+    }, 12000);
 
     child.stderr.on('data', chunk => {
       stderr += chunk.toString();
