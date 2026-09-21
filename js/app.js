@@ -5,6 +5,8 @@ const App = {
   roomMode: 'CASUAL',
   _roomModeBaselined: false,
   _roomModeTransitionTimer: null,
+  _battleTransformationTypingStartTimer: null,
+  _battleTransformationTypingTimer: null,
   _battleTransformationMessages: [
     "Adaptation is not courage. It is necessity.",
     "Weak patterns identified. Correction imminent.",
@@ -2667,6 +2669,14 @@ const App = {
       clearTimeout(this._roomModeTransitionTimer);
       this._roomModeTransitionTimer = null;
     }
+    if (this._battleTransformationTypingStartTimer) {
+      clearTimeout(this._battleTransformationTypingStartTimer);
+      this._battleTransformationTypingStartTimer = null;
+    }
+    if (this._battleTransformationTypingTimer) {
+      clearInterval(this._battleTransformationTypingTimer);
+      this._battleTransformationTypingTimer = null;
+    }
     active?.remove();
     document.body.classList.remove('asoc-transition-to-battle', 'asoc-transition-to-casual');
 
@@ -2692,7 +2702,7 @@ const App = {
         <div class="asoc-mode-transition-eye"><img src="/assets/ui/asoc-favicon.svg?v=1" alt=""></div>
         <div class="asoc-mode-transition-kicker">A.S.O.C. // MASTER ROOM</div>
         <div class="asoc-mode-transition-title">${battle ? 'BATTLE PROTOCOL ENGAGED' : 'BATTLE INTERFACE SUSPENDED'}</div>
-        <div class="asoc-mode-transition-sub">${battle ? this.escapeHtml(transformationMessage) : 'CASUAL CHANNEL // RESTORED'}</div>
+        <div class="asoc-mode-transition-sub">${battle ? '' : 'CASUAL CHANNEL // RESTORED'}</div>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -2701,7 +2711,56 @@ const App = {
 
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
     const holdMs = reducedMotion ? 300 : 4000;
+
+    if (battle) {
+      const line = overlay.querySelector('.asoc-mode-transition-sub');
+      if (line) {
+        if (reducedMotion) {
+          line.textContent = transformationMessage;
+          line.classList.add('is-typed');
+        } else {
+          const characters = Array.from(transformationMessage);
+          const typingStartMs = 500;
+          const availableTypingMs = Math.max(1200, holdMs - typingStartMs - 550);
+          const characterDelay = Math.max(30, Math.min(55, Math.floor(availableTypingMs / Math.max(characters.length, 1))));
+
+          this._battleTransformationTypingStartTimer = setTimeout(() => {
+            this._battleTransformationTypingStartTimer = null;
+            if (!overlay.isConnected) return;
+
+            let index = 0;
+            line.classList.add('is-typing');
+            this._battleTransformationTypingTimer = setInterval(() => {
+              if (!overlay.isConnected) {
+                clearInterval(this._battleTransformationTypingTimer);
+                this._battleTransformationTypingTimer = null;
+                return;
+              }
+
+              index += 1;
+              line.textContent = characters.slice(0, index).join('');
+
+              if (index >= characters.length) {
+                clearInterval(this._battleTransformationTypingTimer);
+                this._battleTransformationTypingTimer = null;
+                line.classList.remove('is-typing');
+                line.classList.add('is-typed');
+              }
+            }, characterDelay);
+          }, typingStartMs);
+        }
+      }
+    }
+
     this._roomModeTransitionTimer = setTimeout(() => {
+      if (this._battleTransformationTypingStartTimer) {
+        clearTimeout(this._battleTransformationTypingStartTimer);
+        this._battleTransformationTypingStartTimer = null;
+      }
+      if (this._battleTransformationTypingTimer) {
+        clearInterval(this._battleTransformationTypingTimer);
+        this._battleTransformationTypingTimer = null;
+      }
       overlay.classList.add('is-leaving');
       if (battle) this.playShadowBrokerBoardLine('Prepare, little heroes, for the lovely carnage.');
       document.body.classList.remove('asoc-transition-to-battle', 'asoc-transition-to-casual');
