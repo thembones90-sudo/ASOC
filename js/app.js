@@ -556,7 +556,6 @@ const App = {
   },
 
   setupEventListeners() {
-    document.getElementById('public-view-btn').addEventListener('click', () => this.togglePublicView());
     document.getElementById('back-to-gm-btn').addEventListener('click', () => this.togglePublicView(false));
     document.getElementById('bg-select').addEventListener('change', (e) => this.applyBackground(e.target.value));
     document.getElementById('gm-bg-upload-input').addEventListener('change', (e) => {
