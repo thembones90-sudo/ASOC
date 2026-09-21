@@ -1624,6 +1624,22 @@ const App = {
         this.setDifficulty(diffBtn.dataset.difficulty);
       }
 
+      const gmPollVote = e.target.closest('[data-gm-poll-vote]');
+      if (gmPollVote) {
+        this.send({
+          type: 'chat:poll:vote',
+          messageId: gmPollVote.dataset.messageId || '',
+          optionIndex: Number(gmPollVote.dataset.gmPollVote)
+        });
+        return;
+      }
+
+      const gmPollClose = e.target.closest('[data-gm-poll-close]');
+      if (gmPollClose) {
+        this.send({ type: 'chat:poll:close', messageId: gmPollClose.dataset.gmPollClose || '' });
+        return;
+      }
+
       const gmReactionChip = e.target.closest('.gm-chat-reaction-chip');
       if (gmReactionChip) {
         this.sendGMChatReaction(
@@ -3523,6 +3539,52 @@ const App = {
     }
   },
 
+  createGMPollCardHTML(msg) {
+    const poll = msg?.poll || {};
+    const options = Array.isArray(poll.options) ? poll.options : [];
+    const votes = poll.votes && typeof poll.votes === 'object' ? poll.votes : {};
+    const voters = poll.voters && typeof poll.voters === 'object' ? poll.voters : {};
+    const voterIds = new Set();
+    Object.values(votes).forEach(ids => {
+      if (Array.isArray(ids)) ids.forEach(id => voterIds.add(String(id)));
+    });
+    const totalVoters = voterIds.size;
+    const closed = Number(poll.closedAt) > 0;
+
+    const optionHtml = options.map((option, index) => {
+      const ids = Array.isArray(votes[String(index)]) ? votes[String(index)].map(String) : [];
+      const selected = ids.includes('__GM__');
+      const percent = totalVoters ? Math.round((ids.length / totalVoters) * 100) : 0;
+      const voterNames = ids.map(id => {
+        if (id === '__GM__') return 'SHADOW BROKER';
+        return String(voters[id]?.name || (this.currentPlayers || []).find(player => String(player.id) === id)?.name || 'LITTLE HERO');
+      });
+      const voterTitle = voterNames.length ? 'VOTERS // ' + voterNames.join(', ') : 'NO VOTES';
+      return `
+        <button type="button" class="gm-poll-choice${selected ? ' selected' : ''}" data-gm-poll-vote="${index}" data-message-id="${this.escapeHtml(msg.id)}" ${closed ? 'disabled' : ''}>
+          <span class="gm-poll-choice-fill" style="width:${percent}%"></span>
+          <span class="gm-poll-choice-label">${this.escapeHtml(option)}</span>
+          <span class="gm-poll-choice-result" title="${this.escapeHtml(voterTitle)}"><b>${percent}%</b><small>${ids.length}</small></span>
+        </button>
+      `;
+    }).join('');
+
+    return `
+      <div class="gm-poll-card${closed ? ' is-closed' : ''}">
+        <div class="gm-poll-card-head">
+          <span>POLL${poll.allowMultiple ? ' // MULTIPLE' : ''}</span>
+          <b>${closed ? 'CLOSED' : 'LIVE'}</b>
+        </div>
+        <div class="gm-poll-question">${this.escapeHtml(poll.question || msg.text || '')}</div>
+        <div class="gm-poll-choice-list">${optionHtml}</div>
+        <div class="gm-poll-card-foot">
+          <span>${totalVoters} VOTER${totalVoters === 1 ? '' : 'S'}</span>
+          ${closed ? '' : `<button type="button" class="gm-poll-close" data-gm-poll-close="${this.escapeHtml(msg.id)}">CLOSE POLL</button>`}
+        </div>
+      </div>
+    `;
+  },
+
   renderGMChat() {
     const container = document.getElementById('gm-chat-messages');
     if (!container) return;
@@ -3622,6 +3684,33 @@ const App = {
         <div class="gm-chat-blood-tribute-entry" data-message-id="${this.escapeHtml(msg.id)}">
           <div class="blood-tribute-chat-head"><span>BLOOD TRIBUTE // ${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><b>PUBLIC PURGE ${minutes}:${seconds}</b></div>
           <img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image">
+        </div>
+      `;
+    }
+
+    if (msg.messageType === 'poll' && msg.poll) {
+      const isBrokerPoll = msg.poll.createdByRole === 'gm';
+      const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const avatar = isBrokerPoll
+        ? '<span class="gm-poll-broker-avatar" aria-hidden="true">SB</span>'
+        : this.littleHeroAvatarHTML(identity, true);
+      const themeId = isBrokerPoll ? 'gunmetal' : ASOCThemes.get(identity.themeId).id;
+      const themeStyle = isBrokerPoll ? '' : ASOCThemes.messageStyle(identity.themeId);
+      const frameColor = isBrokerPoll
+        ? '#9B5DE0'
+        : (/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885');
+      return `
+        <div class="gm-chat-message gm-flow-message gm-poll-message" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+          <div class="gm-chat-avatar-rail">${avatar}</div>
+          <div class="gm-chat-bubble-cluster">
+            <div class="gm-chat-message-main">
+              <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><span class="gm-chat-time">${time}</span></div>
+              ${this.createGMPollCardHTML(msg)}
+              ${this.createGMReactionSummaryHTML(msg)}
+            </div>
+            <div class="gm-chat-quick-actions adjudicated" aria-hidden="true"></div>
+          </div>
         </div>
       `;
     }
