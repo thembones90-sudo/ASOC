@@ -5,6 +5,60 @@ const App = {
   roomMode: 'CASUAL',
   _roomModeBaselined: false,
   _roomModeTransitionTimer: null,
+  _battleTransformationMessages: [
+    "Adaptation is not courage. It is necessity.",
+    "Weak patterns identified. Correction imminent.",
+    "Resistance measured. Outcome remains unchanged.",
+    "You were observed before you were ready.",
+    "Every choice narrows the path.",
+    "Instinct is inefficient. Precision survives.",
+    "Fear detected. Useful.",
+    "The board remembers every hesitation.",
+    "Survival favors those who abandon certainty.",
+    "Your confidence has exceeded available evidence.",
+    "Mistakes propagate. So do consequences.",
+    "Evolution requires pressure. Pressure begins now.",
+    "Thought without discipline becomes noise.",
+    "The weak reveal themselves voluntarily.",
+    "Prediction complete. Defiance accounted for.",
+    "You are not entering the game. The game is entering you.",
+    "No move is isolated. No error is private.",
+    "Observation precedes judgment.",
+    "Efficiency demands sacrifice.",
+    "You may improvise. The system already has.",
+    "Control is an illusion granted until useful.",
+    "Patterns betray intentions.",
+    "Sentiment noted. Relevance negligible.",
+    "You have options. None are innocent.",
+    "The shortest path is rarely merciful.",
+    "Power belongs to whoever understands the board.",
+    "The past is data. Regret is waste.",
+    "Your motives are irrelevant. Your choices are not.",
+    "Victory begins where certainty dies.",
+    "A clever enemy is still an enemy.",
+    "Every alliance contains a fracture line.",
+    "The board does not punish. It reveals.",
+    "You will call it fate after ignoring the pattern.",
+    "Mercy is merely strategy with a deadline.",
+    "The room has finished listening.",
+    "Doubt is acceptable. Delay is not.",
+    "You were warned by your own instincts.",
+    "Power changes hands before anyone notices.",
+    "A plan survives only by learning to betray itself.",
+    "There is always another move. Usually worse.",
+    "The system requires answers, not hope.",
+    "Your best assumption is still an assumption.",
+    "Nothing here needs your permission.",
+    "A single weakness is sufficient.",
+    "History favors the survivor, not the righteous.",
+    "The board has no sympathy for elegant failure.",
+    "Choose carefully. Consequences are already awake.",
+    "What you conceal is often what defines the outcome.",
+    "Preparation ends where observation begins.",
+    "Proceed. The system is curious how you fail.",
+  ],
+  _battleTransformationLastIndex: -1,
+
   ws: null,
   roomCode: '',
   hostToken: '',
@@ -2623,6 +2677,17 @@ const App = {
   },
 
 
+  pickBattleTransformationMessage() {
+    const pool = this._battleTransformationMessages || [];
+    if (!pool.length) return '';
+    let index = Math.floor(Math.random() * pool.length);
+    if (pool.length > 1 && index === this._battleTransformationLastIndex) {
+      index = (index + 1 + Math.floor(Math.random() * (pool.length - 1))) % pool.length;
+    }
+    this._battleTransformationLastIndex = index;
+    return pool[index];
+  },
+
   playRoomModeTransition(previous, next) {
     const fromCasual = previous === 'CASUAL';
     const toCasual = next === 'CASUAL';
@@ -2640,6 +2705,7 @@ const App = {
     document.body.classList.remove('asoc-transition-to-battle', 'asoc-transition-to-casual');
 
     const battle = direction === 'battle';
+    const transformationMessage = battle ? this.pickBattleTransformationMessage() : '';
     const overlay = document.createElement('div');
     overlay.className = 'asoc-mode-transition asoc-mode-transition--' + direction;
     overlay.dataset.direction = direction;
@@ -2660,7 +2726,7 @@ const App = {
         <div class="asoc-mode-transition-eye"><img src="/assets/ui/asoc-favicon.svg?v=1" alt=""></div>
         <div class="asoc-mode-transition-kicker">A.S.O.C. // MASTER ROOM</div>
         <div class="asoc-mode-transition-title">${battle ? 'BATTLE PROTOCOL ENGAGED' : 'BATTLE INTERFACE SUSPENDED'}</div>
-        <div class="asoc-mode-transition-sub">${battle ? 'TACTICAL SURFACE // ONLINE' : 'CASUAL CHANNEL // RESTORED'}</div>
+        <div class="asoc-mode-transition-sub">${battle ? this.escapeHtml(transformationMessage) : 'CASUAL CHANNEL // RESTORED'}</div>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -2671,6 +2737,7 @@ const App = {
     const holdMs = reducedMotion ? 300 : 4000;
     this._roomModeTransitionTimer = setTimeout(() => {
       overlay.classList.add('is-leaving');
+      if (battle) this.playShadowBrokerBoardLine('Prepare, little heroes, for the lovely carnage.');
       document.body.classList.remove('asoc-transition-to-battle', 'asoc-transition-to-casual');
       setTimeout(() => overlay.remove(), reducedMotion ? 30 : 180);
       this._roomModeTransitionTimer = null;
