@@ -9341,3 +9341,48 @@ body.game-complete .recount-btn,
 #gm-chat-reaction-picker .gm-emoji-picker-head {
   cursor: default;
 }
+
+
+/* GM VERDICT BUTTONS // GLUED TO PLAYER BUBBLE V1
+   The adjudication stack belongs to the message, not the far edge of the panel. */
+@media (min-width: 761px) {
+  .gm-module-chat .gm-chat-message.gm-flow-message {
+    grid-template-columns: 44px minmax(0,1fr) !important;
+    column-gap: 6px !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster {
+    grid-column: 2;
+    min-width: 0;
+    max-width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 2px;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-message-main {
+    flex: 0 1 auto;
+    width: fit-content !important;
+    max-width: calc(100% - 28px) !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-quick-actions {
+    flex: 0 0 24px !important;
+    min-width: 24px !important;
+    width: 24px !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 2px !important;
+  }
+
+  .gm-module-chat .gm-chat-bubble-cluster .gm-chat-quick-actions .gm-verdict-btn {
+    flex: 0 0 20px !important;
+    width: 24px !important;
+    min-width: 24px !important;
+    height: 20px !important;
+    margin: 0 !important;
+  }
+}
