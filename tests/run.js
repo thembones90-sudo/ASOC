@@ -698,6 +698,7 @@ async function testGameWonReward() {
   const cleared = bothSee(m => m.finalSolution?.revealed !== true, 'reset after reveal all');
   command('resetBoard', 902);
   await cleared;
+  await startBattle(host);
 
   // 3. Accepting the FINAL is NOT the end of the game -- columns can still be
   //    solved -- so it must never trigger the victory. GAME WON is the host's
