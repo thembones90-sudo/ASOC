@@ -4620,6 +4620,169 @@
       }
     }
 
+
+
+    /* =========================================================
+       CASUAL MODE // LITTLE HERO SOCIAL SHELL
+       Same Master Room, same chat. The board only wakes at BATTLE.
+       ========================================================= */
+    #game-screen.room-mode-casual .player-battle-layout,
+    #game-screen.room-mode-battle-armed .player-battle-layout {
+      display:flex;
+      flex-direction:column;
+      width:100%;
+      max-width:1220px;
+      height:100%;
+      min-height:0;
+      margin:0 auto;
+      padding:12px;
+      gap:0;
+    }
+
+    #game-screen.room-mode-casual #board-layer,
+    #game-screen.room-mode-battle-armed #board-layer {
+      display:none !important;
+    }
+
+    #game-screen.room-mode-casual .battle-comms-lobby,
+    #game-screen.room-mode-battle-armed .battle-comms-lobby {
+      flex:1 1 auto;
+      width:100%;
+      min-width:0;
+      min-height:0;
+      padding:0;
+      border:1px solid rgba(116,126,139,.38);
+      border-radius:8px;
+      background:
+        radial-gradient(circle at 82% 14%,rgba(112,71,146,.06),transparent 32%),
+        linear-gradient(180deg,rgba(17,22,28,.97),rgba(7,9,12,.99));
+      box-shadow:
+        inset 0 1px rgba(255,255,255,.035),
+        inset 0 0 80px rgba(0,0,0,.22),
+        0 18px 48px rgba(0,0,0,.26);
+      overflow:hidden;
+    }
+
+    #game-screen.room-mode-casual .detainee-status-module,
+    #game-screen.room-mode-battle-armed .detainee-status-module {
+      flex:0 0 auto;
+      margin:0;
+      border-bottom:1px solid rgba(116,126,139,.25);
+    }
+
+    #game-screen.room-mode-casual #battle-event-feed,
+    #game-screen.room-mode-battle-armed #battle-event-feed {
+      display:none;
+    }
+
+    #game-screen.room-mode-casual #chat-panel,
+    #game-screen.room-mode-battle-armed #chat-panel {
+      display:flex;
+      flex:1 1 auto;
+      flex-direction:column;
+      width:100%;
+      max-width:none;
+      height:auto;
+      min-height:0;
+      max-height:none;
+      margin:0;
+      border:0;
+      border-radius:0;
+      background:
+        linear-gradient(180deg,rgba(18,23,29,.72),rgba(7,9,12,.94));
+      box-shadow:none;
+    }
+
+    #game-screen.room-mode-casual #chat-messages,
+    #game-screen.room-mode-battle-armed #chat-messages {
+      flex:1 1 auto;
+      min-height:0;
+      overflow-y:auto;
+      padding:10px 12px 8px;
+    }
+
+    #game-screen.room-mode-casual .chat-header,
+    #game-screen.room-mode-battle-armed .chat-header {
+      flex:0 0 auto;
+      padding:10px 12px;
+      border-bottom:1px solid rgba(116,126,139,.26);
+    }
+
+    #game-screen.room-mode-casual .chat-title {
+      color:#cbd1d8;
+      text-shadow:0 0 10px rgba(140,91,174,.16);
+    }
+
+    #game-screen.room-mode-battle-armed .chat-title {
+      color:#d7a83d;
+      text-shadow:0 0 10px rgba(215,168,61,.18);
+    }
+
+    #game-screen.room-mode-casual .chat-form,
+    #game-screen.room-mode-battle-armed .chat-form {
+      flex:0 0 auto;
+      margin-top:auto;
+    }
+
+    #game-screen.room-mode-battle #board-layer {
+      animation:asoc-battle-board-wake .55s cubic-bezier(.2,.74,.2,1) both;
+    }
+
+    #game-screen.room-mode-battle .battle-comms-lobby {
+      animation:asoc-battle-comms-dock .55s cubic-bezier(.2,.74,.2,1) both;
+    }
+
+    @keyframes asoc-battle-board-wake {
+      0% { opacity:0; transform:translateX(-22px) scale(.985); filter:brightness(.62); }
+      100% { opacity:1; transform:none; filter:none; }
+    }
+
+    @keyframes asoc-battle-comms-dock {
+      0% { opacity:.72; transform:translateX(22px); }
+      100% { opacity:1; transform:none; }
+    }
+
+    @media (max-width:760px) {
+      #game-screen.room-mode-casual .player-battle-layout,
+      #game-screen.room-mode-battle-armed .player-battle-layout {
+        display:flex !important;
+        width:100% !important;
+        max-width:100% !important;
+        height:auto !important;
+        min-height:100dvh !important;
+        padding:
+          max(6px,env(safe-area-inset-top))
+          6px
+          max(76px,env(safe-area-inset-bottom));
+      }
+
+      #game-screen.room-mode-casual .battle-comms-lobby,
+      #game-screen.room-mode-battle-armed .battle-comms-lobby {
+        display:flex !important;
+        height:auto !important;
+        min-height:calc(100dvh - 88px) !important;
+        max-height:none !important;
+        padding:0 !important;
+        border-top:1px solid rgba(116,126,139,.38);
+        overflow:visible !important;
+      }
+
+      #game-screen.room-mode-casual #chat-panel,
+      #game-screen.room-mode-battle-armed #chat-panel {
+        flex:1 1 auto !important;
+        height:min(68dvh,640px) !important;
+        min-height:420px !important;
+        max-height:none !important;
+        overflow:hidden !important;
+      }
+
+      #game-screen.room-mode-casual #chat-messages,
+      #game-screen.room-mode-battle-armed #chat-messages {
+        overflow-y:auto !important;
+        -webkit-overflow-scrolling:touch;
+      }
+    }
+
   </style>
 </head>
 <body>
