@@ -2149,6 +2149,11 @@ const App = {
       Recount.apply(null);
       window.AsocAudio?.resetObservers?.();
     }
+
+    // Casual and Battle are the SAME transcript. Re-render the current
+    // in-memory chat immediately when only the surrounding mode changes.
+    if (Array.isArray(this.chatMessages)) this.renderGMChat();
+
     this.updateSolvedCount();
     if (previous !== next) this.updateMultiplayerUI();
   },
