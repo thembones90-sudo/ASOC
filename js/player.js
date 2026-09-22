@@ -1326,8 +1326,10 @@ const PlayerApp = {
         break;
 
       case 'recount:update':
-        // Server-authoritative: live only at the moment the host pressed SHOW
-        // RESULTS; hydration (live:false) never replays; null closes it.
+        // RECOUNT is the server-authoritative signal that the Shadow Broker
+        // advanced beyond AFTERMATH. Close the epilogue for every Little Hero
+        // at the same instant before presenting results.
+        if (message.recount) Skeleton.closeAftermath?.();
         Recount.apply(message.recount, { live: message.live === true });
         break;
 
@@ -1962,7 +1964,7 @@ const PlayerApp = {
     this._victoryBaselined = true;
     this.gameWon = won;
     document.body.classList.toggle('game-won', won);
-    if (live) Skeleton.playGameWon(matchResult || {}, { live: true });
+    if (live) Skeleton.playGameWon(matchResult || {}, { live: true, isHost: false });
   },
 
   applyLossState(matchResult) {
@@ -1974,9 +1976,14 @@ const PlayerApp = {
     this.gameLost = lost;
     this._lossResultKey = key;
     document.body.classList.toggle('game-lost', lost);
-    if (!lost) document.querySelector('.defeat-overlay')?.remove();
-    else if (live) Skeleton.playGameLost(matchResult, { live: true });
-    else if (changed && !document.querySelector('.defeat-overlay')) Skeleton.playGameLost(matchResult, { live: false });
+    if (!lost) {
+      document.querySelector('.defeat-overlay')?.remove();
+      Skeleton.closeAftermath?.();
+    } else if (live) {
+      Skeleton.playGameLost(matchResult, { live: true, isHost: false });
+    } else if (changed && !document.querySelector('.defeat-overlay')) {
+      Skeleton.playGameLost(matchResult, { live: false });
+    }
   },
 
   // HUD-TO-BOARD WIDTH SYNC -- measures the combined height of the
@@ -2024,6 +2031,7 @@ const PlayerApp = {
     document.body.classList.remove('game-won');
     document.body.classList.remove('game-lost');
     Recount.apply(null);
+    Skeleton.closeAftermath?.();
     document.querySelector('.defeat-overlay')?.remove();
     document.getElementById('game-screen').classList.remove('active');
     document.getElementById('join-screen').style.display = 'flex';
@@ -2265,7 +2273,6 @@ const PlayerApp = {
       <div class="fo-debrief-label">${isSuccess ? 'CASE FILE UNSEALED' : 'CASE FILE DECLASSIFIED'}</div>
       ${columnRows ? `<div class="fo-debrief-grid">${columnRows}</div>` : ''}
       ${outcome.correctSolution ? `<div class="fo-final-answer"><span>FINAL</span><b>${this.escapeHtml(outcome.correctSolution)}</b></div>` : ''}
-      ${outcome.story ? `<div class="fo-story">${this.escapeHtml(outcome.story)}</div>` : ''}
       <div class="fo-results" style="display: none;"></div>
     `;
     layer.appendChild(banner);
