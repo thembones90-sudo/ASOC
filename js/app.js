@@ -4295,7 +4295,7 @@ const App = {
               <img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">
               <div class="shadow-broker-body">
                 <div class="gm-shadow-broker-media-head"><span class="shadow-broker-name">SHADOW BROKER</span><span class="gm-chat-time">${time}</span></div>
-                <a class="gm-chat-gif-link" href="${gifUrl}" target="_blank" rel="noopener" title="${title}">${media}</a>
+                <button type="button" class="gm-chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>
                 <div class="gm-chat-gif-provider-mark">GIPHY</div>
               </div>
             </div>
@@ -4311,7 +4311,7 @@ const App = {
           <div class="gm-chat-bubble-cluster">
             <div class="gm-chat-message-main">
               <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><span class="gm-chat-time">${time}</span></div>
-              <a class="gm-chat-gif-link" href="${gifUrl}" target="_blank" rel="noopener" title="${title}">${media}</a>
+              <button type="button" class="gm-chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>
               <div class="gm-chat-gif-provider-mark">GIPHY</div>
               ${this.createGMReactionSummaryHTML(msg)}
             </div>
@@ -4373,7 +4373,7 @@ const App = {
       return `
         <div class="gm-shadow-broker-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${replyContextHtml}
-          ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchIn: isNew })}\n          ${msg.imageUrl ? `<a class="chat-image-link" href="${this.escapeHtml(msg.imageUrl)}" target="_blank" rel="noopener"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></a>` : ''}
+          ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchIn: isNew })}\n          ${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
           ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
           ${this.createGMReactionSummaryHTML(msg)}
         </div>
@@ -4422,7 +4422,7 @@ const App = {
           <div class="gm-chat-message-main">
             <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>
             ${replyContextHtml}
-            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<a class="chat-image-link" href="${this.escapeHtml(msg.imageUrl)}" target="_blank" rel="noopener"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></a>` : ''}
+            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
             ${verdictMetaHtml}
             ${verdictResponseHtml}
             ${this.createGMReactionSummaryHTML(msg)}
