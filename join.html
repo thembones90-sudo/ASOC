@@ -7004,6 +7004,25 @@
       margin:0 auto auto !important;
     }
 
+    /* AMUSEMENT PARK // ghosted Abusement Park crest in the social chat field. */
+    #game-screen[data-room-mode="CASUAL"] .battle-comms-lobby #chat-panel::before {
+      background:
+        url('/assets/ui/abusement-park-2026.webp') center 50% / 44% auto no-repeat,
+        repeating-linear-gradient(0deg,rgba(255,255,255,.010) 0 1px,transparent 1px 4px);
+      opacity:.10;
+      filter:saturate(.72) brightness(.55) blur(1.5px);
+      transform:scale(1.015);
+      transform-origin:center;
+    }
+
+    @media (max-width:760px) {
+      #game-screen[data-room-mode="CASUAL"] .battle-comms-lobby #chat-panel::before {
+        background-size:56% auto,auto;
+        opacity:.08;
+        filter:saturate(.68) brightness(.52) blur(2px);
+      }
+    }
+
   </style>
 </head>
 <body>
