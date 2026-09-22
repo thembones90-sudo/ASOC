@@ -4069,8 +4069,8 @@ function handleGmOmen(ws) {
     sendToWs(ws, { type: 'error', message: 'Only host can trigger OMEN' });
     return;
   }
-  if (room.roomMode !== ROOM_MODES.BATTLE) {
-    sendToWs(ws, { type: 'error', message: 'OMEN is only available in Battle mode' });
+  if (room.roomMode !== ROOM_MODES.BATTLE_ARMED && room.roomMode !== ROOM_MODES.BATTLE) {
+    sendToWs(ws, { type: 'error', message: 'OMEN is only available on the Battle surface' });
     return;
   }
   broadcastToRoom(room, { type: 'board:omen', timestamp: Date.now() });
