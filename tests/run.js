@@ -1374,15 +1374,24 @@ async function testTributeForgive(server) {
     host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['REGRESSION TEST', 'FORGIVE TWO'] }));
     await wheelOpened;
 
-    const demandPromise = waitForMessage(
+    const visibleResultPromise = waitForMessage(
       host,
-      m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
-      'forgive tribute demand',
+      m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'idle',
+      'forgive visible wheel result',
       7000
     );
     host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
+    const visibleResult = await visibleResultPromise;
+    assert.equal(visibleResult.womf.charge, 10);
+    assert.equal(visibleResult.bloodTribute.status, 'idle', 'tribute stays hidden until GM dismisses the result');
+
+    const demandPromise = waitForMessage(
+      host,
+      m => m.type === 'state:public' && m.wheel?.open === false && m.bloodTribute?.status === 'required',
+      'forgive tribute demand after dismiss'
+    );
+    host.send(JSON.stringify({ type: 'gm:wheelClose' }));
     const demand = await demandPromise;
-    assert.equal(demand.womf.charge, 10);
     assert.ok(demand.bloodTribute.playerId === one.playerId || demand.bloodTribute.playerId === two.playerId);
 
     // (1) A linked Little Hero cannot clear the debt -- the override is
@@ -1401,8 +1410,12 @@ async function testTributeForgive(server) {
     assert.ok(/Room not found/.test(strangerErr.message || ''), 'un-joined forgive attempt is rejected');
 
     // (3) The GM override itself: debt released, no vault entry, WOMF kept
-    //     at 10, Wheel untouched, and a permanent Broker override line.
-    const forgivenStatePromise = waitForMessage(host, m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'forgiven state');
+    //     at 10, and the retained wheel reopens in a clean IDLE state.
+    const forgivenStatePromise = waitForMessage(
+      host,
+      m => m.type === 'state:public' && m.bloodTribute?.status === 'idle' && m.wheel?.open === true && m.wheel?.phase === 'idle',
+      'forgiven state'
+    );
     const overrideChatPromise = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === 'BLOOD TRIBUTE OVERRIDDEN BY SHADOW BROKER'), 'forgive override chat line');
     const vaultPromise = waitForMessage(host, m => m.type === 'tribute:vault', 'forgive vault refresh');
     host.send(JSON.stringify({ type: 'gm:tributeForgive' }));
@@ -1410,22 +1423,36 @@ async function testTributeForgive(server) {
 
     assert.equal(forgiven.bloodTribute.status, 'idle');
     assert.equal(forgiven.womf.charge, 10, 'forgiveness is not payment: WOMF stays 10/10');
-    assert.equal(forgiven.wheel.open, true, 'Wheel stays open after forgiveness');
-    assert.equal(forgiven.wheel.phase, 'result');
+    assert.equal(forgiven.wheel.open, true, 'Wheel reopens after forgiveness');
+    assert.equal(forgiven.wheel.phase, 'idle', 'forgiveness clears the old result and permits a fresh roll');
+    assert.equal(forgiven.wheel.winnerIndex, null);
     assert.equal(Array.isArray(vault.tributes) ? vault.tributes.length : 0, 0, 'no tribute is archived by forgiveness');
 
-    // (4) The Wheel is fully operable again: it rolls a fresh demand we then
-    //     release the exact same way.
-    const secondDemandPromise = waitForMessage(
+    // (4) The retained Wheel rolls again. The new result is shown first,
+    //     dismissed into a second demand, then forgiven the exact same way.
+    const secondVisibleResultPromise = waitForMessage(
       host,
-      m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
-      'forgive second demand',
+      m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'idle',
+      'forgive second visible result',
       7000
     );
     host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
+    await secondVisibleResultPromise;
+
+    const secondDemandPromise = waitForMessage(
+      host,
+      m => m.type === 'state:public' && m.wheel?.open === false && m.bloodTribute?.status === 'required',
+      'forgive second demand after dismiss'
+    );
+    host.send(JSON.stringify({ type: 'gm:wheelClose' }));
     const secondDemand = await secondDemandPromise;
     assert.ok(secondDemand.bloodTribute.playerId === one.playerId || secondDemand.bloodTribute.playerId === two.playerId);
-    const secondForgiven = waitForMessage(host, m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'second forgiven state');
+
+    const secondForgiven = waitForMessage(
+      host,
+      m => m.type === 'state:public' && m.bloodTribute?.status === 'idle' && m.wheel?.phase === 'idle',
+      'second forgiven state'
+    );
     host.send(JSON.stringify({ type: 'gm:tributeForgive' }));
     await secondForgiven;
 
