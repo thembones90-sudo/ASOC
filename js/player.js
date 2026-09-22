@@ -84,6 +84,11 @@ const PlayerApp = {
   _wrongFadeTimer: null,
   _wrongVerdictSeenAt: new Map(),
   _tributeExpiryTimer: null,
+  _chatArrivalIds: new Set(),
+  _chatVerdictTransitionIds: new Set(),
+  _activeFinalBanner: null,
+  _finalBannerFadeTimer: null,
+  _finalBannerRemoveTimer: null,
   bloodTribute: { status: 'idle' },
   tributeUploading: false,
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😇', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
@@ -1314,6 +1319,8 @@ const PlayerApp = {
         const incoming = message.messages || [];
         const previousIds = new Set(this.chatMessages.map(m => m.id));
         const previousById = new Map(this.chatMessages.map(m => [m.id, m]));
+        this._chatArrivalIds = new Set();
+        this._chatVerdictTransitionIds = new Set();
         let followLatest = false;
         // Only look for a "new" standalone Broker broadcast to trigger the
         // board-line reveal AFTER the first hydration -- otherwise a
@@ -1331,6 +1338,16 @@ const PlayerApp = {
           if (verdictUpdates.some(m => m.verdict === 'correct')) {
             window.AsocAudio?.correct?.();
           }
+          this._chatArrivalIds = new Set(
+            newMessages
+              .filter(m => m?.source !== 'shadowBroker')
+              .map(m => String(m.id || ''))
+              .filter(Boolean)
+          );
+          this._chatVerdictTransitionIds = new Set(
+            verdictUpdates.map(m => String(m.id || '')).filter(Boolean)
+          );
+
           const newActivityCount = newMessages.length + verdictUpdates.length;
           if (this.userScrolledUp && newActivityCount) {
             this._newMessageCount += newActivityCount;
@@ -1367,6 +1384,8 @@ const PlayerApp = {
         const solvedCount = document.getElementById('chat-solved-count');
         if (solvedCount) solvedCount.textContent = this.roomMode === 'CASUAL' ? 'CHANNEL OPEN' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
         this.renderChat({ forceLatest: followLatest });
+        this._chatArrivalIds.clear();
+        this._chatVerdictTransitionIds.clear();
         break;
       }
 
@@ -2375,46 +2394,66 @@ const PlayerApp = {
     setTimeout(() => banner.remove(), 2900);
   },
 
-  // Phase 1: reveal + story, no numbers yet -- the GM controls when the
-  // room sees the score consequences (they click SHOW RESULTS on their
-  // console, which is what triggers score:finalResults below).
+  // Final resolution is a notification, not an answer dump. Keep it compact,
+  // reveal ZERO game answers, and remove it automatically after ~5 seconds.
   showFinalReveal(outcome) {
     const layer = document.getElementById('score-announcement-layer');
     if (!layer) return;
+
     const isSuccess = outcome.outcome === 'success';
-    const columns = outcome.columnSolutions || {};
-    const columnRows = ['A', 'B', 'C', 'D']
-      .filter(col => columns[col])
-      .map(col => `<div class="fo-debrief-row"><span>${col}5</span><b>${this.escapeHtml(columns[col])}</b></div>`)
-      .join('');
+    this._activeFinalBanner?.remove();
+
     const banner = document.createElement('div');
-    banner.className = `final-outcome-banner fo-debrief ${isSuccess ? 'final-outcome-success' : 'final-outcome-failed'}`;
+    banner.className = `final-outcome-banner fo-notice ${isSuccess ? 'final-outcome-success' : 'final-outcome-failed'}`;
     banner.innerHTML = `
       <div class="fo-headline">${isSuccess ? 'SOLUTION CONFIRMED' : 'FINAL FAILED'}</div>
-      <div class="fo-debrief-label">${isSuccess ? 'CASE FILE UNSEALED' : 'CASE FILE DECLASSIFIED'}</div>
-      ${columnRows ? `<div class="fo-debrief-grid">${columnRows}</div>` : ''}
-      ${outcome.correctSolution ? `<div class="fo-final-answer"><span>FINAL</span><b>${this.escapeHtml(outcome.correctSolution)}</b></div>` : ''}
-      <div class="fo-results" style="display: none;"></div>
+      <div class="fo-debrief-label">${isSuccess ? 'FINAL LOCK ACCEPTED' : 'FINAL LOCK REJECTED'}</div>
+      <div class="fo-results" style="display:none;"></div>
     `;
+
     layer.appendChild(banner);
     this._activeFinalBanner = banner;
+    this.scheduleFinalBannerDismiss(banner);
   },
 
-  // Phase 2: the GM revealed the results -- fill in the numbers.
+  // SHOW RESULTS may arrive before or after the five-second notice expires.
+  // Preserve the score information, but never reintroduce any clue/solution text.
   revealFinalResults(results) {
-    const banner = this._activeFinalBanner;
+    let banner = this._activeFinalBanner;
+    if (!banner || !banner.isConnected) {
+      this.showFinalReveal(results);
+      banner = this._activeFinalBanner;
+    }
     if (!banner) return;
+
     const isSuccess = results.outcome === 'success';
     const resultsEl = banner.querySelector('.fo-results');
+    if (!resultsEl) return;
+
     resultsEl.innerHTML = isSuccess
       ? `<div class="fo-columns-known">FINAL SOLVED AFTER ${results.columnsKnownAtSolve} COLUMN${results.columnsKnownAtSolve === 1 ? '' : 'S'}</div>
          <div class="fo-points fo-points-positive">+${results.points} — ${this.escapeHtml(results.playerName)}</div>`
       : `<div class="fo-points fo-points-negative">-${results.penalty} PER PLAYER</div>`;
     resultsEl.style.display = 'block';
 
-    setTimeout(() => banner.classList.add('final-outcome-out'), 4500);
-    setTimeout(() => banner.remove(), 5100);
-    this._activeFinalBanner = null;
+    this.scheduleFinalBannerDismiss(banner);
+  },
+
+  scheduleFinalBannerDismiss(banner, visibleMs = 5000) {
+    clearTimeout(this._finalBannerFadeTimer);
+    clearTimeout(this._finalBannerRemoveTimer);
+
+    const fadeAt = Math.max(0, visibleMs - 500);
+    this._finalBannerFadeTimer = setTimeout(() => {
+      if (banner?.isConnected) banner.classList.add('final-outcome-out');
+    }, fadeAt);
+
+    this._finalBannerRemoveTimer = setTimeout(() => {
+      banner?.remove();
+      if (this._activeFinalBanner === banner) this._activeFinalBanner = null;
+      this._finalBannerFadeTimer = null;
+      this._finalBannerRemoveTimer = null;
+    }, visibleMs);
   },
 
   emojiFavoritesStorageKey() {
@@ -3506,6 +3545,16 @@ const PlayerApp = {
 
     this._chatProgrammaticScroll = true;
     container.innerHTML = html;
+
+    this._chatArrivalIds?.forEach(id => {
+      const el = container.querySelector(`[data-message-id="${CSS.escape(id)}"]`);
+      el?.classList.add('chat-arrival');
+    });
+    this._chatVerdictTransitionIds?.forEach(id => {
+      const el = container.querySelector(`[data-message-id="${CSS.escape(id)}"]`);
+      el?.classList.add('chat-verdict-transition');
+    });
+
     this.decorateChatMentions(container);
     this.armPollCountdowns(container);
 
