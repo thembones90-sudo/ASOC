@@ -2108,7 +2108,8 @@ const App = {
         A: !!this.solvedTargets?.A, B: !!this.solvedTargets?.B,
         C: !!this.solvedTargets?.C, D: !!this.solvedTargets?.D
       },
-      matchWinner: { name: 'TEST SUBJECT', points: 0 }
+      matchWinner: { name: 'TEST SUBJECT', points: 0 },
+      story: game.story || ''
     } });
   },
 
@@ -2139,9 +2140,24 @@ const App = {
       button.setAttribute('aria-pressed', lost ? 'true' : 'false');
     }
     if (lost) this._closeLossPreview?.();
-    if (!lost) document.querySelector('.defeat-overlay:not(.is-test-preview)')?.remove();
-    else if (live) Skeleton.playGameLost(matchResult, { live: true });
-    else if (changed && !document.querySelector('.defeat-overlay')) Skeleton.playGameLost(matchResult, { live: false });
+    if (!lost) {
+      document.querySelector('.defeat-overlay:not(.is-test-preview)')?.remove();
+      Skeleton.closeAftermath?.();
+    } else if (live) {
+      Skeleton.playGameLost(matchResult, {
+        live: true,
+        isHost: true,
+        onAftermathContinue: () => {
+          if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+            this.send({ type: 'gm:showRecount' });
+          } else {
+            Skeleton.closeAftermath?.();
+          }
+        }
+      });
+    } else if (changed && !document.querySelector('.defeat-overlay')) {
+      Skeleton.playGameLost(matchResult, { live: false });
+    }
   },
 
   testGameLost() {
@@ -2163,7 +2179,7 @@ const App = {
       topPerformer: { name: 'TEST SUBJECT', points: 0 },
       awards: [{ type: 'COLLECTIVE FAILURE', group: true, comment: 'Responsibility successfully distributed.' }]
     };
-    const overlay = Skeleton.playGameLost(result, { live: true });
+    const overlay = Skeleton.playGameLost(result, { live: true, afterMatch: false });
     overlay.classList.add('is-test-preview');
     overlay.title = 'Local preview — click anywhere or press Escape to close';
     let onKey;
@@ -2195,6 +2211,14 @@ const App = {
     const btn = document.getElementById('game-won-btn');
     try {
       Skeleton.playGameWon(result, {
+        isHost: true,
+        onAftermathContinue: () => {
+          if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+            this.send({ type: 'gm:showRecount' });
+          } else {
+            Skeleton.closeAftermath?.();
+          }
+        },
         onStage: (stage) => {
           if (stage === 'done') {
             this._victoryLive = false;
@@ -2406,6 +2430,7 @@ const App = {
           // and re-arm the Failed Final action (session score itself is
           // untouched; that lives server-side in room.scoring.players).
           this.finalRevealed = false;
+          Skeleton.closeAftermath?.();
           this.setGameWon(false);
           this.setGameComplete(false);
           Recount.apply(null);
@@ -2472,8 +2497,10 @@ const App = {
         break;
 
       case 'recount:update':
-        // Server-authoritative: live only at the moment the host pressed SHOW
-        // RESULTS; hydration (live:false) never replays; null closes it.
+        // AFTERMATH owns the screen until the Shadow Broker advances. The
+        // server's RECOUNT broadcast is the authoritative dismissal signal for
+        // every client, so nobody can wander into results ahead of the room.
+        if (message.recount) Skeleton.closeAftermath?.();
         Recount.apply(message.recount, { live: message.live === true });
         break;
 
@@ -3426,12 +3453,11 @@ const App = {
     setTimeout(() => banner.remove(), 3300);
   },
 
-  // Phase 1: the reveal + story go out to the whole room immediately.
-  // Numbers are deliberately withheld here -- see showFinalOutcome's
-  // sibling on the server (room.scoring.pendingResults) -- so the GM
-  // controls exactly when the room sees the score consequences, via the
-  // SHOW RESULTS button below (spec: "delayed score damage is intentional
-  // pacing", and it must apply to every client, not just the GM's own).
+  // Phase 1: the Final reveal goes out to the whole room immediately.
+  // The narrative is deliberately NOT shown here anymore: it belongs to the
+  // post-game AFTERMATH sequence after GAME WON / GAME LOST. Final scoring
+  // can still be released independently through SHOW RESULTS while play
+  // continues on any unresolved columns.
   showFinalReveal(outcome) {
     this.finalRevealed = true;
     this.updateFailFinalButtonVisibility();
@@ -3439,13 +3465,11 @@ const App = {
     const layer = document.getElementById('score-announcement-layer');
     if (!layer) return;
     const isSuccess = outcome.outcome === 'success';
-    const story = GameData.currentGame?.story || '';
 
     const banner = document.createElement('div');
     banner.className = `final-outcome-banner ${isSuccess ? 'final-outcome-success' : 'final-outcome-failed'}`;
     banner.innerHTML = `
       <div class="fo-headline">${isSuccess ? 'SOLUTION CONFIRMED' : 'FINAL FAILED'}</div>
-      ${story ? `<div class="fo-story">${this.escapeHtml(story)}</div>` : ''}
       <button class="gm-global-btn primary fo-continue-btn">SHOW RESULTS</button>
       <div class="fo-results" style="display: none;"></div>
     `;
