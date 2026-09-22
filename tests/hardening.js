@@ -349,7 +349,7 @@ function testSessionStoreRecovery() {
     while (Date.now() < settleDeadline && activeRoom().wheel.phase === 'spinning') await delay(100);
     const settled = activeRoom();
     assert.equal(settled.wheel.phase, 'result', 'wheel settles after hard restart');
-    assert.equal(settled.pendingTribute?.status, 'required', 'wheel restart settlement creates Tribute debt');
+    assert.equal(settled.pendingTribute || null, null, 'wheel result survives restart without hiding itself behind Tribute debt');
 
     console.log('ALL HARDENING REGRESSIONS PASSED');
     await stopServer();
