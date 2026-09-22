@@ -2043,7 +2043,7 @@ const App = {
   },
 
   triggerOmen() {
-    if (this.roomMode !== 'BATTLE') return;
+    if (!['BATTLE_ARMED', 'BATTLE'].includes(this.roomMode)) return;
     if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
       this.send({ type: 'gm:omen' });
       return;
