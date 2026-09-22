@@ -4055,6 +4055,33 @@ function handleGmNemaAsoc(ws) {
   broadcastToRoom(room, { type: 'nemaAsoc', timestamp: Date.now() });
 }
 
+const BICE_ASOC_LINES = [
+  'HUMANITY GRANTED ONE ADDITIONAL ATTEMPT',
+  'STUPIDITY ACCEPTED AS A VALID STRATEGY',
+  'MORALE ANOMALY DETECTED',
+  'THE SUBJECT HAS ACCIDENTALLY CONTRIBUTED',
+  'ENTERTAINMENT VALUE EXCEEDED EXPECTATIONS',
+  'INTELLIGENCE UNCONFIRMED. RESULTS ACCEPTABLE.',
+  'THE MACHINE IS... AMUSED.',
+  'TERMINATION POSTPONED',
+  'THIS SHOULD NOT HAVE WORKED',
+  'ASOC PRIVILEGES TEMPORARILY RESTORED'
+];
+
+function handleGmBiceAsoc(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can trigger BIĆE ASOC' });
+    return;
+  }
+  const line = BICE_ASOC_LINES[Math.floor(Math.random() * BICE_ASOC_LINES.length)];
+  broadcastToRoom(room, { type: 'biceAsoc', line, timestamp: Date.now() });
+}
+
 
 // OMEN -- host-only, Battle-only theatrical signal. It carries no answer,
 // score, timer or persistence state: the board merely reacts to something
@@ -5394,6 +5421,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:nemaAsoc': {
           handleGmNemaAsoc(ws);
+          break;
+        }
+        case 'gm:biceAsoc': {
+          handleGmBiceAsoc(ws);
           break;
         }
         case 'gm:omen': {
