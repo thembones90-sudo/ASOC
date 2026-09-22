@@ -264,11 +264,13 @@
     };
 
     const handleDrop = (event) => {
+      if (event.__asocMediaHandled) return true;
       const transfer = event.dataTransfer;
       const file = imageFileFromTransfer(transfer);
       const url = file ? '' : imageUrlFromTransfer(transfer);
       if (!file && !url) return false;
       event.preventDefault();
+      event.__asocMediaHandled = true;
       if (file) stageFile(file);
       else stageUrl(url);
       return true;
