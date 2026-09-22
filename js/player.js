@@ -1329,7 +1329,11 @@ const PlayerApp = {
         // RECOUNT is the server-authoritative signal that the Shadow Broker
         // advanced beyond AFTERMATH. Close the epilogue for every Little Hero
         // at the same instant before presenting results.
-        if (message.recount) Skeleton.closeAftermath?.();
+        if (message.recount) {
+          document.querySelector('.victory-overlay')?.remove();
+          document.querySelector('.defeat-overlay')?.remove();
+          Skeleton.closeAftermath?.();
+        }
         Recount.apply(message.recount, { live: message.live === true });
         break;
 
