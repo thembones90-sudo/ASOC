@@ -15194,45 +15194,9 @@ body.room-mode-casual #battle-controls-panel .battle-controls-utility-row .toolb
 }
 
 
-/* SHADOW BROKER AUTHORITY LANE V2
-   Broker transmissions are system authority, not GM "self messages".
-   This intentionally overrides the older SELF-ALIGNMENT V1 block. */
-@media (min-width:761px) {
-  .gm-module-chat .gm-shadow-broker-entry {
-    width:auto !important;
-    max-width:calc(100% - 38px) !important;
-    margin:7px 4px 8px 34px !important;
-    justify-self:start !important;
-  }
-
-  .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission {
-    width:fit-content !important;
-    max-width:100% !important;
-    min-height:44px !important;
-    margin:0 !important;
-    padding:6px 9px !important;
-    gap:8px !important;
-    flex-direction:row !important;
-    align-items:flex-start !important;
-    border-radius:4px 9px 9px 9px !important;
-  }
-
-  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-body {
-    align-items:flex-start !important;
-    text-align:left !important;
-  }
-
-  .gm-module-chat .gm-shadow-broker-entry > .gm-chat-reactions {
-    justify-content:flex-start !important;
-    margin:3px 0 0 3px !important;
-  }
-
-  .gm-module-chat .gm-shadow-broker-entry > .gm-chat-reply-context {
-    text-align:left !important;
-    margin-left:0 !important;
-    margin-right:auto !important;
-  }
-}
+/* SHADOW BROKER SELF LANE RESTORED
+   Player messages stay left; every Shadow Broker transmission stays on the
+   GM/right side. The canonical SELF-ALIGNMENT V1 rules above own alignment. */
 
 /* Canonical Broker portrait. Do not crop the void-wraith artwork into a
    generic circular user-photo thumbnail. */
