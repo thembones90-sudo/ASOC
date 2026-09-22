@@ -218,3 +218,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* CASUAL BACKDOOR VISIBILITY FIX
+   Casual mode normally hides every GM module except chat. The maintenance
+   console reparents those modules, so restore them while BACKDOOR is open. */
+body.room-mode-casual #gm-panel.maintenance-open .gm-maintenance .gm-module,
+body.room-mode-casual #gm-panel.maintenance-open .gm-maintenance .maintenance-module {
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+body.room-mode-casual #gm-panel.maintenance-open .gm-backdoor-primary-grid {
+  display:grid !important;
+}
+body.room-mode-casual #gm-panel.maintenance-open .gm-advanced-maintenance[open] > .gm-advanced-maintenance-body {
+  display:grid !important;
+}
