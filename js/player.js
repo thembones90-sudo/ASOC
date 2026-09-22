@@ -3370,16 +3370,27 @@ const PlayerApp = {
         String(p.id || '') === String(msg.playerId || '')
       ) || msg;
       const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const avatar = isBrokerPoll
-        ? '<span class="chat-poll-broker-avatar" aria-hidden="true">SB</span>'
-        : this.littleHeroAvatarHTML(identity);
-      const themeId = isBrokerPoll ? 'gunmetal' : ASOCThemes.get(identity.themeId).id;
-      const style = isBrokerPoll
-        ? '--little-hero-accent:#9B5DE0;'
-        : ASOCThemes.messageStyle(identity.themeId) + '--little-hero-accent:' + (/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885');
+
+      if (isBrokerPoll) {
+        return `
+          <div class="chat-broker-entry chat-reactable chat-broker-poll-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+            <div class="shadow-broker-transmission shadow-broker-broadcast shadow-broker-poll-transmission">
+              <img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">
+              <div class="shadow-broker-body">
+                <div class="shadow-broker-poll-identity"><span class="shadow-broker-name">SHADOW BROKER</span><span class="chat-time">${time}</span></div>
+                ${this.createPollCardHTML(msg)}
+              </div>
+            </div>
+            ${this.createReactionBarHTML(msg)}
+          </div>
+        `;
+      }
+
+      const themeId = ASOCThemes.get(identity.themeId).id;
+      const style = ASOCThemes.messageStyle(identity.themeId) + '--little-hero-accent:' + (/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885');
       return `
         <div class="chat-message chat-poll-message ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
-          <div class="chat-avatar-rail">${avatar}</div>
+          <div class="chat-avatar-rail">${this.littleHeroAvatarHTML(identity)}</div>
           <div class="chat-message-main">
             <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><span class="chat-time">${time}</span></div>
             <button type="button" class="chat-reply-btn" data-reply-id="${this.escapeHtml(msg.id)}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName || 'poll')}">&#8617;</button>
