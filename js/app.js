@@ -72,6 +72,7 @@ const App = {
   chatMessages: [],
   solvedTargets: {},
   userScrolledUp: false,
+  _gmChatProgrammaticScroll: false,
   _gmNewMessageCount: 0,
   _gmWrongFadeTimer: null,
   _gmWrongVerdictSeenAt: new Map(),
@@ -1904,14 +1905,18 @@ const App = {
 
     const gmChatContainer = document.getElementById('gm-chat-messages');
     gmChatContainer?.addEventListener('scroll', () => {
+      if (this._gmChatProgrammaticScroll) {
+        closeGMContextMenu();
+        return;
+      }
       const { scrollTop, scrollHeight, clientHeight } = gmChatContainer;
-      this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 40);
+      this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 80);
       if (!this.userScrolledUp && this._gmNewMessageCount) {
         this._gmNewMessageCount = 0;
         this.updateGMNewMessageChip();
       }
       closeGMContextMenu();
-    });
+    }, { passive:true });
 
     document.getElementById('gm-chat-new-messages')?.addEventListener('click', () => {
       this.jumpToLatestGMChat();
@@ -2951,7 +2956,11 @@ const App = {
     // mode transition. state:public packets also carry timer/WOMF/cell ticks;
     // rebuilding chat for those packets can replace an adjudication button
     // between pointer-down and click, making CORRECT target selection inert.
-    if (previous !== next && Array.isArray(this.chatMessages)) this.renderGMChat();
+    if (previous !== next && Array.isArray(this.chatMessages)) {
+      this.userScrolledUp = false;
+      this.renderGMChat();
+      requestAnimationFrame(() => this.jumpToLatestGMChat());
+    }
 
     this.updateSolvedCount();
     if (previous !== next) this.updateMultiplayerUI();
@@ -4066,9 +4075,28 @@ const App = {
     const container = document.getElementById('gm-chat-messages');
     if (!container) return;
 
-    const wasAtBottom = !this.userScrolledUp;
     const previousScrollTop = container.scrollTop;
     const previousScrollHeight = container.scrollHeight;
+    const previousClientHeight = container.clientHeight;
+    const physicallyNearBottom =
+      (previousScrollTop + previousClientHeight) >= (previousScrollHeight - 80);
+    const followLatest = physicallyNearBottom || !this.userScrolledUp;
+
+    let historyAnchorId = '';
+    let historyAnchorOffset = 0;
+    if (!followLatest) {
+      const containerRect = container.getBoundingClientRect();
+      const candidates = container.querySelectorAll('[data-message-id]');
+      for (const el of candidates) {
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > containerRect.top + 1) {
+          historyAnchorId = el.dataset.messageId || '';
+          historyAnchorOffset = rect.top - containerRect.top;
+          break;
+        }
+      }
+    }
+
     const now = Date.now();
     let nextWrongFadeMs = Infinity;
     let nextTributeTickMs = Infinity;
@@ -4095,6 +4123,7 @@ const App = {
       );
     });
 
+    this._gmChatProgrammaticScroll = true;
     container.innerHTML = html;
     this.decorateGMChatMentions(container);
     this.armGMPollCountdowns(container);
@@ -4111,13 +4140,50 @@ const App = {
       }, Math.max(30, nextTributeTickMs + 30));
     }
 
-    if (wasAtBottom) {
+    const pinLatest = () => {
       container.scrollTop = container.scrollHeight;
+      this.userScrolledUp = false;
       this._gmNewMessageCount = 0;
       this.updateGMNewMessageChip();
+    };
+
+    if (followLatest) {
+      pinLatest();
+
+      // Late-loading images/GIFs must not drag the operator viewport upward.
+      container.querySelectorAll('img,video').forEach(media => {
+        const repin = () => {
+          if (!this.userScrolledUp) {
+            this._gmChatProgrammaticScroll = true;
+            pinLatest();
+            requestAnimationFrame(() => { this._gmChatProgrammaticScroll = false; });
+          }
+        };
+        if (media.tagName === 'IMG' && !media.complete) {
+          media.addEventListener('load', repin, { once:true });
+          media.addEventListener('error', repin, { once:true });
+        } else if (media.tagName === 'VIDEO') {
+          media.addEventListener('loadedmetadata', repin, { once:true });
+        }
+      });
+
+      requestAnimationFrame(() => {
+        pinLatest();
+        requestAnimationFrame(() => { this._gmChatProgrammaticScroll = false; });
+      });
     } else {
-      const heightDelta = container.scrollHeight - previousScrollHeight;
-      container.scrollTop = Math.max(0, previousScrollTop + heightDelta);
+      const anchor = historyAnchorId
+        ? container.querySelector(`[data-message-id="${CSS.escape(historyAnchorId)}"]`)
+        : null;
+
+      if (anchor) {
+        const containerRect = container.getBoundingClientRect();
+        const currentOffset = anchor.getBoundingClientRect().top - containerRect.top;
+        container.scrollTop += currentOffset - historyAnchorOffset;
+      } else {
+        container.scrollTop = Math.max(0, previousScrollTop);
+      }
+      requestAnimationFrame(() => { this._gmChatProgrammaticScroll = false; });
     }
 
     this.updateSolvedCount();
@@ -4678,10 +4744,12 @@ const App = {
   jumpToLatestGMChat() {
     const container = document.getElementById('gm-chat-messages');
     if (!container) return;
+    this._gmChatProgrammaticScroll = true;
     container.scrollTop = container.scrollHeight;
     this.userScrolledUp = false;
     this._gmNewMessageCount = 0;
     this.updateGMNewMessageChip();
+    requestAnimationFrame(() => { this._gmChatProgrammaticScroll = false; });
   },
 
   getVerdictIcon(verdict) {
