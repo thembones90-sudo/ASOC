@@ -15424,3 +15424,281 @@ body.room-mode-casual #battle-controls-panel .battle-controls-utility-row .toolb
     align-items:flex-start !important;
   }
 }
+
+
+/* ==========================================================================
+   ASOC AFTERMATH EPILOGUE
+   Final result -> silence -> Shadow Broker story -> RECOUNT.
+   ========================================================================== */
+
+.victory-overlay,
+.defeat-overlay {
+  transition: opacity .9s ease, filter .9s ease, transform .9s ease;
+}
+
+.victory-overlay.is-aftermath-exit,
+.defeat-overlay.is-aftermath-exit {
+  opacity: 0;
+  filter: brightness(.42) saturate(.62) blur(1px);
+  transform: scale(1.006);
+  pointer-events: none;
+}
+
+.aftermath-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 28000;
+  display: grid;
+  place-items: center;
+  padding: clamp(22px, 4vw, 64px);
+  opacity: 0;
+  pointer-events: auto;
+  overflow: hidden;
+  transition: opacity .45s ease;
+  isolation: isolate;
+}
+
+.aftermath-overlay.is-visible {
+  opacity: 1;
+  animation: aftermath-screen-shiver .34s ease-out 1;
+}
+
+.aftermath-dim {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(29, 10, 44, .18), transparent 42%),
+    rgba(2, 3, 5, .58);
+  backdrop-filter: grayscale(.3) brightness(.62);
+}
+
+.aftermath-grain {
+  position: absolute;
+  inset: -8%;
+  z-index: -2;
+  opacity: .15;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,.025) 0,
+      rgba(255,255,255,.025) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  mask-image: radial-gradient(circle at center, #000 0 54%, transparent 88%);
+  animation: aftermath-grain-drift 8s linear infinite;
+}
+
+.aftermath-stage {
+  width: min(64vw, 1120px);
+  max-height: min(78vh, 860px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2vw, 28px);
+  transform: translateY(7px);
+}
+
+.aftermath-identity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 2vw, 26px);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: aftermath-identity-in .65s ease .38s forwards;
+}
+
+.aftermath-avatar {
+  width: clamp(74px, 7vw, 112px);
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 0 8px rgba(133, 61, 193, .52))
+    drop-shadow(0 0 22px rgba(82, 20, 126, .26));
+}
+
+.aftermath-kicker {
+  margin-bottom: 5px;
+  font-size: clamp(10px, .82vw, 14px);
+  font-weight: 700;
+  letter-spacing: .24em;
+  color: rgba(188, 151, 214, .62);
+}
+
+.aftermath-title {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 46px);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: .28em;
+  color: rgba(211, 183, 231, .93);
+  text-shadow: 0 0 14px rgba(133, 61, 193, .48);
+}
+
+.aftermath-panel {
+  min-height: clamp(240px, 37vh, 430px);
+  padding: clamp(28px, 4vw, 56px);
+  border: 1px solid rgba(137, 83, 171, .34);
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, rgba(13, 12, 17, .92), rgba(5, 5, 8, .95));
+  box-shadow:
+    0 28px 70px rgba(0,0,0,.58),
+    inset 0 0 0 1px rgba(255,255,255,.015),
+    0 0 35px rgba(74, 24, 101, .12);
+  opacity: 0;
+  transform: translateY(10px);
+  animation: aftermath-panel-in .7s ease 1s forwards;
+  overflow: auto;
+}
+
+.aftermath-story,
+.aftermath-final-line {
+  max-width: 900px;
+  margin-inline: auto;
+  white-space: pre-wrap;
+  text-wrap: pretty;
+  color: rgba(232, 230, 235, .92);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(17px, 1.35vw, 24px);
+  line-height: 1.65;
+  letter-spacing: .018em;
+  text-shadow: 0 1px 1px rgba(0,0,0,.8);
+}
+
+.aftermath-story:empty {
+  min-height: 1.65em;
+}
+
+.aftermath-final-line {
+  margin-top: clamp(18px, 2.4vw, 34px);
+  font-size: clamp(20px, 1.7vw, 30px);
+  line-height: 1.45;
+  color: rgba(222, 211, 231, .98);
+}
+
+.aftermath-final-line.is-complete {
+  animation: aftermath-final-bloom .75s ease-out 1;
+  text-shadow:
+    0 0 8px rgba(167, 92, 219, .55),
+    0 0 20px rgba(106, 44, 150, .35);
+}
+
+.aftermath-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  min-height: 42px;
+}
+
+.aftermath-btn {
+  min-width: 160px;
+  min-height: 40px;
+  padding: 9px 18px;
+  border: 1px solid rgba(143, 89, 177, .52);
+  border-radius: 3px;
+  background: rgba(8, 7, 11, .86);
+  color: rgba(220, 204, 231, .9);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  cursor: pointer;
+  transition:
+    opacity .3s ease,
+    transform .3s ease,
+    border-color .2s ease,
+    background .2s ease,
+    box-shadow .2s ease;
+}
+
+.aftermath-btn:hover:not(:disabled) {
+  border-color: rgba(186, 120, 226, .86);
+  background: rgba(27, 15, 35, .95);
+  box-shadow: 0 0 18px rgba(127, 61, 168, .22);
+}
+
+.aftermath-btn:disabled {
+  cursor: default;
+  opacity: .52;
+}
+
+.aftermath-continue {
+  opacity: 0;
+  transform: translateY(5px);
+}
+
+.aftermath-continue.is-ready {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.aftermath-btn[hidden] {
+  display: none !important;
+}
+
+@keyframes aftermath-screen-shiver {
+  0%   { transform: translate(0, 0); }
+  18%  { transform: translate(-1px, .5px); }
+  37%  { transform: translate(1px, -.5px); }
+  58%  { transform: translate(-.5px, .5px); }
+  78%  { transform: translate(.5px, 0); }
+  100% { transform: translate(0, 0); }
+}
+
+@keyframes aftermath-identity-in {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes aftermath-panel-in {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes aftermath-final-bloom {
+  0%   { filter: brightness(.85); }
+  45%  { filter: brightness(1.28); }
+  100% { filter: brightness(1); }
+}
+
+@keyframes aftermath-grain-drift {
+  0%   { transform: translate3d(0,0,0); }
+  50%  { transform: translate3d(1.2%, -.8%, 0); }
+  100% { transform: translate3d(0,0,0); }
+}
+
+@media (max-width: 900px) {
+  .aftermath-overlay {
+    padding: 18px;
+  }
+
+  .aftermath-stage {
+    width: min(94vw, 760px);
+    max-height: 88vh;
+  }
+
+  .aftermath-panel {
+    min-height: 220px;
+    padding: 24px 22px;
+  }
+
+  .aftermath-title {
+    letter-spacing: .18em;
+  }
+
+  .aftermath-kicker {
+    letter-spacing: .16em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aftermath-overlay,
+  .aftermath-overlay *,
+  .victory-overlay,
+  .defeat-overlay {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
