@@ -16,6 +16,7 @@ const scoring = require('./scoring-constants');
 const matchLedger = require('./match-ledger');
 const matchStore = require('./match-store');
 const recountEngine = require('./recount-engine');
+const tweakStore = require('./tweak-store');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -5055,6 +5056,75 @@ function handleApiRequest(req, res) {
     });
   }
 
+
+  // TWEAKS // player-facing field reports. Kept on HTTP instead of the live
+  // battle socket so feedback failures can never interfere with gameplay.
+  if (method === 'POST' && url.pathname === '/api/tweaks/evidence') {
+    const playerToken = String(req.headers['x-player-token'] || '');
+    const auth = getPlayerAuth(playerToken);
+    if (!auth?.playerId) return sendJson(res, 401, { error: 'Little Hero authentication required' });
+    const account = authStore.getById(auth.playerId);
+    if (!account) return sendJson(res, 401, { error: 'Player account not found' });
+
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    const extByType = {
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/webp': 'webp',
+      'image/gif': 'gif'
+    };
+    const ext = extByType[contentType];
+    if (!ext) return sendJson(res, 415, { error: 'Evidence must be PNG, JPEG, WEBP or GIF' });
+
+    return readChatImageBody(req, (err, body) => {
+      if (err) return sendJson(res, err.code === 'TOO_LARGE' ? 413 : 400, { error: err.code === 'TOO_LARGE' ? 'Evidence exceeds 5 MB limit' : 'Evidence upload failed' });
+      if (!body || body.length === 0) return sendJson(res, 400, { error: 'Empty evidence upload' });
+      if (!validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Evidence signature does not match its declared type' });
+      const filename = 'tweak-' + crypto.randomBytes(16).toString('hex') + '.' + ext;
+      try {
+        fs.writeFileSync(path.join(CHAT_UPLOAD_DIR, filename), body, { flag: 'wx', mode: 0o600 });
+        return sendJson(res, 201, { ok: true, evidenceUrl: '/uploads/chat/' + filename });
+      } catch (error) {
+        console.error('[tweaks] Evidence upload failed:', error.message);
+        return sendJson(res, 500, { error: 'Evidence could not be stored' });
+      }
+    });
+  }
+
+  if (url.pathname === '/api/tweaks/player' && method === 'GET') {
+    const playerToken = String(req.headers['x-player-token'] || '');
+    const auth = getPlayerAuth(playerToken);
+    if (!auth?.playerId) return sendJson(res, 401, { error: 'Little Hero authentication required' });
+    const account = authStore.getById(auth.playerId);
+    if (!account) return sendJson(res, 401, { error: 'Player account not found' });
+    if (!tweakStore.storageHealthy()) return sendJson(res, 503, { error: 'TWEAKS storage unavailable' });
+    return sendJson(res, 200, {
+      tweaks: tweakStore.listForPlayer(auth.playerId),
+      maxOpen: tweakStore.MAX_OPEN_PER_PLAYER
+    });
+  }
+
+  if (url.pathname === '/api/tweaks/player' && method === 'POST') {
+    const playerToken = String(req.headers['x-player-token'] || '');
+    const auth = getPlayerAuth(playerToken);
+    if (!auth?.playerId) return sendJson(res, 401, { error: 'Little Hero authentication required' });
+    const account = authStore.getById(auth.playerId);
+    if (!account) return sendJson(res, 401, { error: 'Player account not found' });
+    if (!tweakStore.storageHealthy()) return sendJson(res, 503, { error: 'TWEAKS storage unavailable' });
+
+    return readJsonBody(req, (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid TWEAK payload' });
+      try {
+        const tweak = tweakStore.submit({ id: account.id, name: account.name }, body);
+        console.log('[tweaks] ' + tweak.id + ' submitted by ' + tweak.playerName + ' // ' + tweak.type);
+        return sendJson(res, 201, { ok: true, tweak });
+      } catch (error) {
+        const status = /Maximum 5 open/i.test(error.message) ? 429 : /storage unavailable/i.test(error.message) ? 503 : 400;
+        return sendJson(res, status, { error: error.message || 'TWEAK could not be submitted' });
+      }
+    });
+  }
+
   if (method === 'POST' && url.pathname === '/api/auth/player/register') {
     return readJsonBody(req, async (err, body) => {
       if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
@@ -5251,6 +5321,28 @@ function handleApiRequest(req, res) {
 
   if (!isGmAuthorized(req)) {
     return sendJson(res, 401, { error: 'Gamemaster authorization required' });
+  }
+
+
+  if (url.pathname === '/api/tweaks' && method === 'GET') {
+    if (!tweakStore.storageHealthy()) return sendJson(res, 503, { error: 'TWEAKS storage unavailable' });
+    return sendJson(res, 200, { tweaks: tweakStore.listAll() });
+  }
+
+  if (parts[0] === 'api' && parts[1] === 'tweaks' && parts[2] && method === 'PATCH') {
+    if (!tweakStore.storageHealthy()) return sendJson(res, 503, { error: 'TWEAKS storage unavailable' });
+    const id = decodeURIComponent(parts[2]);
+    if (!/^TWK-\d{4,}$/.test(id)) return sendJson(res, 404, { error: 'TWEAK not found' });
+    return readJsonBody(req, (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid TWEAK update' });
+      try {
+        const tweak = tweakStore.update(id, body);
+        if (!tweak) return sendJson(res, 404, { error: 'TWEAK not found' });
+        return sendJson(res, 200, { ok: true, tweak });
+      } catch (error) {
+        return sendJson(res, 400, { error: error.message || 'TWEAK could not be updated' });
+      }
+    });
   }
 
   if (url.pathname === '/api/games' && method === 'GET') {
