@@ -15256,3 +15256,171 @@ body.room-mode-casual #battle-controls-panel .battle-controls-utility-row .toolb
   font:.44rem/1 var(--font-machine);
   letter-spacing:.04em;
 }
+
+
+/* POLL AUTHORITY DATA V2 // timer + public voter identities */
+#gm-broker-bar .gm-poll-config-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-top:8px;
+  padding:7px 8px;
+  border:1px solid rgba(104,115,128,.30);
+  border-radius:6px;
+  background:rgba(8,11,15,.72);
+}
+
+#gm-broker-bar .gm-poll-timer-control {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:#aab3bd;
+  font:850 .50rem/1 var(--font-system);
+  letter-spacing:.08em;
+}
+
+#gm-broker-bar #gm-poll-duration {
+  height:28px;
+  padding:0 24px 0 8px;
+  border:1px solid rgba(155,93,224,.48);
+  border-radius:5px;
+  background:#10151b;
+  color:#d9c8e9;
+  font:850 .54rem/1 var(--font-system);
+  outline:none;
+}
+
+#gm-broker-bar #gm-poll-duration:focus {
+  border-color:rgba(196,139,240,.88);
+  box-shadow:0 0 10px rgba(155,93,224,.16);
+}
+
+#gm-broker-bar .gm-poll-autotag {
+  color:#cf9bff;
+  font:900 .46rem/1 var(--font-system);
+  letter-spacing:.08em;
+  text-shadow:0 0 8px rgba(155,93,224,.30);
+}
+
+.gm-poll-state {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:5px;
+}
+
+.gm-poll-state > em {
+  padding:3px 5px;
+  border:1px solid rgba(188,122,239,.42);
+  border-radius:4px;
+  background:rgba(92,45,128,.24);
+  color:#d9b5f5;
+  font:900 .45rem/1 var(--font-system);
+  font-style:normal;
+  letter-spacing:.05em;
+}
+
+.gm-poll-countdown {
+  min-width:42px;
+  padding:3px 6px;
+  border:1px solid rgba(88,221,137,.44);
+  border-radius:4px;
+  background:rgba(24,71,40,.30);
+  color:#9af0b4;
+  font:900 .55rem/1 var(--font-system);
+  letter-spacing:.07em;
+  text-align:center;
+  box-shadow:inset 0 0 9px rgba(67,220,117,.06);
+}
+
+.gm-poll-countdown.no-limit,
+.gm-poll-countdown.is-ended {
+  border-color:rgba(120,131,143,.34);
+  background:rgba(34,39,46,.46);
+  color:#8f99a5;
+}
+
+.gm-poll-choice {
+  grid-template-rows:auto auto !important;
+}
+
+.gm-poll-voters {
+  grid-column:1 / -1;
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:4px;
+  min-height:18px;
+  margin-top:3px;
+  padding-top:5px;
+  border-top:1px solid rgba(129,139,150,.12);
+  pointer-events:none;
+}
+
+.gm-poll-voters-label {
+  color:#65717d;
+  font:900 .43rem/1 var(--font-system);
+  letter-spacing:.08em;
+  margin-right:2px;
+}
+
+.gm-poll-voters > em {
+  color:#59636e;
+  font:800 .42rem/1 var(--font-system);
+  font-style:normal;
+}
+
+.gm-poll-voter-chip {
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  max-width:128px;
+  height:20px;
+  padding:1px 5px 1px 2px;
+  border:1px solid color-mix(in srgb,var(--poll-voter-color,#9B5DE0) 52%,#59636e);
+  border-radius:10px;
+  background:rgba(9,12,16,.72);
+  color:#cfd6dd;
+  box-sizing:border-box;
+}
+
+.gm-poll-voter-chip img,
+.gm-poll-voter-chip i {
+  width:15px;
+  height:15px;
+  flex:0 0 15px;
+  border-radius:50%;
+  object-fit:cover;
+  border:1px solid var(--poll-voter-color,#9B5DE0);
+  background:#080a0d;
+  box-sizing:border-box;
+}
+
+.gm-poll-voter-chip i {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#e8edf2;
+  font:900 .42rem/1 var(--font-system);
+  font-style:normal;
+}
+
+.gm-poll-voter-chip b {
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font:800 .46rem/1 var(--font-system);
+}
+
+@media (max-width:760px) {
+  #gm-broker-bar .gm-poll-config-row {
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .gm-poll-card-head {
+    align-items:flex-start !important;
+  }
+}
