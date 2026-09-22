@@ -1396,15 +1396,23 @@ const PlayerApp = {
         this.clearShadowBrokerBoardLine();
         break;
 
-      case 'players:update':
+      case 'players:update': {
         this.updatePlayerLeaderboard(message.players);
         const commsRoom = document.getElementById('battle-comms-room');
         const commsOnline = document.getElementById('battle-comms-online');
+        const casualOnline = document.getElementById('casual-online-count');
+        const onlineCount = (message.players || []).filter(p => p.connected !== false).length;
         if (commsRoom) commsRoom.textContent = this.roomMode === 'CASUAL'
           ? 'AMUSEMENT PARK // MASTER ROOM'
           : 'ABUSEMENT PARK // MASTER ROOM';
-        if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' ONLINE';
+        if (commsOnline) commsOnline.textContent = '● ' + onlineCount + ' ONLINE';
+        if (casualOnline) {
+          const value = casualOnline.querySelector('b');
+          if (value) value.textContent = onlineCount;
+          casualOnline.setAttribute('aria-label', onlineCount + ' players online');
+        }
         break;
+      }
 
       case 'battle:launchCountdown':
         // Mirror the GM's full-screen T-10 launch sequence on every player
@@ -2310,8 +2318,10 @@ const PlayerApp = {
     el.querySelector('.status-text').textContent = textMap[status] || status.toUpperCase();
     const link = document.getElementById('hero-hud-link');
     if (link) {
-      link.className = 'hero-hud-link ' + (status === 'connected' ? 'stable' : status === 'disconnected' ? 'lost' : '');
-      link.textContent = status === 'connected' ? 'LINK STABLE' : status === 'disconnected' ? 'SIGNAL LOST' : 'LINK CONNECTING';
+      link.className = 'hero-hud-link hero-stat hero-stat-link ' + (status === 'connected' ? 'stable' : status === 'disconnected' ? 'lost' : '');
+      const value = link.querySelector('.hero-link-value');
+      const label = status === 'connected' ? 'STABLE' : status === 'disconnected' ? 'LOST' : 'CONNECTING';
+      if (value) value.textContent = label;
     }
   },
 
@@ -2397,7 +2407,7 @@ const PlayerApp = {
     const meIndex = ranked.findIndex(p => p.id === this.playerId);
     const me = meIndex >= 0 ? ranked[meIndex] : null;
     if (me) {
-      if (identity) identity.innerHTML = `${this.littleHeroAvatarHTML(me, true)}<span>${this.escapeHtml(me.name)} // LITTLE HERO</span><button type="button" class="hero-designation-edit" data-action="rename-little-hero" title="Change in-game name" aria-label="Change Little Hero designation">EDIT DESIGNATION</button>`;
+      if (identity) identity.innerHTML = `${this.littleHeroAvatarHTML(me, true)}<span>${this.escapeHtml(me.name)} // LITTLE HERO</span><button type="button" class="hero-designation-edit" data-action="rename-little-hero" title="Change in-game name" aria-label="Change Little Hero designation"><span>DESIGNATION</span></button>`;
       const score = document.getElementById('hero-hud-score');
       const rank = document.getElementById('hero-hud-rank');
       if (score) {
