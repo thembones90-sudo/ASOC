@@ -7511,6 +7511,323 @@ position:absolute;
     body:has(#game-screen.room-mode-casual) .recount-pill {
       display:none !important;
     }
+
+
+    /* CASUAL LITTLE HERO HEADER REDESIGN V1
+       One compact identity console: title/presence, identity/actions, stats.
+       No duplicate roster, no redundant channel telemetry in the social room. */
+    #game-screen.room-mode-casual .detainee-status-module {
+      padding:0 !important;
+      border:1px solid rgba(93,135,159,.44) !important;
+      border-radius:7px 7px 0 0 !important;
+      background:
+        radial-gradient(circle at 76% 0,rgba(53,135,181,.10),transparent 36%),
+        linear-gradient(180deg,rgba(13,25,34,.98),rgba(8,15,21,.98)) !important;
+      box-shadow:
+        inset 0 1px rgba(187,226,248,.06),
+        inset 0 -1px rgba(0,0,0,.52) !important;
+      overflow:hidden;
+    }
+
+    #game-screen.room-mode-casual .detainee-status-module::after {
+      opacity:.20 !important;
+    }
+
+    #game-screen.room-mode-casual .detainee-status-label {
+      min-height:32px !important;
+      padding:0 14px !important;
+      border:0 !important;
+      border-bottom:1px solid rgba(100,136,157,.22) !important;
+      background:rgba(9,17,23,.82) !important;
+      font-size:.56rem !important;
+      letter-spacing:1.35px !important;
+    }
+
+    #game-screen.room-mode-casual .detainee-status-label > span:first-child {
+      color:#d4b45e !important;
+      text-shadow:0 0 10px rgba(212,180,94,.12);
+    }
+
+    #game-screen.room-mode-casual .casual-online-count {
+      display:inline-flex !important;
+      align-items:center;
+      gap:6px;
+      min-height:22px;
+      padding:0 8px;
+      border:1px solid rgba(62,190,112,.26);
+      border-radius:999px;
+      background:rgba(8,35,20,.46);
+      color:#77df9b !important;
+      font:800 .52rem/1 var(--font-machine) !important;
+      letter-spacing:.9px !important;
+      white-space:nowrap;
+    }
+
+    #game-screen.room-mode-casual .casual-online-count b {
+      color:#9af2b7;
+      font-size:.58rem;
+      font-variant-numeric:tabular-nums;
+    }
+
+    #game-screen.room-mode-casual .casual-online-dot {
+      width:7px;
+      height:7px;
+      display:block;
+      flex:0 0 7px;
+      border-radius:50%;
+      background:#4ee17f;
+      box-shadow:0 0 8px rgba(78,225,127,.82);
+    }
+
+    #game-screen.room-mode-casual #little-hero-hud {
+      display:grid !important;
+      grid-template-columns:minmax(0,1fr) auto !important;
+      grid-template-areas:
+        "identity identity"
+        "stats stats" !important;
+      gap:9px 12px !important;
+      width:100% !important;
+      padding:11px 14px 10px !important;
+      margin:0 !important;
+      border:0 !important;
+      background:transparent !important;
+      box-shadow:none !important;
+    }
+
+    #game-screen.room-mode-casual .hero-hud-identity-block {
+      grid-area:identity;
+      display:flex !important;
+      align-items:center !important;
+      gap:10px !important;
+      width:100%;
+      min-width:0;
+      flex-wrap:nowrap !important;
+    }
+
+    #game-screen.room-mode-casual .hero-hud-identity {
+      display:flex !important;
+      align-items:center !important;
+      gap:8px !important;
+      min-width:0;
+      margin-right:auto;
+      color:#eef5fb !important;
+      font-size:.70rem !important;
+      letter-spacing:.75px !important;
+    }
+
+    #game-screen.room-mode-casual .hero-hud-identity .little-hero-avatar {
+      width:34px !important;
+      height:34px !important;
+      flex:0 0 34px !important;
+      border-width:1px !important;
+    }
+
+    #game-screen.room-mode-casual .hero-designation-edit,
+    #game-screen.room-mode-casual .hero-utility-btn {
+      position:static !important;
+      display:inline-flex !important;
+      align-items:center !important;
+      justify-content:center !important;
+      gap:7px !important;
+      flex:0 0 auto !important;
+      min-width:0 !important;
+      height:32px !important;
+      min-height:32px !important;
+      margin:0 !important;
+      padding:0 10px !important;
+      border-radius:5px !important;
+      font:800 .50rem/1 var(--font-machine) !important;
+      letter-spacing:.75px !important;
+      text-transform:uppercase;
+      clip-path:none !important;
+      transform:none !important;
+      transition:border-color .15s ease,background .15s ease,color .15s ease,box-shadow .15s ease !important;
+    }
+
+    #game-screen.room-mode-casual .hero-designation-edit {
+      border:1px solid rgba(100,154,188,.34) !important;
+      background:rgba(14,28,37,.76) !important;
+      color:#9ec4d9 !important;
+    }
+
+    #game-screen.room-mode-casual .hero-designation-edit::before {
+      content:"";
+      width:13px;
+      height:13px;
+      display:block;
+      background:
+        linear-gradient(135deg,transparent 38%,currentColor 39% 55%,transparent 56%) center/100% 100% no-repeat;
+      opacity:.85;
+    }
+
+    #game-screen.room-mode-casual .hero-utility-icon {
+      width:14px;
+      height:14px;
+      flex:0 0 14px;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:1.8;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+
+    #game-screen.room-mode-casual .hero-utility-disconnect {
+      border:1px solid rgba(168,85,112,.34) !important;
+      background:rgba(35,13,22,.58) !important;
+      color:#c98ba1 !important;
+      opacity:1 !important;
+    }
+
+    #game-screen.room-mode-casual .hero-utility-tweaks {
+      border:1px solid rgba(214,58,58,.52) !important;
+      background:linear-gradient(180deg,rgba(129,21,24,.94),rgba(63,11,15,.96)) !important;
+      color:#ffe7e7 !important;
+      box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 10px rgba(204,32,38,.14) !important;
+    }
+
+    #game-screen.room-mode-casual .hero-designation-edit:hover,
+    #game-screen.room-mode-casual .hero-designation-edit:focus-visible,
+    #game-screen.room-mode-casual .hero-utility-btn:hover,
+    #game-screen.room-mode-casual .hero-utility-btn:focus-visible {
+      color:#fff !important;
+      border-color:currentColor !important;
+      outline:none !important;
+      box-shadow:0 0 12px rgba(115,168,202,.12) !important;
+    }
+
+    #game-screen.room-mode-casual .tweaks-badge {
+      min-width:16px !important;
+      height:16px !important;
+      padding:0 4px !important;
+      display:inline-grid !important;
+      place-items:center;
+      border:0 !important;
+      border-radius:999px !important;
+      background:rgba(255,255,255,.14) !important;
+      color:#fff !important;
+      font-size:.45rem !important;
+      line-height:1 !important;
+    }
+
+    #game-screen.room-mode-casual .hero-hud-stats {
+      grid-area:stats;
+      display:flex !important;
+      align-items:center !important;
+      justify-content:flex-start !important;
+      gap:8px !important;
+      width:100%;
+      padding-top:8px;
+      border-top:1px solid rgba(104,137,157,.18);
+      flex-wrap:wrap !important;
+    }
+
+    #game-screen.room-mode-casual .hero-stat {
+      display:inline-flex !important;
+      align-items:center !important;
+      gap:5px !important;
+      min-height:25px;
+      padding:0 8px;
+      border:1px solid rgba(104,137,157,.18);
+      border-radius:4px;
+      background:rgba(10,19,25,.58);
+      color:#7f96a5 !important;
+      white-space:nowrap;
+    }
+
+    #game-screen.room-mode-casual .hero-stat-icon {
+      width:12px;
+      height:12px;
+      flex:0 0 12px;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:1.7;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      opacity:.82;
+    }
+
+    #game-screen.room-mode-casual .hero-stat-label {
+      color:#7e94a2;
+      font-size:.48rem;
+      letter-spacing:.65px;
+    }
+
+    #game-screen.room-mode-casual .hero-stat b,
+    #game-screen.room-mode-casual .hero-link-value {
+      color:#dfe9ef !important;
+      margin:0 !important;
+      font:800 .55rem/1 var(--font-machine) !important;
+      letter-spacing:.4px;
+    }
+
+    #game-screen.room-mode-casual .hero-stat-link.stable {
+      border-color:rgba(70,178,112,.25);
+      color:#69c78b !important;
+    }
+
+    #game-screen.room-mode-casual .hero-stat-link.stable .hero-link-value {
+      color:#88dca5 !important;
+    }
+
+    #game-screen.room-mode-casual .hero-stat-link.lost {
+      border-color:rgba(201,81,79,.28);
+      color:#d16e6a !important;
+    }
+
+    #game-screen.room-mode-casual .chat-header {
+      min-height:50px !important;
+      padding:9px 14px !important;
+      border-top:1px solid rgba(98,130,149,.16) !important;
+      border-bottom:1px solid rgba(98,130,149,.20) !important;
+      background:rgba(13,20,26,.58) !important;
+    }
+
+    #game-screen.room-mode-casual .battle-comms-status {
+      display:none !important;
+    }
+
+    #game-screen.room-mode-casual .battle-comms-heading {
+      gap:3px !important;
+    }
+
+    #game-screen.room-mode-casual .chat-title {
+      font-size:.62rem !important;
+      letter-spacing:1.05px !important;
+    }
+
+    #game-screen.room-mode-casual .battle-comms-room {
+      color:#758895 !important;
+      font-size:.49rem !important;
+      letter-spacing:.72px !important;
+    }
+
+    @media (max-width:760px) {
+      #game-screen.room-mode-casual #little-hero-hud {
+        padding:10px !important;
+      }
+
+      #game-screen.room-mode-casual .hero-hud-identity-block {
+        flex-wrap:wrap !important;
+      }
+
+      #game-screen.room-mode-casual .hero-hud-identity {
+        width:100%;
+      }
+
+      #game-screen.room-mode-casual .hero-designation-edit,
+      #game-screen.room-mode-casual .hero-utility-btn {
+        flex:1 1 auto !important;
+      }
+
+      #game-screen.room-mode-casual .hero-hud-stats {
+        gap:5px !important;
+      }
+
+      #game-screen.room-mode-casual .hero-stat {
+        flex:1 1 auto;
+        justify-content:center;
+      }
+    }
 </style>
 </head>
 <body>
@@ -7765,7 +8082,12 @@ position:absolute;
 
     <aside id="battle-comms-lobby" class="battle-comms-lobby">
     <section class="detainee-status-module">
-      <div class="detainee-status-label"><span>LITTLE HERO STATUS</span><span>COMMAND POST</span></div>
+      <div class="detainee-status-label">
+        <span>LITTLE HERO STATUS</span>
+        <span id="casual-online-count" class="casual-online-count" aria-label="Players online">
+          <i class="casual-online-dot" aria-hidden="true"></i><b>0</b><span>ONLINE</span>
+        </span>
+      </div>
     <div id="player-leaderboard-strip" class="player-leaderboard-strip" style="display: none;">
       <div id="player-leaderboard-list" class="player-leaderboard-list"></div>
       <button type="button" id="player-alltime-toggle-btn" class="player-alltime-toggle-btn">ALL-TIME</button>
@@ -7775,14 +8097,32 @@ position:absolute;
     <div id="little-hero-hud" class="little-hero-hud">
       <div class="hero-hud-identity-block">
         <div id="hero-hud-identity" class="hero-hud-identity"></div>
-        <button type="button" id="player-logout-control" class="player-logout-control" hidden aria-label="Log out and disconnect Little Hero identity">DISCONNECT IDENTITY</button>
-        <button type="button" id="player-tweaks-launch" class="tweaks-launch" aria-label="Open TWEAKS" onclick="if(window.ASOCTweaks){window.ASOCTweaks.open(event)}else{event.preventDefault();var s=document.createElement('script');s.src='js/tweaks.js?v=20260922-tweaks-live-wire-1"><span aria-hidden="true">☎</span><span>TWEAKS</span><span class="tweaks-badge">0</span></button>
+        <button type="button" id="player-logout-control" class="player-logout-control hero-utility-btn hero-utility-disconnect" hidden aria-label="Disconnect Little Hero identity">
+          <svg class="hero-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v9M6.3 5.7a8 8 0 1 0 11.4 0"/></svg>
+          <span>DISCONNECT</span>
+        </button>
+        <button type="button" id="player-tweaks-launch" class="tweaks-launch hero-utility-btn hero-utility-tweaks" aria-label="Open TWEAKS">
+          <svg class="hero-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M10 12h10M4 12h2M4 18h6M14 18h6"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg>
+          <span>TWEAKS</span><span class="tweaks-badge">0</span>
+        </button>
       </div>
       <div class="hero-hud-stats">
-        <span>SCORE <b id="hero-hud-score">0</b></span>
-        <span>RANK <b id="hero-hud-rank">#-</b></span>
-        <span>STREAK <b id="hero-hud-streak">x0</b></span>
-        <span id="hero-hud-link" class="hero-hud-link">LINK CONNECTING</span>
+        <span class="hero-stat hero-stat-score">
+          <svg class="hero-stat-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 9-7 9-7-9z"/></svg>
+          <span class="hero-stat-label">SCORE</span><b id="hero-hud-score">0</b>
+        </span>
+        <span class="hero-stat hero-stat-rank">
+          <svg class="hero-stat-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16l6-9 6 9"/><path d="M7.5 16h9"/></svg>
+          <span class="hero-stat-label">RANK</span><b id="hero-hud-rank">#-</b>
+        </span>
+        <span class="hero-stat hero-stat-streak">
+          <svg class="hero-stat-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L6 13h5l-1 9 8-12h-5z"/></svg>
+          <span class="hero-stat-label">STREAK</span><b id="hero-hud-streak">x0</b>
+        </span>
+        <span id="hero-hud-link" class="hero-hud-link hero-stat hero-stat-link">
+          <svg class="hero-stat-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 15.5l7-7M7 8h-1a4 4 0 0 0 0 8h4M17 16h1a4 4 0 0 0 0-8h-4"/></svg>
+          <span class="hero-stat-label">LINK</span><b class="hero-link-value">CONNECTING</b>
+        </span>
       </div>
     </div>
     </section>
@@ -8127,7 +8467,7 @@ position:absolute;
   <script src="js/board.js?v=20260921-final-omen-2"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260922-player-global-drop-1"></script>
-  <script src="js/player.js?v=20260922-casual-status-clean-2"></script>
-  <script src="js/tweaks.js?v=20260922-tweaks-root-fix-1"></script>
+  <script src="js/player.js?v=20260922-casual-header-redesign-1"></script>
+  <script src="js/tweaks.js?v=20260922-casual-header-redesign-1"></script>
 </body>
 </html>
