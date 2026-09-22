@@ -6,7 +6,7 @@
   <title>ASOC - Join Game</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
   <link rel="stylesheet" href="css/asoc.css?v=20260922-media-lightbox-hardfix-1">
-  <link rel="stylesheet" href="css/tweaks.css?v=20260922-red-alert-working-2">
+  <link rel="stylesheet" href="css/tweaks.css?v=20260922-red-alert-working-3">
   <style>
     #join-screen {
       display: flex;
@@ -790,7 +790,7 @@
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
        --hud-band is measured and set by js/player.js?v=20260922-media-lightbox-hardfix-1"";
-  <script src="js/tweaks.js?v=20260922-red-alert-working-2"></script>
+  <script src="js/tweaks.js?v=20260922-red-alert-working-3"></script>
       position:absolute;
       left:5px;
       width:5px;
@@ -7706,7 +7706,7 @@
       <div class="hero-hud-identity-block">
         <div id="hero-hud-identity" class="hero-hud-identity"></div>
         <button type="button" id="player-logout-control" class="player-logout-control" hidden aria-label="Log out and disconnect Little Hero identity">DISCONNECT IDENTITY</button>
-        <button type="button" id="player-tweaks-launch" class="tweaks-launch" aria-label="Open TWEAKS" onclick="if(window.ASOCTweaks){window.ASOCTweaks.open(event)}else{document.dispatchEvent(new CustomEvent('asoc:tweaks-open'))}"><span aria-hidden="true">☎</span><span>TWEAKS</span><span class="tweaks-badge">0</span></button>
+        <button type="button" id="player-tweaks-launch" class="tweaks-launch" aria-label="Open TWEAKS" onclick="if(window.ASOCTweaks){window.ASOCTweaks.open(event)}else{event.preventDefault();var s=document.createElement('script');s.src='js/tweaks.js?v=20260922-red-alert-working-3"><span aria-hidden="true">☎</span><span>TWEAKS</span><span class="tweaks-badge">0</span></button>
       </div>
       <div class="hero-hud-stats">
         <span>SCORE <b id="hero-hud-score">0</b></span>
