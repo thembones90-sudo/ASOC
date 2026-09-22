@@ -1243,8 +1243,7 @@ const App = {
     document.getElementById('reset-board-btn').addEventListener('click', () => this.confirmReset());
     document.getElementById('undo-btn').addEventListener('click', () => this.handleUndo());
     document.getElementById('nema-asoc-btn')?.addEventListener('click', () => this.triggerNemaAsoc());
-    document.getElementById('game-won-btn')?.addEventListener('click', () => this.triggerGameWon());
-    document.getElementById('game-lost-btn')?.addEventListener('click', () => this.testGameLost());
+    document.getElementById('bice-asoc-btn')?.addEventListener('click', () => this.triggerBiceAsoc());
     document.getElementById('recount-btn')?.addEventListener('click', () => this.triggerRecount());
     Recount.onChange(() => this.updateRecountButton());
 
@@ -2042,6 +2041,14 @@ const App = {
     Skeleton.playNemaAsoc();
   },
 
+  triggerBiceAsoc() {
+    if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+      this.send({ type: 'gm:biceAsoc' });
+      return;
+    }
+    Skeleton.playBiceAsoc?.();
+  },
+
   triggerOmen() {
     if (!['BATTLE_ARMED', 'BATTLE'].includes(this.roomMode)) return;
     if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
@@ -2542,6 +2549,10 @@ const App = {
 
       case 'nemaAsoc':
         Skeleton.playNemaAsoc();
+        break;
+
+      case 'biceAsoc':
+        Skeleton.playBiceAsoc?.(message.line);
         break;
 
       case 'board:omen':
