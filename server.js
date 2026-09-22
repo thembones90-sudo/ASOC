@@ -813,10 +813,9 @@ function createRoom(gameId, hostWs) {
     // new roll, play the animation" vs. "this is a state I've already
     // shown" on an unrelated re-broadcast. Per the locked WOMF spec, this
     // module opens the wheel, lets the GM roll it, and reports who it
-    // landed on; the single consequence it invents is arming the Blood
-    // Tribute demand from the result. It never invents any punishment
-    // beyond that demand, and the reset of the WOMF charge is owned by the
-    // tribute's settlement, not the roll itself.
+    // landed on. The result remains visible until the GM dismisses it; only
+    // that dismissal arms the Blood Tribute demand. The reset of the WOMF
+    // charge is owned by the tribute's settlement, not the roll itself.
     wheel: {
       open: false,
       segments: [],
@@ -1040,7 +1039,7 @@ function armBloodTributeForWheelResult(room) {
   if (!player) {
     room.pendingTribute = null;
     sendToWs(room.hostConnection, { type: 'tribute:unavailable', playerName: winnerName || 'UNKNOWN' });
-    return;
+    return false;
   }
   room.pendingTribute = {
     id: 'demand-' + crypto.randomBytes(6).toString('hex'),
@@ -1050,6 +1049,7 @@ function armBloodTributeForWheelResult(room) {
     status: 'required',
     requestedAt: Date.now()
   };
+  return true;
 }
 
 function handleBloodTributeSubmit(ws, message) {
@@ -1156,8 +1156,23 @@ function handleTributeForgive(ws) {
   }
 
   room.pendingTribute = null;
+
+  // Dismissing a result hides the Wheel but deliberately preserves its
+  // segment roster. If the Broker forgives the debt, bring that SAME wheel
+  // back in a clean idle state so the GM can immediately reroll without
+  // rebuilding the participant list or carrying the old winner forward.
+  if (room.wheel && Array.isArray(room.wheel.segments) && room.wheel.segments.length >= WHEEL_MIN_SEGMENTS) {
+    room.wheel.open = true;
+    room.wheel.phase = 'idle';
+    room.wheel.winnerIndex = null;
+    room.wheel.spinToken = null;
+    delete room.wheel.settleAt;
+  } else {
+    resetWheel(room);
+  }
+
   room.revision++;
-  const override = addShadowBrokerMessage(room, 'BLOOD TRIBUTE OVERRIDDEN BY SHADOW BROKER');
+  addShadowBrokerMessage(room, 'BLOOD TRIBUTE OVERRIDDEN BY SHADOW BROKER');
 
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -1190,15 +1205,35 @@ function handleWheelOpen(ws, message) {
     return;
   }
 
+  // WOMF targets real, currently-connected Little Heroes only. Build a
+  // canonical case-insensitive name map from live sockets and resolve the
+  // requested roster against it. This makes offline/custom identities
+  // impossible even if an old or hand-crafted client sends them.
+  const connectedNames = new Map();
+  for (const [socket, player] of room.players) {
+    if (!player || player.connected !== true || socket.readyState !== 1) continue;
+    const canonical = String(player.name || '').trim();
+    if (!canonical) continue;
+    const key = canonical.toLowerCase();
+    if (!connectedNames.has(key)) connectedNames.set(key, canonical);
+  }
+
   let segments = Array.isArray(message.segments) ? message.segments : [];
-  segments = segments.map(s => String(s || '').trim()).filter(Boolean);
-  // De-dupe while preserving order.
-  segments = segments.filter((name, i) => segments.indexOf(name) === i);
+  segments = segments
+    .map(s => connectedNames.get(String(s || '').trim().toLowerCase()))
+    .filter(Boolean);
+
+  // De-dupe case-insensitively while preserving the GM's requested order.
+  const seenSegmentNames = new Set();
+  segments = segments.filter(name => {
+    const key = name.toLowerCase();
+    if (seenSegmentNames.has(key)) return false;
+    seenSegmentNames.add(key);
+    return true;
+  });
 
   if (segments.length === 0) {
-    const connected = [];
-    room.players.forEach(player => { if (player.connected) connected.push(player.name); });
-    segments = connected;
+    segments = Array.from(connectedNames.values());
   }
 
   if (segments.length > WHEEL_MAX_SEGMENTS) segments = segments.slice(0, WHEEL_MAX_SEGMENTS);
@@ -1232,8 +1267,13 @@ function handleWheelRoll(ws) {
     sendToWs(ws, { type: 'error', message: 'The Wheel is not open' });
     return;
   }
-  if (room.wheel.phase === 'spinning') {
-    sendToWs(ws, { type: 'error', message: 'The Wheel is already spinning' });
+  if (room.wheel.phase !== 'idle') {
+    sendToWs(ws, {
+      type: 'error',
+      message: room.wheel.phase === 'spinning'
+        ? 'The Wheel is already spinning'
+        : 'Dismiss the current WOMF result before another roll'
+    });
     return;
   }
   if (room.pendingTribute?.status === 'required') {
@@ -1268,7 +1308,11 @@ function armWheelSettlement(room) {
     if (!live || live.wheel?.spinToken !== token || live.wheel.phase !== 'spinning') return;
     live.wheel.phase = 'result';
     delete live.wheel.settleAt;
-    armBloodTributeForWheelResult(live);
+
+    // Result presentation and punishment presentation are deliberately
+    // separate stages. Everyone, INCLUDING the selected Little Hero, gets
+    // to see the landed wheel first. The Blood Tribute is not armed until
+    // the GM explicitly dismisses the result.
     live.revision++;
     persistActiveRooms();
     broadcastToRoom(live, { type: 'state:public', ...getPublicState(live) });
@@ -1286,15 +1330,32 @@ function handleWheelClose(ws) {
     return;
   }
 
-  // Closing just hides the wheel -- it does NOT touch the WOMF charge (no
-  // invented reset-after-roll logic; that stays a manual GM decision via
-  // the existing WOMF -1 / RESET WOMF controls).
-  resetWheel(room);
+  if (room.wheel?.phase === 'result') {
+    // DISMISS is the hand-off from spectacle to consequence. Preserve the
+    // exact roster/result behind the scenes so a forgiven tribute can reopen
+    // this wheel for a clean reroll, but remove it from every screen before
+    // the selected player's Blood Tribute overlay becomes active.
+    const tributeArmed = armBloodTributeForWheelResult(room);
+    if (tributeArmed) {
+      room.wheel.open = false;
+    } else {
+      // The selected identity vanished so completely that no player record
+      // can receive the debt. Drop this result instead of leaving a dead
+      // hidden wheel that can never settle.
+      resetWheel(room);
+    }
+  } else {
+    // ABORT before a completed result is just an abort. WOMF charge remains
+    // untouched and the GM may open a fresh eligible roster afterward.
+    resetWheel(room);
+  }
+
   room.revision++;
 
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
-  console.log(`[ROOM ${room.code}] GM closed the Wheel`);
+  sendTributeVaultToHost(room);
+  console.log(`[ROOM ${room.code}] GM ${room.pendingTribute?.status === 'required' ? 'dismissed WOMF result and armed Blood Tribute' : 'closed the Wheel'}`);
 }
 
 // ---------------------------------------------------------------------
