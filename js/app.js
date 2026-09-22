@@ -1925,13 +1925,6 @@ const App = {
     document.getElementById('womf-open-btn')?.addEventListener('click', () => this.openWomf());
 
     document.getElementById('wheel-setup-close')?.addEventListener('click', () => this.closeWheelSetup());
-    document.getElementById('wheel-setup-add-name')?.addEventListener('click', () => this.addWheelSetupCustomName());
-    document.getElementById('wheel-setup-custom-name')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        this.addWheelSetupCustomName();
-      }
-    });
     document.getElementById('wheel-setup-confirm')?.addEventListener('click', () => this.confirmWheelSetup());
 
     document.addEventListener('keydown', (e) => {
@@ -3251,17 +3244,20 @@ const App = {
   openWheelSetup() {
     const listEl = document.getElementById('wheel-setup-player-list');
     if (listEl) {
-      const players = this.currentPlayers || [];
+      // WOMF can only target Little Heroes who are actually online. The
+      // server enforces the same rule so a stale or hand-crafted client
+      // cannot smuggle an offline/custom identity onto the execution wheel.
+      const players = (this.currentPlayers || []).filter(p => p?.connected === true);
       listEl.innerHTML = players.length > 0
-        ? players.map((p, i) => `
+        ? players.map(p => `
             <label class="wheel-setup-row">
               <input type="checkbox" class="wheel-setup-checkbox" data-player-name="${this.escapeHtmlAttr(p.name)}" checked>
-              <span>${this.escapeHtml(p.name)}</span>
+              <span class="wheel-setup-name">${this.escapeHtml(p.name)}</span>
+              <span class="wheel-setup-presence">● ONLINE</span>
             </label>
           `).join('')
-        : '<div class="wheel-setup-hint">No players connected yet -- add custom names below.</div>';
+        : '<div class="wheel-setup-hint">No Little Heroes are online. WOMF has nobody to ruin yet.</div>';
     }
-    this._wheelSetupCustomNames = [];
     document.getElementById('wheel-setup-overlay')?.classList.add('active');
   },
 
@@ -3269,34 +3265,12 @@ const App = {
     document.getElementById('wheel-setup-overlay')?.classList.remove('active');
   },
 
-  addWheelSetupCustomName() {
-    const input = document.getElementById('wheel-setup-custom-name');
-    if (!input) return;
-    const name = input.value.trim();
-    if (!name) return;
-    if (!this._wheelSetupCustomNames) this._wheelSetupCustomNames = [];
-    if (!this._wheelSetupCustomNames.includes(name)) {
-      this._wheelSetupCustomNames.push(name);
-      const listEl = document.getElementById('wheel-setup-player-list');
-      if (listEl) {
-        listEl.insertAdjacentHTML('beforeend', `
-          <label class="wheel-setup-row">
-            <input type="checkbox" class="wheel-setup-checkbox" data-player-name="${this.escapeHtmlAttr(name)}" checked>
-            <span>${this.escapeHtml(name)}</span>
-          </label>
-        `);
-      }
-    }
-    input.value = '';
-    input.focus();
-  },
-
   confirmWheelSetup() {
     if (this.mode !== 'multiplayer') return;
     const checked = Array.from(document.querySelectorAll('#wheel-setup-player-list .wheel-setup-checkbox:checked'));
     const segments = checked.map(cb => cb.dataset.playerName).filter(Boolean);
     if (segments.length < 2) {
-      alert('Select at least 2 names for the Wheel.');
+      alert('Select at least 2 online Little Heroes for the Wheel.');
       return;
     }
     this.send({ type: 'gm:wheelOpen', segments });
