@@ -15869,3 +15869,27 @@ button.gm-chat-gif-link:focus-visible {
   outline:1px solid rgba(184,117,231,.78);
   outline-offset:2px;
 }
+
+
+/* GM TARGET PICKER INTERACTION LOCK
+   The adjudication picker is an active command surface. Keep it above
+   overlapping chat decoration/scroll geometry and make pointer ownership
+   explicit so its tiny buttons never become decorative fossils. */
+.gm-module-chat .gm-chat-target-controls.gm-chat-target-inline {
+  position: relative !important;
+  z-index: 40 !important;
+  pointer-events: auto !important;
+}
+
+.gm-module-chat .gm-chat-target-controls .gm-target-selector,
+.gm-module-chat .gm-chat-target-controls .gm-target-buttons,
+.gm-module-chat .gm-chat-target-controls .gm-target-btn,
+.gm-module-chat .gm-chat-target-controls .gm-verdict-clear {
+  pointer-events: auto !important;
+}
+
+.gm-module-chat .gm-target-btn.is-submitting {
+  opacity: .62;
+  cursor: wait;
+  box-shadow: 0 0 10px rgba(212,168,67,.38);
+}
