@@ -22,6 +22,7 @@ const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_POLL_QUESTION_LENGTH = 160;
 const MAX_POLL_OPTION_LENGTH = 80;
 const MAX_POLL_OPTIONS = 8;
+const POLL_DURATION_OPTIONS_SECONDS = new Set([0, 30, 60, 120, 300, 600]);
 const GIF_API_WINDOW_MS = 60 * 60 * 1000;
 const GIF_API_GLOBAL_LIMIT = 90;
 const GIF_API_PLAYER_LIMIT = 10;
@@ -422,6 +423,11 @@ function restoreActiveRooms() {
       }
 
       rooms.set(room.code, room);
+      for (const chatMessage of Array.isArray(room.chat?.messages) ? room.chat.messages : []) {
+        if (chatMessage?.messageType === 'poll' && chatMessage.poll && !chatMessage.poll.closedAt && Number(chatMessage.poll.expiresAt) > 0) {
+          schedulePollExpiry(room, chatMessage);
+        }
+      }
       restored++;
       console.log(`[recovery] Restored room ${room.code} (game: ${room.gameId})`);
     }
@@ -2920,7 +2926,7 @@ function appendChatRemoteGifMessage(room, actor, gif) {
     text: '',
     messageType: 'gifRemote',
     gif,
-    timestamp: Date.now(),
+    timestamp: createdAt,
     boardId: null,
     verdict: null,
     target: null,
@@ -2998,28 +3004,38 @@ function appendChatImageMessage(room, actor, imageUrl, caption = '') {
 }
 
 
-function normalizeChatPoll(question, options, allowMultiple) {
+function normalizeChatPoll(question, options, allowMultiple, durationSeconds) {
   const cleanQuestion = sanitizeText(question || '').slice(0, MAX_POLL_QUESTION_LENGTH);
   const rawOptions = Array.isArray(options) ? options : [];
   const cleanOptions = rawOptions
     .map(option => sanitizeText(option || '').slice(0, MAX_POLL_OPTION_LENGTH))
     .filter(Boolean)
     .slice(0, MAX_POLL_OPTIONS);
+  const requestedDuration = durationSeconds == null || durationSeconds === '' ? 0 : Number(durationSeconds);
   if (!cleanQuestion) return { error: 'Poll question required' };
   if (cleanOptions.length < 2) return { error: 'Poll requires at least 2 options' };
   if (new Set(cleanOptions.map(option => option.toLocaleLowerCase())).size !== cleanOptions.length) {
     return { error: 'Poll options must be unique' };
   }
-  return { question: cleanQuestion, options: cleanOptions, allowMultiple: allowMultiple === true };
+  if (!Number.isInteger(requestedDuration) || !POLL_DURATION_OPTIONS_SECONDS.has(requestedDuration)) {
+    return { error: 'Invalid poll timer' };
+  }
+  return {
+    question: cleanQuestion,
+    options: cleanOptions,
+    allowMultiple: allowMultiple === true,
+    durationSeconds: requestedDuration
+  };
 }
 
-function appendChatPollMessage(room, actor, question, options, allowMultiple) {
-  const normalized = normalizeChatPoll(question, options, allowMultiple);
+function appendChatPollMessage(room, actor, question, options, allowMultiple, durationSeconds) {
+  const normalized = normalizeChatPoll(question, options, allowMultiple, durationSeconds);
   if (normalized.error) return { success: false, error: normalized.error };
   const isHost = actor.role === 'gm';
   const liveIdentity = !isHost
     ? (Array.from(room.players.values()).find(player => player.id === actor.playerId) || {})
     : {};
+  const createdAt = Date.now();
   const message = {
     id: generateMessageId(),
     playerId: isHost ? null : actor.playerId,
@@ -3045,7 +3061,9 @@ function appendChatPollMessage(room, actor, question, options, allowMultiple) {
       allowMultiple: normalized.allowMultiple,
       createdByRole: isHost ? 'gm' : 'player',
       createdById: isHost ? '__GM__' : actor.playerId,
-      createdAt: Date.now(),
+      createdAt,
+      durationSeconds: normalized.durationSeconds,
+      expiresAt: normalized.durationSeconds > 0 ? createdAt + normalized.durationSeconds * 1000 : null,
       closedAt: null,
       votes: {},
       voters: {}
@@ -3054,6 +3072,30 @@ function appendChatPollMessage(room, actor, question, options, allowMultiple) {
   room.chat.messages.push(message);
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   return { success: true, message };
+}
+
+function schedulePollExpiry(room, pollMessage) {
+  const expiresAt = Number(pollMessage?.poll?.expiresAt) || 0;
+  if (!expiresAt || pollMessage?.poll?.closedAt) return;
+
+  const delay = Math.max(0, expiresAt - Date.now());
+  setTimeout(() => {
+    const liveRoom = rooms.get(room.code);
+    if (!liveRoom) return;
+    const liveMessage = liveRoom.chat?.messages?.find(entry => entry.id === pollMessage.id && entry.messageType === 'poll');
+    if (!liveMessage?.poll || liveMessage.poll.closedAt) return;
+
+    const liveExpiresAt = Number(liveMessage.poll.expiresAt) || 0;
+    if (!liveExpiresAt) return;
+    if (Date.now() < liveExpiresAt) {
+      schedulePollExpiry(liveRoom, liveMessage);
+      return;
+    }
+
+    liveMessage.poll.closedAt = liveExpiresAt;
+    persistActiveRooms();
+    broadcastChatUpdate(liveRoom);
+  }, delay + 25);
 }
 
 function pollActorForSocket(room, ws) {
@@ -3093,11 +3135,25 @@ function handleChatPollCreate(ws, message) {
     actor.role === 'gm' ? { role: 'gm' } : { role: 'player', playerId: actor.id, playerName: actor.name },
     message.question,
     message.options,
-    message.allowMultiple === true
+    message.allowMultiple === true,
+    message.durationSeconds
   );
   if (!result.success) return sendToWs(ws, { type: 'error', message: result.error });
   persistActiveRooms();
   broadcastChatUpdate(room);
+  schedulePollExpiry(room, result.message);
+
+  // A Shadow Broker poll is a room directive. Publishing one automatically
+  // summons every connected Little Hero with the same live attention event
+  // used by an explicit @all mention, without polluting the question text.
+  if (actor.role === 'gm') {
+    broadcastToRoom(room, {
+      type: 'chat:mentionAll',
+      messageId: result.message.id,
+      reason: 'poll',
+      timestamp: Date.now()
+    });
+  }
 }
 
 function handleChatPollVote(ws, message) {
@@ -3108,6 +3164,12 @@ function handleChatPollVote(ws, message) {
 
   const target = room.chat.messages.find(entry => entry.id === message.messageId && entry.messageType === 'poll');
   if (!target?.poll) return sendToWs(ws, { type: 'error', message: 'Poll not found' });
+  const expiresAt = Number(target.poll.expiresAt) || 0;
+  if (!target.poll.closedAt && expiresAt && Date.now() >= expiresAt) {
+    target.poll.closedAt = expiresAt;
+    persistActiveRooms();
+    broadcastChatUpdate(room);
+  }
   if (target.poll.closedAt) return sendToWs(ws, { type: 'error', message: 'Poll is closed' });
 
   const optionIndex = Number(message.optionIndex);
@@ -3372,6 +3434,8 @@ function getChatState(room) {
             createdByRole: m.poll.createdByRole || 'player',
             createdById: m.poll.createdById || null,
             createdAt: Number(m.poll.createdAt) || m.timestamp,
+            durationSeconds: Number(m.poll.durationSeconds) || 0,
+            expiresAt: Number(m.poll.expiresAt) || null,
             closedAt: Number(m.poll.closedAt) || null,
             votes: Object.fromEntries(
               Object.entries(m.poll.votes || {})
