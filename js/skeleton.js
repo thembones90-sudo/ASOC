@@ -833,7 +833,6 @@ const Skeleton = (() => {
 
     const columns = result.columnSolutions || {};
     const columnResults = result.columnResults || {};
-    const winner = result.matchWinner || (Array.isArray(result.winners) ? result.winners[0] : null);
 
     const overlay = document.createElement('div');
     overlay.className = `victory-overlay${live && !reducedMotion ? ' is-live is-neural-prelude' : ' is-static'}`;
@@ -852,10 +851,6 @@ const Skeleton = (() => {
           <div class="victory-columns">${['A','B','C','D'].map(col =>
             `<span class="column-result ${columnResults[col] === true ? 'is-hit' : 'is-miss'}"><b>${col}5</b>${escapeLoss(columns[col] || '')}</span>`).join('')}</div>
         </div>
-        <div class="victory-recount">
-          <span>RECOUNT // MATCH OUTCOME: WON</span>
-          ${winner ? `<h2>MATCH WINNER</h2><strong>${escapeLoss(winner.name)}</strong><b>${Number(winner.points) || 0} POINTS</b>` : '<h2>MATCH WINNER</h2><strong>AWAITING SCORE DATA</strong>'}
-        </div>
       </section>`;
     document.body.appendChild(overlay);
 
@@ -864,16 +859,16 @@ const Skeleton = (() => {
     if (reducedMotion) {
       onStage('won');
       gameWonTimers.push(setTimeout(() => overlay.classList.add('is-aftermath-exit'), 1200));
-      if (options.afterMatch !== false) {
-        gameWonTimers.push(setTimeout(() => {
-          overlay.remove();
-          onStage('done');
+      gameWonTimers.push(setTimeout(() => {
+        overlay.remove();
+        onStage('done');
+        if (options.afterMatch !== false) {
           playAftermath(result, {
             isHost: options.isHost === true,
             onContinue: options.onAftermathContinue
           });
-        }, 1550));
-      }
+        }
+      }, 1550));
       return overlay;
     }
 
@@ -984,6 +979,7 @@ const Skeleton = (() => {
 
   let gameLostTimer = null;
   let gameLostPreludeTimer = null;
+  let gameLostExitTimer = null;
   const escapeLoss = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
@@ -996,13 +992,13 @@ const Skeleton = (() => {
     document.querySelector('.defeat-overlay')?.remove();
     if (gameLostTimer) clearTimeout(gameLostTimer);
     if (gameLostPreludeTimer) clearTimeout(gameLostPreludeTimer);
+    if (gameLostExitTimer) clearTimeout(gameLostExitTimer);
     gameLostTimer = null;
     gameLostPreludeTimer = null;
+    gameLostExitTimer = null;
 
     const columns = result.columnSolutions || {};
     const columnResults = result.columnResults || {};
-    const top = result.topPerformer;
-    const awards = Array.isArray(result.awards) ? result.awards : [];
     const overlay = document.createElement('div');
     overlay.className = `defeat-overlay${live ? ' is-live is-virus-prelude' : ' is-static'}`;
     overlay.innerHTML = `
@@ -1018,11 +1014,6 @@ const Skeleton = (() => {
           <span>FINAL SOLUTION</span><strong>${escapeLoss(result.finalSolution)}</strong>
           <div class="defeat-columns">${['A','B','C','D'].map(col =>
             `<span class="column-result ${columnResults[col] === true ? 'is-hit' : 'is-miss'}"><b>${col}5</b>${escapeLoss(columns[col])}</span>`).join('')}</div>
-        </div>
-        <div class="defeat-recount">
-          <span>RECOUNT // MATCH OUTCOME: LOST</span>
-          ${top ? `<h2>TOP PERFORMER</h2><strong>${escapeLoss(top.name)}</strong><b>${Number(top.points) || 0} POINTS</b>` : '<h2>TOP PERFORMER</h2><strong>NO QUALIFYING DATA</strong>'}
-          <div class="defeat-awards">${awards.map(award => `<p><b>${escapeLoss(award.type)}</b>${award.playerName ? ` // ${escapeLoss(award.playerName)}` : ''}<small>${escapeLoss(award.comment)}</small></p>`).join('')}</div>
         </div>
       </section>`;
     document.body.appendChild(overlay);
@@ -1124,9 +1115,9 @@ const Skeleton = (() => {
       gameLostTimer = null;
     }, 4500);
 
-    gameLostPreludeTimer = setTimeout(() => {
+    gameLostExitTimer = setTimeout(() => {
       if (overlay.isConnected) overlay.remove();
-      gameLostPreludeTimer = null;
+      gameLostExitTimer = null;
     }, 5500);
 
     if (options.afterMatch !== false) {
