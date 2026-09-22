@@ -4932,6 +4932,16 @@ position:absolute;
       border-bottom:1px solid rgba(116,126,139,.25);
     }
 
+
+    /* CASUAL PLAYER ROSTER DEDUPE
+       The status module already contains the authoritative room roster /
+       leaderboard strip. The separate battle roster directly underneath is
+       useful in ABUSEMENT PARK, but in AMUSEMENT PARK it duplicates every
+       person and score into a second row. */
+    #game-screen.room-mode-casual #little-hero-roster {
+      display:none !important;
+    }
+
     #game-screen.room-mode-casual #battle-event-feed {
       display:none;
     }
@@ -8081,7 +8091,7 @@ position:absolute;
   </script>
   <script src="js/themes.js"></script>
   <script src="js/skeleton.js?v=20260922-aftermath-2"></script>
-  <script src="js/recount.js"></script>
+  <script src="js/recount.js?v=20260922-casual-room-cleanup-1"></script>
   <script src="js/womf.js"></script>
   <script src="js/wheel.js?v=20260922-womf-rebuild-1"></script>
   <script src="js/timer.js"></script>
@@ -8089,7 +8099,7 @@ position:absolute;
   <script src="js/board.js?v=20260921-final-omen-2"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260922-player-global-drop-1"></script>
-  <script src="js/player.js?v=20260922-stable-battle-dom-1"></script>
+  <script src="js/player.js?v=20260922-casual-room-cleanup-1"></script>
   <script src="js/tweaks.js?v=20260922-tweaks-root-fix-1"></script>
 </body>
 </html>
