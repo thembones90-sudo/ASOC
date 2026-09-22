@@ -526,17 +526,12 @@ const PlayerApp = {
     };
 
     const uploadChatMediaUrl = async (imageUrl, caption = '') => {
-      const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        throw new Error('Chat is not connected.');
+      }
       setChatMediaBusy(true);
       try {
-        const res = await fetch('/api/chat/image-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-player-token': token },
-          body: JSON.stringify({ url: imageUrl, caption })
-        });
-        const result = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(result.error || 'Image link import failed');
-        return result;
+        this.send({ type: 'chat:image-url', url: imageUrl, caption });
       } finally {
         setChatMediaBusy(false);
       }
@@ -3204,6 +3199,16 @@ const PlayerApp = {
 
     const text = input.value.trim();
     if (!text) return;
+
+    // Fallback parity with the Shadow Broker: if a direct image address made
+    // it into the text box instead of being staged by the paste event, Enter
+    // still treats the URL as media instead of broadcasting it as a guess.
+    if (/^https?:\/\/\S+$/i.test(text) && this._chatMediaComposer?.stageUrl?.(text)) {
+      input.value = '';
+      this.closeChatMentionPicker();
+      this._chatMediaComposer.submit();
+      return;
+    }
 
     const editing = this._editingMessage;
     this.closeChatMentionPicker();
