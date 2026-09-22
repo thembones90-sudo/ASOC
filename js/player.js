@@ -1120,6 +1120,12 @@ const PlayerApp = {
         const previousState = this.lastPublicState;
         const roomMode = message.roomMode || (message.armed === true ? 'BATTLE_ARMED' : 'CASUAL');
         const battleVisible = roomMode !== 'CASUAL';
+        const boardChanged = !!(previousState?.gameId && message.gameId && previousState.gameId !== message.gameId);
+        if (boardChanged || !battleVisible) {
+          document.querySelector('.victory-overlay')?.remove();
+          document.querySelector('.defeat-overlay')?.remove();
+          Skeleton.closeAftermath?.();
+        }
 
         const cascadeNow = Date.now();
         if (battleVisible && this._columnCascadeBaselined) {
