@@ -1,7 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const durableIO = require('./durable-io');
-
 const DATA_DIR = process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_DIR) : __dirname;
 const TWEAKS_FILE = process.env.ASOC_TWEAKS_FILE
   ? path.resolve(process.env.ASOC_TWEAKS_FILE)
@@ -41,7 +39,23 @@ function safeContext(input) {
 
 function save() {
   if (!healthy) throw new Error('TWEAKS storage unavailable');
-  durableIO.writeJson(TWEAKS_FILE, state);
+  const dir = path.dirname(TWEAKS_FILE);
+  const tmp = TWEAKS_FILE + '.tmp-' + process.pid + '-' + Date.now();
+  let fd;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fd = fs.openSync(tmp, 'wx', 0o600);
+    fs.writeFileSync(fd, JSON.stringify(state, null, 2), 'utf8');
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fd = undefined;
+    fs.renameSync(tmp, TWEAKS_FILE);
+  } catch (error) {
+    if (fd !== undefined) try { fs.closeSync(fd); } catch {}
+    try { fs.unlinkSync(tmp); } catch {}
+    healthy = false;
+    throw error;
+  }
 }
 
 function load() {
