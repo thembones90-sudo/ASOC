@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ASOC - Join Game</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260922-broker-identity-2">
+  <link rel="stylesheet" href="css/asoc.css?v=20260922-poll-timer-voters-1">
   <style>
     #join-screen {
       display: flex;
@@ -788,7 +788,7 @@
        fits the layer AFTER the HUD band is deducted -- which is by
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
-       --hud-band is measured and set by js/player.js?v=20260922-broker-identity-2"";
+       --hud-band is measured and set by js/player.js?v=20260922-poll-timer-voters-1"";
       position:absolute;
       left:5px;
       width:5px;
@@ -7232,6 +7232,168 @@
     #game-screen .battle-comms-lobby .shadow-broker-poll-identity .chat-time {
       color:#707985;
       font:.44rem/1 var(--font-machine);
+    }
+
+  
+
+    /* POLL AUTHORITY DATA V2 // timer + public voter identities */
+    #game-screen .battle-comms-lobby .chat-poll-config-row {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:7px;
+      margin-top:8px;
+      padding:7px 8px;
+      border:1px solid rgba(104,115,128,.30);
+      border-radius:6px;
+      background:rgba(8,11,15,.72);
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-timer-control {
+      display:flex;
+      align-items:center;
+      gap:7px;
+      color:#aab3bd;
+      font:850 .50rem/1 var(--font-system);
+      letter-spacing:.08em;
+    }
+
+    #game-screen .battle-comms-lobby #chat-poll-duration {
+      height:28px;
+      padding:0 24px 0 8px;
+      border:1px solid color-mix(in srgb,var(--player-theme,#9b5de0) 48%,#59636e);
+      border-radius:5px;
+      background:#10151b;
+      color:#dce2e8;
+      font:850 .54rem/1 var(--font-system);
+      outline:none;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-public-note {
+      color:#8d97a3;
+      font:900 .44rem/1 var(--font-system);
+      letter-spacing:.08em;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-state {
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      gap:5px;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-state > em {
+      padding:3px 5px;
+      border:1px solid rgba(188,122,239,.42);
+      border-radius:4px;
+      background:rgba(92,45,128,.24);
+      color:#d9b5f5;
+      font:900 .45rem/1 var(--font-system);
+      font-style:normal;
+      letter-spacing:.05em;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-countdown {
+      min-width:42px;
+      padding:3px 6px;
+      border:1px solid rgba(88,221,137,.44);
+      border-radius:4px;
+      background:rgba(24,71,40,.30);
+      color:#9af0b4;
+      font:900 .55rem/1 var(--font-system);
+      letter-spacing:.07em;
+      text-align:center;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-countdown.no-limit,
+    #game-screen .battle-comms-lobby .chat-poll-countdown.is-ended {
+      border-color:rgba(120,131,143,.34);
+      background:rgba(34,39,46,.46);
+      color:#8f99a5;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-choice {
+      grid-template-rows:auto auto !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-voters {
+      grid-column:1 / -1;
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:4px;
+      min-height:18px;
+      margin-top:3px;
+      padding-top:5px;
+      border-top:1px solid rgba(129,139,150,.12);
+      pointer-events:none;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-voters-label {
+      color:#65717d;
+      font:900 .43rem/1 var(--font-system);
+      letter-spacing:.08em;
+      margin-right:2px;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-voters > em {
+      color:#59636e;
+      font:800 .42rem/1 var(--font-system);
+      font-style:normal;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-voter-chip {
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      max-width:128px;
+      height:20px;
+      padding:1px 5px 1px 2px;
+      border:1px solid color-mix(in srgb,var(--poll-voter-color,#9B5DE0) 52%,#59636e);
+      border-radius:10px;
+      background:rgba(9,12,16,.72);
+      color:#cfd6dd;
+      box-sizing:border-box;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-voter-chip img,
+    #game-screen .battle-comms-lobby .chat-poll-voter-chip i {
+      width:15px;
+      height:15px;
+      flex:0 0 15px;
+      border-radius:50%;
+      object-fit:cover;
+      border:1px solid var(--poll-voter-color,#9B5DE0);
+      background:#080a0d;
+      box-sizing:border-box;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-voter-chip i {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      color:#e8edf2;
+      font:900 .42rem/1 var(--font-system);
+      font-style:normal;
+    }
+
+    #game-screen .battle-comms-lobby .chat-poll-voter-chip b {
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      font:800 .46rem/1 var(--font-system);
+    }
+
+    @media (max-width:520px) {
+      #game-screen .battle-comms-lobby .chat-poll-config-row {
+        align-items:stretch;
+        flex-direction:column;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-card-head {
+        align-items:flex-start !important;
+      }
     }
 
   </style>
