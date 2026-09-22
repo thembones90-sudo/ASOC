@@ -242,7 +242,8 @@ function runtimeAction(action) {
   } catch (error) {
     outbound = null;
     durableIO.abort();
-    failPersistence();
+    console.error('[runtime] Authoritative action failed:', error?.stack || error?.message || error);
+    failPersistence(error);
   }
 }
 
@@ -2914,6 +2915,7 @@ async function handleGifApiRequest(req, res, url) {
 }
 
 function appendChatRemoteGifMessage(room, actor, gif) {
+  const createdAt = Date.now();
   const isHost = actor.role === 'gm';
   const liveIdentity = !isHost
     ? (Array.from(room.players.values()).find(player => String(player.id) === String(actor.playerId)) || {})
