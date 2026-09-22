@@ -16353,3 +16353,26 @@ button.gm-chat-gif-link:focus-visible {
     scrollbar-gutter:stable;
   }
 }
+
+
+/* GM CHAT REAL SCROLLPORT V2
+   Fixed-height GM rail, real scrollable transcript. The transcript gets a
+   definite flex scrollport instead of an auto content height that can be
+   clipped by the locked parent. */
+@media (min-width:761px) {
+  body.room-mode-battle #gm-panel:not(.maintenance-open) #gm-chat-messages,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #gm-chat-messages,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-chat-messages {
+    display:block !important;
+    flex:1 1 0 !important;
+    height:0 !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow-y:scroll !important;
+    overflow-x:hidden !important;
+    overscroll-behavior-y:contain !important;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y !important;
+    pointer-events:auto !important;
+  }
+}
