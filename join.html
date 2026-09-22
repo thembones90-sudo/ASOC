@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ASOC - Join Game</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260922-poll-timer-voters-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260922-chat-flow-lock-1">
   <style>
     #join-screen {
       display: flex;
@@ -788,7 +788,7 @@
        fits the layer AFTER the HUD band is deducted -- which is by
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
-       --hud-band is measured and set by js/player.js?v=20260922-poll-timer-voters-1"";
+       --hud-band is measured and set by js/player.js?v=20260922-chat-flow-lock-1"";
       position:absolute;
       left:5px;
       width:5px;
@@ -7394,6 +7394,49 @@
       #game-screen .battle-comms-lobby .chat-poll-card-head {
         align-items:flex-start !important;
       }
+    }
+
+  
+
+    /* PLAYER CHAT FLOW LOCK V1
+       Casual/Amusement chat is a flex column. Transcript entries must never
+       shrink when the room gets busy; shrinking the row while its bubble
+       keeps intrinsic height is what caused messages to visually overlap.
+       Overflow belongs to the scroller, not to neighboring messages. */
+    #game-screen .battle-comms-lobby #chat-messages > .chat-message,
+    #game-screen .battle-comms-lobby #chat-messages > .chat-broker-entry,
+    #game-screen .battle-comms-lobby #chat-messages > .chat-blood-tribute-entry,
+    #game-screen .battle-comms-lobby #chat-messages > .chat-time-separator {
+      flex:0 0 auto !important;
+      flex-shrink:0 !important;
+      min-height:min-content !important;
+    }
+
+    #game-screen .battle-comms-lobby #chat-messages > .chat-message {
+      align-self:stretch !important;
+      overflow:visible !important;
+    }
+
+    #game-screen .battle-comms-lobby #chat-messages > .chat-broker-entry {
+      align-self:flex-end;
+      overflow:visible !important;
+    }
+
+    #game-screen .battle-comms-lobby #chat-messages > .chat-broker-poll-entry {
+      flex:0 0 auto !important;
+      flex-shrink:0 !important;
+      min-height:min-content !important;
+      overflow:visible !important;
+    }
+
+    /* Keep the social-room bottom anchoring when the transcript is short.
+       Once content exceeds the viewport the auto margin naturally resolves
+       to zero and the container scrolls instead of compressing messages. */
+    #game-screen.room-mode-casual #chat-messages {
+      min-height:0 !important;
+      overflow-y:auto !important;
+      overflow-x:hidden !important;
+      align-content:stretch !important;
     }
 
   </style>
