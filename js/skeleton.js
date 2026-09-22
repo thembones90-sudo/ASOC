@@ -642,6 +642,175 @@ const Skeleton = (() => {
   }
 
   let gameWonTimers = [];
+  let aftermathTimers = [];
+  let aftermathKeyHandler = null;
+  let aftermathCompleteNow = null;
+
+  function clearAftermathTimers() {
+    aftermathTimers.forEach(clearTimeout);
+    aftermathTimers = [];
+  }
+
+  function closeAftermath() {
+    clearAftermathTimers();
+    aftermathCompleteNow = null;
+    if (aftermathKeyHandler) {
+      document.removeEventListener('keydown', aftermathKeyHandler);
+      aftermathKeyHandler = null;
+    }
+    document.querySelector('.aftermath-overlay')?.remove();
+  }
+
+  function splitAftermathStory(story) {
+    const clean = String(story || '').trim();
+    if (!clean) return { main: '', finalLine: 'AFTERMATH DATA UNAVAILABLE.' };
+    const sentences = clean.match(/[^.!?]+[.!?]+(?:["'”’)]*)?|[^.!?]+$/g)
+      ?.map(part => part.trim())
+      .filter(Boolean) || [clean];
+    const finalLine = (sentences[sentences.length - 1] || clean).trim();
+    const splitAt = clean.lastIndexOf(finalLine);
+    const main = splitAt > 0 ? clean.slice(0, splitAt).trim() : '';
+    return { main, finalLine };
+  }
+
+  function aftermathCharDelay(char, base) {
+    if (char === '\n') return 500;
+    if (char === ',') return 120;
+    if (char === ';' || char === ':') return 170;
+    if (char === '.' || char === '?' || char === '!') return 300;
+    return base;
+  }
+
+  function playAftermath(result = {}, options = {}) {
+    closeAftermath();
+    document.querySelector('.victory-overlay')?.remove();
+    document.querySelector('.defeat-overlay')?.remove();
+
+    const isHost = options.isHost === true;
+    const onContinue = typeof options.onContinue === 'function' ? options.onContinue : () => {};
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    const { main, finalLine } = splitAftermathStory(result.story);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'aftermath-overlay';
+    overlay.innerHTML = `
+      <div class="aftermath-dim"></div>
+      <div class="aftermath-grain"></div>
+      <section class="aftermath-stage" role="dialog" aria-label="Aftermath">
+        <div class="aftermath-identity">
+          <img class="aftermath-avatar" src="assets/ui/shadow-broker.png" alt="">
+          <div>
+            <div class="aftermath-kicker">SHADOW BROKER // TRANSMISSION</div>
+            <h1 class="aftermath-title">AFTERMATH</h1>
+          </div>
+        </div>
+        <div class="aftermath-panel">
+          <div class="aftermath-story" aria-live="polite"></div>
+          <div class="aftermath-final-line"></div>
+        </div>
+        ${isHost ? `
+          <div class="aftermath-controls">
+            <button type="button" class="aftermath-btn aftermath-complete">COMPLETE TEXT</button>
+            <button type="button" class="aftermath-btn aftermath-continue" hidden>CONTINUE</button>
+          </div>` : ''}
+      </section>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('is-visible'));
+
+    const storyEl = overlay.querySelector('.aftermath-story');
+    const finalEl = overlay.querySelector('.aftermath-final-line');
+    const completeBtn = overlay.querySelector('.aftermath-complete');
+    const continueBtn = overlay.querySelector('.aftermath-continue');
+    let completed = false;
+    let advancing = false;
+
+    const markComplete = () => {
+      if (completed) return;
+      completed = true;
+      finalEl?.classList.add('is-complete');
+      if (completeBtn) {
+        completeBtn.disabled = true;
+        completeBtn.hidden = true;
+      }
+      if (continueBtn) {
+        continueBtn.hidden = false;
+        requestAnimationFrame(() => continueBtn.classList.add('is-ready'));
+      }
+    };
+
+    const typeInto = (element, text, base, done) => {
+      if (!element || !text) {
+        done?.();
+        return;
+      }
+      let index = 0;
+      const tick = () => {
+        if (!overlay.isConnected) return;
+        index += 1;
+        element.textContent = text.slice(0, index);
+        if (index >= text.length) {
+          done?.();
+          return;
+        }
+        const timer = setTimeout(tick, aftermathCharDelay(text[index - 1], base));
+        aftermathTimers.push(timer);
+      };
+      tick();
+    };
+
+    const completeNow = () => {
+      if (!overlay.isConnected || completed) return;
+      clearAftermathTimers();
+      if (storyEl) storyEl.textContent = main;
+      if (finalEl) finalEl.textContent = finalLine;
+      markComplete();
+    };
+    aftermathCompleteNow = completeNow;
+
+    const advance = () => {
+      if (advancing) return;
+      if (!completed) {
+        completeNow();
+        return;
+      }
+      advancing = true;
+      if (continueBtn) {
+        continueBtn.disabled = true;
+        continueBtn.textContent = 'TRANSMITTING...';
+      }
+      onContinue();
+    };
+
+    completeBtn?.addEventListener('click', completeNow);
+    continueBtn?.addEventListener('click', advance);
+
+    if (isHost) {
+      aftermathKeyHandler = (event) => {
+        if (event.key !== 'Escape' || !overlay.isConnected) return;
+        event.preventDefault();
+        if (!completed) completeNow();
+        else advance();
+      };
+      document.addEventListener('keydown', aftermathKeyHandler);
+    }
+
+    if (reducedMotion) {
+      const timer = setTimeout(completeNow, 300);
+      aftermathTimers.push(timer);
+    } else {
+      const startTimer = setTimeout(() => {
+        typeInto(storyEl, main, 30, () => {
+          const finalPause = setTimeout(() => {
+            typeInto(finalEl, finalLine, 60, markComplete);
+          }, main ? 1000 : 350);
+          aftermathTimers.push(finalPause);
+        });
+      }, 1500);
+      aftermathTimers.push(startTimer);
+    }
+
+    return overlay;
+  }
 
   // GAME WON -- the live victory sequence. Cold and clinical: the system
   // processes its own defeat. Played ONCE, at the moment the server flips
@@ -690,12 +859,21 @@ const Skeleton = (() => {
       </section>`;
     document.body.appendChild(overlay);
 
-    if (!live || reducedMotion) {
+    if (!live) return overlay;
+
+    if (reducedMotion) {
       onStage('won');
-      if (live) overlay.addEventListener('click', () => {
-        overlay.remove();
-        onStage('done');
-      }, { once: true });
+      gameWonTimers.push(setTimeout(() => overlay.classList.add('is-aftermath-exit'), 1200));
+      if (options.afterMatch !== false) {
+        gameWonTimers.push(setTimeout(() => {
+          overlay.remove();
+          onStage('done');
+          playAftermath(result, {
+            isHost: options.isHost === true,
+            onContinue: options.onAftermathContinue
+          });
+        }, 1550));
+      }
       return overlay;
     }
 
@@ -780,17 +958,26 @@ const Skeleton = (() => {
       overlay.classList.add('is-ceremony');
       onStage('won');
 
-      overlay.addEventListener('click', () => {
-        gameWonTimers.forEach(clearTimeout);
-        gameWonTimers = [];
-        overlay.remove();
-        onStage('done');
-      }, { once: true });
     }, 2200));
 
     gameWonTimers.push(setTimeout(() => {
-      if (overlay.isConnected) overlay.classList.add('is-settled');
-    }, 16700));
+      if (overlay.isConnected) overlay.classList.add('is-aftermath-exit');
+    }, 4500));
+
+    gameWonTimers.push(setTimeout(() => {
+      if (!overlay.isConnected) return;
+      overlay.remove();
+      onStage('done');
+    }, 5500));
+
+    if (options.afterMatch !== false) {
+      gameWonTimers.push(setTimeout(() => {
+        playAftermath(result, {
+          isHost: options.isHost === true,
+          onContinue: options.onAftermathContinue
+        });
+      }, 5800));
+    }
 
     return overlay;
   }
@@ -933,9 +1120,24 @@ const Skeleton = (() => {
 
     gameLostTimer = setTimeout(() => {
       if (!overlay.isConnected) return;
-      overlay.classList.add('is-settled');
+      overlay.classList.add('is-aftermath-exit');
       gameLostTimer = null;
-    }, 16950);
+    }, 4500);
+
+    gameLostPreludeTimer = setTimeout(() => {
+      if (overlay.isConnected) overlay.remove();
+      gameLostPreludeTimer = null;
+    }, 5500);
+
+    if (options.afterMatch !== false) {
+      const aftermathTimer = setTimeout(() => {
+        playAftermath(result, {
+          isHost: options.isHost === true,
+          onContinue: options.onAftermathContinue
+        });
+      }, 5800);
+      aftermathTimers.push(aftermathTimer);
+    }
 
     return overlay;
   }
@@ -964,7 +1166,9 @@ const Skeleton = (() => {
     playBiceAsoc,
     playOmen,
     playGameWon,
-    playGameLost
+    playGameLost,
+    playAftermath,
+    closeAftermath
   };
 })();
 
