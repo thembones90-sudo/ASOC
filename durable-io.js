@@ -15,10 +15,38 @@ let pending = null;
 let failed = false;
 let failureHandler = null;
 
+const TRANSIENT_FS_CODES = new Set(['EAGAIN', 'EBUSY', 'EINTR', 'ESTALE']);
+const UNSUPPORTED_DIRSYNC_CODES = new Set(['EINVAL', 'ENOTSUP', 'EOPNOTSUPP', 'EPERM']);
+let directorySyncWarningShown = false;
+
+function sleepSync(ms) {
+  if (!(ms > 0)) return;
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  } catch {
+    const until = Date.now() + ms;
+    while (Date.now() < until) {}
+  }
+}
+
 function syncDirectory(dir) {
   if (process.platform === 'win32') return;
-  const fd = fs.openSync(dir, 'r');
-  try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  let fd;
+  try {
+    fd = fs.openSync(dir, 'r');
+    fs.fsyncSync(fd);
+  } catch (error) {
+    if (UNSUPPORTED_DIRSYNC_CODES.has(error?.code)) {
+      if (!directorySyncWarningShown) {
+        directorySyncWarningShown = true;
+        console.warn(`[durable-io] Directory fsync unsupported on this volume (${error.code}); continuing with file fsync + atomic rename.`);
+      }
+      return;
+    }
+    throw error;
+  } finally {
+    if (fd !== undefined) try { fs.closeSync(fd); } catch {}
+  }
 }
 
 function injectedFailure() {
@@ -30,23 +58,35 @@ function injectedFailure() {
 
 function atomic(file, value) {
   const target = path.resolve(file);
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  const tmp = target + '.tmp-' + process.pid + '-' + crypto.randomBytes(8).toString('hex');
-  let fd;
-  try {
-    injectedFailure();
-    fd = fs.openSync(tmp, 'wx', 0o600);
-    fs.writeFileSync(fd, value, 'utf8');
-    fs.fsyncSync(fd);
-    fs.closeSync(fd);
-    fd = undefined;
-    fs.renameSync(tmp, target);
-    syncDirectory(path.dirname(target));
-  } catch (error) {
-    if (fd !== undefined) try { fs.closeSync(fd); } catch {}
-    try { fs.unlinkSync(tmp); } catch {}
-    throw error;
+  const dir = path.dirname(target);
+  const retryDelays = [0, 20, 60, 140];
+  let lastError;
+
+  for (let attempt = 0; attempt < retryDelays.length; attempt++) {
+    if (retryDelays[attempt]) sleepSync(retryDelays[attempt]);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = target + '.tmp-' + process.pid + '-' + crypto.randomBytes(8).toString('hex');
+    let fd;
+    try {
+      injectedFailure();
+      fd = fs.openSync(tmp, 'wx', 0o600);
+      fs.writeFileSync(fd, value, 'utf8');
+      fs.fsyncSync(fd);
+      fs.closeSync(fd);
+      fd = undefined;
+      fs.renameSync(tmp, target);
+      syncDirectory(dir);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (fd !== undefined) try { fs.closeSync(fd); } catch {}
+      try { fs.unlinkSync(tmp); } catch {}
+      if (!TRANSIENT_FS_CODES.has(error?.code) || attempt === retryDelays.length - 1) throw error;
+      console.warn(`[durable-io] Transient ${error.code} writing ${path.basename(target)}; retry ${attempt + 1}/${retryDelays.length - 1}`);
+    }
   }
+
+  throw lastError || new Error('Atomic write failed');
 }
 
 function markFailed(error) {
