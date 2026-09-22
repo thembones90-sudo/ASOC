@@ -3281,13 +3281,12 @@ function isBlockedRemoteAddress(address) {
     return false;
   }
   if (family === 6) {
-    if (value === '::' || value === '::1') return true;
+    if (value === '::' || value === '::1' || value === '0:0:0:0:0:0:0:0' || value === '0:0:0:0:0:0:0:1') return true;
+    if (value.startsWith('::ffff:')) return true;
     if (/^(?:fc|fd)/.test(value)) return true;
     if (/^fe[89ab]/.test(value)) return true;
     if (/^ff/.test(value)) return true;
     if (/^2001:db8(?::|$)/.test(value)) return true;
-    const mapped = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    if (mapped) return isBlockedRemoteAddress(mapped[1]);
     return false;
   }
   return true;
@@ -3313,17 +3312,18 @@ function normalizeRemoteImageUrl(rawValue) {
 }
 
 async function resolvePublicRemoteAddress(hostname) {
-  const literalFamily = net.isIP(hostname);
+  const cleanHost = String(hostname || '').replace(/^\[|\]$/g, '');
+  const literalFamily = net.isIP(cleanHost);
   if (literalFamily) {
-    if (isBlockedRemoteAddress(hostname)) throw new Error('Private or reserved image addresses are not allowed');
-    return { address: hostname, family: literalFamily };
+    if (isBlockedRemoteAddress(cleanHost)) throw new Error('Private or reserved image addresses are not allowed');
+    return { address: cleanHost, family: literalFamily, servername: cleanHost };
   }
-  const records = await dns.promises.lookup(hostname, { all: true, verbatim: true });
+  const records = await dns.promises.lookup(cleanHost, { all: true, verbatim: true });
   if (!records.length) throw new Error('Image address host could not be resolved');
   if (records.some(record => isBlockedRemoteAddress(record.address))) {
     throw new Error('Private or reserved image addresses are not allowed');
   }
-  return records[0];
+  return { ...records[0], servername: cleanHost };
 }
 
 async function fetchRemoteChatImage(rawUrl, redirectCount = 0) {
@@ -3346,7 +3346,7 @@ async function fetchRemoteChatImage(rawUrl, redirectCount = 0) {
       port: target.protocol === 'https:' ? 443 : 80,
       method: 'GET',
       path: target.pathname + target.search,
-      servername: target.protocol === 'https:' ? target.hostname : undefined,
+      servername: target.protocol === 'https:' ? resolved.servername : undefined,
       rejectUnauthorized: true,
       headers: {
         Host: target.host,
