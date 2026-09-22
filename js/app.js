@@ -1290,6 +1290,7 @@ const App = {
     const gmPollQuestion = document.getElementById('gm-poll-question');
     const gmPollOptionsEditor = document.getElementById('gm-poll-options');
     const gmPollMultiple = document.getElementById('gm-poll-multiple');
+    const gmPollDuration = document.getElementById('gm-poll-duration');
 
     let gmGifPicker = document.getElementById('gm-gif-picker');
     if (!gmGifPicker && gmAttachmentWrap) {
@@ -1564,7 +1565,8 @@ const App = {
         type: 'chat:poll:create',
         question,
         options,
-        allowMultiple: gmPollMultiple?.checked === true
+        allowMultiple: gmPollMultiple?.checked === true,
+        durationSeconds: Number(gmPollDuration?.value || 0)
       });
       if (gmPollQuestion) gmPollQuestion.value = '';
       if (gmPollMultiple) gmPollMultiple.checked = false;
@@ -4047,6 +4049,7 @@ const App = {
 
     container.innerHTML = html;
     this.decorateGMChatMentions(container);
+    this.armGMPollCountdowns(container);
 
     clearTimeout(this._gmWrongFadeTimer);
     if (Number.isFinite(nextWrongFadeMs)) {
@@ -4100,6 +4103,29 @@ const App = {
     return `<div class="gm-chat-reactions${chips ? ' has-reactions' : ''}">${chips}${addButton}</div>`;
   },
 
+  formatGMPollCountdown(expiresAt) {
+    const remaining = Math.max(0, Number(expiresAt || 0) - Date.now());
+    const totalSeconds = Math.max(0, Math.ceil(remaining / 1000));
+    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  },
+
+  armGMPollCountdowns(container = document.getElementById('gm-chat-messages')) {
+    clearInterval(this._gmPollCountdownInterval);
+    this._gmPollCountdownInterval = null;
+    if (!container) return;
+    const update = () => {
+      container.querySelectorAll('.gm-poll-countdown[data-expires-at]').forEach(node => {
+        node.textContent = this.formatGMPollCountdown(node.dataset.expiresAt);
+      });
+    };
+    update();
+    if (container.querySelector('.gm-poll-countdown[data-expires-at]')) {
+      this._gmPollCountdownInterval = setInterval(update, 250);
+    }
+  },
+
   createGMPollCardHTML(msg) {
     const poll = msg?.poll || {};
     const options = Array.isArray(poll.options) ? poll.options : [];
@@ -4113,31 +4139,48 @@ const App = {
     const totalVoters = voterIds.size;
     const gmId = '__GM__';
     const closed = Number(poll.closedAt) > 0;
+    const expiresAt = Number(poll.expiresAt) || 0;
+    const autoTagged = poll.createdByRole === 'gm';
 
     const optionHtml = options.map((option, index) => {
       const ids = Array.isArray(votes[String(index)]) ? votes[String(index)].map(String) : [];
       const selected = ids.includes(gmId);
       const percent = totalVoters ? Math.round((ids.length / totalVoters) * 100) : 0;
-      const voterNames = ids.map(id => {
-        if (id === gmId) return 'SHADOW BROKER';
-        return String(voters[id]?.name || 'LITTLE HERO');
-      });
+      const voterNames = ids.map(id => id === gmId ? 'SHADOW BROKER' : String(voters[id]?.name || 'LITTLE HERO'));
       const voterTitle = voterNames.length ? 'VOTERS // ' + voterNames.join(', ') : 'NO VOTES';
+      const voterChips = ids.map(id => {
+        const voter = voters[id] || {};
+        const name = id === gmId ? 'SHADOW BROKER' : String(voter.name || 'LITTLE HERO');
+        const frameColor = /^#[0-9A-Fa-f]{6}$/.test(voter.frameColor || '') ? voter.frameColor : '#9B5DE0';
+        const avatar = id === gmId
+          ? '<img src="assets/ui/shadow-broker.png" alt="">'
+          : (typeof voter.avatarData === 'string' && voter.avatarData.startsWith('data:image/')
+              ? `<img src="${this.escapeHtml(voter.avatarData)}" alt="">`
+              : `<i>${this.escapeHtml(name.slice(0, 1).toUpperCase())}</i>`);
+        return `<span class="gm-poll-voter-chip" title="${this.escapeHtml(name)}" style="--poll-voter-color:${frameColor}">${avatar}<b>${this.escapeHtml(name)}</b></span>`;
+      }).join('');
 
       return `
         <button type="button" class="gm-poll-choice${selected ? ' selected' : ''}" data-gm-poll-vote="${index}" data-message-id="${this.escapeHtml(msg.id)}" ${closed ? 'disabled' : ''}>
           <span class="gm-poll-choice-fill" style="width:${percent}%"></span>
           <span class="gm-poll-choice-label">${this.escapeHtml(option)}</span>
           <span class="gm-poll-choice-result" title="${this.escapeHtml(voterTitle)}"><b>${percent}%</b><small>${ids.length}</small></span>
+          <span class="gm-poll-voters"><span class="gm-poll-voters-label">VOTED</span>${voterChips || '<em>NONE</em>'}</span>
         </button>
       `;
     }).join('');
+
+    const timerHtml = expiresAt
+      ? (closed
+          ? '<strong class="gm-poll-countdown is-ended">CLOSED</strong>'
+          : `<strong class="gm-poll-countdown" data-expires-at="${expiresAt}">${this.formatGMPollCountdown(expiresAt)}</strong>`)
+      : '<strong class="gm-poll-countdown no-limit">NO LIMIT</strong>';
 
     return `
       <div class="gm-poll-card${closed ? ' is-closed' : ''}">
         <div class="gm-poll-card-head">
           <span>ASOC CONSENSUS PROTOCOL${poll.allowMultiple ? ' // MULTI-SELECT' : ''}</span>
-          <b>${closed ? 'ARCHIVED' : 'PUBLIC // LIVE'}</b>
+          <span class="gm-poll-state"><b>${closed ? 'ARCHIVED' : 'PUBLIC // LIVE'}</b>${autoTagged ? '<em>@ALL TAGGED</em>' : ''}${timerHtml}</span>
         </div>
         <div class="gm-poll-question">${this.escapeHtml(poll.question || msg.text || '')}</div>
         <div class="gm-poll-choice-list">${optionHtml}</div>
