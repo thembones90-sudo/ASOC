@@ -494,45 +494,97 @@ const PlayerApp = {
       }
     });
 
-    const uploadChatMedia = async (file, expectedType, failureLabel) => {
+    const setChatMediaBusy = (busy) => {
+      if (!imageButton) return;
+      imageButton.disabled = !!busy;
+      imageButton.classList.toggle('is-uploading', !!busy);
+      if (busy) imageButton.setAttribute('aria-busy', 'true');
+      else imageButton.removeAttribute('aria-busy');
+    };
+
+    const uploadChatMedia = async (file, caption = '') => {
       if (!file) return;
-      if (file.type !== expectedType && !(expectedType === 'image' && ['image/png','image/jpeg','image/webp'].includes(file.type))) {
-        return alert(expectedType === 'image/gif' ? 'GIF files only.' : 'PNG, JPG or WEBP only.');
+      const type = String(file.type || '').toLowerCase();
+      if (!['image/png','image/jpeg','image/webp','image/gif'].includes(type)) {
+        throw new Error('PNG, JPG, WEBP or GIF images only.');
       }
-      if (file.size > 5 * 1024 * 1024) return alert((failureLabel || 'File') + ' must be 5 MB or smaller.');
-      const caption = chatInput?.value.trim() || '';
+      if (file.size > 5 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller.');
       const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
-      imageButton.disabled = true;
-      imageButton.classList.add('is-uploading');
-      imageButton.setAttribute('aria-busy', 'true');
+      setChatMediaBusy(true);
       try {
         const res = await fetch('/api/chat/image?caption=' + encodeURIComponent(caption), {
           method: 'POST',
-          headers: { 'Content-Type': file.type, 'x-player-token': token },
+          headers: { 'Content-Type': type, 'x-player-token': token },
           body: file
         });
         const result = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(result.error || (failureLabel || 'Media') + ' upload failed');
-        if (chatInput) chatInput.value = '';
-      } catch (error) {
-        alert(error.message || (failureLabel || 'Media') + ' upload failed');
+        if (!res.ok) throw new Error(result.error || 'Image upload failed');
+        return result;
       } finally {
-        imageButton.disabled = false;
-        imageButton.classList.remove('is-uploading');
-        imageButton.removeAttribute('aria-busy');
+        setChatMediaBusy(false);
       }
     };
 
-    imageInput?.addEventListener('change', async () => {
+    const uploadChatMediaUrl = async (imageUrl, caption = '') => {
+      const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+      setChatMediaBusy(true);
+      try {
+        const res = await fetch('/api/chat/image-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-player-token': token },
+          body: JSON.stringify({ url: imageUrl, caption })
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(result.error || 'Image link import failed');
+        return result;
+      } finally {
+        setChatMediaBusy(false);
+      }
+    };
+
+    const clearChatAfterMedia = () => {
+      if (chatInput) {
+        chatInput.value = '';
+        chatInput.maxLength = 100;
+      }
+      this._editingMessage = null;
+      this._replyTo = null;
+      const replyPreview = document.getElementById('chat-reply-preview');
+      if (replyPreview) replyPreview.style.display = 'none';
+      const replyPreviewText = document.getElementById('chat-reply-preview-text');
+      if (replyPreviewText) replyPreviewText.textContent = '';
+      this.closeChatMentionPicker?.();
+    };
+
+    const captionForMedia = () => {
+      const text = chatInput?.value.trim() || '';
+      const reply = this._replyTo;
+      if (!reply) return text;
+      const prefix = `↳ @${reply.name}${reply.excerpt ? ` // ${reply.excerpt}` : ''}: `;
+      return prefix + text;
+    };
+
+    this._chatMediaComposer?.clear?.();
+    this._chatMediaComposer = window.ChatMediaComposer?.create?.({
+      form: document.getElementById('chat-form'),
+      shellSelector: '.chat-composer-shell',
+      getCaption: captionForMedia,
+      clearCaption: clearChatAfterMedia,
+      focus: () => chatInput?.focus(),
+      uploadFile: uploadChatMedia,
+      uploadUrl: uploadChatMediaUrl
+    }) || null;
+
+    imageInput?.addEventListener('change', () => {
       const file = imageInput.files?.[0];
       imageInput.value = '';
-      await uploadChatMedia(file, 'image', 'Image');
+      if (file) this._chatMediaComposer?.stageFile?.(file);
     });
 
-    gifInput?.addEventListener('change', async () => {
+    gifInput?.addEventListener('change', () => {
       const file = gifInput.files?.[0];
       gifInput.value = '';
-      await uploadChatMedia(file, 'image/gif', 'GIF');
+      if (file) this._chatMediaComposer?.stageFile?.(file);
     });
 
     form.addEventListener('submit', (e) => {
@@ -2675,6 +2727,11 @@ const PlayerApp = {
     });
     input.addEventListener('input', () => this.updateChatMentionPicker(input, mentionPicker));
     input.addEventListener('click', () => this.updateChatMentionPicker(input, mentionPicker));
+    input.addEventListener('paste', (event) => {
+      if (this._chatMediaComposer?.handlePaste?.(event)) {
+        this.closeChatMentionPicker(mentionPicker);
+      }
+    });
     mentionPicker?.addEventListener('mousedown', (e) => e.preventDefault());
     mentionPicker?.addEventListener('click', (e) => {
       const option = e.target.closest('.chat-mention-option');
@@ -3138,6 +3195,12 @@ const PlayerApp = {
   submitGuess() {
     const input = document.getElementById('chat-input');
     if (!input) return;
+
+    if (this._chatMediaComposer?.hasPending?.()) {
+      this.closeChatMentionPicker();
+      this._chatMediaComposer.submit();
+      return;
+    }
 
     const text = input.value.trim();
     if (!text) return;
