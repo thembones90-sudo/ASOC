@@ -1918,6 +1918,28 @@ const App = {
       closeGMContextMenu();
     }, { passive:true });
 
+
+    gmChatContainer?.addEventListener('wheel', (event) => {
+      if (event.ctrlKey || !Number.isFinite(event.deltaY) || event.deltaY === 0) return;
+      const maxScroll = Math.max(0, gmChatContainer.scrollHeight - gmChatContainer.clientHeight);
+      if (maxScroll <= 0) return;
+
+      const before = gmChatContainer.scrollTop;
+      const next = Math.max(0, Math.min(maxScroll, before + event.deltaY));
+      if (next === before) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      this._gmChatProgrammaticScroll = false;
+      gmChatContainer.scrollTop = next;
+      this.userScrolledUp = next < (maxScroll - 80);
+      if (!this.userScrolledUp && this._gmNewMessageCount) {
+        this._gmNewMessageCount = 0;
+        this.updateGMNewMessageChip();
+      }
+      closeGMContextMenu();
+    }, { passive:false });
+
     document.getElementById('gm-chat-new-messages')?.addEventListener('click', () => {
       this.jumpToLatestGMChat();
     });
