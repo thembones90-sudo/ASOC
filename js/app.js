@@ -1059,6 +1059,10 @@ const App = {
     if (at > 0 && /[\\p{L}\\p{N}_]/u.test(before.charAt(at - 1))) return null;
     const query = before.slice(at + 1);
     if (query.length > 40 || /[\r\n:]/.test(query)) return null;
+    // @all is a mention token, not a whole-message command. As soon as it
+    // is followed by whitespace, the mention is complete and the composer
+    // returns to normal typing so "@all listen up" behaves like Discord.
+    if (/^all\s/iu.test(query)) return null;
     return { start: at, end: caret, query };
   },
 
@@ -4213,14 +4217,26 @@ const App = {
       const isBrokerPoll = msg.poll.createdByRole === 'gm';
       const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
       const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const avatar = isBrokerPoll
-        ? '<span class="gm-poll-broker-avatar" aria-hidden="true">SB</span>'
-        : this.littleHeroAvatarHTML(identity, true);
-      const themeId = isBrokerPoll ? 'gunmetal' : ASOCThemes.get(identity.themeId).id;
-      const themeStyle = isBrokerPoll ? '' : ASOCThemes.messageStyle(identity.themeId);
-      const frameColor = isBrokerPoll
-        ? '#9B5DE0'
-        : (/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885');
+
+      if (isBrokerPoll) {
+        return `
+          <div class="gm-shadow-broker-entry gm-shadow-broker-poll-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+            <div class="shadow-broker-transmission shadow-broker-broadcast shadow-broker-poll-transmission">
+              <img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">
+              <div class="shadow-broker-body">
+                <div class="shadow-broker-poll-identity"><span class="shadow-broker-name">SHADOW BROKER</span><span class="gm-chat-time">${time}</span></div>
+                ${this.createGMPollCardHTML(msg)}
+              </div>
+            </div>
+            ${this.createGMReactionSummaryHTML(msg)}
+          </div>
+        `;
+      }
+
+      const avatar = this.littleHeroAvatarHTML(identity, true);
+      const themeId = ASOCThemes.get(identity.themeId).id;
+      const themeStyle = ASOCThemes.messageStyle(identity.themeId);
+      const frameColor = /^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885';
       return `
         <div class="gm-chat-message gm-flow-message gm-poll-message" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           <div class="gm-chat-avatar-rail">${avatar}</div>
