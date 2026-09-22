@@ -14116,6 +14116,7 @@ body.room-mode-casual #gm-broker-bar {
    ========================================================= */
 .omen-trigger { display:none; }
 
+body.room-mode-battle-armed #asoc-board > .omen-trigger,
 body.room-mode-battle #asoc-board > .omen-trigger {
   display:block;
   position:absolute;
@@ -14134,6 +14135,7 @@ body.room-mode-battle #asoc-board > .omen-trigger {
   outline:none;
 }
 
+body.room-mode-battle-armed #asoc-board > .omen-trigger::before,
 body.room-mode-battle #asoc-board > .omen-trigger::before {
   content:"";
   position:absolute;
@@ -14145,6 +14147,8 @@ body.room-mode-battle #asoc-board > .omen-trigger::before {
   transition:opacity 150ms ease,box-shadow 150ms ease,transform 150ms ease;
 }
 
+body.room-mode-battle-armed #asoc-board > .omen-trigger:hover::before,
+body.room-mode-battle-armed #asoc-board > .omen-trigger:focus-visible::before,
 body.room-mode-battle #asoc-board > .omen-trigger:hover::before,
 body.room-mode-battle #asoc-board > .omen-trigger:focus-visible::before {
   opacity:1;
@@ -14152,6 +14156,7 @@ body.room-mode-battle #asoc-board > .omen-trigger:focus-visible::before {
   box-shadow:0 0 14px rgba(79,255,137,.20);
 }
 
+body.room-mode-battle-armed #asoc-board > .omen-trigger:active::before,
 body.room-mode-battle #asoc-board > .omen-trigger:active::before {
   transform:scale(.94);
   opacity:.72;
