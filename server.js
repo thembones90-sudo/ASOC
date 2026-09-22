@@ -1285,6 +1285,29 @@ function handleWheelRoll(ws) {
     return;
   }
 
+  // Revalidate the roster at the instant of the roll. A player can leave in
+  // the few seconds between the GM opening WOMF and pressing INITIATE, and a
+  // disconnected identity must not remain eligible merely because it was
+  // online when the setup modal was rendered.
+  const liveNameKeys = new Set();
+  for (const [socket, player] of room.players) {
+    if (!player || player.connected !== true || socket.readyState !== 1) continue;
+    const name = String(player.name || '').trim();
+    if (name) liveNameKeys.add(name.toLowerCase());
+  }
+  const liveSegments = room.wheel.segments.filter(name => liveNameKeys.has(String(name || '').trim().toLowerCase()));
+  if (liveSegments.length < WHEEL_MIN_SEGMENTS) {
+    resetWheel(room);
+    room.revision++;
+    persistActiveRooms();
+    broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+    sendToWs(ws, { type: 'error', message: 'WOMF requires at least 2 online Little Heroes. Reopen the Wheel.' });
+    return;
+  }
+  if (liveSegments.length !== room.wheel.segments.length) {
+    room.wheel.segments = liveSegments;
+  }
+
   const winnerIndex = crypto.randomInt(room.wheel.segments.length);
   const spinToken = 'spin-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex');
 
