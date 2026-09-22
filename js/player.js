@@ -190,6 +190,7 @@ const PlayerApp = {
     const pollQuestion = document.getElementById('chat-poll-question');
     const pollOptionsEditor = document.getElementById('chat-poll-options');
     const pollMultiple = document.getElementById('chat-poll-multiple');
+    const pollDuration = document.getElementById('chat-poll-duration');
 
     let gifPicker = document.getElementById('chat-gif-picker');
     if (!gifPicker && attachmentWrap) {
@@ -466,7 +467,8 @@ const PlayerApp = {
         type: 'chat:poll:create',
         question,
         options,
-        allowMultiple: pollMultiple?.checked === true
+        allowMultiple: pollMultiple?.checked === true,
+        durationSeconds: Number(pollDuration?.value || 0)
       });
       if (pollQuestion) pollQuestion.value = '';
       if (pollMultiple) pollMultiple.checked = false;
@@ -3202,6 +3204,29 @@ const PlayerApp = {
     reader.readAsDataURL(file);
   },
 
+  formatPollCountdown(expiresAt) {
+    const remaining = Math.max(0, Number(expiresAt || 0) - Date.now());
+    const totalSeconds = Math.max(0, Math.ceil(remaining / 1000));
+    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  },
+
+  armPollCountdowns(container = document.getElementById('chat-messages')) {
+    clearInterval(this._pollCountdownInterval);
+    this._pollCountdownInterval = null;
+    if (!container) return;
+    const update = () => {
+      container.querySelectorAll('.chat-poll-countdown[data-expires-at]').forEach(node => {
+        node.textContent = this.formatPollCountdown(node.dataset.expiresAt);
+      });
+    };
+    update();
+    if (container.querySelector('.chat-poll-countdown[data-expires-at]')) {
+      this._pollCountdownInterval = setInterval(update, 250);
+    }
+  },
+
   createPollCardHTML(msg) {
     const poll = msg?.poll || {};
     const options = Array.isArray(poll.options) ? poll.options : [];
@@ -3214,31 +3239,49 @@ const PlayerApp = {
     const totalVoters = voterIds.size;
     const myId = String(this.playerId || '');
     const closed = Number(poll.closedAt) > 0;
+    const expiresAt = Number(poll.expiresAt) || 0;
     const canClose = !closed && poll.createdByRole === 'player' && String(poll.createdById || '') === myId;
+    const autoTagged = poll.createdByRole === 'gm';
 
     const optionHtml = options.map((option, index) => {
       const ids = Array.isArray(votes[String(index)]) ? votes[String(index)].map(String) : [];
       const selected = myId && ids.includes(myId);
       const percent = totalVoters ? Math.round((ids.length / totalVoters) * 100) : 0;
-      const voterNames = ids.map(id => {
-        if (id === '__GM__') return 'SHADOW BROKER';
-        return String(voters[id]?.name || 'LITTLE HERO');
-      });
+      const voterNames = ids.map(id => id === '__GM__' ? 'SHADOW BROKER' : String(voters[id]?.name || 'LITTLE HERO'));
       const voterTitle = voterNames.length ? 'VOTERS // ' + voterNames.join(', ') : 'NO VOTES';
+      const voterChips = ids.map(id => {
+        const voter = voters[id] || {};
+        const name = id === '__GM__' ? 'SHADOW BROKER' : String(voter.name || 'LITTLE HERO');
+        const frameColor = /^#[0-9A-Fa-f]{6}$/.test(voter.frameColor || '') ? voter.frameColor : '#9B5DE0';
+        const avatar = id === '__GM__'
+          ? '<img src="assets/ui/shadow-broker.png" alt="">'
+          : (typeof voter.avatarData === 'string' && voter.avatarData.startsWith('data:image/')
+              ? `<img src="${this.escapeHtml(voter.avatarData)}" alt="">`
+              : `<i>${this.escapeHtml(name.slice(0, 1).toUpperCase())}</i>`);
+        return `<span class="chat-poll-voter-chip" title="${this.escapeHtml(name)}" style="--poll-voter-color:${frameColor}">${avatar}<b>${this.escapeHtml(name)}</b></span>`;
+      }).join('');
+
       return `
         <button type="button" class="chat-poll-choice${selected ? ' selected' : ''}" data-poll-vote="${index}" data-message-id="${this.escapeHtml(msg.id)}" ${closed ? 'disabled' : ''}>
           <span class="chat-poll-choice-fill" style="width:${percent}%"></span>
           <span class="chat-poll-choice-label">${this.escapeHtml(option)}</span>
           <span class="chat-poll-choice-result" title="${this.escapeHtml(voterTitle)}"><b>${percent}%</b><small>${ids.length}</small></span>
+          <span class="chat-poll-voters"><span class="chat-poll-voters-label">VOTED</span>${voterChips || '<em>NONE</em>'}</span>
         </button>
       `;
     }).join('');
+
+    const timerHtml = expiresAt
+      ? (closed
+          ? '<strong class="chat-poll-countdown is-ended">CLOSED</strong>'
+          : `<strong class="chat-poll-countdown" data-expires-at="${expiresAt}">${this.formatPollCountdown(expiresAt)}</strong>`)
+      : '<strong class="chat-poll-countdown no-limit">NO LIMIT</strong>';
 
     return `
       <div class="chat-poll-card${closed ? ' is-closed' : ''}">
         <div class="chat-poll-card-head">
           <span>ASOC CONSENSUS PROTOCOL${poll.allowMultiple ? ' // MULTI-SELECT' : ''}</span>
-          <b>${closed ? 'ARCHIVED' : 'PUBLIC // LIVE'}</b>
+          <span class="chat-poll-state"><b>${closed ? 'ARCHIVED' : 'PUBLIC // LIVE'}</b>${autoTagged ? '<em>@ALL TAGGED</em>' : ''}${timerHtml}</span>
         </div>
         <div class="chat-poll-question">${this.escapeHtml(poll.question || msg.text || '')}</div>
         <div class="chat-poll-choice-list">${optionHtml}</div>
@@ -3281,6 +3324,7 @@ const PlayerApp = {
 
     container.innerHTML = html;
     this.decorateChatMentions(container);
+    this.armPollCountdowns(container);
 
     clearTimeout(this._wrongFadeTimer);
     if (Number.isFinite(nextWrongFadeMs)) {
