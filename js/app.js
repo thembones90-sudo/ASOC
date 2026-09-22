@@ -4096,6 +4096,55 @@ const App = {
     return `<div class="gm-chat-reactions${chips ? ' has-reactions' : ''}">${chips}${addButton}</div>`;
   },
 
+  createGMPollCardHTML(msg) {
+    const poll = msg?.poll || {};
+    const options = Array.isArray(poll.options) ? poll.options : [];
+    const votes = poll.votes && typeof poll.votes === 'object' ? poll.votes : {};
+    const voters = poll.voters && typeof poll.voters === 'object' ? poll.voters : {};
+    const voterIds = new Set();
+    Object.values(votes).forEach(ids => {
+      if (Array.isArray(ids)) ids.forEach(id => voterIds.add(String(id)));
+    });
+
+    const totalVoters = voterIds.size;
+    const gmId = '__GM__';
+    const closed = Number(poll.closedAt) > 0;
+
+    const optionHtml = options.map((option, index) => {
+      const ids = Array.isArray(votes[String(index)]) ? votes[String(index)].map(String) : [];
+      const selected = ids.includes(gmId);
+      const percent = totalVoters ? Math.round((ids.length / totalVoters) * 100) : 0;
+      const voterNames = ids.map(id => {
+        if (id === gmId) return 'SHADOW BROKER';
+        return String(voters[id]?.name || 'LITTLE HERO');
+      });
+      const voterTitle = voterNames.length ? 'VOTERS // ' + voterNames.join(', ') : 'NO VOTES';
+
+      return `
+        <button type="button" class="gm-poll-choice${selected ? ' selected' : ''}" data-gm-poll-vote="${index}" data-message-id="${this.escapeHtml(msg.id)}" ${closed ? 'disabled' : ''}>
+          <span class="gm-poll-choice-fill" style="width:${percent}%"></span>
+          <span class="gm-poll-choice-label">${this.escapeHtml(option)}</span>
+          <span class="gm-poll-choice-result" title="${this.escapeHtml(voterTitle)}"><b>${percent}%</b><small>${ids.length}</small></span>
+        </button>
+      `;
+    }).join('');
+
+    return `
+      <div class="gm-poll-card${closed ? ' is-closed' : ''}">
+        <div class="gm-poll-card-head">
+          <span>POLL${poll.allowMultiple ? ' // MULTIPLE' : ''}</span>
+          <b>${closed ? 'CLOSED' : 'LIVE'}</b>
+        </div>
+        <div class="gm-poll-question">${this.escapeHtml(poll.question || msg.text || '')}</div>
+        <div class="gm-poll-choice-list">${optionHtml}</div>
+        <div class="gm-poll-card-foot">
+          <span>${totalVoters} VOTER${totalVoters === 1 ? '' : 'S'}</span>
+          ${!closed ? `<button type="button" class="gm-poll-close" data-gm-poll-close="${this.escapeHtml(msg.id)}">CLOSE POLL</button>` : ''}
+        </div>
+      </div>
+    `;
+  },
+
   createGMChatMessageHTML(msg, grouped = false, now = Date.now()) {
     if (msg.source === 'bloodTribute') {
       const remainingMs = Number(msg.publicUntil) - now;
