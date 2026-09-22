@@ -38,3 +38,7 @@ matches.json
 matches.json.bak
 matches.json.corrupt-*
 matches.json.tmp-*
+
+# Player-submitted TWEAKS feedback ledger -- runtime state only.
+tweaks.json
+tweaks.json.tmp-*
