@@ -14551,3 +14551,153 @@ body.room-mode-battle #asoc-board > .omen-trigger:active::before {
     animation: none !important;
   }
 }
+
+
+/* =========================================================
+   OMEN TEMPORAL PASS // DESYNC + DROPOUT + AFTERGLOW
+   A brief displaced board copy, one electrical dropout, then a residual
+   glow at the Darksiders sigil. No text. No answer information.
+   ========================================================= */
+.asoc-omen-wash { z-index: 1; }
+.asoc-omen-shiver-veil { z-index: 3; }
+.asoc-omen-field { z-index: 4; }
+.asoc-omen-particles { z-index: 5; }
+.asoc-omen-tear { z-index: 6; }
+
+.asoc-omen-temporal-copy {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  opacity: 0;
+  overflow: hidden;
+  transform-origin: 50% 50%;
+  filter:
+    grayscale(.78)
+    saturate(.56)
+    brightness(.68)
+    contrast(1.18)
+    blur(.35px);
+  mix-blend-mode: screen;
+  animation: omen-temporal-desync 5.6s steps(2, end) both;
+}
+
+.asoc-omen-temporal-copy .omen-trigger {
+  display: none !important;
+}
+
+.asoc-omen-blackout {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  opacity: 0;
+  pointer-events: none;
+  background: rgba(1, 2, 3, .92);
+  mix-blend-mode: multiply;
+  animation: omen-electrical-dropout 5.6s linear both;
+}
+
+.asoc-omen-residual-glow {
+  position: absolute;
+  left: 10.44%;
+  top: 49.56%;
+  width: 8.2%;
+  height: 15.2%;
+  z-index: 8;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.88);
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at center,
+      rgba(116,255,157,.26) 0%,
+      rgba(58,184,98,.16) 25%,
+      rgba(43,73,53,.08) 48%,
+      transparent 74%);
+  filter: blur(2.5px);
+  mix-blend-mode: screen;
+  animation: omen-residual-afterglow 5.6s ease-out both;
+}
+
+/* Sigil-emitted ash gets a tiny dark wake. It remains deliberately gray,
+   not green, so the board feels dirty rather than magically sparkly. */
+.asoc-omen-particle.from-sigil {
+  box-shadow:
+    0 0 9px rgba(0,0,0,.42),
+    -2px 2px 5px rgba(48,48,48,.18),
+    0 0 2px rgba(145,145,145,.12);
+}
+
+@keyframes omen-temporal-desync {
+  0%, 25.5%, 35.5%, 100% {
+    opacity: 0;
+    transform: translate3d(0,0,0) scale(1);
+  }
+  27% {
+    opacity: .10;
+    transform: translate3d(-3px,1px,0) scale(1.002);
+  }
+  28.5% {
+    opacity: .18;
+    transform: translate3d(5px,-1px,0) scale(.998);
+  }
+  30% {
+    opacity: .13;
+    transform: translate3d(-4px,2px,0) scale(1.003);
+  }
+  31.5% {
+    opacity: .21;
+    transform: translate3d(3px,-2px,0) scale(1.001);
+  }
+  33% {
+    opacity: .09;
+    transform: translate3d(-2px,1px,0) scale(.999);
+  }
+  34.5% {
+    opacity: .03;
+    transform: translate3d(1px,0,0) scale(1);
+  }
+}
+
+@keyframes omen-electrical-dropout {
+  0%, 35.0%, 37.1%, 100% { opacity: 0; }
+  35.6% { opacity: .24; }
+  36.0% { opacity: .78; }
+  36.45% { opacity: .46; }
+  36.9% { opacity: 0; }
+}
+
+@keyframes omen-residual-afterglow {
+  0%, 76% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.88);
+  }
+  80% {
+    opacity: .17;
+    transform: translate(-50%, -50%) scale(1.02);
+  }
+  84% {
+    opacity: .13;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  91% {
+    opacity: .075;
+    transform: translate(-50%, -50%) scale(.98);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.96);
+  }
+}
+
+.asoc-omen-layer.is-reduced .asoc-omen-temporal-copy,
+.asoc-omen-layer.is-reduced .asoc-omen-blackout,
+.asoc-omen-layer.is-reduced .asoc-omen-residual-glow {
+  display: none !important;
+}
