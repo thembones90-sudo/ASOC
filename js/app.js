@@ -2500,7 +2500,11 @@ const App = {
         // AFTERMATH owns the screen until the Shadow Broker advances. The
         // server's RECOUNT broadcast is the authoritative dismissal signal for
         // every client, so nobody can wander into results ahead of the room.
-        if (message.recount) Skeleton.closeAftermath?.();
+        if (message.recount) {
+          document.querySelector('.victory-overlay')?.remove();
+          document.querySelector('.defeat-overlay')?.remove();
+          Skeleton.closeAftermath?.();
+        }
         Recount.apply(message.recount, { live: message.live === true });
         break;
 
