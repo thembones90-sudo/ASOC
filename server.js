@@ -1589,6 +1589,7 @@ function declareGameLost(room, source = 'timer') {
     outcome: 'LOST',
     occurredAt: Date.now(),
     message: selectedMessage,
+    story: room.gameData.story || '',
     finalSolution: room.gameData.finalSolution || '',
     columnSolutions: {
       A: room.gameData.columns?.A?.solution || '', B: room.gameData.columns?.B?.solution || '',
@@ -2594,11 +2595,11 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
           // NOTE: accepting the Final is deliberately NOT a victory. The game
           // continues -- players can still solve the remaining columns -- so
           // GAME WON stays the host's manual call (handleGmGameWon).
-          // The reveal (headline + story) goes out to everyone immediately;
-          // the point/penalty numbers are held back until the GM explicitly
-          // advances past the story (gm:revealResults) -- see spec's
-          // "delayed score damage is intentional pacing", which applies to
-          // every client in the room, not just the GM's own screen.
+          // The Final reveal goes out immediately, but the narrative no longer
+          // does: STORY is reserved for the post-game AFTERMATH sequence once
+          // GAME WON / GAME LOST has been declared. The point/penalty numbers
+          // remain independently gated by gm:revealResults while unresolved
+          // columns can still be played.
           room.scoring.pendingResults = {
             outcome: 'success',
             columnsKnownAtSolve: result.event ? result.event.columnsKnownAtSolve : countKnownColumns(room),
@@ -2608,7 +2609,6 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
           finalOutcome = {
             outcome: 'success',
             correctSolution: room.gameData.finalSolution || '',
-            story: room.gameData.story || '',
             columnSolutions: {
               A: room.gameData.columns?.A?.solution || '',
               B: room.gameData.columns?.B?.solution || '',
@@ -4204,6 +4204,7 @@ function handleGmGameWon(ws) {
     outcome: 'WON',
     occurredAt: Date.now(),
     message: GAME_WON_MESSAGES[crypto.randomInt(GAME_WON_MESSAGES.length)],
+    story: room.gameData.story || '',
     finalSolution: room.gameData.finalSolution || '',
     columnSolutions: {
       A: room.gameData.columns?.A?.solution || '', B: room.gameData.columns?.B?.solution || '',
@@ -4629,7 +4630,14 @@ function handleGmShowRecount(ws) {
     sendToWs(ws, { type: 'error', message: 'The game is not over yet -- the whole field must be opened first' });
     return;
   }
-  if (ledger.resultsShownAt) return; // idempotent: never re-broadcast / regenerate
+  if (ledger.resultsShownAt) {
+    // AFTERMATH can legitimately finish after RECOUNT was already opened by
+    // another host control. Re-broadcast the persisted result without replay
+    // animation so every client receives the same authoritative "advance"
+    // signal and can dismiss its epilogue overlay.
+    if (ledger.recount) broadcastRecount(room, ledger.recount, false);
+    return;
+  }
 
   // Build the RECOUNT NOW, from the live ledger -- not from the snapshot taken
   // when the match completed. The host decides when results are shown, and
