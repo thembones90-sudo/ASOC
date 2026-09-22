@@ -18,6 +18,7 @@ const matchStore = require('./match-store');
 const recountEngine = require('./recount-engine');
 const tweakStore = require('./tweak-store');
 // TWEAKS production sync marker: feedback subsystem is part of the live server build.
+// TWEAKS player HUD visibility sync.
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
