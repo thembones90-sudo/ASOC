@@ -7483,7 +7483,35 @@ position:absolute;
       border-top:1px solid rgba(112,120,137,.22);
     }
 
-  </style>
+  
+
+    /* CASUAL PLAYER STATUS STRIP FINAL LOCK
+       AMUSEMENT PARK needs one identity block + one live online count.
+       The session leaderboard strip and battle roster are redundant here and
+       were both rendering the same humans twice. Inline JS sets the strip to
+       display:flex, so this final rule intentionally uses !important. */
+    #game-screen.room-mode-casual #player-leaderboard-strip,
+    #game-screen.room-mode-casual #little-hero-roster,
+    #game-screen.room-mode-casual #player-alltime-panel {
+      display:none !important;
+    }
+
+    #game-screen.room-mode-casual .detainee-status-module {
+      border-bottom:1px solid rgba(116,126,139,.25) !important;
+    }
+
+    #game-screen.room-mode-casual .battle-comms-online {
+      display:inline-flex !important;
+      align-items:center;
+      white-space:nowrap;
+    }
+
+    /* Post-game reopen controls never belong in the social room. */
+    #game-screen.room-mode-casual ~ .recount-pill,
+    body:has(#game-screen.room-mode-casual) .recount-pill {
+      display:none !important;
+    }
+</style>
 </head>
 <body>
   <div id="access-gate">
@@ -8091,7 +8119,7 @@ position:absolute;
   </script>
   <script src="js/themes.js"></script>
   <script src="js/skeleton.js?v=20260922-aftermath-2"></script>
-  <script src="js/recount.js?v=20260922-casual-room-cleanup-1"></script>
+  <script src="js/recount.js?v=20260922-casual-status-clean-2"></script>
   <script src="js/womf.js"></script>
   <script src="js/wheel.js?v=20260922-womf-rebuild-1"></script>
   <script src="js/timer.js"></script>
@@ -8099,7 +8127,7 @@ position:absolute;
   <script src="js/board.js?v=20260921-final-omen-2"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260922-player-global-drop-1"></script>
-  <script src="js/player.js?v=20260922-casual-room-cleanup-1"></script>
+  <script src="js/player.js?v=20260922-casual-status-clean-2"></script>
   <script src="js/tweaks.js?v=20260922-tweaks-root-fix-1"></script>
 </body>
 </html>
