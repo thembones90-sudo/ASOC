@@ -69,10 +69,13 @@
   }
 
   function buildLaunch() {
-    launch = el('button', 'tweaks-launch');
+    const existing = role === 'player' ? document.getElementById('player-tweaks-launch') : null;
+    launch = existing || el('button', 'tweaks-launch');
     launch.type = 'button';
     launch.id = role === 'gm' ? 'gm-tweaks-launch' : 'player-tweaks-launch';
-    launch.innerHTML = '<span aria-hidden="true">⚙</span><span>TWEAKS</span><span class="tweaks-badge">0</span>';
+    if (!launch.querySelector('.tweaks-badge')) {
+      launch.innerHTML = '<span aria-hidden="true">⚙</span><span>TWEAKS</span><span class="tweaks-badge">0</span>';
+    }
     launch.addEventListener('click', openOverlay);
 
     if (role === 'gm') {
@@ -83,7 +86,7 @@
       } else {
         document.body.appendChild(launch);
       }
-    } else {
+    } else if (!existing) {
       const anchor = document.querySelector('.hero-hud-identity-block');
       if (anchor) anchor.appendChild(launch);
       else document.body.appendChild(launch);
