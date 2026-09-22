@@ -1592,45 +1592,75 @@ const App = {
       }
     });
 
-    const uploadGMChatMedia = async (file, expectedType, failureLabel) => {
+    const setGMMediaBusy = (busy) => {
+      if (!gmImageButton) return;
+      gmImageButton.disabled = !!busy;
+      gmImageButton.classList.toggle('is-uploading', !!busy);
+      if (busy) gmImageButton.setAttribute('aria-busy', 'true');
+      else gmImageButton.removeAttribute('aria-busy');
+    };
+
+    const uploadGMChatMedia = async (file, caption = '') => {
       if (!file) return;
-      if (file.type !== expectedType && !(expectedType === 'image' && ['image/png','image/jpeg','image/webp'].includes(file.type))) {
-        return alert(expectedType === 'image/gif' ? 'GIF files only.' : 'PNG, JPG or WEBP only.');
+      const type = String(file.type || '').toLowerCase();
+      if (!['image/png','image/jpeg','image/webp','image/gif'].includes(type)) {
+        throw new Error('PNG, JPG, WEBP or GIF images only.');
       }
-      if (file.size > 5 * 1024 * 1024) return alert((failureLabel || 'File') + ' must be 5 MB or smaller.');
-      const caption = this.syncGMComposerModel().text.trim();
+      if (file.size > 5 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller.');
       const token = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
-      gmImageButton.disabled = true;
-      gmImageButton.classList.add('is-uploading');
-      gmImageButton.setAttribute('aria-busy', 'true');
+      setGMMediaBusy(true);
       try {
         const res = await fetch('/api/chat/image?caption=' + encodeURIComponent(caption), {
           method: 'POST',
-          headers: { 'Content-Type': file.type, 'x-gm-token': token },
+          headers: { 'Content-Type': type, 'x-gm-token': token },
           body: file
         });
         const result = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(result.error || (failureLabel || 'Media') + ' upload failed');
-        this.setGMComposerText('', 0);
-      } catch (error) {
-        alert(error.message || (failureLabel || 'Media') + ' upload failed');
+        if (!res.ok) throw new Error(result.error || 'Image upload failed');
+        return result;
       } finally {
-        gmImageButton.disabled = false;
-        gmImageButton.classList.remove('is-uploading');
-        gmImageButton.removeAttribute('aria-busy');
+        setGMMediaBusy(false);
       }
     };
 
-    gmImageInput?.addEventListener('change', async () => {
+    const uploadGMChatMediaUrl = async (imageUrl, caption = '') => {
+      const token = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
+      setGMMediaBusy(true);
+      try {
+        const res = await fetch('/api/chat/image-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-gm-token': token },
+          body: JSON.stringify({ url: imageUrl, caption })
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(result.error || 'Image link import failed');
+        return result;
+      } finally {
+        setGMMediaBusy(false);
+      }
+    };
+
+    this._gmMediaComposer?.clear?.();
+    this._gmMediaComposer = window.ChatMediaComposer?.create?.({
+      form: shadowBrokerForm,
+      shellSelector: '.gm-composer-shell',
+      getCaption: () => this.syncGMComposerModel().text,
+      clearCaption: () => this.setGMComposerText('', 0),
+      focus: () => shadowBrokerComposer?.focus(),
+      uploadFile: uploadGMChatMedia,
+      uploadUrl: uploadGMChatMediaUrl
+    }) || null;
+
+    gmImageInput?.addEventListener('change', () => {
       const file = gmImageInput.files?.[0];
       gmImageInput.value = '';
-      await uploadGMChatMedia(file, 'image', 'Image');
+      if (file) this._gmMediaComposer?.stageFile?.(file);
     });
 
-    gmGifInput?.addEventListener('change', async () => {
+    gmGifInput?.addEventListener('change', () => {
       const file = gmGifInput.files?.[0];
       gmGifInput.value = '';
-      await uploadGMChatMedia(file, 'image/gif', 'GIF');
+      if (file) this._gmMediaComposer?.stageFile?.(file);
     });
 
     shadowBrokerComposer?.addEventListener('keydown', (e) => {
@@ -1673,6 +1703,11 @@ const App = {
     });
 
     shadowBrokerComposer?.addEventListener('paste', (e) => {
+      if (this._gmMediaComposer?.handlePaste?.(e)) {
+        this.syncGMComposerModel();
+        this.closeGMMentionPicker(gmMentionPicker);
+        return;
+      }
       e.preventDefault();
       const plain = e.clipboardData?.getData('text/plain') || '';
       this.insertGMComposerPlainText(plain);
@@ -1680,7 +1715,10 @@ const App = {
       this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker);
     });
 
-    shadowBrokerComposer?.addEventListener('drop', (e) => e.preventDefault());
+    shadowBrokerComposer?.addEventListener('drop', (e) => {
+      if (this._gmMediaComposer?.handleDrop?.(e)) return;
+      e.preventDefault();
+    });
 
     gmMentionPicker?.addEventListener('mousedown', (e) => e.preventDefault());
     gmMentionPicker?.addEventListener('click', (e) => {
@@ -4703,6 +4741,11 @@ const App = {
     const input = document.getElementById('shadow-broker-input');
     const composer = this.getGMComposerElement();
     if (!input || !composer) return;
+
+    if (this._gmMediaComposer?.hasPending?.()) {
+      this._gmMediaComposer.submit();
+      return;
+    }
 
     const state = this.syncGMComposerModel();
     const text = state.text.trim();
