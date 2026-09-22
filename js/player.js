@@ -570,6 +570,71 @@ const PlayerApp = {
       uploadUrl: uploadChatMediaUrl
     }) || null;
 
+    // GLOBAL PLAYER IMAGE DROP GUARD
+    // Desktop/browser drags often land outside the composer itself. Without
+    // this guard the browser treats the payload as navigation and opens the
+    // image in a new tab. Route any supported image/file/image-URL dropped
+    // anywhere on the live player screen into the exact same staged composer.
+    if (!this._globalChatMediaDropBound) {
+      this._globalChatMediaDropBound = true;
+
+      const playerScreenIsLive = () => {
+        const screen = document.getElementById('game-screen');
+        if (!screen) return false;
+        const style = window.getComputedStyle(screen);
+        return !screen.hidden && style.display !== 'none' && style.visibility !== 'hidden';
+      };
+
+      const transferLooksLikeMedia = (transfer) => {
+        if (!transfer) return false;
+
+        const types = Array.from(transfer.types || []).map(type => String(type).toLowerCase());
+        if (types.includes('files') || types.includes('text/uri-list')) return true;
+
+        const items = Array.from(transfer.items || []);
+        if (items.some(item => item.kind === 'file' && /^image\//i.test(item.type || ''))) return true;
+
+        const files = Array.from(transfer.files || []);
+        if (files.some(file => /^image\/(?:png|jpeg|webp|gif)$/i.test(file.type || ''))) return true;
+
+        const plain = String(transfer.getData?.('text/plain') || '').trim();
+        return /^https?:\/\/\S+$/i.test(plain);
+      };
+
+      const setGlobalDropCue = (active) => {
+        const formEl = document.getElementById('chat-form');
+        formEl?.classList.toggle('media-dragover', !!active);
+      };
+
+      window.addEventListener('dragover', (event) => {
+        if (!playerScreenIsLive() || !transferLooksLikeMedia(event.dataTransfer)) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+        setGlobalDropCue(true);
+      }, true);
+
+      window.addEventListener('dragleave', (event) => {
+        if (!playerScreenIsLive()) return;
+        if (event.relatedTarget == null) setGlobalDropCue(false);
+      }, true);
+
+      window.addEventListener('drop', (event) => {
+        if (!playerScreenIsLive() || !transferLooksLikeMedia(event.dataTransfer)) return;
+
+        // This is the critical line: kill browser navigation first, then
+        // stage the media. Even if staging rejects the payload, ASOC stays open.
+        event.preventDefault();
+        event.stopPropagation();
+        setGlobalDropCue(false);
+
+        const handled = this._chatMediaComposer?.handleDrop?.(event);
+        if (handled) {
+          this.closeChatMentionPicker?.();
+          chatInput?.focus();
+        }
+      }, true);
+    }
+
     imageInput?.addEventListener('change', () => {
       const file = imageInput.files?.[0];
       imageInput.value = '';
