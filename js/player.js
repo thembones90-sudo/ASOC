@@ -89,6 +89,9 @@ const PlayerApp = {
   _activeFinalBanner: null,
   _finalBannerFadeTimer: null,
   _finalBannerRemoveTimer: null,
+  _boardRenderSignature: '',
+  _renderedBoardGameId: '',
+  _renderedBoardDifficulty: '',
   bloodTribute: { status: 'idle' },
   tributeUploading: false,
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😇', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
@@ -1536,7 +1539,11 @@ const PlayerApp = {
 
   renderBoard(state) {
     const publicBoard = document.getElementById('public-board');
-    if (!publicBoard) return;
+    if (!publicBoard || !state) return;
+
+    const columns = ['A', 'B', 'C', 'D'];
+    const gameId = String(state.gameId || '');
+    const difficulty = String(state.difficulty || '');
 
     const gameData = {
       id: state.gameId,
@@ -1547,65 +1554,172 @@ const PlayerApp = {
       columns: {},
       finalSolution: state.finalSolution?.value || ''
     };
-
-    const columns = ['A', 'B', 'C', 'D'];
     columns.forEach(col => {
       gameData.columns[col] = { clues: ['', '', '', ''], solution: '' };
     });
-
-    Object.entries(state.cells).forEach(([key, cell]) => {
-      if (cell.revealed && cell.value) {
-        const col = key[0];
-        const row = parseInt(key.slice(1), 10);
-        if (row >= 1 && row <= 4) {
-          gameData.columns[col].clues[row - 1] = cell.value;
-        } else if (row === 5) {
-          gameData.columns[col].solution = cell.value;
-        }
-      }
+    Object.entries(state.cells || {}).forEach(([key, cell]) => {
+      if (!cell?.revealed || !cell.value) return;
+      const col = key[0];
+      const row = parseInt(key.slice(1), 10);
+      if (row >= 1 && row <= 4) gameData.columns[col].clues[row - 1] = cell.value;
+      else if (row === 5) gameData.columns[col].solution = cell.value;
     });
-
     window.GameData.currentGame = gameData;
 
-    let html = `
-      <div class="asoc-board">
-        ${Skeleton.skeletonHTML(state.difficulty)}
-        ${this.renderShadowBrokerLineHTML()}
-    `;
-
-    for (let row = 1; row <= 4; row++) {
-      columns.forEach(col => {
-        const key = `${col}${row}`;
-        const cell = state.cells[key];
-        const revealed = cell?.revealed === true;
-        const content = revealed ? (cell.value || '—') : '■■■';
-        html += this.createPublicCellHTML(key, content, false, revealed, `${col}${row}`);
-      });
-    }
-
-    columns.forEach(col => {
-      const key = `${col}5`;
-      const cell = state.cells[key];
-      const revealed = cell?.revealed === true;
-      const content = revealed ? (cell.value || '—') : '■■■';
-      const outcome = cell?.outcome || null;
-      html += this.createPublicCellHTML(key, content, true, revealed, `${col}5`, false, outcome);
+    const boardSignature = JSON.stringify({
+      gameId,
+      difficulty,
+      cells: Object.fromEntries(
+        Object.entries(state.cells || {}).map(([key, cell]) => [
+          key,
+          [!!cell?.revealed, cell?.revealed ? String(cell?.value || '') : '', String(cell?.outcome || '')]
+        ])
+      ),
+      final: [
+        !!state.finalSolution?.revealed,
+        state.finalSolution?.revealed ? String(state.finalSolution?.value || '') : '',
+        String(state.finalSolution?.outcome || '')
+      ]
     });
 
-    const finalRevealed = state.finalSolution?.revealed === true;
-    const finalContent = finalRevealed ? (state.finalSolution.value || '—') : '???';
-    const finalOutcome = state.finalSolution?.outcome || null;
-    // See App's copy of this same guard in js/app.js -- plays the flourish
-    // exactly once per reveal, never on a later incidental re-render.
-    const playFinalFlourish = finalRevealed && !this._finalFlourishPlayed;
-    this._finalFlourishPlayed = finalRevealed;
-    html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome, playFinalFlourish);
+    const existingBoard = publicBoard.querySelector(':scope > .asoc-board');
+    const mustRebuild = !existingBoard
+      || this._renderedBoardGameId !== gameId
+      || this._renderedBoardDifficulty !== difficulty;
 
-    html += '</div>';
-    publicBoard.innerHTML = html;
-    Skeleton.attach(publicBoard.querySelector('.asoc-board'));
+    if (mustRebuild) {
+      let html = `
+        <div class="asoc-board">
+          ${Skeleton.skeletonHTML(state.difficulty)}
+          ${this.renderShadowBrokerLineHTML()}
+      `;
 
+      for (let row = 1; row <= 4; row++) {
+        columns.forEach(col => {
+          const key = `${col}${row}`;
+          const cell = state.cells?.[key];
+          const revealed = cell?.revealed === true;
+          const content = revealed ? (cell.value || '—') : '■■■';
+          html += this.createPublicCellHTML(key, content, false, revealed, key);
+        });
+      }
+
+      columns.forEach(col => {
+        const key = `${col}5`;
+        const cell = state.cells?.[key];
+        const revealed = cell?.revealed === true;
+        const content = revealed ? (cell.value || '—') : '■■■';
+        html += this.createPublicCellHTML(key, content, true, revealed, key, false, cell?.outcome || null);
+      });
+
+      const finalRevealed = state.finalSolution?.revealed === true;
+      const finalContent = finalRevealed ? (state.finalSolution.value || '—') : '???';
+      const finalOutcome = state.finalSolution?.outcome || null;
+      const playFinalFlourish = finalRevealed && !this._finalFlourishPlayed;
+      this._finalFlourishPlayed = finalRevealed;
+      html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome, playFinalFlourish);
+      html += '</div>';
+
+      publicBoard.innerHTML = html;
+      const board = publicBoard.querySelector(':scope > .asoc-board');
+      Skeleton.attach(board);
+
+      this._renderedBoardGameId = gameId;
+      this._renderedBoardDifficulty = difficulty;
+      this._boardRenderSignature = boardSignature;
+      this.applyBackground(state.background);
+      return;
+    }
+
+    const board = existingBoard;
+    const boardChanged = boardSignature !== this._boardRenderSignature;
+
+    if (boardChanged) {
+      const syncCell = (key, content, isSolution, revealed, isFinal = false, outcome = null, flourish = false) => {
+        const cell = board.querySelector(`.board-cell[data-label="${CSS.escape(key)}"]`);
+        if (!cell) return;
+
+        const classes = ['board-cell'];
+        if (isSolution) classes.push('solution-cell');
+        if (isFinal) classes.push('final-solution');
+        classes.push(revealed ? 'revealed' : 'hidden');
+        if (outcome === 'failed') classes.push('outcome-failed');
+        if (flourish) classes.push('final-flourish');
+
+        const cascade = revealed ? this.columnCascadePresentation(key) : { active:false, className:'', style:'' };
+        if (cascade.active) classes.push(...cascade.className.split(' ').filter(Boolean));
+
+        const nextClass = classes.join(' ');
+        if (cell.className !== nextClass) cell.className = nextClass;
+
+        const nextStyle = `${Skeleton.cellStyle(key)}${cascade.style || ''}`;
+        if (cell.getAttribute('style') !== nextStyle) cell.setAttribute('style', nextStyle);
+
+        const text = cell.querySelector('.cell-text');
+        const nextText = String(content ?? '');
+        if (text && text.textContent !== nextText) text.textContent = nextText;
+      };
+
+      for (let row = 1; row <= 4; row++) {
+        columns.forEach(col => {
+          const key = `${col}${row}`;
+          const cell = state.cells?.[key];
+          const revealed = cell?.revealed === true;
+          syncCell(key, revealed ? (cell.value || '—') : '■■■', false, revealed);
+        });
+      }
+
+      columns.forEach(col => {
+        const key = `${col}5`;
+        const cell = state.cells?.[key];
+        const revealed = cell?.revealed === true;
+        syncCell(key, revealed ? (cell.value || '—') : '■■■', true, revealed, false, cell?.outcome || null);
+      });
+
+      const finalRevealed = state.finalSolution?.revealed === true;
+      const playFinalFlourish = finalRevealed && !this._finalFlourishPlayed;
+      this._finalFlourishPlayed = finalRevealed;
+      syncCell(
+        'FINAL',
+        finalRevealed ? (state.finalSolution?.value || '—') : '???',
+        true,
+        finalRevealed,
+        true,
+        state.finalSolution?.outcome || null,
+        playFinalFlourish
+      );
+
+      this._boardRenderSignature = boardSignature;
+      Skeleton.fit(board);
+    }
+
+    this.renderShadowBrokerBoardLineInPlace();
     this.applyBackground(state.background);
+  },
+
+  renderShadowBrokerBoardLineInPlace() {
+    const board = document.querySelector('#public-board > .asoc-board');
+    if (!board) return;
+
+    const current = board.querySelector(':scope > .shadow-broker-board-line');
+    const markup = this.renderShadowBrokerLineHTML();
+
+    if (!markup) {
+      current?.remove();
+      return;
+    }
+
+    const holder = document.createElement('div');
+    holder.innerHTML = markup.trim();
+    const next = holder.firstElementChild;
+    if (!next) return;
+
+    if (current) current.replaceWith(next);
+    else {
+      const skeleton = board.querySelector(':scope > .skeleton-img');
+      if (skeleton?.nextSibling) board.insertBefore(next, skeleton.nextSibling);
+      else board.appendChild(next);
+    }
   },
 
   // Recomputes the Shadow Broker board line's visible substring/opacity
@@ -1670,7 +1784,7 @@ const PlayerApp = {
           this._brokerLineTicker = null;
         }
       }
-      if (this.lastPublicState) this.renderBoard(this.lastPublicState);
+      this.renderShadowBrokerBoardLineInPlace();
     }, 40);
   },
 
@@ -1683,7 +1797,7 @@ const PlayerApp = {
       clearInterval(this._brokerLineTicker);
       this._brokerLineTicker = null;
     }
-    if (this.lastPublicState) this.renderBoard(this.lastPublicState);
+    this.renderShadowBrokerBoardLineInPlace();
   },
 
   createPublicCellHTML(key, content, isSolution, revealed, label, isFinal = false, outcome = null, flourish = false) {
@@ -1727,11 +1841,11 @@ const PlayerApp = {
 
   applyBackground(path) {
     const bgLayer = document.getElementById('background-layer');
-    if (!path) {
-      bgLayer.src = '';
-      return;
-    }
-    bgLayer.src = path;
+    if (!bgLayer) return;
+    const next = String(path || '');
+    const current = bgLayer.getAttribute('src') || '';
+    if (current === next) return;
+    bgLayer.setAttribute('src', next);
   },
 
 
@@ -1900,9 +2014,10 @@ const PlayerApp = {
       ? 'CHANNEL OPEN'
       : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
 
-    // Casual and Battle are the SAME transcript. Never wait for a new
-    // websocket chat frame merely because the room chrome changed.
-    if (Array.isArray(this.chatMessages)) this.renderChat();
+    // Casual and Battle are the SAME transcript. Re-render only when the
+    // room mode actually changes; state:public also carries timer/cell ticks,
+    // and rebuilding chat for those packets causes visible shimmer and lag.
+    if (previous !== next && Array.isArray(this.chatMessages)) this.renderChat();
 
     if (hadBaseline && previous === 'CASUAL' && next === 'BATTLE_ARMED') {
       this.addBattleEvent('BATTLE CONTROL SIGNAL DETECTED');
