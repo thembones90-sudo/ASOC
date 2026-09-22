@@ -16279,9 +16279,11 @@ button.gm-chat-gif-link:focus-visible {
 }
 
 
-/* GM CHAT FULL-HEIGHT FIXED RAIL
-   Battle chat fills the GM sidebar and the transcript itself owns scrolling.
-   No resize handle, no zero-height flex hacks, no clipped content. */
+/* GM CHAT FULL-HEIGHT FIXED RAIL // CONSOLIDATED
+   One authoritative desktop battle-chat layout. The rail is fixed in size,
+   the transcript is the only vertical scroller, and all obsolete sidebar
+   modules are removed from battle tab-order/layout instead of sitting hidden
+   underneath the chat. */
 #gm-chat-height-splitter {
   display:none !important;
 }
@@ -16300,17 +16302,24 @@ button.gm-chat-gif-link:focus-visible {
   body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .gm-content,
   body.room-mode-recount #gm-panel:not(.maintenance-open) .gm-content {
     position:static !important;
+    width:100% !important;
     height:100% !important;
     min-height:0 !important;
     overflow:hidden !important;
     padding:0 !important;
   }
 
+  body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-content > :not(.gm-module-chat),
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .gm-content > :not(.gm-module-chat),
+  body.room-mode-recount #gm-panel:not(.maintenance-open) .gm-content > :not(.gm-module-chat) {
+    display:none !important;
+  }
+
   body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-module-chat,
   body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .gm-module-chat,
   body.room-mode-recount #gm-panel:not(.maintenance-open) .gm-module-chat {
     position:absolute !important;
-    inset:14px !important;
+    inset:10px !important;
     display:flex !important;
     flex-direction:column !important;
     width:auto !important;
@@ -16318,8 +16327,11 @@ button.gm-chat-gif-link:focus-visible {
     min-height:0 !important;
     max-height:none !important;
     margin:0 !important;
+    padding:9px !important;
     overflow:hidden !important;
     box-sizing:border-box !important;
+    border-radius:8px !important;
+    contain:layout style;
   }
 
   body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-module-chat .gm-chat-panel,
@@ -16335,6 +16347,23 @@ button.gm-chat-gif-link:focus-visible {
     overflow:hidden !important;
   }
 
+  body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-chat-header,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .gm-chat-header,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) .gm-chat-header {
+    flex:0 0 auto !important;
+    min-height:36px !important;
+    padding:2px 6px 7px !important;
+    margin:0 0 2px !important;
+  }
+
+  body.room-mode-battle #gm-panel:not(.maintenance-open) #gm-chat-presence,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #gm-chat-presence,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-chat-presence {
+    min-height:24px !important;
+    padding:0 9px !important;
+    font-size:10px !important;
+  }
+
   body.room-mode-battle #gm-panel:not(.maintenance-open) #gm-chat-messages,
   body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #gm-chat-messages,
   body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-chat-messages {
@@ -16344,6 +16373,7 @@ button.gm-chat-gif-link:focus-visible {
     height:auto !important;
     min-height:0 !important;
     max-height:none !important;
+    padding:5px 4px 7px !important;
     overflow-y:auto !important;
     overflow-x:hidden !important;
     overscroll-behavior:contain !important;
@@ -16351,5 +16381,11 @@ button.gm-chat-gif-link:focus-visible {
     pointer-events:auto !important;
     scrollbar-gutter:stable;
     -webkit-overflow-scrolling:touch;
+  }
+
+  body.room-mode-battle #gm-panel:not(.maintenance-open) #gm-chat-messages::-webkit-scrollbar,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #gm-chat-messages::-webkit-scrollbar,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-chat-messages::-webkit-scrollbar {
+    width:8px;
   }
 }
