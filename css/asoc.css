@@ -15469,8 +15469,8 @@ body.room-mode-casual #battle-controls-panel .battle-controls-utility-row .toolb
   z-index: -3;
   background:
     radial-gradient(circle at 50% 46%, rgba(29, 10, 44, .18), transparent 42%),
-    rgba(2, 3, 5, .58);
-  backdrop-filter: grayscale(.3) brightness(.62);
+    rgba(2, 3, 5, .32);
+  backdrop-filter: grayscale(.22) brightness(.82);
 }
 
 .aftermath-grain {
