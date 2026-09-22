@@ -186,6 +186,80 @@ const AsocAudio = (() => {
     tone({ frequency: 196, start: 0.74, duration: 0.36, gain: 0.075, type: 'triangle' });
   }
 
+  function omen() {
+    const c = ensureContext();
+    if (!c || !unlocked) return;
+    const start = c.currentTime + 0.01;
+
+    const makePan = (initial = -0.78, end = 0, duration = 1.55) => {
+      if (typeof c.createStereoPanner !== 'function') return null;
+      const panner = c.createStereoPanner();
+      panner.pan.setValueAtTime(initial, start);
+      panner.pan.linearRampToValueAtTime(end, start + duration);
+      return panner;
+    };
+
+    // Low mechanical pressure: felt more than heard, beginning on the
+    // physical side of the sigil and crawling toward the centre.
+    const sub = c.createOscillator();
+    const subGain = c.createGain();
+    const subPan = makePan(-0.72, -0.08, 1.65);
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(52, start);
+    sub.frequency.exponentialRampToValueAtTime(34, start + 1.75);
+    subGain.gain.setValueAtTime(0.0001, start);
+    subGain.gain.exponentialRampToValueAtTime(0.12, start + 0.09);
+    subGain.gain.exponentialRampToValueAtTime(0.0001, start + 1.9);
+    sub.connect(subGain);
+    if (subPan) {
+      subGain.connect(subPan);
+      subPan.connect(master);
+    } else {
+      subGain.connect(master);
+    }
+    sub.start(start);
+    sub.stop(start + 1.95);
+
+    // Metallic scrape: filtered noise slides downward in frequency while
+    // panning left -> centre, then dies instead of resolving musically.
+    const buffer = makeNoiseBuffer();
+    if (buffer) {
+      const scrape = c.createBufferSource();
+      const filter = c.createBiquadFilter();
+      const scrapeGain = c.createGain();
+      const scrapePan = makePan(-0.86, 0.02, 1.35);
+      scrape.buffer = buffer;
+      filter.type = 'bandpass';
+      filter.Q.value = 3.2;
+      filter.frequency.setValueAtTime(3400, start + 0.06);
+      filter.frequency.exponentialRampToValueAtTime(720, start + 1.28);
+      scrapeGain.gain.setValueAtTime(0.0001, start);
+      scrapeGain.gain.exponentialRampToValueAtTime(0.045, start + 0.12);
+      scrapeGain.gain.exponentialRampToValueAtTime(0.0001, start + 1.42);
+      scrape.connect(filter);
+      filter.connect(scrapeGain);
+      if (scrapePan) {
+        scrapeGain.connect(scrapePan);
+        scrapePan.connect(master);
+      } else {
+        scrapeGain.connect(master);
+      }
+      scrape.start(start + 0.04);
+      scrape.stop(start + 1.46);
+    }
+
+    // A thin upper harmonic appears only near the distortion peak.
+    tone({
+      frequency: 1460,
+      endFrequency: 610,
+      start: 1.18,
+      duration: 0.42,
+      gain: 0.022,
+      type: 'sawtooth',
+      filter: { type: 'bandpass', frequency: 1380, q: 2.4 }
+    });
+  }
+
   function gameWon() {
     tone({ frequency: 55, endFrequency: 73, duration: 1.35, gain: 0.17, type: 'sine' });
     [220, 330, 440].forEach((f, i) => tone({ frequency: f, endFrequency: f * 1.24, start: 0.12 + i * 0.16, duration: 0.86, gain: 0.055, type: 'triangle' }));
@@ -269,6 +343,7 @@ const AsocAudio = (() => {
     womfIncrease,
     womfCritical,
     borrowedTime,
+    omen,
     gameWon,
     gameLost,
     syncBoard,
