@@ -2018,7 +2018,12 @@ const App = {
       if (e.target.closest('.gm-target-btn')) {
         const btn = e.target.closest('.gm-target-btn');
         const target = btn.dataset.target;
-        this.confirmCorrectVerdict(this.pendingVerdict, target);
+        const messageId = btn.dataset.messageId || this.pendingVerdict;
+        if (!messageId || !target || btn.disabled) return;
+        btn.disabled = true;
+        btn.classList.add('is-submitting');
+        this.confirmCorrectVerdict(messageId, target);
+        return;
       }
 
       if (e.target.closest('.gm-verdict-clear')) {
@@ -2949,9 +2954,11 @@ const App = {
       window.AsocAudio?.resetObservers?.();
     }
 
-    // Casual and Battle are the SAME transcript. Re-render the current
-    // in-memory chat immediately when only the surrounding mode changes.
-    if (Array.isArray(this.chatMessages)) this.renderGMChat();
+    // Casual and Battle are the SAME transcript. Re-render ONLY on a real
+    // mode transition. state:public packets also carry timer/WOMF/cell ticks;
+    // rebuilding chat for those packets can replace an adjudication button
+    // between pointer-down and click, making CORRECT target selection inert.
+    if (previous !== next && Array.isArray(this.chatMessages)) this.renderGMChat();
 
     this.updateSolvedCount();
     if (previous !== next) this.updateMultiplayerUI();
@@ -4875,18 +4882,28 @@ const App = {
       <div class="gm-target-selector">
         <span class="gm-target-label">CORRECT:</span>
         <div class="gm-target-buttons">
-          <button class="gm-target-btn" data-target="A" title="Column A Solution">A</button>
-          <button class="gm-target-btn" data-target="B" title="Column B Solution">B</button>
-          <button class="gm-target-btn" data-target="C" title="Column C Solution">C</button>
-          <button class="gm-target-btn" data-target="D" title="Column D Solution">D</button>
-          <button class="gm-target-btn final" data-target="FINAL" title="Final Solution">FINAL</button>
+          <button type="button" class="gm-target-btn" data-message-id="${this.escapeHtml(messageId)}" data-target="A" title="Column A Solution">A</button>
+          <button type="button" class="gm-target-btn" data-message-id="${this.escapeHtml(messageId)}" data-target="B" title="Column B Solution">B</button>
+          <button type="button" class="gm-target-btn" data-message-id="${this.escapeHtml(messageId)}" data-target="C" title="Column C Solution">C</button>
+          <button type="button" class="gm-target-btn" data-message-id="${this.escapeHtml(messageId)}" data-target="D" title="Column D Solution">D</button>
+          <button type="button" class="gm-target-btn final" data-message-id="${this.escapeHtml(messageId)}" data-target="FINAL" title="Final Solution">FINAL</button>
         </div>
-        <button class="gm-verdict-clear" title="Cancel">✕</button>
+        <button type="button" class="gm-verdict-clear" title="Cancel">✕</button>
       </div>
     `;
   },
 
   confirmCorrectVerdict(messageId, target) {
+    if (!messageId || !['A','B','C','D','FINAL'].includes(target)) return;
+    if (this.mode !== 'multiplayer' || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      const btn = document.querySelector(`.gm-target-btn[data-message-id="${CSS.escape(String(messageId))}"][data-target="${CSS.escape(String(target))}"]`);
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('is-submitting');
+      }
+      return;
+    }
+
     this.send({
       type: 'gm:judgeGuess',
       messageId,
