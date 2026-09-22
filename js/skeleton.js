@@ -459,6 +459,7 @@ const Skeleton = (() => {
 
 
   let omenTimer = null;
+  let omenBoard = null;
 
   function playOmen() {
     const boards = Array.from(document.querySelectorAll('.asoc-board'))
@@ -474,15 +475,38 @@ const Skeleton = (() => {
 
     document.querySelector('.asoc-omen-layer')?.remove();
     if (omenTimer) clearTimeout(omenTimer);
+    if (omenBoard) omenBoard.classList.remove('asoc-omen-board-shiver');
 
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
     const rect = target.rect;
+    omenBoard = target.node;
+    if (!reduced) {
+      omenBoard.classList.remove('asoc-omen-board-shiver');
+      void omenBoard.offsetWidth;
+      omenBoard.classList.add('asoc-omen-board-shiver');
+    }
+
+    const particleCount = reduced ? 6 : 24;
+    const particlesHTML = Array.from({ length: particleCount }, () => {
+      const left = 3 + Math.random() * 94;
+      const top = 32 + Math.random() * 42;
+      const driftX = -44 + Math.random() * 88;
+      const driftY = -24 - Math.random() * 62;
+      const size = 2 + Math.random() * 5.5;
+      const delay = Math.random() * 1.15;
+      const duration = 1.9 + Math.random() * 2.15;
+      const opacity = 0.10 + Math.random() * 0.23;
+      const blur = Math.random() * 1.1;
+      return `<i class="asoc-omen-particle" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(2)}px;height:${size.toFixed(2)}px;--omen-drift-x:${driftX.toFixed(2)}px;--omen-drift-y:${driftY.toFixed(2)}px;--omen-delay:${delay.toFixed(2)}s;--omen-duration:${duration.toFixed(2)}s;--omen-opacity:${opacity.toFixed(2)};--omen-blur:${blur.toFixed(2)}px"></i>`;
+    }).join('');
+
     const layer = document.createElement('div');
     layer.className = 'asoc-omen-layer' + (reduced ? ' is-reduced' : '');
     layer.setAttribute('aria-hidden', 'true');
     layer.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;`;
     layer.innerHTML = `
       <div class="asoc-omen-wash"></div>
+      <div class="asoc-omen-shiver-veil"></div>
       <div class="asoc-omen-field">
         <i class="asoc-omen-ghost"></i>
         <i class="asoc-omen-ring omen-ring-a"></i>
@@ -493,6 +517,7 @@ const Skeleton = (() => {
         <i class="asoc-omen-smoke smoke-b"></i>
         <i class="asoc-omen-smoke smoke-c"></i>
       </div>
+      <div class="asoc-omen-particles">${particlesHTML}</div>
       <div class="asoc-omen-tear tear-a"></div>
       <div class="asoc-omen-tear tear-b"></div>
       <div class="asoc-omen-tear tear-c"></div>`;
@@ -501,6 +526,8 @@ const Skeleton = (() => {
 
     omenTimer = setTimeout(() => {
       layer.remove();
+      omenBoard?.classList.remove('asoc-omen-board-shiver');
+      omenBoard = null;
       omenTimer = null;
     }, reduced ? 1300 : 4600);
   }
