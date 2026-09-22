@@ -2979,6 +2979,38 @@ function handleChatRemoteGif(ws, message) {
   broadcastChatUpdate(room);
 }
 
+async function handleChatImageUrl(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
+
+  const actor = pollActorForSocket(room, ws);
+  if (!actor) return sendToWs(ws, { type: 'error', message: 'Image-link authentication required' });
+
+  if (actor.role === 'player') {
+    const now = Date.now();
+    const cooldown = playerCooldown(room, ws);
+    if (!cooldown) return;
+    if (cooldown.chatAt && now - cooldown.chatAt < PLAYER_CHAT_MIN_INTERVAL_MS) {
+      return sendToWs(ws, { type: 'error', message: 'Battle Comms cooling down' });
+    }
+    cooldown.chatAt = now;
+  }
+
+  const captionLimit = actor.role === 'gm' ? 500 : MAX_CHAT_LENGTH;
+  const caption = sanitizeText(message.caption || '').slice(0, captionLimit);
+  const imageActor = actor.role === 'gm'
+    ? { role: 'gm' }
+    : { role: 'player', playerId: actor.id, playerName: actor.name };
+
+  try {
+    const remote = await fetchRemoteChatImage(message.url || '');
+    persistChatImage(room, imageActor, remote.buffer, remote.contentType, caption);
+  } catch (error) {
+    console.error('[chat-image-url/ws] import failed:', error.message);
+    sendToWs(ws, { type: 'error', message: error.message || 'Image address import failed' });
+  }
+}
+
 
 function appendChatImageMessage(room, actor, imageUrl, caption = '') {
   const cleanCaption = sanitizeText(caption || '');
@@ -5749,6 +5781,10 @@ wss.on('connection', (ws) => {
         }
         case 'chat:gif': {
           handleChatRemoteGif(ws, message);
+          break;
+        }
+        case 'chat:image-url': {
+          handleChatImageUrl(ws, message);
           break;
         }
         case 'chat:poll:create': {
