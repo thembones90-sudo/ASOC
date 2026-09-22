@@ -7560,6 +7560,10 @@
               <div class="chat-poll-composer-head"><b>CREATE POLL</b><button type="button" id="chat-poll-cancel" aria-label="Close poll composer">×</button></div>
               <input type="text" id="chat-poll-question" maxlength="160" placeholder="Ask the room...">
               <div id="chat-poll-options" class="chat-poll-options-editor"></div>
+              <div class="chat-poll-config-row">
+                <label class="chat-poll-timer-control"><span>TIMER</span><select id="chat-poll-duration" aria-label="Poll timer"><option value="0">NO LIMIT</option><option value="30">00:30</option><option value="60" selected>01:00</option><option value="120">02:00</option><option value="300">05:00</option><option value="600">10:00</option></select></label>
+                <span class="chat-poll-public-note">PUBLIC RESULTS</span>
+              </div>
               <div class="chat-poll-composer-actions">
                 <button type="button" id="chat-poll-add-option">+ OPTION</button>
                 <label><input type="checkbox" id="chat-poll-multiple"> MULTIPLE ANSWERS</label>
