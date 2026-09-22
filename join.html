@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ASOC - Join Game</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260922-public-poll-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260922-broker-identity-2">
   <style>
     #join-screen {
       display: flex;
@@ -788,7 +788,7 @@
        fits the layer AFTER the HUD band is deducted -- which is by
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
-       --hud-band is measured and set by js/player.js?v=20260922-public-poll-1"";
+       --hud-band is measured and set by js/player.js?v=20260922-broker-identity-2"";
       position:absolute;
       left:5px;
       width:5px;
@@ -7172,6 +7172,66 @@
       #game-screen .battle-comms-lobby .chat-poll-card {
         width:100% !important;
       }
+    }
+
+  
+
+    /* SHADOW BROKER CANONICAL IDENTITY V2 // public chat */
+    #game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast {
+      flex-direction:row !important;
+      align-items:flex-start !important;
+      gap:8px !important;
+      padding:6px 9px 7px !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast .shadow-broker-avatar {
+      width:42px !important;
+      height:42px !important;
+      flex:0 0 42px !important;
+      margin-top:0 !important;
+      object-fit:contain !important;
+      object-position:center !important;
+      padding:1px !important;
+      box-sizing:border-box !important;
+      border:2px solid rgba(155,93,224,.72) !important;
+      background:radial-gradient(circle at 50% 45%,rgba(110,48,158,.22),transparent 58%),#030205 !important;
+      box-shadow:inset 0 0 12px rgba(155,93,224,.12),0 0 12px rgba(155,93,224,.22) !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-broker-poll-entry {
+      width:min(548px,calc(100% - 38px)) !important;
+      max-width:min(548px,calc(100% - 38px)) !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-broker-poll-entry > .shadow-broker-poll-transmission {
+      width:100% !important;
+      max-width:100% !important;
+    }
+
+    #game-screen .battle-comms-lobby .chat-broker-poll-entry .shadow-broker-body {
+      flex:1 1 auto !important;
+      width:100% !important;
+      min-width:0 !important;
+      padding-top:0 !important;
+    }
+
+    #game-screen .battle-comms-lobby .shadow-broker-poll-identity {
+      width:100%;
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:3px;
+    }
+
+    #game-screen .battle-comms-lobby .shadow-broker-poll-identity .shadow-broker-name {
+      margin:0 !important;
+      font-size:.56rem !important;
+    }
+
+    #game-screen .battle-comms-lobby .shadow-broker-poll-identity .chat-time {
+      color:#707985;
+      font:.44rem/1 var(--font-machine);
     }
 
   </style>
