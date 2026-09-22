@@ -15843,3 +15843,29 @@ body.room-mode-casual #battle-controls-panel .battle-controls-utility-row .toolb
     flex-basis:54px;
   }
 }
+
+
+/* CHAT MEDIA BUTTON RESET // preview triggers never navigate
+   Media thumbnails are controls, not hyperlinks. They deliberately have no
+   href/target fallback, so a missed JS handler can never eject a player into
+   a raw-image tab. */
+button.chat-image-link,
+button.chat-gif-link,
+button.gm-chat-gif-link {
+  appearance:none;
+  -webkit-appearance:none;
+  padding:0;
+  border:0;
+  font:inherit;
+  color:inherit;
+  text-align:inherit;
+  background:transparent;
+  box-shadow:none;
+}
+
+button.chat-image-link:focus-visible,
+button.chat-gif-link:focus-visible,
+button.gm-chat-gif-link:focus-visible {
+  outline:1px solid rgba(184,117,231,.78);
+  outline-offset:2px;
+}
