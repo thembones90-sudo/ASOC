@@ -480,33 +480,72 @@ const Skeleton = (() => {
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
     const rect = target.rect;
     omenBoard = target.node;
+
     if (!reduced) {
       omenBoard.classList.remove('asoc-omen-board-shiver');
       void omenBoard.offsetWidth;
       omenBoard.classList.add('asoc-omen-board-shiver');
     }
 
-    const particleCount = reduced ? 6 : 24;
-    const particlesHTML = Array.from({ length: particleCount }, () => {
-      const left = 3 + Math.random() * 94;
-      const top = 32 + Math.random() * 42;
-      const driftX = -44 + Math.random() * 88;
-      const driftY = -24 - Math.random() * 62;
-      const size = 2 + Math.random() * 5.5;
-      const delay = Math.random() * 1.15;
-      const duration = 1.9 + Math.random() * 2.15;
-      const opacity = 0.10 + Math.random() * 0.23;
-      const blur = Math.random() * 1.1;
-      return `<i class="asoc-omen-particle" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(2)}px;height:${size.toFixed(2)}px;--omen-drift-x:${driftX.toFixed(2)}px;--omen-drift-y:${driftY.toFixed(2)}px;--omen-delay:${delay.toFixed(2)}s;--omen-duration:${duration.toFixed(2)}s;--omen-opacity:${opacity.toFixed(2)};--omen-blur:${blur.toFixed(2)}px"></i>`;
+    window.AsocAudio?.omen?.();
+
+    // Most ash is born at the Darksiders sigil and travels away from it.
+    // A small minority remains ambient so the disturbance feels board-wide
+    // without turning the particles into a helpful arrow pointing at the trigger.
+    const sourceX = 10.44;
+    const sourceY = 49.56;
+    const particleCount = reduced ? 6 : 26;
+    const particlesHTML = Array.from({ length: particleCount }, (_, i) => {
+      const emitted = i < Math.floor(particleCount * 0.82);
+      let left, top, driftX, driftY;
+
+      if (emitted) {
+        left = sourceX + (Math.random() - 0.5) * 4.2;
+        top = sourceY + (Math.random() - 0.5) * 7.0;
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 42 + Math.random() * 118;
+        driftX = Math.cos(angle) * distance;
+        driftY = Math.sin(angle) * distance * 0.72 - (8 + Math.random() * 22);
+      } else {
+        left = 4 + Math.random() * 92;
+        top = 34 + Math.random() * 40;
+        driftX = -34 + Math.random() * 68;
+        driftY = -20 - Math.random() * 44;
+      }
+
+      const size = 1.8 + Math.random() * 5.4;
+      const delay = emitted ? Math.random() * 0.72 : 0.3 + Math.random() * 1.05;
+      const duration = 2.0 + Math.random() * 2.05;
+      const opacity = 0.09 + Math.random() * 0.22;
+      const blur = Math.random() * 1.15;
+      return `<i class="asoc-omen-particle${emitted ? ' from-sigil' : ' ambient'}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(2)}px;height:${size.toFixed(2)}px;--omen-drift-x:${driftX.toFixed(2)}px;--omen-drift-y:${driftY.toFixed(2)}px;--omen-delay:${delay.toFixed(2)}s;--omen-duration:${duration.toFixed(2)}s;--omen-opacity:${opacity.toFixed(2)};--omen-blur:${blur.toFixed(2)}px"></i>`;
     }).join('');
+
+    // Snapshot the current board into a purely visual ghost. It never owns
+    // controls or state; it only exists for the short temporal desync at peak.
+    let temporalCopyHTML = '';
+    if (!reduced) {
+      const ghost = target.node.cloneNode(true);
+      ghost.removeAttribute('id');
+      ghost.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+      ghost.querySelectorAll('button,input,textarea,select,[contenteditable]').forEach(node => {
+        node.removeAttribute('tabindex');
+        node.setAttribute('aria-hidden', 'true');
+      });
+      ghost.classList.remove('asoc-omen-board-shiver');
+      ghost.classList.add('asoc-omen-temporal-copy');
+      temporalCopyHTML = ghost.outerHTML;
+    }
 
     const layer = document.createElement('div');
     layer.className = 'asoc-omen-layer' + (reduced ? ' is-reduced' : '');
     layer.setAttribute('aria-hidden', 'true');
     layer.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;`;
     layer.innerHTML = `
+      ${temporalCopyHTML}
       <div class="asoc-omen-wash"></div>
       <div class="asoc-omen-shiver-veil"></div>
+      <div class="asoc-omen-blackout"></div>
       <div class="asoc-omen-field">
         <i class="asoc-omen-ghost"></i>
         <i class="asoc-omen-ring omen-ring-a"></i>
@@ -520,16 +559,19 @@ const Skeleton = (() => {
       <div class="asoc-omen-particles">${particlesHTML}</div>
       <div class="asoc-omen-tear tear-a"></div>
       <div class="asoc-omen-tear tear-b"></div>
-      <div class="asoc-omen-tear tear-c"></div>`;
+      <div class="asoc-omen-tear tear-c"></div>
+      <div class="asoc-omen-residual-glow"></div>`;
     document.body.appendChild(layer);
     requestAnimationFrame(() => layer.classList.add('is-active'));
 
+    // The violent part is over at ~4.5s; the layer survives another second
+    // solely so the sigil can retain a barely-there afterglow.
     omenTimer = setTimeout(() => {
       layer.remove();
       omenBoard?.classList.remove('asoc-omen-board-shiver');
       omenBoard = null;
       omenTimer = null;
-    }, reduced ? 1300 : 4600);
+    }, reduced ? 1500 : 5600);
   }
 
   let gameWonTimers = [];
