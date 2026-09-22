@@ -1921,7 +1921,7 @@ const App = {
     document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
     document.getElementById('blood-tribute-vault-clear')?.addEventListener('click', () => this.clearBloodTributeVault());
     document.getElementById('blood-tribute-override-btn')?.addEventListener('click', () => this.overrideBloodTribute());
-    document.getElementById('alltime-toggle-btn').addEventListener('click', () => this.toggleAllTimeView());
+    document.getElementById('alltime-toggle-btn')?.addEventListener('click', () => this.toggleAllTimeView());
     document.getElementById('womf-open-btn')?.addEventListener('click', () => this.openWomf());
 
     document.getElementById('wheel-setup-close')?.addEventListener('click', () => this.closeWheelSetup());
@@ -2988,7 +2988,8 @@ const App = {
       lostButton.title = 'Preview the GAME LOST sequence locally without changing authoritative match state';
     }
     document.getElementById('next-game-btn').style.display = battleSession ? 'block' : 'none';
-    document.getElementById('scoring-section').style.display = battleSession ? 'block' : 'none';
+    const scoringSection = document.getElementById('scoring-section');
+    if (scoringSection) scoringSection.style.display = 'none';
     const tributeVaultSection = document.getElementById('blood-tribute-vault-section');
     if (tributeVaultSection) tributeVaultSection.style.display = battleSession ? 'block' : 'none';
     const recordsSection = document.getElementById('records-section');
@@ -3156,6 +3157,7 @@ const App = {
 
   toggleAllTimeView() {
     const panel = document.getElementById('alltime-leaderboard');
+    if (!panel) return;
     const showing = panel.style.display !== 'none';
     if (showing) {
       panel.style.display = 'none';
