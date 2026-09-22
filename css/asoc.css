@@ -5996,7 +5996,7 @@ body.gm-layout-locked .gm-module-height-splitter {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 9px 10px;
   background: var(--button-bg);
   border: 1px solid var(--button-border);
   border-radius: 5px;
@@ -6016,25 +6016,21 @@ body.gm-layout-locked .gm-module-height-splitter {
   cursor: pointer;
 }
 
-.wheel-setup-add-row {
-  display: flex;
-  gap: 8px;
-}
-
-.wheel-setup-input {
+.wheel-setup-name {
   flex: 1;
-  background: var(--button-bg);
-  border: 1px solid var(--button-border);
-  border-radius: 5px;
-  padding: 8px 10px;
-  color: var(--text-primary);
-  font-size: 0.8rem;
-  font-family: inherit;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
 }
 
-.wheel-setup-input:focus {
-  outline: none;
-  border-color: var(--accent-silver);
+.wheel-setup-presence {
+  flex-shrink: 0;
+  color: #35d07f;
+  font: 800 0.5rem var(--font-machine);
+  letter-spacing: 1px;
+  text-shadow: 0 0 8px rgba(53, 208, 127, 0.34);
 }
 
 @media (max-width: 720px) {
