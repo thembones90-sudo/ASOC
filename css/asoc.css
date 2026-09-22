@@ -16336,3 +16336,20 @@ button.gm-chat-gif-link:focus-visible {
     overflow-y:auto !important;
   }
 }
+
+
+/* GM CHAT SCROLL INTERACTION RECOVERY V1
+   The full-height rail is fixed in size, but the transcript itself remains
+   a normal live scroller. */
+@media (min-width:761px) {
+  body.room-mode-battle #gm-chat-messages,
+  body.room-mode-battle-armed #gm-chat-messages,
+  body.room-mode-recount #gm-chat-messages {
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    overscroll-behavior:contain !important;
+    touch-action:pan-y !important;
+    pointer-events:auto !important;
+    scrollbar-gutter:stable;
+  }
+}
