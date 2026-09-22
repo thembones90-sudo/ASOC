@@ -410,14 +410,18 @@ const Skeleton = (() => {
   }
 
   let nemaAsocTimers = [];
+  let biceAsocTimers = [];
 
   function playNemaAsoc() {
     const old = document.querySelector('.nema-asoc-overlay');
     if (old) old.remove();
+    document.querySelector('.bice-asoc-overlay')?.remove();
     nemaAsocTimers.forEach(clearTimeout);
     nemaAsocTimers = [];
+    biceAsocTimers.forEach(clearTimeout);
+    biceAsocTimers = [];
 
-    document.body.classList.remove('nema-asoc-active');
+    document.body.classList.remove('nema-asoc-active', 'bice-asoc-active');
     // Force a clean animation restart if the GM threatens them twice in a row.
     void document.body.offsetWidth;
 
@@ -454,6 +458,69 @@ const Skeleton = (() => {
       document.body.classList.remove('nema-asoc-active');
       overlay.remove();
       nemaAsocTimers = [];
+    }, 5000));
+  }
+
+  const BICE_ASOC_FALLBACK_LINES = [
+    'HUMANITY GRANTED ONE ADDITIONAL ATTEMPT',
+    'STUPIDITY ACCEPTED AS A VALID STRATEGY',
+    'MORALE ANOMALY DETECTED',
+    'THE SUBJECT HAS ACCIDENTALLY CONTRIBUTED',
+    'ENTERTAINMENT VALUE EXCEEDED EXPECTATIONS',
+    'INTELLIGENCE UNCONFIRMED. RESULTS ACCEPTABLE.',
+    'THE MACHINE IS... AMUSED.',
+    'TERMINATION POSTPONED',
+    'THIS SHOULD NOT HAVE WORKED',
+    'ASOC PRIVILEGES TEMPORARILY RESTORED'
+  ];
+
+  function playBiceAsoc(line) {
+    document.querySelector('.nema-asoc-overlay')?.remove();
+    document.querySelector('.bice-asoc-overlay')?.remove();
+    nemaAsocTimers.forEach(clearTimeout);
+    nemaAsocTimers = [];
+    biceAsocTimers.forEach(clearTimeout);
+    biceAsocTimers = [];
+    document.body.classList.remove('nema-asoc-active', 'bice-asoc-active');
+    void document.body.offsetWidth;
+
+    const chosenLine = String(line || BICE_ASOC_FALLBACK_LINES[Math.floor(Math.random() * BICE_ASOC_FALLBACK_LINES.length)]);
+    const safeLine = chosenLine.replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+    const sparks = Array.from({ length: 12 }, (_, i) => `<i style="--a:${i * 30}deg;--d:${72 + (i % 3) * 18}px"></i>`).join('');
+    const overlay = document.createElement('div');
+    overlay.className = 'bice-asoc-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.dataset.phase = 'scan';
+    overlay.innerHTML = `
+      <div class="bice-asoc-scan"></div>
+      <div class="bice-asoc-eye" aria-hidden="true"><span></span></div>
+      <div class="bice-asoc-sparks" aria-hidden="true">${sparks}</div>
+      <div class="bice-asoc-terminal">
+        <div class="bice-asoc-kicker">ANOMALY DETECTED</div>
+        <div class="bice-asoc-text" data-text="BIĆE ASOC">BIĆE ASOC</div>
+        <div class="bice-asoc-phase">MORALE ANOMALY // EVALUATING</div>
+        <div class="bice-asoc-line">${safeLine}</div>
+      </div>
+      <div class="bice-asoc-counter">SYSTEM RESTORATION // 05 SEC</div>`;
+    document.body.appendChild(overlay);
+    document.body.classList.add('bice-asoc-active');
+
+    const setPhase = (delay, phase, label) => {
+      biceAsocTimers.push(setTimeout(() => {
+        if (!overlay.isConnected) return;
+        overlay.dataset.phase = phase;
+        const phaseLabel = overlay.querySelector('.bice-asoc-phase');
+        if (phaseLabel) phaseLabel.textContent = label;
+      }, delay));
+    };
+    setPhase(430, 'recognized', 'ENTERTAINMENT VALUE // NONZERO');
+    setPhase(1180, 'restored', 'ASOC PRIVILEGES // TEMPORARILY RESTORED');
+    setPhase(4100, 'release', 'RETURNING CONTROL');
+
+    biceAsocTimers.push(setTimeout(() => {
+      document.body.classList.remove('bice-asoc-active');
+      overlay.remove();
+      biceAsocTimers = [];
     }, 5000));
   }
 
@@ -894,6 +961,7 @@ const Skeleton = (() => {
     shadowBrokerTransmissionHTML,
     playMentionAllShake,
     playNemaAsoc,
+    playBiceAsoc,
     playOmen,
     playGameWon,
     playGameLost
