@@ -15192,3 +15192,103 @@ body.room-mode-casual #battle-controls-panel .battle-controls-utility-row .toolb
     margin-top:14px !important;
   }
 }
+
+
+/* SHADOW BROKER AUTHORITY LANE V2
+   Broker transmissions are system authority, not GM "self messages".
+   This intentionally overrides the older SELF-ALIGNMENT V1 block. */
+@media (min-width:761px) {
+  .gm-module-chat .gm-shadow-broker-entry {
+    width:auto !important;
+    max-width:calc(100% - 38px) !important;
+    margin:7px 4px 8px 34px !important;
+    justify-self:start !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission {
+    width:fit-content !important;
+    max-width:100% !important;
+    min-height:44px !important;
+    margin:0 !important;
+    padding:6px 9px !important;
+    gap:8px !important;
+    flex-direction:row !important;
+    align-items:flex-start !important;
+    border-radius:4px 9px 9px 9px !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry .shadow-broker-body {
+    align-items:flex-start !important;
+    text-align:left !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry > .gm-chat-reactions {
+    justify-content:flex-start !important;
+    margin:3px 0 0 3px !important;
+  }
+
+  .gm-module-chat .gm-shadow-broker-entry > .gm-chat-reply-context {
+    text-align:left !important;
+    margin-left:0 !important;
+    margin-right:auto !important;
+  }
+}
+
+/* Canonical Broker portrait. Do not crop the void-wraith artwork into a
+   generic circular user-photo thumbnail. */
+.shadow-broker-avatar,
+.gm-module-chat .gm-shadow-broker-entry .shadow-broker-avatar {
+  width:42px !important;
+  height:42px !important;
+  flex:0 0 42px !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  padding:1px !important;
+  box-sizing:border-box !important;
+  border:2px solid rgba(155,93,224,.72) !important;
+  background:
+    radial-gradient(circle at 50% 45%,rgba(110,48,158,.22),transparent 58%),
+    #030205 !important;
+  box-shadow:
+    inset 0 0 12px rgba(155,93,224,.12),
+    0 0 12px rgba(155,93,224,.22) !important;
+}
+
+/* GM-created polls are Broker system transmissions, not player bubbles. */
+.gm-shadow-broker-poll-entry {
+  width:min(560px,calc(100% - 38px)) !important;
+  max-width:min(560px,calc(100% - 38px)) !important;
+}
+
+.gm-shadow-broker-poll-entry > .shadow-broker-poll-transmission {
+  width:100% !important;
+  max-width:100% !important;
+}
+
+.gm-shadow-broker-poll-entry .shadow-broker-body,
+.shadow-broker-poll-transmission .shadow-broker-body {
+  flex:1 1 auto !important;
+  width:100% !important;
+  min-width:0 !important;
+}
+
+.shadow-broker-poll-identity {
+  width:100%;
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+  margin:0 0 3px;
+}
+
+.shadow-broker-poll-identity .shadow-broker-name {
+  margin:0 !important;
+}
+
+.shadow-broker-poll-identity .gm-chat-time,
+.shadow-broker-poll-identity .chat-time {
+  flex:0 0 auto;
+  color:#707985;
+  font:.44rem/1 var(--font-machine);
+  letter-spacing:.04em;
+}
