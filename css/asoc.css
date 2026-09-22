@@ -16277,3 +16277,62 @@ button.gm-chat-gif-link:focus-visible {
   cursor: wait;
   box-shadow: 0 0 10px rgba(212,168,67,.38);
 }
+
+
+/* GM CHAT FULL HEIGHT LOCK V1
+   The live GM chat is a fixed rail, not a resizable module. In Battle,
+   Battle Armed and Recount it consumes the full sidebar height. The vertical
+   GM/sidebar width splitter is intentionally unaffected. */
+#gm-chat-height-splitter {
+  display:none !important;
+}
+
+@media (min-width:761px) {
+  body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-content,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .gm-content,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) .gm-content {
+    display:flex !important;
+    flex-direction:column !important;
+    height:100% !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+    padding:14px !important;
+    box-sizing:border-box !important;
+  }
+
+  body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-module-chat,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .gm-module-chat,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) .gm-module-chat {
+    display:flex !important;
+    flex:1 1 auto !important;
+    flex-direction:column !important;
+    width:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    margin:0 !important;
+    overflow:hidden !important;
+  }
+
+  body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-module-chat .gm-chat-panel,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .gm-module-chat .gm-chat-panel,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) .gm-module-chat .gm-chat-panel {
+    display:flex !important;
+    flex:1 1 auto !important;
+    flex-direction:column !important;
+    width:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:hidden !important;
+  }
+
+  body.room-mode-battle #gm-panel:not(.maintenance-open) #gm-chat-messages,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #gm-chat-messages,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-chat-messages {
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow-y:auto !important;
+  }
+}
