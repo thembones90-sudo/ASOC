@@ -93,22 +93,42 @@
     }
   }
 
+  function resolveRole() {
+    if (role) return role;
+    role = document.getElementById('app-layout') && sessionStorage.getItem('asoc_gm_token')
+      ? 'gm'
+      : (document.getElementById('game-screen') ? 'player' : null);
+    return role;
+  }
+
   function buildOverlay() {
+    resolveRole();
+    if (!role) return null;
+
+    const existingOverlay = document.getElementById('asoc-tweaks-overlay');
+    if (existingOverlay) {
+      overlay = existingOverlay;
+      return overlay;
+    }
+
     overlay = el('div', 'tweaks-overlay');
+    overlay.id = 'asoc-tweaks-overlay';
     overlay.hidden = true;
     overlay.innerHTML = role === 'gm' ? gmMarkup() : playerMarkup();
     document.body.appendChild(overlay);
 
-    overlay.querySelector('.tweaks-close').addEventListener('click', closeOverlay);
+    const closeButton = overlay.querySelector('.tweaks-close');
+    if (closeButton) closeButton.addEventListener('click', closeOverlay);
     overlay.addEventListener('mousedown', event => {
       if (event.target === overlay) closeOverlay();
     });
     window.addEventListener('keydown', event => {
-      if (event.key === 'Escape' && !overlay.hidden) closeOverlay();
+      if (event.key === 'Escape' && overlay && !overlay.hidden) closeOverlay();
     });
 
     if (role === 'gm') bindGM();
     else bindPlayer();
+    return overlay;
   }
 
   function playerMarkup() {
@@ -183,11 +203,20 @@
       </section>`;
   }
 
-  function openOverlay() {
-    if (!overlay) return;
+  function openOverlay(event) {
+    if (event) {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+    }
+    resolveRole();
+    if (!role) return false;
+    if (!overlay || !document.body.contains(overlay)) buildOverlay();
+    if (!overlay) return false;
     overlay.hidden = false;
+    overlay.removeAttribute('hidden');
     if (role === 'gm') refreshGM(true);
     else refreshPlayer(false);
+    return true;
   }
 
   function closeOverlay() {
@@ -589,8 +618,7 @@
   }
 
   function init() {
-    role = document.getElementById('app-layout') && sessionStorage.getItem('asoc_gm_token') ? 'gm'
-      : (document.getElementById('game-screen') ? 'player' : null);
+    resolveRole();
     if (!role) return;
     buildLaunch();
     buildOverlay();
@@ -603,6 +631,21 @@
       pollTimer = setInterval(() => { if (!document.hidden) refreshPlayer(true); }, 60000);
     }
   }
+
+  // HARD FAIL-SAFE // delegated click survives any HUD redraw or lost direct
+  // listener. This is deliberately installed before normal init completes.
+  document.addEventListener('click', event => {
+    const trigger = event.target?.closest?.('#player-tweaks-launch,#gm-tweaks-launch');
+    if (!trigger) return;
+    openOverlay(event);
+  }, true);
+
+  document.addEventListener('asoc:tweaks-open', event => openOverlay(event));
+
+  window.ASOCTweaks = Object.freeze({
+    open: openOverlay,
+    close: closeOverlay
+  });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });
   else init();
