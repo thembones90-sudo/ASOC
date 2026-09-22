@@ -3237,13 +3237,13 @@ const PlayerApp = {
     return `
       <div class="chat-poll-card${closed ? ' is-closed' : ''}">
         <div class="chat-poll-card-head">
-          <span>POLL${poll.allowMultiple ? ' // MULTIPLE' : ''}</span>
-          <b>${closed ? 'CLOSED' : 'LIVE'}</b>
+          <span>ASOC CONSENSUS PROTOCOL${poll.allowMultiple ? ' // MULTI-SELECT' : ''}</span>
+          <b>${closed ? 'ARCHIVED' : 'PUBLIC // LIVE'}</b>
         </div>
         <div class="chat-poll-question">${this.escapeHtml(poll.question || msg.text || '')}</div>
         <div class="chat-poll-choice-list">${optionHtml}</div>
         <div class="chat-poll-card-foot">
-          <span>${totalVoters} VOTER${totalVoters === 1 ? '' : 'S'}</span>
+          <span>ROOM RESPONSE // ${totalVoters} VOTER${totalVoters === 1 ? '' : 'S'}</span>
           ${canClose ? `<button type="button" class="chat-poll-close" data-poll-close="${this.escapeHtml(msg.id)}">CLOSE POLL</button>` : ''}
         </div>
       </div>
