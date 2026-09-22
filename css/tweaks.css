@@ -10,6 +10,56 @@
 .tweaks-launch .tweaks-badge{display:none;min-width:20px;height:20px;padding:0 6px;border-radius:12px;align-items:center;justify-content:center;background:#8d4bd6;color:#fff;font-size:11px;letter-spacing:0}
 .tweaks-launch.has-badge .tweaks-badge{display:inline-flex}
 .hero-hud-identity-block .tweaks-launch{margin:0;width:auto;min-width:94px;min-height:30px;height:30px;padding:0 10px;font-size:9px;letter-spacing:1px;flex:0 0 auto;z-index:3}
+#player-tweaks-launch{
+  border:1px solid #ff4a4a;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.16),transparent 26%),
+    linear-gradient(180deg,#d51f2a 0%,#a50f18 48%,#67070d 100%);
+  color:#fff;
+  text-shadow:0 1px 0 #520006,0 0 7px rgba(255,225,225,.34);
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.28),
+    inset 0 -2px 5px rgba(54,0,3,.72),
+    0 0 0 1px rgba(80,0,4,.88),
+    0 0 11px rgba(255,37,48,.42);
+  animation:tweaksRedAlertIdle 2.6s ease-in-out infinite;
+}
+#player-tweaks-launch::after{
+  content:"";
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:#ffb0b0;
+  box-shadow:0 0 7px #ff3434,0 0 13px rgba(255,0,0,.72);
+  flex:0 0 5px;
+}
+#player-tweaks-launch:hover{
+  border-color:#ff8888;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.22),transparent 25%),
+    linear-gradient(180deg,#f02a36 0%,#bd111d 50%,#77080f 100%);
+  color:#fff;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.34),
+    inset 0 -2px 5px rgba(54,0,3,.72),
+    0 0 0 1px rgba(100,0,5,.9),
+    0 0 18px rgba(255,39,49,.62);
+}
+#player-tweaks-launch:active{
+  transform:translateY(1px);
+  background:linear-gradient(180deg,#8e0b13,#bd111d 55%,#6b070d);
+  box-shadow:inset 0 2px 6px rgba(45,0,2,.9),0 0 9px rgba(255,37,48,.34);
+}
+#player-tweaks-launch .tweaks-badge{
+  background:#160204;
+  border:1px solid rgba(255,152,152,.65);
+  color:#ffb0b0;
+  box-shadow:0 0 7px rgba(255,35,45,.45);
+}
+@keyframes tweaksRedAlertIdle{
+  0%,100%{box-shadow:inset 0 1px rgba(255,255,255,.28),inset 0 -2px 5px rgba(54,0,3,.72),0 0 0 1px rgba(80,0,4,.88),0 0 9px rgba(255,37,48,.32)}
+  50%{box-shadow:inset 0 1px rgba(255,255,255,.28),inset 0 -2px 5px rgba(54,0,3,.72),0 0 0 1px rgba(80,0,4,.88),0 0 15px rgba(255,37,48,.55)}
+}
 .tweaks-overlay{position:fixed;inset:0;z-index:100000;background:rgba(3,4,7,.82);backdrop-filter:blur(8px);display:grid;place-items:center;padding:20px}
 .tweaks-overlay[hidden]{display:none!important}
 .tweaks-shell{width:min(980px,96vw);height:min(760px,92vh);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(153,112,219,.7);background:linear-gradient(145deg,rgba(18,20,27,.99),rgba(8,9,13,.995));box-shadow:0 28px 90px rgba(0,0,0,.7),0 0 50px rgba(105,62,166,.16)}
