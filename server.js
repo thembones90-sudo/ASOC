@@ -216,14 +216,17 @@ const CURRENT_STORE_VERSION = 2;
 let recoveryStoreLocked = false;
 let persistenceFailed = false;
 let outbound = null;
-function failPersistence() {
+function failPersistence(error = null) {
   if (!persistenceFailed) {
     persistenceFailed = true;
-    console.error('[persistence] Runtime unavailable; restarting from durable state');
+    const detail = error
+      ? ` // ${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`
+      : '';
+    console.error('[persistence] Runtime unavailable; restarting from durable state' + detail);
     setTimeout(() => process.exit(1), 500).unref();
   }
 }
-durableIO.onFailure(() => failPersistence());
+durableIO.onFailure(error => failPersistence(error));
 
 function runtimeAction(action) {
   if (persistenceFailed || recoveryStoreLocked || shuttingDown) return;
@@ -300,7 +303,7 @@ function persistActiveRooms() {
       savedAt: Date.now(), rooms: Array.from(rooms.values(), serializeRoomForRecovery)
     });
     return true;
-  } catch (error) { failPersistence(); throw error; }
+  } catch (error) { failPersistence(error); throw error; }
 }
 
 function restoreActiveRooms() {
