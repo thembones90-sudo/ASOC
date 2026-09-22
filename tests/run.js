@@ -1073,15 +1073,24 @@ async function testCrashInjectionPersistence(server) {
 
   const resultPromise = waitForMessage(
     host,
-    m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
-    'crash tribute demand after wheel result',
+    m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'idle',
+    'crash wheel result before tribute demand',
     7000
   );
   host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
-  const result = await resultPromise;
-  assert.equal(result.womf.charge, 10);
+  const visibleResult = await resultPromise;
+  assert.equal(visibleResult.womf.charge, 10);
+  assert.equal(visibleResult.bloodTribute.status, 'idle', 'selected player must see the wheel result before Blood Tribute opens');
+
+  const tributePromise = waitForMessage(
+    host,
+    m => m.type === 'state:public' && m.wheel?.open === false && m.bloodTribute?.status === 'required',
+    'crash tribute demand after WOMF dismissal'
+  );
+  host.send(JSON.stringify({ type: 'gm:wheelClose' }));
+  const result = await tributePromise;
   assert.ok(result.bloodTribute.playerId === one.playerId || result.bloodTribute.playerId === two.playerId,
-    'the wheel winner becomes the tribute debtor');
+    'the dismissed wheel winner becomes the tribute debtor');
 
   // ---- CRASH #1 -----------------------------------------------------------
   await new Promise(resolve => { server.once('exit', resolve); server.kill(); });
@@ -1226,13 +1235,22 @@ async function testBloodTributeLifecycle() {
 
   const resultPromise = waitForMessage(
     host,
-    m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
-    'tribute demand after wheel result',
+    m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'idle',
+    'tribute wheel result before dismissal',
     7000
   );
   host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
-  const result = await resultPromise;
-  assert.equal(result.womf.charge, 10);
+  const visibleResult = await resultPromise;
+  assert.equal(visibleResult.womf.charge, 10);
+  assert.equal(visibleResult.bloodTribute.status, 'idle');
+
+  const tributePromise = waitForMessage(
+    host,
+    m => m.type === 'state:public' && m.wheel?.open === false && m.bloodTribute?.status === 'required',
+    'tribute demand after result dismissal'
+  );
+  host.send(JSON.stringify({ type: 'gm:wheelClose' }));
+  const result = await tributePromise;
   assert.ok(result.bloodTribute.playerId === one.playerId || result.bloodTribute.playerId === two.playerId);
 
   const selected = result.bloodTribute.playerId === one.playerId ? p1 : p2;
