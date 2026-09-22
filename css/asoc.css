@@ -14388,3 +14388,166 @@ body.room-mode-battle #asoc-board > .omen-trigger:active::before {
 .asoc-omen-layer.is-reduced .asoc-omen-smoke,
 .asoc-omen-layer.is-reduced .asoc-omen-tear,
 .asoc-omen-layer.is-reduced .asoc-omen-ghost { display:none; }
+
+
+/* =========================================================
+   OMEN EERIE PASS // DIM + SHIVER + ASH
+   Keeps the existing sigil corruption, but makes the whole board feel
+   briefly wrong: darker exposure, tiny physical shiver, drifting gray ash.
+   ========================================================= */
+.asoc-board.asoc-omen-board-shiver {
+  transform-origin: 50% 50%;
+  will-change: transform, filter;
+  animation: omen-board-shiver 4.5s linear both;
+}
+
+.asoc-omen-shiver-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 27%, rgba(105,105,105,.07), transparent 23%),
+    radial-gradient(circle at 76% 39%, rgba(72,72,72,.075), transparent 20%),
+    radial-gradient(circle at 48% 73%, rgba(118,118,118,.055), transparent 25%),
+    linear-gradient(115deg, transparent 0 37%, rgba(86,86,86,.035) 43%, transparent 49% 100%);
+  mix-blend-mode: screen;
+  animation: omen-shiver-veil 4.5s ease-in-out both;
+}
+
+.asoc-omen-particles {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.asoc-omen-particle {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 36% 32%,
+      rgba(135,135,135,.70) 0%,
+      rgba(82,82,82,.58) 32%,
+      rgba(37,37,37,.42) 61%,
+      rgba(13,13,13,.12) 82%,
+      transparent 100%);
+  box-shadow:
+    0 0 8px rgba(0,0,0,.34),
+    0 0 2px rgba(135,135,135,.13);
+  filter: blur(var(--omen-blur, .35px));
+  animation: omen-particle-float var(--omen-duration, 2.6s) cubic-bezier(.18,.62,.28,1) var(--omen-delay, 0s) both;
+}
+
+.asoc-omen-field {
+  z-index: 3;
+}
+
+.asoc-omen-tear {
+  z-index: 5;
+}
+
+/* Slightly darker than the original OMEN pass. The point is dread, not
+   turning the board off: words remain readable while the room visibly dips. */
+@keyframes omen-board-wash {
+  0%, 6% {
+    background: rgba(6,7,8,0);
+    backdrop-filter: brightness(1) contrast(1) saturate(1);
+    -webkit-backdrop-filter: brightness(1) contrast(1) saturate(1);
+  }
+  12% {
+    background: rgba(5,7,8,.13);
+    backdrop-filter: brightness(.91) contrast(1.045) saturate(.93);
+    -webkit-backdrop-filter: brightness(.91) contrast(1.045) saturate(.93);
+  }
+  25% {
+    background: rgba(4,6,7,.20);
+    backdrop-filter: brightness(.84) contrast(1.075) saturate(.86);
+    -webkit-backdrop-filter: brightness(.84) contrast(1.075) saturate(.86);
+  }
+  44% {
+    background: rgba(4,6,7,.17);
+    backdrop-filter: brightness(.86) contrast(1.07) saturate(.88);
+    -webkit-backdrop-filter: brightness(.86) contrast(1.07) saturate(.88);
+  }
+  67% {
+    background: rgba(5,7,8,.12);
+    backdrop-filter: brightness(.90) contrast(1.05) saturate(.91);
+    -webkit-backdrop-filter: brightness(.90) contrast(1.05) saturate(.91);
+  }
+  84% {
+    background: rgba(6,7,8,.055);
+    backdrop-filter: brightness(.96) contrast(1.02) saturate(.96);
+    -webkit-backdrop-filter: brightness(.96) contrast(1.02) saturate(.96);
+  }
+  100% {
+    background: rgba(6,7,8,0);
+    backdrop-filter: brightness(1) contrast(1) saturate(1);
+    -webkit-backdrop-filter: brightness(1) contrast(1) saturate(1);
+  }
+}
+
+@keyframes omen-board-shiver {
+  0%, 14%, 48%, 100% { transform: translate3d(0,0,0); }
+  17% { transform: translate3d(-.55px,.25px,0); }
+  19% { transform: translate3d(.75px,-.45px,0); }
+  21% { transform: translate3d(-.95px,.55px,0); }
+  23% { transform: translate3d(.62px,-.34px,0); }
+  25% { transform: translate3d(-.42px,.28px,0); }
+  27% { transform: translate3d(.82px,-.52px,0); }
+  29% { transform: translate3d(-.66px,.42px,0); }
+  32% { transform: translate3d(.38px,-.22px,0); }
+  35% { transform: translate3d(-.32px,.18px,0); }
+  38% { transform: translate3d(.48px,-.25px,0); }
+  41% { transform: translate3d(-.27px,.18px,0); }
+  44% { transform: translate3d(.16px,-.10px,0); }
+}
+
+@keyframes omen-shiver-veil {
+  0%, 12%, 100% { opacity: 0; transform: translateX(0); }
+  18% { opacity: .13; transform: translateX(-.25%); }
+  27% { opacity: .28; transform: translateX(.35%); }
+  39% { opacity: .20; transform: translateX(-.18%); }
+  55% { opacity: .12; transform: translateX(.12%); }
+  73% { opacity: .055; transform: translateX(0); }
+}
+
+@keyframes omen-particle-float {
+  0% {
+    opacity: 0;
+    transform: translate3d(0,8px,0) scale(.62) rotate(0deg);
+  }
+  11% {
+    opacity: var(--omen-opacity, .16);
+  }
+  44% {
+    opacity: var(--omen-opacity, .16);
+  }
+  76% {
+    opacity: .07;
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate3d(var(--omen-drift-x, 0px), var(--omen-drift-y, -38px), 0)
+      scale(1.18)
+      rotate(95deg);
+  }
+}
+
+.asoc-omen-layer.is-reduced .asoc-omen-shiver-veil,
+.asoc-omen-layer.is-reduced .asoc-omen-particles {
+  display: none;
+}
+.asoc-board.asoc-omen-board-shiver {
+  backface-visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .asoc-board.asoc-omen-board-shiver {
+    animation: none !important;
+  }
+}
