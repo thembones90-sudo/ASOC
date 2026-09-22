@@ -1982,7 +1982,6 @@ const PlayerApp = {
     document.body.classList.toggle('game-lost', lost);
     if (!lost) {
       document.querySelector('.defeat-overlay')?.remove();
-      Skeleton.closeAftermath?.();
     } else if (live) {
       Skeleton.playGameLost(matchResult, { live: true, isHost: false });
     } else if (changed && !document.querySelector('.defeat-overlay')) {
