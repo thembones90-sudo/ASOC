@@ -244,16 +244,19 @@
     };
 
     const handlePaste = (event) => {
+      if (event.__asocMediaHandled) return true;
       const transfer = event.clipboardData;
       const file = imageFileFromTransfer(transfer);
       if (file) {
         event.preventDefault();
+        event.__asocMediaHandled = true;
         stageFile(file);
         return true;
       }
       const url = imageUrlFromTransfer(transfer);
       if (url) {
         event.preventDefault();
+        event.__asocMediaHandled = true;
         stageUrl(url);
         return true;
       }
@@ -298,6 +301,13 @@
       clear();
       options.focus?.();
     });
+
+    // Capture paste at the form boundary as well as the concrete input.
+    // Some browsers/mobile paths do not reliably reach the input listener
+    // with image-address clipboard metadata, but they do bubble through form.
+    form.addEventListener('paste', (event) => {
+      handlePaste(event);
+    }, true);
 
     form.addEventListener('dragover', (event) => {
       const file = imageFileFromTransfer(event.dataTransfer);
