@@ -186,7 +186,8 @@ const Recount = (() => {
   // Players get a small reopen pill (the GM has its own console button).
   function updatePill() {
     if (!pill) return;
-    pill.hidden = !data || !!overlay;
+    const casual = document.getElementById('game-screen')?.classList.contains('room-mode-casual') === true;
+    pill.hidden = !data || !!overlay || casual;
   }
   function mountPill() {
     if (pill) return;
@@ -214,6 +215,7 @@ const Recount = (() => {
 
   return {
     apply, open, close, mountPill,
+    refreshPill: updatePill,
     has: () => !!data,
     isOpen: () => !!overlay,
     onChange: fn => listeners.push(fn),
