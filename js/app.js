@@ -226,7 +226,7 @@ const App = {
       ControlSurfaces.init(this);
       this.setupEventListeners();
       this.setupGMLayoutSplitter();
-      this.setupGMChatHeightSplitter();
+      try { localStorage.removeItem('asoc_gm_chat_height_px'); } catch (_) {}
       this.syncGMLayoutLockUI();
       Forge.init();
       this.populateBackgroundSelector();
@@ -286,7 +286,7 @@ const App = {
         : 'LAYOUT UNLOCKED // RESIZE CONTROLS ACTIVE';
     }
 
-    ['gm-layout-splitter', 'gm-chat-height-splitter'].forEach(id => {
+    ['gm-layout-splitter'].forEach(id => {
       const splitter = document.getElementById(id);
       if (!splitter) return;
       if (!splitter.dataset.unlockedTitle) splitter.dataset.unlockedTitle = splitter.getAttribute('title') || '';
