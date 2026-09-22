@@ -1998,6 +1998,7 @@ const PlayerApp = {
       screen.dataset.roomMode = next;
     }
     if (standby) standby.hidden = true;
+    Recount.refreshPill?.();
 
     const title = document.querySelector('.chat-title');
     const roomLabel = document.getElementById('battle-comms-room');
