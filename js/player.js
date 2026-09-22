@@ -1255,8 +1255,8 @@ const PlayerApp = {
         const commsRoom = document.getElementById('battle-comms-room');
         const commsOnline = document.getElementById('battle-comms-online');
         if (commsRoom) commsRoom.textContent = this.roomMode === 'CASUAL'
-          ? 'CASUAL // MASTER ROOM'
-          : 'BATTLE // MASTER ROOM';
+          ? 'AMUSEMENT PARK // MASTER ROOM'
+          : 'ABUSEMENT PARK // MASTER ROOM';
         if (commsOnline) commsOnline.textContent = '● ' + (message.players || []).filter(p => p.connected !== false).length + ' ONLINE';
         break;
 
@@ -1638,8 +1638,8 @@ const PlayerApp = {
       <div class="asoc-mode-transition-core">
         <div class="asoc-mode-transition-eye"><img src="/assets/ui/asoc-favicon.svg?v=1" alt=""></div>
         <div class="asoc-mode-transition-kicker">A.S.O.C. // MASTER ROOM</div>
-        <div class="asoc-mode-transition-title">${battle ? 'BATTLE PROTOCOL ENGAGED' : 'BATTLE INTERFACE SUSPENDED'}</div>
-        <div class="asoc-mode-transition-sub">${battle ? '' : 'CASUAL CHANNEL // RESTORED'}</div>
+        <div class="asoc-mode-transition-title">${battle ? 'ABUSEMENT PARK ENGAGED' : 'ABUSEMENT PARK SUSPENDED'}</div>
+        <div class="asoc-mode-transition-sub">${battle ? '' : 'AMUSEMENT PARK // RESTORED'}</div>
       </div>
       ${battle ? '<div class="asoc-mode-transition-omen" aria-live="polite"></div>' : ''}
     `;
@@ -1737,12 +1737,12 @@ const PlayerApp = {
     const solvedCount = document.getElementById('chat-solved-count');
     if (title) {
       title.innerHTML = next === 'CASUAL'
-        ? '<span class="casual-network-name">ASOC NETWORK</span><span class="casual-network-state"> // CASUAL</span>'
+        ? '<span class="casual-network-name">ASOC NETWORK</span><span class="casual-network-state"> // AMUSEMENT PARK</span>'
         : 'BATTLE COMMS';
     }
     if (roomLabel) roomLabel.textContent = next === 'CASUAL'
       ? 'MASTER ROOM'
-      : 'BATTLE // MASTER ROOM';
+      : 'ABUSEMENT PARK // MASTER ROOM';
     if (solvedCount) solvedCount.textContent = next === 'CASUAL'
       ? 'CHANNEL OPEN'
       : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;

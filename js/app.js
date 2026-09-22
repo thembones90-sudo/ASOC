@@ -2760,8 +2760,8 @@ const App = {
       <div class="asoc-mode-transition-core">
         <div class="asoc-mode-transition-eye"><img src="/assets/ui/asoc-favicon.svg?v=1" alt=""></div>
         <div class="asoc-mode-transition-kicker">A.S.O.C. // MASTER ROOM</div>
-        <div class="asoc-mode-transition-title">${battle ? 'BATTLE PROTOCOL ENGAGED' : 'BATTLE INTERFACE SUSPENDED'}</div>
-        <div class="asoc-mode-transition-sub">${battle ? '' : 'CASUAL CHANNEL // RESTORED'}</div>
+        <div class="asoc-mode-transition-title">${battle ? 'ABUSEMENT PARK ENGAGED' : 'ABUSEMENT PARK SUSPENDED'}</div>
+        <div class="asoc-mode-transition-sub">${battle ? '' : 'AMUSEMENT PARK // RESTORED'}</div>
       </div>
       ${battle ? '<div class="asoc-mode-transition-omen" aria-live="polite"></div>' : ''}
     `;
@@ -2914,7 +2914,14 @@ const App = {
 
     if (isMultiplayer) {
       document.getElementById('mp-room-code').textContent = 'MASTER ROOM';
-      document.getElementById('mp-status').textContent = this.roomMode;
+      const visibleRoomMode = this.roomMode === 'CASUAL'
+        ? 'AMUSEMENT PARK'
+        : this.roomMode === 'BATTLE_ARMED'
+          ? 'ABUSEMENT PARK // ARMED'
+          : this.roomMode === 'BATTLE'
+            ? 'ABUSEMENT PARK'
+            : this.roomMode;
+      document.getElementById('mp-status').textContent = visibleRoomMode;
     }
   },
 
@@ -3490,8 +3497,8 @@ const App = {
   closeRoom() {
     if (this.mode !== 'multiplayer' || this.roomMode === 'CASUAL') return;
     const prompt = this.roomMode === 'RECOUNT'
-      ? 'RETURN EVERYONE TO CASUAL MODE?\n\nBattle state resets. Chat, identities, profiles, themes and message history stay online.'
-      : 'KILL ACTIVE BATTLE?\n\nBattle state resets and everyone returns to Casual Mode. Chat and identities remain online.';
+      ? 'RETURN EVERYONE TO AMUSEMENT PARK?\n\nBattle state resets. Chat, identities, profiles, themes and message history stay online.'
+      : 'KILL ACTIVE BATTLE?\n\nBattle state resets and everyone returns to AMUSEMENT PARK. Chat and identities remain online.';
     if (!window.confirm(prompt)) return;
 
     const roomToggle = document.getElementById('host-room-btn');
@@ -3507,7 +3514,7 @@ const App = {
     const hostingRoom = this.mode === 'multiplayer' && !!this.roomCode;
     const activeBattle = hostingRoom && this.roomMode !== 'CASUAL';
     const warning = activeBattle
-      ? 'SEVER SHADOW BROKER SESSION?\n\nThe active battle will return to Casual Mode before your command link is closed.'
+      ? 'SEVER SHADOW BROKER SESSION?\n\nThe active battle will return to AMUSEMENT PARK before your command link is closed.'
       : 'SEVER SHADOW BROKER SESSION?\n\nThe Master Room remains online for Little Heroes; your command authentication will be cleared.';
     if (!window.confirm(warning)) return;
 
