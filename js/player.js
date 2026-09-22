@@ -2908,14 +2908,22 @@ const PlayerApp = {
     const chatContainer = document.getElementById('chat-messages');
     if (chatContainer) {
       chatContainer.addEventListener('scroll', () => {
+        // renderChat() replaces the transcript DOM and performs its own scroll
+        // restoration. Browsers can emit scroll events during that operation;
+        // those are not user intent and must never flip us into history mode.
+        if (this._chatProgrammaticScroll) {
+          closeContextMenu();
+          return;
+        }
+
         const { scrollTop, scrollHeight, clientHeight } = chatContainer;
-        this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 50);
+        this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 80);
         if (!this.userScrolledUp && this._newMessageCount) {
           this._newMessageCount = 0;
           this.updateNewMessageChip();
         }
         closeContextMenu();
-      });
+      }, { passive:true });
       chatContainer.addEventListener('click', (e) => {
         const pollVote = e.target.closest('[data-poll-vote]');
         if (pollVote) {
@@ -3446,9 +3454,34 @@ const PlayerApp = {
     const container = document.getElementById('chat-messages');
     if (!container) return;
 
-    const wasAtBottom = forceLatest || !this.userScrolledUp;
+    // Trust the actual viewport position first. A stale userScrolledUp flag can
+    // be produced by DOM reflow/media loading; physical proximity to the bottom
+    // is authoritative for whether live chat should follow new traffic.
     const previousScrollTop = container.scrollTop;
     const previousScrollHeight = container.scrollHeight;
+    const previousClientHeight = container.clientHeight;
+    const physicallyNearBottom =
+      (previousScrollTop + previousClientHeight) >= (previousScrollHeight - 80);
+    const followLatest = forceLatest || physicallyNearBottom || !this.userScrolledUp;
+
+    // When the user is deliberately reading history, anchor the first visible
+    // real message and its visual offset. Rebuilding the transcript can change
+    // scrollHeight while images/GIFs are re-created, so scrollHeight deltas are
+    // not a stable way to preserve position.
+    let historyAnchorId = '';
+    let historyAnchorOffset = 0;
+    if (!followLatest) {
+      const containerRect = container.getBoundingClientRect();
+      const candidates = container.querySelectorAll('[data-message-id]');
+      for (const el of candidates) {
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > containerRect.top + 1) {
+          historyAnchorId = el.dataset.messageId || '';
+          historyAnchorOffset = rect.top - containerRect.top;
+          break;
+        }
+      }
+    }
 
     let html = '';
     let nextWrongFadeMs = Infinity;
@@ -3471,6 +3504,7 @@ const PlayerApp = {
       html += this.createChatMessageHTML(msg, this.shouldGroupChatMessage(previous, msg), now);
     });
 
+    this._chatProgrammaticScroll = true;
     container.innerHTML = html;
     this.decorateChatMentions(container);
     this.armPollCountdowns(container);
@@ -3484,14 +3518,56 @@ const PlayerApp = {
       this._tributeExpiryTimer = setTimeout(() => this.renderChat(), Math.max(30, nextTributeTickMs + 30));
     }
 
-    if (wasAtBottom) {
+    const pinLatest = () => {
       container.scrollTop = container.scrollHeight;
       this.userScrolledUp = false;
       this._newMessageCount = 0;
       this.updateNewMessageChip();
+    };
+
+    if (followLatest) {
+      pinLatest();
+
+      // Images/video can acquire their real dimensions after innerHTML lands.
+      // While the user is following live chat, keep the newest message pinned
+      // through those late media reflows instead of letting the viewport drift
+      // several messages upward.
+      container.querySelectorAll('img,video').forEach(media => {
+        const repin = () => {
+          if (!this.userScrolledUp) {
+            this._chatProgrammaticScroll = true;
+            pinLatest();
+            requestAnimationFrame(() => { this._chatProgrammaticScroll = false; });
+          }
+        };
+        if (media.tagName === 'IMG' && !media.complete) {
+          media.addEventListener('load', repin, { once:true });
+          media.addEventListener('error', repin, { once:true });
+        } else if (media.tagName === 'VIDEO') {
+          media.addEventListener('loadedmetadata', repin, { once:true });
+        }
+      });
+
+      requestAnimationFrame(() => {
+        pinLatest();
+        requestAnimationFrame(() => { this._chatProgrammaticScroll = false; });
+      });
     } else {
-      const heightDelta = container.scrollHeight - previousScrollHeight;
-      container.scrollTop = Math.max(0, previousScrollTop + heightDelta);
+      const anchor = historyAnchorId
+        ? container.querySelector(`[data-message-id="${CSS.escape(historyAnchorId)}"]`)
+        : null;
+
+      if (anchor) {
+        const containerRect = container.getBoundingClientRect();
+        const currentOffset = anchor.getBoundingClientRect().top - containerRect.top;
+        container.scrollTop += currentOffset - historyAnchorOffset;
+      } else {
+        // If the anchor disappeared because history was trimmed, retain the
+        // literal viewport position. Never compensate using scrollHeight.
+        container.scrollTop = Math.max(0, previousScrollTop);
+      }
+
+      requestAnimationFrame(() => { this._chatProgrammaticScroll = false; });
     }
   },
 
