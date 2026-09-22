@@ -1,7 +1,9 @@
 const durableIO = require('./durable-io');
 const playerSessionStore = require('./player-session-store');
 const net = require('net');
+const dns = require('dns');
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -3256,6 +3258,197 @@ function validChatImageBytes(buffer, contentType) {
   return false;
 }
 
+// REMOTE CHAT IMAGE IMPORT // public HTTP(S) only
+// Remote image addresses are fetched server-side so pasted CDN/image URLs become
+// durable ASOC chat attachments. DNS is resolved first and the request is pinned
+// to that public address to prevent the importer from becoming an SSRF tunnel.
+function isBlockedRemoteAddress(address) {
+  const value = String(address || '').toLowerCase().split('%')[0];
+  const family = net.isIP(value);
+  if (family === 4) {
+    const parts = value.split('.').map(Number);
+    const [a,b,c] = parts;
+    if (a === 0 || a === 10 || a === 127 || a >= 224) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 192 && b === 0 && c === 0) return true;
+    if (a === 192 && b === 0 && c === 2) return true;
+    if (a === 198 && (b === 18 || b === 19)) return true;
+    if (a === 198 && b === 51 && c === 100) return true;
+    if (a === 203 && b === 0 && c === 113) return true;
+    return false;
+  }
+  if (family === 6) {
+    if (value === '::' || value === '::1') return true;
+    if (/^(?:fc|fd)/.test(value)) return true;
+    if (/^fe[89ab]/.test(value)) return true;
+    if (/^ff/.test(value)) return true;
+    if (/^2001:db8(?::|$)/.test(value)) return true;
+    const mapped = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    if (mapped) return isBlockedRemoteAddress(mapped[1]);
+    return false;
+  }
+  return true;
+}
+
+function normalizeRemoteImageUrl(rawValue) {
+  let parsed;
+  try {
+    parsed = new URL(String(rawValue || '').trim());
+  } catch (_) {
+    throw new Error('Invalid image address');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Image address must use HTTP or HTTPS');
+  if (parsed.username || parsed.password) throw new Error('Image address credentials are not allowed');
+  const port = parsed.port ? Number(parsed.port) : (parsed.protocol === 'https:' ? 443 : 80);
+  if ((parsed.protocol === 'https:' && port !== 443) || (parsed.protocol === 'http:' && port !== 80)) {
+    throw new Error('Non-standard image address ports are not allowed');
+  }
+  if (!parsed.hostname || parsed.hostname.length > 253) throw new Error('Invalid image address host');
+  const host = parsed.hostname.toLowerCase();
+  if (host === 'localhost' || host.endsWith('.localhost')) throw new Error('Private image addresses are not allowed');
+  return parsed;
+}
+
+async function resolvePublicRemoteAddress(hostname) {
+  const literalFamily = net.isIP(hostname);
+  if (literalFamily) {
+    if (isBlockedRemoteAddress(hostname)) throw new Error('Private or reserved image addresses are not allowed');
+    return { address: hostname, family: literalFamily };
+  }
+  const records = await dns.promises.lookup(hostname, { all: true, verbatim: true });
+  if (!records.length) throw new Error('Image address host could not be resolved');
+  if (records.some(record => isBlockedRemoteAddress(record.address))) {
+    throw new Error('Private or reserved image addresses are not allowed');
+  }
+  return records[0];
+}
+
+async function fetchRemoteChatImage(rawUrl, redirectCount = 0) {
+  if (redirectCount > 4) throw new Error('Image address redirected too many times');
+  const target = normalizeRemoteImageUrl(rawUrl);
+  const resolved = await resolvePublicRemoteAddress(target.hostname);
+  const client = target.protocol === 'https:' ? https : http;
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error instanceof Error ? error : new Error(String(error || 'Image import failed')));
+    };
+
+    const request = client.request({
+      host: resolved.address,
+      family: resolved.family,
+      port: target.protocol === 'https:' ? 443 : 80,
+      method: 'GET',
+      path: target.pathname + target.search,
+      servername: target.protocol === 'https:' ? target.hostname : undefined,
+      rejectUnauthorized: true,
+      headers: {
+        Host: target.host,
+        Accept: 'image/png,image/jpeg,image/webp,image/gif;q=0.9,*/*;q=0.1',
+        'User-Agent': 'ASOC-Image-Importer/1.0',
+        Connection: 'close'
+      }
+    }, response => {
+      const status = Number(response.statusCode || 0);
+      const location = response.headers.location;
+      if (status >= 300 && status < 400 && location) {
+        response.resume();
+        settled = true;
+        let redirected;
+        try {
+          redirected = new URL(location, target).toString();
+        } catch (_) {
+          reject(new Error('Image address returned an invalid redirect'));
+          return;
+        }
+        fetchRemoteChatImage(redirected, redirectCount + 1).then(resolve, reject);
+        return;
+      }
+      if (status !== 200) {
+        response.resume();
+        fail(new Error('Image address returned HTTP ' + status));
+        return;
+      }
+
+      const contentType = String(response.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+      if (!['image/png','image/jpeg','image/webp','image/gif'].includes(contentType)) {
+        response.resume();
+        fail(new Error('Pasted address is not a supported image'));
+        return;
+      }
+      const declaredLength = Number(response.headers['content-length'] || 0);
+      if (declaredLength > MAX_CHAT_IMAGE_BYTES) {
+        response.resume();
+        fail(new Error('Remote image exceeds 5 MB limit'));
+        return;
+      }
+
+      const chunks = [];
+      let size = 0;
+      response.on('data', chunk => {
+        if (settled) return;
+        size += chunk.length;
+        if (size > MAX_CHAT_IMAGE_BYTES) {
+          response.destroy();
+          fail(new Error('Remote image exceeds 5 MB limit'));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      response.on('end', () => {
+        if (settled) return;
+        const buffer = Buffer.concat(chunks);
+        if (!validChatImageBytes(buffer, contentType)) {
+          fail(new Error('Remote image signature does not match its content type'));
+          return;
+        }
+        settled = true;
+        resolve({ buffer, contentType, sourceUrl: target.toString() });
+      });
+      response.on('error', fail);
+    });
+
+    request.setTimeout(8000, () => request.destroy(new Error('Image address timed out')));
+    request.on('error', fail);
+    request.end();
+  });
+}
+
+function getChatImageActor(req, room) {
+  const gmToken = String(req.headers['x-gm-token'] || '');
+  if (gmToken && isValidGmToken(gmToken)) return { role: 'gm' };
+  const playerToken = String(req.headers['x-player-token'] || '');
+  const auth = getPlayerAuth(playerToken);
+  if (!auth?.playerId) return null;
+  const live = Array.from(room.players.values()).find(player => player.id === auth.playerId);
+  return live ? { role: 'player', playerId: live.id, playerName: live.name } : null;
+}
+
+function persistChatImage(room, actor, buffer, contentType, caption) {
+  const extByType = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/webp': 'webp',
+    'image/gif': 'gif'
+  };
+  const ext = extByType[contentType];
+  if (!ext) throw new Error('Unsupported image type');
+  const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
+  const filePath = path.join(CHAT_UPLOAD_DIR, filename);
+  fs.writeFileSync(filePath, buffer, { flag: 'wx', mode: 0o600 });
+  const imageUrl = '/uploads/chat/' + filename;
+  const message = appendChatImageMessage(room, actor, imageUrl, caption);
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+  return { imageUrl, messageId: message.id };
+}
+
 function readChatImageBody(req, cb) {
   const chunks = [];
   let size = 0;
@@ -4805,6 +4998,28 @@ function handleApiRequest(req, res) {
     return;
   }
 
+  if (method === 'POST' && url.pathname === '/api/chat/image-url') {
+    const room = rooms.get(MASTER_ROOM_CODE);
+    if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
+    const actor = getChatImageActor(req, room);
+    if (!actor) return sendJson(res, 401, { error: 'Chat upload authentication required' });
+
+    return readJsonBody(req, async (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid image address request' });
+      const captionLimit = actor.role === 'gm' ? 500 : MAX_CHAT_LENGTH;
+      const caption = sanitizeText(body?.caption || '').slice(0, captionLimit);
+      try {
+        const remote = await fetchRemoteChatImage(body?.url || '');
+        const stored = persistChatImage(room, actor, remote.buffer, remote.contentType, caption);
+        return sendJson(res, 201, { ok: true, ...stored });
+      } catch (error) {
+        console.error('[chat-image-url] import failed:', error.message);
+        const status = /5 MB/.test(error.message) ? 413 : /not a supported image|signature/.test(error.message) ? 415 : 400;
+        return sendJson(res, status, { error: error.message || 'Image address import failed' });
+      }
+    });
+  }
+
   if (method === 'POST' && url.pathname === '/api/chat/image') {
     const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
     const extByType = {
@@ -4819,18 +5034,7 @@ function handleApiRequest(req, res) {
     const room = rooms.get(MASTER_ROOM_CODE);
     if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
 
-    let actor = null;
-    const gmToken = String(req.headers['x-gm-token'] || '');
-    if (gmToken && isValidGmToken(gmToken)) {
-      actor = { role: 'gm' };
-    } else {
-      const playerToken = String(req.headers['x-player-token'] || '');
-      const auth = getPlayerAuth(playerToken);
-      if (auth?.playerId) {
-        const live = Array.from(room.players.values()).find(p => p.id === auth.playerId);
-        if (live) actor = { role: 'player', playerId: live.id, playerName: live.name };
-      }
-    }
+    const actor = getChatImageActor(req, room);
     if (!actor) return sendJson(res, 401, { error: 'Chat upload authentication required' });
 
     const captionLimit = actor.role === 'gm' ? 500 : MAX_CHAT_LENGTH;
@@ -4841,15 +5045,9 @@ function handleApiRequest(req, res) {
       if (!body || body.length === 0) return sendJson(res, 400, { error: 'Empty image upload' });
       if (!validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Image file signature does not match its declared type' });
 
-      const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
-      const filePath = path.join(CHAT_UPLOAD_DIR, filename);
       try {
-        fs.writeFileSync(filePath, body, { flag: 'wx', mode: 0o600 });
-        const imageUrl = '/uploads/chat/' + filename;
-        const message = appendChatImageMessage(room, actor, imageUrl, caption);
-        persistActiveRooms();
-        broadcastChatUpdate(room);
-        return sendJson(res, 201, { ok: true, imageUrl, messageId: message.id });
+        const stored = persistChatImage(room, actor, body, contentType, caption);
+        return sendJson(res, 201, { ok: true, ...stored });
       } catch (writeError) {
         console.error('[chat-image] upload failed', writeError);
         return sendJson(res, 500, { error: 'Image could not be stored' });
