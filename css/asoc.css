@@ -16279,39 +16279,47 @@ button.gm-chat-gif-link:focus-visible {
 }
 
 
-/* GM CHAT FULL HEIGHT LOCK V1
-   The live GM chat is a fixed rail, not a resizable module. In Battle,
-   Battle Armed and Recount it consumes the full sidebar height. The vertical
-   GM/sidebar width splitter is intentionally unaffected. */
+/* GM CHAT FULL-HEIGHT FIXED RAIL
+   Battle chat fills the GM sidebar and the transcript itself owns scrolling.
+   No resize handle, no zero-height flex hacks, no clipped content. */
 #gm-chat-height-splitter {
   display:none !important;
 }
 
 @media (min-width:761px) {
+  body.room-mode-battle #gm-panel:not(.maintenance-open),
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open),
+  body.room-mode-recount #gm-panel:not(.maintenance-open) {
+    position:relative !important;
+    height:100vh !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+
   body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-content,
   body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .gm-content,
   body.room-mode-recount #gm-panel:not(.maintenance-open) .gm-content {
-    display:flex !important;
-    flex-direction:column !important;
+    position:static !important;
     height:100% !important;
     min-height:0 !important;
     overflow:hidden !important;
-    padding:14px !important;
-    box-sizing:border-box !important;
+    padding:0 !important;
   }
 
   body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-module-chat,
   body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .gm-module-chat,
   body.room-mode-recount #gm-panel:not(.maintenance-open) .gm-module-chat {
+    position:absolute !important;
+    inset:14px !important;
     display:flex !important;
-    flex:1 1 auto !important;
     flex-direction:column !important;
-    width:100% !important;
+    width:auto !important;
     height:auto !important;
     min-height:0 !important;
     max-height:none !important;
     margin:0 !important;
     overflow:hidden !important;
+    box-sizing:border-box !important;
   }
 
   body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-module-chat .gm-chat-panel,
@@ -16321,7 +16329,7 @@ button.gm-chat-gif-link:focus-visible {
     flex:1 1 auto !important;
     flex-direction:column !important;
     width:100% !important;
-    height:auto !important;
+    height:100% !important;
     min-height:0 !important;
     max-height:none !important;
     overflow:hidden !important;
@@ -16330,49 +16338,18 @@ button.gm-chat-gif-link:focus-visible {
   body.room-mode-battle #gm-panel:not(.maintenance-open) #gm-chat-messages,
   body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #gm-chat-messages,
   body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-chat-messages {
+    display:block !important;
     flex:1 1 auto !important;
+    width:100% !important;
+    height:auto !important;
     min-height:0 !important;
     max-height:none !important;
-    overflow-y:auto !important;
-  }
-}
-
-
-/* GM CHAT SCROLL INTERACTION RECOVERY V1
-   The full-height rail is fixed in size, but the transcript itself remains
-   a normal live scroller. */
-@media (min-width:761px) {
-  body.room-mode-battle #gm-chat-messages,
-  body.room-mode-battle-armed #gm-chat-messages,
-  body.room-mode-recount #gm-chat-messages {
     overflow-y:auto !important;
     overflow-x:hidden !important;
     overscroll-behavior:contain !important;
     touch-action:pan-y !important;
     pointer-events:auto !important;
     scrollbar-gutter:stable;
-  }
-}
-
-
-/* GM CHAT REAL SCROLLPORT V2
-   Fixed-height GM rail, real scrollable transcript. The transcript gets a
-   definite flex scrollport instead of an auto content height that can be
-   clipped by the locked parent. */
-@media (min-width:761px) {
-  body.room-mode-battle #gm-panel:not(.maintenance-open) #gm-chat-messages,
-  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #gm-chat-messages,
-  body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-chat-messages {
-    display:block !important;
-    flex:1 1 0 !important;
-    height:0 !important;
-    min-height:0 !important;
-    max-height:none !important;
-    overflow-y:scroll !important;
-    overflow-x:hidden !important;
-    overscroll-behavior-y:contain !important;
     -webkit-overflow-scrolling:touch;
-    touch-action:pan-y !important;
-    pointer-events:auto !important;
   }
 }
