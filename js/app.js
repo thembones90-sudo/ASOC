@@ -2142,7 +2142,6 @@ const App = {
     if (lost) this._closeLossPreview?.();
     if (!lost) {
       document.querySelector('.defeat-overlay:not(.is-test-preview)')?.remove();
-      Skeleton.closeAftermath?.();
     } else if (live) {
       Skeleton.playGameLost(matchResult, {
         live: true,
