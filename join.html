@@ -4947,10 +4947,18 @@
     }
 
     #game-screen.room-mode-casual #chat-messages {
+      display:flex;
       flex:1 1 auto;
+      flex-direction:column;
       min-height:0;
       overflow-y:auto;
       padding:10px 12px 8px;
+    }
+
+    /* Short social transcripts live beside the composer, not stranded at the ceiling.
+       Auto margin collapses to zero once content overflows, preserving normal scrollback. */
+    #game-screen.room-mode-casual #chat-messages > :first-child {
+      margin-top:auto !important;
     }
 
     #game-screen.room-mode-casual .chat-header {
@@ -7634,6 +7642,6 @@
   <script src="js/board.js?v=20260921-final-omen-2"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260921-media-lightbox-1"></script>
-  <script src="js/player.js?v=20260922-amusement-abusement-1"></script>
+  <script src="js/player.js?v=20260922-chat-bottom-anchor-1"></script>
 </body>
 </html>

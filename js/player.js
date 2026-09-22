@@ -1194,12 +1194,16 @@ const PlayerApp = {
         const incoming = message.messages || [];
         const previousIds = new Set(this.chatMessages.map(m => m.id));
         const previousById = new Map(this.chatMessages.map(m => [m.id, m]));
+        let followLatest = false;
         // Only look for a "new" standalone Broker broadcast to trigger the
         // board-line reveal AFTER the first hydration -- otherwise a
         // player joining mid-game would see the room's entire chat history
         // replay as a fresh transmission the moment they connect.
         if (this._chatEverInitialized) {
           const newMessages = incoming.filter(m => !previousIds.has(m.id));
+          followLatest = newMessages.some(m =>
+            String(m.playerId || '') === String(this.playerId || '')
+          );
           const verdictUpdates = incoming.filter(m => {
             const previous = previousById.get(m.id);
             return previous && previous.verdict !== m.verdict && m.verdict;
@@ -1242,7 +1246,7 @@ const PlayerApp = {
         this.solvedTargets = message.solvedTargets || {};
         const solvedCount = document.getElementById('chat-solved-count');
         if (solvedCount) solvedCount.textContent = this.roomMode === 'CASUAL' ? 'CHANNEL OPEN' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
-        this.renderChat();
+        this.renderChat({ forceLatest: followLatest });
         break;
       }
 
@@ -1274,6 +1278,10 @@ const PlayerApp = {
 
       case 'nemaAsoc':
         Skeleton.playNemaAsoc();
+        break;
+
+      case 'biceAsoc':
+        Skeleton.playBiceAsoc?.(message.line);
         break;
 
       case 'board:omen':
@@ -3242,11 +3250,11 @@ const PlayerApp = {
     `;
   },
 
-  renderChat() {
+  renderChat({ forceLatest = false } = {}) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
 
-    const wasAtBottom = !this.userScrolledUp;
+    const wasAtBottom = forceLatest || !this.userScrolledUp;
     const previousScrollTop = container.scrollTop;
     const previousScrollHeight = container.scrollHeight;
 
@@ -3285,6 +3293,7 @@ const PlayerApp = {
 
     if (wasAtBottom) {
       container.scrollTop = container.scrollHeight;
+      this.userScrolledUp = false;
       this._newMessageCount = 0;
       this.updateNewMessageChip();
     } else {
@@ -3323,7 +3332,9 @@ const PlayerApp = {
     if (msg.messageType === 'gifRemote' && msg.gif) {
       const isBrokerGif = msg.source === 'chatGifGm';
       const isOwn = !isBrokerGif && String(msg.playerId || '') === String(this.playerId || '');
-      const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
+      const identity = (this.currentPlayers || []).find(p =>
+        String(p.id || '') === String(msg.playerId || '')
+      ) || msg;
       const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const avatar = isBrokerGif
         ? '<img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">'
@@ -3355,7 +3366,9 @@ const PlayerApp = {
     if (msg.messageType === 'poll' && msg.poll) {
       const isBrokerPoll = msg.poll.createdByRole === 'gm';
       const isOwn = !isBrokerPoll && String(msg.playerId || '') === String(this.playerId || '');
-      const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
+      const identity = (this.currentPlayers || []).find(p =>
+        String(p.id || '') === String(msg.playerId || '')
+      ) || msg;
       const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const avatar = isBrokerPoll
         ? '<span class="chat-poll-broker-avatar" aria-hidden="true">SB</span>'
@@ -3403,9 +3416,11 @@ const PlayerApp = {
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const wrongSeenAt = this._wrongVerdictSeenAt.get(msg.id) ?? (now - 3000);
     const agedRejected = msg.verdict === 'wrong' && (now - wrongSeenAt) >= 3000;
-    const isOwn = msg.playerId === this.playerId;
+    const isOwn = String(msg.playerId || '') === String(this.playerId || '');
     const canEdit = isOwn && !msg.source && msg.verdict == null;
-    const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
+    const identity = (this.currentPlayers || []).find(p =>
+      String(p.id || '') === String(msg.playerId || '')
+    ) || msg;
     const replyMatch = typeof msg.text === 'string'
       ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
       : null;
