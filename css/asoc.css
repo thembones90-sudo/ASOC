@@ -10575,11 +10575,37 @@ body.room-mode-casual #gm-logout-btn {
   text-shadow:0 0 8px rgba(220,230,239,.26);
 }
 
+.room-mode-option-casual {
+  color:#8feee7;
+  background:linear-gradient(180deg,rgba(20,62,66,.90),rgba(9,30,33,.97));
+  border-right:1px solid rgba(88,221,213,.36);
+  text-shadow:0 0 7px rgba(73,225,215,.34);
+}
+
+.room-mode-option-casual.is-active {
+  color:#d9fffb;
+  background:linear-gradient(180deg,rgba(23,102,105,.98),rgba(8,50,54,.99));
+  box-shadow:
+    inset 0 0 0 1px rgba(104,244,234,.66),
+    inset 0 0 20px rgba(52,228,218,.20),
+    0 0 12px rgba(38,201,194,.20);
+  text-shadow:0 0 9px rgba(95,255,244,.60);
+}
+
+.room-mode-option-battle {
+  color:#d9a6ff;
+  background:linear-gradient(180deg,rgba(61,28,83,.90),rgba(28,12,41,.97));
+  text-shadow:0 0 7px rgba(182,83,239,.34);
+}
+
 .room-mode-option-battle.is-active {
-  color:#e7c7ff;
-  background:linear-gradient(180deg,rgba(75,35,99,.98),rgba(34,15,47,.99));
-  box-shadow:inset 0 0 0 1px rgba(180,93,226,.62),inset 0 0 20px rgba(139,58,181,.24),0 0 12px rgba(130,48,174,.18);
-  text-shadow:0 0 9px rgba(190,111,235,.48);
+  color:#f5dcff;
+  background:linear-gradient(180deg,rgba(106,43,135,.98),rgba(47,17,65,.99));
+  box-shadow:
+    inset 0 0 0 1px rgba(211,105,255,.70),
+    inset 0 0 20px rgba(177,66,224,.24),
+    0 0 12px rgba(157,54,207,.22);
+  text-shadow:0 0 9px rgba(222,136,255,.62);
 }
 
 .room-mode-segment.is-active::before {
@@ -10588,8 +10614,17 @@ body.room-mode-casual #gm-logout-btn {
 }
 
 .room-mode-segment:not(.is-active):hover:not(:disabled) {
-  color:#a9b2bb;
-  background:linear-gradient(180deg,rgba(37,43,51,.94),rgba(17,21,27,.98));
+  filter:brightness(1.16) saturate(1.12);
+}
+
+.room-mode-option-casual:not(.is-active):hover:not(:disabled) {
+  color:#c7fff9;
+  background:linear-gradient(180deg,rgba(27,82,86,.96),rgba(10,39,42,.99));
+}
+
+.room-mode-option-battle:not(.is-active):hover:not(:disabled) {
+  color:#efd6ff;
+  background:linear-gradient(180deg,rgba(79,34,105,.96),rgba(35,14,49,.99));
 }
 
 .room-mode-segment:disabled {
@@ -10742,9 +10777,9 @@ body.room-mode-casual #gm-panel {
 }
 
 
-/* BATTLE CONTROLS // four geometrically identical command slots */
+/* BATTLE CONTROLS // three geometrically identical command slots */
 .battle-controls-grid {
-  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
   gap:10px !important;
   align-items:stretch !important;
 }
@@ -10758,8 +10793,7 @@ body.room-mode-casual #gm-panel {
 
 .battle-controls-host-slot .room-mode-toggle,
 #nema-asoc-btn,
-#game-won-btn,
-#game-lost-btn {
+#bice-asoc-btn {
   width:100% !important;
   min-width:0 !important;
   max-width:none !important;
