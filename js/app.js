@@ -4891,6 +4891,26 @@ const App = {
         <button type="button" class="gm-verdict-clear" title="Cancel">✕</button>
       </div>
     `;
+
+    if (!controlsEl.dataset.targetPointerBound) {
+      controlsEl.dataset.targetPointerBound = '1';
+      controlsEl.addEventListener('pointerdown', (event) => {
+        if (event.button != null && event.button !== 0) return;
+        const btn = event.target.closest('.gm-target-btn');
+        if (!btn || btn.disabled) return;
+        const target = btn.dataset.target || '';
+        const liveMessageId = btn.dataset.messageId || this.pendingVerdict || '';
+        if (!liveMessageId || !target) return;
+
+        // Commit before mouseup/click: live chat can re-render from another
+        // player's message at any instant and detach this DOM node.
+        event.preventDefault();
+        event.stopPropagation();
+        btn.disabled = true;
+        btn.classList.add('is-submitting');
+        this.confirmCorrectVerdict(liveMessageId, target);
+      });
+    }
   },
 
   confirmCorrectVerdict(messageId, target) {
