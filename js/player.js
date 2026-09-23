@@ -172,8 +172,12 @@ const PlayerApp = {
 
   resumeStoredMasterSession() {
     if (this._resumeJoinScheduled) return;
-    if (localStorage.getItem('asoc_player_in_master') !== '1') return;
-    const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+    const masterMirror = sessionStorage.getItem('asoc_master_persona') === 'PLAYER_TEST';
+    const resumeFlag = masterMirror
+      ? sessionStorage.getItem('asoc_player_in_master')
+      : localStorage.getItem('asoc_player_in_master');
+    if (resumeFlag !== '1') return;
+    const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
     const name = (document.getElementById('player-name')?.value || '').trim();
     if (!token || !name) return;
     if (this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1)) return;
@@ -279,7 +283,7 @@ const PlayerApp = {
       gifMoreButton?.setAttribute('disabled', 'disabled');
       setGifStatus(gifMode === 'search' ? 'SEARCHING // ' + query.toUpperCase() : 'TRENDING // ACQUIRING');
       try {
-        const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+        const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
         const params = new URLSearchParams({ offset: String(gifOffset), limit: '12' });
         if (gifMode === 'search') params.set('q', query);
         const response = await fetch('/api/gif/' + gifMode + '?' + params.toString(), {
@@ -517,7 +521,7 @@ const PlayerApp = {
         throw new Error('PNG, JPG, WEBP or GIF images only.');
       }
       if (file.size > 5 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller.');
-      const token = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+      const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
       setChatMediaBusy(true);
       try {
         const res = await fetch('/api/chat/image?caption=' + encodeURIComponent(caption), {
@@ -695,7 +699,7 @@ const PlayerApp = {
       try {
         this.avatarData = await this.processAvatarFile(file);
         this._sendAvatarAppearance = true;
-        localStorage.setItem('asoc_little_hero_avatar', this.avatarData);
+        this.getAppearanceStorage().setItem('asoc_little_hero_avatar', this.avatarData);
         this.updateAppearancePreview();
       } catch (error) {
         this.showError(error.message || 'Could not process avatar');
@@ -706,7 +710,7 @@ const PlayerApp = {
       if (!/^#[0-9A-Fa-f]{6}$/.test(value)) return false;
       this.frameColor = value.toUpperCase();
       this._sendFrameAppearance = true;
-      localStorage.setItem('asoc_little_hero_frame', this.frameColor);
+      this.getAppearanceStorage().setItem('asoc_little_hero_frame', this.frameColor);
       this.updateAppearancePreview();
       return true;
     };
@@ -772,8 +776,8 @@ const PlayerApp = {
       this.themeColor = theme.color;
       this._sendThemeAppearance = true;
       this._themeChangedByUser = true;
-      localStorage.setItem('asoc_little_hero_theme_id', this.themeId);
-      localStorage.setItem('asoc_little_hero_theme', this.themeColor);
+      this.getAppearanceStorage().setItem('asoc_little_hero_theme_id', this.themeId);
+      this.getAppearanceStorage().setItem('asoc_little_hero_theme', this.themeColor);
       this.updateAppearancePreview();
     };
 
@@ -826,12 +830,17 @@ const PlayerApp = {
     window.addEventListener('scroll', positionThemeMenu, true);
   },
 
+  getAppearanceStorage() {
+    return sessionStorage.getItem('asoc_master_persona') === 'PLAYER_TEST' ? sessionStorage : localStorage;
+  },
+
   loadStoredCredentials() {
     const storedName = sessionStorage.getItem('asoc_player_name');
     const storedId = sessionStorage.getItem('asoc_player_id');
-    const storedAvatar = localStorage.getItem('asoc_little_hero_avatar');
-    const storedFrame = localStorage.getItem('asoc_little_hero_frame');
-    const storedThemeId = localStorage.getItem('asoc_little_hero_theme_id');
+    const appearanceStorage = this.getAppearanceStorage();
+    const storedAvatar = appearanceStorage.getItem('asoc_little_hero_avatar');
+    const storedFrame = appearanceStorage.getItem('asoc_little_hero_frame');
+    const storedThemeId = appearanceStorage.getItem('asoc_little_hero_theme_id');
 
     if (storedName) document.getElementById('player-name').value = storedName;
     if (storedId) this.playerId = storedId;
@@ -1042,7 +1051,7 @@ const PlayerApp = {
     const playerName = String(requestedName || '').trim().slice(0, 20);
     if (!playerName) throw new Error('Name cannot be empty');
 
-    const authToken = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+    const authToken = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
     if (!authToken) throw new Error('Little Hero authentication required');
 
     const res = await fetch('/api/auth/player/profile', {
@@ -1094,7 +1103,7 @@ const PlayerApp = {
       return;
     }
 
-    const authToken = localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || '';
+    const authToken = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
     const storedName = (sessionStorage.getItem('asoc_player_name') || '').trim();
     if (authToken && playerName !== storedName) {
       try {
@@ -1179,7 +1188,8 @@ const PlayerApp = {
           clearTimeout(this.reconnectTimer);
           this.reconnectTimer = null;
         }
-        localStorage.removeItem('asoc_player_in_master');
+        const masterMirror = sessionStorage.getItem('asoc_master_persona') === 'PLAYER_TEST';
+        (masterMirror ? sessionStorage : localStorage).removeItem('asoc_player_in_master');
         this.setConnectionStatus('disconnected');
         this.showJoinScreen();
         this.showError(event.code === 4003
@@ -1217,7 +1227,7 @@ const PlayerApp = {
         const joinMessage = {
           type: 'room:join',
           name: this.playerName,
-          authToken: localStorage.getItem('asoc_player_auth_token') || sessionStorage.getItem('asoc_player_auth_token') || ''
+          authToken: sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || ''
         };
         if (this._sendAvatarAppearance) joinMessage.avatarData = this.avatarData;
         if (this._sendFrameAppearance) joinMessage.frameColor = this.frameColor;
@@ -1290,7 +1300,8 @@ const PlayerApp = {
         this.playerId = message.playerId;
         sessionStorage.setItem('asoc_player_id', this.playerId);
         requestAnimationFrame(() => this._restorePlayerLayoutRatio?.());
-        localStorage.setItem('asoc_player_in_master', '1');
+        const masterMirror = sessionStorage.getItem('asoc_master_persona') === 'PLAYER_TEST';
+        (masterMirror ? sessionStorage : localStorage).setItem('asoc_player_in_master', '1');
         this.updateBloodTributeDemand(this.lastPublicState?.bloodTribute || { status: 'idle' });
         if (message.littleHero) {
           if (message.littleHero.name) {
@@ -1306,10 +1317,11 @@ const PlayerApp = {
           const theme = ASOCThemes.get(message.littleHero.themeId || ASOCThemes.DEFAULT_ID);
           this.themeId = theme.id;
           this.themeColor = theme.color;
-          localStorage.setItem('asoc_little_hero_avatar', this.avatarData);
-          localStorage.setItem('asoc_little_hero_frame', this.frameColor);
-          localStorage.setItem('asoc_little_hero_theme_id', this.themeId);
-          localStorage.setItem('asoc_little_hero_theme', this.themeColor);
+          const appearanceStorage = masterMirror ? sessionStorage : localStorage;
+          appearanceStorage.setItem('asoc_little_hero_avatar', this.avatarData);
+          appearanceStorage.setItem('asoc_little_hero_frame', this.frameColor);
+          appearanceStorage.setItem('asoc_little_hero_theme_id', this.themeId);
+          appearanceStorage.setItem('asoc_little_hero_theme', this.themeColor);
           this._sendAvatarAppearance = true;
           this._sendFrameAppearance = true;
           this._sendThemeAppearance = true;
@@ -1499,19 +1511,23 @@ const PlayerApp = {
       }
 
       case 'moderation:kicked':
-      case 'moderation:banned':
-        localStorage.removeItem('asoc_player_in_master');
+      case 'moderation:banned': {
+        const masterMirror = sessionStorage.getItem('asoc_master_persona') === 'PLAYER_TEST';
+        (masterMirror ? sessionStorage : localStorage).removeItem('asoc_player_in_master');
         this.showError(message.message || (message.type === 'moderation:banned'
           ? 'ACCESS DENIED // This Little Hero is banned from the Master Room.'
           : 'CONNECTION TERMINATED // Shadow Broker removed you from the Master Room.'));
         break;
+      }
 
-      case 'auth:required':
-        localStorage.removeItem('asoc_player_auth_token');
+      case 'auth:required': {
+        const masterMirror = sessionStorage.getItem('asoc_master_persona') === 'PLAYER_TEST';
+        if (!masterMirror) localStorage.removeItem('asoc_player_auth_token');
         sessionStorage.removeItem('asoc_player_auth_token');
         this.showError(message.message || 'Little Hero authentication required');
-        setTimeout(() => location.replace('/join.html'), 700);
+        setTimeout(() => location.replace(masterMirror ? '/join.html?masterMirror=1' : '/join.html'), 700);
         break;
+      }
 
       case 'error':
         this.showError(message.message);

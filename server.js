@@ -264,6 +264,7 @@ function makeOfflinePlayerSocket() {
 function serializeRoomForRecovery(room) {
   const players = [];
   room.players.forEach(player => {
+    if (player.isTestPersona === true || isMasterTestPlayerId(player.id)) return;
     players.push({
       id: player.id,
       name: player.name,
@@ -274,6 +275,20 @@ function serializeRoomForRecovery(room) {
       joinedAt: player.joinedAt || Date.now()
     });
   });
+
+  const sourceScoring = room.scoring || {};
+  const scoringPlayers = {};
+  Object.entries(sourceScoring.players || {}).forEach(([playerId, entry]) => {
+    if (!isMasterTestPlayerId(playerId)) scoringPlayers[playerId] = entry;
+  });
+  const scoring = {
+    ...sourceScoring,
+    players: scoringPlayers,
+    events: (sourceScoring.events || []).filter(event => !isMasterTestPlayerId(event?.playerId)),
+    activeStreak: sourceScoring.activeStreak && isMasterTestPlayerId(sourceScoring.activeStreak.playerId)
+      ? null
+      : (sourceScoring.activeStreak || null)
+  };
 
   return {
     code: room.code,
@@ -288,7 +303,7 @@ function serializeRoomForRecovery(room) {
     hostToken: room.hostToken,
     createdAt: room.createdAt,
     chat: room.chat,
-    scoring: room.scoring,
+    scoring,
     match: room.match,
     womf: room.womf,
     wheel: room.wheel,
@@ -472,6 +487,9 @@ function generateEventId() {
 
 const AUTH_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const gmTokens = new Map();
+const masterMirrorTokens = new Map();
+const MASTER_TEST_PLAYER_PREFIX = '__MASTER_TEST__:';
+const MASTER_TEST_PLAYER_NAME = 'TEST SUBJECT';
 const PLAYER_AUTH_SESSIONS_FILE = process.env.ASOC_PLAYER_AUTH_SESSIONS_FILE
   ? path.resolve(process.env.ASOC_PLAYER_AUTH_SESSIONS_FILE)
   : path.join(ASOC_DATA_DIR, '.player-auth-sessions.json');
@@ -490,6 +508,7 @@ function tokenRecordValid(record) {
 }
 function pruneAuthTokens() {
   for (const [token, record] of gmTokens) if (!tokenRecordValid(record)) gmTokens.delete(token);
+  for (const [token, record] of masterMirrorTokens) if (!tokenRecordValid(record)) masterMirrorTokens.delete(token);
 }
 const GM_PASSWORD_FILE = path.join(ASOC_DATA_DIR, '.gm-password');
 const GM_LOCKOUT_FILE = path.join(ASOC_DATA_DIR, 'gm-lockouts.json');
@@ -521,8 +540,8 @@ if (!GM_PASSWORD) {
 }
 
 function refreshGMToken() {
+  pruneAuthTokens();
   const token = 'gm-' + crypto.randomBytes(18).toString('base64url');
-  gmTokens.clear();
   gmTokens.set(token, { expiresAt: Date.now() + AUTH_TOKEN_TTL_MS });
   currentGMToken = token;
   return token;
@@ -544,9 +563,51 @@ function isValidGmToken(token) {
   return true;
 }
 
+function isMasterTestPlayerId(playerId) {
+  return typeof playerId === 'string' && playerId.startsWith(MASTER_TEST_PLAYER_PREFIX);
+}
+
+function masterTestAccount(auth) {
+  if (!auth?.isMasterTest || !isMasterTestPlayerId(auth.playerId)) return null;
+  return {
+    id: auth.playerId,
+    email: 'master-test@asoc.local',
+    name: MASTER_TEST_PLAYER_NAME,
+    createdAt: auth.createdAt || Date.now(),
+    emailVerified: true,
+    emailVerifiedAt: auth.createdAt || Date.now(),
+    isMasterTest: true
+  };
+}
+
+function playerAccountForAuth(auth) {
+  if (!auth?.playerId) return null;
+  return auth.isMasterTest ? masterTestAccount(auth) : authStore.getById(auth.playerId);
+}
+
+function issueMasterMirrorToken() {
+  const token = 'mirror-' + crypto.randomBytes(24).toString('base64url');
+  const record = {
+    playerId: MASTER_TEST_PLAYER_PREFIX + crypto.randomBytes(8).toString('base64url'),
+    createdAt: Date.now(),
+    expiresAt: Date.now() + AUTH_TOKEN_TTL_MS,
+    isMasterTest: true
+  };
+  masterMirrorTokens.set(playerTokenKey(token), record);
+  return { token, player: masterTestAccount(record) };
+}
+
 function getPlayerAuth(token) {
   if (typeof token !== 'string' || !token) return null;
   const key = playerTokenKey(token);
+  const mirrorRecord = masterMirrorTokens.get(key);
+  if (mirrorRecord) {
+    if (!tokenRecordValid(mirrorRecord)) {
+      masterMirrorTokens.delete(key);
+      return null;
+    }
+    return mirrorRecord;
+  }
   const record = playerAuthTokens.get(key);
   if (!record || !record.playerId) {
     if (playerAuthTokens.delete(key)) savePlayerAuthSessions();
@@ -1867,9 +1928,10 @@ function getAuthoritativeColumnDifficulty(room, target) {
   return null;
 }
 
-function getActiveParticipants(room) {
+function getActiveParticipants(room, includeTestPersonas = true) {
   const participants = [];
   room.players.forEach((player, ws) => {
+    if (!includeTestPersonas && player.isTestPersona === true) return;
     if (player.connected !== false) {
       participants.push({ playerId: player.id, playerName: player.name });
     }
@@ -1884,7 +1946,7 @@ function getActiveParticipants(room) {
 
 function startMatchLedger(room) {
   const hadShownRecount = !!(room.match && room.match.resultsShownAt);
-  room.match = matchLedger.createLedger(room.boardId, Date.now(), getActiveParticipants(room));
+  room.match = matchLedger.createLedger(room.boardId, Date.now(), getActiveParticipants(room, false));
   // A new board (RESET BOARD / NEXT GAME) ends the previous RECOUNT for everyone.
   if (hadShownRecount) broadcastRecount(room, null, false);
 }
@@ -1966,7 +2028,8 @@ function refreshGameComplete(room) {
 
 function archiveCompletedMatch(room, fields) {
   const ledger = room.match;
-  const points = matchLedger.matchPointsByPlayer(room.scoring.events, room.boardId);
+  const archiveEvents = room.scoring.events.filter(event => !isMasterTestPlayerId(event.playerId));
+  const points = matchLedger.matchPointsByPlayer(archiveEvents, room.boardId);
   const pointsByKey = {};
   Object.entries(points).forEach(([playerId, entry]) => {
     pointsByKey[playerId] = (pointsByKey[playerId] || 0) + entry.points;
@@ -1985,7 +2048,7 @@ function archiveCompletedMatch(room, fields) {
     difficulty: room.gameData && room.gameData.difficulty,
     ledger,
     fields,
-    events: room.scoring.events,
+    events: archiveEvents,
     gameWon: room.sessionState.gameWon === true,
     matchResult: room.sessionState.matchResult || null,
     standings: matchLedger.computeStandings(playerStore.loadPlayers(), pointsByKey),
@@ -2029,7 +2092,29 @@ function ensureSessionPlayerEntry(room, playerId, playerName) {
 function adjustPlayerScore(room, playerId, playerName, points) {
   const entry = ensureSessionPlayerEntry(room, playerId, playerName);
   entry.sessionScore += points;
-  playerStore.adjustProfile({ id: playerId, name: playerName }, { pointsDelta: points });
+  if (!isMasterTestPlayerId(playerId)) {
+    playerStore.adjustProfile({ id: playerId, name: playerName }, { pointsDelta: points });
+  }
+}
+
+function adjustPersistentStats(playerId, playerName, statDeltas) {
+  if (isMasterTestPlayerId(playerId)) return;
+  playerStore.adjustProfile({ id: playerId, name: playerName }, { statDeltas });
+}
+
+function recordPersistentEarliestFinal(playerId, playerName, columnsKnownAtSolve) {
+  if (isMasterTestPlayerId(playerId)) return;
+  playerStore.maybeRecordEarliestFinal({ id: playerId, name: playerName }, columnsKnownAtSolve);
+}
+
+function recordPersistentBestStreak(playerId, playerName, streakLength) {
+  if (isMasterTestPlayerId(playerId)) return;
+  playerStore.maybeRecordBestStreak({ id: playerId, name: playerName }, streakLength);
+}
+
+function recordPersistentBoardFinalization(playerId, playerName, won) {
+  if (isMasterTestPlayerId(playerId)) return;
+  playerStore.recordBoardFinalization({ id: playerId, name: playerName }, { won });
 }
 
 function recordEvent(room, fields) {
@@ -2124,7 +2209,7 @@ function awardColumnSolve(room, target, message) {
   if (cluesRevealed === 1) statDeltas.oneClueColumnSolutions = 1;
   if (difficulty === 'PURPLE') statDeltas.purpleSolves = 1;
   if (difficulty === 'BLACK') statDeltas.blackSolves = 1;
-  playerStore.adjustProfile({ id: message.playerId, name: message.playerName }, { statDeltas });
+  adjustPersistentStats(message.playerId, message.playerName, statDeltas);
 
   rebuildColumnStreaks(room);
 
@@ -2148,7 +2233,7 @@ function reverseColumnSolve(room, target) {
   if (event.cluesRevealed === 1) statDeltas.oneClueColumnSolutions = -1;
   if (event.difficulty === 'PURPLE') statDeltas.purpleSolves = -1;
   if (event.difficulty === 'BLACK') statDeltas.blackSolves = -1;
-  playerStore.adjustProfile({ id: event.playerId, name: event.playerName }, { statDeltas });
+  adjustPersistentStats(event.playerId, event.playerName, statDeltas);
 
   rebuildColumnStreaks(room);
 }
@@ -2176,8 +2261,8 @@ function awardFinalSolve(room, message) {
   const isEarly = columnsKnownAtSolve < 4;
   const statDeltas = { finalSolutions: 1 };
   if (isEarly) statDeltas.earlyFinalSolutions = 1;
-  playerStore.adjustProfile({ id: message.playerId, name: message.playerName }, { statDeltas });
-  playerStore.maybeRecordEarliestFinal({ id: message.playerId, name: message.playerName }, columnsKnownAtSolve);
+  adjustPersistentStats(message.playerId, message.playerName, statDeltas);
+  recordPersistentEarliestFinal(message.playerId, message.playerName, columnsKnownAtSolve);
 
   return { event };
 }
@@ -2192,7 +2277,7 @@ function reverseFinalSolve(room) {
 
   const statDeltas = { finalSolutions: -1 };
   if (event.columnsKnownAtSolve < 4) statDeltas.earlyFinalSolutions = -1;
-  playerStore.adjustProfile({ id: event.playerId, name: event.playerName }, { statDeltas });
+  adjustPersistentStats(event.playerId, event.playerName, statDeltas);
   // earliestFinalColumnsKnown is an intentionally one-way "best ever"
   // record (see player-store.js) -- a reversal does not attempt to roll
   // it back to some previous value we no longer know.
@@ -2245,7 +2330,7 @@ function rebuildColumnStreaks(room) {
         streakLength
       });
       adjustPlayerScore(room, streakPlayerId, streakPlayerName, bonus);
-      playerStore.maybeRecordBestStreak({ id: streakPlayerId, name: streakPlayerName }, streakLength);
+      recordPersistentBestStreak(streakPlayerId, streakPlayerName, streakLength);
     }
   }
 
@@ -2279,7 +2364,7 @@ function finalizeBoard(room, outcome) {
 
   participants.forEach(({ playerId, playerName }) => {
     if (outcome === 'success') {
-      playerStore.recordBoardFinalization({ id: playerId, name: playerName }, { won: true });
+      recordPersistentBoardFinalization(playerId, playerName, true);
     } else {
       const event = recordEvent(room, {
         type: 'failedFinal',
@@ -2289,7 +2374,7 @@ function finalizeBoard(room, outcome) {
         points: -scoring.FAILED_FINAL_PENALTY
       });
       adjustPlayerScore(room, playerId, playerName, -scoring.FAILED_FINAL_PENALTY);
-      playerStore.recordBoardFinalization({ id: playerId, name: playerName }, { won: false });
+      recordPersistentBoardFinalization(playerId, playerName, false);
       penaltyEvents.push(event);
     }
   });
@@ -3864,7 +3949,7 @@ function handlePlayerJoin(ws, message) {
   // semantics (including legacy verified accounts), not token issuance time.
   let account;
   try {
-    account = authStore.getById(requestedId);
+    account = auth.isMasterTest ? masterTestAccount(auth) : authStore.getById(requestedId);
   } catch {
     sendToWs(ws, { type: 'error', code: 'AUTH_STORAGE_UNAVAILABLE', message: 'Authentication temporarily unavailable' });
     return;
@@ -3878,7 +3963,7 @@ function handlePlayerJoin(ws, message) {
     return;
   }
 
-  const moderation = playerStore.getModerationStatus(requestedId);
+  const moderation = auth.isMasterTest ? { banned: false, reason: '' } : playerStore.getModerationStatus(requestedId);
   if (moderation.banned) {
     const banReason = sanitizeText(typeof moderation.reason === 'string' ? moderation.reason : '');
     sendToWs(ws, {
@@ -3925,14 +4010,23 @@ function handlePlayerJoin(ws, message) {
     return;
   }
 
-  let littleHeroProfile = playerStore.getOrCreateProfile({ id: requestedId, name: cleanName }).profile;
-  if (hasAvatarUpdate || requestedFrameColor || requestedThemeId) {
-    littleHeroProfile = playerStore.updateProfileAppearance({ id: requestedId, name: cleanName }, {
-      avatarData: hasAvatarUpdate ? requestedAvatar : undefined,
-      frameColor: requestedFrameColor || undefined,
-      themeId: requestedThemeId || undefined,
-      themeColor: requestedThemeId ? LITTLE_HERO_THEMES[requestedThemeId] : undefined
-    });
+  let littleHeroProfile;
+  if (auth.isMasterTest) {
+    littleHeroProfile = {
+      avatarData: hasAvatarUpdate ? (requestedAvatar || '') : '',
+      frameColor: requestedFrameColor || '#9B5DE0',
+      themeId: requestedThemeId || 'gunmetal'
+    };
+  } else {
+    littleHeroProfile = playerStore.getOrCreateProfile({ id: requestedId, name: cleanName }).profile;
+    if (hasAvatarUpdate || requestedFrameColor || requestedThemeId) {
+      littleHeroProfile = playerStore.updateProfileAppearance({ id: requestedId, name: cleanName }, {
+        avatarData: hasAvatarUpdate ? requestedAvatar : undefined,
+        frameColor: requestedFrameColor || undefined,
+        themeId: requestedThemeId || undefined,
+        themeColor: requestedThemeId ? LITTLE_HERO_THEMES[requestedThemeId] : undefined
+      });
+    }
   }
 
   // The authenticated account id is the canonical player identity. Reuse
@@ -3971,11 +4065,14 @@ function handlePlayerJoin(ws, message) {
     themeId: littleHeroProfile.themeId || 'gunmetal',
     themeColor: LITTLE_HERO_THEMES[littleHeroProfile.themeId || 'gunmetal'] || '#343A42',
     connected: true,
+    isTestPersona: auth.isMasterTest === true,
     joinedAt: Date.now()
   });
-  // joinedAt is overwritten on every reconnect, so participation windows are
-  // tracked in the match ledger instead (idempotent while already open).
-  matchLedger.presenceOpen(ensureMatchLedger(room), playerId, cleanName, Date.now());
+  // Master test personas exercise the live session but never enter durable
+  // participation history. Real Little Heroes keep the normal ledger path.
+  if (!auth.isMasterTest) {
+    matchLedger.presenceOpen(ensureMatchLedger(room), playerId, cleanName, Date.now());
+  }
 
   // A player is not considered joined until the durable Master Room snapshot
   // already contains that identity. Persist before any success/state frames.
@@ -4003,9 +4100,10 @@ function handlePlayerJoin(ws, message) {
   console.log(`[ROOM ${room.code}] Player joined: ${cleanName} (${playerId})`);
 }
 
-function getPlayersSnapshot(room) {
+function getPlayersSnapshot(room, includeTestPersonas = true) {
   const players = [];
   room.players.forEach((player, ws) => {
+    if (!includeTestPersonas && player.isTestPersona === true) return;
     players.push({
       id: player.id,
       name: player.name,
@@ -4014,6 +4112,7 @@ function getPlayersSnapshot(room) {
       themeId: player.themeId || 'gunmetal',
       themeColor: LITTLE_HERO_THEMES[player.themeId || 'gunmetal'] || '#343A42',
       connected: ws.readyState === 1,
+      isTestPersona: player.isTestPersona === true,
       score: room.scoring.players[player.id]?.sessionScore || 0
     });
   });
@@ -4022,16 +4121,16 @@ function getPlayersSnapshot(room) {
 
 function sendPlayersUpdateTo(room, ws) {
   if (!room || !ws || ws.readyState !== 1) return;
-  sendToWs(ws, { type: 'players:update', players: getPlayersSnapshot(room) });
+  sendToWs(ws, { type: 'players:update', players: getPlayersSnapshot(room, ws.isHost === true) });
 }
 
 function broadcastPlayersUpdate(room) {
-  const message = { type: 'players:update', players: getPlayersSnapshot(room) };
+  const playerMessage = { type: 'players:update', players: getPlayersSnapshot(room, false) };
   room.players.forEach((player, ws) => {
-    if (ws.readyState === 1) ws.send(JSON.stringify(message));
+    if (ws.readyState === 1) ws.send(JSON.stringify(playerMessage));
   });
   if (room.hostConnection?.readyState === 1) {
-    room.hostConnection.send(JSON.stringify(message));
+    room.hostConnection.send(JSON.stringify({ type: 'players:update', players: getPlayersSnapshot(room, true) }));
   }
 }
 
@@ -4076,7 +4175,7 @@ function handleModeratePlayer(ws, message, shouldBan) {
 
   const action = shouldBan ? 'ban' : 'kick';
   const actionPast = shouldBan ? 'BANNED' : 'KICKED';
-  if (shouldBan) {
+  if (shouldBan && targetPlayer.isTestPersona !== true) {
     playerStore.setBan(
       { id: targetPlayer.id, name: targetPlayer.name },
       true,
@@ -5183,7 +5282,7 @@ function handleApiRequest(req, res) {
     const playerToken = String(req.headers['x-player-token'] || '');
     const auth = getPlayerAuth(playerToken);
     if (!auth?.playerId) return sendJson(res, 401, { error: 'Little Hero authentication required' });
-    const account = authStore.getById(auth.playerId);
+    const account = playerAccountForAuth(auth);
     if (!account) return sendJson(res, 401, { error: 'Player account not found' });
 
     const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
@@ -5215,7 +5314,7 @@ function handleApiRequest(req, res) {
     const playerToken = String(req.headers['x-player-token'] || '');
     const auth = getPlayerAuth(playerToken);
     if (!auth?.playerId) return sendJson(res, 401, { error: 'Little Hero authentication required' });
-    const account = authStore.getById(auth.playerId);
+    const account = playerAccountForAuth(auth);
     if (!account) return sendJson(res, 401, { error: 'Player account not found' });
     if (!tweakStore.storageHealthy()) return sendJson(res, 503, { error: 'TWEAKS storage unavailable' });
     return sendJson(res, 200, {
@@ -5228,7 +5327,7 @@ function handleApiRequest(req, res) {
     const playerToken = String(req.headers['x-player-token'] || '');
     const auth = getPlayerAuth(playerToken);
     if (!auth?.playerId) return sendJson(res, 401, { error: 'Little Hero authentication required' });
-    const account = authStore.getById(auth.playerId);
+    const account = playerAccountForAuth(auth);
     if (!account) return sendJson(res, 401, { error: 'Player account not found' });
     if (!tweakStore.storageHealthy()) return sendJson(res, 503, { error: 'TWEAKS storage unavailable' });
 
@@ -5243,6 +5342,15 @@ function handleApiRequest(req, res) {
         return sendJson(res, status, { error: error.message || 'TWEAK could not be submitted' });
       }
     });
+  }
+
+  if (method === 'POST' && url.pathname === '/api/auth/gm/mirror-player') {
+    const gmToken = String(req.headers['x-gm-token'] || '');
+    if (!isValidGmToken(gmToken)) {
+      return sendJson(res, 401, { error: 'Master authentication required' });
+    }
+    const mirror = issueMasterMirrorToken();
+    return sendJson(res, 200, { ok: true, token: mirror.token, player: mirror.player, isMasterTest: true });
   }
 
   if (method === 'POST' && url.pathname === '/api/auth/player/register') {
@@ -5339,7 +5447,7 @@ function handleApiRequest(req, res) {
     const token = String(req.headers['x-player-token'] || '');
     const auth = getPlayerAuth(token);
     if (!auth) return sendJson(res, 401, { error: 'Player session invalid' });
-    const player = authStore.getById(auth.playerId);
+    const player = playerAccountForAuth(auth);
     if (!player) {
       playerAuthTokens.delete(playerTokenKey(token));
       savePlayerAuthSessions();
@@ -5362,7 +5470,7 @@ function handleApiRequest(req, res) {
 
       let account;
       try {
-        account = authStore.getById(auth.playerId);
+        account = playerAccountForAuth(auth);
       } catch {
         return sendJson(res, 503, { error: 'Authentication temporarily unavailable' });
       }
@@ -5373,6 +5481,9 @@ function handleApiRequest(req, res) {
 
       const cleanName = sanitizeText(body.name).slice(0, 20);
       if (!cleanName) return sendJson(res, 400, { error: 'Name cannot be empty' });
+      if (auth.isMasterTest) {
+        return sendJson(res, 200, { ok: true, player: masterTestAccount(auth) });
+      }
 
       try {
         const player = authStore.updateName(auth.playerId, cleanName);
@@ -5401,13 +5512,17 @@ function handleApiRequest(req, res) {
 
   if (method === 'POST' && url.pathname === '/api/auth/player/logout') {
     const token = String(req.headers['x-player-token'] || '');
-    if (token && playerAuthTokens.delete(playerTokenKey(token))) savePlayerAuthSessions();
-    return sendJson(res, 200, { ok: true });
+    const key = playerTokenKey(token);
+    const removedMirror = token ? masterMirrorTokens.delete(key) : false;
+    const removedPlayer = token ? playerAuthTokens.delete(key) : false;
+    if (removedPlayer) savePlayerAuthSessions();
+    return sendJson(res, 200, { ok: true, mirror: removedMirror });
   }
 
   if (method === 'POST' && url.pathname === '/api/auth/gm/logout') {
-    const token = String(req.headers['x-gm-token'] || '');
-    if (token) gmTokens.delete(token);
+    gmTokens.clear();
+    currentGMToken = '';
+    masterMirrorTokens.clear();
     return sendJson(res, 200, { ok: true });
   }
 

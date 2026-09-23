@@ -190,10 +190,11 @@ const App = {
       // confirms the reconnect (host:reconnected) or we create a new room.
       // The room code itself is no longer persisted: the Master Room is the
       // only room, so a stored token always implies the canonical code.
-      const storedToken = sessionStorage.getItem('asoc_host_token');
+      const storedToken = sessionStorage.getItem('asoc_host_token') || localStorage.getItem('asoc_master_host_token');
       if (storedToken) {
         this.roomCode = 'MASTER';
         this.hostToken = storedToken;
+        sessionStorage.setItem('asoc_host_token', storedToken);
       }
 
       await GameData.fetchGMToken();
@@ -1114,7 +1115,7 @@ const App = {
 
     document.getElementById('library-btn').addEventListener('click', () => Forge.open());
     document.getElementById('library-btn-footer').addEventListener('click', () => ControlSurfaces.toggle());
-    document.getElementById('gm-logout-btn')?.addEventListener('click', () => this.logoutShadowBroker());
+    this.setupMasterAccess();
     document.getElementById('new-game-btn').addEventListener('click', () => Forge.open().then(() => Forge.openCreator(null, true)));
     document.getElementById('next-game-btn').addEventListener('click', () => Forge.open());
 
@@ -2294,6 +2295,7 @@ const App = {
         this.applyRoomMode('BATTLE_ARMED');
         this.updateMultiplayerUI();
         sessionStorage.setItem('asoc_host_token', this.hostToken);
+        localStorage.setItem('asoc_master_host_token', this.hostToken);
         break;
 
       case 'host:reconnected':
@@ -2301,6 +2303,7 @@ const App = {
         this.roomCode = message.roomCode;
         this.mode = 'multiplayer';
         sessionStorage.setItem('asoc_host_token', this.hostToken);
+        localStorage.setItem('asoc_master_host_token', this.hostToken);
         this.updateMultiplayerUI();
         this.resendPendingCommands();
         break;
@@ -2311,6 +2314,7 @@ const App = {
         this.hostToken = message.hostToken;
         this.mode = 'multiplayer';
         sessionStorage.setItem('asoc_host_token', this.hostToken);
+        localStorage.setItem('asoc_master_host_token', this.hostToken);
         this.updateMultiplayerUI();
         this.resendPendingCommands();
         break;
@@ -2510,7 +2514,11 @@ const App = {
         break;
 
       case 'auth:required':
+        localStorage.removeItem('asoc_master_token');
+        localStorage.removeItem('asoc_master_host_token');
+        sessionStorage.removeItem('asoc_master_persona');
         sessionStorage.removeItem('asoc_gm_token');
+        sessionStorage.removeItem('asoc_host_token');
         GameData.setGMToken('');
         location.replace('/join.html');
         break;
@@ -3445,33 +3453,88 @@ const App = {
     this.send({ type: 'room:close' });
   },
 
-  async logoutShadowBroker() {
-    const hostingRoom = this.mode === 'multiplayer' && !!this.roomCode;
-    const activeBattle = hostingRoom && this.roomMode !== 'CASUAL';
-    const warning = activeBattle
-      ? 'SEVER SHADOW BROKER SESSION?\n\nThe active battle will return to AMUSEMENT PARK before your command link is closed.'
-      : 'SEVER SHADOW BROKER SESSION?\n\nThe Master Room remains online for Little Heroes; your command authentication will be cleared.';
-    if (!window.confirm(warning)) return;
+  setupMasterAccess() {
+    const wrap = document.querySelector('.master-access-wrap');
+    const trigger = document.getElementById('master-access-btn');
+    const menu = document.getElementById('master-access-menu');
+    if (!wrap || !trigger || !menu) return;
 
-    const button = document.getElementById('gm-logout-btn');
-    if (button) {
-      button.disabled = true;
-      button.textContent = 'SEVERING COMMAND LINK...';
+    const close = () => {
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+    };
+    const toggle = (event) => {
+      event?.stopPropagation?.();
+      const open = menu.hidden;
+      menu.hidden = !open;
+      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+
+    trigger.addEventListener('click', toggle);
+    document.getElementById('master-open-player-mirror')?.addEventListener('click', () => {
+      close();
+      this.openPlayerMirror();
+    });
+    document.getElementById('master-switch-player')?.addEventListener('click', () => {
+      close();
+      this.switchThisTabToPlayer();
+    });
+    document.getElementById('master-signout')?.addEventListener('click', () => {
+      close();
+      this.signOutMasterAccount();
+    });
+    document.addEventListener('click', (event) => {
+      if (!wrap.contains(event.target)) close();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') close();
+    });
+  },
+
+  openPlayerMirror() {
+    const masterToken = localStorage.getItem('asoc_master_token') || GameData.gmToken || '';
+    if (!masterToken) {
+      location.replace('/join.html');
+      return;
     }
+    localStorage.setItem('asoc_master_token', masterToken);
+    window.open('/join.html?masterMirror=1', '_blank', 'noopener');
+  },
 
-    const gmToken = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
+  switchThisTabToPlayer() {
+    const masterToken = localStorage.getItem('asoc_master_token') || GameData.gmToken || '';
+    if (!masterToken) {
+      location.replace('/join.html');
+      return;
+    }
+    localStorage.setItem('asoc_master_token', masterToken);
+    if (this.hostToken) localStorage.setItem('asoc_master_host_token', this.hostToken);
+    sessionStorage.setItem('asoc_master_persona', 'PLAYER_TEST');
+    sessionStorage.removeItem('asoc_gm_token');
+    sessionStorage.removeItem('asoc_player_auth_token');
+    sessionStorage.removeItem('asoc_player_in_master');
+    sessionStorage.removeItem('asoc_player_id');
+    sessionStorage.removeItem('asoc_player_name');
+    location.href = '/join.html?masterMirror=1';
+  },
+
+  async signOutMasterAccount() {
+    if (!window.confirm('SIGN OUT MASTER ACCOUNT?\n\nAll Master tabs and Player Mirrors will lose Master authorization. The Master Room itself will remain intact.')) return;
+
+    const masterToken = localStorage.getItem('asoc_master_token') || GameData.gmToken || '';
     try {
-      if (activeBattle) this.send({ type: 'room:close' });
-      if (hostingRoom) this.cleanupRoom();
-      if (gmToken) {
+      if (masterToken) {
         await fetch('/api/auth/gm/logout', {
           method: 'POST',
-          headers: { 'x-gm-token': gmToken }
+          headers: { 'x-gm-token': masterToken }
         });
       }
     } catch (_) {
-      // Local session cleanup still proceeds if the server link is unavailable.
+      // Local credential cleanup still proceeds if the server link is unavailable.
     } finally {
+      localStorage.removeItem('asoc_master_token');
+      localStorage.removeItem('asoc_master_host_token');
+      sessionStorage.removeItem('asoc_master_persona');
       sessionStorage.removeItem('asoc_gm_token');
       sessionStorage.removeItem('asoc_host_token');
       GameData.setGMToken('');

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ASOC - Join Game</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260922-womf-rebuild-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260923-master-access-1">
   <link rel="stylesheet" href="css/tweaks.css?v=20260922-tweaks-root-fix-1">
   <style>
     #join-screen {
@@ -719,7 +719,7 @@
     /* LOCKED geometry rule: the board is canonically 1900x1267 and that
        ratio is sacred everywhere it's shown -- it may scale uniformly but
        must never stretch independently on X or Y. Same two-box split as
-       index.html's #public-view (see that file's css/asoc.css?v=20260922-womf-rebuild-1"why" -- flex-grow + an explicit width together make
+       index.html's #public-view (see that file's css/asoc.css?v=20260923-master-access-1"why" -- flex-grow + an explicit width together make
        aspect-ratio get ignored, since both axes end up independently
        definite), plus one more wrapper here specifically:
 
@@ -1226,7 +1226,7 @@ position:absolute;
 
     /* SHADOW BROKER transmission bubble styling (.shadow-broker-transmission
        and friends, incl. the .sb-glitch-in arrival animation) now lives in
-       css/asoc.css?v=20260922-womf-rebuild-1"";
+       css/asoc.css?v=20260923-master-access-1"";
       position:absolute;
       right:5px;
       bottom:4px;
@@ -8311,6 +8311,17 @@ position:absolute;
           <svg class="hero-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v9M6.3 5.7a8 8 0 1 0 11.4 0"/></svg>
           <span>DISCONNECT</span>
         </button>
+        <div class="master-access-wrap player-master-access-wrap" id="player-master-access-wrap" hidden>
+          <button type="button" id="player-master-access-control" class="hero-utility-btn player-master-access-control" aria-haspopup="true" aria-expanded="false">
+            <span>MASTER</span>
+          </button>
+          <div class="master-access-menu player-master-access-menu" id="player-master-access-menu" hidden>
+            <div class="master-access-status"><small>CURRENT VIEW</small><strong>LITTLE HERO // TEST</strong></div>
+            <button type="button" id="player-master-switch-gm">SWITCH THIS TAB → SHADOW BROKER</button>
+            <button type="button" id="player-master-open-mirror">OPEN PLAYER MIRROR</button>
+            <button type="button" class="master-access-signout" id="player-master-signout">SIGN OUT MASTER ACCOUNT</button>
+          </div>
+        </div>
         <button type="button" id="player-tweaks-launch" class="tweaks-launch hero-utility-btn hero-utility-tweaks" aria-label="Open TWEAKS">
           <svg class="hero-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M10 12h10M4 12h2M4 18h6M14 18h6"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg>
           <span>TWEAKS</span><span class="tweaks-badge">0</span>
@@ -8493,26 +8504,112 @@ position:absolute;
     window.addEventListener('resize',queueFit,{passive:true});
     queueFit();
     document.getElementById('access-player').onclick=()=>show('player');
-    document.getElementById('access-gm').onclick=()=>show('gm');
+    document.getElementById('access-gm').onclick=()=>{
+      const masterToken=localStorage.getItem('asoc_master_token')||'';
+      if(masterToken){
+        sessionStorage.setItem('asoc_gm_token',masterToken);
+        sessionStorage.setItem('asoc_master_persona','GM');
+        location.href='/index.html';
+        return;
+      }
+      show('gm');
+    };
     document.querySelectorAll('.access-back').forEach(b=>b.onclick=()=>show(null));
     const playerLogout=document.getElementById('player-logout-control');
+    const playerMasterWrap=document.getElementById('player-master-access-wrap');
+    const playerMasterControl=document.getElementById('player-master-access-control');
+    const playerMasterMenu=document.getElementById('player-master-access-menu');
     const playerAuthTokenKey='asoc_player_auth_token';
     const playerSessionKeys=['asoc_player_id','asoc_player_name'];
     const playerResumeKey='asoc_player_in_master';
-    const getStoredPlayerAuthToken=()=>localStorage.getItem(playerAuthTokenKey)||sessionStorage.getItem(playerAuthTokenKey)||'';
+    const masterMirrorParam=new URLSearchParams(location.search).get('masterMirror')==='1';
+    if(masterMirrorParam){
+      sessionStorage.setItem('asoc_master_persona','PLAYER_TEST');
+      sessionStorage.removeItem(playerAuthTokenKey);
+      sessionStorage.removeItem(playerResumeKey);
+      playerSessionKeys.forEach(key=>sessionStorage.removeItem(key));
+    }
+    const isMasterMirrorTab=()=>sessionStorage.getItem('asoc_master_persona')==='PLAYER_TEST';
+    const getStoredPlayerAuthToken=()=>isMasterMirrorTab()
+      ? (sessionStorage.getItem(playerAuthTokenKey)||'')
+      : (sessionStorage.getItem(playerAuthTokenKey)||localStorage.getItem(playerAuthTokenKey)||'');
     const persistPlayerAuthToken=(token)=>{
       if(!token)return;
-      localStorage.setItem(playerAuthTokenKey,token);
       sessionStorage.setItem(playerAuthTokenKey,token);
+      if(!isMasterMirrorTab())localStorage.setItem(playerAuthTokenKey,token);
     };
     const clearPlayerAuthState=()=>{
-      localStorage.removeItem(playerAuthTokenKey);
-      localStorage.removeItem(playerResumeKey);
+      if(!isMasterMirrorTab()){
+        localStorage.removeItem(playerAuthTokenKey);
+        localStorage.removeItem(playerResumeKey);
+      }
       sessionStorage.removeItem(playerAuthTokenKey);
+      sessionStorage.removeItem(playerResumeKey);
       playerSessionKeys.forEach(key=>sessionStorage.removeItem(key));
     };
-    const syncPlayerLogoutVisibility=()=>{playerLogout.hidden=!getStoredPlayerAuthToken();};
+    window.addEventListener('storage',event=>{
+      if(event.key==='asoc_master_token'&&!event.newValue&&isMasterMirrorTab()){
+        clearPlayerAuthState();
+        sessionStorage.removeItem('asoc_master_persona');
+        sessionStorage.removeItem('asoc_gm_token');
+        sessionStorage.removeItem('asoc_host_token');
+        location.replace('/join.html');
+      }
+    });
+    const syncPlayerLogoutVisibility=()=>{
+      const mirror=isMasterMirrorTab();
+      playerLogout.hidden=mirror||!getStoredPlayerAuthToken();
+      if(playerMasterWrap)playerMasterWrap.hidden=!mirror;
+    };
+    const closePlayerMasterMenu=()=>{
+      if(!playerMasterMenu||!playerMasterControl)return;
+      playerMasterMenu.hidden=true;
+      playerMasterControl.setAttribute('aria-expanded','false');
+    };
+    playerMasterControl?.addEventListener('click',event=>{
+      event.stopPropagation();
+      const open=playerMasterMenu.hidden;
+      playerMasterMenu.hidden=!open;
+      playerMasterControl.setAttribute('aria-expanded',open?'true':'false');
+    });
+    document.addEventListener('click',event=>{
+      if(playerMasterWrap&&!playerMasterWrap.contains(event.target))closePlayerMasterMenu();
+    });
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')closePlayerMasterMenu();});
+    document.getElementById('player-master-switch-gm')?.addEventListener('click',()=>{
+      const masterToken=localStorage.getItem('asoc_master_token')||'';
+      if(!masterToken){location.replace('/join.html');return;}
+      sessionStorage.setItem('asoc_master_persona','GM');
+      sessionStorage.removeItem(playerAuthTokenKey);
+      sessionStorage.removeItem(playerResumeKey);
+      playerSessionKeys.forEach(key=>sessionStorage.removeItem(key));
+      location.href='/index.html';
+    });
+    document.getElementById('player-master-open-mirror')?.addEventListener('click',()=>{
+      closePlayerMasterMenu();
+      window.open('/join.html?masterMirror=1','_blank','noopener');
+    });
+    document.getElementById('player-master-signout')?.addEventListener('click',async()=>{
+      closePlayerMasterMenu();
+      if(!window.confirm('SIGN OUT MASTER ACCOUNT?\n\nAll Master tabs and Player Mirrors will lose Master authorization.'))return;
+      const masterToken=localStorage.getItem('asoc_master_token')||'';
+      try{
+        if(masterToken)await fetch('/api/auth/gm/logout',{method:'POST',headers:{'x-gm-token':masterToken}});
+      }catch(_){/* local Master cleanup still proceeds */}
+      finally{
+        localStorage.removeItem('asoc_master_token');
+        localStorage.removeItem('asoc_master_host_token');
+        sessionStorage.removeItem('asoc_master_persona');
+        sessionStorage.removeItem('asoc_gm_token');
+        sessionStorage.removeItem('asoc_host_token');
+        sessionStorage.removeItem(playerAuthTokenKey);
+        sessionStorage.removeItem(playerResumeKey);
+        playerSessionKeys.forEach(key=>sessionStorage.removeItem(key));
+        location.replace('/join.html');
+      }
+    });
     playerLogout.addEventListener('click',async()=>{
+      if(isMasterMirrorTab())return;
       const token=getStoredPlayerAuthToken();
       playerLogout.disabled=true;playerLogout.textContent='DISCONNECTING...';
       try{
@@ -8526,10 +8623,14 @@ position:absolute;
     const restorePlayerSession=async()=>{
       const token=getStoredPlayerAuthToken();
       if(!token){syncPlayerLogoutVisibility();return;}
-      persistPlayerAuthToken(token); // migrate legacy sessionStorage-only logins
+      persistPlayerAuthToken(token);
       try{
         const res=await fetch('/api/auth/player/session',{method:'GET',headers:{'x-player-token':token},cache:'no-store'});
-        if(res.status===401){clearPlayerAuthState();syncPlayerLogoutVisibility();return;}
+        if(res.status===401){
+          clearPlayerAuthState();syncPlayerLogoutVisibility();
+          if(isMasterMirrorTab())location.replace('/join.html?masterMirror=1');
+          return;
+        }
         if(!res.ok)throw Error('Player session validation unavailable');
         const data=await res.json();
         if(data.player?.id)sessionStorage.setItem('asoc_player_id',data.player.id);
@@ -8543,11 +8644,38 @@ position:absolute;
       stopBoot();
       gate.hidden=true;
       document.getElementById('join-screen').style.display='flex';
-      playerLogout.hidden=false;
+      syncPlayerLogoutVisibility();
       window.dispatchEvent(new Event('asoc:player-session-restored'));
     };
+    const bootstrapMasterMirror=async()=>{
+      const masterToken=localStorage.getItem('asoc_master_token')||'';
+      if(!masterToken){
+        sessionStorage.removeItem('asoc_master_persona');
+        location.replace('/join.html');
+        return;
+      }
+      try{
+        const res=await fetch('/api/auth/gm/mirror-player',{method:'POST',headers:{'x-gm-token':masterToken}});
+        const data=await res.json();
+        if(!res.ok)throw Error(data.error||'Master Mirror authorization failed');
+        persistPlayerAuthToken(data.token);
+        if(data.player?.id)sessionStorage.setItem('asoc_player_id',data.player.id);
+        if(data.player?.name){
+          sessionStorage.setItem('asoc_player_name',data.player.name);
+          document.getElementById('player-name').value=data.player.name;
+        }
+        sessionStorage.setItem(playerResumeKey,'1');
+        history.replaceState(null,'',location.pathname);
+        await restorePlayerSession();
+      }catch(_){
+        clearPlayerAuthState();
+        sessionStorage.removeItem('asoc_master_persona');
+        location.replace('/join.html');
+      }
+    };
     syncPlayerLogoutVisibility();
-    restorePlayerSession();
+    if(isMasterMirrorTab()&&!getStoredPlayerAuthToken())bootstrapMasterMirror();
+    else restorePlayerSession();
     const authEmail=document.getElementById('auth-email');
     const authEmailLabel=document.getElementById('auth-email-label');
     const authError=document.getElementById('player-auth-error');
@@ -8662,7 +8790,10 @@ position:absolute;
         const res=await fetch('/api/auth/gm/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:document.getElementById('gm-password').value})});
         const data=await res.json();
         if(!res.ok){ if(data.locked) showPermanentGmLock(); else showSkynetDenial(); document.getElementById('gm-password').value=''; return; }
-        sessionStorage.setItem('asoc_gm_token',data.token); location.href='/index.html';
+        localStorage.setItem('asoc_master_token',data.token);
+        sessionStorage.setItem('asoc_gm_token',data.token);
+        sessionStorage.setItem('asoc_master_persona','GM');
+        location.href='/index.html';
       }catch(x){err.textContent='SECURE LINK ERROR // TRY AGAIN';}
     });
   })();
@@ -8677,7 +8808,7 @@ position:absolute;
   <script src="js/board.js?v=20260921-final-omen-2"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260922-player-global-drop-1"></script>
-  <script src="js/player.js?v=20260922-whatsapp-density-1"></script>
+  <script src="js/player.js?v=20260923-master-access-1"></script>
   <script src="js/tweaks.js?v=20260922-casual-header-redesign-2"></script>
 </body>
 </html>

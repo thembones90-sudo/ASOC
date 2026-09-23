@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ASOC Engine</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260922-gm-chat-consolidated-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260923-master-access-1">
   <link rel="stylesheet" href="css/tweaks.css?v=20260922-tweaks-1">
   <link rel="stylesheet" href="css/backdoor-console.css?v=20260922-casual-maintenance-fix-1">
 </head>
@@ -91,7 +91,15 @@
         <button class="gm-global-btn recount-btn" id="recount-btn" type="button">SHOW RESULTS</button>
         <div class="battle-controls-utility-row" style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr);gap:10px;margin-top:10px;">
           <button class="toolbar-btn" id="library-btn-footer" style="width:100%;margin:0;">GAME LIBRARY</button>
-          <button class="toolbar-btn gm-logout-btn" id="gm-logout-btn" type="button" title="Log out of the Shadow Broker session" style="width:100%;margin:0;">DISCONNECT SHADOW BROKER</button>
+          <div class="master-access-wrap">
+            <button class="toolbar-btn master-access-btn" id="master-access-btn" type="button" aria-haspopup="true" aria-expanded="false">MASTER ACCESS</button>
+            <div class="master-access-menu" id="master-access-menu" hidden>
+              <div class="master-access-status"><small>CURRENT VIEW</small><strong>SHADOW BROKER</strong></div>
+              <button type="button" id="master-open-player-mirror">OPEN PLAYER MIRROR</button>
+              <button type="button" id="master-switch-player">SWITCH THIS TAB → LITTLE HERO</button>
+              <button type="button" class="master-access-signout" id="master-signout">SIGN OUT MASTER ACCOUNT</button>
+            </div>
+          </div>
         </div>
       </section>
     </main>
@@ -252,7 +260,23 @@
   </div>
 
   <script>
-    if (!sessionStorage.getItem('asoc_gm_token')) location.replace('/join.html');
+    const asocMasterToken = localStorage.getItem('asoc_master_token') || '';
+    const asocGmToken = sessionStorage.getItem('asoc_gm_token') || asocMasterToken;
+    if (!asocGmToken) {
+      location.replace('/join.html');
+    } else {
+      localStorage.setItem('asoc_master_token', asocGmToken);
+      sessionStorage.setItem('asoc_gm_token', asocGmToken);
+      sessionStorage.setItem('asoc_master_persona', 'GM');
+    }
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'asoc_master_token' && !event.newValue) {
+        sessionStorage.removeItem('asoc_master_persona');
+        sessionStorage.removeItem('asoc_gm_token');
+        sessionStorage.removeItem('asoc_host_token');
+        location.replace('/join.html');
+      }
+    });
   </script>
   <script src="js/audio.js?v=20260922-omen-temporal-1"></script>
   <script src="js/themes.js"></script>
@@ -266,7 +290,7 @@
   <script src="js/backdoor.js?v=20260921-womf-backdoor-1"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260922-player-global-drop-1"></script>
-  <script src="js/app.js?v=20260922-gm-chat-consolidated-1"></script>
+  <script src="js/app.js?v=20260923-master-access-1"></script>
   <script src="js/tweaks.js?v=20260922-tweaks-1"></script>
   <script src="js/forge.js"></script>
 </body>

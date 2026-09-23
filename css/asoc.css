@@ -1495,40 +1495,139 @@ body.gm-layout-resizing * {
   letter-spacing: 0.065em;
 }
 
-.gm-logout-btn {
+/* MASTER ACCESS // one authenticated identity, tab-local GM / test-player personas. */
+.master-access-wrap {
   position: relative;
+  min-width: 0;
+}
+.battle-controls-utility-row .master-access-wrap {
+  width: 100%;
+}
+.master-access-wrap[hidden],
+.master-access-menu[hidden] {
+  display: none !important;
+}
+.master-access-btn {
   width: 100%;
   min-height: 40px;
-  margin-top: 10px;
-  border-color: rgba(154,58,63,.72) !important;
-  background: linear-gradient(180deg,rgba(58,22,26,.92),rgba(18,10,12,.98)) !important;
-  color: #e79ca0 !important;
+  margin: 0 !important;
+  border-color: rgba(122, 93, 184, .78) !important;
+  background:
+    linear-gradient(180deg, rgba(42, 31, 66, .96), rgba(13, 11, 20, .98)) !important;
+  color: #cbb8f4 !important;
   font-size: .66rem !important;
-  font-weight: 800;
+  font-weight: 900 !important;
   letter-spacing: .105em !important;
-  box-shadow: inset 0 0 0 1px rgba(8,4,5,.85),0 0 14px rgba(154,34,42,.08);
+  box-shadow:
+    inset 0 0 0 1px rgba(8, 6, 12, .9),
+    0 0 14px rgba(113, 70, 196, .09) !important;
 }
-.gm-logout-btn::before {
-  content: "×";
-  display: inline-block;
-  margin-right: 8px;
-  color: #f06469;
-  font-size: .9rem;
-  line-height: 1;
-  text-shadow: 0 0 8px rgba(214,47,56,.48);
-  vertical-align: -1px;
+.master-access-btn::before {
+  content: "◆";
+  margin-right: 7px;
+  color: #9b73ef;
+  font-size: .58rem;
+  text-shadow: 0 0 8px rgba(155, 115, 239, .58);
 }
-.gm-logout-btn:hover,
-.gm-logout-btn:focus-visible {
-  border-color: #e15b61 !important;
+.master-access-btn:hover,
+.master-access-btn:focus-visible,
+.master-access-btn[aria-expanded="true"] {
+  border-color: #a984f7 !important;
   color: #fff !important;
-  background: linear-gradient(180deg,rgba(91,28,34,.98),rgba(27,10,13,1)) !important;
-  box-shadow: 0 0 0 1px rgba(225,91,97,.32),0 0 18px rgba(185,37,46,.18),inset 0 0 0 1px rgba(8,4,5,.9) !important;
+  background:
+    linear-gradient(180deg, rgba(63, 43, 99, .99), rgba(20, 14, 31, 1)) !important;
+  box-shadow:
+    0 0 0 1px rgba(169, 132, 247, .24),
+    0 0 18px rgba(122, 77, 213, .2),
+    inset 0 0 0 1px rgba(8, 6, 12, .92) !important;
   outline: none;
 }
-.gm-logout-btn:disabled {
-  opacity: .58;
-  cursor: wait;
+.master-access-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 10020;
+  width: min(292px, 84vw);
+  padding: 8px;
+  border: 1px solid rgba(143, 108, 220, .68);
+  background:
+    linear-gradient(180deg, rgba(23, 18, 34, .99), rgba(9, 8, 13, .995));
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, .62),
+    0 0 24px rgba(111, 70, 194, .16),
+    inset 0 0 0 1px rgba(255, 255, 255, .025);
+}
+.master-access-status {
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px 9px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(139, 105, 211, .24);
+  text-align: left;
+}
+.master-access-status small {
+  color: #756b84;
+  font-size: .52rem;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+.master-access-status strong {
+  color: #d9caf8;
+  font-size: .66rem;
+  letter-spacing: .1em;
+}
+.master-access-menu > button {
+  display: block;
+  width: 100%;
+  min-height: 34px;
+  padding: 8px 10px;
+  margin: 3px 0 0;
+  border: 1px solid rgba(120, 96, 168, .28);
+  background: rgba(28, 23, 39, .8);
+  color: #b9afc7;
+  font-family: var(--font-system);
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .075em;
+  text-align: left;
+  cursor: pointer;
+}
+.master-access-menu > button:hover,
+.master-access-menu > button:focus-visible {
+  border-color: rgba(164, 126, 239, .76);
+  background: rgba(57, 42, 83, .92);
+  color: #fff;
+  outline: none;
+}
+.master-access-menu > .master-access-signout {
+  border-color: rgba(158, 57, 64, .4);
+  color: #d88e93;
+}
+.master-access-menu > .master-access-signout:hover,
+.master-access-menu > .master-access-signout:focus-visible {
+  border-color: rgba(221, 84, 92, .84);
+  background: rgba(74, 25, 30, .9);
+  color: #ffdadd;
+}
+.player-master-access-wrap {
+  display: inline-flex;
+  width: auto;
+  flex: 0 0 auto;
+}
+.player-master-access-control {
+  border-color: rgba(125, 91, 195, .72) !important;
+  background: rgba(35, 26, 51, .88) !important;
+  color: #c8b3f1 !important;
+}
+.player-master-access-control:hover,
+.player-master-access-control:focus-visible,
+.player-master-access-control[aria-expanded="true"] {
+  border-color: #a984f7 !important;
+  color: #fff !important;
+  box-shadow: 0 0 13px rgba(137, 91, 224, .22) !important;
+}
+.player-master-access-menu {
+  width: min(270px, 84vw);
 }
 
 /* NEMA ASOC button // toxic hazard face.
