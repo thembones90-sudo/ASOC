@@ -1,235 +1,79 @@
-/* BACKDOOR // SYSTEM CONTROL — compact Shadow Broker maintenance console */
-#gm-panel.maintenance-open .gm-content {
-  padding: 12px 14px 22px;
-}
-#gm-panel.maintenance-open .gm-maintenance {
-  display: block;
-}
-.gm-backdoor-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0 0 10px;
-  padding: 0 2px 8px;
-  border-bottom: 1px solid rgba(92, 118, 122, .36);
-}
-.gm-backdoor-header strong {
-  color: #92c2c1;
-  font: 900 .68rem var(--font-machine);
-  letter-spacing: .13em;
-}
-.gm-backdoor-header span {
-  color: #606c78;
-  font: 800 .48rem var(--font-machine);
-  letter-spacing: .11em;
-}
-.gm-backdoor-primary-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
-  margin-bottom: 10px;
-}
-#gm-panel.maintenance-open .gm-maintenance .maintenance-module {
-  margin: 0 0 10px;
-  padding: 11px 12px;
-}
-#gm-panel.maintenance-open .gm-backdoor-primary-grid .maintenance-module {
-  margin-bottom: 0;
-}
-#gm-panel.maintenance-open .gm-maintenance .maintenance-module .gm-section-title {
-  margin-bottom: 9px;
-  padding-bottom: 6px;
-  font-size: .61rem;
-  letter-spacing: .12em;
-}
-#gm-panel.maintenance-open .gm-maintenance .current-game {
-  margin-bottom: 9px;
-}
-#gm-panel.maintenance-open .gm-maintenance .difficulty-picker {
-  margin: 8px 0 9px;
-  gap: 7px;
-}
-#gm-panel.maintenance-open .gm-maintenance .gm-global-btn {
-  min-height: 34px;
-  padding: 7px 9px;
-  font-size: .64rem;
-}
-#gm-panel.maintenance-open .gm-maintenance .gm-global-controls {
-  gap: 7px;
-}
-#gm-panel.maintenance-open .gm-maintenance .gm-global-controls + .gm-global-controls {
-  margin-top: 7px;
-}
-#gm-panel.maintenance-open .gm-layout-lock-status {
-  margin: 0 0 7px;
-  padding: 6px 8px;
-}
-#gm-panel.maintenance-open .gm-layout-maintenance-controls .gm-layout-reset-btn {
-  grid-column: auto !important;
-}
-.gm-board-control-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-.gm-board-control-row .gm-global-btn {
-  grid-column: auto !important;
-  width: auto !important;
-  margin: 0 !important;
-}
-.gm-board-control-row #undo-btn {
-  border-color: rgba(85, 105, 112, .72);
-  color: #b5c1ca;
-}
-.gm-board-control-row #reveal-hide-all-btn {
-  border-color: rgba(212, 168, 67, .74);
-  color: #ecd277;
-}
-.gm-board-control-row #reset-board-btn {
-  border-color: rgba(201, 74, 74, .88);
-  color: #ffaaaa;
-}
-.gm-visual-maintenance .background-selector {
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "label label"
-    "select upload";
-  gap: 6px 10px;
-  align-items: end;
-}
-.gm-visual-maintenance .bg-label { grid-area: label; }
-.gm-visual-maintenance .bg-select {
-  grid-area: select;
-  min-height: 35px;
-}
-.gm-visual-maintenance .upload-zone {
-  grid-area: upload;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 35px;
-  padding: 0;
-  border-top: 0;
-}
-.gm-visual-maintenance .upload-label {
-  flex: 0 0 auto;
-  margin: 0;
-}
-.gm-visual-maintenance .upload-note {
-  max-width: 150px;
-  font-size: .48rem;
-  line-height: 1.2;
-}
-.gm-visual-maintenance .upload-status {
-  display: none;
-}
-.battle-session-strip[hidden] {
-  display: none !important;
-}
-.gm-advanced-maintenance {
-  margin: 2px 0 4px;
-  border: 1px solid rgba(112, 88, 58, .58);
-  border-radius: 5px;
-  background: linear-gradient(180deg, rgba(30, 27, 22, .78), rgba(13, 14, 17, .95));
-  overflow: hidden;
-}
-.gm-advanced-maintenance > summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 40px;
-  padding: 8px 12px;
-  cursor: pointer;
-  list-style: none;
-  color: #d8b96a;
-  font: 900 .58rem var(--font-machine);
-  letter-spacing: .10em;
-}
-.gm-advanced-maintenance > summary::-webkit-details-marker {
-  display: none;
-}
-.gm-advanced-maintenance > summary::before {
-  content: "▸";
-  margin-right: 2px;
-  color: #c99f3f;
-}
-.gm-advanced-maintenance[open] > summary::before {
-  content: "▾";
-}
-.gm-advanced-maintenance > summary span {
-  margin-right: auto;
-}
-.gm-advanced-maintenance > summary small {
-  color: #746e63;
-  font-size: .45rem;
-  letter-spacing: .08em;
-}
-.gm-advanced-maintenance[open] > summary {
-  border-bottom: 1px solid rgba(112, 88, 58, .36);
-}
-.gm-advanced-maintenance-body {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 9px;
-}
-#gm-panel.maintenance-open .gm-advanced-maintenance-body .maintenance-module {
-  margin: 0;
-  padding: 10px;
-  background: rgba(18, 20, 24, .72);
-}
-#gm-panel.maintenance-open .gm-advanced-maintenance-body #records-section {
-  grid-column: 1 / -1;
-}
-#gm-panel.maintenance-open .gm-footer {
-  padding: 10px 20px 14px;
-}
-#gm-panel.maintenance-open #library-btn-footer {
-  margin-top: 0 !important;
-}
-#gm-panel.maintenance-open .master-access-wrap {
-  opacity: .94;
-}
-@media (max-width: 760px) {
-  .gm-backdoor-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .gm-backdoor-primary-grid,
-  .gm-advanced-maintenance-body {
-    grid-template-columns: 1fr;
-  }
-  .gm-visual-maintenance .background-selector {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "label"
-      "select"
-      "upload";
-  }
-  .gm-visual-maintenance .upload-zone {
-    justify-content: flex-start;
-  }
-  .gm-board-control-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* CASUAL BACKDOOR VISIBILITY FIX
-   Casual mode normally hides every GM module except chat. The maintenance
-   console reparents those modules, so restore them while BACKDOOR is open. */
+/* BACKDOOR // compact Shadow Broker operator console */
+#gm-panel.maintenance-open .gm-content { padding:12px 14px 24px; }
+#gm-panel.maintenance-open .gm-maintenance { display:block; max-width:760px; margin:0 auto; }
+.gm-backdoor-header { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:48px; padding:0 0 10px; border-bottom:1px solid #33444b; }
+.gm-backdoor-header > div { display:grid; gap:3px; }
+.gm-backdoor-header strong { color:#91c7c6; font:900 .72rem var(--font-machine); letter-spacing:.15em; }
+.gm-backdoor-header span { color:#596872; font:800 .43rem var(--font-machine); letter-spacing:.14em; }
+.gm-backdoor-return { min-width:150px; min-height:32px; border:1px solid #9d7b27; background:linear-gradient(180deg,#332b17,#16130c); color:#f0cb63; font:900 .52rem var(--font-machine); letter-spacing:.11em; cursor:pointer; }
+.gm-backdoor-return:hover { border-color:#e5bb45; color:#fff2bd; box-shadow:0 0 14px rgba(213,169,53,.14); }
+.gm-backdoor-telemetry { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:10px 0; border:1px solid #29383f; background:#0b1014; }
+.gm-backdoor-telemetry > span { display:grid; gap:3px; min-width:0; padding:7px 10px; border-right:1px solid #26343a; }
+.gm-backdoor-telemetry > span:last-child { border-right:0; }
+.gm-backdoor-telemetry small { color:#52636b; font:800 .39rem var(--font-machine); letter-spacing:.14em; }
+.gm-backdoor-telemetry b { overflow:hidden; color:#b9c6ca; font:900 .52rem var(--font-machine); letter-spacing:.08em; text-overflow:ellipsis; white-space:nowrap; }
+.gm-backdoor-primary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+#gm-panel.maintenance-open .maintenance-module { min-width:0; margin:0; padding:10px; border:1px solid #303c43; border-radius:0; background:linear-gradient(180deg,#12181d,#090d10); box-shadow:inset 0 1px rgba(255,255,255,.025); }
+#gm-panel.maintenance-open .maintenance-module .gm-section-title { margin:0 0 9px; padding:0 0 6px; border-bottom:1px solid #26343a; color:#75aaa9; font-size:.53rem; letter-spacing:.13em; }
+#gm-panel.maintenance-open .current-game { margin-bottom:7px; }
+#gm-panel.maintenance-open .difficulty-picker { margin:7px 0; gap:5px; }
+#gm-panel.maintenance-open .gm-global-btn { min-height:32px; padding:6px 8px; font-size:.53rem; }
+#gm-panel.maintenance-open #next-game-btn { width:100% !important; margin:7px 0 0 !important; }
+.battle-session-strip[hidden] { display:none !important; }
+.gm-maintenance-readout { display:grid; gap:3px; margin-bottom:8px; padding:7px 8px; border:1px solid #253138; background:#080c0f; }
+.gm-maintenance-readout small { color:#526069; font:800 .38rem var(--font-machine); letter-spacing:.13em; }
+.gm-maintenance-readout strong { color:#8fbf9a; font:800 .48rem var(--font-machine); letter-spacing:.07em; }
+.gm-board-control-row { display:grid; grid-template-columns:1fr; gap:6px; }
+.gm-board-control-row .gm-global-btn { width:100% !important; margin:0 !important; grid-column:auto !important; }
+.gm-board-control-row #undo-btn { border-color:#43535d; color:#afbbc2; }
+.gm-board-control-row #reveal-hide-all-btn { border-color:#9b7929; color:#edcf76; }
+.gm-appearance-maintenance #gm-layout-lock-status { min-height:25px; margin:0 0 6px; padding:5px 7px; font-size:.43rem; }
+.gm-appearance-maintenance #gm-layout-lock-btn { width:100%; margin-bottom:8px; }
+.gm-appearance-background { display:block !important; margin:0 !important; padding:8px 0 0 !important; border:0 !important; border-top:1px solid #26343a !important; background:none !important; box-shadow:none !important; }
+.gm-appearance-background .background-selector { display:grid !important; grid-template-columns:1fr; gap:6px; }
+.gm-appearance-background .bg-label { font-size:.42rem; }
+.gm-appearance-background .bg-select { width:100%; min-height:31px; font-size:.48rem; }
+.gm-appearance-background .upload-zone { display:grid; grid-template-columns:1fr; gap:4px; padding:0; border:0; }
+.gm-appearance-background .upload-label { width:100%; margin:0; box-sizing:border-box; text-align:center; }
+.gm-appearance-background .upload-note, .gm-appearance-background .upload-status { display:none; }
+.gm-backdoor-log { margin:9px 0; border:1px solid #29363d; background:#080c0f; }
+.gm-backdoor-log-head { display:flex; justify-content:space-between; padding:7px 10px; border-bottom:1px solid #26343a; background:#10161a; }
+.gm-backdoor-log-head strong { color:#81999f; font:900 .48rem var(--font-machine); letter-spacing:.13em; }
+.gm-backdoor-log-head span { color:#46545c; font:800 .38rem var(--font-machine); letter-spacing:.11em; }
+.gm-backdoor-log-entries { display:grid; min-height:78px; max-height:112px; overflow:auto; padding:5px 10px; }
+.gm-backdoor-log-entries div { display:grid; grid-template-columns:48px 1fr; gap:9px; padding:4px 0; border-bottom:1px solid rgba(48,61,68,.42); }
+.gm-backdoor-log-entries div:last-child { border-bottom:0; }
+.gm-backdoor-log-entries time { color:#53636b; font:700 .42rem var(--font-mono); }
+.gm-backdoor-log-entries span { color:#8e9ba1; font:700 .44rem var(--font-machine); letter-spacing:.065em; }
+.gm-advanced-maintenance { border:1px solid #6d5525; border-radius:0; background:linear-gradient(180deg,#1a1710,#0c0d0e); overflow:hidden; }
+.gm-advanced-maintenance > summary { display:flex; align-items:center; gap:10px; min-height:38px; padding:7px 11px; list-style:none; cursor:pointer; color:#d2ad55; font:900 .52rem var(--font-machine); letter-spacing:.1em; }
+.gm-advanced-maintenance > summary::-webkit-details-marker { display:none; }
+.gm-advanced-maintenance > summary span { margin-right:auto; }
+.gm-advanced-maintenance > summary small { color:#6d6555; font-size:.38rem; letter-spacing:.08em; }
+.gm-advanced-maintenance[open] > summary { border-bottom:1px solid #51421f; background:rgba(111,82,22,.08); }
+.gm-advanced-maintenance-body { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:8px; }
+#gm-panel.maintenance-open .gm-advanced-maintenance-body .maintenance-module { background:#0d1114; }
+.gm-recovery-maintenance { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.gm-recovery-maintenance .gm-section-title { grid-column:1/-1; }
+.gm-recovery-maintenance button { width:100% !important; margin:0 !important; border-color:#873d43 !important; color:#e99298 !important; }
+#gm-panel.maintenance-open .gm-advanced-maintenance-body #records-section { grid-column:1/-1; }
+#gm-panel.maintenance-open .gm-footer { padding:10px 20px 14px; }
+#gm-panel.maintenance-open #library-btn-footer { margin-top:0 !important; }
+#gm-panel.maintenance-open .master-access-wrap { opacity:.94; }
 body.room-mode-casual #gm-panel.maintenance-open .gm-maintenance .gm-module,
-body.room-mode-casual #gm-panel.maintenance-open .gm-maintenance .maintenance-module {
-  display:block !important;
-  visibility:visible !important;
-  opacity:1 !important;
+body.room-mode-casual #gm-panel.maintenance-open .gm-maintenance .maintenance-module { display:block !important; visibility:visible !important; opacity:1 !important; }
+body.room-mode-casual #gm-panel.maintenance-open .gm-backdoor-primary-grid { display:grid !important; }
+body.room-mode-casual #gm-panel.maintenance-open .gm-advanced-maintenance[open] > .gm-advanced-maintenance-body { display:grid !important; }
+@media (max-width:900px) {
+  .gm-backdoor-primary-grid { grid-template-columns:1fr; }
+  .gm-backdoor-telemetry { grid-template-columns:1fr 1fr; }
+  .gm-backdoor-telemetry > span:nth-child(2) { border-right:0; }
+  .gm-backdoor-telemetry > span:nth-child(-n+2) { border-bottom:1px solid #26343a; }
 }
-body.room-mode-casual #gm-panel.maintenance-open .gm-backdoor-primary-grid {
-  display:grid !important;
-}
-body.room-mode-casual #gm-panel.maintenance-open .gm-advanced-maintenance[open] > .gm-advanced-maintenance-body {
-  display:grid !important;
+@media (max-width:620px) {
+  .gm-backdoor-header { align-items:stretch; flex-direction:column; }
+  .gm-backdoor-return { width:100%; }
+  .gm-advanced-maintenance-body { grid-template-columns:1fr; }
+  #gm-panel.maintenance-open .gm-advanced-maintenance-body #records-section { grid-column:auto; }
+  .gm-advanced-maintenance > summary small { display:none; }
 }

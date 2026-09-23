@@ -1,11 +1,11 @@
 const ControlSurfaces = {
   app: null,
+  eventLog: [],
 
   init(app) {
     this.app = app;
     const content = document.querySelector('.gm-content');
     if (!content || document.getElementById('gm-maintenance')) return;
-
     const game = content.querySelector('.gm-module-game');
     const womf = content.querySelector('.gm-module-womf');
     const global = content.querySelector('.gm-module-global');
@@ -20,32 +20,19 @@ const ControlSurfaces = {
     battle.id = 'gm-battle-control';
     battle.className = 'gm-control-surface gm-battle-control';
     content.insertBefore(battle, content.firstChild);
-    [chat, chatHeightSplitter, scoring, global].forEach(section => {
-      if (section) battle.appendChild(section);
-    });
+    [chat, chatHeightSplitter, scoring, global].forEach(section => section && battle.appendChild(section));
 
     if (game) {
       const title = game.querySelector('.gm-section-title');
-      if (title) title.textContent = 'Game / Session';
+      if (title) title.textContent = '01 // SESSION';
       const strip = document.createElement('div');
       strip.id = 'battle-session-strip';
       strip.className = 'battle-session-strip';
-      strip.innerHTML =
-        '<span id="battle-session-mode">LOCAL</span>' +
-        '<span id="battle-session-room" style="display:none;">ROOM <b id="battle-session-code">—</b></span>' +
-        '<span id="battle-session-heroes" style="display:none;"><b id="battle-session-player-count">0</b> HEROES</span>';
+      strip.innerHTML = '<span id="battle-session-mode">LOCAL</span><span id="battle-session-room" hidden>ROOM <b id="battle-session-code">—</b></span><span id="battle-session-heroes" hidden><b id="battle-session-player-count">0</b> HEROES</span>';
       game.appendChild(strip);
     }
-
-    if (scoring) {
-      const title = scoring.querySelector('.gm-section-title');
-      if (title) title.textContent = 'Session';
-    }
-
-    if (global) {
-      const title = global.querySelector('.gm-section-title');
-      if (title) title.textContent = 'Live Action';
-    }
+    if (scoring) scoring.querySelector('.gm-section-title').textContent = 'Session';
+    if (global) global.querySelector('.gm-section-title').textContent = 'Live Action';
 
     const maintenance = document.createElement('div');
     maintenance.id = 'gm-maintenance';
@@ -53,15 +40,20 @@ const ControlSurfaces = {
     maintenance.hidden = true;
     content.appendChild(maintenance);
 
-    const header = document.createElement('div');
+    const header = document.createElement('header');
     header.className = 'gm-backdoor-header';
-    header.innerHTML = '<strong>BACKDOOR // SYSTEM CONTROL</strong><span>SHADOW BROKER MAINTENANCE CONSOLE</span>';
+    header.innerHTML = '<div><strong>BACKDOOR // SYSTEM CONTROL</strong><span>SHADOW BROKER OPERATOR CONSOLE</span></div><button type="button" class="gm-backdoor-return">RETURN TO BATTLE</button>';
+    header.querySelector('.gm-backdoor-return').addEventListener('click', () => this.setOpen(false));
     maintenance.appendChild(header);
+
+    const telemetry = document.createElement('div');
+    telemetry.className = 'gm-backdoor-telemetry';
+    telemetry.innerHTML = '<span><small>ROOM</small><b id="backdoor-room">LOCAL</b></span><span><small>HEROES</small><b id="backdoor-heroes">0</b></span><span><small>GAME STATE</small><b id="backdoor-state">STANDBY</b></span><span><small>LAYOUT</small><b id="backdoor-layout">UNLOCKED</b></span>';
+    maintenance.appendChild(telemetry);
 
     const primaryGrid = document.createElement('div');
     primaryGrid.className = 'gm-backdoor-primary-grid';
     maintenance.appendChild(primaryGrid);
-
     const makeModule = (titleText, parent = maintenance) => {
       const section = document.createElement('section');
       section.className = 'gm-section gm-module maintenance-module';
@@ -74,136 +66,130 @@ const ControlSurfaces = {
     };
 
     if (game) {
-      game.classList.add('maintenance-module');
+      game.classList.add('maintenance-module', 'gm-session-maintenance');
       primaryGrid.appendChild(game);
       const nextGame = document.getElementById('next-game-btn');
-      if (nextGame) {
-        nextGame.style.width = '100%';
-        nextGame.style.marginTop = '12px';
-        game.appendChild(nextGame);
-      }
+      if (nextGame) game.appendChild(nextGame);
     }
 
-    const layoutMaintenance = makeModule('Interface', primaryGrid);
-    layoutMaintenance.classList.add('gm-layout-maintenance');
+    const boardMaintenance = makeModule('02 // BOARD', primaryGrid);
+    boardMaintenance.classList.add('gm-board-maintenance');
+    const undo = document.getElementById('undo-btn');
+    const resetBoard = document.getElementById('reset-board-btn');
+    const revealAll = document.getElementById('reveal-hide-all-btn');
+    const boardState = document.createElement('div');
+    boardState.className = 'gm-maintenance-readout';
+    boardState.innerHTML = '<small>BOARD LINK</small><strong>READY // SYNCHRONIZED</strong>';
+    boardMaintenance.appendChild(boardState);
+    const boardRow = document.createElement('div');
+    boardRow.className = 'gm-board-control-row';
+    [undo, revealAll].forEach(button => button && boardRow.appendChild(button));
+    boardMaintenance.appendChild(boardRow);
 
+    const appearance = makeModule('03 // APPEARANCE', primaryGrid);
+    appearance.classList.add('gm-appearance-maintenance');
     const layoutStatus = document.createElement('div');
     layoutStatus.id = 'gm-layout-lock-status';
     layoutStatus.className = 'gm-layout-lock-status';
-    layoutMaintenance.appendChild(layoutStatus);
-
-    const layoutControls = document.createElement('div');
-    layoutControls.className = 'gm-global-controls gm-layout-maintenance-controls';
-    layoutControls.style.gridTemplateColumns = '1fr 1fr';
-
+    appearance.appendChild(layoutStatus);
     const layoutLock = document.createElement('button');
     layoutLock.type = 'button';
     layoutLock.id = 'gm-layout-lock-btn';
     layoutLock.className = 'gm-global-btn gm-layout-lock-btn';
     layoutLock.setAttribute('aria-pressed', 'false');
     layoutLock.addEventListener('click', () => this.app?.toggleGMLayoutLock?.());
+    appearance.appendChild(layoutLock);
+    if (background) {
+      background.querySelector('.gm-section-title')?.remove();
+      background.classList.add('gm-appearance-background');
+      appearance.appendChild(background);
+    }
+    this.app?.syncGMLayoutLockUI?.();
 
+    const log = document.createElement('section');
+    log.className = 'gm-backdoor-log';
+    log.innerHTML = '<div class="gm-backdoor-log-head"><strong>SYSTEM EVENT LOG</strong><span>LIVE // LOCAL AUDIT</span></div><div id="gm-backdoor-log-entries" class="gm-backdoor-log-entries"></div>';
+    maintenance.appendChild(log);
+
+    const advanced = document.createElement('details');
+    advanced.className = 'gm-advanced-maintenance';
+    advanced.innerHTML = '<summary><span>⚠ SEALED SYSTEMS // DANGEROUS OPERATIONS</span><small>RECOVERY · WOMF · PLAYERS · RECORDS · VAULT</small></summary><div class="gm-advanced-maintenance-body"></div>';
+    const advancedBody = advanced.querySelector('.gm-advanced-maintenance-body');
+    maintenance.appendChild(advanced);
+
+    const recovery = makeModule('Recovery / Reset', advancedBody);
+    recovery.classList.add('gm-recovery-maintenance');
     const layoutReset = document.createElement('button');
     layoutReset.type = 'button';
     layoutReset.id = 'gm-layout-reset-btn';
     layoutReset.className = 'gm-global-btn reset-btn gm-layout-reset-btn';
     layoutReset.textContent = 'RESET PANEL LAYOUT';
     layoutReset.addEventListener('click', () => {
-      const confirmed = confirm('Reset GM panel width and Battle Chat height to defaults?');
-      if (!confirmed) return;
+      if (!confirm('Reset GM panel width and Battle Chat height to defaults?')) return;
       this.app?.resetGMPanelLayout?.();
     });
-
-    layoutControls.appendChild(layoutLock);
-    layoutControls.appendChild(layoutReset);
-    layoutMaintenance.appendChild(layoutControls);
-    this.app?.syncGMLayoutLockUI?.();
-
-    const boardMaintenance = makeModule('Board Control');
-    boardMaintenance.classList.add('gm-board-maintenance');
-    const undo = document.getElementById('undo-btn');
-    const resetBoard = document.getElementById('reset-board-btn');
-    const revealAll = document.getElementById('reveal-hide-all-btn');
-    const boardRow = document.createElement('div');
-    boardRow.className = 'gm-board-control-row';
-    [undo, revealAll, resetBoard].forEach(button => {
-      if (!button) return;
-      button.style.width = '';
-      button.style.marginTop = '';
-      boardRow.appendChild(button);
-    });
-    boardMaintenance.appendChild(boardRow);
-
-    if (background) {
-      const title = background.querySelector('.gm-section-title');
-      if (title) title.textContent = 'Visual Systems';
-      background.classList.add('maintenance-module', 'gm-visual-maintenance');
-      maintenance.appendChild(background);
-    }
-
-    const advanced = document.createElement('details');
-    advanced.className = 'gm-advanced-maintenance';
-    const advancedSummary = document.createElement('summary');
-    advancedSummary.innerHTML = '<span>MAINTENANCE / EMERGENCY CONTROLS</span><small>WOMF · MULTIPLAYER · RECORDS · VAULT</small>';
-    const advancedBody = document.createElement('div');
-    advancedBody.className = 'gm-advanced-maintenance-body';
-    advanced.appendChild(advancedSummary);
-    advanced.appendChild(advancedBody);
-    maintenance.appendChild(advanced);
+    [resetBoard, layoutReset].forEach(button => button && recovery.appendChild(button));
 
     if (womf) {
-      const title = womf.querySelector('.gm-section-title');
-      if (title) title.textContent = 'WOMF Maintenance';
+      womf.querySelector('.gm-section-title').textContent = 'WOMF Intervention';
       womf.classList.add('maintenance-module');
       advancedBody.appendChild(womf);
     }
-
     if (tributeVault) {
       tributeVault.classList.add('maintenance-module');
       advancedBody.appendChild(tributeVault);
     }
-
     if (multiplayer) {
-      const title = multiplayer.querySelector('.gm-section-title');
-      if (title) title.textContent = 'Multiplayer Administration';
+      multiplayer.querySelector('.gm-section-title').textContent = 'Player Administration';
       multiplayer.classList.add('maintenance-module');
       advancedBody.appendChild(multiplayer);
     }
-
     const records = makeModule('Records', advancedBody);
     records.id = 'records-section';
     records.style.display = 'none';
     const allTimeButton = document.getElementById('alltime-toggle-btn');
     const allTimePanel = document.getElementById('alltime-leaderboard');
-    if (allTimeButton) {
-      allTimeButton.style.width = '100%';
-      allTimeButton.style.marginTop = '0';
-      records.appendChild(allTimeButton);
-    }
+    if (allTimeButton) records.appendChild(allTimeButton);
     if (allTimePanel) records.appendChild(allTimePanel);
 
     if (global) {
       const nema = document.getElementById('nema-asoc-btn');
-      const controls = Array.from(global.querySelectorAll('.gm-global-controls'));
-      controls.forEach(group => {
+      Array.from(global.querySelectorAll('.gm-global-controls')).forEach(group => {
         if (!group.children.length) group.remove();
         else group.style.gridTemplateColumns = '1fr';
       });
       if (nema) nema.style.width = '100%';
       if (!global.querySelector('button')) global.remove();
     }
-
     const footerButton = document.getElementById('library-btn-footer');
     if (footerButton) {
       footerButton.textContent = 'BACKDOOR';
       footerButton.classList.add('maintenance-toggle-btn');
     }
-
-    document.addEventListener('keydown', (event) => {
+    maintenance.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button || button.classList.contains('gm-backdoor-return')) return;
+      const label = String(button.textContent || button.getAttribute('aria-label') || 'CONTROL').trim().replace(/\s+/g, ' ');
+      this.recordEvent(`${label} // COMMAND ISSUED`);
+    });
+    advanced.addEventListener('toggle', () => this.recordEvent(advanced.open ? 'SEALED SYSTEMS // OPENED' : 'SEALED SYSTEMS // CLOSED'));
+    document.addEventListener('keydown', event => {
       if (event.key === 'Escape' && !maintenance.hidden) this.setOpen(false);
     });
-
+    this.recordEvent('OPERATOR CONSOLE // READY');
     this.updateSessionSummary();
+  },
+
+  recordEvent(message) {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    this.eventLog.unshift({ time, message });
+    this.eventLog = this.eventLog.slice(0, 6);
+    const entries = document.getElementById('gm-backdoor-log-entries');
+    if (entries) entries.innerHTML = this.eventLog.map(entry => `<div><time>${entry.time}</time><span>${this.escape(entry.message)}</span></div>`).join('');
+  },
+
+  escape(value) {
+    return String(value).replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]));
   },
 
   setOpen(open) {
@@ -211,42 +197,49 @@ const ControlSurfaces = {
     const maintenance = document.getElementById('gm-maintenance');
     const footerButton = document.getElementById('library-btn-footer');
     if (!battle || !maintenance) return;
-
     battle.hidden = !!open;
     maintenance.hidden = !open;
     document.getElementById('gm-panel')?.classList.toggle('maintenance-open', !!open);
-
     if (footerButton) {
       footerButton.textContent = open ? 'RETURN TO BATTLE' : 'BACKDOOR';
       footerButton.classList.toggle('active', !!open);
     }
-
+    if (open) {
+      this.updateSessionSummary();
+      this.recordEvent('BACKDOOR // ACCESS GRANTED');
+    }
     const scroll = document.querySelector('.gm-content');
     if (scroll) scroll.scrollTop = 0;
   },
 
-  toggle() {
-    const maintenance = document.getElementById('gm-maintenance');
-    this.setOpen(!!maintenance?.hidden);
-  },
+  toggle() { this.setOpen(!!document.getElementById('gm-maintenance')?.hidden); },
 
   updateSessionSummary() {
     const app = this.app;
     if (!app) return;
     const multiplayer = app.mode === 'multiplayer';
-    const mode = document.getElementById('battle-session-mode');
-    const room = document.getElementById('battle-session-room');
-    const code = document.getElementById('battle-session-code');
-    const heroes = document.getElementById('battle-session-heroes');
-    const count = document.getElementById('battle-session-player-count');
+    const players = (app.currentPlayers || []).filter(player => player?.connected !== false);
+    const roomMode = String(app.roomMode || '').replaceAll('_', ' ') || (multiplayer ? 'ACTIVE' : 'STANDBY');
+    const layoutLocked = document.body.classList.contains('gm-layout-locked');
+    const values = {
+      'battle-session-mode': multiplayer ? 'MULTIPLAYER' : 'LOCAL',
+      'battle-session-code': multiplayer ? 'MASTER ROOM' : '—',
+      'battle-session-player-count': String(players.length),
+      'backdoor-room': multiplayer ? 'MASTER ROOM' : 'LOCAL',
+      'backdoor-heroes': String(players.length),
+      'backdoor-state': roomMode,
+      'backdoor-layout': layoutLocked ? 'LOCKED' : 'UNLOCKED'
+    };
+    Object.entries(values).forEach(([id, value]) => {
+      const node = document.getElementById(id);
+      if (node) node.textContent = value;
+    });
     const strip = document.getElementById('battle-session-strip');
-
     if (strip) strip.hidden = !multiplayer;
-    if (mode) mode.textContent = 'MULTIPLAYER';
-    if (room) room.style.display = multiplayer ? 'inline' : 'none';
-    if (code) code.textContent = multiplayer ? 'MASTER ROOM' : '—';
-    if (heroes) heroes.style.display = multiplayer ? 'inline' : 'none';
-    if (count) count.textContent = String((app.currentPlayers || []).length);
+    const room = document.getElementById('battle-session-room');
+    const heroes = document.getElementById('battle-session-heroes');
+    if (room) room.hidden = !multiplayer;
+    if (heroes) heroes.hidden = !multiplayer;
   }
 };
 
