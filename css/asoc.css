@@ -13585,6 +13585,14 @@ body.room-mode-recount .gm-module-chat .gm-online-dropdown {
     radial-gradient(circle at 50% 46%,rgba(137,52,192,.10),transparent 30%),
     linear-gradient(180deg,rgba(8,10,14,.78),rgba(3,4,7,.92));
 }
+.asoc-mode-transition--casual .asoc-mode-transition-eye {
+  width:clamp(190px,19vw,270px);
+  height:clamp(190px,19vw,270px);
+  margin-bottom:8px;
+}
+.asoc-mode-transition--casual .asoc-mode-transition-eye img {
+  filter:drop-shadow(0 0 12px rgba(144,55,216,.62)) drop-shadow(0 0 28px rgba(89,22,143,.46));
+}
 .asoc-mode-transition.is-leaving { opacity:0; }
 .asoc-mode-transition::before,
 .asoc-mode-transition::after {
