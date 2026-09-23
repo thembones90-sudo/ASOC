@@ -1161,6 +1161,24 @@ const App = {
     const shadowBrokerInput = document.getElementById('shadow-broker-input');
     const shadowBrokerComposer = this.getGMComposerElement();
     const gmMentionPicker = this.ensureGMMentionPicker(shadowBrokerForm);
+    const gmCommandPicker = document.createElement('div');
+    gmCommandPicker.id = 'gm-command-picker';
+    gmCommandPicker.className = 'gm-command-picker';
+    gmCommandPicker.hidden = true;
+    gmCommandPicker.innerHTML = '<div class="gm-command-picker-head">SHADOW BROKER COMMANDS</div><button type="button" class="gm-command-option active" data-command="reliquary"><span>☠</span><b>OPEN RELIQUARY</b><small>Protected Blood Tribute archive</small></button>';
+    shadowBrokerForm?.appendChild(gmCommandPicker);
+    const updateGMCommandPicker = () => {
+      const text = this.getGMComposerText();
+      const commandFragment = text.match(/^\/([^\s]*)$/)?.[1]?.toLowerCase();
+      const visible = commandFragment !== undefined && 'reliquary'.startsWith(commandFragment);
+      gmCommandPicker.hidden = !visible;
+      if (visible) this.closeGMMentionPicker(gmMentionPicker);
+    };
+    const selectGMCommand = () => {
+      this.setGMComposerText('/reliquary ', 12);
+      gmCommandPicker.hidden = true;
+      shadowBrokerComposer?.focus();
+    };
     this.setGMComposerText(shadowBrokerInput?.value || '', 0);
 
     shadowBrokerForm?.addEventListener('submit', (e) => {
@@ -1553,6 +1571,10 @@ const App = {
 
     shadowBrokerComposer?.addEventListener('keydown', (e) => {
       this.syncGMComposerModel();
+      if (!gmCommandPicker.hidden) {
+        if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); selectGMCommand(); return; }
+        if (e.key === 'Escape') { e.preventDefault(); gmCommandPicker.hidden = true; return; }
+      }
       if (this.handleGMMentionKeydown(e, shadowBrokerInput, gmMentionPicker)) return;
 
       if (e.key === 'Enter') {
@@ -1583,11 +1605,13 @@ const App = {
       if (!this.getGMComposerText()) shadowBrokerComposer.replaceChildren();
       this.syncGMComposerModel();
       this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker);
+      updateGMCommandPicker();
     });
 
     shadowBrokerComposer?.addEventListener('click', () => {
       this.syncGMComposerModel();
       this.updateGMMentionPicker(shadowBrokerInput, gmMentionPicker);
+      updateGMCommandPicker();
     });
 
     shadowBrokerComposer?.addEventListener('paste', (e) => {
@@ -1613,6 +1637,10 @@ const App = {
       const option = e.target.closest('.gm-chat-mention-option');
       if (!option) return;
       this.selectGMMention(option.dataset.mentionIndex || 0, shadowBrokerInput, gmMentionPicker);
+    });
+    gmCommandPicker.addEventListener('mousedown', e => e.preventDefault());
+    gmCommandPicker.addEventListener('click', e => {
+      if (e.target.closest('[data-command="reliquary"]')) selectGMCommand();
     });
 
     const gmEmojiToggle = document.getElementById('gm-emoji-toggle');
@@ -1858,6 +1886,7 @@ const App = {
       if (e.key === 'Escape') {
         closeGMContextMenu();
         this.closeGMMentionPicker(gmMentionPicker);
+        gmCommandPicker.hidden = true;
       }
       if (e.key === 'Escape' && this.currentView === 'public') {
         this.togglePublicView(false);
@@ -1889,6 +1918,7 @@ const App = {
       }
       if (gmContextMenu && !gmContextMenu.hidden && !gmContextMenu.contains(e.target)) closeGMContextMenu();
       if (gmMentionPicker && !gmMentionPicker.hidden && !shadowBrokerForm?.contains(e.target)) this.closeGMMentionPicker(gmMentionPicker);
+      if (!gmCommandPicker.hidden && !shadowBrokerForm?.contains(e.target)) gmCommandPicker.hidden = true;
 
       const diffBtn = e.target.closest('.diff-swatch');
       if (diffBtn) {
