@@ -10,6 +10,12 @@
 .tweaks-launch .tweaks-badge{display:none;min-width:20px;height:20px;padding:0 6px;border-radius:12px;align-items:center;justify-content:center;background:#8d4bd6;color:#fff;font-size:11px;letter-spacing:0}
 .tweaks-launch.has-badge .tweaks-badge{display:inline-flex}
 .hero-hud-identity-block .tweaks-launch{margin:0;width:auto;min-width:94px;min-height:30px;height:30px;padding:0 10px;font-size:9px;letter-spacing:1px;flex:0 0 auto;z-index:3}
+.hero-utility-icon{
+  display:block;width:14px!important;height:14px!important;min-width:14px!important;max-width:14px!important;
+  flex:0 0 14px!important;overflow:visible;fill:none!important;stroke:currentColor!important;
+  stroke-width:1.8!important;stroke-linecap:round;stroke-linejoin:round
+}
+.hero-utility-icon circle{fill:none!important;stroke:currentColor!important;stroke-width:1.8!important}
 #player-tweaks-launch{
   border:1px solid #ff4a4a;
   background:

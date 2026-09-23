@@ -16897,3 +16897,24 @@ button.gm-chat-gif-link:focus-visible {
   .asoc-roll-entry { grid-template-columns: auto auto auto minmax(2rem,auto); gap: 5px; padding: 7px 8px; }
   .asoc-roll-range { grid-column: 2 / -1; }
 }
+
+/* CASUAL COMMAND RAIL BOTTOM LOCK
+   Keep utility/account controls immediately below GM commands. The former
+   auto margin created a viewport-sized dead zone and clipped open menus. */
+body.room-mode-casual #battle-controls-panel {
+  height:auto !important;
+  min-height:0 !important;
+  max-height:none !important;
+  overflow:visible !important;
+}
+
+body.room-mode-casual #battle-controls-panel > .battle-controls-utility-row {
+  margin-top:14px !important;
+}
+
+body.room-mode-casual #battle-controls-panel .master-access-menu {
+  right:0 !important;
+  width:100% !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
