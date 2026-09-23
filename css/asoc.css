@@ -17313,9 +17313,20 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
   cursor:default;
 }
 #game-screen .unstable-concoction-card .unstable-icon {
-  background:rgba(119,72,145,.20);
-  color:#b879dd;
-  font-size:17px;
+  overflow:visible;
+  background:radial-gradient(circle,rgba(174,255,0,.16),transparent 68%);
+  box-shadow:inset 0 0 10px rgba(126,205,0,.08);
+}
+#game-screen .unstable-concoction-card .unstable-icon img {
+  width:43px;
+  height:43px;
+  object-fit:contain;
+  filter:drop-shadow(0 0 6px rgba(177,255,0,.44));
+  transition:transform .2s ease,filter .2s ease;
+}
+#game-screen .unstable-concoction-card:not(:disabled):hover .unstable-icon img {
+  transform:translateY(-1px) scale(1.08);
+  filter:drop-shadow(0 0 9px rgba(194,255,25,.7));
 }
 @media (max-width:1380px) {
   #game-screen.room-mode-casual .casual-minigames-dock {
@@ -17397,6 +17408,17 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
     radial-gradient(circle at 65% 35%,rgba(70,143,116,.13),transparent 28%);
   filter:blur(16px);
   animation:concoction-vapor 3.2s ease-in-out infinite alternate;
+}
+#game-screen .concoction-toxic-drop {
+  position:relative;
+  z-index:1;
+  display:block;
+  width:74px;
+  height:74px;
+  margin:-5px auto 2px;
+  object-fit:contain;
+  filter:drop-shadow(0 0 12px rgba(174,255,0,.46));
+  animation:concoction-drop-breathe 2.2s ease-in-out infinite;
 }
 #game-screen .concoction-kicker {
   position:relative;
@@ -17507,6 +17529,10 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
 @keyframes concoction-vapor {
   from { transform:translate(-2%,2%) scale(.96); opacity:.6; }
   to { transform:translate(3%,-3%) scale(1.05); opacity:1; }
+}
+@keyframes concoction-drop-breathe {
+  0%,100% { transform:translateY(0) scale(1); filter:drop-shadow(0 0 9px rgba(174,255,0,.4)); }
+  50% { transform:translateY(-3px) scale(1.035); filter:drop-shadow(0 0 16px rgba(201,255,28,.68)); }
 }
 @media (max-width:560px) {
   #game-screen .concoction-wheel-wrap { width:218px; height:218px; }

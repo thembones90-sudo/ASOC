@@ -39,6 +39,7 @@
       panel.innerHTML = `
         <div class="unstable-concoction-shell" role="dialog" aria-modal="true" aria-label="Unstable Concoction">
           <div class="concoction-vapor" aria-hidden="true"></div>
+          <img class="concoction-toxic-drop" src="assets/ui/unstable-concoction-toxic-drop.png" alt="" aria-hidden="true">
           <div class="concoction-kicker">COMPOUND // VOLATILE</div>
           <h2>UNSTABLE CONCOCTION</h2>
           <div class="concoction-wheel-wrap">
