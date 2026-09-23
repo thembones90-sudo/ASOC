@@ -3926,7 +3926,7 @@ function resolveUnstableConcoction(roomCode, spinToken) {
     outcome: spin.outcome,
     cooldownUntil: state.cooldownUntil
   });
-  broadcastState(room);
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastPlayersUpdate(room);
 }
 
@@ -3957,7 +3957,7 @@ function handleUnstableConcoctionSpin(ws) {
   addUnstableConcoctionChatEvent(room, started.pendingSpin, 'activated');
   persistActiveRooms();
   broadcastChatUpdate(room);
-  broadcastState(room);
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   sendToWs(ws, {
     type: 'unstableConcoction:started',
     spinToken: started.pendingSpin.token,
