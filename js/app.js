@@ -2806,14 +2806,11 @@ const App = {
 
     const brokerBar = document.getElementById('gm-broker-bar');
     const chatPanel = document.querySelector('.gm-module-chat .gm-chat-panel');
-    const main = document.getElementById('main-content');
-    const battleControls = document.getElementById('battle-controls-panel');
-    if (brokerBar) {
-      if (next === 'CASUAL' && chatPanel && brokerBar.parentElement !== chatPanel) {
-        chatPanel.appendChild(brokerBar);
-      } else if (next !== 'CASUAL' && main && brokerBar.parentElement !== main) {
-        main.insertBefore(brokerBar, battleControls || null);
-      }
+    // The transmission composer belongs to the chat rail in every room
+    // mode. Keeping one stable parent also prevents a mode packet from
+    // jumping the focused input back beneath the board mid-message.
+    if (brokerBar && chatPanel && brokerBar.parentElement !== chatPanel) {
+      chatPanel.appendChild(brokerBar);
     }
 
     if (next === 'CASUAL') {
@@ -3551,9 +3548,8 @@ const App = {
     document.body.classList.remove('room-mode-casual', 'room-mode-battle-armed', 'room-mode-battle', 'room-mode-recount');
     delete document.body.dataset.roomMode;
     const brokerBar = document.getElementById('gm-broker-bar');
-    const main = document.getElementById('main-content');
-    const battleControls = document.getElementById('battle-controls-panel');
-    if (brokerBar && main && brokerBar.parentElement !== main) main.insertBefore(brokerBar, battleControls || null);
+    const chatPanel = document.querySelector('.gm-module-chat .gm-chat-panel');
+    if (brokerBar && chatPanel && brokerBar.parentElement !== chatPanel) chatPanel.appendChild(brokerBar);
     this.pendingCommands.clear();
     sessionStorage.removeItem('asoc_host_token');
     // No room -> no authoritative victory state either.
