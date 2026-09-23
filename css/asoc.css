@@ -1502,6 +1502,16 @@ body.gm-layout-resizing * {
 }
 .battle-controls-utility-row .master-access-wrap {
   width: 100%;
+  min-height: 42px;
+  align-self: stretch;
+}
+.battle-controls-utility-row .master-access-btn,
+.battle-controls-utility-row #gm-tweaks-launch {
+  width: 100%;
+  min-height: 42px;
+  margin: 0 !important;
+  box-sizing: border-box;
+  align-self: stretch;
 }
 .master-access-wrap[hidden],
 .master-access-menu[hidden] {

@@ -81,7 +81,7 @@
     if (role === 'gm') {
       const row = document.querySelector('.battle-controls-utility-row');
       if (row) {
-        row.style.gridTemplateColumns = 'minmax(0,1.15fr) minmax(0,.72fr) minmax(0,.58fr)';
+        row.style.gridTemplateColumns = 'minmax(0,1.15fr) minmax(0,.65fr) minmax(0,.65fr)';
         row.appendChild(launch);
       } else {
         document.body.appendChild(launch);
