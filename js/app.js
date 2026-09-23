@@ -4577,6 +4577,85 @@ const App = {
     `;
   },
 
+  gmSystemSpitLine(msg) {
+    const spit = msg.spit || {};
+    const actorName = this.escapeHtml(String(spit.actorName || msg.playerName || 'SHADOW BROKER'));
+    const targetName = this.escapeHtml(String(spit.targetName || '???'));
+    const isMine = msg.playerId == null && String(spit.actorId || '') === '';
+    return isMine ? `You spit on ${targetName}.` : `${actorName} spits on ${targetName}.`;
+  },
+
+  createGMSystemChatCardHTML(msg) {
+    const esc = (value) => this.escapeHtml(String(value == null ? '' : value));
+    const actor = esc(msg.playerName || 'SHADOW BROKER');
+    const typeMap = {
+      dice: () => {
+        const d = msg.dice || {};
+        const rolls = Array.isArray(d.rolls) ? d.rolls.map(esc).join(' · ') : '';
+        const bonus = Number(d.bonus) || 0;
+        return {
+          label: 'DICE',
+          body: `${actor} casts <b>${esc(d.diceText)}</b> → <b>${esc(d.total)}</b>`,
+          detail: rolls ? `${rolls}${bonus ? ` +${bonus}` : ''}` : ''
+        };
+      },
+      flip: () => {
+        const f = msg.flip || {};
+        const call = f.call ? ` calls ${esc(String(f.call).toUpperCase())} &amp;` : '';
+        const verdictMark = f.matched === true
+          ? '<span class="chat-system-ok">CALLED</span>'
+          : (f.matched === false ? '<span class="chat-system-ko">MISSED</span>' : '');
+        return { label: 'COIN', body: `${actor}${call} flips → <b>${esc(String(f.result || '').toUpperCase())}</b>`, detail: verdictMark };
+      },
+      choose: () => {
+        const c = msg.choose || {};
+        return {
+          label: 'CHOOSE',
+          body: `${actor} chooses → <b>${esc(c.pick)}</b>`,
+          detail: esc((Array.isArray(c.options) ? c.options : []).join(' · '))
+        };
+      },
+      order: () => {
+        const o = msg.order || {};
+        return { label: 'TURN ORDER', body: esc((Array.isArray(o.order) ? o.order : []).join(' → ')), detail: '' };
+      },
+      stats: () => {
+        const s = msg.stats || {};
+        return {
+          label: 'THE BOOK',
+          body: `${actor} consults`,
+          detail: `${esc(s.messages)} msgs · ${esc(s.correct)} correct · ${esc(s.failed)} wrong · ${esc(s.points)} pts`
+        };
+      },
+      commands: () => {
+        const rows = (Array.isArray(msg.commands?.commands) ? msg.commands.commands : [])
+          .map(c => `<div class="chat-system-command"><code>${esc(c.name)}</code><span>${esc(c.help)}</span></div>`)
+          .join('');
+        return { label: 'COMMANDS', body: rows, detail: '' };
+      },
+      spit: () => ({ label: 'SPIT', body: this.gmSystemSpitLine(msg), detail: '' }),
+      unstableConcoction: () => {
+        const c = msg.unstableConcoction || {};
+        const resolved = c.phase === 'resolved';
+        return {
+          label: 'UNSTABLE CONCOCTION',
+          body: resolved ? `<b>${esc(c.playerName || actor)}</b> → <b>${esc(c.outcome || '')}</b>` : `<b>${esc(c.playerName || actor)}</b> opened the chamber.`,
+          detail: resolved ? 'REACTION COMPLETE // 24H LOCK ENGAGED' : 'REACTION STARTED // TARGET LOCKED'
+        };
+      }
+    };
+    const render = typeMap[msg.messageType];
+    if (!render) return '';
+    const { label, body, detail } = render();
+    return `
+      <div class="chat-system-card chat-system-${esc(msg.messageType)}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
+        <div class="chat-system-label">${esc(label)}</div>
+        <div class="chat-system-body">${body}</div>
+        ${detail ? `<div class="chat-system-detail">${detail}</div>` : ''}
+      </div>
+    `;
+  },
+
   createGMChatMessageHTML(msg, grouped = false, now = Date.now()) {
     if (msg.deleted === true) {
       const deletedBy = msg.deletedBy === '__GM__' ? 'SHADOW BROKER' : '';
@@ -4605,6 +4684,10 @@ const App = {
           <button type="button" class="chat-image-link blood-tribute-preview" aria-label="Expand blood tribute image"><img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image"></button>
         </div>
       `;
+    }
+
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'unstableConcoction'].includes(msg.messageType)) {
+      return this.createGMSystemChatCardHTML(msg);
     }
 
     if (msg.messageType === 'roll' && msg.roll) {

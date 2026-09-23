@@ -1,0 +1,36 @@
+You are rejoining ASOC ENGINE as an independent senior code auditor. Audit the LIVE tree at A:\ASOC ENGINE. DO NOT EDIT, COMMIT, PUSH, RESET, CHECKOUT, DELETE, OR FORMAT ANY FILE. Read-only inspection and test execution only.
+
+PROJECT IDENTITY: ASOC is a permanent multiplayer association-game room. The GM is Shadow Broker; players are Little Heroes. One permanent MASTER room persists across modes. Current authoritative room modes are CASUAL, BATTLE_ARMED, BATTLE, RECOUNT. Casual is now presented as AMUSEMENT PARK; Battle as ABUSEMENT PARK. Chat, identities, profiles, themes, reactions, mentions, history and player state must persist across mode changes.
+
+BOARD CANON: fixed 1900x1267 board geometry. Four columns A-D. Rows 1-4 are clues, row 5 is the column solution, final meta solution is row 6. Progressive clue queue reveals hardest->easiest regardless of physical slot. Never casually alter board geometry/skeleton/logo placement. Difficulty tiers: GREEN, YELLOW, AMBER, RED, PURPLE, BLACK.
+
+BATTLE LOGIC CANON: timer GREEN/YELLOW 20m, AMBER 25m, RED/PURPLE/BLACK 35m; Borrowed Time 2m. Scoring columns 400/300/200/100; Final 1200/800/500/300 by columns known; streak +50/+125/+250; failed Final -200 per player. Zero-clue solve resolves with no points. WOMF persists 0-10; +1 failed column; +3 failed Final; 10 ready for manual roll. Correct adjudication reveals solution; wrong/correct chat styling and Shadow Broker reply behavior are intentional.
+
+CURRENT UX CANON: GM panel order CHAT first, then clue controls. Chat must remain fixed, scrollable, stable, and must never vanish/freeze during mode changes or BACKDOOR maintenance. MASTER ACCESS and TWEAKS controls were recently repaired. TWEAKS is player-accessible. Polls belong in general chat, tag all automatically, show timer/results/voter identity. Media/GIF previews should open in-app rather than navigate away. Battle/Amusement avatars are mode-specific and intentional.
+
+RECENT HISTORY: HEAD/main/origin-main is 07f5559 'Repair GM chat rail and align master controls'. Previous commits include 05d7d7a player mirror HUD, 63d9cf5 tab-local Master Access player mirror, d123478 GM cache bust, 447e0d3 chat rail consolidation. Current local dirty state includes css/backdoor-console.css, games/kurac-test.json, untracked 'Claude outputs/' and player-side.png. Treat these as user/local work; do not touch them.
+
+KNOWN TEST ANOMALY: tests/production-readiness.js currently fails at line ~90 because server recovery logs 'Restored room MASTER (game: sample-game)' when the test expects clean-state behavior. Determine whether this is a test-isolation defect, runtime defect, or both. The project has ASOC_DATA_DIR support; prior attempts with a temp dir still reproduced the failure. Do not paper over it.
+
+DEPLOYMENT: production is asocengine.com on Railway, one replica, /data persistent mount, ASOC_DATA_DIR=/data, /health readiness. Push is not proof of deployment. Do not deploy during this audit.
+
+YOUR AUDIT SCOPE:
+1) Read README.md, HANDOFF.md, package.json, server.js and key stores.
+2) Inspect current git diff/status and the last 10 commits.
+3) Run syntax checks and the test suite. Preserve outputs. You may use temporary data directories.
+4) Audit mode-transition/state persistence, GM/player chat lifecycle, reconnect identity, scoring, clue queue, timer/WOMF, poll/media/tweaks paths, auth/static serving, crash recovery, and production-readiness.
+5) Look specifically for regressions introduced by recent chat/master-access work.
+6) Identify dead code, contradictory mode names/states, unsafe client-authoritative paths, DOM lifecycle hazards, persistence bugs, race conditions, accidental local/prod coupling, and deployment hazards.
+7) Do NOT judge cosmetic taste unless it causes breakage, overflow, inaccessible controls, or inconsistent layout ownership.
+8) Report evidence with file paths + line numbers whenever possible.
+
+OUTPUT FORMAT:
+A. Executive health summary (5-10 lines).
+B. Findings grouped Critical / High / Medium / Low. For each: symptom, root cause, evidence, exact files/lines, safest fix direction.
+C. Production-readiness test failure diagnosis.
+D. Regression-risk map for CASUAL/AMUSEMENT <-> BATTLE_ARMED <-> BATTLE/ABUSEMENT <-> RECOUNT.
+E. Test gaps and the 5 highest-value tests to add.
+F. 'DO NOT TOUCH' canon list inferred from code/docs and this brief.
+G. Final verdict: stable / stable with known issues / unstable, with reasons. Do not modify anything.
+
+The ASOC rulebook additionally locks the basic board structure and narrative conventions: four columns A-D, A1-A4 clues, A5-D5 column solutions, final meta on row 6; story uses A5-D5 explicitly and is approximately 100 words.

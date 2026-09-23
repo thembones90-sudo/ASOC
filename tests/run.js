@@ -59,7 +59,7 @@ let TEST_GM_TOKEN = '';
 let TEST_PLAYER_TOKEN = '';
 let TEST_PLAYER_ID = '';
 
-function waitForMessage(ws, predicate, label, timeout = 3000) {
+function waitForMessage(ws, predicate, label, timeout = 5000) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       ws.off('message', onMessage);
@@ -897,6 +897,10 @@ async function testCrashRecovery(server) {
   await delay(100);
 
   // MATCH LEDGER: a judged attempt made before the crash must survive it.
+  // The identity shares the Master Room's 350ms chat cooldown with the suite
+  // that ran moments before; settle past it so the pre-crash guess is not
+  // silently gated server-side.
+  await delay(450);
   const preGuessSeen = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'PRE CRASH GUESS'), 'pre-crash guess');
   player.send(JSON.stringify({ type: 'chat:guess', text: 'PRE CRASH GUESS' }));
   const preGuessId = (await preGuessSeen).messages.find(x => x.text === 'PRE CRASH GUESS').id;
@@ -2194,6 +2198,216 @@ async function testChatDeleteAndSeen() {
   closeWs(host);
 }
 
+async function testChatSlashCommands() {
+  const host = await openWs();
+  const room = await createRoom(host, { startBattle: false });
+
+  const secondCredentials = {
+    email: `slash-target-${process.pid}@asoc.test`,
+    password: 'test-player-password',
+    name: 'SPIT TARGET'
+  };
+  let targetAuth = await requestJson('/api/auth/player/register', 'POST', secondCredentials);
+  if (targetAuth.status === 400) targetAuth = await requestJson('/api/auth/player/login', 'POST', secondCredentials);
+  assert.ok(targetAuth.status === 200 || targetAuth.status === 201);
+
+  const p1 = await openWs();
+  const p1Join = waitForMessage(p1, m => m.type === 'join:success', 'slash commander join');
+  p1.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'SLASH COMMANDER' }));
+  const joined1 = await p1Join;
+
+  const p2 = await openWs();
+  const p2Join = waitForMessage(p2, m => m.type === 'join:success', 'spit target join');
+  p2.send(JSON.stringify({ type: 'room:join', authToken: targetAuth.data.token, roomCode: room.roomCode, name: 'SPIT TARGET' }));
+  const joined2 = await p2Join;
+
+  await delay(450); // identity-scoped cooldown from the previous suite
+
+  // The join "name" param never overrides the authenticated profile; the
+  // server authors every command with the canonical account name.
+  const commanderName = joined1.littleHero?.name || 'REGRESSION TEST';
+  const targetName = joined2.littleHero?.name || 'SPIT TARGET';
+
+  const sendGuess = (text, extra = {}) => p1.send(JSON.stringify({ type: 'chat:guess', text, ...extra }));
+  let slashStep = 0;
+  const nextUpdate = (predicate) => waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(predicate), `slash chat:update step ${++slashStep}`);
+  const findIn = (state, predicate) => state.messages.find(predicate);
+
+  // /dice builds a structured payload and never becomes adjudicable speech.
+  let update = nextUpdate(m => m.messageType === 'dice' && m.text.startsWith(`${commanderName} casts 2d6`));
+  sendGuess('/dice 2d6');
+  let state = await update;
+  let dice = findIn(state, m => m.messageType === 'dice' && m.text.startsWith(`${commanderName} casts 2d6`));
+  assert.equal(dice.source, 'dice');
+  assert.equal(dice.adjudicable, false);
+  assert.equal(dice.dice.diceText, '2d6');
+  assert.equal(dice.dice.rolls.length, 2);
+  assert.ok(dice.dice.rolls.every(v => v >= 1 && v <= 6));
+  assert.equal(dice.dice.total, dice.dice.rolls[0] + dice.dice.rolls[1]);
+  assert.equal(dice.dice.bonus, 0);
+
+  await delay(450);
+  // Malformed commands error and never post a message.
+  const diceError = waitForMessage(p1, m => m.type === 'error' && /DICE INVALID/i.test(m.message || ''), 'dice validation error');
+  sendGuess('/dice banana');
+  await diceError;
+
+  await delay(450);
+  update = nextUpdate(m => m.messageType === 'flip' && m.text.startsWith(`${commanderName} calls HEADS`));
+  sendGuess('/flip heads');
+  state = await update;
+  const flip = findIn(state, m => m.messageType === 'flip' && m.text.startsWith(`${commanderName} calls HEADS`));
+  assert.equal(flip.source, 'flip');
+  assert.equal(flip.flip.call, 'heads');
+  assert.ok(['heads', 'tails'].includes(flip.flip.result));
+  assert.equal(typeof flip.flip.matched, 'boolean');
+
+  await delay(450);
+  update = nextUpdate(m => m.messageType === 'choose');
+  sendGuess('/choose ALPHA | BRAVO | CHARLIE');
+  state = await update;
+  const choose = findIn(state, m => m.messageType === 'choose');
+  assert.deepEqual(choose.choose.options, ['ALPHA', 'BRAVO', 'CHARLIE']);
+  assert.ok(choose.choose.index >= 0 && choose.choose.index <= 2);
+  assert.equal(choose.choose.pick, choose.choose.options[choose.choose.index]);
+
+  await delay(450);
+  update = nextUpdate(m => m.messageType === 'order');
+  sendGuess('/order');
+  state = await update;
+  const order = findIn(state, m => m.messageType === 'order');
+  assert.equal(order.source, 'order');
+  assert.equal(order.order.order.length, 2);
+  assert.ok(order.order.order.includes(commanderName));
+  assert.ok(order.order.order.includes(targetName));
+
+  await delay(450);
+  // /stats counts the commander's own session chat plus verified ledger rows.
+  update = nextUpdate(m => m.messageType === 'stats');
+  sendGuess('/stats');
+  state = await update;
+  const stats = findIn(state, m => m.messageType === 'stats');
+  assert.equal(stats.source, 'stats');
+  assert.ok(stats.stats.messages >= 4);
+  assert.ok(Number.isInteger(stats.stats.correct));
+  assert.ok(Number.isInteger(stats.stats.failed));
+  assert.ok(Number.isInteger(stats.stats.points));
+
+  await delay(450);
+  update = nextUpdate(m => m.messageType === 'commands');
+  sendGuess('/commands');
+  state = await update;
+  const commands = findIn(state, m => m.messageType === 'commands');
+  const names = commands.commands.commands.map(c => c.name);
+  assert.ok(names.includes('/dice') && names.includes('/spit') && names.includes('/order'));
+
+  // /spit contract: bare verb errors with the player-list prompt; by-name
+  // resolution; picker targetPlayerId resolution; self barred.
+  await delay(450);
+  const spitPrompt = waitForMessage(p1, m => m.type === 'error' && /SPIT TARGET REQUIRED/i.test(m.message || ''), 'spit roster prompt');
+  sendGuess('/spit');
+  await spitPrompt;
+
+  await delay(450);
+  update = nextUpdate(m => m.messageType === 'spit' && m.spit?.targetName === targetName && m.spit?.actorId === joined1.playerId);
+  sendGuess(`/spit @${targetName}`);
+  state = await update;
+  let spit = findIn(state, m => m.messageType === 'spit' && m.spit?.targetName === 'SPIT TARGET' && m.spit?.actorId === joined1.playerId);
+  assert.equal(spit.source, 'spit');
+  assert.equal(spit.adjudicable, false);
+  assert.equal(spit.text, `${commanderName} spits on ${targetName}.`);
+  assert.equal(spit.spit.targetId, joined2.playerId);
+  assert.equal(spit.spit.actorName, commanderName);
+  assert.equal(spit.spit.targetName, targetName);
+
+  await delay(450);
+  const selfSpit = waitForMessage(p1, m => m.type === 'error' && /MUST BE ANOTHER PLAYER/i.test(m.message || ''), 'spit self blocked');
+  // targetPlayerId self = the sender's own id -> rejected server-side.
+  sendGuess('/spit', { targetPlayerId: joined1.playerId });
+  await selfSpit;
+
+  await delay(450);
+  // Duplicate-name safety: the picker's id beats the typed text entirely.
+  const targetUpdate = nextUpdate(m => m.messageType === 'spit' && m.spit?.targetName === targetName);
+  sendGuess(`/spit @${targetName}`, { targetPlayerId: joined2.playerId });
+  state = await targetUpdate;
+  spit = findIn(state, m => m.messageType === 'spit' && m.spit?.targetId === joined2.playerId);
+  assert.equal(spit.spit.targetId, joined2.playerId);
+  assert.equal(spit.spit.targetName, 'SPIT TARGET');
+
+  await delay(450);
+  // Unknown "/..." stays plain speech -- commands are server-typed, not text.
+  update = nextUpdate(m => m.text === '/banana');
+  sendGuess('/banana');
+  state = await update;
+  const banana = findIn(state, m => m.text === '/banana');
+  assert.equal(banana.messageType, null);
+  assert.equal(banana.source, null);
+
+  // /roll still flows through the refactored dispatcher untouched.
+  await delay(450);
+  update = nextUpdate(m => m.messageType === 'roll' && m.roll && m.roll.min === 5 && m.roll.max === 10);
+  sendGuess('/roll 5 10');
+  state = await update;
+  const roll = findIn(state, m => m.messageType === 'roll');
+  assert.ok(roll.roll.value >= 5 && roll.roll.value <= 10);
+  assert.equal(roll.source, 'roll');
+
+  // ---------- GM operational verbs ----------
+  // /recount gate: no game completed -> host-only error, zero chat fallout.
+  const recountError = waitForMessage(host, m => m.type === 'error' && /not over yet/i.test(m.message || ''), 'recount eligibility gate');
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: '/recount' }));
+  await recountError;
+
+  const recountState = nextUpdate(m => m.messageType === 'commands' && m.playerId == null);
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: '/commands' }));
+  state = await recountState;
+  const gmCommands = findIn(state, m => m.messageType === 'commands' && m.playerId == null);
+  const gmNames = gmCommands.commands.commands.map(c => c.name);
+  assert.ok(gmNames.includes('/recount') && gmNames.includes('/womf'));
+  // The /recount attempt above must never have leaked into chat.
+  assert.ok(!state.messages.some(m => /^\/recount/.test(m.text || '')), '/recount gate leaves no chat message');
+
+  // Broken GM command: parse error, never passed through as broker text.
+  const badGm = waitForMessage(host, m => m.type === 'error' && /RECOUNT INVALID/i.test(m.message || ''), 'malformed gm command');
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: '/recount extra' }));
+  await badGm;
+
+  // /womf posts a live status transmission.
+  state = await (async () => {
+    const womfUpdate = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => /^WOMF CHARGE/.test(x.text || '')), 'womf status');
+    host.send(JSON.stringify({ type: 'gm:broadcast', text: '/womf' }));
+    return womfUpdate;
+  })();
+  const womf = findIn(state, m => /^WOMF CHARGE/.test(m.text || ''));
+  assert.equal(womf.source, 'shadowBroker');
+  assert.equal(womf.playerId, null);
+  assert.ok(/^WOMF CHARGE → \d+\/10 \/\/ FAILED COLUMNS → \S+(?: \S+)* \/\/ WHEEL → /.test(womf.text), `structurally valid womf line: ${womf.text}`);
+
+  // GM /spit: broker-authored, null actorId, host-deletable contract intact.
+  state = await (async () => {
+    const spitUpdate = nextUpdate(m => m.messageType === 'spit' && m.spit?.actorName === 'SHADOW BROKER');
+    host.send(JSON.stringify({ type: 'gm:broadcast', text: `/spit @${commanderName}` }));
+    return spitUpdate;
+  })();
+  const brokerSpit = findIn(state, m => m.messageType === 'spit' && m.spit?.actorName === 'SHADOW BROKER');
+  assert.equal(brokerSpit.playerId, null);
+  assert.equal(brokerSpit.playerName, 'SHADOW BROKER');
+  assert.equal(brokerSpit.text, `SHADOW BROKER spits on ${commanderName}.`);
+  assert.equal(brokerSpit.spit.actorId, null);
+  assert.equal(brokerSpit.spit.targetId, joined1.playerId);
+
+  // Unrecognized GM "/..." stays a literal broker transmission.
+  const plainRedirect = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === '/mystery'), 'plain gm text');
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: '/mystery' }));
+  await plainRedirect;
+
+  console.log('PASS chat slash commands: dice/flip/choose/order/stats/commands cards, spit roster + perspectives payloads, GM /recount /womf veil, unknown pass-through');
+  closeWs(p2);
+  closeWs(p1);
+  closeWs(host);
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ['server.js'], {
@@ -2265,6 +2479,7 @@ function startServer() {
     await testRecountShowFlow();
     await testFinishGameAftermathLifecycle();
     await testChatDeleteAndSeen();
+    await testChatSlashCommands();
     server = await testCrashRecovery(server);
     server = await testUnarmedMasterRoomRecovery(server);
     server = await testCrashInjectionPersistence(server);

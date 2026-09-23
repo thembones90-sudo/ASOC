@@ -17,6 +17,7 @@ const matchLedger = require('./match-ledger');
 const matchStore = require('./match-store');
 const recountEngine = require('./recount-engine');
 const tweakStore = require('./tweak-store');
+const unstableConcoction = require('./unstable-concoction');
 // TWEAKS production sync marker: feedback subsystem is part of the live server build.
 // TWEAKS player HUD visibility sync.
 // TWEAKS emergency button sync marker.
@@ -315,6 +316,7 @@ function serializeRoomForRecovery(room) {
     wheel: room.wheel,
     bloodTributes: room.bloodTributes || [],
     pendingTribute: room.pendingTribute || null,
+    unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
     timer: room.timer,
     pendingReveals: room.pendingReveals || {},
     solutionCountdowns: room.solutionCountdowns || {},
@@ -419,6 +421,7 @@ function restoreActiveRooms() {
         },
         bloodTributes: Array.isArray(saved.bloodTributes) ? saved.bloodTributes : [],
         pendingTribute: saved.pendingTribute || null,
+        unstableConcoction: unstableConcoction.normalizeState(saved.unstableConcoction),
         timer: saved.timer || null,
         pendingReveals: saved.pendingReveals || {},
         solutionCountdowns: saved.solutionCountdowns || {},
@@ -442,6 +445,7 @@ function restoreActiveRooms() {
           chatMessage.boardId = room.armed === true && sentAt >= boardStartedAt ? room.boardId : null;
         }
       }
+      scheduleUnstableConcoctionResolution(room);
       // Every restored player comes back offline, so any presence interval
       // that was open at the moment of the crash ends now.
       matchLedger.closeAllPresence(room.match, Date.now());
@@ -906,6 +910,7 @@ function createRoom(gameId, hostWs) {
     // its publicUntil deadline is still active.
     bloodTributes: [],
     pendingTribute: null,
+    unstableConcoction: unstableConcoction.normalizeState(),
     // TIMER + BORROWED TIME -- server-authoritative, per-board (unlike WOMF's
     // persistent charge, a fresh board gets a fresh, un-started timer -- see
     // resetTimer(), called here and again from resetBoard/switchGame). Never
@@ -1036,6 +1041,7 @@ function getPublicState(room) {
     womf: getWomfPublicState(room),
     wheel: getWheelPublicState(room),
     bloodTribute: getBloodTributePublicState(room),
+    unstableConcoction: unstableConcoction.publicState(room.unstableConcoction),
     timer: getTimerPublicState(room),
     solutionCountdowns: getSolutionCountdownPublicState(room),
     hintClaims: room.hintClaims || {},
@@ -1095,7 +1101,8 @@ function getBloodTributePublicState(room) {
     playerId: tribute.playerId,
     playerName: tribute.playerName,
     requestedAt: tribute.requestedAt,
-    spinToken: tribute.spinToken
+    spinToken: tribute.spinToken,
+    source: tribute.source || 'womf'
   };
 }
 
@@ -1246,11 +1253,16 @@ function armBloodTributeForWheelResult(room) {
     sendToWs(room.hostConnection, { type: 'tribute:unavailable', playerName: winnerName || 'UNKNOWN' });
     return false;
   }
+  return armBloodTributeForPlayer(room, player, room.wheel.spinToken);
+}
+
+function armBloodTributeForPlayer(room, player, spinToken, source = 'womf') {
   room.pendingTribute = {
     id: 'demand-' + crypto.randomBytes(6).toString('hex'),
     playerId: player.id,
     playerName: player.name,
-    spinToken: room.wheel.spinToken,
+    spinToken,
+    source,
     status: 'required',
     requestedAt: Date.now()
   };
@@ -1283,6 +1295,7 @@ function handleBloodTributeSubmit(ws, message) {
     id: 'tribute-' + crypto.randomBytes(8).toString('hex'),
     playerId: demand.playerId,
     playerName: demand.playerName,
+    source: demand.source || 'womf',
     imageData,
     submittedAt: now,
     publicUntil: now + BLOOD_TRIBUTE_PUBLIC_MS
@@ -1305,8 +1318,10 @@ function handleBloodTributeSubmit(ws, message) {
   });
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages.shift();
   room.pendingTribute = null;
-  room.womf.charge = 0;
-  resetWheel(room);
+  if ((demand.source || 'womf') === 'womf') {
+    room.womf.charge = 0;
+    resetWheel(room);
+  }
   room.revision++;
 
   // The accepted tribute and private vault copy are durable before either
@@ -1365,17 +1380,15 @@ function handleTributeForgive(ws) {
 
   room.pendingTribute = null;
 
-  // Dismissing a result hides the Wheel but deliberately preserves its
-  // segment roster. If the Broker forgives the debt, bring that SAME wheel
-  // back in a clean idle state so the GM can immediately reroll without
-  // rebuilding the participant list or carrying the old winner forward.
-  if (room.wheel && Array.isArray(room.wheel.segments) && room.wheel.segments.length >= WHEEL_MIN_SEGMENTS) {
+  // Only WOMF-origin debt owns the Battle wheel. Casual Concoction debt
+  // must never mutate or resurrect Battle wheel state.
+  if ((demand.source || 'womf') === 'womf' && room.wheel && Array.isArray(room.wheel.segments) && room.wheel.segments.length >= WHEEL_MIN_SEGMENTS) {
     room.wheel.open = true;
     room.wheel.phase = 'idle';
     room.wheel.winnerIndex = null;
     room.wheel.spinToken = null;
     delete room.wheel.settleAt;
-  } else {
+  } else if ((demand.source || 'womf') === 'womf') {
     resetWheel(room);
   }
 
@@ -3750,8 +3763,8 @@ function threefoldWinner(board) {
 
 function handleThreefoldChallenge(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
-  if (!room || room.roomMode !== ROOM_MODES.CASUAL) return sendToWs(ws, { type:'error', message:'THREEFOLD is available only in Amusement Park' });
-  if (!ws.playerId) return sendToWs(ws, { type:'error', message:'THREEFOLD authentication required' });
+  if (!room || room.roomMode !== ROOM_MODES.CASUAL) return sendToWs(ws, { type:'error', message:'IKS OKS is available only in Amusement Park' });
+  if (!ws.playerId) return sendToWs(ws, { type:'error', message:'IKS OKS authentication required' });
   const challenger = threefoldPlayer(room, ws.playerId);
   const opponent = threefoldPlayer(room, message.opponentId);
   if (!challenger || !opponent || String(ws.playerId) === String(message.opponentId)) return sendToWs(ws, { type:'error', message:'Opponent unavailable' });
@@ -3852,6 +3865,108 @@ function handleThreefoldMove(ws, message) {
     broadcastPlayersUpdate(room);
   }
   threefoldSendPair(room, game, { type:'threefold:state', game });
+}
+
+// ---------------------------------------------------------------------
+// UNSTABLE CONCOCTION -- Casual-only, room-global 24 hour roulette.
+// This state is intentionally separate from room.wheel/WOMF.
+// ---------------------------------------------------------------------
+
+function addUnstableConcoctionChatEvent(room, spin, phase) {
+  const outcome = phase === 'resolved' ? spin.outcome : null;
+  const text = phase === 'activated'
+    ? `${spin.playerName} activated UNSTABLE CONCOCTION.`
+    : outcome === '+1 ASOC GAME'
+      ? `${spin.playerName} earned +1 ASOC GAME.`
+      : outcome === 'BLOOD TRIBUTE'
+        ? `${spin.playerName} must pay BLOOD TRIBUTE.`
+        : `${spin.playerName} received FUCK OFF. Attempt failed.`;
+  return buildChatCommandMessage(
+    room,
+    { id: spin.playerId, name: spin.playerName },
+    'unstableConcoction',
+    'unstableConcoction',
+    text,
+    { unstableConcoction: { phase, outcome, playerId: spin.playerId, playerName: spin.playerName } }
+  );
+}
+
+function scheduleUnstableConcoctionResolution(room) {
+  const spin = room?.unstableConcoction?.pendingSpin;
+  if (!spin) return;
+  const delay = Math.max(0, Number(spin.resolvesAt) - Date.now());
+  const timer = setTimeout(() => runtimeAction(() => resolveUnstableConcoction(room.code, spin.token)), delay);
+  timer.unref?.();
+}
+
+function resolveUnstableConcoction(roomCode, spinToken) {
+  const room = rooms.get(String(roomCode || '').toUpperCase());
+  const state = room?.unstableConcoction;
+  const spin = state?.pendingSpin;
+  if (!room || !spin || spin.token !== spinToken) return;
+
+  if (spin.outcome === '+1 ASOC GAME' && !spin.isTestPersona) {
+    playerStore.adjustProfile(
+      { id: spin.playerId, name: spin.playerName },
+      { statDeltas: { asocGamesEarned: 1 } }
+    );
+  } else if (spin.outcome === 'BLOOD TRIBUTE') {
+    armBloodTributeForPlayer(room, { id: spin.playerId, name: spin.playerName }, spin.token, 'unstableConcoction');
+  }
+
+  addUnstableConcoctionChatEvent(room, spin, 'resolved');
+  state.pendingSpin = null;
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+  broadcastToRoom(room, {
+    type: 'unstableConcoction:resolved',
+    spinToken: spin.token,
+    playerId: spin.playerId,
+    playerName: spin.playerName,
+    outcome: spin.outcome,
+    cooldownUntil: state.cooldownUntil
+  });
+  broadcastState(room);
+  broadcastPlayersUpdate(room);
+}
+
+function handleUnstableConcoctionSpin(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || room.roomMode !== ROOM_MODES.CASUAL) {
+    return sendToWs(ws, { type: 'error', message: 'UNSTABLE CONCOCTION is available only in Amusement Park' });
+  }
+  const player = room.players.get(ws);
+  if (room.pendingTribute?.status === 'required') {
+    return sendToWs(ws, { type: 'error', message: `BLOOD TRIBUTE is already owed by ${room.pendingTribute.playerName}` });
+  }
+  if (!ws.playerId || !player || player.connected === false || ws.readyState !== 1) {
+    return sendToWs(ws, { type: 'error', message: 'A connected Little Hero identity is required' });
+  }
+
+  room.unstableConcoction = unstableConcoction.normalizeState(room.unstableConcoction);
+  const started = unstableConcoction.tryStart(room.unstableConcoction, player, room.roomMode);
+  if (!started.accepted) {
+    return sendToWs(ws, {
+      type: 'unstableConcoction:locked',
+      reason: started.reason,
+      cooldownUntil: room.unstableConcoction.cooldownUntil
+    });
+  }
+
+  // Lock, target, and hidden result are durable before acceptance is sent.
+  addUnstableConcoctionChatEvent(room, started.pendingSpin, 'activated');
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+  broadcastState(room);
+  sendToWs(ws, {
+    type: 'unstableConcoction:started',
+    spinToken: started.pendingSpin.token,
+    playerId: started.pendingSpin.playerId,
+    playerName: started.pendingSpin.playerName,
+    resolvesAt: started.pendingSpin.resolvesAt,
+    cooldownUntil: started.cooldownUntil
+  });
+  scheduleUnstableConcoctionResolution(room);
 }
 
 function validChatImageBytes(buffer, contentType) {
@@ -4223,6 +4338,254 @@ function addChatMessage(room, playerId, playerName, text) {
   return { success: true, message };
 }
 
+// SLASH COMMANDS -- parsed SERVER-SIDE before adjudication with the same
+// contract as /roll: a command can never become a guess, always carries a
+// non-null `source` (adjudicable stays false), and unknown "/..." text simply
+// falls through as plain speech. Payloads are server-built only; clients
+// render them as system cards and resolve the /spit perspective locally from
+// actorId/targetId. The neutral `text` is the broker/recovery fallback line.
+const CHAT_SLASH_COMMANDS = [
+  { name: '/roll', help: '/roll [min] max -- random roll (default 1-100)' },
+  { name: '/dice', help: '/dice 2d6 -- roll N dice with M faces, optional +K' },
+  { name: '/flip', help: '/flip [heads|tails] -- coin flip' },
+  { name: '/choose', help: '/choose A | B | C -- pick one option at random' },
+  { name: '/order', help: '/order -- shuffled turn order of connected players' },
+  { name: '/stats', help: '/stats -- your messages, correct/wrong, points' },
+  { name: '/spit', help: '/spit @Name -- target a player from the roster list' },
+  { name: '/commands', help: '/commands -- this list' }
+];
+
+const GM_CHAT_SLASH_COMMANDS = [
+  { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
+  { name: '/womf', help: 'WOMF charge, failed columns and wheel status' },
+  { name: '/spit', help: '/spit @Name -- the Broker spits too' },
+  { name: '/commands', help: 'This list' }
+];
+
+function pushChatMessage(room, message) {
+  attachChatReceipts(room, message);
+  room.chat.messages.push(message);
+  if (room.chat.messages.length > CHAT_HISTORY_LIMIT) {
+    room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
+  }
+  return { success: true, message };
+}
+
+// author.id is null for the Shadow Broker, so the same builders serve both
+// surfaces. Commands are board-null by contract: social telemetry can never
+// be adjudicated, even in a live battle.
+function buildChatCommandMessage(room, author, messageType, source, text, payload) {
+  const isBroker = author.id === null || author.id === undefined;
+  const liveIdentity = isBroker
+    ? null
+    : Array.from(room.players.values()).find(player => player.id === author.id) || {};
+  const message = {
+    id: generateMessageId(),
+    playerId: isBroker ? null : author.id,
+    playerName: isBroker ? 'SHADOW BROKER' : author.name,
+    avatarData: liveIdentity?.avatarData || '',
+    frameColor: liveIdentity?.frameColor || '#9B5DE0',
+    themeId: liveIdentity?.themeId || 'gunmetal',
+    themeColor: liveIdentity?.themeColor || '#343A42',
+    text: sanitizeText(text),
+    timestamp: Date.now(),
+    messageType,
+    source,
+    ...payload,
+    boardId: null,
+    verdict: null,
+    target: null,
+    verdictResponse: null,
+    reactions: {}
+  };
+  return pushChatMessage(room, message);
+}
+
+// /spit target resolution: prefer the picker-supplied connected playerId,
+// fall back to an exact-then-fuzzy match on the typed "@Name" token. The
+// actor can never target themselves.
+function resolveSpitTarget(room, actorId, targetPlayerId, rawTarget) {
+  const connected = Array.from(room.players.values())
+    .filter(player => player.connected !== false && String(player.name || '').trim());
+  const selfId = actorId === null || actorId === undefined ? '' : String(actorId);
+  if (typeof targetPlayerId === 'string' && targetPlayerId) {
+    const target = connected.find(player => String(player.id) === targetPlayerId);
+    if (!target) return { error: 'SPIT TARGET MUST BE A CONNECTED PLAYER' };
+    if (String(target.id) === selfId) return { error: 'SPIT TARGET MUST BE ANOTHER PLAYER' };
+    return { target };
+  }
+  const needle = String(rawTarget || '').trim().replace(/^@/, '').toLocaleLowerCase();
+  if (!needle) return { error: 'SPIT TARGET REQUIRED // PICK A PLAYER FROM THE LIST' };
+  const target = connected.find(player => String(player.name).toLocaleLowerCase() === needle && String(player.id) !== selfId)
+    || connected.find(player => String(player.name).toLocaleLowerCase().includes(needle) && String(player.id) !== selfId);
+  if (!target) return { error: 'SPIT TARGET NOT FOUND // PICK A PLAYER FROM THE LIST' };
+  return { target };
+}
+
+function handleDiceCommand(room, author, raw) {
+  const match = raw.match(/^\/dice\s+(\d{1,2})d(\d{1,4})(?:\s*\+\s*(\d{1,4}))?\s*$/i);
+  if (!match) return { success: false, error: 'DICE INVALID // USE /dice 2d6 OR /dice 1d20+3' };
+  const count = Number(match[1]);
+  const sides = Number(match[2]);
+  const bonus = match[3] !== undefined ? Number(match[3]) : 0;
+  if (count < 1 || count > 10 || sides < 2 || sides > 1000) {
+    return { success: false, error: 'DICE RANGE INVALID // 1-10 DICE, 2-1000 FACES' };
+  }
+  if (bonus > 9999) return { success: false, error: 'DICE BONUS INVALID // 0-9999' };
+  const rolls = Array.from({ length: count }, () => crypto.randomInt(1, sides + 1));
+  const total = rolls.reduce((sum, value) => sum + value, 0) + bonus;
+  const diceText = `${count}d${sides}${bonus ? `+${bonus}` : ''}`;
+  return buildChatCommandMessage(room, author, 'dice', 'dice',
+    `${author.name} casts ${diceText} → ${total}`,
+    { dice: { diceText, rolls, bonus, count, sides, total } });
+}
+
+function handleFlipCommand(room, author, raw) {
+  const match = raw.match(/^\/flip(?:\s+(heads|tails))?\s*$/i);
+  if (!match) return { success: false, error: 'FLIP INVALID // USE /flip OR /flip HEADS|TAILS' };
+  const call = match[1] ? match[1].toLowerCase() : null;
+  const result = crypto.randomInt(0, 2) === 0 ? 'heads' : 'tails';
+  const suffix = call ? ` calls ${call.toUpperCase()} &` : '';
+  return buildChatCommandMessage(room, author, 'flip', 'flip',
+    `${author.name}${suffix} flips → ${result.toUpperCase()}`,
+    { flip: { call, result, matched: call ? call === result : null } });
+}
+
+function handleChooseCommand(room, author, raw) {
+  const body = raw.replace(/^\/choose\s+/i, '');
+  const options = body.split('|')
+    .map(option => sanitizeText(option).trim().slice(0, 60))
+    .filter(Boolean);
+  if (options.length < 2 || options.length > 10) {
+    return { success: false, error: 'CHOOSE INVALID // USE /choose A | B (2-10 OPTIONS)' };
+  }
+  const index = crypto.randomInt(0, options.length);
+  return buildChatCommandMessage(room, author, 'choose', 'choose',
+    `${author.name} chooses → ${options[index]}`,
+    { choose: { options, index, pick: options[index] } });
+}
+
+function handleOrderCommand(room, author, raw) {
+  if (!/^\/order\s*$/i.test(raw)) return { success: false, error: 'ORDER INVALID // USE /order' };
+  const players = Array.from(room.players.values())
+    .filter(player => player.connected !== false && String(player.name || '').trim())
+    .map(player => String(player.name).trim());
+  if (players.length < 2) {
+    return { success: false, error: 'TURN ORDER NEEDS AT LEAST TWO CONNECTED PLAYERS' };
+  }
+  for (let i = players.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [players[i], players[j]] = [players[j], players[i]];
+  }
+  return buildChatCommandMessage(room, author, 'order', 'order',
+    `TURN ORDER → ${players.join(' · ')}`,
+    { order: { order: players } });
+}
+
+function handleStatsCommand(room, author, raw) {
+  if (!/^\/stats\s*$/i.test(raw)) return { success: false, error: 'STATS INVALID // USE /stats' };
+  const playerId = String(author.id || '');
+  const messages = room.chat.messages.filter(entry => String(entry.playerId || '') === playerId).length;
+  const attempts = ensureMatchLedger(room).attempts || [];
+  const mine = attempts.filter(attempt => String(attempt.playerId || '') === playerId);
+  const correct = mine.filter(attempt => attempt.verdict === 'correct').length;
+  const failed = mine.filter(attempt => attempt.verdict === 'wrong').length;
+  const byPlayer = matchLedger.matchPointsByPlayer(room.scoring.events, room.boardId);
+  const entry = Object.values(byPlayer).find(value => String(value.playerId) === playerId);
+  const points = Number(entry?.points) || 0;
+  const stats = { messages, correct, failed, points };
+  return buildChatCommandMessage(room, author, 'stats', 'stats',
+    `${author.name} consults the book → ${messages} msgs · ${correct} correct · ${failed} wrong · ${points} pts`,
+    { stats });
+}
+
+function handleCommandsCommand(room, author, raw, registry) {
+  if (!/^\/commands\s*$/i.test(raw)) return { success: false, error: 'COMMANDS INVALID // USE /commands' };
+  const commands = registry.map(entry => ({ name: entry.name, help: entry.help }));
+  return buildChatCommandMessage(room, author, 'commands', 'commands',
+    `COMMANDS → ${commands.map(entry => entry.name).join(' ')}`,
+    { commands: { commands } });
+}
+
+function handleSpitCommand(room, author, raw, targetPlayerId) {
+  const match = raw.match(/^\/spit(?:\s+@?(.*))?\s*$/i);
+  if (!match) return { success: false, error: 'SPIT INVALID // USE /spit' };
+  const resolved = resolveSpitTarget(room, author.id, targetPlayerId, match[1] || '');
+  if (resolved.error) return { success: false, error: resolved.error };
+  const target = resolved.target;
+  return buildChatCommandMessage(room, author, 'spit', 'spit',
+    `${author.name} spits on ${target.name}.`,
+    { spit: { actorId: author.id ?? null, actorName: author.name, targetId: String(target.id), targetName: target.name } });
+}
+
+// Returns null for non-commands (call through to addChatMessage as plain
+// speech), otherwise the command result the caller must honor.
+function dispatchPlayerSlashCommand(room, ws, text, message) {
+  const raw = String(text || '').trim();
+  if (!raw.startsWith('/')) return null;
+  const author = { id: ws.playerId, name: ws.playerName };
+
+  if (/^\/roll\b/i.test(raw)) {
+    const range = parseRollCommand(raw);
+    if (!range) return { success: false, error: 'ROLL RANGE INVALID // USE /roll, /roll 20, OR /roll 50 100' };
+    if (range.error) return { success: false, error: range.error };
+    return addRollMessage(room, ws.playerId, ws.playerName, range);
+  }
+  if (/^\/dice\b/i.test(raw)) return handleDiceCommand(room, author, raw);
+  if (/^\/flip\b/i.test(raw)) return handleFlipCommand(room, author, raw);
+  if (/^\/choose\b/i.test(raw)) return handleChooseCommand(room, author, raw);
+  if (/^\/order\b/i.test(raw)) return handleOrderCommand(room, author, raw);
+  if (/^\/stats\b/i.test(raw)) return handleStatsCommand(room, author, raw);
+  if (/^\/commands\b/i.test(raw)) return handleCommandsCommand(room, author, raw, CHAT_SLASH_COMMANDS);
+  if (/^\/spit\b/i.test(raw)) {
+    const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
+    return handleSpitCommand(room, author, raw, targetPlayerId);
+  }
+  return null;
+}
+
+// WOMF/WHEEL status line for the GM's /womf diagnostic transmission.
+function buildWomfStatusText(room) {
+  const charge = Math.min(10, Math.max(0, Number(room.womf?.charge) || 0));
+  const failedColumns = Object.keys(room.womf?.failedColumns || {}).sort();
+  const wheel = room.wheel || {};
+  const segments = Array.isArray(wheel.segments) ? wheel.segments : [];
+  let wheelText = 'CLOSED';
+  if (wheel.open && wheel.phase === 'spinning') wheelText = 'SPINNING';
+  else if (wheel.open && wheel.phase === 'result') wheelText = `RESULT → ${segments[Number(wheel.winnerIndex)] ?? '—'}`;
+  else if (wheel.open) wheelText = `OPEN (${segments.length} SEGMENTS)`;
+  return `WOMF CHARGE → ${charge}/10 // FAILED COLUMNS → ${failedColumns.length ? failedColumns.join(' ') : 'NONE'} // WHEEL → ${wheelText}`;
+}
+
+// GM operational verbs. Returns null for everything else (including unknown
+// "/..." text, which stays a literal Shadow Broker transmission).
+function dispatchGmSlashCommand(room, ws, text) {
+  const raw = String(text || '').trim();
+  if (!raw.startsWith('/')) return null;
+  const author = { id: null, name: 'SHADOW BROKER' };
+
+  if (/^\/recount\b/i.test(raw)) {
+    if (!/^\/recount\s*$/i.test(raw)) return { success: false, error: 'RECOUNT INVALID // USE /recount' };
+    // Eligibility errors go straight to the host from inside; no chat message.
+    handleGmShowRecount(ws);
+    return { success: true, broadcast: false };
+  }
+  if (/^\/womf\b/i.test(raw)) {
+    if (!/^\/womf\s*$/i.test(raw)) return { success: false, error: 'WOMF INVALID // USE /womf' };
+    const result = addShadowBrokerMessage(room, buildWomfStatusText(room), { editableByHost: true });
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  if (/^\/commands\b/i.test(raw)) {
+    const result = handleCommandsCommand(room, author, raw, GM_CHAT_SLASH_COMMANDS);
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  if (/^\/spit\b/i.test(raw)) {
+    const result = handleSpitCommand(room, author, raw, '');
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  return null;
+}
+
 // SHADOW BROKER -- presentation-layer identity feature. This is the ONLY
 // host-authored, freestanding broadcast message type. It still runs through
 // sanitizeText and the normal history trim, but it intentionally has NO
@@ -4377,6 +4740,83 @@ function handleChatSeen(ws, message) {
   broadcastChatUpdate(room);
 }
 
+// COMMAND PAYLOADS -- whitelisted, server-built metadata for the system
+// render cards (dice / flip / choose / order / stats / commands / spit) and
+// the /roll card. Absent keys stay absent, so legacy plain messages and
+// tombstones are untouched.
+function sanitizeChatCommandMeta(m) {
+  const out = {};
+  if (m.messageType === 'roll' && m.roll && typeof m.roll === 'object') {
+    out.roll = {
+      value: Number(m.roll.value) || 0,
+      min: Number(m.roll.min) || 1,
+      max: Number(m.roll.max) || 100
+    };
+  } else if (m.messageType === 'dice' && m.dice && typeof m.dice === 'object') {
+    out.dice = {
+      diceText: sanitizeText(String(m.dice.diceText || '')).slice(0, 24),
+      rolls: (Array.isArray(m.dice.rolls) ? m.dice.rolls : []).slice(0, 12).map(value => Number(value) || 0),
+      bonus: Number(m.dice.bonus) || 0,
+      count: Number(m.dice.count) || 0,
+      sides: Number(m.dice.sides) || 0,
+      total: Number(m.dice.total) || 0
+    };
+  } else if (m.messageType === 'flip' && m.flip && typeof m.flip === 'object') {
+    const call = m.flip.call === 'heads' || m.flip.call === 'tails' ? m.flip.call : null;
+    const result = m.flip.result === 'heads' || m.flip.result === 'tails' ? m.flip.result : null;
+    out.flip = { call, result, matched: call && result ? call === result : null };
+  } else if (m.messageType === 'choose' && m.choose && typeof m.choose === 'object') {
+    const options = (Array.isArray(m.choose.options) ? m.choose.options : [])
+      .map(option => sanitizeText(String(option || '')).trim().slice(0, 60))
+      .filter(Boolean)
+      .slice(0, 10);
+    out.choose = {
+      options,
+      index: Number.isInteger(m.choose.index) ? m.choose.index : 0,
+      pick: sanitizeText(String(m.choose.pick || '')).trim().slice(0, 60)
+    };
+  } else if (m.messageType === 'order' && m.order && typeof m.order === 'object') {
+    out.order = {
+      order: (Array.isArray(m.order.order) ? m.order.order : [])
+        .map(name => sanitizeText(String(name || '')).trim().slice(0, 40))
+        .filter(Boolean)
+        .slice(0, 60)
+    };
+  } else if (m.messageType === 'stats' && m.stats && typeof m.stats === 'object') {
+    out.stats = {
+      messages: Math.max(0, Number(m.stats.messages) || 0),
+      correct: Math.max(0, Number(m.stats.correct) || 0),
+      failed: Math.max(0, Number(m.stats.failed) || 0),
+      points: Math.max(0, Number(m.stats.points) || 0)
+    };
+  } else if (m.messageType === 'commands' && m.commands && typeof m.commands === 'object') {
+    out.commands = {
+      commands: (Array.isArray(m.commands.commands) ? m.commands.commands : []).slice(0, 20).map(entry => ({
+        name: String(entry?.name || '').slice(0, 24),
+        help: sanitizeText(String(entry?.help || '')).slice(0, 140)
+      }))
+    };
+  } else if (m.messageType === 'spit' && m.spit && typeof m.spit === 'object') {
+    out.spit = {
+      actorId: m.spit.actorId === null || m.spit.actorId === undefined || m.spit.actorId === '' ? null : String(m.spit.actorId).slice(0, 64),
+      actorName: sanitizeText(String(m.spit.actorName || '')).slice(0, 40),
+      targetId: String(m.spit.targetId || '').slice(0, 64),
+      targetName: sanitizeText(String(m.spit.targetName || '')).slice(0, 40)
+    };
+  } else if (m.messageType === 'unstableConcoction' && m.unstableConcoction && typeof m.unstableConcoction === 'object') {
+    const phase = m.unstableConcoction.phase === 'resolved' ? 'resolved' : 'activated';
+    out.unstableConcoction = {
+      phase,
+      outcome: unstableConcoction.OUTCOMES.includes(m.unstableConcoction.outcome)
+        ? m.unstableConcoction.outcome
+        : null,
+      playerId: String(m.unstableConcoction.playerId || '').slice(0, 64),
+      playerName: sanitizeText(String(m.unstableConcoction.playerName || '')).slice(0, 40)
+    };
+  }
+  return out;
+}
+
 function getChatState(room) {
   const now = Date.now();
   const tributeById = new Map((room.bloodTributes || []).map(t => [t.id, t]));
@@ -4426,11 +4866,15 @@ function getChatState(room) {
           source: m.source || null,
           imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
           messageType: m.messageType || null,
+<<<<<<< HEAD
           roll: m.messageType === 'roll' && m.roll ? {
             value: Number(m.roll.value),
             min: Number(m.roll.min),
             max: Number(m.roll.max)
           } : undefined,
+=======
+          ...sanitizeChatCommandMeta(m),
+>>>>>>> e32bff1 (Add Casual mini games and Unstable Concoction)
           gif: m.messageType === 'gifRemote' && m.gif ? {
             provider: m.gif.provider === 'giphy' ? 'giphy' : undefined,
             providerId: String(m.gif.providerId || '').slice(0, 120),
@@ -4746,7 +5190,8 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       threefoldPlayed: Number(profile.threefoldPlayed) || 0,
       threefoldWins: Number(profile.threefoldWins) || 0,
       threefoldLosses: Number(profile.threefoldLosses) || 0,
-      threefoldDraws: Number(profile.threefoldDraws) || 0
+      threefoldDraws: Number(profile.threefoldDraws) || 0,
+      asocGamesEarned: Number(profile.asocGamesEarned) || 0
     });
   });
   return players;
@@ -5003,10 +5448,9 @@ function handleChatGuess(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Battle Comms cooling down' });
     return;
   }
-
-  const rollRange = parseRollCommand(text);
-  const result = rollRange
-    ? (rollRange.error ? { success: false, error: rollRange.error } : addRollMessage(room, ws.playerId, ws.playerName, rollRange))
+  const dispatch = dispatchPlayerSlashCommand(room, ws, text, message);
+  const result = dispatch !== null
+    ? dispatch
     : addChatMessage(room, ws.playerId, ws.playerName, text);
   if (result.success) {
     cooldown.chatAt = now;
@@ -5165,6 +5609,7 @@ function handleGmBroadcast(ws, message) {
     return;
   }
 
+<<<<<<< HEAD
   const requestedRoll = parseRollCommand(text);
   if (requestedRoll) {
     if (requestedRoll.error) {
@@ -5179,6 +5624,17 @@ function handleGmBroadcast(ws, message) {
     const rollResult = addRollMessage(room, null, 'SHADOW BROKER', gmRange, { isGm: true });
     persistActiveRooms();
     broadcastChatUpdate(room);
+=======
+  // GM operational verbs (/recount /womf /commands /spit) run server-side and
+  // are never broadcast as literal text.
+  const dispatch = dispatchGmSlashCommand(room, ws, text);
+  if (dispatch) {
+    if (dispatch.error) sendToWs(ws, { type: 'error', message: dispatch.error });
+    if (dispatch.broadcast && dispatch.success) {
+      persistActiveRooms();
+      broadcastChatUpdate(room);
+    }
+>>>>>>> e32bff1 (Add Casual mini games and Unstable Concoction)
     return;
   }
 
@@ -6810,6 +7266,10 @@ wss.on('connection', (ws) => {
         }
         case 'threefold:move': {
           handleThreefoldMove(ws, message);
+          break;
+        }
+        case 'unstableConcoction:spin': {
+          handleUnstableConcoctionSpin(ws);
           break;
         }
         case 'tribute:submit': {

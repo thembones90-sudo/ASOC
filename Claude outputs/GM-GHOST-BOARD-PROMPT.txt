@@ -1,0 +1,28 @@
+You are implementing one narrowly scoped ASOC Engine GM UX improvement in the existing repo at A:\ASOC ENGINE.
+
+USER REQUIREMENT:
+When the GM loads/imports a new game from the Excel board, the GM must immediately be able to see ALL puzzle words on the GM board, including A1-A5, B1-B5, C1-C5, D1-D5, and FINAL, even before any are publicly revealed. Unrevealed words on the GM board must appear as clearly faded/ghosted text. Once a clue is actually revealed/opened for players, that same word becomes normal/full visibility on the GM board. Existing solved/failed/adjudication styling should continue to take precedence after resolution.
+
+ABSOLUTE SECURITY / BEHAVIOR RULE:
+THIS IS GM-SIDE ONLY. Players must NOT see ghosted/unrevealed words. Do not merely hide unrevealed answers with CSS in the player DOM if the current architecture can avoid it. Preserve the current player behavior: player/public board gets only revealed/public content. Do not leak A5-D5 or FINAL to the player client/DOM/network payload unnecessarily.
+
+DESIGN INTENT:
+- GM unrevealed normal clue: visible at roughly 25-30% opacity.
+- GM unrevealed A5-D5 and FINAL may be slightly stronger, around 35%, because they are answers the GM needs to reference quickly.
+- Revealed/opened cells: current normal full visibility.
+- Resolved success/fail/final outcome: retain existing current styling.
+- No extra panel, labels, tooltip clutter, answer sheet, toggle, or new controls. The board itself is the answer sheet.
+- This should become the default GM behavior after game load/import.
+
+IMPLEMENTATION CONSTRAINTS:
+1. Inspect the current board rendering/state flow before editing. Identify the actual GM board rendering path and player/public rendering path.
+2. Keep the change minimal and isolated.
+3. Do NOT alter unrelated chat, poll, tweaks, backdoor, theme, scoring, timer, import format, or multiplayer logic.
+4. The working tree already contains unrelated local modifications. DO NOT overwrite, revert, stage, commit, or reformat unrelated changes.
+5. Do not commit or push. Implement and test locally only.
+6. Preserve existing game data/import semantics and current reveal/adjudication logic.
+7. Add a concise CSS class/state if useful, rather than duplicating large rendering code.
+8. Verify syntax and run the most relevant existing tests/checks you can without mutating unrelated state.
+9. At the end, report exactly which files/lines/functions you changed, how player-side secrecy is preserved, and what checks you ran.
+
+Before editing, inspect git status and the relevant source files. Then implement this feature.

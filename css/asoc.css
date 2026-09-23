@@ -16968,6 +16968,39 @@ button.gm-chat-gif-link:focus-visible {
   .asoc-roll-entry { width:100%; gap:5px; padding:8px 10px; }
 }
 
+/* ASOC SLASH COMMAND SYSTEM CARDS -- dice / flip / choose / order / stats /
+   commands / spit. Server-authoritative command outputs share the /roll card
+   scale so the feed reads uniformly. /spit tints differently so a taunt never
+   gets mistaken for a system roll. */
+.chat-system-card {
+  --sys-accent: #f2a33c;
+  display:flex; flex-direction:column; gap:3px;
+  width:min(100%,430px);
+  margin:7px auto;
+  padding:8px 12px;
+  border:1px solid color-mix(in srgb,var(--sys-accent) 55%,#343a42);
+  border-left:3px solid var(--sys-accent);
+  border-radius:6px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--sys-accent) 14%,#0d1116),color-mix(in srgb,var(--sys-accent) 22%,#11161c));
+  box-shadow:inset 0 0 18px color-mix(in srgb,var(--sys-accent) 10%,transparent),0 0 8px color-mix(in srgb,var(--sys-accent) 14%,transparent);
+  font-family:var(--font-system);
+  text-align:center;
+}
+.chat-system-label { color:var(--sys-accent); font-size:.6rem; font-weight:900; letter-spacing:.22em; text-transform:uppercase; }
+.chat-system-body { color:#e8ebee; font-size:.78rem; font-weight:700; letter-spacing:.02em; line-height:1.35; }
+.chat-system-body b { color:var(--sys-accent); font-weight:950; }
+.chat-system-detail { color:#9aa3ad; font-size:.64rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-top:2px; }
+.chat-system-ok { color:#5ee08a; }
+.chat-system-ko { color:#ff7b72; }
+.chat-system-spit { --sys-accent:#b477ff; }
+.chat-system-spit .chat-system-body { font-style:italic; }
+.chat-system-command { display:flex; gap:8px; justify-content:center; text-align:left; }
+.chat-system-command code { color:var(--sys-accent); font-weight:900; white-space:nowrap; }
+.chat-system-command span { color:#aab1b9; font-size:.66rem; font-weight:600; }
+@media (max-width:560px) {
+  .chat-system-card { width:100%; }
+}
+
 /* CASUAL COMMAND RAIL BOTTOM LOCK
    Keep utility/account controls immediately below GM commands. The former
    auto margin created a viewport-sized dead zone and clipped open menus. */
@@ -17096,3 +17129,336 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
 .chat-seen-name.seen { color:#9fd69f; }
 .chat-seen-name.unseen { color:#a49577; }
 .chat-seen-name.muted { color:#6f7785; font-style:italic; }
+
+/* CASUAL MINI GAMES DOCK // standalone Amusement Park launcher */
+#game-screen .casual-minigames-dock { display:none; }
+#game-screen.room-mode-casual .casual-minigames-dock {
+  display:block;
+  position:fixed;
+  z-index:120;
+  left:max(8px, calc(50vw - 710px));
+  top:44px;
+}
+#game-screen .casual-minigames-toggle {
+  width:92px;
+  height:112px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:10px 8px;
+  border:1px solid rgba(123,137,153,.42);
+  border-radius:12px;
+  background:
+    linear-gradient(180deg,rgba(21,28,35,.96),rgba(9,12,16,.98));
+  color:#cfd5dc;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.04),
+    0 12px 30px rgba(0,0,0,.35);
+  cursor:pointer;
+  transition:border-color .14s ease,transform .14s ease,box-shadow .14s ease,background .14s ease;
+}
+#game-screen .casual-minigames-toggle:hover,
+#game-screen .casual-minigames-toggle[aria-expanded="true"] {
+  transform:translateY(-1px);
+  border-color:rgba(155,93,224,.72);
+  background:linear-gradient(180deg,rgba(29,25,40,.98),rgba(12,11,18,.99));
+  box-shadow:inset 0 1px rgba(255,255,255,.05),0 0 20px rgba(155,93,224,.16),0 14px 34px rgba(0,0,0,.42);
+}
+#game-screen .casual-minigames-emblem {
+  width:42px;
+  height:42px;
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  grid-template-rows:repeat(2,1fr);
+  gap:4px;
+  padding:5px;
+  border:1px solid rgba(82,170,226,.32);
+  border-radius:10px;
+  background:rgba(33,83,120,.18);
+  box-shadow:inset 0 0 16px rgba(82,170,226,.08);
+}
+#game-screen .casual-minigames-emblem i {
+  border-radius:3px;
+  background:linear-gradient(135deg,#59b4e7,#7659cc);
+  opacity:.9;
+  box-shadow:0 0 7px rgba(89,180,231,.18);
+}
+#game-screen .casual-minigames-label {
+  text-align:center;
+  color:#dce1e7;
+  font:800 10px/1.22 var(--font-machine);
+  letter-spacing:1.5px;
+}
+#game-screen .casual-minigames-menu[hidden] { display:none !important; }
+#game-screen .casual-minigames-menu {
+  position:absolute;
+  left:102px;
+  top:0;
+  width:310px;
+  padding:10px;
+  border:1px solid rgba(116,126,139,.46);
+  border-radius:12px;
+  background:linear-gradient(180deg,rgba(20,25,31,.99),rgba(8,10,14,.99));
+  box-shadow:0 20px 50px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.035);
+}
+#game-screen .casual-minigames-head {
+  padding:4px 6px 10px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+#game-screen .casual-minigames-head b {
+  display:block;
+  color:#d9dfe6;
+  font:800 12px var(--font-machine);
+  letter-spacing:1.2px;
+}
+#game-screen .casual-minigames-head small {
+  display:block;
+  margin-top:3px;
+  color:#707985;
+  font:700 8px var(--font-machine);
+  letter-spacing:1px;
+}
+#game-screen .casual-minigame-card {
+  width:100%;
+  display:grid;
+  grid-template-columns:40px 1fr auto;
+  align-items:center;
+  gap:10px;
+  margin-top:8px;
+  padding:9px;
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:9px;
+  background:rgba(255,255,255,.025);
+  color:#e7e9ec;
+  text-align:left;
+  cursor:pointer;
+}
+#game-screen .casual-minigame-card:hover:not(:disabled) {
+  border-color:rgba(155,93,224,.55);
+  background:rgba(155,93,224,.08);
+}
+#game-screen .casual-minigame-card > span:nth-child(2) { display:grid; gap:2px; }
+#game-screen .casual-minigame-card b { font:800 11px var(--font-machine); letter-spacing:.5px; }
+#game-screen .casual-minigame-card small { color:#7e8792; font:700 9px var(--font-machine); }
+#game-screen .casual-minigame-card i {
+  color:#9ba3ad;
+  font:800 8px var(--font-machine);
+  font-style:normal;
+  letter-spacing:1px;
+}
+#game-screen .casual-minigame-icon {
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border-radius:9px;
+  background:rgba(46,112,158,.22);
+  color:#65b8e9;
+  font:900 11px var(--font-machine);
+}
+#game-screen .unstable-concoction-card {
+  opacity:.58;
+  cursor:default;
+}
+#game-screen .unstable-concoction-card .unstable-icon {
+  background:rgba(119,72,145,.20);
+  color:#b879dd;
+  font-size:17px;
+}
+@media (max-width:1380px) {
+  #game-screen.room-mode-casual .casual-minigames-dock {
+    left:8px;
+    top:10px;
+  }
+  #game-screen .casual-minigames-toggle {
+    width:76px;
+    height:86px;
+  }
+}
+@media (max-width:760px) {
+  #game-screen.room-mode-casual .casual-minigames-dock {
+    position:absolute;
+    left:10px;
+    top:10px;
+  }
+  #game-screen .casual-minigames-toggle {
+    width:58px;
+    height:58px;
+    padding:6px;
+  }
+  #game-screen .casual-minigames-emblem { width:30px; height:30px; }
+  #game-screen .casual-minigames-label { display:none; }
+  #game-screen .casual-minigames-menu {
+    left:66px;
+    width:min(300px,calc(100vw - 86px));
+  }
+}
+
+/* UNSTABLE CONCOCTION // Casual-only roulette */
+#game-screen .unstable-concoction-card {
+  opacity:1;
+  cursor:pointer;
+  border-color:rgba(118,73,145,.22);
+}
+#game-screen .unstable-concoction-card:disabled {
+  opacity:.56;
+  cursor:not-allowed;
+}
+#game-screen .unstable-concoction-card:not(:disabled):hover {
+  border-color:rgba(184,121,221,.62);
+  background:rgba(119,72,145,.10);
+}
+#game-screen .unstable-concoction-panel[hidden] { display:none !important; }
+#game-screen .unstable-concoction-panel {
+  position:fixed;
+  inset:0;
+  z-index:170;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:
+    radial-gradient(circle at 50% 45%,rgba(89,52,111,.22),transparent 32%),
+    rgba(2,4,7,.76);
+  backdrop-filter:blur(6px);
+}
+#game-screen:not(.room-mode-casual) .unstable-concoction-panel { display:none !important; }
+#game-screen .unstable-concoction-shell {
+  position:relative;
+  width:min(390px,92vw);
+  overflow:hidden;
+  padding:20px 18px 18px;
+  border:1px solid rgba(151,101,179,.52);
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 50% 18%,rgba(121,82,151,.18),transparent 42%),
+    linear-gradient(180deg,rgba(20,24,29,.99),rgba(7,9,12,.99));
+  box-shadow:0 24px 80px rgba(0,0,0,.58),inset 0 1px rgba(255,255,255,.04);
+  text-align:center;
+}
+#game-screen .concoction-vapor {
+  position:absolute;
+  inset:-35% -20% auto;
+  height:58%;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 35% 60%,rgba(130,80,160,.16),transparent 25%),
+    radial-gradient(circle at 65% 35%,rgba(70,143,116,.13),transparent 28%);
+  filter:blur(16px);
+  animation:concoction-vapor 3.2s ease-in-out infinite alternate;
+}
+#game-screen .concoction-kicker {
+  position:relative;
+  color:#9a78ad;
+  font:800 9px var(--font-machine);
+  letter-spacing:2px;
+}
+#game-screen .unstable-concoction-shell h2 {
+  position:relative;
+  margin:5px 0 17px;
+  color:#e7e2eb;
+  font:900 17px var(--font-machine);
+  letter-spacing:1.8px;
+}
+#game-screen .concoction-wheel-wrap {
+  position:relative;
+  width:246px;
+  height:246px;
+  margin:0 auto;
+}
+#game-screen .concoction-pointer {
+  position:absolute;
+  z-index:3;
+  left:50%;
+  top:-6px;
+  width:0;
+  height:0;
+  transform:translateX(-50%);
+  border-left:10px solid transparent;
+  border-right:10px solid transparent;
+  border-top:0;
+  border-bottom:21px solid #e7d9ed;
+  filter:drop-shadow(0 0 8px rgba(199,160,219,.45));
+}
+#game-screen .concoction-wheel {
+  position:absolute;
+  inset:8px;
+  border:2px solid rgba(188,157,205,.52);
+  border-radius:50%;
+  background:
+    conic-gradient(
+      from -60deg,
+      rgba(74,139,104,.96) 0deg 120deg,
+      rgba(105,64,132,.98) 120deg 240deg,
+      rgba(139,52,60,.96) 240deg 360deg
+    );
+  box-shadow:
+    0 0 0 8px rgba(27,31,37,.92),
+    0 0 0 9px rgba(121,88,139,.28),
+    0 0 28px rgba(113,73,139,.20),
+    inset 0 0 28px rgba(0,0,0,.34);
+  transition:transform .55s cubic-bezier(.2,.8,.22,1);
+}
+#game-screen .concoction-wheel::after {
+  content:"";
+  position:absolute;
+  inset:50%;
+  width:48px;
+  height:48px;
+  transform:translate(-50%,-50%);
+  border:1px solid rgba(224,213,229,.34);
+  border-radius:50%;
+  background:radial-gradient(circle,#1b2026 0 35%,#0c0f13 68%);
+  box-shadow:0 0 14px rgba(0,0,0,.55);
+}
+#game-screen .concoction-wheel span {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:92px;
+  margin-left:-46px;
+  margin-top:-14px;
+  color:#f3eff5;
+  font:900 10px/1.15 var(--font-machine);
+  letter-spacing:.6px;
+  text-shadow:0 1px 3px rgba(0,0,0,.75);
+}
+#game-screen .concoction-wheel span:nth-child(1) { transform:rotate(0deg) translateY(-72px) rotate(0deg); }
+#game-screen .concoction-wheel span:nth-child(2) { transform:rotate(120deg) translateY(-72px) rotate(-120deg); }
+#game-screen .concoction-wheel span:nth-child(3) { transform:rotate(240deg) translateY(-72px) rotate(-240deg); }
+#game-screen .concoction-wheel.is-spinning {
+  animation:concoction-spin var(--spin-ms,4200ms) cubic-bezier(.12,.72,.12,1) both;
+}
+#game-screen .concoction-wheel[data-result="0"] { transform:rotate(0deg); }
+#game-screen .concoction-wheel[data-result="1"] { transform:rotate(-120deg); }
+#game-screen .concoction-wheel[data-result="2"] { transform:rotate(-240deg); }
+#game-screen .concoction-readout {
+  margin-top:15px;
+  min-height:19px;
+  color:#aa94b6;
+  font:900 11px var(--font-machine);
+  letter-spacing:1.4px;
+}
+#game-screen .concoction-readout[data-outcome="0"] { color:#73c68e; }
+#game-screen .concoction-readout[data-outcome="1"] { color:#c088dd; }
+#game-screen .concoction-readout[data-outcome="2"] { color:#dc7379; }
+.chat-system-unstableConcoction {
+  --sys-accent:#ab78c5;
+  border-color:rgba(155,93,180,.42) !important;
+  background:linear-gradient(90deg,rgba(105,58,128,.13),rgba(12,14,18,.78)) !important;
+}
+.chat-system-unstableConcoction .chat-system-label { color:#bd8ed1 !important; }
+@keyframes concoction-spin {
+  0% { transform:rotate(0deg); filter:brightness(.92); }
+  18% { filter:brightness(1.22); }
+  100% { transform:rotate(1800deg); filter:brightness(1); }
+}
+@keyframes concoction-vapor {
+  from { transform:translate(-2%,2%) scale(.96); opacity:.6; }
+  to { transform:translate(3%,-3%) scale(1.05); opacity:1; }
+}
+@media (max-width:560px) {
+  #game-screen .concoction-wheel-wrap { width:218px; height:218px; }
+  #game-screen .unstable-concoction-shell { padding:17px 12px 15px; }
+}

@@ -61,7 +61,8 @@ function blankProfile(displayName) {
     threefoldPlayed: 0,
     threefoldWins: 0,
     threefoldLosses: 0,
-    threefoldDraws: 0
+    threefoldDraws: 0,
+    asocGamesEarned: 0
   };
 }
 
@@ -79,7 +80,8 @@ const NUMERIC_PROFILE_FIELDS = [
   'threefoldPlayed',
   'threefoldWins',
   'threefoldLosses',
-  'threefoldDraws'
+  'threefoldDraws',
+  'asocGamesEarned'
 ];
 
 function validateAndNormalizePlayers(raw) {

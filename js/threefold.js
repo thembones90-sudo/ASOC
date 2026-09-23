@@ -15,14 +15,35 @@
     },
 
     installLauncher() {
-      const menu = document.getElementById('chat-attachment-menu');
-      if (!menu || document.getElementById('chat-threefold-btn')) return;
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.id = 'chat-threefold-btn';
-      button.className = 'chat-attachment-option threefold-launcher';
-      button.innerHTML = '<span class="chat-attachment-option-icon threefold-icon">3×3</span><span class="chat-attachment-option-copy"><b>THREEFOLD</b><small>Challenge a Little Hero</small></span>';
-      menu.appendChild(button);
+      const toggle = document.getElementById('casual-minigames-toggle');
+      const menu = document.getElementById('casual-minigames-menu');
+      const iksOks = document.getElementById('minigames-iks-oks');
+      if (!toggle || !menu || !iksOks || toggle.dataset.bound === '1') return;
+      toggle.dataset.bound = '1';
+
+      const closeMenu = () => {
+        menu.hidden = true;
+        toggle.setAttribute('aria-expanded', 'false');
+      };
+
+      toggle.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (PlayerApp.roomMode !== 'CASUAL') return;
+        const opening = menu.hidden;
+        menu.hidden = !opening;
+        toggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      });
+
+      iksOks.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenu();
+        this.openChooser();
+      });
+
+      menu.addEventListener('click', event => event.stopPropagation());
+      document.addEventListener('click', closeMenu);
     },
 
     installPanel() {
@@ -34,7 +55,7 @@
       panel.innerHTML = `
         <div class="threefold-shell">
           <div class="threefold-head">
-            <div><b>THREEFOLD</b><small>CASUAL DUEL // 3×3</small></div>
+            <div><b>IKS OKS</b><small>CASUAL DUEL // 3×3</small></div>
             <button type="button" data-threefold="close" aria-label="Close">×</button>
           </div>
           <div id="threefold-content" class="threefold-content"></div>
@@ -119,7 +140,7 @@
       content.innerHTML = `
         <div class="threefold-kicker">DUEL REQUEST</div>
         <div class="threefold-challenge-name">${this.escape(this.challenge.challengerName)}</div>
-        <div class="threefold-challenge-copy">challenges you to THREEFOLD.</div>
+        <div class="threefold-challenge-copy">challenges you to IKS OKS.</div>
         <div class="threefold-actions">
           <button type="button" data-threefold-action="accept">ACCEPT</button>
           <button type="button" data-threefold-action="decline">DECLINE</button>

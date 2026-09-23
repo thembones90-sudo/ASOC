@@ -8519,6 +8519,25 @@ position:absolute;
 
   <div id="game-screen">
     <div id="player-battle-layout" class="player-battle-layout">
+    <div id="casual-minigames-dock" class="casual-minigames-dock">
+      <button type="button" id="casual-minigames-toggle" class="casual-minigames-toggle" aria-expanded="false" aria-controls="casual-minigames-menu">
+        <span class="casual-minigames-emblem" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="casual-minigames-label">MINI<br>GAMES</span>
+      </button>
+      <div id="casual-minigames-menu" class="casual-minigames-menu" hidden>
+        <div class="casual-minigames-head"><b>AMUSEMENT ARCADE</b><small>CASUAL MODE // SIDE GAMES</small></div>
+        <button type="button" id="minigames-iks-oks" class="casual-minigame-card">
+          <span class="casual-minigame-icon">3×3</span>
+          <span><b>IKS OKS</b><small>Challenge an online Little Hero</small></span>
+          <i>PLAY</i>
+        </button>
+        <button type="button" id="minigames-unstable-concoction" class="casual-minigame-card unstable-concoction-card">
+          <span class="casual-minigame-icon unstable-icon">⚗</span>
+          <span><b>UNSTABLE CONCOCTION</b><small>One room-wide dose every 24H</small></span>
+          <i id="unstable-concoction-status">READY</i>
+        </button>
+      </div>
+    </div>
     <div id="board-layer">
       <div id="master-room-standby" class="master-room-standby" hidden>
         <div class="master-room-standby-kicker">MASTER ROOM // CHANNEL OPEN</div>
@@ -9084,8 +9103,14 @@ position:absolute;
   <script src="js/board.js?v=20260921-final-omen-2"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260922-player-global-drop-1"></script>
+<<<<<<< HEAD
   <script src="js/player.js?v=20260923-gm-roll-nice-1"></script>
   <script src="js/threefold.js?v=20260923-threefold-1"></script>
+=======
+  <script src="js/player.js?v=20260923-blood-vault-1"></script>
+  <script src="js/threefold.js?v=20260923-minigames-dock-1"></script>
+  <script src="js/unstable-concoction.js?v=20260923-concoction-2"></script>
+>>>>>>> e32bff1 (Add Casual mini games and Unstable Concoction)
   <script src="js/tweaks.js?v=20260922-casual-header-redesign-2"></script>
 </body>
 </html>

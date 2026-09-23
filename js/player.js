@@ -1273,6 +1273,7 @@ const PlayerApp = {
         this._columnCascadeBaselined = true;
         this.lastPublicState = message;
         this.applyRoomMode(roomMode);
+        window.UnstableConcoction?.updateState?.(battleVisible ? null : message.unstableConcoction);
         if (battleVisible) {
           window.AsocAudio?.syncBoard?.('player', message);
           this.renderBoard(message, previousState);
@@ -1291,7 +1292,8 @@ const PlayerApp = {
         this.applyFinalSolverAura(battleVisible ? (message.finalSolverAura || null) : null, message.serverNow);
         Womf.update('womf-tracker-player', battleVisible ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
         Wheel.update('wheel-overlay', battleVisible ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false);
-        this.updateBloodTributeDemand(battleVisible ? (message.bloodTribute || { status: 'idle' }) : { status: 'idle' });
+        const tributeState = message.bloodTribute || { status: 'idle' };
+        this.updateBloodTributeDemand(battleVisible || tributeState.source === 'unstableConcoction' ? tributeState : { status: 'idle' });
         Timer.update('timer-tracker-player', battleVisible ? (message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }) : { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
         if (battleVisible) this.updateTerminalPhase(message);
         else Recount.apply(null);
@@ -1309,10 +1311,14 @@ const PlayerApp = {
       case 'join:success':
         this.playerId = message.playerId;
         sessionStorage.setItem('asoc_player_id', this.playerId);
+        window.UnstableConcoction?.updateState?.(this.roomMode === 'CASUAL' ? this.lastPublicState?.unstableConcoction : null);
         requestAnimationFrame(() => this._restorePlayerLayoutRatio?.());
         const masterMirror = sessionStorage.getItem('asoc_master_persona') === 'PLAYER_TEST';
         (masterMirror ? sessionStorage : localStorage).setItem('asoc_player_in_master', '1');
-        this.updateBloodTributeDemand(this.lastPublicState?.bloodTribute || { status: 'idle' });
+        {
+          const tributeState = this.lastPublicState?.bloodTribute || { status: 'idle' };
+          this.updateBloodTributeDemand(this.roomMode !== 'CASUAL' || tributeState.source === 'unstableConcoction' ? tributeState : { status: 'idle' });
+        }
         if (message.littleHero) {
           if (message.littleHero.name) {
             this.playerName = String(message.littleHero.name);
@@ -1478,6 +1484,18 @@ const PlayerApp = {
 
       case 'threefold:closed':
         window.Threefold?.onClosed?.(message);
+        break;
+
+      case 'unstableConcoction:started':
+        window.UnstableConcoction?.onStarted?.(message);
+        break;
+
+      case 'unstableConcoction:resolved':
+        window.UnstableConcoction?.onResolved?.(message);
+        break;
+
+      case 'unstableConcoction:locked':
+        window.UnstableConcoction?.onLocked?.(message);
         break;
 
       case 'score:event':
@@ -2130,6 +2148,7 @@ const PlayerApp = {
     const previous = this.roomMode;
     const hadBaseline = this._masterStateBaselined;
     this.roomMode = next;
+    if (next !== 'CASUAL') window.UnstableConcoction?.leaveCasual?.();
     this.masterArmed = next !== 'CASUAL';
     this._masterStateBaselined = true;
     if (hadBaseline) this.playRoomModeTransition(previous, next);
@@ -2853,10 +2872,26 @@ const PlayerApp = {
     return { start: at, end: caret, query };
   },
 
-  getChatMentionCandidates(query = '') {
+  /* /spit targeting reuses the mention-picker machinery. When the composer
+     starts with "/spit " the roster opens; picking a hero inserts "@Name "
+     and records candidate.id so the server resolves the authoritative target
+     (names alone can collide). Self is never a spit target. */
+  getChatSpitContext(input) {
+    if (!input) return null;
+    const caret = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
+    const before = input.value.slice(0, caret);
+    const match = before.match(/^\/spit[ \t]+(@?[^\r\n:]*)$/i);
+    if (!match) return null;
+    const token = String(match[1] || '');
+    return { start: caret - token.length, end: caret, query: token.startsWith('@') ? token.slice(1) : token, spit: true };
+  },
+
+  getChatMentionCandidates(query = '', context = null) {
     const needle = String(query || '').trim().toLocaleLowerCase();
+    const selfId = context?.spit ? String(this.playerId || '') : null;
     return (this.currentPlayers || [])
       .filter(player => player && String(player.name || '').trim())
+      .filter(player => !selfId || String(player.id || '') !== selfId)
       .filter(player => !needle || String(player.name).toLocaleLowerCase().includes(needle))
       .sort((a, b) => {
         const aName = String(a.name).toLocaleLowerCase();
@@ -2892,7 +2927,19 @@ const PlayerApp = {
 
   updateChatMentionPicker(input = document.getElementById('chat-input'), picker = document.getElementById('chat-mention-picker')) {
     if (!input || !picker) return;
-    const context = this.getChatMentionContext(input);
+
+    // /spit is a two-step verb: the instant it is typed fully, nudge the
+    // composer with a trailing space so the roster picker can attach itself.
+    const rawValue = input.value;
+    if (/^\/spit$/i.test(rawValue) && (Number.isInteger(input.selectionStart) ? input.selectionStart : rawValue.length) >= rawValue.length) {
+      input.value = '/spit ';
+      const end = input.value.length;
+      input.focus();
+      input.setSelectionRange(end, end);
+    }
+
+    const spitContext = this.getChatSpitContext(input);
+    const context = spitContext || this.getChatMentionContext(input);
     if (!context) {
       this.closeChatMentionPicker(picker);
       return;
@@ -2901,9 +2948,9 @@ const PlayerApp = {
     // @ always resolves against the authoritative MASTER session roster.
     // Ask the server for a fresh snapshot while mention mode is active so
     // reconnects, renames and restored session participants are targetable.
-    this.refreshChatMentionRoster();
+    if (spitContext) this.refreshChatMentionRoster();
 
-    const candidates = this.getChatMentionCandidates(context.query);
+    const candidates = this.getChatMentionCandidates(context.query, context);
     if (!candidates.length) {
       this._chatMentionContext = context;
       this._chatMentionCandidates = [];
@@ -2947,6 +2994,9 @@ const PlayerApp = {
     const caret = context.start + replacement.length;
     input.focus();
     input.setSelectionRange(caret, caret);
+    if (context.spit && candidate) {
+      this._pendingSpitTarget = { id: String(candidate.id || ''), name: String(candidate.name || '') };
+    }
     this.closeChatMentionPicker(picker);
     return true;
   },
@@ -3729,6 +3779,7 @@ const PlayerApp = {
     if (previewText) previewText.textContent = '';
 
     if (editing) {
+      this._pendingSpitTarget = null;
       this.send({ type: 'chat:edit', messageId: editing.id, text: (editing.prefix || '') + text });
       return;
     }
@@ -3736,7 +3787,20 @@ const PlayerApp = {
     const replyPrefix = reply
       ? `↳ @${reply.name}${reply.excerpt ? ` // ${reply.excerpt}` : ''}: `
       : '';
-    this.send({ type: 'chat:guess', text: reply ? replyPrefix + text : text });
+    const payload = { type: 'chat:guess', text: reply ? replyPrefix + text : text };
+    // /spit rides the picker's resolved playerId so the server never guesses
+    // between duplicate names. Only attached if the typed @Name still matches
+    // the picked hero (or the verb is still bare).
+    const pending = this._pendingSpitTarget;
+    this._pendingSpitTarget = null;
+    if (pending && /^\s*\/spit\b/i.test(text)) {
+      const tokenMatch = text.match(/^\s*\/spit\s+@?([^\r\n@]*)$/i);
+      const typed = tokenMatch ? tokenMatch[1].trim().toLocaleLowerCase() : '';
+      if (!typed || typed === String(pending.name).trim().toLocaleLowerCase()) {
+        payload.targetPlayerId = pending.id;
+      }
+    }
+    this.send(payload);
   },
 
   updateBloodTributeDemand(state) {
@@ -3751,6 +3815,11 @@ const PlayerApp = {
     }
     const player = document.getElementById('blood-tribute-player');
     const status = document.getElementById('blood-tribute-status');
+    const kicker = overlay.querySelector('.blood-tribute-kicker');
+    const heading = overlay.querySelector('h2');
+    const concoctionDebt = this.bloodTribute.source === 'unstableConcoction';
+    if (kicker) kicker.textContent = concoctionDebt ? 'UNSTABLE CONCOCTION // REACTION DEBT' : 'WOMF // DEBT CALLED';
+    if (heading) heading.textContent = concoctionDebt ? 'CONCOCTION DEMANDS BLOOD' : 'BLOOD TRIBUTE DEMANDED';
     if (player) player.textContent = `${this.bloodTribute.playerName || this.playerName || 'LITTLE HERO'} // YOUR DEBT IS DUE`;
     if (status && !this.tributeUploading) status.textContent = 'SELECT AN IMAGE TO PAY THE TRIBUTE';
   },
@@ -4026,6 +4095,91 @@ const PlayerApp = {
     return `<div class="chat-time-separator"><span>${time}</span></div>`;
   },
 
+  /* ASOC SLASH COMMANDS -- server-authoritative system event cards (dice /
+     flip / choose / order / stats / commands / spit). /spit resolves its line
+     per viewer -- "You spit on X." / "X spits on you." / neutral -- from the
+     structured actorId/targetId payload, never from guessable text. */
+  systemSpitLine(msg) {
+    const spit = msg.spit || {};
+    const viewerId = String(this.playerId || '');
+    const actorName = this.escapeHtml(String(spit.actorName || msg.playerName || 'SHADOW BROKER'));
+    const targetName = this.escapeHtml(String(spit.targetName || '???'));
+    if (viewerId && String(spit.actorId || '') === viewerId) return `You spit on ${targetName}.`;
+    if (viewerId && String(spit.targetId || '') === viewerId) return `${actorName} spits on you.`;
+    return `${actorName} spits on ${targetName}.`;
+  },
+
+  createSystemChatCardHTML(msg) {
+    const esc = (value) => this.escapeHtml(String(value == null ? '' : value));
+    const actor = esc(msg.playerName || 'SHADOW BROKER');
+    const typeMap = {
+      dice: () => {
+        const d = msg.dice || {};
+        const rolls = Array.isArray(d.rolls) ? d.rolls.map(esc).join(' · ') : '';
+        const bonus = Number(d.bonus) || 0;
+        return {
+          label: 'DICE',
+          body: `${actor} casts <b>${esc(d.diceText)}</b> → <b>${esc(d.total)}</b>`,
+          detail: rolls ? `${rolls}${bonus ? ` +${bonus}` : ''}` : ''
+        };
+      },
+      flip: () => {
+        const f = msg.flip || {};
+        const call = f.call ? ` calls ${esc(String(f.call).toUpperCase())} &amp;` : '';
+        const verdictMark = f.matched === true
+          ? '<span class="chat-system-ok">CALLED</span>'
+          : (f.matched === false ? '<span class="chat-system-ko">MISSED</span>' : '');
+        return { label: 'COIN', body: `${actor}${call} flips → <b>${esc(String(f.result || '').toUpperCase())}</b>`, detail: verdictMark };
+      },
+      choose: () => {
+        const c = msg.choose || {};
+        return {
+          label: 'CHOOSE',
+          body: `${actor} chooses → <b>${esc(c.pick)}</b>`,
+          detail: esc((Array.isArray(c.options) ? c.options : []).join(' · '))
+        };
+      },
+      order: () => {
+        const o = msg.order || {};
+        return { label: 'TURN ORDER', body: esc((Array.isArray(o.order) ? o.order : []).join(' → ')), detail: '' };
+      },
+      stats: () => {
+        const s = msg.stats || {};
+        return {
+          label: 'THE BOOK',
+          body: `${actor} consults`,
+          detail: `${esc(s.messages)} msgs · ${esc(s.correct)} correct · ${esc(s.failed)} wrong · ${esc(s.points)} pts`
+        };
+      },
+      commands: () => {
+        const rows = (Array.isArray(msg.commands?.commands) ? msg.commands.commands : [])
+          .map(c => `<div class="chat-system-command"><code>${esc(c.name)}</code><span>${esc(c.help)}</span></div>`)
+          .join('');
+        return { label: 'COMMANDS', body: rows, detail: '' };
+      },
+      spit: () => ({ label: 'SPIT', body: this.systemSpitLine(msg), detail: '' }),
+      unstableConcoction: () => {
+        const c = msg.unstableConcoction || {};
+        const resolved = c.phase === 'resolved';
+        return {
+          label: 'UNSTABLE CONCOCTION',
+          body: resolved ? `<b>${esc(c.playerName || actor)}</b> → <b>${esc(c.outcome || '')}</b>` : `<b>${esc(c.playerName || actor)}</b> opened the chamber.`,
+          detail: resolved ? 'REACTION COMPLETE // 24H LOCK ENGAGED' : 'REACTION STARTED // TARGET LOCKED'
+        };
+      }
+    };
+    const render = typeMap[msg.messageType];
+    if (!render) return '';
+    const { label, body, detail } = render();
+    return `
+      <div class="chat-system-card chat-system-${esc(msg.messageType)}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
+        <div class="chat-system-label">${esc(label)}</div>
+        <div class="chat-system-body">${body}</div>
+        ${detail ? `<div class="chat-system-detail">${detail}</div>` : ''}
+      </div>
+    `;
+  },
+
   shouldGroupChatMessage(previous, current) {
     // Every Battle Comms entry is a standalone identity unit. In ASOC any
     // line can become an answer/verdict target, so speaker identity must
@@ -4059,6 +4213,10 @@ const PlayerApp = {
           <button type="button" class="chat-image-link blood-tribute-preview" aria-label="Expand blood tribute image"><img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image"></button>
         </div>
       `;
+    }
+
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'unstableConcoction'].includes(msg.messageType)) {
+      return this.createSystemChatCardHTML(msg);
     }
 
     if (msg.messageType === 'roll' && msg.roll) {

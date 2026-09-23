@@ -1,0 +1,72 @@
+You are working in the ASOC Engine repo at A:\ASOC ENGINE.
+
+TASK: Audit, fortify, and clean up BATTLE MODE only so the battle-mode flow is coherent, stable, and free of stale/remnant behavior from earlier iterations.
+
+CONTEXT / INTENT:
+The current battle experience has gone through many revisions. We now want a clean, production-grade battle flow with no contradictory remnants, dead handlers, duplicate state transitions, old labels, stale UI branches, legacy event paths, or logic that can cause regressions when entering, running, resolving, or leaving battle mode.
+
+SCOPE:
+Focus on BATTLE MODE and the transition logic immediately surrounding it:
+- CASUAL -> BATTLE_ARMED -> BATTLE -> RECOUNT / completion -> back to CASUAL
+- battle board lifecycle
+- timer lifecycle
+- clue reveal / clue queue / column resolution
+- final solution resolution
+- game won / game lost transitions
+- GM battle controls and battle-only UI state
+- player battle state/rendering
+- session/battle cleanup when ending or returning to casual
+- websocket/server command handling specific to battle state
+- battle-specific overlays/events if they can interfere with flow
+- persistence/reconnect behavior specifically as it affects battle mode
+
+DO NOT TOUCH:
+- Casual chat behavior unless battle transitions require a surgical fix
+- Poll feature
+- TWEAKS
+- Backdoor unless battle-mode lifecycle directly depends on it
+- Theme design
+- Cosmetic redesigns
+- Scoring formulas unless a concrete battle-flow bug is found
+- Excel import format unless a concrete battle-flow bug is found
+- unrelated files, formatting, or refactors
+
+REQUIREMENTS:
+1. FIRST inspect git status and identify unrelated local changes already present.
+2. Do not revert, overwrite, stage, commit, or reformat unrelated work.
+3. Read README/HANDOFF only if needed for battle-state canon.
+4. Trace the actual current battle lifecycle through server.js, js/app.js, js/player.js, js/board.js, timer, and any battle-relevant modules.
+5. Search for stale or contradictory legacy terms/paths such as CASUAL MODE / BATTLE MODE old UI branches, redundant armed flags, old event names, duplicated state transitions, abandoned DOM controls, old reveal handlers, stale battle-only CSS classes, dead websocket cases, or logic that can double-fire.
+6. Prefer deletion or simplification of dead remnants over adding compatibility layers.
+7. Preserve current canon:
+   - Permanent MASTER room
+   - authoritative roomMode states: CASUAL, BATTLE_ARMED, BATTLE, RECOUNT
+   - persistent chat/players across modes
+   - battle is a temporary transformation inside the same room
+   - GM-only ghost answers for A5-D5 and FINAL
+   - current clue queue semantics
+   - current scoring behavior
+   - current WOMF behavior
+   - current game won/lost behavior
+8. Strengthen guards around invalid battle transitions, repeated commands, stale reconnect state, and double-resolution if needed.
+9. Ensure battle-end cleanup leaves the room in a predictable state and does not corrupt persistent chat/profile/session data.
+10. Keep changes minimal and evidence-based. No speculative rewrites.
+
+TESTING:
+- Run syntax checks on every edited JS file.
+- Run the most relevant existing tests for battle lifecycle / production readiness if available.
+- If no targeted tests exist, add only small focused tests if they can be added without broad refactoring.
+- Report any pre-existing failures separately from regressions introduced by your changes.
+
+OUTPUT:
+Implement the fixes locally.
+Do NOT commit or push.
+At the end, report:
+- exact problems found
+- exact files/functions changed
+- what was removed vs fortified
+- battle lifecycle after cleanup
+- tests run and results
+- any remaining battle-mode risks you deliberately left untouched
+
+Treat this as a production hardening pass, not a redesign.
