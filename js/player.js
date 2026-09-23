@@ -94,6 +94,9 @@ const PlayerApp = {
   _renderedBoardDifficulty: '',
   bloodTribute: { status: 'idle' },
   tributeUploading: false,
+  playerSlashCommands: [
+    { name: 'roll', insert: '/roll ', syntax: '/roll [MAX] or /roll [MIN] [MAX]', description: 'Generate a server-authoritative random roll' }
+  ],
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😇', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
   emojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭'],
   emojiFavorites: [],
@@ -3030,6 +3033,32 @@ const PlayerApp = {
     const reactionPicker = document.getElementById('chat-reaction-picker');
     const contextMenu = document.getElementById('chat-message-context-menu');
     const mentionPicker = this.ensureChatMentionPicker(form);
+    const commandPicker = document.createElement('div');
+    commandPicker.id = 'chat-command-picker';
+    commandPicker.className = 'chat-command-picker';
+    commandPicker.hidden = true;
+    form.appendChild(commandPicker);
+    let commandCandidates = [];
+    let commandIndex = 0;
+    const renderCommandPicker = () => {
+      const match = String(input?.value || '').match(/^\/([^\s]*)$/);
+      if (!match) { commandPicker.hidden = true; return; }
+      const fragment = match[1].toLowerCase();
+      commandCandidates = this.playerSlashCommands.filter(command => command.name.startsWith(fragment));
+      if (!commandCandidates.length) { commandPicker.hidden = true; return; }
+      commandIndex = Math.max(0, Math.min(commandIndex, commandCandidates.length - 1));
+      commandPicker.innerHTML = '<div class="chat-command-picker-head">AVAILABLE COMMANDS</div>' + commandCandidates.map((command, index) => `<button type="button" class="chat-command-option${index === commandIndex ? ' active' : ''}" data-command-index="${index}" role="option" aria-selected="${index === commandIndex}"><span>／</span><b>/${this.escapeHtml(command.name)}</b><small>${this.escapeHtml(command.description)}</small><em>${this.escapeHtml(command.syntax)}</em></button>`).join('');
+      commandPicker.hidden = false;
+      this.closeChatMentionPicker(mentionPicker);
+    };
+    const selectCommand = index => {
+      const command = commandCandidates[Number(index)];
+      if (!command || !input) return;
+      input.value = command.insert;
+      input.setSelectionRange(input.value.length, input.value.length);
+      commandPicker.hidden = true;
+      input.focus();
+    };
     if (reactionPicker && reactionPicker.parentElement !== document.body) document.body.appendChild(reactionPicker);
     if (contextMenu && contextMenu.parentElement !== document.body) document.body.appendChild(contextMenu);
     let contextMessageEl = null;
@@ -3075,14 +3104,24 @@ const PlayerApp = {
     });
 
     input.addEventListener('keydown', (e) => {
+      if (!commandPicker.hidden) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          commandIndex = (commandIndex + (e.key === 'ArrowDown' ? 1 : -1) + commandCandidates.length) % commandCandidates.length;
+          renderCommandPicker();
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); selectCommand(commandIndex); return; }
+        if (e.key === 'Escape') { e.preventDefault(); commandPicker.hidden = true; return; }
+      }
       if (this.handleChatMentionKeydown(e, input, mentionPicker)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         this.submitGuess();
       }
     });
-    input.addEventListener('input', () => this.updateChatMentionPicker(input, mentionPicker));
-    input.addEventListener('click', () => this.updateChatMentionPicker(input, mentionPicker));
+    input.addEventListener('input', () => { this.updateChatMentionPicker(input, mentionPicker); renderCommandPicker(); });
+    input.addEventListener('click', () => { this.updateChatMentionPicker(input, mentionPicker); renderCommandPicker(); });
     input.addEventListener('paste', (event) => {
       if (this._chatMediaComposer?.handlePaste?.(event)) {
         this.closeChatMentionPicker(mentionPicker);
@@ -3093,6 +3132,11 @@ const PlayerApp = {
       const option = e.target.closest('.chat-mention-option');
       if (!option) return;
       this.selectChatMention(option.dataset.mentionIndex || 0, input, mentionPicker);
+    });
+    commandPicker.addEventListener('mousedown', e => e.preventDefault());
+    commandPicker.addEventListener('click', e => {
+      const option = e.target.closest('[data-command-index]');
+      if (option) selectCommand(option.dataset.commandIndex);
     });
 
     emojiToggle?.addEventListener('click', (e) => {
