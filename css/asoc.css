@@ -16541,4 +16541,89 @@ button.gm-chat-gif-link:focus-visible {
   body.room-mode-recount #gm-panel:not(.maintenance-open) .shadow-broker-form-label {
     display:none !important;
   }
+
+  /* BATTLE DENSITY PASS // compact commands, header and chronology. */
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel {
+    margin-top:6px !important;
+    padding:7px 9px 8px !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .battle-controls-header {
+    padding-bottom:5px !important;
+    margin-bottom:6px !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .battle-controls-grid {
+    gap:7px !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.battle-controls-host-slot,.battle-controls-host-slot .room-mode-toggle,#nema-asoc-btn,#bice-asoc-btn) {
+    height:38px !important;
+    min-height:38px !important;
+    max-height:38px !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .battle-controls-host-slot .room-mode-segment {
+    height:30px !important;
+    min-height:30px !important;
+    max-height:30px !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .battle-controls-utility-row {
+    gap:7px !important;
+    margin-top:7px !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .battle-controls-utility-row .toolbar-btn {
+    min-height:38px !important;
+    height:38px !important;
+  }
+
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #gm-panel:not(.maintenance-open) .gm-chat-header {
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) !important;
+    align-items:center !important;
+    gap:8px !important;
+    min-height:34px !important;
+    padding:3px 6px 5px !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .gm-chat-header .gm-chat-title {
+    display:block !important;
+    justify-self:start;
+    color:#d4a843;
+    font:900 .55rem/1 var(--font-machine);
+    letter-spacing:.12em;
+    white-space:nowrap;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .gm-module-chat .gm-chat-presence-wrap {
+    position:relative !important;
+    inset:auto !important;
+    width:auto !important;
+    height:auto !important;
+    justify-self:center !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .gm-module-chat .gm-chat-solved {
+    justify-self:end !important;
+    margin:0 !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .gm-module-chat .gm-online-dropdown {
+    top:calc(100% + 6px) !important;
+  }
+
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .gm-module-chat .gm-flow-message:not(.grouped) {
+    margin-top:5px !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .gm-module-chat .gm-chat-time-separator {
+    gap:6px !important;
+    margin:5px 4px 4px 28px !important;
+    font-size:.66rem !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .gm-chat-blood-tribute-entry {
+    margin:5px 4px !important;
+    padding:6px !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .blood-tribute-preview {
+    width:100% !important;
+    max-width:100% !important;
+    cursor:zoom-in !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) .blood-tribute-public-image {
+    width:100% !important;
+    max-height:min(46vh,300px) !important;
+    object-fit:contain !important;
+  }
 }

@@ -4236,7 +4236,7 @@ const App = {
       return `
         <div class="gm-chat-blood-tribute-entry" data-message-id="${this.escapeHtml(msg.id)}">
           <div class="blood-tribute-chat-head"><span>BLOOD TRIBUTE // ${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><b>PUBLIC PURGE ${minutes}:${seconds}</b></div>
-          <img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image">
+          <button type="button" class="chat-image-link blood-tribute-preview" aria-label="Expand blood tribute image"><img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image"></button>
         </div>
       `;
     }
