@@ -81,11 +81,12 @@ const App = {
   bloodTributes: [],
   gmSlashCommands: [
     { name: 'roll', insert: '/roll ', icon: '◆', label: 'ROLL', description: 'Authoritative Shadow Broker roll // minimum 2' },
-    { name: 'reliquary', insert: '/reliquary ', icon: '☠', label: 'OPEN RELIQUARY', description: 'Protected Blood Tribute archive' },
-    { name: 'recount', insert: '/recount', icon: '◈', label: 'RECOUNT', description: 'Show eligible completed-game results' },
-    { name: 'womf', insert: '/womf', icon: '⚠', label: 'WOMF STATUS', description: 'Inspect charge, failures, and wheel state' },
-    { name: 'spit', insert: '/spit ', icon: '◆', label: 'SPIT', description: 'Target a connected Little Hero' },
-    { name: 'commands', insert: '/commands', icon: '⌘', label: 'COMMANDS', description: 'Show every available Shadow Broker command' }
+    { name: 'recount', insert: '/recount', icon: '◈', label: 'RECOUNT', description: 'Show the RECOUNT // game over + aftermath required' },
+    { name: 'womf', insert: '/womf', icon: '⚠', label: 'WOMF STATUS', description: 'WOMF charge, failed columns and wheel status' },
+    { name: 'timer', insert: '/timer ', icon: '⏱', label: 'TIME CHECK', description: '/timer A1 -- warn Column A-D has 1 or 2 minutes left' },
+    { name: 'spit', insert: '/spit ', icon: '➤', label: 'SPIT', description: '/spit @Name -- the Broker spits too' },
+    { name: 'commands', insert: '/commands', icon: '☰', label: 'COMMANDS', description: 'List every Shadow Broker command' },
+    { name: 'reliquary', insert: '/reliquary ', icon: '☠', label: 'OPEN RELIQUARY', description: 'Protected Blood Tribute archive' }
   ],
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😇', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
   gmEmojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭'],

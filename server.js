@@ -4358,6 +4358,7 @@ const CHAT_SLASH_COMMANDS = [
 const GM_CHAT_SLASH_COMMANDS = [
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
   { name: '/womf', help: 'WOMF charge, failed columns and wheel status' },
+  { name: '/timer', help: '/timer A1 -- warn Column A has 1 minute left (A-D, 1 or 2 minutes)' },
   { name: '/spit', help: '/spit @Name -- the Broker spits too' },
   { name: '/commands', help: 'This list' }
 ];
@@ -4573,6 +4574,16 @@ function dispatchGmSlashCommand(room, ws, text) {
   if (/^\/womf\b/i.test(raw)) {
     if (!/^\/womf\s*$/i.test(raw)) return { success: false, error: 'WOMF INVALID // USE /womf' };
     const result = addShadowBrokerMessage(room, buildWomfStatusText(room), { editableByHost: true });
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  if (/^\/timer\b/i.test(raw)) {
+    // Column + minute count, space optional: "/timer A1", "/timer A 1", "/timer a2" all match.
+    const match = raw.match(/^\/timer\s+([A-Da-d])\s*([12])\s*$/);
+    if (!match) return { success: false, error: 'TIMER INVALID // USE /timer A1 OR /timer A2 (COLUMN A-D, 1 OR 2 MINUTES)' };
+    const column = match[1].toUpperCase();
+    const minutes = match[2];
+    const text = `TIME CHECK // COLUMN ${column} -- ${minutes} MINUTE${minutes === '1' ? '' : 'S'} REMAINING`;
+    const result = addShadowBrokerMessage(room, text, { editableByHost: true });
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
   if (/^\/commands\b/i.test(raw)) {
