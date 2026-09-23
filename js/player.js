@@ -3688,10 +3688,15 @@ const PlayerApp = {
       const member = roster.find(p => String(p.id) === String(id));
       return member?.name || 'Little Hero';
     };
-    const names = [...new Set(seenIds)].map(nameFor);
+    const names = [...new Set(seenIds)].map(id => {
+      const receipt = (Array.isArray(msg.seenBy) ? msg.seenBy : [])
+        .find(entry => String(entry.playerId) === String(id));
+      return String(receipt?.playerName || '').trim() || nameFor(id);
+    });
     const inner = names.length
       ? names.map(name => `<div class="chat-seen-name seen">${this.escapeHtml(name)}</div>`).join('')
       : `<div class="chat-seen-name muted">Seen by no one yet</div>`;
+    if (popover.parentElement !== document.body) document.body.appendChild(popover);
     popover.innerHTML = `<div class="chat-seen-id">${this.escapeHtml(msg.id)}</div>
       <div class="chat-seen-section-label">SEEN BY</div>${inner}`;
     popover.hidden = false;

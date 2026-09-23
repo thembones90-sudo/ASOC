@@ -4746,7 +4746,11 @@ function handleChatSeen(ws, message) {
   if (!Array.isArray(target.seenBy)) target.seenBy = [];
   if (target.seenBy.some(entry => String(entry.playerId) === viewerId)) return;
 
-  target.seenBy.push({ playerId: viewerId, seenAt: Date.now() });
+  target.seenBy.push({
+    playerId: viewerId,
+    playerName: String(ws.playerName || 'Little Hero').slice(0, 80),
+    seenAt: Date.now()
+  });
   persistActiveRooms();
   broadcastChatUpdate(room);
 }
@@ -4919,12 +4923,17 @@ function getChatState(room) {
           // READ RECEIPTS -- server-recorded viewers (actual viewport sightings
           // reported by clients), never websocket delivery. The sender never
           // appears (excluded at record time). recipientIds is a send-time
-          // snapshot so the GM can still split SEEN/NOT SEEN after players leave;
-          // names are resolved client-side from the live roster, never stored.
+          // snapshot so the GM can still split SEEN/NOT SEEN after players leave.
+          // Receipt names are stored with the sighting so disconnected readers
+          // remain identifiable; older receipts still resolve through the roster.
           seenBy: Array.isArray(m.seenBy)
             ? m.seenBy
                 .filter(r => r && typeof r.playerId === 'string')
-                .map(r => ({ playerId: r.playerId, seenAt: Number(r.seenAt) || 0 }))
+                .map(r => ({
+                  playerId: r.playerId,
+                  playerName: sanitizeText(r.playerName || '').slice(0, 80),
+                  seenAt: Number(r.seenAt) || 0
+                }))
             : [],
           recipientCount: Number(m.recipientCount) || 0,
           recipientIds: Array.isArray(m.recipientIds)

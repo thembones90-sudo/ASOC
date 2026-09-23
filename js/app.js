@@ -3093,6 +3093,7 @@ const App = {
     }
 
     this.updateSolvedCount();
+    this.updateGMLatestReadout();
     if (previous !== next) this.updateMultiplayerUI();
   },
 
@@ -4415,6 +4416,7 @@ const App = {
     }
 
     this.updateSolvedCount();
+    this.updateGMLatestReadout();
   },
 
   createGMChatTimeSeparator(timestamp) {
@@ -4439,7 +4441,12 @@ const App = {
       const member = roster.find(p => String(p.id) === String(id));
       return member?.name || 'Little Hero';
     };
-    const seenNames = [...seenIds].map(nameFor);
+    const receiptNameFor = (id) => {
+      const receipt = (Array.isArray(msg.seenBy) ? msg.seenBy : [])
+        .find(entry => String(entry.playerId) === String(id));
+      return String(receipt?.playerName || '').trim() || nameFor(id);
+    };
+    const seenNames = [...seenIds].map(receiptNameFor);
     const notSeenIds = (Array.isArray(msg.recipientIds) ? msg.recipientIds : [])
       .filter(id => !seenIds.has(String(id)));
     const notSeenNames = [...new Set(notSeenIds)].map(nameFor);
@@ -4450,6 +4457,7 @@ const App = {
     const notSeenHtml = notSeenNames.length
       ? `<div class="chat-seen-section-label">NOT SEEN</div>` + notSeenNames.map(name => `<div class="chat-seen-name unseen">${this.escapeHtml(name)}</div>`).join('')
       : '';
+    if (popover.parentElement !== document.body) document.body.appendChild(popover);
     popover.innerHTML = `<div class="chat-seen-id">${this.escapeHtml(msg.id)}</div>
       <div class="chat-seen-section-label">SEEN · ${seenNames.length}/${msg.recipientCount || 0}</div>${seenHtml}${notSeenHtml}`;
     popover.hidden = false;
@@ -4461,6 +4469,30 @@ const App = {
       popover.style.top = `${top}px`;
     }
     return true;
+  },
+
+  updateGMLatestReadout() {
+    const readout = document.getElementById('gm-latest-readout');
+    if (!readout) return;
+    const latest = [...(this.chatMessages || [])]
+      .reverse()
+      .find(msg => msg && msg.deleted !== true && Number(msg.recipientCount) > 0);
+    if (!latest) {
+      readout.innerHTML = `<span class="gm-latest-readout-label">LATEST READOUT</span><span class="gm-latest-readout-state">NO TRANSMISSIONS</span>`;
+      return;
+    }
+    const roster = this.currentPlayers || [];
+    const names = [...new Map((Array.isArray(latest.seenBy) ? latest.seenBy : []).map(receipt => {
+      const id = String(receipt.playerId || '');
+      const member = roster.find(player => String(player.id) === id);
+      return [id, String(receipt.playerName || member?.name || 'Little Hero').trim() || 'Little Hero'];
+    })).values()];
+    const seen = names.length;
+    const total = Number(latest.recipientCount) || 0;
+    const state = seen
+      ? `<strong>SEEN BY</strong> ${names.map(name => this.escapeHtml(name)).join(' · ')}`
+      : `<strong>AWAITING READERS</strong>`;
+    readout.innerHTML = `<span class="gm-latest-readout-label">LATEST READOUT <b>${seen}/${total}</b></span><span class="gm-latest-readout-state">${state}</span>`;
   },
 
   closeGMSeenPopover() {

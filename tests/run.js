@@ -2152,6 +2152,7 @@ async function testChatDeleteAndSeen() {
   const grantedState = await receiptGranted;
   const grantedMessage = grantedState.messages.find(x => x.id === readTarget.id);
   assert.equal(grantedMessage.seenBy.length, 1);
+  assert.equal(grantedMessage.seenBy[0].playerName, 'SEEN READER', 'receipt preserves the reader name for the GM list');
   assert.ok(Number(grantedMessage.seenBy[0].seenAt) > 0);
 
   // SEEN B (duplicate reports idle), SEEN C (self-read skipped), SEEN D (host
