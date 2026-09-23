@@ -4162,7 +4162,20 @@ function addRollMessage(room, playerId, playerName, range) {
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   }
-  return { success: true, message };
+  let tributeTriggered = false;
+  if (value === 1) {
+    room.pendingTribute = {
+      id: 'demand-' + crypto.randomBytes(6).toString('hex'),
+      playerId,
+      playerName,
+      spinToken: null,
+      status: 'required',
+      requestedAt: Date.now(),
+      source: 'catastrophic-roll'
+    };
+    tributeTriggered = true;
+  }
+  return { success: true, message, tributeTriggered };
 }
 
 function addChatMessage(room, playerId, playerName, text) {
@@ -4289,6 +4302,11 @@ function getChatState(room) {
           source: m.source || null,
           imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
           messageType: m.messageType || null,
+          roll: m.messageType === 'roll' && m.roll ? {
+            value: Number(m.roll.value),
+            min: Number(m.roll.min),
+            max: Number(m.roll.max)
+          } : undefined,
           gif: m.messageType === 'gifRemote' && m.gif ? {
             provider: m.gif.provider === 'giphy' ? 'giphy' : undefined,
             providerId: String(m.gif.providerId || '').slice(0, 120),
@@ -4858,6 +4876,7 @@ function handleChatGuess(ws, message) {
     // already reached the recovery snapshot.
     persistActiveRooms();
     broadcastChatUpdate(room);
+    if (result.tributeTriggered) broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   } else {
     sendToWs(ws, { type: 'error', message: result.error });
   }

@@ -405,7 +405,7 @@ async function testChatTransportHygiene() {
     avatarData: 'data:image/png;base64,iVBORw0KGgo=',
     frameColor: '#123ABC'
   }));
-  await joined;
+  const joinedResult = await joined;
   await delay(400); // identity-scoped chat cooldown survives socket churn
 
   const firstUpdate = waitForMessage(
@@ -437,7 +437,27 @@ async function testChatTransportHygiene() {
   player.send(JSON.stringify({ type: 'chat:guess', text: 'AFTER COOLDOWN' }));
   await thirdUpdate;
 
-  console.log('PASS chat payload normalization and flood protection');
+  await delay(400);
+  const cursedRollChat = waitForMessage(
+    player,
+    m => m.type === 'chat:update' && m.messages?.some(x => x.messageType === 'roll' && x.roll?.value === 1),
+    'catastrophic roll system event'
+  );
+  const cursedRollTribute = waitForMessage(
+    host,
+    m => m.type === 'state:public' && m.bloodTribute?.status === 'required' && m.bloodTribute?.playerId === joinedResult.playerId,
+    'catastrophic roll tribute demand'
+  );
+  player.send(JSON.stringify({ type: 'chat:guess', text: '/roll 1 1' }));
+  const [rollState] = await Promise.all([cursedRollChat, cursedRollTribute]);
+  const rollMessage = rollState.messages.find(x => x.messageType === 'roll' && x.roll?.value === 1);
+  assert.equal(rollMessage.text, `${rollMessage.playerName} rolls 1`);
+  assert.deepEqual(rollMessage.roll, { value: 1, min: 1, max: 1 });
+  const tributeCleared = waitForMessage(host, m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'catastrophic roll cleanup');
+  host.send(JSON.stringify({ type: 'gm:tributeForgive' }));
+  await tributeCleared;
+
+  console.log('PASS chat payload normalization, roll transport, catastrophic tribute, and flood protection');
   closeWs(player);
   closeWs(host);
 }
