@@ -279,6 +279,15 @@ textarea {
   visibility: hidden;
 }
 
+/* GM ANSWER GHOSTS -- GM working board only (Board.render() adds the
+   class to #asoc-board). Only hidden solution cells (A5-D5 and FINAL)
+   are readable as faded answers. Regular clues stay fully hidden until
+   revealed. Public View and players never receive hidden answers. */
+.asoc-board.gm-answer-ghosts .board-cell.solution-cell.hidden .cell-content {
+  opacity: 0.35;
+  visibility: visible;
+}
+
 /* CELL CONTENT */
 .cell-content {
   font-family: var(--font-board);

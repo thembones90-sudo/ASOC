@@ -367,16 +367,12 @@ const Board = {
     cell.classList.toggle('revealed', revealed);
     cell.classList.toggle('outcome-failed', this.getFinalOutcome() === 'failed');
 
-    // buildBoardHTML deliberately stores only "???" while FINAL is hidden.
-    // A direct GM reveal updates the existing DOM node optimistically, so
-    // replace that placeholder here as well. Without this, local mode would
-    // reveal a beautifully centered "???" forever, which is technically a
-    // reveal only in the philosophical sense.
+    // this.container is the GM working board, which always carries the real
+    // FINAL word (ghosted while hidden -- see render()). Public View and
+    // the player board keep their own "???" placeholder renderers.
     const contentEl = cell.querySelector('.cell-text') || cell.querySelector('.cell-content');
     if (contentEl) {
-      contentEl.textContent = revealed
-        ? (window.GameData?.getFinalSolution?.() || '—')
-        : '???';
+      contentEl.textContent = window.GameData?.getFinalSolution?.() || '—';
     }
     Skeleton.fit(this.container);
   },
@@ -399,7 +395,12 @@ const Board = {
   render() {
     if (!this.container || !window.GameData.currentGame) return;
 
-    this.container.innerHTML = this.buildBoardHTML(window.GameData.currentGame);
+    // GM ANSWER GHOSTS: the GM working board shows only the hidden
+    // solution cells (A5-D5 and FINAL) as faded answers. Regular clues remain
+    // fully hidden until revealed. GM-only: Public View and players never
+    // receive hidden answers, and Forge previews don't pass this flag.
+    this.container.classList.add('gm-answer-ghosts');
+    this.container.innerHTML = this.buildBoardHTML(window.GameData.currentGame, { gmAnswerGhosts: true });
     Skeleton.attach(this.container);
     this.updateGMButtons();
   },
@@ -466,7 +467,7 @@ const Board = {
     }
   },
 
-  buildBoardHTML(game) {
+  buildBoardHTML(game, { gmAnswerGhosts = false } = {}) {
     if (!game) return '';
     const columns = ['A', 'B', 'C', 'D'];
     // Route through the queue-aware GameData.getCellData() for the actual
@@ -506,11 +507,11 @@ const Board = {
     });
 
     const finalRevealed = this.isFinalRevealed();
-    // Never put the real Final Solution word in the DOM while it's hidden
-    // -- "???" at all times until it's actually revealed (by a correct
-    // guess, a GM reveal, or a future timer expiry), same placeholder the
-    // Public View and player join.html already use.
-    const finalContent = finalRevealed ? (game.finalSolution || '') : '???';
+    // Outside the GM working board (Forge preview), never put the real
+    // Final Solution word in the DOM while it's hidden -- "???" until it's
+    // actually revealed, same placeholder Public View and join.html use.
+    // The GM board ghosts the real word instead (see render()).
+    const finalContent = (finalRevealed || gmAnswerGhosts) ? (game.finalSolution || '') : '???';
     const finalOutcome = this.getFinalOutcome();
     html += this.createCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome);
 
