@@ -1292,6 +1292,9 @@ async function testBloodTributeLifecycle() {
   assert.equal(activeTribute.womf.charge, 10);
 
   const imageData = 'data:image/png;base64,iVBORw0KGgo=';
+  const vaultAccess = waitForMessage(host, m => m.type === 'tribute:vaultAccess' && m.granted === true, 'private Reliquary access');
+  host.send(JSON.stringify({ type: 'gm:reliquaryAccess', code: '112018' }));
+  await vaultAccess;
   const acceptedPromise = waitForMessage(selected, m => m.type === 'tribute:accepted', 'tribute accepted');
   const resetPromise = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 0 && m.wheel?.open === false, 'WOMF reset after tribute');
   const vaultPromise = waitForMessage(host, m => m.type === 'tribute:vault' && m.tributes?.length === 1, 'private tribute vault');
@@ -1342,6 +1345,9 @@ async function testTributeForgive(server) {
     await cleanSlate;
     // Purge the vault too: an earlier test archived a real tribute, and this
     // test must prove forgiveness adds NOTHING to the vault.
+    const vaultAccess = waitForMessage(host, m => m.type === 'tribute:vaultAccess' && m.granted === true, 'forgive Reliquary access');
+    host.send(JSON.stringify({ type: 'gm:reliquaryAccess', code: '112018' }));
+    await vaultAccess;
     const vaultPurged = waitForMessage(host, m => m.type === 'tribute:vault' && (m.tributes || []).length === 0, 'forgive vault purged');
     host.send(JSON.stringify({ type: 'gm:tributeVaultClear' }));
     await vaultPurged;

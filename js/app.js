@@ -1821,7 +1821,6 @@ const App = {
     document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
     document.getElementById('blood-tribute-vault-clear')?.addEventListener('click', () => this.clearBloodTributeVault());
     document.getElementById('blood-tribute-override-btn')?.addEventListener('click', () => this.overrideBloodTribute());
-    document.getElementById('blood-tribute-vault-btn')?.addEventListener('click', () => this.openBloodTributeVault());
     document.querySelectorAll('[data-vault-close]').forEach(button => button.addEventListener('click', () => this.closeBloodTributeVault()));
     document.querySelector('[data-vault-viewer-close]')?.addEventListener('click', () => { document.getElementById('blood-vault-viewer').hidden = true; });
     document.querySelectorAll('[data-vault-view]').forEach(button => button.addEventListener('click', () => { this._vaultView = button.dataset.vaultView; this.renderBloodTributeVault(); }));
@@ -2505,6 +2504,15 @@ const App = {
       case 'tribute:vault':
         this.bloodTributes = Array.isArray(message.tributes) ? message.tributes : [];
         this.renderBloodTributeVault();
+        break;
+
+      case 'tribute:vaultAccess':
+        if (message.granted) {
+          this._vaultView = 'reliquary';
+          this.openBloodTributeVault();
+        } else {
+          this.signalReliquaryAccessDenied(message.locked === true);
+        }
         break;
 
       case 'tribute:unavailable':
@@ -3368,9 +3376,6 @@ const App = {
     if (!list || !status) return;
 
     const tributes = Array.isArray(this.bloodTributes) ? this.bloodTributes : [];
-    const unread = tributes.filter(t => !t.viewedByGM).length;
-    const launch = document.getElementById('blood-tribute-vault-btn');
-    if (launch) launch.textContent = `BLOOD TRIBUTE VAULT${unread ? ` · ${unread}` : ''}`;
     if (this.bloodTribute?.status === 'required') {
       status.textContent = `DEBT OUTSTANDING // ${this.bloodTribute.playerName || 'UNKNOWN'}`;
       status.classList.add('debt-outstanding');
@@ -4988,6 +4993,17 @@ const App = {
     const text = state.text.trim();
     if (!text) return;
 
+    const reliquaryCommand = text.match(/^\/reliquary(?:\s+(.+))?$/i);
+    const bareCode = /^\d{6}$/.test(text) ? text : '';
+    if (reliquaryCommand || bareCode) {
+      const code = bareCode || String(reliquaryCommand?.[1] || '').trim();
+      this.setGMComposerText('', 0);
+      if (this.mode === 'multiplayer' && this.roomCode) this.send({ type: 'gm:reliquaryAccess', code });
+      else this.signalReliquaryAccessDenied(false);
+      composer.focus();
+      return;
+    }
+
     const editing = this._editingBroadcast;
     this.closeGMMentionPicker();
     if (editing) {
@@ -5038,6 +5054,19 @@ const App = {
     // immediately. There is deliberately no character counter or GM-side
     // transmission length cap.
     composer.focus();
+  },
+
+  signalReliquaryAccessDenied(locked = false) {
+    const composer = this.getGMComposerElement();
+    if (!composer) return;
+    const original = composer.dataset.placeholder || 'Transmit to players...';
+    composer.dataset.placeholder = locked ? 'RELIQUARY LOCKED // WAIT 60 SECONDS' : 'ACCESS DENIED';
+    document.getElementById('shadow-broker-form')?.classList.add('shadow-broker-no-room');
+    clearTimeout(this._reliquaryDeniedTimer);
+    this._reliquaryDeniedTimer = setTimeout(() => {
+      composer.dataset.placeholder = original;
+      document.getElementById('shadow-broker-form')?.classList.remove('shadow-broker-no-room');
+    }, 2200);
   },
 
   clearShadowBrokerBroadcast() {

@@ -72,6 +72,7 @@ const MAX_AVATAR_DATA_LENGTH = 200000;
 const MAX_TRIBUTE_DATA_LENGTH = 3000000;
 const BLOOD_TRIBUTE_PUBLIC_MS = 2 * 60 * 1000;
 const BLOOD_TRIBUTE_VAULT_LIMIT = 24;
+const RELIQUARY_CODE_SHA256 = 'fd6fcc2d232d073cd8f6165f593af62cf3ba480018e423b5f50444f079979233';
 const CHAT_HISTORY_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
 const WS_HANDSHAKE_TIMEOUT_MS = Math.max(100, Number(process.env.ASOC_WS_HANDSHAKE_TIMEOUT_MS) || 10000);
@@ -1189,6 +1190,10 @@ function handleCancelChatBloodTribute(ws, payload) {
 function handleTributeVaultUpdate(ws, payload) {
   const room = requireGmRoom(ws);
   if (!room) return;
+  if (Number(ws.reliquaryUnlockedUntil) <= Date.now()) {
+    sendToWs(ws, { type: 'error', code: 'RELIQUARY_LOCKED', message: 'Reliquary code required' });
+    return;
+  }
   const tribute = (room.bloodTributes || []).find(item => item.id === String(payload.id || ''));
   if (!tribute) return;
   if (payload.action === 'viewed') tribute.viewedByGM = true;
@@ -1196,8 +1201,29 @@ function handleTributeVaultUpdate(ws, payload) {
   persistActiveRooms(); sendTributeVaultToHost(room);
 }
 
+function handleReliquaryAccess(ws, payload) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  const now = Date.now();
+  ws.reliquaryAttempts = (ws.reliquaryAttempts || []).filter(at => now - at < 60000);
+  if (ws.reliquaryAttempts.length >= 5) {
+    sendToWs(ws, { type: 'tribute:vaultAccess', granted: false, locked: true });
+    return;
+  }
+  const supplied = crypto.createHash('sha256').update(String(payload.code || '')).digest();
+  const expected = Buffer.from(RELIQUARY_CODE_SHA256, 'hex');
+  const granted = supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+  if (!granted) ws.reliquaryAttempts.push(now);
+  else {
+    ws.reliquaryAttempts = [];
+    ws.reliquaryUnlockedUntil = now + (10 * 60 * 1000);
+  }
+  sendToWs(ws, { type: 'tribute:vaultAccess', granted });
+  if (granted) sendTributeVaultToHost(room);
+}
+
 function sendTributeVaultToHost(room) {
-  if (!room?.hostConnection) return;
+  if (!room?.hostConnection || Number(room.hostConnection.reliquaryUnlockedUntil) <= Date.now()) return;
   sendToWs(room.hostConnection, { type: 'tribute:vault', ...getBloodTributeVaultState(room) });
 }
 
@@ -1301,6 +1327,10 @@ function handleBloodTributeVaultClear(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can purge the Blood Tribute vault' });
+    return;
+  }
+  if (Number(ws.reliquaryUnlockedUntil) <= Date.now()) {
+    sendToWs(ws, { type: 'error', code: 'RELIQUARY_LOCKED', message: 'Reliquary code required' });
     return;
   }
   room.bloodTributes = [];
@@ -6609,6 +6639,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:tributeVaultUpdate': {
           handleTributeVaultUpdate(ws, message);
+          break;
+        }
+        case 'gm:reliquaryAccess': {
+          handleReliquaryAccess(ws, message);
           break;
         }
         case 'gm:tributeForgive': {
