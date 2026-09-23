@@ -1477,6 +1477,12 @@ const PlayerApp = {
         Skeleton.playMentionAllShake?.();
         break;
 
+      // Sent only to the one socket /afk targets -- same shake, but private
+      // to this player rather than a room-wide @all alarm.
+      case 'chat:mentionPlayer':
+        Skeleton.playMentionAllShake?.();
+        break;
+
       case 'threefold:challenge':
         window.Threefold?.onChallenge?.(message);
         break;
@@ -4121,6 +4127,15 @@ const PlayerApp = {
     return `${actorName} spits on ${targetName}.`;
   },
 
+  // /afk is always Broker-authored; only the checked-on player's line changes.
+  systemAfkLine(msg) {
+    const afk = msg.afk || {};
+    const viewerId = String(this.playerId || '');
+    const targetName = this.escapeHtml(String(afk.targetName || '???'));
+    if (viewerId && String(afk.targetId || '') === viewerId) return 'SHADOW BROKER CHECKS ON YOU. STILL THERE?';
+    return `SHADOW BROKER CHECKS ON ${targetName}. STILL THERE?`;
+  },
+
   createSystemChatCardHTML(msg) {
     const esc = (value) => this.escapeHtml(String(value == null ? '' : value));
     const actor = esc(msg.playerName || 'SHADOW BROKER');
@@ -4170,6 +4185,7 @@ const PlayerApp = {
         return { label: 'COMMANDS', body: rows, detail: '' };
       },
       spit: () => ({ label: 'SPIT', body: this.systemSpitLine(msg), detail: '' }),
+      afk: () => ({ label: 'AFK CHECK', body: this.systemAfkLine(msg), detail: '' }),
       unstableConcoction: () => {
         const c = msg.unstableConcoction || {};
         const resolved = c.phase === 'resolved';
@@ -4227,7 +4243,7 @@ const PlayerApp = {
       `;
     }
 
-    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'unstableConcoction'].includes(msg.messageType)) {
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
       return this.createSystemChatCardHTML(msg);
     }
 

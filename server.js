@@ -3651,6 +3651,25 @@ function handleChatPollCreate(ws, message) {
   }
 }
 
+// GM-only /vote shortcut: an instant YES/NO poll without opening the poll
+// composer. Runs through the exact same appendChatPollMessage/expiry/@all
+// path a manually-built GM poll does, just pre-filled and untimed (0 = no
+// limit, matching this room's poll default).
+function handleVoteCommand(room, raw) {
+  const match = raw.match(/^\/vote\s+(.+)$/i);
+  if (!match) return { success: false, error: 'VOTE INVALID // USE /vote <question>' };
+  const result = appendChatPollMessage(room, { role: 'gm' }, match[1].trim(), ['YES', 'NO'], false, 0);
+  if (!result.success) return { success: false, error: result.error };
+  schedulePollExpiry(room, result.message);
+  broadcastToRoom(room, {
+    type: 'chat:mentionAll',
+    messageId: result.message.id,
+    reason: 'poll',
+    timestamp: Date.now()
+  });
+  return { success: true, message: result.message };
+}
+
 function handleChatPollVote(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
@@ -4359,6 +4378,8 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
   { name: '/womf', help: 'WOMF charge, failed columns and wheel status' },
   { name: '/timer', help: '/timer A1 -- warn Column A has 1 minute left (A-D, 1 or 2 minutes)' },
+  { name: '/vote', help: '/vote <question> -- instant YES/NO poll' },
+  { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
   { name: '/spit', help: '/spit @Name -- the Broker spits too' },
   { name: '/commands', help: 'This list' }
 ];
@@ -4402,25 +4423,30 @@ function buildChatCommandMessage(room, author, messageType, source, text, payloa
   return pushChatMessage(room, message);
 }
 
-// /spit target resolution: prefer the picker-supplied connected playerId,
-// fall back to an exact-then-fuzzy match on the typed "@Name" token. The
-// actor can never target themselves.
-function resolveSpitTarget(room, actorId, targetPlayerId, rawTarget) {
+// Named-target resolution shared by /spit and /afk: prefer the picker-supplied
+// connected playerId, fall back to an exact-then-fuzzy match on the typed
+// "@Name" token. The actor can never target themselves. `verbLabel` only
+// shapes the error text so each command's messages stay self-explanatory.
+function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel) {
   const connected = Array.from(room.players.values())
     .filter(player => player.connected !== false && String(player.name || '').trim());
   const selfId = actorId === null || actorId === undefined ? '' : String(actorId);
   if (typeof targetPlayerId === 'string' && targetPlayerId) {
     const target = connected.find(player => String(player.id) === targetPlayerId);
-    if (!target) return { error: 'SPIT TARGET MUST BE A CONNECTED PLAYER' };
-    if (String(target.id) === selfId) return { error: 'SPIT TARGET MUST BE ANOTHER PLAYER' };
+    if (!target) return { error: `${verbLabel} TARGET MUST BE A CONNECTED PLAYER` };
+    if (String(target.id) === selfId) return { error: `${verbLabel} TARGET MUST BE ANOTHER PLAYER` };
     return { target };
   }
   const needle = String(rawTarget || '').trim().replace(/^@/, '').toLocaleLowerCase();
-  if (!needle) return { error: 'SPIT TARGET REQUIRED // PICK A PLAYER FROM THE LIST' };
+  if (!needle) return { error: `${verbLabel} TARGET REQUIRED // PICK A PLAYER FROM THE LIST` };
   const target = connected.find(player => String(player.name).toLocaleLowerCase() === needle && String(player.id) !== selfId)
     || connected.find(player => String(player.name).toLocaleLowerCase().includes(needle) && String(player.id) !== selfId);
-  if (!target) return { error: 'SPIT TARGET NOT FOUND // PICK A PLAYER FROM THE LIST' };
+  if (!target) return { error: `${verbLabel} TARGET NOT FOUND // PICK A PLAYER FROM THE LIST` };
   return { target };
+}
+
+function resolveSpitTarget(room, actorId, targetPlayerId, rawTarget) {
+  return resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, 'SPIT');
 }
 
 function handleDiceCommand(room, author, raw) {
@@ -4519,6 +4545,27 @@ function handleSpitCommand(room, author, raw, targetPlayerId) {
     { spit: { actorId: author.id ?? null, actorName: author.name, targetId: String(target.id), targetName: target.name } });
 }
 
+// GM-only "still there?" nudge. Unlike /spit this also privately pings the
+// target's own socket (chat:mentionPlayer) so their screen shakes without
+// disturbing anyone else -- a targeted check-in, not a room-wide @all alarm.
+function handleAfkCommand(room, raw, targetPlayerId) {
+  const match = raw.match(/^\/afk(?:\s+@?(.*))?\s*$/i);
+  if (!match) return { success: false, error: 'AFK INVALID // USE /afk @Name' };
+  const resolved = resolveNamedTarget(room, null, targetPlayerId, match[1] || '', 'AFK');
+  if (resolved.error) return { success: false, error: resolved.error };
+  const target = resolved.target;
+  const result = buildChatCommandMessage(room, { id: null, name: 'SHADOW BROKER' }, 'afk', 'afk',
+    `SHADOW BROKER checks on ${target.name}. Still there?`,
+    { afk: { targetId: String(target.id), targetName: target.name } });
+  for (const [socket, info] of room.players) {
+    if (String(info.id) === String(target.id) && socket.readyState === 1) {
+      sendToWs(socket, { type: 'chat:mentionPlayer' });
+      break;
+    }
+  }
+  return result;
+}
+
 // Returns null for non-commands (call through to addChatMessage as plain
 // speech), otherwise the command result the caller must honor.
 function dispatchPlayerSlashCommand(room, ws, text, message) {
@@ -4592,6 +4639,14 @@ function dispatchGmSlashCommand(room, ws, text) {
   }
   if (/^\/spit\b/i.test(raw)) {
     const result = handleSpitCommand(room, author, raw, '');
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  if (/^\/afk\b/i.test(raw)) {
+    const result = handleAfkCommand(room, raw, '');
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  if (/^\/vote\b/i.test(raw)) {
+    const result = handleVoteCommand(room, raw);
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
   return null;
@@ -4817,6 +4872,11 @@ function sanitizeChatCommandMeta(m) {
       actorName: sanitizeText(String(m.spit.actorName || '')).slice(0, 40),
       targetId: String(m.spit.targetId || '').slice(0, 64),
       targetName: sanitizeText(String(m.spit.targetName || '')).slice(0, 40)
+    };
+  } else if (m.messageType === 'afk' && m.afk && typeof m.afk === 'object') {
+    out.afk = {
+      targetId: String(m.afk.targetId || '').slice(0, 64),
+      targetName: sanitizeText(String(m.afk.targetName || '')).slice(0, 40)
     };
   } else if (m.messageType === 'unstableConcoction' && m.unstableConcoction && typeof m.unstableConcoction === 'object') {
     const phase = m.unstableConcoction.phase === 'resolved' ? 'resolved' : 'activated';

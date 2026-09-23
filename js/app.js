@@ -84,6 +84,8 @@ const App = {
     { name: 'recount', insert: '/recount', icon: '◈', label: 'RECOUNT', description: 'Show the RECOUNT // game over + aftermath required' },
     { name: 'womf', insert: '/womf', icon: '⚠', label: 'WOMF STATUS', description: 'WOMF charge, failed columns and wheel status' },
     { name: 'timer', insert: '/timer ', icon: '⏱', label: 'TIME CHECK', description: '/timer A1 -- warn Column A-D has 1 or 2 minutes left' },
+    { name: 'vote', insert: '/vote ', icon: '⚖', label: 'VOTE', description: '/vote <question> -- instant YES/NO poll' },
+    { name: 'afk', insert: '/afk ', icon: '◌', label: 'AFK CHECK', description: '/afk @Name -- privately check if a Little Hero is still there' },
     { name: 'spit', insert: '/spit ', icon: '➤', label: 'SPIT', description: '/spit @Name -- the Broker spits too' },
     { name: 'commands', insert: '/commands', icon: '☰', label: 'COMMANDS', description: 'List every Shadow Broker command' },
     { name: 'reliquary', insert: '/reliquary ', icon: '☠', label: 'OPEN RELIQUARY', description: 'Protected Blood Tribute archive' }
@@ -4622,6 +4624,11 @@ const App = {
     return isMine ? `You spit on ${targetName}.` : `${actorName} spits on ${targetName}.`;
   },
 
+  gmSystemAfkLine(msg) {
+    const afk = msg.afk || {};
+    return `SHADOW BROKER CHECKS ON ${this.escapeHtml(String(afk.targetName || '???'))}. STILL THERE?`;
+  },
+
   createGMSystemChatCardHTML(msg) {
     const esc = (value) => this.escapeHtml(String(value == null ? '' : value));
     const actor = esc(msg.playerName || 'SHADOW BROKER');
@@ -4671,6 +4678,7 @@ const App = {
         return { label: 'COMMANDS', body: rows, detail: '' };
       },
       spit: () => ({ label: 'SPIT', body: this.gmSystemSpitLine(msg), detail: '' }),
+      afk: () => ({ label: 'AFK CHECK', body: this.gmSystemAfkLine(msg), detail: '' }),
       unstableConcoction: () => {
         const c = msg.unstableConcoction || {};
         const resolved = c.phase === 'resolved';
@@ -4723,7 +4731,7 @@ const App = {
       `;
     }
 
-    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'unstableConcoction'].includes(msg.messageType)) {
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
       return this.createGMSystemChatCardHTML(msg);
     }
 
