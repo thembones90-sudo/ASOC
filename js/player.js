@@ -2560,7 +2560,7 @@ const PlayerApp = {
     const meIndex = ranked.findIndex(p => p.id === this.playerId);
     const me = meIndex >= 0 ? ranked[meIndex] : null;
     if (me) {
-      if (identity) identity.innerHTML = `${this.littleHeroAvatarHTML(me, true)}<span>${this.escapeHtml(me.name)} // LITTLE HERO</span><button type="button" class="hero-designation-edit" data-action="rename-little-hero" title="Change in-game name" aria-label="Change Little Hero designation"><span>DESIGNATION</span></button>`;
+      if (identity) identity.innerHTML = `${this.littleHeroAvatarHTML(me, true)}<span>${this.escapeHtml(me.name)} // LITTLE HERO</span>`;
       const score = document.getElementById('hero-hud-score');
       const rank = document.getElementById('hero-hud-rank');
       if (score) {

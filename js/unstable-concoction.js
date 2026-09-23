@@ -16,6 +16,12 @@
         event.preventDefault();
         event.stopPropagation();
         if (PlayerApp.roomMode !== 'CASUAL' || this.isLocked()) return;
+        if (!window.confirm(
+          'TRIGGER UNSTABLE CONCOCTION?\n\n' +
+          'This burns the room’s one dose for the next 24 hours -- for everyone, not just you. ' +
+          'Outcome is random: +1 ASOC GAME, BLOOD TRIBUTE, or nothing.\n\n' +
+          'Proceed?'
+        )) return;
         event.currentTarget.disabled = true;
         document.getElementById('casual-minigames-menu')?.setAttribute('hidden', '');
         document.getElementById('casual-minigames-toggle')?.setAttribute('aria-expanded', 'false');

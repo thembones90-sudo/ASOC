@@ -341,6 +341,9 @@
 
   async function submitPlayerTweak(event) {
     event.preventDefault();
+    // currentTarget is only valid during synchronous event dispatch -- the DOM
+    // nulls it out once this handler awaits, so it must be captured up front.
+    const form = event.currentTarget;
     const submit = overlay.querySelector('.tweaks-submit');
     const status = overlay.querySelector('#tweaks-submit-status');
     submit.disabled = true;
@@ -365,7 +368,7 @@
       });
       status.className = 'tweaks-statusline is-ok';
       status.textContent = (result.tweak?.id || 'TWEAK') + ' RECEIVED // THE SHADOW BROKER HAS BEEN INCONVENIENCED.';
-      event.currentTarget.reset();
+      form.reset();
       overlay.querySelector('input[name="tweak-type"][value="BUG"]').checked = true;
       updateBugFields();
       setEvidence(null);
