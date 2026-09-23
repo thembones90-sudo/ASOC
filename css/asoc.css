@@ -5586,6 +5586,39 @@ body.gm-layout-locked .gm-module-height-splitter {
 .blood-tribute-vault-meta strong { color: #dedfe4; font: 700 0.62rem var(--font-machine); overflow: hidden; text-overflow: ellipsis; }
 .blood-tribute-vault-meta span { color: #858b96; font: 600 0.48rem var(--font-machine); letter-spacing: 0.45px; }
 
+.active-blood-tribute { border-color:#9b252d!important; box-shadow:0 0 14px rgba(175,20,31,.34)!important; background-image:linear-gradient(135deg,rgba(83,4,10,.22),transparent)!important; }
+.blood-tribute-tombstone { display:flex!important; flex-direction:column; gap:4px; padding:12px 14px!important; border:1px solid #5d2429!important; background:#130b0d!important; color:#a96066!important; }
+.blood-tribute-tombstone strong { color:#d7747c; font:800 .68rem var(--font-machine); letter-spacing:1px; }
+.blood-tribute-tombstone span { color:#76676a; font:600 .5rem var(--font-machine); }
+.blood-vault-launch { color:#d98a90!important; border-color:#69272d!important; }
+.blood-vault-overlay[hidden] { display:none!important; }
+.blood-vault-overlay { position:fixed; inset:0; z-index:12000; display:grid; place-items:center; padding:24px; background:rgba(2,4,7,.88); backdrop-filter:blur(8px); }
+.blood-tribute-confirm-card,.blood-vault-modal { border:1px solid #6c282f; background:linear-gradient(145deg,#15181e,#090b0e); box-shadow:0 0 40px rgba(144,15,26,.3); color:#d9dde4; }
+.blood-tribute-confirm-card { width:min(520px,100%); padding:28px; }
+.blood-tribute-confirm-card small,.blood-vault-modal small { color:#b54b55; font:700 .58rem var(--font-machine); letter-spacing:1.6px; }
+.blood-tribute-confirm-card h2,.blood-vault-modal h2 { margin:7px 0; font:800 1.1rem var(--font-machine); letter-spacing:2px; }
+.blood-tribute-confirm-card p { color:#8f959f; line-height:1.5; }
+.blood-tribute-confirm-card>div { display:flex; justify-content:flex-end; gap:10px; }
+.blood-tribute-confirm-card button,.blood-vault-modal button,.blood-vault-modal select,.blood-vault-modal input { border:1px solid #543039; background:#11151a; color:#c8cdd5; padding:10px 13px; font:700 .58rem var(--font-machine); letter-spacing:.8px; }
+.blood-tribute-confirm-card [data-tribute-confirm="accept"] { border-color:#9c3039; color:#f0a2a8; background:#351015; }
+.blood-vault-modal { width:min(1120px,96vw); height:min(780px,90vh); display:flex; flex-direction:column; }
+.blood-vault-modal>header { display:flex; justify-content:space-between; align-items:center; padding:18px 22px; border-bottom:1px solid #342126; }
+.blood-vault-modal>header button,#blood-vault-viewer>button { font-size:1.5rem; background:none; border:0; color:#d5a0a4; }
+.blood-vault-modal nav { display:flex; gap:8px; padding:12px 20px; flex-wrap:wrap; }
+.blood-vault-modal nav button.active { border-color:#9d3039; color:#ef9199; box-shadow:inset 0 -2px #9d3039; }
+.blood-vault-grid { padding:8px 20px 24px; overflow:auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+.blood-vault-card { border:1px solid #343941; background:#0d1014; padding:8px; position:relative; }
+.blood-vault-card.unread:before { content:'NEW'; position:absolute; z-index:2; top:14px; left:14px; background:#921f29; color:white; padding:4px 7px; font:700 .48rem var(--font-machine); }
+.blood-vault-image { width:100%; height:170px; padding:0!important; overflow:hidden; }
+.blood-vault-image img { width:100%; height:100%; object-fit:cover; }
+.blood-vault-card>div { display:grid; gap:7px; padding:10px 4px 2px; }
+.blood-vault-card strong { color:#e1e3e7; font:800 .68rem var(--font-machine); }
+.blood-vault-card span { color:#777f89; font:600 .5rem var(--font-machine); }
+.blood-vault-empty { color:#7b6265; font:700 .7rem var(--font-machine); letter-spacing:1px; }
+#blood-vault-viewer { z-index:12010; }
+#blood-vault-viewer img { max-width:92vw; max-height:88vh; object-fit:contain; box-shadow:0 0 50px #000; }
+#blood-vault-viewer>button { position:fixed; top:18px; right:25px; }
+
 /* =========================================================
    WHEEL OF MISFORTUNE -- the actual spin interface, revealed by
    OPEN WOMF once armed at 10/10 (js/wheel.js renders it; this only

@@ -3798,8 +3798,8 @@ const PlayerApp = {
         const remaining = 3000 - (now - wrongSeenAt);
         if (remaining > 0) nextWrongFadeMs = Math.min(nextWrongFadeMs, remaining);
       }
-      if (msg.source === 'bloodTribute') {
-        const tributeRemaining = Number(msg.publicUntil) - now;
+      if (msg.source === 'bloodTribute' || msg.bloodTribute?.active) {
+        const tributeRemaining = Number(msg.bloodTribute?.expiresAt || msg.publicUntil) - now;
         if (tributeRemaining > 0) nextTributeTickMs = Math.min(nextTributeTickMs, tributeRemaining, 1000);
       }
       html += this.createChatMessageHTML(msg, this.shouldGroupChatMessage(previous, msg), now);
@@ -3895,6 +3895,13 @@ const PlayerApp = {
   },
 
   createChatMessageHTML(msg, grouped = false, now = Date.now()) {
+    if (msg.bloodTribute?.claimed) {
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return `<div class="chat-message blood-tribute-tombstone" data-message-id="${this.escapeHtml(msg.id)}"><strong>☠ BLOOD TRIBUTE CLAIMED</strong><span>${this.escapeHtml(msg.playerName || 'LITTLE HERO')} // ${time}</span></div>`;
+    }
+    const manualTribute = msg.bloodTribute?.active;
+    const manualRemaining = Math.max(0, Math.ceil((Number(msg.bloodTribute?.expiresAt) - now) / 1000));
+    const manualBadge = manualTribute ? `<div class="blood-tribute-chat-head"><span>☠ BLOOD TRIBUTE</span><b>${String(Math.floor(manualRemaining / 60)).padStart(2, '0')}:${String(manualRemaining % 60).padStart(2, '0')}</b></div>` : '';
     if (msg.source === 'bloodTribute') {
       const remainingMs = Number(msg.publicUntil) - now;
       if (!msg.imageData || remainingMs <= 0) return '';
@@ -4013,8 +4020,8 @@ const PlayerApp = {
         ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
       return `
-        <div class="chat-broker-entry chat-reactable" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
-          ${replyContextHtml}
+        <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+          ${manualBadge}${replyContextHtml}
           ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchIn: isNew })}\n          ${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
           ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
           ${this.createReactionBarHTML(msg)}
@@ -4061,9 +4068,9 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+      <div class="chat-message ${manualTribute ? 'active-blood-tribute' : ''} ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
         <div class="chat-avatar-rail">${this.littleHeroAvatarHTML(identity)}</div>
-        <div class="chat-message-main">
+        <div class="chat-message-main">${manualBadge}
           <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>
           <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">&#8617;</button>
           ${replyContextHtml}

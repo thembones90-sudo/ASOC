@@ -1103,13 +1103,97 @@ function getBloodTributeVaultState(room) {
   return {
     tributes: tributes.slice().reverse().map(t => ({
       id: t.id,
-      playerId: t.playerId,
-      playerName: t.playerName,
-      imageData: t.imageData,
-      submittedAt: t.submittedAt,
-      publicUntil: t.publicUntil
+      originalMessageId: t.originalMessageId || null,
+      imageAssetId: t.imageAssetId || null,
+      playerId: t.senderPlayerId || t.playerId || null,
+      playerName: t.senderName || t.playerName || 'LITTLE HERO',
+      senderAvatar: t.senderAvatar || '',
+      imageData: getTributeImageData(t),
+      originalMessageTimestamp: Number(t.originalMessageTimestamp || t.submittedAt) || null,
+      submittedAt: Number(t.markedAt || t.submittedAt) || null,
+      publicUntil: Number(t.expiresAt || t.publicUntil) || null,
+      sessionId: t.sessionId || null,
+      viewedByGM: t.viewedByGM === true,
+      reliquary: t.reliquary === true,
+      archivedAt: Number(t.archivedAt) || null,
+      active: Number(t.expiresAt || t.publicUntil) > Date.now()
     }))
   };
+}
+
+function getTributeImageData(tribute) {
+  if (typeof tribute?.imageData === 'string' && tribute.imageData.startsWith('data:image/')) return tribute.imageData;
+  const match = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp|gif))$/i.exec(String(tribute?.imageUrlOrStoragePath || ''));
+  if (!match) return '';
+  try {
+    const filePath = path.join(CHAT_UPLOAD_DIR, match[1]);
+    const ext = path.extname(filePath).toLowerCase();
+    return `data:${mimeTypes[ext] || 'application/octet-stream'};base64,${fs.readFileSync(filePath).toString('base64')}`;
+  } catch (_) { return ''; }
+}
+
+function requireGmRoom(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) {
+    sendToWs(ws, { type: 'error', code: 'FORBIDDEN', message: 'Shadow Broker authorization required' });
+    return null;
+  }
+  return room;
+}
+
+function handleMarkChatBloodTribute(ws, payload) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  const message = room.chat.messages.find(item => item.id === String(payload.messageId || ''));
+  if (!message || typeof message.imageUrl !== 'string') return sendToWs(ws, { type: 'error', message: 'Only an existing chat image can become a Blood Tribute' });
+  if (message.bloodTribute?.active || message.bloodTribute?.claimed) return sendToWs(ws, { type: 'error', message: 'This image is already claimed or active' });
+  const now = Date.now();
+  const id = 'tribute-' + crypto.randomBytes(8).toString('hex');
+  const expiresAt = now + BLOOD_TRIBUTE_PUBLIC_MS;
+  const tribute = {
+    id, originalMessageId: message.id, imageAssetId: path.basename(message.imageUrl), imageUrlOrStoragePath: message.imageUrl,
+    senderPlayerId: message.playerId || null, senderName: message.playerName || 'LITTLE HERO', senderAvatar: message.avatarData || '',
+    originalMessageTimestamp: message.timestamp, markedAt: now, expiresAt, sessionId: message.boardId || room.boardId || null,
+    roomId: room.code, viewedByGM: false, reliquary: false, archivedAt: expiresAt
+  };
+  message.bloodTribute = { active: true, claimed: false, tributeId: id, markedAt: now, expiresAt };
+  room.bloodTributes = Array.isArray(room.bloodTributes) ? room.bloodTributes : [];
+  room.bloodTributes.push(tribute);
+  const localAsset = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp|gif))$/i.exec(message.imageUrl);
+  if (localAsset) {
+    try { fs.writeFileSync(path.join(CHAT_UPLOAD_DIR, localAsset[1] + '.tribute'), id, { flag: 'wx', mode: 0o600 }); } catch (error) { if (error.code !== 'EEXIST') throw error; }
+  }
+  persistActiveRooms(); broadcastChatUpdate(room); sendTributeVaultToHost(room);
+  setTimeout(() => {
+    const current = rooms.get(room.code);
+    const currentMessage = current?.chat?.messages?.find(item => item.id === message.id);
+    if (currentMessage?.bloodTribute?.tributeId !== id) return;
+    currentMessage.bloodTribute.active = false; currentMessage.bloodTribute.claimed = true;
+    persistActiveRooms(); broadcastChatUpdate(current); sendTributeVaultToHost(current);
+  }, BLOOD_TRIBUTE_PUBLIC_MS + 25);
+}
+
+function handleCancelChatBloodTribute(ws, payload) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  const message = room.chat.messages.find(item => item.id === String(payload.messageId || ''));
+  const state = message?.bloodTribute;
+  if (!message || !state?.active || Number(state.expiresAt) <= Date.now()) return sendToWs(ws, { type: 'error', message: 'Blood Tribute can no longer be cancelled' });
+  room.bloodTributes = (room.bloodTributes || []).filter(item => item.id !== state.tributeId);
+  const localAsset = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp|gif))$/i.exec(message.imageUrl || '');
+  if (localAsset) { try { fs.unlinkSync(path.join(CHAT_UPLOAD_DIR, localAsset[1] + '.tribute')); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
+  delete message.bloodTribute;
+  persistActiveRooms(); broadcastChatUpdate(room); sendTributeVaultToHost(room);
+}
+
+function handleTributeVaultUpdate(ws, payload) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  const tribute = (room.bloodTributes || []).find(item => item.id === String(payload.id || ''));
+  if (!tribute) return;
+  if (payload.action === 'viewed') tribute.viewedByGM = true;
+  if (payload.action === 'reliquary') tribute.reliquary = payload.value === true;
+  persistActiveRooms(); sendTributeVaultToHost(room);
 }
 
 function sendTributeVaultToHost(room) {
@@ -1179,7 +1263,6 @@ function handleBloodTributeSubmit(ws, message) {
   };
   if (!Array.isArray(room.bloodTributes)) room.bloodTributes = [];
   room.bloodTributes.push(tribute);
-  if (room.bloodTributes.length > BLOOD_TRIBUTE_VAULT_LIMIT) room.bloodTributes.splice(0, room.bloodTributes.length - BLOOD_TRIBUTE_VAULT_LIMIT);
 
   room.chat.messages.push({
     id: 'chat-' + tribute.id,
@@ -3973,6 +4056,19 @@ function readChatImageBody(req, cb) {
 function serveChatUpload(req, res, urlPath) {
   const match = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp|gif))$/i.exec(urlPath);
   if (!match) return false;
+  const active = Array.from(rooms.values()).some(room => room.chat?.messages?.some(message =>
+    message.imageUrl === urlPath && message.bloodTribute?.active === true && Number(message.bloodTribute.expiresAt) > Date.now()
+  ));
+  const protectedAsset = fs.existsSync(path.join(CHAT_UPLOAD_DIR, match[1] + '.tribute'));
+  const claimed = (!active && protectedAsset) || Array.from(rooms.values()).some(room => room.chat?.messages?.some(message =>
+    message.imageUrl === urlPath && message.bloodTribute &&
+    (message.bloodTribute.claimed === true || Number(message.bloodTribute.expiresAt) <= Date.now())
+  ));
+  if (claimed) {
+    res.writeHead(410, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+    res.end('Blood Tribute Claimed');
+    return true;
+  }
   const filePath = path.join(CHAT_UPLOAD_DIR, match[1]);
   fs.readFile(filePath, (err, content) => {
     if (err) {
@@ -3983,7 +4079,7 @@ function serveChatUpload(req, res, urlPath) {
     const ext = path.extname(filePath).toLowerCase();
     res.writeHead(200, {
       'Content-Type': mimeTypes[ext] || 'application/octet-stream',
-      'Cache-Control': 'public, max-age=31536000, immutable'
+      'Cache-Control': 'private, no-store'
     });
     res.end(content);
   });
@@ -4135,10 +4231,12 @@ function getChatState(room) {
   const now = Date.now();
   const tributeById = new Map((room.bloodTributes || []).map(t => [t.id, t]));
   return {
-    messages: room.chat.messages
-      .filter(m => m.source !== 'bloodTribute' || Number(m.publicUntil) > now)
-      .map(m => {
+    messages: room.chat.messages.map(m => {
         const tribute = m.source === 'bloodTribute' ? tributeById.get(m.tributeId) : null;
+        const manualState = m.bloodTribute && typeof m.bloodTribute === 'object' ? m.bloodTribute : null;
+        const manualExpiresAt = Number(manualState?.expiresAt) || 0;
+        const manualClaimed = !!manualState && (manualState.claimed === true || manualExpiresAt <= now);
+        const legacyClaimed = m.source === 'bloodTribute' && Number(m.publicUntil) <= now;
         return {
           id: m.id,
           playerId: m.playerId,
@@ -4159,7 +4257,7 @@ function getChatState(room) {
               .map(([emoji, playerIds]) => [emoji, Array.from(new Set(playerIds.filter(id => typeof id === 'string')))])
           ),
           source: m.source || null,
-          imageUrl: typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
+          imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
           messageType: m.messageType || null,
           gif: m.messageType === 'gifRemote' && m.gif ? {
             provider: m.gif.provider === 'giphy' ? 'giphy' : undefined,
@@ -4195,8 +4293,10 @@ function getChatState(room) {
               }])
             )
           } : undefined,
-          imageData: tribute ? tribute.imageData : undefined,
-          publicUntil: tribute ? tribute.publicUntil : undefined
+          imageData: tribute && !legacyClaimed ? tribute.imageData : undefined,
+          publicUntil: tribute ? tribute.publicUntil : undefined,
+          bloodTribute: manualState ? { active: !manualClaimed, claimed: manualClaimed, expiresAt: manualExpiresAt }
+            : (legacyClaimed ? { active: false, claimed: true, expiresAt: Number(m.publicUntil) } : undefined)
         };
       }),
     solvedTargets: { ...room.chat.solvedTargets }
@@ -6497,6 +6597,18 @@ wss.on('connection', (ws) => {
         }
         case 'gm:tributeVaultClear': {
           handleBloodTributeVaultClear(ws);
+          break;
+        }
+        case 'gm:bloodTributeMark': {
+          handleMarkChatBloodTribute(ws, message);
+          break;
+        }
+        case 'gm:bloodTributeCancel': {
+          handleCancelChatBloodTribute(ws, message);
+          break;
+        }
+        case 'gm:tributeVaultUpdate': {
+          handleTributeVaultUpdate(ws, message);
           break;
         }
         case 'gm:tributeForgive': {

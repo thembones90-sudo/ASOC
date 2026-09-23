@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ASOC Engine</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260923-casual-rail-bottom-fix-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260923-blood-vault-1">
   <link rel="stylesheet" href="css/tweaks.css?v=20260923-utility-icon-fix-1">
   <link rel="stylesheet" href="css/backdoor-console.css?v=20260922-casual-maintenance-fix-1">
 </head>
@@ -41,8 +41,9 @@
         <!-- RECOUNT gate: appears only when the game is over (whole field opened, or lost
              on time). SHOW RESULTS broadcasts the RECOUNT to everyone; afterwards it reopens it. -->
         <button class="gm-global-btn recount-btn" id="recount-btn" type="button">SHOW RESULTS</button>
-        <div class="battle-controls-utility-row" style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr);gap:10px;margin-top:10px;">
+        <div class="battle-controls-utility-row" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,.65fr);gap:10px;margin-top:10px;">
           <button class="toolbar-btn" id="library-btn-footer" style="width:100%;margin:0;">GAME LIBRARY</button>
+          <button class="toolbar-btn blood-vault-launch" id="blood-tribute-vault-btn" type="button">BLOOD TRIBUTE VAULT</button>
           <div class="master-access-wrap">
             <button class="toolbar-btn master-access-btn" id="master-access-btn" type="button" aria-haspopup="true" aria-expanded="false">MASTER ACCESS</button>
             <div class="master-access-menu" id="master-access-menu" hidden>
@@ -80,6 +81,8 @@
             <button type="button" data-gm-chat-action="reply" role="menuitem"><span>&#8617;</span> REPLY</button>
             <button type="button" data-gm-chat-action="edit" role="menuitem" hidden><span>&#9998;</span> EDIT MESSAGE</button>
             <button type="button" data-gm-chat-action="react" role="menuitem"><span>&#9786;</span> REACT</button>
+            <button type="button" data-gm-chat-action="tribute" role="menuitem" hidden><span>&#9760;</span> MARK FOR BLOOD TRIBUTE</button>
+            <button type="button" data-gm-chat-action="tribute-cancel" role="menuitem" hidden><span>&#10005;</span> CANCEL BLOOD TRIBUTE</button>
           </div>
             <div id="gm-broker-bar" class="gm-broker-bar">
               <form id="shadow-broker-form" class="shadow-broker-form">
@@ -194,6 +197,22 @@
     </aside>
   </div>
 
+  <div id="blood-tribute-confirm" class="blood-vault-overlay" hidden>
+    <div class="blood-tribute-confirm-card" role="dialog" aria-modal="true" aria-labelledby="blood-tribute-confirm-title">
+      <small>SHADOW BROKER AUTHORITY</small><h2 id="blood-tribute-confirm-title">MARK FOR BLOOD TRIBUTE?</h2>
+      <p>The image remains public for exactly 02:00, then becomes a protected Vault artifact.</p>
+      <div><button type="button" data-tribute-confirm="cancel">ABORT</button><button type="button" data-tribute-confirm="accept">CONFIRM BLOOD TRIBUTE</button></div>
+    </div>
+  </div>
+  <div id="blood-tribute-vault-modal" class="blood-vault-overlay" hidden>
+    <section class="blood-vault-modal" role="dialog" aria-modal="true" aria-labelledby="blood-vault-title">
+      <header><div><small>ARCHIVE ACCESS // TRIBUTES RETAINED</small><h2 id="blood-vault-title">BLOOD TRIBUTE VAULT</h2></div><button type="button" data-vault-close aria-label="Close Vault">×</button></header>
+      <nav><button type="button" data-vault-view="recent" class="active">RECENT TRIBUTES</button><button type="button" data-vault-view="reliquary">THE RELIQUARY</button><select id="blood-vault-player-filter"><option value="">ALL PLAYERS</option></select><select id="blood-vault-session-filter"><option value="">ALL SESSIONS</option></select><input id="blood-vault-date-filter" type="date" aria-label="Filter by date"></nav>
+      <div id="blood-vault-grid" class="blood-vault-grid"></div>
+    </section>
+  </div>
+  <div id="blood-vault-viewer" class="blood-vault-overlay" hidden><button type="button" data-vault-viewer-close aria-label="Close image">×</button><img alt="Blood Tribute archive preview"></div>
+
   <div id="forge-overlay" class="forge-overlay">
     <div class="forge-shell" id="forge-shell"></div>
   </div>
@@ -268,7 +287,7 @@
   <script src="js/backdoor.js?v=20260921-womf-backdoor-1"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260922-player-global-drop-1"></script>
-  <script src="js/app.js?v=20260923-gm-composer-dock-2"></script>
+  <script src="js/app.js?v=20260923-blood-vault-1"></script>
   <script src="js/tweaks.js?v=20260923-gm-chat-repair-1"></script>
   <script src="js/forge.js"></script>
 </body>

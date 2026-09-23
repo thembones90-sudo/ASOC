@@ -1638,6 +1638,11 @@ const App = {
       gmContextMenu.dataset.messageId = messageId;
       const editButton = gmContextMenu.querySelector('[data-gm-chat-action="edit"]');
       if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
+      const chatMessage = this.chatMessages.find(item => item.id === messageId);
+      const tributeButton = gmContextMenu.querySelector('[data-gm-chat-action="tribute"]');
+      const cancelTributeButton = gmContextMenu.querySelector('[data-gm-chat-action="tribute-cancel"]');
+      if (tributeButton) tributeButton.hidden = !chatMessage?.imageUrl || !!chatMessage?.bloodTribute;
+      if (cancelTributeButton) cancelTributeButton.hidden = !chatMessage?.bloodTribute?.active;
       gmContextMenu.hidden = false;
       if (gmReactionPicker) gmReactionPicker.hidden = true;
       if (gmEmojiPicker) gmEmojiPicker.hidden = true;
@@ -1773,6 +1778,8 @@ const App = {
         this.startGMChatEdit(messageId);
         return;
       }
+      if (action === 'tribute') { this.openBloodTributeConfirmation(messageId); return; }
+      if (action === 'tribute-cancel') { this.send({ type: 'gm:bloodTributeCancel', messageId }); return; }
       if (action === 'reply') {
         const composer = this.getGMComposerElement();
         if (!composer) return;
@@ -1814,6 +1821,34 @@ const App = {
     document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
     document.getElementById('blood-tribute-vault-clear')?.addEventListener('click', () => this.clearBloodTributeVault());
     document.getElementById('blood-tribute-override-btn')?.addEventListener('click', () => this.overrideBloodTribute());
+    document.getElementById('blood-tribute-vault-btn')?.addEventListener('click', () => this.openBloodTributeVault());
+    document.querySelectorAll('[data-vault-close]').forEach(button => button.addEventListener('click', () => this.closeBloodTributeVault()));
+    document.querySelector('[data-vault-viewer-close]')?.addEventListener('click', () => { document.getElementById('blood-vault-viewer').hidden = true; });
+    document.querySelectorAll('[data-vault-view]').forEach(button => button.addEventListener('click', () => { this._vaultView = button.dataset.vaultView; this.renderBloodTributeVault(); }));
+    document.getElementById('blood-vault-player-filter')?.addEventListener('change', () => this.renderBloodTributeVault());
+    document.getElementById('blood-vault-session-filter')?.addEventListener('change', () => this.renderBloodTributeVault());
+    document.getElementById('blood-vault-date-filter')?.addEventListener('change', () => this.renderBloodTributeVault());
+    document.getElementById('blood-vault-grid')?.addEventListener('click', e => {
+      const card = e.target.closest('[data-vault-id]');
+      if (!card) return;
+      const tribute = this.bloodTributes.find(item => item.id === card.dataset.vaultId);
+      if (!tribute) return;
+      if (e.target.closest('.blood-vault-reliquary')) {
+        this.send({ type: 'gm:tributeVaultUpdate', id: tribute.id, action: 'reliquary', value: !tribute.reliquary });
+      } else if (e.target.closest('.blood-vault-image')) {
+        this.send({ type: 'gm:tributeVaultUpdate', id: tribute.id, action: 'viewed' });
+        const viewer = document.getElementById('blood-vault-viewer');
+        viewer.querySelector('img').src = tribute.imageData;
+        viewer.hidden = false;
+      }
+    });
+    document.getElementById('blood-tribute-confirm')?.addEventListener('click', e => {
+      const action = e.target.closest('[data-tribute-confirm]')?.dataset.tributeConfirm;
+      if (!action) return;
+      const overlay = document.getElementById('blood-tribute-confirm');
+      if (action === 'accept' && overlay.dataset.messageId) this.send({ type: 'gm:bloodTributeMark', messageId: overlay.dataset.messageId });
+      overlay.hidden = true; delete overlay.dataset.messageId;
+    });
     document.getElementById('alltime-toggle-btn')?.addEventListener('click', () => this.toggleAllTimeView());
     document.getElementById('womf-open-btn')?.addEventListener('click', () => this.openWomf());
 
@@ -3333,6 +3368,9 @@ const App = {
     if (!list || !status) return;
 
     const tributes = Array.isArray(this.bloodTributes) ? this.bloodTributes : [];
+    const unread = tributes.filter(t => !t.viewedByGM).length;
+    const launch = document.getElementById('blood-tribute-vault-btn');
+    if (launch) launch.textContent = `BLOOD TRIBUTE VAULT${unread ? ` · ${unread}` : ''}`;
     if (this.bloodTribute?.status === 'required') {
       status.textContent = `DEBT OUTSTANDING // ${this.bloodTribute.playerName || 'UNKNOWN'}`;
       status.classList.add('debt-outstanding');
@@ -3361,7 +3399,38 @@ const App = {
     }).join('');
 
     if (clearBtn) clearBtn.disabled = tributes.length === 0;
+
+    const grid = document.getElementById('blood-vault-grid');
+    const playerFilter = document.getElementById('blood-vault-player-filter');
+    if (!grid || !playerFilter) return;
+    const selectedPlayer = playerFilter.value;
+    const names = [...new Set(tributes.map(t => t.playerName).filter(Boolean))].sort();
+    playerFilter.innerHTML = '<option value="">ALL PLAYERS</option>' + names.map(name => `<option value="${this.escapeHtml(name)}"${name === selectedPlayer ? ' selected' : ''}>${this.escapeHtml(name)}</option>`).join('');
+    const sessionFilter = document.getElementById('blood-vault-session-filter');
+    const selectedSession = sessionFilter?.value || '';
+    const sessions = [...new Set(tributes.map(t => t.sessionId || 'CASUAL'))].sort();
+    if (sessionFilter) sessionFilter.innerHTML = '<option value="">ALL SESSIONS</option>' + sessions.map(session => `<option value="${this.escapeHtml(session)}"${session === selectedSession ? ' selected' : ''}>${this.escapeHtml(session)}</option>`).join('');
+    const dateFilter = document.getElementById('blood-vault-date-filter')?.value || '';
+    const view = this._vaultView || 'recent';
+    document.querySelectorAll('[data-vault-view]').forEach(button => button.classList.toggle('active', button.dataset.vaultView === view));
+    const filtered = tributes.filter(t => (view !== 'reliquary' || t.reliquary) && (!selectedPlayer || t.playerName === selectedPlayer) && (!selectedSession || (t.sessionId || 'CASUAL') === selectedSession) && (!dateFilter || new Date(t.originalMessageTimestamp || t.submittedAt).toISOString().slice(0, 10) === dateFilter));
+    grid.innerHTML = filtered.length ? filtered.map(t => `<article class="blood-vault-card${t.viewedByGM ? '' : ' unread'}" data-vault-id="${this.escapeHtml(t.id)}"><button type="button" class="blood-vault-image"><img src="${t.imageData}" alt="Archived Blood Tribute"></button><div><strong>${this.escapeHtml(t.playerName || 'LITTLE HERO')}</strong><span>${new Date(t.originalMessageTimestamp || t.submittedAt).toLocaleString()} // ${this.escapeHtml(t.sessionId || 'CASUAL')}</span><button type="button" class="blood-vault-reliquary">${t.reliquary ? 'REMOVE FROM RELIQUARY' : 'MOVE TO RELIQUARY'}</button></div></article>`).join('') : '<p class="blood-vault-empty">NO TRIBUTES IN THIS ARCHIVE</p>';
   },
+
+  openBloodTributeConfirmation(messageId) {
+    const overlay = document.getElementById('blood-tribute-confirm');
+    if (!overlay) return;
+    overlay.dataset.messageId = messageId;
+    overlay.hidden = false;
+  },
+
+  openBloodTributeVault() {
+    this._vaultView = this._vaultView || 'recent';
+    this.renderBloodTributeVault();
+    document.getElementById('blood-tribute-vault-modal').hidden = false;
+  },
+
+  closeBloodTributeVault() { document.getElementById('blood-tribute-vault-modal').hidden = true; },
 
   clearBloodTributeVault() {
     if (this.mode !== 'multiplayer' || !this.bloodTributes.length) return;
@@ -4196,8 +4265,8 @@ const App = {
         const remaining = 3000 - (now - wrongSeenAt);
         if (remaining > 0) nextWrongFadeMs = Math.min(nextWrongFadeMs, remaining);
       }
-      if (msg.source === 'bloodTribute') {
-        const tributeRemaining = Number(msg.publicUntil) - now;
+      if (msg.source === 'bloodTribute' || msg.bloodTribute?.active) {
+        const tributeRemaining = Number(msg.bloodTribute?.expiresAt || msg.publicUntil) - now;
         if (tributeRemaining > 0) nextTributeTickMs = Math.min(nextTributeTickMs, tributeRemaining, 1000);
       }
       html += this.createGMChatMessageHTML(
@@ -4391,6 +4460,13 @@ const App = {
   },
 
   createGMChatMessageHTML(msg, grouped = false, now = Date.now()) {
+    if (msg.bloodTribute?.claimed) {
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return `<div class="gm-chat-message blood-tribute-tombstone" data-message-id="${this.escapeHtml(msg.id)}"><strong>☠ BLOOD TRIBUTE CLAIMED</strong><span>${this.escapeHtml(msg.playerName || 'LITTLE HERO')} // ${time}</span></div>`;
+    }
+    const manualTribute = msg.bloodTribute?.active;
+    const manualRemaining = Math.max(0, Math.ceil((Number(msg.bloodTribute?.expiresAt) - now) / 1000));
+    const manualBadge = manualTribute ? `<div class="blood-tribute-chat-head"><span>☠ BLOOD TRIBUTE</span><b>${String(Math.floor(manualRemaining / 60)).padStart(2, '0')}:${String(manualRemaining % 60).padStart(2, '0')}</b></div>` : '';
     if (msg.source === 'bloodTribute') {
       const remainingMs = Number(msg.publicUntil) - now;
       if (!msg.imageData || remainingMs <= 0) return '';
@@ -4522,8 +4598,8 @@ const App = {
         ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
       return `
-        <div class="gm-shadow-broker-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
-          ${replyContextHtml}
+        <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+          ${manualBadge}${replyContextHtml}
           ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchIn: isNew })}\n          ${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
           ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
           ${this.createGMReactionSummaryHTML(msg)}
@@ -4570,10 +4646,10 @@ const App = {
     }
 
     return `
-      <div class="gm-chat-message gm-flow-message ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+      <div class="gm-chat-message gm-flow-message ${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
         <div class="gm-chat-avatar-rail">${this.littleHeroAvatarHTML(identity, true)}</div>
         <div class="gm-chat-bubble-cluster">
-          <div class="gm-chat-message-main">
+          <div class="gm-chat-message-main">${manualBadge}
             <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>
             ${replyContextHtml}
             <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
@@ -4632,6 +4708,11 @@ const App = {
     menu.dataset.messageId = messageId;
     const editButton = menu.querySelector('[data-gm-chat-action="edit"]');
     if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
+    const chatMessage = this.chatMessages.find(item => item.id === messageId);
+    const tributeButton = menu.querySelector('[data-gm-chat-action="tribute"]');
+    const cancelTributeButton = menu.querySelector('[data-gm-chat-action="tribute-cancel"]');
+    if (tributeButton) tributeButton.hidden = !chatMessage?.imageUrl || !!chatMessage?.bloodTribute;
+    if (cancelTributeButton) cancelTributeButton.hidden = !chatMessage?.bloodTribute?.active;
     menu.hidden = false;
     const reactionPicker = document.getElementById('gm-chat-reaction-picker');
     const emojiPicker = document.getElementById('gm-emoji-picker');
