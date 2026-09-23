@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ASOC Engine</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260923-gm-chat-wrapper-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260923-gm-composer-dock-1">
   <link rel="stylesheet" href="css/tweaks.css?v=20260923-gm-chat-repair-1">
   <link rel="stylesheet" href="css/backdoor-console.css?v=20260922-casual-maintenance-fix-1">
 </head>
@@ -22,55 +22,6 @@
       <div id="board-layer">
         <img id="background-layer" alt="Game background">
         <div id="asoc-board" class="asoc-board"></div>
-      </div>
-
-      <!-- Moved here from the GUESSES panel in the sidebar -- always
-           visible right under the board itself, so sending a transmission
-           never requires scrolling the GM panel mid-game. Same ids/classes
-           as before, so no JS changes were needed to keep it working. -->
-      <div id="gm-broker-bar" class="gm-broker-bar">
-        <form id="shadow-broker-form" class="shadow-broker-form">
-          <span class="shadow-broker-form-label">SHADOW BROKER</span>
-          <div class="gm-composer-shell">
-            <div class="gm-attachment-wrap">
-              <button type="button" id="gm-image-upload-btn" class="chat-image-upload-btn gm-image-upload-btn gm-attach-toggle" title="Attachments" aria-label="Open attachments" aria-expanded="false">+</button>
-              <div id="gm-attachment-menu" class="gm-attachment-menu" hidden role="menu" aria-label="Attachments">
-                <button type="button" class="gm-attachment-option" data-gm-attachment="image" role="menuitem">
-                  <span class="gm-attachment-option-icon" aria-hidden="true">▧</span>
-                  <span class="gm-attachment-option-copy"><b>PHOTOS</b><small>UPLOAD · PASTE · DROP · 5 MB</small></span>
-                </button>
-                <button type="button" class="gm-attachment-option" data-gm-attachment="gif" role="menuitem">
-                  <span class="gm-attachment-option-icon gm-attachment-gif-icon" aria-hidden="true">GIF</span>
-                  <span class="gm-attachment-option-copy"><b>GIF</b><small>Search GIPHY · upload fallback</small></span>
-                </button>
-                <button type="button" class="gm-attachment-option" data-gm-attachment="poll" role="menuitem">
-                  <span class="gm-attachment-option-icon gm-attachment-poll-icon" aria-hidden="true">▤</span>
-                  <span class="gm-attachment-option-copy"><b>POLL</b><small>2–8 options · live results</small></span>
-                </button>
-              </div>
-              <div id="gm-poll-composer" class="gm-poll-composer" hidden>
-                <div class="gm-poll-composer-head"><b>CREATE POLL</b><button type="button" id="gm-poll-cancel" aria-label="Close poll composer">×</button></div>
-                <input type="text" id="gm-poll-question" maxlength="160" placeholder="Ask the room...">
-                <div id="gm-poll-options" class="gm-poll-options-editor"></div>
-                <div class="gm-poll-config-row">
-                  <label class="gm-poll-timer-control"><span>TIMER</span><select id="gm-poll-duration" aria-label="Poll timer"><option value="0">NO LIMIT</option><option value="30">00:30</option><option value="60" selected>01:00</option><option value="120">02:00</option><option value="300">05:00</option><option value="600">10:00</option></select></label>
-                  <span class="gm-poll-autotag">@ALL // AUTO-TAG ON PUBLISH</span>
-                </div>
-                <div class="gm-poll-composer-actions">
-                  <button type="button" id="gm-poll-add-option">+ OPTION</button>
-                  <label><input type="checkbox" id="gm-poll-multiple"> MULTIPLE ANSWERS</label>
-                  <button type="button" id="gm-poll-create">CREATE</button>
-                </div>
-              </div>
-            </div>
-            <button type="button" id="gm-emoji-toggle" class="gm-emoji-toggle" title="Emoji" aria-label="Open emoji picker" aria-expanded="false">☺</button>
-            <div id="gm-emoji-picker" class="gm-emoji-picker" hidden></div>
-            <div id="shadow-broker-composer" class="shadow-broker-input shadow-broker-rich-input" contenteditable="true" role="textbox" aria-label="Shadow Broker transmission" aria-multiline="false" data-placeholder="Transmit to players..." spellcheck="true"></div>
-          </div>
-          <input type="file" id="gm-image-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
-          <input type="file" id="gm-gif-upload-input" accept="image/gif" hidden>
-          <input type="text" id="shadow-broker-input" class="shadow-broker-input-model" placeholder="Transmit to players..." autocomplete="off" tabindex="-1" aria-hidden="true">
-        </form>
       </div>
 
       <section id="battle-controls-panel" class="battle-controls-panel" aria-label="Shadow Broker battle controls">
@@ -127,10 +78,34 @@
             <button type="button" data-gm-chat-action="edit" role="menuitem" hidden><span>&#9998;</span> EDIT MESSAGE</button>
             <button type="button" data-gm-chat-action="react" role="menuitem"><span>&#9786;</span> REACT</button>
           </div>
-            <!-- The TRANSMIT input itself now lives under the board (see
-                 #gm-broker-bar in #main-content) so it's always in view
-                 without scrolling this sidebar -- this panel keeps the
-                 read-only message log only. -->
+            <div id="gm-broker-bar" class="gm-broker-bar">
+              <form id="shadow-broker-form" class="shadow-broker-form">
+                <span class="shadow-broker-form-label">SHADOW BROKER</span>
+                <div class="gm-composer-shell">
+                  <div class="gm-attachment-wrap">
+                    <button type="button" id="gm-image-upload-btn" class="chat-image-upload-btn gm-image-upload-btn gm-attach-toggle" title="Attachments" aria-label="Open attachments" aria-expanded="false">+</button>
+                    <div id="gm-attachment-menu" class="gm-attachment-menu" hidden role="menu" aria-label="Attachments">
+                      <button type="button" class="gm-attachment-option" data-gm-attachment="image" role="menuitem"><span class="gm-attachment-option-icon" aria-hidden="true">▧</span><span class="gm-attachment-option-copy"><b>PHOTOS</b><small>UPLOAD · PASTE · DROP · 5 MB</small></span></button>
+                      <button type="button" class="gm-attachment-option" data-gm-attachment="gif" role="menuitem"><span class="gm-attachment-option-icon gm-attachment-gif-icon" aria-hidden="true">GIF</span><span class="gm-attachment-option-copy"><b>GIF</b><small>Search GIPHY · upload fallback</small></span></button>
+                      <button type="button" class="gm-attachment-option" data-gm-attachment="poll" role="menuitem"><span class="gm-attachment-option-icon gm-attachment-poll-icon" aria-hidden="true">▤</span><span class="gm-attachment-option-copy"><b>POLL</b><small>2–8 options · live results</small></span></button>
+                    </div>
+                    <div id="gm-poll-composer" class="gm-poll-composer" hidden>
+                      <div class="gm-poll-composer-head"><b>CREATE POLL</b><button type="button" id="gm-poll-cancel" aria-label="Close poll composer">×</button></div>
+                      <input type="text" id="gm-poll-question" maxlength="160" placeholder="Ask the room...">
+                      <div id="gm-poll-options" class="gm-poll-options-editor"></div>
+                      <div class="gm-poll-config-row"><label class="gm-poll-timer-control"><span>TIMER</span><select id="gm-poll-duration" aria-label="Poll timer"><option value="0">NO LIMIT</option><option value="30">00:30</option><option value="60" selected>01:00</option><option value="120">02:00</option><option value="300">05:00</option><option value="600">10:00</option></select></label><span class="gm-poll-autotag">@ALL // AUTO-TAG ON PUBLISH</span></div>
+                      <div class="gm-poll-composer-actions"><button type="button" id="gm-poll-add-option">+ OPTION</button><label><input type="checkbox" id="gm-poll-multiple"> MULTIPLE ANSWERS</label><button type="button" id="gm-poll-create">CREATE</button></div>
+                    </div>
+                  </div>
+                  <button type="button" id="gm-emoji-toggle" class="gm-emoji-toggle" title="Emoji" aria-label="Open emoji picker" aria-expanded="false">☺</button>
+                  <div id="gm-emoji-picker" class="gm-emoji-picker" hidden></div>
+                  <div id="shadow-broker-composer" class="shadow-broker-input shadow-broker-rich-input" contenteditable="true" role="textbox" aria-label="Shadow Broker transmission" aria-multiline="false" data-placeholder="Transmit to players..." spellcheck="true"></div>
+                </div>
+                <input type="file" id="gm-image-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+                <input type="file" id="gm-gif-upload-input" accept="image/gif" hidden>
+                <input type="text" id="shadow-broker-input" class="shadow-broker-input-model" placeholder="Transmit to players..." autocomplete="off" tabindex="-1" aria-hidden="true">
+              </form>
+            </div>
           </div>
         </section>
 
@@ -290,7 +265,7 @@
   <script src="js/backdoor.js?v=20260921-womf-backdoor-1"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260922-player-global-drop-1"></script>
-  <script src="js/app.js?v=20260923-gm-chat-wrapper-1"></script>
+  <script src="js/app.js?v=20260923-gm-composer-dock-1"></script>
   <script src="js/tweaks.js?v=20260923-gm-chat-repair-1"></script>
   <script src="js/forge.js"></script>
 </body>

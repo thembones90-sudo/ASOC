@@ -16508,4 +16508,37 @@ button.gm-chat-gif-link:focus-visible {
   body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-chat-messages::-webkit-scrollbar {
     width:8px;
   }
+
+  body.room-mode-battle #gm-panel:not(.maintenance-open) #gm-broker-bar,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #gm-broker-bar,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-broker-bar {
+    display:block !important;
+    flex:0 0 auto !important;
+    width:100% !important;
+    max-width:none !important;
+    min-height:0 !important;
+    margin:0 !important;
+    padding:9px 4px 3px !important;
+    border:0 !important;
+    border-top:1px solid rgba(119,130,143,.28) !important;
+    background:linear-gradient(180deg,rgba(17,21,27,.92),rgba(9,12,16,.99)) !important;
+    box-shadow:0 -10px 22px rgba(83,48,112,.08) !important;
+    box-sizing:border-box !important;
+  }
+
+  body.room-mode-battle #gm-panel:not(.maintenance-open) #shadow-broker-form,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #shadow-broker-form,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) #shadow-broker-form {
+    width:100% !important;
+    margin:0 !important;
+    padding:0 !important;
+    border:0 !important;
+    background:transparent !important;
+  }
+
+  body.room-mode-battle #gm-panel:not(.maintenance-open) .shadow-broker-form-label,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .shadow-broker-form-label,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) .shadow-broker-form-label {
+    display:none !important;
+  }
 }
