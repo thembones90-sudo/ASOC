@@ -1317,6 +1317,14 @@ position:absolute;
       clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
       overflow:hidden;
     }
+    /* MASTER ACCESS escapes the decorative status-slab crop while open.
+       Without this state the dropdown works, but overflow + clip-path leave
+       only a blank strip visible beneath its trigger. */
+    .detainee-status-module.master-access-open {
+      z-index:40;
+      overflow:visible;
+      clip-path:none;
+    }
     /* SKYNET MATERIAL 03 // COMMAND SLAB.
        Brighter steel faceplate, one localized cortex cluster, one tiny red life-slit. */
     #game-screen[data-player-theme="gunmetal"] .detainee-status-module {
@@ -8814,6 +8822,7 @@ position:absolute;
     const playerMasterWrap=document.getElementById('player-master-access-wrap');
     const playerMasterControl=document.getElementById('player-master-access-control');
     const playerMasterMenu=document.getElementById('player-master-access-menu');
+    const playerMasterSurface=playerMasterWrap?.closest('.detainee-status-module');
     const playerAuthTokenKey='asoc_player_auth_token';
     const playerSessionKeys=['asoc_player_id','asoc_player_name'];
     const playerResumeKey='asoc_player_in_master';
@@ -8860,12 +8869,14 @@ position:absolute;
       if(!playerMasterMenu||!playerMasterControl)return;
       playerMasterMenu.hidden=true;
       playerMasterControl.setAttribute('aria-expanded','false');
+      playerMasterSurface?.classList.remove('master-access-open');
     };
     playerMasterControl?.addEventListener('click',event=>{
       event.stopPropagation();
       const open=playerMasterMenu.hidden;
       playerMasterMenu.hidden=!open;
       playerMasterControl.setAttribute('aria-expanded',open?'true':'false');
+      playerMasterSurface?.classList.toggle('master-access-open',open);
     });
     document.addEventListener('click',event=>{
       if(playerMasterWrap&&!playerMasterWrap.contains(event.target))closePlayerMasterMenu();
