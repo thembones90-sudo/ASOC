@@ -5337,13 +5337,21 @@ position:absolute;
 
 
 
-    /* PLAYER UTILITY PLACEMENT // keep utilities in the header, never below chat */
+    /* PLAYER UTILITY PLACEMENT // identity first, utilities second.
+       The narrow Battle sidebar must never crush MASTER/TWEAKS into the edge. */
     .hero-hud-identity-block {
-      display:flex;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
       align-items:center;
-      gap:10px;
+      gap:8px;
+      width:100%;
       min-width:0;
-      flex-wrap:wrap;
+    }
+
+    .hero-hud-identity-block .hero-hud-identity {
+      grid-column:1 / -1;
+      width:100%;
+      min-width:0;
     }
 
     .hero-hud-identity-block .player-logout-control {
@@ -5354,13 +5362,97 @@ position:absolute;
       bottom:auto !important;
       transform:none !important;
       z-index:auto !important;
-      min-height:28px !important;
-      height:28px !important;
-      padding:0 9px !important;
+      width:100% !important;
+      min-width:0 !important;
+      min-height:34px !important;
+      height:34px !important;
+      padding:0 10px !important;
       font-size:8px !important;
       letter-spacing:.9px !important;
-      opacity:.72;
+      opacity:.82;
       flex:0 0 auto;
+    }
+
+    .hero-hud-identity-block .player-master-access-wrap {
+      display:block;
+      position:relative;
+      width:100%;
+      min-width:0;
+    }
+
+    .hero-hud-identity-block .player-master-access-control,
+    .hero-hud-identity-block .hero-utility-tweaks {
+      width:100% !important;
+      min-width:0 !important;
+      min-height:34px !important;
+      height:34px !important;
+      margin:0 !important;
+      justify-content:center !important;
+      font-size:8px !important;
+      letter-spacing:.85px !important;
+    }
+
+    .hero-hud-identity-block .player-master-access-menu {
+      top:calc(100% + 7px);
+      bottom:auto;
+      right:0;
+      left:auto;
+      width:min(300px,calc(100vw - 24px));
+      max-width:calc(100vw - 24px);
+      z-index:12000;
+    }
+
+    .battle-comms-lobby .hero-hud-stats {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      align-items:stretch;
+      gap:6px;
+      width:100%;
+      color:#7f8792;
+      font:600 .54rem var(--font-machine);
+      letter-spacing:.8px;
+    }
+
+    .battle-comms-lobby .hero-stat {
+      display:flex;
+      align-items:center;
+      gap:5px;
+      min-width:0;
+      min-height:30px;
+      padding:0 8px;
+      border:1px solid rgba(104,137,157,.18);
+      border-radius:4px;
+      background:rgba(10,19,25,.58);
+      color:#7f96a5;
+      white-space:nowrap;
+      overflow:hidden;
+    }
+
+    .battle-comms-lobby .hero-stat-icon {
+      width:12px;
+      height:12px;
+      flex:0 0 12px;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:1.7;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      opacity:.82;
+    }
+
+    .battle-comms-lobby .hero-stat-label {
+      min-width:0;
+      color:#7e94a2;
+      font-size:.46rem;
+      letter-spacing:.55px;
+    }
+
+    .battle-comms-lobby .hero-stat b,
+    .battle-comms-lobby .hero-link-value {
+      margin-left:auto;
+      color:#dfe9ef;
+      font:800 .53rem/1 var(--font-machine);
+      letter-spacing:.35px;
     }
 
     .battle-comms-status .connection-status {
@@ -8313,7 +8405,7 @@ position:absolute;
         </button>
         <div class="master-access-wrap player-master-access-wrap" id="player-master-access-wrap" hidden>
           <button type="button" id="player-master-access-control" class="hero-utility-btn player-master-access-control" aria-haspopup="true" aria-expanded="false">
-            <span>MASTER</span>
+            <span>MASTER ACCESS</span>
           </button>
           <div class="master-access-menu player-master-access-menu" id="player-master-access-menu" hidden>
             <div class="master-access-status"><small>CURRENT VIEW</small><strong>LITTLE HERO // TEST</strong></div>
