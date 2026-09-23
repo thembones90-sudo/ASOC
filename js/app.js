@@ -79,6 +79,10 @@ const App = {
   _gmTributeExpiryTimer: null,
   bloodTribute: { status: 'idle' },
   bloodTributes: [],
+  gmSlashCommands: [
+    { name: 'roll', insert: '/roll ', icon: '◆', label: 'ROLL', description: 'Authoritative Shadow Broker roll // minimum 2' },
+    { name: 'reliquary', insert: '/reliquary ', icon: '☠', label: 'OPEN RELIQUARY', description: 'Protected Blood Tribute archive' }
+  ],
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😇', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
   gmEmojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭'],
   gmEmojiFavorites: [],
@@ -1165,17 +1169,23 @@ const App = {
     gmCommandPicker.id = 'gm-command-picker';
     gmCommandPicker.className = 'gm-command-picker';
     gmCommandPicker.hidden = true;
-    gmCommandPicker.innerHTML = '<div class="gm-command-picker-head">SHADOW BROKER COMMANDS</div><button type="button" class="gm-command-option active" data-command="reliquary"><span>☠</span><b>OPEN RELIQUARY</b><small>Protected Blood Tribute archive</small></button>';
     shadowBrokerForm?.appendChild(gmCommandPicker);
+    let gmCommandCandidates = [];
+    let gmCommandIndex = 0;
     const updateGMCommandPicker = () => {
       const text = this.getGMComposerText();
       const commandFragment = text.match(/^\/([^\s]*)$/)?.[1]?.toLowerCase();
-      const visible = commandFragment !== undefined && 'reliquary'.startsWith(commandFragment);
-      gmCommandPicker.hidden = !visible;
-      if (visible) this.closeGMMentionPicker(gmMentionPicker);
+      gmCommandCandidates = commandFragment === undefined ? [] : this.gmSlashCommands.filter(command => command.name.startsWith(commandFragment));
+      if (!gmCommandCandidates.length) { gmCommandPicker.hidden = true; return; }
+      gmCommandIndex = Math.max(0, Math.min(gmCommandIndex, gmCommandCandidates.length - 1));
+      gmCommandPicker.innerHTML = '<div class="gm-command-picker-head">SHADOW BROKER COMMANDS</div>' + gmCommandCandidates.map((command, index) => `<button type="button" class="gm-command-option${index === gmCommandIndex ? ' active' : ''}" data-command-index="${index}"><span>${command.icon}</span><b>${command.label}</b><small>${command.description}</small></button>`).join('');
+      gmCommandPicker.hidden = false;
+      this.closeGMMentionPicker(gmMentionPicker);
     };
-    const selectGMCommand = () => {
-      this.setGMComposerText('/reliquary ', 12);
+    const selectGMCommand = index => {
+      const command = gmCommandCandidates[Number(index)];
+      if (!command) return;
+      this.setGMComposerText(command.insert, command.insert.length);
       gmCommandPicker.hidden = true;
       shadowBrokerComposer?.focus();
     };
@@ -1572,7 +1582,8 @@ const App = {
     shadowBrokerComposer?.addEventListener('keydown', (e) => {
       this.syncGMComposerModel();
       if (!gmCommandPicker.hidden) {
-        if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); selectGMCommand(); return; }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); gmCommandIndex = (gmCommandIndex + (e.key === 'ArrowDown' ? 1 : -1) + gmCommandCandidates.length) % gmCommandCandidates.length; updateGMCommandPicker(); return; }
+        if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); selectGMCommand(gmCommandIndex); return; }
         if (e.key === 'Escape') { e.preventDefault(); gmCommandPicker.hidden = true; return; }
       }
       if (this.handleGMMentionKeydown(e, shadowBrokerInput, gmMentionPicker)) return;
@@ -1639,9 +1650,7 @@ const App = {
       this.selectGMMention(option.dataset.mentionIndex || 0, shadowBrokerInput, gmMentionPicker);
     });
     gmCommandPicker.addEventListener('mousedown', e => e.preventDefault());
-    gmCommandPicker.addEventListener('click', e => {
-      if (e.target.closest('[data-command="reliquary"]')) selectGMCommand();
-    });
+    gmCommandPicker.addEventListener('click', e => { const option = e.target.closest('[data-command-index]'); if (option) selectGMCommand(option.dataset.commandIndex); });
 
     const gmEmojiToggle = document.getElementById('gm-emoji-toggle');
     const gmEmojiPicker = document.getElementById('gm-emoji-picker');
@@ -4518,12 +4527,13 @@ const App = {
 
     if (msg.messageType === 'roll' && msg.roll) {
       const value = Math.max(1, Number(msg.roll.value) || 1);
-      const rollClass = value === 100 ? ' roll-legendary' : value === 1 ? ' roll-cursed' : value <= 33 ? ' roll-low' : value <= 66 ? ' roll-mid' : ' roll-high';
+      const rollClass = value === 100 ? ' roll-legendary' : value === 1 ? ' roll-cursed' : value === 69 ? ' roll-nice' : value <= 33 ? ' roll-low' : value <= 66 ? ' roll-mid' : ' roll-high';
       return `
         <div class="asoc-roll-entry${rollClass}" data-message-id="${this.escapeHtml(msg.id)}">
           <span class="asoc-roll-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>
           <span class="asoc-roll-label">rolls</span>
           <strong class="asoc-roll-value">${this.escapeHtml(String(value))}</strong>
+          ${value === 69 ? '<strong class="asoc-roll-nice">NICE!</strong>' : ''}
         </div>
       `;
     }

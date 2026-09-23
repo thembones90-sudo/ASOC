@@ -4135,8 +4135,8 @@ function parseRollCommand(text) {
   return { min, max };
 }
 
-function addRollMessage(room, playerId, playerName, range) {
-  const liveIdentity = Array.from(room.players.values()).find(player => player.id === playerId) || {};
+function addRollMessage(room, playerId, playerName, range, options = {}) {
+  const liveIdentity = playerId ? (Array.from(room.players.values()).find(player => player.id === playerId) || {}) : {};
   const value = crypto.randomInt(range.min, range.max + 1);
   const message = {
     id: generateMessageId(),
@@ -4146,7 +4146,7 @@ function addRollMessage(room, playerId, playerName, range) {
     frameColor: liveIdentity.frameColor || '#9B5DE0',
     themeId: liveIdentity.themeId || 'gunmetal',
     themeColor: liveIdentity.themeColor || '#343A42',
-    text: `${playerName} rolls ${value}`,
+    text: `${playerName} rolls ${value}${value === 69 ? ' NICE!' : ''}`,
     timestamp: Date.now(),
     messageType: 'roll',
     source: 'roll',
@@ -4163,7 +4163,7 @@ function addRollMessage(room, playerId, playerName, range) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   }
   let tributeTriggered = false;
-  if (value === 1) {
+  if (value === 1 && options.isGm !== true) {
     room.pendingTribute = {
       id: 'demand-' + crypto.randomBytes(6).toString('hex'),
       playerId,
@@ -5015,6 +5015,23 @@ function handleGmBroadcast(ws, message) {
   const { text } = message;
   if (!text || typeof text !== 'string') {
     sendToWs(ws, { type: 'error', message: 'Invalid transmission text' });
+    return;
+  }
+
+  const requestedRoll = parseRollCommand(text);
+  if (requestedRoll) {
+    if (requestedRoll.error) {
+      sendToWs(ws, { type: 'error', message: requestedRoll.error });
+      return;
+    }
+    const gmRange = { min: Math.max(2, requestedRoll.min), max: Math.min(100, requestedRoll.max) };
+    if (gmRange.max < gmRange.min) {
+      sendToWs(ws, { type: 'error', message: 'SHADOW BROKER ROLLS REQUIRE A RANGE BETWEEN 2 AND 100' });
+      return;
+    }
+    const rollResult = addRollMessage(room, null, 'SHADOW BROKER', gmRange, { isGm: true });
+    persistActiveRooms();
+    broadcastChatUpdate(room);
     return;
   }
 

@@ -635,6 +635,20 @@ async function testShadowBrokerControls() {
   host.send(JSON.stringify({ type: 'gm:broadcast', text: replacementText }));
   await replacementUpdate;
 
+  const gmFloorRoll = waitForMessage(player, m => m.type === 'chat:update' && m.messages?.some(x => x.playerName === 'SHADOW BROKER' && x.roll?.value === 2), 'GM minimum roll');
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: '/roll 2 2' }));
+  const gmFloorState = await gmFloorRoll;
+  assert.equal(gmFloorState.messages.find(x => x.playerName === 'SHADOW BROKER' && x.roll?.value === 2)?.text, 'SHADOW BROKER rolls 2');
+
+  const gmOneRejected = waitForMessage(host, m => m.type === 'error' && /between 2 and 100/i.test(m.message || ''), 'GM roll one rejection');
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: '/roll 1 1' }));
+  await gmOneRejected;
+
+  const gmNiceRoll = waitForMessage(player, m => m.type === 'chat:update' && m.messages?.some(x => x.playerName === 'SHADOW BROKER' && x.roll?.value === 69), 'GM nice roll');
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: '/roll 69 69' }));
+  const gmNiceState = await gmNiceRoll;
+  assert.equal(gmNiceState.messages.find(x => x.playerName === 'SHADOW BROKER' && x.roll?.value === 69)?.text, 'SHADOW BROKER rolls 69 NICE!');
+
   const clearOnHost = waitForMessage(host, m => m.type === 'shadowBroker:clear', 'broker clear on host');
   const clearOnPlayer = waitForMessage(player, m => m.type === 'shadowBroker:clear', 'broker clear on player');
   host.send(JSON.stringify({ type: 'gm:clearBroadcast' }));
@@ -660,7 +674,7 @@ async function testShadowBrokerControls() {
   assert.ok(hydrated.messages.some(m => m.source === 'shadowBroker' && m.text === longBrokerText));
   assert.ok(hydrated.messages.some(m => m.source === 'shadowBroker' && m.text === replacementText));
 
-  console.log('PASS Shadow Broker broadcast/clear/boundary regression');
+  console.log('PASS Shadow Broker broadcast, GM roll floor/NICE, clear, and boundary regression');
   closeWs(reconnect);
   closeWs(player);
   closeWs(host);

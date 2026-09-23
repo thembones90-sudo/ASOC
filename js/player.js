@@ -3962,12 +3962,13 @@ const PlayerApp = {
 
     if (msg.messageType === 'roll' && msg.roll) {
       const value = Math.max(1, Number(msg.roll.value) || 1);
-      const rollClass = value === 100 ? ' roll-legendary' : value === 1 ? ' roll-cursed' : value <= 33 ? ' roll-low' : value <= 66 ? ' roll-mid' : ' roll-high';
+      const rollClass = value === 100 ? ' roll-legendary' : value === 1 ? ' roll-cursed' : value === 69 ? ' roll-nice' : value <= 33 ? ' roll-low' : value <= 66 ? ' roll-mid' : ' roll-high';
       return `
         <div class="asoc-roll-entry${rollClass}" data-message-id="${this.escapeHtml(msg.id)}">
           <span class="asoc-roll-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>
           <span class="asoc-roll-label">rolls</span>
           <strong class="asoc-roll-value">${this.escapeHtml(String(value))}</strong>
+          ${value === 69 ? '<strong class="asoc-roll-nice">NICE!</strong>' : ''}
         </div>
       `;
     }
