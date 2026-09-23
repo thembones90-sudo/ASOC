@@ -3972,6 +3972,14 @@ const PlayerApp = {
 
   updateRitualUI(ritual) {
     this.ritual = ritual || { active: false };
+    // Defense in depth: the overlay's box is also CSS-shown off roomMode
+    // alone (#game-screen.room-mode-battle-armed), which is correct for the
+    // normal case but would render an empty shell if this update ever
+    // arrived with active:false while roomMode is still BATTLE_ARMED (a
+    // stale room armed before a ritual existed, say). This JS-driven hide
+    // is authoritative over that CSS rule -- see .ritual-overlay[hidden].
+    const overlay = document.getElementById('ritual-overlay');
+    if (overlay) overlay.hidden = !this.ritual.active;
     Ritual.update('ritual-overlay-body', this.ritual, false, {
       onJoin: () => this.send({ type: 'ritual:join' }),
       onOfferTribute: () => {

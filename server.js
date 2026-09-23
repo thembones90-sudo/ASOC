@@ -5467,9 +5467,16 @@ function handlePlayerJoin(ws, message) {
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
   sendRecountHydration(ws, room);
-  if (room.ritual?.active) {
-    sendToWs(ws, { type: 'ritual:update', ritual: { ...getRitualSafeState(room), iJoined: room.ritual.joinedPlayerIds.includes(String(playerId)) } });
-  }
+  // Always sent, active or not: the overlay's own visibility is CSS-driven
+  // off roomMode alone (see #game-screen.room-mode-battle-armed), so a
+  // joining player must never be left in an undefined ritual state -- an
+  // inactive-but-unsent ritual would otherwise render an empty overlay shell
+  // if roomMode happened to already be BATTLE_ARMED (e.g. a room armed
+  // before a ritual field existed in its persisted snapshot).
+  sendToWs(ws, {
+    type: 'ritual:update',
+    ritual: { ...getRitualSafeState(room), iJoined: !!room.ritual?.joinedPlayerIds?.includes(String(playerId)) }
+  });
 
   broadcastPlayersUpdate(room);
   console.log(`[ROOM ${room.code}] Player joined: ${cleanName} (${playerId})`);

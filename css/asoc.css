@@ -17619,6 +17619,11 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
   background: radial-gradient(ellipse at 50% 35%, rgba(38, 10, 46, 0.88), rgba(6, 4, 10, 0.96));
 }
 #game-screen.room-mode-battle-armed .ritual-overlay { display: grid; }
+/* The JS-driven hidden attribute (set only once a real ritual:update has
+   been received, see updateRitualUI) is authoritative over the roomMode
+   rule above -- prevents an empty, un-hydrated overlay shell from ever
+   showing merely because roomMode is BATTLE_ARMED. */
+.ritual-overlay[hidden] { display: none !important; }
 .ritual-overlay-body {
   width: min(420px, 100%);
   padding: 22px 24px 20px;
