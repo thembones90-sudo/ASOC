@@ -2804,35 +2804,6 @@ const App = {
     document.body.classList.toggle('room-mode-recount', next === 'RECOUNT');
     document.body.dataset.roomMode = next;
 
-    // Battle rail self-heal. Older resizable/maintenance passes could leave
-    // stale inline sizing or hidden state on the GM chat stack. Run only in
-    // modes where the fixed battle rail owns chat, and never while BACKDOOR
-    // maintenance is open. Transcript nodes/data are never rebuilt or replaced.
-    const battleRailMode = next === 'BATTLE' || next === 'BATTLE_ARMED' || next === 'RECOUNT';
-    if (battleRailMode) {
-      const gmPanel = document.getElementById('gm-panel');
-      const maintenance = document.getElementById('gm-maintenance');
-      const maintenanceClosed = !maintenance || maintenance.hidden;
-
-      if (gmPanel && maintenanceClosed) {
-        gmPanel.classList.remove('maintenance-open');
-
-        const battleChatNodes = [
-          gmPanel.querySelector('.gm-content'),
-          gmPanel.querySelector('.gm-module-chat'),
-          gmPanel.querySelector('.gm-chat-panel'),
-          gmPanel.querySelector('#gm-chat-messages')
-        ].filter(Boolean);
-
-        battleChatNodes.forEach(node => {
-          node.removeAttribute('hidden');
-          ['display', 'width', 'height', 'min-height', 'max-height', 'overflow',
-           'visibility', 'opacity', 'transform', 'top', 'right', 'bottom', 'left',
-           'inset'].forEach(prop => node.style.removeProperty(prop));
-        });
-      }
-    }
-
     const brokerBar = document.getElementById('gm-broker-bar');
     const chatPanel = document.querySelector('.gm-module-chat .gm-chat-panel');
     const main = document.getElementById('main-content');

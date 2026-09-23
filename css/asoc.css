@@ -1502,13 +1502,13 @@ body.gm-layout-resizing * {
 }
 .battle-controls-utility-row .master-access-wrap {
   width: 100%;
-  min-height: 42px;
+  display: flex;
   align-self: stretch;
 }
 .battle-controls-utility-row .master-access-btn,
 .battle-controls-utility-row #gm-tweaks-launch {
   width: 100%;
-  min-height: 42px;
+  height: 100%;
   margin: 0 !important;
   box-sizing: border-box;
   align-self: stretch;
@@ -16418,9 +16418,20 @@ button.gm-chat-gif-link:focus-visible {
     padding:0 !important;
   }
 
-  body.room-mode-battle #gm-panel:not(.maintenance-open) .gm-content > :not(.gm-module-chat),
-  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) .gm-content > :not(.gm-module-chat),
-  body.room-mode-recount #gm-panel:not(.maintenance-open) .gm-content > :not(.gm-module-chat) {
+  body.room-mode-battle #gm-panel:not(.maintenance-open) #gm-battle-control,
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #gm-battle-control,
+  body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-battle-control {
+    position:relative !important;
+    display:block !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+
+  body.room-mode-battle #gm-panel:not(.maintenance-open) #gm-battle-control > :not(.gm-module-chat),
+  body.room-mode-battle-armed #gm-panel:not(.maintenance-open) #gm-battle-control > :not(.gm-module-chat),
+  body.room-mode-recount #gm-panel:not(.maintenance-open) #gm-battle-control > :not(.gm-module-chat) {
     display:none !important;
   }
 
