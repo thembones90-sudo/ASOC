@@ -17602,3 +17602,281 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
   #game-screen .concoction-wheel-wrap { width:218px; height:218px; }
   #game-screen .unstable-concoction-shell { padding:17px 12px 15px; }
 }
+
+/* =========================================================================
+   SUMMON RITUAL -- pre-Battle gate. Scoped to the board area (not a
+   full-screen block) so Battle Comms stays usable for coordinating votes.
+   Restrained occult styling: pentagon + 5 crystal nodes, red/purple energy,
+   no particle library, no canvas. Visible only while BATTLE_ARMED.
+   ========================================================================= */
+.ritual-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  place-items: center;
+  padding: 16px;
+  background: radial-gradient(ellipse at 50% 35%, rgba(38, 10, 46, 0.88), rgba(6, 4, 10, 0.96));
+}
+#game-screen.room-mode-battle-armed .ritual-overlay { display: grid; }
+.ritual-overlay-body {
+  width: min(420px, 100%);
+  padding: 22px 24px 20px;
+  border: 1px solid rgba(157, 90, 214, 0.55);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(24, 12, 30, 0.96), rgba(8, 6, 11, 0.98));
+  box-shadow: 0 0 60px rgba(120, 40, 160, 0.28), inset 0 1px rgba(255,255,255,0.04);
+  text-align: center;
+  color: #e7e2ee;
+}
+.ritual-identity { margin-bottom: 10px; }
+.ritual-kicker {
+  display: block;
+  font: 700 0.56rem var(--font-machine);
+  letter-spacing: 2px;
+  color: #b98ee0;
+  text-transform: uppercase;
+}
+.ritual-label {
+  font: 800 1.15rem var(--font-system);
+  letter-spacing: 2px;
+  color: #f1e6ff;
+}
+
+/* Pentagon + 5 crystal nodes, positioned at the polygon's own vertices. */
+.ritual-pentagon { position: relative; width: 168px; height: 168px; margin: 6px auto 14px; }
+.ritual-pentagon-lines { width: 100%; height: 100%; overflow: visible; }
+.ritual-pentagon-outline {
+  fill: none;
+  stroke: rgba(150, 90, 190, 0.28);
+  stroke-width: 2;
+}
+.ritual-pentagon-fill {
+  fill: none;
+  stroke: #b96cff;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-dasharray: 620;
+  stroke-dashoffset: calc(620 - (620 * var(--ritual-fill, 0)));
+  filter: drop-shadow(0 0 6px rgba(185, 108, 255, 0.65));
+  transition: stroke-dashoffset 0.6s ease, stroke 0.4s ease;
+}
+.ritual-complete-blood .ritual-pentagon-fill {
+  stroke: #e0344a;
+  filter: drop-shadow(0 0 8px rgba(224, 52, 74, 0.75));
+}
+.ritual-crystal {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  margin: -11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #2a1c33, #120a16);
+  border: 1px solid rgba(150, 90, 190, 0.4);
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.6);
+  transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+.ritual-crystal i { position: absolute; inset: 4px; border-radius: 50%; background: transparent; transition: background 0.4s ease; }
+.ritual-crystal[data-crystal-index="0"] { left: 50%; top: 5%; }
+.ritual-crystal[data-crystal-index="1"] { left: 95%; top: 39%; }
+.ritual-crystal[data-crystal-index="2"] { left: 78%; top: 90%; }
+.ritual-crystal[data-crystal-index="3"] { left: 22%; top: 90%; }
+.ritual-crystal[data-crystal-index="4"] { left: 5%; top: 39%; }
+.ritual-crystal.is-active {
+  border-color: #c88bff;
+  box-shadow: 0 0 12px rgba(185, 108, 255, 0.7), inset 0 0 6px rgba(0,0,0,0.4);
+}
+.ritual-crystal.is-active i { background: radial-gradient(circle, #d9adff, #8a3fd6); }
+.ritual-crystal.is-active.is-blood {
+  border-color: #ff6a7a;
+  box-shadow: 0 0 14px rgba(224, 52, 74, 0.75), inset 0 0 6px rgba(0,0,0,0.4);
+}
+.ritual-crystal.is-active.is-blood i { background: radial-gradient(circle, #ff9aa4, #b31d30); }
+@keyframes ritual-crystal-wake {
+  0% { transform: scale(0.6); filter: brightness(0.6); }
+  35% { transform: scale(1.28); filter: brightness(1.6); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+.ritual-crystal-wake { animation: ritual-crystal-wake 0.55s ease-out; }
+
+.ritual-status {
+  min-height: 2.4em;
+  font: 700 0.78rem var(--font-machine);
+  letter-spacing: 1.2px;
+  line-height: 1.6;
+  color: #d8cee5;
+}
+.ritual-status .ritual-count { display: block; margin-top: 4px; font-size: 0.95rem; color: #f1e6ff; }
+.ritual-complete .ritual-status { color: #e6d4ff; }
+.ritual-complete-blood .ritual-status { color: #ffc9d1; }
+
+.ritual-tribute-status {
+  margin-top: 10px;
+  padding: 7px 10px;
+  border: 1px solid rgba(224, 52, 74, 0.4);
+  background: rgba(90, 15, 25, 0.28);
+  color: #f0b7bd;
+  font: 700 0.62rem var(--font-machine);
+  letter-spacing: 1px;
+}
+
+.ritual-actions { margin-top: 14px; display: grid; gap: 8px; }
+.ritual-join-btn,
+.ritual-tribute-btn {
+  padding: 11px 14px;
+  border: 1px solid #9d5ad6;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #6d2fa0, #431e66);
+  color: #f5edff;
+  font: 800 0.72rem var(--font-machine);
+  letter-spacing: 1.4px;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.ritual-join-btn:hover:not(:disabled),
+.ritual-tribute-btn:hover { box-shadow: 0 0 16px rgba(157, 90, 214, 0.5); }
+.ritual-join-btn:disabled {
+  cursor: default;
+  opacity: 0.8;
+  background: linear-gradient(180deg, #3a2a49, #241a2e);
+  border-color: rgba(157, 90, 214, 0.4);
+  color: #cdbfe0;
+}
+.ritual-tribute-btn { background: linear-gradient(180deg, #7a2530, #451018); border-color: #b04452; }
+.ritual-tribute-copy {
+  font: 600 0.58rem var(--font-machine);
+  letter-spacing: 0.6px;
+  color: #a99bb8;
+}
+
+/* One-shot completion flourish: capped tremor + slow pulse. Never fires per
+   individual crystal/join -- only on the false->true fulfillment edge. */
+@keyframes ritual-complete-tremor {
+  0%, 100% { transform: translate(0,0); }
+  20% { transform: translate(-2px, 1px); }
+  40% { transform: translate(2px, -1px); }
+  60% { transform: translate(-1px, 2px); }
+  80% { transform: translate(1px, -2px); }
+}
+@keyframes ritual-complete-pulse {
+  0%, 100% { box-shadow: 0 0 60px rgba(120, 40, 160, 0.28), inset 0 1px rgba(255,255,255,0.04); }
+  50% { box-shadow: 0 0 90px rgba(157, 90, 214, 0.5), inset 0 1px rgba(255,255,255,0.06); }
+}
+@keyframes ritual-complete-pulse-blood {
+  0%, 100% { box-shadow: 0 0 60px rgba(160, 30, 45, 0.32), inset 0 1px rgba(255,255,255,0.04); }
+  50% { box-shadow: 0 0 90px rgba(224, 52, 74, 0.55), inset 0 1px rgba(255,255,255,0.06); }
+}
+.ritual-complete-flash .ritual-overlay-body,
+.ritual-complete-flash.ritual-tracker { animation: ritual-complete-tremor 0.4s ease-out; }
+.ritual-complete .ritual-overlay-body { animation: ritual-complete-pulse 3.2s ease-in-out infinite; }
+.ritual-complete-blood .ritual-overlay-body { animation: ritual-complete-pulse-blood 3.2s ease-in-out infinite; }
+
+/* GM compact tracker (docked with timer-tracker-gm/womf-tracker-gm) */
+.ritual-tracker {
+  width: 100%;
+  max-width: 360px;
+  margin: 8px auto;
+  padding: 12px 14px;
+  border: 1px solid rgba(157, 90, 214, 0.4);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(24, 12, 30, 0.9), rgba(10, 7, 13, 0.94));
+  color: #e7e2ee;
+  text-align: center;
+}
+.ritual-tracker .ritual-pentagon { width: 120px; height: 120px; }
+.ritual-tracker.ritual-complete { border-color: #b96cff; }
+.ritual-tracker.ritual-complete-blood { border-color: #e0344a; }
+
+.ritual-gm-detail { margin-top: 12px; text-align: left; font: 600 0.66rem var(--font-machine); }
+.ritual-gm-row { display: flex; gap: 6px; padding: 3px 0; color: #cdbfe0; border-bottom: 1px solid rgba(157, 90, 214, 0.14); }
+.ritual-gm-row span { color: #9885ac; min-width: 62px; }
+.ritual-gm-count { justify-content: space-between; font-size: 0.78rem; }
+.ritual-gm-fulfilled-tag {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(157, 90, 214, 0.22);
+  color: #e6d4ff;
+  letter-spacing: 0.6px;
+  font-size: 0.56rem;
+}
+.ritual-gm-tribute-preview-btn { display: block; margin: 8px auto; padding: 0; border: 1px solid rgba(224, 52, 74, 0.5); border-radius: 6px; background: none; cursor: pointer; }
+.ritual-gm-tribute-preview { display: block; width: 64px; height: 64px; object-fit: cover; border-radius: 5px; transition: width 0.2s ease, height 0.2s ease; }
+.ritual-gm-tribute-preview-btn.is-expanded .ritual-gm-tribute-preview { width: 220px; height: 220px; }
+.ritual-gm-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ritual-gm-actions button {
+  flex: 1 1 auto;
+  padding: 7px 8px;
+  border-radius: 5px;
+  font: 800 0.6rem var(--font-machine);
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  border: 1px solid rgba(157, 90, 214, 0.5);
+  background: rgba(70, 40, 95, 0.4);
+  color: #f0e8fb;
+}
+.ritual-gm-accept-btn { border-color: #4fb36c; background: rgba(30, 70, 45, 0.5); }
+.ritual-gm-reject-btn,
+.ritual-gm-cancel-btn { border-color: #d94b62; background: rgba(80, 25, 35, 0.4); }
+
+/* Small anonymous tribute-upload modal, distinct purple accent from the
+   existing red WOMF-demand Blood Tribute modal it's modelled on. */
+.ritual-tribute-form-overlay[hidden] { display: none !important; }
+.ritual-tribute-form-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 725;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(4, 5, 8, 0.92);
+  backdrop-filter: blur(8px);
+}
+.ritual-tribute-form-shell {
+  width: min(480px, 100%);
+  padding: 24px;
+  border: 1px solid rgba(157, 90, 214, 0.6);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(28, 14, 34, 0.98), rgba(10, 8, 12, 0.99));
+  box-shadow: 0 0 70px rgba(120, 40, 160, 0.3), inset 0 1px rgba(255,255,255,0.04);
+  text-align: center;
+}
+.ritual-tribute-form-kicker {
+  font: 700 0.58rem var(--font-machine);
+  letter-spacing: 1.8px;
+  color: #b98ee0;
+  text-transform: uppercase;
+}
+.ritual-tribute-form-shell h2 { margin: 8px 0 6px; color: #f1e6ff; font: 800 1.05rem var(--font-system); letter-spacing: 2px; }
+.ritual-tribute-form-copy { margin: 0 0 16px; color: #b8adc7; font-size: 0.68rem; line-height: 1.5; }
+.ritual-tribute-form-upload {
+  display: grid;
+  gap: 8px;
+  padding: 15px;
+  border: 1px dashed rgba(157, 90, 214, 0.55);
+  border-radius: 6px;
+  background: rgba(0,0,0,0.24);
+  color: #d9dce3;
+  font: 700 0.62rem var(--font-machine);
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.ritual-tribute-form-upload input { width: 100%; color: #aeb4bf; font-size: 0.72rem; }
+.ritual-tribute-form-submit,
+.ritual-tribute-form-cancel {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 11px;
+  border-radius: 6px;
+  font: 800 0.72rem var(--font-machine);
+  letter-spacing: 1.2px;
+  cursor: pointer;
+}
+.ritual-tribute-form-submit { border: 1px solid #9d5ad6; background: linear-gradient(180deg, #6d2fa0, #431e66); color: #f5edff; }
+.ritual-tribute-form-cancel { margin-top: 8px; border: 1px solid rgba(255,255,255,0.14); background: transparent; color: #b8adc7; }
+.ritual-tribute-form-status { margin-top: 10px; min-height: 1.2em; color: #d8cee5; font: 700 0.62rem var(--font-machine); letter-spacing: 0.6px; }
+
+@media (max-width: 560px) {
+  .ritual-pentagon { width: 132px; height: 132px; }
+  .ritual-overlay-body { padding: 18px 16px 16px; }
+}

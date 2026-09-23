@@ -2510,6 +2510,10 @@ const App = {
         this.renderGMOnlinePresence(message.players || []);
         break;
 
+      case 'ritual:gmUpdate':
+        this.updateRitualUI(message.ritual);
+        break;
+
       case 'moderation:ack':
         console.log('[GM] Moderation action:', message.action, message.playerName || message.playerId);
         break;
@@ -3593,6 +3597,23 @@ const App = {
       onAdjust: (deltaMs) => this.adjustTimer(deltaMs)
     });
     Timer.update('timer-tracker-public', state, false);
+  },
+
+  updateRitualUI(ritual) {
+    this.ritual = ritual || { active: false };
+    const el = document.getElementById('ritual-tracker-gm');
+    if (el) el.hidden = !this.ritual.active;
+    Ritual.update('ritual-tracker-gm', this.ritual, true, {
+      onAcceptTribute: () => this.send({ type: 'ritual:tributeAccept' }),
+      onRejectTribute: () => this.send({ type: 'ritual:tributeReject' }),
+      onReset: () => { if (confirm('RESET RITUAL?\n\nClears every joined vote and any tribute decision. START GAME re-locks.')) this.send({ type: 'ritual:reset' }); },
+      onCancel: () => { if (confirm('CANCEL RITUAL?\n\nAborts this battle attempt entirely and returns the room to AMUSEMENT PARK. This does not start Battle.')) this.send({ type: 'ritual:cancel' }); }
+    });
+    // The START GAME button's own ritual-lock state depends on Ritual's
+    // last-received data (see ritual.js's isBlockingStart) -- re-render it
+    // now so a fulfillment/un-fulfillment reflects immediately rather than
+    // waiting for the next unrelated timer tick.
+    this.updateTimerUI();
   },
 
   updateFailFinalButtonVisibility() {

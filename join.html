@@ -8562,6 +8562,31 @@ position:absolute;
           <div id="public-board" class="public-board"></div>
         </div>
       </div>
+
+      <!-- SUMMON RITUAL -- pre-Battle gate, scoped to the board area (not
+           a full-screen block) so Battle Comms chat stays usable for
+           coordinating votes. Visible only while #game-screen carries
+           room-mode-battle-armed (see css/asoc.css). Ritual.update()
+           (js/ritual.js) fills #ritual-overlay-body; this module never
+           computes fulfillment, only renders server state. -->
+      <div id="ritual-overlay" class="ritual-overlay">
+        <div id="ritual-overlay-body" class="ritual-overlay-body"></div>
+      </div>
+    </div>
+
+    <div id="ritual-tribute-form-overlay" class="ritual-tribute-form-overlay" hidden>
+      <form id="ritual-tribute-form" class="ritual-tribute-form-shell">
+        <div class="ritual-tribute-form-kicker">SUMMON RITUAL // ALTERNATIVE PAYMENT</div>
+        <h2>OFFER BLOOD TRIBUTE</h2>
+        <p class="ritual-tribute-form-copy">Submitted anonymously. Only the Shadow Broker sees the image and decides.</p>
+        <label class="ritual-tribute-form-upload">
+          <span>CHOOSE TRIBUTE IMAGE</span>
+          <input id="ritual-tribute-file" type="file" accept="image/png,image/jpeg,image/webp" required>
+        </label>
+        <button id="ritual-tribute-submit" class="ritual-tribute-form-submit" type="submit">OFFER TRIBUTE</button>
+        <button type="button" id="ritual-tribute-form-cancel" class="ritual-tribute-form-cancel">CANCEL</button>
+        <div id="ritual-tribute-form-status" class="ritual-tribute-form-status"></div>
+      </form>
     </div>
 
     <!-- Read-only Wheel of Misfortune -- no ROLL/CLOSE controls are ever
@@ -9111,6 +9136,7 @@ position:absolute;
   <script src="js/recount.js?v=20260922-casual-status-clean-2"></script>
   <script src="js/womf.js"></script>
   <script src="js/wheel.js?v=20260922-womf-rebuild-1"></script>
+  <script src="js/ritual.js"></script>
   <script src="js/timer.js"></script>
   <script src="js/game-data.js"></script>
   <script src="js/board.js?v=20260921-final-omen-2"></script>

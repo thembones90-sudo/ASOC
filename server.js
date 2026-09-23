@@ -57,6 +57,7 @@ function normalizeRoomMode(value, armed = false) {
 function isBattleSurface(room) {
   return room.roomMode === ROOM_MODES.BATTLE_ARMED || room.roomMode === ROOM_MODES.BATTLE;
 }
+const RITUAL_REQUIRED_VOTES = 5;
 const MAX_CHAT_LENGTH = 100;
 const MAX_MODERATION_REASON_LENGTH = 180;
 const PLAYER_CHAT_MIN_INTERVAL_MS = 350;
@@ -316,6 +317,7 @@ function serializeRoomForRecovery(room) {
     wheel: room.wheel,
     bloodTributes: room.bloodTributes || [],
     pendingTribute: room.pendingTribute || null,
+    ritual: normalizeRitualState(room.ritual),
     unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
     timer: room.timer,
     pendingReveals: room.pendingReveals || {},
@@ -421,6 +423,7 @@ function restoreActiveRooms() {
         },
         bloodTributes: Array.isArray(saved.bloodTributes) ? saved.bloodTributes : [],
         pendingTribute: saved.pendingTribute || null,
+        ritual: normalizeRitualState(saved.ritual),
         unstableConcoction: unstableConcoction.normalizeState(saved.unstableConcoction),
         timer: saved.timer || null,
         pendingReveals: saved.pendingReveals || {},
@@ -794,6 +797,7 @@ function createRoom(gameId, hostWs) {
     existingRoom.hostToken = hostToken;
     existingRoom.roomMode = ROOM_MODES.BATTLE_ARMED;
     existingRoom.armed = true;
+    startRitual(existingRoom);
     resetMasterGameSession(existingRoom, gameData);
     hostWs.roomCode = roomCode;
     hostWs.isHost = true;
@@ -808,6 +812,7 @@ function createRoom(gameId, hostWs) {
   const room = {
     roomMode: hostWs ? ROOM_MODES.BATTLE_ARMED : ROOM_MODES.CASUAL,
     armed: !!hostWs,
+    ritual: normalizeRitualState(hostWs ? { active: true } : null),
     code: roomCode,
     gameId,
     gameData,
@@ -1232,6 +1237,213 @@ function handleReliquaryAccess(ws, payload) {
 function sendTributeVaultToHost(room) {
   if (!room?.hostConnection || Number(room.hostConnection.reliquaryUnlockedUntil) <= Date.now()) return;
   sendToWs(room.hostConnection, { type: 'tribute:vault', ...getBloodTributeVaultState(room) });
+}
+
+// ---------------------------------------------------------------------
+// SUMMON RITUAL -- pre-Battle gate. Exactly two ways to fulfill it: 5 real
+// online players "join the ritual", OR the Shadow Broker accepts one
+// anonymously-submitted Blood Tribute image. Either condition alone
+// unlocks START GAME; they are never combined arithmetically (an accepted
+// tribute overrides the vote requirement entirely, regardless of current
+// vote count). The server is authoritative -- see the fulfillment check
+// inside handleTimerStart/handleTimerLaunchCountdown; the client button
+// lock is cosmetic only.
+// ---------------------------------------------------------------------
+function normalizeRitualState(saved) {
+  const source = saved && typeof saved === 'object' ? saved : {};
+  const tributeSource = source.tribute && typeof source.tribute === 'object' ? source.tribute : {};
+  const status = ['NONE', 'PENDING', 'ACCEPTED', 'REJECTED'].includes(tributeSource.status) ? tributeSource.status : 'NONE';
+  return {
+    active: source.active === true,
+    requiredVotes: RITUAL_REQUIRED_VOTES,
+    joinedPlayerIds: Array.isArray(source.joinedPlayerIds) ? [...new Set(source.joinedPlayerIds.map(String))] : [],
+    tribute: {
+      status,
+      submittedBy: status === 'NONE' ? null : (tributeSource.submittedBy ? String(tributeSource.submittedBy) : null),
+      submittedByName: status === 'NONE' ? null : (String(tributeSource.submittedByName || '') || null),
+      imageData: status === 'PENDING' ? (sanitizeTributeImageData(tributeSource.imageData) || null) : null
+    },
+    fulfilled: source.fulfilled === true,
+    fulfilledBy: source.fulfilledBy === 'VOTES' || source.fulfilledBy === 'BLOOD_TRIBUTE' ? source.fulfilledBy : null
+  };
+}
+
+// Fresh, active, unfulfilled ritual. Called at every "GM prepares a Battle
+// game" moment (initial arm, RESET BOARD, NEXT GAME) -- confirmed with the
+// user that each of those re-summons a fresh ritual, not just the first.
+function startRitual(room) {
+  room.ritual = normalizeRitualState({ active: true });
+}
+
+// Called on successful battle start, ritual cancel, and any return to
+// CASUAL -- the ritual becomes irrelevant once Battle begins or is called off.
+function endRitual(room) {
+  if (room.ritual) room.ritual.active = false;
+}
+
+function recomputeRitualFulfillment(room) {
+  const ritual = room.ritual;
+  if (!ritual) return;
+  if (ritual.tribute.status === 'ACCEPTED') {
+    // An accepted Blood Tribute is a full override and, once set, is never
+    // cleared by vote count changes (disconnects included) -- only by
+    // cancel/reset/battle-start via startRitual()/endRitual().
+    ritual.fulfilled = true;
+    ritual.fulfilledBy = 'BLOOD_TRIBUTE';
+    return;
+  }
+  ritual.fulfilled = ritual.joinedPlayerIds.length >= ritual.requiredVotes;
+  ritual.fulfilledBy = ritual.fulfilled ? 'VOTES' : null;
+}
+
+function isRitualFulfilled(room) {
+  const ritual = room.ritual;
+  if (!ritual) return false;
+  return ritual.tribute.status === 'ACCEPTED' || ritual.joinedPlayerIds.length >= ritual.requiredVotes;
+}
+
+// Player-safe projection -- no names, no submitter identity, no image.
+// "The public representation should feel like anonymous ritual
+// participation rather than an attendance checklist."
+function getRitualSafeState(room) {
+  const ritual = room.ritual || normalizeRitualState(null);
+  return {
+    active: ritual.active,
+    requiredVotes: ritual.requiredVotes,
+    joinedCount: ritual.joinedPlayerIds.length,
+    tribute: { status: ritual.tribute.status },
+    fulfilled: ritual.fulfilled,
+    fulfilledBy: ritual.fulfilledBy
+  };
+}
+
+function sendRitualDetailToHost(room) {
+  if (!room?.hostConnection || room.hostConnection.readyState !== 1) return;
+  const ritual = room.ritual || normalizeRitualState(null);
+  const joined = ritual.joinedPlayerIds.map(id => {
+    const entry = Array.from(room.players.values()).find(p => String(p.id) === id);
+    return { id, name: entry?.name || 'LITTLE HERO' };
+  });
+  sendToWs(room.hostConnection, {
+    type: 'ritual:gmUpdate',
+    ritual: {
+      ...getRitualSafeState(room),
+      joined,
+      tribute: {
+        status: ritual.tribute.status,
+        submittedByName: ritual.tribute.submittedByName,
+        imageData: ritual.tribute.status === 'PENDING' ? ritual.tribute.imageData : null
+      }
+    }
+  });
+}
+
+function broadcastRitualState(room) {
+  persistActiveRooms();
+  const safe = getRitualSafeState(room);
+  const joinedIds = room.ritual?.joinedPlayerIds || [];
+  room.players.forEach((player, ws) => {
+    if (player.isTestPersona === true || ws.readyState !== 1) return;
+    sendToWs(ws, { type: 'ritual:update', ritual: { ...safe, iJoined: joinedIds.includes(String(player.id)) } });
+  });
+  sendRitualDetailToHost(room);
+}
+
+// GM Master Mirror test personas never count as "real" players here (same
+// exclusion Blood Tribute wheel-eligibility already applies elsewhere).
+function handleRitualJoin(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  const player = room?.players.get(ws);
+  if (!room || !player || player.isTestPersona === true || ws.readyState !== 1) {
+    return sendToWs(ws, { type: 'error', message: 'A connected Little Hero identity is required' });
+  }
+  if (!room.ritual?.active) return sendToWs(ws, { type: 'error', message: 'No Summon Ritual is currently active' });
+  const id = String(player.id);
+  if (room.ritual.joinedPlayerIds.includes(id)) return; // already bound -- idempotent, no error needed
+  room.ritual.joinedPlayerIds.push(id);
+  recomputeRitualFulfillment(room);
+  broadcastRitualState(room);
+}
+
+function handleRitualTributeSubmit(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  const player = room?.players.get(ws);
+  if (!room || !player || player.isTestPersona === true) {
+    return sendToWs(ws, { type: 'error', message: 'A connected Little Hero identity is required' });
+  }
+  if (!room.ritual?.active) return sendToWs(ws, { type: 'error', message: 'No Summon Ritual is currently active' });
+  if (!['NONE', 'REJECTED'].includes(room.ritual.tribute.status)) {
+    return sendToWs(ws, { type: 'error', message: 'A Blood Tribute is already offered or accepted' });
+  }
+  const imageData = sanitizeTributeImageData(message?.imageData);
+  if (!imageData) return sendToWs(ws, { type: 'error', message: 'Invalid tribute image or file too large' });
+  room.ritual.tribute = { status: 'PENDING', submittedBy: String(player.id), submittedByName: player.name, imageData };
+  broadcastRitualState(room);
+}
+
+function handleRitualTributeAccept(ws) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  if (!room.ritual?.active || room.ritual.tribute.status !== 'PENDING') {
+    return sendToWs(ws, { type: 'error', message: 'No Blood Tribute is awaiting judgment' });
+  }
+  const tribute = room.ritual.tribute;
+  const now = Date.now();
+  if (!Array.isArray(room.bloodTributes)) room.bloodTributes = [];
+  // Archived straight into the existing Reliquary vault -- same array, same
+  // GM-only viewer -- rather than a second image-storage system. Ritual
+  // tributes are never public in chat, so there is no public window to
+  // expire (publicUntil is already in the past).
+  room.bloodTributes.push({
+    id: 'ritual-tribute-' + crypto.randomBytes(8).toString('hex'),
+    playerId: tribute.submittedBy,
+    playerName: tribute.submittedByName || 'LITTLE HERO',
+    source: 'ritual',
+    imageData: tribute.imageData,
+    submittedAt: now,
+    publicUntil: now,
+    archivedAt: now,
+    reliquary: false,
+    viewedByGM: true
+  });
+  tribute.status = 'ACCEPTED';
+  tribute.imageData = null; // already archived above; no need to keep a live second copy
+  recomputeRitualFulfillment(room);
+  broadcastRitualState(room);
+  sendTributeVaultToHost(room);
+}
+
+function handleRitualTributeReject(ws) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  if (!room.ritual?.active || room.ritual.tribute.status !== 'PENDING') {
+    return sendToWs(ws, { type: 'error', message: 'No Blood Tribute is awaiting judgment' });
+  }
+  room.ritual.tribute = { status: 'REJECTED', submittedBy: null, submittedByName: null, imageData: null };
+  recomputeRitualFulfillment(room);
+  broadcastRitualState(room);
+}
+
+function handleRitualReset(ws) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  if (!room.ritual?.active) return sendToWs(ws, { type: 'error', message: 'No Summon Ritual is currently active' });
+  startRitual(room);
+  broadcastRitualState(room);
+}
+
+// CANCEL RITUAL aborts the whole battle-prep attempt (nothing of value has
+// happened yet at this point -- the battle never launched), so it reuses
+// the existing full disarm-to-CASUAL path rather than a bespoke partial
+// rollback. RESET RITUAL (above) is the "stay armed, just restart the
+// ritual" action.
+function handleRitualCancel(ws) {
+  const room = requireGmRoom(ws);
+  if (!room || !room.ritual?.active) {
+    if (room) sendToWs(ws, { type: 'error', message: 'No Summon Ritual is currently active' });
+    return;
+  }
+  handleCloseRoom(ws);
 }
 
 function findPlayerByName(room, name) {
@@ -1790,6 +2002,12 @@ function handleTimerLaunchCountdown(ws) {
     sendToWs(ws, { type: 'error', message: 'This match is already resolved // RESET BOARD or NEXT GAME first' });
     return;
   }
+  // Authoritative gate, not cosmetic: gated here too (not just handleTimerStart)
+  // so players never see a launch countdown that then silently fails at zero.
+  if (!isRitualFulfilled(room)) {
+    sendToWs(ws, { type: 'error', message: 'THE SUMMON RITUAL IS NOT YET FULFILLED' });
+    return;
+  }
 
   // The T-10 sequence is theatrical, not authoritative game time. Broadcast
   // it immediately so every connected Little Hero sees the same launch
@@ -1824,14 +2042,23 @@ function handleTimerStart(ws) {
     sendToWs(ws, { type: 'error', message: 'This match is already resolved // RESET BOARD or NEXT GAME first' });
     return;
   }
+  // SUMMON RITUAL security gate. Authoritative: the client's START GAME lock
+  // is cosmetic only. A direct gm:timerStart with no valid fulfillment (5
+  // votes OR an accepted Blood Tribute) is rejected here, full stop.
+  if (!isRitualFulfilled(room)) {
+    sendToWs(ws, { type: 'error', message: 'THE SUMMON RITUAL IS NOT YET FULFILLED' });
+    return;
+  }
 
   room.timer.phase = 'running';
   room.roomMode = ROOM_MODES.BATTLE;
   room.armed = true;
   room.revision++;
+  endRitual(room);
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastToRoom(room, { type: 'battle:controlsOnline' });
+  broadcastRitualState(room);
   console.log(`[ROOM ${room.code}] GM started the Timer (${Math.round(room.timer.duration / 1000)}s) â€” BATTLE CONTROLS ONLINE`);
 }
 
@@ -2892,6 +3119,8 @@ function applyCommand(room, command, payload) {
       resetTimer(room);
       room.roomMode = ROOM_MODES.BATTLE_ARMED;
       room.armed = true;
+      startRitual(room);
+      broadcastRitualState(room);
       break;
     }
     case 'changeBackground': {
@@ -5238,6 +5467,9 @@ function handlePlayerJoin(ws, message) {
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
   sendRecountHydration(ws, room);
+  if (room.ritual?.active) {
+    sendToWs(ws, { type: 'ritual:update', ritual: { ...getRitualSafeState(room), iJoined: room.ritual.joinedPlayerIds.includes(String(playerId)) } });
+  }
 
   broadcastPlayersUpdate(room);
   console.log(`[ROOM ${room.code}] Player joined: ${cleanName} (${playerId})`);
@@ -5416,6 +5648,7 @@ function handleHostReconnect(ws, message) {
   sendToWs(ws, { type: 'chat:update', ...chatState });
   sendRecountHydration(ws, room);
   sendTributeVaultToHost(room);
+  sendRitualDetailToHost(room);
 
   broadcastPlayersUpdate(room);
   console.log(`[ROOM ${room.code}] Host reconnected`);
@@ -5449,6 +5682,7 @@ function handleHostRecover(ws) {
   sendToWs(ws, { type: 'chat:update', ...getChatState(room) });
   sendRecountHydration(ws, room);
   sendTributeVaultToHost(room);
+  sendRitualDetailToHost(room);
   broadcastPlayersUpdate(room);
   console.log(`[MASTER ROOM] Shadow Broker recovered ${normalizeRoomMode(room.roomMode, room.armed)} session without browser host token`);
 }
@@ -6051,6 +6285,7 @@ function handleSwitchGame(ws, message) {
   resetTimer(room);
   room.roomMode = ROOM_MODES.BATTLE_ARMED;
   room.armed = true;
+  startRitual(room);
 
   // NEXT GAME becomes authoritative on disk before connected clients switch.
   persistActiveRooms();
@@ -6058,6 +6293,7 @@ function handleSwitchGame(ws, message) {
   broadcastToRoom(room, { type: 'state:public', ...publicState });
   broadcastChatUpdate(room);
   broadcastPlayersUpdate(room);
+  broadcastRitualState(room);
   sendToWs(ws, { type: 'game:loaded', game });
   sendToWs(ws, { type: 'gm:switchGame:ack', gameId: game.id });
 
@@ -6422,6 +6658,13 @@ function handleSetRoomMode(ws, message) {
   }
   room.roomMode = next;
   if (next !== ROOM_MODES.CASUAL) room.armed = true;
+  // This toggle is presentation-only and must never reset an in-progress
+  // battle -- but it can ALSO be the very first CASUAL->BATTLE_ARMED arm in
+  // normal day-to-day use (not just hostRoom()'s legacy path), so a ritual
+  // that isn't already active still needs to start here. A toggle away and
+  // back (still BATTLE_ARMED, ritual already active) is left untouched.
+  const ritualJustStarted = next === ROOM_MODES.BATTLE_ARMED && !room.ritual?.active;
+  if (ritualJustStarted) startRitual(room);
 
   room.revision++;
   persistActiveRooms();
@@ -6431,6 +6674,7 @@ function handleSetRoomMode(ws, message) {
   if (next === ROOM_MODES.RECOUNT && room.match?.recount) broadcastRecount(room, room.match.recount, false);
   broadcastChatUpdate(room);
   broadcastPlayersUpdate(room);
+  if (ritualJustStarted) broadcastRitualState(room);
   console.log(`[MASTER ROOM] Display mode -> ${next}`);
 }
 
@@ -6451,6 +6695,7 @@ function handleCloseRoom(ws) {
   resetMasterGameSession(room, room.gameData);
   room.roomMode = ROOM_MODES.CASUAL;
   room.armed = false;
+  endRitual(room);
 
   // CASUAL is still the same hosted Master Room. Keep the Shadow Broker
   // attached so chat and moderation continue without a reconnect.
@@ -6459,6 +6704,7 @@ function handleCloseRoom(ws) {
   broadcastRecount(room, null, false);
   broadcastChatUpdate(room);
   broadcastPlayersUpdate(room);
+  broadcastRitualState(room);
   sendToWs(ws, { type: 'room:casual', roomCode: MASTER_ROOM_CODE, message: 'CASUAL MODE // Master Room remains online.' });
   console.log('[MASTER ROOM] Returned to CASUAL; identities and chat remain online');
 }
@@ -6484,6 +6730,22 @@ function handleClose(ws) {
       if (player) {
         player.connected = false;
         matchLedger.presenceClose(ensureMatchLedger(room), player.id, Date.now());
+        // A disconnect before Battle starts always removes that player's
+        // vote from the factual count (even mid Blood-Tribute-fulfillment --
+        // per spec §11's own example, 2/5 + accepted tribute + one
+        // disconnect reads as 1/5, not frozen at 2/5). recomputeRitualFulfillment()
+        // is what actually preserves fulfilled=true/fulfilledBy=BLOOD_TRIBUTE
+        // regardless of vote count once a tribute is accepted -- the count
+        // and the fulfillment flag are independent here.
+        if (room.ritual?.active) {
+          const id = String(player.id);
+          const index = room.ritual.joinedPlayerIds.indexOf(id);
+          if (index !== -1) {
+            room.ritual.joinedPlayerIds.splice(index, 1);
+            recomputeRitualFulfillment(room);
+            broadcastRitualState(room);
+          }
+        }
       }
       persistActiveRooms();
       broadcastPlayersUpdate(room);
@@ -7245,11 +7507,13 @@ wss.on('connection', (ws) => {
               // closes that gap.
               sendToWs(ws, { type: 'chat:update', ...getChatState(newRoom) });
               sendTributeVaultToHost(newRoom);
+              sendRitualDetailToHost(newRoom);
               // The Master Room already contains players before a game is armed.
               // Wake their existing clients in place instead of making them rejoin.
               broadcastToRoom(newRoom, { type: 'state:public', ...getPublicState(newRoom) });
               broadcastChatUpdate(newRoom);
               broadcastPlayersUpdate(newRoom);
+              broadcastRitualState(newRoom);
             }
           }
           break;
@@ -7346,6 +7610,30 @@ wss.on('connection', (ws) => {
         }
         case 'tribute:submit': {
           handleBloodTributeSubmit(ws, message);
+          break;
+        }
+        case 'ritual:join': {
+          handleRitualJoin(ws);
+          break;
+        }
+        case 'ritual:tributeSubmit': {
+          handleRitualTributeSubmit(ws, message);
+          break;
+        }
+        case 'ritual:tributeAccept': {
+          handleRitualTributeAccept(ws);
+          break;
+        }
+        case 'ritual:tributeReject': {
+          handleRitualTributeReject(ws);
+          break;
+        }
+        case 'ritual:reset': {
+          handleRitualReset(ws);
+          break;
+        }
+        case 'ritual:cancel': {
+          handleRitualCancel(ws);
           break;
         }
         case 'gm:tributeVaultClear': {

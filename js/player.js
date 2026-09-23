@@ -682,6 +682,19 @@ const PlayerApp = {
       this.submitBloodTribute();
     });
 
+    document.getElementById('ritual-tribute-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.submitRitualTribute();
+    });
+    document.getElementById('ritual-tribute-form-cancel')?.addEventListener('click', () => {
+      const overlay = document.getElementById('ritual-tribute-form-overlay');
+      const input = document.getElementById('ritual-tribute-file');
+      const status = document.getElementById('ritual-tribute-form-status');
+      if (overlay) overlay.hidden = true;
+      if (input) input.value = '';
+      if (status) status.textContent = '';
+    });
+
     nameInput.addEventListener('input', () => {
       this.updateAppearancePreview();
     });
@@ -1472,6 +1485,10 @@ const PlayerApp = {
         break;
       }
 
+      case 'ritual:update':
+        this.updateRitualUI(message.ritual);
+        break;
+
       case 'battle:launchCountdown':
         // Mirror the GM's full-screen T-10 launch sequence on every player
         // client. This is presentation only; the authoritative game timer
@@ -1621,6 +1638,11 @@ const PlayerApp = {
           this.tributeUploading = false;
           const tributeStatus = document.getElementById('blood-tribute-status');
           if (tributeStatus) tributeStatus.textContent = message.message || 'TRIBUTE REJECTED';
+        }
+        if (this.ritualTributeUploading) {
+          this.ritualTributeUploading = false;
+          const ritualTributeStatus = document.getElementById('ritual-tribute-form-status');
+          if (ritualTributeStatus) ritualTributeStatus.textContent = message.message || 'OFFERING REJECTED';
         }
         if (message.message.includes('Room not found') || message.message.includes('already connected')) {
           this.showJoinScreen();
@@ -3943,6 +3965,59 @@ const PlayerApp = {
     };
     reader.onerror = () => {
       this.tributeUploading = false;
+      if (status) status.textContent = 'IMAGE COULD NOT BE READ';
+    };
+    reader.readAsDataURL(file);
+  },
+
+  updateRitualUI(ritual) {
+    this.ritual = ritual || { active: false };
+    Ritual.update('ritual-overlay-body', this.ritual, false, {
+      onJoin: () => this.send({ type: 'ritual:join' }),
+      onOfferTribute: () => {
+        const overlay = document.getElementById('ritual-tribute-form-overlay');
+        const status = document.getElementById('ritual-tribute-form-status');
+        if (status) status.textContent = '';
+        if (overlay) overlay.hidden = false;
+      }
+    });
+  },
+
+  submitRitualTribute() {
+    if (this.ritualTributeUploading) return;
+    const input = document.getElementById('ritual-tribute-file');
+    const status = document.getElementById('ritual-tribute-form-status');
+    const file = input?.files?.[0];
+    if (!file) {
+      if (status) status.textContent = 'NO IMAGE SELECTED';
+      return;
+    }
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      if (status) status.textContent = 'PNG, JPG OR WEBP ONLY';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      if (status) status.textContent = 'IMAGE TOO LARGE // 2 MB MAX';
+      return;
+    }
+
+    this.ritualTributeUploading = true;
+    if (status) status.textContent = 'TRANSMITTING OFFERING...';
+    const reader = new FileReader();
+    reader.onload = () => {
+      const imageData = String(reader.result || '');
+      this.ritualTributeUploading = false;
+      if (!imageData.startsWith('data:image/')) {
+        if (status) status.textContent = 'IMAGE COULD NOT BE READ';
+        return;
+      }
+      this.send({ type: 'ritual:tributeSubmit', imageData });
+      const overlay = document.getElementById('ritual-tribute-form-overlay');
+      if (overlay) overlay.hidden = true;
+      input.value = '';
+    };
+    reader.onerror = () => {
+      this.ritualTributeUploading = false;
       if (status) status.textContent = 'IMAGE COULD NOT BE READ';
     };
     reader.readAsDataURL(file);

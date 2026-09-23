@@ -181,8 +181,13 @@ const Timer = {
     if (controls && isGM) {
       const adjustable = phase === 'running' || phase === 'paused' || phase === 'borrowed' || phase === 'borrowed_paused';
       const launching = !!this._countdownActive[containerId];
+      // SUMMON RITUAL gate: cosmetic lock only -- see ritual.js's
+      // isBlockingStart() and the authoritative server-side check inside
+      // handleTimerStart/handleTimerLaunchCountdown, which is what actually
+      // rejects the request even if this button were somehow bypassed.
+      const ritualLocked = !!window.Ritual?.isBlockingStart?.();
       controls.innerHTML = `
-        <button type="button" class="toolbar-btn primary timer-start-btn" ${(phase === 'ready' && !launching) ? '' : 'style="display:none;"'}>START GAME</button>
+        <button type="button" class="toolbar-btn primary timer-start-btn" ${ritualLocked ? 'disabled' : ''} ${(phase === 'ready' && !launching) ? '' : 'style="display:none;"'}>${ritualLocked ? 'START GAME // RITUAL LOCKED' : 'START GAME'}</button>
         <button type="button" class="toolbar-btn timer-pause-btn" ${(phase === 'running' || phase === 'borrowed') ? '' : 'style="display:none;"'}>PAUSE</button>
         <button type="button" class="toolbar-btn timer-resume-btn" ${(phase === 'paused' || phase === 'borrowed_paused') ? '' : 'style="display:none;"'}>RESUME</button>
         <span class="timer-adjust-group" ${adjustable ? '' : 'style="display:none;"'}>
