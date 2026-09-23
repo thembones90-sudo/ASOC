@@ -4866,15 +4866,7 @@ function getChatState(room) {
           source: m.source || null,
           imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
           messageType: m.messageType || null,
-<<<<<<< HEAD
-          roll: m.messageType === 'roll' && m.roll ? {
-            value: Number(m.roll.value),
-            min: Number(m.roll.min),
-            max: Number(m.roll.max)
-          } : undefined,
-=======
           ...sanitizeChatCommandMeta(m),
->>>>>>> e32bff1 (Add Casual mini games and Unstable Concoction)
           gif: m.messageType === 'gifRemote' && m.gif ? {
             provider: m.gif.provider === 'giphy' ? 'giphy' : undefined,
             providerId: String(m.gif.providerId || '').slice(0, 120),
@@ -5609,7 +5601,6 @@ function handleGmBroadcast(ws, message) {
     return;
   }
 
-<<<<<<< HEAD
   const requestedRoll = parseRollCommand(text);
   if (requestedRoll) {
     if (requestedRoll.error) {
@@ -5624,7 +5615,9 @@ function handleGmBroadcast(ws, message) {
     const rollResult = addRollMessage(room, null, 'SHADOW BROKER', gmRange, { isGm: true });
     persistActiveRooms();
     broadcastChatUpdate(room);
-=======
+    return;
+  }
+
   // GM operational verbs (/recount /womf /commands /spit) run server-side and
   // are never broadcast as literal text.
   const dispatch = dispatchGmSlashCommand(room, ws, text);
@@ -5634,7 +5627,6 @@ function handleGmBroadcast(ws, message) {
       persistActiveRooms();
       broadcastChatUpdate(room);
     }
->>>>>>> e32bff1 (Add Casual mini games and Unstable Concoction)
     return;
   }
 
