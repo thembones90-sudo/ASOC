@@ -15726,8 +15726,11 @@ body.room-mode-casual #battle-controls-panel {
   flex-direction:column !important;
   width:100% !important;
   height:100% !important;
-  min-height:calc(100dvh - 20px) !important;
-  overflow:hidden !important;
+  min-height:0 !important;
+  max-height:100% !important;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  scrollbar-gutter:stable;
 }
 
 body.room-mode-casual #battle-controls-panel > .battle-controls-header,
