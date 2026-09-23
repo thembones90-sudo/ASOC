@@ -2068,7 +2068,7 @@ const PlayerApp = {
         <div class="asoc-mode-transition-impact"></div>
       ` : ''}
       <div class="asoc-mode-transition-core">
-        <div class="asoc-mode-transition-eye"><img src="/assets/ui/asoc-favicon.svg?v=1" alt=""></div>
+        <div class="asoc-mode-transition-eye"><img src="${battle ? '/assets/ui/cyber-gothic-battle-eye.png?v=1' : '/assets/ui/asoc-favicon.svg?v=1'}" alt=""></div>
         <div class="asoc-mode-transition-kicker">A.S.O.C. // MASTER ROOM</div>
         <div class="asoc-mode-transition-title">${battle ? 'ABUSEMENT PARK ENGAGED' : 'ABUSEMENT PARK SUSPENDED'}</div>
         <div class="asoc-mode-transition-sub">${battle ? '' : 'AMUSEMENT PARK // RESTORED'}</div>

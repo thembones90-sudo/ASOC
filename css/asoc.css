@@ -13879,9 +13879,13 @@ body.asoc-transition-to-casual #game-screen .player-battle-layout {
   animation:asoc-battle-core-timeline 4000ms linear both;
 }
 .asoc-mode-transition--battle .asoc-mode-transition-eye {
+  width:clamp(190px,19vw,270px);
+  height:clamp(190px,19vw,270px);
+  margin-bottom:8px;
   animation:asoc-battle-eye-acquire 2300ms cubic-bezier(.16,.78,.18,1) 820ms both;
 }
 .asoc-mode-transition--battle .asoc-mode-transition-eye img {
+  filter:drop-shadow(0 0 12px rgba(188,62,255,.72)) drop-shadow(0 0 30px rgba(218,27,91,.48));
   animation:asoc-battle-eye-glitch 2300ms linear 820ms both;
 }
 .asoc-mode-transition--battle .asoc-mode-transition-kicker {
