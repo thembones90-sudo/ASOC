@@ -794,7 +794,13 @@ const Skeleton = (() => {
       document.addEventListener('keydown', aftermathKeyHandler);
     }
 
-    if (reducedMotion) {
+    if (options.alreadyComplete === true) {
+      // Hydrated AFTERMATH (reconnect during the story phase): the narrative
+      // is already shown state, so render it complete immediately -- no
+      // typewriter replay -- and hand the host back its CONTINUE advance.
+      const timer = setTimeout(completeNow, 300);
+      aftermathTimers.push(timer);
+    } else if (reducedMotion) {
       const timer = setTimeout(completeNow, 300);
       aftermathTimers.push(timer);
     } else {

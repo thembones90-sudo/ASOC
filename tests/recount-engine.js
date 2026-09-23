@@ -191,9 +191,14 @@ function testHistoricalAwardsNeedHistory() {
   assert.ok(fail.evidence.some(e => e.startsWith('CAREER AVERAGE: 447')));
   assert.ok(fail.evidence.some(e => e === 'THIS MATCH: 30'));
   assert.ok(fail.evidence.some(e => e.startsWith('PERFORMANCE CHANGE: -93.3%')));
-  const up = r.awards.find(a => a.id === 'UNAUTHORIZED EVOLUTION');
-  assert.ok(up, 'a huge improvement over personal history earns UNAUTHORIZED EVOLUTION');
-  assert.deepEqual(up.playerNames, ['Marko']);
+  // RECOUNT now prints at most one card per player. Marko may already own the
+  // top-score distinction, so prove UNAUTHORIZED EVOLUTION qualifies without
+  // requiring the renderer to print both cards for the same person.
+  const ctx = engine.buildStats(mkMatch({ players, attempts, history }).match, history, keyFn);
+  const marko = ctx.players.find(p => p.playerId === 'm');
+  const upDef = engine.AWARDS.find(a => a.id === 'UNAUTHORIZED EVOLUTION');
+  const up = upDef.test(marko, ctx);
+  assert.ok(up, 'a huge improvement over personal history qualifies for UNAUTHORIZED EVOLUTION');
   assert.ok(up.evidence.includes('PREVIOUS BEST: 110') && up.evidence.includes('THIS MATCH: 600'));
   console.log('PASS recount engine: historical awards need real history');
 }
@@ -209,17 +214,20 @@ function testScoreboardTiesAndWinner() {
   ] }));
   assert.deepEqual(shared.scoreboard.map(r => r.rank), [1, 2, 2, 4]);
 
-  // Equal points but FEWER wrong answers ranks higher; not shared.
+  // Equal points remain tied. Wrong answers may order equal-score rows for
+  // readability, but they never silently manufacture a higher match rank.
   const broken = run(mkMatch({ players, attempts: [
     { p: 'b', v: 'W', at: 1 }, { p: 'b', v: 'W', at: 2 }, { p: 'c', v: 'W', at: 3 }
   ] }));
-  assert.deepEqual(broken.scoreboard.map(r => `${r.name}:${r.rank}`), ['Ana:1', 'Cara:2', 'Bruno:3', 'Dino:4']);
+  assert.deepEqual(broken.scoreboard.map(r => `${r.name}:${r.rank}`), ['Ana:1', 'Cara:2', 'Bruno:2', 'Dino:4']);
 
   // A full tie at the top yields co-winners.
   const co = run(mkMatch({ players: [
     { id: 'a', name: 'Ana', points: 300 }, { id: 'b', name: 'Bruno', points: 300 }, { id: 'c', name: 'Cara', points: 50 }
   ] }));
   assert.deepEqual(co.winners.map(w => w.name).sort(), ['Ana', 'Bruno']);
+  assert.equal(co.winners.length, 2, 'both tied top scorers are winners');
+  assert.equal(co.topLabel, 'MATCH CO-WINNERS', 'a WON match with tied top points reads MATCH CO-WINNERS');
 
   // Nobody earned points: no winner is invented.
   const none = run(mkMatch({ players: [{ id: 'a', name: 'Ana', points: -200 }, { id: 'b', name: 'Bruno', points: -200 }] }));
@@ -237,6 +245,16 @@ function testLostMatchUsesTopPerformer() {
   assert.equal(recount.topLabel, 'TOP PERFORMER');
   assert.deepEqual(recount.winners, [], 'a lost match never names a match winner');
   assert.deepEqual(recount.topPerformers, [{ name: 'Ana', points: 27 }]);
+
+  // Tied top points on a lost match: both performers share the label.
+  const tied = mkMatch({ players: [
+    { id: 'a', name: 'Ana', points: 27 }, { id: 'b', name: 'Bruno', points: 27 }, { id: 'c', name: 'Cara', points: 10 }
+  ] });
+  tied.match.outcome = 'LOST';
+  const coLost = run(tied);
+  assert.equal(coLost.topLabel, 'TOP PERFORMERS', 'tied top points on a LOST match reads TOP PERFORMERS');
+  assert.deepEqual(coLost.topPerformers.map(w => w.name).sort(), ['Ana', 'Bruno']);
+  assert.deepEqual(coLost.winners, [], 'a lost match never names match winners, even with a tie');
   console.log('PASS recount engine: LOST uses TOP PERFORMER, never MATCH WINNER');
 }
 

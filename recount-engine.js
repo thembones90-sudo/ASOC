@@ -36,7 +36,10 @@ const T = Object.freeze({
   HISTORY_MIN_AVG_POINTS: 200,
   MIN_MATCH_MS_FOR_INACTIVITY: 3 * 60 * 1000,
   MAX_AWARDS: 3,
-  MAX_AWARDS_PER_PLAYER: 2,
+  // RECOUNT is a highlight reel, not a disciplinary dossier. One card per
+  // player keeps the post-game screen readable and prevents the same person
+  // being roasted twice for closely-related behaviour.
+  MAX_AWARDS_PER_PLAYER: 1,
   SECOND_AWARD_MIN_STRENGTH: 0.85,
   THIRD_AWARD_MIN_INTEREST: 0.72,
   CHAIN_WINDOW_MS: 90 * 1000
@@ -519,27 +522,32 @@ function selectAwards(ctx, seed) {
   }
   const survivors = Array.from(new Set(best.values())).sort((a, b) => b.interest - a.interest || b.tie - a.tie);
 
-  // Selection with per-player limits and no repeating the same behaviour.
+  // Selection: RECOUNT is a concise highlight reel. Prefer the earned
+  // top-score distinction when it exists, then add at most two genuinely
+  // different findings. Never print the same award title twice and never give
+  // one player multiple cards in the same recount.
   const picked = [];
   const perPlayer = {};
   const groupsUsed = new Set();
-  for (const cand of survivors) {
+  const awardIdsUsed = new Set();
+
+  const preferredWinner = survivors.find(c => c.def.id === "SHADOW BROKER'S ASSET");
+  const ordered = preferredWinner
+    ? [preferredWinner, ...survivors.filter(c => c !== preferredWinner)]
+    : survivors;
+
+  for (const cand of ordered) {
     if (picked.length >= T.MAX_AWARDS) break;
+    if (awardIdsUsed.has(cand.def.id)) continue;
     if (picked.length >= 2 && !(cand.interest >= T.THIRD_AWARD_MIN_INTEREST || cand.def.severity === 'catastrophic' || cand.strength >= 0.9)) continue;
     if (groupsUsed.has(cand.def.group) && cand.strength < 0.9) continue;
-    const blocked = cand.holders.some(h => {
-      const mine = perPlayer[h.playerId] || [];
-      if (mine.length >= T.MAX_AWARDS_PER_PLAYER) return true;
-      if (mine.length === 1) {
-        // A second award only if BOTH are exceptional and describe different behaviour.
-        return !(cand.strength >= T.SECOND_AWARD_MIN_STRENGTH && mine[0].strength >= T.SECOND_AWARD_MIN_STRENGTH && mine[0].def.group !== cand.def.group);
-      }
-      return false;
-    });
+    const blocked = cand.holders.some(h => (perPlayer[h.playerId] || 0) >= T.MAX_AWARDS_PER_PLAYER);
     if (blocked) continue;
+
     picked.push(cand);
+    awardIdsUsed.add(cand.def.id);
     groupsUsed.add(cand.def.group);
-    cand.holders.forEach(h => { (perPlayer[h.playerId] = perPlayer[h.playerId] || []).push(cand); });
+    cand.holders.forEach(h => { perPlayer[h.playerId] = (perPlayer[h.playerId] || 0) + 1; });
   }
   return picked;
 }
@@ -579,17 +587,45 @@ function presentAwards(picked, seed) {
 // ------------------------------------------------------------- scoreboard
 
 function buildScoreboard(match) {
-  // Every recorded participant is listed -- including someone who was present
-  // but silent. Ties break on FEWER wrong answers; only fully equal results
-  // share the place.
+  // MATCH SCOREBOARD ranks by MATCH POINTS only. Wrong guesses are evidence,
+  // not a hidden tiebreaker that silently invents a winner. Equal points share
+  // the same place. Within a tie we sort for readability by more correct, then
+  // fewer wrong, but the displayed rank stays tied.
   const participants = match.players || [];
-  const ranked = rankByKeys(participants, p => [p.matchPoints, -(p.judged ? p.judged.wrong : 0)]);
-  return ranked.map(({ item, rank }) => ({
-    rank,
-    name: item.name,
-    points: item.matchPoints,
-    judged: item.judged || { total: 0, correct: 0, wrong: 0 }
-  }));
+  const solveCounts = {};
+  (match.scoreEvents || []).forEach(event => {
+    if (!event?.playerId || (event.type !== 'column' && event.type !== 'final')) return;
+    solveCounts[event.playerId] = (solveCounts[event.playerId] || 0) + 1;
+  });
+
+  const ordered = participants.slice().sort((a, b) => {
+    const points = (b.matchPoints || 0) - (a.matchPoints || 0);
+    if (points) return points;
+    const ac = a.judged || { correct: 0, wrong: 0 };
+    const bc = b.judged || { correct: 0, wrong: 0 };
+    return (bc.correct || 0) - (ac.correct || 0)
+      || (ac.wrong || 0) - (bc.wrong || 0)
+      || String(a.name || '').localeCompare(String(b.name || ''));
+  });
+
+  let previousPoints = null;
+  let previousRank = 0;
+  return ordered.map((item, index) => {
+    const points = item.matchPoints || 0;
+    const rank = previousPoints !== null && points === previousPoints ? previousRank : index + 1;
+    previousPoints = points;
+    previousRank = rank;
+    const judged = item.judged || { total: 0, correct: 0, wrong: 0 };
+    return {
+      rank,
+      playerId: item.playerId,
+      name: item.name,
+      points,
+      solves: solveCounts[item.playerId] || 0,
+      judged,
+      accuracy: judged.total > 0 ? judged.correct / judged.total : null
+    };
+  });
 }
 
 function buildOverall(match, profiles, keyFn) {
@@ -636,7 +672,7 @@ function computeRecount({ match, history = [], profiles = {}, keyFn, seed }) {
     difficulty: match.difficulty || null,
     gameWon: match.gameWon === true,
     outcome: lost ? 'LOST' : (match.gameWon === true ? 'WON' : null),
-    topLabel: lost ? 'TOP PERFORMER' : 'MATCH WINNER',
+    topLabel: lost ? (topPerformers.length > 1 ? 'TOP PERFORMERS' : 'TOP PERFORMER') : (winners.length > 1 ? 'MATCH CO-WINNERS' : 'MATCH WINNER'),
     summary: {
       players: scoreboard.length,
       highScore: top,

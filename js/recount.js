@@ -61,9 +61,11 @@ const Recount = (() => {
     const lost = r.outcome === 'LOST';
     const tops = lost ? (r.topPerformers || []) : (r.winners || []);
     const label = r.topLabel || (lost ? 'TOP PERFORMER' : 'MATCH WINNER');
-    const findings = Array.isArray(r.lossFindings) ? r.lossFindings : [];
-    const awardCards = r.awards.map(buildAwardCard);
-    const findingCards = findings.map((f, i) => buildFindingCard(f, i, r.awards.length));
+    const awardList = Array.isArray(r.awards) ? r.awards.slice(0, 3) : [];
+    const findingBudget = Math.max(0, 3 - awardList.length);
+    const findings = Array.isArray(r.lossFindings) ? r.lossFindings.slice(0, findingBudget) : [];
+    const awardCards = awardList.map(buildAwardCard);
+    const findingCards = findings.map((f, i) => buildFindingCard(f, i, awardList.length));
     const stripNames = tops.length ? tops.map(t => esc(t.name)).join(' &amp; ') : '—';
 
     const board = r.scoreboard.map((row, i) => `
@@ -71,7 +73,8 @@ const Recount = (() => {
         <td class="rc-rank">${row.rank}</td>
         <td class="rc-name">${esc(row.name)}${tops.some(t => t.name === row.name) ? ' <b class="rc-crown">◆</b>' : ''}</td>
         <td class="rc-num">${num(row.points)}</td>
-        <td class="rc-num rc-dim">${row.judged.correct}/${row.judged.total}</td>
+        <td class="rc-num rc-dim">${row.solves || 0}</td>
+        <td class="rc-num rc-dim">${row.accuracy === null || row.accuracy === undefined ? '—' : Math.round(row.accuracy * 100) + '%'}</td>
       </tr>`).join('');
 
     const overall = r.overall.map((row, i) => `
@@ -111,7 +114,7 @@ const Recount = (() => {
 
         <section class="rc-block rc-step" data-step="boardhead">
           <h3>MATCH SCOREBOARD</h3>
-          <table class="rc-table"><thead><tr><th>#</th><th>PLAYER</th><th class="rc-num">MATCH PTS</th><th class="rc-num">CORRECT</th></tr></thead>
+          <table class="rc-table"><thead><tr><th>#</th><th>PLAYER</th><th class="rc-num">MATCH PTS</th><th class="rc-num">SOLVES</th><th class="rc-num">ACCURACY</th></tr></thead>
             <tbody>${board}</tbody></table>
         </section>
 

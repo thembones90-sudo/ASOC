@@ -57,7 +57,11 @@ function blankProfile(displayName) {
     earliestFinalColumnsKnown: null,
     bestColumnStreak: 0,
     purpleSolves: 0,
-    blackSolves: 0
+    blackSolves: 0,
+    threefoldPlayed: 0,
+    threefoldWins: 0,
+    threefoldLosses: 0,
+    threefoldDraws: 0
   };
 }
 
@@ -71,7 +75,11 @@ const NUMERIC_PROFILE_FIELDS = [
   'earlyFinalSolutions',
   'bestColumnStreak',
   'purpleSolves',
-  'blackSolves'
+  'blackSolves',
+  'threefoldPlayed',
+  'threefoldWins',
+  'threefoldLosses',
+  'threefoldDraws'
 ];
 
 function validateAndNormalizePlayers(raw) {

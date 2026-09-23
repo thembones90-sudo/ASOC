@@ -438,8 +438,24 @@ async function importXlsx(buffer, sourceFilename) {
 
   const sheetsWithData = workbook.worksheets.filter(ws => ws.actualRowCount > 0 && ws.actualColumnCount > 0);
   let sheet;
-  if (sheetsWithData.length > 1) {
-    return { errors: [`Workbook contains multiple sheets with data (${sheetsWithData.map(w => w.name).join(', ')}). Put the ASOC board in a single sheet.`] };
+
+  // Official ASOC workbooks may include a README/instructions tab alongside
+  // the actual board. When an explicit "ASOC GAME" sheet exists, it is the
+  // authoritative import target and every other sheet is metadata only.
+  // This keeps the importer strict for genuinely ambiguous multi-board files
+  // while allowing the template we actually hand to humans to import cleanly.
+  const namedBoardSheet = workbook.worksheets.find(ws =>
+    String(ws.name || '').trim().toUpperCase() === 'ASOC GAME'
+  );
+
+  if (namedBoardSheet && namedBoardSheet.actualRowCount > 0 && namedBoardSheet.actualColumnCount > 0) {
+    sheet = namedBoardSheet;
+    const ignored = workbook.worksheets.filter(ws => ws !== sheet && ws.actualRowCount > 0 && ws.actualColumnCount > 0);
+    if (ignored.length) {
+      warnings.push(`Using sheet "${sheet.name}"; ignored auxiliary sheet${ignored.length === 1 ? '' : 's'}: ${ignored.map(ws => ws.name).join(', ')}.`);
+    }
+  } else if (sheetsWithData.length > 1) {
+    return { errors: [`Workbook contains multiple sheets with data (${sheetsWithData.map(w => w.name).join(', ')}). Name the board sheet "ASOC GAME" or keep only one data sheet.`] };
   } else if (sheetsWithData.length === 1) {
     sheet = sheetsWithData[0];
     if (workbook.worksheets.length > 1) {

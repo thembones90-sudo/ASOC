@@ -1,7 +1,7 @@
 {
   "id": "asoc-mu5wyenj-kjje",
   "title": "kurac test",
-  "theme": "",
+  "theme": "General",
   "background": "assets/backgrounds/_default.svg",
   "difficulty": "GREEN",
   "columns": {
@@ -47,5 +47,5 @@
   "gmNotes": "",
   "hints": [],
   "created": "2026-09-17",
-  "modified": "2026-09-17T19:19:33.239Z"
+  "modified": "2026-09-18T07:38:12.079Z"
 }

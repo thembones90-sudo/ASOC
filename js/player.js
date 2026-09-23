@@ -1272,12 +1272,19 @@ const PlayerApp = {
         this.applyRoomMode(roomMode);
         if (battleVisible) {
           window.AsocAudio?.syncBoard?.('player', message);
-          this.renderBoard(message);
+          this.renderBoard(message, previousState);
         } else {
           window.AsocAudio?.resetObservers?.();
         }
         this.applyVictoryState(battleVisible && message.gameWon === true, battleVisible ? (message.matchResult || null) : null);
         this.applyLossState(battleVisible ? (message.matchResult || null) : null);
+        if (!battleVisible) {
+          // CASUAL hides the battle, it does not end it. Re-entering BATTLE is
+          // a hydration (like a late join), so a WON/LOST match already on the
+          // board must not replay its live ceremony on every toggle.
+          this._victoryBaselined = false;
+          this._lossBaselined = false;
+        }
         this.applyFinalSolverAura(battleVisible ? (message.finalSolverAura || null) : null, message.serverNow);
         Womf.update('womf-tracker-player', battleVisible ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
         Wheel.update('wheel-overlay', battleVisible ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false);
@@ -1454,6 +1461,22 @@ const PlayerApp = {
         Skeleton.playMentionAllShake?.();
         break;
 
+      case 'threefold:challenge':
+        window.Threefold?.onChallenge?.(message);
+        break;
+
+      case 'threefold:declined':
+        window.Threefold?.onDeclined?.(message);
+        break;
+
+      case 'threefold:state':
+        window.Threefold?.onState?.(message);
+        break;
+
+      case 'threefold:closed':
+        window.Threefold?.onClosed?.(message);
+        break;
+
       case 'score:event':
         this.showScoreToast(message);
         if (message.awardType === 'final') window.AsocAudio?.finalSolved?.();
@@ -1483,6 +1506,12 @@ const PlayerApp = {
 
       case 'score:finalResults':
         this.revealFinalResults(message);
+        break;
+
+      case 'match:aftermath':
+        document.querySelector('.victory-overlay')?.remove();
+        document.querySelector('.defeat-overlay')?.remove();
+        Skeleton.playAftermath(message.result || {}, { isHost: false });
         break;
 
       case 'recount:update':
@@ -1561,11 +1590,24 @@ const PlayerApp = {
     }
   },
 
-  renderBoard(state) {
+  renderBoard(state, previousState = null) {
     const publicBoard = document.getElementById('public-board');
     if (!publicBoard || !state) return;
 
     const columns = ['A', 'B', 'C', 'D'];
+    this._revealFlashUntil ||= {};
+    if (previousState) {
+      Object.entries(state.cells || {}).forEach(([key, cell]) => {
+        if (cell?.revealed === true && previousState.cells?.[key]?.revealed !== true) {
+          this._revealFlashUntil[key] = Date.now() + 2500;
+        }
+      });
+      if (state.finalSolution?.revealed === true && previousState.finalSolution?.revealed !== true) {
+        this._revealFlashUntil.FINAL = Date.now() + 2500;
+      }
+    }
+    this.solutionCountdowns = state.solutionCountdowns || {};
+    this.hintClaims = state.hintClaims || {};
     const gameId = String(state.gameId || '');
     const difficulty = String(state.difficulty || '');
 
@@ -1651,6 +1693,9 @@ const PlayerApp = {
       this._renderedBoardGameId = gameId;
       this._renderedBoardDifficulty = difficulty;
       this._boardRenderSignature = boardSignature;
+      this.applyRevealFlash(publicBoard.querySelector(':scope > .asoc-board'));
+      this.renderSolutionCountdownBadges();
+      this.renderHintButtons();
       this.applyBackground(state.background);
       return;
     }
@@ -1717,8 +1762,83 @@ const PlayerApp = {
       Skeleton.fit(board);
     }
 
+    this.applyRevealFlash(board);
+    this.renderSolutionCountdownBadges();
+    this.renderHintButtons();
     this.renderShadowBrokerBoardLineInPlace();
     this.applyBackground(state.background);
+  },
+
+  applyRevealFlash(board) {
+    if (!board) return;
+    const now = Date.now();
+    Object.entries(this._revealFlashUntil || {}).forEach(([key, deadline]) => {
+      const cell = board.querySelector(`.board-cell[data-label="${CSS.escape(key)}"]`);
+      if (!cell) return;
+      if (deadline > now) {
+        cell.classList.add('cell-new-reveal-flash');
+        setTimeout(() => cell.classList.remove('cell-new-reveal-flash'), Math.max(0, deadline - now));
+      } else {
+        delete this._revealFlashUntil[key];
+        cell.classList.remove('cell-new-reveal-flash');
+      }
+    });
+  },
+
+  renderSolutionCountdownBadges() {
+    const board = document.querySelector('#public-board > .asoc-board');
+    if (!board) return;
+    board.querySelectorAll('.solution-countdown-badge').forEach(el => el.remove());
+    clearTimeout(this._solutionCountdownTicker);
+    const now = Date.now();
+    let active = false;
+    Object.values(this.solutionCountdowns || {}).forEach(entry => {
+      const remaining = Math.max(0, Number(entry.deadline || 0) - now);
+      if (remaining <= 0) return;
+      active = true;
+      const key = entry.target === 'FINAL' ? 'FINAL' : entry.target + '5';
+      const cell = board.querySelector(`.board-cell[data-label="${CSS.escape(key)}"]`);
+      if (!cell) return;
+      const total = Math.ceil(remaining / 1000);
+      const badge = document.createElement('div');
+      badge.className = 'solution-countdown-badge';
+      badge.textContent = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+      cell.appendChild(badge);
+    });
+    if (active) this._solutionCountdownTicker = setTimeout(() => this.renderSolutionCountdownBadges(), 250);
+  },
+
+  renderHintButtons() {
+    const board = document.querySelector('#public-board > .asoc-board');
+    if (!board) return;
+    board.querySelectorAll('.cell-hint-button').forEach(el => el.remove());
+    if (this.roomMode !== 'BATTLE') return;
+
+    for (const col of ['A', 'B', 'C', 'D']) {
+      for (let row = 1; row <= 4; row++) {
+        const key = `${col}${row}`;
+        const cellState = this.lastPublicState?.cells?.[key];
+        if (cellState?.revealed !== true) continue;
+        const cell = board.querySelector(`.board-cell[data-label="${CSS.escape(key)}"]`);
+        if (!cell) continue;
+        const claim = this.hintClaims?.[key];
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'cell-hint-button' + (claim ? ' is-used' : '');
+        button.textContent = claim ? 'HINT USED' : 'HINT';
+        button.disabled = !!claim;
+        button.title = claim ? `Hint used by ${claim.playerName || 'Little Hero'}` : `Request the one hint available for ${key}`;
+        if (!claim) {
+          button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            button.disabled = true;
+            this.send({ type: 'player:hintRequest', cell: key });
+          });
+        }
+        cell.appendChild(button);
+      }
+    }
   },
 
   renderShadowBrokerBoardLineInPlace() {
@@ -2245,7 +2365,7 @@ const PlayerApp = {
     this._victoryBaselined = true;
     this.gameWon = won;
     document.body.classList.toggle('game-won', won);
-    if (live) Skeleton.playGameWon(matchResult || {}, { live: true, isHost: false });
+    if (live) Skeleton.playGameWon(matchResult || {}, { live: true, isHost: false, afterMatch: false });
   },
 
   applyLossState(matchResult) {
@@ -2260,7 +2380,7 @@ const PlayerApp = {
     if (!lost) {
       document.querySelector('.defeat-overlay')?.remove();
     } else if (live) {
-      Skeleton.playGameLost(matchResult, { live: true, isHost: false });
+      Skeleton.playGameLost(matchResult, { live: true, isHost: false, afterMatch: false });
     } else if (changed && !document.querySelector('.defeat-overlay')) {
       Skeleton.playGameLost(matchResult, { live: false });
     }
@@ -3663,8 +3783,13 @@ const PlayerApp = {
     let nextWrongFadeMs = Infinity;
     let nextTributeTickMs = Infinity;
     const now = Date.now();
-    this.chatMessages.forEach((msg, index) => {
-      const previous = index > 0 ? this.chatMessages[index - 1] : null;
+    const search = String(this._chatSearch || '').trim().toLocaleLowerCase();
+    const visibleMessages = search
+      ? this.chatMessages.filter(msg => [msg.text, msg.playerName, msg.verdict, msg.target]
+          .some(value => String(value || '').toLocaleLowerCase().includes(search)))
+      : this.chatMessages;
+    visibleMessages.forEach((msg, index) => {
+      const previous = index > 0 ? visibleMessages[index - 1] : null;
       if (previous && (Number(msg.timestamp) - Number(previous.timestamp)) > 300000) {
         html += this.createChatTimeSeparator(msg.timestamp);
       }
@@ -3780,6 +3905,24 @@ const PlayerApp = {
         <div class="chat-blood-tribute-entry" data-message-id="${this.escapeHtml(msg.id)}">
           <div class="blood-tribute-chat-head"><span>BLOOD TRIBUTE // ${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><b>PUBLIC PURGE ${minutes}:${seconds}</b></div>
           <button type="button" class="chat-image-link blood-tribute-preview" aria-label="Expand blood tribute image"><img class="blood-tribute-public-image" src="${msg.imageData}" alt="Temporary tribute image"></button>
+        </div>
+      `;
+    }
+
+    if (msg.messageType === 'roll' && msg.roll) {
+      const value = Math.max(1, Math.min(100, Number(msg.roll.value) || 1));
+      const hue = Math.round(((value - 1) / 99) * 115);
+      const rollColor = `hsl(${hue} 92% 48%)`;
+      const min = Number(msg.roll.min) || 1;
+      const max = Number(msg.roll.max) || 100;
+      const extremeClass = value === 100 ? ' roll-max' : value === 1 ? ' roll-min' : '';
+      return `
+        <div class="asoc-roll-entry${extremeClass}" data-message-id="${this.escapeHtml(msg.id)}" style="--roll-color:${rollColor}">
+          <span class="asoc-roll-die" aria-hidden="true">🎲</span>
+          <span class="asoc-roll-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>
+          <span class="asoc-roll-label">ROLLS</span>
+          <strong class="asoc-roll-value">${this.escapeHtml(String(msg.roll.value))}</strong>
+          <span class="asoc-roll-range">(${this.escapeHtml(String(min))}–${this.escapeHtml(String(max))})</span>
         </div>
       `;
     }

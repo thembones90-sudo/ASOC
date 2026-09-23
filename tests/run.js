@@ -925,15 +925,17 @@ async function testCrashRecovery(server) {
   const rejoined = await rejoinPromise;
   assert.equal(rejoined.playerId, joined.playerId);
 
-  const completedAfterRestart = waitForMessage(host2, m => m.type === 'state:public' && m.gameComplete === true, 'game complete after restart');
-  for (const column of ['A', 'B', 'C', 'D']) host2.send(JSON.stringify({ type: 'gm:failColumn', column }));
-  host2.send(JSON.stringify({ type: 'gm:failFinal' }));
-  await completedAfterRestart;
+  // GAME WON is terminal. After restart the resolved board must stay locked;
+  // its archive was already finalized by the authoritative win transition.
+  const gameplayLocked = waitForMessage(host2, m => m.type === 'error' && /GAME WON/.test(m.message || ''), 'restored terminal board lock');
+  host2.send(JSON.stringify({ type: 'gm:failColumn', column: 'A' }));
+  await gameplayLocked;
+
   const restoredArchive = readArchive(room.roomCode).filter(record => !preexistingArchiveIds.has(record.matchId));
   assert.equal(restoredArchive.length, 1);
   assert.ok(
     restoredArchive[0].attempts.some(x => x.textKey === 'pre crash guess' && x.verdict === 'wrong'),
-    'the pre-crash judged attempt must survive a restart in the match ledger'
+    'the pre-crash judged attempt must survive a restart in the finalized match archive'
   );
 
   console.log('PASS session crash recovery');
@@ -1008,9 +1010,10 @@ async function testUnarmedMasterRoomRecovery(server) {
 // the recovery snapshot, then the server is hard-killed and restarted. Every
 // one of them must be back: (1) a judged correct column verdict + solved target
 // + scoring event, (2) FAIL actions (WOMF charge + failed-column tags),
-// (3) the Wheel left OPEN, (4) a live Blood Tribute demand, (5) a GAME LOST
-// terminal state (timer-authoritative). The second restart re-verifies the
-// terminal state plus the crushing reality that a Tribute debt never dies.
+// (3) the settled Wheel result retained behind its dismissed UI, (4) a live
+// Blood Tribute demand, (5) a GAME LOST terminal state (timer-authoritative).
+// The second restart re-verifies the terminal state plus the crushing reality
+// that a Tribute debt never dies.
 async function testCrashInjectionPersistence(server) {
   const opened = [];
   let restarted = null;
@@ -1056,6 +1059,16 @@ async function testCrashInjectionPersistence(server) {
   await resetKeptCharge;
   // FAIL batch #2: B,D (+2) then FINAL (+3) => WOMF 10/10, Wheel can open.
   await failBatches(10, 'crash WOMF 10 after second FAIL batch');
+  // FINAL RED is terminal (GAME LOST). Reset onto a live board -- WOMF stays
+  // 10/10 -- and re-declare B/D so the failed-column tags that must survive
+  // the crash belong to the current, still-playable board.
+  const liveBoard = waitForMessage(host, m => m.type === 'state:public' && m.matchResult === null && m.womf?.charge === 10, 'crash live board after GAME LOST');
+  host.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: 6002 }));
+  await liveBoard;
+  const refailed = waitForMessage(host, m => m.type === 'state:public' && m.cells?.B5?.outcome === 'failed' && m.cells?.D5?.outcome === 'failed', 'crash B/D re-declared');
+  host.send(JSON.stringify({ type: 'gm:failColumn', column: 'B' }));
+  host.send(JSON.stringify({ type: 'gm:failColumn', column: 'D' }));
+  await refailed;
   await startBattle(host);
 
   // A judged correct column verdict + solved target + scoring event.
@@ -1103,7 +1116,7 @@ async function testCrashInjectionPersistence(server) {
   const persistedAfterCrash = JSON.parse(fs.readFileSync(TEST_SESSION, 'utf8')).rooms.find(r => r.code === 'MASTER');
   assert.equal(persistedAfterCrash.chat.solvedTargets.C?.messageId, guessId, 'solved target C survives the crash');
   assert.deepEqual(persistedAfterCrash.womf.failedColumns, { B: true, D: true }, 'failed-column tags survive the crash');
-  assert.equal(persistedAfterCrash.wheel.open, true, 'an open Wheel survives the crash');
+  assert.equal(persistedAfterCrash.wheel.open, false, 'the dismissed Wheel stays hidden while its result is retained');
   assert.equal(persistedAfterCrash.wheel.phase, 'result', 'the settled spin phase survives the crash');
   assert.equal(persistedAfterCrash.pendingTribute?.status, 'required', 'the Tribute demand survives the crash');
   assert.equal(persistedAfterCrash.pendingTribute?.playerId, result.bloodTribute.playerId, 'the Tribute debtor survives the crash');
@@ -1124,8 +1137,8 @@ async function testCrashInjectionPersistence(server) {
   assert.equal(verdictMessage.adjudicable, true, 'a current-board verdict stays adjudicable');
 
   assert.equal(state.womf.charge, 10, 'WOMF 10/10 surfaces in public state after the crash');
-  assert.equal(state.wheel.open, true, 'an open Wheel surfaces in public state after the crash');
-  assert.equal(state.wheel.phase, 'result', 'the settled spin phase surfaces in public state after the crash');
+  assert.equal(state.wheel.open, false, 'the dismissed Wheel stays hidden after crash recovery');
+  assert.equal(state.wheel.phase, 'result', 'the settled spin phase survives behind the active Tribute demand');
   assert.equal(state.bloodTribute.status, 'required');
   assert.equal(state.bloodTribute.playerId, result.bloodTribute.playerId, 'the Tribute debtor is still the same player');
 
@@ -1694,18 +1707,20 @@ async function testColumnScoreAfterFinal() {
   await judge(finalId, 'correct', 'FINAL');
   assert.equal(lastScore - scoreAfterReversal, 800, 'columns solved before the (re-)accepted Final stay in full');
 
-  // A FAILED Final does not make columns easier: full value.
+  // FINAL RED is the canonical GAME LOST: it resolves the match, so no
+  // column can be scored (halved or otherwise) after it.
   const cleared = waitForMessage(host, m => m.type === 'state:public' && m.finalSolution?.revealed !== true, 'reset for failed-final board');
   host.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: ++cmdId }));
   await cleared;
   await startBattle(host);
   await reveal('C1');
-  const failedFinal = waitForMessage(host, m => m.type === 'score:finalReveal', 'final failed reveal');
+  const lost = waitForMessage(host, m => m.type === 'state:public' && m.matchResult?.outcome === 'LOST', 'FINAL RED declares GAME LOST');
   host.send(JSON.stringify({ type: 'gm:failFinal' }));
-  await failedFinal;
-  const c = await solveColumn('C', 'column c answer');
-  assert.equal(c.points, 400, 'a failed Final never halves a column');
-  assert.equal(c.afterFinal, false);
+  await lost;
+  const lateId = await guess('column c answer');
+  const locked = waitForMessage(host, m => m.type === 'error' && /GAME LOST/.test(m.message || ''), 'judging locked after GAME LOST');
+  host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: lateId, verdict: 'correct', target: 'C' }));
+  await locked;
 
   console.log('PASS column score is 50% once the Final is solved (and corrects with verdicts)');
   closeWs(player);
@@ -1783,8 +1798,12 @@ async function testRecountShowFlow() {
   await judge(soloMsg, 'correct', 'A');
   await judge(await guess(p2, 'a wrong answer'), 'wrong');
   for (const column of ['B', 'C', 'D']) await fail(column);
+  // Close the field with an accepted Final: that completes the match without
+  // a GAME WON/LOST declaration, so judging stays open for step 3b. (FINAL RED
+  // is GAME LOST, which locks adjudication.)
+  const finalMsg = await guess(p1, 'the final answer');
   const complete = stateWhere(m => m.gameComplete === true, 'game complete');
-  host.send(JSON.stringify({ type: 'gm:failFinal' }));
+  await judge(finalMsg, 'correct', 'FINAL');
   await complete;
   await delay(250);
 
@@ -1798,8 +1817,13 @@ async function testRecountShowFlow() {
   //     (it must not be frozen at the moment of completion).
   await judge(await guess(p2, 'a late wrong answer'), 'wrong');
 
-  // 4. The host presses SHOW RESULTS: everyone gets the SAME recount, live, once,
-  //    and the withheld Final penalty is released with it.
+  // 4. FINISH GAME is the mandatory narrative gate. It broadcasts AFTERMATH
+  //    first; only the story's CONTINUE path may advance into RECOUNT.
+  const aftermath = ['host', 'p1', 'p2'].map(label => waitForMessage(
+    label === 'host' ? host : label === 'p1' ? p1 : p2, m => m.type === 'match:aftermath' && m.result, `${label} aftermath`));
+  host.send(JSON.stringify({ type: 'gm:finishGame' }));
+  await Promise.all(aftermath);
+
   const shown = ['host', 'p1', 'p2'].map(label => waitForMessage(
     label === 'host' ? host : label === 'p1' ? p1 : p2, m => m.type === 'recount:update' && m.recount, `${label} recount`));
   host.send(JSON.stringify({ type: 'gm:showRecount' }));
@@ -1822,11 +1846,19 @@ async function testRecountShowFlow() {
     assert.equal(seen.get(label).leaks, 0, `${label}: the recount never leaks through state:public`);
   }
 
-  // 5. Idempotent: a second SHOW RESULTS neither re-broadcasts nor regenerates.
+  // 5. Idempotent: a second SHOW RESULTS only re-sends the stored RECOUNT as
+  //    the non-live AFTERMATH advance signal -- never a live replay, never a
+  //    regenerated payload, never a second release of the Final results.
   const before = seen.get('p1').recounts.length;
   host.send(JSON.stringify({ type: 'gm:showRecount' }));
   await delay(300);
-  assert.equal(seen.get('p1').recounts.length, before, 'SHOW RESULTS is idempotent');
+  const repeats = seen.get('p1').recounts.slice(before);
+  assert.ok(repeats.length <= 1, 'SHOW RESULTS is idempotent');
+  repeats.forEach(repeat => {
+    assert.equal(repeat.live, false, 'a repeated SHOW RESULTS never replays live');
+    assert.deepEqual(repeat.recount, hostMsg.recount, 'a repeated SHOW RESULTS never regenerates');
+  });
+  assert.equal(seen.get('p1').finalResults, 1, 'Final results are released once');
 
   // 6. A late joiner is hydrated with the SAME recount, NOT live (no replay).
   const third = await requestJson('/api/auth/player/register', 'POST', {
@@ -1850,6 +1882,9 @@ async function testRecountShowFlow() {
   const opened = stateWhere(m => m.gameComplete === true, 'complete by REVEAL ALL');
   command('revealAll');
   await opened;
+  const secondAftermath = waitForMessage(p2, m => m.type === 'match:aftermath' && m.result, 'second aftermath');
+  host.send(JSON.stringify({ type: 'gm:finishGame' }));
+  await secondAftermath;
   const shownAgain = waitForMessage(p2, m => m.type === 'recount:update' && m.recount && m.live === true, 'second recount');
   host.send(JSON.stringify({ type: 'gm:showRecount' }));
   await shownAgain;
@@ -1859,6 +1894,73 @@ async function testRecountShowFlow() {
 
   console.log('PASS RECOUNT: manual gate, host-only, live-once, hydration, void/reset, no leak');
   closeWs(p1); closeWs(p2); closeWs(host);
+}
+
+async function testFinishGameAftermathLifecycle() {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  const playerA = await requestJson('/api/auth/player/register', 'POST', {
+    email: `aftermath-one-${process.pid}@asoc.test`, password: 'test-player-password', name: 'AFTERMATH ONE'
+  });
+  assert.ok(playerA.status === 200 || playerA.status === 201);
+  const p1 = await openWs();
+  await (async () => {
+    const ok = waitForMessage(p1, m => m.type === 'join:success', 'aftermath player join');
+    p1.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'AFTERMATH ONE' }));
+    await ok;
+  })();
+
+  let cmdId = 9900;
+  const stateWhere = (predicate, label) => waitForMessage(host, m => m.type === 'state:public' && predicate(m), label);
+  const command = name => host.send(JSON.stringify({ type: 'gm:command', command: name, payload: {}, cmdId: ++cmdId }));
+  const nextError = (ws, pattern, label) => waitForMessage(ws, m => m.type === 'error' && pattern.test(m.message || ''), label);
+
+  // 1. FINISH GAME is gated on a completed match (whole field open) -- the
+  //    LOCKED whole-field rule, not just on running/armed state.
+  const premature = nextError(host, /not finished/i, 'FINISH GAME before the match is complete');
+  host.send(JSON.stringify({ type: 'gm:finishGame' }));
+  await premature;
+
+  // 2. Complete the whole field, then FINISH GAME. The narrative broadcast
+  //    reaches host and player with the story data intact.
+  const complete = stateWhere(m => m.gameComplete === true, 'aftermath match complete');
+  command('revealAll');
+  await complete;
+
+  const aftermathHost = waitForMessage(host, m => m.type === 'match:aftermath' && m.result, 'host aftermath');
+  const aftermathPlayer = waitForMessage(p1, m => m.type === 'match:aftermath' && m.result, 'player aftermath');
+  host.send(JSON.stringify({ type: 'gm:finishGame' }));
+  const [hostAftermath, playerAftermath] = await Promise.all([aftermathHost, aftermathPlayer]);
+  assert.ok(hostAftermath.result.story, 'the AFTERMATH narrative carries the game story');
+  assert.ok(hostAftermath.result.finalSolution, 'the AFTERMATH narrative carries the Final solution');
+
+  // 3. The host reconnects mid-AFTERMATH (the phase is stored, not yet shown).
+  //    The public state must expose the phase AND the persisted narrative so
+  //    the client can re-mount it already-complete (never re-typewriter) and
+  //    hand back CONTINUE -- this is the dead-end fix.
+  closeWs(host);
+  await delay(400);
+  const host2 = await openWs();
+  const reconnected = waitForMessage(host2, m => m.type === 'host:reconnected', 'aftermath host reconnect');
+  const hydrated = waitForMessage(host2, m => m.type === 'state:public' && m.aftermathStarted, 'aftermath hydration state');
+  host2.send(JSON.stringify({ type: 'host:reconnect', roomCode: room.roomCode, hostToken: room.hostToken, gmToken: TEST_GM_TOKEN }));
+  const [hydratedState] = await Promise.all([hydrated, reconnected]);
+  assert.equal(hydratedState.aftermathStarted, true, 'the stored AFTERMATH phase survives host reconnect');
+  assert.equal(hydratedState.resultsShown, false, 'the AFTERMATH is still pending, not yet advanced');
+  assert.ok(hydratedState.aftermathResult, 'the persisted narrative is available for the recovery overlay');
+  assert.equal(hydratedState.aftermathResult.story, hostAftermath.result.story, 'the recovery narrative is the same payload, never regenerated');
+
+  // 4. The reconnected host can still advance into RECOUNT exactly once.
+  const shownHost = waitForMessage(host2, m => m.type === 'recount:update' && m.recount, 'reconnected host recount');
+  const shownPlayer = waitForMessage(p1, m => m.type === 'recount:update' && m.recount, 'reconnected player recount');
+  host2.send(JSON.stringify({ type: 'gm:showRecount' }));
+  const [hostRc] = await Promise.all([shownHost, shownPlayer]);
+  assert.equal(hostRc.live, true, 'the reconnected host still gets the authoritative live reveal');
+  assert.equal(hostRc.recount.summary.complete, true);
+
+  console.log('PASS FINISH GAME lifecycle: gated, narrated, reconnected host can still reach RECOUNT');
+  closeWs(p1); closeWs(host2);
 }
 
 function startServer() {
@@ -1929,6 +2031,7 @@ function startServer() {
     await testMatchCaptureAndCompletion();
     await testColumnScoreAfterFinal();
     await testRecountShowFlow();
+    await testFinishGameAftermathLifecycle();
     server = await testCrashRecovery(server);
     server = await testUnarmedMasterRoomRecovery(server);
     server = await testCrashInjectionPersistence(server);

@@ -492,15 +492,33 @@ const App = {
           <button type="button" class="gm-column-outcome-btn is-green" data-outcome="success">GREEN // GAME WON</button>
           <button type="button" class="gm-column-outcome-btn is-red" data-outcome="failed">RED // GAME LOST</button>
         </div>
+        <div class="gm-column-countdown-actions">
+          <button type="button" class="gm-column-countdown-btn" data-countdown-seconds="60">1 MIN</button>
+          <button type="button" class="gm-column-countdown-btn" data-countdown-seconds="120">2 MIN</button>
+        </div>
       ` : `
         <div class="gm-column-outcome-title">${target}5 // RESOLVE</div>
         <div class="gm-column-outcome-actions">
           <button type="button" class="gm-column-outcome-btn is-green" data-outcome="success">GREEN</button>
           <button type="button" class="gm-column-outcome-btn is-red" data-outcome="failed">RED</button>
         </div>
+        <div class="gm-column-countdown-actions">
+          <button type="button" class="gm-column-countdown-btn" data-countdown-seconds="60">1 MIN</button>
+          <button type="button" class="gm-column-countdown-btn" data-countdown-seconds="120">2 MIN</button>
+        </div>
       `;
 
       dialog.addEventListener('click', (event) => {
+        const countdownButton = event.target.closest('.gm-column-countdown-btn');
+        if (countdownButton) {
+          const seconds = Number(countdownButton.dataset.countdownSeconds);
+          if (seconds === 60 || seconds === 120) {
+            this.send({ type: 'gm:solutionCountdown', target, seconds });
+            closeOutcomeChooser();
+          }
+          return;
+        }
+
         const button = event.target.closest('.gm-column-outcome-btn');
         if (!button) return;
         const outcome = button.dataset.outcome;
@@ -571,7 +589,10 @@ const App = {
       }
 
       markPending(cell, true);
+      this._gmRevealFlashUntil ||= {};
+      this._gmRevealFlashUntil[key] = Date.now() + 2500;
       this.sendCommand('revealCell', { cell: key, reveal: true });
+      requestAnimationFrame(() => this.applyGMRevealFlash());
       this.updatePublicView();
     };
 
@@ -606,11 +627,11 @@ const App = {
 
     const gameLoaded = !!window.GameData?.currentGame;
 
-    // Any authoritative interaction-state refresh invalidates an in-flight
-    // FINAL hold. This covers verdicts, WOMF resolution, mode changes,
-    // reconnect hydration, board resets and completion.
-    this._cancelGMFinalHold?.();
-
+    // Do NOT blindly close the GREEN/RED chooser on every state:public
+    // refresh. Timer ticks arrive once per second and used to murder the
+    // chooser almost immediately. _syncGMColumnOutcomeChooser() below is the
+    // authority: it keeps the chooser open while its target is still valid
+    // and closes it only when the target actually resolves/disappears.
     board.classList.toggle('gm-board-direct-controls', gameLoaded);
 
     board.querySelectorAll('.board-cell[data-cell]').forEach(cell => {
@@ -1118,6 +1139,11 @@ const App = {
     this.setupMasterAccess();
     document.getElementById('new-game-btn').addEventListener('click', () => Forge.open().then(() => Forge.openCreator(null, true)));
     document.getElementById('next-game-btn').addEventListener('click', () => Forge.open());
+    document.getElementById('finish-game-btn')?.addEventListener('click', () => {
+      if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+        this.send({ type: 'gm:finishGame' });
+      }
+    });
 
     document.getElementById('room-mode-casual-btn').addEventListener('click', () => {
       this.setRoomMode('CASUAL');
@@ -1986,7 +2012,11 @@ const App = {
     if (!btn) return;
     const has = Recount.has();
     btn.classList.toggle('has-recount', has);
-    btn.textContent = has ? 'RECOUNT' : 'SHOW RESULTS';
+    btn.textContent = 'RECOUNT';
+    // The first results transition is no longer a free-standing SHOW RESULTS
+    // action. FINISH GAME launches the story, and the story's CONTINUE advances
+    // into RECOUNT. This button exists only to reopen an already-built recount.
+    btn.style.display = has ? '' : 'none';
   },
 
   triggerGameWon() {
@@ -2049,6 +2079,7 @@ const App = {
       Skeleton.playGameLost(matchResult, {
         live: true,
         isHost: true,
+        afterMatch: false,
         onAftermathContinue: () => {
           if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
             this.send({ type: 'gm:showRecount' });
@@ -2114,6 +2145,7 @@ const App = {
     try {
       Skeleton.playGameWon(result, {
         isHost: true,
+        afterMatch: false,
         onAftermathContinue: () => {
           if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
             this.send({ type: 'gm:showRecount' });
@@ -2401,6 +2433,24 @@ const App = {
         this.showScoreWarning(message.message);
         break;
 
+      case 'match:aftermath': {
+        document.querySelector('.victory-overlay')?.remove();
+        document.querySelector('.defeat-overlay')?.remove();
+        const finishBtn = document.getElementById('finish-game-btn');
+        if (finishBtn) finishBtn.style.display = 'none';
+        Skeleton.playAftermath(message.result || {}, {
+          isHost: true,
+          onContinue: () => {
+            if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+              this.send({ type: 'gm:showRecount' });
+            } else {
+              Skeleton.closeAftermath?.();
+            }
+          }
+        });
+        break;
+      }
+
       case 'recount:update':
         // AFTERMATH owns the screen until the Shadow Broker advances. The
         // server's RECOUNT broadcast is the authoritative dismissal signal for
@@ -2567,8 +2617,12 @@ const App = {
   },
 
   applyServerState(state) {
-    this.applyRoomMode(state.roomMode || (state.armed === true ? 'BATTLE_ARMED' : 'CASUAL'));
-    window.AsocAudio?.syncBoard?.('gm', state);
+    const nextRoomMode = state.roomMode || (state.armed === true ? 'BATTLE_ARMED' : 'CASUAL');
+    const battleVisible = nextRoomMode !== 'CASUAL';
+    const wasBattleVisible = this.roomMode !== 'CASUAL';
+    this.applyRoomMode(nextRoomMode);
+    if (battleVisible) window.AsocAudio?.syncBoard?.('gm', state);
+    else window.AsocAudio?.resetObservers?.();
 
     // Detect only a fresh authoritative GREEN transition. The first state
     // after connect/reconnect is baseline data and must never replay a solved
@@ -2577,29 +2631,73 @@ const App = {
     ['A', 'B', 'C', 'D'].forEach(column => {
       const previousOutcome = Board.getCellOutcome(column, 5);
       const nextOutcome = state.cells?.[`${column}5`]?.outcome || null;
-      if (this._columnCascadeBaselined && previousOutcome !== 'success' && nextOutcome === 'success') {
+      if (battleVisible && this._columnCascadeBaselined && previousOutcome !== 'success' && nextOutcome === 'success') {
         this._columnCascadeStarts[column] = cascadeNow;
         Board.startColumnCascade(column, cascadeNow);
       }
     });
-    this._columnCascadeBaselined = true;
+    if (battleVisible) {
+      this._columnCascadeBaselined = true;
+    } else {
+      this._columnCascadeBaselined = false;
+      this._columnCascadeStarts = {};
+      if (window.Board) Board._columnCascadeStarts = {};
+    }
     // Victory is authoritative server state. Play the live sequence only on
     // a false->true flip AFTER this connection's baseline state; the baseline
     // itself (first state after load/reconnect) just renders the completed
     // state. Late joiners and refreshes therefore never replay it.
-    const victoryNow = state.gameWon === true;
+    const victoryNow = battleVisible && state.gameWon === true;
     const victoryLive = this._victoryBaselined && !this.gameWon && victoryNow;
     this._victoryBaselined = true;
-    this.setGameWon(victoryNow, { play: victoryLive, result: state.matchResult || null });
-    this.applyLossState(state.matchResult || null);
-    this.setGameComplete(state.gameComplete === true);
+    this.setGameWon(victoryNow, { play: victoryLive, result: battleVisible ? (state.matchResult || null) : null });
+    this.applyLossState(battleVisible ? (state.matchResult || null) : null);
+    this.setGameComplete(battleVisible && state.gameComplete === true);
+    const finishGameBtn = document.getElementById('finish-game-btn');
+    if (finishGameBtn) {
+      finishGameBtn.style.display = battleVisible
+        && nextRoomMode !== 'RECOUNT'
+        && state.gameComplete === true
+        && state.aftermathStarted !== true
+        ? ''
+        : 'none';
+    }
+    // Reconnect/refresh/restart while the AFTERMATH phase is stored but not yet
+    // advanced: FINISH GAME is done, the typewriter must NOT replay, and the
+    // host still needs its CONTINUE to reach RECOUNT. Re-mount the aftermath
+    // already-complete -- the story was persisted on the ledger exactly so
+    // this hydration can restore the phase without replaying it.
+    if (state.gameComplete === true
+        && state.aftermathStarted === true
+        && state.resultsShown !== true
+        && !Recount.has()
+        && !document.querySelector('.aftermath-overlay')) {
+      Skeleton.playAftermath(state.aftermathResult || state.matchResult || {}, {
+        isHost: true,
+        alreadyComplete: true,
+        onContinue: () => {
+          if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
+            this.send({ type: 'gm:showRecount' });
+          }
+        }
+      });
+    }
+    if (!battleVisible) {
+      // CASUAL is only a presentation layer over the still-running battle.
+      // A timer may expire while the room is hidden; never let that trigger a
+      // GAME LOST/WON ceremony over AMUSEMENT PARK. Returning to the battle is
+      // hydration, so baseline the terminal state instead of replaying it.
+      this._victoryBaselined = false;
+      this._lossBaselined = false;
+    }
 
     const wasFinalRevealed = this.finalRevealed;
-    this.finalRevealed = state.finalSolution?.revealed === true;
+    this.finalRevealed = battleVisible && state.finalSolution?.revealed === true;
     // See _finalFlourishUntil's declaration for why this is decided here,
     // once, on the authoritative transition, rather than inside
-    // updatePublicView() itself.
-    if (!wasFinalRevealed && this.finalRevealed) {
+    // updatePublicView() itself. Re-entering BATTLE from CASUAL is hydration,
+    // not a fresh Final reveal, so it must not replay the flourish.
+    if (battleVisible && wasBattleVisible && !wasFinalRevealed && this.finalRevealed) {
       this._finalFlourishUntil = Date.now() + 1100;
     }
     this.updateFailFinalButtonVisibility();
@@ -2615,6 +2713,17 @@ const App = {
 
     this.timer = state.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 };
     this.updateTimerUI();
+
+    this._gmRevealFlashUntil ||= {};
+    Object.entries(state.cells || {}).forEach(([key, cell]) => {
+      if (cell?.revealed === true && !Board.sessionState?.cells?.[key]) {
+        this._gmRevealFlashUntil[key] = Date.now() + 2500;
+      }
+    });
+    if (state.finalSolution?.revealed === true && !Board.sessionState?.finalSolution) {
+      this._gmRevealFlashUntil.FINAL = Date.now() + 2500;
+    }
+    this.solutionCountdowns = state.solutionCountdowns || {};
 
     const newSessionState = {
       cells: {},
@@ -2641,6 +2750,8 @@ const App = {
 
     Board.setSessionState(newSessionState);
     Board.render();
+    this.applyGMRevealFlash();
+    this.renderGMSolutionCountdownBadges();
     this.updatePublicView();
     this.buildGMControls();
 
@@ -2653,6 +2764,46 @@ const App = {
     }
 
     this.updateMultiplayerStatus(state.revision);
+  },
+
+  applyGMRevealFlash() {
+    const board = document.getElementById('asoc-board');
+    if (!board) return;
+    const now = Date.now();
+    Object.entries(this._gmRevealFlashUntil || {}).forEach(([key, deadline]) => {
+      const cell = board.querySelector(`.board-cell[data-cell="${CSS.escape(key)}"]`);
+      if (!cell) return;
+      if (deadline > now) {
+        cell.classList.add('cell-new-reveal-flash');
+        setTimeout(() => cell.classList.remove('cell-new-reveal-flash'), Math.max(0, deadline - now));
+      } else {
+        delete this._gmRevealFlashUntil[key];
+        cell.classList.remove('cell-new-reveal-flash');
+      }
+    });
+  },
+
+  renderGMSolutionCountdownBadges() {
+    const board = document.getElementById('asoc-board');
+    if (!board) return;
+    board.querySelectorAll('.solution-countdown-badge').forEach(el => el.remove());
+    clearTimeout(this._gmSolutionCountdownTicker);
+    const now = Date.now();
+    let active = false;
+    Object.values(this.solutionCountdowns || {}).forEach(entry => {
+      const remaining = Math.max(0, Number(entry.deadline || 0) - now);
+      if (remaining <= 0) return;
+      active = true;
+      const key = entry.target === 'FINAL' ? 'FINAL' : entry.target + '5';
+      const cell = board.querySelector(`.board-cell[data-cell="${CSS.escape(key)}"]`);
+      if (!cell) return;
+      const total = Math.ceil(remaining / 1000);
+      const badge = document.createElement('div');
+      badge.className = 'solution-countdown-badge';
+      badge.textContent = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+      cell.appendChild(badge);
+    });
+    if (active) this._gmSolutionCountdownTicker = setTimeout(() => this.renderGMSolutionCountdownBadges(), 250);
   },
 
   updateMultiplayerStatus(revision) {
@@ -2971,7 +3122,8 @@ const App = {
 
     this.renderSessionLeaderboard(players);
     if (this.chatMessages?.length) this.renderGMChat();
-    document.getElementById('scoring-section').style.display = this.mode === 'multiplayer' ? 'block' : 'none';
+    const scoringSectionEl = document.getElementById('scoring-section');
+    if (scoringSectionEl) scoringSectionEl.style.display = this.mode === 'multiplayer' ? 'block' : 'none';
   },
 
   requestModerationReason(action, playerName) {
@@ -3369,7 +3521,10 @@ const App = {
     banner.className = `final-outcome-banner ${isSuccess ? 'final-outcome-success' : 'final-outcome-failed'}`;
     banner.innerHTML = `
       <div class="fo-headline">${isSuccess ? 'SOLUTION CONFIRMED' : 'FINAL FAILED'}</div>
-      <button class="gm-global-btn primary fo-continue-btn">SHOW RESULTS</button>
+      <div class="fo-actions">
+        <button class="gm-global-btn primary fo-continue-btn">SHOW RESULTS</button>
+        <button class="gm-global-btn fo-close-btn" type="button">CLOSE</button>
+      </div>
       <div class="fo-results" style="display: none;"></div>
     `;
     layer.appendChild(banner);
@@ -3377,6 +3532,10 @@ const App = {
 
     banner.querySelector('.fo-continue-btn').addEventListener('click', () => {
       this.send({ type: 'gm:revealResults' });
+    });
+    banner.querySelector('.fo-close-btn').addEventListener('click', () => {
+      banner.remove();
+      if (this._activeFinalBanner === banner) this._activeFinalBanner = null;
     });
   },
 
@@ -4021,9 +4180,14 @@ const App = {
     let nextWrongFadeMs = Infinity;
     let nextTributeTickMs = Infinity;
     let html = '';
+    const search = String(this._gmChatSearch || '').trim().toLocaleLowerCase();
+    const visibleMessages = search
+      ? this.chatMessages.filter(msg => [msg.text, msg.playerName, msg.verdict, msg.target]
+          .some(value => String(value || '').toLocaleLowerCase().includes(search)))
+      : this.chatMessages;
 
-    this.chatMessages.forEach((msg, index) => {
-      const previous = index > 0 ? this.chatMessages[index - 1] : null;
+    visibleMessages.forEach((msg, index) => {
+      const previous = index > 0 ? visibleMessages[index - 1] : null;
       if (previous && (Number(msg.timestamp) - Number(previous.timestamp)) > 300000) {
         html += this.createGMChatTimeSeparator(msg.timestamp);
       }
@@ -4241,6 +4405,24 @@ const App = {
       `;
     }
 
+    if (msg.messageType === 'roll' && msg.roll) {
+      const value = Math.max(1, Math.min(100, Number(msg.roll.value) || 1));
+      const hue = Math.round(((value - 1) / 99) * 115);
+      const rollColor = `hsl(${hue} 92% 48%)`;
+      const min = Number(msg.roll.min) || 1;
+      const max = Number(msg.roll.max) || 100;
+      const extremeClass = value === 100 ? ' roll-max' : value === 1 ? ' roll-min' : '';
+      return `
+        <div class="asoc-roll-entry${extremeClass}" data-message-id="${this.escapeHtml(msg.id)}" style="--roll-color:${rollColor}">
+          <span class="asoc-roll-die" aria-hidden="true">🎲</span>
+          <span class="asoc-roll-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>
+          <span class="asoc-roll-label">ROLLS</span>
+          <strong class="asoc-roll-value">${this.escapeHtml(String(msg.roll.value))}</strong>
+          <span class="asoc-roll-range">(${this.escapeHtml(String(min))}–${this.escapeHtml(String(max))})</span>
+        </div>
+      `;
+    }
+
     if (msg.messageType === 'gifRemote' && msg.gif) {
       const isBrokerGif = msg.source === 'chatGifGm';
       const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
@@ -4354,7 +4536,10 @@ const App = {
     const agedRejected = msg.verdict === 'wrong' && (now - wrongSeenAt) >= 3000;
     const identity = (this.currentPlayers || []).find(p => p.id === msg.playerId) || msg;
     const hasVerdict = msg.verdict !== null;
-    const showControls = !hasVerdict && msg.adjudicable === true;
+    // Keep adjudication controls available after a verdict so the GM can
+    // correct a mistaken X/heart. The server already reverses prior scoring,
+    // solved-target credit and ledger state when a verdict is changed.
+    const showControls = msg.adjudicable === true && !this.gameComplete;
     const themeStyle = ASOCThemes.messageStyle(identity.themeId);
     const frameColor = /^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885';
 

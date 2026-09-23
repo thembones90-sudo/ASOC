@@ -8637,6 +8637,7 @@ position:absolute;
           <span class="chat-solved" id="chat-solved-count">SOLVED: 0/5</span>
         </div>
       </div>
+      <div class="chat-search-strip"><input id="chat-search" type="search" placeholder="SEARCH TRANSMISSIONS" autocomplete="off" oninput="PlayerApp._chatSearch=this.value;PlayerApp.renderChat({forceLatest:false})"></div>
       <div id="battle-event-feed" class="battle-event-feed"></div>
       <div id="chat-messages"></div>
       <button type="button" id="chat-new-messages" class="chat-new-messages" hidden>↓ 0 NEW TRANSMISSIONS</button>
@@ -9082,6 +9083,7 @@ position:absolute;
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260922-player-global-drop-1"></script>
   <script src="js/player.js?v=20260923-master-access-1"></script>
+  <script src="js/threefold.js?v=20260923-threefold-1"></script>
   <script src="js/tweaks.js?v=20260922-casual-header-redesign-2"></script>
 </body>
 </html>

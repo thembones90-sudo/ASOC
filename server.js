@@ -51,6 +51,11 @@ function normalizeRoomMode(value, armed = false) {
     ? value
     : (armed ? ROOM_MODES.BATTLE_ARMED : ROOM_MODES.CASUAL);
 }
+// Adjudication (GREEN/RED, GAME WON/LOST) only exists on the battle surface.
+// CASUAL hides the board; RECOUNT is an already-shown, archived result.
+function isBattleSurface(room) {
+  return room.roomMode === ROOM_MODES.BATTLE_ARMED || room.roomMode === ROOM_MODES.BATTLE;
+}
 const MAX_CHAT_LENGTH = 100;
 const MAX_MODERATION_REASON_LENGTH = 180;
 const PLAYER_CHAT_MIN_INTERVAL_MS = 350;
@@ -311,6 +316,8 @@ function serializeRoomForRecovery(room) {
     pendingTribute: room.pendingTribute || null,
     timer: room.timer,
     pendingReveals: room.pendingReveals || {},
+    solutionCountdowns: room.solutionCountdowns || {},
+    hintClaims: room.hintClaims || {},
     commandReceipts: room.commandReceipts || [],
     players
   };
@@ -371,7 +378,9 @@ function restoreActiveRooms() {
       const room = {
         code: saved.code.toUpperCase(),
         roomMode: restoredRoomMode,
-        armed: restoredRoomMode !== ROOM_MODES.CASUAL,
+        // The CASUAL display toggle keeps a battle armed underneath it, so
+        // CASUAL + armed is a real persisted state, not a contradiction.
+        armed: restoredRoomMode !== ROOM_MODES.CASUAL || saved.armed === true,
         gameId: saved.gameId || gameData.id || 'sample-game',
         gameData,
         revision: Number.isFinite(saved.revision) ? saved.revision : 0,
@@ -411,6 +420,8 @@ function restoreActiveRooms() {
         pendingTribute: saved.pendingTribute || null,
         timer: saved.timer || null,
         pendingReveals: saved.pendingReveals || {},
+        solutionCountdowns: saved.solutionCountdowns || {},
+        hintClaims: saved.hintClaims || {},
         commandReceipts: Array.isArray(saved.commandReceipts) ? saved.commandReceipts.slice(-2048) : [],
         // Per-board match ledger (RECOUNT data capture). Only trusted when it
         // belongs to the restored board; an older snapshot without one just
@@ -449,6 +460,9 @@ function restoreActiveRooms() {
       }
 
       rooms.set(room.code, room);
+      for (const entry of Object.values(room.solutionCountdowns || {})) {
+        if (entry?.boardId === room.boardId && Number.isFinite(entry.deadline)) armSolutionCountdown(room, entry);
+      }
       for (const chatMessage of Array.isArray(room.chat?.messages) ? room.chat.messages : []) {
         if (chatMessage?.messageType === 'poll' && chatMessage.poll && !chatMessage.poll.closedAt && Number(chatMessage.poll.expiresAt) > 0) {
           schedulePollExpiry(room, chatMessage);
@@ -715,6 +729,8 @@ function resetMasterGameSession(room, gameData) {
   room.revision = (room.revision || 0) + 1;
   room.boardId = generateBoardId();
   room.pendingReveals = {};
+  room.solutionCountdowns = {};
+  room.hintClaims = {};
   room.sessionState = {
     cells: {}, finalSolution: false, finalOutcome: null, gameWon: false,
     matchResult: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] }
@@ -744,7 +760,7 @@ function ensureMasterRoom() {
     master.hostConnection = null;
     master.hostReconnectTimer = null;
     master.roomMode = normalizeRoomMode(master.roomMode, master.armed !== false);
-    master.armed = master.roomMode !== ROOM_MODES.CASUAL;
+    master.armed = master.roomMode !== ROOM_MODES.CASUAL || master.armed === true;
     rooms.set(MASTER_ROOM_CODE, master);
     console.log(`[MASTER ROOM] Migrated persisted room into ${MASTER_ROOM_CODE}`);
   }
@@ -899,6 +915,11 @@ function createRoom(gameId, hostWs) {
     // Delayed column reveals are persisted as deadlines so a process restart
     // cannot silently cancel a correctly judged solve.
     pendingReveals: {},
+    // Per-solution grace countdowns (A-D/FINAL). Each entry is a persisted
+    // deadline so reconnects/restarts keep the same visible clock.
+    solutionCountdowns: {},
+    // One HINT request token per physical clue slot (A1-D4), shared by the room.
+    hintClaims: {},
     // Recent UUID command receipts survive reconnect/restart, making GM board
     // commands safely idempotent when an ACK was lost in transit.
     commandReceipts: [],
@@ -996,6 +1017,17 @@ function getPublicState(room) {
     // can be solved early while columns are still open. Boolean only -- the
     // ledger itself never leaves the server.
     gameComplete: !!(room.match && room.match.completedAt),
+    aftermathStarted: !!room.match?.aftermathStartedAt,
+    // A shown RECOUNT (resultsShownAt) ends the AFTERMATH phase; reconnects
+    // distinguish "story still pending" from "story already advanced".
+    resultsShown: !!(room.match?.resultsShownAt),
+    // The AFTERMATH narrative, stored on the ledger so a reconnect/refresh can
+    // re-render the phase already-complete (never re-typewriter it). Falls back
+    // to the public matchResult/legacy null when a match completed without a
+    // WON/LOST declaration (whole-field open).
+    aftermathResult: room.match?.aftermathStartedAt
+      ? (room.match.aftermathResult || publicMatchResult(room))
+      : null,
     // Row-order only (e.g. { A: [3,1,4,2] }) -- never clue text -- so
     // clients can resolve which physical slot shows which difficulty tier.
     // Safe to send to every client, GM and players alike.
@@ -1004,6 +1036,8 @@ function getPublicState(room) {
     wheel: getWheelPublicState(room),
     bloodTribute: getBloodTributePublicState(room),
     timer: getTimerPublicState(room),
+    solutionCountdowns: getSolutionCountdownPublicState(room),
+    hintClaims: room.hintClaims || {},
     timestamp: new Date().toISOString()
   };
 }
@@ -1257,6 +1291,10 @@ function handleWheelOpen(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Only host can open the Wheel' });
     return;
   }
+  if (!isBattleSurface(room)) {
+    sendToWs(ws, { type: 'error', message: 'WOMF is only available on the Battle surface' });
+    return;
+  }
   if (!room.womf || room.womf.charge < 10) {
     sendToWs(ws, { type: 'error', message: 'WOMF is not armed yet (10/10 required)' });
     return;
@@ -1322,6 +1360,10 @@ function handleWheelRoll(ws) {
   }
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can roll the Wheel' });
+    return;
+  }
+  if (!isBattleSurface(room)) {
+    sendToWs(ws, { type: 'error', message: 'WOMF is only available on the Battle surface' });
     return;
   }
   if (!room.wheel || !room.wheel.open) {
@@ -1411,6 +1453,10 @@ function handleWheelClose(ws) {
   }
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can close the Wheel' });
+    return;
+  }
+  if (!isBattleSurface(room)) {
+    sendToWs(ws, { type: 'error', message: 'WOMF is only available on the Battle surface' });
     return;
   }
 
@@ -1519,6 +1565,86 @@ function getTimerPublicState(room) {
   };
 }
 
+function getSolutionCountdownPublicState(room) {
+  const source = room.solutionCountdowns || {};
+  const out = {};
+  for (const [target, entry] of Object.entries(source)) {
+    if (!entry || !Number.isFinite(entry.deadline)) continue;
+    out[target] = { target, deadline: entry.deadline, seconds: entry.seconds };
+  }
+  return out;
+}
+
+function clearSolutionCountdown(room, target) {
+  if (!room.solutionCountdowns?.[target]) return false;
+  delete room.solutionCountdowns[target];
+  return true;
+}
+
+function armSolutionCountdown(room, entry) {
+  const delay = Math.max(0, Number(entry.deadline || 0) - Date.now());
+  setTimeout(() => runtimeAction(() => {
+    const live = rooms.get(room.code);
+    const current = live?.solutionCountdowns?.[entry.target];
+    if (!live || !current || current.token !== entry.token || current.boardId !== live.boardId) return;
+    delete live.solutionCountdowns[entry.target];
+
+    if (!isBattleSurface(live) || isMatchResolved(live)) {
+      persistActiveRooms();
+      broadcastToRoom(live, { type: 'state:public', ...getPublicState(live) });
+      return;
+    }
+
+    if (entry.target === 'FINAL') {
+      declareGameLost(live, 'solution-countdown');
+      return;
+    }
+
+    const result = applyCommand(live, 'resolveColumn', { column: entry.target, outcome: 'failed' });
+    persistActiveRooms();
+    if (result.success && result.changed) {
+      broadcastToRoom(live, { type: 'state:public', ...getPublicState(live) });
+    }
+  }), delay);
+}
+
+function handleSolutionCountdown(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
+  if (ws !== room.hostConnection) return sendToWs(ws, { type: 'error', message: 'Only host can start a solution countdown' });
+  if (!isBattleSurface(room) || isMatchResolved(room)) {
+    return sendToWs(ws, { type: 'error', message: 'Solution countdown is only available on a live Battle surface' });
+  }
+
+  const target = String(message.target || '').toUpperCase();
+  const seconds = Number(message.seconds);
+  if (!['A', 'B', 'C', 'D', 'FINAL'].includes(target) || ![60, 120].includes(seconds)) {
+    return sendToWs(ws, { type: 'error', message: 'Invalid solution countdown' });
+  }
+  const alreadyResolved = target === 'FINAL'
+    ? (room.sessionState.finalSolution === true || room.sessionState.finalOutcome)
+    : (!!room.chat.solvedTargets?.[target] || !!room.sessionState.cellOutcomes?.[target + '5']);
+  if (alreadyResolved) return sendToWs(ws, { type: 'error', message: target + ' is already resolved' });
+
+  room.solutionCountdowns ||= {};
+  const entry = {
+    target,
+    seconds,
+    deadline: Date.now() + seconds * 1000,
+    boardId: room.boardId,
+    token: crypto.randomUUID()
+  };
+  room.solutionCountdowns[target] = entry;
+  room.revision++;
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  armSolutionCountdown(room, entry);
+}
+
+function isMatchResolved(room) {
+  return !!(room.sessionState.matchResult || room.match?.completedAt);
+}
+
 function handleTimerLaunchCountdown(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -1532,6 +1658,10 @@ function handleTimerLaunchCountdown(ws) {
   if (!room.timer) resetTimer(room);
   if (room.roomMode !== ROOM_MODES.BATTLE_ARMED || room.timer.phase !== 'ready') {
     sendToWs(ws, { type: 'error', message: 'Battle must be armed and the Timer ready before launch' });
+    return;
+  }
+  if (isMatchResolved(room)) {
+    sendToWs(ws, { type: 'error', message: 'This match is already resolved // RESET BOARD or NEXT GAME first' });
     return;
   }
 
@@ -1562,6 +1692,12 @@ function handleTimerStart(ws) {
     sendToWs(ws, { type: 'error', message: 'The Timer has already been started' });
     return;
   }
+  // A board resolved while still ARMED (FINAL GREEN/RED, REVEAL ALL) must not
+  // be "started" into a live BATTLE with a clock running on a finished match.
+  if (isMatchResolved(room)) {
+    sendToWs(ws, { type: 'error', message: 'This match is already resolved // RESET BOARD or NEXT GAME first' });
+    return;
+  }
 
   room.timer.phase = 'running';
   room.roomMode = ROOM_MODES.BATTLE;
@@ -1581,6 +1717,10 @@ function handleTimerPause(ws) {
   }
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can pause the Timer' });
+    return;
+  }
+  if (room.roomMode !== ROOM_MODES.BATTLE) {
+    sendToWs(ws, { type: 'error', message: 'Timer controls are only available on the active Battle surface' });
     return;
   }
   if (!room.timer || (room.timer.phase !== 'running' && room.timer.phase !== 'borrowed')) {
@@ -1603,6 +1743,10 @@ function handleTimerResume(ws) {
   }
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can resume the Timer' });
+    return;
+  }
+  if (room.roomMode !== ROOM_MODES.BATTLE) {
+    sendToWs(ws, { type: 'error', message: 'Timer controls are only available on the active Battle surface' });
     return;
   }
   if (!room.timer || (room.timer.phase !== 'paused' && room.timer.phase !== 'borrowed_paused')) {
@@ -1637,6 +1781,10 @@ function handleTimerAdjust(ws, message) {
   }
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can adjust the Timer' });
+    return;
+  }
+  if (room.roomMode !== ROOM_MODES.BATTLE) {
+    sendToWs(ws, { type: 'error', message: 'Timer controls are only available on the active Battle surface' });
     return;
   }
   if (!room.timer) resetTimer(room);
@@ -1727,6 +1875,7 @@ function buildWinPerformance(room) {
 // their interpolated clocks; they only react to this persisted matchResult.
 function declareGameLost(room, source = 'timer') {
   if (room.sessionState.matchResult || room.sessionState.gameWon === true) return false;
+  clearSolutionCountdown(room, 'FINAL');
   if (room.sessionState.finalOutcome === 'success') return false;
 
   const finalized = finalizeBoard(room, 'failed');
@@ -1772,7 +1921,7 @@ function declareGameLost(room, source = 'timer') {
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastPlayersUpdate(room);
-  console.log(`[ROOM ${room.code}] GAME LOST -- ${source === 'gm-final' ? 'GM resolved FINAL RED' : 'authoritative timer expiry'}`);
+  console.log(`[ROOM ${room.code}] GAME LOST -- ${source === 'gm-final' ? 'GM resolved FINAL RED' : source === 'solution-countdown' ? 'solution grace countdown expired' : 'authoritative timer expiry'}`);
   return true;
 }
 
@@ -1780,10 +1929,9 @@ function declareGameLost(room, source = 'timer') {
 // an actively-running phase ('running' or 'borrowed') are touched -- ready/
 // paused/borrowed_paused/expired/stopped never move on their own. This is
 // the ONLY place normal time crosses into Borrowed Time, and the ONLY place
-// Borrowed Time crosses into 'expired' -- both are pure phase/number
-// changes with no side effects on scoring, WOMF, or the Final's own reveal
-// state (per the locked spec's explicit "do not auto-fail / do not
-// auto-charge WOMF" requirement).
+// Borrowed Time crosses into 'expired'. Entering Borrowed Time is a pure
+// phase/number change; expiry hands off to declareGameLost(), the single
+// authoritative GAME LOST transition (FINAL RED, penalties, WOMF +3).
 setInterval(() => runtimeAction(() => {
   const dirty = [];
   rooms.forEach((room) => {
@@ -2067,7 +2215,7 @@ function archiveCompletedMatch(room, fields) {
   });
   if (room.sessionState.matchResult?.outcome === 'LOST') {
     record.recount.outcome = 'LOST';
-    record.recount.topLabel = 'TOP PERFORMER';
+    record.recount.topLabel = record.recount.topPerformers.length > 1 ? 'TOP PERFORMERS' : 'TOP PERFORMER';
     record.recount.topPerformers = record.recount.scoreboard.filter(row => row.rank === 1)
       .map(row => ({ name: row.name, points: row.points }));
     record.recount.lossFindings = room.sessionState.matchResult.awards || [];
@@ -2427,6 +2575,8 @@ function applyCommand(room, command, payload) {
     }
     case 'resolveColumn': {
       const { column, outcome } = payload || {};
+      if (SCORABLE_COLUMNS.includes(column)) clearSolutionCountdown(room, column);
+      if (!isBattleSurface(room)) return { success: false, error: 'Columns can only be resolved on the Battle surface' };
       if (!SCORABLE_COLUMNS.includes(column)) return { success: false, error: 'Invalid column' };
       if (!['success', 'failed'].includes(outcome)) return { success: false, error: 'Invalid column outcome' };
 
@@ -2596,6 +2746,8 @@ function applyCommand(room, command, payload) {
       // Session score and all-time profiles are untouched.
       room.boardId = generateBoardId();
       room.pendingReveals = {};
+      room.solutionCountdowns = {};
+      room.hintClaims = {};
       startMatchLedger(room); // new board id => new match ledger
       room.scoring.activeStreak = null;
       room.scoring.boardFinalized = false;
@@ -2703,6 +2855,7 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
 
   message.verdict = verdict;
   message.target = target;
+  if (verdict === 'correct' && target) clearSolutionCountdown(room, target);
   // MATCH LEDGER: a GM-judged message IS an attempt (and only judged
   // messages are). Upserted by message id, so a flipped/retargeted verdict
   // simply updates the same attempt.
@@ -3446,6 +3599,145 @@ function handleChatPollClose(ws, message) {
   broadcastChatUpdate(room);
 }
 
+const threefoldRooms = new Map();
+
+function threefoldStateFor(room) {
+  let state = threefoldRooms.get(room.code);
+  if (!state) {
+    state = { challenges: new Map(), games: new Map() };
+    threefoldRooms.set(room.code, state);
+  }
+  return state;
+}
+
+function threefoldPlayer(room, playerId) {
+  for (const [socket, player] of room.players.entries()) {
+    if (player.connected !== false && String(player.id) === String(playerId)) {
+      return { socket, player };
+    }
+  }
+  return null;
+}
+
+function threefoldSendPair(room, game, payload) {
+  [game.xId, game.oId].forEach(id => {
+    const target = threefoldPlayer(room, id);
+    if (target) sendToWs(target.socket, payload);
+  });
+}
+
+function threefoldWinner(board) {
+  const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for (const [a,b,c] of lines) if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
+  return '';
+}
+
+function handleThreefoldChallenge(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || room.roomMode !== ROOM_MODES.CASUAL) return sendToWs(ws, { type:'error', message:'THREEFOLD is available only in Amusement Park' });
+  if (!ws.playerId) return sendToWs(ws, { type:'error', message:'THREEFOLD authentication required' });
+  const challenger = threefoldPlayer(room, ws.playerId);
+  const opponent = threefoldPlayer(room, message.opponentId);
+  if (!challenger || !opponent || String(ws.playerId) === String(message.opponentId)) return sendToWs(ws, { type:'error', message:'Opponent unavailable' });
+
+  const state = threefoldStateFor(room);
+  const id = 'tfch-' + crypto.randomBytes(8).toString('hex');
+  const challenge = {
+    id,
+    challengerId:String(challenger.player.id), challengerName:challenger.player.name,
+    opponentId:String(opponent.player.id), opponentName:opponent.player.name,
+    createdAt:Date.now()
+  };
+  state.challenges.set(id, challenge);
+  sendToWs(challenger.socket, { type:'threefold:challenge', challenge });
+  sendToWs(opponent.socket, { type:'threefold:challenge', challenge });
+}
+
+function handleThreefoldAccept(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || room.roomMode !== ROOM_MODES.CASUAL) return;
+  const state = threefoldStateFor(room);
+  const challenge = state.challenges.get(String(message.challengeId || ''));
+  if (!challenge || String(challenge.opponentId) !== String(ws.playerId)) return;
+  const challenger = threefoldPlayer(room, challenge.challengerId);
+  const opponent = threefoldPlayer(room, challenge.opponentId);
+  state.challenges.delete(challenge.id);
+  if (!challenger || !opponent) return sendToWs(ws, { type:'error', message:'Opponent unavailable' });
+
+  const game = {
+    id:'tf-' + crypto.randomBytes(8).toString('hex'),
+    xId:challenge.challengerId, xName:challenge.challengerName,
+    oId:challenge.opponentId, oName:challenge.opponentName,
+    board:Array(9).fill(''), turnId:challenge.challengerId,
+    turnName:challenge.challengerName, complete:false, winnerId:null, winnerName:''
+  };
+  state.games.set(game.id, game);
+  threefoldSendPair(room, game, { type:'threefold:state', game });
+}
+
+function handleThreefoldDecline(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return;
+  const state = threefoldStateFor(room);
+  const challenge = state.challenges.get(String(message.challengeId || ''));
+  if (!challenge || ![challenge.challengerId, challenge.opponentId].some(id => String(id) === String(ws.playerId))) return;
+  state.challenges.delete(challenge.id);
+  [challenge.challengerId, challenge.opponentId].forEach(id => {
+    const target = threefoldPlayer(room, id);
+    if (target) sendToWs(target.socket, { type:'threefold:declined', byName:ws.playerName || 'Little Hero' });
+  });
+}
+
+function recordThreefoldResult(game) {
+  if (!game || game.resultRecorded) return;
+  game.resultRecorded = true;
+  const xIdentity = { id: game.xId, name: game.xName };
+  const oIdentity = { id: game.oId, name: game.oName };
+  if (isMasterTestPlayerId(game.xId) || isMasterTestPlayerId(game.oId)) return;
+  if (game.winnerId) {
+    const winner = String(game.winnerId) === String(game.xId) ? xIdentity : oIdentity;
+    const loser = String(game.winnerId) === String(game.xId) ? oIdentity : xIdentity;
+    playerStore.adjustProfile(winner, { statDeltas: { threefoldPlayed: 1, threefoldWins: 1 } });
+    playerStore.adjustProfile(loser, { statDeltas: { threefoldPlayed: 1, threefoldLosses: 1 } });
+  } else {
+    playerStore.adjustProfile(xIdentity, { statDeltas: { threefoldPlayed: 1, threefoldDraws: 1 } });
+    playerStore.adjustProfile(oIdentity, { statDeltas: { threefoldPlayed: 1, threefoldDraws: 1 } });
+  }
+}
+
+function handleThreefoldMove(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || room.roomMode !== ROOM_MODES.CASUAL) return;
+  const state = threefoldStateFor(room);
+  const game = state.games.get(String(message.gameId || ''));
+  const cell = Number(message.cell);
+  if (!game || game.complete || String(game.turnId) !== String(ws.playerId)) return;
+  if (!Number.isInteger(cell) || cell < 0 || cell > 8 || game.board[cell]) return;
+
+  const mark = String(game.xId) === String(ws.playerId) ? 'X' : 'O';
+  game.board[cell] = mark;
+  const winner = threefoldWinner(game.board);
+  if (winner) {
+    game.complete = true;
+    game.winnerId = winner === 'X' ? game.xId : game.oId;
+    game.winnerName = winner === 'X' ? game.xName : game.oName;
+    game.turnId = null;
+    game.turnName = '';
+  } else if (game.board.every(Boolean)) {
+    game.complete = true;
+    game.turnId = null;
+    game.turnName = '';
+  } else {
+    game.turnId = mark === 'X' ? game.oId : game.xId;
+    game.turnName = mark === 'X' ? game.oName : game.xName;
+  }
+  if (game.complete) {
+    recordThreefoldResult(game);
+    broadcastPlayersUpdate(room);
+  }
+  threefoldSendPair(room, game, { type:'threefold:state', game });
+}
+
 function validChatImageBytes(buffer, contentType) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 12) return false;
   if (contentType === 'image/png') {
@@ -3696,6 +3988,55 @@ function serveChatUpload(req, res, urlPath) {
     res.end(content);
   });
   return true;
+}
+
+function parseRollCommand(text) {
+  const match = String(text || '').trim().match(/^\/roll(?:\s+(-?\d+))?(?:\s+(-?\d+))?\s*$/i);
+  if (!match) return null;
+
+  let min = 1;
+  let max = 100;
+  if (match[1] !== undefined && match[2] === undefined) {
+    max = Number(match[1]);
+  } else if (match[1] !== undefined && match[2] !== undefined) {
+    min = Number(match[1]);
+    max = Number(match[2]);
+  }
+
+  if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || min < 1 || max < min || max > 1000000) {
+    return { error: 'ROLL RANGE INVALID // USE /roll, /roll 20, OR /roll 50 100' };
+  }
+  return { min, max };
+}
+
+function addRollMessage(room, playerId, playerName, range) {
+  const liveIdentity = Array.from(room.players.values()).find(player => player.id === playerId) || {};
+  const value = crypto.randomInt(range.min, range.max + 1);
+  const message = {
+    id: generateMessageId(),
+    playerId,
+    playerName,
+    avatarData: liveIdentity.avatarData || '',
+    frameColor: liveIdentity.frameColor || '#9B5DE0',
+    themeId: liveIdentity.themeId || 'gunmetal',
+    themeColor: liveIdentity.themeColor || '#343A42',
+    text: `${playerName} rolls ${value} (${range.min}-${range.max})`,
+    timestamp: Date.now(),
+    messageType: 'roll',
+    source: 'roll',
+    roll: { value, min: range.min, max: range.max },
+    boardId: null,
+    verdict: null,
+    target: null,
+    verdictResponse: null,
+    reactions: {}
+  };
+
+  room.chat.messages.push(message);
+  if (room.chat.messages.length > CHAT_HISTORY_LIMIT) {
+    room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
+  }
+  return { success: true, message };
 }
 
 function addChatMessage(room, playerId, playerName, text) {
@@ -4102,8 +4443,10 @@ function handlePlayerJoin(ws, message) {
 
 function getPlayersSnapshot(room, includeTestPersonas = true) {
   const players = [];
+  const profiles = playerStore.loadPlayers();
   room.players.forEach((player, ws) => {
     if (!includeTestPersonas && player.isTestPersona === true) return;
+    const profile = profiles[String(player.id)] || {};
     players.push({
       id: player.id,
       name: player.name,
@@ -4113,7 +4456,11 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       themeColor: LITTLE_HERO_THEMES[player.themeId || 'gunmetal'] || '#343A42',
       connected: ws.readyState === 1,
       isTestPersona: player.isTestPersona === true,
-      score: room.scoring.players[player.id]?.sessionScore || 0
+      score: room.scoring.players[player.id]?.sessionScore || 0,
+      threefoldPlayed: Number(profile.threefoldPlayed) || 0,
+      threefoldWins: Number(profile.threefoldWins) || 0,
+      threefoldLosses: Number(profile.threefoldLosses) || 0,
+      threefoldDraws: Number(profile.threefoldDraws) || 0
     });
   });
   return players;
@@ -4312,6 +4659,39 @@ function playerCooldown(room, ws) {
   if (!room.cooldowns.has(id)) room.cooldowns.set(id, {});
   return room.cooldowns.get(id);
 }
+function handleHintRequest(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws.isHost || !ws.playerId) {
+    sendToWs(ws, { type: 'error', message: 'Hint request requires a Little Hero in the room' });
+    return;
+  }
+  if (room.roomMode !== ROOM_MODES.BATTLE || room.sessionState.matchResult) {
+    sendToWs(ws, { type: 'error', message: 'Hints are only available during an active battle' });
+    return;
+  }
+  const cell = String(message.cell || '').toUpperCase();
+  if (!/^[A-D][1-4]$/.test(cell) || room.sessionState.cells[cell] !== true) {
+    sendToWs(ws, { type: 'error', message: 'Hint is only available for an opened clue row' });
+    return;
+  }
+  room.hintClaims ||= {};
+  if (room.hintClaims[cell]) {
+    sendToWs(ws, { type: 'error', message: 'That row hint has already been used' });
+    return;
+  }
+
+  room.hintClaims[cell] = { playerId: ws.playerId, playerName: ws.playerName, at: Date.now() };
+  const posted = addChatMessage(room, ws.playerId, ws.playerName, `HINT REQUEST // ${cell}`);
+  if (posted.success) {
+    posted.message.source = 'hintRequest';
+    posted.message.boardId = null;
+  }
+  room.revision++;
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastChatUpdate(room);
+}
+
 function handleChatGuess(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -4338,7 +4718,10 @@ function handleChatGuess(ws, message) {
     return;
   }
 
-  const result = addChatMessage(room, ws.playerId, ws.playerName, text);
+  const rollRange = parseRollCommand(text);
+  const result = rollRange
+    ? (rollRange.error ? { success: false, error: rollRange.error } : addRollMessage(room, ws.playerId, ws.playerName, rollRange))
+    : addChatMessage(room, ws.playerId, ws.playerName, text);
   if (result.success) {
     cooldown.chatAt = now;
     // Permanent channel contract: if clients can see a transmission, it has
@@ -4578,7 +4961,7 @@ function handleGmOmen(ws) {
     sendToWs(ws, { type: 'error', message: 'Only host can trigger OMEN' });
     return;
   }
-  if (room.roomMode !== ROOM_MODES.BATTLE_ARMED && room.roomMode !== ROOM_MODES.BATTLE) {
+  if (!isBattleSurface(room)) {
     sendToWs(ws, { type: 'error', message: 'OMEN is only available on the Battle surface' });
     return;
   }
@@ -4601,11 +4984,16 @@ function handleGmGameWon(ws) {
     sendToWs(ws, { type: 'error', message: 'Only host can trigger GAME WON' });
     return;
   }
+  if (!isBattleSurface(room)) {
+    sendToWs(ws, { type: 'error', message: 'GAME WON is only available on the Battle surface' });
+    return;
+  }
   if (room.sessionState.matchResult?.outcome === 'LOST') {
     sendToWs(ws, { type: 'error', message: 'The match is already LOST' });
     return;
   }
   if (room.sessionState.gameWon === true) return;
+  clearSolutionCountdown(room, 'FINAL');
   // FINAL GREEN is a real completed board. Record participation/win stats and
   // stop the timer before publishing the authoritative GAME WON state.
   finalizeBoard(room, 'success');
@@ -4835,9 +5223,8 @@ function handleSwitchGame(ws, message) {
   console.log(`[ROOM ${room.code}] Game switched: ${game.title} (${game.id})`);
 }
 
-// Explicit GM action -- the Failed Final is NEVER inferred from a timer,
-// guess count, or inactivity (locked decision). The GM alone decides the
-// room has lost.
+// FINAL RED -- the host's manual GAME LOST. It shares declareGameLost() with
+// Borrowed Time expiry (the only automatic loss); nothing else infers a loss.
 function handleFailFinal(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -4847,6 +5234,11 @@ function handleFailFinal(ws, message) {
 
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can declare the Final failed' });
+    return;
+  }
+
+  if (!isBattleSurface(room)) {
+    sendToWs(ws, { type: 'error', message: 'GAME LOST is only available on the Battle surface' });
     return;
   }
 
@@ -4869,11 +5261,11 @@ function handleFailFinal(ws, message) {
   }
 }
 
-// Explicit GM action -- mirrors handleFailFinal exactly, one guarded,
-// host-only, multiplayer-only control per column. This is the ONLY source
-// of a "failed column" event; it is never inferred from guess judging
-// (a GM revealing a column for pacing is not the same thing as a failure).
-// Declaring a column failed charges WOMF +1 and force-reveals that
+// Explicit GM action, one guarded, host-only control per column. The GM
+// client resolves RED through applyCommand('resolveColumn'); this message is
+// the equivalent direct protocol entry point. A failed column is never
+// inferred from guess judging (a GM revealing a column for pacing is not the
+// same thing as a failure). Declaring a column failed charges WOMF +1 and force-reveals that
 // column's solution slot (A5/B5/C5/D5) tagged with a 'failed' outcome, so
 // it renders red instead of the normal reveal color -- mirroring exactly
 // how a failed Final already gets its own outcome/color. It does NOT
@@ -4894,6 +5286,18 @@ function handleFailColumn(ws, message) {
   const { column } = message;
   if (!['A', 'B', 'C', 'D'].includes(column)) {
     sendToWs(ws, { type: 'error', message: 'Invalid column' });
+    return;
+  }
+
+  if (!isBattleSurface(room)) {
+    sendToWs(ws, { type: 'error', message: 'Columns can only be failed on the Battle surface' });
+    return;
+  }
+
+  // Same lock as resolveColumn in applyCommand: a WON/LOST match is final and
+  // must not collect further WOMF charge or column outcomes.
+  if (room.sessionState.matchResult) {
+    sendToWs(ws, { type: 'error', message: `GAME ${room.sessionState.matchResult.outcome} // gameplay controls locked` });
     return;
   }
 
@@ -5027,6 +5431,59 @@ function releasePendingResults(room) {
 // computed and archived at that moment, and it stays hidden until the host
 // presses SHOW RESULTS. This handler then stores the SAME payload with the
 // match (so reconnects/late joins receive it, never a regenerated one),
+function handleGmFinishGame(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can finish the game' });
+    return;
+  }
+  if (!isBattleSurface(room)) {
+    sendToWs(ws, { type: 'error', message: 'FINISH GAME is only available on the Battle surface' });
+    return;
+  }
+  if (!room.match?.completedAt) {
+    sendToWs(ws, { type: 'error', message: 'The match is not finished yet' });
+    return;
+  }
+  if (room.match.resultsShownAt) {
+    sendToWs(ws, { type: 'error', message: 'RECOUNT already started' });
+    return;
+  }
+  if (room.match.aftermathStartedAt) return;
+
+  room.match.aftermathStartedAt = Date.now();
+  const aftermathResult = publicMatchResult(room) || {
+    outcome: 'COMPLETE',
+    occurredAt: room.match.completedAt,
+    message: 'Match complete. Narrative sequence authorized.',
+    story: room.gameData?.story || '',
+    finalSolution: room.gameData?.finalSolution || '',
+    columnSolutions: {
+      A: room.gameData?.columns?.A?.solution || '',
+      B: room.gameData?.columns?.B?.solution || '',
+      C: room.gameData?.columns?.C?.solution || '',
+      D: room.gameData?.columns?.D?.solution || ''
+    },
+    columnResults: {
+      A: isColumnSolvedGreen(room, 'A'),
+      B: isColumnSolvedGreen(room, 'B'),
+      C: isColumnSolvedGreen(room, 'C'),
+      D: isColumnSolvedGreen(room, 'D')
+    }
+  };
+  // Persist the narrative on the ledger so a reconnect/refresh/restart while
+  // in the AFTERMATH phase can re-render it already-complete (never re-type).
+  room.match.aftermathResult = aftermathResult;
+  room.revision++;
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastToRoom(room, { type: 'match:aftermath', result: aftermathResult, live: true });
+}
+
 // releases any withheld Final points, and broadcasts it live exactly once.
 function handleGmShowRecount(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
@@ -5041,6 +5498,10 @@ function handleGmShowRecount(ws) {
   const ledger = room.match;
   if (!ledger || !ledger.completedAt) {
     sendToWs(ws, { type: 'error', message: 'The game is not over yet -- the whole field must be opened first' });
+    return;
+  }
+  if (!ledger.aftermathStartedAt) {
+    sendToWs(ws, { type: 'error', message: 'FINISH GAME first // AFTERMATH must run before RECOUNT' });
     return;
   }
   if (ledger.resultsShownAt) {
@@ -5103,24 +5564,33 @@ function handleSetRoomMode(ws, message) {
     return;
   }
 
-  if (requested === 'CASUAL') {
-    // Presentation-only switch. Do NOT reset the battle. Timer, board,
-    // WOMF, scoring, clue state and chat all remain exactly where they are.
-    room.roomMode = ROOM_MODES.CASUAL;
-  } else {
-    // Restore the battle surface where it left off. READY means pre-start;
-    // running/borrowed/finished means an already-started battle.
-    if (room.match?.resultsShownAt) room.roomMode = ROOM_MODES.RECOUNT;
-    else room.roomMode = room.timer?.phase === 'ready' ? ROOM_MODES.BATTLE_ARMED : ROOM_MODES.BATTLE;
-    room.armed = true;
+  // Presentation-only switch. CASUAL does NOT reset the battle: timer, board,
+  // WOMF, scoring, clue state and chat all remain exactly where they are.
+  // BATTLE restores the surface where it left off: READY means pre-start;
+  // running/borrowed/finished means an already-started battle.
+  let next = ROOM_MODES.CASUAL;
+  if (requested === 'BATTLE') {
+    if (room.match?.resultsShownAt) next = ROOM_MODES.RECOUNT;
+    else next = room.timer?.phase === 'ready' ? ROOM_MODES.BATTLE_ARMED : ROOM_MODES.BATTLE;
   }
+  if (next === room.roomMode) {
+    // Repeated/stale toggle: nothing changes. Resync only the requester so a
+    // client that guessed wrong about the mode converges without a broadcast.
+    sendToWs(ws, { type: 'state:public', ...getPublicState(room) });
+    return;
+  }
+  room.roomMode = next;
+  if (next !== ROOM_MODES.CASUAL) room.armed = true;
 
   room.revision++;
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  // Every client drops its RECOUNT on entering CASUAL; returning to a shown
+  // RECOUNT must hand it back (non-live, never a replay).
+  if (next === ROOM_MODES.RECOUNT && room.match?.recount) broadcastRecount(room, room.match.recount, false);
   broadcastChatUpdate(room);
   broadcastPlayersUpdate(room);
-  console.log(`[MASTER ROOM] Display mode -> ${requested}`);
+  console.log(`[MASTER ROOM] Display mode -> ${next}`);
 }
 
 function handleCloseRoom(ws) {
@@ -5969,6 +6439,10 @@ wss.on('connection', (ws) => {
           handleHostCommand(ws, message);
           break;
         }
+        case 'player:hintRequest': {
+          handleHintRequest(ws, message);
+          break;
+        }
         case 'chat:guess': {
           handleChatGuess(ws, message);
           break;
@@ -5999,6 +6473,22 @@ wss.on('connection', (ws) => {
         }
         case 'chat:poll:close': {
           handleChatPollClose(ws, message);
+          break;
+        }
+        case 'threefold:challenge': {
+          handleThreefoldChallenge(ws, message);
+          break;
+        }
+        case 'threefold:accept': {
+          handleThreefoldAccept(ws, message);
+          break;
+        }
+        case 'threefold:decline': {
+          handleThreefoldDecline(ws, message);
+          break;
+        }
+        case 'threefold:move': {
+          handleThreefoldMove(ws, message);
           break;
         }
         case 'tribute:submit': {
@@ -6043,6 +6533,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:switchGame': {
           handleSwitchGame(ws, message);
+          break;
+        }
+        case 'gm:solutionCountdown': {
+          handleSolutionCountdown(ws, message);
           break;
         }
         case 'gm:failFinal': {
@@ -6095,6 +6589,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:revealResults': {
           handleRevealResults(ws);
+          break;
+        }
+        case 'gm:finishGame': {
+          handleGmFinishGame(ws);
           break;
         }
         case 'gm:showRecount': {

@@ -26,8 +26,10 @@ players.json.tmp-*
 
 # Authentication database -- contains password hashes and player emails.
 auth-store.json
+auth-store.json.bak
 auth-store.json.tmp
 .player-auth-sessions.json
+.player-auth-sessions.json.bak
 .player-auth-sessions.json.tmp
 .gm-password
 gm-lockouts.json

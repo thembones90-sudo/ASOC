@@ -190,9 +190,8 @@
 #gm-panel.maintenance-open #library-btn-footer {
   margin-top: 0 !important;
 }
-#gm-panel.maintenance-open .gm-logout-btn {
-  margin-top: 8px;
-  opacity: .88;
+#gm-panel.maintenance-open .master-access-wrap {
+  opacity: .94;
 }
 @media (max-width: 760px) {
   .gm-backdoor-header {
