@@ -81,6 +81,9 @@ const PlayerApp = {
   solvedTargets: {},
   userScrolledUp: false,
   _newMessageCount: 0,
+  _unreadChatCount: 0,
+  _unreadSystemCount: 0,
+  _pendingChatPayloads: [],
   _wrongFadeTimer: null,
   _wrongVerdictSeenAt: new Map(),
   _tributeExpiryTimer: null,
@@ -1158,6 +1161,7 @@ const PlayerApp = {
       this._columnCascadeBaselined = false;
       this._columnCascadeStarts = {};
       this.setConnectionStatus('connecting');
+      this.setChatDeliveryState('CONNECTED', 'delivered', 1400);
     };
 
     socket.onmessage = (event) => {
@@ -1176,6 +1180,7 @@ const PlayerApp = {
       if (this.ws !== socket) return;
       this.ws = null;
       console.log('[PLAYER] WebSocket closed', event.code, event.reason || '');
+      this.setChatDeliveryState('RECONNECTING', 'queued');
 
       // 4001 is the server's deliberate "newer login won" close. Reconnecting
       // this superseded client is exactly what creates the perpetual duel.
@@ -1351,6 +1356,11 @@ const PlayerApp = {
           this._themeChangedByUser = false;
           this.updateAppearancePreview();
         }
+        if (this._pendingChatPayloads.length && this.ws?.readyState === WebSocket.OPEN) {
+          const queued = this._pendingChatPayloads.splice(0, 10);
+          queued.forEach(payload => this.send(payload));
+          this.setChatDeliveryState(`SENDING ${queued.length} QUEUED`, 'sending');
+        }
         break;
 
       case 'chat:update': {
@@ -1389,7 +1399,20 @@ const PlayerApp = {
           const newActivityCount = newMessages.length + verdictUpdates.length;
           if (this.userScrolledUp && newActivityCount) {
             this._newMessageCount += newActivityCount;
+            this._unreadSystemCount += newMessages.filter(m => this.isPriorityChatMessage(m)).length + verdictUpdates.length;
+            this._unreadChatCount += newMessages.filter(m => !this.isPriorityChatMessage(m)).length;
             this.updateNewMessageChip();
+          }
+          const priority = [...newMessages.filter(m => this.isPriorityChatMessage(m)), ...verdictUpdates];
+          if (priority.length) this.showChatPriority(priority.at(-1));
+          if (newMessages.length >= 4) {
+            const panel = document.getElementById('chat-panel');
+            panel?.classList.add('chat-high-traffic');
+            clearTimeout(this._highTrafficTimer);
+            this._highTrafficTimer = setTimeout(() => panel?.classList.remove('chat-high-traffic'), 5000);
+          }
+          if (newMessages.some(m => String(m.playerId || '') === String(this.playerId || ''))) {
+            this.setChatDeliveryState('DELIVERED', 'delivered', 1800);
           }
           const newBrokerMsg = newMessages.find(m => m.source === 'shadowBroker');
           if (newBrokerMsg) {
@@ -3325,6 +3348,8 @@ const PlayerApp = {
         this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 80);
         if (!this.userScrolledUp && this._newMessageCount) {
           this._newMessageCount = 0;
+          this._unreadChatCount = 0;
+          this._unreadSystemCount = 0;
           this.updateNewMessageChip();
         }
         closeContextMenu();
@@ -3743,12 +3768,45 @@ const PlayerApp = {
     for (const node of container.querySelectorAll('[data-message-id]')) this._chatSeenObserver.observe(node);
   },
 
+  isPriorityChatMessage(message) {
+    return !!message && (
+      message.source === 'shadowBroker' || message.source === 'bloodTribute' ||
+      message.bloodTribute || message.verdict || message.messageType || message.roll
+    );
+  },
+
+  showChatPriority(message) {
+    const lane = document.getElementById('chat-priority-lane');
+    if (!lane || !message) return;
+    const label = message.verdict ? `VERDICT // ${String(message.verdict).toUpperCase()}`
+      : message.messageType ? String(message.messageType).replaceAll('_', ' ').toUpperCase()
+      : message.source === 'bloodTribute' ? 'BLOOD TRIBUTE'
+      : 'PRIORITY TRANSMISSION';
+    lane.innerHTML = `<strong>${this.escapeHtml(label)}</strong><span>${this.escapeHtml(message.text || message.playerName || 'SYSTEM EVENT')}</span>`;
+    lane.hidden = false;
+    clearTimeout(this._priorityLaneTimer);
+    this._priorityLaneTimer = setTimeout(() => { lane.hidden = true; }, 7000);
+  },
+
+  setChatDeliveryState(text, state = '', hideAfter = 0) {
+    const node = document.getElementById('chat-delivery-state');
+    if (!node) return;
+    clearTimeout(this._chatDeliveryTimer);
+    node.textContent = text;
+    node.dataset.state = state;
+    node.hidden = false;
+    if (hideAfter) this._chatDeliveryTimer = setTimeout(() => { node.hidden = true; }, hideAfter);
+  },
+
   updateNewMessageChip() {
     const chip = document.getElementById('chat-new-messages');
     if (!chip) return;
     chip.hidden = this._newMessageCount <= 0;
     if (!chip.hidden) {
-      chip.textContent = `↓ ${this._newMessageCount} NEW TRANSMISSION${this._newMessageCount === 1 ? '' : 'S'}`;
+      const parts = [];
+      if (this._unreadChatCount) parts.push(`${this._unreadChatCount} CHAT`);
+      if (this._unreadSystemCount) parts.push(`${this._unreadSystemCount} SYSTEM`);
+      chip.textContent = `↓ ${parts.join(' · ') || `${this._newMessageCount} NEW`}`;
     }
   },
 
@@ -3758,6 +3816,8 @@ const PlayerApp = {
     container.scrollTop = container.scrollHeight;
     this.userScrolledUp = false;
     this._newMessageCount = 0;
+    this._unreadChatCount = 0;
+    this._unreadSystemCount = 0;
     this.updateNewMessageChip();
   },
 
@@ -3818,7 +3878,14 @@ const PlayerApp = {
         payload.targetPlayerId = pending.id;
       }
     }
-    this.send(payload);
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.setChatDeliveryState('SENDING', 'sending');
+      this.send(payload);
+    } else {
+      this._pendingChatPayloads.push(payload);
+      this._pendingChatPayloads = this._pendingChatPayloads.slice(-10);
+      this.setChatDeliveryState(`QUEUED ${this._pendingChatPayloads.length} // RECONNECTING`, 'queued');
+    }
   },
 
   updateBloodTributeDemand(state) {
@@ -4059,6 +4126,8 @@ const PlayerApp = {
       container.scrollTop = container.scrollHeight;
       this.userScrolledUp = false;
       this._newMessageCount = 0;
+      this._unreadChatCount = 0;
+      this._unreadSystemCount = 0;
       this.updateNewMessageChip();
     };
 

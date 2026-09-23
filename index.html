@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ASOC Engine</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260924-toxic-drop-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260924-chat-focus-1">
   <link rel="stylesheet" href="css/tweaks.css?v=20260923-utility-icon-fix-1">
   <link rel="stylesheet" href="css/backdoor-console.css?v=20260923-operator-console-1">
 </head>
@@ -73,6 +73,7 @@
               <span class="gm-chat-solved" id="gm-chat-solved-count" hidden></span>
             </div>
             <div class="chat-search-strip gm-chat-search-strip"><input id="gm-chat-search" type="search" placeholder="SEARCH TRANSMISSIONS" autocomplete="off" oninput="App._gmChatSearch=this.value;App.renderGMChat()"></div>
+            <div id="gm-chat-priority-lane" class="chat-priority-lane" hidden aria-live="polite"></div>
             <div id="gm-chat-messages" class="gm-chat-messages"></div>
           <button type="button" id="gm-chat-new-messages" class="gm-chat-new-messages" hidden>↓ 0 NEW TRANSMISSIONS</button>
           <div id="gm-chat-reaction-picker" class="gm-chat-floating-emoji-picker" hidden></div>
@@ -89,6 +90,7 @@
             <span class="gm-latest-readout-label">LATEST READOUT</span>
             <span class="gm-latest-readout-state">NO TRANSMISSIONS</span>
           </div>
+          <div id="gm-chat-delivery-state" class="chat-delivery-state" hidden></div>
             <div id="gm-broker-bar" class="gm-broker-bar">
               <form id="shadow-broker-form" class="shadow-broker-form">
                 <span class="shadow-broker-form-label">SHADOW BROKER</span>
@@ -292,7 +294,7 @@
   <script src="js/backdoor.js?v=20260923-operator-console-1"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/chat-media-preview.js?v=20260922-player-global-drop-1"></script>
-  <script src="js/app.js?v=20260923-readout-1"></script>
+  <script src="js/app.js?v=20260924-chat-focus-1"></script>
   <script src="js/tweaks.js?v=20260923-gm-chat-repair-1"></script>
   <script src="js/forge.js"></script>
 </body>

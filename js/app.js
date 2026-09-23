@@ -74,6 +74,8 @@ const App = {
   userScrolledUp: false,
   _gmChatProgrammaticScroll: false,
   _gmNewMessageCount: 0,
+  _gmUnreadChat: 0,
+  _gmUnreadSystem: 0,
   _gmWrongFadeTimer: null,
   _gmWrongVerdictSeenAt: new Map(),
   _gmTributeExpiryTimer: null,
@@ -1861,6 +1863,8 @@ const App = {
       this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 80);
       if (!this.userScrolledUp && this._gmNewMessageCount) {
         this._gmNewMessageCount = 0;
+        this._gmUnreadChat = 0;
+        this._gmUnreadSystem = 0;
         this.updateGMNewMessageChip();
       }
       closeGMContextMenu();
@@ -2047,6 +2051,7 @@ const App = {
       this._columnCascadeBaselined = false;
       this._columnCascadeStarts = {};
       if (window.Board) Board._columnCascadeStarts = {};
+      this.setGMDeliveryState('CONNECTED', 'delivered', 1400);
     };
 
     this.ws.onmessage = (event) => {
@@ -2060,6 +2065,7 @@ const App = {
 
     this.ws.onclose = () => {
       console.log('[GM] WebSocket closed');
+      this.setGMDeliveryState('RECONNECTING', 'queued');
       this.handleDisconnect();
     };
 
@@ -2611,11 +2617,23 @@ const App = {
           const newActivityCount = newMessages.length + verdictUpdates.length;
           if (this.userScrolledUp && newActivityCount) {
             this._gmNewMessageCount += newActivityCount;
+            this._gmUnreadSystem += newMessages.filter(m => this.isPriorityChatMessage(m)).length + verdictUpdates.length;
+            this._gmUnreadChat += newMessages.filter(m => !this.isPriorityChatMessage(m)).length;
             this.updateGMNewMessageChip();
+          }
+
+          const priority = [...newMessages.filter(m => this.isPriorityChatMessage(m)), ...verdictUpdates];
+          if (priority.length) this.showGMChatPriority(priority.at(-1));
+          if (newMessages.length >= 4) {
+            const panel = document.querySelector('.gm-chat-panel');
+            panel?.classList.add('chat-high-traffic');
+            clearTimeout(this._gmHighTrafficTimer);
+            this._gmHighTrafficTimer = setTimeout(() => panel?.classList.remove('chat-high-traffic'), 5000);
           }
 
           const newBrokerMsg = newMessages.find(m => m.source === 'shadowBroker');
           if (newBrokerMsg) {
+            this.setGMDeliveryState('DELIVERED', 'delivered', 1800);
             this.playShadowBrokerBoardLine(newBrokerMsg.text);
             // The GM's own working board (js/board.js) previously never
             // showed this at all -- the GM had to trust the chat log or
@@ -4375,6 +4393,8 @@ const App = {
       container.scrollTop = container.scrollHeight;
       this.userScrolledUp = false;
       this._gmNewMessageCount = 0;
+      this._gmUnreadChat = 0;
+      this._gmUnreadSystem = 0;
       this.updateGMNewMessageChip();
     };
 
@@ -5176,12 +5196,45 @@ const App = {
     });
   },
 
+  isPriorityChatMessage(message) {
+    return !!message && (
+      message.source === 'shadowBroker' || message.source === 'bloodTribute' ||
+      message.bloodTribute || message.verdict || message.messageType || message.roll
+    );
+  },
+
+  showGMChatPriority(message) {
+    const lane = document.getElementById('gm-chat-priority-lane');
+    if (!lane || !message) return;
+    const label = message.verdict ? `VERDICT // ${String(message.verdict).toUpperCase()}`
+      : message.messageType ? String(message.messageType).replaceAll('_', ' ').toUpperCase()
+      : message.source === 'bloodTribute' ? 'BLOOD TRIBUTE'
+      : 'PRIORITY TRANSMISSION';
+    lane.innerHTML = `<strong>${this.escapeHtml(label)}</strong><span>${this.escapeHtml(message.text || message.playerName || 'SYSTEM EVENT')}</span>`;
+    lane.hidden = false;
+    clearTimeout(this._gmPriorityLaneTimer);
+    this._gmPriorityLaneTimer = setTimeout(() => { lane.hidden = true; }, 7000);
+  },
+
+  setGMDeliveryState(text, state = '', hideAfter = 0) {
+    const node = document.getElementById('gm-chat-delivery-state');
+    if (!node) return;
+    clearTimeout(this._gmDeliveryTimer);
+    node.textContent = text;
+    node.dataset.state = state;
+    node.hidden = false;
+    if (hideAfter) this._gmDeliveryTimer = setTimeout(() => { node.hidden = true; }, hideAfter);
+  },
+
   updateGMNewMessageChip() {
     const chip = document.getElementById('gm-chat-new-messages');
     if (!chip) return;
     chip.hidden = this._gmNewMessageCount <= 0;
     if (!chip.hidden) {
-      chip.textContent = `↓ ${this._gmNewMessageCount} NEW TRANSMISSION${this._gmNewMessageCount === 1 ? '' : 'S'}`;
+      const parts = [];
+      if (this._gmUnreadChat) parts.push(`${this._gmUnreadChat} CHAT`);
+      if (this._gmUnreadSystem) parts.push(`${this._gmUnreadSystem} SYSTEM`);
+      chip.textContent = `↓ ${parts.join(' · ') || `${this._gmNewMessageCount} NEW`}`;
     }
   },
 
@@ -5192,6 +5245,8 @@ const App = {
     container.scrollTop = container.scrollHeight;
     this.userScrolledUp = false;
     this._gmNewMessageCount = 0;
+    this._gmUnreadChat = 0;
+    this._gmUnreadSystem = 0;
     this.updateGMNewMessageChip();
     requestAnimationFrame(() => { this._gmChatProgrammaticScroll = false; });
   },
@@ -5279,6 +5334,7 @@ const App = {
     if (this.mode === 'multiplayer' && this.roomCode) {
       // Live room: let the authoritative server broadcast it to every
       // connected surface exactly as before.
+      this.setGMDeliveryState('SENDING', 'sending');
       this.send({ type: 'gm:broadcast', text });
     } else {
       // No room: TRANSMIT still means transmit. Play the message locally on
