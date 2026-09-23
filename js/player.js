@@ -2400,11 +2400,9 @@ const PlayerApp = {
     if (mentionPicker && !mentionPicker.hidden) this.updateChatMentionPicker(document.getElementById('chat-input'), mentionPicker);
     const strip = document.getElementById('player-leaderboard-strip');
     const list = document.getElementById('player-leaderboard-list');
-    const roster = document.getElementById('little-hero-roster');
     const identity = document.getElementById('hero-hud-identity');
     if (!players || players.length === 0) {
       if (strip) strip.style.display = 'none';
-      if (roster) roster.innerHTML = '';
       return;
     }
     const ranked = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
@@ -2413,13 +2411,10 @@ const PlayerApp = {
       list.innerHTML = ranked.map(p => {
         const presenceClass = p.connected === false ? 'is-offline' : 'is-online';
         return `
-        <span class="pl-entry ${presenceClass} ${p.id === this.playerId ? 'pl-entry-me' : ''}">${this.littleHeroAvatarHTML(p, true)}<span class="pl-entry-name">${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
+        <span class="pl-entry ${presenceClass} ${p.id === this.playerId ? 'pl-entry-me' : ''}" title="${this.escapeHtml(p.name)} // ${p.score || 0} points">${this.littleHeroAvatarHTML(p, true)}<span class="pl-entry-name">${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
       `;
       }).join('');
     }
-    if (roster) roster.innerHTML = ranked.map(p => `
-      <span class="hero-roster-card ${p.connected === false ? 'is-offline signal-lost' : 'is-online'}">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
-    `).join('');
     const meIndex = ranked.findIndex(p => p.id === this.playerId);
     const me = meIndex >= 0 ? ranked[meIndex] : null;
     if (me) {
