@@ -81,7 +81,11 @@ const App = {
   bloodTributes: [],
   gmSlashCommands: [
     { name: 'roll', insert: '/roll ', icon: '◆', label: 'ROLL', description: 'Authoritative Shadow Broker roll // minimum 2' },
-    { name: 'reliquary', insert: '/reliquary ', icon: '☠', label: 'OPEN RELIQUARY', description: 'Protected Blood Tribute archive' }
+    { name: 'reliquary', insert: '/reliquary ', icon: '☠', label: 'OPEN RELIQUARY', description: 'Protected Blood Tribute archive' },
+    { name: 'recount', insert: '/recount', icon: '◈', label: 'RECOUNT', description: 'Show eligible completed-game results' },
+    { name: 'womf', insert: '/womf', icon: '⚠', label: 'WOMF STATUS', description: 'Inspect charge, failures, and wheel state' },
+    { name: 'spit', insert: '/spit ', icon: '◆', label: 'SPIT', description: 'Target a connected Little Hero' },
+    { name: 'commands', insert: '/commands', icon: '⌘', label: 'COMMANDS', description: 'Show every available Shadow Broker command' }
   ],
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😇', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
   gmEmojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭'],

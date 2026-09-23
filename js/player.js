@@ -95,7 +95,14 @@ const PlayerApp = {
   bloodTribute: { status: 'idle' },
   tributeUploading: false,
   playerSlashCommands: [
-    { name: 'roll', insert: '/roll ', syntax: '/roll [MAX] or /roll [MIN] [MAX]', description: 'Generate a server-authoritative random roll' }
+    { name: 'roll', insert: '/roll ', syntax: '/roll [MIN] [MAX]', description: 'Generate a server-authoritative random roll' },
+    { name: 'dice', insert: '/dice ', syntax: '/dice 2d6+1', description: 'Roll dice notation' },
+    { name: 'flip', insert: '/flip ', syntax: '/flip [heads|tails]', description: 'Flip a coin' },
+    { name: 'choose', insert: '/choose ', syntax: '/choose A | B | C', description: 'Choose one option randomly' },
+    { name: 'order', insert: '/order', syntax: '/order', description: 'Shuffle connected-player turn order' },
+    { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
+    { name: 'spit', insert: '/spit ', syntax: '/spit @Name', description: 'Target another player' },
+    { name: 'commands', insert: '/commands', syntax: '/commands', description: 'Show every available command' }
   ],
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😇', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
   emojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭'],

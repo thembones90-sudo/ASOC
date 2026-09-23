@@ -2349,7 +2349,7 @@ async function testChatSlashCommands() {
   update = nextUpdate(m => m.messageType === 'roll' && m.roll && m.roll.min === 5 && m.roll.max === 10);
   sendGuess('/roll 5 10');
   state = await update;
-  const roll = findIn(state, m => m.messageType === 'roll');
+  const roll = findIn(state, m => m.messageType === 'roll' && m.roll?.min === 5 && m.roll?.max === 10);
   assert.ok(roll.roll.value >= 5 && roll.roll.value <= 10);
   assert.equal(roll.source, 'roll');
 
