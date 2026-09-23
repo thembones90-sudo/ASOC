@@ -3383,6 +3383,7 @@ function appendChatRemoteGifMessage(room, actor, gif) {
     editedAt: null,
     reactions: {}
   };
+  attachChatReceipts(room, message);
   room.chat.messages.push(message);
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   return message;
@@ -3477,6 +3478,7 @@ function appendChatImageMessage(room, actor, imageUrl, caption = '') {
     editedAt: null,
     reactions: {}
   };
+  attachChatReceipts(room, message);
   room.chat.messages.push(message);
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   return message;
@@ -3548,6 +3550,7 @@ function appendChatPollMessage(room, actor, question, options, allowMultiple, du
       voters: {}
     }
   };
+  attachChatReceipts(room, message);
   room.chat.messages.push(message);
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   return { success: true, message };
@@ -3642,7 +3645,7 @@ function handleChatPollVote(ws, message) {
   if (!actor) return sendToWs(ws, { type: 'error', message: 'Poll authentication required' });
 
   const target = room.chat.messages.find(entry => entry.id === message.messageId && entry.messageType === 'poll');
-  if (!target?.poll) return sendToWs(ws, { type: 'error', message: 'Poll not found' });
+  if (!target?.poll || target.deleted === true) return sendToWs(ws, { type: 'error', message: 'Poll not found' });
   const expiresAt = Number(target.poll.expiresAt) || 0;
   if (!target.poll.closedAt && expiresAt && Date.now() >= expiresAt) {
     target.poll.closedAt = expiresAt;
@@ -3701,7 +3704,7 @@ function handleChatPollClose(ws, message) {
   const actor = pollActorForSocket(room, ws);
   if (!actor) return sendToWs(ws, { type: 'error', message: 'Poll authentication required' });
   const target = room.chat.messages.find(entry => entry.id === message.messageId && entry.messageType === 'poll');
-  if (!target?.poll) return sendToWs(ws, { type: 'error', message: 'Poll not found' });
+  if (!target?.poll || target.deleted === true) return sendToWs(ws, { type: 'error', message: 'Poll not found' });
   const isCreator = String(target.poll.createdById || '') === String(actor.id);
   if (actor.role !== 'gm' && !isCreator) {
     return sendToWs(ws, { type: 'error', message: 'Only the poll creator or Shadow Broker can close this poll' });
@@ -4158,6 +4161,7 @@ function addRollMessage(room, playerId, playerName, range, options = {}) {
     reactions: {}
   };
 
+  attachChatReceipts(room, message);
   room.chat.messages.push(message);
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
@@ -4205,6 +4209,7 @@ function addChatMessage(room, playerId, playerName, text) {
     reactions: {}
   };
 
+  attachChatReceipts(room, message);
   room.chat.messages.push(message);
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
@@ -4244,6 +4249,7 @@ function addShadowBrokerMessage(room, text, options = {}) {
     reactions: {}
   };
 
+  attachChatReceipts(room, message);
   room.chat.messages.push(message);
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
@@ -4270,6 +4276,107 @@ function sendToWs(ws, message) {
   }
 }
 
+// A sender's message is seen by the OTHER connected little heroes. The host
+// (Shadow Broker) is never a recipient and never records a receipt. The list
+// is a send-time snapshot: players present for that message stay counted even
+// after they disconnect, which is exactly what "Seen 4 / 7" needs.
+function chatRecipientIds(room, senderId) {
+  const ids = [];
+  const seen = new Set();
+  const sender = String(senderId || '');
+  for (const player of room.players.values()) {
+    if (!player || player.connected === false) continue;
+    const id = player && typeof player.id === 'string' ? player.id : '';
+    if (!id || id === sender || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+function attachChatReceipts(room, message) {
+  if (!message || Number.isFinite(Number(message.recipientCount))) return message;
+  const ids = chatRecipientIds(room, message.playerId);
+  message.recipientIds = ids;
+  message.recipientCount = ids.length;
+  return message;
+}
+
+// Broker-authored chat is any message with no player owner and the Broker
+// identity name -- transmissions, GM GIFs, GM images and GM polls all look
+// like this. Players can never produce one (every player path stamps a
+// playerId), so this check is spoof-proof by construction.
+function isBrokerMessage(message) {
+  return !!message
+    && (message.playerId === null || message.playerId === undefined)
+    && String(message.playerName || '') === 'SHADOW BROKER';
+}
+
+function handleChatDelete(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
+  const messageId = typeof message.messageId === 'string' ? message.messageId : '';
+  if (!messageId) return sendToWs(ws, { type: 'error', message: 'Invalid delete request' });
+
+  const target = room.chat.messages.find(entry => entry.id === messageId);
+  if (!target) return sendToWs(ws, { type: 'error', message: 'Message not found' });
+  if (target.deleted === true) return sendToWs(ws, { type: 'error', message: 'Message already deleted' });
+
+  // BLOOD TRIBUTE EXCEPTION -- a tribute entry (or a claimed tribute) is part
+  // of the lifecycle of the vault asset and can never be tombstoned away. The
+  // Vault record/image live independently of this chat slot regardless.
+  if (target.source === 'bloodTribute' || target.bloodTribute) {
+    return sendToWs(ws, { type: 'error', message: 'Blood Tributes are permanent' });
+  }
+
+  const isHost = ws === room.hostConnection;
+  if (isHost) {
+    if (!isBrokerMessage(target)) {
+      return sendToWs(ws, { type: 'error', message: 'Shadow Broker can only delete its own transmissions' });
+    }
+  } else {
+    if (String(target.playerId || '') !== String(ws.playerId || '')) {
+      return sendToWs(ws, { type: 'error', message: 'You can only delete your own messages' });
+    }
+  }
+
+  // Tombstone in place. Content, attachments, GIFs and poll cards are stripped
+  // at the source (not merely hidden from the render), so even the persisted
+  // recovery snapshot can never hand deleted contents back to a client.
+  target.deleted = true;
+  target.deletedAt = Date.now();
+  target.deletedBy = isHost ? '__GM__' : String(ws.playerId || '');
+  target.text = '';
+  delete target.imageUrl;
+  delete target.gif;
+  delete target.poll;
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+}
+
+// Client-viewport SEEN report. Identity comes from the authenticated socket --
+// a client-supplied playerId is never consulted. Idempotent: one effective
+// receipt per player per message; repeated/duplicate events are no-ops.
+function handleChatSeen(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return;
+  if (ws === room.hostConnection || !ws.playerId) return;
+  const messageId = typeof message.messageId === 'string' ? message.messageId : '';
+  if (!messageId) return;
+
+  const target = room.chat.messages.find(entry => entry.id === messageId);
+  if (!target || target.deleted === true) return;
+  if (String(target.playerId || '') === String(ws.playerId || '')) return;
+
+  const viewerId = String(ws.playerId);
+  if (!Array.isArray(target.seenBy)) target.seenBy = [];
+  if (target.seenBy.some(entry => String(entry.playerId) === viewerId)) return;
+
+  target.seenBy.push({ playerId: viewerId, seenAt: Date.now() });
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+}
+
 function getChatState(room) {
   const now = Date.now();
   const tributeById = new Map((room.bloodTributes || []).map(t => [t.id, t]));
@@ -4280,6 +4387,23 @@ function getChatState(room) {
         const manualExpiresAt = Number(manualState?.expiresAt) || 0;
         const manualClaimed = !!manualState && (manualState.claimed === true || manualExpiresAt <= now);
         const legacyClaimed = m.source === 'bloodTribute' && Number(m.publicUntil) <= now;
+        // DELETED MESSAGE -- tombstone. The slot stays in history, the content
+        // never leaves the server (and is stripped server-side at delete time
+        // anyway). No reactions, attachments, poll card or seen receipts are
+        // exposed on a tombstone; the author identity survives for context.
+        if (m.deleted === true) {
+          return {
+            id: m.id,
+            playerId: m.playerId,
+            playerName: m.playerName,
+            deleted: true,
+            deletedAt: Number(m.deletedAt) || null,
+            timestamp: m.timestamp,
+            text: '',
+            source: m.source || null,
+            messageType: null
+          };
+        }
         return {
           id: m.id,
           playerId: m.playerId,
@@ -4344,7 +4468,21 @@ function getChatState(room) {
           imageData: tribute && !legacyClaimed ? tribute.imageData : undefined,
           publicUntil: tribute ? tribute.publicUntil : undefined,
           bloodTribute: manualState ? { active: !manualClaimed, claimed: manualClaimed, expiresAt: manualExpiresAt }
-            : (legacyClaimed ? { active: false, claimed: true, expiresAt: Number(m.publicUntil) } : undefined)
+            : (legacyClaimed ? { active: false, claimed: true, expiresAt: Number(m.publicUntil) } : undefined),
+          // READ RECEIPTS -- server-recorded viewers (actual viewport sightings
+          // reported by clients), never websocket delivery. The sender never
+          // appears (excluded at record time). recipientIds is a send-time
+          // snapshot so the GM can still split SEEN/NOT SEEN after players leave;
+          // names are resolved client-side from the live roster, never stored.
+          seenBy: Array.isArray(m.seenBy)
+            ? m.seenBy
+                .filter(r => r && typeof r.playerId === 'string')
+                .map(r => ({ playerId: r.playerId, seenAt: Number(r.seenAt) || 0 }))
+            : [],
+          recipientCount: Number(m.recipientCount) || 0,
+          recipientIds: Array.isArray(m.recipientIds)
+            ? m.recipientIds.filter(id => typeof id === 'string')
+            : []
         };
       }),
     solvedTargets: { ...room.chat.solvedTargets }
@@ -4904,6 +5042,10 @@ function handleChatEdit(ws, message) {
 
   const isHost = ws === room.hostConnection;
   if (isHost) {
+    if (target.deleted === true) {
+      sendToWs(ws, { type: 'error', message: 'Message deleted' });
+      return;
+    }
     if (target.source !== 'shadowBroker' || target.editableByHost === false) {
       sendToWs(ws, { type: 'error', message: 'Shadow Broker can only edit its own transmissions' });
       return;
@@ -4965,6 +5107,11 @@ function handleChatReaction(ws, message) {
   const target = room.chat.messages.find(entry => entry.id === messageId);
   if (!target) {
     sendToWs(ws, { type: 'error', message: 'Message not found' });
+    return;
+  }
+
+  if (target.deleted === true) {
+    sendToWs(ws, { type: 'error', message: 'Message deleted' });
     return;
   }
 
@@ -6615,6 +6762,14 @@ wss.on('connection', (ws) => {
         }
         case 'chat:edit': {
           handleChatEdit(ws, message);
+          break;
+        }
+        case 'chat:delete': {
+          handleChatDelete(ws, message);
+          break;
+        }
+        case 'chat:seen': {
+          handleChatSeen(ws, message);
           break;
         }
         case 'chat:react': {

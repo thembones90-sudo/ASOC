@@ -3078,6 +3078,8 @@ const PlayerApp = {
       contextMenu.dataset.messageId = messageId;
       const editButton = contextMenu.querySelector('[data-chat-action="edit"]');
       if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
+      const deleteButton = contextMenu.querySelector('[data-chat-action="delete"]');
+      if (deleteButton) deleteButton.hidden = !this.canDeleteChatMessage(messageId);
       contextMenu.hidden = false;
       if (reactionPicker) reactionPicker.hidden = true;
       if (emojiPicker) emojiPicker.hidden = true;
@@ -3293,6 +3295,18 @@ const PlayerApp = {
           return;
         }
 
+        const seenChip = e.target.closest('.chat-seen-chip');
+        if (seenChip) {
+          this.openChatSeenPopover(seenChip.dataset.messageId || '', seenChip);
+          e.preventDefault();
+          return;
+        }
+
+        const seenPopover = document.getElementById('chat-seen-popover');
+        if (seenPopover && !seenPopover.hidden && !seenPopover.contains(e.target) && !e.target.closest('.chat-seen-chip')) {
+          seenPopover.hidden = true;
+        }
+
         const replyButton = e.target.closest('.chat-reply-btn');
         if (replyButton) {
           const messageEl = replyButton.closest('.chat-message, .chat-broker-entry');
@@ -3360,6 +3374,12 @@ const PlayerApp = {
       } else if (action === 'react') {
         // A detached anchor has a zero rect; the message is gone, nothing to react to.
         if (messageEl.isConnected) this.openChatReactionPicker(messageId, { x: e.clientX, y: e.clientY });
+      } else if (action === 'delete') {
+        if (!this.canDeleteChatMessage(messageId)) {
+          this.chatToast?.('Only your own messages can be deleted');
+          return;
+        }
+        this.send({ type: 'chat:delete', messageId });
       }
     });
 
@@ -3394,6 +3414,8 @@ const PlayerApp = {
     menu.dataset.messageId = messageId;
     const editButton = menu.querySelector('[data-chat-action="edit"]');
     if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
+    const deleteButton = menu.querySelector('[data-chat-action="delete"]');
+    if (deleteButton) deleteButton.hidden = !this.canDeleteChatMessage(messageId);
     menu.hidden = false;
     const reactionPicker = document.getElementById('chat-reaction-picker');
     const emojiPicker = document.getElementById('chat-emoji-picker');
@@ -3579,7 +3601,78 @@ const PlayerApp = {
       })
       .join('');
 
-    return `<div class="chat-reactions${chips ? ' has-reactions' : ''}">${chips}<button type="button" class="chat-reaction-add" data-message-id="${this.escapeHtml(msg.id)}" title="React" aria-label="React to message">＋</button></div>`;
+    return `<div class="chat-reactions${chips ? ' has-reactions' : ''}">${chips}<button type="button" class="chat-reaction-add" data-message-id="${this.escapeHtml(msg.id)}" title="React" aria-label="React to message">＋</button>${this.createPlayerSeenChipHTML(msg)}</div>`;
+  },
+
+  canDeleteChatMessage(messageId) {
+    const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
+    if (!msg || msg.deleted === true) return false;
+    if (msg.source === 'bloodTribute' || msg.bloodTribute?.active) return false;
+    return String(msg.playerId || '') === String(this.playerId || '');
+  },
+
+  createPlayerSeenChipHTML(msg) {
+    if (!msg || msg.deleted === true || String(msg.playerId || '') !== String(this.playerId || '')) return '';
+    const seen = (Array.isArray(msg.seenBy) ? msg.seenBy : []).filter(r => String(r.playerId) !== String(this.playerId)).length;
+    if (seen <= 0) return '';
+    return `<button type="button" class="chat-seen-chip" data-message-id="${this.escapeHtml(msg.id)}" title="Who has seen this" aria-label="Who has seen this message"><span class="chat-seen-icon">&#10003;</span><b>${seen}</b></button>`;
+  },
+
+  openChatSeenPopover(messageId, anchorEl) {
+    const popover = document.getElementById('chat-seen-popover');
+    if (!popover || !messageId) return false;
+    const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
+    if (!msg) return false;
+    const seenIds = (Array.isArray(msg.seenBy) ? msg.seenBy : [])
+      .map(entry => String(entry.playerId))
+      .filter(id => id && id !== String(this.playerId));
+    const roster = this.currentPlayers || [];
+    const nameFor = (id) => {
+      const member = roster.find(p => String(p.id) === String(id));
+      return member?.name || 'Little Hero';
+    };
+    const names = [...new Set(seenIds)].map(nameFor);
+    const inner = names.length
+      ? names.map(name => `<div class="chat-seen-name seen">${this.escapeHtml(name)}</div>`).join('')
+      : `<div class="chat-seen-name muted">Seen by no one yet</div>`;
+    popover.innerHTML = `<div class="chat-seen-id">${this.escapeHtml(msg.id)}</div>
+      <div class="chat-seen-section-label">SEEN BY</div>${inner}`;
+    popover.hidden = false;
+    const rect = anchorEl?.getBoundingClientRect?.();
+    if (rect) {
+      const left = Math.max(0, Math.min(window.innerWidth - popover.offsetWidth - 8, rect.right + 8));
+      const top = rect.bottom + 8 < window.innerHeight ? rect.bottom + 8 : Math.max(0, rect.top - popover.offsetHeight - 8);
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+    }
+    return true;
+  },
+
+  closeChatSeenPopover() {
+    const popover = document.getElementById('chat-seen-popover');
+    if (popover) popover.hidden = true;
+  },
+
+  scanChatSeen(container) {
+    if (!container || typeof IntersectionObserver === 'undefined' || !this.playerId) return;
+    if (!this._chatSeenObserver) {
+      this._seenReported ||= new Set();
+      this._chatSeenObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const messageId = entry.target?.dataset?.messageId;
+          if (!messageId || this._seenReported.has(messageId)) continue;
+          const msg = (this.chatMessages || []).find(m => String(m.id) === String(messageId));
+          if (!msg || msg.deleted === true) continue;
+          if (String(msg.playerId || '') === String(this.playerId || '')) continue;
+          if (Array.isArray(msg.seenBy) && msg.seenBy.some(r => String(r.playerId) === String(this.playerId))) continue;
+          this._seenReported.add(messageId);
+          this.send({ type: 'chat:seen', messageId });
+        }
+      }, { root: container, threshold: 0.5 });
+    }
+    this._chatSeenObserver.disconnect();
+    for (const node of container.querySelectorAll('[data-message-id]')) this._chatSeenObserver.observe(node);
   },
 
   updateNewMessageChip() {
@@ -3852,6 +3945,8 @@ const PlayerApp = {
     this._chatProgrammaticScroll = true;
     container.innerHTML = html;
 
+    this.scanChatSeen(container);
+
     this._chatArrivalIds?.forEach(id => {
       const el = container.querySelector(`[data-message-id="${CSS.escape(id)}"]`);
       el?.classList.add('chat-arrival');
@@ -3939,6 +4034,12 @@ const PlayerApp = {
   },
 
   createChatMessageHTML(msg, grouped = false, now = Date.now()) {
+    if (msg.deleted === true) {
+      return `<div class="chat-message chat-tombstone" data-message-id="${this.escapeHtml(msg.id)}">
+        <span class="chat-tombstone-icon" aria-hidden="true">&#128465;</span>
+        <strong>MESSAGE DELETED</strong>
+      </div>`;
+    }
     if (msg.bloodTribute?.claimed) {
       const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       return `<div class="chat-message blood-tribute-tombstone" data-message-id="${this.escapeHtml(msg.id)}"><strong>☠ BLOOD TRIBUTE CLAIMED</strong><span>${this.escapeHtml(msg.playerName || 'LITTLE HERO')} // ${time}</span></div>`;

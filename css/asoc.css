@@ -16988,3 +16988,111 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
   max-width:100% !important;
   box-sizing:border-box !important;
 }
+
+/* CHAT ESSENTIALS -- DELETED TOMBSTONES + SEEN RECEIPTS
+   Deleted messages become in-place tombstones (slot preserved, content gone).
+   Seen chips sit inline with reaction bars; popovers list who has read a
+   message. All three are additive; pre-existing chip/bar rules untouched. */
+
+.gm-chat-tombstone,
+.chat-tombstone {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:7px 9px;
+  border:1px dashed rgba(107,117,130,.32);
+  border-radius:5px;
+  background:rgba(8,10,13,.55);
+  color:#8b93a0;
+  font:700 .48rem var(--font-system);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  user-select:none;
+}
+.gm-chat-tombstone strong,
+.chat-tombstone strong { color:#6f7785; }
+.gm-chat-tombstone-icon,
+.chat-tombstone-icon {
+  color:#9aa3b0;
+  font-size:.85rem;
+  line-height:1;
+}
+.gm-chat-tombstone-by {
+  margin-left:auto;
+  color:#5d6570;
+  font-size:.40rem;
+  letter-spacing:.12em;
+}
+
+.gm-chat-seen-chip,
+.chat-seen-chip {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  min-width:22px;
+  height:22px;
+  margin-right:3px;
+  padding:0 6px;
+  border:1px solid rgba(107,117,130,.42);
+  border-radius:9px;
+  background:rgba(8,10,13,.82);
+  color:#aeb6c0;
+  font:700 .44rem var(--font-machine);
+  line-height:16px;
+  cursor:pointer;
+  vertical-align:middle;
+}
+.chat-seen-icon,
+.gm-chat-seen-icon {
+  color:#7dbf7d;
+  font-size:.60rem;
+  line-height:1;
+}
+.gm-chat-seen-chip { height:20px; }
+.gm-chat-seen-chip b,
+.chat-seen-chip b { color:inherit; font-size:.40rem; }
+.gm-module-chat .gm-chat-seen-chip:hover,
+.chat-seen-chip:hover {
+  border-color:#8b96a4;
+  background:#151a20;
+  color:#eef0f5;
+}
+
+.chat-seen-popover {
+  position:fixed;
+  z-index:200001;
+  min-width:150px;
+  max-width:240px;
+  max-height:220px;
+  overflow:auto;
+  padding:8px 9px;
+  border:1px solid #5b4f67;
+  border-top-color:#846b98;
+  border-radius:5px;
+  background:linear-gradient(180deg,#1b1620,#0b090d);
+  box-shadow:0 12px 30px rgba(0,0,0,.72), inset 0 1px rgba(255,255,255,.03);
+}
+.chat-seen-popover[hidden]{display:none}
+.chat-seen-popover .chat-seen-id {
+  display:none;
+}
+.chat-seen-section-label {
+  margin:6px 0 3px;
+  color:#7f6d8b;
+  font:800 .40rem var(--font-system);
+  letter-spacing:.15em;
+}
+.chat-seen-section-label:first-child { margin-top:0; }
+.chat-seen-name {
+  padding:2px 4px;
+  color:#ddd7e4;
+  font:700 .50rem var(--font-system);
+  letter-spacing:.04em;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.chat-seen-name.seen { color:#9fd69f; }
+.chat-seen-name.unseen { color:#a49577; }
+.chat-seen-name.muted { color:#6f7785; font-style:italic; }

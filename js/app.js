@@ -1675,6 +1675,8 @@ const App = {
       gmContextMenu.dataset.messageId = messageId;
       const editButton = gmContextMenu.querySelector('[data-gm-chat-action="edit"]');
       if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
+      const deleteButton = gmContextMenu.querySelector('[data-gm-chat-action="delete"]');
+      if (deleteButton) deleteButton.hidden = !this.gmMessageDeletable(messageId);
       const chatMessage = this.chatMessages.find(item => item.id === messageId);
       const tributeButton = gmContextMenu.querySelector('[data-gm-chat-action="tribute"]');
       const cancelTributeButton = gmContextMenu.querySelector('[data-gm-chat-action="tribute-cancel"]');
@@ -1813,6 +1815,14 @@ const App = {
       }
       if (action === 'edit') {
         this.startGMChatEdit(messageId);
+        return;
+      }
+      if (action === 'delete') {
+        if (!this.gmMessageDeletable(messageId)) {
+          this.gmChatToast?.('Cannot delete that transmission');
+          return;
+        }
+        this.send({ type: 'chat:delete', messageId });
         return;
       }
       if (action === 'tribute') { this.openBloodTributeConfirmation(messageId); return; }
@@ -1961,6 +1971,22 @@ const App = {
       const gmReactionAdd = e.target.closest('.gm-chat-reaction-add');
       if (gmReactionAdd) {
         this.openGMChatReactionPicker(gmReactionAdd.dataset.messageId || '', { x: e.clientX, y: e.clientY });
+      }
+
+      const gmSeenChip = e.target.closest('.gm-chat-seen-chip');
+      if (gmSeenChip) {
+        e.stopPropagation();
+        const opened = this.openGMSeenPopover(gmSeenChip.dataset.messageId || '', gmSeenChip);
+        if (opened) {
+          e.preventDefault();
+        } else {
+          this.closeGMSeenPopover();
+        }
+      }
+
+      const gmSeenPopover = document.getElementById('gm-chat-seen-popover');
+      if (gmSeenPopover && !gmSeenPopover.hidden && !gmSeenPopover.contains(e.target) && !e.target.closest('.gm-chat-seen-chip')) {
+        gmSeenPopover.hidden = true;
       }
 
       if (e.target.closest('.gm-verdict-btn')) {
@@ -4397,6 +4423,46 @@ const App = {
     return false;
   },
 
+  openGMSeenPopover(messageId, anchorEl) {
+    const popover = document.getElementById('gm-chat-seen-popover');
+    if (!popover || !messageId) return false;
+    const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
+    if (!msg) return false;
+    const seenIds = new Set((Array.isArray(msg.seenBy) ? msg.seenBy : []).map(entry => String(entry.playerId)));
+    const roster = this.currentPlayers || [];
+    const nameFor = (id) => {
+      const member = roster.find(p => String(p.id) === String(id));
+      return member?.name || 'Little Hero';
+    };
+    const seenNames = [...seenIds].map(nameFor);
+    const notSeenIds = (Array.isArray(msg.recipientIds) ? msg.recipientIds : [])
+      .filter(id => !seenIds.has(String(id)));
+    const notSeenNames = [...new Set(notSeenIds)].map(nameFor);
+
+    const seenHtml = seenNames.length
+      ? seenNames.map(name => `<div class="chat-seen-name seen">${this.escapeHtml(name)}</div>`).join('')
+      : `<div class="chat-seen-name muted">No one has seen this yet</div>`;
+    const notSeenHtml = notSeenNames.length
+      ? `<div class="chat-seen-section-label">NOT SEEN</div>` + notSeenNames.map(name => `<div class="chat-seen-name unseen">${this.escapeHtml(name)}</div>`).join('')
+      : '';
+    popover.innerHTML = `<div class="chat-seen-id">${this.escapeHtml(msg.id)}</div>
+      <div class="chat-seen-section-label">SEEN · ${seenNames.length}/${msg.recipientCount || 0}</div>${seenHtml}${notSeenHtml}`;
+    popover.hidden = false;
+    const rect = anchorEl?.getBoundingClientRect?.();
+    if (rect) {
+      const left = Math.max(0, Math.min(window.innerWidth - popover.offsetWidth - 8, rect.right + 8));
+      const top = rect.bottom + 8 < window.innerHeight ? rect.bottom + 8 : Math.max(0, rect.top - popover.offsetHeight - 8);
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+    }
+    return true;
+  },
+
+  closeGMSeenPopover() {
+    const popover = document.getElementById('gm-chat-seen-popover');
+    if (popover) popover.hidden = true;
+  },
+
   createGMReactionSummaryHTML(msg) {
     const reactions = msg?.reactions && typeof msg.reactions === 'object' ? msg.reactions : {};
     const chips = Object.entries(reactions)
@@ -4411,7 +4477,15 @@ const App = {
     const addButton = this.mode === 'multiplayer'
       ? `<button type="button" class="gm-chat-reaction-add" data-message-id="${this.escapeHtml(msg.id)}" title="React as GameMaster" aria-label="React to message">＋</button>`
       : '';
-    return `<div class="gm-chat-reactions${chips ? ' has-reactions' : ''}">${chips}${addButton}</div>`;
+    return `<div class="gm-chat-reactions${chips ? ' has-reactions' : ''}">${chips}${addButton}${this.createGMSeenChipHTML(msg)}</div>`;
+  },
+
+  createGMSeenChipHTML(msg) {
+    if (!msg || msg.deleted === true) return '';
+    const total = Number(msg.recipientCount) || 0;
+    const seen = Array.isArray(msg.seenBy) ? msg.seenBy.length : 0;
+    if (total <= 0) return '';
+    return `<button type="button" class="gm-chat-seen-chip" data-message-id="${this.escapeHtml(msg.id)}" title="Who has seen this transmission"><span class="gm-chat-seen-icon">&#10003;</span><b>${seen}/${total}</b></button>`;
   },
 
   formatGMPollCountdown(expiresAt) {
@@ -4504,6 +4578,14 @@ const App = {
   },
 
   createGMChatMessageHTML(msg, grouped = false, now = Date.now()) {
+    if (msg.deleted === true) {
+      const deletedBy = msg.deletedBy === '__GM__' ? 'SHADOW BROKER' : '';
+      const byLine = deletedBy ? `<span class="gm-chat-tombstone-by">by ${this.escapeHtml(deletedBy)}</span>` : '';
+      return `<div class="gm-chat-message gm-chat-tombstone" data-message-id="${this.escapeHtml(msg.id)}">
+        <span class="gm-chat-tombstone-icon" aria-hidden="true">&#128465;</span>
+        <strong>TRANSMISSION WITHDRAWN</strong>${byLine}
+      </div>`;
+    }
     if (msg.bloodTribute?.claimed) {
       const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       return `<div class="gm-chat-message blood-tribute-tombstone" data-message-id="${this.escapeHtml(msg.id)}"><strong>☠ BLOOD TRIBUTE CLAIMED</strong><span>${this.escapeHtml(msg.playerName || 'LITTLE HERO')} // ${time}</span></div>`;
@@ -4736,6 +4818,13 @@ const App = {
     document.getElementById('shadow-broker-form')?.classList.remove('editing-message');
   },
 
+  gmMessageDeletable(messageId) {
+    const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
+    if (!msg || msg.deleted === true) return false;
+    if (msg.source === 'bloodTribute' || msg.bloodTribute?.active) return false;
+    return msg.playerId == null && String(msg.playerName || '') === 'SHADOW BROKER';
+  },
+
   openGMMessageActionMenu(event, messageEl) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -4747,6 +4836,8 @@ const App = {
     menu.dataset.messageId = messageId;
     const editButton = menu.querySelector('[data-gm-chat-action="edit"]');
     if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
+    const deleteButton = menu.querySelector('[data-gm-chat-action="delete"]');
+    if (deleteButton) deleteButton.hidden = !this.gmMessageDeletable(messageId);
     const chatMessage = this.chatMessages.find(item => item.id === messageId);
     const tributeButton = menu.querySelector('[data-gm-chat-action="tribute"]');
     const cancelTributeButton = menu.querySelector('[data-gm-chat-action="tribute-cancel"]');

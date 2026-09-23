@@ -17,6 +17,7 @@ const TEST_SESSION = path.join(os.tmpdir(), `asoc-test-session-${process.pid}.js
 const TEST_PLAYER_AUTH_SESSIONS = path.join(os.tmpdir(), `asoc-test-player-auth-sessions-${process.pid}.json`);
 const TEST_MATCHES = path.join(os.tmpdir(), `asoc-test-matches-${process.pid}.json`);
 const TEST_AUTH_FILE = path.join(os.tmpdir(), `asoc-test-auth-${process.pid}.json`);
+const TEST_DATA = path.join(os.tmpdir(), `asoc-test-data-${process.pid}`);
 
 function readArchive(roomCode) {
   try {
@@ -2003,6 +2004,196 @@ async function testFinishGameAftermathLifecycle() {
   closeWs(p1); closeWs(host2);
 }
 
+async function testChatDeleteAndSeen() {
+  const host = await openWs();
+  const room = await createRoom(host);
+
+  // Receipts can only ever be granted by OTHER players, so this scenario needs
+  // a second authenticated identity: a sender never appears in their own read
+  // state and the host socket is never a chat participant.
+  const secondCredentials = {
+    email: `chat-essentials-${process.pid}@asoc.test`,
+    password: 'test-player-password',
+    name: 'SEEN READER'
+  };
+  let secondAuth = await requestJson('/api/auth/player/register', 'POST', secondCredentials);
+  if (secondAuth.status === 400) secondAuth = await requestJson('/api/auth/player/login', 'POST', secondCredentials);
+  assert.ok(secondAuth.status === 200 || secondAuth.status === 201);
+
+  const p1 = await openWs();
+  const p1Join = waitForMessage(p1, m => m.type === 'join:success', 'essentials sender join');
+  p1.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'ESSENTIALS SENDER' }));
+  const joined1 = await p1Join;
+
+  const p2 = await openWs();
+  const p2Join = waitForMessage(p2, m => m.type === 'join:success', 'essentials reader join');
+  p2.send(JSON.stringify({ type: 'room:join', authToken: secondAuth.data.token, roomCode: room.roomCode, name: 'SEEN READER' }));
+  const joined2 = await p2Join;
+
+  await delay(450); // identity-scoped chat cooldown from the previous suite
+
+  // ------------- DELETE -------------
+  const targetUpdate = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'DELETE THIS'), 'delete target message');
+  p1.send(JSON.stringify({ type: 'chat:guess', text: 'DELETE THIS' }));
+  const targetState = await targetUpdate;
+  const target = targetState.messages.find(x => x.text === 'DELETE THIS');
+  assert.ok(target);
+  // Recipient snapshot counts connected peers only -- never the sender, never
+  // the Shadow Broker socket.
+  assert.equal(target.recipientCount, 1);
+  assert.ok(target.recipientIds.includes(joined2.playerId));
+  assert.ok(!target.recipientIds.includes(joined1.playerId), 'the sender is never a recipient');
+  assert.deepEqual(target.seenBy, []);
+
+  // DELETE A: the host socket cannot delete a hero's transmission.
+  const hostDenied = waitForMessage(host, m => m.type === 'error' && /own transmissions/i.test(m.message || ''), 'host delete denied');
+  host.send(JSON.stringify({ type: 'chat:delete', messageId: target.id }));
+  await hostDenied;
+
+  // DELETE D: no player can delete another player's message.
+  const foreignDenied = waitForMessage(p2, m => m.type === 'error' && /your own messages/i.test(m.message || ''), 'foreign delete denied');
+  p2.send(JSON.stringify({ type: 'chat:delete', messageId: target.id }));
+  await foreignDenied;
+
+  // DELETE B: the owner deletes; every surface gets an in-place tombstone that
+  // preserves the slot and author identity but exposes zero content/receipts.
+  const tombstoneSeen = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.id === target.id && x.deleted === true), 'delete tombstone');
+  p1.send(JSON.stringify({ type: 'chat:delete', messageId: target.id }));
+  const tombstoneState = await tombstoneSeen;
+  const tombstone = tombstoneState.messages.find(x => x.id === target.id);
+  assert.equal(tombstone.deleted, true);
+  assert.equal(tombstone.text, '');
+  assert.equal(typeof tombstone.deletedAt, 'number');
+  assert.equal(tombstone.playerId, joined1.playerId, 'author identity survives deletion');
+  for (const hidden of ['seenBy', 'reactions', 'imageUrl', 'poll', 'gif', 'recipientCount', 'recipientIds']) {
+    assert.ok(!(hidden in tombstone), `tombstone exposes no ${hidden}`);
+  }
+
+  // DELETE C: re-deleting an already-deleted message is an idempotent no-op.
+  const alreadyDeleted = waitForMessage(p1, m => m.type === 'error' && /already deleted/i.test(m.message || ''), 'duplicate delete rejected');
+  p1.send(JSON.stringify({ type: 'chat:delete', messageId: target.id }));
+  await alreadyDeleted;
+
+  // DELETE E: a Blood Tribute in progress is permanently shielded. Marking
+  // requires an actual chat image, so upload a minimal PNG through the real
+  // authenticated upload path first.
+  const minimalPng = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(4)]);
+  const imageAppearing = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.messageType === 'image' && x.playerId === joined1.playerId), 'uploaded chat image');
+  const upload = await new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: '127.0.0.1', port: PORT,
+      path: '/api/chat/image?caption=TRIBUTE%20ASSET',
+      method: 'POST',
+      headers: {
+        'content-type': 'image/png',
+        'content-length': minimalPng.length,
+        'x-player-token': TEST_PLAYER_TOKEN
+      }
+    }, res => {
+      let raw = '';
+      res.on('data', chunk => { raw += chunk; });
+      res.on('end', () => { try { resolve({ status: res.statusCode, data: raw ? JSON.parse(raw) : {} }); } catch { resolve({ status: res.statusCode, data: {} }); } });
+    });
+    req.on('error', reject);
+    req.write(minimalPng);
+    req.end();
+  });
+  assert.equal(upload.status, 201, 'image upload must succeed');
+  const imageState = await imageAppearing;
+  const tributeImage = imageState.messages.find(x => x.messageType === 'image' && x.playerId === joined1.playerId);
+
+  const marked = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.id === tributeImage.id && x.bloodTribute?.active === true), 'tribute marked');
+  host.send(JSON.stringify({ type: 'gm:bloodTributeMark', messageId: tributeImage.id }));
+  await marked;
+
+  const tributeDenied = waitForMessage(p1, m => m.type === 'error' && /blood Tributes are permanent/i.test(m.message || ''), 'tribute delete denied');
+  p1.send(JSON.stringify({ type: 'chat:delete', messageId: tributeImage.id }));
+  await tributeDenied;
+
+  // The slot is visibly untouched after the rejection -- only a cancellation is
+  // legal, and even that must not have deleted anything.
+  const cancelled = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.id === tributeImage.id && !x.bloodTribute && x.deleted !== true), 'tribute cancel keeps image');
+  host.send(JSON.stringify({ type: 'gm:bloodTributeCancel', messageId: tributeImage.id }));
+  const cancelState = await cancelled;
+  const survivingImage = cancelState.messages.find(x => x.id === tributeImage.id);
+  assert.notEqual(survivingImage.deleted, true, 'Blood Tribute survives a delete attempt');
+  assert.equal(typeof survivingImage.imageUrl, 'string', 'the tribute image message is still present');
+
+  // DELETE (broker path): the host CAN tombstone its own transmissions, and a
+  // reader still cannot.
+  const brokerAppearing = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'shadowBroker' && x.text === 'BROKER SIGNOFF'), 'broker message');
+  host.send(JSON.stringify({ type: 'gm:broadcast', text: 'BROKER SIGNOFF' }));
+  const brokerState = await brokerAppearing;
+  const brokerMessage = brokerState.messages.find(x => x.source === 'shadowBroker' && x.text === 'BROKER SIGNOFF');
+  const brokerForeignDenied = waitForMessage(p2, m => m.type === 'error' && /your own messages/i.test(m.message || ''), 'broker delete denied for peer');
+  p2.send(JSON.stringify({ type: 'chat:delete', messageId: brokerMessage.id }));
+  await brokerForeignDenied;
+  const brokerGone = waitForMessage(p2, m => m.type === 'chat:update' && m.messages?.some(x => x.id === brokerMessage.id && x.deleted === true && x.text === ''), 'broker tombstone');
+  host.send(JSON.stringify({ type: 'chat:delete', messageId: brokerMessage.id }));
+  await brokerGone;
+
+  // ------------- SEEN -------------
+  await delay(450);
+  const readUpdate = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === 'READ RECEIPT'), 'seen target');
+  p1.send(JSON.stringify({ type: 'chat:guess', text: 'READ RECEIPT' }));
+  const readState = await readUpdate;
+  const readTarget = readState.messages.find(x => x.text === 'READ RECEIPT');
+  assert.ok(Array.isArray(readTarget.seenBy));
+  assert.equal(readTarget.seenBy.length, 0, 'a fresh message starts with no receipts');
+  assert.equal(readTarget.recipientCount, 1);
+
+  // SEEN A: a peer's viewport sighting grants a durable server-side receipt.
+  const receiptGranted = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.id === readTarget.id && (x.seenBy || []).some(r => r.playerId === joined2.playerId)), 'seen receipt recorded');
+  p2.send(JSON.stringify({ type: 'chat:seen', messageId: readTarget.id }));
+  const grantedState = await receiptGranted;
+  const grantedMessage = grantedState.messages.find(x => x.id === readTarget.id);
+  assert.equal(grantedMessage.seenBy.length, 1);
+  assert.ok(Number(grantedMessage.seenBy[0].seenAt) > 0);
+
+  // SEEN B (duplicate reports idle), SEEN C (self-read skipped), SEEN D (host
+  // socket skipped) and SEEN E (identity always from the authenticated socket,
+  // never from the payload): batch the abusive submissions, then force a single
+  // broadcast and re-inspect the exact receipt list.
+  p2.send(JSON.stringify({ type: 'chat:seen', messageId: readTarget.id }));
+  p2.send(JSON.stringify({ type: 'chat:seen', messageId: readTarget.id, playerId: 'spoofed-identity' }));
+  p1.send(JSON.stringify({ type: 'chat:seen', messageId: readTarget.id }));
+  p1.send(JSON.stringify({ type: 'chat:seen', messageId: readTarget.id, playerId: 'p1-spoof' }));
+  host.send(JSON.stringify({ type: 'chat:seen', messageId: readTarget.id }));
+  await delay(250);
+  const afterAbuse = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.id === readTarget.id), 'state after seen abuse');
+  p1.send(JSON.stringify({ type: 'chat:react', messageId: readTarget.id, emoji: '💀' }));
+  const abuseState = await afterAbuse;
+  const abuseMessage = abuseState.messages.find(x => x.id === readTarget.id);
+  assert.equal(abuseMessage.seenBy.length, 1, 'duplicate, spoofed, self and host seen reports are all inert');
+  assert.equal(abuseMessage.seenBy[0].playerId, joined2.playerId);
+
+  // SEEN F: receipts can never land on a tombstone.
+  p2.send(JSON.stringify({ type: 'chat:seen', messageId: target.id })); // deleted transmission
+  p2.send(JSON.stringify({ type: 'chat:seen', messageId: brokerMessage.id })); // deleted broker line
+  await delay(250);
+  const afterTombstoneProbe = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.id === readTarget.id), 'state after tombstone seen probe');
+  p1.send(JSON.stringify({ type: 'chat:react', messageId: readTarget.id, emoji: '💀' }));
+  const probeState = await afterTombstoneProbe;
+  const tombstoneProbe = probeState.messages.find(x => x.id === target.id);
+  assert.ok(!('seenBy' in tombstoneProbe), 'tombstones never carry receipts');
+
+  // SEEN G: the recipient snapshot is fixed at send time -- a reader who then
+  // disconnects stays counted in the snapshot of the message they were present
+  // for, and stays nameable by id.
+  closeWs(p2);
+  await delay(250);
+  const afterReaderLeft = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(x => x.id === readTarget.id), 'state after reader departure');
+  p1.send(JSON.stringify({ type: 'chat:react', messageId: readTarget.id, emoji: '💀' }));
+  const departureState = await afterReaderLeft;
+  const departedSnapshot = departureState.messages.find(x => x.id === readTarget.id);
+  assert.equal(departedSnapshot.recipientCount, 1, 'send-time snapshot outlives the reader');
+  assert.ok(departedSnapshot.recipientIds.includes(joined2.playerId));
+
+  console.log('PASS chat delete + seen receipts: tombstones, GM/player policy, tribute shield, receipt idempotence, send-time snapshot');
+  closeWs(p1);
+  closeWs(host);
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ['server.js'], {
@@ -2015,6 +2206,7 @@ function startServer() {
         ASOC_AUTH_FILE: TEST_AUTH_FILE,
         ASOC_PLAYER_AUTH_SESSIONS_FILE: TEST_PLAYER_AUTH_SESSIONS,
         ASOC_MATCHES_FILE: TEST_MATCHES,
+        ASOC_DATA_DIR: TEST_DATA,
         ASOC_GM_PASSWORD: 'test-gm-password',
         ASOC_EMAIL_VERIFICATION: '0'
       },
@@ -2072,6 +2264,7 @@ function startServer() {
     await testColumnScoreAfterFinal();
     await testRecountShowFlow();
     await testFinishGameAftermathLifecycle();
+    await testChatDeleteAndSeen();
     server = await testCrashRecovery(server);
     server = await testUnarmedMasterRoomRecovery(server);
     server = await testCrashInjectionPersistence(server);
@@ -2090,5 +2283,6 @@ function startServer() {
     try { fs.unlinkSync(TEST_AUTH_FILE + '.tmp'); } catch {}
     try { fs.unlinkSync(TEST_MATCHES); } catch {}
     try { fs.unlinkSync(TEST_MATCHES + '.bak'); } catch {}
+    try { fs.rmSync(TEST_DATA, { recursive: true, force: true }); } catch {}
   }
 })();
