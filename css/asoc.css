@@ -16906,29 +16906,26 @@ button.gm-chat-gif-link:focus-visible {
 /* ASOC /ROLL SYSTEM EVENT */
 .asoc-roll-entry {
   --roll-color: hsl(0 92% 48%);
-  display: grid;
-  grid-template-columns: auto auto auto minmax(2.4rem,auto) auto;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  width: min(100%, 430px);
-  margin: 6px auto;
-  padding: 7px 12px;
-  border: 1px solid color-mix(in srgb, var(--roll-color) 42%, #30343a);
-  border-radius: 5px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--roll-color) 9%, #111317) 30%, color-mix(in srgb, var(--roll-color) 9%, #111317) 70%, transparent);
-  box-shadow: inset 0 0 18px color-mix(in srgb, var(--roll-color) 7%, transparent);
-  font-family: var(--font-system);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  width:min(100%,430px);
+  margin:7px auto;
+  padding:8px 14px;
+  border:1px solid color-mix(in srgb,var(--roll-color) 72%,#343a42);
+  border-radius:6px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--roll-color) 18%,#0d1116),color-mix(in srgb,var(--roll-color) 28%,#11161c),color-mix(in srgb,var(--roll-color) 18%,#0d1116));
+  box-shadow:inset 0 0 22px color-mix(in srgb,var(--roll-color) 16%,transparent),0 0 10px color-mix(in srgb,var(--roll-color) 18%,transparent);
+  font-family:var(--font-system);
 }
-.asoc-roll-die { font-size: .9rem; filter: grayscale(.35); }
-.asoc-roll-name { color: #d9dde2; font-weight: 850; font-size: .66rem; letter-spacing: .07em; text-transform: uppercase; }
-.asoc-roll-label,.asoc-roll-range { color: #747d87; font-size: .52rem; font-weight: 800; letter-spacing: .12em; }
-.asoc-roll-value { color: var(--roll-color); font-size: 1.32rem; line-height: 1; font-weight: 950; text-align: center; text-shadow: 0 0 9px color-mix(in srgb, var(--roll-color) 58%, transparent); }
-.asoc-roll-entry.roll-max { border-color: color-mix(in srgb, var(--roll-color) 78%, #fff); box-shadow: inset 0 0 24px color-mix(in srgb, var(--roll-color) 12%, transparent), 0 0 12px color-mix(in srgb, var(--roll-color) 20%, transparent); }
-.asoc-roll-entry.roll-min .asoc-roll-value { text-shadow: 0 0 11px color-mix(in srgb, var(--roll-color) 72%, transparent); }
-@media (max-width: 560px) {
-  .asoc-roll-entry { grid-template-columns: auto auto auto minmax(2rem,auto); gap: 5px; padding: 7px 8px; }
-  .asoc-roll-range { grid-column: 2 / -1; }
+.asoc-roll-name { color:#f2f4f6; font-weight:850; font-size:.69rem; letter-spacing:.06em; }
+.asoc-roll-label { color:#aab1b9; font-size:.64rem; font-weight:800; letter-spacing:.04em; text-transform:lowercase; }
+.asoc-roll-value { color:var(--roll-color); font-size:1.18rem; line-height:1; font-weight:950; text-align:center; text-shadow:0 0 8px color-mix(in srgb,var(--roll-color) 80%,transparent),0 0 16px color-mix(in srgb,var(--roll-color) 42%,transparent); }
+.asoc-roll-entry.roll-max { border-color:color-mix(in srgb,var(--roll-color) 88%,#fff); box-shadow:inset 0 0 28px color-mix(in srgb,var(--roll-color) 24%,transparent),0 0 16px color-mix(in srgb,var(--roll-color) 36%,transparent); }
+.asoc-roll-entry.roll-min { border-color:color-mix(in srgb,var(--roll-color) 88%,#fff); }
+@media (max-width:560px) {
+  .asoc-roll-entry { width:100%; gap:5px; padding:8px 10px; }
 }
 
 /* CASUAL COMMAND RAIL BOTTOM LOCK

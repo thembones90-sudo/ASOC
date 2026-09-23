@@ -3917,19 +3917,19 @@ const PlayerApp = {
     }
 
     if (msg.messageType === 'roll' && msg.roll) {
-      const value = Math.max(1, Math.min(100, Number(msg.roll.value) || 1));
-      const hue = Math.round(((value - 1) / 99) * 115);
+      const rawValue = Number(msg.roll.value);
+      const min = Number.isFinite(Number(msg.roll.min)) ? Number(msg.roll.min) : 1;
+      const max = Number.isFinite(Number(msg.roll.max)) ? Number(msg.roll.max) : 100;
+      const value = Number.isFinite(rawValue) ? rawValue : min;
+      const ratio = max > min ? Math.max(0, Math.min(1, (value - min) / (max - min))) : 1;
+      const hue = Math.round(ratio * 120);
       const rollColor = `hsl(${hue} 92% 48%)`;
-      const min = Number(msg.roll.min) || 1;
-      const max = Number(msg.roll.max) || 100;
-      const extremeClass = value === 100 ? ' roll-max' : value === 1 ? ' roll-min' : '';
+      const extremeClass = value === max ? ' roll-max' : value === min ? ' roll-min' : '';
       return `
         <div class="asoc-roll-entry${extremeClass}" data-message-id="${this.escapeHtml(msg.id)}" style="--roll-color:${rollColor}">
-          <span class="asoc-roll-die" aria-hidden="true">🎲</span>
           <span class="asoc-roll-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>
-          <span class="asoc-roll-label">ROLLS</span>
-          <strong class="asoc-roll-value">${this.escapeHtml(String(msg.roll.value))}</strong>
-          <span class="asoc-roll-range">(${this.escapeHtml(String(min))}–${this.escapeHtml(String(max))})</span>
+          <span class="asoc-roll-label">rolls</span>
+          <strong class="asoc-roll-value">${this.escapeHtml(String(value))}</strong>
         </div>
       `;
     }

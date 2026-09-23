@@ -4116,7 +4116,7 @@ function addRollMessage(room, playerId, playerName, range) {
     frameColor: liveIdentity.frameColor || '#9B5DE0',
     themeId: liveIdentity.themeId || 'gunmetal',
     themeColor: liveIdentity.themeColor || '#343A42',
-    text: `${playerName} rolls ${value} (${range.min}-${range.max})`,
+    text: `${playerName} rolls ${value}`,
     timestamp: Date.now(),
     messageType: 'roll',
     source: 'roll',
