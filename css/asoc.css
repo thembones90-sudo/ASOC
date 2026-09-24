@@ -3297,6 +3297,22 @@ body.gm-layout-locked .gm-module-height-splitter {
   border-radius: 50%;
 }
 
+.little-hero-avatar.avatar-preview-trigger {
+  cursor: zoom-in;
+  transition: transform .14s ease, filter .14s ease, box-shadow .14s ease;
+}
+
+.little-hero-avatar.avatar-preview-trigger:hover,
+.little-hero-avatar.avatar-preview-trigger:focus-visible {
+  outline: none;
+  transform: scale(1.08);
+  filter: brightness(1.14);
+  box-shadow:
+    inset 0 0 0 1px rgba(10, 12, 16, .9),
+    0 0 0 2px var(--lh-frame),
+    0 0 15px var(--lh-frame);
+}
+
 .little-hero-avatar-fallback {
   color: #d9dde5;
   font-family: var(--font-system);
@@ -14397,6 +14413,37 @@ body.chat-media-preview-open {
   object-fit: contain;
   border-radius: 7px;
 }
+
+.chat-media-lightbox.is-avatar-preview .chat-media-lightbox-shell {
+  width: min(88vw, 560px);
+}
+
+.chat-media-lightbox.is-avatar-preview .chat-media-lightbox-stage {
+  width: min(76vw, 500px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(175, 125, 214, .46);
+  background: radial-gradient(circle at 50% 38%, rgba(77, 43, 92, .34), rgba(5, 7, 9, .98) 72%);
+  box-shadow: inset 0 0 42px rgba(0, 0, 0, .58), 0 0 28px rgba(127, 63, 160, .18);
+}
+
+.chat-media-lightbox.is-avatar-preview .chat-media-lightbox-media {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 7px;
+  image-rendering: auto;
+}
+
+.chat-media-lightbox-caption {
+  margin-top: 10px;
+  color: #d9c3e8;
+  font: 800 11px/1.2 var(--font-machine);
+  letter-spacing: .13em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.chat-media-lightbox-caption[hidden] { display: none !important; }
 
 .chat-media-lightbox-close {
   position: absolute;
