@@ -1238,7 +1238,9 @@ const PlayerApp = {
   send(message) {
     if (this.ws && this.ws.readyState === 1) {
       this.ws.send(JSON.stringify(message));
+      return true;
     }
+    return false;
   },
 
   handleMessage(message) {
@@ -1634,6 +1636,9 @@ const PlayerApp = {
 
       case 'error':
         this.showError(message.message);
+        if (message.code === 'RITUAL_JOIN_REJECTED') {
+          Ritual.showJoinError?.('ritual-overlay-body', message.message);
+        }
         if (this.bloodTribute?.status === 'required') {
           this.tributeUploading = false;
           const tributeStatus = document.getElementById('blood-tribute-status');

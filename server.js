@@ -1355,9 +1355,15 @@ function handleRitualJoin(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   const player = room?.players.get(ws);
   if (!room || !player || player.isTestPersona === true || ws.readyState !== 1) {
-    return sendToWs(ws, { type: 'error', message: 'A connected Little Hero identity is required' });
+    return sendToWs(ws, {
+      type: 'error',
+      code: 'RITUAL_JOIN_REJECTED',
+      message: player?.isTestPersona === true
+        ? 'MASTER MIRROR PERSONAS CANNOT BIND // ENTER WITH A LITTLE HERO ACCOUNT'
+        : 'A CONNECTED LITTLE HERO IDENTITY IS REQUIRED'
+    });
   }
-  if (!room.ritual?.active) return sendToWs(ws, { type: 'error', message: 'No Summon Ritual is currently active' });
+  if (!room.ritual?.active) return sendToWs(ws, { type: 'error', code: 'RITUAL_JOIN_REJECTED', message: 'NO SUMMON RITUAL IS CURRENTLY ACTIVE' });
   const id = String(player.id);
   if (room.ritual.joinedPlayerIds.includes(id)) return; // already bound -- idempotent, no error needed
   room.ritual.joinedPlayerIds.push(id);

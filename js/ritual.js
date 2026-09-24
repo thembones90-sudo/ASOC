@@ -14,6 +14,8 @@ const Ritual = {
   _lastState: null,
   _wasFulfilled: false,
   _assetsPreloaded: false,
+  _joinPending: false,
+  _joinError: '',
 
   // Consulted by timer.js when it renders the START GAME button -- kept as
   // a getter rather than a threaded parameter so neither module has to
@@ -164,16 +166,46 @@ const Ritual = {
     if (!actions) return;
     const canOfferTribute = !ctx.fulfilled && ['NONE', 'REJECTED'].includes(ctx.tributeStatus);
     actions.innerHTML = `
-      <button type="button" class="ritual-join-btn" ${(ctx.iJoined || ctx.fulfilled) ? 'disabled' : ''}>${ctx.iJoined ? 'BOUND TO THE RITUAL' : 'JOIN THE RITUAL'}</button>
+      <button type="button" class="ritual-join-btn" ${(ctx.iJoined || ctx.fulfilled || this._joinPending) ? 'disabled' : ''}>${ctx.iJoined ? 'BOUND TO THE RITUAL' : this._joinPending ? 'BINDING SOUL…' : 'JOIN THE RITUAL'}</button>
+      <div class="ritual-join-feedback" ${this._joinError ? '' : 'hidden'}>${this.escapeHtml(this._joinError)}</div>
       ${canOfferTribute ? `
         <button type="button" class="ritual-tribute-btn">OFFER BLOOD TRIBUTE</button>
         <div class="ritual-tribute-copy">THE RELIQUARY ACCEPTS ALTERNATIVE PAYMENT.</div>
       ` : ''}
     `;
     const joinBtn = actions.querySelector('.ritual-join-btn');
-    if (joinBtn && !ctx.iJoined && !ctx.fulfilled && handlers?.onJoin) joinBtn.onclick = handlers.onJoin;
+    if (ctx.iJoined) {
+      this._joinPending = false;
+      this._joinError = '';
+    }
+    if (joinBtn && !ctx.iJoined && !ctx.fulfilled && !this._joinPending && handlers?.onJoin) {
+      joinBtn.onclick = () => {
+        this._joinPending = true;
+        this._joinError = '';
+        joinBtn.disabled = true;
+        joinBtn.textContent = 'BINDING SOUL…';
+        const sent = handlers.onJoin();
+        if (sent === false) this.showJoinError(el.id, 'RITUAL LINK OFFLINE // RECONNECTING');
+      };
+    }
     const tributeBtn = actions.querySelector('.ritual-tribute-btn');
     if (tributeBtn && handlers?.onOfferTribute) tributeBtn.onclick = handlers.onOfferTribute;
+  },
+
+  showJoinError(containerId, message) {
+    this._joinPending = false;
+    this._joinError = String(message || 'THE RITUAL REJECTED THIS SOUL');
+    const el = document.getElementById(containerId);
+    const feedback = el?.querySelector('.ritual-join-feedback');
+    const button = el?.querySelector('.ritual-join-btn');
+    if (feedback) {
+      feedback.hidden = false;
+      feedback.textContent = this._joinError;
+    }
+    if (button && !button.textContent.includes('BOUND')) {
+      button.disabled = false;
+      button.textContent = 'JOIN THE RITUAL';
+    }
   },
 
   _renderGmDetail(el, ctx, handlers) {
