@@ -3267,32 +3267,26 @@ const App = {
   requestModerationReason(action, playerName) {
     const label = String(action || '').toUpperCase();
     const target = playerName || 'this Little Hero';
-    const reason = prompt(`${label} ${target} // Enter reason (required, max 180 characters):`, '');
-    if (reason === null) return null;
-
-    const cleanReason = reason.trim();
-    if (!cleanReason) {
-      alert('MODERATION ABORTED // A reason is required.');
-      return null;
-    }
-    if (cleanReason.length > 180) {
-      alert('MODERATION ABORTED // Reason must be 180 characters or fewer.');
-      return null;
-    }
-    return cleanReason;
+    return window.AsocDialog.prompt({
+      title: `${label} // ${target}`,
+      message: 'Enter reason (required, max 180 characters):',
+      maxLength: 180,
+      required: true,
+      confirmLabel: label
+    });
   },
 
-  kickPlayer(playerId, playerName) {
+  async kickPlayer(playerId, playerName) {
     if (this.mode !== 'multiplayer' || !playerId) return;
-    const reason = this.requestModerationReason('kick', playerName);
+    const reason = await this.requestModerationReason('kick', playerName);
     if (!reason) return;
     if (!confirm(`Kick ${playerName || 'this Little Hero'} from the Master Room? They can manually rejoin afterwards.\n\nReason: ${reason}`)) return;
     this.send({ type: 'gm:kickPlayer', playerId, reason });
   },
 
-  banPlayer(playerId, playerName) {
+  async banPlayer(playerId, playerName) {
     if (this.mode !== 'multiplayer' || !playerId) return;
-    const reason = this.requestModerationReason('ban', playerName);
+    const reason = await this.requestModerationReason('ban', playerName);
     if (!reason) return;
     if (!confirm(`BAN ${playerName || 'this Little Hero'} from the Master Room? This blocks the authenticated account from rejoining.\n\nReason: ${reason}`)) return;
     this.send({ type: 'gm:banPlayer', playerId, reason });

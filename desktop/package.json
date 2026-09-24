@@ -1,0 +1,51 @@
+{
+  "name": "asoc-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ASOC Engine desktop app",
+  "author": "ASOC",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:local": "electron . --url=http://localhost:8080",
+    "smoke": "electron . --smoke",
+    "smoke:local": "electron . --smoke --url=http://localhost:8080",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.asoc.engine",
+    "productName": "ASOC Engine",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "offline.html",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ASOC Engine",
+      "artifactName": "ASOC-Engine-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "ASOC-Engine-Portable-${version}.${ext}"
+    }
+  }
+}

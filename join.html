@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ASOC - Join Game</title>
   <link rel="icon" type="image/svg+xml" href="/assets/ui/asoc-favicon.svg?v=1">
-  <link rel="stylesheet" href="css/asoc.css?v=20260924-reply-readability-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260924-desktop-1">
   <link rel="stylesheet" href="css/tweaks.css?v=20260923-utility-icon-fix-1">
   <style>
     #join-screen {
@@ -8353,6 +8353,47 @@ position:absolute;
       letter-spacing:.015em !important;
       text-transform:none !important;
     }
+
+    /* HUD UTILITY ROW REPAIR // the older identity-block passes give
+       DISCONNECT, MASTER ACCESS and TWEAKS width:100% !important for the
+       two-column grid. The AMUSEMENT PARK header lays the same controls out
+       as one nowrap flex row, so each became a full-row-wide button and
+       pushed MASTER ACCESS and TWEAKS off-screen. In the row they size to
+       their label. Its display:inline-flex !important also overrode [hidden],
+       leaving DISCONNECT visible in Master Mirror tabs; [hidden] wins in
+       every mode. */
+    #game-screen .hero-hud-identity-block > [hidden] {
+      display:none !important;
+    }
+    /* The desktop layout pass forces overflow:hidden !important on the
+       status slab, which beat the original .master-access-open escape and
+       cropped the dropdown to a sliver under its trigger. */
+    #game-screen .detainee-status-module.master-access-open {
+      z-index:40 !important;
+      overflow:visible !important;
+      clip-path:none !important;
+    }
+    #game-screen.room-mode-casual .hero-hud-identity-block .player-master-access-wrap {
+      flex:0 0 auto;
+      width:auto !important;
+    }
+    #game-screen.room-mode-casual .hero-hud-identity-block .hero-utility-btn {
+      width:auto !important;
+    }
+    @media (max-width:760px) {
+      #game-screen.room-mode-casual .hero-hud-identity-block .player-master-access-wrap {
+        flex:1 1 auto;
+      }
+      #game-screen.room-mode-casual .hero-hud-identity-block .player-master-access-control {
+        width:100% !important;
+      }
+      /* The wrapped row puts MASTER ACCESS on the left half, so a
+         right-anchored menu would open off the left edge of the screen. */
+      #game-screen.room-mode-casual .hero-hud-identity-block .player-master-access-menu {
+        left:0;
+        right:auto;
+      }
+    }
 </style>
 </head>
 <body>
@@ -9173,8 +9214,9 @@ position:absolute;
   <script src="js/game-data.js"></script>
   <script src="js/board.js?v=20260921-final-omen-2"></script>
   <script src="js/commander-emojis.js"></script>
+  <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
   <script src="js/chat-media-preview.js?v=20260924-avatar-preview-1"></script>
-  <script src="js/player.js?v=20260924-avatar-preview-1"></script>
+  <script src="js/player.js?v=20260924-desktop-1"></script>
   <script src="js/threefold.js?v=20260923-minigames-dock-1"></script>
   <script src="js/unstable-concoction.js?v=20260924-toxic-drop-1"></script>
   <script src="js/tweaks.js?v=20260922-casual-header-redesign-2"></script>
