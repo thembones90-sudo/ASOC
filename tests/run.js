@@ -58,6 +58,7 @@ function requestJson(urlPath, method = 'GET', body = null, headers = {}) {
 let TEST_GM_TOKEN = '';
 let TEST_PLAYER_TOKEN = '';
 let TEST_PLAYER_ID = '';
+let RITUAL_TEST_ACCOUNTS = [];
 
 function waitForMessage(ws, predicate, label, timeout = 5000) {
   return new Promise((resolve, reject) => {
@@ -102,10 +103,53 @@ function openWs() {
   });
 }
 
+async function ensureRitualTestAccounts() {
+  if (RITUAL_TEST_ACCOUNTS.length === 5) return RITUAL_TEST_ACCOUNTS;
+
+  const accounts = [];
+  for (let index = 1; index <= 5; index++) {
+    const credentials = {
+      email: `ritual-gate-${process.pid}-${index}@asoc.test`,
+      password: 'ritual-gate-password',
+      name: `RITUAL GATE ${index}`
+    };
+    let response = await requestJson('/api/auth/player/register', 'POST', credentials);
+    if (response.status === 400) response = await requestJson('/api/auth/player/login', 'POST', credentials);
+    assert.ok(response.status === 200 || response.status === 201, `ritual voter ${index} authenticates`);
+    accounts.push({ token: response.data.token, name: credentials.name });
+  }
+  RITUAL_TEST_ACCOUNTS = accounts;
+  return accounts;
+}
+
 async function startBattle(host) {
-  const started = waitForMessage(host, m => m.type === 'state:public' && m.roomMode === 'BATTLE', 'battle mode start');
-  host.send(JSON.stringify({ type: 'gm:timerStart' }));
-  return started;
+  const voters = [];
+  try {
+    for (const account of await ensureRitualTestAccounts()) {
+      const ws = await openWs();
+      const joined = waitForMessage(ws, m => m.type === 'join:success', `${account.name} ritual join`);
+      ws.send(JSON.stringify({ type: 'room:join', authToken: account.token, roomCode: 'MASTER', name: account.name }));
+      await joined;
+      voters.push(ws);
+    }
+
+    for (let index = 0; index < voters.length; index++) {
+      const expectedCount = index + 1;
+      const vote = waitForMessage(
+        host,
+        m => m.type === 'ritual:gmUpdate' && m.ritual?.joinedCount === expectedCount,
+        `ritual vote ${expectedCount}`
+      );
+      voters[index].send(JSON.stringify({ type: 'ritual:join' }));
+      await vote;
+    }
+
+    const started = waitForMessage(host, m => m.type === 'state:public' && m.roomMode === 'BATTLE', 'battle mode start');
+    host.send(JSON.stringify({ type: 'gm:timerStart' }));
+    return await started;
+  } finally {
+    voters.forEach(closeWs);
+  }
 }
 
 async function createRoom(host, { startBattle: shouldStartBattle = true } = {}) {
@@ -817,8 +861,8 @@ async function testAuthoritativeGameLost() {
   player.send(JSON.stringify({ type: 'room:join', authToken: TEST_PLAYER_TOKEN, roomCode: room.roomCode, name: 'LOSS TEST' }));
   await joined;
 
+  await startBattle(host);
   const borrowed = waitForMessage(host, m => m.type === 'state:public' && m.timer?.phase === 'borrowed', 'borrowed time transition');
-  host.send(JSON.stringify({ type: 'gm:timerStart' }));
   host.send(JSON.stringify({ type: 'gm:timerAdjust', deltaMs: -99 * 60 * 1000 }));
   await borrowed;
 

@@ -39,7 +39,7 @@ function victory(reduce){
     document:{querySelector(){return null},querySelectorAll(){return [board]},createElement:element,body:{appendChild(){}}},
     setTimeout(fn,ms){timers.push({fn,ms});return timers.length},clearTimeout(){}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../js/skeleton.js'),'utf8'),ctx);
-  const result=ctx.window.Skeleton.playGameWon({finalSolution:'TEST'},{onStage:s=>stages.push(s)});
+  const result=ctx.window.Skeleton.playGameWon({finalSolution:'TEST'},{onStage:s=>stages.push(s),afterMatch:false});
   return {result,timers,stages,animations};
 }
 const reduced=victory(true);
@@ -54,7 +54,7 @@ assert.deepEqual(reduced.stages,['won','done']);
 const ordinary=victory(false);
 assert.match(ordinary.result.className,/is-live is-neural-prelude/);
 assert.equal(ordinary.animations.length,4);
-assert.deepEqual(ordinary.timers.map(t=>t.ms),[900,2200,16700]);
+assert.deepEqual(ordinary.timers.map(t=>t.ms),[900,2200,4500,5500]);
 assert.deepEqual(ordinary.stages,['verifying']);
 ordinary.timers[1].fn();
 assert.deepEqual(ordinary.stages,['verifying','won']);

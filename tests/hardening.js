@@ -192,6 +192,18 @@ async function startBattle(ws) {
   return stateP;
 }
 
+async function fulfillRitual(hostWs, playerSockets) {
+  for (let index = 0; index < playerSockets.length; index++) {
+    const expectedCount = index + 1;
+    const update = wait(hostWs, m => (
+      m.type === 'ritual:gmUpdate' && m.ritual?.joinedCount === expectedCount
+    ), `ritual vote ${expectedCount}`);
+    playerSockets[index].send(JSON.stringify({ type: 'ritual:join' }));
+    await update;
+  }
+  assert.equal(activeRoom().ritual.fulfilled, true, 'hardening battle gate is fulfilled through real player votes');
+}
+
 async function guess(player, host, text) {
   const seenP = wait(host, m => m.type === 'chat:update' && m.messages?.some(x => x.text === text), 'chat guess');
   player.send(JSON.stringify({ type: 'chat:guess', text }));
@@ -274,9 +286,15 @@ function testSessionStoreRecovery() {
 
     const one = await register('hard-one@example.test', 'HARD ONE');
     const two = await register('hard-two@example.test', 'HARD TWO');
+    const three = await register('hard-three@example.test', 'HARD THREE');
+    const four = await register('hard-four@example.test', 'HARD FOUR');
+    const five = await register('hard-five@example.test', 'HARD FIVE');
 
     const p1 = await joinPlayer(one.token, 'HARD TWO');
     const p2 = await joinPlayer(two.token, 'HARD ONE');
+    const p3 = await joinPlayer(three.token, 'HARD THREE');
+    const p4 = await joinPlayer(four.token, 'HARD FOUR');
+    const p5 = await joinPlayer(five.token, 'HARD FIVE');
     assert.equal(p1.joined.littleHero.name, 'HARD ONE', 'client cannot spoof another display name');
     assert.equal(p1.joined.playerId, one.player.id, 'authenticated account id is canonical room identity');
     const profiles = JSON.parse(fs.readFileSync(PLAYERS, 'utf8'));
@@ -284,6 +302,7 @@ function testSessionStoreRecovery() {
     assert.ok(profiles['hard one'] === undefined, 'legacy profile is moved, not duplicated');
 
     const host = await armHost(gm.data.token);
+    await fulfillRitual(host.ws, [p1.ws, p2.ws, p3.ws, p4.ws, p5.ws]);
     await startBattle(host.ws);
     const armedBefore = activeRoom();
     const duplicateP = wait(host.ws, m => m.type === 'error' && m.code === 'MASTER_ALREADY_ARMED', 'duplicate arm rejection');
@@ -300,6 +319,7 @@ function testSessionStoreRecovery() {
     host.ws.send(JSON.stringify({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: commandId }));
     await replayAck;
     assert.equal(activeRoom().boardId, resetBoardId, 'replayed cmdId cannot apply mutation twice');
+    await fulfillRitual(host.ws, [p1.ws, p2.ws, p3.ws, p4.ws, p5.ws]);
     await startBattle(host.ws);
 
     await delay(400);
@@ -334,6 +354,12 @@ function testSessionStoreRecovery() {
     recoveredHost.send(JSON.stringify({ type: 'host:recover', gmToken: gm2.data.token }));
     await recoveredP;
 
+    // A hard process restart closes every player socket. Reconnect the real
+    // authenticated identities before exercising WOMF: production correctly
+    // refuses offline or hand-crafted Wheel segment names.
+    const wheelP1 = await joinPlayer(one.token, 'HARD ONE');
+    const wheelP2 = await joinPlayer(two.token, 'HARD TWO');
+
     await sendCommand(recoveredHost, 'resetBoard', {}, 'wheel-reset-' + Date.now());
     await chargeWomf(recoveredHost);
     const wheelOpen = wait(recoveredHost, m => m.type === 'state:public' && m.wheel?.open === true, 'wheel open');
@@ -350,6 +376,9 @@ function testSessionStoreRecovery() {
     const settled = activeRoom();
     assert.equal(settled.wheel.phase, 'result', 'wheel settles after hard restart');
     assert.equal(settled.pendingTribute || null, null, 'wheel result survives restart without hiding itself behind Tribute debt');
+
+    wheelP1.ws.close();
+    wheelP2.ws.close();
 
     console.log('ALL HARDENING REGRESSIONS PASSED');
     await stopServer();

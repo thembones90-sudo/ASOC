@@ -864,8 +864,10 @@ const Skeleton = (() => {
 
     if (reducedMotion) {
       onStage('won');
-      gameWonTimers.push(setTimeout(() => overlay.classList.add('is-aftermath-exit'), 1200));
-      gameWonTimers.push(setTimeout(() => {
+      let dismissed = false;
+      overlay.addEventListener('click', () => {
+        if (dismissed) return;
+        dismissed = true;
         overlay.remove();
         onStage('done');
         if (options.afterMatch !== false) {
@@ -874,7 +876,7 @@ const Skeleton = (() => {
             onContinue: options.onAftermathContinue
           });
         }
-      }, 1550));
+      }, { once: true });
       return overlay;
     }
 
