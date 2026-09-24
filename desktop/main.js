@@ -13,6 +13,10 @@ const urlArg = process.argv.find(arg => arg.startsWith('--url='));
 const START_URL = new URL((urlArg && urlArg.slice(6)) || process.env.ASOC_DESKTOP_URL || DEFAULT_URL);
 const ORIGIN = START_URL.origin;
 const SMOKE_TEST = process.argv.includes('--smoke');
+// A smoke run must not collide with the player's open app: with a shared
+// profile it would lose the single-instance lock, quit with exit 0 and
+// report a pass without loading anything.
+if (SMOKE_TEST) app.setPath('userData', path.join(app.getPath('temp'), 'asoc-desktop-smoke'));
 const ICON = path.join(__dirname, 'build', 'icon.png');
 const OFFLINE_PAGE = path.join(__dirname, 'offline.html');
 const STATE_FILE = path.join(app.getPath('userData'), 'window-state.json');
@@ -200,7 +204,7 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-if (!app.requestSingleInstanceLock()) {
+if (!SMOKE_TEST && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => {
