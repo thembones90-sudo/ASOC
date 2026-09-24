@@ -34,11 +34,11 @@ const Ritual = {
   pentagonHTML() {
     return `
       <div class="ritual-pentagon" aria-hidden="true">
-        <img class="ritual-platform" src="assets/ritual/summon-platform.png?v=20260924-runes-1" alt="">
+        <img class="ritual-platform" src="assets/ritual/summon-platform.png?v=20260924-crystal-glow-1" alt="">
         ${[0, 1, 2, 3, 4].map((i) => {
           const runeNumber = String(i + 1).padStart(2, '0');
           return `<span class="ritual-crystal ritual-rune-slot" data-crystal-index="${i}">
-            <img class="ritual-rune-image" src="assets/ritual/rune-${runeNumber}-idle.png?v=20260924-runes-1" data-idle-src="assets/ritual/rune-${runeNumber}-idle.png?v=20260924-runes-1" data-active-src="assets/ritual/rune-${runeNumber}-active.png?v=20260924-runes-1" alt="">
+            <img class="ritual-rune-image" src="assets/ritual/rune-${runeNumber}-idle.png?v=20260924-crystal-glow-1" data-idle-src="assets/ritual/rune-${runeNumber}-idle.png?v=20260924-crystal-glow-1" data-active-src="assets/ritual/rune-${runeNumber}-active.png?v=20260924-crystal-glow-1" alt="">
             <em class="ritual-soul-name">AWAITING</em>
           </span>`;
         }).join('')}
@@ -54,7 +54,7 @@ const Ritual = {
       return [`rune-${id}-idle.png`, `rune-${id}-active.png`];
     })].forEach((file) => {
       const image = new Image();
-      image.src = `assets/ritual/${file}?v=20260924-runes-1`;
+      image.src = `assets/ritual/${file}?v=20260924-crystal-glow-1`;
     });
   },
 

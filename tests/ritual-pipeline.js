@@ -140,12 +140,22 @@ async function main() {
   }
 
   const ritualSource = fs.readFileSync(path.join(ROOT, 'js', 'ritual.js'), 'utf8');
+  const ritualStyles = fs.readFileSync(path.join(ROOT, 'css', 'asoc.css'), 'utf8');
   assert.match(ritualSource, /nowActive \? runeImage\.dataset\.activeSrc : runeImage\.dataset\.idleSrc/);
   assert.match(ritualSource, /const nowActive = byBlood \? true : index < joinedCount/);
+  assert.match(ritualStyles, /\.ritual-crystal\.is-active::before[^}]*animation:\s*ritual-crystal-glow/);
+  assert.match(ritualStyles, /\.ritual-crystal-wake::after[^}]*animation:\s*ritual-crystal-ignition-ring/);
+  assert.match(ritualStyles, /prefers-reduced-motion:\s*reduce[\s\S]*\.ritual-crystal\.is-active::before/);
+  for (let index = 1; index <= 5; index++) {
+    const id = String(index).padStart(2, '0');
+    const idle = fs.readFileSync(path.join(ROOT, 'assets', 'ritual', `rune-${id}-idle.png`));
+    const active = fs.readFileSync(path.join(ROOT, 'assets', 'ritual', `rune-${id}-active.png`));
+    assert.notDeepEqual(active, idle, `rune ${id} has a distinct illuminated asset`);
+  }
 
   players.forEach(({ ws }) => ws.close());
   host.close();
-  console.log('PASS ritual vote pipeline and beacon asset switching');
+  console.log('PASS ritual vote pipeline, five beacon asset switches, persistent glow and reduced-motion fallback');
 }
 
 main().catch(error => {
