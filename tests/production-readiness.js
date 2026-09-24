@@ -56,6 +56,25 @@ function getHealth(port) {
   });
 }
 
+// Multiple synchronous console.log calls in the same server.listen()
+// callback are not guaranteed to land in the parent's piped stdout as one
+// chunk -- waitForReady() resolving on the first line ("...server running")
+// does not guarantee a later line from that same callback ("[recovery] ...")
+// has been received yet. Poll for it too instead of asserting once,
+// immediately after waitForReady.
+function waitForOutput(instance, substring, timeoutMs = 2000) {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const poll = () => {
+      if (instance.output().includes(substring)) return resolve();
+      if (instance.child.exitCode !== null) return reject(new Error(`Server exited before printing "${substring}":\n${instance.output()}`));
+      if (Date.now() - started > timeoutMs) return reject(new Error(`Timed out waiting for "${substring}":\n${instance.output()}`));
+      setTimeout(poll, 20);
+    };
+    poll();
+  });
+}
+
 function waitForExit(child, timeoutMs = 7000) {
   return new Promise((resolve, reject) => {
     if (child.exitCode !== null) return resolve(child.exitCode);
@@ -73,7 +92,7 @@ function waitForExit(child, timeoutMs = 7000) {
     const health = await getHealth(first.port);
     assert.equal(health.status, 200);
     assert.deepEqual(health.body, { ok: true, service: 'asoc-engine', status: 'ready' });
-    assert.ok(first.output().includes(`[persistence] Durable data directory: ${DATA_DIR}`));
+    await waitForOutput(first, `[persistence] Durable data directory: ${DATA_DIR}`);
     assert.equal(fs.readdirSync(DATA_DIR).some(name => name.startsWith('.asoc-write-probe-')), false);
 
     first.child.send({ type: 'asoc:test-shutdown' });
@@ -87,7 +106,7 @@ function waitForExit(child, timeoutMs = 7000) {
 
     restored = startServer();
     await waitForReady(restored);
-    assert.ok(restored.output().includes('[recovery] 1 room(s) available for reconnect'), restored.output());
+    await waitForOutput(restored, '[recovery] 1 room(s) available for reconnect');
     assert.equal((await getHealth(restored.port)).status, 200);
     restored.child.send({ type: 'asoc:test-shutdown' });
     assert.equal(await waitForExit(restored.child), 0, restored.output());

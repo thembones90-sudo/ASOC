@@ -14,6 +14,7 @@ const TRIGGER = path.join(DATA, 'FAIL-DURABILITY');
 const ACTIVE = path.join(DATA, 'active-rooms.json');
 const PLAYERS = path.join(DATA, 'players.json');
 let server = null;
+let serverOutput = ''; // tail of the current server process's stdout+stderr, for failure diagnostics
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -90,19 +91,19 @@ async function startServer() {
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
-  let output = '';
-  server.stdout.on('data', c => { output += c; });
-  server.stderr.on('data', c => { output += c; });
+  serverOutput = '';
+  server.stdout.on('data', c => { serverOutput += c; });
+  server.stderr.on('data', c => { serverOutput += c; });
   const start = Date.now();
   while (Date.now() - start < 10000) {
-    if (server.exitCode !== null) throw new Error('Server exited during startup:\n' + output);
+    if (server.exitCode !== null) throw new Error('Server exited during startup:\n' + serverOutput);
     try {
       const health = await request('/health');
       if (health.status === 200) return server;
     } catch {}
     await delay(50);
   }
-  throw new Error('Server readiness timeout:\n' + output);
+  throw new Error('Server readiness timeout:\n' + serverOutput);
 }
 
 async function stopServer(hard = false) {
@@ -385,6 +386,7 @@ function testSessionStoreRecovery() {
     fs.rmSync(DATA, { recursive: true, force: true });
   } catch (error) {
     console.error('HARDENING TEST FAILURE:', error);
+    if (serverOutput) console.error('--- server output tail ---\n' + serverOutput.slice(-4000));
     try { await stopServer(true); } catch {}
     process.exitCode = 1;
   }

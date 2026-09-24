@@ -863,6 +863,9 @@ const Skeleton = (() => {
     if (!live) return overlay;
 
     if (reducedMotion) {
+      // Reduced motion means immediate and user-dismissed, never a forced
+      // wait: no prelude, no timed ceremony, no auto-advance. The overlay
+      // shows the result at once and only moves on when the viewer clicks.
       onStage('won');
       let dismissed = false;
       overlay.addEventListener('click', () => {
