@@ -17648,69 +17648,34 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
   color: #f1e6ff;
 }
 
-/* Pentagon + 5 crystal nodes, positioned at the polygon's own vertices. */
+/* Modular summoning platform + five independent rune seals. */
 .ritual-pentagon { position: relative; width: 168px; height: 168px; margin: 6px auto 14px; }
-.ritual-pentagon-lines { width: 100%; height: 100%; overflow: visible; }
-.ritual-pentagon-outline {
-  fill: none;
-  stroke: rgba(150, 90, 190, 0.28);
-  stroke-width: 2;
-}
-.ritual-pentagram-star {
-  fill: none;
-  stroke: rgba(190, 116, 255, 0.28);
-  stroke-width: 1.5;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 4px rgba(185, 108, 255, 0.35));
-}
-.ritual-pentagon-fill {
-  fill: none;
-  stroke: #b96cff;
-  stroke-width: 3;
-  stroke-linejoin: round;
-  stroke-dasharray: 620;
-  stroke-dashoffset: calc(620 - (620 * var(--ritual-fill, 0)));
-  filter: drop-shadow(0 0 6px rgba(185, 108, 255, 0.65));
-  transition: stroke-dashoffset 0.6s ease, stroke 0.4s ease;
-}
-.ritual-complete-blood .ritual-pentagon-fill {
-  stroke: #e0344a;
-  filter: drop-shadow(0 0 8px rgba(224, 52, 74, 0.75));
-}
+.ritual-platform { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: brightness(.72) saturate(.72); transition: filter .55s ease; }
+.ritual-complete .ritual-platform { filter: brightness(1) saturate(1.12) drop-shadow(0 0 9px rgba(185,108,255,.45)); }
+.ritual-complete-blood .ritual-platform { filter: hue-rotate(78deg) saturate(1.7) brightness(.92) drop-shadow(0 0 13px rgba(224,52,74,.72)); }
 .ritual-crystal {
   position: absolute;
-  width: 22px;
-  height: 22px;
-  margin: -11px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #2a1c33, #120a16);
-  border: 1px solid rgba(150, 90, 190, 0.4);
-  box-shadow: inset 0 0 6px rgba(0,0,0,0.6);
-  transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+  width: 27%;
+  height: 27%;
+  transform: translate(-50%, -50%);
+  transition: filter .45s ease;
 }
-.ritual-crystal i { position: absolute; inset: 4px; border-radius: 50%; background: transparent; transition: background 0.4s ease; }
+.ritual-rune-image { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; pointer-events: none; transition: opacity .2s ease, filter .45s ease; }
 .ritual-soul-name { display: none; }
-.ritual-crystal[data-crystal-index="0"] { left: 50%; top: 5%; }
-.ritual-crystal[data-crystal-index="1"] { left: 95%; top: 39%; }
-.ritual-crystal[data-crystal-index="2"] { left: 78%; top: 90%; }
-.ritual-crystal[data-crystal-index="3"] { left: 22%; top: 90%; }
-.ritual-crystal[data-crystal-index="4"] { left: 5%; top: 39%; }
-.ritual-crystal.is-active {
-  border-color: #c88bff;
-  box-shadow: 0 0 12px rgba(185, 108, 255, 0.7), inset 0 0 6px rgba(0,0,0,0.4);
-}
-.ritual-crystal.is-active i { background: radial-gradient(circle, #d9adff, #8a3fd6); }
-.ritual-crystal.is-active.is-blood {
-  border-color: #ff6a7a;
-  box-shadow: 0 0 14px rgba(224, 52, 74, 0.75), inset 0 0 6px rgba(0,0,0,0.4);
-}
-.ritual-crystal.is-active.is-blood i { background: radial-gradient(circle, #ff9aa4, #b31d30); }
+.ritual-crystal[data-crystal-index="0"] { left: 50%; top: 13.9%; }
+.ritual-crystal[data-crystal-index="1"] { left: 86.1%; top: 38%; }
+.ritual-crystal[data-crystal-index="2"] { left: 70.3%; top: 77.4%; }
+.ritual-crystal[data-crystal-index="3"] { left: 29.8%; top: 77.4%; }
+.ritual-crystal[data-crystal-index="4"] { left: 13.9%; top: 38%; }
+.ritual-crystal:not(.is-active) .ritual-rune-image { filter: brightness(.68) saturate(.58); }
+.ritual-crystal.is-active .ritual-rune-image { filter: brightness(1.12) saturate(1.18) drop-shadow(0 0 7px rgba(188,92,255,.78)); }
+.ritual-crystal.is-active.is-blood .ritual-rune-image { filter: hue-rotate(78deg) saturate(2) brightness(1.05) drop-shadow(0 0 9px rgba(255,42,62,.9)); }
 @keyframes ritual-crystal-wake {
-  0% { transform: scale(0.6); filter: brightness(0.6); }
-  35% { transform: scale(1.28); filter: brightness(1.6); }
-  100% { transform: scale(1); filter: brightness(1); }
+  0% { transform: scale(.82); opacity: .35; }
+  38% { transform: scale(1.13); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
-.ritual-crystal-wake { animation: ritual-crystal-wake 0.55s ease-out; }
+.ritual-crystal-wake .ritual-rune-image { animation: ritual-crystal-wake .58s ease-out; }
 
 .ritual-status {
   min-height: 2.4em;
@@ -17812,6 +17777,14 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
   width: min(590px, 94%);
   max-height: calc(100% - 8px);
   padding: clamp(12px, 1.8vh, 24px) clamp(22px, 4vw, 48px) clamp(16px, 2vh, 22px);
+  display: grid;
+  grid-template-columns: minmax(250px, 1.2fr) minmax(190px, .8fr);
+  grid-template-areas:
+    "identity identity"
+    "pentagon status"
+    "pentagon detail";
+  align-items: center;
+  column-gap: 20px;
   border: 1px solid rgba(170, 96, 221, .48);
   clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
   background: linear-gradient(180deg, rgba(25, 10, 31, .94), rgba(7, 7, 12, .97));
@@ -17829,10 +17802,9 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
 }
 .ritual-tracker .ritual-stage::before { left: 12%; }
 .ritual-tracker .ritual-stage::after { right: 12%; transform: scaleX(-1); }
+.ritual-tracker .ritual-identity { grid-area: identity; }
 .ritual-tracker .ritual-label { font-size: clamp(1.2rem, 2.4vw, 1.75rem); }
-.ritual-tracker .ritual-pentagon { width: clamp(160px, 22vh, 270px); height: clamp(160px, 22vh, 270px); margin: 3px auto 18px; }
-.ritual-tracker .ritual-crystal { width: 30px; height: 30px; margin: -15px; }
-.ritual-tracker .ritual-crystal i { inset: 5px; }
+.ritual-tracker .ritual-pentagon { grid-area: pentagon; width: clamp(240px, 38vh, 300px); height: clamp(240px, 38vh, 300px); margin: 0 auto; }
 .ritual-tracker .ritual-soul-name {
   display: block;
   position: absolute;
@@ -17850,11 +17822,13 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
   text-overflow: ellipsis;
 }
 .ritual-tracker .ritual-crystal.is-active .ritual-soul-name { color: #d8b7f2; text-shadow: 0 0 7px rgba(185,108,255,.55); }
-.ritual-tracker .ritual-status { margin-top: 5px; min-height: 1.8em; line-height: 1.35; }
+.ritual-tracker .ritual-status { grid-area: status; align-self: end; margin-top: 5px; min-height: 1.8em; line-height: 1.35; }
+.ritual-tracker .ritual-actions { display: none; }
+.ritual-tracker .ritual-tribute-status { grid-column: 2; }
 .ritual-tracker.ritual-complete .ritual-stage { border-color: #b96cff; }
 .ritual-tracker.ritual-complete-blood .ritual-stage { border-color: #e0344a; }
 
-.ritual-gm-detail { margin-top: 7px; text-align: left; font: 600 0.66rem var(--font-machine); }
+.ritual-gm-detail { grid-area: detail; align-self: start; margin-top: 7px; text-align: left; font: 600 0.66rem var(--font-machine); }
 .ritual-gm-summary { padding-top: 9px; border-top: 1px solid rgba(157,90,214,.24); }
 .ritual-gm-roster { color: #cdbfe0; text-align: center; line-height: 1.5; }
 .ritual-gm-roster span { color: #9b75b9; }
@@ -17963,7 +17937,7 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
   .ritual-pentagon { width: 132px; height: 132px; }
   .ritual-overlay-body { padding: 18px 16px 16px; }
   .ritual-tracker { padding: 8px; }
-  .ritual-tracker .ritual-stage { width: 98%; padding: 15px 14px 13px; }
-  .ritual-tracker .ritual-pentagon { width: 150px; height: 150px; }
+  .ritual-tracker .ritual-stage { display: block; width: 98%; padding: 15px 14px 13px; }
+  .ritual-tracker .ritual-pentagon { width: 165px; height: 165px; }
   .ritual-tracker .ritual-soul-name { width: 82px; font-size: .43rem; }
 }

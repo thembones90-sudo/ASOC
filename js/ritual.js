@@ -13,6 +13,7 @@
 const Ritual = {
   _lastState: null,
   _wasFulfilled: false,
+  _assetsPreloaded: false,
 
   // Consulted by timer.js when it renders the START GAME button -- kept as
   // a getter rather than a threaded parameter so neither module has to
@@ -31,14 +32,28 @@ const Ritual = {
   pentagonHTML() {
     return `
       <div class="ritual-pentagon" aria-hidden="true">
-        <svg class="ritual-pentagon-lines" viewBox="0 0 200 200">
-          <polygon class="ritual-pentagon-outline" points="100,10 190,78 156,180 44,180 10,78"></polygon>
-          <polygon class="ritual-pentagram-star" points="100,10 156,180 10,78 190,78 44,180"></polygon>
-          <polygon class="ritual-pentagon-fill" points="100,10 190,78 156,180 44,180 10,78"></polygon>
-        </svg>
-        ${[0, 1, 2, 3, 4].map((i) => `<span class="ritual-crystal" data-crystal-index="${i}"><i></i><em class="ritual-soul-name">AWAITING</em></span>`).join('')}
+        <img class="ritual-platform" src="assets/ritual/summon-platform.png?v=20260924-runes-1" alt="">
+        ${[0, 1, 2, 3, 4].map((i) => {
+          const runeNumber = String(i + 1).padStart(2, '0');
+          return `<span class="ritual-crystal ritual-rune-slot" data-crystal-index="${i}">
+            <img class="ritual-rune-image" src="assets/ritual/rune-${runeNumber}-idle.png?v=20260924-runes-1" data-idle-src="assets/ritual/rune-${runeNumber}-idle.png?v=20260924-runes-1" data-active-src="assets/ritual/rune-${runeNumber}-active.png?v=20260924-runes-1" alt="">
+            <em class="ritual-soul-name">AWAITING</em>
+          </span>`;
+        }).join('')}
       </div>
     `;
+  },
+
+  preloadAssets() {
+    if (this._assetsPreloaded) return;
+    this._assetsPreloaded = true;
+    ['summon-platform.png', ...[1, 2, 3, 4, 5].flatMap((number) => {
+      const id = String(number).padStart(2, '0');
+      return [`rune-${id}-idle.png`, `rune-${id}-active.png`];
+    })].forEach((file) => {
+      const image = new Image();
+      image.src = `assets/ritual/${file}?v=20260924-runes-1`;
+    });
   },
 
   shellHTML(isGM) {
@@ -60,6 +75,7 @@ const Ritual = {
   init(containerId, isGM) {
     const el = document.getElementById(containerId);
     if (!el || el.dataset.ritualInit === '1') return;
+    this.preloadAssets();
     el.innerHTML = this.shellHTML(isGM);
     el.dataset.ritualInit = '1';
   },
@@ -95,6 +111,11 @@ const Ritual = {
       const soul = isGM ? state?.joined?.[index] : null;
       node.classList.toggle('is-active', nowActive);
       node.classList.toggle('is-blood', byBlood);
+      const runeImage = node.querySelector('.ritual-rune-image');
+      if (runeImage) {
+        const nextSource = nowActive ? runeImage.dataset.activeSrc : runeImage.dataset.idleSrc;
+        if (runeImage.getAttribute('src') !== nextSource) runeImage.setAttribute('src', nextSource);
+      }
       const soulName = node.querySelector('.ritual-soul-name');
       if (soulName) soulName.textContent = soul?.name || (byBlood ? 'TRIBUTE' : 'AWAITING');
       if (nowActive && !wasActive) {
