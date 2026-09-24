@@ -17654,28 +17654,70 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
 .ritual-complete .ritual-platform { filter: brightness(1) saturate(1.12) drop-shadow(0 0 9px rgba(185,108,255,.45)); }
 .ritual-complete-blood .ritual-platform { filter: hue-rotate(78deg) saturate(1.7) brightness(.92) drop-shadow(0 0 13px rgba(224,52,74,.72)); }
 .ritual-crystal {
+  --ritual-crystal-rgb: 188, 92, 255;
   position: absolute;
   width: 27%;
   height: 27%;
   transform: translate(-50%, -50%);
   transition: filter .45s ease;
+  isolation: isolate;
 }
-.ritual-rune-image { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; pointer-events: none; transition: opacity .2s ease, filter .45s ease; }
+.ritual-crystal::before,
+.ritual-crystal::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  opacity: 0;
+  z-index: 0;
+}
+.ritual-crystal::before {
+  inset: 8%;
+  background: radial-gradient(circle, rgba(var(--ritual-crystal-rgb), .88) 0 14%, rgba(var(--ritual-crystal-rgb), .42) 34%, rgba(var(--ritual-crystal-rgb), 0) 72%);
+  filter: blur(6px);
+  transform: scale(.72);
+  transition: opacity .35s ease, transform .45s ease;
+}
+.ritual-crystal::after {
+  inset: 19%;
+  border: 1px solid rgba(var(--ritual-crystal-rgb), .74);
+  box-shadow: 0 0 8px rgba(var(--ritual-crystal-rgb), .9), inset 0 0 7px rgba(var(--ritual-crystal-rgb), .58);
+  transform: scale(.65);
+}
+.ritual-rune-image { position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; pointer-events: none; transition: opacity .2s ease, filter .45s ease; }
 .ritual-soul-name { display: none; }
-.ritual-crystal[data-crystal-index="0"] { left: 50%; top: 13.9%; }
-.ritual-crystal[data-crystal-index="1"] { left: 86.1%; top: 38%; }
-.ritual-crystal[data-crystal-index="2"] { left: 70.3%; top: 77.4%; }
-.ritual-crystal[data-crystal-index="3"] { left: 29.8%; top: 77.4%; }
-.ritual-crystal[data-crystal-index="4"] { left: 13.9%; top: 38%; }
+.ritual-crystal[data-crystal-index="0"] { --ritual-crystal-rgb: 188, 92, 255; left: 50%; top: 13.9%; }
+.ritual-crystal[data-crystal-index="1"] { --ritual-crystal-rgb: 121, 135, 255; left: 86.1%; top: 38%; }
+.ritual-crystal[data-crystal-index="2"] { --ritual-crystal-rgb: 232, 76, 220; left: 70.3%; top: 77.4%; }
+.ritual-crystal[data-crystal-index="3"] { --ritual-crystal-rgb: 73, 176, 255; left: 29.8%; top: 77.4%; }
+.ritual-crystal[data-crystal-index="4"] { --ritual-crystal-rgb: 119, 224, 139; left: 13.9%; top: 38%; }
 .ritual-crystal:not(.is-active) .ritual-rune-image { filter: brightness(.68) saturate(.58); }
-.ritual-crystal.is-active .ritual-rune-image { filter: brightness(1.12) saturate(1.18) drop-shadow(0 0 7px rgba(188,92,255,.78)); }
+.ritual-crystal.is-active::before { opacity: 1; transform: scale(1.18); animation: ritual-crystal-glow 2.35s ease-in-out infinite; }
+.ritual-crystal.is-active .ritual-rune-image { filter: brightness(1.18) saturate(1.28) drop-shadow(0 0 5px rgba(var(--ritual-crystal-rgb), 1)) drop-shadow(0 0 12px rgba(var(--ritual-crystal-rgb), .82)); }
+.ritual-crystal.is-active.is-blood { --ritual-crystal-rgb: 255, 42, 62; }
 .ritual-crystal.is-active.is-blood .ritual-rune-image { filter: hue-rotate(78deg) saturate(2) brightness(1.05) drop-shadow(0 0 9px rgba(255,42,62,.9)); }
+@keyframes ritual-crystal-glow {
+  0%, 100% { opacity: .72; transform: scale(1.03); filter: blur(6px); }
+  50% { opacity: 1; transform: scale(1.32); filter: blur(8px); }
+}
 @keyframes ritual-crystal-wake {
   0% { transform: scale(.82); opacity: .35; }
   38% { transform: scale(1.13); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
 .ritual-crystal-wake .ritual-rune-image { animation: ritual-crystal-wake .58s ease-out; }
+@keyframes ritual-crystal-ignition-ring {
+  0% { opacity: .95; transform: scale(.58); }
+  100% { opacity: 0; transform: scale(1.62); }
+}
+.ritual-crystal-wake::after { animation: ritual-crystal-ignition-ring .72s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ritual-crystal.is-active::before,
+  .ritual-crystal-wake::after,
+  .ritual-crystal-wake .ritual-rune-image { animation: none !important; }
+  .ritual-crystal.is-active::before { opacity: .9; transform: scale(1.16); }
+}
 
 .ritual-status {
   min-height: 2.4em;
