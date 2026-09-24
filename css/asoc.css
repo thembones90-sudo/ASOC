@@ -18185,3 +18185,112 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
   gap: 8px;
   margin-top: 10px;
 }
+
+/* GM TACTICAL COMMS BACKPLANE // deliberately restrained behind readable,
+   independently judgeable message bubbles. Pure CSS keeps it lightweight and
+   prevents decorative layers from ever intercepting operator input. */
+.gm-module-chat .gm-chat-panel {
+  --gm-comms-rgb: 138, 76, 176;
+  --gm-comms-node-rgb: 91, 185, 205;
+  background: linear-gradient(180deg, #11161e 0%, #080c12 100%);
+}
+
+body.room-mode-casual .gm-module-chat .gm-chat-panel {
+  --gm-comms-rgb: 67, 121, 139;
+  --gm-comms-node-rgb: 91, 167, 180;
+}
+
+body:is(.room-mode-battle-armed,.room-mode-battle,.room-mode-recount) .gm-module-chat .gm-chat-panel {
+  --gm-comms-rgb: 147, 70, 183;
+  --gm-comms-node-rgb: 91, 190, 202;
+}
+
+.gm-module-chat .gm-chat-messages {
+  position: relative;
+  isolation: isolate;
+  background-color: #080c12;
+  background-image:
+    radial-gradient(ellipse at 50% 38%, rgba(var(--gm-comms-rgb), .12), transparent 48%),
+    radial-gradient(circle, rgba(var(--gm-comms-node-rgb), .17) 0 1px, transparent 1.8px),
+    linear-gradient(rgba(var(--gm-comms-rgb), .042) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--gm-comms-rgb), .035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(16, 22, 30, .96), rgba(5, 8, 12, .985));
+  background-size: auto, 116px 78px, 39px 39px, 39px 39px, auto;
+  background-position: center, 18px 16px, 0 0, 0 0, center;
+  box-shadow: inset 0 18px 30px rgba(0,0,0,.2), inset 0 -24px 34px rgba(0,0,0,.42);
+}
+
+.gm-module-chat .gm-chat-messages::before,
+.gm-module-chat .gm-chat-messages::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.gm-module-chat .gm-chat-messages::before {
+  background: url('../assets/ui/asoc-favicon.svg') center 42% / min(34%, 180px) auto no-repeat;
+  filter: grayscale(1) contrast(1.35) brightness(1.35);
+  opacity: .035;
+}
+
+.gm-module-chat .gm-chat-messages::after {
+  inset: -90px 0 auto;
+  height: 90px;
+  background: linear-gradient(180deg, transparent, rgba(var(--gm-comms-rgb), .055) 45%, rgba(var(--gm-comms-node-rgb), .11) 50%, transparent 55%);
+  mix-blend-mode: screen;
+  animation: gm-comms-scan 15s linear infinite;
+}
+
+.gm-module-chat .gm-chat-messages > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes gm-comms-scan {
+  from { transform: translateY(0); }
+  to { transform: translateY(calc(var(--gm-chat-height, 720px) + 180px)); }
+}
+
+/* The newest player transmission gets ambient emphasis only; verdict buttons
+   and bubble boundaries remain unchanged and fully independent. */
+.gm-module-chat .gm-flow-message:not(:has(~ .gm-flow-message)) .gm-chat-message-main {
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.07),
+    0 2px 7px rgba(0,0,0,.42),
+    0 0 18px rgba(var(--gm-comms-rgb), .105);
+}
+
+.gm-module-chat .gm-chat-panel.is-reconnecting .gm-chat-messages {
+  --gm-comms-rgb: 184, 48, 62;
+  --gm-comms-node-rgb: 224, 63, 70;
+  background-position: center, 18px 16px, 2px 0, -2px 0, center;
+}
+
+.gm-module-chat .gm-chat-panel.is-reconnecting .gm-chat-messages::after {
+  height: 4px;
+  inset: 18% 0 auto;
+  background: rgba(219, 47, 62, .18);
+  box-shadow: 0 36px rgba(219,47,62,.06), 0 119px rgba(219,47,62,.08), 0 242px rgba(219,47,62,.05);
+  animation: gm-comms-interference .85s steps(2, end) infinite;
+}
+
+@keyframes gm-comms-interference {
+  0%, 100% { transform: translateX(0); opacity: .38; }
+  35% { transform: translateX(5px); opacity: .7; }
+  70% { transform: translateX(-3px); opacity: .45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-module-chat .gm-chat-messages::after,
+  .gm-module-chat .gm-chat-panel.is-reconnecting .gm-chat-messages::after {
+    animation: none !important;
+  }
+  .gm-module-chat .gm-chat-messages::after { display: none; }
+}
+
+.gm-module-chat .gm-chat-panel.chat-high-traffic .gm-chat-messages::after {
+  animation: none !important;
+  opacity: .35;
+}

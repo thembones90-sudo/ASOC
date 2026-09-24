@@ -2046,6 +2046,7 @@ const App = {
 
     this.ws.onopen = () => {
       console.log('[GM] WebSocket connected');
+      document.querySelector('.gm-module-chat .gm-chat-panel')?.classList.remove('is-reconnecting');
       this.reconnectAttempts = 0;
       this._victoryBaselined = false;
       this._columnCascadeBaselined = false;
@@ -2065,6 +2066,7 @@ const App = {
 
     this.ws.onclose = () => {
       console.log('[GM] WebSocket closed');
+      document.querySelector('.gm-module-chat .gm-chat-panel')?.classList.add('is-reconnecting');
       this.setGMDeliveryState('RECONNECTING', 'queued');
       this.handleDisconnect();
     };
