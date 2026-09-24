@@ -41,4 +41,4 @@ Any target can be set with `--url=<origin>` or the `ASOC_DESKTOP_URL` environmen
 
 - `window.prompt()` does not exist in Electron. Use `window.AsocDialog.prompt()` (`js/asoc-dialog.js`) for text input on the site.
 - The app is unsigned, so Windows SmartScreen shows "Windows protected your PC" on first launch (More info → Run anyway). A code-signing certificate removes this.
-- The icon is `build/icon.png`, a copy of `assets/ui/shadow-broker.png`. Replace it with any square PNG of at least 256×256.
+- The icon is `build/icon.png`, generated from `assets/ui/asoc-app-icon.png`. Rebuild the complete desktop and website icon set with `node scripts/build-icon-assets.js <source-png>` from the repository root.
