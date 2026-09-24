@@ -33,24 +33,27 @@ const Ritual = {
       <div class="ritual-pentagon" aria-hidden="true">
         <svg class="ritual-pentagon-lines" viewBox="0 0 200 200">
           <polygon class="ritual-pentagon-outline" points="100,10 190,78 156,180 44,180 10,78"></polygon>
+          <polygon class="ritual-pentagram-star" points="100,10 156,180 10,78 190,78 44,180"></polygon>
           <polygon class="ritual-pentagon-fill" points="100,10 190,78 156,180 44,180 10,78"></polygon>
         </svg>
-        ${[0, 1, 2, 3, 4].map((i) => `<span class="ritual-crystal" data-crystal-index="${i}"><i></i></span>`).join('')}
+        ${[0, 1, 2, 3, 4].map((i) => `<span class="ritual-crystal" data-crystal-index="${i}"><i></i><em class="ritual-soul-name">AWAITING</em></span>`).join('')}
       </div>
     `;
   },
 
   shellHTML(isGM) {
     return `
-      <div class="ritual-identity">
-        <span class="ritual-kicker">${isGM ? 'SHADOW BROKER // PRE-BATTLE GATE' : 'COMPOUND // RITUAL'}</span>
-        <div class="ritual-label">SUMMON RITUAL</div>
+      <div class="ritual-stage">
+        <div class="ritual-identity">
+          <span class="ritual-kicker">${isGM ? 'SHADOW BROKER // PRE-BATTLE GATE' : 'COMPOUND // RITUAL'}</span>
+          <div class="ritual-label">SUMMON RITUAL</div>
+        </div>
+        ${this.pentagonHTML()}
+        <div class="ritual-status"></div>
+        <div class="ritual-tribute-status" hidden></div>
+        <div class="ritual-actions"></div>
+        ${isGM ? '<div class="ritual-gm-detail"></div>' : ''}
       </div>
-      ${this.pentagonHTML()}
-      <div class="ritual-status"></div>
-      <div class="ritual-tribute-status" hidden></div>
-      <div class="ritual-actions"></div>
-      ${isGM ? '<div class="ritual-gm-detail"></div>' : ''}
     `;
   },
 
@@ -89,8 +92,11 @@ const Ritual = {
     el.querySelectorAll('.ritual-crystal').forEach((node, index) => {
       const wasActive = node.classList.contains('is-active');
       const nowActive = byBlood ? true : index < joinedCount;
+      const soul = isGM ? state?.joined?.[index] : null;
       node.classList.toggle('is-active', nowActive);
       node.classList.toggle('is-blood', byBlood);
+      const soulName = node.querySelector('.ritual-soul-name');
+      if (soulName) soulName.textContent = soul?.name || (byBlood ? 'TRIBUTE' : 'AWAITING');
       if (nowActive && !wasActive) {
         node.classList.remove('ritual-crystal-wake');
         void node.offsetWidth; // restart the one-shot wake animation
@@ -152,7 +158,7 @@ const Ritual = {
   _renderGmDetail(el, ctx, handlers) {
     const detail = el.querySelector('.ritual-gm-detail');
     if (!detail) return;
-    const names = ctx.joined.map((p) => this.escapeHtml(p.name)).join(', ') || '—';
+    const names = ctx.joined.map((p) => this.escapeHtml(p.name)).join(' · ') || 'AWAITING FIRST SOUL';
     const missing = Math.max(0, ctx.required - ctx.joinedCount);
     const tributeLine = {
       NONE: 'NONE',
@@ -161,15 +167,17 @@ const Ritual = {
       REJECTED: 'REJECTED // may resubmit'
     }[ctx.tributeStatus] || 'NONE';
     detail.innerHTML = `
-      <div class="ritual-gm-row ritual-gm-count"><b>${ctx.joinedCount} / ${ctx.required}</b>${ctx.fulfilled ? `<span class="ritual-gm-fulfilled-tag">FULFILLED BY ${ctx.fulfilledBy === 'BLOOD_TRIBUTE' ? 'BLOOD TRIBUTE' : 'VOTES'}</span>` : ''}</div>
-      <div class="ritual-gm-row"><span>BOUND:</span> ${names}</div>
-      <div class="ritual-gm-row"><span>MISSING:</span> ${missing}</div>
-      <div class="ritual-gm-row"><span>TRIBUTE:</span> ${tributeLine}</div>
+      <div class="ritual-gm-summary">
+        <div class="ritual-gm-roster"><span>BOUND //</span> ${names}</div>
+        <div class="ritual-gm-meta"><b>${missing ? `${missing} SOUL${missing === 1 ? '' : 'S'} REMAIN` : 'CIRCLE COMPLETE'}</b><span>TRIBUTE // ${tributeLine}</span>${ctx.fulfilled ? `<span class="ritual-gm-fulfilled-tag">FULFILLED BY ${ctx.fulfilledBy === 'BLOOD_TRIBUTE' ? 'BLOOD TRIBUTE' : 'VOTES'}</span>` : ''}</div>
+      </div>
       ${ctx.tributeStatus === 'PENDING' && ctx.tribute.imageData ? `<button type="button" class="ritual-gm-tribute-preview-btn"><img class="ritual-gm-tribute-preview" src="${this.escapeHtml(ctx.tribute.imageData)}" alt="Offered tribute"></button>` : ''}
       <div class="ritual-gm-actions">
         ${ctx.tributeStatus === 'PENDING' ? '<button type="button" class="ritual-gm-accept-btn">ACCEPT TRIBUTE</button><button type="button" class="ritual-gm-reject-btn">REJECT TRIBUTE</button>' : ''}
-        <button type="button" class="ritual-gm-reset-btn">RESET RITUAL</button>
-        <button type="button" class="ritual-gm-cancel-btn">CANCEL RITUAL</button>
+        <details class="ritual-danger-menu">
+          <summary>RITUAL OPTIONS</summary>
+          <div><button type="button" class="ritual-gm-reset-btn">RESET RITUAL</button><button type="button" class="ritual-gm-cancel-btn">CANCEL RITUAL</button></div>
+        </details>
       </div>
     `;
     const bind = (selector, fn) => { const btn = detail.querySelector(selector); if (btn && fn) btn.onclick = fn; };

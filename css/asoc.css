@@ -17656,6 +17656,13 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
   stroke: rgba(150, 90, 190, 0.28);
   stroke-width: 2;
 }
+.ritual-pentagram-star {
+  fill: none;
+  stroke: rgba(190, 116, 255, 0.28);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 4px rgba(185, 108, 255, 0.35));
+}
 .ritual-pentagon-fill {
   fill: none;
   stroke: #b96cff;
@@ -17682,6 +17689,7 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
   transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
 }
 .ritual-crystal i { position: absolute; inset: 4px; border-radius: 50%; background: transparent; transition: background 0.4s ease; }
+.ritual-soul-name { display: none; }
 .ritual-crystal[data-crystal-index="0"] { left: 50%; top: 5%; }
 .ritual-crystal[data-crystal-index="1"] { left: 95%; top: 39%; }
 .ritual-crystal[data-crystal-index="2"] { left: 78%; top: 90%; }
@@ -17776,23 +17784,82 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
 .ritual-complete .ritual-overlay-body { animation: ritual-complete-pulse 3.2s ease-in-out infinite; }
 .ritual-complete-blood .ritual-overlay-body { animation: ritual-complete-pulse-blood 3.2s ease-in-out infinite; }
 
-/* GM compact tracker (docked with timer-tracker-gm/womf-tracker-gm) */
+/* GM board-bound gate. It lives inside #board-layer so opening the ritual
+   never inserts height into #main-content or shifts/scales the board. */
 .ritual-tracker {
-  width: 100%;
-  max-width: 360px;
-  margin: 8px auto;
-  padding: 12px 14px;
-  border: 1px solid rgba(157, 90, 214, 0.4);
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(24, 12, 30, 0.9), rgba(10, 7, 13, 0.94));
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: clamp(14px, 2.5vw, 30px);
+  border: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(85, 20, 104, 0.56), rgba(8, 5, 12, 0.88) 58%, rgba(3, 5, 9, 0.96)),
+    linear-gradient(90deg, rgba(3,5,9,.76), rgba(35,8,43,.34), rgba(3,5,9,.76));
+  backdrop-filter: blur(2px) saturate(.72) brightness(.58);
   color: #e7e2ee;
   text-align: center;
 }
-.ritual-tracker .ritual-pentagon { width: 120px; height: 120px; }
-.ritual-tracker.ritual-complete { border-color: #b96cff; }
-.ritual-tracker.ritual-complete-blood { border-color: #e0344a; }
+.ritual-tracker[hidden] { display: none !important; }
+.ritual-tracker .ritual-stage {
+  position: relative;
+  width: min(590px, 94%);
+  max-height: calc(100% - 8px);
+  padding: clamp(12px, 1.8vh, 24px) clamp(22px, 4vw, 48px) clamp(16px, 2vh, 22px);
+  border: 1px solid rgba(170, 96, 221, .48);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+  background: linear-gradient(180deg, rgba(25, 10, 31, .94), rgba(7, 7, 12, .97));
+  box-shadow: 0 0 70px rgba(123, 42, 165, .34), inset 0 0 38px rgba(126, 56, 157, .08);
+}
+.ritual-tracker .ritual-stage::before,
+.ritual-tracker .ritual-stage::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 25%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #b96cff);
+  box-shadow: 0 0 10px #8f42c7;
+}
+.ritual-tracker .ritual-stage::before { left: 12%; }
+.ritual-tracker .ritual-stage::after { right: 12%; transform: scaleX(-1); }
+.ritual-tracker .ritual-label { font-size: clamp(1.2rem, 2.4vw, 1.75rem); }
+.ritual-tracker .ritual-pentagon { width: clamp(160px, 22vh, 270px); height: clamp(160px, 22vh, 270px); margin: 3px auto 18px; }
+.ritual-tracker .ritual-crystal { width: 30px; height: 30px; margin: -15px; }
+.ritual-tracker .ritual-crystal i { inset: 5px; }
+.ritual-tracker .ritual-soul-name {
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 7px);
+  width: 116px;
+  transform: translateX(-50%);
+  color: #80738c;
+  font: 700 .5rem var(--font-machine);
+  font-style: normal;
+  letter-spacing: .75px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ritual-tracker .ritual-crystal.is-active .ritual-soul-name { color: #d8b7f2; text-shadow: 0 0 7px rgba(185,108,255,.55); }
+.ritual-tracker .ritual-status { margin-top: 5px; min-height: 1.8em; line-height: 1.35; }
+.ritual-tracker.ritual-complete .ritual-stage { border-color: #b96cff; }
+.ritual-tracker.ritual-complete-blood .ritual-stage { border-color: #e0344a; }
 
-.ritual-gm-detail { margin-top: 12px; text-align: left; font: 600 0.66rem var(--font-machine); }
+.ritual-gm-detail { margin-top: 7px; text-align: left; font: 600 0.66rem var(--font-machine); }
+.ritual-gm-summary { padding-top: 9px; border-top: 1px solid rgba(157,90,214,.24); }
+.ritual-gm-roster { color: #cdbfe0; text-align: center; line-height: 1.5; }
+.ritual-gm-roster span { color: #9b75b9; }
+.ritual-gm-meta { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-top: 7px; color: #9885ac; font-size: .57rem; letter-spacing: .6px; }
+.ritual-gm-meta b { color: #e6d4ff; }
 .ritual-gm-row { display: flex; gap: 6px; padding: 3px 0; color: #cdbfe0; border-bottom: 1px solid rgba(157, 90, 214, 0.14); }
 .ritual-gm-row span { color: #9885ac; min-width: 62px; }
 .ritual-gm-count { justify-content: space-between; font-size: 0.78rem; }
@@ -17822,6 +17889,17 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
 .ritual-gm-accept-btn { border-color: #4fb36c; background: rgba(30, 70, 45, 0.5); }
 .ritual-gm-reject-btn,
 .ritual-gm-cancel-btn { border-color: #d94b62; background: rgba(80, 25, 35, 0.4); }
+.ritual-danger-menu { flex: 1 0 100%; text-align: center; }
+.ritual-danger-menu summary {
+  padding: 6px;
+  color: #897b96;
+  font: 700 .55rem var(--font-machine);
+  letter-spacing: 1px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.ritual-danger-menu > div { display: flex; gap: 6px; margin-top: 5px; }
+.ritual-danger-menu > div button { flex: 1; }
 
 /* Small anonymous tribute-upload modal, distinct purple accent from the
    existing red WOMF-demand Blood Tribute modal it's modelled on. */
@@ -17884,4 +17962,8 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
 @media (max-width: 560px) {
   .ritual-pentagon { width: 132px; height: 132px; }
   .ritual-overlay-body { padding: 18px 16px 16px; }
+  .ritual-tracker { padding: 8px; }
+  .ritual-tracker .ritual-stage { width: 98%; padding: 15px 14px 13px; }
+  .ritual-tracker .ritual-pentagon { width: 150px; height: 150px; }
+  .ritual-tracker .ritual-soul-name { width: 82px; font-size: .43rem; }
 }
