@@ -2202,7 +2202,12 @@ body.game-lost .board-cell.final-solution.revealed {
 .victory-columns {display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.victory-columns span{padding:9px;background:rgba(255,255,255,.025);color:#88a99a;font-size:.72rem}.victory-columns b{color:#36bd82;margin-right:8px}
 .victory-recount {margin:18px auto 0;padding:24px;border-top:1px solid rgba(34,199,132,.25);background:rgba(3,10,8,.86)}
 .victory-recount h2 {margin:18px 0 7px;color:#76ac93;font-size:.72rem;letter-spacing:.3em}.victory-recount>strong,.victory-recount>b{display:block}.victory-recount>strong{font-size:1.65rem;color:#d9ece3}.victory-recount>b{margin-top:5px;color:#61ad8b;font-size:.8rem}
-.victory-overlay.is-live .victory-message{animation:defeat-step 2.8s both}.victory-overlay.is-live .victory-title{animation:defeat-step .8s 2.6s both}.victory-overlay.is-live .victory-subline{animation:defeat-step .9s 3.6s both}.victory-overlay.is-live .victory-solution{animation:defeat-step .9s 5.1s both}.victory-overlay.is-live .victory-recount{animation:defeat-step .9s 8s both}
+/* The old defeat-step stagger that used to live here (message@0-2.8s,
+   title@2.6-3.4s, subline@3.6-4.5s, solution@5.1-6s) was tuned for a ~9s
+   ceremony. The neural-prelude redesign shortened the live cycle to ~5.8s
+   (ceremony starts ~2.2s, exit-fade at 4.5s, removed at 5.5s), so that old
+   stagger revealed title/subline/solution after the overlay had already
+   started fading out -- see the properly-timed .is-ceremony reveal below. */
 .victory-overlay.is-live {cursor:pointer}
 .victory-overlay.is-settled::after {content:'CLICK TO CONFIRM';position:fixed;right:24px;bottom:18px;color:#6fa58c;font:700 .54rem var(--font-machine);letter-spacing:.18em;animation:defeat-step .5s both}
 @media(max-width:700px){.victory-columns{grid-template-columns:repeat(2,1fr)}}
@@ -9586,6 +9591,25 @@ body.game-complete .recount-btn,
 .victory-overlay.is-ceremony .victory-fx {
   opacity: 0;
   transition: opacity .22s ease;
+}
+
+/* Ceremony text reveal, timed against the actual live cycle: is-ceremony
+   is applied ~2.2s in and is-aftermath-exit ~2.3s later at 4.5s, so
+   everything here has to finish comfortably inside that window (unlike
+   the old defeat-step stagger it replaces, which needed ~6s+ and used to
+   leave the title/subline/solution revealing after the overlay had
+   already started fading out). */
+.victory-overlay.is-ceremony .victory-message {
+  animation: victory-sub-in .45s ease-out both;
+}
+.victory-overlay.is-ceremony .victory-title {
+  animation: victory-title-in .6s cubic-bezier(.15,.8,.2,1) .12s both;
+}
+.victory-overlay.is-ceremony .victory-subline {
+  animation: victory-sub-in .45s ease-out .42s both;
+}
+.victory-overlay.is-ceremony .victory-solution {
+  animation: victory-sub-in .5s ease-out .6s both;
 }
 
 @keyframes victory-word-hit {
