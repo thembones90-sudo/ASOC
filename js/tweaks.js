@@ -74,7 +74,7 @@
     launch.type = 'button';
     launch.id = role === 'gm' ? 'gm-tweaks-launch' : 'player-tweaks-launch';
     if (!launch.querySelector('.tweaks-badge')) {
-      launch.innerHTML = '<span aria-hidden="true">☎</span><span>TWEAKS</span><span class="tweaks-badge">0</span>';
+      launch.innerHTML = '<span aria-hidden="true">⚙</span><span>TWEAKS</span><span class="tweaks-badge">0</span>';
     }
     launch.addEventListener('click', openOverlay);
 
