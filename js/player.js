@@ -4634,9 +4634,10 @@ const PlayerApp = {
       this.finalSolverAura.playerId === entityId &&
       Date.now() < this.finalSolverAura.localExpiresAt
     );
+    const avatarName = this.escapeHtml(entity.name || entity.playerName || 'Little Hero');
     return `
-      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${auraActive ? ' final-solver-aura' : ''}" style="--lh-frame:${frameColor};--lh-aura:${frameColor}">
-        ${avatarData ? `<img src="${avatarData}" alt="">` : '<span class="little-hero-avatar-fallback">LH</span>'}
+      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${auraActive ? ' final-solver-aura' : ''}${avatarData ? ' avatar-preview-trigger' : ''}" style="--lh-frame:${frameColor};--lh-aura:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
+        ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}
       </span>
     `;
   },

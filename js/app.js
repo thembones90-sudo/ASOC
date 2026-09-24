@@ -4296,9 +4296,10 @@ const App = {
       /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(entity.avatarData)
       ? entity.avatarData
       : '';
+    const avatarName = this.escapeHtml(entity.name || entity.playerName || 'Little Hero');
     return `
-      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}" style="--lh-frame:${frameColor}">
-        ${avatarData ? `<img src="${avatarData}" alt="">` : '<span class="little-hero-avatar-fallback">LH</span>'}
+      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${avatarData ? ' avatar-preview-trigger' : ''}" style="--lh-frame:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
+        ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}
       </span>
     `;
   },

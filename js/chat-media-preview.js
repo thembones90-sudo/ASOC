@@ -1,7 +1,8 @@
 (() => {
-  const TRIGGER_SELECTOR = '.chat-image-link, .chat-gif-link, .gm-chat-gif-link';
+  const TRIGGER_SELECTOR = '.chat-image-link, .chat-gif-link, .gm-chat-gif-link, .avatar-preview-trigger';
   let overlay = null;
   let stage = null;
+  let caption = null;
   let closeButton = null;
   let returnFocus = null;
 
@@ -18,12 +19,14 @@
       <div class="chat-media-lightbox-shell">
         <button type="button" class="chat-media-lightbox-close" aria-label="Close media preview">×</button>
         <div class="chat-media-lightbox-stage"></div>
+        <div class="chat-media-lightbox-caption" hidden></div>
         <div class="chat-media-lightbox-hint">CLICK OUTSIDE OR PRESS ESC TO CLOSE</div>
       </div>
     `;
 
     document.body.appendChild(overlay);
     stage = overlay.querySelector('.chat-media-lightbox-stage');
+    caption = overlay.querySelector('.chat-media-lightbox-caption');
     closeButton = overlay.querySelector('.chat-media-lightbox-close');
 
     closeButton?.addEventListener('click', close);
@@ -76,6 +79,14 @@
 
     ensureOverlay();
     returnFocus = trigger;
+    const isAvatar = trigger.matches('.avatar-preview-trigger');
+    const previewLabel = String(trigger.dataset.previewLabel || '').trim();
+    overlay.classList.toggle('is-avatar-preview', isAvatar);
+    overlay.setAttribute('aria-label', previewLabel ? `${previewLabel} preview` : 'Chat media preview');
+    if (caption) {
+      caption.textContent = previewLabel;
+      caption.hidden = !previewLabel;
+    }
     stage.replaceChildren(media);
     overlay.hidden = false;
     document.body.classList.add('chat-media-preview-open');
@@ -91,6 +102,11 @@
     if (!overlay || overlay.hidden) return;
     stage?.querySelector('video')?.pause();
     stage?.replaceChildren();
+    overlay.classList.remove('is-avatar-preview');
+    if (caption) {
+      caption.textContent = '';
+      caption.hidden = true;
+    }
     overlay.hidden = true;
     document.body.classList.remove('chat-media-preview-open');
 
@@ -114,7 +130,14 @@
       event.preventDefault();
       event.stopPropagation();
       close();
+      return;
     }
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const trigger = event.target.closest?.(TRIGGER_SELECTOR);
+    if (!trigger) return;
+    event.preventDefault();
+    event.stopPropagation();
+    open(trigger);
   }, true);
 
   window.ChatMediaPreview = { open, close };
