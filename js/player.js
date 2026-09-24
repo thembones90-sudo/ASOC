@@ -1108,7 +1108,13 @@ const PlayerApp = {
       const button = event.target.closest('[data-action="rename-little-hero"]');
       if (!button) return;
       const currentName = this.playerName || sessionStorage.getItem('asoc_player_name') || '';
-      const requested = window.prompt('NEW LITTLE HERO DESIGNATION', currentName);
+      const requested = await window.AsocDialog.prompt({
+        title: 'NEW LITTLE HERO DESIGNATION',
+        value: currentName,
+        maxLength: 20,
+        required: true,
+        confirmLabel: 'RENAME'
+      });
       if (requested === null) return;
       button.disabled = true;
       try {

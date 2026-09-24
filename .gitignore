@@ -44,3 +44,7 @@ matches.json.tmp-*
 # Player-submitted TWEAKS feedback ledger -- runtime state only.
 tweaks.json
 tweaks.json.tmp-*
+
+# Desktop app (desktop/) build output and its own dependencies.
+desktop/node_modules/
+desktop/dist/

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ASOC Engine — Offline</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: grid;
+      place-items: center;
+      background: #0a0c10;
+      color: #e8eaff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .panel {
+      width: min(440px, calc(100% - 32px));
+      padding: 24px;
+      border: 1px solid #4a4f5e;
+      border-top: 2px solid #d4a843;
+      background: rgba(15, 17, 22, .95);
+      text-align: center;
+    }
+    h1 { margin: 0 0 10px; color: #d4a843; font-size: 1.1rem; letter-spacing: .14em; }
+    p { margin: 0 0 8px; color: #a6adbf; line-height: 1.4; }
+    .reason { font-family: Consolas, monospace; font-size: .8rem; color: #c86a6a; }
+    button {
+      margin-top: 12px;
+      padding: 8px 22px;
+      border: 1px solid #6a6f7e;
+      background: rgba(25, 28, 35, .9);
+      color: #e8eaff;
+      font: inherit;
+      letter-spacing: .1em;
+      cursor: pointer;
+    }
+    button:hover { border-color: #d4a843; }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>SIGNAL LOST</h1>
+    <p>ASOC Engine can't reach the server. Check your internet connection.</p>
+    <p class="reason" id="reason"></p>
+    <p id="countdown"></p>
+    <button id="retry" type="button">RETRY NOW</button>
+  </div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const target = params.get('target') || 'https://asocengine.com';
+    document.getElementById('reason').textContent = params.get('reason') || '';
+    const retry = () => { location.href = target; };
+    document.getElementById('retry').addEventListener('click', retry);
+    let seconds = 10;
+    const countdown = document.getElementById('countdown');
+    setInterval(() => {
+      seconds -= 1;
+      if (seconds <= 0) retry();
+      else countdown.textContent = `Retrying in ${seconds}s…`;
+    }, 1000);
+  </script>
+</body>
+</html>
