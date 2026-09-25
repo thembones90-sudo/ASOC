@@ -530,7 +530,6 @@ function savePlayerAuthSessions() {
   try { return playerSessionStore.save(playerAuthTokens); }
   catch (error) { failPersistence(); throw error; }
 }
-let currentGMToken = '';
 function tokenRecordValid(record) {
   return !!record && Number(record.expiresAt || 0) > Date.now();
 }
@@ -567,11 +566,55 @@ if (!GM_PASSWORD) {
   try { fs.writeFileSync(GM_PASSWORD_FILE, GM_PASSWORD, { mode: 0o600 }); } catch (e) {}
 }
 
+// GM LOGIN SESSIONS. The Shadow Broker is one person, so a GM login is
+// long-lived and survives restarts and deploys: sessions are persisted
+// (keyed by the token's SHA-256, never the raw token, like player sessions)
+// and each one slides forward while it is in use. Changing the GM password
+// invalidates every saved GM session. A missing or damaged file only means
+// "log in once more" -- it never blocks the server.
+const GM_AUTH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const GM_AUTH_RENEW_AFTER_MS = 60 * 60 * 1000; // slide the expiry at most hourly
+const GM_AUTH_SESSIONS_FILE = process.env.ASOC_GM_AUTH_SESSIONS_FILE
+  ? path.resolve(process.env.ASOC_GM_AUTH_SESSIONS_FILE)
+  : path.join(ASOC_DATA_DIR, '.gm-auth-sessions.json');
+function gmPasswordFingerprint() {
+  return crypto.createHash('sha256').update('asoc-gm-session:' + GM_PASSWORD).digest('hex');
+}
+function loadGmSessions() {
+  let saved;
+  try { saved = JSON.parse(fs.readFileSync(GM_AUTH_SESSIONS_FILE, 'utf8')); }
+  catch (error) {
+    if (error.code !== 'ENOENT') console.warn('[gm-auth] Saved GM sessions unreadable; GM must log in again:', error.message);
+    return;
+  }
+  if (!saved || saved.passwordFingerprint !== gmPasswordFingerprint()) {
+    console.log('[gm-auth] GM password changed; saved GM sessions discarded');
+    return;
+  }
+  for (const [key, record] of Object.entries(saved.sessions || {})) {
+    if (/^[a-f0-9]{64}$/.test(key) && tokenRecordValid(record)) {
+      gmTokens.set(key, { expiresAt: Number(record.expiresAt), renewedAt: Number(record.renewedAt) || Date.now() });
+    }
+  }
+}
+function saveGmSessions() {
+  try {
+    durableIO.writeJson(GM_AUTH_SESSIONS_FILE, {
+      passwordFingerprint: gmPasswordFingerprint(),
+      sessions: Object.fromEntries(gmTokens)
+    });
+  } catch (error) {
+    console.error('[gm-auth] Failed to persist GM sessions:', error.message);
+  }
+}
+loadGmSessions();
+
 function refreshGMToken() {
   pruneAuthTokens();
   const token = 'gm-' + crypto.randomBytes(18).toString('base64url');
-  gmTokens.set(token, { expiresAt: Date.now() + AUTH_TOKEN_TTL_MS });
-  currentGMToken = token;
+  const now = Date.now();
+  gmTokens.set(playerTokenKey(token), { expiresAt: now + GM_AUTH_TOKEN_TTL_MS, renewedAt: now });
+  saveGmSessions();
   return token;
 }
 
@@ -585,9 +628,20 @@ function isGmAuthorized(req) {
 }
 
 function isValidGmToken(token) {
-  if (typeof token !== 'string') return false;
-  const record = gmTokens.get(token);
-  if (!tokenRecordValid(record)) { gmTokens.delete(token); return false; }
+  if (typeof token !== 'string' || !token) return false;
+  const key = playerTokenKey(token);
+  const record = gmTokens.get(key);
+  if (!tokenRecordValid(record)) {
+    if (gmTokens.delete(key)) saveGmSessions();
+    return false;
+  }
+  // In use: keep the session alive (sliding 30-day window).
+  const now = Date.now();
+  if (now - Number(record.renewedAt || 0) > GM_AUTH_RENEW_AFTER_MS) {
+    record.expiresAt = now + GM_AUTH_TOKEN_TTL_MS;
+    record.renewedAt = now;
+    saveGmSessions();
+  }
   return true;
 }
 
@@ -7312,8 +7366,10 @@ function handleApiRequest(req, res) {
   }
 
   if (method === 'POST' && url.pathname === '/api/auth/gm/logout') {
+    // SIGN OUT MASTER ACCOUNT signs the Shadow Broker out everywhere,
+    // including the saved sessions on disk.
     gmTokens.clear();
-    currentGMToken = '';
+    saveGmSessions();
     masterMirrorTokens.clear();
     return sendJson(res, 200, { ok: true });
   }
@@ -8021,7 +8077,6 @@ for (const room of rooms.values()) {
 }
 
 server.listen(PORT, '0.0.0.0', () => {
-  refreshGMToken();
   pruneAuthTokens();
   console.log(`ASOC Engine server running on http://0.0.0.0:${PORT}`);
   console.log(`Gamemaster: http://localhost:${PORT}`);

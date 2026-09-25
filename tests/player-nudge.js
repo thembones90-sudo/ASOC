@@ -152,8 +152,7 @@ async function run() {
     await sleep(600);
     server = startServer();
     await waitHealthy();
-    // GM tokens are in-memory only, so a restart needs a fresh GM login.
-    gmToken = (await api('/api/auth/gm/login', { password: 'nudge-pass' })).data.token;
+    // The GM's login survives the restart too (persisted GM sessions).
     await connectAll();
     assert.equal(witness.state.bloodTribute.source, 'nudge', 'nudge debt survives a restart');
 
