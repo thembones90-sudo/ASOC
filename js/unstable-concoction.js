@@ -6,6 +6,9 @@
     state: { cooldownUntil: 0, spinning: false },
     activeToken: '',
     tickTimer: null,
+    panelTimer: null,
+    watchdogTimer: null,
+    resolvedToken: '',
     initialized: false,
 
     init() {
@@ -49,8 +52,10 @@
             </div>
           </div>
           <div id="unstable-concoction-readout" class="concoction-readout">REACTION IN PROGRESS</div>
+          <button type="button" class="concoction-dismiss" hidden>RETURN TO CHAT</button>
         </div>`;
       document.getElementById('game-screen')?.appendChild(panel);
+      panel.querySelector('.concoction-dismiss')?.addEventListener('click', () => this.closePanel());
     },
 
     isLocked() {
@@ -58,6 +63,7 @@
     },
 
     updateState(state) {
+      const wasSpinning = this.state.spinning === true;
       this.state = state && typeof state === 'object'
         ? { cooldownUntil: Number(state.cooldownUntil) || 0, ...state }
         : { cooldownUntil: 0, spinning: false };
@@ -65,6 +71,8 @@
       if (PlayerApp.roomMode === 'CASUAL' && this.state.spinning &&
           String(this.state.playerId || '') === String(PlayerApp.playerId || '')) {
         this.showSpin(this.state.spinToken, this.state.resolvesAt);
+      } else if (wasSpinning && !this.state.spinning && this.activeToken && this.resolvedToken !== this.activeToken) {
+        this.finishWithoutResult();
       }
     },
 
@@ -103,6 +111,9 @@
     showSpin(token, resolvesAt) {
       if (!token || this.activeToken === token || PlayerApp.roomMode !== 'CASUAL') return;
       this.activeToken = token;
+      this.resolvedToken = '';
+      clearTimeout(this.panelTimer);
+      clearTimeout(this.watchdogTimer);
       const panel = document.getElementById('unstable-concoction-panel');
       const wheel = document.getElementById('unstable-concoction-wheel');
       const readout = document.getElementById('unstable-concoction-readout');
@@ -110,9 +121,12 @@
       panel.hidden = false;
       readout.textContent = 'REACTION IN PROGRESS';
       readout.removeAttribute('data-outcome');
+      panel.querySelector('.concoction-dismiss')?.setAttribute('hidden', '');
       wheel.className = 'concoction-wheel';
       wheel.style.setProperty('--spin-ms', `${Math.max(350, Number(resolvesAt) - Date.now())}ms`);
       requestAnimationFrame(() => wheel.classList.add('is-spinning'));
+      const remaining = Math.max(0, Number(resolvesAt) - Date.now());
+      this.watchdogTimer = setTimeout(() => this.finishWithoutResult(), remaining + 6000);
     },
 
     onResolved(message) {
@@ -124,29 +138,62 @@
       const wheel = document.getElementById('unstable-concoction-wheel');
       const readout = document.getElementById('unstable-concoction-readout');
       if (!panel || !wheel || !readout || !OUTCOMES.includes(message.outcome)) return;
+      this.resolvedToken = String(message.spinToken || this.activeToken || '');
+      clearTimeout(this.watchdogTimer);
       panel.hidden = false;
       wheel.classList.remove('is-spinning');
       wheel.dataset.result = String(OUTCOMES.indexOf(message.outcome));
       readout.textContent = message.outcome;
       readout.dataset.outcome = String(OUTCOMES.indexOf(message.outcome));
-      setTimeout(() => {
-        panel.hidden = true;
-        this.activeToken = '';
+      panel.querySelector('.concoction-dismiss')?.removeAttribute('hidden');
+      clearTimeout(this.panelTimer);
+      this.panelTimer = setTimeout(() => this.closePanel(), message.outcome === 'BLOOD TRIBUTE' ? 3000 : 2400);
+    },
+
+    finishWithoutResult() {
+      if (!this.activeToken) return;
+      const panel = document.getElementById('unstable-concoction-panel');
+      const wheel = document.getElementById('unstable-concoction-wheel');
+      const readout = document.getElementById('unstable-concoction-readout');
+      if (!panel || !wheel || !readout) return this.closePanel();
+      wheel.classList.remove('is-spinning');
+      readout.textContent = 'REACTION COMPLETE';
+      readout.removeAttribute('data-outcome');
+      panel.querySelector('.concoction-dismiss')?.removeAttribute('hidden');
+      clearTimeout(this.panelTimer);
+      this.panelTimer = setTimeout(() => this.closePanel(), 1400);
+    },
+
+    closePanel() {
+      clearTimeout(this.panelTimer);
+      clearTimeout(this.watchdogTimer);
+      const panel = document.getElementById('unstable-concoction-panel');
+      const wheel = document.getElementById('unstable-concoction-wheel');
+      if (panel) panel.hidden = true;
+      if (wheel) {
+        wheel.classList.remove('is-spinning');
         delete wheel.dataset.result;
-      }, message.outcome === 'BLOOD TRIBUTE' ? 2300 : 1800);
+      }
+      this.activeToken = '';
+      this.resolvedToken = '';
     },
 
     onLocked(message) {
       this.state.cooldownUntil = Number(message.cooldownUntil) || this.state.cooldownUntil;
       this.state.spinning = false;
       this.renderStatus();
+      this.closePanel();
+    },
+
+    onError() {
+      if (!this.state.spinning) this.closePanel();
+      this.renderStatus();
     },
 
     leaveCasual() {
-      document.getElementById('unstable-concoction-panel')?.setAttribute('hidden', '');
+      this.closePanel();
       document.getElementById('casual-minigames-menu')?.setAttribute('hidden', '');
       document.getElementById('casual-minigames-toggle')?.setAttribute('aria-expanded', 'false');
-      this.activeToken = '';
     }
   };
 
