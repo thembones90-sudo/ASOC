@@ -18333,6 +18333,38 @@ body:is(.room-mode-battle-armed,.room-mode-battle,.room-mode-recount) .gm-module
   box-shadow: inset 0 18px 30px rgba(67,22,48,.12), inset 0 -24px 34px rgba(18,8,29,.3);
 }
 
+/* REVAN COMMS // deliberately unmistakable on both AMUSE and ABUSE.
+   These mode-qualified selectors outrank the legacy near-black casual skin. */
+body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-recount)
+  #gm-panel .gm-module-chat #gm-chat-messages {
+  background-color: #26182e;
+  background-image:
+    radial-gradient(ellipse at 8% 18%, rgba(190, 42, 62, .36), transparent 47%),
+    radial-gradient(ellipse at 88% 68%, rgba(147, 70, 183, .42), transparent 54%),
+    radial-gradient(circle, rgba(220, 82, 104, .26) 0 1px, transparent 1.8px),
+    linear-gradient(rgba(168, 89, 198, .09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(210, 67, 90, .075) 1px, transparent 1px),
+    linear-gradient(135deg, #351a28 0%, #291831 48%, #191724 100%);
+  background-size: auto, auto, 116px 78px, 39px 39px, 39px 39px, auto;
+  background-position: center, center, 18px 16px, 0 0, 0 0, center;
+  box-shadow:
+    inset 0 24px 42px rgba(190,42,62,.12),
+    inset 0 -28px 48px rgba(128,54,169,.16);
+}
+
+body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-recount)
+  #gm-panel .gm-module-chat .gm-chat-header {
+  background: linear-gradient(90deg, rgba(77,27,42,.94), rgba(58,28,75,.94) 58%, rgba(27,23,37,.96));
+  border-bottom-color: rgba(190,100,213,.42);
+  box-shadow: 0 8px 22px rgba(46,14,43,.2);
+}
+
+body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-recount)
+  #gm-panel .gm-module-chat #gm-broker-bar {
+  background: linear-gradient(90deg, rgba(51,24,35,.98), rgba(43,25,55,.98) 62%, rgba(20,21,29,.99));
+  border-top-color: rgba(180,91,202,.38);
+}
+
 .gm-module-chat .gm-chat-messages::before,
 .gm-module-chat .gm-chat-messages::after {
   content: '';
