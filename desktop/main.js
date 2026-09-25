@@ -4,7 +4,7 @@
 // scores stay on the server, so deploying the site updates every desktop
 // install with no new .exe. Override the target for local testing with
 //   --url=http://localhost:8080   or   ASOC_DESKTOP_URL=http://localhost:8080
-const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, safeStorage, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
@@ -22,6 +22,7 @@ const OFFLINE_PAGE = path.join(__dirname, 'offline.html');
 const PRELOAD = path.join(__dirname, 'preload.js');
 const STATE_FILE = path.join(app.getPath('userData'), 'window-state.json');
 const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json');
+const CREDENTIALS_FILE = path.join(app.getPath('userData'), 'saved-logins.json');
 
 const WEB_PREFERENCES = Object.freeze({
   contextIsolation: true,
@@ -158,6 +159,69 @@ ipcMain.on('asoc:attention', (event, payload) => {
 ipcMain.on('asoc:notify', (event, payload) => {
   const win = senderWindow(event);
   if (win) showNotification(win, payload || {});
+});
+
+// ---------------------------------------------------------------------------
+// SAVED LOGINS ("Remember me"). Electron has no password manager, so the app
+// keeps the GM / Little Hero login itself, encrypted with safeStorage
+// (Windows DPAPI: only this Windows user can decrypt it). Keyed by site
+// origin, so a localhost test server never sees production logins. Only
+// ASOC pages may read or write; the page decides when (js/saved-login.js).
+
+const CREDENTIAL_KINDS = new Set(['gm', 'player']);
+
+function readSavedLogins() {
+  try {
+    const all = JSON.parse(fs.readFileSync(CREDENTIALS_FILE, 'utf8'));
+    return all && typeof all === 'object' ? all : {};
+  } catch { return {}; }
+}
+
+function writeSavedLogins(all) {
+  try {
+    fs.mkdirSync(path.dirname(CREDENTIALS_FILE), { recursive: true });
+    fs.writeFileSync(CREDENTIALS_FILE, JSON.stringify(all, null, 2));
+    return true;
+  } catch { return false; }
+}
+
+function credentialKey(kind) { return `${ORIGIN}|${kind}`; }
+
+function credentialRequestAllowed(event, kind) {
+  return isAsocUrl(event.senderFrame?.url || '') && CREDENTIAL_KINDS.has(kind) && safeStorage.isEncryptionAvailable();
+}
+
+function forgetAllSavedLogins() {
+  const all = readSavedLogins();
+  for (const kind of CREDENTIAL_KINDS) delete all[credentialKey(kind)];
+  writeSavedLogins(all);
+}
+
+ipcMain.handle('asoc:credentials:get', (event, kind) => {
+  if (!credentialRequestAllowed(event, kind)) return null;
+  const blob = readSavedLogins()[credentialKey(kind)];
+  if (typeof blob !== 'string') return null;
+  try {
+    const login = JSON.parse(safeStorage.decryptString(Buffer.from(blob, 'base64')));
+    return { username: String(login.username || ''), password: String(login.password || '') };
+  } catch { return null; }
+});
+
+ipcMain.handle('asoc:credentials:save', (event, kind, login) => {
+  if (!credentialRequestAllowed(event, kind)) return false;
+  const username = String(login?.username || '').slice(0, 254);
+  const password = String(login?.password || '').slice(0, 256);
+  if (!password) return false;
+  const all = readSavedLogins();
+  all[credentialKey(kind)] = safeStorage.encryptString(JSON.stringify({ username, password })).toString('base64');
+  return writeSavedLogins(all);
+});
+
+ipcMain.handle('asoc:credentials:forget', (event, kind) => {
+  if (!isAsocUrl(event.senderFrame?.url || '') || !CREDENTIAL_KINDS.has(kind)) return false;
+  const all = readSavedLogins();
+  delete all[credentialKey(kind)];
+  return writeSavedLogins(all);
 });
 
 // ---------------------------------------------------------------------------
@@ -342,10 +406,12 @@ function runSmokeTest(contents) {
     const result = await contents.executeJavaScript(`({
       title: document.title,
       dialog: typeof window.AsocDialog?.prompt === 'function',
-      bridge: typeof window.asocDesktop?.attention === 'function' && typeof window.asocDesktop?.notify === 'function',
-      alerts: typeof window.AsocAlerts?.signal === 'function'
+      bridge: typeof window.asocDesktop?.attention === 'function' && typeof window.asocDesktop?.notify === 'function'
+        && typeof window.asocDesktop?.credentials?.get === 'function',
+      alerts: typeof window.AsocAlerts?.signal === 'function',
+      savedLogin: window.AsocSavedLogin?.mode || 'missing'
     })`);
-    console.log(`[smoke] loaded ${url} title="${result.title}" AsocDialog=${result.dialog} asocDesktop=${result.bridge} AsocAlerts=${result.alerts}`);
+    console.log(`[smoke] loaded ${url} title="${result.title}" AsocDialog=${result.dialog} asocDesktop=${result.bridge} AsocAlerts=${result.alerts} SavedLogin=${result.savedLogin}`);
     app.exit(result.dialog && result.bridge ? 0 : 1);
   });
 }
@@ -362,6 +428,21 @@ function buildMenu() {
         { label: 'Hard Reload (clear cache)', accelerator: 'CmdOrCtrl+Shift+R', click: () => focused()?.webContents.reloadIgnoringCache() },
         { type: 'separator' },
         { label: 'Notifications', submenu: notificationMenuItems() },
+        {
+          label: 'Forget saved logins',
+          click: async () => {
+            const { response } = await dialog.showMessageBox(focused(), {
+              type: 'question',
+              buttons: ['Forget', 'Cancel'],
+              defaultId: 1,
+              cancelId: 1,
+              title: 'ASOC Engine',
+              message: 'Forget the saved Shadow Broker and Little Hero logins on this computer?',
+              detail: 'You stay signed in now. Next time you will type your login again.'
+            });
+            if (response === 0) forgetAllSavedLogins();
+          }
+        },
         { type: 'separator' },
         { label: 'Exit', click: () => { quitting = true; app.quit(); } }
       ]

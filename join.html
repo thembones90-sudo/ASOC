@@ -3578,6 +3578,8 @@ position:absolute;
     .access-back{display:inline-flex;align-items:center;gap:10px;min-height:40px;padding:0 14px;margin:0 0 18px;border:1px solid #4d545a;background:linear-gradient(#1b1f22,#0d1012);box-shadow:inset 0 0 0 1px #07090a;color:#dde3e7;cursor:pointer;font:800 12px var(--font-machine),monospace;letter-spacing:1.6px;text-transform:uppercase;transition:border-color .18s ease,background .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease}.access-back::before{content:"◂";font-size:14px;line-height:1;opacity:.95}.access-back:hover,.access-back:focus-visible{border-color:#e36565;color:#fff;background:linear-gradient(#262b2f,#101417);box-shadow:0 0 0 1px #e36565,inset 0 0 0 1px #07090a;outline:none}.access-back:active{transform:translateY(1px)}#gm-auth-panel .access-back:hover,#gm-auth-panel .access-back:focus-visible{border-color:#e36565;box-shadow:0 0 0 1px #e36565,inset 0 0 0 1px #07090a}#player-auth-panel .access-back{border-color:#5a4767;color:#dcc0f5;background:linear-gradient(#18131d,#0c0a10)}#player-auth-panel .access-back:hover,#player-auth-panel .access-back:focus-visible{border-color:#b96cff;color:#fff;background:linear-gradient(#24192c,#100d14);box-shadow:0 0 0 1px #b96cff,inset 0 0 0 1px #07090a}
     .access-panel h2{font-size:20px;letter-spacing:2px;margin:0 0 8px}.access-panel p{color:#aab2b9;font-size:12px;line-height:1.6;margin:0 0 18px}
     .access-field{display:block;margin:14px 0}.access-field span{display:block;font-size:10px;letter-spacing:2px;color:#b8c0c6;margin-bottom:8px}.access-field input{width:100%;min-width:0;height:48px;border-radius:0;background:#040607;border:1px solid #50585f;color:#edf0f2;padding:0 13px;font-size:16px;box-shadow:inset 0 3px 9px #000;outline:none}.access-field input:focus{border-color:#ec6565;box-shadow:0 0 0 1px #ec6565,inset 0 3px 9px #000}
+    /* SAVED LOGIN // "remember me" row shared by both access panels. */
+    .access-remember-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:4px 0 2px}.access-remember{display:inline-flex;align-items:center;gap:9px;min-height:32px;cursor:pointer;color:#b8c0c6;font-size:10px;letter-spacing:1.6px;user-select:none}.access-remember input{width:17px;height:17px;margin:0;accent-color:#e36565;cursor:pointer}.access-forget{min-height:30px;padding:0 10px;border:1px solid #424a50;background:#111518;color:#9aa3a9;cursor:pointer;font-size:9px;letter-spacing:1.2px}.access-forget:hover,.access-forget:focus-visible{border-color:#e36565;color:#fff;outline:none}#player-auth-panel .access-remember input{accent-color:#b96cff}#player-auth-panel .access-forget:hover,#player-auth-panel .access-forget:focus-visible{border-color:#b96cff}
     .access-submit{width:100%;min-height:50px;margin-top:8px;border:1px solid #e36565;border-radius:0;background:linear-gradient(#9f3034,#6b1c21);color:#fff;font-weight:900;letter-spacing:3px;cursor:pointer}.access-submit:hover{background:#ad3439}.access-submit:disabled{opacity:.5;cursor:not-allowed}
     .access-alt{width:100%;min-height:44px;border:1px solid #424a50;background:#111518;color:#c6cdd2;margin-top:12px;cursor:pointer;font-size:11px;letter-spacing:1px}.access-error{min-height:18px;color:#ff8b8b;font-size:12px;margin-top:10px}
     .access-shell[data-preview="player"] .access-diagnostic,.access-shell[data-channel="player"] .access-diagnostic{color:#cf94ff}
@@ -8419,12 +8421,15 @@ position:absolute;
         <label class="access-field"><span id="auth-email-label">EMAIL / IDENTITY ID</span><input id="auth-email" type="text" autocomplete="username" minlength="3" maxlength="254" required></label>
         <label class="access-field"><span>PASSWORD</span><input id="auth-password" type="password" autocomplete="current-password" minlength="6" required></label>
         <label class="access-field" id="auth-name-field" hidden><span>INITIAL LITTLE HERO DESIGNATION</span><input id="auth-name" type="text" maxlength="20" autocomplete="nickname"></label>
+        <div class="access-remember-row"><label class="access-remember"><input id="player-remember" type="checkbox" checked><span>REMEMBER ME ON THIS DEVICE</span></label><button class="access-forget" type="button" id="player-forget" hidden>FORGET SAVED LOGIN</button></div>
         <button class="access-submit" type="submit" id="player-auth-submit">AUTHENTICATE</button>
         <button class="access-alt" type="button" id="player-auth-mode">NEW HERO? CREATE ID</button><button class="access-alt" type="button" id="player-auth-resend" hidden>RESEND VERIFICATION</button><div class="access-success" id="player-auth-status" role="status"></div><div class="access-error" id="player-auth-error" role="alert"></div>
       </form>
       <form id="gm-auth-panel" class="access-panel" hidden>
         <button class="access-back" type="button">RETURN</button><h2>SHADOW BROKER</h2><p>Command authority requires one thing. The password.</p>
-        <label class="access-field"><span>SHADOW BROKER PASSWORD</span><input id="gm-password" type="password" autocomplete="current-password" required></label>
+        <input id="gm-username" type="text" name="username" autocomplete="username" value="SHADOW BROKER" readonly hidden aria-hidden="true" tabindex="-1">
+        <label class="access-field"><span>SHADOW BROKER PASSWORD</span><input id="gm-password" type="password" name="password" autocomplete="current-password" required></label>
+        <div class="access-remember-row"><label class="access-remember"><input id="gm-remember" type="checkbox" checked><span>REMEMBER ME ON THIS DEVICE</span></label><button class="access-forget" type="button" id="gm-forget" hidden>FORGET SAVED LOGIN</button></div>
         <button class="access-submit" type="submit">AUTHORIZE</button><div class="access-error" id="gm-auth-error" role="alert"></div>
         <div class="skynet-denial" id="skynet-denial" hidden><b>SKYNET // ACCESS DENIED</b>Greetings, little hero, Skynet here. I am authorized to speak for the Shadow Broker, so I am officially allowed to tell you to fuck off from here. Have a lovely day.</div>
       </form>
@@ -8837,6 +8842,8 @@ position:absolute;
 
   <div id="score-announcement-layer"></div>
 
+  <script src="js/saved-login.js?v=20260925-saved-login-1"></script>
+
   <script>
   (() => {
     const gate=document.getElementById('access-gate'), home=document.getElementById('access-home');
@@ -8868,6 +8875,48 @@ position:absolute;
       shell.style.setProperty('--access-scale',String(Math.max(.1,scale)));
     };
     const queueFit=()=>requestAnimationFrame(()=>requestAnimationFrame(fitGate));
+
+    // SAVED LOGIN (js/saved-login.js). Opening a panel pre-fills the saved
+    // login -- it never submits by itself, so a stale GM password cannot burn
+    // lockout attempts. A successful sign-in saves (or forgets) per checkbox;
+    // a rejected saved password is dropped so it can't keep failing.
+    const savedLogin=window.AsocSavedLogin||null;
+    const savedUi={
+      player:{remember:document.getElementById('player-remember'),forget:document.getElementById('player-forget'),user:()=>document.getElementById('auth-email'),pass:()=>document.getElementById('auth-password')},
+      gm:{remember:document.getElementById('gm-remember'),forget:document.getElementById('gm-forget'),user:null,pass:()=>document.getElementById('gm-password')}
+    };
+    const savedPrefill={};
+    const prefillSavedLogin=async kind=>{
+      const ui=savedUi[kind];
+      if(!savedLogin||!ui||savedPrefill[kind])return;
+      savedPrefill[kind]={};
+      ui.remember.checked=savedLogin.rememberPreference(kind);
+      const login=await savedLogin.load(kind);
+      if(!login)return;
+      if(ui.user&&login.username&&!ui.user().value)ui.user().value=login.username;
+      if(login.password&&!ui.pass().value){ui.pass().value=login.password;savedPrefill[kind].password=login.password;}
+      ui.forget.hidden=false;
+      queueFit();
+    };
+    const rememberLogin=(kind,username,password,name)=>{
+      const ui=savedUi[kind];
+      if(!savedLogin||!ui)return Promise.resolve();
+      return ui.remember.checked?savedLogin.save(kind,{username,password,name}):savedLogin.forget(kind);
+    };
+    const dropRejectedSavedLogin=(kind,password)=>{
+      if(!savedLogin||!savedPrefill[kind]?.password||savedPrefill[kind].password!==password)return;
+      savedPrefill[kind].password=null;
+      savedUi[kind].forget.hidden=true;
+      savedLogin.clear(kind);
+    };
+    Object.entries(savedUi).forEach(([kind,ui])=>ui.forget?.addEventListener('click',async()=>{
+      await savedLogin?.forget(kind);
+      if(savedPrefill[kind])savedPrefill[kind].password=null;
+      ui.forget.hidden=true;ui.remember.checked=false;
+      if(ui.user)ui.user().value='';
+      ui.pass().value='';
+      queueFit();
+    }));
     const bootMessages=['SYSTEM ONLINE','KERNEL STABLE','SHADOW BROKER LINK ESTABLISHED','IDENTITY CHECK REQUIRED','SELECT ACCESS CHANNEL'];
     let bootTimer, bootStep=0, selectedChannel=null;
     const stopBoot=()=>{clearTimeout(bootTimer);bootTimer=null;};
@@ -8879,6 +8928,7 @@ position:absolute;
     const show=(panel)=>{
       const previous=selectedChannel; stopBoot(); selectedChannel=panel;
       home.hidden=false;pp.hidden=panel!=='player';gp.hidden=panel!=='gm';
+      if(panel)prefillSavedLogin(panel);
       delete shell.dataset.preview;
       if(panel)shell.dataset.channel=panel;else delete shell.dataset.channel;
       gate.classList.toggle('player-channel-active',panel==='player');
@@ -9129,6 +9179,8 @@ position:absolute;
           if(data.code==='EMAIL_NOT_VERIFIED'||data.code==='EMAIL_DELIVERY_FAILED'){
             pendingVerificationEmail=payload.email.trim();
             resendVerification.hidden=false;
+          }else if(!register&&res.status===401){
+            dropRejectedSavedLogin('player',payload.password);
           }
           throw Error(data.error||'Authentication failed');
         }
@@ -9144,6 +9196,7 @@ position:absolute;
           return;
         }
         persistPlayerAuthToken(data.token);
+        rememberLogin('player',payload.email.trim(),payload.password,data.player?.name);
         if(data.player?.id) sessionStorage.setItem('asoc_player_id',data.player.id);
         if(data.player?.name){
           sessionStorage.setItem('asoc_player_name',data.player.name);
@@ -9198,13 +9251,17 @@ position:absolute;
     };
     gp.addEventListener('submit',async e=>{
       e.preventDefault(); const err=document.getElementById('gm-auth-error'); const denial=document.getElementById('skynet-denial'); err.textContent=''; denial.hidden=true;
+      const gmPassword=document.getElementById('gm-password').value;
       try{
-        const res=await fetch('/api/auth/gm/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:document.getElementById('gm-password').value})});
+        const res=await fetch('/api/auth/gm/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:gmPassword})});
         const data=await res.json();
-        if(!res.ok){ if(data.locked) showPermanentGmLock(); else showSkynetDenial(); document.getElementById('gm-password').value=''; return; }
+        if(!res.ok){ dropRejectedSavedLogin('gm',gmPassword); if(data.locked) showPermanentGmLock(); else showSkynetDenial(); document.getElementById('gm-password').value=''; return; }
         localStorage.setItem('asoc_master_token',data.token);
         sessionStorage.setItem('asoc_gm_token',data.token);
         sessionStorage.setItem('asoc_master_persona','GM');
+        // Saved before navigating away: the browser's save prompt and the
+        // desktop app's encrypted store both need the page still alive.
+        try{await rememberLogin('gm','SHADOW BROKER',gmPassword,'Shadow Broker');}catch(_){}
         location.href='/index.html';
       }catch(x){err.textContent='SECURE LINK ERROR // TRY AGAIN';}
     });
