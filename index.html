@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260925-ritual-board-2">
+  <link rel="stylesheet" href="css/asoc.css?v=20260925-gm-control-pass-1">
   <link rel="stylesheet" href="css/tweaks.css?v=20260924-command-repaint-1">
   <link rel="stylesheet" href="css/backdoor-console.css?v=20260923-operator-console-1">
 </head>
@@ -46,9 +46,13 @@
         </div>
         <!-- RECOUNT gate: appears only when the game is over (whole field opened, or lost
              on time). SHOW RESULTS broadcasts the RECOUNT to everyone; afterwards it reopens it. -->
+        <!-- END GAME: reopens the SOLUTION CONFIRMED panel after CLOSE, for as long as
+             the Final's points are still withheld (state.finalResultsPending). -->
+        <button class="gm-global-btn final-panel-reopen-btn" id="final-panel-reopen-btn" type="button" style="display: none;" title="Reopen the Final Solution panel // results not yet shown">END GAME</button>
         <button class="gm-global-btn recount-btn" id="recount-btn" type="button">SHOW RESULTS</button>
-        <div class="battle-controls-utility-row" style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr);gap:10px;margin-top:10px;">
+        <div class="battle-controls-utility-row" style="display:grid;grid-template-columns:minmax(0,1.35fr) auto minmax(0,.65fr);gap:10px;margin-top:10px;">
           <button class="toolbar-btn" id="library-btn-footer" style="width:100%;margin:0;">GAME LIBRARY</button>
+          <button class="toolbar-btn sound-toggle-btn" id="sound-toggle-btn" type="button" aria-pressed="false" title="Mute every ASOC sound on this device" style="margin:0;">SOUNDS ON</button>
           <div class="master-access-wrap">
             <button class="toolbar-btn master-access-btn" id="master-access-btn" type="button" aria-haspopup="true" aria-expanded="false"><svg class="master-access-sigil" viewBox="0 0 40 40" aria-hidden="true" focusable="false"><path class="master-sigil-outer" d="M20 2 32 8l6 12-6 12-12 6-12-6-6-12L8 8Z"/><circle class="master-sigil-ring" cx="20" cy="20" r="10"/><path class="master-sigil-key" d="M20 11a6 6 0 1 0 4.3 10.2L31 28v4h-4v-3h-3v-3l-2.4-2.4A6 6 0 0 0 20 11Zm0 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg><span>MASTER ACCESS</span></button>
             <div class="master-access-menu" id="master-access-menu" hidden>
@@ -85,7 +89,7 @@
               <button type="button" data-gm-minigame="concoction"><img src="assets/ui/unstable-concoction-toxic-drop.png" alt=""><span><b>UNSTABLE CONCOCTION</b><small>One room-wide dose every 24H</small></span><i id="gm-concoction-status">READY</i></button>
             </div>
             <div id="gm-minigames-panel" class="gm-minigames-panel" hidden><div class="gm-minigames-shell"><header><div><b id="gm-minigames-title">IKS OKS</b><small>SHADOW BROKER ARCADE</small></div><button type="button" data-gm-minigame-close>×</button></header><div id="gm-minigames-content"></div></div></div>
-            <div class="chat-search-strip gm-chat-search-strip"><input id="gm-chat-search" type="search" placeholder="SEARCH TRANSMISSIONS" autocomplete="off" oninput="App._gmChatSearch=this.value;App.renderGMChat()"></div>
+            <div class="chat-search-strip gm-chat-search-strip"><input id="gm-chat-search" type="search" placeholder="SEARCH TRANSMISSIONS" autocomplete="off" oninput="App._gmChatSearch=this.value;App.renderGMChat()"><button type="button" id="gm-deny-all-btn" class="gm-deny-all-btn" hidden disabled title="Mark every unjudged attempt WRONG">DENY ALL</button></div>
             <div id="gm-chat-priority-lane" class="chat-priority-lane" hidden aria-live="polite"></div>
             <div id="gm-chat-messages" class="gm-chat-messages"></div>
           <button type="button" id="gm-chat-new-messages" class="gm-chat-new-messages" hidden>↓ 0 NEW TRANSMISSIONS</button>
@@ -296,7 +300,7 @@
       }
     });
   </script>
-  <script src="js/audio.js?v=20260922-omen-temporal-1"></script>
+  <script src="js/audio.js?v=20260925-gm-control-pass-1"></script>
   <script src="js/themes.js"></script>
   <script src="js/skeleton.js?v=20260924-system-audit-1"></script>
   <script src="js/recount.js"></script>
@@ -305,14 +309,15 @@
   <script src="js/ritual.js?v=20260925-board-access-2"></script>
   <script src="js/timer.js"></script>
   <script src="js/game-data.js"></script>
-  <script src="js/board.js?v=20260923-gm-ghost-board-1"></script>
+  <script src="js/dom-patch.js?v=20260925-gm-control-pass-1"></script>
+  <script src="js/board.js?v=20260925-gm-control-pass-1"></script>
   <script src="js/backdoor.js?v=20260923-operator-console-1"></script>
   <script src="js/commander-emojis.js"></script>
   <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
-  <script src="js/asoc-alerts.js?v=20260925-fart-1"></script>
+  <script src="js/asoc-alerts.js?v=20260925-gm-control-pass-1"></script>
   <script src="js/chat-media-preview.js?v=20260924-avatar-preview-1"></script>
   <script src="js/gm-minigames.js?v=20260925-gm-arcade-bind-2"></script>
-  <script src="js/app.js?v=20260925-ritual-board-1"></script>
+  <script src="js/app.js?v=20260925-gm-control-pass-1"></script>
   <script src="js/tweaks.js?v=20260924-command-repaint-1"></script>
   <script src="js/forge.js"></script>
 </body>

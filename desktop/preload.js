@@ -41,11 +41,12 @@ contextBridge.exposeInMainWorld('asocDesktop', Object.freeze({
     ipcRenderer.send('asoc:attention', { count: n, badge });
   },
   notify(payload) {
-    const { title, body, tag } = payload || {};
+    const { title, body, tag, silent } = payload || {};
     ipcRenderer.send('asoc:notify', {
       title: String(title || 'ASOC Engine').slice(0, 64),
       body: String(body || '').slice(0, 200),
-      tag: String(tag || '').slice(0, 32)
+      tag: String(tag || '').slice(0, 32),
+      silent: silent === true
     });
   },
   // Saved logins ("Remember me"), kept encrypted by the app with Windows'

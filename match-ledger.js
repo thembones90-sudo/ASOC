@@ -100,7 +100,8 @@ function recordAttempt(ledger, fields) {
   let attempt = ledger.attempts.find(a => a.messageId === messageId);
   if (!attempt) {
     attempt = {
-      seq: ledger.attempts.length + 1,
+      // max+1, not length+1: removeAttempt() can open gaps.
+      seq: ledger.attempts.reduce((max, a) => Math.max(max, a.seq || 0), 0) + 1,
       messageId,
       playerId,
       playerName: playerName || '',
@@ -114,6 +115,16 @@ function recordAttempt(ledger, fields) {
   attempt.target = verdict === 'correct' ? (target || null) : null;
   attempt.cluesRevealedTotal = cluesRevealedTotal ?? null;
   return attempt;
+}
+
+// A cleared verdict (the GM toggled WRONG back off) means the message is no
+// longer a judged attempt at all -- only judged messages are attempts.
+function removeAttempt(ledger, messageId) {
+  if (!ledger || !Array.isArray(ledger.attempts) || !messageId) return false;
+  const index = ledger.attempts.findIndex(a => a.messageId === messageId);
+  if (index === -1) return false;
+  ledger.attempts.splice(index, 1);
+  return true;
 }
 
 function markFailed(ledger, field, now) {
@@ -295,6 +306,7 @@ module.exports = {
   closeAllPresence,
   recordActivity,
   recordAttempt,
+  removeAttempt,
   markFailed,
   resolveFields,
   isComplete,

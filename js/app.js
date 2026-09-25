@@ -90,6 +90,27 @@ const App = {
     { name: 'afk', insert: '/afk ', icon: '◌', label: 'AFK CHECK', description: '/afk @Name -- privately check if a Little Hero is still there' },
     { name: 'spit', insert: '/spit ', icon: '➤', label: 'SPIT', description: '/spit @Name -- the Broker spits too' },
     { name: 'fart', insert: '/fart ', icon: '☁', label: 'FART', description: '/fart @Name -- the Broker farts too' },
+    { name: 'slap', insert: '/slap ', icon: '✋', label: 'SLAP', description: '/slap @Name -- the Broker emotes too' },
+    { name: 'moon', insert: '/moon ', icon: '☾', label: 'MOON', description: '/moon @Name -- the Broker emotes too' },
+    { name: 'chicken', insert: '/chicken ', icon: '🐔', label: 'CHICKEN', description: '/chicken @Name -- the Broker emotes too' },
+    { name: 'violin', insert: '/violin ', icon: '🎻', label: 'VIOLIN', description: '/violin @Name -- the Broker emotes too' },
+    { name: 'golfclap', insert: '/golfclap ', icon: '👏', label: 'GOLF CLAP', description: '/golfclap @Name -- the Broker emotes too' },
+    { name: 'pity', insert: '/pity ', icon: '☹', label: 'PITY', description: '/pity @Name -- the Broker emotes too' },
+    { name: 'mock', insert: '/mock ', icon: '☺', label: 'MOCK', description: '/mock @Name -- the Broker emotes too' },
+    { name: 'poke', insert: '/poke ', icon: '☞', label: 'POKE', description: '/poke @Name -- the Broker emotes too' },
+    { name: 'bonk', insert: '/bonk ', icon: '🔨', label: 'BONK', description: '/bonk @Name -- the Broker emotes too' },
+    { name: 'taunt', insert: '/taunt ', icon: '⚔', label: 'TAUNT', description: '/taunt @Name -- the Broker emotes too' },
+    { name: 'threaten', insert: '/threaten ', icon: '☠', label: 'THREATEN', description: '/threaten @Name -- the Broker emotes too' },
+    { name: 'lick', insert: '/lick ', icon: '👅', label: 'LICK', description: '/lick @Name -- the Broker emotes too' },
+    { name: 'train', insert: '/train ', icon: '🚂', label: 'TRAIN', description: '/train @Name -- the Broker emotes too' },
+    { name: 'ass', insert: '/ass ', icon: '🥾', label: 'ASS KICK', description: '/ass @Name -- the Broker emotes too' },
+    { name: 'facepalm', insert: '/facepalm', icon: '🤦', label: 'FACEPALM', description: '/facepalm -- the Broker emotes too' },
+    { name: 'cower', insert: '/cower', icon: '😨', label: 'COWER', description: '/cower -- the Broker emotes too' },
+    { name: 'flee', insert: '/flee', icon: '🏃', label: 'FLEE', description: '/flee -- the Broker emotes too' },
+    { name: 'cackle', insert: '/cackle', icon: '😈', label: 'CACKLE', description: '/cackle -- the Broker emotes too' },
+    { name: 'rofl', insert: '/rofl', icon: '🤣', label: 'ROFL', description: '/rofl -- the Broker emotes too' },
+    { name: 'burp', insert: '/burp', icon: '💨', label: 'BURP', description: '/burp -- the Broker emotes too' },
+    { name: 'oom', insert: '/oom', icon: '∅', label: 'OOM', description: '/oom -- the Broker emotes too' },
     { name: 'commands', insert: '/commands', icon: '☰', label: 'COMMANDS', description: 'List every Shadow Broker command' },
     { name: 'reliquary', insert: '/reliquary ', icon: '☠', label: 'OPEN RELIQUARY', description: 'Protected Blood Tribute archive' }
   ],
@@ -1198,6 +1219,20 @@ const App = {
 
     document.getElementById('library-btn').addEventListener('click', () => Forge.open());
     document.getElementById('library-btn-footer').addEventListener('click', () => ControlSurfaces.toggle());
+    // MUTE SOUNDS: a local device preference, never game state. The central
+    // audio engine (js/audio.js) enforces it and persists it.
+    const soundToggle = document.getElementById('sound-toggle-btn');
+    const renderSoundToggle = () => {
+      if (!soundToggle) return;
+      const muted = window.AsocAudio?.isMuted?.() === true;
+      soundToggle.textContent = muted ? 'MUTE SOUNDS' : 'SOUNDS ON';
+      soundToggle.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      soundToggle.classList.toggle('is-muted', muted);
+      soundToggle.title = muted ? 'Sounds are muted // click to turn them back on' : 'Mute every ASOC sound on this device';
+    };
+    soundToggle?.addEventListener('click', () => window.AsocAudio?.toggleMuted?.());
+    window.addEventListener('asoc:audio-changed', renderSoundToggle);
+    renderSoundToggle();
     this.setupMasterAccess();
     document.getElementById('new-game-btn').addEventListener('click', () => Forge.open().then(() => Forge.openCreator(null, true)));
     document.getElementById('next-game-btn').addEventListener('click', () => Forge.open());
@@ -1933,6 +1968,8 @@ const App = {
     document.getElementById('gm-chat-new-messages')?.addEventListener('click', () => {
       this.jumpToLatestGMChat();
     });
+    document.getElementById('gm-deny-all-btn')?.addEventListener('click', () => this.handleDenyAllClick());
+    document.getElementById('final-panel-reopen-btn')?.addEventListener('click', () => this.openFinalPanel());
 
     document.getElementById('womf-subtract-btn')?.addEventListener('click', () => this.declareWomfSubtract());
     document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
@@ -2225,6 +2262,7 @@ const App = {
   setGameComplete(complete) {
     this.gameComplete = complete === true;
     document.body.classList.toggle('game-complete', this.gameComplete);
+    this.updateDenyAllButton?.();
   },
 
   setGameWon(won, { play = false, result = null } = {}) {
@@ -2550,6 +2588,8 @@ const App = {
           this._lastAnnouncedStreak = {};
           this.updateFailFinalButtonVisibility();
           this.buildGMControls();
+          // Gold solution words follow the loaded board's answers.
+          if (Array.isArray(this.chatMessages)) this.renderGMChat();
           this.updateGameInfo();
           this.populateBackgroundSelector();
           if (GameData.currentGame.background) {
@@ -2775,6 +2815,10 @@ const App = {
         console.log('[GM] Verdict acknowledged:', message);
         break;
 
+      case 'gm:denyAll:ack':
+        console.log('[GM] DENY ALL:', message.denied);
+        break;
+
       case 'auth:required':
         localStorage.removeItem('asoc_master_token');
         localStorage.removeItem('asoc_master_host_token');
@@ -2929,6 +2973,7 @@ const App = {
 
     this.bloodTribute = state.bloodTribute || { status: 'idle' };
     this.renderBloodTributeVault();
+    this.syncFinalPanelState(state, battleVisible);
 
     this.timer = state.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 };
     this.updateTimerUI();
@@ -3204,6 +3249,7 @@ const App = {
 
     this.updateSolvedCount();
     this.updateGMLatestReadout();
+    this.updateDenyAllButton();
     if (previous !== next) this.updateMultiplayerUI();
   },
 
@@ -3783,10 +3829,21 @@ const App = {
   showFinalReveal(outcome) {
     this.finalRevealed = true;
     this.updateFailFinalButtonVisibility();
+    this._finalPanelOutcome = outcome?.outcome || 'success';
+    this._finalResultsPending = true;
+    this.openFinalPanel();
+  },
 
+  // The SOLUTION CONFIRMED / FINAL FAILED panel. CLOSE only hides it: the
+  // withheld results live on the server (room.scoring.pendingResults), and
+  // while they are pending the END GAME control reopens this same panel.
+  // Reopening never re-sends anything; SHOW RESULTS is idempotent server-side
+  // (releasePendingResults returns null once released).
+  openFinalPanel() {
+    if (this._activeFinalBanner?.isConnected) return this._activeFinalBanner;
     const layer = document.getElementById('score-announcement-layer');
-    if (!layer) return;
-    const isSuccess = outcome.outcome === 'success';
+    if (!layer || !this._finalResultsPending) return null;
+    const isSuccess = this._finalPanelOutcome !== 'failed';
 
     const banner = document.createElement('div');
     banner.className = `final-outcome-banner ${isSuccess ? 'final-outcome-success' : 'final-outcome-failed'}`;
@@ -3807,13 +3864,40 @@ const App = {
     banner.querySelector('.fo-close-btn').addEventListener('click', () => {
       banner.remove();
       if (this._activeFinalBanner === banner) this._activeFinalBanner = null;
+      this.updateFinalPanelReopen();
     });
+    this.updateFinalPanelReopen();
+    return banner;
+  },
+
+  // Called from every state:public. Pending results + no open panel = show
+  // END GAME. Released (or reversed) results retire the panel for good.
+  syncFinalPanelState(state, battleVisible) {
+    const pending = battleVisible && state.finalResultsPending === true;
+    this._finalResultsPending = pending;
+    if (pending) {
+      this._finalPanelOutcome = state.finalResultsOutcome || this._finalPanelOutcome || 'success';
+    } else {
+      this._finalPanelOutcome = null;
+    }
+    this.updateFinalPanelReopen();
+  },
+
+  updateFinalPanelReopen() {
+    const btn = document.getElementById('final-panel-reopen-btn');
+    if (!btn) return;
+    const panelOpen = !!this._activeFinalBanner?.isConnected;
+    btn.style.display = this._finalResultsPending && !panelOpen ? '' : 'none';
   },
 
   // Phase 2: the GM clicked SHOW RESULTS -- the server has broadcast the
   // actual point/penalty numbers to everyone, including us. Fill them into
   // whichever banner is still open (should always be `_activeFinalBanner`).
   revealFinalResults(results) {
+    // Released: nothing is pending any more, whether or not the panel is open.
+    this._finalResultsPending = false;
+    this._finalPanelOutcome = null;
+    this.updateFinalPanelReopen();
     const banner = this._activeFinalBanner;
     if (!banner) return;
 
@@ -4207,16 +4291,19 @@ const App = {
     // Keep the header outside the ratio-locked board frame.
     const headerBar = document.getElementById('public-header-bar');
     if (headerBar) {
-      headerBar.innerHTML = `
-        <div class="public-title">${this.escapeHtml(game.title)}</div>
-      `;
+      const headerHtml = `<div class="public-title">${this.escapeHtml(game.title)}</div>`;
+      if (headerBar._asocHeaderHtml !== headerHtml) {
+        headerBar.innerHTML = headerHtml;
+        headerBar._asocHeaderHtml = headerHtml;
+      }
     }
 
-    let html = `
-      <div class="asoc-board">
-        ${Skeleton.skeletonHTML(game.difficulty)}
-        ${this.renderShadowBrokerLineHTML()}
-    `;
+    // Keyed patch (see js/dom-patch.js): this rebuild runs every second and
+    // every 40ms during a Broker line, so unchanged cells must survive it.
+    const entries = [
+      { key: 'skeleton', html: Skeleton.skeletonHTML(game.difficulty) },
+      { key: 'broker-line', html: this.renderShadowBrokerLineHTML() }
+    ];
 
     for (let row = 1; row <= 4; row++) {
       columns.forEach(col => {
@@ -4224,7 +4311,7 @@ const App = {
         const content = GameData.getCellData(col, row);
         const revealed = Board.isRevealed(col, row);
 
-        html += this.createPublicCellHTML(key, content, false, revealed, `${col}${row}`);
+        entries.push({ key: `cell:${key}`, html: this.createPublicCellHTML(key, content, false, revealed, `${col}${row}`) });
       });
     }
 
@@ -4234,7 +4321,7 @@ const App = {
       const revealed = Board.isRevealed(col, 5);
       const outcome = Board.getCellOutcome(col, 5);
 
-      html += this.createPublicCellHTML(key, content, true, revealed, `${col}5`, false, outcome);
+      entries.push({ key: `cell:${key}`, html: this.createPublicCellHTML(key, content, true, revealed, `${col}5`, false, outcome) });
     });
 
     const finalContent = GameData.getFinalSolution();
@@ -4244,11 +4331,15 @@ const App = {
     // that falls inside the short window applyServerState() opened on the
     // authoritative reveal transition, false for anything before or after.
     const playFinalFlourish = finalRevealed && Date.now() < this._finalFlourishUntil;
-    html += this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome, playFinalFlourish);
+    entries.push({ key: 'cell:FINAL', html: this.createPublicCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome, playFinalFlourish) });
 
-    html += '</div>';
-    publicBoard.innerHTML = html;
-    Skeleton.attach(publicBoard.querySelector('.asoc-board'));
+    let boardEl = publicBoard.querySelector(':scope > .asoc-board');
+    if (!boardEl) {
+      publicBoard.innerHTML = '<div class="asoc-board"></div>';
+      boardEl = publicBoard.firstElementChild;
+    }
+    const { inserted } = DomPatch.patch(boardEl, entries);
+    if (inserted.length) Skeleton.attach(boardEl);
   },
 
   // Recomputes the Shadow Broker board line's visible substring/opacity
@@ -4451,7 +4542,7 @@ const App = {
     const now = Date.now();
     let nextWrongFadeMs = Infinity;
     let nextTributeTickMs = Infinity;
-    let html = '';
+    const entries = [];
     const search = String(this._gmChatSearch || '').trim().toLocaleLowerCase();
     const visibleMessages = search
       ? this.chatMessages.filter(msg => [msg.text, msg.playerName, msg.verdict, msg.target]
@@ -4461,7 +4552,7 @@ const App = {
     visibleMessages.forEach((msg, index) => {
       const previous = index > 0 ? visibleMessages[index - 1] : null;
       if (previous && (Number(msg.timestamp) - Number(previous.timestamp)) > 300000) {
-        html += this.createGMChatTimeSeparator(msg.timestamp);
+        entries.push({ key: `sep:${msg.id}`, html: this.createGMChatTimeSeparator(msg.timestamp) });
       }
       if (msg.verdict === 'wrong') {
         const wrongSeenAt = this._gmWrongVerdictSeenAt.get(msg.id) ?? (now - 3000);
@@ -4472,18 +4563,39 @@ const App = {
         const tributeRemaining = Number(msg.bloodTribute?.expiresAt || msg.publicUntil) - now;
         if (tributeRemaining > 0) nextTributeTickMs = Math.min(nextTributeTickMs, tributeRemaining, 1000);
       }
-      html += this.createGMChatMessageHTML(
-        msg,
-        this.shouldGroupGMChatMessage(previous, msg),
-        now
-      );
+      entries.push({
+        key: `msg:${msg.id}`,
+        html: this.createGMChatMessageHTML(
+          msg,
+          this.shouldGroupGMChatMessage(previous, msg),
+          now
+        )
+      });
     });
 
     this._gmChatProgrammaticScroll = true;
-    container.innerHTML = html;
-    this.decorateGMChatLinks(container);
-    this.decorateGMChatMentions(container);
+    // Keyed patch, not innerHTML: every chat:update (any player typing a
+    // line, a seen receipt, a reaction) used to rebuild every message and
+    // every verdict button, so a click landing mid-rebuild was lost and the
+    // log flickered. Unchanged messages now stay the same DOM nodes.
+    // @mention decoration depends on the roster, so a roster change rebuilds.
+    const mentionRoster = (this.currentPlayers || []).map(player => String(player?.name || '')).sort().join('|');
+    if (this._gmChatMentionRoster !== mentionRoster) {
+      this._gmChatMentionRoster = mentionRoster;
+      container.textContent = '';
+    }
+    const { inserted } = DomPatch.patch(container, entries);
+    inserted.forEach(node => {
+      this.decorateGMChatLinks(node);
+      this.decorateGMChatMentions(node);
+    });
     this.armGMPollCountdowns(container);
+    // The inline CORRECT target picker lives inside its message node; if that
+    // message was rebuilt (reaction, edit), put the picker back.
+    if (this.pendingVerdict && !container.querySelector(`[data-message-id="${CSS.escape(String(this.pendingVerdict))}"] .gm-chat-target-controls`)) {
+      if (container.querySelector(`[data-message-id="${CSS.escape(String(this.pendingVerdict))}"]`)) this.showTargetSelector(this.pendingVerdict);
+      else this.pendingVerdict = null;
+    }
 
     clearTimeout(this._gmWrongFadeTimer);
     if (Number.isFinite(nextWrongFadeMs)) {
@@ -4510,7 +4622,7 @@ const App = {
       pinLatest();
 
       // Late-loading images/GIFs must not drag the operator viewport upward.
-      container.querySelectorAll('img,video').forEach(media => {
+      inserted.flatMap(node => Array.from(node.querySelectorAll('img,video'))).forEach(media => {
         const repin = () => {
           if (!this.userScrolledUp) {
             this._gmChatProgrammaticScroll = true;
@@ -4547,6 +4659,129 @@ const App = {
 
     this.updateSolvedCount();
     this.updateGMLatestReadout();
+    this.updateDenyAllButton();
+  },
+
+  updateDenyAllButton() {
+    const btn = document.getElementById('gm-deny-all-btn');
+    if (!btn) return;
+    const live = this.mode === 'multiplayer' && this.roomMode === 'BATTLE' && !this.gameComplete;
+    const pending = live ? this.pendingAttemptCount() : 0;
+    btn.hidden = !live;
+    btn.disabled = pending === 0;
+    if (!pending) this.disarmDenyAll();
+    else if (!btn.classList.contains('is-armed')) btn.textContent = `DENY ALL · ${pending}`;
+  },
+
+  disarmDenyAll() {
+    const btn = document.getElementById('gm-deny-all-btn');
+    clearTimeout(this._denyAllArmTimer);
+    this._denyAllArmTimer = null;
+    if (!btn) return;
+    btn.classList.remove('is-armed');
+    btn.textContent = 'DENY ALL';
+  },
+
+  // Two-step click: the first arms it (3s), the second commits. A stray
+  // click can otherwise wipe a whole round of guesses at once.
+  handleDenyAllClick() {
+    const btn = document.getElementById('gm-deny-all-btn');
+    if (!btn || btn.disabled) return;
+    if (btn.classList.contains('is-armed')) {
+      this.disarmDenyAll();
+      this.denyAllGuesses();
+      return;
+    }
+    btn.classList.add('is-armed');
+    btn.textContent = `DENY ${this.pendingAttemptCount()}?`;
+    clearTimeout(this._denyAllArmTimer);
+    this._denyAllArmTimer = setTimeout(() => {
+      this.disarmDenyAll();
+      this.updateDenyAllButton();
+    }, 3000);
+  },
+
+  // GOLD SOLUTION WORDS -- GM-only live-battle assist. The GM client already
+  // holds the real A5-D5 / FINAL answers (GameData.currentGame); players never
+  // receive them, and this runs only in the GM's own renderer. Returns []
+  // outside a live BATTLE so CASUAL / RECOUNT never highlight.
+  gmSolutionTerms() {
+    if (this.roomMode !== 'BATTLE') return [];
+    const game = window.GameData?.currentGame;
+    if (!game) return [];
+    const bySlot = [
+      ...['A', 'B', 'C', 'D'].map(col => [`${col}5`, game.columns?.[col]?.solution]),
+      ['FINAL', game.finalSolution]
+    ];
+    return bySlot
+      .map(([slot, term]) => ({ slot, term: String(term || '').trim() }))
+      .filter(entry => entry.term);
+  },
+
+  // Pure: split `text` into [{ text, slots }] segments where `slots` lists
+  // the solution slots a segment matches (null for plain text). Whole-word,
+  // case-insensitive, multi-word aware (any whitespace between words), never
+  // inside a longer word, never inside a URL and never right after "@" (so
+  // link/mention decoration still sees one intact text run).
+  splitSolutionMatches(text, terms) {
+    const source = String(text ?? '');
+    const bySlotKey = new Map();
+    (terms || []).forEach(({ slot, term }) => {
+      const key = String(term || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+      if (!key) return;
+      if (!bySlotKey.has(key)) bySlotKey.set(key, []);
+      bySlotKey.get(key).push(slot);
+    });
+    if (!source || !bySlotKey.size) return [{ text: source, slots: null }];
+
+    // Syntax characters only: under the `u` flag any other escaped char
+    // (e.g. "\-") is a SyntaxError.
+    const specials = '^$.*+?()[]{}|/\\';
+    const alternatives = [...bySlotKey.keys()]
+      .sort((a, b) => b.length - a.length)
+      .map(key => key.split(' ').map(word => [...word].map(ch => specials.includes(ch) ? '\\' + ch : ch).join('')).join('\\s+'));
+    const pattern = new RegExp('(?<![\\p{L}\\p{N}_@])(?:' + alternatives.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
+
+    const segments = [];
+    const push = (value, slots = null) => {
+      if (!value) return;
+      const last = segments[segments.length - 1];
+      if (!slots && last && !last.slots) last.text += value;
+      else segments.push({ text: value, slots });
+    };
+    const urlPattern = /https?:\/\/[^\s<>"']+/gi;
+    let cursor = 0;
+    const scan = (chunk) => {
+      pattern.lastIndex = 0;
+      let last = 0;
+      let match;
+      while ((match = pattern.exec(chunk))) {
+        push(chunk.slice(last, match.index));
+        const key = match[0].replace(/\s+/g, ' ').toLocaleLowerCase();
+        push(match[0], bySlotKey.get(key) || []);
+        last = match.index + match[0].length;
+      }
+      push(chunk.slice(last));
+    };
+    let url;
+    while ((url = urlPattern.exec(source))) {
+      scan(source.slice(cursor, url.index));
+      push(url[0]);
+      cursor = url.index + url[0].length;
+    }
+    scan(source.slice(cursor));
+    return segments.length ? segments : [{ text: source, slots: null }];
+  },
+
+  // Escapes every piece first, then wraps only the escaped matched text.
+  gmSolutionHighlightHTML(text) {
+    const terms = this.gmSolutionTerms();
+    if (!terms.length) return this.escapeHtml(text);
+    return this.splitSolutionMatches(text, terms)
+      .map(segment => segment.slots
+        ? `<span class="gm-solution-hit" data-solution="${this.escapeHtml(segment.slots.join(' '))}">${this.escapeHtml(segment.text)}</span>`
+        : this.escapeHtml(segment.text))
+      .join('');
   },
 
   createGMChatTimeSeparator(timestamp) {
@@ -4794,6 +5029,15 @@ const App = {
     return `${actorName} ${verbs[1]} ${targetName}.`;
   },
 
+  // The Broker is the actor when actorId is null, the target when aimed at it.
+  gmSystemEmoteLine(msg) {
+    const emote = msg.emote || {};
+    const lines = emote.lines || {};
+    if (emote.actorId == null || emote.actorId === '') return this.escapeHtml(lines.actor || lines.other || '');
+    if (String(emote.targetId || '') === '__SHADOW_BROKER__') return this.escapeHtml(lines.target || lines.other || '');
+    return this.escapeHtml(lines.other || msg.text || '');
+  },
+
   gmSystemAfkLine(msg) {
     const afk = msg.afk || {};
     return `SHADOW BROKER CHECKS ON ${this.escapeHtml(String(afk.targetName || '???'))}. STILL THERE?`;
@@ -4849,6 +5093,7 @@ const App = {
       },
       spit: () => ({ label: 'SPIT', body: this.gmSystemActLine(msg, 'spit'), detail: '' }),
       fart: () => ({ label: 'FART', body: this.gmSystemActLine(msg, 'fart'), detail: '' }),
+      emote: () => ({ label: msg.emote?.label || 'EMOTE', body: this.gmSystemEmoteLine(msg), detail: '' }),
       afk: () => ({ label: 'AFK CHECK', body: this.gmSystemAfkLine(msg), detail: '' }),
       unstableConcoction: () => {
         const c = msg.unstableConcoction || {};
@@ -4902,7 +5147,7 @@ const App = {
       `;
     }
 
-    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'emote', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
       return this.createGMSystemChatCardHTML(msg);
     }
 
@@ -5072,13 +5317,13 @@ const App = {
           <div class="gm-chat-message-main">${manualBadge}
             <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>
             ${replyContextHtml}
-            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.escapeHtml(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
+            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
             ${verdictMetaHtml}
             ${verdictResponseHtml}
             ${this.createGMReactionSummaryHTML(msg)}
           </div>
           ${showControls ? `<div class="gm-chat-quick-actions" aria-label="Judge message if it is an answer">
-            <button class="gm-verdict-btn wrong" data-message-id="${this.escapeHtml(msg.id)}" data-verdict="wrong" title="Reject as answer">×</button>
+            <button class="gm-verdict-btn wrong${msg.verdict === 'wrong' ? ' is-active' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-verdict="wrong" aria-pressed="${msg.verdict === 'wrong' ? 'true' : 'false'}" title="${msg.verdict === 'wrong' ? 'Undo WRONG // back to unjudged' : 'Reject as answer'}">×</button>
             <button class="gm-verdict-btn correct" data-message-id="${this.escapeHtml(msg.id)}" data-verdict="correct" title="Accept as answer">🖤</button>
           </div>` : '<div class="gm-chat-quick-actions adjudicated" aria-hidden="true"></div>'}
         </div>
@@ -5568,11 +5813,27 @@ const App = {
       return;
     }
 
+    // The red X toggles: pressing it on a message that is already WRONG
+    // clears the verdict back to unjudged (server-authoritative, see
+    // applyVerdict's null path), mirroring how the heart can be retracted.
+    const current = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
     this.send({
       type: 'gm:judgeGuess',
       messageId,
-      verdict
+      verdict: verdict === 'wrong' && current?.verdict === 'wrong' ? 'clear' : verdict
     });
+  },
+
+  // DENY ALL: one server operation marks every unjudged player attempt on
+  // the live board WRONG through the same applyVerdict() path as the X.
+  denyAllGuesses() {
+    if (this.mode !== 'multiplayer' || !this.roomCode) return;
+    this.send({ type: 'gm:denyAll' });
+  },
+
+  // Unjudged player attempts the server would accept a verdict for.
+  pendingAttemptCount() {
+    return (this.chatMessages || []).filter(msg => msg.adjudicable === true && msg.deleted !== true && !msg.verdict).length;
   },
 
   showTargetSelector(messageId) {
@@ -5580,8 +5841,10 @@ const App = {
     const container = document.getElementById('gm-chat-messages');
     if (!container) return;
 
-    const msgEl = container.querySelector(`[data-message-id="${messageId}"]`);
+    const msgEl = container.querySelector(`[data-message-id="${CSS.escape(String(messageId))}"]`);
     if (!msgEl) return;
+    // Mutated in place: the next chat patch must rebuild it, not keep it.
+    window.DomPatch?.invalidate(msgEl.closest('#gm-chat-messages > *') || msgEl);
 
     const quickActions = msgEl.querySelector('.gm-chat-quick-actions');
     if (quickActions) quickActions.classList.add('adjudicated');
@@ -5653,6 +5916,8 @@ const App = {
 
   clearVerdictSelector() {
     this.pendingVerdict = null;
+    // Chat nodes survive re-renders now, so drop the injected picker here.
+    document.querySelectorAll('#gm-chat-messages .gm-chat-target-controls').forEach(el => el.remove());
     this.renderGMChat();
   }
 };

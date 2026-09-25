@@ -66,6 +66,12 @@
   // returns the notification title, or null when it isn't aimed at them.
   const ACT_PAST = { spit: 'spat', fart: 'farted' };
   function actAimedAt(msg, targetId) {
+    // Emotes carry their own server-written target-perspective line.
+    if (msg?.messageType === 'emote') {
+      const emote = msg.emote || {};
+      if (!targetId || !emote.targetId || String(emote.targetId) !== String(targetId)) return null;
+      return emote.lines?.target || `${emote.actorName || senderName(msg)} emotes at you`;
+    }
     const act = ACT_PAST[msg?.messageType] ? msg.messageType : null;
     if (!act || !targetId || String(msg[act]?.targetId || '') !== String(targetId)) return null;
     return `${msg[act].actorName || senderName(msg)} ${ACT_PAST[act]} on you`;
@@ -116,6 +122,12 @@
       try { return root.sessionStorage.getItem('asoc_master_persona') === 'PLAYER_TEST'; } catch { return false; }
     },
 
+    // MUTE SOUNDS (js/audio.js) is a per-device preference in localStorage;
+    // read it directly so player pages, which load no audio engine, honour it.
+    soundMuted() {
+      try { return root.localStorage.getItem('asoc_audio_enabled') === '0'; } catch { return false; }
+    },
+
     windowActive() {
       const doc = root.document;
       return !!doc && doc.visibilityState === 'visible' && doc.hasFocus();
@@ -128,7 +140,7 @@
       if (!bridge || count <= 0 || this.suppressed() || this.windowActive()) return;
       this.unread += count;
       bridge.attention(this.unread);
-      if (popup) bridge.notify({ title: truncate(popup.title, 64), body: truncate(popup.body || ''), tag: popup.tag || '' });
+      if (popup) bridge.notify({ title: truncate(popup.title, 64), body: truncate(popup.body || ''), tag: popup.tag || '', silent: this.soundMuted() });
     },
 
     clear() {

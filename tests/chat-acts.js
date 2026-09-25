@@ -127,9 +127,59 @@ async function run() {
     await say('/commands');
     const commands = await waitFor(farter, m => m.messageType === 'commands', '/commands card');
     assert.ok(commands.commands.commands.some(entry => entry.name === '/fart'));
+    assert.ok(commands.commands.commands.some(entry => entry.name === '/slap'));
+
+    // WoW emotes: the server writes actor / target / other lines.
+    await say('/slap @Victim', { targetPlayerId: victim.playerId });
+    const slap = await waitFor(victim, m => m.messageType === 'emote' && m.emote?.act === 'slap', 'slap emote');
+    assert.equal(slap.text, 'Farter slaps Victim.');
+    assert.equal(slap.emote.label, 'SLAP');
+    assert.deepEqual(slap.emote.lines, { actor: 'You slap Victim.', target: 'Farter slaps you across the face.', other: 'Farter slaps Victim.' });
+    await say('/ass @Victim');
+    const kick = await waitFor(victim, m => m.messageType === 'emote' && m.emote?.act === 'ass', 'ass kick');
+    assert.equal(kick.emote.lines.target, 'Farter kicks you in the ass.');
+    mark = farter.msgs.length;
+    await say('/poke');
+    assert.match(await lastError(farter, mark), /POKE TARGET REQUIRED/);
+
+    // Self emotes need no target.
+    await say('/facepalm');
+    const facepalm = await waitFor(victim, m => m.messageType === 'emote' && m.emote?.act === 'facepalm', 'facepalm');
+    assert.equal(facepalm.emote.targetId, null);
+    assert.equal(facepalm.emote.lines.other, 'Farter facepalms.');
+
+    // Threatening the Broker earns a SKYNET reply.
+    await say('/threaten @broker');
+    await waitFor(farter, m => m.messageType === 'emote' && m.emote?.act === 'threaten' && m.emote.targetId === BROKER, 'threaten the Broker');
+    await waitFor(farter, m => m.source === 'shadowBroker' && /^SKYNET \/\//.test(m.text || ''), 'SKYNET reply');
+
+    // Mooning the Broker is a one-time Blood Tribute toll.
+    const tributeOf = client => [...client.msgs].reverse().find(m => m.type === 'state:public')?.bloodTribute || { status: 'idle' };
+    await say('/moon @broker');
+    await waitFor(gm, m => m.messageType === 'emote' && m.emote?.act === 'moon' && m.emote.targetId === BROKER, 'moon the Broker');
+    await sleep(200);
+    assert.equal(tributeOf(victim).status, 'required');
+    assert.equal(tributeOf(victim).source, 'moon');
+    gm.ws.send(JSON.stringify({ type: 'gm:tributeForgive' }));
+    await sleep(400);
+    assert.equal(tributeOf(victim).status, 'idle', 'moon toll forgiven');
+    await say('/moon @broker');
+    await sleep(200);
+    assert.equal(tributeOf(victim).status, 'idle', 'the moon toll is never demanded twice');
+    await say('/moon @Victim');
+    await sleep(200);
+    assert.equal(tributeOf(victim).status, 'idle', 'mooning a player costs nothing');
+
+    // The Broker emotes too, but grovels before no one.
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/bonk @Victim' }));
+    const bonk = await waitFor(victim, m => m.messageType === 'emote' && m.emote?.act === 'bonk' && m.emote.actorId === null, 'Broker bonk');
+    assert.equal(bonk.emote.lines.target, 'SHADOW BROKER bonks you on the head. Doh!');
+    mark = gm.msgs.length;
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/grovel' }));
+    assert.match(await lastError(gm, mark), /GROVELS BEFORE NO ONE/);
 
     assert.equal(serverErrors.trim(), '', 'no server errors');
-    console.log('PASS chat acts: /fart mirrors /spit, both can target the Shadow Broker, the Broker farts but never on itself');
+    console.log('PASS chat acts: /fart mirrors /spit, emotes carry three perspectives, moon toll is one-time, the Broker never targets itself');
   } finally {
     clients.forEach(client => { try { client.ws.close(); } catch {} });
     server.kill();

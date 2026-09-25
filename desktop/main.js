@@ -132,14 +132,15 @@ function setAttention(win, contentsId, count, badgeDataUrl) {
   refreshTray();
 }
 
-function showNotification(win, { title, body }) {
+function showNotification(win, { title, body, silent }) {
   if (!settings.popups || !Notification.isSupported()) return;
   if (win.isVisible() && win.isFocused()) return;
   const toast = new Notification({
     title: String(title || 'ASOC Engine').slice(0, 64),
     body: String(body || '').slice(0, 200),
     icon: ICON,
-    silent: !settings.sound
+    // The page's MUTE SOUNDS preference can only make a toast quieter.
+    silent: !settings.sound || silent === true
   });
   liveNotifications.add(toast);
   const release = () => liveNotifications.delete(toast);

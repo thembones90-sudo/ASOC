@@ -329,6 +329,7 @@ const Board = {
     const cell = this.container.querySelector(`[data-cell="${key}"]`);
     if (!cell) return;
 
+    window.DomPatch?.invalidate(cell);
     const revealed = this.sessionState.cells[key] === true;
     cell.classList.toggle('hidden', !revealed);
     cell.classList.toggle('revealed', revealed);
@@ -362,6 +363,7 @@ const Board = {
     const cell = this.container.querySelector('[data-cell="FINAL"]');
     if (!cell) return;
 
+    window.DomPatch?.invalidate(cell);
     const revealed = this.sessionState.finalSolution === true;
     cell.classList.toggle('hidden', !revealed);
     cell.classList.toggle('revealed', revealed);
@@ -400,8 +402,15 @@ const Board = {
     // fully hidden until revealed. GM-only: Public View and players never
     // receive hidden answers, and Forge previews don't pass this flag.
     this.container.classList.add('gm-answer-ghosts');
-    this.container.innerHTML = this.buildBoardHTML(window.GameData.currentGame, { gmAnswerGhosts: true });
-    Skeleton.attach(this.container);
+    // Keyed patch, not innerHTML: this runs on every state:public (once a
+    // second while the timer runs) and every 40ms while a Broker line types
+    // out. Unchanged cells must stay the same DOM nodes or a GM click that
+    // straddles a rebuild is lost (see js/dom-patch.js).
+    const entries = this.buildBoardEntries(window.GameData.currentGame, { gmAnswerGhosts: true });
+    const { inserted } = window.DomPatch
+      ? DomPatch.patch(this.container, entries)
+      : (this.container.innerHTML = entries.map(entry => entry.html).join(''), { inserted: [true] });
+    if (inserted.length) Skeleton.attach(this.container);
     this.updateGMButtons();
   },
 
@@ -467,8 +476,13 @@ const Board = {
     }
   },
 
-  buildBoardHTML(game, { gmAnswerGhosts = false } = {}) {
-    if (!game) return '';
+  buildBoardHTML(game, options = {}) {
+    return this.buildBoardEntries(game, options).map(entry => entry.html).join('');
+  },
+
+  // One { key, html } per top-level board child, for DomPatch.patch().
+  buildBoardEntries(game, { gmAnswerGhosts = false } = {}) {
+    if (!game) return [];
     const columns = ['A', 'B', 'C', 'D'];
     // Route through the queue-aware GameData.getCellData() for the actual
     // loaded game (so physical slots show the correct progressive-queue
@@ -483,7 +497,7 @@ const Board = {
       if (row === 5) return game.columns[col]?.solution || '';
       return '';
     };
-    let html = '';
+    const cells = [];
 
     for (let row = 1; row <= 4; row++) {
       columns.forEach(col => {
@@ -492,7 +506,7 @@ const Board = {
         const isSolution = false;
         const revealed = this.isRevealed(col, row);
 
-        html += this.createCellHTML(key, content, isSolution, revealed, `${col}${row}`);
+        cells.push({ key: `cell:${key}`, html: this.createCellHTML(key, content, isSolution, revealed, `${col}${row}`) });
       });
     }
 
@@ -503,7 +517,7 @@ const Board = {
       const revealed = this.isRevealed(col, 5);
       const outcome = this.getCellOutcome(col, 5);
 
-      html += this.createCellHTML(key, content, isSolution, revealed, `${col}5`, false, outcome);
+      cells.push({ key: `cell:${key}`, html: this.createCellHTML(key, content, isSolution, revealed, `${col}5`, false, outcome) });
     });
 
     const finalRevealed = this.isFinalRevealed();
@@ -513,12 +527,14 @@ const Board = {
     // The GM board ghosts the real word instead (see render()).
     const finalContent = (finalRevealed || gmAnswerGhosts) ? (game.finalSolution || '') : '???';
     const finalOutcome = this.getFinalOutcome();
-    html += this.createCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome);
+    cells.push({ key: 'cell:FINAL', html: this.createCellHTML('FINAL', finalContent, true, finalRevealed, 'FINAL', true, finalOutcome) });
 
-    return Skeleton.skeletonHTML(game.difficulty)
-      + '<button type="button" class="omen-trigger" aria-label="Trigger Omen" title="OMEN"></button>'
-      + this.renderShadowBrokerLineHTML()
-      + html;
+    return [
+      { key: 'skeleton', html: Skeleton.skeletonHTML(game.difficulty) },
+      { key: 'omen', html: '<button type="button" class="omen-trigger" aria-label="Trigger Omen" title="OMEN"></button>' },
+      { key: 'broker-line', html: this.renderShadowBrokerLineHTML() },
+      ...cells
+    ];
   },
 
   // See PlayerApp's identical copy in js/player.js for the full rationale.

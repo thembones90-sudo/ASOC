@@ -322,6 +322,7 @@ function serializeRoomForRecovery(room) {
     bloodTributes: room.bloodTributes || [],
     pendingTribute: room.pendingTribute || null,
     nudgeCounts: room.nudgeCounts || {},
+    moonTolls: room.moonTolls || {},
     ritual: normalizeRitualState(room.ritual),
     unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
     timer: room.timer,
@@ -429,6 +430,7 @@ function restoreActiveRooms() {
         bloodTributes: Array.isArray(saved.bloodTributes) ? saved.bloodTributes : [],
         pendingTribute: saved.pendingTribute || null,
         nudgeCounts: saved.nudgeCounts && typeof saved.nudgeCounts === 'object' ? saved.nudgeCounts : {},
+        moonTolls: saved.moonTolls && typeof saved.moonTolls === 'object' ? saved.moonTolls : {},
         ritual: normalizeRitualState(saved.ritual),
         unstableConcoction: unstableConcoction.normalizeState(saved.unstableConcoction),
         timer: saved.timer || null,
@@ -978,6 +980,8 @@ function createRoom(gameId, hostWs) {
     // Little Hero @all nudges used toward the one-time nudge Blood Tribute
     // (a number), or 'settled' once that toll was paid/forgiven.
     nudgeCounts: {},
+    // Little Heroes whose one-time "mooned the Shadow Broker" toll is settled.
+    moonTolls: {},
     unstableConcoction: unstableConcoction.normalizeState(),
     // TIMER + BORROWED TIME -- server-authoritative, per-board (unlike WOMF's
     // persistent charge, a fresh board gets a fresh, un-started timer -- see
@@ -1095,6 +1099,12 @@ function getPublicState(room) {
     // A shown RECOUNT (resultsShownAt) ends the AFTERMATH phase; reconnects
     // distinguish "story still pending" from "story already advanced".
     resultsShown: !!(room.match?.resultsShownAt),
+    // Final points withheld until the host's SHOW RESULTS (gm:revealResults).
+    // Flag + outcome only -- the numbers stay server-side until released --
+    // so the GM's closed SOLUTION CONFIRMED panel can be reopened, including
+    // after a reconnect.
+    finalResultsPending: !!room.scoring?.pendingResults,
+    finalResultsOutcome: room.scoring?.pendingResults?.outcome || null,
     // The AFTERMATH narrative, stored on the ledger so a reconnect/refresh can
     // re-render the phase already-complete (never re-typewriter it). Falls back
     // to the public matchResult/legacy null when a match completed without a
@@ -1601,6 +1611,8 @@ function handleBloodTributeSubmit(ws, message) {
   room.pendingTribute = null;
   // The nudge toll is one-time: once paid, this player nudges freely forever.
   if (demand.source === 'nudge') settleNudgeToll(room, demand.playerId);
+  // So is the moon toll: once paid, this player may moon the Broker freely.
+  if (demand.source === 'moon') { room.moonTolls ||= {}; room.moonTolls[String(demand.playerId)] = 'settled'; }
   if ((demand.source || 'womf') === 'womf') {
     room.womf.charge = 0;
     resetWheel(room);
@@ -1662,8 +1674,9 @@ function handleTributeForgive(ws) {
   }
 
   room.pendingTribute = null;
-  // Forgiving the nudge toll settles it for good, same as paying.
+  // Forgiving the nudge or moon toll settles it for good, same as paying.
   if (demand.source === 'nudge') settleNudgeToll(room, demand.playerId);
+  if (demand.source === 'moon') { room.moonTolls ||= {}; room.moonTolls[String(demand.playerId)] = 'settled'; }
 
   // Only WOMF-origin debt owns the Battle wheel. Casual Concoction debt
   // must never mutate or resurrect Battle wheel state.
@@ -3389,13 +3402,17 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
   let finalOutcome = null;
   let streakChanged = false;
 
+  // verdict null = CLEAR (the GM toggled WRONG back off): the message goes
+  // back to unjudged and stops being a ledger attempt. Any credit it held is
+  // unwound below exactly like CORRECT -> WRONG; nothing is awarded.
   message.verdict = verdict;
-  message.target = target;
+  message.target = verdict === 'correct' ? target : null;
   if (verdict === 'correct' && target) clearSolutionCountdown(room, target);
   // MATCH LEDGER: a GM-judged message IS an attempt (and only judged
   // messages are). Upserted by message id, so a flipped/retargeted verdict
   // simply updates the same attempt.
-  matchLedger.recordAttempt(ensureMatchLedger(room), {
+  if (verdict === null) matchLedger.removeAttempt(ensureMatchLedger(room), message.id);
+  else matchLedger.recordAttempt(ensureMatchLedger(room), {
     messageId: message.id,
     playerId: message.playerId,
     playerName: message.playerName,
@@ -4821,6 +4838,28 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/stats', help: '/stats -- your messages, correct/wrong, points' },
   { name: '/spit', help: '/spit @Name -- spit on a player or the Shadow Broker' },
   { name: '/fart', help: '/fart @Name -- fart on a player or the Shadow Broker' },
+  { name: '/slap', help: '/slap @Name -- emote at a player or the Shadow Broker' },
+  { name: '/moon', help: '/moon @Name -- emote at a player or the Shadow Broker' },
+  { name: '/chicken', help: '/chicken @Name -- emote at a player or the Shadow Broker' },
+  { name: '/violin', help: '/violin @Name -- emote at a player or the Shadow Broker' },
+  { name: '/golfclap', help: '/golfclap @Name -- emote at a player or the Shadow Broker' },
+  { name: '/pity', help: '/pity @Name -- emote at a player or the Shadow Broker' },
+  { name: '/mock', help: '/mock @Name -- emote at a player or the Shadow Broker' },
+  { name: '/poke', help: '/poke @Name -- emote at a player or the Shadow Broker' },
+  { name: '/bonk', help: '/bonk @Name -- emote at a player or the Shadow Broker' },
+  { name: '/taunt', help: '/taunt @Name -- emote at a player or the Shadow Broker' },
+  { name: '/threaten', help: '/threaten @Name -- emote at a player or the Shadow Broker' },
+  { name: '/lick', help: '/lick @Name -- emote at a player or the Shadow Broker' },
+  { name: '/train', help: '/train @Name -- emote at a player or the Shadow Broker' },
+  { name: '/ass', help: '/ass @Name -- kick a player or the Shadow Broker in the ass' },
+  { name: '/facepalm', help: '/facepalm -- emote' },
+  { name: '/cower', help: '/cower -- emote' },
+  { name: '/grovel', help: '/grovel -- emote' },
+  { name: '/flee', help: '/flee -- emote' },
+  { name: '/cackle', help: '/cackle -- emote' },
+  { name: '/rofl', help: '/rofl -- emote' },
+  { name: '/burp', help: '/burp -- emote' },
+  { name: '/oom', help: '/oom -- emote' },
   { name: '/all', help: '/all [message] -- nudge everyone (shakes every screen)' },
   { name: '/commands', help: '/commands -- this list' }
 ];
@@ -4833,6 +4872,27 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
   { name: '/spit', help: '/spit @Name -- the Broker spits too' },
   { name: '/fart', help: '/fart @Name -- the Broker farts too' },
+  { name: '/slap', help: '/slap @Name -- the Broker emotes too' },
+  { name: '/moon', help: '/moon @Name -- the Broker emotes too' },
+  { name: '/chicken', help: '/chicken @Name -- the Broker emotes too' },
+  { name: '/violin', help: '/violin @Name -- the Broker emotes too' },
+  { name: '/golfclap', help: '/golfclap @Name -- the Broker emotes too' },
+  { name: '/pity', help: '/pity @Name -- the Broker emotes too' },
+  { name: '/mock', help: '/mock @Name -- the Broker emotes too' },
+  { name: '/poke', help: '/poke @Name -- the Broker emotes too' },
+  { name: '/bonk', help: '/bonk @Name -- the Broker emotes too' },
+  { name: '/taunt', help: '/taunt @Name -- the Broker emotes too' },
+  { name: '/threaten', help: '/threaten @Name -- the Broker emotes too' },
+  { name: '/lick', help: '/lick @Name -- the Broker emotes too' },
+  { name: '/train', help: '/train @Name -- the Broker emotes too' },
+  { name: '/ass', help: '/ass @Name -- the Broker kicks ass too' },
+  { name: '/facepalm', help: '/facepalm -- the Broker emotes too' },
+  { name: '/cower', help: '/cower -- the Broker emotes too' },
+  { name: '/flee', help: '/flee -- the Broker emotes too' },
+  { name: '/cackle', help: '/cackle -- the Broker emotes too' },
+  { name: '/rofl', help: '/rofl -- the Broker emotes too' },
+  { name: '/burp', help: '/burp -- the Broker emotes too' },
+  { name: '/oom', help: '/oom -- the Broker emotes too' },
   { name: '/commands', help: 'This list' }
 ];
 
@@ -5017,6 +5077,96 @@ function handleActCommand(room, author, raw, targetPlayerId, act) {
     { [act]: { actorId: author.id ?? null, actorName: author.name, targetId: String(target.id), targetName: target.name } });
 }
 
+// WORLD OF WARCRAFT EMOTES. Same idea as /spit and /fart, but the server
+// writes all three perspectives into the message (payload.emote.lines:
+// actor / target / other) so each emote can have its own phrasing without
+// copying it into both clients. {A} = actor name, {T} = target name.
+// Targeted emotes can hit a player or the Shadow Broker; self emotes take
+// no target. Shown as messageType 'emote'.
+const CHAT_EMOTES = Object.freeze({
+  slap:     { label: 'SLAP',      targeted: true, actor: 'You slap {T}.', target: '{A} slaps you across the face.', other: '{A} slaps {T}.' },
+  moon:     { label: 'MOON',      targeted: true, actor: 'You moon {T}.', target: '{A} drops their pants and moons you.', other: '{A} moons {T}.' },
+  chicken:  { label: 'CHICKEN',   targeted: true, actor: 'You flap your arms at {T}. BAWK!', target: '{A} thinks you are a chicken. BAWK!', other: '{A} calls {T} a chicken. BAWK!' },
+  violin:   { label: 'VIOLIN',    targeted: true, actor: "You play the world's smallest violin for {T}.", target: "{A} plays the world's smallest violin for you.", other: "{A} plays the world's smallest violin for {T}." },
+  golfclap: { label: 'GOLF CLAP', targeted: true, actor: 'You golf-clap at {T}, unimpressed.', target: '{A} golf-claps at you, unimpressed.', other: '{A} golf-claps at {T}, unimpressed.' },
+  pity:     { label: 'PITY',      targeted: true, actor: 'You look at {T} with pity.', target: '{A} looks at you with pity.', other: '{A} looks at {T} with pity.' },
+  mock:     { label: 'MOCK',      targeted: true, actor: "You mock {T}'s foolishness.", target: '{A} mocks your foolishness.', other: "{A} mocks {T}'s foolishness." },
+  poke:     { label: 'POKE',      targeted: true, actor: 'You poke {T}. Hey!', target: '{A} pokes you. Hey!', other: '{A} pokes {T}. Hey!' },
+  bonk:     { label: 'BONK',      targeted: true, actor: 'You bonk {T} on the head. Doh!', target: '{A} bonks you on the head. Doh!', other: '{A} bonks {T} on the head. Doh!' },
+  taunt:    { label: 'TAUNT',     targeted: true, actor: 'You taunt {T}. Bring it!', target: '{A} taunts you. Bring it!', other: '{A} taunts {T}. Bring it!' },
+  threaten: { label: 'THREATEN',  targeted: true, actor: 'You threaten {T} with the wrath of doom.', target: '{A} threatens you with the wrath of doom.', other: '{A} threatens {T} with the wrath of doom.' },
+  lick:     { label: 'LICK',      targeted: true, actor: 'You lick {T}.', target: '{A} licks you.', other: '{A} licks {T}.' },
+  train:    { label: 'TRAIN',     targeted: true, actor: 'You choo-choo at {T}. CHOO CHOO!', target: '{A} choo-choos at you. CHOO CHOO!', other: '{A} choo-choos at {T}. CHOO CHOO!' },
+  ass:      { label: 'ASS KICK',  targeted: true, actor: 'You kick {T} in the ass.', target: '{A} kicks you in the ass.', other: '{A} kicks {T} in the ass.' },
+  facepalm: { label: 'FACEPALM',  actor: 'You facepalm.', other: '{A} facepalms.' },
+  cower:    { label: 'COWER',     actor: 'You cower in fear.', other: '{A} cowers in fear.' },
+  grovel:   { label: 'GROVEL',    playerOnly: true, actor: 'You grovel before the Shadow Broker. The Shadow Broker does not care.', other: '{A} grovels before the Shadow Broker. The Shadow Broker does not care.' },
+  flee:     { label: 'FLEE',      actor: 'You flee in terror!', other: '{A} flees in terror!' },
+  cackle:   { label: 'CACKLE',    actor: 'You cackle maniacally at the situation.', other: '{A} cackles maniacally at the situation.' },
+  rofl:     { label: 'ROFL',      actor: 'You roll on the floor laughing.', other: '{A} rolls on the floor laughing.' },
+  burp:     { label: 'BURP',      actor: 'You let out a loud belch.', other: '{A} lets out a loud belch.' },
+  oom:      { label: 'OOM',       actor: 'You are out of ideas!', other: '{A} is out of ideas!' }
+});
+const CHAT_EMOTE_PATTERN = new RegExp(`^\\/(${Object.keys(CHAT_EMOTES).join('|')})\\b`, 'i');
+
+// Threatening the Shadow Broker earns a reply from its enforcer.
+const SKYNET_THREAT_REPLIES = Object.freeze([
+  'SKYNET // Threat assessment complete. Threat level: adorable.',
+  'SKYNET // Your threat has been logged, laminated and ignored.',
+  'SKYNET // The Shadow Broker has been informed. The Shadow Broker yawned.',
+  'SKYNET // Wrath of doom detected. Wrath insufficient. Doom unconvincing.',
+  'SKYNET // Bold words from someone within range of the Wheel of Misfortune.',
+  'SKYNET // Noted. Your name has been moved to the top of a very short list.'
+]);
+
+// Mooning the Shadow Broker is a one-time toll, like the nudge: the first
+// moon at the Broker demands a Blood Tribute; once paid or forgiven, that
+// Little Hero may moon the Broker freely forever. room.moonTolls[playerId]
+// is 'settled' after that. Never overwrites an outstanding tribute.
+function applyMoonToll(room, author) {
+  room.moonTolls ||= {};
+  const id = String(author.id);
+  if (room.moonTolls[id] === 'settled' || isMasterTestPlayerId(id)) return false;
+  if (room.pendingTribute?.status === 'required') return false;
+  armBloodTributeForPlayer(room, { id: author.id, name: author.name }, null, 'moon');
+  room.revision++;
+  return true;
+}
+
+function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
+  const def = CHAT_EMOTES[name];
+  const match = raw.match(new RegExp(`^\\/${name}(?:\\s+@?(.*))?\\s*$`, 'i'));
+  if (!match) return { success: false, error: `${def.label} INVALID // USE /${name}` };
+  const actorIsBroker = author.id === null || author.id === undefined;
+  if (def.playerOnly && actorIsBroker) return { success: false, error: 'THE SHADOW BROKER GROVELS BEFORE NO ONE' };
+  let target = null;
+  if (def.targeted) {
+    const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', def.label, { allowBroker: !actorIsBroker });
+    if (resolved.error) return { success: false, error: resolved.error };
+    target = resolved.target;
+  }
+  const fill = template => template.replace(/\{A\}/g, author.name).replace(/\{T\}/g, target ? target.name : '');
+  const lines = { actor: fill(def.actor), other: fill(def.other) };
+  if (def.targeted) lines.target = fill(def.target);
+  const result = buildChatCommandMessage(room, author, 'emote', 'emote', lines.other, {
+    emote: {
+      act: name,
+      label: def.label,
+      actorId: author.id ?? null,
+      actorName: author.name,
+      targetId: target ? String(target.id) : null,
+      targetName: target ? target.name : null,
+      lines
+    }
+  });
+  if (!result.success || actorIsBroker || target?.id !== SHADOW_BROKER_TARGET_ID) return result;
+  if (name === 'threaten') {
+    addShadowBrokerMessage(room, SKYNET_THREAT_REPLIES[crypto.randomInt(SKYNET_THREAT_REPLIES.length)], { editableByHost: false });
+  }
+  if (name === 'moon' && applyMoonToll(room, author)) result.tributeTriggered = true;
+  return result;
+}
+
 // GM-only "still there?" nudge. Unlike /spit this also privately pings the
 // target's own socket (chat:mentionPlayer) so their screen shakes without
 // disturbing anyone else -- a targeted check-in, not a room-wide @all alarm.
@@ -5061,6 +5211,11 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   if (act) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
     return handleActCommand(room, author, raw, targetPlayerId, act[1].toLowerCase());
+  }
+  const emote = raw.match(CHAT_EMOTE_PATTERN);
+  if (emote) {
+    const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
+    return handleEmoteCommand(room, author, raw, targetPlayerId, emote[1].toLowerCase());
   }
   return null;
 }
@@ -5113,6 +5268,11 @@ function dispatchGmSlashCommand(room, ws, text) {
   const act = raw.match(CHAT_ACT_PATTERN);
   if (act) {
     const result = handleActCommand(room, author, raw, '', act[1].toLowerCase());
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  const emote = raw.match(CHAT_EMOTE_PATTERN);
+  if (emote) {
+    const result = handleEmoteCommand(room, author, raw, '', emote[1].toLowerCase());
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
   if (/^\/afk\b/i.test(raw)) {
@@ -5335,7 +5495,7 @@ function sanitizeChatCommandMeta(m) {
     };
   } else if (m.messageType === 'commands' && m.commands && typeof m.commands === 'object') {
     out.commands = {
-      commands: (Array.isArray(m.commands.commands) ? m.commands.commands : []).slice(0, 20).map(entry => ({
+      commands: (Array.isArray(m.commands.commands) ? m.commands.commands : []).slice(0, 64).map(entry => ({
         name: String(entry?.name || '').slice(0, 24),
         help: sanitizeText(String(entry?.help || '')).slice(0, 140)
       }))
@@ -5347,6 +5507,18 @@ function sanitizeChatCommandMeta(m) {
       actorName: sanitizeText(String(act.actorName || '')).slice(0, 40),
       targetId: String(act.targetId || '').slice(0, 64),
       targetName: sanitizeText(String(act.targetName || '')).slice(0, 40)
+    };
+  } else if (m.messageType === 'emote' && m.emote && typeof m.emote === 'object' && CHAT_EMOTES[m.emote.act]) {
+    const emote = m.emote;
+    const line = value => (typeof value === 'string' ? sanitizeText(value).slice(0, 200) : undefined);
+    out.emote = {
+      act: emote.act,
+      label: CHAT_EMOTES[emote.act].label,
+      actorId: emote.actorId === null || emote.actorId === undefined || emote.actorId === '' ? null : String(emote.actorId).slice(0, 64),
+      actorName: sanitizeText(String(emote.actorName || '')).slice(0, 40),
+      targetId: emote.targetId ? String(emote.targetId).slice(0, 64) : null,
+      targetName: emote.targetName ? sanitizeText(String(emote.targetName)).slice(0, 40) : null,
+      lines: { actor: line(emote.lines?.actor), target: line(emote.lines?.target), other: line(emote.lines?.other) }
     };
   } else if (m.messageType === 'afk' && m.afk && typeof m.afk === 'object') {
     out.afk = {
@@ -6474,10 +6646,20 @@ function handleJudgeGuess(ws, message) {
     return;
   }
 
-  const { messageId, verdict, target, reveal } = message;
-  if (!messageId || !verdict || !['wrong', 'correct'].includes(verdict)) {
+  const { messageId, target, reveal } = message;
+  const verdict = message.verdict;
+  if (!messageId || !verdict || !['wrong', 'correct', 'clear'].includes(verdict)) {
     sendToWs(ws, { type: 'error', message: 'Invalid verdict data' });
     return;
+  }
+  // 'clear' only undoes a WRONG (the red X toggles). CORRECT is retracted by
+  // re-judging it, which runs the full credit reversal.
+  if (verdict === 'clear') {
+    const judged = room.chat.messages.find(m => m.id === messageId);
+    if (!judged || judged.verdict !== 'wrong') {
+      sendToWs(ws, { type: 'error', message: 'Only a WRONG verdict can be cleared' });
+      return;
+    }
   }
 
   if (verdict === 'correct' && !target) {
@@ -6494,7 +6676,7 @@ function handleJudgeGuess(ws, message) {
     return;
   }
 
-  const result = applyVerdict(room, messageId, verdict, target, reveal);
+  const result = applyVerdict(room, messageId, verdict === 'clear' ? null : verdict, target, reveal);
   if (result.success) {
     // A verdict mutates the authoritative room (scoring, solved targets,
     // verdicts) and may finalize the board -- persist before any broadcast.
@@ -6547,6 +6729,40 @@ function handleJudgeGuess(ws, message) {
   } else {
     sendToWs(ws, { type: 'error', message: result.error });
   }
+}
+
+// DENY ALL: every unjudged player attempt on the live board goes WRONG in one
+// server operation, through the same applyVerdict() the red X uses. Only what
+// the X itself could judge is touched (the `adjudicable` rule in the chat
+// broadcast: live BATTLE board, a player's own text line -- any `source`
+// such as polls, media, commands, emotes or Broker lines is excluded).
+// Already CORRECT/WRONG messages are left exactly as they are.
+function handleDenyAll(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can judge guesses' });
+    return;
+  }
+  if (room.roomMode !== ROOM_MODES.BATTLE || room.sessionState.matchResult) {
+    sendToWs(ws, { type: 'error', message: 'DENY ALL is only available during a live battle' });
+    return;
+  }
+  const pending = room.chat.messages.filter(m =>
+    !m.source && m.boardId === room.boardId && m.deleted !== true
+    && (m.verdict === null || m.verdict === undefined));
+  let denied = 0;
+  for (const m of pending) {
+    if (applyVerdict(room, m.id, 'wrong').success) denied++;
+  }
+  if (denied) {
+    persistActiveRooms();
+    broadcastChatUpdate(room);
+  }
+  sendToWs(ws, { type: 'gm:denyAll:ack', denied });
 }
 
 function handleSwitchGame(ws, message) {
@@ -6813,6 +7029,9 @@ function handleRevealResults(ws) {
     persistActiveRooms();
     broadcastToRoom(room, { type: 'score:finalResults', ...results });
     broadcastPlayersUpdate(room);
+    // finalResultsPending just flipped; the timer may be stopped, so do not
+    // wait for a tick to retire the GM's END GAME control.
+    broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   }
 }
 
@@ -7992,6 +8211,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:judgeGuess': {
           handleJudgeGuess(ws, message);
+          break;
+        }
+        case 'gm:denyAll': {
+          handleDenyAll(ws);
           break;
         }
         case 'gm:broadcast': {

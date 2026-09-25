@@ -44,7 +44,24 @@ alerts.playerChat([
   { id: 4, playerId: 'p2', playerName: 'Zed', text: '↳ @Hero42 // fire: it is WATER' }
 ], { selfId: 'me', selfName: 'Hero42' });
 assert.deepEqual(calls[0], ['attention', 2]);
-assert.deepEqual(notifications(), [{ title: 'Zed replied to you', body: 'it is WATER', tag: 'chat' }]);
+assert.deepEqual(notifications(), [{ title: 'Zed replied to you', body: 'it is WATER', tag: 'chat', silent: false }]);
+
+// MUTE SOUNDS (js/audio.js's localStorage flag) makes the Windows toast silent.
+reset();
+let audioPref = '0';
+globalThis.localStorage = { getItem: key => (key === 'asoc_audio_enabled' ? audioPref : null) };
+alerts.playerChat([{ id: 40, playerId: 'p2', playerName: 'Zed', text: '↳ @Hero42 // fire: muted' }], { selfId: 'me', selfName: 'Hero42' });
+assert.equal(notifications()[0].silent, true, 'muted sounds silence desktop toasts');
+audioPref = '1';
+reset();
+alerts.playerChat([{ id: 41, playerId: 'p2', playerName: 'Zed', text: '↳ @Hero42 // fire: loud' }], { selfId: 'me', selfName: 'Hero42' });
+assert.equal(notifications()[0].silent, false, 'unmuted toasts keep their sound');
+delete globalThis.localStorage;
+
+// Emotes aimed at you alert with the server-written target line.
+reset();
+alerts.playerChat([{ id: 42, playerId: 'p2', playerName: 'Zed', messageType: 'emote', text: 'Zed slaps Hero42.', emote: { act: 'slap', actorName: 'Zed', targetId: 'me', lines: { target: 'Zed slaps you across the face.' } } }], { selfId: 'me', selfName: 'Hero42' });
+assert.equal(notifications()[0].title, 'Zed slaps you across the face.');
 
 reset();
 alerts.playerChat([
@@ -125,7 +142,7 @@ alerts.gmChat([
   { id: 11, playerId: 'p2', playerName: 'Zed', text: 'FIRE', adjudicable: true, verdict: null },
   { id: 12, playerId: 'p3', playerName: 'Amy', text: '@broker hurry', adjudicable: false }
 ]);
-assert.deepEqual(notifications(), [{ title: 'Zed is waiting for a verdict', body: 'FIRE', tag: 'verdict' }]);
+assert.deepEqual(notifications(), [{ title: 'Zed is waiting for a verdict', body: 'FIRE', tag: 'verdict', silent: false }]);
 reset();
 alerts.gmChat([{ id: 13, playerId: 'p3', playerName: 'Amy', text: '↳ @SHADOW BROKER // clue: which one?' }]);
 assert.equal(notifications()[0].title, 'Amy replied to you');

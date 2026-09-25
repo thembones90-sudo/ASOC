@@ -8495,6 +8495,18 @@ body.gm-layout-locked .gm-module-height-splitter {
   box-shadow: inset 0 0 0 1px rgba(255,220,126,.04), 0 0 16px rgba(212,168,67,.10);
 }
 .recount-btn:hover { border-color: #f1c653 !important; color: #ffe49b !important; }
+.final-panel-reopen-btn {
+  width: 100%;
+  margin: 10px 0 0 !important;
+  min-height: 40px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  border-color: rgba(212,168,67,.7) !important;
+  color: #f0c65d !important;
+  background: linear-gradient(180deg, #211d13, #100f0c) !important;
+}
+.final-panel-reopen-btn:hover { border-color: #f1c653 !important; color: #ffe49b !important; }
+body.room-mode-casual #battle-controls-panel > #final-panel-reopen-btn { display: none !important; }
 body.game-complete .recount-btn,
 .recount-btn.has-recount { display: block; }
 .recount-btn.has-recount {
@@ -14373,6 +14385,46 @@ body.asoc-transition-to-battle #game-screen .player-battle-layout {
   box-shadow: 0 0 0 1px rgba(155, 93, 224, .18);
 }
 
+/* DENY ALL: compact utility beside search, never louder than the chat. */
+.gm-chat-search-strip:has(.gm-deny-all-btn:not([hidden])) {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.gm-deny-all-btn {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid rgba(214, 64, 76, .42);
+  border-radius: 4px;
+  background: rgba(38, 10, 14, .78);
+  color: #e58a93;
+  font: 800 9px/1 var(--font-machine);
+  letter-spacing: .1em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.gm-deny-all-btn:hover:not(:disabled) { border-color: rgba(240, 78, 92, .78); color: #ffb3ba; }
+.gm-deny-all-btn:disabled { opacity: .38; cursor: default; }
+.sound-toggle-btn { white-space: nowrap; padding-left: 10px; padding-right: 10px; }
+.sound-toggle-btn.is-muted { color: #e58a93; border-color: rgba(214, 64, 76, .5); }
+
+/* GM-only gold solution words (live BATTLE). Readable, restrained, static. */
+.gm-solution-hit {
+  color: #ffd66b;
+  font-weight: 800;
+  text-shadow: 0 0 6px rgba(255, 196, 64, .55), 0 0 1px rgba(255, 214, 107, .9);
+}
+.gm-chat-message.wrong .gm-solution-hit { color: inherit; text-shadow: none; }
+.gm-deny-all-btn.is-armed {
+  border-color: #f04e5c;
+  background: rgba(120, 18, 28, .86);
+  color: #fff;
+}
+.gm-module-chat .gm-chat-quick-actions .gm-verdict-btn.wrong.is-active {
+  box-shadow: 0 0 0 1px rgba(240, 78, 92, .75) inset;
+}
+
 .cell-hint-button {
   position: absolute;
   left: 7px;
@@ -17143,6 +17195,8 @@ button.gm-chat-gif-link:focus-visible {
 .chat-system-spit .chat-system-body { font-style:italic; }
 .chat-system-fart { --sys-accent:#9acd32; }
 .chat-system-fart .chat-system-body { font-style:italic; }
+.chat-system-emote { --sys-accent:#e8a33d; }
+.chat-system-emote .chat-system-body { font-style:italic; }
 /* /spit and /fart picker: the Shadow Broker target reads as the GM. */
 .chat-mention-option.chat-mention-broker small { color:#e36565; }
 .chat-system-command { display:flex; gap:8px; justify-content:center; text-align:left; }

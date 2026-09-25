@@ -7,6 +7,7 @@ const AsocAudio = (() => {
   let master = null;
   let noiseBuffer = null;
   let enabled = true;
+  const MASTER_GAIN = 0.34;
   let unlocked = false;
   const boardSnapshots = new Map();
   let lastWomfCharge;
@@ -14,12 +15,15 @@ const AsocAudio = (() => {
 
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
 
+  // MUTE SOUNDS is enforced HERE, once: every cue (game start, countdown,
+  // reveal, WOMF, omen, ceremonies, ...) builds its nodes through
+  // ensureContext(), which refuses while muted. Callers never check it.
   function ensureContext() {
     if (!AudioCtx || !enabled) return null;
     if (!ctx) {
       ctx = new AudioCtx();
       master = ctx.createGain();
-      master.gain.value = 0.34;
+      master.gain.value = MASTER_GAIN;
       master.connect(ctx.destination);
     }
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
@@ -326,7 +330,20 @@ const AsocAudio = (() => {
   function setEnabled(value) {
     enabled = value !== false;
     try { localStorage.setItem('asoc_audio_enabled', enabled ? '1' : '0'); } catch (_) {}
-    if (enabled) unlock();
+    if (enabled) {
+      if (master) master.gain.value = MASTER_GAIN;
+      unlock();
+    } else if (ctx) {
+      // Also silence anything already scheduled (a ceremony mid-swell).
+      if (master) master.gain.value = 0;
+      ctx.suspend?.().catch?.(() => {});
+    }
+    try { window.dispatchEvent(new CustomEvent('asoc:audio-changed', { detail: { enabled } })); } catch (_) {}
+    return enabled;
+  }
+
+  function toggleMuted() {
+    return !setEnabled(!enabled);
   }
 
   try {
@@ -351,7 +368,9 @@ const AsocAudio = (() => {
     syncTimerPhase,
     resetObservers,
     setEnabled,
+    toggleMuted,
     isEnabled: () => enabled,
+    isMuted: () => !enabled,
     unlock
   };
 })();

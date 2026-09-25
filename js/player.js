@@ -107,8 +107,36 @@ const PlayerApp = {
     { name: 'spit', insert: '/spit ', syntax: '/spit @Name', description: 'Spit on a player or the Shadow Broker' },
     { name: 'fart', insert: '/fart ', syntax: '/fart @Name', description: 'Fart on a player or the Shadow Broker' },
     { name: 'all', insert: '/all ', syntax: '/all [message]', description: 'Nudge everyone // every screen shakes' },
+    { name: 'slap', insert: '/slap ', syntax: '/slap @Name', description: 'Slap someone across the face' },
+    { name: 'moon', insert: '/moon ', syntax: '/moon @Name', description: 'Drop your pants and moon someone' },
+    { name: 'chicken', insert: '/chicken ', syntax: '/chicken @Name', description: 'Call someone a chicken. BAWK!' },
+    { name: 'violin', insert: '/violin ', syntax: '/violin @Name', description: "Play the world's smallest violin" },
+    { name: 'golfclap', insert: '/golfclap ', syntax: '/golfclap @Name', description: 'Golf-clap, unimpressed' },
+    { name: 'pity', insert: '/pity ', syntax: '/pity @Name', description: 'Look at someone with pity' },
+    { name: 'mock', insert: '/mock ', syntax: '/mock @Name', description: "Mock someone's foolishness" },
+    { name: 'poke', insert: '/poke ', syntax: '/poke @Name', description: 'Poke someone. Hey!' },
+    { name: 'bonk', insert: '/bonk ', syntax: '/bonk @Name', description: 'Bonk someone on the head' },
+    { name: 'taunt', insert: '/taunt ', syntax: '/taunt @Name', description: 'Taunt someone. Bring it!' },
+    { name: 'threaten', insert: '/threaten ', syntax: '/threaten @Name', description: 'Threaten someone with the wrath of doom' },
+    { name: 'lick', insert: '/lick ', syntax: '/lick @Name', description: 'Lick someone' },
+    { name: 'train', insert: '/train ', syntax: '/train @Name', description: 'CHOO CHOO!' },
+    { name: 'ass', insert: '/ass ', syntax: '/ass @Name', description: 'Kick someone in the ass' },
+    { name: 'facepalm', insert: '/facepalm', syntax: '/facepalm', description: 'Facepalm' },
+    { name: 'cower', insert: '/cower', syntax: '/cower', description: 'Cower in fear' },
+    { name: 'grovel', insert: '/grovel', syntax: '/grovel', description: 'Grovel before the Shadow Broker' },
+    { name: 'flee', insert: '/flee', syntax: '/flee', description: 'Flee in terror' },
+    { name: 'cackle', insert: '/cackle', syntax: '/cackle', description: 'Cackle maniacally' },
+    { name: 'rofl', insert: '/rofl', syntax: '/rofl', description: 'Roll on the floor laughing' },
+    { name: 'burp', insert: '/burp', syntax: '/burp', description: 'Let out a loud belch' },
+    { name: 'oom', insert: '/oom', syntax: '/oom', description: 'Out of ideas!' },
     { name: 'commands', insert: '/commands', syntax: '/commands', description: 'Show every available command' }
   ],
+  // Commands that take an @target: the target picker opens for all of them,
+  // and every one can also aim at the Shadow Broker.
+  targetedChatActs: ['spit', 'fart', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass'],
+  targetedChatActPattern(suffix) {
+    return new RegExp(`^\\s*\\/(?:${this.targetedChatActs.join('|')})${suffix}`, 'i');
+  },
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😇', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
   emojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭'],
   emojiFavorites: [],
@@ -1329,7 +1357,7 @@ const PlayerApp = {
         Womf.update('womf-tracker-player', battleVisible ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
         Wheel.update('wheel-overlay', battleVisible ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false);
         const tributeState = message.bloodTribute || { status: 'idle' };
-        this.updateBloodTributeDemand(battleVisible || ['unstableConcoction', 'nudge'].includes(tributeState.source) ? tributeState : { status: 'idle' });
+        this.updateBloodTributeDemand(battleVisible || ['unstableConcoction', 'nudge', 'moon'].includes(tributeState.source) ? tributeState : { status: 'idle' });
         Timer.update('timer-tracker-player', battleVisible ? (message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }) : { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
         if (battleVisible) this.updateTerminalPhase(message);
         else Recount.apply(null);
@@ -1353,7 +1381,7 @@ const PlayerApp = {
         (masterMirror ? sessionStorage : localStorage).setItem('asoc_player_in_master', '1');
         {
           const tributeState = this.lastPublicState?.bloodTribute || { status: 'idle' };
-          this.updateBloodTributeDemand(this.roomMode !== 'CASUAL' || ['unstableConcoction', 'nudge'].includes(tributeState.source) ? tributeState : { status: 'idle' });
+          this.updateBloodTributeDemand(this.roomMode !== 'CASUAL' || ['unstableConcoction', 'nudge', 'moon'].includes(tributeState.source) ? tributeState : { status: 'idle' });
         }
         if (message.littleHero) {
           if (message.littleHero.name) {
@@ -2968,7 +2996,7 @@ const PlayerApp = {
     if (!input) return null;
     const caret = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
     const before = input.value.slice(0, caret);
-    const match = before.match(/^\/(?:spit|fart)[ \t]+(@?[^\r\n:]*)$/i);
+    const match = before.match(this.targetedChatActPattern('[ \\t]+(@?[^\\r\\n:]*)$'));
     if (!match) return null;
     const token = String(match[1] || '');
     return { start: caret - token.length, end: caret, query: token.startsWith('@') ? token.slice(1) : token, spit: true };
@@ -3025,7 +3053,7 @@ const PlayerApp = {
     // /spit and /fart are two-step verbs: the instant one is typed fully,
     // nudge the composer with a trailing space so the roster picker attaches.
     const rawValue = input.value;
-    if (/^\/(?:spit|fart)$/i.test(rawValue) && (Number.isInteger(input.selectionStart) ? input.selectionStart : rawValue.length) >= rawValue.length) {
+    if (this.targetedChatActPattern('$').test(rawValue) && (Number.isInteger(input.selectionStart) ? input.selectionStart : rawValue.length) >= rawValue.length) {
       input.value = rawValue + ' ';
       const end = input.value.length;
       input.focus();
@@ -4026,8 +4054,8 @@ const PlayerApp = {
     // the picked hero (or the verb is still bare).
     const pending = this._pendingSpitTarget;
     this._pendingSpitTarget = null;
-    if (pending && /^\s*\/(?:spit|fart)\b/i.test(text)) {
-      const tokenMatch = text.match(/^\s*\/(?:spit|fart)\s+@?([^\r\n@]*)$/i);
+    if (pending && this.targetedChatActPattern('\\b').test(text)) {
+      const tokenMatch = text.match(this.targetedChatActPattern('\\s+@?([^\\r\\n@]*)$'));
       const typed = tokenMatch ? tokenMatch[1].trim().toLocaleLowerCase() : '';
       if (!typed || typed === String(pending.name).trim().toLocaleLowerCase()) {
         payload.targetPlayerId = pending.id;
@@ -4059,8 +4087,9 @@ const PlayerApp = {
     const heading = overlay.querySelector('h2');
     const concoctionDebt = this.bloodTribute.source === 'unstableConcoction';
     const nudgeDebt = this.bloodTribute.source === 'nudge';
-    if (kicker) kicker.textContent = nudgeDebt ? 'NUDGE // PRIVILEGE EXHAUSTED' : concoctionDebt ? 'UNSTABLE CONCOCTION // REACTION DEBT' : 'WOMF // DEBT CALLED';
-    if (heading) heading.textContent = nudgeDebt ? 'THE NUDGE DEMANDS BLOOD' : concoctionDebt ? 'CONCOCTION DEMANDS BLOOD' : 'BLOOD TRIBUTE DEMANDED';
+    const moonDebt = this.bloodTribute.source === 'moon';
+    if (kicker) kicker.textContent = moonDebt ? 'MOON // INDECENT EXPOSURE' : nudgeDebt ? 'NUDGE // PRIVILEGE EXHAUSTED' : concoctionDebt ? 'UNSTABLE CONCOCTION // REACTION DEBT' : 'WOMF // DEBT CALLED';
+    if (heading) heading.textContent = moonDebt ? 'THE BROKER SAW EVERYTHING' : nudgeDebt ? 'THE NUDGE DEMANDS BLOOD' : concoctionDebt ? 'CONCOCTION DEMANDS BLOOD' : 'BLOOD TRIBUTE DEMANDED';
     if (player) player.textContent = `${this.bloodTribute.playerName || this.playerName || 'LITTLE HERO'} // YOUR DEBT IS DUE`;
     if (status && !this.tributeUploading) status.textContent = 'SELECT AN IMAGE TO PAY THE TRIBUTE';
   },
@@ -4416,6 +4445,16 @@ const PlayerApp = {
     return `${actorName} ${verbs[1]} ${targetName}.`;
   },
 
+  // Emotes carry all three perspectives from the server; pick ours.
+  systemEmoteLine(msg) {
+    const emote = msg.emote || {};
+    const lines = emote.lines || {};
+    const viewerId = String(this.playerId || '');
+    if (viewerId && String(emote.actorId || '') === viewerId) return this.escapeHtml(lines.actor || lines.other || '');
+    if (viewerId && emote.targetId && String(emote.targetId) === viewerId) return this.escapeHtml(lines.target || lines.other || '');
+    return this.escapeHtml(lines.other || msg.text || '');
+  },
+
   // /afk is always Broker-authored; only the checked-on player's line changes.
   systemAfkLine(msg) {
     const afk = msg.afk || {};
@@ -4475,6 +4514,7 @@ const PlayerApp = {
       },
       spit: () => ({ label: 'SPIT', body: this.systemActLine(msg, 'spit'), detail: '' }),
       fart: () => ({ label: 'FART', body: this.systemActLine(msg, 'fart'), detail: '' }),
+      emote: () => ({ label: msg.emote?.label || 'EMOTE', body: this.systemEmoteLine(msg), detail: '' }),
       afk: () => ({ label: 'AFK CHECK', body: this.systemAfkLine(msg), detail: '' }),
       unstableConcoction: () => {
         const c = msg.unstableConcoction || {};
@@ -4533,7 +4573,7 @@ const PlayerApp = {
       `;
     }
 
-    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'emote', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
       return this.createSystemChatCardHTML(msg);
     }
 
