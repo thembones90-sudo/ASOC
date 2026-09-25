@@ -18351,3 +18351,21 @@ body:is(.room-mode-battle-armed,.room-mode-battle,.room-mode-recount) .gm-module
   animation: none !important;
   opacity: .35;
 }
+
+/* DESKTOP LEFT STACK ANCHOR
+   The original shell vertically centered #main-content. When the board stack
+   is shorter than a tall window (most visibly while the ritual covers the
+   board), that creates matching dead bands above and below every control.
+   Battle operation is a top-down console: anchor it to the top and allow the
+   left column itself to scroll only when a short viewport cannot contain it. */
+@media (min-width: 761px) {
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #main-content {
+    justify-content:flex-start !important;
+    padding-top:clamp(8px,1.1vh,14px) !important;
+    padding-bottom:clamp(8px,1.1vh,14px) !important;
+    overflow-x:hidden;
+    overflow-y:auto;
+    scrollbar-gutter:stable;
+    overscroll-behavior:contain;
+  }
+}

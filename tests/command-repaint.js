@@ -10,7 +10,7 @@ const css = fs.readFileSync(path.join(root, 'css', 'asoc.css'), 'utf8');
 const tweaksCss = fs.readFileSync(path.join(root, 'css', 'tweaks.css'), 'utf8');
 const tweaksJs = fs.readFileSync(path.join(root, 'js', 'tweaks.js'), 'utf8');
 
-assert(html.includes('20260924-desktop-command-repaint-1'), 'combined desktop and command repaint CSS must be cache-busted');
+assert(html.includes('20260924-left-stack-anchor-1'), 'combined desktop command CSS must be cache-busted');
 assert(html.includes('tweaks.css?v=20260924-command-repaint-1'), 'TWEAKS repaint CSS must be cache-busted');
 
 assert(html.includes('class="bice-btn-sigil"'), 'BIĆE ASOC must use the cyber-organic SVG sigil');
