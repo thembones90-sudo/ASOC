@@ -73,6 +73,17 @@ reset();
 alerts.gmChat([{ id: 22, playerId: 'p2', playerName: 'Zed', text: '@all hello', nudge: true }]);
 assert.equal(notifications()[0].title, 'Zed nudged everyone', 'the GM is nudged too');
 
+// /spit and /fart aimed at you pop up; aimed at someone else they only flash.
+reset();
+alerts.playerChat([{ id: 30, playerId: 'p2', playerName: 'Zed', messageType: 'fart', text: 'Zed farts on Hero42.', fart: { actorId: 'p2', actorName: 'Zed', targetId: 'me', targetName: 'Hero42' } }], { selfId: 'me', selfName: 'Hero42' });
+assert.equal(notifications()[0].title, 'Zed farted on you');
+reset();
+alerts.playerChat([{ id: 31, playerId: 'p2', playerName: 'Zed', messageType: 'spit', text: 'Zed spits on Amy.', spit: { actorId: 'p2', actorName: 'Zed', targetId: 'p3', targetName: 'Amy' } }], { selfId: 'me', selfName: 'Hero42' });
+assert.deepEqual(calls, [['attention', 1]], 'someone else being spat on only flashes');
+reset();
+alerts.gmChat([{ id: 32, playerId: 'p2', playerName: 'Zed', messageType: 'spit', text: 'Zed spits on SHADOW BROKER.', spit: { actorId: 'p2', actorName: 'Zed', targetId: '__SHADOW_BROKER__', targetName: 'SHADOW BROKER' } }]);
+assert.equal(notifications()[0].title, 'Zed spat on you', 'the GM hears about being spat on');
+
 // Game state: the first state is a baseline, then transitions alert once.
 reset();
 const battle = { roomMode: 'BATTLE', gameWon: false, matchResult: null, wheel: { phase: 'idle', segments: [] } };

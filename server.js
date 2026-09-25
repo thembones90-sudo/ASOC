@@ -4792,7 +4792,8 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/choose', help: '/choose A | B | C -- pick one option at random' },
   { name: '/order', help: '/order -- shuffled turn order of connected players' },
   { name: '/stats', help: '/stats -- your messages, correct/wrong, points' },
-  { name: '/spit', help: '/spit @Name -- target a player from the roster list' },
+  { name: '/spit', help: '/spit @Name -- spit on a player or the Shadow Broker' },
+  { name: '/fart', help: '/fart @Name -- fart on a player or the Shadow Broker' },
   { name: '/all', help: '/all [message] -- nudge everyone (shakes every screen)' },
   { name: '/commands', help: '/commands -- this list' }
 ];
@@ -4804,6 +4805,7 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/vote', help: '/vote <question> -- instant YES/NO poll' },
   { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
   { name: '/spit', help: '/spit @Name -- the Broker spits too' },
+  { name: '/fart', help: '/fart @Name -- the Broker farts too' },
   { name: '/commands', help: 'This list' }
 ];
 
@@ -4846,15 +4848,25 @@ function buildChatCommandMessage(room, author, messageType, source, text, payloa
   return pushChatMessage(room, message);
 }
 
-// Named-target resolution shared by /spit and /afk: prefer the picker-supplied
-// connected playerId, fall back to an exact-then-fuzzy match on the typed
-// "@Name" token. The actor can never target themselves. `verbLabel` only
-// shapes the error text so each command's messages stay self-explanatory.
-function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel) {
+// Little Heroes can aim /spit and /fart at the Shadow Broker too. The Broker
+// is not a room player, so it has a fixed pseudo-identity both clients know
+// (the picker offers it; the GM's card reads "X spits on you.").
+const SHADOW_BROKER_TARGET_ID = '__SHADOW_BROKER__';
+const SHADOW_BROKER_TARGET = Object.freeze({ id: SHADOW_BROKER_TARGET_ID, name: 'SHADOW BROKER' });
+const SHADOW_BROKER_TARGET_NAMES = new Set(['shadow broker', 'broker', 'gm']);
+
+// Named-target resolution shared by /spit, /fart and /afk: prefer the
+// picker-supplied connected playerId, fall back to an exact-then-fuzzy match
+// on the typed "@Name" token. The actor can never target themselves.
+// `allowBroker` (player /spit and /fart) also accepts the Shadow Broker, by
+// picker id or by typing @Shadow Broker / @Broker / @GM -- a real player with
+// that exact name still wins. `verbLabel` only shapes the error text.
+function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel, { allowBroker = false } = {}) {
   const connected = Array.from(room.players.values())
     .filter(player => player.connected !== false && String(player.name || '').trim());
   const selfId = actorId === null || actorId === undefined ? '' : String(actorId);
   if (typeof targetPlayerId === 'string' && targetPlayerId) {
+    if (allowBroker && targetPlayerId === SHADOW_BROKER_TARGET_ID) return { target: SHADOW_BROKER_TARGET };
     const target = connected.find(player => String(player.id) === targetPlayerId);
     if (!target) return { error: `${verbLabel} TARGET MUST BE A CONNECTED PLAYER` };
     if (String(target.id) === selfId) return { error: `${verbLabel} TARGET MUST BE ANOTHER PLAYER` };
@@ -4862,14 +4874,12 @@ function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel)
   }
   const needle = String(rawTarget || '').trim().replace(/^@/, '').toLocaleLowerCase();
   if (!needle) return { error: `${verbLabel} TARGET REQUIRED // PICK A PLAYER FROM THE LIST` };
-  const target = connected.find(player => String(player.name).toLocaleLowerCase() === needle && String(player.id) !== selfId)
-    || connected.find(player => String(player.name).toLocaleLowerCase().includes(needle) && String(player.id) !== selfId);
+  const exact = connected.find(player => String(player.name).toLocaleLowerCase() === needle && String(player.id) !== selfId);
+  if (exact) return { target: exact };
+  if (allowBroker && SHADOW_BROKER_TARGET_NAMES.has(needle)) return { target: SHADOW_BROKER_TARGET };
+  const target = connected.find(player => String(player.name).toLocaleLowerCase().includes(needle) && String(player.id) !== selfId);
   if (!target) return { error: `${verbLabel} TARGET NOT FOUND // PICK A PLAYER FROM THE LIST` };
   return { target };
-}
-
-function resolveSpitTarget(room, actorId, targetPlayerId, rawTarget) {
-  return resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, 'SPIT');
 }
 
 function handleDiceCommand(room, author, raw) {
@@ -4957,15 +4967,27 @@ function handleCommandsCommand(room, author, raw, registry) {
     { commands: { commands } });
 }
 
-function handleSpitCommand(room, author, raw, targetPlayerId) {
-  const match = raw.match(/^\/spit(?:\s+@?(.*))?\s*$/i);
-  if (!match) return { success: false, error: 'SPIT INVALID // USE /spit' };
-  const resolved = resolveSpitTarget(room, author.id, targetPlayerId, match[1] || '');
+// Targeted "acts" -- /spit and /fart share one mechanism: pick a target, the
+// server posts one card, and each client words it per viewer ("You fart on
+// X." / "X farts on you." / neutral). The act name is both the messageType
+// and the payload key. Little Heroes may also target the Shadow Broker.
+const CHAT_ACTS = Object.freeze({
+  spit: { label: 'SPIT', verb: 'spits on' },
+  fart: { label: 'FART', verb: 'farts on' }
+});
+const CHAT_ACT_PATTERN = /^\/(spit|fart)\b/i;
+
+function handleActCommand(room, author, raw, targetPlayerId, act) {
+  const { label, verb } = CHAT_ACTS[act];
+  const match = raw.match(new RegExp(`^\\/${act}(?:\\s+@?(.*))?\\s*$`, 'i'));
+  if (!match) return { success: false, error: `${label} INVALID // USE /${act}` };
+  const actorIsBroker = author.id === null || author.id === undefined;
+  const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', label, { allowBroker: !actorIsBroker });
   if (resolved.error) return { success: false, error: resolved.error };
   const target = resolved.target;
-  return buildChatCommandMessage(room, author, 'spit', 'spit',
-    `${author.name} spits on ${target.name}.`,
-    { spit: { actorId: author.id ?? null, actorName: author.name, targetId: String(target.id), targetName: target.name } });
+  return buildChatCommandMessage(room, author, act, act,
+    `${author.name} ${verb} ${target.name}.`,
+    { [act]: { actorId: author.id ?? null, actorName: author.name, targetId: String(target.id), targetName: target.name } });
 }
 
 // GM-only "still there?" nudge. Unlike /spit this also privately pings the
@@ -5008,9 +5030,10 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   if (/^\/order\b/i.test(raw)) return handleOrderCommand(room, author, raw);
   if (/^\/stats\b/i.test(raw)) return handleStatsCommand(room, author, raw);
   if (/^\/commands\b/i.test(raw)) return handleCommandsCommand(room, author, raw, CHAT_SLASH_COMMANDS);
-  if (/^\/spit\b/i.test(raw)) {
+  const act = raw.match(CHAT_ACT_PATTERN);
+  if (act) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
-    return handleSpitCommand(room, author, raw, targetPlayerId);
+    return handleActCommand(room, author, raw, targetPlayerId, act[1].toLowerCase());
   }
   return null;
 }
@@ -5060,8 +5083,9 @@ function dispatchGmSlashCommand(room, ws, text) {
     const result = handleCommandsCommand(room, author, raw, GM_CHAT_SLASH_COMMANDS);
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
-  if (/^\/spit\b/i.test(raw)) {
-    const result = handleSpitCommand(room, author, raw, '');
+  const act = raw.match(CHAT_ACT_PATTERN);
+  if (act) {
+    const result = handleActCommand(room, author, raw, '', act[1].toLowerCase());
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
   if (/^\/afk\b/i.test(raw)) {
@@ -5289,12 +5313,13 @@ function sanitizeChatCommandMeta(m) {
         help: sanitizeText(String(entry?.help || '')).slice(0, 140)
       }))
     };
-  } else if (m.messageType === 'spit' && m.spit && typeof m.spit === 'object') {
-    out.spit = {
-      actorId: m.spit.actorId === null || m.spit.actorId === undefined || m.spit.actorId === '' ? null : String(m.spit.actorId).slice(0, 64),
-      actorName: sanitizeText(String(m.spit.actorName || '')).slice(0, 40),
-      targetId: String(m.spit.targetId || '').slice(0, 64),
-      targetName: sanitizeText(String(m.spit.targetName || '')).slice(0, 40)
+  } else if (CHAT_ACTS[m.messageType] && m[m.messageType] && typeof m[m.messageType] === 'object') {
+    const act = m[m.messageType];
+    out[m.messageType] = {
+      actorId: act.actorId === null || act.actorId === undefined || act.actorId === '' ? null : String(act.actorId).slice(0, 64),
+      actorName: sanitizeText(String(act.actorName || '')).slice(0, 40),
+      targetId: String(act.targetId || '').slice(0, 64),
+      targetName: sanitizeText(String(act.targetName || '')).slice(0, 40)
     };
   } else if (m.messageType === 'afk' && m.afk && typeof m.afk === 'object') {
     out.afk = {

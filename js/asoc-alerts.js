@@ -62,6 +62,15 @@
     return String(msg?.playerName || (msg?.source === 'shadowBroker' ? 'SHADOW BROKER' : 'ASOC'));
   }
 
+  // /spit and /fart aimed at `targetId` ("__SHADOW_BROKER__" for the GM):
+  // returns the notification title, or null when it isn't aimed at them.
+  const ACT_PAST = { spit: 'spat', fart: 'farted' };
+  function actAimedAt(msg, targetId) {
+    const act = ACT_PAST[msg?.messageType] ? msg.messageType : null;
+    if (!act || !targetId || String(msg[act]?.targetId || '') !== String(targetId)) return null;
+    return `${msg[act].actorName || senderName(msg)} ${ACT_PAST[act]} on you`;
+  }
+
   // Classify a new chat message for someone called `selfName`.
   // Returns 'mention' | 'reply' | 'chat'.
   function classifyForName(msg, selfName, { allowAll = false } = {}) {
@@ -149,6 +158,11 @@
           important.push({ title: `${senderName(msg)} nudged everyone`, body: describeMessage(msg), tag: 'nudge' });
           return;
         }
+        const act = actAimedAt(msg, selfId);
+        if (act) {
+          important.push({ title: act, body: describeMessage(msg), tag: 'act' });
+          return;
+        }
         const kind = classifyForName(msg, selfName, { allowAll: msg.source === 'shadowBroker' });
         if (kind === 'chat') return;
         important.push({
@@ -207,6 +221,11 @@
         }
         if (msg.nudge === true) {
           direct.push({ title: `${senderName(msg)} nudged everyone`, body: describeMessage(msg), tag: 'nudge' });
+          return;
+        }
+        const act = actAimedAt(msg, '__SHADOW_BROKER__');
+        if (act) {
+          direct.push({ title: act, body: describeMessage(msg), tag: 'act' });
           return;
         }
         const kind = classifyForGm(msg);

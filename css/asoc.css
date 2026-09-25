@@ -17141,6 +17141,10 @@ button.gm-chat-gif-link:focus-visible {
 .chat-system-ko { color:#ff7b72; }
 .chat-system-spit { --sys-accent:#b477ff; }
 .chat-system-spit .chat-system-body { font-style:italic; }
+.chat-system-fart { --sys-accent:#9acd32; }
+.chat-system-fart .chat-system-body { font-style:italic; }
+/* /spit and /fart picker: the Shadow Broker target reads as the GM. */
+.chat-mention-option.chat-mention-broker small { color:#e36565; }
 .chat-system-command { display:flex; gap:8px; justify-content:center; text-align:left; }
 .chat-system-command code { color:var(--sys-accent); font-weight:900; white-space:nowrap; }
 .chat-system-command span { color:#aab1b9; font-size:.66rem; font-weight:600; }

@@ -104,7 +104,8 @@ const PlayerApp = {
     { name: 'choose', insert: '/choose ', syntax: '/choose A | B | C', description: 'Choose one option randomly' },
     { name: 'order', insert: '/order', syntax: '/order', description: 'Shuffle connected-player turn order' },
     { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
-    { name: 'spit', insert: '/spit ', syntax: '/spit @Name', description: 'Target another player' },
+    { name: 'spit', insert: '/spit ', syntax: '/spit @Name', description: 'Spit on a player or the Shadow Broker' },
+    { name: 'fart', insert: '/fart ', syntax: '/fart @Name', description: 'Fart on a player or the Shadow Broker' },
     { name: 'all', insert: '/all ', syntax: '/all [message]', description: 'Nudge everyone // every screen shakes' },
     { name: 'commands', insert: '/commands', syntax: '/commands', description: 'Show every available command' }
   ],
@@ -2957,15 +2958,17 @@ const PlayerApp = {
     return { start: at, end: caret, query };
   },
 
-  /* /spit targeting reuses the mention-picker machinery. When the composer
-     starts with "/spit " the roster opens; picking a hero inserts "@Name "
-     and records candidate.id so the server resolves the authoritative target
-     (names alone can collide). Self is never a spit target. */
+  /* /spit and /fart targeting reuse the mention-picker machinery. When the
+     composer starts with "/spit " or "/fart " the roster opens; picking a
+     hero inserts "@Name " and records candidate.id so the server resolves
+     the authoritative target (names alone can collide). Self is never a
+     target; the Shadow Broker always is (server id __SHADOW_BROKER__). The
+     `spit` flag marks any targeted act, not just /spit. */
   getChatSpitContext(input) {
     if (!input) return null;
     const caret = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
     const before = input.value.slice(0, caret);
-    const match = before.match(/^\/spit[ \t]+(@?[^\r\n:]*)$/i);
+    const match = before.match(/^\/(?:spit|fart)[ \t]+(@?[^\r\n:]*)$/i);
     if (!match) return null;
     const token = String(match[1] || '');
     return { start: caret - token.length, end: caret, query: token.startsWith('@') ? token.slice(1) : token, spit: true };
@@ -2974,7 +2977,10 @@ const PlayerApp = {
   getChatMentionCandidates(query = '', context = null) {
     const needle = String(query || '').trim().toLocaleLowerCase();
     const selfId = context?.spit ? String(this.playerId || '') : null;
-    return (this.currentPlayers || [])
+    const broker = context?.spit && (!needle || 'shadow broker'.includes(needle))
+      ? [{ id: '__SHADOW_BROKER__', name: 'SHADOW BROKER', connected: true, isBroker: true }]
+      : [];
+    return broker.concat((this.currentPlayers || [])
       .filter(player => player && String(player.name || '').trim())
       .filter(player => !context?.spit || player.connected !== false)
       .filter(player => !selfId || String(player.id || '') !== selfId)
@@ -2987,7 +2993,7 @@ const PlayerApp = {
         if (aPrefix !== bPrefix) return aPrefix - bPrefix;
         if ((a.connected !== false) !== (b.connected !== false)) return a.connected !== false ? -1 : 1;
         return String(a.name).localeCompare(String(b.name));
-      })
+      }))
       .slice(0, 8);
   },
 
@@ -3003,10 +3009,12 @@ const PlayerApp = {
     if (!picker || picker.hidden) return;
     const candidates = this._chatMentionCandidates || [];
     picker.innerHTML = candidates.map((player, index) => `
-      <button type="button" class="chat-mention-option${index === this._chatMentionIndex ? ' active' : ''}" data-mention-index="${index}" role="option" aria-selected="${index === this._chatMentionIndex ? 'true' : 'false'}">
-        ${this.littleHeroAvatarHTML(player, true)}
+      <button type="button" class="chat-mention-option${player.isBroker ? ' chat-mention-broker' : ''}${index === this._chatMentionIndex ? ' active' : ''}" data-mention-index="${index}" role="option" aria-selected="${index === this._chatMentionIndex ? 'true' : 'false'}">
+        ${player.isBroker
+          ? '<span class="little-hero-avatar little-hero-avatar-compact" style="--lh-frame:#C0392B"><img src="assets/ui/shadow-broker-eye.webp" alt="Shadow Broker"></span>'
+          : this.littleHeroAvatarHTML(player, true)}
         <span>${this.escapeHtml(player.name)}</span>
-        <small>${player.connected === false ? 'OFFLINE' : 'TAG'}</small>
+        <small>${player.isBroker ? 'GM' : player.connected === false ? 'OFFLINE' : 'TAG'}</small>
       </button>
     `).join('');
   },
@@ -3014,11 +3022,11 @@ const PlayerApp = {
   updateChatMentionPicker(input = document.getElementById('chat-input'), picker = document.getElementById('chat-mention-picker')) {
     if (!input || !picker) return;
 
-    // /spit is a two-step verb: the instant it is typed fully, nudge the
-    // composer with a trailing space so the roster picker can attach itself.
+    // /spit and /fart are two-step verbs: the instant one is typed fully,
+    // nudge the composer with a trailing space so the roster picker attaches.
     const rawValue = input.value;
-    if (/^\/spit$/i.test(rawValue) && (Number.isInteger(input.selectionStart) ? input.selectionStart : rawValue.length) >= rawValue.length) {
-      input.value = '/spit ';
+    if (/^\/(?:spit|fart)$/i.test(rawValue) && (Number.isInteger(input.selectionStart) ? input.selectionStart : rawValue.length) >= rawValue.length) {
+      input.value = rawValue + ' ';
       const end = input.value.length;
       input.focus();
       input.setSelectionRange(end, end);
@@ -3974,8 +3982,8 @@ const PlayerApp = {
     // the picked hero (or the verb is still bare).
     const pending = this._pendingSpitTarget;
     this._pendingSpitTarget = null;
-    if (pending && /^\s*\/spit\b/i.test(text)) {
-      const tokenMatch = text.match(/^\s*\/spit\s+@?([^\r\n@]*)$/i);
+    if (pending && /^\s*\/(?:spit|fart)\b/i.test(text)) {
+      const tokenMatch = text.match(/^\s*\/(?:spit|fart)\s+@?([^\r\n@]*)$/i);
       const typed = tokenMatch ? tokenMatch[1].trim().toLocaleLowerCase() : '';
       if (!typed || typed === String(pending.name).trim().toLocaleLowerCase()) {
         payload.targetPlayerId = pending.id;
@@ -4348,17 +4356,19 @@ const PlayerApp = {
   },
 
   /* ASOC SLASH COMMANDS -- server-authoritative system event cards (dice /
-     flip / choose / order / stats / commands / spit). /spit resolves its line
-     per viewer -- "You spit on X." / "X spits on you." / neutral -- from the
-     structured actorId/targetId payload, never from guessable text. */
-  systemSpitLine(msg) {
-    const spit = msg.spit || {};
+     flip / choose / order / stats / commands / spit / fart). /spit and /fart
+     resolve their line per viewer -- "You fart on X." / "X farts on you." /
+     neutral -- from the structured actorId/targetId payload, never from
+     guessable text. */
+  systemActLine(msg, act) {
+    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'] }[act] || ['spit on', 'spits on'];
+    const data = msg[act] || {};
     const viewerId = String(this.playerId || '');
-    const actorName = this.escapeHtml(String(spit.actorName || msg.playerName || 'SHADOW BROKER'));
-    const targetName = this.escapeHtml(String(spit.targetName || '???'));
-    if (viewerId && String(spit.actorId || '') === viewerId) return `You spit on ${targetName}.`;
-    if (viewerId && String(spit.targetId || '') === viewerId) return `${actorName} spits on you.`;
-    return `${actorName} spits on ${targetName}.`;
+    const actorName = this.escapeHtml(String(data.actorName || msg.playerName || 'SHADOW BROKER'));
+    const targetName = this.escapeHtml(String(data.targetName || '???'));
+    if (viewerId && String(data.actorId || '') === viewerId) return `You ${verbs[0]} ${targetName}.`;
+    if (viewerId && String(data.targetId || '') === viewerId) return `${actorName} ${verbs[1]} you.`;
+    return `${actorName} ${verbs[1]} ${targetName}.`;
   },
 
   // /afk is always Broker-authored; only the checked-on player's line changes.
@@ -4418,7 +4428,8 @@ const PlayerApp = {
           .join('');
         return { label: 'COMMANDS', body: rows, detail: '' };
       },
-      spit: () => ({ label: 'SPIT', body: this.systemSpitLine(msg), detail: '' }),
+      spit: () => ({ label: 'SPIT', body: this.systemActLine(msg, 'spit'), detail: '' }),
+      fart: () => ({ label: 'FART', body: this.systemActLine(msg, 'fart'), detail: '' }),
       afk: () => ({ label: 'AFK CHECK', body: this.systemAfkLine(msg), detail: '' }),
       unstableConcoction: () => {
         const c = msg.unstableConcoction || {};
@@ -4477,7 +4488,7 @@ const PlayerApp = {
       `;
     }
 
-    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
       return this.createSystemChatCardHTML(msg);
     }
 
