@@ -83,6 +83,9 @@ assert.deepEqual(calls, [['attention', 1]], 'someone else being spat on only fla
 reset();
 alerts.gmChat([{ id: 32, playerId: 'p2', playerName: 'Zed', messageType: 'spit', text: 'Zed spits on SHADOW BROKER.', spit: { actorId: 'p2', actorName: 'Zed', targetId: '__SHADOW_BROKER__', targetName: 'SHADOW BROKER' } }]);
 assert.equal(notifications()[0].title, 'Zed spat on you', 'the GM hears about being spat on');
+reset();
+alerts.playerChat([{ id: 33, playerId: 'p2', playerName: 'Zed', messageType: 'nod', text: 'Zed nods at Hero42.', nod: { actorId: 'p2', actorName: 'Zed', targetId: 'me', targetName: 'Hero42' } }], { selfId: 'me', selfName: 'Hero42' });
+assert.equal(notifications()[0].title, 'Zed nodded at you');
 
 // Game state: the first state is a baseline, then transitions alert once.
 reset();

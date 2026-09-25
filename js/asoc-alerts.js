@@ -64,11 +64,12 @@
 
   // /spit and /fart aimed at `targetId` ("__SHADOW_BROKER__" for the GM):
   // returns the notification title, or null when it isn't aimed at them.
-  const ACT_PAST = { spit: 'spat', fart: 'farted' };
+  const ACT_PAST = { spit: 'spat', fart: 'farted', nod: 'nodded' };
   function actAimedAt(msg, targetId) {
     const act = ACT_PAST[msg?.messageType] ? msg.messageType : null;
     if (!act || !targetId || String(msg[act]?.targetId || '') !== String(targetId)) return null;
-    return `${msg[act].actorName || senderName(msg)} ${ACT_PAST[act]} on you`;
+    const preposition = act === 'nod' ? 'at' : 'on';
+    return `${msg[act].actorName || senderName(msg)} ${ACT_PAST[act]} ${preposition} you`;
   }
 
   // Classify a new chat message for someone called `selfName`.

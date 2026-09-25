@@ -106,6 +106,7 @@ const PlayerApp = {
     { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
     { name: 'spit', insert: '/spit ', syntax: '/spit @Name', description: 'Spit on a player or the Shadow Broker' },
     { name: 'fart', insert: '/fart ', syntax: '/fart @Name', description: 'Fart on a player or the Shadow Broker' },
+    { name: 'nod', insert: '/nod ', syntax: '/nod @Name', description: 'Acknowledge a player or the Shadow Broker' },
     { name: 'all', insert: '/all ', syntax: '/all [message]', description: 'Nudge everyone // every screen shakes' },
     { name: 'commands', insert: '/commands', syntax: '/commands', description: 'Show every available command' }
   ],
@@ -2969,7 +2970,7 @@ const PlayerApp = {
     if (!input) return null;
     const caret = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
     const before = input.value.slice(0, caret);
-    const match = before.match(/^\/(?:spit|fart)[ \t]+(@?[^\r\n:]*)$/i);
+    const match = before.match(/^\/(?:spit|fart|nod)[ \t]+(@?[^\r\n:]*)$/i);
     if (!match) return null;
     const token = String(match[1] || '');
     return { start: caret - token.length, end: caret, query: token.startsWith('@') ? token.slice(1) : token, spit: true };
@@ -3026,7 +3027,7 @@ const PlayerApp = {
     // /spit and /fart are two-step verbs: the instant one is typed fully,
     // nudge the composer with a trailing space so the roster picker attaches.
     const rawValue = input.value;
-    if (/^\/(?:spit|fart)$/i.test(rawValue) && (Number.isInteger(input.selectionStart) ? input.selectionStart : rawValue.length) >= rawValue.length) {
+    if (/^\/(?:spit|fart|nod)$/i.test(rawValue) && (Number.isInteger(input.selectionStart) ? input.selectionStart : rawValue.length) >= rawValue.length) {
       input.value = rawValue + ' ';
       const end = input.value.length;
       input.focus();
@@ -3983,8 +3984,8 @@ const PlayerApp = {
     // the picked hero (or the verb is still bare).
     const pending = this._pendingSpitTarget;
     this._pendingSpitTarget = null;
-    if (pending && /^\s*\/(?:spit|fart)\b/i.test(text)) {
-      const tokenMatch = text.match(/^\s*\/(?:spit|fart)\s+@?([^\r\n@]*)$/i);
+    if (pending && /^\s*\/(?:spit|fart|nod)\b/i.test(text)) {
+      const tokenMatch = text.match(/^\s*\/(?:spit|fart|nod)\s+@?([^\r\n@]*)$/i);
       const typed = tokenMatch ? tokenMatch[1].trim().toLocaleLowerCase() : '';
       if (!typed || typed === String(pending.name).trim().toLocaleLowerCase()) {
         payload.targetPlayerId = pending.id;
@@ -4362,7 +4363,7 @@ const PlayerApp = {
      neutral -- from the structured actorId/targetId payload, never from
      guessable text. */
   systemActLine(msg, act) {
-    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'] }[act] || ['spit on', 'spits on'];
+    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'], nod: ['nod at', 'nods at'] }[act] || ['acknowledge', 'acknowledges'];
     const data = msg[act] || {};
     const viewerId = String(this.playerId || '');
     const actorName = this.escapeHtml(String(data.actorName || msg.playerName || 'SHADOW BROKER'));
@@ -4431,6 +4432,7 @@ const PlayerApp = {
       },
       spit: () => ({ label: 'SPIT', body: this.systemActLine(msg, 'spit'), detail: '' }),
       fart: () => ({ label: 'FART', body: this.systemActLine(msg, 'fart'), detail: '' }),
+      nod: () => ({ label: 'NOD', body: this.systemActLine(msg, 'nod'), detail: 'ACKNOWLEDGED' }),
       afk: () => ({ label: 'AFK CHECK', body: this.systemAfkLine(msg), detail: '' }),
       unstableConcoction: () => {
         const c = msg.unstableConcoction || {};
@@ -4489,7 +4491,7 @@ const PlayerApp = {
       `;
     }
 
-    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'nod', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
       return this.createSystemChatCardHTML(msg);
     }
 

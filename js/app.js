@@ -90,6 +90,7 @@ const App = {
     { name: 'afk', insert: '/afk ', icon: '◌', label: 'AFK CHECK', description: '/afk @Name -- privately check if a Little Hero is still there' },
     { name: 'spit', insert: '/spit ', icon: '➤', label: 'SPIT', description: '/spit @Name -- the Broker spits too' },
     { name: 'fart', insert: '/fart ', icon: '☁', label: 'FART', description: '/fart @Name -- the Broker farts too' },
+    { name: 'nod', insert: '/nod ', icon: '✓', label: 'NOD', description: '/nod @Name -- acknowledge a Little Hero' },
     { name: 'commands', insert: '/commands', icon: '☰', label: 'COMMANDS', description: 'List every Shadow Broker command' },
     { name: 'reliquary', insert: '/reliquary ', icon: '☠', label: 'OPEN RELIQUARY', description: 'Protected Blood Tribute archive' }
   ],
@@ -4796,7 +4797,7 @@ const App = {
   // own act reads "You ...", a Little Hero aiming at the Broker (target id
   // __SHADOW_BROKER__) reads "X ... you.", anything else is neutral.
   gmSystemActLine(msg, act) {
-    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'] }[act] || ['spit on', 'spits on'];
+    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'], nod: ['nod at', 'nods at'] }[act] || ['acknowledge', 'acknowledges'];
     const data = msg[act] || {};
     const actorName = this.escapeHtml(String(data.actorName || msg.playerName || 'SHADOW BROKER'));
     const targetName = this.escapeHtml(String(data.targetName || '???'));
@@ -4860,6 +4861,7 @@ const App = {
       },
       spit: () => ({ label: 'SPIT', body: this.gmSystemActLine(msg, 'spit'), detail: '' }),
       fart: () => ({ label: 'FART', body: this.gmSystemActLine(msg, 'fart'), detail: '' }),
+      nod: () => ({ label: 'NOD', body: this.gmSystemActLine(msg, 'nod'), detail: 'ACKNOWLEDGED' }),
       afk: () => ({ label: 'AFK CHECK', body: this.gmSystemAfkLine(msg), detail: '' }),
       unstableConcoction: () => {
         const c = msg.unstableConcoction || {};
@@ -4913,7 +4915,7 @@ const App = {
       `;
     }
 
-    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'nod', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
       return this.createGMSystemChatCardHTML(msg);
     }
 
