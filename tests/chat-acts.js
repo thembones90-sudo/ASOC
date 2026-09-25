@@ -96,6 +96,12 @@ async function run() {
     await say('/fart @Victim', { targetPlayerId: victim.playerId });
     await waitFor(victim, m => m.messageType === 'fart' && m.fart?.targetId === victim.playerId, 'picker fart');
 
+    // /nod is an acknowledgement with the same authoritative target contract.
+    await say('/nod @Victim', { targetPlayerId: victim.playerId });
+    const nod = await waitFor(victim, m => m.messageType === 'nod' && m.nod?.targetId === victim.playerId, 'player nod');
+    assert.equal(nod.text, 'Farter nods at Victim.');
+    assert.deepEqual(nod.nod, { actorId: farter.playerId, actorName: 'Farter', targetId: victim.playerId, targetName: 'Victim' });
+
     // The Shadow Broker is a valid target for both acts: picker id, full name, short name.
     await say('/fart @SHADOW BROKER', { targetPlayerId: BROKER });
     const brokerFart = await waitFor(gm, m => m.messageType === 'fart' && m.fart?.targetId === BROKER, 'fart on the Broker');
@@ -123,11 +129,16 @@ async function run() {
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart @broker' }));
     assert.match(await lastError(gm, mark), /FART TARGET NOT FOUND/, 'the Broker cannot target itself');
 
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/nod @Victim' }));
+    const brokerNod = await waitFor(victim, m => m.messageType === 'nod' && m.nod?.actorId === null, 'Broker nod');
+    assert.equal(brokerNod.text, 'SHADOW BROKER nods at Victim.');
+
     // /commands advertises /fart.
     await say('/commands');
     const commands = await waitFor(farter, m => m.messageType === 'commands', '/commands card');
     assert.ok(commands.commands.commands.some(entry => entry.name === '/fart'));
     assert.ok(commands.commands.commands.some(entry => entry.name === '/slap'));
+    assert.ok(commands.commands.commands.some(entry => entry.name === '/nod'));
 
     // WoW emotes: the server writes actor / target / other lines.
     await say('/slap @Victim', { targetPlayerId: victim.playerId });
@@ -200,7 +211,7 @@ async function run() {
       assert.ok(gmCommands.commands.commands.some(entry => entry.name === name), `GM /commands lists ${name}`));
 
     assert.equal(serverErrors.trim(), '', 'no server errors');
-    console.log('PASS chat acts: /fart mirrors /spit, emotes carry three perspectives, moon toll is one-time, the Broker never targets itself');
+    console.log('PASS chat acts: /spit, /fart and /nod use authoritative targets, emotes carry three perspectives, moon toll is one-time, the Broker runs every command');
   } finally {
     clients.forEach(client => { try { client.ws.close(); } catch {} });
     server.kill();

@@ -56,8 +56,9 @@ function waitForMessage(ws, predicate, label, timeout = 5000) {
 
 async function openWs() {
   const ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
+  const helloPending = waitForMessage(ws, message => message.type === 'protocol:hello', 'protocol hello');
   await once(ws, 'open');
-  const hello = await waitForMessage(ws, message => message.type === 'protocol:hello', 'protocol hello');
+  const hello = await helloPending;
   assert.equal(hello.protocolVersion, 1);
   const ready = waitForMessage(ws, message => message.type === 'protocol:ready', 'protocol ready');
   ws.send(JSON.stringify({ type: 'protocol:hello', protocolVersion: 1 }));

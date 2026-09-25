@@ -106,6 +106,7 @@ const PlayerApp = {
     { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
     { name: 'spit', insert: '/spit ', syntax: '/spit @Name', description: 'Spit on a player or the Shadow Broker' },
     { name: 'fart', insert: '/fart ', syntax: '/fart @Name', description: 'Fart on a player or the Shadow Broker' },
+    { name: 'nod', insert: '/nod ', syntax: '/nod @Name', description: 'Acknowledge a player or the Shadow Broker' },
     { name: 'all', insert: '/all ', syntax: '/all [message]', description: 'Nudge everyone // every screen shakes' },
     { name: 'slap', insert: '/slap ', syntax: '/slap @Name', description: 'Slap someone across the face' },
     { name: 'moon', insert: '/moon ', syntax: '/moon @Name', description: 'Drop your pants and moon someone' },
@@ -133,7 +134,7 @@ const PlayerApp = {
   ],
   // Commands that take an @target: the target picker opens for all of them,
   // and every one can also aim at the Shadow Broker.
-  targetedChatActs: ['spit', 'fart', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass'],
+  targetedChatActs: ['spit', 'fart', 'nod', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass'],
   targetedChatActPattern(suffix) {
     return new RegExp(`^\\s*\\/(?:${this.targetedChatActs.join('|')})${suffix}`, 'i');
   },
@@ -4436,7 +4437,7 @@ const PlayerApp = {
      neutral -- from the structured actorId/targetId payload, never from
      guessable text. */
   systemActLine(msg, act) {
-    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'] }[act] || ['spit on', 'spits on'];
+    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'], nod: ['nod at', 'nods at'] }[act] || ['acknowledge', 'acknowledges'];
     const data = msg[act] || {};
     const viewerId = String(this.playerId || '');
     const actorName = this.escapeHtml(String(data.actorName || msg.playerName || 'SHADOW BROKER'));
@@ -4516,6 +4517,7 @@ const PlayerApp = {
       spit: () => ({ label: 'SPIT', body: this.systemActLine(msg, 'spit'), detail: '' }),
       fart: () => ({ label: 'FART', body: this.systemActLine(msg, 'fart'), detail: '' }),
       emote: () => ({ label: msg.emote?.label || 'EMOTE', body: this.systemEmoteLine(msg), detail: '' }),
+      nod: () => ({ label: 'NOD', body: this.systemActLine(msg, 'nod'), detail: 'ACKNOWLEDGED' }),
       afk: () => ({ label: 'AFK CHECK', body: this.systemAfkLine(msg), detail: '' }),
       unstableConcoction: () => {
         const c = msg.unstableConcoction || {};
@@ -4574,7 +4576,7 @@ const PlayerApp = {
       `;
     }
 
-    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'emote', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'nod', 'emote', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
       return this.createSystemChatCardHTML(msg);
     }
 

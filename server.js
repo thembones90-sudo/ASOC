@@ -4280,12 +4280,19 @@ function handleThreefoldAccept(ws, message) {
   state.challenges.delete(challenge.id);
   if (!challenger || !opponent) return sendToWs(ws, { type:'error', message:'Opponent unavailable' });
 
+  const challengerIsX = crypto.randomInt(0, 2) === 0;
+  const xPlayer = challengerIsX
+    ? { id:challenge.challengerId, name:challenge.challengerName }
+    : { id:challenge.opponentId, name:challenge.opponentName };
+  const oPlayer = challengerIsX
+    ? { id:challenge.opponentId, name:challenge.opponentName }
+    : { id:challenge.challengerId, name:challenge.challengerName };
   const game = {
     id:'tf-' + crypto.randomBytes(8).toString('hex'),
-    xId:challenge.challengerId, xName:challenge.challengerName,
-    oId:challenge.opponentId, oName:challenge.opponentName,
-    board:Array(9).fill(''), turnId:challenge.challengerId,
-    turnName:challenge.challengerName, complete:false, winnerId:null, winnerName:''
+    xId:xPlayer.id, xName:xPlayer.name,
+    oId:oPlayer.id, oName:oPlayer.name,
+    board:Array(9).fill(''), turnId:xPlayer.id,
+    turnName:xPlayer.name, complete:false, winnerId:null, winnerName:''
   };
   state.games.set(game.id, game);
   threefoldSendPair(room, game, { type:'threefold:state', game });
@@ -4844,6 +4851,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/stats', help: '/stats -- your messages, correct/wrong, points' },
   { name: '/spit', help: '/spit @Name -- spit on a player or the Shadow Broker' },
   { name: '/fart', help: '/fart @Name -- fart on a player or the Shadow Broker' },
+  { name: '/nod', help: '/nod @Name -- acknowledge a player or the Shadow Broker' },
   { name: '/slap', help: '/slap @Name -- emote at a player or the Shadow Broker' },
   { name: '/moon', help: '/moon @Name -- emote at a player or the Shadow Broker' },
   { name: '/chicken', help: '/chicken @Name -- emote at a player or the Shadow Broker' },
@@ -4885,6 +4893,7 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/grovel', help: '/grovel -- demand groveling' },
   { name: '/spit', help: '/spit @Name -- the Broker spits too' },
   { name: '/fart', help: '/fart @Name -- the Broker farts too' },
+  { name: '/nod', help: '/nod @Name -- acknowledge a Little Hero' },
   { name: '/slap', help: '/slap @Name -- the Broker emotes too' },
   { name: '/moon', help: '/moon @Name -- the Broker emotes too' },
   { name: '/chicken', help: '/chicken @Name -- the Broker emotes too' },
@@ -5073,9 +5082,10 @@ function handleCommandsCommand(room, author, raw, registry) {
 // and the payload key. Little Heroes may also target the Shadow Broker.
 const CHAT_ACTS = Object.freeze({
   spit: { label: 'SPIT', verb: 'spits on' },
-  fart: { label: 'FART', verb: 'farts on' }
+  fart: { label: 'FART', verb: 'farts on' },
+  nod: { label: 'NOD', verb: 'nods at' }
 });
-const CHAT_ACT_PATTERN = /^\/(spit|fart)\b/i;
+const CHAT_ACT_PATTERN = /^\/(spit|fart|nod)\b/i;
 
 function handleActCommand(room, author, raw, targetPlayerId, act) {
   const { label, verb } = CHAT_ACTS[act];
