@@ -2510,6 +2510,7 @@ const App = {
       case 'players:update':
         this.updatePlayerList(message.players);
         this.renderGMOnlinePresence(message.players || []);
+        window.AsocAlerts?.gmPlayers(message.players);
         break;
 
       case 'ritual:gmUpdate':
@@ -2613,6 +2614,7 @@ const App = {
         // their own Public View the instant the reconnect completes.
         if (this._chatEverInitialized) {
           const newMessages = incoming.filter(m => !previousIds.has(m.id));
+          window.AsocAlerts?.gmChat(newMessages);
           const verdictUpdates = incoming.filter(m => {
             const previous = previousById.get(m.id);
             return previous && previous.verdict !== m.verdict && m.verdict;
