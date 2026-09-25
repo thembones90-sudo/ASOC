@@ -226,7 +226,7 @@ const Ritual = {
       </div>
       ${ctx.tributeStatus === 'PENDING' && ctx.tribute.imageData ? `<button type="button" class="ritual-gm-tribute-preview-btn"><img class="ritual-gm-tribute-preview" src="${this.escapeHtml(ctx.tribute.imageData)}" alt="Offered tribute"></button>` : ''}
       <div class="ritual-gm-actions">
-        ${ctx.tributeStatus === 'PENDING' ? '<button type="button" class="ritual-gm-accept-btn">ACCEPT TRIBUTE</button><button type="button" class="ritual-gm-reject-btn">REJECT TRIBUTE</button>' : ''}
+        ${ctx.tributeStatus === 'PENDING' ? '<button type="button" class="ritual-gm-accept-btn">ACCEPT BLOOD TRIBUTE</button><button type="button" class="ritual-gm-reject-btn">DENY BLOOD TRIBUTE</button>' : ''}
         <details class="ritual-danger-menu">
           <summary>RITUAL OPTIONS</summary>
           <div><button type="button" class="ritual-gm-reset-btn">RESET RITUAL</button><button type="button" class="ritual-gm-cancel-btn">CANCEL RITUAL</button></div>
