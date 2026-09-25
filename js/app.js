@@ -3684,6 +3684,7 @@ const App = {
     const el = document.getElementById('ritual-tracker-gm');
     if (el) el.hidden = !this.ritual.active;
     Ritual.update('ritual-tracker-gm', this.ritual, true, {
+      onViewBoard: () => this.togglePublicView(true),
       onAcceptTribute: () => this.send({ type: 'ritual:tributeAccept' }),
       onRejectTribute: () => this.send({ type: 'ritual:tributeReject' }),
       onReset: () => { if (confirm('RESET RITUAL?\n\nClears every joined vote and any tribute decision. START GAME re-locks.')) this.send({ type: 'ritual:reset' }); },
