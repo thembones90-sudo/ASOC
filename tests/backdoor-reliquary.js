@@ -9,8 +9,12 @@ const app = read('js/app.js');
 const media = read('js/chat-media-preview.js');
 const backdoorCss = read('css/backdoor-console.css');
 
-assert.match(html, /id="blood-tribute-vault-open"[^>]*>OPEN RELIQUARY</);
-assert.match(app, /blood-tribute-vault-open.*requestReliquaryAccess/);
+// The Reliquary is a hidden GM-only mechanic: no button, no command-picker
+// entry, nothing that names it in any menu. Only /reliquary <code> opens it.
+assert.doesNotMatch(html, /OPEN RELIQUARY|blood-tribute-vault-open/);
+assert.doesNotMatch(app, /name: 'reliquary'/);
+assert.doesNotMatch(app, /label: 'OPEN RELIQUARY'/);
+assert.ok(app.includes('/^\\/reliquary'), 'the /reliquary command still opens it');
 assert.match(app, /gm:reliquaryAccess.*String\(code\)\.trim\(\)/s);
 assert.match(app, /data-vault-preview-id/);
 assert.match(app, /openBloodTributeImage\(tribute\)/);

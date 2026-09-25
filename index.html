@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260926-gm-arcade-scale-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260926-finish-flow-1">
   <link rel="stylesheet" href="css/tweaks.css?v=20260924-command-repaint-1">
   <link rel="stylesheet" href="css/backdoor-console.css?v=20260925-backdoor-vault-2">
 </head>
@@ -38,14 +38,19 @@
         <div class="battle-controls-grid">
           <div class="battle-controls-host-slot">
             <div class="room-mode-toggle" id="room-mode-toggle" role="group" aria-label="Room mode"><button class="room-mode-segment room-mode-option-casual" id="room-mode-casual-btn" type="button" aria-pressed="true"><span class="room-mode-label">AMUSE</span></button><button class="room-mode-segment room-mode-option-battle" id="room-mode-battle-btn" type="button" aria-pressed="false"><span class="room-mode-label">ABUSE</span></button></div>
-            <button class="gm-global-btn battle-next-btn" id="next-game-btn" style="display: none;">NEXT GAME</button>
-            <button class="gm-global-btn primary battle-finish-btn" id="finish-game-btn" style="display: none;">FINISH GAME</button>
           </div>
           <button class="gm-global-btn nema-asoc-btn battle-nema-btn" id="nema-asoc-btn" title="Trigger the toxic NEMA ASOC protocol"><svg class="nema-sprite" aria-hidden="true" focusable="false"><symbol id="nema-trefoil" viewBox="0 0 100 100"><path d="M59.00 65.59L72.50 88.97A45 45 0 0 1 27.50 88.97L41.00 65.59A18 18 0 0 0 59.00 65.59ZM32.00 50.00L5.00 50.00A45 45 0 0 1 27.50 11.03L41.00 34.41A18 18 0 0 0 32.00 50.00ZM59.00 34.41L72.50 11.03A45 45 0 0 1 95.00 50.00L68.00 50.00A18 18 0 0 0 59.00 34.41ZM50 41.5a8.5 8.5 0 1 0 .01 0Z"/></symbol></svg><span class="nema-pattern" aria-hidden="true"></span><svg class="nema-mark-bg" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use href="#nema-trefoil"/></svg><svg class="nema-nuclear-mark nema-mark-l" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use href="#nema-trefoil"/></svg><span class="nema-label">NEMA ASOC</span><svg class="nema-nuclear-mark nema-mark-r" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use href="#nema-trefoil"/></svg></button>
           <button class="gm-global-btn bice-asoc-btn battle-bice-btn" id="bice-asoc-btn" type="button" title="Reward catastrophic entertainment with BIĆE ASOC"><svg class="bice-btn-sigil" viewBox="0 0 64 36" aria-hidden="true" focusable="false"><path class="bice-sigil-frame" d="M4 18 12 7l14-4h12l14 4 8 11-8 11-14 4H26l-14-4Z"/><path class="bice-sigil-lid" d="M9 18c7-8 14-11 23-11s16 3 23 11c-7 8-14 11-23 11S16 26 9 18Z"/><circle class="bice-sigil-iris" cx="32" cy="18" r="8"/><circle class="bice-sigil-core" cx="32" cy="18" r="3"/><path class="bice-sigil-reticle" d="M32 4v5M32 27v5M15 18h6M43 18h6"/></svg><span class="bice-label">BIĆE ASOC</span><span class="bice-btn-pulse" aria-hidden="true"></span></button>
         </div>
         <!-- RECOUNT gate: appears only when the game is over (whole field opened, or lost
              on time). SHOW RESULTS broadcasts the RECOUNT to everyone; afterwards it reopens it. -->
+        <!-- Match flow: FINISH GAME (plays the AFTERMATH story) and NEXT GAME live in
+             their own full-width row. They used to sit inside the height-locked
+             AMUSE/ABUSE slot, where they overflowed underneath other controls. -->
+        <div class="battle-flow-row">
+          <button class="gm-global-btn primary battle-finish-btn" id="finish-game-btn" style="display: none;">FINISH GAME // PLAY THE STORY</button>
+          <button class="gm-global-btn battle-next-btn" id="next-game-btn" style="display: none;">NEXT GAME</button>
+        </div>
         <!-- END GAME: reopens the SOLUTION CONFIRMED panel after CLOSE, for as long as
              the Final's points are still withheld (state.finalResultsPending). -->
         <button class="gm-global-btn final-panel-reopen-btn" id="final-panel-reopen-btn" type="button" style="display: none;" title="Reopen the Final Solution panel // results not yet shown">END GAME</button>
@@ -165,7 +170,6 @@
           <h3 class="gm-section-title">Blood Tribute Vault</h3>
           <div id="blood-tribute-vault-status" class="blood-tribute-vault-status">NO TRIBUTES ARCHIVED</div>
           <div id="blood-tribute-vault-list" class="blood-tribute-vault-list"></div>
-          <button type="button" class="gm-global-btn blood-vault-launch" id="blood-tribute-vault-open" style="width: 100%; margin-top: 8px;">OPEN RELIQUARY</button>
           <button type="button" class="gm-global-btn reset-btn" id="blood-tribute-vault-clear" style="width: 100%; margin-top: 8px;">PURGE VAULT</button>
           <button type="button" class="gm-global-btn reset-btn" id="blood-tribute-override-btn" style="width: 100%; margin-top: 8px; display: none;">OVERRIDE DEBT</button>
         </section>
@@ -322,7 +326,7 @@
   <script src="js/chat-media-preview.js?v=20260925-link-paste-2"></script>
   <script src="js/kaladont-ui.js?v=20260925-coin-earnings-1"></script>
   <script src="js/gm-minigames.js?v=20260925-kaladont-1"></script>
-  <script src="js/app.js?v=20260925-kaladont-1"></script>
+  <script src="js/app.js?v=20260926-finish-flow-1"></script>
   <script src="js/tweaks.js?v=20260924-command-repaint-1"></script>
   <script src="js/forge.js?v=20260925-board-refresh-1"></script>
 </body>

@@ -119,8 +119,9 @@ const App = {
     { name: 'burp', insert: '/burp', icon: '💨', label: 'BURP', description: '/burp -- the Broker emotes too' },
     { name: 'oom', insert: '/oom', icon: '∅', label: 'OOM', description: '/oom -- the Broker emotes too' },
     { name: 'nod', insert: '/nod ', icon: '✓', label: 'NOD', description: '/nod @Name -- acknowledge a Little Hero' },
-    { name: 'commands', insert: '/commands', icon: '☰', label: 'COMMANDS', description: 'List every Shadow Broker command' },
-    { name: 'reliquary', insert: '/reliquary ', icon: '☠', label: 'OPEN RELIQUARY', description: 'Protected Blood Tribute archive' }
+    { name: 'commands', insert: '/commands', icon: '☰', label: 'COMMANDS', description: 'List every Shadow Broker command' }
+    // The Reliquary is deliberately absent: a hidden GM mechanic reached only by
+    // typing /reliquary <code> (or the bare code) in the composer.
   ],
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😇', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
   gmEmojiFavoriteDefaults: ['😂', '❤️', '🔥', '👍', '😭'],
@@ -2005,7 +2006,6 @@ const App = {
     document.getElementById('womf-subtract-btn')?.addEventListener('click', () => this.declareWomfSubtract());
     document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
     document.getElementById('blood-tribute-vault-clear')?.addEventListener('click', () => this.clearBloodTributeVault());
-    document.getElementById('blood-tribute-vault-open')?.addEventListener('click', () => this.requestReliquaryAccess());
     document.getElementById('blood-tribute-override-btn')?.addEventListener('click', () => this.overrideBloodTribute());
     document.querySelectorAll('[data-vault-close]').forEach(button => button.addEventListener('click', () => this.closeBloodTributeVault()));
     document.querySelector('[data-vault-viewer-close]')?.addEventListener('click', () => { document.getElementById('blood-vault-viewer').hidden = true; });
@@ -2298,6 +2298,7 @@ const App = {
   setGameComplete(complete) {
     this.gameComplete = complete === true;
     document.body.classList.toggle('game-complete', this.gameComplete);
+    this.updateFinalPanelReopen?.();
     this.updateDenyAllButton?.();
   },
 
@@ -3962,7 +3963,10 @@ const App = {
     const btn = document.getElementById('final-panel-reopen-btn');
     if (!btn) return;
     const panelOpen = !!this._activeFinalBanner?.isConnected;
-    btn.style.display = this._finalResultsPending && !panelOpen ? '' : 'none';
+    // Once every field is resolved, FINISH GAME is the next step (the
+    // withheld points also release at RECOUNT), so END GAME steps aside and
+    // can never sit on top of it.
+    btn.style.display = this._finalResultsPending && !panelOpen && !this.gameComplete ? '' : 'none';
   },
 
   // Phase 2: the GM clicked SHOW RESULTS -- the server has broadcast the

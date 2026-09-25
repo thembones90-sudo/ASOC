@@ -19401,3 +19401,20 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
   #gm-minigames-content { padding: 22px; font-size: 15px; }
   #gm-minigames-content .iks-board { width: min(100%, 500px); }
 }
+
+/* MATCH FLOW ROW: FINISH GAME (story) + NEXT GAME, full width and visible. */
+.battle-flow-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.battle-flow-row:not(:has(> button:not([style*="display: none"]))) { display: none; }
+.battle-flow-row > button { width: 100%; min-height: 46px; margin: 0 !important; }
+.battle-flow-row > #finish-game-btn {
+  border-color: rgba(240, 190, 80, .95) !important;
+  color: #ffe19a !important;
+  background: linear-gradient(90deg, rgba(212,168,67,.1), rgba(212,168,67,.28), rgba(212,168,67,.1)), linear-gradient(180deg, #2a2312, #120f09) !important;
+  box-shadow: 0 0 18px rgba(240, 180, 60, .25), inset 0 0 0 1px rgba(255, 220, 126, .08);
+  font-size: 13px !important;
+  letter-spacing: .16em !important;
+  animation: battle-finish-beckon 2.4s ease-in-out infinite;
+}
+@keyframes battle-finish-beckon { 50% { box-shadow: 0 0 26px rgba(240, 180, 60, .45), inset 0 0 0 1px rgba(255, 220, 126, .16); } }
+@media (prefers-reduced-motion: reduce) { .battle-flow-row > #finish-game-btn { animation: none; } }
+body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none !important; }
