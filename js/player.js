@@ -1508,6 +1508,12 @@ const PlayerApp = {
         this.clearShadowBrokerBoardLine();
         break;
 
+      case 'shadow:state':
+      case 'shadow:spinResult':
+      case 'shadow:error':
+        window.ShadowMarketUI?.onMessage(message);
+        break;
+
       case 'players:update': {
         this.updatePlayerLeaderboard(message.players);
         this.iksArena = message.iksArena || null;
@@ -4544,9 +4550,10 @@ const PlayerApp = {
     };
     const render = typeMap[msg.messageType];
     if (!render) return '';
+    window.ShadowCosmetics?.maybePlayFx(msg);
     const { label, body, detail } = render();
     return `
-      <div class="chat-system-card chat-system-${esc(msg.messageType)}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
+      <div class="chat-system-card chat-system-${esc(msg.messageType)}${window.ShadowCosmetics?.cardClass(msg) || ''}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
         <div class="chat-system-label">${esc(label)}</div>
         <div class="chat-system-body">${body}</div>
         ${detail ? `<div class="chat-system-detail">${detail}</div>` : ''}
@@ -4630,7 +4637,7 @@ const PlayerApp = {
         <div class="chat-message chat-gif-message ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           <div class="chat-avatar-rail">${avatar}</div>
           <div class="chat-message-main">
-            <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><span class="chat-time">${time}</span></div>
+            <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="chat-time">${time}</span></div>
             <button type="button" class="chat-reply-btn" data-reply-id="${this.escapeHtml(msg.id)}" title="Reply" aria-label="Reply to GIF">&#8617;</button>
             <button type="button" class="chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>
             <div class="chat-gif-provider-mark">GIPHY</div>
@@ -4669,7 +4676,7 @@ const PlayerApp = {
         <div class="chat-message chat-poll-message ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           <div class="chat-avatar-rail">${this.littleHeroAvatarHTML(identity)}</div>
           <div class="chat-message-main">
-            <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><span class="chat-time">${time}</span></div>
+            <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="chat-time">${time}</span></div>
             <button type="button" class="chat-reply-btn" data-reply-id="${this.escapeHtml(msg.id)}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName || 'poll')}">&#8617;</button>
             ${this.createPollCardHTML(msg)}
             ${this.createReactionBarHTML(msg)}
@@ -4743,7 +4750,7 @@ const PlayerApp = {
       <div class="chat-message ${manualTribute ? 'active-blood-tribute' : ''} ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
         <div class="chat-avatar-rail">${this.littleHeroAvatarHTML(identity)}</div>
         <div class="chat-message-main">${manualBadge}
-          <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>
+          <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
           <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">&#8617;</button>
           ${replyContextHtml}
           <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
@@ -4827,8 +4834,8 @@ const PlayerApp = {
     // IKS OKS GAUNTLET health ring (js/iks-ring.js) for joined fighters.
     const ring = window.IksRing ? html => IksRing.wrap(entity, html) : html => html;
     return ring(`
-      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${auraActive ? ' final-solver-aura' : ''}${avatarData ? ' avatar-preview-trigger' : ''}" style="--lh-frame:${frameColor};--lh-aura:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
-        ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}
+      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${auraActive ? ' final-solver-aura' : ''}${avatarData ? ' avatar-preview-trigger' : ''}${window.ShadowCosmetics?.avatarClass(entity, this.currentPlayers) || ''}" style="--lh-frame:${frameColor};--lh-aura:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
+        ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}${window.ShadowCosmetics?.avatarLayer(entity, this.currentPlayers) || ''}
       </span>
     `);
   },
@@ -4854,6 +4861,13 @@ const PlayerApp = {
       if (this._coinsSeen) chipEl?.classList.add('coin-bump');
     }
     this._coinsSeen = true;
+    // Equipped Shadow Market title beside the HUD identity.
+    const hudTitle = document.getElementById('hero-hud-title');
+    if (hudTitle) {
+      const title = typeof self.cosmetics?.title === 'string' ? self.cosmetics.title : '';
+      hudTitle.textContent = title;
+      hudTitle.hidden = !title;
+    }
     const chip = document.getElementById('shadow-coin-balance');
     const amount = document.getElementById('shadow-coin-amount');
     if (!chip || !amount) return;

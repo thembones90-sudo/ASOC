@@ -4559,8 +4559,8 @@ const App = {
     // IKS OKS GAUNTLET health ring (js/iks-ring.js) for joined fighters.
     const ring = window.IksRing ? html => IksRing.wrap(entity, html) : html => html;
     return ring(`
-      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${avatarData ? ' avatar-preview-trigger' : ''}" style="--lh-frame:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
-        ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}
+      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${avatarData ? ' avatar-preview-trigger' : ''}${window.ShadowCosmetics?.avatarClass(entity, this.currentPlayers) || ''}" style="--lh-frame:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
+        ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}${window.ShadowCosmetics?.avatarLayer(entity, this.currentPlayers) || ''}
       </span>
     `);
   },
@@ -5193,9 +5193,10 @@ const App = {
     };
     const render = typeMap[msg.messageType];
     if (!render) return '';
+    window.ShadowCosmetics?.maybePlayFx(msg);
     const { label, body, detail } = render();
     return `
-      <div class="chat-system-card chat-system-${esc(msg.messageType)}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
+      <div class="chat-system-card chat-system-${esc(msg.messageType)}${window.ShadowCosmetics?.cardClass(msg) || ''}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
         <div class="chat-system-label">${esc(label)}</div>
         <div class="chat-system-body">${body}</div>
         ${detail ? `<div class="chat-system-detail">${detail}</div>` : ''}
@@ -5288,7 +5289,7 @@ const App = {
           <div class="gm-chat-avatar-rail">${avatar}</div>
           <div class="gm-chat-bubble-cluster">
             <div class="gm-chat-message-main">
-              <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><span class="gm-chat-time">${time}</span></div>
+              <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="gm-chat-time">${time}</span></div>
               <button type="button" class="gm-chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>
               <div class="gm-chat-gif-provider-mark">GIPHY</div>
               ${this.createGMReactionSummaryHTML(msg)}
@@ -5328,7 +5329,7 @@ const App = {
           <div class="gm-chat-avatar-rail">${avatar}</div>
           <div class="gm-chat-bubble-cluster">
             <div class="gm-chat-message-main">
-              <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span><span class="gm-chat-time">${time}</span></div>
+              <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="gm-chat-time">${time}</span></div>
               ${this.createGMPollCardHTML(msg)}
               ${this.createGMReactionSummaryHTML(msg)}
             </div>
@@ -5401,7 +5402,7 @@ const App = {
         <div class="gm-chat-avatar-rail">${this.littleHeroAvatarHTML(identity, true)}</div>
         <div class="gm-chat-bubble-cluster">
           <div class="gm-chat-message-main">${manualBadge}
-            <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>
+            <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
             ${replyContextHtml}
             <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
             ${verdictMetaHtml}

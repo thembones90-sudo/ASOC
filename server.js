@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const gameStore = require('./game-store');
 const playerStore = require('./player-store');
+const shadowMarket = require('./shadow-market');
 const authStore = require('./auth-store');
 const emailService = require('./email-service');
 const scoring = require('./scoring-constants');
@@ -5306,6 +5307,12 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/burp', help: '/burp -- emote' },
   { name: '/oom', help: '/oom -- emote' },
   { name: '/all', help: '/all [message] -- nudge everyone (shakes every screen)' },
+  { name: '/smite', help: '/smite @Name -- SHADOW MARKET unlock: strike of judgement' },
+  { name: '/freeze', help: '/freeze @Name -- SHADOW MARKET unlock: theatrical ice' },
+  { name: '/glitch', help: '/glitch @Name -- SHADOW MARKET unlock: signal tear' },
+  { name: '/omen', help: '/omen -- SHADOW MARKET unlock: a bad sign for the room' },
+  { name: '/rupture', help: '/rupture -- SHADOW MARKET unlock: crack reality open' },
+  { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
   { name: '/commands', help: '/commands -- this list' }
 ];
 
@@ -5560,8 +5567,19 @@ const CHAT_EMOTES = Object.freeze({
   cackle:   { label: 'CACKLE',    actor: 'You cackle maniacally at the situation.', other: '{A} cackles maniacally at the situation.' },
   rofl:     { label: 'ROFL',      actor: 'You roll on the floor laughing.', other: '{A} rolls on the floor laughing.' },
   burp:     { label: 'BURP',      actor: 'You let out a loud belch.', other: '{A} lets out a loud belch.' },
-  oom:      { label: 'OOM',       actor: 'You are out of ideas!', other: '{A} is out of ideas!' }
+  oom:      { label: 'OOM',       actor: 'You are out of ideas!', other: '{A} is out of ideas!' },
+  // SHADOW MARKET cosmetic commands (premium): Little Heroes must own the
+  // unlock (shadow-market.js COMMAND_ITEMS). Pure theatre -- the card and a
+  // short screen effect (fx) on every client; nothing else changes.
+  smite:    { label: 'SMITE',     premium: true, targeted: true, actor: 'You call down judgement on {T}.', target: '{A} calls down judgement on you.', other: '{A} calls down judgement on {T}.' },
+  freeze:   { label: 'FREEZE',    premium: true, targeted: true, actor: 'You encase {T} in ice.', target: '{A} encases you in ice. Brr.', other: '{A} encases {T} in ice.' },
+  glitch:   { label: 'GLITCH',    premium: true, targeted: true, actor: 'You tear the signal around {T}.', target: '{A} tears the signal around you.', other: '{A} tears the signal around {T}.' },
+  omen:     { label: 'OMEN',      premium: true, actor: 'You announce an omen. Something is coming.', other: '{A} announces an omen. Something is coming.' },
+  rupture:  { label: 'RUPTURE',   premium: true, actor: 'You crack reality open.', other: '{A} cracks reality open.' },
+  vanish:   { label: 'VANISH',    premium: true, actor: 'You vanish in a curl of smoke.', other: '{A} vanishes in a curl of smoke.' }
 });
+// Visual-spam guard for premium commands, per Little Hero.
+const PREMIUM_EMOTE_COOLDOWN_MS = 20000;
 const CHAT_EMOTE_PATTERN = new RegExp(`^\\/(${Object.keys(CHAT_EMOTES).join('|')})\\b`, 'i');
 
 // Threatening the Shadow Broker earns a reply from its enforcer.
@@ -5594,6 +5612,18 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
   if (!match) return { success: false, error: `${def.label} INVALID // USE /${name}` };
   const actorIsBroker = author.id === null || author.id === undefined;
   if (def.playerOnly && actorIsBroker) return { success: false, error: 'THE SHADOW BROKER GROVELS BEFORE NO ONE' };
+  if (def.premium && !actorIsBroker) {
+    const account = coinAccount(author.id, author.name);
+    const item = shadowMarket.COMMAND_ITEMS.get(name);
+    if (account && (!item || !playerStore.ownsCosmetic(account, item.id))) {
+      return { success: false, error: `/${name.toUpperCase()} IS LOCKED // UNLOCK IT IN THE SHADOW MARKET` };
+    }
+    room.premiumEmoteAt ||= {};
+    const last = room.premiumEmoteAt[String(author.id)] || 0;
+    const wait = PREMIUM_EMOTE_COOLDOWN_MS - (Date.now() - last);
+    if (wait > 0) return { success: false, error: `${def.label} RECHARGING // ${Math.ceil(wait / 1000)}s` };
+    room.premiumEmoteAt[String(author.id)] = Date.now();
+  }
   let target = null;
   if (def.targeted) {
     const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', def.label, { allowBroker: !actorIsBroker });
@@ -5612,6 +5642,7 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
       actorName: author.name,
       targetId: target ? String(target.id) : null,
       targetName: target ? target.name : null,
+      ...(def.premium ? { fx: name } : {}),
       lines
     }
   });
@@ -5986,6 +6017,7 @@ function sanitizeChatCommandMeta(m) {
       actorName: sanitizeText(String(emote.actorName || '')).slice(0, 40),
       targetId: emote.targetId ? String(emote.targetId).slice(0, 64) : null,
       targetName: emote.targetName ? sanitizeText(String(emote.targetName)).slice(0, 40) : null,
+      ...(CHAT_EMOTES[emote.act].premium ? { fx: emote.act } : {}),
       lines: { actor: line(emote.lines?.actor), target: line(emote.lines?.target), other: line(emote.lines?.other) }
     };
   } else if (m.messageType === 'afk' && m.afk && typeof m.afk === 'object') {
@@ -6396,6 +6428,8 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       asocGamesEarned: Number(profile.asocGamesEarned) || 0,
       // Account-level currency, read-only here (see player-store Shadow Coin API).
       shadowCoins: Math.max(0, Math.round(Number.isInteger(profile.shadowCoinUnits) ? profile.shadowCoinUnits : (Number(profile.shadowCoins) || 0) * 10)) / 10,
+      // Equipped cosmetics only (shadow-market.js); purely visual.
+      cosmetics: shadowMarket.publicCosmetics(profile),
       ...iksArenaFields(player)
     });
   });
@@ -6608,6 +6642,103 @@ function playerCooldown(room, ws) {
   if (!room.cooldowns.has(id)) room.cooldowns.set(id, {});
   return room.cooldowns.get(id);
 }
+// ---------------------------------------------------------------------------
+// SHADOW MARKET / SHADOW ROULETTE -- player-only, account-bound, cosmetic.
+// Every price, gate and payout is decided here from shadow-market.js; the
+// client only ever names an item, a slot or a bet.
+function shadowAccountFor(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws.isHost || !ws.playerId) return { error: 'Shadow Market requires a Little Hero in a room' };
+  const account = coinAccount(ws.playerId, ws.playerName);
+  if (!account) return { error: 'Test personas have no Shadow Coin account' };
+  return { room, account };
+}
+
+function shadowStatePayload(account) {
+  const profile = playerStore.getShadowProfile(account);
+  return {
+    type: 'shadow:state',
+    balance: Math.max(0, Number(profile.shadowCoinUnits) || 0) / 10,
+    catalog: shadowMarket.catalogFor(profile),
+    equipped: { ...(profile.cosmetics?.equipped || {}) },
+    ledger: (profile.shadowCoinLedger || []).slice(-40).reverse(),
+    roulette: shadowMarket.rouletteRules()
+  };
+}
+
+function handleShadowState(ws) {
+  const ctx = shadowAccountFor(ws);
+  if (ctx.error) return sendToWs(ws, { type: 'shadow:error', message: ctx.error });
+  sendToWs(ws, shadowStatePayload(ctx.account));
+}
+
+function handleShadowBuy(ws, message) {
+  const ctx = shadowAccountFor(ws);
+  if (ctx.error) return sendToWs(ws, { type: 'shadow:error', message: ctx.error });
+  const item = shadowMarket.getItem(message?.itemId);
+  if (!item) return sendToWs(ws, { type: 'shadow:error', message: 'Unknown item' });
+  if (item.relic) return sendToWs(ws, { type: 'shadow:error', message: 'Relics cannot be bought' });
+  const profile = playerStore.getShadowProfile(ctx.account);
+  const owned = Number(profile.cosmetics?.owned?.[item.id]) || 0;
+  const price = shadowMarket.nextPrice(item, owned);
+  if (price === null) return sendToWs(ws, { type: 'shadow:error', message: 'Already fully owned' });
+  if (!shadowMarket.requirementMet(item, profile)) return sendToWs(ws, { type: 'shadow:error', message: `Locked // ${item.requires.label}` });
+  const tier = owned + 1;
+  const tierText = shadowMarket.tierCount(item) > 1 ? ` TIER ${tier}` : '';
+  const result = playerStore.purchaseCosmetic(ctx.account, item.id, tier, price, `market:${item.id}:${tier}`, { reason: `BOUGHT ${item.name}${tierText}` });
+  if (!result.ok) return sendToWs(ws, { type: 'shadow:error', message: result.error });
+  // A first purchase of a visual item equips it straight away.
+  if (owned === 0 && shadowMarket.SLOT_KINDS.includes(item.kind)) playerStore.equipCosmetic(ctx.account, item.kind, item.id);
+  sendToWs(ws, { ...shadowStatePayload(ctx.account), notice: `${item.name}${tierText} ACQUIRED` });
+  broadcastPlayersUpdate(ctx.room);
+}
+
+function handleShadowEquip(ws, message) {
+  const ctx = shadowAccountFor(ws);
+  if (ctx.error) return sendToWs(ws, { type: 'shadow:error', message: ctx.error });
+  const slot = String(message?.slot || '');
+  if (!shadowMarket.SLOT_KINDS.includes(slot)) return sendToWs(ws, { type: 'shadow:error', message: 'Unknown slot' });
+  let itemId = null;
+  if (message?.itemId) {
+    const item = shadowMarket.getItem(message.itemId);
+    if (!item || item.kind !== slot) return sendToWs(ws, { type: 'shadow:error', message: 'That does not fit there' });
+    itemId = item.id;
+  }
+  const result = playerStore.equipCosmetic(ctx.account, slot, itemId);
+  if (!result.ok) return sendToWs(ws, { type: 'shadow:error', message: result.error });
+  sendToWs(ws, shadowStatePayload(ctx.account));
+  broadcastPlayersUpdate(ctx.room);
+}
+
+const SHADOW_SPIN_MIN_INTERVAL_MS = 1500;
+
+function handleShadowSpin(ws, message) {
+  const ctx = shadowAccountFor(ws);
+  if (ctx.error) return sendToWs(ws, { type: 'shadow:error', message: ctx.error });
+  const now = Date.now();
+  if (ws.lastShadowSpinAt && now - ws.lastShadowSpinAt < SHADOW_SPIN_MIN_INTERVAL_MS) {
+    return sendToWs(ws, { type: 'shadow:error', message: 'The wheel is still turning' });
+  }
+  const parsed = shadowMarket.parseRouletteBet(message?.bet);
+  if (parsed.error) return sendToWs(ws, { type: 'shadow:error', message: parsed.error });
+  const wager = Math.round(Number(message?.wager) * 10) / 10;
+  if (!Number.isFinite(wager) || wager < shadowMarket.ROULETTE_MIN_WAGER || wager > shadowMarket.ROULETTE_MAX_WAGER) {
+    return sendToWs(ws, { type: 'shadow:error', message: `Wager must be ${shadowMarket.ROULETTE_MIN_WAGER}-${shadowMarket.ROULETTE_MAX_WAGER} SC` });
+  }
+  if (wager > shadowMarket.ROULETTE_CONFIRM_ABOVE && message?.confirm !== true) {
+    return sendToWs(ws, { type: 'shadow:error', message: `Wagers above ${shadowMarket.ROULETTE_CONFIRM_ABOVE} SC must be confirmed` });
+  }
+  ws.lastShadowSpinAt = now;
+  const receipt = `roulette:${ctx.account.id}:${now}:${crypto.randomBytes(4).toString('hex')}`;
+  const pick = list => list[crypto.randomInt(list.length)];
+  const result = playerStore.settleRouletteSpin(ctx.account, wager, receipt,
+    () => shadowMarket.resolveRoulette(parsed.bet, crypto.randomInt(13), pick));
+  if (!result.ok) return sendToWs(ws, { type: 'shadow:error', message: result.error });
+  sendToWs(ws, { type: 'shadow:spinResult', wager, net: result.net, balance: result.balance, outcome: result.outcome });
+  sendToWs(ws, shadowStatePayload(ctx.account));
+  broadcastPlayersUpdate(ctx.room);
+}
+
 function handleHintRequest(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || ws.isHost || !ws.playerId) {
@@ -8622,6 +8753,22 @@ wss.on('connection', (ws) => {
         }
         case 'chat:react': {
           handleChatReaction(ws, message);
+          break;
+        }
+        case 'shadow:state': {
+          handleShadowState(ws);
+          break;
+        }
+        case 'shadow:buy': {
+          handleShadowBuy(ws, message);
+          break;
+        }
+        case 'shadow:equip': {
+          handleShadowEquip(ws, message);
+          break;
+        }
+        case 'shadow:spin': {
+          handleShadowSpin(ws, message);
           break;
         }
         case 'chat:gif': {

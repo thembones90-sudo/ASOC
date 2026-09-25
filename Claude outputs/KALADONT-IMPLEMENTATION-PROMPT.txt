@@ -1,0 +1,399 @@
+ASOC ENGINE // CLAUDE IMPLEMENTATION BRIEF
+FEATURE: KALADONT // MULTIPLAYER ELIMINATION WORD GAME
+TARGET: AMUSEMENT PARK / CASUAL MODE MINI GAMES
+
+You are working inside the existing ASOC ENGINE repository. Do not redesign unrelated systems. Read the current codebase first, especially the existing Mini Games dock, IKS OKS, UNSTABLE CONCOCTION, permanent MASTER room architecture, player identity model, chat system, persistence model, and WebSocket message routing. Preserve current behavior unless this feature explicitly requires an integration point.
+
+OBJECTIVE
+Implement a new multiplayer mini game named KALADONT for Casual Mode / AMUSEMENT PARK.
+
+This is NOT a simple two-player word-chain toy. It is a server-authoritative multiplayer elimination game with a lobby, fixed turn order, 60-second turns, mandatory player voting on submitted words, eliminations, spectators, and a last-player-standing winner.
+
+CORE ARCHITECTURE
+- KALADONT exists only in CASUAL / AMUSEMENT PARK.
+- It must not affect Battle Mode scoring, WOMF, Final Solution logic, battle timers, battle streaks, or other battle state.
+- Any online Little Hero may create a Kaladont lobby.
+- The creator is the lobby owner only for setup/start/cancel purposes. They receive no gameplay advantage.
+- Other currently-online Little Heroes may voluntarily JOIN the lobby from the mini-game invitation UI.
+- A player must explicitly join; nobody is force-added.
+- Once the creator starts the game, joining closes.
+- Server randomizes the initial turn order once at game start.
+- Turn order remains fixed for the match. Eliminated players are skipped automatically.
+- Eliminated players become spectators for the rest of that Kaladont match.
+- The match continues until exactly one active player remains.
+- That final player is declared the winner.
+
+LOBBY FLOW
+1. Player opens Mini Games.
+2. Chooses KALADONT.
+3. They may:
+   - CREATE ROOM
+   - see/join an existing open Kaladont lobby if one exists
+4. Lobby should clearly show:
+   - creator
+   - joined players
+   - online/offline state if relevant
+   - player count
+   - START GAME button for creator
+   - LEAVE button for joined non-creator
+   - CANCEL LOBBY for creator
+5. Only online players may join.
+6. Starting should require at least 2 players.
+7. Once started, lobby is locked.
+
+GAME LOOP
+At game start:
+- Server randomizes joined players into a fixed turn order.
+- Choose the first player according to that randomized order.
+- Each turn lasts exactly 60 seconds.
+- No skipping turns.
+- Only the current active player may submit a word.
+- All other active players are waiting/judging.
+- The UI must prominently show:
+  CURRENT PLAYER
+  REQUIRED PREFIX
+  TIMER
+  TURN ORDER
+  ELIMINATED / SPECTATOR PLAYERS
+  CURRENT WORD INPUT for the active player only
+
+WORD CHAIN RULE
+- Each accepted word determines the required prefix for the next turn using its LAST TWO LETTERS.
+- Next submitted word must begin with those exact two letters.
+- Comparison should be case-insensitive.
+- Trim whitespace.
+- Normalize safely for Serbian Latin/Cyrillic only if the existing app already has a preferred text normalization strategy. Do not invent aggressive transliteration unless necessary.
+- A submitted word may not repeat any previously ACCEPTED word in the same Kaladont match.
+- Only accepted words enter the used-word history.
+- Rejected words do not advance the chain and do not enter used-word history.
+- Empty submission is invalid.
+- Only one submission per turn.
+- Submission becomes immutable immediately after send.
+
+FIRST TURN
+For the very first player, there is no previous word.
+Use a clean server-defined opening rule:
+- first player may submit any valid non-empty word.
+- after it is accepted, its last two letters become the required prefix for the next player.
+
+AUTOMATIC SERVER VALIDATION
+The server judges STRUCTURE only:
+- is it the current player?
+- is the match active?
+- is it still within the 60-second turn?
+- non-empty?
+- correct required two-letter prefix, if one exists?
+- not previously used?
+- valid message length / safe input?
+Do NOT attempt to determine whether the submitted string is a legitimate Serbian word using a dictionary.
+
+LANGUAGE LEGITIMACY IS DECIDED BY PLAYERS.
+
+TRIBUNAL / VOTING PHASE
+After a structurally valid submission:
+- Freeze/end the player's 60-second turn timer.
+- Enter a TRIBUNAL phase.
+- Display the submitted word prominently to every living participant.
+- Every living participant, INCLUDING THE PLAYER WHO SUBMITTED THE WORD, gets a vote:
+  ACCEPT
+  REJECT
+- Each living player may vote exactly once.
+- Votes cannot be edited after submission.
+- Voting window: 15 seconds.
+- Voting should be anonymous while voting is open.
+- Once resolved, reveal who voted ACCEPT and who voted REJECT.
+- Eliminated spectators do not vote.
+- Players who fail to vote before the voting window ends count as ACCEPT.
+
+VERDICT
+Use simple majority over the final vote set after timeout/autofill.
+
+- ACCEPT votes > REJECT votes:
+  WORD ACCEPTED
+  current player survives
+  word is added to accepted-word history
+  required prefix becomes final two letters of that accepted word
+  advance to next living player in fixed turn order
+
+- REJECT votes > ACCEPT votes:
+  WORD REJECTED
+  current player is ELIMINATED
+  rejected word is NOT added to accepted-word history
+  chain remains based on the previous accepted word
+  advance to next living player
+
+- TIE:
+  WORD ACCEPTED
+
+Important principle:
+Silence cannot execute another player.
+Therefore missing votes count as ACCEPT.
+
+TURN TIMEOUT
+If the current player fails to submit within 60 seconds:
+- instant elimination
+- no tribunal
+- chain remains unchanged
+- advance to next living player
+
+STRUCTURAL INVALID ANSWER
+If the current player submits something structurally invalid, such as:
+- wrong prefix
+- duplicate accepted word
+- empty/invalid submission
+Then:
+- treat it as a failed answer
+- eliminate that player immediately
+- no tribunal required
+- chain remains unchanged
+- show the reason publicly
+This prevents repeated garbage submissions during the same turn.
+
+KALADONT SPECIAL MOVE
+Retain the classic KALADONT identity as a tactical special case.
+
+If a player legally submits the exact word:
+KALADONT
+
+and it satisfies the currently required prefix:
+- automatically ACCEPT it
+- no tribunal
+- add KALADONT to accepted-word history
+- the next living player in turn order is immediately eliminated because the resulting prefix "NT" is treated as terminal for this game
+- then continue from the next surviving player
+
+Do not rely on dictionary lookup for the "NT" condition. This is an explicit game rule.
+
+If using KALADONT would leave only one player alive, resolve the winner immediately.
+
+ELIMINATION
+When a player is eliminated:
+- visibly mark them eliminated in the Kaladont UI
+- remove them from future active turns
+- keep them in the room as a spectator
+- preserve their ability to watch the game
+- they must not submit words or tribunal votes
+- show public elimination reason:
+  TURN TIMEOUT
+  INVALID PREFIX
+  DUPLICATE WORD
+  WORD REJECTED
+  KALADONT KILL
+  or another precise structural reason
+
+WIN CONDITION
+When one active player remains:
+- stop all timers
+- close any open tribunal
+- declare:
+  LAST LITTLE HERO STANDING
+  <PLAYER NAME> WINS KALADONT
+- show final standings / elimination order if practical.
+- preserve the result long enough for all connected players to see it.
+- allow the lobby owner or UI to return everyone to the Mini Games menu / Casual chat cleanly.
+- no Battle Mode points or WOMF changes.
+
+DISCONNECT / RECONNECT RULES
+Design this deliberately and server-authoritatively.
+
+During lobby:
+- disconnected players should not remain eligible to start unless they reconnect.
+- if the creator disconnects, transfer lobby ownership to the next joined online player, or close the lobby if nobody remains.
+
+During active game:
+- if the current player disconnects and does not reconnect before their 60-second turn expires, they are eliminated by timeout.
+- if a non-current player disconnects, keep them in the game until their turn unless the architecture strongly favors immediate elimination; prefer allowing reconnect where reasonable.
+- if a player disconnects during tribunal, their missing vote resolves as ACCEPT at tribunal timeout.
+- reconnecting players should rehydrate the exact current Kaladont state and resume as player or spectator as appropriate.
+
+SERVER AUTHORITY
+This entire game must be server-authoritative.
+The client must never decide:
+- turn order
+- current player
+- timer expiration
+- accepted-word history
+- required prefix
+- vote count/result
+- eliminations
+- winner
+- Kaladont special-kill resolution
+
+Client is presentation + input only.
+
+PERSISTENCE / RECOVERY
+Follow the current ASOC permanent MASTER room durability conventions.
+
+Persist enough Kaladont state so a server restart/recovery does not silently corrupt an active match:
+- lobby/match ID
+- phase: lobby / turn / tribunal / ended
+- creator/owner id
+- joined player ids/names
+- randomized turn order
+- active/eliminated/spectator state
+- current player index/id
+- current required prefix
+- accepted word history
+- current submitted word if tribunal active
+- votes if tribunal active
+- turn deadline timestamp
+- tribunal deadline timestamp
+- elimination order
+- winner if resolved
+
+Use absolute timestamps, not only client countdowns.
+
+If existing ASOC policy deliberately does not persist other mini games, inspect and choose the least invasive architecture, but do not create a half-authoritative client-only game.
+
+UI / VISUAL DIRECTION
+Add KALADONT as a proper card in the existing Mini Games dock.
+
+Lobby:
+- dark ASOC arcade styling
+- clear JOIN / LEAVE / START / CANCEL controls
+- player chips/rows
+- joined count
+- creator marker
+- concise instructions
+
+Active game:
+- center focus on the current word chain
+- current player's identity prominent
+- required 2-letter prefix large and unmistakable
+- 60-second countdown prominent
+- fixed player cycle visible around/alongside the play area
+- eliminated players visibly struck/dimmed
+- accepted-word history readable but not dominant
+
+Tribunal:
+Make it feel like an ASOC judgment screen, not a generic form.
+- submitted word looming in center
+- ACCEPT and REJECT buttons
+- voting progress such as "4 / 6 VOTED"
+- do NOT reveal individual vote choices until verdict
+- after verdict, reveal voter breakdown cleanly
+- show ACCEPTED / REJECTED with a short transition
+- then advance automatically
+
+Do not damage or resize the main Casual chat layout.
+The game may use an overlay/modal/panel consistent with IKS OKS / Unstable Concoction patterns.
+
+CHAT INTEGRATION
+Useful public events should also appear in Casual chat as compact system cards/messages:
+- lobby created
+- game started
+- player eliminated
+- KALADONT special kill
+- winner declared
+
+Do not spam every vote or every countdown tick into chat.
+Do not reveal anonymous vote choices in chat before the tribunal resolves.
+
+INVITATION
+The mini-game invitation screen should make open Kaladont lobbies discoverable to online Little Heroes.
+A player-created lobby should be joinable voluntarily.
+Do not force-open overlays for uninvolved users if the existing mini-game design favors quieter invitations.
+
+MESSAGE / STATE DESIGN
+Use clear dedicated WebSocket types, for example:
+kaladont:lobbyCreate
+kaladont:lobbyJoin
+kaladont:lobbyLeave
+kaladont:lobbyCancel
+kaladont:start
+kaladont:submit
+kaladont:vote
+kaladont:state
+kaladont:resolved
+kaladont:closed
+
+These names are suggestions. Match existing project conventions if there is a better fit.
+
+RACE / SECURITY REQUIREMENTS
+Guard against:
+- double submit
+- duplicate votes
+- late votes
+- vote after elimination
+- non-participant votes
+- spectators submitting
+- stale client acting on an old turn
+- simultaneous timeout and submit
+- simultaneous final vote and tribunal timeout
+- creator starting twice
+- joining after start
+- duplicate lobby membership
+- malformed player IDs / spoofed names
+- replaying old commands
+- client-forged timer or result state
+
+Use the player's authenticated server identity, never client-supplied player identity, as authority.
+
+TESTS REQUIRED
+Add focused tests for at least:
+1. lobby create/join/leave/start
+2. start rejected with fewer than 2 players
+3. only online authenticated players can join
+4. randomized order generated once and preserved
+5. first word accepted flow
+6. 60-second timeout eliminates current player
+7. correct prefix accepted structurally
+8. wrong prefix eliminates immediately
+9. duplicate accepted word eliminates immediately
+10. tribunal opens only for structurally valid word
+11. every living player can vote once
+12. duplicate vote rejected
+13. spectator/eliminated vote rejected
+14. missing tribunal votes become ACCEPT
+15. ACCEPT majority advances chain
+16. REJECT majority eliminates submitter
+17. tie = ACCEPT
+18. rejected word does not alter required prefix/history
+19. eliminated players are skipped in cycle
+20. last active player wins
+21. KALADONT exact special case auto-accepts and eliminates next living player
+22. Kaladont special can end the match
+23. state rehydrates correctly after reconnect
+24. persisted active match can recover after server restart if current architecture supports durable mini games
+25. no Battle Mode/WOMF/scoring state is modified
+26. live WebSocket smoke test covering create -> join -> start -> submit -> vote -> verdict -> next turn
+
+IMPORTANT LESSON FROM UNSTABLE CONCOCTION
+Do not stop at syntax checks or pure module tests.
+Run at least one real server + WebSocket integration smoke test before calling this finished.
+A previous feature passed unit tests while its live handler crashed on an undefined broadcast helper. Avoid repeating that embarrassment.
+
+DO NOT
+- do not alter battle game logic
+- do not regress chat scrolling/layout
+- do not replace the permanent MASTER room architecture
+- do not add a dictionary API
+- do not make Kaladont client-authoritative
+- do not auto-enroll players
+- do not allow skipped turns
+- do not let eliminated players vote
+- do not let silence count as REJECT
+- do not let a rejected word advance the chain
+- do not use git add . blindly if unrelated work exists
+- do not commit or push unless explicitly instructed
+
+DELIVERABLE
+Implement the feature completely, including:
+- server game state and handlers
+- client UI
+- Mini Games integration
+- chat system cards/events
+- reconnect/state hydration
+- persistence/recovery as appropriate
+- tests
+- live integration smoke test
+
+At completion, report:
+1. files changed
+2. exact gameplay behavior implemented
+3. tests run and results
+4. any unresolved edge cases
+5. git status
+6. whether anything was committed/pushed
+
+Do not merely describe how you would implement it. Implement it in the repository.

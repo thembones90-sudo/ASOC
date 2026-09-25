@@ -1,0 +1,19 @@
+Do not call any tools, run any commands, or read any files. Everything needed is already supplied below and in the two attached images. Respond from the supplied material only.
+
+ASOC Summon Ritual visual handoff:
+- Necromantic summoning machine inspired by Warcraft Undead Acolyte ritual language, filtered through ASOC cyber-gothic industrial design.
+- Main platform is a front-facing ziggurat-like ritual machine, not a floating neon pentagram.
+- Five identical soul-channel pylons sit at the vertices. Same silhouette/housing/scale/alignment; normal distinction is illumination color only.
+- Normal completion: five pylons awaken independently.
+- Accepted Blood Tribute is sacred full override: all five pylons ignite simultaneously and the entire ritual becomes crimson/corrupted. Blood Tribute equals the whole five-vote requirement, not one missing vote.
+- Main source target: 2048x2048 transparent PNG, sRGB; outer sigil ~1760 px; center 1024,1024; 144 px safe padding.
+- Socket centers: Top 1024,180; UR 1800,800; LR 1505,1700; LL 543,1700; UL 248,800. Socket diameter ~170-190 px.
+- Individual pylon/state source target: 512x512 transparent PNG; visible pylon ~400 px; ~56 px safe padding.
+- Every pylon variant must be pixel-identical in silhouette, center, scale and anchor.
+- Logical set: 1 dormant, 5 active colors, 1 complete, 1 Blood Tribute override. Extra concept-sheet variant is optional/spare.
+- Active colors: violet, pale/blue-violet, magenta-violet, cold blue, sickly green. Complete may be white-violet. Blood Tribute overrides all with crimson.
+- Attached images are small concept previews only, not production-resolution source assets.
+- No player names, portraits, numbers, text, UI panels, or baked labels.
+- Center remains restrained for animation/effects.
+
+Confirm you understand the modular architecture and list only genuine integration/asset-preparation risks you foresee. Make no implementation changes.

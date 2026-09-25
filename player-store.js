@@ -71,8 +71,37 @@ function blankProfile(displayName) {
     // holds recent idempotency keys so no change ever applies twice.
     shadowCoinUnits: 0,
     shadowCoins: 0,
-    shadowCoinReceipts: []
+    shadowCoinReceipts: [],
+    // Server-side transaction history: every balance change (reward, penalty,
+    // purchase, roulette spin, reversal) appends one entry. Newest last.
+    shadowCoinLedger: [],
+    // Cosmetic inventory. owned: { itemId: tier } (tier 1 for untiered
+    // items). equipped: one item id (or null) per visual slot. Purely
+    // presentational -- no gameplay code ever reads this.
+    cosmetics: blankCosmetics()
   };
+}
+
+function blankCosmetics() {
+  return { owned: {}, equipped: { appearance: null, effect: null, frame: null, title: null } };
+}
+
+function normalizeCosmetics(raw) {
+  const out = blankCosmetics();
+  if (!raw || typeof raw !== 'object') return out;
+  if (raw.owned && typeof raw.owned === 'object' && !Array.isArray(raw.owned)) {
+    for (const [id, tier] of Object.entries(raw.owned)) {
+      const n = Math.floor(Number(tier));
+      if (/^[a-z0-9-]{1,48}$/.test(id) && n > 0) out.owned[id] = Math.min(n, 10);
+    }
+  }
+  if (raw.equipped && typeof raw.equipped === 'object') {
+    for (const slot of Object.keys(out.equipped)) {
+      const id = raw.equipped[slot];
+      out.equipped[slot] = typeof id === 'string' && out.owned[id] ? id : null;
+    }
+  }
+  return out;
 }
 
 const NUMERIC_PROFILE_FIELDS = [
@@ -99,6 +128,7 @@ const NUMERIC_PROFILE_FIELDS = [
 const CURRENCY_FIELDS = new Set(['shadowCoins', 'shadowCoinUnits']);
 const COIN_UNIT = 10; // tenths
 const COIN_RECEIPT_LIMIT = 1000;
+const COIN_LEDGER_LIMIT = 500;
 
 function validateAndNormalizePlayers(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -147,6 +177,8 @@ function validateAndNormalizePlayers(raw) {
       }
     }
     if (!Array.isArray(profile.shadowCoinReceipts)) profile.shadowCoinReceipts = [];
+    if (!Array.isArray(profile.shadowCoinLedger)) profile.shadowCoinLedger = [];
+    profile.cosmetics = normalizeCosmetics(candidate.cosmetics);
     // Older profiles stored whole coins only; derive tenths from them once.
     const units = candidate.shadowCoinUnits === undefined
       ? Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT)
@@ -335,14 +367,21 @@ function coinProfile(players, identity) {
     profile.shadowCoinUnits = Math.max(0, Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT));
   }
   if (!Array.isArray(profile.shadowCoinReceipts)) profile.shadowCoinReceipts = [];
+  if (!Array.isArray(profile.shadowCoinLedger)) profile.shadowCoinLedger = [];
+  if (!profile.cosmetics || typeof profile.cosmetics !== 'object') profile.cosmetics = blankCosmetics();
   return profile;
 }
 
-function recordCoinChange(players, profile, receiptId, units) {
+// Applies a signed change in tenths, appends the ledger entry, persists.
+function recordCoinChange(players, profile, receiptId, units, { kind = 'adjust', reason = '', detail = null } = {}) {
   profile.shadowCoinUnits = Math.max(0, profile.shadowCoinUnits + units);
   profile.shadowCoins = unitsToCoins(profile.shadowCoinUnits);
   profile.shadowCoinReceipts.push(receiptId);
   if (profile.shadowCoinReceipts.length > COIN_RECEIPT_LIMIT) profile.shadowCoinReceipts.splice(0, profile.shadowCoinReceipts.length - COIN_RECEIPT_LIMIT);
+  const entry = { id: receiptId, at: nowISO(), delta: (units < 0 ? -1 : 1) * unitsToCoins(Math.abs(units)), balance: profile.shadowCoins, kind, reason: String(reason || '').slice(0, 120) };
+  if (detail) entry.detail = detail;
+  profile.shadowCoinLedger.push(entry);
+  if (profile.shadowCoinLedger.length > COIN_LEDGER_LIMIT) profile.shadowCoinLedger.splice(0, profile.shadowCoinLedger.length - COIN_LEDGER_LIMIT);
   savePlayersAtomic(players);
 }
 
@@ -364,7 +403,7 @@ function awardShadowCoins(identity, amount, receiptId, { reason = '' } = {}) {
   const profile = coinProfile(players, identity);
   if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: unitsToCoins(profile.shadowCoinUnits) };
   profile.name = String(identity.name || profile.name || '').trim() || profile.name;
-  recordCoinChange(players, profile, receiptId, units);
+  recordCoinChange(players, profile, receiptId, units, { kind: 'reward', reason });
   if (reason) console.log(`[shadow-coins] +${unitsToCoins(units)} to ${profile.name} (${reason}) -> ${profile.shadowCoins}`);
   return { ok: true, balance: profile.shadowCoins, duplicate: false };
 }
@@ -379,14 +418,14 @@ function deductShadowCoins(identity, amount, receiptId, { reason = '' } = {}) {
   const profile = coinProfile(players, identity);
   if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: unitsToCoins(profile.shadowCoinUnits), deducted: 0 };
   const taken = Math.min(units, profile.shadowCoinUnits);
-  recordCoinChange(players, profile, receiptId, -taken);
+  recordCoinChange(players, profile, receiptId, -taken, { kind: 'penalty', reason });
   if (reason) console.log(`[shadow-coins] -${unitsToCoins(taken)} from ${profile.name} (${reason}) -> ${profile.shadowCoins}`);
   return { ok: true, balance: profile.shadowCoins, deducted: unitsToCoins(taken), duplicate: false };
 }
 
-// A purchase: deducts `amount` once per receiptId, only with sufficient
-// balance. The foundation for future unlocks; nothing spends yet.
-function spendShadowCoins(identity, amount, receiptId) {
+// A plain spend: deducts `amount` once per receiptId, only with sufficient
+// balance. Cosmetic purchases use purchaseCosmetic below.
+function spendShadowCoins(identity, amount, receiptId, { reason = 'spend' } = {}) {
   const units = coinUnits(amount);
   if (!units) return { ok: false, error: 'Price must be a positive amount in tenths of a coin' };
   if (!receiptId || typeof receiptId !== 'string') return { ok: false, error: 'Purchase needs a receipt id' };
@@ -394,8 +433,87 @@ function spendShadowCoins(identity, amount, receiptId) {
   const profile = coinProfile(players, identity);
   if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: unitsToCoins(profile.shadowCoinUnits) };
   if (profile.shadowCoinUnits < units) return { ok: false, error: 'Not enough Shadow Coins', balance: unitsToCoins(profile.shadowCoinUnits) };
-  recordCoinChange(players, profile, receiptId, -units);
+  recordCoinChange(players, profile, receiptId, -units, { kind: 'purchase', reason });
   return { ok: true, balance: profile.shadowCoins, duplicate: false };
+}
+
+// ---------------------------------------------------------------------------
+// COSMETICS -- ownership and equip state. The server (via shadow-market.js)
+// decides WHAT may be bought and at what price; this layer guarantees the
+// money and the unlock move together in one atomic save.
+
+function getShadowProfile(identity) {
+  const players = loadPlayers();
+  const key = identity && typeof identity === 'object' ? normalizeNameKey(identity) : null;
+  const profile = key ? players[key] : null;
+  if (!profile) return { ...blankProfile(identity), shadowCoinLedger: [], cosmetics: blankCosmetics() };
+  if (!profile.cosmetics) profile.cosmetics = blankCosmetics();
+  if (!Array.isArray(profile.shadowCoinLedger)) profile.shadowCoinLedger = [];
+  return profile;
+}
+
+// Buys `tier` of `itemId` for `price` coins. The owned tier must be exactly
+// tier - 1, so a double click or stale UI can never buy twice.
+function purchaseCosmetic(identity, itemId, tier, price, receiptId, { reason = '' } = {}) {
+  const units = coinUnits(price);
+  if (!units) return { ok: false, error: 'Invalid price' };
+  if (!receiptId || typeof receiptId !== 'string') return { ok: false, error: 'Purchase needs a receipt id' };
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: unitsToCoins(profile.shadowCoinUnits) };
+  const owned = profile.cosmetics.owned || (profile.cosmetics.owned = {});
+  if ((Number(owned[itemId]) || 0) !== tier - 1) return { ok: false, error: 'Already owned' };
+  if (profile.shadowCoinUnits < units) return { ok: false, error: 'Not enough Shadow Coins', balance: unitsToCoins(profile.shadowCoinUnits) };
+  owned[itemId] = tier;
+  recordCoinChange(players, profile, receiptId, -units, { kind: 'purchase', reason: reason || `bought ${itemId}`, detail: { itemId, tier } });
+  return { ok: true, balance: profile.shadowCoins, tier };
+}
+
+// Relics are granted, never bought. Idempotent per item.
+function grantRelic(identity, itemId) {
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  if (Number(profile.cosmetics.owned[itemId]) > 0) return { ok: true, duplicate: true };
+  profile.cosmetics.owned[itemId] = 1;
+  savePlayersAtomic(players);
+  return { ok: true };
+}
+
+// Equips an owned item into `slot`, or clears the slot with itemId null.
+function equipCosmetic(identity, slot, itemId) {
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  const equipped = profile.cosmetics.equipped || (profile.cosmetics.equipped = blankCosmetics().equipped);
+  if (!Object.prototype.hasOwnProperty.call(equipped, slot)) return { ok: false, error: 'Unknown slot' };
+  if (itemId !== null && !(Number(profile.cosmetics.owned[itemId]) > 0)) return { ok: false, error: 'Not owned' };
+  equipped[slot] = itemId;
+  savePlayersAtomic(players);
+  return { ok: true, equipped: { ...equipped } };
+}
+
+function ownsCosmetic(identity, itemId) {
+  return Number(getShadowProfile(identity).cosmetics?.owned?.[itemId]) > 0;
+}
+
+// One roulette spin, settled atomically: the stake must be covered, then
+// resolve() picks the outcome and the NET result (payout - stake) is applied
+// and logged as a single ledger entry with the full spin detail.
+function settleRouletteSpin(identity, wager, receiptId, resolve) {
+  const stake = coinUnits(wager);
+  if (!stake) return { ok: false, error: 'Invalid wager' };
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: false, error: 'Spin already settled' };
+  if (profile.shadowCoinUnits < stake) return { ok: false, error: 'Not enough Shadow Coins', balance: unitsToCoins(profile.shadowCoinUnits) };
+  const outcome = resolve();
+  const net = outcome.won ? stake * outcome.odds : -stake;
+  const detail = { wager: unitsToCoins(stake), bet: outcome.label, pocket: outcome.pocket, won: outcome.won, payout: outcome.won ? unitsToCoins(stake * (outcome.odds + 1)) : 0 };
+  recordCoinChange(players, profile, receiptId, net, {
+    kind: 'roulette',
+    reason: `ROULETTE ${outcome.pocket} // ${outcome.label} // ${unitsToCoins(stake)} SC`,
+    detail
+  });
+  return { ok: true, balance: profile.shadowCoins, net: (net < 0 ? -1 : 1) * unitsToCoins(Math.abs(net)), outcome };
 }
 
 function adjustProfile(displayName, { pointsDelta = 0, statDeltas = {} } = {}) {
@@ -509,6 +627,12 @@ module.exports = {
   awardShadowCoins,
   deductShadowCoins,
   spendShadowCoins,
+  getShadowProfile,
+  purchaseCosmetic,
+  grantRelic,
+  equipCosmetic,
+  ownsCosmetic,
+  settleRouletteSpin,
   maybeRecordBestStreak,
   maybeRecordEarliestFinal,
   recordBoardFinalization,
