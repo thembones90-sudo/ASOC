@@ -12,5 +12,6 @@ assert.match(player, /openChatReactionDetails\(messageId, selectedEmoji, anchorE
 assert.match(app, /data-reaction-filter/);
 assert.match(player, /data-reaction-filter/);
 assert.match(css, /\.chat-reaction-detail-person\.filtered\{display:none\}/);
-assert.match(css, /\.gm-chat-context-menu:not\(\[hidden\]\),\.chat-message-context-menu:not\(\[hidden\]\)\{display:flex\}/);
-console.log('PASS Teams-style action rail and WhatsApp-style reaction roster');
+assert.match(css, /\.gm-chat-context-menu:not\(\[hidden\]\),\.chat-message-context-menu:not\(\[hidden\]\)\{display:block\}/);
+assert.match(css, /\.gm-chat-context-menu button\[hidden\],\.chat-message-context-menu button\[hidden\]\{display:none !important\}/);
+console.log('PASS vertical message actions and WhatsApp-style reaction roster');

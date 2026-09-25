@@ -17292,11 +17292,12 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
 .chat-reaction-detail-person i img{width:100%;height:100%;object-fit:cover}.chat-reaction-detail-person strong{overflow:hidden;color:#e7e9ed;font-size:.72rem;text-overflow:ellipsis;white-space:nowrap}.chat-reaction-detail-person em{justify-self:center;font-size:1.12rem;font-style:normal}
 .gm-chat-reaction-chip,.chat-reaction-chip{cursor:pointer}.gm-chat-reaction-chip:hover,.chat-reaction-chip:hover{transform:translateY(-1px)}
 
-/* Right-click/long-press actions use the compact Teams command-rail shape. */
-.gm-chat-context-menu,.chat-message-context-menu{flex-direction:row;flex-wrap:wrap;gap:2px;width:auto !important;max-width:min(92vw,520px);padding:5px !important;border-radius:10px !important}
-.gm-chat-context-menu:not([hidden]),.chat-message-context-menu:not([hidden]){display:flex}
-.gm-chat-context-menu button,.chat-message-context-menu button{width:auto !important;min-height:34px;padding:7px 10px !important;border-radius:6px}
-@media(max-width:560px){.chat-reaction-details{width:calc(100vw - 16px)}.gm-chat-context-menu,.chat-message-context-menu{max-width:calc(100vw - 16px)}.gm-chat-context-menu button,.chat-message-context-menu button{min-width:44px;min-height:44px}}
+/* Right-click/long-press actions remain a conventional vertical menu. */
+.gm-chat-context-menu,.chat-message-context-menu{width:240px !important;max-width:calc(100vw - 16px);padding:5px !important;border-radius:8px !important}
+.gm-chat-context-menu:not([hidden]),.chat-message-context-menu:not([hidden]){display:block}
+.gm-chat-context-menu[hidden],.chat-message-context-menu[hidden],.gm-chat-context-menu button[hidden],.chat-message-context-menu button[hidden]{display:none !important}
+.gm-chat-context-menu button,.chat-message-context-menu button{display:grid;width:100% !important;min-height:38px;padding:7px 9px !important;border-radius:5px;white-space:nowrap}
+@media(max-width:560px){.chat-reaction-details{width:calc(100vw - 16px)}.gm-chat-context-menu,.chat-message-context-menu{width:min(260px,calc(100vw - 16px)) !important}.gm-chat-context-menu button,.chat-message-context-menu button{min-height:44px}}
 
 /* GAME FOCUS CHAT // fast tactical reading during live rounds */
 .chat-priority-lane {
