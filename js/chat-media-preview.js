@@ -176,15 +176,28 @@
       } catch (_) {}
     }
 
+    // Plain pasted links belong in chat as text. Only intercept URL clipboard
+    // data when the address itself clearly points at a supported image file.
+    // Rich clipboard HTML containing an actual <img> remains media above.
+    const isDirectImageUrl = (value) => {
+      if (!/^https?:\/\//i.test(value)) return false;
+      try {
+        const parsed = new URL(value);
+        return /\.(?:png|jpe?g|webp|gif)$/i.test(parsed.pathname);
+      } catch (_) {
+        return false;
+      }
+    };
+
     const uriList = String(transfer.getData?.('text/uri-list') || '')
       .split(/\r?\n/)
       .map(line => line.trim())
       .find(line => line && !line.startsWith('#'));
-    if (uriList && /^https?:\/\//i.test(uriList)) return uriList;
+    if (uriList && isDirectImageUrl(uriList)) return uriList;
 
     const plain = String(transfer.getData?.('text/plain') || '').trim();
     if (!plain || /\s/.test(plain)) return '';
-    return /^https?:\/\//i.test(plain) ? plain : '';
+    return isDirectImageUrl(plain) ? plain : '';
   }
 
   function create(options = {}) {
