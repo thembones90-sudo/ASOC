@@ -399,6 +399,13 @@ function view(state, viewerId, now, onlineIds = null) {
     eliminations: state.eliminations.map(e => ({ ...e })),
     winnerId: state.winnerId,
     winnerName: state.winnerId ? nameOf(state, state.winnerId) : null,
+    // Set by the server layer when the win pays out (Shadow Coins); only the
+    // winner sees their own new balance.
+    reward: state.reward && !state.reward.skipped ? {
+      playerId: state.reward.playerId,
+      amount: state.reward.amount,
+      balance: state.reward.playerId === me ? state.reward.balance : null
+    } : null,
     you: {
       member: state.members.some(m => m.id === me),
       owner: state.ownerId === me,

@@ -1512,8 +1512,9 @@ const PlayerApp = {
         this.updatePlayerLeaderboard(message.players);
         this.iksArena = message.iksArena || null;
         this.brokerOnline = message.brokerOnline === true;
-        window.IksRing?.applyTo(document.getElementById('little-hero-avatar-preview'),
-          (message.players || []).find(p => String(p.id) === String(this.playerId)));
+        const selfEntry = (message.players || []).find(p => String(p.id) === String(this.playerId));
+        window.IksRing?.applyTo(document.getElementById('little-hero-avatar-preview'), selfEntry);
+        this.renderShadowCoins(selfEntry);
         window.Threefold?.onArena?.();
         const commsRoom = document.getElementById('battle-comms-room');
         const commsOnline = document.getElementById('battle-comms-online');
@@ -4836,6 +4837,16 @@ const PlayerApp = {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  },
+
+  // SHADOW COINS: read-only display of the server's account balance.
+  renderShadowCoins(self) {
+    const chip = document.getElementById('shadow-coin-balance');
+    const amount = document.getElementById('shadow-coin-amount');
+    if (!chip || !amount || !self) return;
+    const coins = Number.isInteger(self.shadowCoins) && self.shadowCoins > 0 ? self.shadowCoins : 0;
+    amount.textContent = String(coins);
+    chip.hidden = false;
   },
 
   escapeHtmlAttr(text) {

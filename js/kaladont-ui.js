@@ -136,6 +136,7 @@
         <div class="kal-kicker">LAST LITTLE HERO STANDING</div>
         <div class="kal-winner">${esc(state.winnerName || 'NOBODY')}</div>
         <div class="kal-verdict-title">WINS KALADONT</div>
+        ${state.reward ? `<div class="kal-reward"><img class="shadow-coin-icon" src="assets/ui/shadow-coin.webp" alt="Shadow Coin"><div><b>+${Number(state.reward.amount) || 1} SHADOW COIN</b>${Number.isInteger(state.reward.balance) ? `<small>SHADOW COINS: ${state.reward.balance}</small>` : ''}</div></div>` : ''}
         <ol class="kal-standings">${standings}</ol>
         <div class="kal-actions">${opts.spectator ? '' : '<button type="button" data-kaladont-action="new">NEW LOBBY</button>'}<button type="button" data-kaladont-action="close">CLOSE</button></div>
       </div>`;

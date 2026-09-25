@@ -19068,3 +19068,17 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
 .kaladont-invite button { padding: 7px 11px; border: 1px solid rgba(155, 93, 224, .6); border-radius: 7px; background: rgba(155, 93, 224, .18); color: #fff; font-size: 10px; font-weight: 900; letter-spacing: .12em; cursor: pointer; }
 .kaladont-invite button.is-dismiss { border-color: transparent; background: transparent; color: #8e949c; font-size: 16px; padding: 4px 6px; }
 @media (prefers-reduced-motion: reduce) { .kal-word, .kal-verdict { animation: none; } }
+
+/* SHADOW COIN (assets/ui/shadow-coin.webp): never stretched, never cropped. */
+.shadow-coin-icon { display: inline-block; width: 28px; height: auto; aspect-ratio: 256 / 251; object-fit: contain; filter: drop-shadow(0 0 6px rgba(120, 200, 60, .25)); }
+.shadow-coin-balance { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 10px 4px 5px; border: 1px solid rgba(150, 200, 90, .3); border-radius: 999px; background: rgba(20, 26, 16, .6); color: #dfe8cf; }
+.shadow-coin-balance[hidden] { display: none; }
+.shadow-coin-balance .shadow-coin-icon { width: 22px; }
+.shadow-coin-balance b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.shadow-coin-balance small { color: #9fb58a; font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+.kal-reward { display: inline-flex; align-items: center; gap: 10px; margin: 8px 0 2px; padding: 8px 14px 8px 8px; border: 1px solid rgba(150, 200, 90, .45); border-radius: 12px; background: linear-gradient(135deg, rgba(40, 60, 20, .45), rgba(40, 20, 50, .35)); text-align: left; }
+.kal-reward .shadow-coin-icon { width: 44px; animation: shadow-coin-in .6s ease-out; }
+.kal-reward b { display: block; color: #c9f08c; font-size: 13px; letter-spacing: .14em; text-shadow: 0 0 10px rgba(140, 220, 60, .45); }
+.kal-reward small { display: block; color: #d9c7ee; font-size: 10px; letter-spacing: .12em; }
+@keyframes shadow-coin-in { from { opacity: 0; transform: rotateY(90deg) scale(.6); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .kal-reward .shadow-coin-icon { animation: none; } }

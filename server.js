@@ -4512,7 +4512,33 @@ function broadcastKaladont(room) {
   if (room.hostConnection) sendKaladontState(room, room.hostConnection);
 }
 
+// SHADOW COIN reward: a match that ended with a real winner pays +1, exactly
+// once. Guarded twice: the match records its reward (persisted with the room)
+// and the award itself is idempotent on the receipt id kaladont:<matchId>, so
+// reconnects, repeated ticks, duplicate messages or a restart cannot pay again.
+// Cancelled / abandoned matches never reach 'ended' with a winner.
+const KALADONT_WIN_COINS = 1;
+function kaladontSettle(room, announce) {
+  const s = room.kaladont;
+  if (!s || s.phase !== 'ended' || !s.winnerId || s.reward) return;
+  const winner = s.players?.[s.winnerId];
+  if (!winner || isMasterTestPlayerId(s.winnerId)) {
+    s.reward = { playerId: s.winnerId, amount: 0, skipped: true };
+    return;
+  }
+  const result = playerStore.awardShadowCoins({ id: s.winnerId, name: winner.name }, KALADONT_WIN_COINS, `kaladont:${s.id}`, { reason: 'KALADONT win' });
+  if (!result.ok) {
+    console.error('[kaladont] Shadow Coin award failed:', result.error);
+    return;
+  }
+  s.reward = { playerId: s.winnerId, amount: KALADONT_WIN_COINS, balance: result.balance };
+  const index = announce.findIndex(line => /WINS KALADONT/.test(line));
+  if (index !== -1) announce[index] = announce[index].replace(/\.$/, '') + ` +${KALADONT_WIN_COINS} SHADOW COIN.`;
+  broadcastPlayersUpdate(room);
+}
+
 function kaladontCommit(room, announce = []) {
+  kaladontSettle(room, announce);
   if (announce.length) iksAnnounce(room, announce);
   persistActiveRooms();
   broadcastKaladont(room);
@@ -4586,6 +4612,8 @@ function tickKaladont(room, now = Date.now()) {
   if (room.roomMode !== ROOM_MODES.CASUAL && state.phase !== 'ended') {
     return kaladontClose(room, 'KALADONT // CLOSED: THE AMUSEMENT PARK CLOSED FOR BATTLE.');
   }
+  // A match restored as ended but not yet paid settles here (idempotent).
+  if (state.phase === 'ended' && state.winnerId && !state.reward) return kaladontCommit(room, []);
   const out = kaladont.tick(state, now);
   if (out.expired) return kaladontClose(room, null);
   if (out.changed) kaladontCommit(room, out.announce);
@@ -6318,6 +6346,8 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       threefoldLosses: Number(profile.threefoldLosses) || 0,
       threefoldDraws: Number(profile.threefoldDraws) || 0,
       asocGamesEarned: Number(profile.asocGamesEarned) || 0,
+      // Account-level currency, read-only here (see player-store Shadow Coin API).
+      shadowCoins: Number.isInteger(profile.shadowCoins) && profile.shadowCoins > 0 ? profile.shadowCoins : 0,
       ...iksArenaFields(player)
     });
   });
