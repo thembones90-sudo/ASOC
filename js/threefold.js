@@ -184,6 +184,7 @@
         <div class="threefold-turn ${g.complete ? 'complete' : ''}">${status}</div>
         <div class="threefold-board" aria-label="Threefold board">
           ${g.board.map((mark, i) => `<button type="button" data-threefold-cell="${i}" class="threefold-cell ${mark ? 'occupied' : ''}" ${mark || g.complete || !myTurn ? 'disabled' : ''}>${mark || ''}</button>`).join('')}
+          ${Array.isArray(g.winningLine) && g.winningLine.length === 3 ? `<i class="threefold-win-line" data-line="${g.winningLine.join('-')}" aria-hidden="true"></i>` : ''}
         </div>
         <div class="threefold-foot"><span>YOU ARE ${mySymbol}</span>${g.complete ? '<button type="button" data-threefold-action="rematch">REMATCH</button>' : ''}</div>`;
     },

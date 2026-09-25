@@ -4242,10 +4242,9 @@ function threefoldSendPair(room, game, payload) {
   });
 }
 
-function threefoldWinner(board) {
+function threefoldWinningLine(board) {
   const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-  for (const [a,b,c] of lines) if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
-  return '';
+  return lines.find(([a,b,c]) => board[a] && board[a] === board[b] && board[a] === board[c]) || null;
 }
 
 function handleThreefoldChallenge(ws, message) {
@@ -4292,7 +4291,7 @@ function handleThreefoldAccept(ws, message) {
     xId:xPlayer.id, xName:xPlayer.name,
     oId:oPlayer.id, oName:oPlayer.name,
     board:Array(9).fill(''), turnId:xPlayer.id,
-    turnName:xPlayer.name, complete:false, winnerId:null, winnerName:''
+    turnName:xPlayer.name, complete:false, winnerId:null, winnerName:'', winningLine:null
   };
   state.games.set(game.id, game);
   threefoldSendPair(room, game, { type:'threefold:state', game });
@@ -4341,11 +4340,13 @@ function handleThreefoldMove(ws, message) {
 
   const mark = String(game.xId) === String(actor.player.id) ? 'X' : 'O';
   game.board[cell] = mark;
-  const winner = threefoldWinner(game.board);
+  const winningLine = threefoldWinningLine(game.board);
+  const winner = winningLine ? game.board[winningLine[0]] : '';
   if (winner) {
     game.complete = true;
     game.winnerId = winner === 'X' ? game.xId : game.oId;
     game.winnerName = winner === 'X' ? game.xName : game.oName;
+    game.winningLine = winningLine;
     game.turnId = null;
     game.turnName = '';
   } else if (game.board.every(Boolean)) {
