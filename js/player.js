@@ -105,6 +105,7 @@ const PlayerApp = {
     { name: 'order', insert: '/order', syntax: '/order', description: 'Shuffle connected-player turn order' },
     { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
     { name: 'spit', insert: '/spit ', syntax: '/spit @Name', description: 'Target another player' },
+    { name: 'all', insert: '/all ', syntax: '/all [message]', description: 'Nudge everyone // every screen shakes' },
     { name: 'commands', insert: '/commands', syntax: '/commands', description: 'Show every available command' }
   ],
   chatReactionEmojis: ['😂', '❤️', '🔥', '👍', '🤏', '😇', '😭', '😍', '💀', '🤣', '👎', '😎', '🫡', '🗿', '🤡', '🤦', '🤷', '👀', '👁️', '😏', '😒', '🙄', '😡', '🤬', '😈', '👿', '🤔', '🧐', '😐', '😑', '😬', '😱', '🥶', '🥵', '🫠', '🥴', '🤯', '🥳', '😴', '🤤', '🤢', '🤮', '💩', '🖕', '👏', '🙏', '💪', '🧠', '🖤', '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺'],
@@ -1327,7 +1328,7 @@ const PlayerApp = {
         Womf.update('womf-tracker-player', battleVisible ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
         Wheel.update('wheel-overlay', battleVisible ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false);
         const tributeState = message.bloodTribute || { status: 'idle' };
-        this.updateBloodTributeDemand(battleVisible || tributeState.source === 'unstableConcoction' ? tributeState : { status: 'idle' });
+        this.updateBloodTributeDemand(battleVisible || ['unstableConcoction', 'nudge'].includes(tributeState.source) ? tributeState : { status: 'idle' });
         Timer.update('timer-tracker-player', battleVisible ? (message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }) : { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
         if (battleVisible) this.updateTerminalPhase(message);
         else Recount.apply(null);
@@ -1351,7 +1352,7 @@ const PlayerApp = {
         (masterMirror ? sessionStorage : localStorage).setItem('asoc_player_in_master', '1');
         {
           const tributeState = this.lastPublicState?.bloodTribute || { status: 'idle' };
-          this.updateBloodTributeDemand(this.roomMode !== 'CASUAL' || tributeState.source === 'unstableConcoction' ? tributeState : { status: 'idle' });
+          this.updateBloodTributeDemand(this.roomMode !== 'CASUAL' || ['unstableConcoction', 'nudge'].includes(tributeState.source) ? tributeState : { status: 'idle' });
         }
         if (message.littleHero) {
           if (message.littleHero.name) {
@@ -3996,8 +3997,9 @@ const PlayerApp = {
     const kicker = overlay.querySelector('.blood-tribute-kicker');
     const heading = overlay.querySelector('h2');
     const concoctionDebt = this.bloodTribute.source === 'unstableConcoction';
-    if (kicker) kicker.textContent = concoctionDebt ? 'UNSTABLE CONCOCTION // REACTION DEBT' : 'WOMF // DEBT CALLED';
-    if (heading) heading.textContent = concoctionDebt ? 'CONCOCTION DEMANDS BLOOD' : 'BLOOD TRIBUTE DEMANDED';
+    const nudgeDebt = this.bloodTribute.source === 'nudge';
+    if (kicker) kicker.textContent = nudgeDebt ? 'NUDGE // PRIVILEGE EXHAUSTED' : concoctionDebt ? 'UNSTABLE CONCOCTION // REACTION DEBT' : 'WOMF // DEBT CALLED';
+    if (heading) heading.textContent = nudgeDebt ? 'THE NUDGE DEMANDS BLOOD' : concoctionDebt ? 'CONCOCTION DEMANDS BLOOD' : 'BLOOD TRIBUTE DEMANDED';
     if (player) player.textContent = `${this.bloodTribute.playerName || this.playerName || 'LITTLE HERO'} // YOUR DEBT IS DUE`;
     if (status && !this.tributeUploading) status.textContent = 'SELECT AN IMAGE TO PAY THE TRIBUTE';
   },

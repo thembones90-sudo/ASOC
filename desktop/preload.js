@@ -47,5 +47,15 @@ contextBridge.exposeInMainWorld('asocDesktop', Object.freeze({
       body: String(body || '').slice(0, 200),
       tag: String(tag || '').slice(0, 32)
     });
-  }
+  },
+  // Saved logins ("Remember me"), kept encrypted by the app with Windows'
+  // per-user protection. kind: 'gm' | 'player'. See js/saved-login.js.
+  credentials: Object.freeze({
+    get: kind => ipcRenderer.invoke('asoc:credentials:get', String(kind)),
+    save: (kind, login) => ipcRenderer.invoke('asoc:credentials:save', String(kind), {
+      username: String(login?.username || ''),
+      password: String(login?.password || '')
+    }),
+    forget: kind => ipcRenderer.invoke('asoc:credentials:forget', String(kind))
+  })
 }));
