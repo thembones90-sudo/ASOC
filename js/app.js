@@ -2530,6 +2530,14 @@ const App = {
         this.updateRitualUI(message.ritual);
         break;
 
+      case 'threefold:challenge': window.GMMinigames?.onChallenge?.(message); break;
+      case 'threefold:declined': window.GMMinigames?.onDeclined?.(message); break;
+      case 'threefold:state': window.GMMinigames?.onState?.(message); break;
+      case 'threefold:closed': window.GMMinigames?.onClosed?.(message); break;
+      case 'unstableConcoction:started': window.GMMinigames?.onConcoctionStarted?.(message); break;
+      case 'unstableConcoction:resolved': window.GMMinigames?.onConcoctionResolved?.(message); break;
+      case 'unstableConcoction:locked': window.GMMinigames?.updateConcoction?.({ cooldownUntil:message.cooldownUntil, spinning:false }); break;
+
       case 'moderation:ack':
         console.log('[GM] Moderation action:', message.action, message.playerName || message.playerId);
         break;
@@ -2776,6 +2784,7 @@ const App = {
     const battleVisible = nextRoomMode !== 'CASUAL';
     const wasBattleVisible = this.roomMode !== 'CASUAL';
     this.applyRoomMode(nextRoomMode);
+    window.GMMinigames?.updateConcoction?.(battleVisible ? null : state.unstableConcoction);
     if (battleVisible) window.AsocAudio?.syncBoard?.('gm', state);
     else window.AsocAudio?.resetObservers?.();
 

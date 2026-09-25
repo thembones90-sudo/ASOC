@@ -4116,12 +4116,19 @@ function threefoldStateFor(room) {
 }
 
 function threefoldPlayer(room, playerId) {
+  if (String(playerId) === '__GM__' && room.hostConnection?.readyState === 1) {
+    return { socket: room.hostConnection, player: { id:'__GM__', name:'SHADOW BROKER', isHost:true } };
+  }
   for (const [socket, player] of room.players.entries()) {
     if (player.connected !== false && String(player.id) === String(playerId)) {
       return { socket, player };
     }
   }
   return null;
+}
+
+function threefoldActor(room, ws) {
+  return ws === room?.hostConnection ? threefoldPlayer(room, '__GM__') : threefoldPlayer(room, ws?.playerId);
 }
 
 function threefoldSendPair(room, game, payload) {
@@ -4140,10 +4147,9 @@ function threefoldWinner(board) {
 function handleThreefoldChallenge(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || room.roomMode !== ROOM_MODES.CASUAL) return sendToWs(ws, { type:'error', message:'IKS OKS is available only in Amusement Park' });
-  if (!ws.playerId) return sendToWs(ws, { type:'error', message:'IKS OKS authentication required' });
-  const challenger = threefoldPlayer(room, ws.playerId);
+  const challenger = threefoldActor(room, ws);
   const opponent = threefoldPlayer(room, message.opponentId);
-  if (!challenger || !opponent || String(ws.playerId) === String(message.opponentId)) return sendToWs(ws, { type:'error', message:'Opponent unavailable' });
+  if (!challenger || !opponent || String(challenger.player.id) === String(message.opponentId)) return sendToWs(ws, { type:'error', message:'Opponent unavailable' });
 
   const state = threefoldStateFor(room);
   const id = 'tfch-' + crypto.randomBytes(8).toString('hex');
@@ -4163,7 +4169,8 @@ function handleThreefoldAccept(ws, message) {
   if (!room || room.roomMode !== ROOM_MODES.CASUAL) return;
   const state = threefoldStateFor(room);
   const challenge = state.challenges.get(String(message.challengeId || ''));
-  if (!challenge || String(challenge.opponentId) !== String(ws.playerId)) return;
+  const actor = threefoldActor(room, ws);
+  if (!challenge || !actor || String(challenge.opponentId) !== String(actor.player.id)) return;
   const challenger = threefoldPlayer(room, challenge.challengerId);
   const opponent = threefoldPlayer(room, challenge.opponentId);
   state.challenges.delete(challenge.id);
@@ -4185,11 +4192,12 @@ function handleThreefoldDecline(ws, message) {
   if (!room) return;
   const state = threefoldStateFor(room);
   const challenge = state.challenges.get(String(message.challengeId || ''));
-  if (!challenge || ![challenge.challengerId, challenge.opponentId].some(id => String(id) === String(ws.playerId))) return;
+  const actor = threefoldActor(room, ws);
+  if (!challenge || !actor || ![challenge.challengerId, challenge.opponentId].some(id => String(id) === String(actor.player.id))) return;
   state.challenges.delete(challenge.id);
   [challenge.challengerId, challenge.opponentId].forEach(id => {
     const target = threefoldPlayer(room, id);
-    if (target) sendToWs(target.socket, { type:'threefold:declined', byName:ws.playerName || 'Little Hero' });
+    if (target) sendToWs(target.socket, { type:'threefold:declined', byName:actor.player.name || 'Little Hero' });
   });
 }
 
@@ -4198,7 +4206,7 @@ function recordThreefoldResult(game) {
   game.resultRecorded = true;
   const xIdentity = { id: game.xId, name: game.xName };
   const oIdentity = { id: game.oId, name: game.oName };
-  if (isMasterTestPlayerId(game.xId) || isMasterTestPlayerId(game.oId)) return;
+  if (game.xId === '__GM__' || game.oId === '__GM__' || isMasterTestPlayerId(game.xId) || isMasterTestPlayerId(game.oId)) return;
   if (game.winnerId) {
     const winner = String(game.winnerId) === String(game.xId) ? xIdentity : oIdentity;
     const loser = String(game.winnerId) === String(game.xId) ? oIdentity : xIdentity;
@@ -4216,10 +4224,11 @@ function handleThreefoldMove(ws, message) {
   const state = threefoldStateFor(room);
   const game = state.games.get(String(message.gameId || ''));
   const cell = Number(message.cell);
-  if (!game || game.complete || String(game.turnId) !== String(ws.playerId)) return;
+  const actor = threefoldActor(room, ws);
+  if (!actor || !game || game.complete || String(game.turnId) !== String(actor.player.id)) return;
   if (!Number.isInteger(cell) || cell < 0 || cell > 8 || game.board[cell]) return;
 
-  const mark = String(game.xId) === String(ws.playerId) ? 'X' : 'O';
+  const mark = String(game.xId) === String(actor.player.id) ? 'X' : 'O';
   game.board[cell] = mark;
   const winner = threefoldWinner(game.board);
   if (winner) {
@@ -4286,7 +4295,7 @@ function resolveUnstableConcoction(roomCode, spinToken) {
       { id: spin.playerId, name: spin.playerName },
       { statDeltas: { asocGamesEarned: 1 } }
     );
-  } else if (spin.outcome === 'BLOOD TRIBUTE') {
+  } else if (spin.outcome === 'BLOOD TRIBUTE' && spin.playerId !== '__GM__') {
     armBloodTributeForPlayer(room, { id: spin.playerId, name: spin.playerName }, spin.token, 'unstableConcoction');
   }
 
@@ -4311,11 +4320,13 @@ function handleUnstableConcoctionSpin(ws) {
   if (!room || room.roomMode !== ROOM_MODES.CASUAL) {
     return sendToWs(ws, { type: 'error', message: 'UNSTABLE CONCOCTION is available only in Amusement Park' });
   }
-  const player = room.players.get(ws);
+  const player = ws === room.hostConnection
+    ? { id:'__GM__', name:'SHADOW BROKER', connected:true, isTestPersona:true, isHost:true }
+    : room.players.get(ws);
   if (room.pendingTribute?.status === 'required') {
     return sendToWs(ws, { type: 'error', message: `BLOOD TRIBUTE is already owed by ${room.pendingTribute.playerName}` });
   }
-  if (!ws.playerId || !player || player.connected === false || ws.readyState !== 1) {
+  if ((!ws.playerId && ws !== room.hostConnection) || !player || player.connected === false || ws.readyState !== 1) {
     return sendToWs(ws, { type: 'error', message: 'A connected Little Hero identity is required' });
   }
 
