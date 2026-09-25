@@ -1646,6 +1646,14 @@ const PlayerApp = {
 
       case 'error':
         this.showError(message.message);
+        // A rejected chat transmission must terminate the optimistic SENDING
+        // state. Previously /spit (and any chat command rejected server-side)
+        // could leave the composer claiming SENDING forever because only a
+        // successful chat:update switched it to DELIVERED.
+        const deliveryState = document.getElementById('chat-delivery-state');
+        if (deliveryState?.dataset?.state === 'sending') {
+          this.setChatDeliveryState('NOT SENT', 'error', 2600);
+        }
         if (message.code === 'RITUAL_JOIN_REJECTED') {
           Ritual.showJoinError?.('ritual-overlay-body', message.message);
         }
@@ -2968,6 +2976,7 @@ const PlayerApp = {
     const selfId = context?.spit ? String(this.playerId || '') : null;
     return (this.currentPlayers || [])
       .filter(player => player && String(player.name || '').trim())
+      .filter(player => !context?.spit || player.connected !== false)
       .filter(player => !selfId || String(player.id || '') !== selfId)
       .filter(player => !needle || String(player.name).toLocaleLowerCase().includes(needle))
       .sort((a, b) => {
