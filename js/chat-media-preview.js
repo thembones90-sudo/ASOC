@@ -176,15 +176,24 @@
       } catch (_) {}
     }
 
+    const looksLikeImageUrl = value => {
+      try {
+        const url = new URL(String(value || '').trim());
+        return /^https?:$/.test(url.protocol) && /\.(?:png|jpe?g|webp|gif)$/i.test(url.pathname);
+      } catch (_) {
+        return false;
+      }
+    };
+
     const uriList = String(transfer.getData?.('text/uri-list') || '')
       .split(/\r?\n/)
       .map(line => line.trim())
       .find(line => line && !line.startsWith('#'));
-    if (uriList && /^https?:\/\//i.test(uriList)) return uriList;
+    if (looksLikeImageUrl(uriList)) return uriList;
 
     const plain = String(transfer.getData?.('text/plain') || '').trim();
     if (!plain || /\s/.test(plain)) return '';
-    return /^https?:\/\//i.test(plain) ? plain : '';
+    return looksLikeImageUrl(plain) ? plain : '';
   }
 
   function create(options = {}) {

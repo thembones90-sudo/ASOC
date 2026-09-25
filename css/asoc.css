@@ -5621,6 +5621,17 @@ body.gm-layout-locked .gm-module-height-splitter {
   border-radius: 5px;
   background: rgba(7, 8, 11, 0.55);
 }
+.blood-tribute-vault-preview {
+  width:62px;
+  height:52px;
+  padding:0;
+  overflow:hidden;
+  border:1px solid rgba(177,78,87,.55);
+  border-radius:3px;
+  background:#050608;
+  cursor:zoom-in;
+}
+.blood-tribute-vault-preview:hover { border-color:#e06b75; box-shadow:0 0 12px rgba(181,43,55,.38); }
 .blood-tribute-vault-item img {
   width: 62px;
   height: 52px;

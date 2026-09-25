@@ -193,6 +193,7 @@ const App = {
 
   async init() {
     this.showLoading(true);
+    this.startDeploymentWatcher();
 
     try {
       // Restore a previous hosting session (if any) BEFORE connecting, so
@@ -260,6 +261,28 @@ const App = {
     } finally {
       this.showLoading(false);
     }
+  },
+
+  startDeploymentWatcher() {
+    if (this._deploymentWatcherStarted) return;
+    this._deploymentWatcherStarted = true;
+    const storageKey = 'asoc_loaded_server_build';
+    const check = async () => {
+      try {
+        const response = await fetch(`/api/build?t=${Date.now()}`, { cache: 'no-store' });
+        if (!response.ok) return;
+        const buildId = String((await response.json())?.buildId || '');
+        if (!buildId) return;
+        const previous = sessionStorage.getItem(storageKey);
+        sessionStorage.setItem(storageKey, buildId);
+        if (previous && previous !== buildId) location.reload();
+      } catch {}
+    };
+    check();
+    this._deploymentWatcherTimer = setInterval(check, 30000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') check();
+    });
   },
 
   isGMLayoutLocked() {
@@ -1893,6 +1916,7 @@ const App = {
     document.getElementById('womf-subtract-btn')?.addEventListener('click', () => this.declareWomfSubtract());
     document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
     document.getElementById('blood-tribute-vault-clear')?.addEventListener('click', () => this.clearBloodTributeVault());
+    document.getElementById('blood-tribute-vault-open')?.addEventListener('click', () => this.requestReliquaryAccess());
     document.getElementById('blood-tribute-override-btn')?.addEventListener('click', () => this.overrideBloodTribute());
     document.querySelectorAll('[data-vault-close]').forEach(button => button.addEventListener('click', () => this.closeBloodTributeVault()));
     document.querySelector('[data-vault-viewer-close]')?.addEventListener('click', () => { document.getElementById('blood-vault-viewer').hidden = true; });
@@ -1909,10 +1933,14 @@ const App = {
         this.send({ type: 'gm:tributeVaultUpdate', id: tribute.id, action: 'reliquary', value: !tribute.reliquary });
       } else if (e.target.closest('.blood-vault-image')) {
         this.send({ type: 'gm:tributeVaultUpdate', id: tribute.id, action: 'viewed' });
-        const viewer = document.getElementById('blood-vault-viewer');
-        viewer.querySelector('img').src = tribute.imageData;
-        viewer.hidden = false;
+        this.openBloodTributeImage(tribute);
       }
+    });
+    document.getElementById('blood-tribute-vault-list')?.addEventListener('click', e => {
+      const preview = e.target.closest('[data-vault-preview-id]');
+      if (!preview) return;
+      const tribute = this.bloodTributes.find(item => item.id === preview.dataset.vaultPreviewId);
+      if (tribute) this.openBloodTributeImage(tribute);
     });
     document.getElementById('blood-tribute-confirm')?.addEventListener('click', e => {
       const action = e.target.closest('[data-tribute-confirm]')?.dataset.tributeConfirm;
@@ -3525,7 +3553,9 @@ const App = {
       const stamp = new Date(Number(t.submittedAt) || now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       return `
         <article class="blood-tribute-vault-item">
-          <img src="${t.imageData}" alt="Archived tribute image">
+          <button type="button" class="blood-tribute-vault-preview" data-vault-preview-id="${this.escapeHtml(t.id)}" aria-label="Open tribute from ${this.escapeHtml(t.playerName || 'Little Hero')}">
+            <img src="${t.imageData}" alt="Archived tribute image">
+          </button>
           <div class="blood-tribute-vault-meta">
             <strong>${this.escapeHtml(t.playerName || 'LITTLE HERO')}</strong>
             <span>${stamp} // ${publicNow ? 'PUBLIC WINDOW ACTIVE' : 'ARCHIVED'}</span>
@@ -3567,6 +3597,32 @@ const App = {
   },
 
   closeBloodTributeVault() { document.getElementById('blood-tribute-vault-modal').hidden = true; },
+
+  openBloodTributeImage(tribute) {
+    if (!tribute?.imageData) return;
+    const viewer = document.getElementById('blood-vault-viewer');
+    const image = viewer?.querySelector('img');
+    if (!viewer || !image) return;
+    image.src = tribute.imageData;
+    image.alt = `Blood Tribute from ${tribute.playerName || 'Little Hero'}`;
+    viewer.hidden = false;
+  },
+
+  async requestReliquaryAccess() {
+    const code = await window.AsocDialog.prompt({
+      title: 'RELIQUARY // SEALED ARCHIVE',
+      message: 'Enter the Reliquary access code:',
+      maxLength: 32,
+      required: true,
+      confirmLabel: 'UNSEAL'
+    });
+    if (!code) return;
+    if (this.mode === 'multiplayer' && this.roomCode) {
+      this.send({ type: 'gm:reliquaryAccess', code: String(code).trim() });
+    } else {
+      this.signalReliquaryAccessDenied(false);
+    }
+  },
 
   clearBloodTributeVault() {
     if (this.mode !== 'multiplayer' || !this.bloodTributes.length) return;

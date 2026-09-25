@@ -83,6 +83,12 @@ const WS_HEARTBEAT_MS = 30000;
 const WS_HANDSHAKE_TIMEOUT_MS = Math.max(100, Number(process.env.ASOC_WS_HANDSHAKE_TIMEOUT_MS) || 10000);
 const COLUMN_REVEAL_DELAY_MS = Math.max(100, Number(process.env.ASOC_COLUMN_REVEAL_DELAY_MS) || 5000);
 const PROTOCOL_VERSION = 1;
+const DEPLOY_BUILD_ID = String(
+  process.env.RAILWAY_GIT_COMMIT_SHA
+  || process.env.SOURCE_VERSION
+  || process.env.GIT_COMMIT
+  || `local-${fs.statSync(__filename).mtimeMs}`
+);
 const EMAIL_VERIFICATION_REQUIRED = process.env.ASOC_EMAIL_VERIFICATION !== '0';
 const GAME_LOST_MESSAGES = Object.freeze([
   'Final association unresolved. Time exhausted. Cognitive adaptation insufficient. Expected result.',
@@ -7080,6 +7086,11 @@ function handleApiRequest(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const parts = url.pathname.split('/').filter(Boolean);
   const method = req.method;
+
+  if (url.pathname === '/api/build' && method === 'GET') {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    return sendJson(res, 200, { buildId: DEPLOY_BUILD_ID });
+  }
 
   if (method === 'GET' && (url.pathname === '/api/gif/search' || url.pathname === '/api/gif/trending')) {
     handleGifApiRequest(req, res, url).catch(error => {
