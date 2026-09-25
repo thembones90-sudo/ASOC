@@ -1541,12 +1541,37 @@ body.gm-layout-resizing * {
     inset 0 0 0 1px rgba(8, 6, 12, .9),
     0 0 14px rgba(113, 70, 196, .09) !important;
 }
-.master-access-btn::before {
-  content: "◆";
-  margin-right: 7px;
-  color: #9b73ef;
-  font-size: .58rem;
-  text-shadow: 0 0 8px rgba(155, 115, 239, .58);
+.master-access-btn {
+  display:flex !important;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.master-access-sigil {
+  width:22px;
+  height:22px;
+  flex:0 0 22px;
+  overflow:visible;
+  filter:drop-shadow(0 0 6px rgba(166,111,255,.5));
+  transition:transform .18s ease,filter .18s ease;
+}
+.master-sigil-outer,
+.master-sigil-ring {
+  fill:none;
+  stroke:#9f72ed;
+  stroke-width:1.7;
+}
+.master-sigil-outer { stroke-dasharray:4 2; }
+.master-sigil-ring { stroke:#d0b2ff; opacity:.72; }
+.master-sigil-key {
+  fill:#c89cff;
+  filter:drop-shadow(0 0 4px rgba(185,121,255,.72));
+}
+.master-access-btn:hover .master-access-sigil,
+.master-access-btn:focus-visible .master-access-sigil,
+.master-access-btn[aria-expanded="true"] .master-access-sigil {
+  filter:drop-shadow(0 0 8px rgba(195,146,255,.82));
+  transform:rotate(6deg) scale(1.05);
 }
 .master-access-btn:hover,
 .master-access-btn:focus-visible,
@@ -15526,26 +15551,42 @@ body.room-mode-battle #asoc-board > .omen-trigger:active::before {
 }
 .bice-asoc-btn > * { position: relative; z-index: 2; }
 .bice-label { white-space: nowrap; }
-.bice-btn-eye {
-  flex: none;
-  width: 30px;
-  height: 14px;
-  border: 1px solid rgba(126,255,181,.8);
-  border-radius: 70% 16% 70% 16% / 70% 16% 70% 16%;
-  transform: rotate(45deg);
-  box-shadow: inset 0 0 8px rgba(44,255,137,.25),0 0 8px rgba(44,255,137,.2);
+.bice-btn-sigil {
+  width:42px;
+  height:25px;
+  flex:0 0 42px;
+  overflow:visible;
+  filter:drop-shadow(0 0 6px rgba(61,255,154,.35));
 }
-.bice-btn-eye i {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #63ffad;
-  box-shadow: 0 0 8px #3dff9a,0 0 14px rgba(36,255,135,.65);
-  transform: translate(-50%,-50%) scale(.72);
-  animation: bice-btn-iris 2.1s ease-in-out infinite;
+.bice-btn-sigil path,
+.bice-btn-sigil circle { vector-effect:non-scaling-stroke; }
+.bice-sigil-frame {
+  fill:rgba(3,18,11,.86);
+  stroke:rgba(89,255,165,.48);
+  stroke-width:1;
+}
+.bice-sigil-lid {
+  fill:rgba(20,74,48,.3);
+  stroke:#7effb8;
+  stroke-width:1.5;
+}
+.bice-sigil-iris {
+  fill:#092d1b;
+  stroke:#54ffa5;
+  stroke-width:1.5;
+  animation:bice-sigil-iris 2.1s ease-in-out infinite;
+}
+.bice-sigil-core {
+  fill:#d9ffe8;
+  stroke:#63ffad;
+  stroke-width:1;
+  filter:drop-shadow(0 0 4px #3dff9a);
+}
+.bice-sigil-reticle {
+  fill:none;
+  stroke:#60d995;
+  stroke-width:1;
+  stroke-linecap:round;
 }
 .bice-asoc-btn:hover,
 .bice-asoc-btn:focus-visible {
@@ -15566,10 +15607,26 @@ body.room-mode-battle #asoc-board > .omen-trigger:active::before {
   45% { opacity:1; }
   72%,100% { transform: translateX(58%); opacity:0; }
 }
-@keyframes bice-btn-iris {
-  0%,100% { transform: translate(-50%,-50%) scale(.58); }
-  48% { transform: translate(-50%,-50%) scale(1.05); }
+@keyframes bice-sigil-iris {
+  0%,100% { transform:scale(.72); transform-origin:32px 18px; opacity:.72; }
+  48% { transform:scale(1.08); transform-origin:32px 18px; opacity:1; }
 }
+
+/* COMMAND REPAINT // preserve NEMA's toxic machinery, move threat color to blood red. */
+.nema-asoc-btn {
+  --nema-lit:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Cg transform='translate(6 6) scale(.14)'%3E%3Cpath fill='%23ff3b48' fill-opacity='.38' d='M59.00 65.59L72.50 88.97A45 45 0 0 1 27.50 88.97L41.00 65.59A18 18 0 0 0 59.00 65.59ZM32.00 50.00L5.00 50.00A45 45 0 0 1 27.50 11.03L41.00 34.41A18 18 0 0 0 32.00 50.00ZM59.00 34.41L72.50 11.03A45 45 0 0 1 95.00 50.00L68.00 50.00A18 18 0 0 0 59.00 34.41ZM50 41.5a8.5 8.5 0 1 0 .01 0Z'/%3E%3C/g%3E%3C/svg%3E");
+  border-color:#ff2638 !important;
+  color:#ffe5e8 !important;
+  background:radial-gradient(ellipse at 50% 135%,rgba(255,38,58,.62),transparent 62%),radial-gradient(circle at 8% 0,rgba(255,48,64,.30),transparent 45%),radial-gradient(circle at 92% 0,rgba(255,48,64,.30),transparent 45%),linear-gradient(180deg,#7d101d 0%,#460710 55%,#1b0206 100%) !important;
+  box-shadow:inset 0 0 0 1px rgba(18,0,3,.9),inset 0 0 22px rgba(255,42,57,.38),0 0 14px rgba(255,31,48,.42),0 0 34px rgba(210,8,27,.22);
+  text-shadow:0 0 5px #ff3445,0 0 13px rgba(255,28,45,.9),1px 1px 0 #170003,-1px -1px 0 #170003;
+}
+.nema-asoc-btn .nema-mark-bg { fill:#ff3142; filter:drop-shadow(0 0 6px #ff1028); }
+.nema-asoc-btn .nema-nuclear-mark { fill:#ff6a75; filter:drop-shadow(0 0 3px #160003) drop-shadow(0 0 7px #ff142c); }
+.nema-asoc-btn::before,
+.nema-asoc-btn::after { background:repeating-linear-gradient(-45deg,#ff2638 0 7px,#160306 7px 14px); box-shadow:0 0 8px rgba(255,35,52,.7); }
+.nema-asoc-btn:hover,
+.nema-asoc-btn:focus-visible { border-color:#ff6a76 !important; box-shadow:inset 0 0 0 1px rgba(18,0,3,.9),inset 0 0 30px rgba(255,62,75,.55),0 0 20px rgba(255,38,54,.7),0 0 48px rgba(215,10,30,.42); }
 
 .bice-asoc-overlay {
   position: fixed;
@@ -18293,4 +18350,22 @@ body:is(.room-mode-battle-armed,.room-mode-battle,.room-mode-recount) .gm-module
 .gm-module-chat .gm-chat-panel.chat-high-traffic .gm-chat-messages::after {
   animation: none !important;
   opacity: .35;
+}
+
+/* DESKTOP LEFT STACK ANCHOR
+   The original shell vertically centered #main-content. When the board stack
+   is shorter than a tall window (most visibly while the ritual covers the
+   board), that creates matching dead bands above and below every control.
+   Battle operation is a top-down console: anchor it to the top and allow the
+   left column itself to scroll only when a short viewport cannot contain it. */
+@media (min-width: 761px) {
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #main-content {
+    justify-content:flex-start !important;
+    padding-top:clamp(8px,1.1vh,14px) !important;
+    padding-bottom:clamp(8px,1.1vh,14px) !important;
+    overflow-x:hidden;
+    overflow-y:auto;
+    scrollbar-gutter:stable;
+    overscroll-behavior:contain;
+  }
 }

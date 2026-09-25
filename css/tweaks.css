@@ -1,13 +1,13 @@
 /* TWEAKS // player-to-Shadow-Broker improvement channel */
 .tweaks-launch{
   position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;
-  min-height:36px;padding:8px 12px;border:1px solid rgba(157,104,255,.55);
-  background:linear-gradient(180deg,rgba(34,29,45,.96),rgba(13,13,18,.98));
-  color:#ddd6ef;font:700 13px/1 var(--font-system,Segoe UI,sans-serif);letter-spacing:.12em;
-  cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,.035),0 0 18px rgba(111,67,178,.12);
+  min-height:36px;padding:8px 12px;border:1px solid rgba(238,169,102,.68);
+  background:linear-gradient(180deg,rgba(55,39,28,.96),rgba(20,15,12,.98));
+  color:#ffd8ad;font:700 13px/1 var(--font-system,Segoe UI,sans-serif);letter-spacing:.12em;
+  cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,239,218,.035),0 0 18px rgba(218,125,54,.12);
 }
-.tweaks-launch:hover{border-color:#b68cff;color:#fff;box-shadow:0 0 24px rgba(132,72,220,.24)}
-.tweaks-launch .tweaks-badge{display:none;min-width:20px;height:20px;padding:0 6px;border-radius:12px;align-items:center;justify-content:center;background:#8d4bd6;color:#fff;font-size:11px;letter-spacing:0}
+.tweaks-launch:hover{border-color:#ffc27c;color:#fff7ed;box-shadow:0 0 24px rgba(229,139,68,.24)}
+.tweaks-launch .tweaks-badge{display:none;min-width:20px;height:20px;padding:0 6px;border-radius:12px;align-items:center;justify-content:center;background:#d9823f;color:#fff8ef;font-size:11px;letter-spacing:0}
 .tweaks-launch.has-badge .tweaks-badge{display:inline-flex}
 .hero-hud-identity-block .tweaks-launch{margin:0;width:auto;min-width:94px;min-height:30px;height:30px;padding:0 10px;font-size:9px;letter-spacing:1px;flex:0 0 auto;z-index:3}
 .hero-utility-icon{
