@@ -4324,7 +4324,7 @@ const App = {
   escapeHtmlAttr(text) {
     const div = document.createElement('div');
     div.textContent = text;
-    return div.innerHTML.replace(/"/g, '"');
+    return div.innerHTML.replace(/"/g, '&quot;');
   },
 
   buildGMControls() {
@@ -4594,7 +4594,12 @@ const App = {
       .map(([emoji, playerIds]) => {
         const mine = playerIds.map(String).includes('__GM__');
         const emojiHtml = this.renderGMReactionEmojiHTML(emoji, 'commander-reaction-emoji');
-        return `<button type="button" class="gm-chat-reaction-chip${mine ? ' mine' : ''}${window.CommanderEmojis?.has?.(emoji) ? ' commander-reaction-chip' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" aria-pressed="${mine ? 'true' : 'false'}"><span>${emojiHtml}</span><b>${playerIds.length}</b></button>`;
+        const reactorNames = playerIds.map(id => {
+          if (String(id) === '__GM__') return 'Shadow Broker';
+          return (this.currentPlayers || []).find(player => String(player.id) === String(id))?.name || 'Little Hero';
+        });
+        const reactors = this.escapeHtmlAttr(reactorNames.join('\n'));
+        return `<button type="button" class="gm-chat-reaction-chip${mine ? ' mine' : ''}${window.CommanderEmojis?.has?.(emoji) ? ' commander-reaction-chip' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" data-reactors="${reactors}" title="${reactors}" aria-label="Reacted by ${this.escapeHtmlAttr(reactorNames.join(', '))}" aria-pressed="${mine ? 'true' : 'false'}"><span>${emojiHtml}</span><b>${playerIds.length}</b></button>`;
       })
       .join('');
 

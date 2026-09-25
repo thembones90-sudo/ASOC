@@ -3737,7 +3737,12 @@ const PlayerApp = {
         const mine = playerIds.map(String).includes(String(this.playerId));
         const commanderOnly = window.CommanderEmojis?.has?.(emoji) === true;
         const emojiHtml = this.renderReactionEmojiHTML(emoji, 'commander-reaction-emoji');
-        return `<button type="button" class="chat-reaction-chip${mine ? ' mine' : ''}${commanderOnly ? ' commander-reaction-chip' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" aria-pressed="${mine ? 'true' : 'false'}" title="${commanderOnly ? 'Commander reaction' : 'React'}"><span class="chat-reaction-emoji">${emojiHtml}</span><span class="chat-reaction-count">${playerIds.length}</span></button>`;
+        const reactorNames = playerIds.map(id => {
+          if (String(id) === '__GM__') return 'Shadow Broker';
+          return (this.currentPlayers || []).find(player => String(player.id) === String(id))?.name || 'Little Hero';
+        });
+        const reactors = this.escapeHtmlAttr(reactorNames.join('\n'));
+        return `<button type="button" class="chat-reaction-chip${mine ? ' mine' : ''}${commanderOnly ? ' commander-reaction-chip' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" data-reactors="${reactors}" title="${reactors}" aria-label="Reacted by ${this.escapeHtmlAttr(reactorNames.join(', '))}" aria-pressed="${mine ? 'true' : 'false'}"><span class="chat-reaction-emoji">${emojiHtml}</span><span class="chat-reaction-count">${playerIds.length}</span></button>`;
       })
       .join('');
 
@@ -4703,6 +4708,10 @@ const PlayerApp = {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  },
+
+  escapeHtmlAttr(text) {
+    return this.escapeHtml(text).replace(/"/g, '&quot;');
   }
 };
 

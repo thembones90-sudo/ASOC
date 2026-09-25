@@ -17291,6 +17291,13 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
 .chat-reaction-detail-person i{display:grid;place-items:center;width:34px;height:34px;overflow:hidden;border:2px solid var(--reaction-frame,#6f7885);border-radius:50%;background:#0c0f13;color:#cbd1d9;font-size:.56rem;font-style:normal;box-shadow:0 0 8px color-mix(in srgb,var(--reaction-frame) 42%,transparent)}
 .chat-reaction-detail-person i img{width:100%;height:100%;object-fit:cover}.chat-reaction-detail-person strong{overflow:hidden;color:#e7e9ed;font-size:.72rem;text-overflow:ellipsis;white-space:nowrap}.chat-reaction-detail-person em{justify-self:center;font-size:1.12rem;font-style:normal}
 .gm-chat-reaction-chip,.chat-reaction-chip{cursor:pointer}.gm-chat-reaction-chip:hover,.chat-reaction-chip:hover{transform:translateY(-1px)}
+.gm-chat-reaction-chip[data-reactors],.chat-reaction-chip[data-reactors]{position:relative}
+.gm-chat-reaction-chip[data-reactors]::after,.chat-reaction-chip[data-reactors]::after{
+  content:attr(data-reactors);position:absolute;z-index:200010;left:50%;bottom:calc(100% + 8px);display:block;width:max-content;max-width:220px;
+  padding:7px 9px;border:1px solid #54475f;border-radius:6px;background:#111015;color:#ece8f0;box-shadow:0 8px 22px rgba(0,0,0,.72);
+  font:700 .54rem/1.45 var(--font-system);letter-spacing:.03em;text-align:left;white-space:pre-line;pointer-events:none;opacity:0;transform:translate(-50%,4px);transition:opacity .11s ease,transform .11s ease;
+}
+.gm-chat-reaction-chip[data-reactors]:hover::after,.gm-chat-reaction-chip[data-reactors]:focus-visible::after,.chat-reaction-chip[data-reactors]:hover::after,.chat-reaction-chip[data-reactors]:focus-visible::after{opacity:1;transform:translate(-50%,0)}
 
 /* Right-click/long-press actions remain a conventional vertical menu. */
 .gm-chat-context-menu,.chat-message-context-menu{width:240px !important;max-width:calc(100vw - 16px);padding:5px !important;border-radius:8px !important}
