@@ -1,0 +1,311 @@
+// IKS OKS GAUNTLET + one-duel-at-a-time regressions.
+//   Store: join window, lifesteal, Broker games, draws, elimination, last one
+//          standing, the game limit (ties share the crown), persistence, reset.
+//   Server: the reported bug -- a stale challenge accepted after another duel
+//          started must never open a second board -- plus busy players,
+//          withdrawn/expired challenges, and the gauntlet start/join/reset flow.
+const assert = require('assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const http = require('http');
+const { spawn } = require('child_process');
+const WebSocket = require('ws');
+
+const ROOT = path.join(__dirname, '..');
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// ---------------------------------------------------------------------------
+function checkStore() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'asoc-iks-store-'));
+  process.env.ASOC_DATA_DIR = dir;
+  process.env.ASOC_IKS_GAUNTLET_GAMES = '25';
+  const store = require('../iks-arena-store');
+  const hero = id => ({ id, name: id.toUpperCase(), isBroker: false });
+  const broker = { id: '__GM__', name: 'SHADOW BROKER', isBroker: true };
+  const hp = id => store.standingOf(id)?.health;
+  try {
+    assert.equal(store.publicState().status, 'idle');
+    assert.equal(store.recordGame({ x: hero('a'), o: hero('b'), winnerId: 'a' }), null, 'no gauntlet, no health');
+    assert.equal(store.standingOf('a'), null, 'no ring outside a gauntlet');
+
+    assert.equal(store.start().ok, true);
+    assert.equal(store.start().ok, false, 'one gauntlet at a time');
+    ['a', 'b', 'c'].forEach(id => assert.equal(store.join(hero(id)).ok, true));
+    assert.equal(store.join(hero('a')).already, true);
+    assert.equal(hp('a'), 10);
+
+    // Lifesteal between heroes; the winner is capped at 10.
+    store.recordGame({ x: hero('a'), o: hero('b'), winnerId: 'a' });
+    assert.equal(hp('a'), 10);
+    assert.equal(hp('b'), 9);
+    assert.equal(store.publicState().status, 'running');
+    assert.equal(store.join(hero('d')).ok, false, 'joining closes at the first duel');
+    assert.equal(store.recordGame({ x: hero('a'), o: hero('d'), winnerId: 'a' }), null, 'a non-fighter game does not count');
+
+    // The Broker drains and gives; a draw counts but moves nothing.
+    store.recordGame({ x: broker, o: hero('b'), winnerId: '__GM__' });
+    assert.equal(hp('b'), 8);
+    store.recordGame({ x: hero('b'), o: broker, winnerId: 'b' });
+    assert.equal(hp('b'), 9);
+    const before = store.publicState().gamesPlayed;
+    store.recordGame({ x: hero('a'), o: hero('b'), winnerId: null });
+    assert.equal(store.publicState().gamesPlayed, before + 1, 'draws count toward the limit');
+    assert.equal(hp('b'), 9);
+
+    // c falls after ten losses and is eliminated.
+    let result;
+    for (let i = 0; i < 10; i++) result = store.recordGame({ x: hero('a'), o: hero('c'), winnerId: 'a' });
+    assert.equal(hp('c'), 0);
+    assert.deepEqual(result.eliminated.map(e => e.id), ['c']);
+    assert.equal(store.isEliminated('c'), true);
+    assert.equal(store.standingOf('c').eliminated, true);
+
+    // b falls too: a is the last one standing.
+    for (let i = 0; i < 9; i++) result = store.recordGame({ x: hero('a'), o: hero('b'), winnerId: 'a' });
+    assert.equal(hp('b'), 0);
+    assert.deepEqual(result.victors.map(v => v.id), ['a']);
+    assert.equal(result.endedReason, 'last-standing');
+    assert.equal(store.standingOf('a').victor, true);
+    assert.equal(store.recordGame({ x: hero('a'), o: hero('b'), winnerId: 'a' }), null, 'an ended gauntlet freezes');
+
+    // Survives a restart.
+    store._forget();
+    assert.equal(store.publicState().status, 'ended');
+    assert.equal(store.standingOf('a').victor, true);
+
+    // Game limit: 25 draws end it and a tie shares the crown.
+    store.reset();
+    assert.equal(store.publicState().status, 'idle');
+    assert.equal(store.standingOf('a'), null, 'reset clears every ring');
+    store.start();
+    store.join(hero('a'));
+    store.join(hero('b'));
+    for (let i = 0; i < 25; i++) result = store.recordGame({ x: hero('a'), o: hero('b'), winnerId: null });
+    assert.equal(result.endedReason, 'game-limit');
+    assert.deepEqual(result.victors.map(v => v.id).sort(), ['a', 'b'], 'a tie at the limit shares the crown');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+const PORT = Number(process.env.ASOC_IKS_TEST_PORT) || 18797;
+const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'asoc-iks-server-'));
+
+function api(urlPath, body) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port: PORT, path: urlPath, method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json' } }, res => {
+      let text = '';
+      res.on('data', chunk => { text += chunk; });
+      res.on('end', () => { try { resolve({ status: res.statusCode, data: JSON.parse(text) }); } catch { resolve({ status: res.statusCode, data: text }); } });
+    });
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
+
+class Client {
+  constructor(name) { this.name = name; this.msgs = []; this.players = []; this.arena = null; }
+  open() {
+    return new Promise((resolve, reject) => {
+      this.ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
+      this.ws.once('error', reject);
+      this.ws.on('message', data => {
+        const message = JSON.parse(data.toString());
+        if (message.type === 'protocol:hello') return this.ws.send(JSON.stringify({ type: 'protocol:hello', protocolVersion: 1 }));
+        if (message.type === 'protocol:ready') return resolve(this);
+        this.msgs.push(message);
+        if (message.type === 'join:success') this.playerId = message.playerId;
+        if (message.type === 'players:update') { this.players = message.players || []; this.arena = message.iksArena || null; }
+      });
+    });
+  }
+  send(message) { this.ws.send(JSON.stringify(message)); }
+  mark() { return this.msgs.length; }
+  since(mark, type) { return this.msgs.slice(mark).filter(m => m.type === type); }
+  async waitFor(predicate, label, from = 0, timeout = 5000) {
+    const started = Date.now();
+    while (Date.now() - started < timeout) {
+      const found = this.msgs.slice(from).find(predicate);
+      if (found) return found;
+      await sleep(20);
+    }
+    throw new Error(`${this.name}: timed out waiting for ${label}`);
+  }
+  close() { try { this.ws.close(); } catch {} }
+}
+
+async function runServer() {
+  const server = spawn(process.execPath, ['server.js'], {
+    cwd: ROOT,
+    env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'iks-pass', ASOC_EMAIL_VERIFICATION: '0',
+      ASOC_THREEFOLD_CHALLENGE_TTL_MS: '1500', ASOC_IKS_GAUNTLET_GAMES: '50' },
+    stdio: ['ignore', 'ignore', 'pipe']
+  });
+  let serverErrors = '';
+  server.stderr.on('data', chunk => { serverErrors += chunk; });
+  const clients = [];
+  try {
+    for (let i = 0; i < 60; i++) { try { if ((await api('/health')).status === 200) break; } catch {} await sleep(150); }
+    const gmToken = (await api('/api/auth/gm/login', { password: 'iks-pass' })).data.token;
+    const gm = await new Client('GM').open();
+    clients.push(gm);
+    gm.send({ type: 'host:recover', gmToken });
+    await gm.waitFor(m => m.type === 'host:recovered', 'host recovered');
+    const heroes = [];
+    for (const name of ['Ana', 'Bo', 'Cy']) {
+      const token = (await api('/api/auth/player/register', { email: `${name.toLowerCase()}@iks.test`, password: 'iks-password', name })).data.token;
+      const hero = await new Client(name).open();
+      clients.push(hero);
+      hero.send({ type: 'room:join', authToken: token, roomCode: 'MASTER', name });
+      await hero.waitFor(m => m.type === 'join:success', `${name} join`);
+      heroes.push(hero);
+    }
+    const [ana, bo, cy] = heroes;
+    await sleep(300);
+
+    const challenge = async (from, to) => {
+      const mark = from.mark();
+      from.send({ type: 'threefold:challenge', opponentId: to === gm ? '__GM__' : to.playerId });
+      return (await from.waitFor(m => m.type === 'threefold:challenge' || m.type === 'error', 'challenge sent', mark));
+    };
+    // Plays a finished game: X takes 0,1,2 while O takes 3,4 -> X wins.
+    const playOut = async (game, bySide) => {
+      const order = [0, 3, 1, 4, 2];
+      let current = game;
+      for (const cell of order) {
+        if (current.complete) break;
+        const mover = bySide(current.turnId);
+        const mark = mover.mark();
+        mover.send({ type: 'threefold:move', gameId: current.id, cell });
+        current = (await mover.waitFor(m => m.type === 'threefold:state' && m.game.id === game.id, 'move', mark)).game;
+      }
+      assert.equal(current.complete, true);
+      return current;
+    };
+
+    // --- The reported bug -------------------------------------------------
+    // GM challenges Ana (no answer), then challenges Bo instead.
+    const toAna = await challenge(gm, ana);
+    assert.equal(toAna.type, 'threefold:challenge');
+    let anaMark = ana.mark();
+    const toBo = await challenge(gm, bo);
+    assert.equal(toBo.type, 'threefold:challenge');
+    const withdrawn = await ana.waitFor(m => m.type === 'threefold:closed', 'Ana told the challenge was withdrawn', anaMark);
+    assert.equal(withdrawn.challengeId, toAna.challenge.id);
+
+    // Bo accepts: GM and Bo are in a duel.
+    let boMark = bo.mark();
+    bo.send({ type: 'threefold:accept', challengeId: toBo.challenge.id });
+    const duel = (await bo.waitFor(m => m.type === 'threefold:state', 'duel starts', boMark)).game;
+
+    // Ana accepts the stale challenge late: no second board, ever.
+    anaMark = ana.mark();
+    const gmMark = gm.mark();
+    ana.send({ type: 'threefold:accept', challengeId: toAna.challenge.id });
+    await ana.waitFor(m => m.type === 'threefold:closed', 'stale accept refused', anaMark);
+    await sleep(250);
+    assert.equal(ana.since(anaMark, 'threefold:state').length, 0, 'Ana never gets a board');
+    assert.equal(gm.since(gmMark, 'threefold:state').length, 0, 'the GM never gets a second board');
+
+    // Nobody can pull a busy player (or the busy GM) into another duel.
+    assert.match((await challenge(ana, bo)).message || '', /ALREADY IN A DUEL/);
+    assert.match((await challenge(ana, gm)).message || '', /ALREADY IN A DUEL/);
+    assert.match((await challenge(gm, cy)).message || '', /FINISH YOUR CURRENT DUEL/);
+
+    const side = id => (String(id) === '__GM__' ? gm : bo);
+    await playOut(duel, side);
+    // Finished: both are free again.
+    const free = await challenge(ana, bo);
+    assert.equal(free.type, 'threefold:challenge', 'a finished duel frees both players');
+
+    // Withdraw by closing: Cy's accept on a cancelled challenge is refused.
+    const toCy = await challenge(ana, cy);
+    assert.equal(toCy.type, 'threefold:challenge');
+    let cyMark = cy.mark();
+    ana.send({ type: 'threefold:cancel', challengeId: toCy.challenge.id });
+    await cy.waitFor(m => m.type === 'threefold:closed' && m.challengeId === toCy.challenge.id, 'Cy told of the withdrawal', cyMark);
+    cyMark = cy.mark();
+    cy.send({ type: 'threefold:accept', challengeId: toCy.challenge.id });
+    await cy.waitFor(m => m.type === 'threefold:closed', 'cancelled accept refused', cyMark);
+    assert.equal(cy.since(cyMark, 'threefold:state').length, 0);
+
+    // Challenges expire.
+    const expiring = await challenge(ana, cy);
+    await sleep(1700);
+    cyMark = cy.mark();
+    cy.send({ type: 'threefold:accept', challengeId: expiring.challenge.id });
+    await cy.waitFor(m => m.type === 'threefold:closed', 'expired accept refused', cyMark);
+    assert.equal(cy.since(cyMark, 'threefold:state').length, 0);
+
+    // --- Gauntlet flow ----------------------------------------------------
+    let mark = ana.mark();
+    ana.send({ type: 'gm:iksStart' });
+    await sleep(250);
+    assert.ok(ana.since(mark, 'error').length, 'only the Broker starts a gauntlet');
+    gm.send({ type: 'gm:iksStart' });
+    await ana.waitFor(m => m.type === 'players:update' && m.iksArena?.status === 'open', 'gauntlet open', mark);
+    ana.send({ type: 'iks:join' });
+    bo.send({ type: 'iks:join' });
+    await gm.waitFor(m => m.type === 'players:update' && m.iksArena?.fighters === 2, 'two fighters joined');
+    await sleep(150);
+    const health = (client, hero) => client.players.find(p => p.id === hero.playerId)?.iksHealth;
+    assert.equal(health(gm, ana), 10);
+    assert.equal(health(gm, cy), undefined, 'a non-fighter has no ring');
+
+    const toBo2 = await challenge(ana, bo);
+    boMark = bo.mark();
+    bo.send({ type: 'threefold:accept', challengeId: toBo2.challenge.id });
+    const gauntletDuel = (await bo.waitFor(m => m.type === 'threefold:state', 'gauntlet duel', boMark)).game;
+    const finished = await playOut(gauntletDuel, id => (String(id) === String(ana.playerId) ? ana : bo));
+    const winner = String(finished.winnerId) === String(ana.playerId) ? ana : bo;
+    const loser = winner === ana ? bo : ana;
+    await gm.waitFor(m => m.type === 'players:update' && m.iksArena?.gamesPlayed === 1, 'game counted');
+    await sleep(150);
+    assert.equal(health(gm, winner), 10, 'winner capped at 10');
+    assert.equal(health(gm, loser), 9, 'loser loses one bar');
+    assert.equal(gm.arena.status, 'running');
+    mark = cy.mark();
+    cy.send({ type: 'iks:join' });
+    await sleep(250);
+    assert.match(cy.since(mark, 'error').map(e => e.message).join(' '), /JOINING IS CLOSED/);
+
+    gm.send({ type: 'gm:iksReset' });
+    await gm.waitFor(m => m.type === 'players:update' && m.iksArena?.status === 'idle', 'gauntlet reset');
+    await sleep(150);
+    assert.equal(health(gm, ana), undefined, 'reset clears every ring');
+
+    assert.equal(serverErrors.trim(), '', 'no server errors');
+  } finally {
+    clients.forEach(client => client.close());
+    server.kill();
+    await sleep(200);
+    fs.rmSync(DATA, { recursive: true, force: true });
+  }
+}
+
+function checkRing() {
+  const ring = require('../js/iks-ring.js');
+  assert.equal(ring.wrap({ name: 'X' }, '<img>'), '<img>', 'no gauntlet health, no ring');
+  const seven = ring.wrap({ iksHealth: 7 }, '<img>');
+  assert.match(seven, /--iks-hp:7/);
+  assert.match(seven, /iks-hp-ring/);
+  assert.doesNotMatch(seven, /iks-fire/);
+  assert.match(ring.wrap({ iksHealth: 2 }, '<img>'), /iks-hp-low/);
+  assert.match(ring.wrap({ iksHealth: 0, iksEliminated: true }, '<img>'), /iks-eliminated/);
+  assert.match(ring.wrap({ iksHealth: 9, iksChampion: true }, '<img>'), /iks-victor[\s\S]*iks-fire/, 'the victor burns');
+  assert.equal(ring.messageClass({ iksHealth: 9, iksChampion: true }), ' iks-victor-message');
+  assert.equal(ring.messageClass({ iksHealth: 9 }), '');
+}
+
+(async () => {
+  checkRing();
+  checkStore();
+  await runServer();
+  console.log('PASS IKS OKS gauntlet: join window, lifesteal, Broker games, eliminations, last standing, 50-game limit, reset; one duel at a time, stale/cancelled/expired challenges never open a second board');
+})().catch(error => {
+  console.error('FAIL IKS OKS gauntlet:', error);
+  process.exit(1);
+});

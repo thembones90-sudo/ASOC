@@ -2646,8 +2646,10 @@ const App = {
         break;
 
       case 'players:update':
+        this.iksArena = message.iksArena || null;
         this.updatePlayerList(message.players);
         this.renderGMOnlinePresence(message.players || []);
+        window.GMMinigames?.onArena?.();
         window.AsocAlerts?.gmPlayers(message.players);
         break;
 
@@ -4537,11 +4539,13 @@ const App = {
       ? entity.avatarData
       : '';
     const avatarName = this.escapeHtml(entity.name || entity.playerName || 'Little Hero');
-    return `
+    // IKS OKS GAUNTLET health ring (js/iks-ring.js) for joined fighters.
+    const ring = window.IksRing ? html => IksRing.wrap(entity, html) : html => html;
+    return ring(`
       <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${avatarData ? ' avatar-preview-trigger' : ''}" style="--lh-frame:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
         ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}
       </span>
-    `;
+    `);
   },
 
   escapeHtml(text) {
@@ -5376,7 +5380,7 @@ const App = {
     }
 
     return `
-      <div class="gm-chat-message gm-flow-message ${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+      <div class="gm-chat-message gm-flow-message ${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
         <div class="gm-chat-avatar-rail">${this.littleHeroAvatarHTML(identity, true)}</div>
         <div class="gm-chat-bubble-cluster">
           <div class="gm-chat-message-main">${manualBadge}

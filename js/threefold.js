@@ -65,15 +65,40 @@
 
     openChooser() {
       if (PlayerApp.roomMode !== 'CASUAL') return;
+      this._chooserOpen = true;
       const players = (PlayerApp.currentPlayers || []).filter(p => p.connected !== false && p.id !== PlayerApp.playerId);
       const content = document.getElementById('threefold-content');
       if (!content) return;
-      content.innerHTML = players.length
-        ? '<div class="threefold-kicker">SELECT OPPONENT</div><div class="threefold-opponents">' +
-          players.map(p => `<button type="button" class="threefold-opponent" data-threefold-opponent="${this.escape(p.id)}">${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D</small></span><i>CHALLENGE</i></button>`).join('') +
-          '</div>'
-        : '<div class="threefold-empty">NO OTHER LITTLE HEROES ONLINE</div>';
+      const me = (PlayerApp.currentPlayers || []).find(p => p.id === PlayerApp.playerId) || {};
+      content.innerHTML = this.gauntletBar(me) + (me.iksEliminated
+        ? '<div class="threefold-status"><b>ELIMINATED</b><span>0 health. You sit out until the Shadow Broker resets the gauntlet.</span></div>'
+        : players.length
+          ? '<div class="threefold-kicker">SELECT OPPONENT</div><div class="threefold-opponents">' +
+            players.map(p => `<button type="button" class="threefold-opponent${p.iksEliminated ? ' is-eliminated' : ''}" data-threefold-opponent="${this.escape(p.id)}" ${p.iksEliminated ? 'disabled' : ''}>${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D${Number.isFinite(p.iksHealth) ? ` · ${p.iksHealth}/10 HP` : ''}</small></span><i>${p.iksEliminated ? 'FALLEN' : 'CHALLENGE'}</i></button>`).join('') +
+            '</div>'
+          : '<div class="threefold-empty">NO OTHER LITTLE HEROES ONLINE</div>');
       this.show();
+    },
+
+    // IKS OKS GAUNTLET strip: status, game count, and JOIN while it is open.
+    gauntletBar(me) {
+      const arena = PlayerApp.iksArena;
+      if (!arena || arena.status === 'idle') return '';
+      const joined = Number.isFinite(me?.iksHealth);
+      const victors = (arena.victors || []).map(v => this.escape(v.name)).join(' & ');
+      const line = arena.status === 'open'
+        ? (joined ? `YOU ARE IN // ${arena.fighters} JOINED // WAITING FOR THE FIRST DUEL` : `${arena.fighters} JOINED // JOINING CLOSES AT THE FIRST DUEL`)
+        : arena.status === 'running'
+          ? `GAME ${arena.gamesPlayed}/${arena.gamesTotal} // ${arena.standing} OF ${arena.fighters} STANDING${joined ? ` // YOU: ${me.iksHealth}/10` : ''}`
+          : `ENDED // VICTOR: ${victors || 'NONE'}`;
+      return `<div class="threefold-gauntlet is-${this.escape(arena.status)}"><b>IKS OKS GAUNTLET</b><span>${line}</span>${arena.status === 'open' && !joined ? '<button type="button" data-threefold-action="join-gauntlet">JOIN GAUNTLET</button>' : ''}</div>`;
+    },
+
+    // players:update: repaint the chooser so health and gauntlet state stay live.
+    onArena() {
+      const panel = document.getElementById('threefold-panel');
+      if (this._chooserOpen && panel && !panel.hidden && !this.game && !this.challenge) this.openChooser();
+      else if (this.game && panel && !panel.hidden) this.renderGame();
     },
 
     show() {
@@ -82,6 +107,12 @@
     },
 
     close() {
+      this._chooserOpen = false;
+      // Closing while our own challenge is pending withdraws it on the server.
+      if (this.challenge && this.challenge.challengerId === PlayerApp.playerId && !this.game) {
+        PlayerApp.send({ type: 'threefold:cancel', challengeId: this.challenge.id });
+        this.challenge = null;
+      }
       const panel = document.getElementById('threefold-panel');
       if (panel) panel.hidden = true;
     },
@@ -100,6 +131,8 @@
       }
       const opponent = event.target.closest('[data-threefold-opponent]');
       if (opponent) {
+        if (opponent.disabled) return;
+        this._chooserOpen = false;
         PlayerApp.send({ type: 'threefold:challenge', opponentId: opponent.dataset.threefoldOpponent });
         this.renderWaiting(opponent.querySelector('span')?.textContent || 'LITTLE HERO');
         return;
@@ -110,6 +143,7 @@
         if (kind === 'accept' && this.challenge) PlayerApp.send({ type: 'threefold:accept', challengeId: this.challenge.id });
         if (kind === 'decline' && this.challenge) PlayerApp.send({ type: 'threefold:decline', challengeId: this.challenge.id });
         if (kind === 'rematch' && this.lastOpponentId) PlayerApp.send({ type: 'threefold:challenge', opponentId: this.lastOpponentId });
+        if (kind === 'join-gauntlet') PlayerApp.send({ type: 'iks:join' });
         if (kind === 'close') this.close();
         return;
       }
@@ -175,11 +209,13 @@
       const status = g.complete
         ? (g.winnerId ? (g.winnerId === PlayerApp.playerId ? 'YOU WIN' : `${this.escape(g.winnerName)} WINS`) : 'STALEMATE')
         : (myTurn ? 'YOUR MOVE' : `${this.escape(g.turnName)} IS THINKING`);
+      const fighter = id => (PlayerApp.currentPlayers || []).find(p => String(p.id) === String(id)) || null;
+      const face = id => fighter(id) ? this.avatar(fighter(id)) : (String(id) === '__GM__' ? '<img class="threefold-broker-face" src="assets/ui/shadow-broker.png" alt="Shadow Broker">' : '');
       content.innerHTML = `
         <div class="threefold-versus">
-          <span class="${g.xId === PlayerApp.playerId ? 'is-me' : ''}"><b>X</b>${this.escape(g.xName)}</span>
+          <span class="${g.xId === PlayerApp.playerId ? 'is-me' : ''}">${face(g.xId)}<b>X</b>${this.escape(g.xName)}</span>
           <i>VS</i>
-          <span class="${g.oId === PlayerApp.playerId ? 'is-me' : ''}"><b>O</b>${this.escape(g.oName)}</span>
+          <span class="${g.oId === PlayerApp.playerId ? 'is-me' : ''}">${face(g.oId)}<b>O</b>${this.escape(g.oName)}</span>
         </div>
         <div class="threefold-turn ${g.complete ? 'complete' : ''}">${status}</div>
         <div class="threefold-board" aria-label="Threefold board">
@@ -190,6 +226,8 @@
     },
 
     onClosed(message) {
+      // A stale challenge closing must never tear down a live game.
+      if (message?.challengeId && this.challenge?.id !== message.challengeId) return;
       if (message?.reason) {
         const content = document.getElementById('threefold-content');
         if (content) content.innerHTML = `<div class="threefold-status"><b>DUEL CLOSED</b><span>${this.escape(message.reason)}</span></div>`;
@@ -201,8 +239,10 @@
       this.game = null;
     },
     avatar(player) {
-      if (player?.avatarData) return `<img src="${this.escape(player.avatarData)}" alt="">`;
-      return '<span class="threefold-avatar-fallback">◆</span>';
+      const face = player?.avatarData
+        ? `<img src="${this.escape(player.avatarData)}" alt="">`
+        : '<span class="threefold-avatar-fallback">◆</span>';
+      return window.IksRing ? IksRing.wrap(player, face) : face;
     },
 
     escape(value) {

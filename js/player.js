@@ -1510,6 +1510,10 @@ const PlayerApp = {
 
       case 'players:update': {
         this.updatePlayerLeaderboard(message.players);
+        this.iksArena = message.iksArena || null;
+        window.IksRing?.applyTo(document.getElementById('little-hero-avatar-preview'),
+          (message.players || []).find(p => String(p.id) === String(this.playerId)));
+        window.Threefold?.onArena?.();
         const commsRoom = document.getElementById('battle-comms-room');
         const commsOnline = document.getElementById('battle-comms-online');
         const casualOnline = document.getElementById('casual-online-count');
@@ -4727,7 +4731,7 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${manualTribute ? 'active-blood-tribute' : ''} ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+      <div class="chat-message ${manualTribute ? 'active-blood-tribute' : ''} ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
         <div class="chat-avatar-rail">${this.littleHeroAvatarHTML(identity)}</div>
         <div class="chat-message-main">${manualBadge}
           <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span></div>
@@ -4811,11 +4815,13 @@ const PlayerApp = {
       Date.now() < this.finalSolverAura.localExpiresAt
     );
     const avatarName = this.escapeHtml(entity.name || entity.playerName || 'Little Hero');
-    return `
+    // IKS OKS GAUNTLET health ring (js/iks-ring.js) for joined fighters.
+    const ring = window.IksRing ? html => IksRing.wrap(entity, html) : html => html;
+    return ring(`
       <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${auraActive ? ' final-solver-aura' : ''}${avatarData ? ' avatar-preview-trigger' : ''}" style="--lh-frame:${frameColor};--lh-aura:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
         ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}
       </span>
-    `;
+    `);
   },
 
   escapeHtml(text) {

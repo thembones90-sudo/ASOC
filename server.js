@@ -17,6 +17,7 @@ const matchLedger = require('./match-ledger');
 const matchStore = require('./match-store');
 const recountEngine = require('./recount-engine');
 const tweakStore = require('./tweak-store');
+const iksArena = require('./iks-arena-store');
 const unstableConcoction = require('./unstable-concoction');
 // TWEAKS production sync marker: feedback subsystem is part of the live server build.
 // TWEAKS player HUD visibility sync.
@@ -4247,14 +4248,65 @@ function threefoldWinningLine(board) {
   return lines.find(([a,b,c]) => board[a] && board[a] === board[b] && board[a] === board[c]) || null;
 }
 
+// ONE DUEL AT A TIME. A player is "busy" while they sit in an unfinished game.
+// Challenges expire, a new challenge withdraws the challenger's older ones,
+// and starting a game cancels every other challenge involving either player
+// -- so a late ACCEPT on a stale challenge can never open a second board.
+const THREEFOLD_CHALLENGE_TTL_MS = Number(process.env.ASOC_THREEFOLD_CHALLENGE_TTL_MS) || 60000;
+
+function threefoldActiveGame(state, playerId) {
+  const id = String(playerId);
+  for (const game of state.games.values()) {
+    if (!game.complete && (String(game.xId) === id || String(game.oId) === id)) return game;
+  }
+  return null;
+}
+
+function threefoldCloseChallenge(room, state, challenge, reason, exceptId = null) {
+  state.challenges.delete(challenge.id);
+  [challenge.challengerId, challenge.opponentId].forEach(id => {
+    if (exceptId !== null && String(id) === String(exceptId)) return;
+    const target = threefoldPlayer(room, id);
+    if (target) sendToWs(target.socket, { type:'threefold:closed', challengeId: challenge.id, reason });
+  });
+}
+
+function threefoldSweepChallenges(room, state) {
+  const now = Date.now();
+  for (const challenge of [...state.challenges.values()]) {
+    if (now - challenge.createdAt > THREEFOLD_CHALLENGE_TTL_MS) threefoldCloseChallenge(room, state, challenge, 'Challenge expired.');
+  }
+}
+
+function handleThreefoldCancel(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return;
+  const state = threefoldStateFor(room);
+  const actor = threefoldActor(room, ws);
+  const challenge = state.challenges.get(String(message.challengeId || ''));
+  if (!actor || !challenge || String(challenge.challengerId) !== String(actor.player.id)) return;
+  threefoldCloseChallenge(room, state, challenge, `${actor.player.name || 'The challenger'} withdrew the challenge.`, actor.player.id);
+}
+
 function handleThreefoldChallenge(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || room.roomMode !== ROOM_MODES.CASUAL) return sendToWs(ws, { type:'error', message:'IKS OKS is available only in Amusement Park' });
   const challenger = threefoldActor(room, ws);
   const opponent = threefoldPlayer(room, message.opponentId);
   if (!challenger || !opponent || String(challenger.player.id) === String(message.opponentId)) return sendToWs(ws, { type:'error', message:'Opponent unavailable' });
+  const lockout = threefoldLockout(challenger.player, opponent.player);
+  if (lockout) return sendToWs(ws, { type:'error', message: lockout });
 
   const state = threefoldStateFor(room);
+  threefoldSweepChallenges(room, state);
+  if (threefoldActiveGame(state, challenger.player.id)) return sendToWs(ws, { type:'error', message:'FINISH YOUR CURRENT DUEL FIRST' });
+  if (threefoldActiveGame(state, opponent.player.id)) return sendToWs(ws, { type:'error', message:`${opponent.player.name || 'That Little Hero'} IS ALREADY IN A DUEL` });
+  // A new challenge replaces any the challenger still has out.
+  for (const older of [...state.challenges.values()]) {
+    if (String(older.challengerId) === String(challenger.player.id)) {
+      threefoldCloseChallenge(room, state, older, `${challenger.player.name || 'The challenger'} withdrew the challenge.`, challenger.player.id);
+    }
+  }
   const id = 'tfch-' + crypto.randomBytes(8).toString('hex');
   const challenge = {
     id,
@@ -4271,13 +4323,28 @@ function handleThreefoldAccept(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || room.roomMode !== ROOM_MODES.CASUAL) return;
   const state = threefoldStateFor(room);
+  threefoldSweepChallenges(room, state);
   const challenge = state.challenges.get(String(message.challengeId || ''));
   const actor = threefoldActor(room, ws);
-  if (!challenge || !actor || String(challenge.opponentId) !== String(actor.player.id)) return;
+  if (!actor) return;
+  if (!challenge) return sendToWs(ws, { type:'threefold:closed', challengeId: String(message.challengeId || ''), reason:'That challenge is no longer open.' });
+  if (String(challenge.opponentId) !== String(actor.player.id)) return;
   const challenger = threefoldPlayer(room, challenge.challengerId);
   const opponent = threefoldPlayer(room, challenge.opponentId);
+  if (!challenger || !opponent) return threefoldCloseChallenge(room, state, challenge, 'Opponent unavailable.');
+  const busy = [challenger, opponent].find(side => threefoldActiveGame(state, side.player.id));
+  if (busy) return threefoldCloseChallenge(room, state, challenge, `${busy.player.name || 'A Little Hero'} is already in a duel.`);
+  const lockout = threefoldLockout(challenger.player, opponent.player);
+  if (lockout) return threefoldCloseChallenge(room, state, challenge, lockout);
   state.challenges.delete(challenge.id);
-  if (!challenger || !opponent) return sendToWs(ws, { type:'error', message:'Opponent unavailable' });
+  // Both players are now committed: every other open challenge involving
+  // either of them is void.
+  for (const other of [...state.challenges.values()]) {
+    const involved = [other.challengerId, other.opponentId].map(String);
+    if (involved.includes(String(challenge.challengerId)) || involved.includes(String(challenge.opponentId))) {
+      threefoldCloseChallenge(room, state, other, 'That Little Hero started another duel.');
+    }
+  }
 
   const challengerIsX = crypto.randomInt(0, 2) === 0;
   const xPlayer = challengerIsX
@@ -4311,9 +4378,79 @@ function handleThreefoldDecline(ws, message) {
   });
 }
 
-function recordThreefoldResult(game) {
+// IKS OKS GAUNTLET lockout: a joined Little Hero at 0 health plays no IKS OKS
+// until the Broker resets the gauntlet (see iks-arena-store.js). The Shadow
+// Broker is never locked out.
+function threefoldLockout(...sides) {
+  for (const side of sides) {
+    if (!side || side.isHost || String(side.id) === '__GM__' || isMasterTestPlayerId(side.id)) continue;
+    if (iksArena.isEliminated(side.id)) return `${side.name || 'LITTLE HERO'} IS ELIMINATED // OUT UNTIL THE GAUNTLET IS RESET`;
+  }
+  return null;
+}
+
+function iksAnnounce(room, lines) {
+  if (!room || !lines.length) return;
+  lines.forEach(text => addShadowBrokerMessage(room, text, { editableByHost: false }));
+  broadcastChatUpdate(room);
+}
+
+// Every finished game between gauntlet fighters (or a fighter and the Broker)
+// counts toward the limit and moves health. Announces falls and victors.
+function applyThreefoldArena(room, game) {
+  if (!game || isMasterTestPlayerId(game.xId) || isMasterTestPlayerId(game.oId)) return null;
+  const side = (id, name) => ({ id: String(id), name, isBroker: String(id) === '__GM__' });
+  const result = iksArena.recordGame({ x: side(game.xId, game.xName), o: side(game.oId, game.oName), winnerId: game.winnerId || null });
+  if (!result) return null;
+  const lines = result.eliminated.map(fallen => `IKS OKS GAUNTLET // ${fallen.name} HAS FALLEN. 0 HEALTH. OUT UNTIL THE GAUNTLET IS RESET.`);
+  if (result.victors?.length) {
+    const names = result.victors.map(v => v.name).join(' & ');
+    lines.push(result.endedReason === 'last-standing'
+      ? `IKS OKS GAUNTLET // ${names} IS THE SOLE VICTOR. EVERY OTHER LITTLE HERO HAS FALLEN.`
+      : result.victors.length > 1
+        ? `IKS OKS GAUNTLET // ${result.gamesPlayed} GAMES PLAYED. ${names} SHARE THE CROWN.`
+        : `IKS OKS GAUNTLET // ${result.gamesPlayed} GAMES PLAYED. ${names} STANDS VICTORIOUS.`);
+  }
+  iksAnnounce(room, lines);
+  return result;
+}
+
+function hostRoomFor(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  return room && ws === room.hostConnection ? room : null;
+}
+
+function handleIksGauntletStart(ws) {
+  const room = hostRoomFor(ws);
+  if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can start the IKS OKS gauntlet' });
+  const result = iksArena.start();
+  if (!result.ok) return sendToWs(ws, { type:'error', message: result.error });
+  iksAnnounce(room, [`IKS OKS GAUNTLET // OPEN. JOIN FROM YOUR IKS OKS PANEL. ${iksArena.GAUNTLET_GAMES} GAMES. 10 HEALTH. LAST ONE STANDING WINS.`]);
+  broadcastPlayersUpdate(room);
+}
+
+function handleIksGauntletJoin(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  const player = room && ws !== room.hostConnection ? room.players.get(ws) : null;
+  if (!player || player.isTestPersona === true || isMasterTestPlayerId(player.id)) return sendToWs(ws, { type:'error', message:'Only a Little Hero can join the gauntlet' });
+  const result = iksArena.join(player);
+  if (!result.ok) return sendToWs(ws, { type:'error', message: result.error });
+  if (!result.already) iksAnnounce(room, [`IKS OKS GAUNTLET // ${player.name || 'LITTLE HERO'} ENTERS THE GAUNTLET.`]);
+  broadcastPlayersUpdate(room);
+}
+
+function handleIksArenaReset(ws) {
+  const room = hostRoomFor(ws);
+  if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can reset the IKS OKS gauntlet' });
+  iksArena.reset();
+  iksAnnounce(room, ['IKS OKS GAUNTLET // RESET. THE ARENA IS EMPTY.']);
+  broadcastPlayersUpdate(room);
+}
+
+function recordThreefoldResult(game, room = null) {
   if (!game || game.resultRecorded) return;
   game.resultRecorded = true;
+  applyThreefoldArena(room, game);
   const xIdentity = { id: game.xId, name: game.xName };
   const oIdentity = { id: game.oId, name: game.oName };
   if (game.xId === '__GM__' || game.oId === '__GM__' || isMasterTestPlayerId(game.xId) || isMasterTestPlayerId(game.oId)) return;
@@ -4358,8 +4495,9 @@ function handleThreefoldMove(ws, message) {
     game.turnName = mark === 'X' ? game.oName : game.xName;
   }
   if (game.complete) {
-    recordThreefoldResult(game);
+    recordThreefoldResult(game, room);
     broadcastPlayersUpdate(room);
+    state.games.delete(game.id);
   }
   threefoldSendPair(room, game, { type:'threefold:state', game });
 }
@@ -5960,24 +6098,33 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       threefoldWins: Number(profile.threefoldWins) || 0,
       threefoldLosses: Number(profile.threefoldLosses) || 0,
       threefoldDraws: Number(profile.threefoldDraws) || 0,
-      asocGamesEarned: Number(profile.asocGamesEarned) || 0
+      asocGamesEarned: Number(profile.asocGamesEarned) || 0,
+      ...iksArenaFields(player)
     });
   });
   return players;
 }
 
+// IKS OKS health for avatar rings; Master Mirror test personas have none.
+function iksArenaFields(player) {
+  if (!player || player.isTestPersona === true || isMasterTestPlayerId(player.id)) return {};
+  const standing = iksArena.standingOf(player.id);
+  if (!standing) return {};
+  return { iksHealth: standing.health, iksEliminated: standing.eliminated, iksChampion: standing.victor };
+}
+
 function sendPlayersUpdateTo(room, ws) {
   if (!room || !ws || ws.readyState !== 1) return;
-  sendToWs(ws, { type: 'players:update', players: getPlayersSnapshot(room, ws.isHost === true) });
+  sendToWs(ws, { type: 'players:update', players: getPlayersSnapshot(room, ws.isHost === true), iksArena: iksArena.publicState() });
 }
 
 function broadcastPlayersUpdate(room) {
-  const playerMessage = { type: 'players:update', players: getPlayersSnapshot(room, false) };
+  const playerMessage = { type: 'players:update', players: getPlayersSnapshot(room, false), iksArena: iksArena.publicState() };
   room.players.forEach((player, ws) => {
     if (ws.readyState === 1) ws.send(JSON.stringify(playerMessage));
   });
   if (room.hostConnection?.readyState === 1) {
-    room.hostConnection.send(JSON.stringify({ type: 'players:update', players: getPlayersSnapshot(room, true) }));
+    room.hostConnection.send(JSON.stringify({ type: 'players:update', players: getPlayersSnapshot(room, true), iksArena: iksArena.publicState() }));
   }
 }
 
@@ -8186,6 +8333,22 @@ wss.on('connection', (ws) => {
         }
         case 'threefold:challenge': {
           handleThreefoldChallenge(ws, message);
+          break;
+        }
+        case 'threefold:cancel': {
+          handleThreefoldCancel(ws, message);
+          break;
+        }
+        case 'gm:iksReset': {
+          handleIksArenaReset(ws);
+          break;
+        }
+        case 'gm:iksStart': {
+          handleIksGauntletStart(ws);
+          break;
+        }
+        case 'iks:join': {
+          handleIksGauntletJoin(ws);
           break;
         }
         case 'threefold:accept': {
