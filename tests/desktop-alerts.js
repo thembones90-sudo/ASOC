@@ -61,6 +61,18 @@ assert.equal(notifications().length, 0);
 alerts.playerChat([{ id: 8, playerId: null, playerName: 'SHADOW BROKER', source: 'shadowBroker', text: '@all focus' }], { selfId: 'me', selfName: 'Hero42' });
 assert.equal(notifications()[0].title, 'SHADOW BROKER mentioned you');
 
+// Little Hero nudges: only a real nudge (server-flagged) pops up; a swallowed
+// @all (over the free limit) is plain chat.
+reset();
+alerts.playerChat([{ id: 20, playerId: 'p2', playerName: 'Zed', text: '@all wake up', nudge: true }], { selfId: 'me', selfName: 'Hero42' });
+assert.equal(notifications()[0].title, 'Zed nudged everyone');
+reset();
+alerts.playerChat([{ id: 21, playerId: 'p2', playerName: 'Zed', text: '@all again' }], { selfId: 'me', selfName: 'Hero42' });
+assert.deepEqual(calls, [['attention', 1]], 'a swallowed nudge only flashes');
+reset();
+alerts.gmChat([{ id: 22, playerId: 'p2', playerName: 'Zed', text: '@all hello', nudge: true }]);
+assert.equal(notifications()[0].title, 'Zed nudged everyone', 'the GM is nudged too');
+
 // Game state: the first state is a baseline, then transitions alert once.
 reset();
 const battle = { roomMode: 'BATTLE', gameWon: false, matchResult: null, wheel: { phase: 'idle', segments: [] } };

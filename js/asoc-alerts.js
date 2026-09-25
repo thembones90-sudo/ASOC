@@ -143,6 +143,12 @@
       if (!others.length) return;
       const important = [];
       others.forEach(msg => {
+        // A Little Hero @all only counts when the server says it really
+        // nudged (msg.nudge); a swallowed nudge is plain chat.
+        if (msg.nudge === true) {
+          important.push({ title: `${senderName(msg)} nudged everyone`, body: describeMessage(msg), tag: 'nudge' });
+          return;
+        }
         const kind = classifyForName(msg, selfName, { allowAll: msg.source === 'shadowBroker' });
         if (kind === 'chat') return;
         important.push({
@@ -197,6 +203,10 @@
       players.forEach(msg => {
         if (msg.adjudicable === true && !msg.verdict) {
           guesses.push({ title: `${senderName(msg)} is waiting for a verdict`, body: describeMessage(msg), tag: 'verdict' });
+          return;
+        }
+        if (msg.nudge === true) {
+          direct.push({ title: `${senderName(msg)} nudged everyone`, body: describeMessage(msg), tag: 'nudge' });
           return;
         }
         const kind = classifyForGm(msg);

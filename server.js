@@ -321,6 +321,7 @@ function serializeRoomForRecovery(room) {
     wheel: room.wheel,
     bloodTributes: room.bloodTributes || [],
     pendingTribute: room.pendingTribute || null,
+    nudgeCounts: room.nudgeCounts || {},
     ritual: normalizeRitualState(room.ritual),
     unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
     timer: room.timer,
@@ -427,6 +428,7 @@ function restoreActiveRooms() {
         },
         bloodTributes: Array.isArray(saved.bloodTributes) ? saved.bloodTributes : [],
         pendingTribute: saved.pendingTribute || null,
+        nudgeCounts: saved.nudgeCounts && typeof saved.nudgeCounts === 'object' ? saved.nudgeCounts : {},
         ritual: normalizeRitualState(saved.ritual),
         unstableConcoction: unstableConcoction.normalizeState(saved.unstableConcoction),
         timer: saved.timer || null,
@@ -919,6 +921,8 @@ function createRoom(gameId, hostWs) {
     // its publicUntil deadline is still active.
     bloodTributes: [],
     pendingTribute: null,
+    // Little Hero @all nudges used since their last nudge Blood Tribute.
+    nudgeCounts: {},
     unstableConcoction: unstableConcoction.normalizeState(),
     // TIMER + BORROWED TIME -- server-authoritative, per-board (unlike WOMF's
     // persistent charge, a fresh board gets a fresh, un-started timer -- see
@@ -1540,6 +1544,8 @@ function handleBloodTributeSubmit(ws, message) {
   });
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages.shift();
   room.pendingTribute = null;
+  // A paid nudge debt buys back the nudge: a fresh NUDGE_FREE_USES.
+  if (demand.source === 'nudge' && room.nudgeCounts) delete room.nudgeCounts[String(demand.playerId)];
   if ((demand.source || 'womf') === 'womf') {
     room.womf.charge = 0;
     resetWheel(room);
@@ -1601,6 +1607,8 @@ function handleTributeForgive(ws) {
   }
 
   room.pendingTribute = null;
+  // Forgiving a nudge debt is mercy, and mercy restores the nudge too.
+  if (demand.source === 'nudge' && room.nudgeCounts) delete room.nudgeCounts[String(demand.playerId)];
 
   // Only WOMF-origin debt owns the Battle wheel. Casual Concoction debt
   // must never mutate or resurrect Battle wheel state.
@@ -4719,6 +4727,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/order', help: '/order -- shuffled turn order of connected players' },
   { name: '/stats', help: '/stats -- your messages, correct/wrong, points' },
   { name: '/spit', help: '/spit @Name -- target a player from the roster list' },
+  { name: '/all', help: '/all [message] -- nudge everyone (shakes every screen)' },
   { name: '/commands', help: '/commands -- this list' }
 ];
 
@@ -5287,6 +5296,8 @@ function getChatState(room) {
               .map(([emoji, playerIds]) => [emoji, Array.from(new Set(playerIds.filter(id => typeof id === 'string')))])
           ),
           source: m.source || null,
+          // A Little Hero @all that actually shook every screen.
+          nudge: m.nudge === true || undefined,
           imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
           messageType: m.messageType || null,
           ...sanitizeChatCommandMeta(m),
@@ -5880,17 +5891,34 @@ function handleChatGuess(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Battle Comms cooling down' });
     return;
   }
-  const dispatch = dispatchPlayerSlashCommand(room, ws, text, message);
+  // "/all message" is the typed form of a nudge: it posts "@all message".
+  const allCommand = String(text).trim().match(/^\/all(?:\s+([\s\S]*))?$/i);
+  const chatText = allCommand ? `@all${allCommand[1] ? ' ' + allCommand[1].trim() : ''}` : text;
+  const dispatch = allCommand ? null : dispatchPlayerSlashCommand(room, ws, chatText, message);
   const result = dispatch !== null
     ? dispatch
-    : addChatMessage(room, ws.playerId, ws.playerName, text);
+    : addChatMessage(room, ws.playerId, ws.playerName, chatText);
   if (result.success) {
     cooldown.chatAt = now;
+    const nudge = dispatch === null && containsAllMention(result.message.text)
+      ? applyPlayerNudge(room, ws, result.message)
+      : null;
     // Permanent channel contract: if clients can see a transmission, it has
     // already reached the recovery snapshot.
     persistActiveRooms();
     broadcastChatUpdate(room);
-    if (result.tributeTriggered) broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+    if (result.tributeTriggered || nudge === 'tribute') broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+    if (nudge === 'nudge') {
+      broadcastToRoom(room, {
+        type: 'chat:mentionAll',
+        messageId: result.message.id,
+        fromPlayerId: ws.playerId,
+        fromName: ws.playerName,
+        timestamp: Date.now()
+      });
+    } else if (nudge === 'blocked') {
+      sendToWs(ws, { type: 'error', message: 'YOUR NUDGE WAS SWALLOWED BY THE VOID' });
+    }
   } else {
     sendToWs(ws, { type: 'error', message: result.error });
   }
@@ -6021,6 +6049,39 @@ function handleChatReaction(ws, message) {
 // scoring, verdict, timer, clue, or reveal state is touched.
 function containsAllMention(text) {
   return /(^|[^\p{L}\p{N}_])@all(?![\p{L}\p{N}_])/iu.test(String(text || ''));
+}
+
+// LITTLE HERO NUDGE. A player's @all (or "/all message") is an old-school
+// nudge: every screen shakes, exactly like the Shadow Broker's @all.
+// Hidden cost, never shown in the UI: after NUDGE_FREE_USES nudges the next
+// one is swallowed and that player is handed a Blood Tribute demand. Paying
+// it (or the GM forgiving it) restores the nudge. Returns:
+//   'nudge'   -- shake everyone (message.nudge is set)
+//   'tribute' -- over the limit; a nudge Blood Tribute was just demanded
+//   'blocked' -- over the limit while a tribute is already owed
+const NUDGE_FREE_USES = 5;
+function applyPlayerNudge(room, ws, message) {
+  const player = room.players.get(ws);
+  if (!player) return null;
+  // The GM's Master Mirror persona is the GM testing: nudges, never pays.
+  if (player.isTestPersona === true || isMasterTestPlayerId(player.id)) {
+    message.nudge = true;
+    return 'nudge';
+  }
+  room.nudgeCounts ||= {};
+  const id = String(player.id);
+  const used = Number(room.nudgeCounts[id]) || 0;
+  if (used < NUDGE_FREE_USES) {
+    room.nudgeCounts[id] = used + 1;
+    message.nudge = true;
+    return 'nudge';
+  }
+  // One Blood Tribute demand exists room-wide; never overwrite someone
+  // else's (or this player's own) outstanding debt.
+  if (room.pendingTribute?.status === 'required') return 'blocked';
+  armBloodTributeForPlayer(room, player, null, 'nudge');
+  room.revision++;
+  return 'tribute';
 }
 
 function handleGmBroadcast(ws, message) {
