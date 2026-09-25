@@ -19418,3 +19418,251 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
 @keyframes battle-finish-beckon { 50% { box-shadow: 0 0 26px rgba(240, 180, 60, .45), inset 0 0 0 1px rgba(255, 220, 126, .16); } }
 @media (prefers-reduced-motion: reduce) { .battle-flow-row > #finish-game-btn { animation: none; } }
 body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none !important; }
+
+/* SHADOW COINS in the player's status HUD (next to SCORE / RANK / STREAK). */
+#game-screen:not(#casual-scale-guard) .hero-stat.hero-stat-coins { border-color: rgba(150, 200, 90, .4) !important; }
+#game-screen .hero-stat-coins .hero-stat-coin { width: 18px; height: auto; aspect-ratio: 256 / 251; object-fit: contain; filter: drop-shadow(0 0 4px rgba(140, 210, 60, .35)); }
+#game-screen.room-mode-casual:not(#casual-scale-guard) .hero-stat-coins b,
+#game-screen:not(#casual-scale-guard) .hero-stat-coins b { color: #c9f08c !important; }
+#game-screen .hero-stat-coins.coin-bump { animation: hero-coin-bump .9s ease-out; }
+@keyframes hero-coin-bump { 30% { box-shadow: 0 0 16px rgba(160, 240, 70, .55); transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { #game-screen .hero-stat-coins.coin-bump { animation: none; } }
+
+/* =========================================================
+   RECOUNT // CLASSIFIED MATCH AUDIT
+   "ASOC has completed its audit of the match and is now
+   issuing its verdict." Visual / type / hierarchy pass over
+   js/recount.js markup -- no content changes. Desktop scale
+   lives in the min-width query; the phone safety rules above
+   stay in charge below 761px.
+   ========================================================= */
+.recount-overlay {
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(212, 150, 50, .12), transparent 55%),
+    radial-gradient(ellipse at 50% 120%, rgba(150, 30, 40, .10), transparent 55%),
+    rgba(3, 4, 6, .95);
+}
+.recount-overlay .recount-panel {
+  counter-reset: rc-section;
+  border-color: #3a424d;
+  border-top: 1px solid #6b5a33;
+  background:
+    linear-gradient(180deg, rgba(212, 168, 67, .06), transparent 180px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .012) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #11151a, #07090c);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .8), 0 0 0 1px rgba(0, 0, 0, .6), inset 0 1px rgba(255, 255, 255, .04);
+}
+/* Machine edging: amber-to-blood rail on the left, corner brackets. */
+.recount-overlay .recount-panel::before {
+  width: 4px;
+  background: linear-gradient(180deg, #e8b84a 0%, #b8862e 45%, #7e2228 100%);
+  box-shadow: 0 0 14px rgba(232, 184, 74, .35);
+}
+.recount-overlay .recount-panel::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  background:
+    linear-gradient(#8a7443, #8a7443) top left / 22px 2px no-repeat,
+    linear-gradient(#8a7443, #8a7443) top left / 2px 22px no-repeat,
+    linear-gradient(#8a7443, #8a7443) top right / 22px 2px no-repeat,
+    linear-gradient(#8a7443, #8a7443) top right / 2px 22px no-repeat,
+    linear-gradient(#5b2a2e, #5b2a2e) bottom left / 22px 2px no-repeat,
+    linear-gradient(#5b2a2e, #5b2a2e) bottom left / 2px 22px no-repeat,
+    linear-gradient(#5b2a2e, #5b2a2e) bottom right / 22px 2px no-repeat,
+    linear-gradient(#5b2a2e, #5b2a2e) bottom right / 2px 22px no-repeat;
+  opacity: .8;
+}
+
+/* Header: a classified report masthead. */
+.recount-overlay .recount-title {
+  background: linear-gradient(180deg, #ffffff 0%, #d9dde3 48%, #9aa3ae 60%, #eef0f3 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 16px rgba(232, 184, 74, .28));
+}
+.recount-overlay .recount-sub { color: #b1bac5; }
+.recount-overlay .recount-sub::before { content: "CLASSIFIED // "; color: #e0605f; letter-spacing: .2em; }
+.recount-overlay .rc-badge { padding: 3px 10px; font-weight: 800; }
+.recount-overlay .rc-badge-won { color: #3ee8a5; background: rgba(34, 230, 154, .08); box-shadow: 0 0 12px rgba(34, 230, 154, .18); }
+.recount-overlay .rc-badge-lost { color: #ff6b6a; background: rgba(224, 96, 95, .1); box-shadow: 0 0 12px rgba(224, 96, 95, .2); }
+.recount-overlay .recount-controls button {
+  border-color: #5a6470;
+  background: linear-gradient(180deg, #1c2128, #101317);
+  color: #d3d9e1;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.recount-overlay .recount-controls button:hover { border-color: #e8b84a; color: #ffd98a; box-shadow: inset 0 0 12px rgba(232, 184, 74, .15); }
+
+/* Section headers: numbered report sections with a machine rule. */
+.recount-overlay .rc-block > h3,
+.recount-overlay .rc-awards-wrap > h3 {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  counter-increment: rc-section;
+}
+.recount-overlay .rc-block > h3::before,
+.recount-overlay .rc-awards-wrap > h3::before { content: counter(rc-section, decimal-leading-zero) " //"; color: #7d6a3f; }
+.recount-overlay .rc-block > h3::after,
+.recount-overlay .rc-awards-wrap > h3::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(232, 184, 74, .55), rgba(232, 184, 74, 0));
+}
+.recount-overlay .rc-sub-h::before { color: #7e2a2e !important; }
+
+/* Winner: the main match verdict, stamped and archived. */
+.recount-overlay .rc-top {
+  position: relative;
+  border: 1px solid rgba(232, 184, 74, .45);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(232, 184, 74, .16), transparent 70%),
+    linear-gradient(180deg, rgba(20, 17, 10, .9), rgba(8, 9, 12, .9));
+  box-shadow: inset 0 0 40px rgba(232, 184, 74, .08), 0 0 26px rgba(232, 184, 74, .08);
+}
+.recount-overlay .rc-top::before,
+.recount-overlay .rc-top::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232, 184, 74, .7), transparent);
+}
+.recount-overlay .rc-top::before { top: 10px; }
+.recount-overlay .rc-top::after { bottom: 10px; }
+.recount-overlay .rc-label { color: #e8b84a; }
+.recount-overlay .rc-label::before { content: "▣ VERDICT // "; color: #8e7747; }
+.recount-overlay .rc-top-name {
+  background: linear-gradient(180deg, #fff6df 0%, #f2d38a 55%, #c9973f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 22px rgba(232, 184, 74, .38));
+}
+.recount-overlay .rc-top-name.rc-dim { background: none; color: #6f7a87; filter: none; }
+.recount-overlay .rc-top-points { color: #f0c65d; font-weight: 800; }
+.recount-overlay .rc-strip { color: #a4aeba; }
+
+/* Tables. */
+.recount-overlay .rc-table th { color: #a3aeba; border-bottom: 1px solid #4a4131; }
+.recount-overlay .rc-table td { border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.recount-overlay .rc-table tbody tr { transition: background .15s ease; }
+.recount-overlay .rc-table tbody tr:hover { background: rgba(232, 184, 74, .05); }
+.recount-overlay .rc-name { color: #edf0f4; }
+.recount-overlay .rc-dim { color: #8d97a3 !important; }
+/* Rank prestige (by rank, so ties share it). */
+.recount-overlay .rc-place-1 { background: linear-gradient(90deg, rgba(232, 184, 74, .18), rgba(232, 184, 74, .02)); }
+.recount-overlay .rc-place-1 .rc-rank,
+.recount-overlay .rc-place-1 .rc-name { color: #ffd46a; }
+.recount-overlay .rc-place-1 .rc-rank { text-shadow: 0 0 10px rgba(232, 184, 74, .6); }
+.recount-overlay .rc-place-1 td:first-child { box-shadow: inset 3px 0 0 #e8b84a; }
+.recount-overlay .rc-place-2 { background: linear-gradient(90deg, rgba(190, 200, 215, .09), transparent); }
+.recount-overlay .rc-place-2 .rc-rank { color: #d4dbe4; }
+.recount-overlay .rc-place-2 td:first-child { box-shadow: inset 3px 0 0 #b9c2cd; }
+.recount-overlay .rc-place-3 { background: linear-gradient(90deg, rgba(196, 122, 70, .1), transparent); }
+.recount-overlay .rc-place-3 .rc-rank { color: #d99562; }
+.recount-overlay .rc-place-3 td:first-child { box-shadow: inset 3px 0 0 #b8733f; }
+.recount-overlay .rc-crown { color: #ffd46a; text-shadow: 0 0 8px rgba(232, 184, 74, .7); }
+
+/* Movement: clear pills. */
+.recount-overlay .rc-move { display: inline-block; min-width: 3.2em; padding: 3px 8px; border-radius: 3px; text-align: center; }
+.recount-overlay .rc-move-up { color: #3ee8a5; background: rgba(34, 230, 154, .1); box-shadow: inset 0 0 0 1px rgba(34, 230, 154, .3); }
+.recount-overlay .rc-move-down { color: #ff7a78; background: rgba(224, 96, 95, .1); box-shadow: inset 0 0 0 1px rgba(224, 96, 95, .32); }
+.recount-overlay .rc-move-none { color: #6f7a87; }
+
+/* Overall rankings: a long-term dossier, visibly its own archive. */
+.recount-overlay .rc-block:last-child {
+  padding: 18px 20px 12px;
+  border: 1px solid #2f3a44;
+  border-left: 3px solid #56708a;
+  background: linear-gradient(180deg, rgba(86, 112, 138, .08), rgba(0, 0, 0, .15));
+}
+.recount-overlay .rc-block:last-child > h3 { color: #a9c1d8; }
+.recount-overlay .rc-block:last-child > h3::after { background: linear-gradient(90deg, rgba(120, 160, 200, .5), transparent); }
+.recount-overlay .rc-inmatch .rc-name { color: #f4d27f; }
+
+/* Findings: commendations (gold), anomalies (cold steel), failures (red). */
+.recount-overlay .rc-award {
+  --finding: 232, 184, 74;
+  position: relative;
+  border: 1px solid rgba(var(--finding), .38);
+  border-top: 3px solid rgb(var(--finding));
+  border-left-width: 1px;
+  border-radius: 3px;
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(var(--finding), .12), transparent 60%),
+    linear-gradient(180deg, #12161b, #0b0d11);
+  box-shadow: inset 0 0 30px rgba(var(--finding), .05);
+}
+.recount-overlay .rc-cat-distinction { --finding: 232, 184, 74; }
+.recount-overlay .rc-cat-anomaly { --finding: 127, 169, 201; }
+.recount-overlay .rc-cat-failure { --finding: 224, 96, 95; }
+.recount-overlay .rc-cat-loss { --finding: 176, 71, 74; }
+.recount-overlay .rc-sev-catastrophic { box-shadow: inset 0 0 36px rgba(224, 96, 95, .14), 0 0 22px rgba(224, 96, 95, .12); }
+.recount-overlay .rc-award-head {
+  color: rgb(var(--finding));
+  font-weight: 800;
+  border-bottom: 1px solid rgba(var(--finding), .2);
+  background: rgba(var(--finding), .06);
+}
+.recount-overlay .rc-award-head::before { content: "■ "; }
+.recount-overlay .rc-award-title { color: #f3f5f8; }
+.recount-overlay .rc-award-who { color: rgb(var(--finding)); font-weight: 800; }
+.recount-overlay .rc-evidence li { border-color: rgba(var(--finding), .35); background: rgba(0, 0, 0, .45); color: #d6dce4; }
+.recount-overlay .rc-commentary {
+  padding-left: 12px;
+  border-left: 2px solid rgba(var(--finding), .5);
+  color: #c3cbd5;
+}
+.recount-overlay .rc-empty { color: #9aa5b1; border-color: #4a535f; }
+
+/* ---- Desktop scale ---- */
+@media (min-width: 761px) {
+  .recount-overlay .recount-panel { width: min(1180px, 100%); padding: 38px 46px 42px; }
+  .recount-overlay .recount-head { padding-bottom: 20px; margin-bottom: 26px; border-bottom-color: #3e3a30; }
+  .recount-overlay .recount-title { font-size: clamp(2.8rem, 5vw, 4.4rem); letter-spacing: .34em; }
+  .recount-overlay .recount-sub { margin-top: 12px; font-size: 15px; letter-spacing: .2em; }
+  .recount-overlay .rc-badge { margin-left: 12px; font-size: 12.5px; letter-spacing: .2em; }
+  .recount-overlay .recount-controls button { padding: 11px 20px; font-size: 13px; letter-spacing: .18em; }
+
+  .recount-overlay .rc-block { margin-top: 34px; }
+  .recount-overlay .rc-block > h3,
+  .recount-overlay .rc-awards-wrap > h3 { margin: 0 0 16px; font-size: 16px; letter-spacing: .3em; }
+  .recount-overlay .rc-sub-h { margin-top: 24px !important; }
+
+  .recount-overlay .rc-top { padding: 34px 20px 28px; }
+  .recount-overlay .rc-label { font-size: 15px; letter-spacing: .34em; }
+  .recount-overlay .rc-top-name { margin-top: 12px; font-size: clamp(3.2rem, 6vw, 5.2rem); }
+  .recount-overlay .rc-top-points { margin-top: 10px; font-size: 22px; letter-spacing: .28em; }
+  .recount-overlay .rc-strip { margin-top: 18px; font-size: 13.5px; letter-spacing: .12em; line-height: 1.6; }
+
+  .recount-overlay .rc-table { font-size: 16px; }
+  .recount-overlay .rc-table th { padding: 10px 12px; font-size: 12px; letter-spacing: .2em; }
+  .recount-overlay .rc-table td { padding: 13px 12px; }
+  .recount-overlay .rc-rank { width: 48px; font-size: 17px; }
+  .recount-overlay .rc-place-1 td { padding-top: 16px; padding-bottom: 16px; }
+  .recount-overlay .rc-place-1 .rc-name { font-size: 18px; }
+  .recount-overlay .rc-move { font-size: 14px; }
+
+  /* Up to three findings: side by side as dossier panels. */
+  .recount-overlay .rc-awards-wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: stretch; }
+  .recount-overlay .rc-awards-wrap > h3,
+  .recount-overlay .rc-awards-wrap > .rc-sub-h,
+  .recount-overlay .rc-awards-wrap > .rc-empty { grid-column: 1 / -1; }
+  .recount-overlay .rc-award { margin-top: 0; }
+  .recount-overlay .rc-award-head { padding: 10px 16px; font-size: 11.5px; letter-spacing: .26em; }
+  .recount-overlay .rc-award-body { padding: 18px 16px 18px; }
+  .recount-overlay .rc-award-title { font-size: 23px; letter-spacing: .1em; line-height: 1.15; }
+  .recount-overlay .rc-award-who { margin-top: 10px; font-size: 18px; letter-spacing: .1em; }
+  .recount-overlay .rc-evidence { gap: 8px; margin-top: 14px; }
+  .recount-overlay .rc-evidence li { padding: 5px 10px; font-size: 12.5px; letter-spacing: .1em; }
+  .recount-overlay .rc-commentary { margin-top: 16px; font-size: 15px; line-height: 1.5; }
+  .recount-overlay .rc-empty { padding: 20px; font-size: 13px; }
+
+  .recount-overlay .rc-block:last-child { padding: 24px 26px 16px; }
+}

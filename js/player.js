@@ -4841,11 +4841,23 @@ const PlayerApp = {
 
   // SHADOW COINS: read-only display of the server's account balance.
   renderShadowCoins(self) {
+    if (!self) return;
+    const coins = Number(self.shadowCoins) > 0 ? Number(self.shadowCoins) : 0;
+    const text = Number.isInteger(coins) ? String(coins) : coins.toFixed(1);
+    // In-game HUD chip (always visible while playing) + the profile card.
+    const hud = document.getElementById('hero-hud-coins');
+    if (hud && hud.textContent !== text) {
+      hud.textContent = text;
+      const chipEl = document.getElementById('hero-hud-coins-chip');
+      chipEl?.classList.remove('coin-bump');
+      void chipEl?.offsetWidth;
+      if (this._coinsSeen) chipEl?.classList.add('coin-bump');
+    }
+    this._coinsSeen = true;
     const chip = document.getElementById('shadow-coin-balance');
     const amount = document.getElementById('shadow-coin-amount');
-    if (!chip || !amount || !self) return;
-    const coins = Number(self.shadowCoins) > 0 ? Number(self.shadowCoins) : 0;
-    amount.textContent = Number.isInteger(coins) ? String(coins) : coins.toFixed(1);
+    if (!chip || !amount) return;
+    amount.textContent = text;
     chip.hidden = false;
   },
 

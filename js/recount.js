@@ -69,7 +69,7 @@ const Recount = (() => {
     const stripNames = tops.length ? tops.map(t => esc(t.name)).join(' &amp; ') : '—';
 
     const board = r.scoreboard.map((row, i) => `
-      <tr class="rc-row rc-step" data-step="board" style="--i:${i}">
+      <tr class="rc-row rc-step${Number(row.rank) >= 1 && Number(row.rank) <= 3 ? ` rc-place-${Number(row.rank)}` : ''}" data-step="board" style="--i:${i}">
         <td class="rc-rank">${row.rank}</td>
         <td class="rc-name">${esc(row.name)}${tops.some(t => t.name === row.name) ? ' <b class="rc-crown">◆</b>' : ''}</td>
         <td class="rc-num">${num(row.points)}</td>
