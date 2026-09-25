@@ -6114,16 +6114,17 @@ function iksArenaFields(player) {
 
 function sendPlayersUpdateTo(room, ws) {
   if (!room || !ws || ws.readyState !== 1) return;
-  sendToWs(ws, { type: 'players:update', players: getPlayersSnapshot(room, ws.isHost === true), iksArena: iksArena.publicState() });
+  sendToWs(ws, { type: 'players:update', players: getPlayersSnapshot(room, ws.isHost === true), iksArena: iksArena.publicState(), brokerOnline: room.hostConnection?.readyState === 1 });
 }
 
 function broadcastPlayersUpdate(room) {
-  const playerMessage = { type: 'players:update', players: getPlayersSnapshot(room, false), iksArena: iksArena.publicState() };
+  // brokerOnline lets Little Heroes offer the Shadow Broker as an IKS OKS opponent.
+  const playerMessage = { type: 'players:update', players: getPlayersSnapshot(room, false), iksArena: iksArena.publicState(), brokerOnline: room.hostConnection?.readyState === 1 };
   room.players.forEach((player, ws) => {
     if (ws.readyState === 1) ws.send(JSON.stringify(playerMessage));
   });
   if (room.hostConnection?.readyState === 1) {
-    room.hostConnection.send(JSON.stringify({ type: 'players:update', players: getPlayersSnapshot(room, true), iksArena: iksArena.publicState() }));
+    room.hostConnection.send(JSON.stringify({ type: 'players:update', players: getPlayersSnapshot(room, true), iksArena: iksArena.publicState(), brokerOnline: true }));
   }
 }
 
@@ -7449,6 +7450,7 @@ function handleClose(ws) {
       if (room.hostReconnectTimer) clearTimeout(room.hostReconnectTimer);
       room.hostReconnectTimer = null;
       console.log(`[MASTER ROOM] Shadow Broker disconnected; room remains ${room.armed ? 'armed' : 'unarmed'} for reconnect`);
+      broadcastPlayersUpdate(room);
     }
   } else {
     const room = rooms.get(ws.roomCode);

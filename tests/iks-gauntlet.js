@@ -308,6 +308,20 @@ async function runServer() {
     assert.equal(health(gm, ana), 10, 'reset restores every ring to full');
     assert.equal(gm.players.find(p => p.id === ana.playerId)?.iksFighter, false, 'reset clears the fighters');
 
+    // Little Heroes can challenge the Shadow Broker, and know when it is online.
+    const lastUpdate = [...ana.msgs].reverse().find(m => m.type === 'players:update');
+    assert.equal(lastUpdate.brokerOnline, true, 'players are told the Broker is online');
+    const gmMark3 = gm.mark();
+    const toGm = await challenge(ana, gm);
+    assert.equal(toGm.type, 'threefold:challenge', 'a Little Hero can challenge the Shadow Broker');
+    const atGm = await gm.waitFor(m => m.type === 'threefold:challenge' && m.challenge.opponentId === '__GM__', 'GM receives the challenge', gmMark3);
+    assert.equal(atGm.challenge.challengerId, ana.playerId);
+    const chooser = fs.readFileSync(path.join(ROOT, 'js', 'threefold.js'), 'utf8');
+    assert.match(chooser, /data-threefold-opponent="__GM__"/, 'the chooser offers the Shadow Broker');
+    const anaMark4 = ana.mark();
+    gm.close();
+    await ana.waitFor(m => m.type === 'players:update' && m.brokerOnline === false, 'players told the Broker left', anaMark4);
+
     assert.equal(serverErrors.trim(), '', 'no server errors');
   } finally {
     clients.forEach(client => client.close());

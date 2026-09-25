@@ -18864,3 +18864,8 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
   .iks-cell .iks-plate, .iks-cell .iks-flare, .iks-board .iks-board-frame { animation: none !important; }
   .iks-cell .iks-flare { opacity: 0; }
 }
+
+/* The Shadow Broker as an IKS OKS opponent in the Little Hero chooser. */
+#game-screen .threefold-opponent-broker { border-color: rgba(214, 64, 76, .45); background: linear-gradient(90deg, rgba(120, 18, 28, .22), rgba(255, 255, 255, .02)); }
+#game-screen .threefold-opponent-broker b { color: #ff8a93; letter-spacing: .08em; }
+#game-screen .threefold-opponent-broker.is-offline { opacity: .45; cursor: not-allowed; }

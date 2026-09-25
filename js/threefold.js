@@ -74,10 +74,28 @@
         ? '<div class="threefold-status"><b>ELIMINATED</b><span>0 health. You sit out until the Shadow Broker resets IKS OKS health.</span></div>'
         : players.length
           ? '<div class="threefold-kicker">SELECT OPPONENT</div><div class="threefold-opponents">' +
+            this.brokerOption() +
             players.map(p => `<button type="button" class="threefold-opponent${p.iksEliminated ? ' is-eliminated' : ''}" data-threefold-opponent="${this.escape(p.id)}" ${p.iksEliminated ? 'disabled' : ''}>${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D · ${Number(p.iksHealth ?? 10)}/10 HP</small></span><i>${p.iksEliminated ? 'FALLEN' : 'CHALLENGE'}</i></button>`).join('') +
             '</div>'
-          : '<div class="threefold-empty">NO OTHER LITTLE HEROES ONLINE</div>');
+          : '<div class="threefold-kicker">SELECT OPPONENT</div><div class="threefold-opponents">' + this.brokerOption() + '</div>');
       this.show();
+    },
+
+    // The Shadow Broker is always offered; offline, it is shown but locked.
+    brokerOption() {
+      const online = PlayerApp.brokerOnline === true;
+      return `<button type="button" class="threefold-opponent threefold-opponent-broker${online ? '' : ' is-offline'}" data-threefold-opponent="__GM__" data-threefold-name="SHADOW BROKER" ${online ? '' : 'disabled'}><img src="assets/ui/shadow-broker.png" alt=""><span><b>SHADOW BROKER</b><small>${online ? 'THE HOUSE ALWAYS PLAYS' : 'NOT CONNECTED'}</small></span><i>${online ? 'CHALLENGE' : 'OFFLINE'}</i></button>`;
+    },
+
+    // A refused challenge (busy, eliminated, offline) must not leave the
+    // panel stuck on "waiting".
+    onError(message) {
+      const text = String(message?.message || '');
+      if (!this._awaitingChallenge) return;
+      if (!/DUEL|ELIMINATED|OPPONENT|IKS OKS|UNAVAILABLE/i.test(text)) return;
+      this._awaitingChallenge = false;
+      const content = document.getElementById('threefold-content');
+      if (content) content.innerHTML = `<div class="threefold-status"><b>CHALLENGE REFUSED</b><span>${this.escape(text)}</span></div>`;
     },
 
     // IKS OKS GAUNTLET strip: status, game count, and JOIN while it is open.
@@ -133,8 +151,9 @@
       if (opponent) {
         if (opponent.disabled) return;
         this._chooserOpen = false;
+        this._awaitingChallenge = true;
         PlayerApp.send({ type: 'threefold:challenge', opponentId: opponent.dataset.threefoldOpponent });
-        this.renderWaiting(opponent.querySelector('span')?.textContent || 'LITTLE HERO');
+        this.renderWaiting(opponent.querySelector('b')?.textContent || 'LITTLE HERO');
         return;
       }
       const action = event.target.closest('[data-threefold-action]');
@@ -201,6 +220,7 @@
     },
 
     onChallenge(message) {
+      this._awaitingChallenge = false;
       if (PlayerApp.roomMode !== 'CASUAL') return;
       this.challenge = message.challenge || null;
       if (!this.challenge) return;

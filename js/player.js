@@ -1511,6 +1511,7 @@ const PlayerApp = {
       case 'players:update': {
         this.updatePlayerLeaderboard(message.players);
         this.iksArena = message.iksArena || null;
+        this.brokerOnline = message.brokerOnline === true;
         window.IksRing?.applyTo(document.getElementById('little-hero-avatar-preview'),
           (message.players || []).find(p => String(p.id) === String(this.playerId)));
         window.Threefold?.onArena?.();
@@ -1682,6 +1683,7 @@ const PlayerApp = {
 
       case 'error':
         this.showError(message.message);
+        window.Threefold?.onError?.(message);
         window.UnstableConcoction?.onError?.();
         // A rejected chat transmission must terminate the optimistic SENDING
         // state. Previously /spit (and any chat command rejected server-side)
