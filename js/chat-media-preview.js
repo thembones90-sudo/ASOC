@@ -176,14 +176,10 @@
       } catch (_) {}
     }
 
-    // Plain pasted links belong in chat as text. Only intercept URL clipboard
-    // data when the address itself clearly points at a supported image file.
-    // Rich clipboard HTML containing an actual <img> remains media above.
-    const isDirectImageUrl = (value) => {
-      if (!/^https?:\/\//i.test(value)) return false;
+    const looksLikeImageUrl = value => {
       try {
-        const parsed = new URL(value);
-        return /\.(?:png|jpe?g|webp|gif)$/i.test(parsed.pathname);
+        const url = new URL(String(value || '').trim());
+        return /^https?:$/.test(url.protocol) && /\.(?:png|jpe?g|webp|gif)$/i.test(url.pathname);
       } catch (_) {
         return false;
       }
@@ -193,11 +189,11 @@
       .split(/\r?\n/)
       .map(line => line.trim())
       .find(line => line && !line.startsWith('#'));
-    if (uriList && isDirectImageUrl(uriList)) return uriList;
+    if (looksLikeImageUrl(uriList)) return uriList;
 
     const plain = String(transfer.getData?.('text/plain') || '').trim();
     if (!plain || /\s/.test(plain)) return '';
-    return isDirectImageUrl(plain) ? plain : '';
+    return looksLikeImageUrl(plain) ? plain : '';
   }
 
   function create(options = {}) {

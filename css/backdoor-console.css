@@ -1,6 +1,14 @@
 /* BACKDOOR // compact Shadow Broker operator console */
-#gm-panel.maintenance-open .gm-content { padding:12px 14px 24px; }
-#gm-panel.maintenance-open .gm-maintenance { display:block; max-width:760px; margin:0 auto; }
+#gm-panel.maintenance-open { min-height:0; overflow:hidden; }
+#gm-panel.maintenance-open .gm-content {
+  min-height:0;
+  padding:12px 14px 48px;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+#gm-panel.maintenance-open .gm-maintenance { display:block; width:min(1180px,100%); max-width:none; min-height:max-content; margin:0 auto; padding-bottom:24px; box-sizing:border-box; }
 .gm-backdoor-header { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:48px; padding:0 0 10px; border-bottom:1px solid #33444b; }
 .gm-backdoor-header > div { display:grid; gap:3px; }
 .gm-backdoor-header strong { color:#91c7c6; font:900 .72rem var(--font-machine); letter-spacing:.15em; }
@@ -64,6 +72,7 @@ body.room-mode-casual #gm-panel.maintenance-open .gm-maintenance .gm-module,
 body.room-mode-casual #gm-panel.maintenance-open .gm-maintenance .maintenance-module { display:block !important; visibility:visible !important; opacity:1 !important; }
 body.room-mode-casual #gm-panel.maintenance-open .gm-backdoor-primary-grid { display:grid !important; }
 body.room-mode-casual #gm-panel.maintenance-open .gm-advanced-maintenance[open] > .gm-advanced-maintenance-body { display:grid !important; }
+body.room-mode-casual #gm-panel.maintenance-open .gm-content { overflow-y:auto !important; }
 @media (max-width:900px) {
   .gm-backdoor-primary-grid { grid-template-columns:1fr; }
   .gm-backdoor-telemetry { grid-template-columns:1fr 1fr; }

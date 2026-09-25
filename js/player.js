@@ -1675,6 +1675,7 @@ const PlayerApp = {
 
       case 'error':
         this.showError(message.message);
+        window.UnstableConcoction?.onError?.();
         // A rejected chat transmission must terminate the optimistic SENDING
         // state. Previously /spit (and any chat command rejected server-side)
         // could leave the composer claiming SENDING forever because only a

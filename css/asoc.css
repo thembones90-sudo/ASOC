@@ -5621,6 +5621,17 @@ body.gm-layout-locked .gm-module-height-splitter {
   border-radius: 5px;
   background: rgba(7, 8, 11, 0.55);
 }
+.blood-tribute-vault-preview {
+  width:62px;
+  height:52px;
+  padding:0;
+  overflow:hidden;
+  border:1px solid rgba(177,78,87,.55);
+  border-radius:3px;
+  background:#050608;
+  cursor:zoom-in;
+}
+.blood-tribute-vault-preview:hover { border-color:#e06b75; box-shadow:0 0 12px rgba(181,43,55,.38); }
 .blood-tribute-vault-item img {
   width: 62px;
   height: 52px;
@@ -17815,6 +17826,20 @@ body.room-mode-casual .gm-minigames-toggle{display:block}.gm-chat-header .gm-min
 #game-screen .concoction-readout[data-outcome="0"] { color:#73c68e; }
 #game-screen .concoction-readout[data-outcome="1"] { color:#c088dd; }
 #game-screen .concoction-readout[data-outcome="2"] { color:#dc7379; }
+#game-screen .concoction-dismiss {
+  min-width:180px;
+  margin:14px auto 0;
+  padding:10px 16px;
+  border:1px solid rgba(166,110,198,.62);
+  border-radius:7px;
+  background:linear-gradient(180deg,rgba(64,39,79,.96),rgba(25,18,31,.98));
+  color:#eadcf3;
+  font:800 .58rem var(--font-machine);
+  letter-spacing:.12em;
+  cursor:pointer;
+}
+#game-screen .concoction-dismiss[hidden] { display:none !important; }
+#game-screen .concoction-dismiss:hover { border-color:#c98ee8; color:#fff; }
 .chat-system-unstableConcoction {
   --sys-accent:#ab78c5;
   border-color:rgba(155,93,180,.42) !important;
