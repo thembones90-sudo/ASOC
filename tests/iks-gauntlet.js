@@ -51,13 +51,24 @@ function checkStore() {
     assert.equal(store.join(hero('a')).already, true);
     assert.equal(hp('b'), 10, 'joining the gauntlet restores full health');
     assert.equal(store.standingOf('a').fighter, true);
+    assert.equal(store.decline(hero('e')).ok, true, 'an invited hero can decline');
+    assert.deepEqual(store.publicState().declinedIds, ['e']);
+    assert.equal(store.decline(hero('a')).ok, false, 'a fighter cannot decline');
+    // Nothing counts while the join window is open.
+    assert.equal(store.recordGame({ x: hero('a'), o: hero('c'), winnerId: null }).gauntlet, null, 'games in the join window do not count');
+    assert.equal(store.tick(Date.now()).changed, false, 'the window stays open until its deadline');
+    const begun = store.tick(Date.now() + store.JOIN_MS + 1);
+    assert.equal(begun.begun, true, 'the gauntlet begins when the join window closes');
+    assert.deepEqual(begun.fighters.sort(), ['A', 'B', 'C']);
+    assert.equal(store.join(hero('d')).ok, false, 'joining closes with the window');
+    assert.equal(store.join(hero('e')).ok, false, 'a decliner is out for this round');
 
     // Lifesteal between heroes; the winner is capped at 10.
     store.recordGame({ x: hero('a'), o: hero('b'), winnerId: 'a' });
     assert.equal(hp('a'), 10);
     assert.equal(hp('b'), 9);
     assert.equal(store.publicState().status, 'running');
-    assert.equal(store.join(hero('d')).ok, false, 'joining closes at the first duel');
+    assert.equal(store.publicState().gamesPlayed, 1);
     const counted = store.publicState().gamesPlayed;
     const outside = store.recordGame({ x: hero('a'), o: hero('d'), winnerId: 'a' });
     assert.equal(outside.gauntlet, null, 'a non-fighter game does not count toward the gauntlet');
@@ -101,7 +112,12 @@ function checkStore() {
     assert.equal(store.standingOf('a').victor, false, 'reset clears the victor');
     store.start();
     store.join(hero('a'));
+    assert.equal(store.tick(Date.now() + store.JOIN_MS + 1).cancelled, true, 'fewer than two joiners calls it off');
+    assert.equal(store.publicState().status, 'idle');
+    store.start();
+    store.join(hero('a'));
     store.join(hero('b'));
+    store.tick(Date.now() + store.JOIN_MS + 1);
     for (let i = 0; i < 25; i++) result = store.recordGame({ x: hero('a'), o: hero('b'), winnerId: null });
     assert.equal(result.endedReason, 'game-limit');
     assert.deepEqual(result.victors.map(v => v.id).sort(), ['a', 'b'], 'a tie at the limit shares the crown');
@@ -186,7 +202,7 @@ async function runServer() {
   const server = spawn(process.execPath, ['server.js'], {
     cwd: ROOT,
     env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'iks-pass', ASOC_EMAIL_VERIFICATION: '0',
-      ASOC_THREEFOLD_CHALLENGE_TTL_MS: '1500', ASOC_IKS_GAUNTLET_GAMES: '50' },
+      ASOC_THREEFOLD_CHALLENGE_TTL_MS: '1500', ASOC_IKS_GAUNTLET_GAMES: '50', ASOC_IKS_JOIN_MS: '1500' },
     stdio: ['ignore', 'ignore', 'pipe']
   });
   let serverErrors = '';
@@ -298,9 +314,13 @@ async function runServer() {
     assert.ok(ana.since(mark, 'error').length, 'only the Broker starts a gauntlet');
     gm.send({ type: 'gm:iksStart' });
     await ana.waitFor(m => m.type === 'players:update' && m.iksArena?.status === 'open', 'gauntlet open', mark);
+    const invite = [...ana.msgs].reverse().find(m => m.type === 'players:update' && m.iksArena?.status === 'open').iksArena;
+    assert.ok(invite.joinDeadline > invite.serverNow, 'the invitation carries a join deadline');
     ana.send({ type: 'iks:join' });
     bo.send({ type: 'iks:join' });
-    await gm.waitFor(m => m.type === 'players:update' && m.iksArena?.fighters === 2, 'two fighters joined');
+    cy.send({ type: 'iks:decline' });
+    await gm.waitFor(m => m.type === 'players:update' && m.iksArena?.fighters === 2 && (m.iksArena.declinedIds || []).length === 1, 'two joined, one declined');
+    await gm.waitFor(m => m.type === 'players:update' && m.iksArena?.status === 'running', 'join window closes, gauntlet runs', 0, 4000);
     await sleep(150);
     const health = (client, hero) => client.players.find(p => p.id === hero.playerId)?.iksHealth;
     assert.equal(health(gm, ana), 10);

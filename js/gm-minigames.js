@@ -41,7 +41,9 @@
       const launch = e.target.closest('[data-gm-minigame]');
       if (launch) {
         this.toggleLibrary(false);
+        if (launch.dataset.gmMinigame !== 'kaladont') this.kaladontOpen=false;
         if (launch.dataset.gmMinigame === 'threefold') this.openChooser();
+        else if (launch.dataset.gmMinigame === 'kaladont') this.openKaladont();
         else this.spinConcoction();
         return;
       }
@@ -52,6 +54,9 @@
       if (action === 'accept' && this.challenge) App.send({type:'threefold:accept',challengeId:this.challenge.id});
       if (action === 'decline' && this.challenge) App.send({type:'threefold:decline',challengeId:this.challenge.id});
       if (action === 'rematch' && this.lastOpponentId) App.send({type:'threefold:challenge',opponentId:this.lastOpponentId});
+      const kal = e.target.closest('[data-kaladont-action]')?.dataset.kaladontAction;
+      if (kal === 'gm-cancel') { if (confirm('END THIS KALADONT GAME FOR EVERYONE?')) App.send({type:'kaladont:cancel'}); return; }
+      if (kal === 'close') { this.kaladontOpen=false; return this.close(); }
       const iks = e.target.closest('[data-gm-iks]')?.dataset.gmIks;
       if (iks === 'set-max') {
         const value = Number(document.getElementById('gm-iks-max')?.value);
@@ -77,7 +82,7 @@
       const a=App.iksArena||{status:'idle'};
       const victors=(a.victors||[]).map(v=>this.esc(v.name)).join(' & ');
       const line=a.status==='idle'?`NO GAUNTLET // HEALTH IS LIVE${a.eliminated?` // ${a.eliminated} ELIMINATED`:''}`
-        :a.status==='open'?`OPEN // ${a.fighters} JOINED // CLOSES AT THE FIRST DUEL`
+        :a.status==='open'?`JOIN WINDOW // ${a.fighters} JOINED · ${(a.declinedIds||[]).length} DECLINED // CLOSES ${new Date(Number(a.joinDeadline)||Date.now()).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`
         :a.status==='running'?`GAME ${a.gamesPlayed}/${a.gamesTotal} // ${a.standing} OF ${a.fighters} STANDING`
         :`ENDED // VICTOR: ${victors||'NONE'}`;
       const max=Number(a.maxHealth)||10;
@@ -85,6 +90,28 @@
       const picker=`<label class="gm-iks-max" title="${locked?'Locked while a gauntlet is underway':'Number of health bars per Little Hero'}"><span>HEALTH BARS</span><select id="gm-iks-max" ${locked?'disabled':''}>${Array.from({length:10},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===max?'selected':''}>${n}</option>`).join('')}</select><button type="button" data-gm-iks="set-max" ${locked?'disabled':''}>SET</button></label>`;
       const buttons=(a.status==='idle'||a.status==='ended'?'<button type="button" data-gm-iks="start">START GAUNTLET</button>':'')+'<button type="button" class="is-reset" data-gm-iks="reset">RESET HEALTH</button>'+picker;
       return `<div class="gm-iks-gauntlet is-${this.esc(a.status)}"><div><b>IKS OKS GAUNTLET</b><span>${line}</span></div><div class="gm-iks-actions">${buttons}</div></div>`;
+    },
+    // KALADONT: the Broker watches (spectator view) and may end a game.
+    openKaladont() {
+      this.kaladontOpen=true;
+      this.chooserOpen=false;
+      this.title('KALADONT');
+      this.renderKaladont();
+      this.show();
+      App.send({type:'kaladont:sync'});
+      if(!this._kalClock)this._kalClock=setInterval(()=>window.KaladontUI?.tickClocks(document.getElementById('gm-minigames-content')),250);
+    },
+    renderKaladont() {
+      // Only repaint while the panel is showing KALADONT (IKS OKS shares it).
+      if(!this.kaladontOpen||document.getElementById('gm-minigames-title')?.textContent!=='KALADONT')return;
+      document.getElementById('gm-minigames-content').innerHTML=window.KaladontUI?KaladontUI.render(this.kaladont,{spectator:true,canCancel:true}):'';
+      window.KaladontUI?.tickClocks(document.getElementById('gm-minigames-content'));
+    },
+    onKaladont(state) {
+      this.kaladont=state;
+      const el=document.getElementById('gm-kaladont-status');
+      if(el)el.textContent=!state?'IDLE':state.phase==='lobby'?`LOBBY ${state.members.length}`:state.phase==='ended'?'RESULT':'LIVE';
+      if(this.kaladontOpen)this.renderKaladont();
     },
     onArena() { const panel=document.getElementById('gm-minigames-panel'); if(this.chooserOpen&&panel&&!panel.hidden&&!this.game&&!this.challenge)this.openChooser(); },
     onChallenge(m) { this.challenge=m.challenge; if (!this.challenge) return; if (this.challenge.challengerId===GM_ID) return this.status('CHALLENGE SENT',`Waiting for ${this.esc(this.challenge.opponentName)}.`); this.lastOpponentId=this.challenge.challengerId; this.content(`<div class="gm-arcade-kicker">DUEL REQUEST</div><h3>${this.esc(this.challenge.challengerName)}</h3><div class="gm-arcade-actions"><button data-gm-threefold="accept">ACCEPT</button><button data-gm-threefold="decline">DECLINE</button></div>`); this.show(); },

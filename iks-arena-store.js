@@ -8,9 +8,13 @@
 //
 // THE GAUNTLET is an event on top, driven by the Shadow Broker:
 //   idle    -- no event.
-//   open    -- START GAUNTLET pressed. Heroes JOIN (joining restores them to
-//              10). Joining closes when the first gauntlet game is played.
-//   running -- games whose heroes all joined count toward GAUNTLET_GAMES.
+//   open    -- START GAUNTLET pressed. Every online hero is prompted and has
+//              JOIN_MS to JOIN (restores them to full) or DECLINE. Heroes who
+//              decline or let the offer lapse sit this round out, so idle
+//              players can never stall it. No game counts while it is open.
+//   running -- the join window closed with >= 2 fighters (otherwise the
+//              gauntlet is called off). Games whose heroes all joined count
+//              toward GAUNTLET_GAMES.
 //   ended   -- after GAUNTLET_GAMES games, or as soon as one fighter stands.
 //              The last one standing -- or at the limit the highest health
 //              (ties share the crown) -- is the VICTOR, and burns.
@@ -29,11 +33,12 @@ const MAX_HEALTH = 10;   // ceiling for the Broker's HEALTH BARS setting
 const MIN_HEALTH = 1;
 const GAUNTLET_GAMES = Math.max(1, Number(process.env.ASOC_IKS_GAUNTLET_GAMES) || 50);
 const STATUSES = new Set(['idle', 'open', 'running', 'ended']);
+const JOIN_MS = Number(process.env.ASOC_IKS_JOIN_MS) || 60000;
 
 let state = null;
 
 function idleGauntlet() {
-  return { status: 'idle', id: null, startedAt: null, gamesPlayed: 0, fighters: [], victors: [], endedReason: null };
+  return { status: 'idle', id: null, startedAt: null, joinDeadline: 0, gamesPlayed: 0, fighters: [], declined: [], victors: [], endedReason: null };
 }
 
 function freshState(maxHealth = MAX_HEALTH) {
@@ -72,6 +77,8 @@ function load() {
             ...g,
             gamesPlayed: Math.max(0, Number(g.gamesPlayed) || 0),
             fighters: Array.isArray(g.fighters) ? g.fighters.map(String) : [],
+            declined: Array.isArray(g.declined) ? g.declined.map(String) : [],
+            joinDeadline: Number(g.joinDeadline) || 0,
             victors: Array.isArray(g.victors) ? g.victors.filter(v => v && v.id) : []
           }
         };
@@ -116,25 +123,58 @@ function standingOf(playerId) {
   };
 }
 
-function start() {
+function start(now = Date.now()) {
   const s = load();
   if (s.gauntlet.status === 'open' || s.gauntlet.status === 'running') return { ok: false, error: 'A GAUNTLET IS ALREADY UNDERWAY // RESET IT FIRST' };
-  s.gauntlet = { ...idleGauntlet(), status: 'open', id: 'gauntlet-' + crypto.randomBytes(6).toString('hex'), startedAt: new Date().toISOString() };
+  s.gauntlet = { ...idleGauntlet(), status: 'open', id: 'gauntlet-' + crypto.randomBytes(6).toString('hex'), startedAt: new Date(now).toISOString(), joinDeadline: now + JOIN_MS };
   save();
-  return { ok: true };
+  return { ok: true, joinDeadline: s.gauntlet.joinDeadline };
 }
 
-function join(player) {
+function joinClosedError(g) {
+  return g.status === 'running' || g.status === 'ended' ? 'THE GAUNTLET HAS BEGUN // JOINING IS CLOSED' : 'NO GAUNTLET IS OPEN';
+}
+
+function join(player, now = Date.now()) {
   const s = load();
   const g = s.gauntlet;
-  if (g.status !== 'open') return { ok: false, error: g.status === 'running' ? 'THE GAUNTLET HAS BEGUN // JOINING IS CLOSED' : 'NO GAUNTLET IS OPEN' };
+  if (g.status !== 'open') return { ok: false, error: joinClosedError(g) };
+  if (now > g.joinDeadline) return { ok: false, error: 'THE JOIN WINDOW HAS CLOSED' };
   const id = String(player.id);
   if (g.fighters.includes(id)) return { ok: true, already: true };
+  g.declined = g.declined.filter(d => d !== id);
   g.fighters.push(id);
   s.names[id] = String(player.name || s.names[id] || 'LITTLE HERO');
   s.health[id] = maxHealth(); // everyone enters the gauntlet whole
   save();
   return { ok: true };
+}
+
+// A hero turns the offer down: they sit this round out.
+function decline(player, now = Date.now()) {
+  const g = load().gauntlet;
+  if (g.status !== 'open' || now > g.joinDeadline) return { ok: false, error: joinClosedError(g) };
+  const id = String(player.id);
+  if (g.fighters.includes(id)) return { ok: false, error: 'YOU ALREADY JOINED THE GAUNTLET' };
+  if (!g.declined.includes(id)) g.declined.push(id);
+  save();
+  return { ok: true };
+}
+
+// Closes the join window. Returns { changed, begun, cancelled, fighters }.
+function tick(now = Date.now()) {
+  const s = load();
+  const g = s.gauntlet;
+  if (g.status !== 'open' || now <= g.joinDeadline) return { changed: false };
+  if (g.fighters.length >= 2) {
+    g.status = 'running';
+    save();
+    return { changed: true, begun: true, fighters: g.fighters.map(id => s.names[id] || 'LITTLE HERO') };
+  }
+  const fighters = g.fighters.map(id => s.names[id] || 'LITTLE HERO');
+  s.gauntlet = idleGauntlet();
+  save();
+  return { changed: true, cancelled: true, fighters };
 }
 
 // Restores everyone to full; the HEALTH BARS setting survives.
@@ -179,8 +219,7 @@ function recordGame({ x, o, winnerId }) {
   const g = s.gauntlet;
   let gauntlet = null;
   const heroes = sides.filter(side => !side.isBroker);
-  if ((g.status === 'open' || g.status === 'running') && heroes.length && heroes.every(side => g.fighters.includes(String(side.id)))) {
-    if (g.status === 'open') g.status = 'running';
+  if (g.status === 'running' && heroes.length && heroes.every(side => g.fighters.includes(String(side.id)))) {
     g.gamesPlayed += 1;
     let victors = null;
     const standing = g.fighters.filter(id => healthOf(id) > 0);
@@ -215,6 +254,11 @@ function publicState() {
     standing: g.fighters.filter(id => healthOf(id) > 0).length,
     victors: g.victors.map(v => ({ id: v.id, name: v.name })),
     endedReason: g.endedReason,
+    joinDeadline: g.joinDeadline,
+    joinMs: JOIN_MS,
+    serverNow: Date.now(),
+    fighterIds: g.fighters.slice(),
+    declinedIds: g.declined.slice(),
     eliminated: Object.values(s.health).filter(hp => hp <= 0).length
   };
 }
@@ -222,4 +266,4 @@ function publicState() {
 // Tests only.
 function _forget() { state = null; }
 
-module.exports = { MAX_HEALTH, MIN_HEALTH, GAUNTLET_GAMES, maxHealth, setMaxHealth, healthOf, isFighter, isEliminated, standingOf, start, join, reset, recordGame, publicState, _forget };
+module.exports = { MAX_HEALTH, MIN_HEALTH, GAUNTLET_GAMES, maxHealth, setMaxHealth, healthOf, isFighter, isEliminated, standingOf, start, join, decline, tick, reset, recordGame, publicState, _forget, JOIN_MS };

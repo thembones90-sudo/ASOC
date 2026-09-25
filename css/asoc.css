@@ -18874,3 +18874,197 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
 .gm-iks-max { display: inline-flex; align-items: center; gap: 6px; color: #d9c7b5; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
 .gm-iks-max select { padding: 6px 8px; border: 1px solid rgba(255, 140, 40, .55); border-radius: 6px; background: #1a1210; color: #ffe2bf; font-weight: 900; }
 .gm-iks-max button:disabled, .gm-iks-max select:disabled { opacity: .45; cursor: not-allowed; }
+
+/* IKS OKS Gauntlet invitation (player): JOIN / DECLINE within the window. */
+.iks-gauntlet-prompt {
+  position: fixed;
+  z-index: 9001;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(255, 140, 40, .65);
+  border-radius: 14px;
+  background: linear-gradient(160deg, #1e110b, #120c1c);
+  box-shadow: 0 0 0 1px rgba(155, 93, 224, .3), 0 18px 60px rgba(0, 0, 0, .8), 0 0 32px rgba(255, 90, 0, .22);
+  color: #f1e6ee;
+  text-align: center;
+}
+.iks-gauntlet-prompt b { color: #ffb54a; font-size: 13px; letter-spacing: .2em; }
+.iks-gauntlet-prompt span { color: #d9c7b5; font-size: 12px; line-height: 1.45; }
+.iks-gauntlet-prompt .iks-gauntlet-prompt-clock { color: #fff; font-size: 30px; font-weight: 900; text-shadow: 0 0 14px rgba(255, 110, 0, .7); }
+.iks-gauntlet-prompt-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.iks-gauntlet-prompt-actions button {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 140, 40, .7);
+  border-radius: 9px;
+  background: rgba(255, 110, 0, .2);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  cursor: pointer;
+}
+.iks-gauntlet-prompt-actions button.is-decline { border-color: rgba(155, 93, 224, .5); background: rgba(155, 93, 224, .12); color: #d8c4ee; }
+
+/* =========================================================
+   KALADONT (js/kaladont-ui.js) -- word-chain elimination.
+   Lives in the IKS OKS panel shell; never resizes chat.
+   ========================================================= */
+.kaladont-icon { font-weight: 900; letter-spacing: .04em; color: #ff8a93; }
+.kaladont-content,
+#gm-minigames-content .kal-lobby,
+#gm-minigames-content .kal-game,
+#gm-minigames-content .kal-empty { color: #e7e2ea; font-size: 12px; }
+.kal-kicker { margin-bottom: 8px; color: #c486ef; font-size: 10px; font-weight: 800; letter-spacing: .18em; }
+.kal-hint { margin-top: 8px; color: #8e949c; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-align: center; }
+.kal-empty { padding: 22px 10px; text-align: center; color: #9aa0a8; }
+.kal-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+.kal-actions button,
+.kal-submit button,
+.kal-vote button {
+  padding: 9px 14px;
+  border: 1px solid rgba(155, 93, 224, .6);
+  border-radius: 8px;
+  background: rgba(155, 93, 224, .16);
+  color: #efe6f8;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  cursor: pointer;
+}
+.kal-actions button:disabled,
+.kal-submit button:disabled,
+.kal-vote button:disabled { opacity: .45; cursor: not-allowed; }
+.kal-actions button.is-danger { border-color: rgba(214, 64, 76, .6); background: rgba(120, 18, 28, .3); color: #f2b3b9; }
+
+/* Lobby */
+.kal-count { margin-bottom: 8px; color: #b9bfc7; font-size: 10px; letter-spacing: .14em; }
+.kal-count b { color: #fff; font-size: 16px; }
+.kal-members { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.kal-member { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid rgba(255, 255, 255, .07); border-radius: 8px; background: rgba(255, 255, 255, .025); }
+.kal-member b { flex: 1; font-size: 12px; }
+.kal-member small { color: #c486ef; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.kal-member.is-offline { opacity: .5; }
+.kal-dot { width: 7px; height: 7px; border-radius: 50%; background: #37d47f; box-shadow: 0 0 6px #37d47f; }
+.kal-member.is-offline .kal-dot { background: #6f7885; box-shadow: none; }
+.kal-rules { margin: 10px 0 0; color: #9aa0a8; font-size: 10px; line-height: 1.5; }
+.kal-rules b { color: #ff8a93; }
+
+/* Turn order */
+.kal-order { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 12px; padding: 0; list-style: none; }
+.kal-chip { display: grid; padding: 5px 8px; border: 1px solid rgba(255, 255, 255, .1); border-radius: 7px; background: rgba(255, 255, 255, .03); font-size: 10px; font-weight: 800; letter-spacing: .06em; }
+.kal-chip small { color: #ff6b78; font-size: 8px; letter-spacing: .1em; }
+.kal-chip.is-current { border-color: #ffb54a; background: rgba(255, 150, 40, .14); box-shadow: 0 0 10px rgba(255, 140, 40, .3); }
+.kal-chip.is-out span { text-decoration: line-through; opacity: .5; }
+.kal-chip.is-offline:not(.is-out) { border-style: dashed; opacity: .7; }
+
+/* Turn */
+.kal-stage { display: grid; gap: 10px; justify-items: center; text-align: center; }
+.kal-current small, .kal-prefix small { display: block; color: #8e949c; font-size: 9px; font-weight: 800; letter-spacing: .18em; }
+.kal-current b { font-size: 18px; }
+.kal-current em { display: block; color: #ffb54a; font-size: 10px; font-style: normal; font-weight: 900; letter-spacing: .2em; }
+.kal-prefix b {
+  display: block;
+  color: #fff;
+  font: 900 52px/1 'Arial Black', Arial, sans-serif;
+  letter-spacing: .12em;
+  text-shadow: 0 0 18px rgba(255, 60, 80, .55), 0 0 2px #ff3048;
+}
+.kal-prefix.is-open b { font-size: 30px; color: #c9a7ef; text-shadow: 0 0 14px rgba(155, 93, 224, .6); }
+.kal-clock { color: #e7e2ea; font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.kal-clock.is-urgent { color: #ff4a5a; text-shadow: 0 0 10px rgba(255, 60, 80, .6); }
+.kal-submit { display: flex; gap: 6px; width: 100%; max-width: 320px; box-sizing: border-box; }
+.kal-submit > input { width: 0 !important; flex: 1 1 auto; box-sizing: border-box; }
+.kal-submit > button { flex: 0 0 auto; }
+.kal-submit input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 140, 40, .55);
+  border-radius: 8px;
+  background: #0f0b12;
+  color: #fff;
+  font: 900 16px/1 Arial, sans-serif;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  outline: none;
+}
+.kal-submit input:focus { box-shadow: 0 0 0 2px rgba(255, 140, 40, .25); }
+.kal-waiting { color: #9aa0a8; font-size: 11px; letter-spacing: .1em; }
+.kal-waiting b { color: #fff; }
+
+/* History */
+.kal-history { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .07); color: #c9ced6; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+.kal-history i { color: #6f7885; font-style: normal; }
+.kal-history em { color: #6f7885; }
+.kal-history.is-empty { justify-content: center; color: #6f7885; }
+
+/* Tribunal: a judgment screen */
+.kal-tribunal { display: grid; gap: 10px; justify-items: center; text-align: center; padding: 6px 0; }
+.kal-word {
+  color: #fff;
+  font: 900 34px/1.1 'Arial Black', Arial, sans-serif;
+  letter-spacing: .1em;
+  word-break: break-all;
+  text-shadow: 0 0 22px rgba(155, 93, 224, .7), 0 0 3px #c486ef;
+  animation: kal-loom .5s ease-out;
+}
+.kal-word.is-small { font-size: 22px; }
+@keyframes kal-loom { from { opacity: 0; transform: scale(1.35); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+.kal-tally { color: #b9bfc7; font-size: 11px; letter-spacing: .12em; }
+.kal-tally b { color: #fff; }
+.kal-tally .kal-clock { font-size: 13px; }
+.kal-vote { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; max-width: 300px; }
+.kal-vote button { padding: 12px; font-size: 12px; }
+.kal-vote .is-accept { border-color: rgba(55, 212, 127, .6); background: rgba(55, 212, 127, .14); }
+.kal-vote .is-reject { border-color: rgba(255, 74, 90, .65); background: rgba(255, 74, 90, .15); }
+
+/* Verdict */
+.kal-verdict { display: grid; gap: 8px; justify-items: center; text-align: center; padding: 6px 0; animation: kal-verdict-in .35s ease-out; }
+@keyframes kal-verdict-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.kal-verdict-title { font: 900 20px/1 'Arial Black', Arial, sans-serif; letter-spacing: .14em; }
+.kal-verdict.is-accepted .kal-verdict-title { color: #37d47f; text-shadow: 0 0 14px rgba(55, 212, 127, .5); }
+.kal-verdict.is-rejected .kal-verdict-title,
+.kal-verdict.is-eliminated .kal-verdict-title { color: #ff4a5a; text-shadow: 0 0 14px rgba(255, 74, 90, .55); }
+.kal-verdict.is-kaladont .kal-verdict-title { color: #ffb54a; text-shadow: 0 0 16px rgba(255, 140, 40, .7); }
+.kal-verdict p { margin: 0; color: #c9ced6; font-size: 11px; line-height: 1.45; }
+.kal-breakdown { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+.kal-breakdown > div { display: grid; gap: 3px; align-content: start; padding: 8px; border-radius: 8px; background: rgba(255, 255, 255, .03); font-size: 10px; }
+.kal-breakdown .is-accept b { color: #37d47f; }
+.kal-breakdown .is-reject b { color: #ff4a5a; }
+.kal-breakdown em { color: #8e949c; font-style: normal; }
+
+/* Ended */
+.kal-ended { display: grid; gap: 6px; justify-items: center; text-align: center; }
+.kal-winner { color: #ffd66b; font: 900 26px/1.1 'Arial Black', Arial, sans-serif; letter-spacing: .06em; text-shadow: 0 0 18px rgba(255, 180, 60, .6); }
+.kal-standings { display: grid; gap: 4px; width: 100%; margin: 10px 0 0; padding: 0; list-style: none; }
+.kal-standings li { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 6px 9px; border-radius: 7px; background: rgba(255, 255, 255, .03); font-size: 11px; text-align: left; }
+.kal-standings li:first-child { background: rgba(255, 180, 60, .1); }
+.kal-standings b { color: #ffb54a; }
+.kal-standings small { color: #8e949c; font-size: 9px; letter-spacing: .1em; }
+
+/* Quiet lobby invitation */
+.kaladont-invite {
+  position: fixed;
+  z-index: 8990;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(155, 93, 224, .55);
+  border-radius: 11px;
+  background: linear-gradient(135deg, #16101d, #0d0b12);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .65);
+  color: #efe6f8;
+}
+.kaladont-invite b { display: block; color: #ff8a93; font-size: 11px; letter-spacing: .18em; }
+.kaladont-invite small { display: block; color: #b9bfc7; font-size: 10px; }
+.kaladont-invite button { padding: 7px 11px; border: 1px solid rgba(155, 93, 224, .6); border-radius: 7px; background: rgba(155, 93, 224, .18); color: #fff; font-size: 10px; font-weight: 900; letter-spacing: .12em; cursor: pointer; }
+.kaladont-invite button.is-dismiss { border-color: transparent; background: transparent; color: #8e949c; font-size: 16px; padding: 4px 6px; }
+@media (prefers-reduced-motion: reduce) { .kal-word, .kal-verdict { animation: none; } }

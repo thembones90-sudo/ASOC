@@ -18,6 +18,7 @@ const matchStore = require('./match-store');
 const recountEngine = require('./recount-engine');
 const tweakStore = require('./tweak-store');
 const iksArena = require('./iks-arena-store');
+const kaladont = require('./kaladont');
 const unstableConcoction = require('./unstable-concoction');
 // TWEAKS production sync marker: feedback subsystem is part of the live server build.
 // TWEAKS player HUD visibility sync.
@@ -332,6 +333,7 @@ function serializeRoomForRecovery(room) {
     moonTolls: room.moonTolls || {},
     ritual: normalizeRitualState(room.ritual),
     unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
+    kaladont: room.kaladont || null,
     timer: room.timer,
     pendingReveals: room.pendingReveals || {},
     solutionCountdowns: room.solutionCountdowns || {},
@@ -440,6 +442,9 @@ function restoreActiveRooms() {
         moonTolls: saved.moonTolls && typeof saved.moonTolls === 'object' ? saved.moonTolls : {},
         ritual: normalizeRitualState(saved.ritual),
         unstableConcoction: unstableConcoction.normalizeState(saved.unstableConcoction),
+        // KALADONT survives a restart; the phase in flight gets a fresh window
+        // so nobody is eliminated for time lost to the outage.
+        kaladont: kaladont.resumeAfterRestart(kaladont.normalizeState(saved.kaladont), Date.now()),
         timer: saved.timer || null,
         pendingReveals: saved.pendingReveals || {},
         solutionCountdowns: saved.solutionCountdowns || {},
@@ -800,6 +805,49 @@ function loadGameData(gameIdOrFilename) {
   return gameStore.readGame(gameIdOrFilename);
 }
 
+// The room keeps its own copy of the board's words. Re-read the current game
+// from disk so an edited / re-imported game is never replayed stale by a
+// reset. Returns true when the words actually changed.
+// room.gameId may be a filename ("sample-game") while the game's real id is
+// "sample-001": always resolve by the game's own id so the saved (durable)
+// copy wins over the original file.
+function roomGameKey(room) {
+  return room?.gameData?.id || room?.gameId || null;
+}
+
+function refreshRoomGameData(room) {
+  const key = roomGameKey(room);
+  const fresh = key ? loadGameData(key) : null;
+  if (!fresh) return false;
+  const changed = JSON.stringify(fresh) !== JSON.stringify(room.gameData);
+  room.gameData = fresh;
+  return changed;
+}
+
+// Nothing has happened on this board yet: no clue or solution revealed and
+// the timer never started. Safe to swap its words in place.
+function boardUntouched(room) {
+  const s = room?.sessionState || {};
+  const anyRevealed = Object.values(s.cells || {}).some(v => v === true);
+  const timerStarted = room?.timer && room.timer.phase && room.timer.phase !== 'ready';
+  return !anyRevealed && s.finalSolution !== true && !s.matchResult && !timerStarted;
+}
+
+// A game was saved in the Forge (edited or imported). If it is the game on
+// the Master Room board and that board has not started, the new words go
+// live immediately; otherwise they apply at the next reset / NEXT GAME.
+function onGameSaved(gameId) {
+  const room = rooms.get(MASTER_ROOM_CODE);
+  if (!room || !gameId || ![room.gameId, room.gameData?.id].map(String).includes(String(gameId)) || !boardUntouched(room)) return false;
+  if (!refreshRoomGameData(room)) return false;
+  room.revision = (room.revision || 0) + 1;
+  persistActiveRooms();
+  if (room.hostConnection) sendToWs(room.hostConnection, { type: 'game:loaded', game: room.gameData });
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  console.log(`[ROOM ${room.code}] Board words refreshed from saved game ${gameId}`);
+  return true;
+}
+
 function resetMasterGameSession(room, gameData) {
   room.gameId = gameData.id || room.gameId;
   room.gameData = gameData;
@@ -990,6 +1038,8 @@ function createRoom(gameId, hostWs) {
     // Little Heroes whose one-time "mooned the Shadow Broker" toll is settled.
     moonTolls: {},
     unstableConcoction: unstableConcoction.normalizeState(),
+    // KALADONT (Casual word-chain elimination game) -- see kaladont.js.
+    kaladont: null,
     // TIMER + BORROWED TIME -- server-authoritative, per-board (unlike WOMF's
     // persistent charge, a fresh board gets a fresh, un-started timer -- see
     // resetTimer(), called here and again from resetBoard/switchGame). Never
@@ -2446,6 +2496,12 @@ function declareGameLost(room, source = 'timer') {
   return true;
 }
 
+// KALADONT clock (250ms): only rooms with a Kaladont state do any work.
+setInterval(() => runtimeAction(() => {
+  rooms.forEach(room => { if (room.kaladont) tickKaladont(room); });
+  tickIksGauntlet();
+}), 250);
+
 // Single global tick, once per second, covering every room. Only rooms with
 // an actively-running phase ('running' or 'borrowed') are touched -- ready/
 // paused/borrowed_paused/expired/stopped never move on their own. This is
@@ -3293,6 +3349,10 @@ function applyCommand(room, command, payload) {
       // scoring/chat state that is rebuilt below.
       room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, gameWon: false, matchResult: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
       changed = true;
+      // Pick up any edit saved to this game since it was loaded.
+      if (refreshRoomGameData(room) && room.hostConnection) {
+        sendToWs(room.hostConnection, { type: 'game:loaded', game: room.gameData });
+      }
       // A reset re-attempts the SAME board from scratch: mint a fresh
       // boardId (so a future streak rebuild only ever looks at solves that
       // happened after this reset) and clear per-board scoring state.
@@ -4414,6 +4474,132 @@ function applyThreefoldArena(room, game) {
   return result;
 }
 
+// ---------------------------------------------------------------------
+// KALADONT -- Casual-only multiplayer word-chain elimination. kaladont.js owns
+// the rules; this layer owns identity, sockets, persistence and the clock.
+// Identity always comes from the socket (ws.playerId), never the message.
+// ---------------------------------------------------------------------
+
+function kaladontOnlineIds(room) {
+  const ids = new Set();
+  room.players.forEach((player, socket) => {
+    if (player && player.connected !== false && socket.readyState === 1) ids.add(String(player.id));
+  });
+  return ids;
+}
+
+function kaladontActor(room, ws) {
+  if (!room || ws === room.hostConnection || !ws.playerId) return null;
+  const player = room.players.get(ws);
+  if (!player || player.connected === false || ws.readyState !== 1 || String(player.id) !== String(ws.playerId)) return null;
+  return { id: String(player.id), name: player.name || 'LITTLE HERO' };
+}
+
+// Every viewer gets their own projection (their vote, their role); votes stay
+// secret until the verdict.
+function kaladontStateFor(room, viewerId) {
+  return room.kaladont ? kaladont.view(room.kaladont, viewerId, Date.now(), kaladontOnlineIds(room)) : null;
+}
+
+function sendKaladontState(room, ws) {
+  if (!room || ws?.readyState !== 1) return;
+  const viewer = ws === room.hostConnection ? '__GM__' : ws.playerId;
+  sendToWs(ws, { type: 'kaladont:state', state: kaladontStateFor(room, viewer) });
+}
+
+function broadcastKaladont(room) {
+  room.players.forEach((player, socket) => sendKaladontState(room, socket));
+  if (room.hostConnection) sendKaladontState(room, room.hostConnection);
+}
+
+function kaladontCommit(room, announce = []) {
+  if (announce.length) iksAnnounce(room, announce);
+  persistActiveRooms();
+  broadcastKaladont(room);
+}
+
+function kaladontClose(room, line) {
+  room.kaladont = null;
+  kaladontCommit(room, line ? [line] : []);
+}
+
+function handleKaladont(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return;
+  const fail = error => sendToWs(ws, { type: 'error', code: 'KALADONT', message: error });
+  const type = message.type;
+
+  // The Shadow Broker watches every match and may shut one down.
+  if (ws === room.hostConnection) {
+    if (type === 'kaladont:cancel' && room.kaladont && room.kaladont.phase !== 'ended') {
+      return kaladontClose(room, 'KALADONT // THE SHADOW BROKER ENDED THE GAME.');
+    }
+    if (type === 'kaladont:sync') return sendKaladontState(room, ws);
+    return fail('THE SHADOW BROKER WATCHES KALADONT; LITTLE HEROES PLAY IT');
+  }
+
+  const actor = kaladontActor(room, ws);
+  if (!actor) return fail('A CONNECTED LITTLE HERO IDENTITY IS REQUIRED');
+  if (type === 'kaladont:sync') return sendKaladontState(room, ws);
+  if (room.roomMode !== ROOM_MODES.CASUAL) return fail('KALADONT IS AVAILABLE ONLY IN AMUSEMENT PARK');
+  const state = room.kaladont;
+  const now = Date.now();
+  let result;
+
+  switch (type) {
+    case 'kaladont:create':
+      if (state && state.phase !== 'ended') return fail(state.phase === 'lobby' ? 'A KALADONT LOBBY IS ALREADY OPEN // JOIN IT' : 'A KALADONT GAME IS ALREADY RUNNING');
+      room.kaladont = kaladont.createLobby(actor, now);
+      return kaladontCommit(room, [`KALADONT // ${actor.name} OPENED A LOBBY. JOIN FROM THE ARCADE.`]);
+    case 'kaladont:join':
+      result = kaladont.join(state, actor);
+      break;
+    case 'kaladont:leave':
+      result = kaladont.leave(state, actor.id);
+      break;
+    case 'kaladont:cancel':
+      if (!state || state.phase !== 'lobby') return fail('ONLY AN OPEN LOBBY CAN BE CANCELLED');
+      if (state.ownerId !== actor.id) return fail('ONLY THE LOBBY CREATOR CAN CANCEL IT');
+      return kaladontClose(room, `KALADONT // ${actor.name} CANCELLED THE LOBBY.`);
+    case 'kaladont:start':
+      result = kaladont.start(state, actor.id, kaladontOnlineIds(room), now);
+      break;
+    case 'kaladont:submit':
+      result = kaladont.submit(state, actor.id, typeof message.word === 'string' ? message.word.slice(0, 200) : '', message.turnSeq, now);
+      break;
+    case 'kaladont:vote':
+      result = kaladont.vote(state, actor.id, message.choice, message.tribunalSeq, now);
+      break;
+    default:
+      return fail('UNKNOWN KALADONT ACTION');
+  }
+  if (!result.ok) return fail(result.error);
+  if (result.already) return sendKaladontState(room, ws);
+  kaladontCommit(room, result.announce || []);
+}
+
+// The Kaladont clock: turn timeouts, tribunal windows, verdict reveals. Also
+// shuts the game if the room leaves AMUSEMENT PARK (it must never touch Battle).
+function tickKaladont(room, now = Date.now()) {
+  const state = room.kaladont;
+  if (!state) return;
+  if (room.roomMode !== ROOM_MODES.CASUAL && state.phase !== 'ended') {
+    return kaladontClose(room, 'KALADONT // CLOSED: THE AMUSEMENT PARK CLOSED FOR BATTLE.');
+  }
+  const out = kaladont.tick(state, now);
+  if (out.expired) return kaladontClose(room, null);
+  if (out.changed) kaladontCommit(room, out.announce);
+}
+
+// A lobby member dropped: an absent creator hands the lobby on (or closes it).
+function kaladontDisconnect(room, playerId) {
+  const state = room?.kaladont;
+  if (!state || !kaladont.isOpenLobby(state)) return;
+  const out = kaladont.lobbyDisconnect(state, playerId, kaladontOnlineIds(room));
+  if (out.closed) return kaladontClose(room, out.announce[0]);
+  kaladontCommit(room, out.announce);
+}
+
 function hostRoomFor(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   return room && ws === room.hostConnection ? room : null;
@@ -4424,7 +4610,7 @@ function handleIksGauntletStart(ws) {
   if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can start the IKS OKS gauntlet' });
   const result = iksArena.start();
   if (!result.ok) return sendToWs(ws, { type:'error', message: result.error });
-  iksAnnounce(room, [`IKS OKS GAUNTLET // OPEN. JOIN FROM YOUR IKS OKS PANEL. ${iksArena.GAUNTLET_GAMES} GAMES. ${iksArena.maxHealth()} HEALTH. LAST ONE STANDING WINS.`]);
+  iksAnnounce(room, [`IKS OKS GAUNTLET // ${Math.round(iksArena.JOIN_MS / 1000)} SECONDS TO JOIN. ANSWER THE PROMPT. ${iksArena.GAUNTLET_GAMES} GAMES. ${iksArena.maxHealth()} HEALTH. LAST ONE STANDING WINS.`]);
   broadcastPlayersUpdate(room);
 }
 
@@ -4435,6 +4621,28 @@ function handleIksGauntletJoin(ws) {
   const result = iksArena.join(player);
   if (!result.ok) return sendToWs(ws, { type:'error', message: result.error });
   if (!result.already) iksAnnounce(room, [`IKS OKS GAUNTLET // ${player.name || 'LITTLE HERO'} ENTERS THE GAUNTLET.`]);
+  broadcastPlayersUpdate(room);
+}
+
+function handleIksGauntletDecline(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  const player = room && ws !== room.hostConnection ? room.players.get(ws) : null;
+  if (!player) return;
+  const result = iksArena.decline(player);
+  if (!result.ok) return sendToWs(ws, { type:'error', message: result.error });
+  broadcastPlayersUpdate(room);
+}
+
+// Closes the gauntlet join window on time: begins with the heroes who joined,
+// or calls it off with fewer than two.
+function tickIksGauntlet(now = Date.now()) {
+  const out = iksArena.tick(now);
+  if (!out.changed) return;
+  const room = rooms.get(MASTER_ROOM_CODE);
+  if (!room) return;
+  iksAnnounce(room, [out.begun
+    ? `IKS OKS GAUNTLET // BEGINS WITH ${out.fighters.length} FIGHTERS: ${out.fighters.join(', ')}.`
+    : `IKS OKS GAUNTLET // CALLED OFF. ${out.fighters.length ? 'ONLY ' + out.fighters.join(', ') + ' JOINED' : 'NOBODY JOINED'}; IT NEEDS 2.`]);
   broadcastPlayersUpdate(room);
 }
 
@@ -6071,6 +6279,9 @@ function handlePlayerJoin(ws, message) {
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
   sendRecountHydration(ws, room);
+  // KALADONT rehydration: a (re)joining Little Hero resumes as player or
+  // spectator exactly where the match stands; others learn of an open lobby.
+  if (room.kaladont) broadcastKaladont(room);
   // Always sent, active or not: the overlay's own visibility is CSS-driven
   // off roomMode alone (see #game-screen.room-mode-battle-armed), so a
   // joining player must never be left in an undefined ritual state -- an
@@ -6272,6 +6483,7 @@ function handleHostReconnect(ws, message) {
   sendRitualDetailToHost(room);
 
   broadcastPlayersUpdate(room);
+  sendKaladontState(room, ws);
   console.log(`[ROOM ${room.code}] Host reconnected`);
 }
 
@@ -6305,6 +6517,7 @@ function handleHostRecover(ws) {
   sendTributeVaultToHost(room);
   sendRitualDetailToHost(room);
   broadcastPlayersUpdate(room);
+  sendKaladontState(room, ws);
   console.log(`[MASTER ROOM] Shadow Broker recovered ${normalizeRoomMode(room.roomMode, room.armed)} session without browser host token`);
 }
 
@@ -7019,9 +7232,15 @@ function handleSwitchGame(ws, message) {
   // NEXT GAME is a new board -- same treatment as resetBoard: a fresh,
   // un-started Timer at the new game's difficulty default.
   resetTimer(room);
-  room.roomMode = ROOM_MODES.BATTLE_ARMED;
-  room.armed = true;
-  startRitual(room);
+  // A game saved from the Forge while in AMUSEMENT PARK goes onto the board
+  // without arming Battle; library LOAD / NEXT GAME arm as before.
+  if (message.keepMode === true && room.roomMode === ROOM_MODES.CASUAL) {
+    room.armed = false;
+  } else {
+    room.roomMode = ROOM_MODES.BATTLE_ARMED;
+    room.armed = true;
+    startRitual(room);
+  }
 
   // NEXT GAME becomes authoritative on disk before connected clients switch.
   persistActiveRooms();
@@ -7434,7 +7653,9 @@ function handleCloseRoom(ws) {
     room.hostReconnectTimer = null;
   }
 
+  const gameChanged = refreshRoomGameData(room);
   resetMasterGameSession(room, room.gameData);
+  if (gameChanged) sendToWs(ws, { type: 'game:loaded', game: room.gameData });
   room.roomMode = ROOM_MODES.CASUAL;
   room.armed = false;
   endRitual(room);
@@ -7490,8 +7711,10 @@ function handleClose(ws) {
           }
         }
       }
+      if (player) kaladontDisconnect(room, player.id);
       persistActiveRooms();
       broadcastPlayersUpdate(room);
+      if (room.kaladont) broadcastKaladont(room);
       console.log(`[ROOM ${ws.roomCode}] Player left: ${ws.playerName}`);
     }
   }
@@ -7917,7 +8140,9 @@ function handleApiRequest(req, res) {
       if (result.errors && result.errors.length) {
         return sendJson(res, 422, { errors: result.errors });
       }
-      return sendJson(res, 200, { success: true, game: result.game, filename: result.filename });
+      let liveRefreshed = false;
+      try { liveRefreshed = onGameSaved(result.game?.id); } catch (error) { console.error('[games] live refresh failed:', error.message); }
+      return sendJson(res, 200, { success: true, game: result.game, filename: result.filename, liveRefreshed });
     });
     return;
   }
@@ -8361,8 +8586,23 @@ wss.on('connection', (ws) => {
           handleIksMaxHealth(ws, message);
           break;
         }
+        case 'kaladont:create':
+        case 'kaladont:join':
+        case 'kaladont:leave':
+        case 'kaladont:cancel':
+        case 'kaladont:start':
+        case 'kaladont:submit':
+        case 'kaladont:vote':
+        case 'kaladont:sync': {
+          handleKaladont(ws, message);
+          break;
+        }
         case 'iks:join': {
           handleIksGauntletJoin(ws);
+          break;
+        }
+        case 'iks:decline': {
+          handleIksGauntletDecline(ws);
           break;
         }
         case 'threefold:accept': {

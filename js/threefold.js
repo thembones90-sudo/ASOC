@@ -112,8 +112,62 @@
       return `<div class="threefold-gauntlet is-${this.escape(arena.status)}"><b>IKS OKS GAUNTLET</b><span>${line}</span>${arena.status === 'open' && !joined ? '<button type="button" data-threefold-action="join-gauntlet">JOIN GAUNTLET</button>' : ''}</div>`;
     },
 
+    // START GAUNTLET prompts every online hero: JOIN or DECLINE within the
+    // server's join window. No answer = sitting this round out.
+    renderGauntletPrompt() {
+      const arena = PlayerApp.iksArena;
+      const me = String(PlayerApp.playerId || '');
+      const skew = arena ? (Number(arena.serverNow) || Date.now()) - Date.now() : 0;
+      const remaining = arena ? Number(arena.joinDeadline) - (Date.now() + skew) : 0;
+      const pending = arena && arena.status === 'open' && me && remaining > 0 &&
+        !(arena.fighterIds || []).includes(me) && !(arena.declinedIds || []).includes(me) &&
+        !this._gauntletAnswered?.has(arena.gauntletId) && PlayerApp.roomMode === 'CASUAL';
+      let prompt = document.getElementById('iks-gauntlet-prompt');
+      if (!pending) {
+        prompt?.remove();
+        clearInterval(this._gauntletPromptTimer);
+        return;
+      }
+      if (!prompt) {
+        prompt = document.createElement('div');
+        prompt.id = 'iks-gauntlet-prompt';
+        prompt.className = 'iks-gauntlet-prompt';
+        prompt.setAttribute('role', 'alertdialog');
+        prompt.setAttribute('aria-label', 'IKS OKS Gauntlet invitation');
+        document.body.appendChild(prompt);
+        window.Skeleton?.playMentionAllShake?.();
+        this.flashTitle('⚔ IKS OKS GAUNTLET // JOIN?');
+      }
+      const deadline = Number(arena.joinDeadline) - skew;
+      const paint = () => {
+        const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        if (left <= 0) { this.renderGauntletPrompt(); return; }
+        prompt.innerHTML = `
+          <b>IKS OKS GAUNTLET</b>
+          <span>The Shadow Broker opens a gauntlet: ${arena.gamesTotal} games, ${arena.maxHealth} health, last one standing.</span>
+          <strong class="iks-gauntlet-prompt-clock">${left}s</strong>
+          <div class="iks-gauntlet-prompt-actions">
+            <button type="button" data-threefold-action="join-gauntlet">JOIN</button>
+            <button type="button" data-threefold-action="decline-gauntlet" class="is-decline">DECLINE</button>
+          </div>`;
+      };
+      paint();
+      clearInterval(this._gauntletPromptTimer);
+      this._gauntletPromptTimer = setInterval(paint, 1000);
+    },
+
+    answerGauntlet(join) {
+      const arena = PlayerApp.iksArena;
+      (this._gauntletAnswered ||= new Set()).add(arena?.gauntletId);
+      PlayerApp.send({ type: join ? 'iks:join' : 'iks:decline' });
+      clearInterval(this._gauntletPromptTimer);
+      document.getElementById('iks-gauntlet-prompt')?.remove();
+      this.stopTitleFlash();
+    },
+
     // players:update: repaint the chooser so health and gauntlet state stay live.
     onArena() {
+      this.renderGauntletPrompt();
       const panel = document.getElementById('threefold-panel');
       if (this._chooserOpen && panel && !panel.hidden && !this.game && !this.challenge) this.openChooser();
       else if (this.game && panel && !panel.hidden) this.renderGame();
@@ -162,7 +216,8 @@
         if (kind === 'accept' && this.challenge) { PlayerApp.send({ type: 'threefold:accept', challengeId: this.challenge.id }); this.hideBanner(); this.stopTitleFlash(); }
         if (kind === 'decline' && this.challenge) { PlayerApp.send({ type: 'threefold:decline', challengeId: this.challenge.id }); this.hideBanner(); this.stopTitleFlash(); }
         if (kind === 'rematch' && this.lastOpponentId) PlayerApp.send({ type: 'threefold:challenge', opponentId: this.lastOpponentId });
-        if (kind === 'join-gauntlet') PlayerApp.send({ type: 'iks:join' });
+        if (kind === 'join-gauntlet') this.answerGauntlet(true);
+        if (kind === 'decline-gauntlet') this.answerGauntlet(false);
         if (kind === 'close') this.close();
         return;
       }

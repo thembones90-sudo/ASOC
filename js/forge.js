@@ -558,11 +558,32 @@ const Forge = {
       await this.reloadLibrary();
       if (App && App.mode === 'local' && App.loadGameById) {
         await App.loadGameById(res.game.id);
+      } else if (App && App.mode === 'multiplayer' && App.roomCode) {
+        this.applySavedGameToRoom(res);
       }
       this.close();
     } catch (e) {
       this.showErrors([e.message]);
     }
+  },
+
+  // A game saved in a live room should be on the board immediately, not
+  // after a manual reset. The server already hot-swapped the words when this
+  // was the board's own game and nothing had started (res.liveRefreshed).
+  applySavedGameToRoom(res) {
+    const id = res?.game?.id;
+    if (!id || res.liveRefreshed) return;
+    const sameGame = String(id) === String(GameData.currentGame?.id || '');
+    const revealed = Object.values(Board.sessionState?.cells || {}).some(Boolean) || Board.isFinalRevealed?.();
+    const timerLive = App.timer && App.timer.phase && App.timer.phase !== 'ready';
+    const live = revealed || timerLive;
+    const target = sameGame ? 'Apply these changes to' : `Put "${res.game.title}" on`;
+    if (live && !confirm(
+      `${target} the live board now?\n\n` +
+      'The current board is in progress: loading resets it.\n\n' +
+      '[ OK ] Load now    [ Cancel ] Keep playing (applies at the next reset)'
+    )) return;
+    App.send({ type: 'gm:switchGame', gameId: id, keepMode: true });
   },
 
   async loadGame(id) {

@@ -1588,6 +1588,10 @@ const PlayerApp = {
         window.Threefold?.onClosed?.(message);
         break;
 
+      case 'kaladont:state':
+        window.Kaladont?.onState?.(message.state || null);
+        break;
+
       case 'unstableConcoction:started':
         window.UnstableConcoction?.onStarted?.(message);
         break;

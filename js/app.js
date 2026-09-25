@@ -2657,6 +2657,9 @@ const App = {
         this.updateRitualUI(message.ritual);
         break;
 
+      case 'kaladont:state':
+        window.GMMinigames?.onKaladont?.(message.state || null);
+        break;
       case 'threefold:challenge':
         window.GMMinigames?.onChallenge?.(message);
         window.AsocAlerts?.threefold?.(message, '__GM__');
