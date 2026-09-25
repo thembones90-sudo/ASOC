@@ -7367,7 +7367,10 @@ function handleApiRequest(req, res) {
 
   if (method === 'POST' && url.pathname === '/api/auth/gm/logout') {
     // SIGN OUT MASTER ACCOUNT signs the Shadow Broker out everywhere,
-    // including the saved sessions on disk.
+    // including the saved sessions on disk. Only the Shadow Broker may do
+    // that: without this check any visitor could sign the GM out, and with
+    // persisted sessions the sign-out would outlive restarts.
+    if (!isGmAuthorized(req)) return sendJson(res, 401, { error: 'Gamemaster authorization required' });
     gmTokens.clear();
     saveGmSessions();
     masterMirrorTokens.clear();

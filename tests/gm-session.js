@@ -64,6 +64,9 @@ async function run() {
     await start('first-password');
     assert.equal(await gmStatus(token), 200, 'a GM login survives a restart');
 
+    assert.equal((await request('/api/auth/gm/logout', { body: {} })).status, 401, 'a stranger cannot sign the GM out');
+    assert.equal((await request('/api/auth/gm/logout', { body: {}, headers: { 'x-gm-token': 'gm-forged' } })).status, 401);
+    assert.equal(await gmStatus(token), 200, 'the GM is still signed in');
     assert.equal((await request('/api/auth/gm/logout', { body: {}, headers: { 'x-gm-token': token } })).status, 200);
     assert.equal(await gmStatus(token), 401, 'SIGN OUT revokes the login');
     await stop();
@@ -84,7 +87,7 @@ async function run() {
     assert.equal(await gmStatus(third), 401, 'an expired saved login is rejected');
 
     assert.equal(server.errors.trim(), '', 'no server errors');
-    console.log('PASS GM sessions: survive restart, hashed at rest, sign-out durable, password change and expiry invalidate');
+    console.log('PASS GM sessions: survive restart, hashed at rest, sign-out GM-only and durable, password change and expiry invalidate');
   } finally {
     await stop();
     fs.rmSync(DATA, { recursive: true, force: true });
