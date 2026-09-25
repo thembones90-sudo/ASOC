@@ -19109,3 +19109,246 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
 @media (prefers-reduced-motion: reduce) {
   #game-screen .minigame-art-icon img, .gm-minigames-menu > button img.gm-minigame-art { transition: none; }
 }
+
+/* =========================================================
+   AMUSEMENT ARCADE TYPOGRAPHY -- player (#game-screen) and GM
+   (.gm-minigames-menu). One shared system for descriptions and
+   status pills; each game's personality lives in its TITLE.
+   ========================================================= */
+#game-screen .casual-minigames-menu { width: 340px; }
+@media (max-width: 760px) {
+  #game-screen .casual-minigames-menu { width: min(340px, calc(100vw - 86px)); }
+}
+#game-screen .casual-minigame-card {
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 12px 12px 12px 10px;
+}
+#game-screen .casual-minigame-card .minigame-copy,
+.gm-minigames-menu > button .minigame-copy {
+  display: grid;
+  gap: 0;
+  align-content: center;
+  min-width: 0;
+}
+
+/* Titles: shared scale, per-game voice (below). */
+#game-screen .casual-minigame-card .minigame-title,
+.gm-minigames-menu > button .minigame-title {
+  display: block;
+  font: 600 19px/1.05 'Barlow Condensed', 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.gm-minigames-menu > button .minigame-title { font-size: 20px; }
+
+/* Descriptions: one readable voice for every card. */
+#game-screen .casual-minigame-card .minigame-desc,
+.gm-minigames-menu > button .minigame-desc {
+  display: block;
+  margin-top: 8px;
+  color: #b7bec8;
+  font: 500 13.5px/1.35 'Segoe UI', 'Noto Sans', Arial, system-ui, sans-serif;
+  letter-spacing: .01em;
+  text-transform: none;
+}
+.gm-minigames-menu > button .minigame-desc { margin-top: 9px; font-size: 14px; color: #bdb6c6; }
+
+/* Status: a deliberate pill in the game's accent. */
+#game-screen .casual-minigame-card .minigame-status,
+.gm-minigames-menu > button .minigame-status {
+  --status-accent: 185, 140, 230;
+  justify-self: end;
+  align-self: center;
+  padding: 5px 10px;
+  border: 1px solid rgba(var(--status-accent), .5);
+  border-radius: 999px;
+  background: rgba(var(--status-accent), .12);
+  color: rgb(var(--status-accent));
+  font: 600 13px/1 'Barlow Condensed', 'Segoe UI', system-ui, sans-serif;
+  font-style: normal;
+  letter-spacing: .14em;
+  white-space: nowrap;
+  box-shadow: inset 0 0 8px rgba(var(--status-accent), .08);
+}
+
+/* ---- IKS OKS: forged steel, sharp, red/violet edge ---- */
+#game-screen .iks-oks-card .minigame-title,
+.gm-minigames-menu > button[data-gm-minigame="threefold"] .minigame-title {
+  background: linear-gradient(180deg, #ffffff 0%, #d8d2dc 45%, #9d95a6 58%, #e9e4ee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: .16em;
+  filter: drop-shadow(0 0 1px rgba(255, 45, 85, .9)) drop-shadow(0 0 6px rgba(170, 60, 255, .35));
+}
+#game-screen .iks-oks-card .minigame-status,
+.gm-minigames-menu > button[data-gm-minigame="threefold"] .minigame-status { --status-accent: 255, 105, 135; }
+
+/* ---- UNSTABLE CONCOCTION: condensed, volatile, sickly green ---- */
+#game-screen .unstable-concoction-card .minigame-title,
+.gm-minigames-menu > button[data-gm-minigame="concoction"] .minigame-title {
+  color: #c4f25a;
+  letter-spacing: .06em;
+  transform: skewX(-6deg);
+  transform-origin: left center;
+  text-shadow: 0 0 7px rgba(160, 240, 40, .35), 1px 0 0 rgba(90, 140, 10, .6);
+}
+#game-screen .unstable-concoction-card .minigame-status,
+.gm-minigames-menu > button[data-gm-minigame="concoction"] .minigame-status { --status-accent: 185, 240, 90; }
+
+/* ---- KALADONT: heavy, cold purple steel, a fracture through the title ---- */
+#game-screen .kaladont-card .minigame-title,
+.gm-minigames-menu > button[data-gm-minigame="kaladont"] .minigame-title {
+  font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', 'Barlow Condensed', sans-serif;
+  font-weight: 400;
+  width: fit-content; /* the fracture is placed across the word, not the card */
+  letter-spacing: .12em;
+  /* A thin dark fracture cuts diagonally through cold steel lettering. */
+  background:
+    linear-gradient(106deg, transparent 0 50.5%, #12091f 50.5% 52.5%, transparent 52.5%),
+    linear-gradient(180deg, #f4f0fc 0%, #d6cbec 48%, #a48fce 62%, #e6dff5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(20, 10, 35, .9)) drop-shadow(0 0 6px rgba(150, 90, 230, .3));
+}
+#game-screen .kaladont-card .minigame-status,
+.gm-minigames-menu > button[data-gm-minigame="kaladont"] .minigame-status { --status-accent: 190, 160, 245; }
+
+/* GM arcade: cards are only ~220px wide two-up, so each card stacks
+   ICON | TITLE / description / STATUS, and the grid drops to one card per
+   row whenever the rail is too narrow for two readable cards. */
+.gm-minigames-menu { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+.gm-minigames-menu > button {
+  grid-template-columns: 62px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 0;
+}
+.gm-minigames-menu > button > img { grid-row: 1 / span 2; align-self: center; }
+.gm-minigames-menu > button .minigame-copy { grid-column: 2; grid-row: 1; }
+.gm-minigames-menu > button .minigame-status { grid-column: 2; grid-row: 2; justify-self: start; margin-top: 12px; }
+
+/* =========================================================
+   PLAYER CASUAL SCALE PASS -- AMUSEMENT PARK only
+   (#game-screen.room-mode-casual). "A desktop canvas with laptop
+   content": scale the functional UI, trim dead padding, keep the
+   centre open. Sizes measured from the live page (before -> after).
+   :not(#casual-scale-guard) adds id weight so these beat the layered
+   '#game-screen .battle-comms-lobby … !important' rules in join.html.
+   ========================================================= */
+
+/* ---- Top status: LITTLE HERO STATUS / identity / chips / utilities ---- */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .detainee-status-label {
+  font-size: 11.5px !important;          /* 9 */
+  color: #9aa4b1 !important;
+  letter-spacing: .16em !important;
+}
+#game-screen.room-mode-casual:not(#casual-scale-guard) .casual-online-count { font-size: 10.5px !important; height: 26px !important; padding: 0 10px !important; } /* 8.3 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .little-hero-hud { padding: 8px 14px 9px !important; }   /* trims dead header height */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .hero-hud-identity { font-size: 14px !important; }        /* 11.2 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .hero-hud-stats { gap: 10px !important; }
+#game-screen.room-mode-casual:not(#casual-scale-guard) .hero-stat {
+  height: 30px !important;               /* 24 */
+  padding: 0 10px !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+}
+#game-screen.room-mode-casual:not(#casual-scale-guard) .hero-stat-label { font-size: 9.5px !important; color: #9fb4c3 !important; letter-spacing: .12em !important; } /* 6.9 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .hero-stat b,
+#game-screen.room-mode-casual:not(#casual-scale-guard) .hero-link-value { font-size: 12px !important; }         /* 8.8 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .hero-stat-icon { width: 13px !important; height: 13px !important; }
+#game-screen.room-mode-casual:not(#casual-scale-guard) .hero-utility-btn {
+  font-size: 10.5px !important;          /* 8 */
+  min-height: 34px !important;
+  padding: 0 13px !important;
+  letter-spacing: .1em !important;
+}
+#game-screen.room-mode-casual:not(#casual-scale-guard) .hero-utility-icon { width: 15px !important; height: 15px !important; }
+
+/* ---- Section heading: a real heading, not metadata ---- */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-header { padding: 8px 14px !important; }
+#game-screen.room-mode-casual:not(#casual-scale-guard) .battle-comms-heading { display: grid !important; gap: 4px !important; }
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-title {
+  font-size: 13.5px !important;          /* 9.9 */
+  letter-spacing: .14em !important;
+  color: #e3e7ee !important;
+}
+#game-screen.room-mode-casual:not(#casual-scale-guard) .battle-comms-room {
+  font-size: 10.5px !important;          /* 7.8 */
+  color: #93a3b1 !important;
+  letter-spacing: .12em !important;
+}
+
+/* ---- Search: a usable field ---- */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-search-strip { padding: 7px 10px !important; }
+#game-screen.room-mode-casual:not(#casual-scale-guard) #chat-search {
+  height: 36px !important;               /* 28 */
+  padding: 0 12px !important;
+  font-size: 12.5px !important;          /* 10 */
+  border-color: rgba(140, 150, 165, .42) !important;
+}
+#game-screen.room-mode-casual:not(#casual-scale-guard) #chat-search::placeholder { font-size: 12.5px; color: #8993a0; letter-spacing: .14em; }
+
+/* ---- Chat messages ---- */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-message-main { max-width: min(82%, 780px) !important; padding: 8px 11px !important; }  /* 560 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-message-text { font-size: 16px !important; line-height: 1.42 !important; }              /* 13.8 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-player-name { font-size: 11.5px !important; letter-spacing: .06em !important; }        /* 10.1 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-time { font-size: 11px !important; color: #a3acb8 !important; }                        /* 8.6 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-reply-context {
+  font-size: 13.5px !important;          /* 11.5 */
+  padding: 6px 10px !important;
+  color: #c3cad4 !important;
+  line-height: 1.35 !important;
+}
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-reply-btn { width: 24px !important; height: 24px !important; font-size: 14px !important; }
+
+/* Reactions: compact pills with a real click target. */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-reactions { gap: 6px !important; margin-top: 6px !important; }
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-reaction-chip,
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-reaction-add {
+  height: 26px !important;               /* 19 */
+  min-width: 26px !important;
+  padding: 0 8px !important;
+  gap: 5px !important;
+  font-size: 12px !important;
+  border-radius: 13px !important;
+}
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-reaction-emoji { font-size: 16px !important; }   /* 13.4 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-reaction-count { font-size: 12px !important; }
+
+/* ---- Shadow Broker: authoritative presence ---- */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-broker-entry { max-width: min(90%, 780px) !important; }        /* 620 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .shadow-broker-transmission { padding: 10px 14px !important; gap: 12px !important; }
+#game-screen.room-mode-casual:not(#casual-scale-guard) .shadow-broker-avatar { width: 52px !important; height: 52px !important; }   /* 42 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .shadow-broker-name { font-size: 11.5px !important; letter-spacing: .14em !important; } /* 9 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .shadow-broker-text { font-size: 16px !important; line-height: 1.4 !important; }       /* 13.4 */
+
+/* ---- Composer: the primary control ---- */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-form { max-width: 980px !important; padding: 8px !important; }   /* 760 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-composer-shell { min-height: 54px !important; padding: 5px 9px !important; } /* 46 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) #chat-input { font-size: 16px !important; height: 42px !important; }                 /* 13.8 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) #chat-input::placeholder { font-size: 16px; }
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-image-upload-btn,
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-emoji-toggle { width: 42px !important; height: 42px !important; }             /* 36 */
+#game-screen.room-mode-casual:not(#casual-scale-guard) .chat-emoji-toggle { font-size: 21px !important; }
+
+/* ---- MINI GAMES rail button: intentional, not abandoned ----
+   Only where the rail sits beside the panel; below ~1500px the tile
+   already overlaps the panel corner, so it keeps its compact size. */
+@media (min-width: 1500px) {
+  #game-screen.room-mode-casual:not(#casual-scale-guard) .casual-minigames-emblem { width: 50px !important; height: 50px !important; }   /* 42 */
+  #game-screen.room-mode-casual:not(#casual-scale-guard) .casual-minigames-label { font-size: 12px !important; letter-spacing: .12em !important; } /* 10 */
+  #game-screen.room-mode-casual:not(#casual-scale-guard) .casual-minigames-toggle { padding: 12px 10px !important; gap: 8px !important; }
+}
+
+/* Narrow screens: keep the old compact proportions where space is scarce. */
+@media (max-width: 760px) {
+  #game-screen.room-mode-casual:not(#casual-scale-guard) .hero-stat { height: 26px !important; padding: 0 7px !important; }
+  #game-screen.room-mode-casual:not(#casual-scale-guard) .chat-message-main { max-width: 88% !important; }
+  #game-screen.room-mode-casual:not(#casual-scale-guard) .chat-broker-entry { max-width: 94% !important; }
+  #game-screen.room-mode-casual:not(#casual-scale-guard) .shadow-broker-avatar { width: 42px !important; height: 42px !important; }
+}
