@@ -14330,6 +14330,13 @@ body.asoc-transition-to-battle #game-screen .player-battle-layout {
   pointer-events: none;
 }
 
+/* Frozen with the battle clock while the game is paused. */
+.solution-countdown-badge.is-paused {
+  border-style: dashed;
+  box-shadow: none;
+  opacity: .62;
+}
+
 .cell-new-reveal-flash .cell-content {
   animation: asoc-pill-reveal-flash 2.5s ease-out both;
 }

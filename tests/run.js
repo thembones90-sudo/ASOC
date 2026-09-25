@@ -1792,8 +1792,14 @@ async function testColumnScoreAfterFinal() {
   assert.equal(scoreAfterB - scoreAfterReversal, 1200 - 150, 'reversal restores the full column value');
 
   // Re-accepting the Final: 2 columns known = 800. B was solved BEFORE this
-  // new Final solve, so it stays at its full value.
+  // new Final solve, so it stays at its full value. The reversal reopened the
+  // board, so this is a fresh Final acceptance: its points are committed now
+  // but, like every Final, only displayed once the GM presses SHOW RESULTS.
   await judge(finalId, 'correct', 'FINAL');
+  const released = waitForMessage(host, m => m.type === 'score:finalResults', 're-accepted Final results');
+  host.send(JSON.stringify({ type: 'gm:revealResults' }));
+  await released;
+  await delay(100);
   assert.equal(lastScore - scoreAfterReversal, 800, 'columns solved before the (re-)accepted Final stay in full');
 
   // FINAL RED is the canonical GAME LOST: it resolves the match, so no

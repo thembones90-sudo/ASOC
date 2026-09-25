@@ -10,8 +10,15 @@ const css = fs.readFileSync(path.join(root, 'css', 'asoc.css'), 'utf8');
 const tweaksCss = fs.readFileSync(path.join(root, 'css', 'tweaks.css'), 'utf8');
 const tweaksJs = fs.readFileSync(path.join(root, 'js', 'tweaks.js'), 'utf8');
 
-assert(html.includes('20260924-left-stack-anchor-1'), 'combined desktop command CSS must be cache-busted');
-assert(html.includes('tweaks.css?v=20260924-command-repaint-1'), 'TWEAKS repaint CSS must be cache-busted');
+// Cache-busting contract: each stylesheet's ?v= must be dated no earlier than
+// the release that shipped this repaint. Later features legitimately bump the
+// same version again, so an exact-string pin would break on every release.
+function cacheVersionDate(file) {
+  const match = html.match(new RegExp(file.replace(/[.]/g, '\\.') + '\\?v=(\\d{8})-'));
+  return match ? match[1] : '';
+}
+assert(cacheVersionDate('css/asoc.css') >= '20260924', 'combined desktop command CSS must be cache-busted');
+assert(cacheVersionDate('css/tweaks.css') >= '20260924', 'TWEAKS repaint CSS must be cache-busted');
 
 assert(html.includes('class="bice-btn-sigil"'), 'BIĆE ASOC must use the cyber-organic SVG sigil');
 assert(css.includes('.bice-sigil-reticle'), 'BIĆE ASOC sigil styling must include its targeting reticle');

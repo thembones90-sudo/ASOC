@@ -328,8 +328,9 @@ function maybeRecordEarliestFinal(displayName, columnsKnownAtSolve) {
   return profile;
 }
 
-// gamesPlayed/gamesWon are one-way board-finalization counters -- there is
-// no "undo a finalized board" concept in this system, so no reversal path.
+// gamesPlayed/gamesWon are board-finalization counters. The one reversal is a
+// GM correcting a mistaken FINAL GREEN before GAME WON/LOST: server.js
+// unfinalizeBoard() subtracts exactly what was credited via adjustProfile().
 function recordBoardFinalization(displayName, { won }) {
   const key = normalizeNameKey(displayName);
   const players = loadPlayers();
