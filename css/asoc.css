@@ -18303,9 +18303,10 @@ body.room-mode-casual .gm-minigames-toggle{display:block}.gm-chat-header .gm-min
 }
 
 body.room-mode-casual .gm-module-chat .gm-chat-panel {
-  --gm-comms-rgb: 141, 73, 181;
-  --gm-comms-node-rgb: 190, 57, 78;
-  --gm-comms-red-rgb: 164, 48, 65;
+  --gm-comms-rgb: 147, 70, 183;
+  --gm-comms-node-rgb: 215, 55, 82;
+  --gm-comms-red-rgb: 190, 42, 62;
+  background: linear-gradient(145deg, #211526 0%, #181521 46%, #12141d 100%);
 }
 
 body:is(.room-mode-battle-armed,.room-mode-battle,.room-mode-recount) .gm-module-chat .gm-chat-panel {

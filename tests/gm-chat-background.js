@@ -17,6 +17,7 @@ assert.match(section, /pointer-events:\s*none/);
 assert.match(section, /--gm-comms-red-rgb:\s*177, 43, 63/);
 assert.match(section, /radial-gradient\(ellipse at 18% 18%, rgba\(var\(--gm-comms-red-rgb\), \.19\)/);
 assert.match(section, /background-color:\s*#15121d/);
+assert.match(section, /body\.room-mode-casual \.gm-module-chat \.gm-chat-panel[\s\S]*--gm-comms-node-rgb:\s*215, 55, 82[\s\S]*--gm-comms-red-rgb:\s*190, 42, 62/);
 assert.match(app, /onopen[\s\S]*classList\.remove\('is-reconnecting'\)/);
 assert.match(app, /onclose[\s\S]*classList\.add\('is-reconnecting'\)/);
 
