@@ -3153,6 +3153,7 @@ const PlayerApp = {
     const emojiToggle = document.getElementById('chat-emoji-toggle');
     const emojiPicker = document.getElementById('chat-emoji-picker');
     const reactionPicker = document.getElementById('chat-reaction-picker');
+    const reactionDetails = document.getElementById('chat-reaction-details');
     const contextMenu = document.getElementById('chat-message-context-menu');
     const mentionPicker = this.ensureChatMentionPicker(form);
     const commandPicker = document.createElement('div');
@@ -3183,6 +3184,15 @@ const PlayerApp = {
     };
     if (reactionPicker && reactionPicker.parentElement !== document.body) document.body.appendChild(reactionPicker);
     if (contextMenu && contextMenu.parentElement !== document.body) document.body.appendChild(contextMenu);
+    reactionDetails?.addEventListener('click', (e) => {
+      const close = e.target.closest('[data-reaction-close]');
+      if (close) { reactionDetails.hidden = true; return; }
+      const tab = e.target.closest('[data-reaction-filter]');
+      if (!tab) return;
+      const emoji = tab.dataset.reactionFilter || '';
+      reactionDetails.querySelectorAll('.chat-reaction-detail-tab').forEach(node => node.classList.toggle('active', node === tab));
+      reactionDetails.querySelectorAll('.chat-reaction-detail-person').forEach(node => node.classList.toggle('filtered', node.dataset.reactionEmoji !== emoji));
+    });
     let contextMessageEl = null;
     const closeContextMenu = () => {
       if (!contextMenu) return;
@@ -3366,6 +3376,7 @@ const PlayerApp = {
         this._emojiFavoriteSlot = 0;
       }
       if (contextMenu && !contextMenu.hidden && !contextMenu.contains(e.target)) closeContextMenu();
+      if (reactionDetails && !reactionDetails.hidden && !reactionDetails.contains(e.target) && !e.target.closest('.chat-reaction-chip')) reactionDetails.hidden = true;
       if (mentionPicker && !mentionPicker.hidden && !form.contains(e.target)) this.closeChatMentionPicker(mentionPicker);
     });
 
@@ -3409,7 +3420,7 @@ const PlayerApp = {
 
         const reactionChip = e.target.closest('.chat-reaction-chip');
         if (reactionChip) {
-          this.sendChatReaction(reactionChip.dataset.messageId || '', reactionChip.dataset.emoji || '');
+          this.openChatReactionDetails(reactionChip.dataset.messageId || '', reactionChip.dataset.emoji || '', reactionChip);
           return;
         }
 
@@ -3429,6 +3440,11 @@ const PlayerApp = {
         const seenPopover = document.getElementById('chat-seen-popover');
         if (seenPopover && !seenPopover.hidden && !seenPopover.contains(e.target) && !e.target.closest('.chat-seen-chip')) {
           seenPopover.hidden = true;
+        }
+
+        const reactionDetails = document.getElementById('chat-reaction-details');
+        if (reactionDetails && !reactionDetails.hidden && !reactionDetails.contains(e.target) && !e.target.closest('.chat-reaction-chip')) {
+          reactionDetails.hidden = true;
         }
 
         const replyButton = e.target.closest('.chat-reply-btn');
@@ -3726,6 +3742,38 @@ const PlayerApp = {
       .join('');
 
     return `<div class="chat-reactions${chips ? ' has-reactions' : ''}">${chips}<button type="button" class="chat-reaction-add" data-message-id="${this.escapeHtml(msg.id)}" title="React" aria-label="React to message">＋</button>${this.createPlayerSeenChipHTML(msg)}</div>`;
+  },
+
+  openChatReactionDetails(messageId, selectedEmoji, anchorEl) {
+    const popover = document.getElementById('chat-reaction-details');
+    const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
+    if (!popover || !msg) return false;
+    const reactions = Object.entries(msg.reactions || {})
+      .filter(([emoji, ids]) => this.isDisplayableReactionEmoji(emoji) && Array.isArray(ids) && ids.length);
+    if (!reactions.length) return false;
+    const activeEmoji = reactions.some(([emoji]) => emoji === selectedEmoji) ? selectedEmoji : reactions[0][0];
+    const roster = this.currentPlayers || [];
+    const person = id => String(id) === '__GM__'
+      ? { name:'Shadow Broker', avatarData:'assets/ui/shadow-broker.png', frameColor:'#9B5DE0' }
+      : roster.find(player => String(player.id) === String(id)) || { name:'Little Hero', frameColor:'#6f7885' };
+    const tabs = reactions.map(([emoji, ids]) => `<button type="button" class="chat-reaction-detail-tab${emoji === activeEmoji ? ' active' : ''}" data-reaction-filter="${this.escapeHtml(emoji)}"><span>${this.renderReactionEmojiHTML(emoji, 'commander-reaction-emoji')}</span><b>${ids.length}</b></button>`).join('');
+    const rows = reactions.flatMap(([emoji, ids]) => ids.map(id => {
+      const member = person(id);
+      const name = this.escapeHtml(member.name || member.playerName || 'Little Hero');
+      const avatar = member.avatarData ? `<img src="${this.escapeHtml(member.avatarData)}" alt="">` : `<span>${name.slice(0, 2).toUpperCase()}</span>`;
+      const frame = /^#[0-9A-Fa-f]{6}$/.test(member.frameColor || '') ? member.frameColor : '#6f7885';
+      return `<div class="chat-reaction-detail-person${emoji === activeEmoji ? '' : ' filtered'}" data-reaction-emoji="${this.escapeHtml(emoji)}"><i style="--reaction-frame:${frame}">${avatar}</i><strong>${name}</strong><em>${this.renderReactionEmojiHTML(emoji, 'commander-reaction-emoji')}</em></div>`;
+    })).join('');
+    if (popover.parentElement !== document.body) document.body.appendChild(popover);
+    popover.innerHTML = `<div class="chat-reaction-detail-head"><strong>${reactions.reduce((sum, [, ids]) => sum + ids.length, 0)} REACTIONS</strong><button type="button" data-reaction-close aria-label="Close">×</button></div><div class="chat-reaction-detail-tabs">${tabs}</div><div class="chat-reaction-detail-list">${rows}</div>`;
+    popover.dataset.messageId = messageId;
+    popover.hidden = false;
+    const rect = anchorEl?.getBoundingClientRect?.();
+    if (rect) {
+      popover.style.left = `${Math.max(8, Math.min(window.innerWidth - popover.offsetWidth - 8, rect.left))}px`;
+      popover.style.top = `${rect.bottom + 8 + popover.offsetHeight < window.innerHeight ? rect.bottom + 8 : Math.max(8, rect.top - popover.offsetHeight - 8)}px`;
+    }
+    return true;
   },
 
   canDeleteChatMessage(messageId) {

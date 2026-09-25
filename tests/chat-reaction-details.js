@@ -1,0 +1,16 @@
+const assert = require('assert');
+const fs = require('fs');
+const app = fs.readFileSync('js/app.js', 'utf8');
+const player = fs.readFileSync('js/player.js', 'utf8');
+const css = fs.readFileSync('css/asoc.css', 'utf8');
+const index = fs.readFileSync('index.html', 'utf8');
+const join = fs.readFileSync('join.html', 'utf8');
+assert.match(index, /id="gm-chat-reaction-details"/);
+assert.match(join, /id="chat-reaction-details"/);
+assert.match(app, /openGMReactionDetails\(messageId, selectedEmoji, anchorEl\)/);
+assert.match(player, /openChatReactionDetails\(messageId, selectedEmoji, anchorEl\)/);
+assert.match(app, /data-reaction-filter/);
+assert.match(player, /data-reaction-filter/);
+assert.match(css, /\.chat-reaction-detail-person\.filtered\{display:none\}/);
+assert.match(css, /\.gm-chat-context-menu:not\(\[hidden\]\),\.chat-message-context-menu:not\(\[hidden\]\)\{display:flex\}/);
+console.log('PASS Teams-style action rail and WhatsApp-style reaction roster');

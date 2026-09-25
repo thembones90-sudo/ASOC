@@ -1664,9 +1664,19 @@ const App = {
     const gmEmojiToggle = document.getElementById('gm-emoji-toggle');
     const gmEmojiPicker = document.getElementById('gm-emoji-picker');
     const gmReactionPicker = document.getElementById('gm-chat-reaction-picker');
+    const gmReactionDetails = document.getElementById('gm-chat-reaction-details');
     const gmContextMenu = document.getElementById('gm-chat-context-menu');
     if (gmReactionPicker && gmReactionPicker.parentElement !== document.body) document.body.appendChild(gmReactionPicker);
     if (gmContextMenu && gmContextMenu.parentElement !== document.body) document.body.appendChild(gmContextMenu);
+    gmReactionDetails?.addEventListener('click', (e) => {
+      const close = e.target.closest('[data-reaction-close]');
+      if (close) { gmReactionDetails.hidden = true; return; }
+      const tab = e.target.closest('[data-reaction-filter]');
+      if (!tab) return;
+      const emoji = tab.dataset.reactionFilter || '';
+      gmReactionDetails.querySelectorAll('.chat-reaction-detail-tab').forEach(node => node.classList.toggle('active', node === tab));
+      gmReactionDetails.querySelectorAll('.chat-reaction-detail-person').forEach(node => node.classList.toggle('filtered', node.dataset.reactionEmoji !== emoji));
+    });
     let gmContextMessageEl = null;
     const closeGMContextMenu = () => {
       if (!gmContextMenu) return;
@@ -1973,10 +1983,8 @@ const App = {
 
       const gmReactionChip = e.target.closest('.gm-chat-reaction-chip');
       if (gmReactionChip) {
-        this.sendGMChatReaction(
-          gmReactionChip.dataset.messageId || '',
-          gmReactionChip.dataset.emoji || ''
-        );
+        e.stopPropagation();
+        this.openGMReactionDetails(gmReactionChip.dataset.messageId || '', gmReactionChip.dataset.emoji || '', gmReactionChip);
       }
 
       const gmReactionAdd = e.target.closest('.gm-chat-reaction-add');
@@ -1998,6 +2006,11 @@ const App = {
       const gmSeenPopover = document.getElementById('gm-chat-seen-popover');
       if (gmSeenPopover && !gmSeenPopover.hidden && !gmSeenPopover.contains(e.target) && !e.target.closest('.gm-chat-seen-chip')) {
         gmSeenPopover.hidden = true;
+      }
+
+      const gmReactionDetails = document.getElementById('gm-chat-reaction-details');
+      if (gmReactionDetails && !gmReactionDetails.hidden && !gmReactionDetails.contains(e.target) && !e.target.closest('.gm-chat-reaction-chip')) {
+        gmReactionDetails.hidden = true;
       }
 
       if (e.target.closest('.gm-verdict-btn')) {
@@ -4540,6 +4553,38 @@ const App = {
   closeGMSeenPopover() {
     const popover = document.getElementById('gm-chat-seen-popover');
     if (popover) popover.hidden = true;
+  },
+
+  openGMReactionDetails(messageId, selectedEmoji, anchorEl) {
+    const popover = document.getElementById('gm-chat-reaction-details');
+    const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
+    if (!popover || !msg) return false;
+    const reactions = Object.entries(msg.reactions || {})
+      .filter(([emoji, ids]) => this.isGMReactionEmoji(emoji) && Array.isArray(ids) && ids.length);
+    if (!reactions.length) return false;
+    const activeEmoji = reactions.some(([emoji]) => emoji === selectedEmoji) ? selectedEmoji : reactions[0][0];
+    const roster = this.currentPlayers || [];
+    const person = id => String(id) === '__GM__'
+      ? { name:'Shadow Broker', avatarData:'assets/ui/shadow-broker.png', frameColor:'#9B5DE0' }
+      : roster.find(player => String(player.id) === String(id)) || { name:'Little Hero', frameColor:'#6f7885' };
+    const tabs = reactions.map(([emoji, ids]) => `<button type="button" class="chat-reaction-detail-tab${emoji === activeEmoji ? ' active' : ''}" data-reaction-filter="${this.escapeHtml(emoji)}"><span>${this.renderGMReactionEmojiHTML(emoji, 'commander-reaction-emoji')}</span><b>${ids.length}</b></button>`).join('');
+    const rows = reactions.flatMap(([emoji, ids]) => ids.map(id => {
+      const member = person(id);
+      const name = this.escapeHtml(member.name || member.playerName || 'Little Hero');
+      const avatar = member.avatarData ? `<img src="${this.escapeHtml(member.avatarData)}" alt="">` : `<span>${name.slice(0, 2).toUpperCase()}</span>`;
+      const frame = /^#[0-9A-Fa-f]{6}$/.test(member.frameColor || '') ? member.frameColor : '#6f7885';
+      return `<div class="chat-reaction-detail-person${emoji === activeEmoji ? '' : ' filtered'}" data-reaction-emoji="${this.escapeHtml(emoji)}"><i style="--reaction-frame:${frame}">${avatar}</i><strong>${name}</strong><em>${this.renderGMReactionEmojiHTML(emoji, 'commander-reaction-emoji')}</em></div>`;
+    })).join('');
+    if (popover.parentElement !== document.body) document.body.appendChild(popover);
+    popover.innerHTML = `<div class="chat-reaction-detail-head"><strong>${reactions.reduce((sum, [, ids]) => sum + ids.length, 0)} REACTIONS</strong><button type="button" data-reaction-close aria-label="Close">×</button></div><div class="chat-reaction-detail-tabs">${tabs}</div><div class="chat-reaction-detail-list">${rows}</div>`;
+    popover.dataset.messageId = messageId;
+    popover.hidden = false;
+    const rect = anchorEl?.getBoundingClientRect?.();
+    if (rect) {
+      popover.style.left = `${Math.max(8, Math.min(window.innerWidth - popover.offsetWidth - 8, rect.left))}px`;
+      popover.style.top = `${rect.bottom + 8 + popover.offsetHeight < window.innerHeight ? rect.bottom + 8 : Math.max(8, rect.top - popover.offsetHeight - 8)}px`;
+    }
+    return true;
   },
 
   createGMReactionSummaryHTML(msg) {

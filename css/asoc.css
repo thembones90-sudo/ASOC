@@ -17270,6 +17270,34 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
 .chat-seen-name.unseen { color:#a49577; }
 .chat-seen-name.muted { color:#6f7785; font-style:italic; }
 
+/* TEAMS SPEED + WHATSAPP ACCOUNTABILITY */
+.chat-reaction-details {
+  position:fixed;z-index:200002;width:min(330px,calc(100vw - 16px));max-height:min(430px,70vh);overflow:hidden;
+  border:1px solid rgba(143,112,168,.65);border-radius:12px;background:linear-gradient(180deg,#1b1d21,#101216);
+  box-shadow:0 18px 46px rgba(0,0,0,.78),inset 0 1px rgba(255,255,255,.04);color:#eef0f4;font-family:var(--font-system);
+}
+.chat-reaction-details[hidden]{display:none}
+.chat-reaction-detail-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px}
+.chat-reaction-detail-head strong{color:#c5a6dd;font-size:.58rem;letter-spacing:.14em}
+.chat-reaction-detail-head button{width:27px;height:27px;border:0;border-radius:50%;background:transparent;color:#9ca3ad;font-size:1.15rem;cursor:pointer}
+.chat-reaction-detail-head button:hover{background:#292d33;color:#fff}
+.chat-reaction-detail-tabs{display:flex;gap:7px;padding:0 12px 10px;border-bottom:1px solid rgba(128,136,148,.2);overflow-x:auto}
+.chat-reaction-detail-tab{display:inline-flex;align-items:center;gap:5px;min-width:46px;height:32px;padding:0 10px;border:1px solid #3b4048;border-radius:17px;background:#17191d;color:#d9dde3;cursor:pointer}
+.chat-reaction-detail-tab.active{border-color:#9b5de0;background:rgba(117,60,158,.24);box-shadow:0 0 12px rgba(155,93,224,.18)}
+.chat-reaction-detail-tab span{font-size:1rem;line-height:1}.chat-reaction-detail-tab b{font-size:.58rem}
+.chat-reaction-detail-list{max-height:310px;overflow:auto;padding:7px}
+.chat-reaction-detail-person{display:grid;grid-template-columns:38px minmax(0,1fr) 30px;align-items:center;gap:10px;min-height:48px;padding:5px 7px;border-radius:7px}
+.chat-reaction-detail-person:hover{background:rgba(255,255,255,.045)}.chat-reaction-detail-person.filtered{display:none}
+.chat-reaction-detail-person i{display:grid;place-items:center;width:34px;height:34px;overflow:hidden;border:2px solid var(--reaction-frame,#6f7885);border-radius:50%;background:#0c0f13;color:#cbd1d9;font-size:.56rem;font-style:normal;box-shadow:0 0 8px color-mix(in srgb,var(--reaction-frame) 42%,transparent)}
+.chat-reaction-detail-person i img{width:100%;height:100%;object-fit:cover}.chat-reaction-detail-person strong{overflow:hidden;color:#e7e9ed;font-size:.72rem;text-overflow:ellipsis;white-space:nowrap}.chat-reaction-detail-person em{justify-self:center;font-size:1.12rem;font-style:normal}
+.gm-chat-reaction-chip,.chat-reaction-chip{cursor:pointer}.gm-chat-reaction-chip:hover,.chat-reaction-chip:hover{transform:translateY(-1px)}
+
+/* Right-click/long-press actions use the compact Teams command-rail shape. */
+.gm-chat-context-menu,.chat-message-context-menu{flex-direction:row;flex-wrap:wrap;gap:2px;width:auto !important;max-width:min(92vw,520px);padding:5px !important;border-radius:10px !important}
+.gm-chat-context-menu:not([hidden]),.chat-message-context-menu:not([hidden]){display:flex}
+.gm-chat-context-menu button,.chat-message-context-menu button{width:auto !important;min-height:34px;padding:7px 10px !important;border-radius:6px}
+@media(max-width:560px){.chat-reaction-details{width:calc(100vw - 16px)}.gm-chat-context-menu,.chat-message-context-menu{max-width:calc(100vw - 16px)}.gm-chat-context-menu button,.chat-message-context-menu button{min-width:44px;min-height:44px}}
+
 /* GAME FOCUS CHAT // fast tactical reading during live rounds */
 .chat-priority-lane {
   flex:0 0 auto;
