@@ -1305,6 +1305,7 @@ const PlayerApp = {
         }
         this._columnCascadeBaselined = true;
         this.lastPublicState = message;
+        window.AsocAlerts?.playerState(message, { selfName: this.playerName });
         this.applyRoomMode(roomMode);
         window.UnstableConcoction?.updateState?.(battleVisible ? null : message.unstableConcoction);
         if (battleVisible) {
@@ -1397,6 +1398,7 @@ const PlayerApp = {
         // replay as a fresh transmission the moment they connect.
         if (this._chatEverInitialized) {
           const newMessages = incoming.filter(m => !previousIds.has(m.id));
+          window.AsocAlerts?.playerChat(newMessages, { selfId: this.playerId, selfName: this.playerName });
           followLatest = newMessages.some(m =>
             String(m.playerId || '') === String(this.playerId || '')
           );
@@ -1502,6 +1504,7 @@ const PlayerApp = {
         // client. This is presentation only; the authoritative game timer
         // still starts from the host's gm:timerStart at zero.
         Timer.runStartCountdown('timer-tracker-player');
+        window.AsocAlerts?.battleStarting();
         break;
 
       case 'battle:controlsOnline':

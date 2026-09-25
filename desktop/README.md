@@ -34,8 +34,34 @@ Any target can be set with `--url=<origin>` or the `ASOC_DESKTOP_URL` environmen
 - If the server can't be reached, the app shows a SIGNAL LOST screen and retries every 10 seconds.
 - Game audio plays without waiting for a click.
 - The window's size and position are remembered.
-- Only one copy of the app runs at a time. Launching it again focuses the open window.
+- Only one copy of the app runs at a time. Launching it again brings the open window back, even from the tray.
 - The app adds `ASOCDesktop/<version>` to its user agent so the server can recognize it.
+
+## Notifications
+
+While the window is in the background, minimized, or closed to the tray:
+
+| Event | Who gets it | Alert |
+|---|---|---|
+| Any chat message | everyone else | taskbar flash + unread badge |
+| @mention of you, or a reply to your message | that person | + Windows notification |
+| Shadow Broker `@all` | every Little Hero | + Windows notification |
+| BATTLE STARTING, GAME WON / GAME LOST | Little Heroes | + Windows notification |
+| Wheel of Misfortune lands on you | that Little Hero | + Windows notification |
+| Guess waiting for a verdict | Shadow Broker | + Windows notification |
+| Little Hero joins | Shadow Broker | + Windows notification |
+| @broker / @gm / reply to the Broker | Shadow Broker | + Windows notification |
+
+- Bringing the window to the front clears the flash, badge, and tray dot. A burst of notifications is combined into one.
+- **Closing the window (X) keeps the app running in the tray** so alerts keep arriving. The first time, a notification explains this. Quit from the tray icon's right-click menu or from **ASOC → Exit**.
+- Tray menu and **ASOC → Notifications** have three switches: pop-up notifications, notification sound, and keep running in tray when closed. They're saved in `%APPDATA%\ASOC Engine\settings.json`.
+- Master Mirror tabs never alert, and the GM's own mirror persona doesn't trigger join or chat alerts.
+- Use the **installer**. Windows only reliably shows notifications for installed apps; the portable .exe still flashes and shows the badge. Windows Do Not Disturb also hides notifications.
+
+**How it's split:**
+- **The site decides what matters.** `js/asoc-alerts.js` holds the rules, and they can change with a normal site deploy.
+- **The app displays it.** `preload.js` exposes `window.asocDesktop.attention(count)` and `notify({ title, body })`, and `main.js` handles them for ASOC pages only.
+- **Tests:** `tests/desktop-alerts.js`.
 
 ## Notes
 

@@ -1,6 +1,6 @@
 {
   "name": "asoc-desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "ASOC Engine desktop app",
   "author": "ASOC",
@@ -25,6 +25,7 @@
     },
     "files": [
       "main.js",
+      "preload.js",
       "offline.html",
       "build/icon.png",
       "package.json"
