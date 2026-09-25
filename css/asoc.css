@@ -18296,34 +18296,39 @@ body.room-mode-casual .gm-minigames-toggle{display:block}.gm-chat-header .gm-min
    independently judgeable message bubbles. Pure CSS keeps it lightweight and
    prevents decorative layers from ever intercepting operator input. */
 .gm-module-chat .gm-chat-panel {
-  --gm-comms-rgb: 138, 76, 176;
-  --gm-comms-node-rgb: 91, 185, 205;
-  background: linear-gradient(180deg, #11161e 0%, #080c12 100%);
+  --gm-comms-rgb: 151, 69, 190;
+  --gm-comms-node-rgb: 205, 54, 78;
+  --gm-comms-red-rgb: 177, 43, 63;
+  background: linear-gradient(145deg, #211526 0%, #181521 46%, #12141d 100%);
 }
 
 body.room-mode-casual .gm-module-chat .gm-chat-panel {
-  --gm-comms-rgb: 67, 121, 139;
-  --gm-comms-node-rgb: 91, 167, 180;
+  --gm-comms-rgb: 141, 73, 181;
+  --gm-comms-node-rgb: 190, 57, 78;
+  --gm-comms-red-rgb: 164, 48, 65;
 }
 
 body:is(.room-mode-battle-armed,.room-mode-battle,.room-mode-recount) .gm-module-chat .gm-chat-panel {
   --gm-comms-rgb: 147, 70, 183;
-  --gm-comms-node-rgb: 91, 190, 202;
+  --gm-comms-node-rgb: 215, 55, 82;
+  --gm-comms-red-rgb: 190, 42, 62;
 }
 
 .gm-module-chat .gm-chat-messages {
   position: relative;
   isolation: isolate;
-  background-color: #080c12;
+  background-color: #15121d;
   background-image:
-    radial-gradient(ellipse at 50% 38%, rgba(var(--gm-comms-rgb), .12), transparent 48%),
-    radial-gradient(circle, rgba(var(--gm-comms-node-rgb), .17) 0 1px, transparent 1.8px),
-    linear-gradient(rgba(var(--gm-comms-rgb), .042) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(var(--gm-comms-rgb), .035) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(16, 22, 30, .96), rgba(5, 8, 12, .985));
-  background-size: auto, 116px 78px, 39px 39px, 39px 39px, auto;
-  background-position: center, 18px 16px, 0 0, 0 0, center;
-  box-shadow: inset 0 18px 30px rgba(0,0,0,.2), inset 0 -24px 34px rgba(0,0,0,.42);
+    radial-gradient(ellipse at 18% 18%, rgba(var(--gm-comms-red-rgb), .19), transparent 42%),
+    radial-gradient(ellipse at 82% 72%, rgba(var(--gm-comms-rgb), .22), transparent 48%),
+    radial-gradient(ellipse at 50% 38%, rgba(var(--gm-comms-rgb), .12), transparent 58%),
+    radial-gradient(circle, rgba(var(--gm-comms-node-rgb), .22) 0 1px, transparent 1.8px),
+    linear-gradient(rgba(var(--gm-comms-rgb), .065) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--gm-comms-red-rgb), .052) 1px, transparent 1px),
+    linear-gradient(155deg, rgba(31, 22, 35, .94), rgba(17, 18, 28, .965));
+  background-size: auto, auto, auto, 116px 78px, 39px 39px, 39px 39px, auto;
+  background-position: center, center, center, 18px 16px, 0 0, 0 0, center;
+  box-shadow: inset 0 18px 30px rgba(67,22,48,.12), inset 0 -24px 34px rgba(18,8,29,.3);
 }
 
 .gm-module-chat .gm-chat-messages::before,
@@ -18338,7 +18343,7 @@ body:is(.room-mode-battle-armed,.room-mode-battle,.room-mode-recount) .gm-module
 .gm-module-chat .gm-chat-messages::before {
   background: url('../assets/ui/asoc-favicon.svg') center 42% / min(34%, 180px) auto no-repeat;
   filter: grayscale(1) contrast(1.35) brightness(1.35);
-  opacity: .035;
+  opacity: .052;
 }
 
 .gm-module-chat .gm-chat-messages::after {
