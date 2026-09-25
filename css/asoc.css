@@ -18755,3 +18755,112 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
 .threefold-challenge-banner button.is-decline { border-color: rgba(155, 93, 224, .5); background: rgba(155, 93, 224, .12); color: #d8c4ee; }
 @keyframes threefold-banner-in { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @media (prefers-reduced-motion: reduce) { .threefold-challenge-banner { animation: none; } }
+
+/* =========================================================
+   IKS OKS RITUAL BOARD (js/iks-board.js) -- the weaponized
+   board art with nine live plates laid exactly over its cells.
+   ========================================================= */
+.iks-board {
+  --iks-glow: 255, 48, 72;
+  position: relative;
+  width: min(100%, 360px);
+  aspect-ratio: 1;
+  margin: 6px auto 4px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.iks-board[data-me="O"] { --iks-glow: 165, 92, 255; }
+.iks-board-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, .7));
+}
+.iks-cell {
+  position: absolute;
+  z-index: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 5%;
+  background: none;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+.iks-cell.is-playable { cursor: pointer; }
+.iks-plate,
+.iks-flare {
+  position: absolute;
+  inset: 0;
+  border-radius: 5%;
+  pointer-events: none;
+}
+.iks-plate {
+  background: center / 100% 100% no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .55);
+  transition: filter .16s ease, box-shadow .16s ease;
+}
+.iks-cell.is-empty .iks-plate { background-image: url('../assets/ui/iks-oks/plate-empty.webp'); }
+.iks-cell.is-x .iks-plate { background-image: url('../assets/ui/iks-oks/plate-x.webp'); --mark-glow: 255, 48, 72; }
+.iks-cell.is-o .iks-plate { background-image: url('../assets/ui/iks-oks/plate-o.webp'); --mark-glow: 165, 92, 255; }
+
+/* Hover: a restrained ignition of just that plate, tinted to your mark. */
+.iks-cell.is-playable:hover .iks-plate,
+.iks-cell.is-playable:focus-visible .iks-plate {
+  filter: brightness(1.2) contrast(1.05);
+  box-shadow: inset 0 0 0 1px rgba(var(--iks-glow), .7), inset 0 0 18px rgba(var(--iks-glow), .35), 0 0 10px rgba(var(--iks-glow), .35);
+}
+.iks-cell:focus-visible { outline: none; }
+
+/* A new mark: the plate ignites and an energy burst flares off it. */
+.iks-cell.is-new .iks-plate { animation: iks-ignite .6s ease-out; }
+.iks-cell.is-new .iks-flare {
+  background: radial-gradient(circle, rgba(var(--flare), .85) 0%, rgba(var(--flare), .35) 38%, transparent 68%);
+  mix-blend-mode: screen;
+  animation: iks-flare .62s ease-out forwards;
+}
+.iks-cell.is-x { --flare: 255, 60, 80; }
+.iks-cell.is-o { --flare: 175, 105, 255; }
+@keyframes iks-ignite {
+  0% { filter: brightness(2.1) saturate(1.3); transform: scale(.94); }
+  45% { filter: brightness(1.35); transform: scale(1.02); }
+  100% { filter: none; transform: none; }
+}
+@keyframes iks-flare {
+  0% { opacity: 1; transform: scale(.55); }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+
+/* Victory: the winning plates pulse, the line strikes, the frame surges. */
+.iks-cell.is-win { z-index: 2; }
+.iks-cell.is-win .iks-plate {
+  box-shadow: inset 0 0 0 1px rgba(var(--mark-glow), .85), 0 0 14px rgba(var(--mark-glow), .6);
+  animation: iks-win-pulse .9s ease-in-out 3;
+}
+@keyframes iks-win-pulse {
+  0%, 100% { filter: brightness(1.05); box-shadow: inset 0 0 0 1px rgba(var(--mark-glow), .7), 0 0 10px rgba(var(--mark-glow), .45); }
+  50% { filter: brightness(1.45); box-shadow: inset 0 0 0 2px rgba(var(--mark-glow), 1), 0 0 26px rgba(var(--mark-glow), .9); }
+}
+.iks-board.has-winner .iks-cell:not(.is-win) .iks-plate { filter: brightness(.62) saturate(.7); }
+.iks-board.is-surging .iks-board-frame { animation: iks-surge 1s ease-out; }
+@keyframes iks-surge {
+  0% { filter: drop-shadow(0 10px 22px rgba(0, 0, 0, .7)) brightness(1); }
+  25% { filter: drop-shadow(0 0 26px rgba(255, 50, 80, .8)) brightness(1.55); }
+  100% { filter: drop-shadow(0 10px 22px rgba(0, 0, 0, .7)) brightness(1); }
+}
+
+/* Draw: a dim, neutral pulse through the frame; the plates cool. */
+.iks-board.is-draw .iks-board-frame { animation: iks-draw-dim 1.4s ease-in-out; }
+.iks-board.is-draw .iks-plate { filter: saturate(.55) brightness(.82); }
+@keyframes iks-draw-dim {
+  0%, 100% { filter: drop-shadow(0 10px 22px rgba(0, 0, 0, .7)) brightness(1); }
+  50% { filter: drop-shadow(0 10px 22px rgba(0, 0, 0, .7)) brightness(.55) saturate(.4); }
+}
+
+.iks-board-grid { position: absolute; z-index: 3; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .iks-cell .iks-plate, .iks-cell .iks-flare, .iks-board .iks-board-frame { animation: none !important; }
+  .iks-cell .iks-flare { opacity: 0; }
+}

@@ -25,15 +25,32 @@ function checkStore() {
   const broker = { id: '__GM__', name: 'SHADOW BROKER', isBroker: true };
   const hp = id => store.standingOf(id)?.health;
   try {
+    // Health is live by default: no gauntlet needed.
     assert.equal(store.publicState().status, 'idle');
-    assert.equal(store.recordGame({ x: hero('a'), o: hero('b'), winnerId: 'a' }), null, 'no gauntlet, no health');
-    assert.equal(store.standingOf('a'), null, 'no ring outside a gauntlet');
+    assert.equal(hp('z'), 10, 'everyone starts whole');
+    store.recordGame({ x: hero('y'), o: hero('z'), winnerId: 'y' });
+    assert.equal(hp('y'), 10, 'the winner is capped at 10');
+    assert.equal(hp('z'), 9, 'a loss costs a bar outside any gauntlet');
+    store.recordGame({ x: hero('z'), o: hero('y'), winnerId: 'z' });
+    assert.equal(hp('z'), 10, 'a win lifesteals it back');
+    assert.equal(hp('y'), 9);
+    let result;
+    for (let i = 0; i < 9; i++) result = store.recordGame({ x: hero('z'), o: hero('y'), winnerId: 'z' });
+    assert.equal(hp('y'), 0);
+    assert.deepEqual(result.eliminated.map(e => e.id), ['y'], 'falling to 0 is announced');
+    assert.equal(store.isEliminated('y'), true, '0 health locks a hero out');
+    store.reset();
+    assert.equal(hp('y'), 10, 'reset restores everyone');
+    assert.equal(store.isEliminated('y'), false);
 
     assert.equal(store.start().ok, true);
     assert.equal(store.start().ok, false, 'one gauntlet at a time');
+    store.recordGame({ x: hero('b'), o: hero('a'), winnerId: 'a' });
+    assert.equal(hp('b'), 9);
     ['a', 'b', 'c'].forEach(id => assert.equal(store.join(hero(id)).ok, true));
     assert.equal(store.join(hero('a')).already, true);
-    assert.equal(hp('a'), 10);
+    assert.equal(hp('b'), 10, 'joining the gauntlet restores full health');
+    assert.equal(store.standingOf('a').fighter, true);
 
     // Lifesteal between heroes; the winner is capped at 10.
     store.recordGame({ x: hero('a'), o: hero('b'), winnerId: 'a' });
@@ -41,7 +58,11 @@ function checkStore() {
     assert.equal(hp('b'), 9);
     assert.equal(store.publicState().status, 'running');
     assert.equal(store.join(hero('d')).ok, false, 'joining closes at the first duel');
-    assert.equal(store.recordGame({ x: hero('a'), o: hero('d'), winnerId: 'a' }), null, 'a non-fighter game does not count');
+    const counted = store.publicState().gamesPlayed;
+    const outside = store.recordGame({ x: hero('a'), o: hero('d'), winnerId: 'a' });
+    assert.equal(outside.gauntlet, null, 'a non-fighter game does not count toward the gauntlet');
+    assert.equal(store.publicState().gamesPlayed, counted);
+    assert.equal(hp('d'), 9, 'but it still moves health');
 
     // The Broker drains and gives; a draw counts but moves nothing.
     store.recordGame({ x: broker, o: hero('b'), winnerId: '__GM__' });
@@ -54,7 +75,6 @@ function checkStore() {
     assert.equal(hp('b'), 9);
 
     // c falls after ten losses and is eliminated.
-    let result;
     for (let i = 0; i < 10; i++) result = store.recordGame({ x: hero('a'), o: hero('c'), winnerId: 'a' });
     assert.equal(hp('c'), 0);
     assert.deepEqual(result.eliminated.map(e => e.id), ['c']);
@@ -67,7 +87,7 @@ function checkStore() {
     assert.deepEqual(result.victors.map(v => v.id), ['a']);
     assert.equal(result.endedReason, 'last-standing');
     assert.equal(store.standingOf('a').victor, true);
-    assert.equal(store.recordGame({ x: hero('a'), o: hero('b'), winnerId: 'a' }), null, 'an ended gauntlet freezes');
+    assert.equal(store.recordGame({ x: hero('a'), o: hero('d'), winnerId: 'a' }).gauntlet, null, 'an ended gauntlet counts nothing more');
 
     // Survives a restart.
     store._forget();
@@ -77,7 +97,8 @@ function checkStore() {
     // Game limit: 25 draws end it and a tie shares the crown.
     store.reset();
     assert.equal(store.publicState().status, 'idle');
-    assert.equal(store.standingOf('a'), null, 'reset clears every ring');
+    assert.equal(hp('c'), 10, 'reset restores every ring');
+    assert.equal(store.standingOf('a').victor, false, 'reset clears the victor');
     store.start();
     store.join(hero('a'));
     store.join(hero('b'));
@@ -216,7 +237,13 @@ async function runServer() {
     assert.match((await challenge(gm, cy)).message || '', /FINISH YOUR CURRENT DUEL/);
 
     const side = id => (String(id) === '__GM__' ? gm : bo);
-    await playOut(duel, side);
+    const boMark2 = gm.mark();
+    const plain = await playOut(duel, side);
+    // The reported bug: an ordinary (non-gauntlet) loss must cost a bar.
+    await gm.waitFor(m => m.type === 'players:update', 'health after a plain game', boMark2);
+    await sleep(150);
+    const boHealth = gm.players.find(p => p.id === bo.playerId)?.iksHealth;
+    assert.equal(boHealth, String(plain.winnerId) === '__GM__' ? 9 : 10, 'losing an ordinary game costs one bar');
     // Finished: both are free again.
     const free = await challenge(ana, bo);
     assert.equal(free.type, 'threefold:challenge', 'a finished duel frees both players');
@@ -304,7 +331,31 @@ function checkRing() {
   assert.equal(ring.messageClass({ iksHealth: 9 }), '');
 }
 
+function checkBoard() {
+  const board = require('../js/iks-board.js');
+  const game = { id: 'g1', board: ['X', '', '', '', '', '', '', '', ''], complete: false, winnerId: null, winningLine: null };
+  let html = board.html(game, { cellAttr: 'data-threefold-cell', canPlay: true, me: 'O' });
+  assert.equal((html.match(/data-threefold-cell="\d"/g) || []).length, 9, 'nine live plates');
+  assert.match(html, /assets\/ui\/iks-oks\/board\.webp/, 'the ritual board art is the frame');
+  assert.equal((html.match(/is-playable/g) || []).length, 8, 'every empty plate is playable on your move');
+  assert.match(html, /class="iks-cell is-x is-new"/, 'a fresh mark flares');
+  html = board.html(game, { cellAttr: 'data-threefold-cell', canPlay: false });
+  assert.doesNotMatch(html, /is-new/, 'a repaint does not replay the flare');
+  assert.equal((html.match(/ disabled>/g) || []).length, 9, 'nothing playable off-turn');
+  const won = { id: 'g1', board: ['X', 'O', '', 'O', 'X', '', '', '', 'X'], complete: true, winnerId: 'p1', winningLine: [0, 4, 8] };
+  html = board.html(won, { cellAttr: 'data-gm-cell' });
+  assert.match(html, /has-winner is-surging/);
+  assert.equal((html.match(/is-win/g) || []).length, 3, 'three winning plates pulse');
+  assert.match(html, /threefold-win-line" data-line="0-4-8"/);
+  assert.doesNotMatch(board.html(won, { cellAttr: 'data-gm-cell' }), /is-surging/, 'the victory surge plays once');
+  const draw = { id: 'g2', board: ['X', 'O', 'X', 'X', 'O', 'O', 'O', 'X', 'X'], complete: true, winnerId: null };
+  assert.match(board.html(draw, {}), /iks-board is-draw/);
+  ['plate-x.webp', 'plate-o.webp', 'plate-empty.webp', 'board.webp'].forEach(file =>
+    assert.ok(fs.existsSync(path.join(ROOT, 'assets', 'ui', 'iks-oks', file)), `${file} exists`));
+}
+
 (async () => {
+  checkBoard();
   checkRing();
   checkStore();
   await runServer();

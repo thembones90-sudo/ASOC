@@ -4378,13 +4378,12 @@ function handleThreefoldDecline(ws, message) {
   });
 }
 
-// IKS OKS GAUNTLET lockout: a joined Little Hero at 0 health plays no IKS OKS
-// until the Broker resets the gauntlet (see iks-arena-store.js). The Shadow
-// Broker is never locked out.
+// IKS OKS lockout: a Little Hero at 0 health plays no IKS OKS until the
+// Broker resets health (see iks-arena-store.js). The Broker is never locked out.
 function threefoldLockout(...sides) {
   for (const side of sides) {
     if (!side || side.isHost || String(side.id) === '__GM__' || isMasterTestPlayerId(side.id)) continue;
-    if (iksArena.isEliminated(side.id)) return `${side.name || 'LITTLE HERO'} IS ELIMINATED // OUT UNTIL THE GAUNTLET IS RESET`;
+    if (iksArena.isEliminated(side.id)) return `${side.name || 'LITTLE HERO'} IS ELIMINATED // 0 HEALTH UNTIL THE SHADOW BROKER RESETS`;
   }
   return null;
 }
@@ -4395,14 +4394,14 @@ function iksAnnounce(room, lines) {
   broadcastChatUpdate(room);
 }
 
-// Every finished game between gauntlet fighters (or a fighter and the Broker)
-// counts toward the limit and moves health. Announces falls and victors.
+// Every decided IKS OKS game moves health; games between gauntlet fighters
+// also count toward the gauntlet. Announces falls and victors.
 function applyThreefoldArena(room, game) {
   if (!game || isMasterTestPlayerId(game.xId) || isMasterTestPlayerId(game.oId)) return null;
   const side = (id, name) => ({ id: String(id), name, isBroker: String(id) === '__GM__' });
   const result = iksArena.recordGame({ x: side(game.xId, game.xName), o: side(game.oId, game.oName), winnerId: game.winnerId || null });
   if (!result) return null;
-  const lines = result.eliminated.map(fallen => `IKS OKS GAUNTLET // ${fallen.name} HAS FALLEN. 0 HEALTH. OUT UNTIL THE GAUNTLET IS RESET.`);
+  const lines = result.eliminated.map(fallen => `IKS OKS // ${fallen.name} HAS FALLEN. 0 HEALTH. OUT UNTIL THE SHADOW BROKER RESETS.`);
   if (result.victors?.length) {
     const names = result.victors.map(v => v.name).join(' & ');
     lines.push(result.endedReason === 'last-standing'
@@ -4441,9 +4440,9 @@ function handleIksGauntletJoin(ws) {
 
 function handleIksArenaReset(ws) {
   const room = hostRoomFor(ws);
-  if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can reset the IKS OKS gauntlet' });
+  if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can reset IKS OKS health' });
   iksArena.reset();
-  iksAnnounce(room, ['IKS OKS GAUNTLET // RESET. THE ARENA IS EMPTY.']);
+  iksAnnounce(room, ['IKS OKS // RESET. EVERY LITTLE HERO RESTORED TO 10 HEALTH.']);
   broadcastPlayersUpdate(room);
 }
 
@@ -6108,11 +6107,9 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
 // IKS OKS health for avatar rings; Master Mirror test personas have none.
 function iksArenaFields(player) {
   if (!player || player.isTestPersona === true || isMasterTestPlayerId(player.id)) return {};
-  // Every Little Hero wears the ring: full 10/10 outside the gauntlet (or
-  // when not fighting in it), real health for gauntlet fighters.
+  // Every Little Hero wears the ring: health is always live (iks-arena-store).
   const standing = iksArena.standingOf(player.id);
-  if (!standing) return { iksHealth: iksArena.MAX_HEALTH, iksEliminated: false, iksChampion: false, iksFighter: false };
-  return { iksHealth: standing.health, iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: true };
+  return { iksHealth: standing.health, iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: standing.fighter };
 }
 
 function sendPlayersUpdateTo(room, ws) {

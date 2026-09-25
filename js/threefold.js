@@ -71,10 +71,10 @@
       if (!content) return;
       const me = (PlayerApp.currentPlayers || []).find(p => p.id === PlayerApp.playerId) || {};
       content.innerHTML = this.gauntletBar(me) + (me.iksEliminated
-        ? '<div class="threefold-status"><b>ELIMINATED</b><span>0 health. You sit out until the Shadow Broker resets the gauntlet.</span></div>'
+        ? '<div class="threefold-status"><b>ELIMINATED</b><span>0 health. You sit out until the Shadow Broker resets IKS OKS health.</span></div>'
         : players.length
           ? '<div class="threefold-kicker">SELECT OPPONENT</div><div class="threefold-opponents">' +
-            players.map(p => `<button type="button" class="threefold-opponent${p.iksEliminated ? ' is-eliminated' : ''}" data-threefold-opponent="${this.escape(p.id)}" ${p.iksEliminated ? 'disabled' : ''}>${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D${p.iksFighter ? ` · ${p.iksHealth}/10 HP` : ''}</small></span><i>${p.iksEliminated ? 'FALLEN' : 'CHALLENGE'}</i></button>`).join('') +
+            players.map(p => `<button type="button" class="threefold-opponent${p.iksEliminated ? ' is-eliminated' : ''}" data-threefold-opponent="${this.escape(p.id)}" ${p.iksEliminated ? 'disabled' : ''}>${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D · ${Number(p.iksHealth ?? 10)}/10 HP</small></span><i>${p.iksEliminated ? 'FALLEN' : 'CHALLENGE'}</i></button>`).join('') +
             '</div>'
           : '<div class="threefold-empty">NO OTHER LITTLE HEROES ONLINE</div>');
       this.show();
@@ -265,10 +265,9 @@
           <span class="${g.oId === PlayerApp.playerId ? 'is-me' : ''}">${face(g.oId)}<b>O</b>${this.escape(g.oName)}</span>
         </div>
         <div class="threefold-turn ${g.complete ? 'complete' : ''}">${status}</div>
-        <div class="threefold-board" aria-label="Threefold board">
-          ${g.board.map((mark, i) => `<button type="button" data-threefold-cell="${i}" class="threefold-cell ${mark ? 'occupied' : ''}" ${mark || g.complete || !myTurn ? 'disabled' : ''}>${mark || ''}</button>`).join('')}
-          ${Array.isArray(g.winningLine) && g.winningLine.length === 3 ? `<i class="threefold-win-line" data-line="${g.winningLine.join('-')}" aria-hidden="true"></i>` : ''}
-        </div>
+        ${window.IksBoard
+          ? IksBoard.html(g, { cellAttr: 'data-threefold-cell', canPlay: myTurn, me: mySymbol })
+          : `<div class="threefold-board" aria-label="Threefold board">${g.board.map((mark, i) => `<button type="button" data-threefold-cell="${i}" class="threefold-cell ${mark ? 'occupied' : ''}" ${mark || g.complete || !myTurn ? 'disabled' : ''}>${mark || ''}</button>`).join('')}${Array.isArray(g.winningLine) && g.winningLine.length === 3 ? `<i class="threefold-win-line" data-line="${g.winningLine.join('-')}" aria-hidden="true"></i>` : ''}</div>`}
         <div class="threefold-foot"><span>YOU ARE ${mySymbol}</span>${g.complete ? '<button type="button" data-threefold-action="rematch">REMATCH</button>' : ''}</div>`;
     },
 
