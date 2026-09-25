@@ -16,6 +16,9 @@ assert.match(
   'battle and recount layouts must top-anchor the left stack'
 );
 assert.match(css, /DESKTOP LEFT STACK ANCHOR[\s\S]*?overflow-y:auto;/, 'short desktop viewports must scroll rather than clip lower controls');
-assert(html.includes('css/asoc.css?v=20260924-left-stack-anchor-1'), 'layout correction must be cache-busted');
+// Dated no earlier than the release that shipped this correction; later
+// features legitimately bump the same stylesheet version again.
+const asocCssVersionDate = (html.match(/css\/asoc\.css\?v=(\d{8})-/) || [])[1] || '';
+assert(asocCssVersionDate >= '20260924', 'layout correction must be cache-busted');
 
 console.log('left-stack-layout: all checks passed');

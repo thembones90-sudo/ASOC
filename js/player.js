@@ -1886,15 +1886,19 @@ const PlayerApp = {
     const now = Date.now();
     let active = false;
     Object.values(this.solutionCountdowns || {}).forEach(entry => {
-      const remaining = Math.max(0, Number(entry.deadline || 0) - now);
+      // A paused battle freezes its countdowns: the server sends remainingMs
+      // instead of a deadline, and the badge holds still until resume.
+      const remaining = entry.paused
+        ? Math.max(0, Number(entry.remainingMs) || 0)
+        : Math.max(0, Number(entry.deadline || 0) - now);
       if (remaining <= 0) return;
-      active = true;
+      if (!entry.paused) active = true;
       const key = entry.target === 'FINAL' ? 'FINAL' : entry.target + '5';
       const cell = board.querySelector(`.board-cell[data-label="${CSS.escape(key)}"]`);
       if (!cell) return;
       const total = Math.ceil(remaining / 1000);
       const badge = document.createElement('div');
-      badge.className = 'solution-countdown-badge';
+      badge.className = 'solution-countdown-badge' + (entry.paused ? ' is-paused' : '');
       badge.textContent = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
       cell.appendChild(badge);
     });

@@ -58,6 +58,9 @@ function isBattleSurface(room) {
   return room.roomMode === ROOM_MODES.BATTLE_ARMED || room.roomMode === ROOM_MODES.BATTLE;
 }
 const RITUAL_REQUIRED_VOTES = 5;
+// A launch accepted with a fulfilled ritual stays valid this long (T-10 plus
+// slack for the host's own round trip), even if a voter drops meanwhile.
+const RITUAL_LAUNCH_GRACE_MS = 30 * 1000;
 const MAX_CHAT_LENGTH = 100;
 const MAX_MODERATION_REASON_LENGTH = 180;
 const PLAYER_CHAT_MIN_INTERVAL_MS = 350;
@@ -1800,7 +1803,12 @@ function handleWheelClose(ws) {
     sendToWs(ws, { type: 'error', message: 'Only host can close the Wheel' });
     return;
   }
-  if (!isBattleSurface(room)) {
+  // RECOUNT is allowed too: a Wheel still showing its result when the GM
+  // opens the RECOUNT (e.g. GAME LOST -> WOMF -> FINISH GAME) must remain
+  // dismissible, otherwise it stays on every screen and its Blood Tribute
+  // is never demanded. ABUSE after a shown RECOUNT returns to RECOUNT, so
+  // there is no other way back to it.
+  if (!isBattleSurface(room) && room.roomMode !== ROOM_MODES.RECOUNT) {
     sendToWs(ws, { type: 'error', message: 'WOMF is only available on the Battle surface' });
     return;
   }
@@ -1898,6 +1906,54 @@ function resetTimer(room) {
   };
 }
 
+// Freezes the battle clock at a board-resolving moment (Final solved, REVEAL
+// ALL/FINAL, GAME WON) but remembers the live phase, so a GM correction --
+// undoing a FINAL verdict or hiding a revealed Final -- can resume exactly
+// where play stopped instead of leaving a dead 'stopped' clock behind.
+const CLOCK_ACTIVE_PHASES = ['running', 'paused', 'borrowed', 'borrowed_paused'];
+function stopClock(room) {
+  const t = room.timer;
+  if (!t || !CLOCK_ACTIVE_PHASES.includes(t.phase)) return false;
+  t.stoppedFrom = t.phase;
+  t.phase = 'stopped';
+  pauseSolutionCountdowns(room);
+  return true;
+}
+
+function resumeStoppedClock(room) {
+  const t = room.timer;
+  if (!t || t.phase !== 'stopped' || !CLOCK_ACTIVE_PHASES.includes(t.stoppedFrom) || room.sessionState.matchResult) return false;
+  t.phase = t.stoppedFrom;
+  delete t.stoppedFrom;
+  if (t.phase === 'running' || t.phase === 'borrowed') resumeSolutionCountdowns(room);
+  return true;
+}
+
+// Column/FINAL solution countdowns are battle time, not wall time: they
+// freeze whenever the battle clock does (pause, stop) and resume with it.
+// A frozen entry keeps remainingMs and drops its deadline; replacing the
+// token invalidates the timeout that was armed for the old deadline.
+function pauseSolutionCountdowns(room) {
+  const now = Date.now();
+  for (const entry of Object.values(room.solutionCountdowns || {})) {
+    if (!entry || !Number.isFinite(entry.deadline)) continue;
+    entry.remainingMs = Math.max(0, entry.deadline - now);
+    entry.deadline = null;
+    entry.token = crypto.randomUUID();
+  }
+}
+
+function resumeSolutionCountdowns(room) {
+  const now = Date.now();
+  for (const entry of Object.values(room.solutionCountdowns || {})) {
+    if (!entry || Number.isFinite(entry.deadline) || !Number.isFinite(entry.remainingMs)) continue;
+    entry.deadline = now + entry.remainingMs;
+    delete entry.remainingMs;
+    entry.token = crypto.randomUUID();
+    armSolutionCountdown(room, entry);
+  }
+}
+
 function getTimerPublicState(room) {
   if (!room.timer) resetTimer(room);
   const t = room.timer;
@@ -1914,8 +1970,12 @@ function getSolutionCountdownPublicState(room) {
   const source = room.solutionCountdowns || {};
   const out = {};
   for (const [target, entry] of Object.entries(source)) {
-    if (!entry || !Number.isFinite(entry.deadline)) continue;
-    out[target] = { target, deadline: entry.deadline, seconds: entry.seconds };
+    if (!entry || entry.boardId !== room.boardId) continue;
+    if (Number.isFinite(entry.deadline)) {
+      out[target] = { target, deadline: entry.deadline, seconds: entry.seconds };
+    } else if (Number.isFinite(entry.remainingMs)) {
+      out[target] = { target, deadline: null, paused: true, remainingMs: entry.remainingMs, seconds: entry.seconds };
+    }
   }
   return out;
 }
@@ -1928,10 +1988,13 @@ function clearSolutionCountdown(room, target) {
 
 function armSolutionCountdown(room, entry) {
   const delay = Math.max(0, Number(entry.deadline || 0) - Date.now());
+  // Captured now: pausing replaces entry.token on this same object, which is
+  // what must invalidate this timeout.
+  const armedToken = entry.token;
   setTimeout(() => runtimeAction(() => {
     const live = rooms.get(room.code);
     const current = live?.solutionCountdowns?.[entry.target];
-    if (!live || !current || current.token !== entry.token || current.boardId !== live.boardId) return;
+    if (!live || !current || current.token !== armedToken || current.boardId !== live.boardId) return;
     delete live.solutionCountdowns[entry.target];
 
     if (!isBattleSurface(live) || isMatchResolved(live)) {
@@ -1979,11 +2042,18 @@ function handleSolutionCountdown(ws, message) {
     boardId: room.boardId,
     token: crypto.randomUUID()
   };
+  // Started while the battle clock is frozen: the countdown starts frozen too
+  // and begins counting when the GM resumes.
+  const clockLive = room.timer?.phase === 'running' || room.timer?.phase === 'borrowed';
+  if (!clockLive) {
+    entry.remainingMs = seconds * 1000;
+    entry.deadline = null;
+  }
   room.solutionCountdowns[target] = entry;
   room.revision++;
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
-  armSolutionCountdown(room, entry);
+  if (clockLive) armSolutionCountdown(room, entry);
 }
 
 function isMatchResolved(room) {
@@ -2015,6 +2085,11 @@ function handleTimerLaunchCountdown(ws) {
     sendToWs(ws, { type: 'error', message: 'THE SUMMON RITUAL IS NOT YET FULFILLED' });
     return;
   }
+
+  // The ritual was fulfilled when the launch was accepted. Lock that in for
+  // this launch: every player is already watching T-10, so a voter's
+  // connection dropping during the countdown must not abort the start.
+  room.ritual.launchApprovedAt = Date.now();
 
   // The T-10 sequence is theatrical, not authoritative game time. Broadcast
   // it immediately so every connected Little Hero sees the same launch
@@ -2052,7 +2127,8 @@ function handleTimerStart(ws) {
   // SUMMON RITUAL security gate. Authoritative: the client's START GAME lock
   // is cosmetic only. A direct gm:timerStart with no valid fulfillment (5
   // votes OR an accepted Blood Tribute) is rejected here, full stop.
-  if (!isRitualFulfilled(room)) {
+  const launchLocked = Number(room.ritual?.launchApprovedAt) > Date.now() - RITUAL_LAUNCH_GRACE_MS;
+  if (!isRitualFulfilled(room) && !launchLocked) {
     sendToWs(ws, { type: 'error', message: 'THE SUMMON RITUAL IS NOT YET FULFILLED' });
     return;
   }
@@ -2089,6 +2165,7 @@ function handleTimerPause(ws) {
   }
 
   room.timer.phase = room.timer.phase === 'borrowed' ? 'borrowed_paused' : 'paused';
+  pauseSolutionCountdowns(room);
   room.revision++;
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -2115,6 +2192,7 @@ function handleTimerResume(ws) {
   }
 
   room.timer.phase = room.timer.phase === 'borrowed_paused' ? 'borrowed' : 'running';
+  resumeSolutionCountdowns(room);
   room.revision++;
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -2236,7 +2314,7 @@ function buildWinPerformance(room) {
 function declareGameLost(room, source = 'timer') {
   if (room.sessionState.matchResult || room.sessionState.gameWon === true) return false;
   clearSolutionCountdown(room, 'FINAL');
-  if (room.sessionState.finalOutcome === 'success') return false;
+  if (room.chat.solvedTargets?.FINAL || room.scoring.boardFinalized) return false;
 
   const finalized = finalizeBoard(room, 'failed');
   addWomfCharge(room, 3);
@@ -2863,12 +2941,15 @@ function finalizeBoard(room, outcome) {
   // anything else (no scoring/WOMF side effect lives here -- those already
   // happened via the GM's own explicit action that called into this
   // function in the first place).
-  if (room.timer && !['ready', 'expired', 'stopped'].includes(room.timer.phase)) {
-    room.timer.phase = 'stopped';
-  }
+  stopClock(room);
 
   const participants = getActiveParticipants(room);
   const penaltyEvents = [];
+  // Remembered so a GM correction of a FINAL verdict can reverse exactly the
+  // gamesPlayed/gamesWon it credited (see unfinalizeBoard).
+  room.scoring.finalizedParticipants = outcome === 'success'
+    ? participants.map(({ playerId, playerName }) => ({ playerId, playerName }))
+    : null;
 
   participants.forEach(({ playerId, playerName }) => {
     if (outcome === 'success') {
@@ -2888,6 +2969,26 @@ function finalizeBoard(room, outcome) {
   });
 
   return { participants, penaltyEvents };
+}
+
+// Undo of a mistaken FINAL GREEN (the GM corrects the verdict to WRONG or
+// retargets it). The board goes back to exactly the live state it left:
+// Final hidden again, clock resumed, withheld results dropped, and the
+// win credited to every participant's lifetime profile reversed. Only a
+// board finalized as a success by a FINAL verdict is ever reopened here --
+// GAME WON / GAME LOST (matchResult) stay final.
+function unfinalizeBoard(room) {
+  if (!room.scoring.boardFinalized || room.sessionState.matchResult) return false;
+  room.scoring.boardFinalized = false;
+  room.scoring.pendingResults = null;
+  for (const { playerId, playerName } of room.scoring.finalizedParticipants || []) {
+    adjustPersistentStats(playerId, playerName, { gamesPlayed: -1, gamesWon: -1 });
+  }
+  room.scoring.finalizedParticipants = null;
+  room.sessionState.finalSolution = false;
+  room.sessionState.finalOutcome = null;
+  resumeStoppedClock(room);
+  return true;
 }
 
 function applyCommand(room, command, payload) {
@@ -3055,6 +3156,10 @@ function applyCommand(room, command, payload) {
         room.sessionState.finalOutcome = room.sessionState.finalOutcome || 'success';
         changed = true;
       }
+      // Answers shown mid-battle: nobody can still earn the Final, so the
+      // clock must not keep running toward an automatic outcome. The GM
+      // decides GAME WON / GAME LOST; hiding the Final again resumes play.
+      if (room.roomMode === ROOM_MODES.BATTLE && stopClock(room)) changed = true;
       break;
     }
     case 'hideAll': {
@@ -3074,6 +3179,7 @@ function applyCommand(room, command, payload) {
         changed = true;
       }
       room.sessionState.cellOutcomes = {};
+      if (!room.scoring.boardFinalized && resumeStoppedClock(room)) changed = true;
       break;
     }
     case 'revealFinal': {
@@ -3082,6 +3188,7 @@ function applyCommand(room, command, payload) {
         room.sessionState.finalOutcome = room.sessionState.finalOutcome || 'success';
         changed = true;
       }
+      if (room.roomMode === ROOM_MODES.BATTLE && stopClock(room)) changed = true;
       break;
     }
     case 'hideFinal': {
@@ -3090,6 +3197,9 @@ function applyCommand(room, command, payload) {
         room.sessionState.finalOutcome = null;
         changed = true;
       }
+      // A GM-revealed Final hidden again resumes the battle. A Final the
+      // players actually solved keeps the board finalized (clock stopped).
+      if (!room.scoring.boardFinalized && resumeStoppedClock(room)) changed = true;
       break;
     }
     case 'resetBoard': {
@@ -3112,6 +3222,7 @@ function applyCommand(room, command, payload) {
       room.scoring.activeStreak = null;
       room.scoring.boardFinalized = false;
       room.scoring.pendingResults = null;
+      room.scoring.finalizedParticipants = null;
       room.chat.solvedTargets = {};
       // Same treatment as scoring.activeStreak: per-board only, WOMF charge
       // itself is untouched by a board reset.
@@ -3253,6 +3364,7 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
       delete room.chat.solvedTargets[oldSolvedKey];
       if (oldTarget === 'FINAL') {
         reverseFinalSolve(room);
+        if (unfinalizeBoard(room)) changed = true;
       } else {
         reverseColumnSolve(room, oldTarget);
         streakChanged = true;
@@ -6284,10 +6396,16 @@ function handleSwitchGame(ws, message) {
   // when the board changes.
   room.boardId = generateBoardId();
   room.pendingReveals = {};
+  // Per-board, exactly as RESET BOARD clears them: without this a hint used
+  // on the previous board blocked that row on the new one, and a running
+  // solution countdown lingered on the new board forever.
+  room.solutionCountdowns = {};
+  room.hintClaims = {};
   startMatchLedger(room); // new board id => new match ledger
   room.scoring.activeStreak = null;
   room.scoring.boardFinalized = false;
   room.scoring.pendingResults = null;
+  room.scoring.finalizedParticipants = null;
   // WOMF charge is global ASOC state, not per-board -- do NOT reset it here.
   // Only the per-board "already declared failed this board" guard resets.
   if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
@@ -6338,7 +6456,10 @@ function handleFailFinal(ws, message) {
     return;
   }
 
-  if (room.sessionState.finalSolution === true || room.sessionState.finalOutcome === 'success') {
+  // Only a Final the players actually SOLVED blocks GAME LOST. A Final the
+  // GM merely revealed (REVEAL ALL / REVEAL FINAL mid-battle) leaves the
+  // loss available -- revealing the answer is not the same as earning it.
+  if (room.chat.solvedTargets?.FINAL || room.scoring.boardFinalized) {
     sendToWs(ws, { type: 'error', message: 'The Final has already been resolved for this board' });
     return;
   }

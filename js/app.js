@@ -2685,6 +2685,7 @@ const App = {
         this.chatMessages = incoming;
         this.solvedTargets = message.solvedTargets || {};
         this.renderGMChat();
+        this.updateFailFinalButtonVisibility();
         break;
       }
 
@@ -2847,6 +2848,12 @@ const App = {
 
     const wasFinalRevealed = this.finalRevealed;
     this.finalRevealed = battleVisible && state.finalSolution?.revealed === true;
+    // A mistaken FINAL GREEN corrected to WRONG re-hides the Final: drop the
+    // stale SOLUTION CONFIRMED banner along with it.
+    if (wasFinalRevealed && !this.finalRevealed && this._activeFinalBanner) {
+      this._activeFinalBanner.remove();
+      this._activeFinalBanner = null;
+    }
     // See _finalFlourishUntil's declaration for why this is decided here,
     // once, on the authoritative transition, rather than inside
     // updatePublicView() itself. Re-entering BATTLE from CASUAL is hydration,
@@ -2945,15 +2952,19 @@ const App = {
     const now = Date.now();
     let active = false;
     Object.values(this.solutionCountdowns || {}).forEach(entry => {
-      const remaining = Math.max(0, Number(entry.deadline || 0) - now);
+      // A paused battle freezes its countdowns: the server sends remainingMs
+      // instead of a deadline, and the badge holds still until resume.
+      const remaining = entry.paused
+        ? Math.max(0, Number(entry.remainingMs) || 0)
+        : Math.max(0, Number(entry.deadline || 0) - now);
       if (remaining <= 0) return;
-      active = true;
+      if (!entry.paused) active = true;
       const key = entry.target === 'FINAL' ? 'FINAL' : entry.target + '5';
       const cell = board.querySelector(`.board-cell[data-cell="${CSS.escape(key)}"]`);
       if (!cell) return;
       const total = Math.ceil(remaining / 1000);
       const badge = document.createElement('div');
-      badge.className = 'solution-countdown-badge';
+      badge.className = 'solution-countdown-badge' + (entry.paused ? ' is-paused' : '');
       badge.textContent = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
       cell.appendChild(badge);
     });
@@ -3630,7 +3641,11 @@ const App = {
   updateFailFinalButtonVisibility() {
     const btn = document.getElementById('declare-final-failed-btn');
     if (!btn) return;
-    btn.style.display = (this.mode === 'multiplayer' && this.roomMode === 'BATTLE' && !this.finalRevealed) ? 'block' : 'none';
+    // Mirrors the server rule: GAME LOST stays available until players have
+    // actually SOLVED the Final or the match is over. A Final the GM merely
+    // revealed (REVEAL ALL / REVEAL FINAL) does not remove the button.
+    const finalSettled = this.gameWon || this.gameLost || !!this.solvedTargets?.FINAL;
+    btn.style.display = (this.mode === 'multiplayer' && this.roomMode === 'BATTLE' && !finalSettled) ? 'block' : 'none';
   },
 
   showBattleControlsOnline() {
