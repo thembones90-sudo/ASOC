@@ -2657,9 +2657,15 @@ const App = {
         this.updateRitualUI(message.ritual);
         break;
 
-      case 'threefold:challenge': window.GMMinigames?.onChallenge?.(message); break;
+      case 'threefold:challenge':
+        window.GMMinigames?.onChallenge?.(message);
+        window.AsocAlerts?.threefold?.(message, '__GM__');
+        break;
       case 'threefold:declined': window.GMMinigames?.onDeclined?.(message); break;
-      case 'threefold:state': window.GMMinigames?.onState?.(message); break;
+      case 'threefold:state':
+        window.GMMinigames?.onState?.(message);
+        window.AsocAlerts?.threefold?.(message, '__GM__');
+        break;
       case 'threefold:closed': window.GMMinigames?.onClosed?.(message); break;
       case 'unstableConcoction:started': window.GMMinigames?.onConcoctionStarted?.(message); break;
       case 'unstableConcoction:resolved': window.GMMinigames?.onConcoctionResolved?.(message); break;

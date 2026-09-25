@@ -1571,6 +1571,7 @@ const PlayerApp = {
 
       case 'threefold:challenge':
         window.Threefold?.onChallenge?.(message);
+        window.AsocAlerts?.threefold?.(message, this.playerId);
         break;
 
       case 'threefold:declined':
@@ -1579,6 +1580,7 @@ const PlayerApp = {
 
       case 'threefold:state':
         window.Threefold?.onState?.(message);
+        window.AsocAlerts?.threefold?.(message, this.playerId);
         break;
 
       case 'threefold:closed':

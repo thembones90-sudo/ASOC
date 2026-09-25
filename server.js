@@ -6108,9 +6108,11 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
 // IKS OKS health for avatar rings; Master Mirror test personas have none.
 function iksArenaFields(player) {
   if (!player || player.isTestPersona === true || isMasterTestPlayerId(player.id)) return {};
+  // Every Little Hero wears the ring: full 10/10 outside the gauntlet (or
+  // when not fighting in it), real health for gauntlet fighters.
   const standing = iksArena.standingOf(player.id);
-  if (!standing) return {};
-  return { iksHealth: standing.health, iksEliminated: standing.eliminated, iksChampion: standing.victor };
+  if (!standing) return { iksHealth: iksArena.MAX_HEALTH, iksEliminated: false, iksChampion: false, iksFighter: false };
+  return { iksHealth: standing.health, iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: true };
 }
 
 function sendPlayersUpdateTo(room, ws) {

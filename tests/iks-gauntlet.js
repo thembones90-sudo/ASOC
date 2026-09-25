@@ -253,7 +253,10 @@ async function runServer() {
     await sleep(150);
     const health = (client, hero) => client.players.find(p => p.id === hero.playerId)?.iksHealth;
     assert.equal(health(gm, ana), 10);
-    assert.equal(health(gm, cy), undefined, 'a non-fighter has no ring');
+    assert.equal(health(gm, cy), 10, 'a non-fighter still wears a full ring');
+    const fighter = (client, hero) => client.players.find(p => p.id === hero.playerId)?.iksFighter;
+    assert.equal(fighter(gm, ana), true);
+    assert.equal(fighter(gm, cy), false);
 
     const toBo2 = await challenge(ana, bo);
     boMark = bo.mark();
@@ -275,7 +278,8 @@ async function runServer() {
     gm.send({ type: 'gm:iksReset' });
     await gm.waitFor(m => m.type === 'players:update' && m.iksArena?.status === 'idle', 'gauntlet reset');
     await sleep(150);
-    assert.equal(health(gm, ana), undefined, 'reset clears every ring');
+    assert.equal(health(gm, ana), 10, 'reset restores every ring to full');
+    assert.equal(gm.players.find(p => p.id === ana.playerId)?.iksFighter, false, 'reset clears the fighters');
 
     assert.equal(serverErrors.trim(), '', 'no server errors');
   } finally {

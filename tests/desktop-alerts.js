@@ -58,6 +58,19 @@ alerts.playerChat([{ id: 41, playerId: 'p2', playerName: 'Zed', text: '↳ @Hero
 assert.equal(notifications()[0].silent, false, 'unmuted toasts keep their sound');
 delete globalThis.localStorage;
 
+// IKS OKS: a challenge aimed at you and your turn both raise a toast.
+reset();
+alerts.threefold({ type: 'threefold:challenge', challenge: { challengerId: 'p2', challengerName: 'Zed', opponentId: 'me' } }, 'me');
+assert.equal(notifications()[0].title, 'Zed challenges you to IKS OKS');
+reset();
+alerts.threefold({ type: 'threefold:challenge', challenge: { challengerId: 'me', challengerName: 'Hero42', opponentId: 'p2' } }, 'me');
+assert.equal(notifications().length, 0, 'your own outgoing challenge does not alert you');
+alerts.threefold({ type: 'threefold:state', game: { xId: 'me', oId: 'p2', oName: 'Zed', turnId: 'me', complete: false } }, 'me');
+assert.equal(notifications()[0].title, 'Your move in IKS OKS');
+reset();
+alerts.threefold({ type: 'threefold:state', game: { xId: 'me', oId: 'p2', turnId: 'p2', complete: false } }, 'me');
+assert.equal(notifications().length, 0, 'no alert while the opponent is moving');
+
 // Emotes aimed at you alert with the server-written target line.
 reset();
 alerts.playerChat([{ id: 42, playerId: 'p2', playerName: 'Zed', messageType: 'emote', text: 'Zed slaps Hero42.', emote: { act: 'slap', actorName: 'Zed', targetId: 'me', lines: { target: 'Zed slaps you across the face.' } } }], { selfId: 'me', selfName: 'Hero42' });

@@ -256,6 +256,25 @@
       this.signal({ count: players.length, popup });
     },
 
+    // IKS OKS: a challenge aimed at `selfId`, or a board where it is now
+    // `selfId`'s move. Desktop badge + Windows toast while the window is away.
+    threefold(message, selfId) {
+      const self = String(selfId || '');
+      if (!self) return;
+      if (message?.type === 'threefold:challenge') {
+        const c = message.challenge || {};
+        if (String(c.opponentId) !== self) return;
+        this.signal({ popup: { title: `${c.challengerName || 'Someone'} challenges you to IKS OKS`, body: 'Open ASOC to accept or decline.', tag: 'iks-oks' } });
+        return;
+      }
+      if (message?.type === 'threefold:state') {
+        const g = message.game || {};
+        if (g.complete || String(g.turnId) !== self) return;
+        const opponent = String(g.xId) === self ? g.oName : g.xName;
+        this.signal({ popup: { title: `Your move in IKS OKS`, body: `${opponent || 'Your opponent'} is waiting.`, tag: 'iks-oks' } });
+      }
+    },
+
     gmPlayers(players) {
       const online = new Map((players || [])
         .filter(p => p && p.id && p.connected !== false && !isMasterTestPersona(p))

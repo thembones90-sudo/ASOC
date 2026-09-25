@@ -74,7 +74,7 @@
         ? '<div class="threefold-status"><b>ELIMINATED</b><span>0 health. You sit out until the Shadow Broker resets the gauntlet.</span></div>'
         : players.length
           ? '<div class="threefold-kicker">SELECT OPPONENT</div><div class="threefold-opponents">' +
-            players.map(p => `<button type="button" class="threefold-opponent${p.iksEliminated ? ' is-eliminated' : ''}" data-threefold-opponent="${this.escape(p.id)}" ${p.iksEliminated ? 'disabled' : ''}>${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D${Number.isFinite(p.iksHealth) ? ` · ${p.iksHealth}/10 HP` : ''}</small></span><i>${p.iksEliminated ? 'FALLEN' : 'CHALLENGE'}</i></button>`).join('') +
+            players.map(p => `<button type="button" class="threefold-opponent${p.iksEliminated ? ' is-eliminated' : ''}" data-threefold-opponent="${this.escape(p.id)}" ${p.iksEliminated ? 'disabled' : ''}>${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D${p.iksFighter ? ` · ${p.iksHealth}/10 HP` : ''}</small></span><i>${p.iksEliminated ? 'FALLEN' : 'CHALLENGE'}</i></button>`).join('') +
             '</div>'
           : '<div class="threefold-empty">NO OTHER LITTLE HEROES ONLINE</div>');
       this.show();
@@ -84,7 +84,7 @@
     gauntletBar(me) {
       const arena = PlayerApp.iksArena;
       if (!arena || arena.status === 'idle') return '';
-      const joined = Number.isFinite(me?.iksHealth);
+      const joined = me?.iksFighter === true;
       const victors = (arena.victors || []).map(v => this.escape(v.name)).join(' & ');
       const line = arena.status === 'open'
         ? (joined ? `YOU ARE IN // ${arena.fighters} JOINED // WAITING FOR THE FIRST DUEL` : `${arena.fighters} JOINED // JOINING CLOSES AT THE FIRST DUEL`)
@@ -140,8 +140,8 @@
       const action = event.target.closest('[data-threefold-action]');
       if (action) {
         const kind = action.dataset.threefoldAction;
-        if (kind === 'accept' && this.challenge) PlayerApp.send({ type: 'threefold:accept', challengeId: this.challenge.id });
-        if (kind === 'decline' && this.challenge) PlayerApp.send({ type: 'threefold:decline', challengeId: this.challenge.id });
+        if (kind === 'accept' && this.challenge) { PlayerApp.send({ type: 'threefold:accept', challengeId: this.challenge.id }); this.hideBanner(); this.stopTitleFlash(); }
+        if (kind === 'decline' && this.challenge) { PlayerApp.send({ type: 'threefold:decline', challengeId: this.challenge.id }); this.hideBanner(); this.stopTitleFlash(); }
         if (kind === 'rematch' && this.lastOpponentId) PlayerApp.send({ type: 'threefold:challenge', opponentId: this.lastOpponentId });
         if (kind === 'join-gauntlet') PlayerApp.send({ type: 'iks:join' });
         if (kind === 'close') this.close();
@@ -159,6 +159,47 @@
       content.innerHTML = `<div class="threefold-status"><b>CHALLENGE SENT</b><span>Waiting for ${this.escape(name)}.</span></div>`;
       this.show();
     },
+    // Challenges used to appear only inside the IKS OKS panel in the chat
+    // column, so a player looking at the board (or another tab) never saw them.
+    // A top-of-screen banner and a flashing tab title make them unmissable.
+    showBanner(challenge) {
+      this.hideBanner();
+      const banner = document.createElement('div');
+      banner.id = 'threefold-challenge-banner';
+      banner.className = 'threefold-challenge-banner';
+      banner.setAttribute('role', 'alertdialog');
+      banner.setAttribute('aria-label', 'IKS OKS challenge');
+      banner.innerHTML = `
+        <span class="threefold-banner-mark" aria-hidden="true">⚔</span>
+        <div><b>${this.escape(challenge.challengerName)}</b><small>CHALLENGES YOU TO IKS OKS</small></div>
+        <button type="button" data-threefold-action="accept">ACCEPT</button>
+        <button type="button" data-threefold-action="decline" class="is-decline">DECLINE</button>`;
+      document.body.appendChild(banner);
+      window.Skeleton?.playMentionAllShake?.();
+      this.flashTitle(`⚔ ${challenge.challengerName} challenges you`);
+    },
+
+    hideBanner() {
+      document.getElementById('threefold-challenge-banner')?.remove();
+    },
+
+    flashTitle(text) {
+      this.stopTitleFlash();
+      if (document.visibilityState === 'visible' && document.hasFocus?.()) return;
+      const original = document.title;
+      let on = false;
+      this._titleFlash = { original, timer: setInterval(() => { on = !on; document.title = on ? text : original; }, 1000) };
+      const stop = () => this.stopTitleFlash();
+      window.addEventListener('focus', stop, { once: true });
+    },
+
+    stopTitleFlash() {
+      if (!this._titleFlash) return;
+      clearInterval(this._titleFlash.timer);
+      document.title = this._titleFlash.original;
+      this._titleFlash = null;
+    },
+
     onChallenge(message) {
       if (PlayerApp.roomMode !== 'CASUAL') return;
       this.challenge = message.challenge || null;
@@ -168,6 +209,7 @@
         this.renderWaiting(this.challenge.opponentName);
         return;
       }
+      this.showBanner(this.challenge);
       this.lastOpponentId = this.challenge.challengerId;
       const content = document.getElementById('threefold-content');
       if (!content) return;
@@ -183,6 +225,8 @@
     },
 
     onDeclined(message) {
+      this.hideBanner();
+      this.stopTitleFlash();
       this.challenge = null;
       const content = document.getElementById('threefold-content');
       if (!content) return;
@@ -192,9 +236,12 @@
 
     onState(message) {
       if (PlayerApp.roomMode !== 'CASUAL') return;
+      this.hideBanner();
       this.challenge = null;
       this.game = message.game || null;
       if (!this.game) return;
+      if (!this.game.complete && this.game.turnId === PlayerApp.playerId) this.flashTitle('⚔ Your move in IKS OKS');
+      else this.stopTitleFlash();
       const meX = this.game.xId === PlayerApp.playerId;
       this.lastOpponentId = meX ? this.game.oId : this.game.xId;
       this.renderGame();
@@ -228,6 +275,8 @@
     onClosed(message) {
       // A stale challenge closing must never tear down a live game.
       if (message?.challengeId && this.challenge?.id !== message.challengeId) return;
+      this.hideBanner();
+      this.stopTitleFlash();
       if (message?.reason) {
         const content = document.getElementById('threefold-content');
         if (content) content.innerHTML = `<div class="threefold-status"><b>DUEL CLOSED</b><span>${this.escape(message.reason)}</span></div>`;
