@@ -229,11 +229,12 @@ const Ritual = {
         ${ctx.tributeStatus === 'PENDING' ? '<button type="button" class="ritual-gm-accept-btn">ACCEPT TRIBUTE</button><button type="button" class="ritual-gm-reject-btn">REJECT TRIBUTE</button>' : ''}
         <details class="ritual-danger-menu">
           <summary>RITUAL OPTIONS</summary>
-          <div><button type="button" class="ritual-gm-reset-btn">RESET RITUAL</button><button type="button" class="ritual-gm-cancel-btn">CANCEL RITUAL</button></div>
+          <div class="ritual-options-grid"><button type="button" class="ritual-gm-reset-btn">RESET RITUAL</button><button type="button" class="ritual-gm-cancel-btn">CANCEL RITUAL</button><button type="button" class="ritual-gm-board-btn">VIEW PLAYING BOARD</button></div>
         </details>
       </div>
     `;
     const bind = (selector, fn) => { const btn = detail.querySelector(selector); if (btn && fn) btn.onclick = fn; };
+    bind('.ritual-gm-board-btn', handlers?.onViewBoard);
     bind('.ritual-gm-accept-btn', handlers?.onAcceptTribute);
     bind('.ritual-gm-reject-btn', handlers?.onRejectTribute);
     bind('.ritual-gm-reset-btn', handlers?.onReset);

@@ -18122,6 +18122,17 @@ body.room-mode-casual .gm-minigames-toggle{display:block}.gm-chat-header .gm-min
   background: rgba(70, 40, 95, 0.4);
   color: #f0e8fb;
 }
+.ritual-gm-board-btn {
+  grid-column: 1 / -1;
+  width: 100%;
+  border-color: rgba(88, 194, 214, .72) !important;
+  background: linear-gradient(180deg, rgba(20, 72, 84, .72), rgba(10, 38, 47, .78)) !important;
+  color: #d9fbff !important;
+  box-shadow: inset 0 0 18px rgba(70, 190, 215, .08);
+}
+.ritual-gm-board-btn:hover {
+  box-shadow: 0 0 16px rgba(70, 190, 215, .22), inset 0 0 18px rgba(70, 190, 215, .12);
+}
 .ritual-gm-accept-btn { border-color: #4fb36c; background: rgba(30, 70, 45, 0.5); }
 .ritual-gm-reject-btn,
 .ritual-gm-cancel-btn { border-color: #d94b62; background: rgba(80, 25, 35, 0.4); }
@@ -18134,8 +18145,13 @@ body.room-mode-casual .gm-minigames-toggle{display:block}.gm-chat-header .gm-min
   cursor: pointer;
   list-style-position: inside;
 }
-.ritual-danger-menu > div { display: flex; gap: 6px; margin-top: 5px; }
-.ritual-danger-menu > div button { flex: 1; }
+.ritual-danger-menu > div { margin-top: 5px; }
+.ritual-danger-menu > div.ritual-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.ritual-danger-menu > div button { min-width: 0; }
 
 /* Small anonymous tribute-upload modal, distinct purple accent from the
    existing red WOMF-demand Blood Tribute modal it's modelled on. */
