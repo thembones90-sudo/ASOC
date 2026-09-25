@@ -1,7 +1,7 @@
-// Little Hero @all nudge: every screen shakes, and the hidden cost -- after
-// five nudges the next one is swallowed and a Blood Tribute is demanded;
-// paying (or the GM forgiving) restores the nudge. Runs against a private
-// server on throwaway data.
+// Little Hero @all nudge: every screen shakes, and the hidden one-time toll
+// -- after five nudges the next one is swallowed and a Blood Tribute is
+// demanded; once paid (or forgiven by the GM) that player nudges freely
+// forever. Runs against a private server on throwaway data.
 const assert = require('assert/strict');
 const fs = require('fs');
 const os = require('os');
@@ -93,19 +93,21 @@ async function connectAll() {
   await sleep(300);
 }
 
-// Sends a chat line from the nudger and reports whether the room shook.
-async function say(text) {
-  const shakesBefore = witness.count('chat:mentionAll');
+// Sends a chat line from `sender` (default: the nudger) and reports whether
+// the room shook, as seen by `observer` and the Shadow Broker.
+async function say(text, sender = nudger, observer = sender === nudger ? witness : nudger) {
+  const posted = text.replace(/^\/all\s*/i, '@all ').trim();
+  const shakesBefore = observer.count('chat:mentionAll');
   const gmShakesBefore = gm.count('chat:mentionAll');
-  const nudgerMark = nudger.msgs.length;
-  nudger.send({ type: 'chat:guess', text });
-  await witness.waitFor(m => m.type === 'chat:update' && m.messages.some(x => x.text === text.replace(/^\/all\s*/i, '@all ').trim()), `chat "${text}"`);
+  const senderMark = sender.msgs.length;
+  sender.send({ type: 'chat:guess', text });
+  await observer.waitFor(m => m.type === 'chat:update' && m.messages.some(x => x.text === posted), `chat "${text}"`);
   await sleep(420); // chat cooldown + any trailing broadcast
   return {
-    shook: witness.count('chat:mentionAll') > shakesBefore,
+    shook: observer.count('chat:mentionAll') > shakesBefore,
     gmShook: gm.count('chat:mentionAll') > gmShakesBefore,
-    errors: nudger.msgs.slice(nudgerMark).filter(m => m.type === 'error').map(m => m.message),
-    message: witness.chat.filter(x => x.text === text.replace(/^\/all\s*/i, '@all ').trim()).at(-1)
+    errors: sender.msgs.slice(senderMark).filter(m => m.type === 'error').map(m => m.message),
+    message: observer.chat.filter(x => x.text === posted).at(-1)
   };
 }
 
@@ -155,24 +157,31 @@ async function run() {
     await connectAll();
     assert.equal(witness.state.bloodTribute.source, 'nudge', 'nudge debt survives a restart');
 
-    // Paying the tribute buys the nudge back.
+    // Paying the tribute settles the toll for good: nudging is free forever.
     nudger.send({ type: 'tribute:submit', imageData: TRIBUTE_PNG, retentionAcknowledged: true });
     await nudger.waitFor(m => m.type === 'tribute:accepted', 'tribute accepted');
     await sleep(200);
     assert.equal(witness.state.bloodTribute.status, 'idle');
-    assert.equal((await say('@all I paid')).shook, true, 'paying restores the nudge');
+    for (let i = 1; i <= 7; i++) {
+      assert.equal((await say(`@all paid up ${i}`)).shook, true, `after paying, nudge ${i} shakes`);
+    }
+    assert.equal(witness.state.bloodTribute.status, 'idle', 'the toll is never demanded again');
 
-    // Exhaust again (4 more free after the paid one) -> demanded -> the GM forgives -> restored.
-    for (let i = 0; i < 4; i++) assert.equal((await say(`@all round two ${i}`)).shook, true);
-    assert.equal((await say('@all one too many')).shook, false);
-    assert.equal(witness.state.bloodTribute.source, 'nudge');
+    // Forgiving the toll settles it too (tested on the second player).
+    for (let i = 1; i <= 5; i++) assert.equal((await say(`@all witness ${i}`, witness)).shook, true);
+    assert.equal((await say('@all witness six', witness)).shook, false);
+    assert.equal(nudger.state.bloodTribute.source, 'nudge');
+    assert.equal(nudger.state.bloodTribute.playerName, 'Witness');
     gm.send({ type: 'gm:tributeForgive' });
-    await witness.waitFor(m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'debt forgiven');
+    await nudger.waitFor(m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'debt forgiven');
     await sleep(200);
-    assert.equal((await say('@all forgiven')).shook, true, 'GM forgiveness restores the nudge');
+    for (let i = 1; i <= 7; i++) {
+      assert.equal((await say(`@all forgiven ${i}`, witness)).shook, true, `after forgiveness, nudge ${i} shakes`);
+    }
+    assert.equal(nudger.state.bloodTribute.status, 'idle', 'no second toll after forgiveness');
 
     assert.equal(server.errors.trim(), '', 'no server errors');
-    console.log('PASS player nudge: @all and /all shake everyone, five free, sixth demands a Blood Tribute, pay/forgive restores, survives restart');
+    console.log('PASS player nudge: @all and /all shake everyone, five free, sixth demands a one-time Blood Tribute, paid/forgiven means free forever, survives restart');
   } finally {
     [gm, nudger, witness].forEach(client => client?.close());
     server.kill();

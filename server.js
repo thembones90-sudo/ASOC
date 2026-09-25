@@ -921,7 +921,8 @@ function createRoom(gameId, hostWs) {
     // its publicUntil deadline is still active.
     bloodTributes: [],
     pendingTribute: null,
-    // Little Hero @all nudges used since their last nudge Blood Tribute.
+    // Little Hero @all nudges used toward the one-time nudge Blood Tribute
+    // (a number), or 'settled' once that toll was paid/forgiven.
     nudgeCounts: {},
     unstableConcoction: unstableConcoction.normalizeState(),
     // TIMER + BORROWED TIME -- server-authoritative, per-board (unlike WOMF's
@@ -1544,8 +1545,8 @@ function handleBloodTributeSubmit(ws, message) {
   });
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages.shift();
   room.pendingTribute = null;
-  // A paid nudge debt buys back the nudge: a fresh NUDGE_FREE_USES.
-  if (demand.source === 'nudge' && room.nudgeCounts) delete room.nudgeCounts[String(demand.playerId)];
+  // The nudge toll is one-time: once paid, this player nudges freely forever.
+  if (demand.source === 'nudge') settleNudgeToll(room, demand.playerId);
   if ((demand.source || 'womf') === 'womf') {
     room.womf.charge = 0;
     resetWheel(room);
@@ -1607,8 +1608,8 @@ function handleTributeForgive(ws) {
   }
 
   room.pendingTribute = null;
-  // Forgiving a nudge debt is mercy, and mercy restores the nudge too.
-  if (demand.source === 'nudge' && room.nudgeCounts) delete room.nudgeCounts[String(demand.playerId)];
+  // Forgiving the nudge toll settles it for good, same as paying.
+  if (demand.source === 'nudge') settleNudgeToll(room, demand.playerId);
 
   // Only WOMF-origin debt owns the Battle wheel. Casual Concoction debt
   // must never mutate or resurrect Battle wheel state.
@@ -6053,13 +6054,20 @@ function containsAllMention(text) {
 
 // LITTLE HERO NUDGE. A player's @all (or "/all message") is an old-school
 // nudge: every screen shakes, exactly like the Shadow Broker's @all.
-// Hidden cost, never shown in the UI: after NUDGE_FREE_USES nudges the next
-// one is swallowed and that player is handed a Blood Tribute demand. Paying
-// it (or the GM forgiving it) restores the nudge. Returns:
+// Hidden one-time toll, never shown in the UI: after NUDGE_FREE_USES nudges
+// the next one is swallowed and that player is handed a Blood Tribute
+// demand. Once it is paid (or the GM forgives it) the player is marked
+// NUDGE_SETTLED and nudges freely forever -- the toll never comes back.
+// Returns:
 //   'nudge'   -- shake everyone (message.nudge is set)
-//   'tribute' -- over the limit; a nudge Blood Tribute was just demanded
-//   'blocked' -- over the limit while a tribute is already owed
+//   'tribute' -- over the limit; the nudge Blood Tribute was just demanded
+//   'blocked' -- over the limit while a tribute is still owed
 const NUDGE_FREE_USES = 5;
+const NUDGE_SETTLED = 'settled';
+function settleNudgeToll(room, playerId) {
+  room.nudgeCounts ||= {};
+  room.nudgeCounts[String(playerId)] = NUDGE_SETTLED;
+}
 function applyPlayerNudge(room, ws, message) {
   const player = room.players.get(ws);
   if (!player) return null;
@@ -6070,6 +6078,10 @@ function applyPlayerNudge(room, ws, message) {
   }
   room.nudgeCounts ||= {};
   const id = String(player.id);
+  if (room.nudgeCounts[id] === NUDGE_SETTLED) {
+    message.nudge = true;
+    return 'nudge';
+  }
   const used = Number(room.nudgeCounts[id]) || 0;
   if (used < NUDGE_FREE_USES) {
     room.nudgeCounts[id] = used + 1;
