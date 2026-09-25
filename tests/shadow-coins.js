@@ -35,9 +35,19 @@ function checkStore() {
     assert.equal(store.awardShadowCoins(ana, 1, 'test:win-1').duplicate, true);
     assert.equal(store.getShadowCoins(ana), 1);
     assert.equal(store.awardShadowCoins(ana, 2, 'test:win-2').balance, 3);
-    assert.equal(store.awardShadowCoins(ana, 0, 'x').ok, false, 'awards are positive whole numbers');
-    assert.equal(store.awardShadowCoins(ana, 1.5, 'y').ok, false);
+    assert.equal(store.awardShadowCoins(ana, 0, 'x').ok, false, 'awards are positive');
+    assert.equal(store.awardShadowCoins(ana, 1.55, 'y').ok, false, 'amounts are whole tenths');
     assert.equal(store.awardShadowCoins(ana, 1).ok, false, 'an award needs a receipt');
+    // Tenths are exact: three +0.1 awards make 0.3, never 0.30000000000000004.
+    const bo = { id: 'acct-bo', name: 'Bo' };
+    ['t1', 't2', 't3'].forEach(r => store.awardShadowCoins(bo, 0.1, r));
+    assert.equal(store.getShadowCoins(bo), 0.3);
+    assert.equal(store.awardShadowCoins(bo, 0.2, 'iks-win').balance, 0.5);
+    // A loss never takes the balance below zero.
+    assert.equal(store.deductShadowCoins(bo, 0.1, 'iks-loss-1').balance, 0.4);
+    assert.equal(store.deductShadowCoins(bo, 5, 'big-loss').balance, 0, 'deductions stop at zero');
+    assert.equal(store.deductShadowCoins(bo, 0.1, 'iks-loss-2').deducted, 0);
+    assert.equal(store.deductShadowCoins(bo, 0.1, 'iks-loss-2').duplicate, true, 'a deduction never applies twice');
     // 12. generic counters (and so any stat path) cannot move the currency
     store.adjustProfile(ana, { statDeltas: { shadowCoins: 500 } });
     assert.equal(store.getShadowCoins(ana), 3, 'adjustProfile cannot touch Shadow Coins');
@@ -57,6 +67,16 @@ function checkStore() {
     store = fresh();
     assert.equal(store.getShadowCoins(ana), 2, 'the balance survives a restart');
     assert.equal(store.awardShadowCoins(ana, 1, 'test:win-3').duplicate, true, 'receipts survive a restart');
+    // Profiles saved before tenths (whole coins only) keep their balance.
+    const file = store.PLAYERS_FILE;
+    const legacy = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const key = Object.keys(legacy).find(k => legacy[k].accountId === 'acct-ana' || k === 'acct-ana');
+    delete legacy[key].shadowCoinUnits;
+    legacy[key].shadowCoins = 4;
+    fs.writeFileSync(file, JSON.stringify(legacy));
+    store = fresh();
+    assert.equal(store.getShadowCoins(ana), 4, 'legacy whole-coin balances migrate unchanged');
+    assert.equal(store.awardShadowCoins(ana, 0.2, 'after-migration').balance, 4.2);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
     delete process.env.ASOC_DATA_DIR;

@@ -451,6 +451,8 @@ async function runServerChecks() {
       return [...update.messages].reverse().find(x => x.messageType === 'stats' && x.playerId === player.playerId).stats;
     };
     const scoreOf = player => gm.players.find(p => p.id === player.playerId)?.score ?? 0;
+    const coinsOf = player => gm.players.find(p => p.id === player.playerId)?.shadowCoins ?? 0;
+    const settle = () => sleep(300);
 
     // 1. WRONG toggle: neutral -> wrong -> neutral.
     const alpha = await say(players[0], 'alpha guess');
@@ -475,6 +477,20 @@ async function runServerChecks() {
     const delta = await say(players[3], 'delta guess');
     await judge(delta.id, 'correct', { target: 'A' });
     assert.equal(verdictOf(delta.id), 'correct');
+    // SHADOW COINS: a solved column pays +1; correcting the verdict takes it
+    // back; re-accepting pays again (never twice for one acceptance).
+    await settle();
+    assert.equal(coinsOf(players[3]), 1, 'a solved column pays +1 Shadow Coin');
+    assert.equal(coinsOf(players[1]), 0, 'a WRONG guess pays nothing');
+    await judge(delta.id, 'wrong');
+    await settle();
+    assert.equal(coinsOf(players[3]), 0, 'a corrected verdict takes the coin back');
+    await judge(delta.id, 'correct', { target: 'A' });
+    await settle();
+    assert.equal(coinsOf(players[3]), 1, 're-accepting pays once more');
+    await judge(delta.id, 'correct', { target: 'A' });
+    await settle();
+    assert.equal(coinsOf(players[3]), 1, 'judging the same acceptance again never double-pays');
     players[4].send({ type: 'chat:guess', text: '/poke @Control Hero 1' });
     await gm.waitFor(m => m.type === 'chat:update' && m.messages.some(x => x.messageType === 'emote' && x.emote?.act === 'poke'), 'poke emote');
     await sleep(400);
@@ -504,6 +520,9 @@ async function runServerChecks() {
     gm.send({ type: 'gm:revealResults' });
     await gm.waitFor(m => m.type === 'score:finalResults', 'final results', released);
     await gm.waitFor(m => m.type === 'state:public' && m.finalResultsPending === false, 'results released', released, 4000);
+    await gm.waitFor(m => m.type === 'players:update', 'players after results', released);
+    await settle();
+    assert.equal(coinsOf(players[0]), 5, 'the Final pays +5 Shadow Coins');
 
     assert.equal(serverErrors.trim(), '', 'no server errors');
   } finally {

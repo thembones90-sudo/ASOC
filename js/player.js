@@ -4844,8 +4844,8 @@ const PlayerApp = {
     const chip = document.getElementById('shadow-coin-balance');
     const amount = document.getElementById('shadow-coin-amount');
     if (!chip || !amount || !self) return;
-    const coins = Number.isInteger(self.shadowCoins) && self.shadowCoins > 0 ? self.shadowCoins : 0;
-    amount.textContent = String(coins);
+    const coins = Number(self.shadowCoins) > 0 ? Number(self.shadowCoins) : 0;
+    amount.textContent = Number.isInteger(coins) ? String(coins) : coins.toFixed(1);
     chip.hidden = false;
   },
 

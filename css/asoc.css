@@ -19082,3 +19082,30 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
 .kal-reward small { display: block; color: #d9c7ee; font-size: 10px; letter-spacing: .12em; }
 @keyframes shadow-coin-in { from { opacity: 0; transform: rotateY(90deg) scale(.6); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .kal-reward .shadow-coin-icon { animation: none; } }
+
+/* MINI GAME ART ICONS: IKS OKS + KALADONT get the Unstable Concoction icon
+   treatment (contained, unclipped glow, hover lift) in their own colours. */
+#game-screen .casual-minigame-icon.minigame-art-icon {
+  overflow: visible;
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, .04);
+}
+#game-screen .minigame-art-icon.iks-oks-art { background: radial-gradient(circle, rgba(255, 40, 80, .18), transparent 68%); }
+#game-screen .minigame-art-icon.kaladont-art { background: radial-gradient(circle, rgba(180, 70, 255, .18), transparent 68%); }
+#game-screen .minigame-art-icon img {
+  width: 43px;
+  height: 43px;
+  object-fit: contain;
+  transition: transform .2s ease, filter .2s ease;
+}
+#game-screen .minigame-art-icon.iks-oks-art img { filter: drop-shadow(0 0 6px rgba(255, 50, 90, .45)); }
+#game-screen .minigame-art-icon.kaladont-art img { filter: drop-shadow(0 0 6px rgba(190, 80, 255, .5)); }
+#game-screen .casual-minigame-card:not(:disabled):hover .minigame-art-icon img { transform: translateY(-1px) scale(1.08); }
+#game-screen .casual-minigame-card:not(:disabled):hover .minigame-art-icon.iks-oks-art img { filter: drop-shadow(0 0 9px rgba(255, 60, 100, .75)); }
+#game-screen .casual-minigame-card:not(:disabled):hover .minigame-art-icon.kaladont-art img { filter: drop-shadow(0 0 9px rgba(200, 100, 255, .8)); }
+.gm-minigames-menu > button img.gm-minigame-art.iks-oks-art { filter: drop-shadow(0 0 8px rgba(255, 50, 90, .45)); }
+.gm-minigames-menu > button img.gm-minigame-art.kaladont-art { filter: drop-shadow(0 0 8px rgba(190, 80, 255, .5)); }
+.gm-minigames-menu > button img.gm-minigame-art { transition: transform .2s ease; }
+.gm-minigames-menu > button:hover img.gm-minigame-art { transform: scale(1.06); }
+@media (prefers-reduced-motion: reduce) {
+  #game-screen .minigame-art-icon img, .gm-minigames-menu > button img.gm-minigame-art { transition: none; }
+}

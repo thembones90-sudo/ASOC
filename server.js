@@ -3446,6 +3446,51 @@ function isValidTarget(target) {
   return ['A', 'B', 'C', 'D', 'FINAL'].includes(target);
 }
 
+// ---------------------------------------------------------------------
+// SHADOW COIN EARNINGS (cosmetic currency; never touches Battle scoring).
+//   column solved by a CORRECT chat verdict: +1   //  Final solved: +5
+//   IKS OKS win: +0.2   //   IKS OKS loss: -0.1 (never below zero)
+// Battle payouts follow the verdict: a correction that takes the solve away
+// takes the coins back; re-accepting pays again under a new receipt.
+// Master Mirror test personas are not accounts and never earn.
+const SHADOW_COIN_COLUMN = 1;
+const SHADOW_COIN_FINAL = 5;
+const SHADOW_COIN_IKS_WIN = 0.2;
+const SHADOW_COIN_IKS_LOSS = 0.1;
+
+function coinAccount(playerId, name) {
+  if (!playerId || String(playerId) === '__GM__' || isMasterTestPlayerId(playerId)) return null;
+  return { id: String(playerId), name: name || 'LITTLE HERO' };
+}
+
+function awardBattleCoins(room, message, target) {
+  const account = coinAccount(message.playerId, message.playerName);
+  if (!account || message.coinAward) return;
+  const amount = target === 'FINAL' ? SHADOW_COIN_FINAL : SHADOW_COIN_COLUMN;
+  message.coinSeq = (Number(message.coinSeq) || 0) + 1;
+  const receipt = `battle:${room.boardId}:${message.id}:${target}:${message.coinSeq}`;
+  const result = playerStore.awardShadowCoins(account, amount, receipt, { reason: target === 'FINAL' ? 'Final solved' : `column ${target} solved` });
+  if (result.ok) message.coinAward = { receipt, amount, target };
+}
+
+function revokeBattleCoins(room, message) {
+  const award = message.coinAward;
+  const account = coinAccount(message.playerId, message.playerName);
+  if (!award || !account) return;
+  playerStore.deductShadowCoins(account, award.amount, `${award.receipt}:revoked`, { reason: 'verdict corrected' });
+  message.coinAward = null;
+}
+
+function applyThreefoldCoins(game) {
+  if (!game?.winnerId) return;
+  const loserId = String(game.winnerId) === String(game.xId) ? game.oId : game.xId;
+  const nameOf = id => (String(id) === String(game.xId) ? game.xName : game.oName);
+  const winner = coinAccount(game.winnerId, nameOf(game.winnerId));
+  const loser = coinAccount(loserId, nameOf(loserId));
+  if (winner) playerStore.awardShadowCoins(winner, SHADOW_COIN_IKS_WIN, `iks:${game.id}:win`, { reason: 'IKS OKS win' });
+  if (loser) playerStore.deductShadowCoins(loser, SHADOW_COIN_IKS_LOSS, `iks:${game.id}:loss`, { reason: 'IKS OKS loss' });
+}
+
 function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
   const msgIndex = room.chat.messages.findIndex(m => m.id === messageId);
   if (msgIndex === -1) {
@@ -3509,6 +3554,7 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
     const oldRecord = room.chat.solvedTargets[oldSolvedKey];
     if (oldRecord && oldRecord.messageId === message.id) {
       delete room.chat.solvedTargets[oldSolvedKey];
+      revokeBattleCoins(room, message);
       if (oldTarget === 'FINAL') {
         reverseFinalSolve(room);
         if (unfinalizeBoard(room)) changed = true;
@@ -3529,6 +3575,7 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
         messageId: message.id,
         timestamp: Date.now()
       };
+      awardBattleCoins(room, message, target);
 
       if (target === 'FINAL') {
         const result = awardFinalSolve(room, message);
@@ -4695,6 +4742,7 @@ function recordThreefoldResult(game, room = null) {
   if (!game || game.resultRecorded) return;
   game.resultRecorded = true;
   applyThreefoldArena(room, game);
+  applyThreefoldCoins(game);
   const xIdentity = { id: game.xId, name: game.xName };
   const oIdentity = { id: game.oId, name: game.oName };
   if (game.xId === '__GM__' || game.oId === '__GM__' || isMasterTestPlayerId(game.xId) || isMasterTestPlayerId(game.oId)) return;
@@ -6347,7 +6395,7 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       threefoldDraws: Number(profile.threefoldDraws) || 0,
       asocGamesEarned: Number(profile.asocGamesEarned) || 0,
       // Account-level currency, read-only here (see player-store Shadow Coin API).
-      shadowCoins: Number.isInteger(profile.shadowCoins) && profile.shadowCoins > 0 ? profile.shadowCoins : 0,
+      shadowCoins: Math.max(0, Math.round(Number.isInteger(profile.shadowCoinUnits) ? profile.shadowCoinUnits : (Number(profile.shadowCoins) || 0) * 10)) / 10,
       ...iksArenaFields(player)
     });
   });

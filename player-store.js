@@ -64,9 +64,12 @@ function blankProfile(displayName) {
     threefoldDraws: 0,
     asocGamesEarned: 0,
     // SHADOW COINS: ASOC's persistent account-level currency. Changed ONLY
-    // through awardShadowCoins / spendShadowCoins below (never adjustProfile,
-    // never client input). shadowCoinReceipts holds recent idempotency keys so
-    // one award or purchase can never apply twice.
+    // through the Shadow Coin API below (never adjustProfile, never client
+    // input). shadowCoinUnits is authoritative: an integer count of TENTHS of
+    // a coin (12.3 coins = 123), so fractional rewards stay exact.
+    // shadowCoins mirrors it in coins for readability. shadowCoinReceipts
+    // holds recent idempotency keys so no change ever applies twice.
+    shadowCoinUnits: 0,
     shadowCoins: 0,
     shadowCoinReceipts: []
   };
@@ -88,11 +91,13 @@ const NUMERIC_PROFILE_FIELDS = [
   'threefoldLosses',
   'threefoldDraws',
   'asocGamesEarned',
-  'shadowCoins'
+  'shadowCoins',
+  'shadowCoinUnits'
 ];
 
 // Balance-changing fields that the generic counters must never touch.
-const CURRENCY_FIELDS = new Set(['shadowCoins']);
+const CURRENCY_FIELDS = new Set(['shadowCoins', 'shadowCoinUnits']);
+const COIN_UNIT = 10; // tenths
 const COIN_RECEIPT_LIMIT = 1000;
 
 function validateAndNormalizePlayers(raw) {
@@ -142,7 +147,12 @@ function validateAndNormalizePlayers(raw) {
       }
     }
     if (!Array.isArray(profile.shadowCoinReceipts)) profile.shadowCoinReceipts = [];
-    profile.shadowCoins = Math.max(0, Math.floor(Number(profile.shadowCoins) || 0));
+    // Older profiles stored whole coins only; derive tenths from them once.
+    const units = candidate.shadowCoinUnits === undefined
+      ? Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT)
+      : Math.round(Number(profile.shadowCoinUnits) || 0);
+    profile.shadowCoinUnits = Math.max(0, units);
+    profile.shadowCoins = profile.shadowCoinUnits / COIN_UNIT;
 
     if (candidate.earliestFinalColumnsKnown === undefined) {
       profile.earliestFinalColumnsKnown = null;
@@ -297,60 +307,94 @@ function updateProfileAppearance(displayName, { avatarData, frameColor, themeId,
 }
 
 // ---------------------------------------------------------------------------
-// SHADOW COINS -- one non-negative integer balance per player ACCOUNT.
+// SHADOW COINS -- one non-negative balance per player ACCOUNT, kept as an
+// integer count of tenths (shadowCoinUnits) so +0.2 / -0.1 rewards are exact.
+// Amounts in this API are in COINS with at most one decimal (1, 5, 0.2, 0.1).
 // Identity must be an account object ({ id, name }): coins are never keyed by
 // display name, so renames never touch the balance. Every change carries an
-// idempotency key (`receiptId`): replaying the same award/spend is a no-op.
+// idempotency key (`receiptId`): replaying the same change is a no-op.
+
+// Coins -> tenths; null unless a positive amount with at most one decimal.
+function coinUnits(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const units = Math.round(n * COIN_UNIT);
+  return Math.abs(units - n * COIN_UNIT) < 1e-6 && units > 0 ? units : null;
+}
+
+function unitsToCoins(units) {
+  return Math.max(0, Math.round(Number(units) || 0)) / COIN_UNIT;
+}
 
 function coinProfile(players, identity) {
   if (!identity || typeof identity !== 'object' || !identity.id) throw new Error('Shadow Coins need an account identity');
   const key = normalizeNameKey(identity);
   if (!players[key]) players[key] = blankProfile(identity);
   const profile = players[key];
-  if (!Number.isInteger(profile.shadowCoins) || profile.shadowCoins < 0) profile.shadowCoins = Math.max(0, Math.floor(Number(profile.shadowCoins) || 0));
+  if (!Number.isInteger(profile.shadowCoinUnits) || profile.shadowCoinUnits < 0) {
+    profile.shadowCoinUnits = Math.max(0, Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT));
+  }
   if (!Array.isArray(profile.shadowCoinReceipts)) profile.shadowCoinReceipts = [];
   return profile;
+}
+
+function recordCoinChange(players, profile, receiptId, units) {
+  profile.shadowCoinUnits = Math.max(0, profile.shadowCoinUnits + units);
+  profile.shadowCoins = unitsToCoins(profile.shadowCoinUnits);
+  profile.shadowCoinReceipts.push(receiptId);
+  if (profile.shadowCoinReceipts.length > COIN_RECEIPT_LIMIT) profile.shadowCoinReceipts.splice(0, profile.shadowCoinReceipts.length - COIN_RECEIPT_LIMIT);
+  savePlayersAtomic(players);
 }
 
 function getShadowCoins(identity) {
   const players = loadPlayers();
   const key = identity && typeof identity === 'object' ? normalizeNameKey(identity) : null;
-  const balance = key && players[key] ? Number(players[key].shadowCoins) : 0;
-  return Number.isInteger(balance) && balance > 0 ? balance : 0;
+  const profile = key ? players[key] : null;
+  if (!profile) return 0;
+  const units = Number.isInteger(profile.shadowCoinUnits) ? profile.shadowCoinUnits : Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT);
+  return unitsToCoins(units);
 }
 
-// Grants `amount` (positive integer) once per receiptId.
-// Returns { ok, balance, duplicate }.
+// Grants `amount` coins once per receiptId. Returns { ok, balance, duplicate }.
 function awardShadowCoins(identity, amount, receiptId, { reason = '' } = {}) {
-  const n = Number(amount);
-  if (!Number.isInteger(n) || n <= 0) return { ok: false, error: 'Award must be a positive whole number' };
+  const units = coinUnits(amount);
+  if (!units) return { ok: false, error: 'Award must be a positive amount in tenths of a coin' };
   if (!receiptId || typeof receiptId !== 'string') return { ok: false, error: 'Award needs a receipt id' };
   const players = loadPlayers();
   const profile = coinProfile(players, identity);
-  if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: profile.shadowCoins };
-  profile.shadowCoins += n;
-  profile.shadowCoinReceipts.push(receiptId);
-  if (profile.shadowCoinReceipts.length > COIN_RECEIPT_LIMIT) profile.shadowCoinReceipts.splice(0, profile.shadowCoinReceipts.length - COIN_RECEIPT_LIMIT);
+  if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: unitsToCoins(profile.shadowCoinUnits) };
   profile.name = String(identity.name || profile.name || '').trim() || profile.name;
-  savePlayersAtomic(players);
-  if (reason) console.log(`[shadow-coins] +${n} to ${profile.name} (${reason}) -> ${profile.shadowCoins}`);
+  recordCoinChange(players, profile, receiptId, units);
+  if (reason) console.log(`[shadow-coins] +${unitsToCoins(units)} to ${profile.name} (${reason}) -> ${profile.shadowCoins}`);
   return { ok: true, balance: profile.shadowCoins, duplicate: false };
 }
 
-// Deducts `amount` once per receiptId, only with sufficient balance. The
-// foundation for future unlocks; nothing spends yet.
+// A penalty or reversal: removes up to `amount`, never below zero, once per
+// receiptId. Returns { ok, balance, deducted, duplicate }.
+function deductShadowCoins(identity, amount, receiptId, { reason = '' } = {}) {
+  const units = coinUnits(amount);
+  if (!units) return { ok: false, error: 'Deduction must be a positive amount in tenths of a coin' };
+  if (!receiptId || typeof receiptId !== 'string') return { ok: false, error: 'Deduction needs a receipt id' };
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: unitsToCoins(profile.shadowCoinUnits), deducted: 0 };
+  const taken = Math.min(units, profile.shadowCoinUnits);
+  recordCoinChange(players, profile, receiptId, -taken);
+  if (reason) console.log(`[shadow-coins] -${unitsToCoins(taken)} from ${profile.name} (${reason}) -> ${profile.shadowCoins}`);
+  return { ok: true, balance: profile.shadowCoins, deducted: unitsToCoins(taken), duplicate: false };
+}
+
+// A purchase: deducts `amount` once per receiptId, only with sufficient
+// balance. The foundation for future unlocks; nothing spends yet.
 function spendShadowCoins(identity, amount, receiptId) {
-  const n = Number(amount);
-  if (!Number.isInteger(n) || n <= 0) return { ok: false, error: 'Price must be a positive whole number' };
+  const units = coinUnits(amount);
+  if (!units) return { ok: false, error: 'Price must be a positive amount in tenths of a coin' };
   if (!receiptId || typeof receiptId !== 'string') return { ok: false, error: 'Purchase needs a receipt id' };
   const players = loadPlayers();
   const profile = coinProfile(players, identity);
-  if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: profile.shadowCoins };
-  if (profile.shadowCoins < n) return { ok: false, error: 'Not enough Shadow Coins', balance: profile.shadowCoins };
-  profile.shadowCoins -= n;
-  profile.shadowCoinReceipts.push(receiptId);
-  if (profile.shadowCoinReceipts.length > COIN_RECEIPT_LIMIT) profile.shadowCoinReceipts.splice(0, profile.shadowCoinReceipts.length - COIN_RECEIPT_LIMIT);
-  savePlayersAtomic(players);
+  if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: unitsToCoins(profile.shadowCoinUnits) };
+  if (profile.shadowCoinUnits < units) return { ok: false, error: 'Not enough Shadow Coins', balance: unitsToCoins(profile.shadowCoinUnits) };
+  recordCoinChange(players, profile, receiptId, -units);
   return { ok: true, balance: profile.shadowCoins, duplicate: false };
 }
 
@@ -463,6 +507,7 @@ module.exports = {
   adjustProfile,
   getShadowCoins,
   awardShadowCoins,
+  deductShadowCoins,
   spendShadowCoins,
   maybeRecordBestStreak,
   maybeRecordEarliestFinal,

@@ -284,6 +284,9 @@ async function runServer() {
     await sleep(150);
     const boHealth = gm.players.find(p => p.id === bo.playerId)?.iksHealth;
     assert.equal(boHealth, String(plain.winnerId) === '__GM__' ? 9 : 10, 'losing an ordinary game costs one bar');
+    // SHADOW COINS: an IKS OKS win pays +0.2; a loss costs 0.1 but never below 0.
+    const boCoins = gm.players.find(p => p.id === bo.playerId)?.shadowCoins;
+    assert.equal(boCoins, String(plain.winnerId) === '__GM__' ? 0 : 0.2, 'IKS OKS coins vs the Broker (a loss at 0 stays 0)');
     // Finished: both are free again.
     const free = await challenge(ana, bo);
     assert.equal(free.type, 'threefold:challenge', 'a finished duel frees both players');
@@ -340,6 +343,12 @@ async function runServer() {
     await sleep(150);
     assert.equal(health(gm, winner), 10, 'winner capped at 10');
     assert.equal(health(gm, loser), 9, 'loser loses one bar');
+    const coinsNow = hero => gm.players.find(p => p.id === hero.playerId)?.shadowCoins;
+    const boBefore = boCoins;
+    const expectedWinner = (winner === bo ? boBefore : 0) + 0.2;
+    const expectedLoser = Math.max(0, Math.round(((loser === bo ? boBefore : 0) - 0.1) * 10) / 10);
+    assert.equal(coinsNow(winner), Math.round(expectedWinner * 10) / 10, 'IKS OKS win pays +0.2 Shadow Coin');
+    assert.equal(coinsNow(loser), expectedLoser, 'IKS OKS loss costs 0.1 Shadow Coin (never below 0)');
     assert.equal(gm.arena.status, 'running');
     mark = cy.mark();
     cy.send({ type: 'iks:join' });
