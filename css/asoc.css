@@ -17513,6 +17513,9 @@ body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) :is(.chat-
 /* CASUAL MINI GAMES DOCK // standalone Amusement Park launcher */
 .gm-chat-tab,.gm-minigames-toggle{align-self:stretch;border:0;border-left:1px solid rgba(155,93,224,.3);border-right:1px solid rgba(155,93,224,.3);border-radius:0;background:rgba(93,48,125,.13);color:#cfa9ed;padding:0 18px;font:800 .58rem var(--font-machine);letter-spacing:.14em;cursor:pointer;transition:background .16s ease,color .16s ease,box-shadow .16s ease}.gm-chat-tab{display:block;color:#aab3bd;background:rgba(35,38,46,.2)}.gm-minigames-toggle{display:none}
 body.room-mode-casual .gm-minigames-toggle{display:block}.gm-chat-header .gm-minigames-toggle{justify-self:start}.gm-chat-tab:hover,.gm-chat-tab.is-active,.gm-minigames-toggle:hover,.gm-minigames-toggle.is-active{background:linear-gradient(180deg,rgba(127,53,170,.5),rgba(81,31,111,.38));color:#f2d9ff;box-shadow:inset 0 -2px #b95cff,0 0 16px rgba(156,70,205,.22)}
+body:not(.room-mode-casual) .gm-minigames-toggle,
+body:not(.room-mode-casual) .gm-minigames-menu,
+body:not(.room-mode-casual) .gm-minigames-panel{display:none!important}
 .gm-minigames-menu[hidden],.gm-minigames-panel[hidden]{display:none!important}.gm-minigames-menu{position:absolute;z-index:146;inset:49px 10px 76px;display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));align-content:center;gap:14px;padding:clamp(18px,4vw,54px);border:1px solid rgba(116,70,143,.62);border-radius:10px;background:radial-gradient(circle at 50% 18%,rgba(121,47,157,.2),transparent 38%),linear-gradient(145deg,rgba(31,17,37,.98),rgba(10,11,17,.985));box-shadow:inset 0 1px rgba(255,255,255,.04),0 18px 45px #000}
 .gm-minigames-menu>div{grid-column:1/-1;padding:0 6px 18px;border-bottom:1px solid rgba(123,81,146,.35);text-align:center}.gm-minigames-menu>div b{color:#e6c7f7;font:900 clamp(.8rem,1.4vw,1.15rem) var(--font-machine);letter-spacing:.18em}.gm-minigames-menu>div small{margin-top:6px;color:#8e8295;font-size:.56rem;letter-spacing:.14em}
 .gm-minigames-menu>button{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:14px;min-height:108px;width:100%;padding:18px;border:1px solid #4b3a56;border-radius:10px;background:linear-gradient(145deg,rgba(35,25,42,.98),rgba(17,19,25,.98));color:#e5e8ec;text-align:left;cursor:pointer;box-shadow:inset 0 1px rgba(255,255,255,.035)}.gm-minigames-menu>button:hover{border-color:#a75bd5;background:linear-gradient(145deg,rgba(67,34,81,.98),rgba(26,21,33,.98));box-shadow:0 0 22px rgba(160,70,210,.18)}.gm-minigames-menu>button strong{display:grid;place-items:center;width:58px;height:58px;border:1px solid rgba(148,91,184,.55);border-radius:50%;color:#d4a4f3;font:900 1rem var(--font-machine)}.gm-minigames-menu>button img{width:58px;height:58px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(183,239,44,.42))}.gm-minigames-menu>button span b{font-size:.72rem;letter-spacing:.08em}.gm-minigames-menu>button span small{margin-top:5px;color:#96909b;font-size:.52rem}.gm-minigames-menu>button i{color:#bd91db;font-size:.5rem;font-style:normal;letter-spacing:.08em}
@@ -19351,4 +19354,50 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
   #game-screen.room-mode-casual:not(#casual-scale-guard) .chat-message-main { max-width: 88% !important; }
   #game-screen.room-mode-casual:not(#casual-scale-guard) .chat-broker-entry { max-width: 94% !important; }
   #game-screen.room-mode-casual:not(#casual-scale-guard) .shadow-broker-avatar { width: 42px !important; height: 42px !important; }
+}
+
+/* =========================================================
+   GM ARCADE SCALE -- the arcade overlays the whole Battle Comms
+   canvas (~1600px wide on desktop). The header spanning every
+   column kept the auto-fit grid at five ~290px tracks, so the
+   three cards sat small and left-aligned. Fill the canvas with
+   three equal cards and scale them to it.
+   ========================================================= */
+.gm-minigames-menu > div b,
+.gm-minigames-menu > div small { display: block; }
+.gm-minigames-menu > div small { margin-top: 8px; }
+
+@media (min-width: 1100px) {
+  .gm-minigames-menu {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: center;
+    gap: 22px;
+    padding: 40px clamp(32px, 4vw, 90px);
+  }
+  .gm-minigames-menu > div { padding-bottom: 24px; }
+  .gm-minigames-menu > div b { font-size: 22px; letter-spacing: .24em; }
+  .gm-minigames-menu > div small { font-size: 12px; letter-spacing: .2em; }
+  .gm-minigames-menu > button {
+    grid-template-columns: 104px minmax(0, 1fr);
+    column-gap: 24px;
+    min-height: 210px;
+    padding: 28px 26px;
+    border-radius: 14px;
+  }
+  .gm-minigames-menu > button > img,
+  .gm-minigames-menu > button img.gm-minigame-art { width: 104px; height: 104px; }
+  .gm-minigames-menu > button .minigame-title { font-size: 28px; }
+  .gm-minigames-menu > button .minigame-desc { margin-top: 12px; font-size: 17px; line-height: 1.4; }
+  .gm-minigames-menu > button .minigame-status { margin-top: 18px; padding: 7px 14px; font-size: 15px; }
+}
+@media (min-width: 1440px) {
+  .gm-minigames-menu { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* The GM game panel (IKS OKS board, Kaladont, status) grows with the canvas. */
+@media (min-width: 1100px) {
+  .gm-minigames-shell { width: min(620px, 94%); }
+  .gm-minigames-shell header b { font-size: 18px; letter-spacing: .12em; }
+  .gm-minigames-shell header small { font-size: 11px; letter-spacing: .14em; }
+  #gm-minigames-content { padding: 22px; font-size: 15px; }
+  #gm-minigames-content .iks-board { width: min(100%, 500px); }
 }
