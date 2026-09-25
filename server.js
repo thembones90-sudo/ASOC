@@ -3980,6 +3980,37 @@ function appendChatPollMessage(room, actor, question, options, allowMultiple, du
   return { success: true, message };
 }
 
+function publishTimedPollResults(room, pollMessage, closedAt) {
+  if (!room || !pollMessage?.poll || pollMessage.poll.closedAt) return false;
+
+  pollMessage.poll.closedAt = Number(closedAt) || Date.now();
+  pollMessage.timestamp = Date.now();
+
+  // Put the finished poll back at the bottom of chat as the latest room item
+  // instead of leaving the result buried where the poll was originally posted.
+  const index = room.chat.messages.findIndex(entry => entry.id === pollMessage.id);
+  if (index >= 0) {
+    room.chat.messages.splice(index, 1);
+    room.chat.messages.push(pollMessage);
+  }
+
+  // Results are a fresh room directive. Re-snapshot recipients for the new
+  // bottom-of-chat result and fire the same @all attention event used by polls.
+  delete pollMessage.recipientIds;
+  delete pollMessage.recipientCount;
+  attachChatReceipts(room, pollMessage);
+
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+  broadcastToRoom(room, {
+    type: 'chat:mentionAll',
+    messageId: pollMessage.id,
+    reason: 'poll-results',
+    timestamp: Date.now()
+  });
+  return true;
+}
+
 function schedulePollExpiry(room, pollMessage) {
   const expiresAt = Number(pollMessage?.poll?.expiresAt) || 0;
   if (!expiresAt || pollMessage?.poll?.closedAt) return;
@@ -3998,9 +4029,7 @@ function schedulePollExpiry(room, pollMessage) {
       return;
     }
 
-    liveMessage.poll.closedAt = liveExpiresAt;
-    persistActiveRooms();
-    broadcastChatUpdate(liveRoom);
+    publishTimedPollResults(liveRoom, liveMessage, liveExpiresAt);
   }, delay + 25);
 }
 
@@ -4091,9 +4120,7 @@ function handleChatPollVote(ws, message) {
   if (!target?.poll || target.deleted === true) return sendToWs(ws, { type: 'error', message: 'Poll not found' });
   const expiresAt = Number(target.poll.expiresAt) || 0;
   if (!target.poll.closedAt && expiresAt && Date.now() >= expiresAt) {
-    target.poll.closedAt = expiresAt;
-    persistActiveRooms();
-    broadcastChatUpdate(room);
+    publishTimedPollResults(room, target, expiresAt);
   }
   if (target.poll.closedAt) return sendToWs(ws, { type: 'error', message: 'Poll is closed' });
 
