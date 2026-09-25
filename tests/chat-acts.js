@@ -170,13 +170,34 @@ async function run() {
     await sleep(200);
     assert.equal(tributeOf(victim).status, 'idle', 'mooning a player costs nothing');
 
-    // The Broker emotes too, but grovels before no one.
+    // The Broker emotes too; its /grovel demands groveling instead.
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/bonk @Victim' }));
     const bonk = await waitFor(victim, m => m.messageType === 'emote' && m.emote?.act === 'bonk' && m.emote.actorId === null, 'Broker bonk');
     assert.equal(bonk.emote.lines.target, 'SHADOW BROKER bonks you on the head. Doh!');
-    mark = gm.msgs.length;
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/grovel' }));
-    assert.match(await lastError(gm, mark), /GROVELS BEFORE NO ONE/);
+    const grovel = await waitFor(victim, m => m.messageType === 'emote' && m.emote?.act === 'grovel' && m.emote.actorId === null, 'Broker grovel');
+    assert.equal(grovel.emote.lines.other, 'The Shadow Broker demands that you grovel. Grovel.');
+
+    // Every Little Hero utility works from the GM composer too.
+    const brokerSays = async (text, predicate, label) => {
+      gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text }));
+      return waitFor(victim, m => m.playerId == null && predicate(m), label);
+    };
+    const flip = await brokerSays('/flip heads', m => m.messageType === 'flip', 'Broker /flip');
+    assert.equal(flip.playerName, 'SHADOW BROKER');
+    await brokerSays('/dice 2d6', m => m.messageType === 'dice', 'Broker /dice');
+    await brokerSays('/choose red | blue', m => m.messageType === 'choose', 'Broker /choose');
+    await brokerSays('/order', m => m.messageType === 'order', 'Broker /order');
+    await brokerSays('/stats', m => m.messageType === 'stats', 'Broker /stats');
+    const shakeMark = victim.msgs.length;
+    await brokerSays('/all wake up', m => m.source === 'shadowBroker' && m.text === '@all wake up', 'Broker /all');
+    await sleep(200);
+    assert.ok(victim.msgs.slice(shakeMark).some(m => m.type === 'chat:mentionAll'), 'Broker /all shakes every screen');
+    gm.chat = [];
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/commands' }));
+    const gmCommands = await waitFor(gm, m => m.messageType === 'commands' && m.playerId == null, 'GM /commands');
+    ['/flip', '/dice', '/choose', '/order', '/stats', '/all', '/grovel', '/slap'].forEach(name =>
+      assert.ok(gmCommands.commands.commands.some(entry => entry.name === name), `GM /commands lists ${name}`));
 
     assert.equal(serverErrors.trim(), '', 'no server errors');
     console.log('PASS chat acts: /fart mirrors /spit, emotes carry three perspectives, moon toll is one-time, the Broker never targets itself');

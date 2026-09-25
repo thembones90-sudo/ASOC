@@ -4876,6 +4876,13 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/timer', help: '/timer A1 -- warn Column A has 1 minute left (A-D, 1 or 2 minutes)' },
   { name: '/vote', help: '/vote <question> -- instant YES/NO poll' },
   { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
+  { name: '/dice', help: '/dice 2d6 -- roll N dice with M faces, optional +K' },
+  { name: '/flip', help: '/flip [heads|tails] -- coin flip' },
+  { name: '/choose', help: '/choose A | B | C -- pick one option at random' },
+  { name: '/order', help: '/order -- shuffled turn order of connected players' },
+  { name: '/stats', help: '/stats -- the Broker consults the book' },
+  { name: '/all', help: '/all [message] -- shake every screen' },
+  { name: '/grovel', help: '/grovel -- demand groveling' },
   { name: '/spit', help: '/spit @Name -- the Broker spits too' },
   { name: '/fart', help: '/fart @Name -- the Broker farts too' },
   { name: '/slap', help: '/slap @Name -- the Broker emotes too' },
@@ -5106,7 +5113,8 @@ const CHAT_EMOTES = Object.freeze({
   ass:      { label: 'ASS KICK',  targeted: true, actor: 'You kick {T} in the ass.', target: '{A} kicks you in the ass.', other: '{A} kicks {T} in the ass.' },
   facepalm: { label: 'FACEPALM',  actor: 'You facepalm.', other: '{A} facepalms.' },
   cower:    { label: 'COWER',     actor: 'You cower in fear.', other: '{A} cowers in fear.' },
-  grovel:   { label: 'GROVEL',    playerOnly: true, actor: 'You grovel before the Shadow Broker. The Shadow Broker does not care.', other: '{A} grovels before the Shadow Broker. The Shadow Broker does not care.' },
+  grovel:   { label: 'GROVEL',    actor: 'You grovel before the Shadow Broker. The Shadow Broker does not care.', other: '{A} grovels before the Shadow Broker. The Shadow Broker does not care.',
+              broker: { actor: 'You demand that the Little Heroes grovel.', other: 'The Shadow Broker demands that you grovel. Grovel.' } },
   flee:     { label: 'FLEE',      actor: 'You flee in terror!', other: '{A} flees in terror!' },
   cackle:   { label: 'CACKLE',    actor: 'You cackle maniacally at the situation.', other: '{A} cackles maniacally at the situation.' },
   rofl:     { label: 'ROFL',      actor: 'You roll on the floor laughing.', other: '{A} rolls on the floor laughing.' },
@@ -5152,7 +5160,8 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
     target = resolved.target;
   }
   const fill = template => template.replace(/\{A\}/g, author.name).replace(/\{T\}/g, target ? target.name : '');
-  const lines = { actor: fill(def.actor), other: fill(def.other) };
+  const voice = actorIsBroker && def.broker ? def.broker : def;
+  const lines = { actor: fill(voice.actor), other: fill(voice.other) };
   if (def.targeted) lines.target = fill(def.target);
   const result = buildChatCommandMessage(room, author, 'emote', 'emote', lines.other, {
     emote: {
@@ -5269,6 +5278,18 @@ function dispatchGmSlashCommand(room, ws, text) {
   }
   if (/^\/commands\b/i.test(raw)) {
     const result = handleCommandsCommand(room, author, raw, GM_CHAT_SLASH_COMMANDS);
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  // Every Little Hero utility works for the Broker too.
+  const utility = [
+    [/^\/dice\b/i, handleDiceCommand],
+    [/^\/flip\b/i, handleFlipCommand],
+    [/^\/choose\b/i, handleChooseCommand],
+    [/^\/order\b/i, handleOrderCommand],
+    [/^\/stats\b/i, handleStatsCommand]
+  ].find(([pattern]) => pattern.test(raw));
+  if (utility) {
+    const result = utility[1](room, author, raw);
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
   const act = raw.match(CHAT_ACT_PATTERN);
@@ -6403,7 +6424,7 @@ function handleGmBroadcast(ws, message) {
     return;
   }
 
-  const { text } = message;
+  let { text } = message;
   if (!text || typeof text !== 'string') {
     sendToWs(ws, { type: 'error', message: 'Invalid transmission text' });
     return;
@@ -6425,6 +6446,10 @@ function handleGmBroadcast(ws, message) {
     broadcastChatUpdate(room);
     return;
   }
+
+  // "/all message" is the typed form of the Broker's @all shake.
+  const allCommand = text.trim().match(/^\/all(?:\s+([\s\S]*))?$/i);
+  if (allCommand) text = `@all${allCommand[1] ? ' ' + allCommand[1] : ''}`;
 
   // GM operational verbs (/recount /womf /commands /spit) run server-side and
   // are never broadcast as literal text.
