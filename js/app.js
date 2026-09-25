@@ -3271,6 +3271,10 @@ const App = {
     document.body.classList.toggle('room-mode-recount', next === 'RECOUNT');
     document.body.dataset.roomMode = next;
 
+    // Mini Games belong exclusively to AMUSEMENT PARK / CASUAL. An arcade
+    // panel opened in Casual must never survive a transition into Battle.
+    if (next !== 'CASUAL') window.GMMinigames?.leaveCasual?.();
+
     const brokerBar = document.getElementById('gm-broker-bar');
     const chatPanel = document.querySelector('.gm-module-chat .gm-chat-panel');
     // The transmission composer belongs to the chat rail in every room

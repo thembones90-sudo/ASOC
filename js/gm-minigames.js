@@ -27,7 +27,8 @@
       const toggle=document.getElementById('gm-minigames-toggle');
       const panel=document.querySelector('.gm-module-chat .gm-chat-panel');
       if(!menu||!toggle||!panel)return;
-      const open=typeof force==='boolean'?force:menu.hidden;
+      const casual=App.roomMode==='CASUAL' || document.body.classList.contains('room-mode-casual');
+      const open=casual && (typeof force==='boolean'?force:menu.hidden);
       menu.hidden=!open;
       panel.classList.toggle('minigames-library-open',open);
       toggle.classList.toggle('is-active',open);
@@ -123,7 +124,13 @@
     onConcoctionStarted(m){this.concoction={...this.concoction,spinning:true,cooldownUntil:Number(m.cooldownUntil)||0};if(m.playerId===GM_ID){this.title('UNSTABLE CONCOCTION');this.content('<img class="gm-concoction-drop" src="assets/ui/unstable-concoction-toxic-drop.png" alt=""><div class="gm-arcade-turn">REACTION IN PROGRESS</div>');this.show();}this.renderConcoctionStatus();},
     onConcoctionResolved(m){this.concoction={...this.concoction,spinning:false,cooldownUntil:Number(m.cooldownUntil)||0};if(m.playerId===GM_ID){this.content(`<img class="gm-concoction-drop" src="assets/ui/unstable-concoction-toxic-drop.png" alt=""><div class="gm-arcade-result">${this.esc(m.outcome)}</div>`);setTimeout(()=>this.close(),2200);}this.renderConcoctionStatus();},
     renderConcoctionStatus(){const el=document.getElementById('gm-concoction-status');if(!el)return;const n=Math.max(0,Number(this.concoction.cooldownUntil)-Date.now());el.textContent=this.concoction.spinning?'REACTING':n?`${Math.ceil(n/3600000)}H`:'READY';},
-    status(a,b){this.title('IKS OKS');this.content(`<div class="gm-arcade-status"><b>${a}</b><span>${b}</span></div>`);this.show();}, title(t){document.getElementById('gm-minigames-title').textContent=t;},content(h){document.getElementById('gm-minigames-content').innerHTML=h;},show(){this.toggleLibrary(false);document.getElementById('gm-minigames-panel').hidden=false;},close(){this.chooserOpen=false;document.getElementById('gm-minigames-panel').hidden=true;},withdraw(){if(this.challenge&&this.challenge.challengerId===GM_ID&&!this.game){App.send({type:'threefold:cancel',challengeId:this.challenge.id});this.challenge=null;}},esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    leaveCasual(){
+      this.toggleLibrary(false);
+      this.close();
+      this.kaladontOpen=false;
+      this.chooserOpen=false;
+    },
+    status(a,b){this.title('IKS OKS');this.content(`<div class="gm-arcade-status"><b>${a}</b><span>${b}</span></div>`);this.show();}, title(t){document.getElementById('gm-minigames-title').textContent=t;},content(h){document.getElementById('gm-minigames-content').innerHTML=h;},show(){if(App.roomMode!=='CASUAL'&&!document.body.classList.contains('room-mode-casual')){this.close();return;}this.toggleLibrary(false);document.getElementById('gm-minigames-panel').hidden=false;},close(){this.chooserOpen=false;document.getElementById('gm-minigames-panel').hidden=true;},withdraw(){if(this.challenge&&this.challenge.challengerId===GM_ID&&!this.game){App.send({type:'threefold:cancel',challengeId:this.challenge.id});this.challenge=null;}},esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   };
   window.GMMinigames=Arcade;
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>Arcade.init(),{once:true});
