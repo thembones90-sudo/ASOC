@@ -13,7 +13,7 @@ npm install
 npm run dist
 ```
 
-Output in `desktop/dist/`:
+Output in `desktop/dist/` (emptied at the start of every build, so old versions never pile up):
 - `ASOC-Engine-Setup-<version>.exe`: installer (Start Menu and desktop shortcuts, uninstaller)
 - `ASOC-Engine-Portable-<version>.exe`: single file, no install
 

@@ -10,6 +10,7 @@
     "start:local": "electron . --url=http://localhost:8080",
     "smoke": "electron . --smoke",
     "smoke:local": "electron . --smoke --url=http://localhost:8080",
+    "predist": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "dist": "electron-builder --win"
   },
   "devDependencies": {
