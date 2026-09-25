@@ -1093,6 +1093,50 @@ const App = {
     return false;
   },
 
+  decorateGMChatLinks(container) {
+    if (!container) return;
+    const targets = container.querySelectorAll('.gm-chat-message-text, .shadow-broker-text');
+    const urlPattern = /https?:\/\/[^\s<>"']+/gi;
+
+    targets.forEach(target => {
+      const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(node => {
+        if (node.parentElement?.closest('a')) return;
+        const value = node.nodeValue || '';
+        urlPattern.lastIndex = 0;
+        let match;
+        let last = 0;
+        let changed = false;
+        const fragment = document.createDocumentFragment();
+        while ((match = urlPattern.exec(value))) {
+          let url = match[0];
+          let trailing = '';
+          while (/[),.!?;:]$/.test(url)) {
+            trailing = url.slice(-1) + trailing;
+            url = url.slice(0, -1);
+          }
+          if (!url) continue;
+          changed = true;
+          if (match.index > last) fragment.appendChild(document.createTextNode(value.slice(last, match.index)));
+          const link = document.createElement('a');
+          link.className = 'chat-text-link';
+          link.href = url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = url;
+          fragment.appendChild(link);
+          if (trailing) fragment.appendChild(document.createTextNode(trailing));
+          last = match.index + match[0].length;
+        }
+        if (!changed) return;
+        if (last < value.length) fragment.appendChild(document.createTextNode(value.slice(last)));
+        node.replaceWith(fragment);
+      });
+    });
+  },
+
   decorateGMChatMentions(container) {
     if (!container) return;
     const names = [...new Set((this.currentPlayers || [])
@@ -4436,6 +4480,7 @@ const App = {
 
     this._gmChatProgrammaticScroll = true;
     container.innerHTML = html;
+    this.decorateGMChatLinks(container);
     this.decorateGMChatMentions(container);
     this.armGMPollCountdowns(container);
 
