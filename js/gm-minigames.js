@@ -4,13 +4,20 @@
   const Arcade = {
     challenge:null, game:null, lastOpponentId:null, concoction:{ cooldownUntil:0, spinning:false },
     init() {
+      if (this.initialized) return;
       const toggle = document.getElementById('gm-minigames-toggle');
       const menu = document.getElementById('gm-minigames-menu');
       if (!toggle || !menu) return;
+      this.initialized=true;
       toggle.addEventListener('click', e => {
         e.stopPropagation();
         if (App.roomMode !== 'CASUAL' && !document.body.classList.contains('room-mode-casual')) return;
         this.toggleLibrary();
+      });
+      document.getElementById('gm-chat-tab')?.addEventListener('click', e => {
+        e.stopPropagation();
+        this.toggleLibrary(false);
+        this.close();
       });
       document.addEventListener('click', e => this.click(e));
       this.renderConcoctionStatus();
@@ -25,6 +32,10 @@
       panel.classList.toggle('minigames-library-open',open);
       toggle.classList.toggle('is-active',open);
       toggle.setAttribute('aria-expanded',String(open));
+      toggle.setAttribute('aria-selected',String(open));
+      const chatTab=document.getElementById('gm-chat-tab');
+      chatTab?.classList.toggle('is-active',!open);
+      chatTab?.setAttribute('aria-selected',String(!open));
     },
     click(e) {
       const launch = e.target.closest('[data-gm-minigame]');
@@ -63,5 +74,6 @@
     status(a,b){this.title('IKS OKS');this.content(`<div class="gm-arcade-status"><b>${a}</b><span>${b}</span></div>`);this.show();}, title(t){document.getElementById('gm-minigames-title').textContent=t;},content(h){document.getElementById('gm-minigames-content').innerHTML=h;},show(){this.toggleLibrary(false);document.getElementById('gm-minigames-panel').hidden=false;},close(){document.getElementById('gm-minigames-panel').hidden=true;},esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   };
   window.GMMinigames=Arcade;
-  document.addEventListener('DOMContentLoaded',()=>Arcade.init(),{once:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>Arcade.init(),{once:true});
+  else Arcade.init();
 })();

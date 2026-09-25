@@ -1133,6 +1133,10 @@ const App = {
   },
 
   setupEventListeners() {
+    // Bind the GM arcade from the authoritative app boot as well as its own
+    // module boot. GMMinigames.init is idempotent, so this closes the timing
+    // gap seen in cached Electron sessions without duplicating listeners.
+    window.GMMinigames?.init?.();
     document.getElementById('back-to-gm-btn').addEventListener('click', () => this.togglePublicView(false));
     document.getElementById('bg-select').addEventListener('change', (e) => this.applyBackground(e.target.value));
     document.getElementById('gm-bg-upload-input').addEventListener('change', (e) => {
