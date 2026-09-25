@@ -4424,7 +4424,7 @@ function handleIksGauntletStart(ws) {
   if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can start the IKS OKS gauntlet' });
   const result = iksArena.start();
   if (!result.ok) return sendToWs(ws, { type:'error', message: result.error });
-  iksAnnounce(room, [`IKS OKS GAUNTLET // OPEN. JOIN FROM YOUR IKS OKS PANEL. ${iksArena.GAUNTLET_GAMES} GAMES. 10 HEALTH. LAST ONE STANDING WINS.`]);
+  iksAnnounce(room, [`IKS OKS GAUNTLET // OPEN. JOIN FROM YOUR IKS OKS PANEL. ${iksArena.GAUNTLET_GAMES} GAMES. ${iksArena.maxHealth()} HEALTH. LAST ONE STANDING WINS.`]);
   broadcastPlayersUpdate(room);
 }
 
@@ -4442,7 +4442,16 @@ function handleIksArenaReset(ws) {
   const room = hostRoomFor(ws);
   if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can reset IKS OKS health' });
   iksArena.reset();
-  iksAnnounce(room, ['IKS OKS // RESET. EVERY LITTLE HERO RESTORED TO 10 HEALTH.']);
+  iksAnnounce(room, [`IKS OKS // RESET. EVERY LITTLE HERO RESTORED TO ${iksArena.maxHealth()} HEALTH.`]);
+  broadcastPlayersUpdate(room);
+}
+
+function handleIksMaxHealth(ws, message) {
+  const room = hostRoomFor(ws);
+  if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can set IKS OKS health bars' });
+  const result = iksArena.setMaxHealth(message.value);
+  if (!result.ok) return sendToWs(ws, { type:'error', message: result.error });
+  iksAnnounce(room, [`IKS OKS // HEALTH SET TO ${result.maxHealth} ${result.maxHealth === 1 ? 'BAR' : 'BARS'}. EVERY LITTLE HERO RESTORED TO FULL.`]);
   broadcastPlayersUpdate(room);
 }
 
@@ -6109,7 +6118,7 @@ function iksArenaFields(player) {
   if (!player || player.isTestPersona === true || isMasterTestPlayerId(player.id)) return {};
   // Every Little Hero wears the ring: health is always live (iks-arena-store).
   const standing = iksArena.standingOf(player.id);
-  return { iksHealth: standing.health, iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: standing.fighter };
+  return { iksHealth: standing.health, iksMaxHealth: standing.maxHealth, iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: standing.fighter };
 }
 
 function sendPlayersUpdateTo(room, ws) {
@@ -8346,6 +8355,10 @@ wss.on('connection', (ws) => {
         }
         case 'gm:iksStart': {
           handleIksGauntletStart(ws);
+          break;
+        }
+        case 'gm:iksMaxHealth': {
+          handleIksMaxHealth(ws, message);
           break;
         }
         case 'iks:join': {

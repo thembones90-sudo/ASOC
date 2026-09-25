@@ -9,13 +9,15 @@
   function standing(entity) {
     const hp = Number(entity?.iksHealth);
     if (!Number.isFinite(hp)) return null;
-    return { hp: Math.max(0, Math.min(MAX, Math.round(hp))), eliminated: entity.iksEliminated === true, victor: entity.iksChampion === true };
+    const max = Math.max(1, Math.min(MAX, Math.round(Number(entity.iksMaxHealth) || MAX)));
+    return { hp: Math.max(0, Math.min(max, Math.round(hp))), max, eliminated: entity.iksEliminated === true, victor: entity.iksChampion === true };
   }
 
   function classes(s) {
     if (!s) return '';
+    const share = s.hp / s.max;
     return ' iks-hp' +
-      (s.hp <= 3 ? ' iks-hp-low' : s.hp <= 6 ? ' iks-hp-mid' : '') +
+      (share <= 0.3 || (s.hp === 1 && s.max > 1) ? ' iks-hp-low' : share <= 0.6 ? ' iks-hp-mid' : '') +
       (s.eliminated ? ' iks-eliminated' : '') +
       (s.victor ? ' iks-victor' : '');
   }
@@ -26,8 +28,8 @@
     wrap(entity, avatarHTML) {
       const s = standing(entity);
       if (!s) return avatarHTML;
-      const label = s.victor ? `GAUNTLET VICTOR // ${s.hp}/${MAX} HEALTH` : s.eliminated ? 'ELIMINATED // 0 HEALTH' : `IKS OKS HEALTH ${s.hp}/${MAX}`;
-      return `<span class="iks-hp-wrap${classes(s)}" style="--iks-hp:${s.hp}" title="${label}">${avatarHTML}<i class="iks-hp-ring" aria-hidden="true"></i>${s.victor ? '<i class="iks-fire" aria-hidden="true"></i>' : ''}</span>`;
+      const label = s.victor ? `GAUNTLET VICTOR // ${s.hp}/${s.max} HEALTH` : s.eliminated ? 'ELIMINATED // 0 HEALTH' : `IKS OKS HEALTH ${s.hp}/${s.max}`;
+      return `<span class="iks-hp-wrap${classes(s)}" style="--iks-hp:${s.hp};--iks-max:${s.max}" title="${label}">${avatarHTML}<i class="iks-hp-ring" aria-hidden="true"></i>${s.victor ? '<i class="iks-fire" aria-hidden="true"></i>' : ''}</span>`;
     },
     // Extra class for a chat message whose author won the gauntlet.
     messageClass(entity) {
@@ -39,10 +41,11 @@
       const s = standing(entity);
       ['iks-hp', 'iks-hp-low', 'iks-hp-mid', 'iks-eliminated', 'iks-victor'].forEach(c => element.classList.remove(c));
       element.querySelectorAll(':scope > .iks-hp-ring, :scope > .iks-fire').forEach(node => node.remove());
-      if (!s) { element.style.removeProperty('--iks-hp'); element.removeAttribute('data-iks-hp'); return; }
+      if (!s) { element.style.removeProperty('--iks-hp'); element.style.removeProperty('--iks-max'); element.removeAttribute('data-iks-hp'); return; }
       classes(s).trim().split(/\s+/).forEach(c => element.classList.add(c));
       element.style.setProperty('--iks-hp', String(s.hp));
-      element.dataset.iksHp = `${s.hp}/${MAX}`;
+      element.style.setProperty('--iks-max', String(s.max));
+      element.dataset.iksHp = `${s.hp}/${s.max}`;
       element.insertAdjacentHTML('beforeend', '<i class="iks-hp-ring" aria-hidden="true"></i>' + (s.victor ? '<i class="iks-fire" aria-hidden="true"></i>' : ''));
     }
   };

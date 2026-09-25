@@ -105,6 +105,30 @@ function checkStore() {
     for (let i = 0; i < 25; i++) result = store.recordGame({ x: hero('a'), o: hero('b'), winnerId: null });
     assert.equal(result.endedReason, 'game-limit');
     assert.deepEqual(result.victors.map(v => v.id).sort(), ['a', 'b'], 'a tie at the limit shares the crown');
+
+    // HEALTH BARS: the Broker picks 1-10; everyone is restored to the new full.
+    assert.equal(store.setMaxHealth(0).ok, false);
+    assert.equal(store.setMaxHealth(11).ok, false);
+    assert.equal(store.setMaxHealth(3).ok, true);
+    assert.equal(store.maxHealth(), 3);
+    assert.equal(hp('a'), 3, 'everyone restored to the new maximum');
+    store.recordGame({ x: hero('a'), o: hero('b'), winnerId: 'b' });
+    assert.equal(hp('b'), 3, 'the winner is capped at the new maximum');
+    assert.equal(hp('a'), 2);
+    store.reset();
+    assert.equal(store.maxHealth(), 3, 'reset keeps the chosen bars');
+    assert.equal(hp('a'), 3);
+    store.start();
+    assert.equal(store.setMaxHealth(5).ok, false, 'locked while a gauntlet is underway');
+    store.join(hero('a'));
+    assert.equal(hp('a'), 3, 'joining restores the chosen maximum');
+    store.recordGame({ x: hero('a'), o: hero('c'), winnerId: 'c' });
+    assert.equal(hp('a'), 2);
+    store._forget();
+    assert.equal(store.maxHealth(), 3, 'the setting survives a restart');
+    assert.equal(hp('a'), 2, 'health survives a restart');
+    assert.equal(store.isFighter('a'), true, 'the gauntlet survives a restart');
+    store.reset();
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -308,6 +332,17 @@ async function runServer() {
     assert.equal(health(gm, ana), 10, 'reset restores every ring to full');
     assert.equal(gm.players.find(p => p.id === ana.playerId)?.iksFighter, false, 'reset clears the fighters');
 
+    // HEALTH BARS from the GM.
+    mark = ana.mark();
+    ana.send({ type: 'gm:iksMaxHealth', value: 4 });
+    await sleep(250);
+    assert.ok(ana.since(mark, 'error').length, 'only the Broker sets health bars');
+    gm.send({ type: 'gm:iksMaxHealth', value: 4 });
+    await gm.waitFor(m => m.type === 'players:update' && m.iksArena?.maxHealth === 4, 'health bars set');
+    await sleep(150);
+    assert.equal(health(gm, ana), 4);
+    assert.equal(gm.players.find(p => p.id === ana.playerId)?.iksMaxHealth, 4);
+
     // Little Heroes can challenge the Shadow Broker, and know when it is online.
     const lastUpdate = [...ana.msgs].reverse().find(m => m.type === 'players:update');
     assert.equal(lastUpdate.brokerOnline, true, 'players are told the Broker is online');
@@ -343,6 +378,9 @@ function checkRing() {
   assert.match(ring.wrap({ iksHealth: 9, iksChampion: true }, '<img>'), /iks-victor[\s\S]*iks-fire/, 'the victor burns');
   assert.equal(ring.messageClass({ iksHealth: 9, iksChampion: true }), ' iks-victor-message');
   assert.equal(ring.messageClass({ iksHealth: 9 }), '');
+  const three = ring.wrap({ iksHealth: 2, iksMaxHealth: 3 }, '<img>');
+  assert.match(three, /--iks-hp:2;--iks-max:3/, 'the ring has one segment per bar');
+  assert.match(ring.wrap({ iksHealth: 1, iksMaxHealth: 3 }, '<img>'), /iks-hp-low/, 'the last bar is red');
 }
 
 function checkBoard() {

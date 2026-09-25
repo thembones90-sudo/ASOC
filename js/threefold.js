@@ -75,7 +75,7 @@
         : players.length
           ? '<div class="threefold-kicker">SELECT OPPONENT</div><div class="threefold-opponents">' +
             this.brokerOption() +
-            players.map(p => `<button type="button" class="threefold-opponent${p.iksEliminated ? ' is-eliminated' : ''}" data-threefold-opponent="${this.escape(p.id)}" ${p.iksEliminated ? 'disabled' : ''}>${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D · ${Number(p.iksHealth ?? 10)}/10 HP</small></span><i>${p.iksEliminated ? 'FALLEN' : 'CHALLENGE'}</i></button>`).join('') +
+            players.map(p => `<button type="button" class="threefold-opponent${p.iksEliminated ? ' is-eliminated' : ''}" data-threefold-opponent="${this.escape(p.id)}" ${p.iksEliminated ? 'disabled' : ''}>${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D · ${Number(p.iksHealth ?? 10)}/${Number(p.iksMaxHealth ?? 10)} HP</small></span><i>${p.iksEliminated ? 'FALLEN' : 'CHALLENGE'}</i></button>`).join('') +
             '</div>'
           : '<div class="threefold-kicker">SELECT OPPONENT</div><div class="threefold-opponents">' + this.brokerOption() + '</div>');
       this.show();
@@ -107,7 +107,7 @@
       const line = arena.status === 'open'
         ? (joined ? `YOU ARE IN // ${arena.fighters} JOINED // WAITING FOR THE FIRST DUEL` : `${arena.fighters} JOINED // JOINING CLOSES AT THE FIRST DUEL`)
         : arena.status === 'running'
-          ? `GAME ${arena.gamesPlayed}/${arena.gamesTotal} // ${arena.standing} OF ${arena.fighters} STANDING${joined ? ` // YOU: ${me.iksHealth}/10` : ''}`
+          ? `GAME ${arena.gamesPlayed}/${arena.gamesTotal} // ${arena.standing} OF ${arena.fighters} STANDING${joined ? ` // YOU: ${me.iksHealth}/${me.iksMaxHealth ?? 10}` : ''}`
           : `ENDED // VICTOR: ${victors || 'NONE'}`;
       return `<div class="threefold-gauntlet is-${this.escape(arena.status)}"><b>IKS OKS GAUNTLET</b><span>${line}</span>${arena.status === 'open' && !joined ? '<button type="button" data-threefold-action="join-gauntlet">JOIN GAUNTLET</button>' : ''}</div>`;
     },

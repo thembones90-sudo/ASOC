@@ -25,7 +25,8 @@ const DATA_DIR = process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_
 const FILE = path.join(DATA_DIR, 'iks-arena.json');
 const FORMAT = 'asoc-iks-health';
 const VERSION = 1;
-const MAX_HEALTH = 10;
+const MAX_HEALTH = 10;   // ceiling for the Broker's HEALTH BARS setting
+const MIN_HEALTH = 1;
 const GAUNTLET_GAMES = Math.max(1, Number(process.env.ASOC_IKS_GAUNTLET_GAMES) || 50);
 const STATUSES = new Set(['idle', 'open', 'running', 'ended']);
 
@@ -35,12 +36,22 @@ function idleGauntlet() {
   return { status: 'idle', id: null, startedAt: null, gamesPlayed: 0, fighters: [], victors: [], endedReason: null };
 }
 
-function freshState() {
-  return { format: FORMAT, version: VERSION, health: {}, names: {}, gauntlet: idleGauntlet() };
+function freshState(maxHealth = MAX_HEALTH) {
+  return { format: FORMAT, version: VERSION, maxHealth, health: {}, names: {}, gauntlet: idleGauntlet() };
+}
+
+function validMax(value) {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) && n >= MIN_HEALTH && n <= MAX_HEALTH ? n : null;
+}
+
+// The Broker's chosen number of health bars (1..10).
+function maxHealth() {
+  return validMax(load().maxHealth) || MAX_HEALTH;
 }
 
 function clamp(hp) {
-  return Math.max(0, Math.min(MAX_HEALTH, Math.round(Number(hp) || 0)));
+  return Math.max(0, Math.min(maxHealth(), Math.round(Number(hp) || 0)));
 }
 
 function load() {
@@ -50,9 +61,11 @@ function load() {
       const parsed = JSON.parse(durable.fs.readFileSync(FILE, 'utf8'));
       if (parsed && parsed.format === FORMAT && parsed.version === VERSION) {
         const g = parsed.gauntlet && STATUSES.has(parsed.gauntlet.status) ? parsed.gauntlet : idleGauntlet();
+        // Clamp against the file's own maximum: clamp() would re-enter load().
+        const fileMax = validMax(parsed.maxHealth) || MAX_HEALTH;
         state = {
-          ...freshState(),
-          health: Object.fromEntries(Object.entries(parsed.health || {}).filter(([, hp]) => Number.isFinite(hp)).map(([id, hp]) => [id, clamp(hp)])),
+          ...freshState(fileMax),
+          health: Object.fromEntries(Object.entries(parsed.health || {}).filter(([, hp]) => Number.isFinite(hp)).map(([id, hp]) => [id, Math.max(0, Math.min(fileMax, Math.round(hp)))])),
           names: parsed.names && typeof parsed.names === 'object' ? parsed.names : {},
           gauntlet: {
             ...idleGauntlet(),
@@ -79,7 +92,7 @@ function save() {
 
 function healthOf(playerId) {
   const hp = load().health[String(playerId)];
-  return hp === undefined ? MAX_HEALTH : hp;
+  return hp === undefined ? maxHealth() : Math.min(hp, maxHealth());
 }
 
 function isFighter(playerId) {
@@ -96,7 +109,7 @@ function standingOf(playerId) {
   const hp = healthOf(id);
   return {
     health: hp,
-    maxHealth: MAX_HEALTH,
+    maxHealth: maxHealth(),
     eliminated: hp <= 0,
     fighter: isFighter(id),
     victor: load().gauntlet.victors.some(v => v.id === id)
@@ -119,14 +132,27 @@ function join(player) {
   if (g.fighters.includes(id)) return { ok: true, already: true };
   g.fighters.push(id);
   s.names[id] = String(player.name || s.names[id] || 'LITTLE HERO');
-  s.health[id] = MAX_HEALTH; // everyone enters the gauntlet whole
+  s.health[id] = maxHealth(); // everyone enters the gauntlet whole
   save();
   return { ok: true };
 }
 
+// Restores everyone to full; the HEALTH BARS setting survives.
 function reset() {
-  state = freshState();
+  state = freshState(maxHealth());
   save();
+}
+
+// Broker's HEALTH BARS: 1..10. Everyone is restored to full at the new
+// maximum. Refused while a gauntlet is open or running.
+function setMaxHealth(value) {
+  const n = validMax(value);
+  if (!n) return { ok: false, error: `HEALTH BARS MUST BE ${MIN_HEALTH}-${MAX_HEALTH}` };
+  const status = load().gauntlet.status;
+  if (status === 'open' || status === 'running') return { ok: false, error: 'FINISH OR RESET THE GAUNTLET BEFORE CHANGING HEALTH BARS' };
+  state = freshState(n);
+  save();
+  return { ok: true, maxHealth: n };
 }
 
 // A finished IKS OKS game. x / o: { id, name, isBroker }. winnerId null = draw.
@@ -184,7 +210,7 @@ function publicState() {
     gauntletId: g.id,
     gamesPlayed: g.gamesPlayed,
     gamesTotal: GAUNTLET_GAMES,
-    maxHealth: MAX_HEALTH,
+    maxHealth: maxHealth(),
     fighters: g.fighters.length,
     standing: g.fighters.filter(id => healthOf(id) > 0).length,
     victors: g.victors.map(v => ({ id: v.id, name: v.name })),
@@ -196,4 +222,4 @@ function publicState() {
 // Tests only.
 function _forget() { state = null; }
 
-module.exports = { MAX_HEALTH, GAUNTLET_GAMES, healthOf, isFighter, isEliminated, standingOf, start, join, reset, recordGame, publicState, _forget };
+module.exports = { MAX_HEALTH, MIN_HEALTH, GAUNTLET_GAMES, maxHealth, setMaxHealth, healthOf, isFighter, isEliminated, standingOf, start, join, reset, recordGame, publicState, _forget };

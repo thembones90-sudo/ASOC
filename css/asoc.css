@@ -18608,14 +18608,14 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
   z-index: 2;
   border-radius: 50%;
   pointer-events: none;
-  background: conic-gradient(var(--iks-color, #37d47f) calc(var(--iks-hp, 10) * 36deg), rgba(255, 255, 255, .2) 0);
+  background: conic-gradient(var(--iks-color, #37d47f) calc(var(--iks-hp, 10) * 360deg / var(--iks-max, 10)), rgba(255, 255, 255, .2) 0);
   -webkit-mask:
     radial-gradient(farthest-side, transparent calc(100% - 4.5px), #000 calc(100% - 4px)),
-    repeating-conic-gradient(#000 0 30deg, transparent 30deg 36deg);
+    repeating-conic-gradient(#000 0 calc(360deg / var(--iks-max, 10) - 6deg), transparent 0 calc(360deg / var(--iks-max, 10)));
   -webkit-mask-composite: source-in;
   mask:
     radial-gradient(farthest-side, transparent calc(100% - 4.5px), #000 calc(100% - 4px)),
-    repeating-conic-gradient(#000 0 30deg, transparent 30deg 36deg);
+    repeating-conic-gradient(#000 0 calc(360deg / var(--iks-max, 10) - 6deg), transparent 0 calc(360deg / var(--iks-max, 10)));
   mask-composite: intersect;
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--iks-color, #37d47f) 80%, transparent));
 }
@@ -18869,3 +18869,8 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
 #game-screen .threefold-opponent-broker { border-color: rgba(214, 64, 76, .45); background: linear-gradient(90deg, rgba(120, 18, 28, .22), rgba(255, 255, 255, .02)); }
 #game-screen .threefold-opponent-broker b { color: #ff8a93; letter-spacing: .08em; }
 #game-screen .threefold-opponent-broker.is-offline { opacity: .45; cursor: not-allowed; }
+
+/* GM HEALTH BARS picker (1-10) in the IKS OKS arcade panel. */
+.gm-iks-max { display: inline-flex; align-items: center; gap: 6px; color: #d9c7b5; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.gm-iks-max select { padding: 6px 8px; border: 1px solid rgba(255, 140, 40, .55); border-radius: 6px; background: #1a1210; color: #ffe2bf; font-weight: 900; }
+.gm-iks-max button:disabled, .gm-iks-max select:disabled { opacity: .45; cursor: not-allowed; }
