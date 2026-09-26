@@ -2728,8 +2728,26 @@ function solvedTargetsForFieldState(room) {
   return solved;
 }
 
+// A column solution is KNOWN once it is visible to the players: solved
+// (chat or GM), declared failed (the red solution is shown), or its solution
+// cell revealed on the board. Drives the Final's value (FINAL_SCORE_BY_COLUMNS).
+function isColumnSolutionKnown(room, col) {
+  return isColumnSolvedGreen(room, col)
+    || room.sessionState?.cells?.[`${col}5`] === true
+    || room.sessionState?.cellOutcomes?.[`${col}5`] === 'failed';
+}
+
 function countKnownColumns(room) {
-  return SCORABLE_COLUMNS.filter(col => isColumnSolvedGreen(room, col)).length;
+  return SCORABLE_COLUMNS.filter(col => isColumnSolutionKnown(room, col)).length;
+}
+
+// What the board showed at the moment a guess was SENT. Scoring uses this,
+// not the board at judging time, so a clue opened (or a column solved) while
+// the Shadow Broker was still judging never costs the player points.
+function scoreContextNow(room) {
+  const clues = {};
+  for (const col of SCORABLE_COLUMNS) clues[col] = countRevealedCluesInColumn(room, col);
+  return { clues, knownColumns: countKnownColumns(room) };
 }
 
 // Per-column/per-target difficulty metadata does not exist in the game
@@ -2990,7 +3008,10 @@ function reconcileColumnPoints(room) {
 // Result shape from award/reverse helpers: { rejected, reason } on failure,
 // { event } on success -- callers broadcast `score:event` only on success.
 function awardColumnSolve(room, target, message) {
-  const cluesRevealed = countRevealedCluesInColumn(room, target);
+  // Clues open when the guess was sent (falls back to now for older messages
+  // or a guess sent before any clue of this column was open).
+  const atSend = Number(message.scoreContext?.clues?.[target]);
+  const cluesRevealed = Number.isInteger(atSend) && atSend >= 1 ? atSend : countRevealedCluesInColumn(room, target);
   if (cluesRevealed < 1) {
     return { rejected: true, reason: `Column ${target} has no revealed clues -- cannot award a column score.` };
   }
@@ -3053,7 +3074,9 @@ function reverseColumnSolve(room, target) {
 }
 
 function awardFinalSolve(room, message) {
-  const columnsKnownAtSolve = countKnownColumns(room);
+  // Column solutions visible when the guess was sent (fallback: now).
+  const atSend = Number(message.scoreContext?.knownColumns);
+  const columnsKnownAtSolve = Number.isInteger(atSend) && atSend >= 1 ? atSend : countKnownColumns(room);
   if (columnsKnownAtSolve < 1) {
     return { rejected: true, reason: 'No column solution is known yet -- the Final cannot be scored until at least one column is solved.' };
   }
@@ -5346,6 +5369,7 @@ function addChatMessage(room, playerId, playerName, text) {
     verdictResponse: null,
     reactions: {}
   };
+  if (message.boardId) message.scoreContext = scoreContextNow(room);
 
   attachChatReceipts(room, message);
   room.chat.messages.push(message);
