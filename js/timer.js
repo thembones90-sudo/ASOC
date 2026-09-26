@@ -169,13 +169,15 @@ const Timer = {
 
     const countEl = el.querySelector('.timer-count');
     if (countEl) {
-      countEl.textContent = inBorrowed
+      const text = inBorrowed
         ? this.formatTime(state.borrowedRemaining)
         : this.formatTime(phase === 'ready' ? state.duration : state.remaining);
+      if (countEl.textContent !== text) countEl.textContent = text;
     }
 
     const statusEl = el.querySelector('.timer-status');
-    if (statusEl) statusEl.textContent = this.statusLabel(phase);
+    const statusText = this.statusLabel(phase);
+    if (statusEl && statusEl.textContent !== statusText) statusEl.textContent = statusText;
 
     const controls = el.querySelector('.timer-controls');
     if (controls && isGM) {
@@ -186,35 +188,52 @@ const Timer = {
       // handleTimerStart/handleTimerLaunchCountdown, which is what actually
       // rejects the request even if this button were somehow bypassed.
       const ritualLocked = !!window.Ritual?.isBlockingStart?.();
-      controls.innerHTML = `
-        <button type="button" class="toolbar-btn primary timer-start-btn" ${ritualLocked ? 'disabled' : ''} ${(phase === 'ready' && !launching) ? '' : 'style="display:none;"'}>${ritualLocked ? 'START GAME // RITUAL LOCKED' : 'START GAME'}</button>
-        <button type="button" class="toolbar-btn timer-pause-btn" ${(phase === 'running' || phase === 'borrowed') ? '' : 'style="display:none;"'}>PAUSE</button>
-        <button type="button" class="toolbar-btn timer-resume-btn" ${(phase === 'paused' || phase === 'borrowed_paused') ? '' : 'style="display:none;"'}>RESUME</button>
-        <span class="timer-adjust-group" ${adjustable ? '' : 'style="display:none;"'}>
-          <button type="button" class="toolbar-btn timer-adjust-btn timer-adjust-minus" title="Subtract 30 seconds">-30s</button>
-          <button type="button" class="toolbar-btn timer-adjust-btn timer-adjust-plus" title="Add 30 seconds">+30s</button>
-        </span>
-      `;
-      const startBtn = controls.querySelector('.timer-start-btn');
-      const pauseBtn = controls.querySelector('.timer-pause-btn');
-      const resumeBtn = controls.querySelector('.timer-resume-btn');
-      const minusBtn = controls.querySelector('.timer-adjust-minus');
-      const plusBtn = controls.querySelector('.timer-adjust-plus');
-      // START GAME never calls onStart directly -- it always goes through
-      // the local T-10 launch sequence first, which itself calls onStart only
-      // once the countdown completes. See runStartCountdown().
-      if (startBtn && handlers && handlers.onStart) {
-        startBtn.onclick = () => {
-          if (handlers.onLaunch) handlers.onLaunch();
-          this.runStartCountdown(containerId, handlers.onStart);
+      // Built ONCE, then only the bits that changed are touched. This runs on
+      // every state:public (at least once a second); rebuilding the buttons
+      // each time replaced PAUSE / RESUME / +-30s under the GM's cursor, so a
+      // click could be lost and hover states flickered.
+      el._timerHandlers = handlers || {};
+      if (controls.dataset.built !== '1') {
+        controls.innerHTML = `
+          <button type="button" class="toolbar-btn primary timer-start-btn">START GAME</button>
+          <button type="button" class="toolbar-btn timer-pause-btn">PAUSE</button>
+          <button type="button" class="toolbar-btn timer-resume-btn">RESUME</button>
+          <span class="timer-adjust-group">
+            <button type="button" class="toolbar-btn timer-adjust-btn timer-adjust-minus" title="Subtract 30 seconds">-30s</button>
+            <button type="button" class="toolbar-btn timer-adjust-btn timer-adjust-plus" title="Add 30 seconds">+30s</button>
+          </span>
+        `;
+        controls.dataset.built = '1';
+        const current = () => el._timerHandlers || {};
+        // START GAME never calls onStart directly -- it always goes through
+        // the local T-10 launch sequence first, which itself calls onStart
+        // only once the countdown completes. See runStartCountdown().
+        controls.querySelector('.timer-start-btn').onclick = () => {
+          const h = current();
+          if (!h.onStart) return;
+          if (h.onLaunch) h.onLaunch();
+          this.runStartCountdown(containerId, h.onStart);
         };
+        controls.querySelector('.timer-pause-btn').onclick = () => current().onPause?.();
+        controls.querySelector('.timer-resume-btn').onclick = () => current().onResume?.();
+        controls.querySelector('.timer-adjust-minus').onclick = () => current().onAdjust?.(-30000);
+        controls.querySelector('.timer-adjust-plus').onclick = () => current().onAdjust?.(30000);
       }
-      if (pauseBtn && handlers && handlers.onPause) pauseBtn.onclick = handlers.onPause;
-      if (resumeBtn && handlers && handlers.onResume) resumeBtn.onclick = handlers.onResume;
-      if (minusBtn && handlers && handlers.onAdjust) minusBtn.onclick = () => handlers.onAdjust(-30000);
-      if (plusBtn && handlers && handlers.onAdjust) plusBtn.onclick = () => handlers.onAdjust(30000);
-    } else if (controls) {
+      const show = (node, visible) => {
+        const want = visible ? '' : 'none';
+        if (node && node.style.display !== want) node.style.display = want;
+      };
+      const startBtn = controls.querySelector('.timer-start-btn');
+      show(startBtn, phase === 'ready' && !launching);
+      if (startBtn.disabled !== ritualLocked) startBtn.disabled = ritualLocked;
+      const startLabel = ritualLocked ? 'START GAME // RITUAL LOCKED' : 'START GAME';
+      if (startBtn.textContent !== startLabel) startBtn.textContent = startLabel;
+      show(controls.querySelector('.timer-pause-btn'), phase === 'running' || phase === 'borrowed');
+      show(controls.querySelector('.timer-resume-btn'), phase === 'paused' || phase === 'borrowed_paused');
+      show(controls.querySelector('.timer-adjust-group'), adjustable);
+    } else if (controls && controls.innerHTML !== '') {
       controls.innerHTML = '';
+      delete controls.dataset.built;
     }
   },
 

@@ -701,9 +701,14 @@ const App = {
     // and closes it only when the target actually resolves/disappears.
     board.classList.toggle('gm-board-direct-controls', gameLoaded);
 
+    // Runs on every board sync (several times a second in battle): touch a
+    // cell's attributes only when they actually change, so no restyle work
+    // or hover/animation resets happen on unchanged cells.
+    const setAttr = (el, name, value) => { if (el.getAttribute(name) !== value) el.setAttribute(name, value); };
+    const dropAttr = (el, name) => { if (el.hasAttribute(name)) el.removeAttribute(name); };
     board.querySelectorAll('.board-cell[data-cell]').forEach(cell => {
-      cell.classList.remove('gm-board-pending');
-      cell.removeAttribute('aria-disabled');
+      if (cell.classList.contains('gm-board-pending')) cell.classList.remove('gm-board-pending');
+      dropAttr(cell, 'aria-disabled');
       const key = cell.dataset.cell || '';
       const isFinal = key === 'FINAL';
       const normalCell = /^[A-D][1-5]$/.test(key);
@@ -727,18 +732,18 @@ const App = {
       cell.classList.toggle('gm-final-hitbox', isFinal && actionable);
 
       if (actionable) {
-        cell.setAttribute('role', 'button');
-        cell.tabIndex = 0;
         const description = isFinal
           ? 'Hold to reveal FINAL'
           : (row === 5 ? `Resolve ${key} // GREEN or RED` : `Reveal ${key} // next queued clue`);
-        cell.title = description;
-        cell.setAttribute('aria-label', description);
+        setAttr(cell, 'role', 'button');
+        setAttr(cell, 'tabindex', '0');
+        setAttr(cell, 'title', description);
+        setAttr(cell, 'aria-label', description);
       } else {
-        cell.removeAttribute('role');
-        cell.removeAttribute('tabindex');
-        cell.removeAttribute('title');
-        cell.removeAttribute('aria-label');
+        dropAttr(cell, 'role');
+        dropAttr(cell, 'tabindex');
+        dropAttr(cell, 'title');
+        dropAttr(cell, 'aria-label');
       }
     });
 
@@ -3334,7 +3339,9 @@ const App = {
     document.body.classList.toggle('room-mode-battle-armed', next === 'BATTLE_ARMED');
     document.body.classList.toggle('room-mode-battle', next === 'BATTLE');
     document.body.classList.toggle('room-mode-recount', next === 'RECOUNT');
-    document.body.dataset.roomMode = next;
+    // Page-wide marker: re-setting it (even to the same value) invalidates
+    // styles for the whole document, and this runs on every state tick.
+    if (document.body.dataset.roomMode !== next) document.body.dataset.roomMode = next;
 
     // Mini Games belong exclusively to AMUSEMENT PARK / CASUAL. An arcade
     // panel opened in Casual must never survive a transition into Battle.
@@ -4832,10 +4839,14 @@ const App = {
     if (!btn) return;
     const live = this.mode === 'multiplayer' && this.roomMode === 'BATTLE' && !this.gameComplete;
     const pending = live ? this.pendingAttemptCount() : 0;
-    btn.hidden = !live;
-    btn.disabled = pending === 0;
-    if (!pending) this.disarmDenyAll();
-    else if (!btn.classList.contains('is-armed')) btn.textContent = `DENY ALL · ${pending}`;
+    if (btn.hidden !== !live) btn.hidden = !live;
+    if (btn.disabled !== (pending === 0)) btn.disabled = pending === 0;
+    if (!pending) {
+      if (btn.classList.contains('is-armed') || btn.textContent !== 'DENY ALL') this.disarmDenyAll();
+    } else if (!btn.classList.contains('is-armed')) {
+      const text = `DENY ALL · ${pending}`;
+      if (btn.textContent !== text) btn.textContent = text;
+    }
   },
 
   disarmDenyAll() {
@@ -4999,7 +5010,8 @@ const App = {
       .reverse()
       .find(msg => msg && msg.deleted !== true && Number(msg.recipientCount) > 0);
     if (!latest) {
-      readout.innerHTML = `<span class="gm-latest-readout-label">LATEST READOUT</span><span class="gm-latest-readout-state">NO TRANSMISSIONS</span>`;
+      const empty = `<span class="gm-latest-readout-label">LATEST READOUT</span><span class="gm-latest-readout-state">NO TRANSMISSIONS</span>`;
+      if (readout._html !== empty) { readout._html = empty; readout.innerHTML = empty; }
       return;
     }
     // Each unique player once (js/read-receipts.js); long lists collapse to
@@ -5011,10 +5023,13 @@ const App = {
     const state = seen
       ? `<strong>SEEN BY</strong> ${shown.map(v => this.escapeHtml(v.name)).join(' · ')}${more ? ` <em class="gm-latest-readout-more">+${more}</em>` : ''}`
       : `<strong>AWAITING READERS</strong>`;
-    readout.dataset.messageId = String(latest.id || '');
-    readout.title = seen ? `Seen by ${viewers.map(v => v.name).join(', ')}` : '';
+    const html = `<span class="gm-latest-readout-label">LATEST READOUT <b>${seen}/${total}</b></span><span class="gm-latest-readout-state">${state}</span>`;
+    const title = seen ? `Seen by ${viewers.map(v => v.name).join(', ')}` : '';
+    // Rewritten only when it actually changed (this runs on every chat update).
+    if (readout.dataset.messageId !== String(latest.id || '')) readout.dataset.messageId = String(latest.id || '');
+    if (readout.title !== title) readout.title = title;
     readout.classList.toggle('has-readers', seen > 0);
-    readout.innerHTML = `<span class="gm-latest-readout-label">LATEST READOUT <b>${seen}/${total}</b></span><span class="gm-latest-readout-state">${state}</span>`;
+    if (readout._html !== html) { readout._html = html; readout.innerHTML = html; }
   },
 
   closeGMSeenPopover() {
@@ -5793,12 +5808,14 @@ const App = {
   updateGMNewMessageChip() {
     const chip = document.getElementById('gm-chat-new-messages');
     if (!chip) return;
-    chip.hidden = this._gmNewMessageCount <= 0;
-    if (!chip.hidden) {
+    const hide = this._gmNewMessageCount <= 0;
+    if (chip.hidden !== hide) chip.hidden = hide;
+    if (!hide) {
       const parts = [];
       if (this._gmUnreadChat) parts.push(`${this._gmUnreadChat} CHAT`);
       if (this._gmUnreadSystem) parts.push(`${this._gmUnreadSystem} SYSTEM`);
-      chip.textContent = `↓ ${parts.join(' · ') || `${this._gmNewMessageCount} NEW`}`;
+      const text = `↓ ${parts.join(' · ') || `${this._gmNewMessageCount} NEW`}`;
+      if (chip.textContent !== text) chip.textContent = text;
     }
   },
 
@@ -5843,8 +5860,9 @@ const App = {
       return;
     }
     const solved = Object.keys(this.solvedTargets).length;
-    countEl.hidden = false;
-    countEl.textContent = `SOLVED: ${solved}/5`;
+    if (countEl.hidden) countEl.hidden = false;
+    const text = `SOLVED: ${solved}/5`;
+    if (countEl.textContent !== text) countEl.textContent = text;
   },
 
   // SHADOW BROKER free-form broadcast -- host-only, sent as its own new

@@ -381,7 +381,7 @@ const Board = {
 
   updateGMButtons() {
     const undoBtn = document.querySelector('.gm-global-btn.undo-btn');
-    if (undoBtn) undoBtn.disabled = !this.canUndo();
+    if (undoBtn && undoBtn.disabled !== !this.canUndo()) undoBtn.disabled = !this.canUndo();
 
     // GM controls are the canonical board slots themselves. render() replaces
     // every cell, so re-arm the interaction state after every rebuild.

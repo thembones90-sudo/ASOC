@@ -169,6 +169,16 @@ const Skeleton = (() => {
     return `<img class="skeleton-img" src="${skeletonPath(difficulty)}" alt="">`;
   }
 
+  // Web fonts change word widths when they finish loading: bump a generation
+  // (part of each cell's fit key) and refit every attached board.
+  let fontGeneration = 0;
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.addEventListener) {
+    document.fonts.addEventListener('loadingdone', () => {
+      fontGeneration++;
+      document.querySelectorAll('.skeleton-ready').forEach(board => fit(board));
+    });
+  }
+
   function fit(container) {
     if (!container || !supported) return;
     const rect = container.getBoundingClientRect();
@@ -181,6 +191,14 @@ const Skeleton = (() => {
       const cell = cells[i];
       const txt = cell.querySelector('.cell-text') || cell.querySelector('.cell-content');
       if (!txt) continue;
+
+      // Skip cells whose word, class and board size are unchanged since the
+      // last fit: re-measuring every cell on every reveal / chat-driven
+      // render forced layout for the whole board and rewrote identical
+      // styles (needless work during a live battle).
+      const fitKey = [fontGeneration, cell.getAttribute('data-cell') || '', txt.textContent, cell.className, rect.width.toFixed(1), rect.height.toFixed(1)].join('|');
+      if (txt.__asocFitKey === fitKey) continue;
+      txt.__asocFitKey = fitKey;
 
       // Reset any previously applied autofit scale BEFORE measuring, so
       // resize/load cycles never compound transforms.
