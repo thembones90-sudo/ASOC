@@ -1,0 +1,36 @@
+/* SHADOW BROKER PRIVATE CHANNELS // GM Amusement Park rail */
+.gm-dm-console{display:none}
+body.room-mode-casual .gm-dm-console{
+  display:flex !important;flex:1 1 260px;min-height:220px;max-height:46vh;
+  margin:12px 0 0;border:1px solid rgba(116,126,139,.30);border-radius:8px;
+  background:linear-gradient(180deg,rgba(13,17,22,.96),rgba(7,9,12,.98));
+  overflow:hidden;flex-direction:column;box-shadow:inset 0 1px rgba(255,255,255,.025);
+  font-family:var(--font-machine,ui-monospace,monospace);color:#d9dce2;
+}
+.gm-dm-console>header{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;padding:9px 10px;border-bottom:1px solid rgba(155,93,224,.22);background:rgba(155,93,224,.045)}
+.gm-dm-console>header span{font-size:.57rem;font-weight:900;letter-spacing:.16em;color:#c28bf0}
+.gm-dm-console>header small{grid-column:1/-1;font-size:.43rem;letter-spacing:.12em;color:#68727e}
+.gm-dm-console>header>b{min-width:18px;height:18px;padding:0 5px;display:grid;place-items:center;border-radius:9px;background:#8f2749;color:#fff;font-size:.5rem}
+.gm-dm-roster{flex:1;min-height:0;overflow:auto;padding:5px}
+.gm-dm-person{position:relative;width:100%;display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;padding:6px;border:0;border-bottom:1px solid rgba(255,255,255,.045);background:transparent;color:inherit;text-align:left;cursor:pointer}
+.gm-dm-person:hover,.gm-dm-person.unread{background:rgba(155,93,224,.08)}
+.gm-dm-avatar{width:32px;height:32px;display:grid;place-items:center;overflow:hidden;border:2px solid var(--gm-dm-frame,#37d997);border-radius:50%;background:#10151a;color:#cdd3da;font-size:.55rem;font-style:normal;font-weight:900;box-shadow:0 0 0 2px rgba(0,0,0,.55)}
+.gm-dm-avatar img{width:100%;height:100%;object-fit:cover}
+.gm-dm-person-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
+.gm-dm-person-copy b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.56rem;letter-spacing:.045em;color:#d8dde2}
+.gm-dm-person-copy small{font-size:.39rem;letter-spacing:.12em;color:#68727e}
+.gm-dm-presence{width:7px;height:7px;border-radius:50%;background:#555d64}.gm-dm-presence.on{background:#36dd8c;box-shadow:0 0 7px rgba(54,221,140,.65)}
+.gm-dm-badge{position:absolute;right:16px;top:5px;min-width:15px;height:15px;padding:0 4px;display:grid;place-items:center;border-radius:8px;background:#a72e62;color:#fff;font-size:.43rem}
+.gm-dm-empty{margin:auto;padding:20px 8px;text-align:center;color:#606a75;font-size:.47rem;letter-spacing:.13em;line-height:1.7}.gm-dm-empty.thread{align-self:center}
+.gm-dm-thread-head{display:grid;grid-template-columns:26px 34px 1fr;align-items:center;gap:7px;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.gm-dm-thread-head>button{width:24px;height:28px;border:1px solid rgba(155,93,224,.32);background:#15101d;color:#c49be9;font-size:1rem;cursor:pointer}
+.gm-dm-thread-head>div{display:flex;min-width:0;flex-direction:column}.gm-dm-thread-head b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.57rem;color:#eee}.gm-dm-thread-head small{font-size:.39rem;letter-spacing:.1em;color:#716b7a}
+.gm-dm-messages{flex:1;min-height:0;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+.gm-dm-msg{align-self:flex-start;max-width:88%;padding:6px 7px 14px;border:1px solid #34313a;border-radius:7px 7px 7px 2px;background:#14171b;position:relative}.gm-dm-msg.mine{align-self:flex-end;border-color:#684493;border-radius:7px 7px 2px 7px;background:linear-gradient(180deg,#2a1d39,#1a1323)}
+.gm-dm-msg p{margin:0;font:500 .58rem/1.35 system-ui,'Segoe UI',sans-serif;color:#eef0f3;overflow-wrap:anywhere}.gm-dm-msg>span{position:absolute;right:6px;bottom:2px;font-size:.38rem;color:#737b84}
+.gm-dm-compose{display:grid;grid-template-columns:1fr auto;gap:5px;padding:7px;border-top:1px solid rgba(255,255,255,.06)}
+.gm-dm-compose textarea{resize:none;min-height:38px;max-height:72px;padding:7px 8px;border:1px solid #343a43;border-radius:5px;background:#090c10;color:#eee;font:500 .56rem/1.3 system-ui,'Segoe UI',sans-serif}.gm-dm-compose textarea:focus{outline:none;border-color:#8c55bf}
+.gm-dm-compose button{padding:0 10px;border:1px solid #70439c;background:linear-gradient(180deg,#352046,#1c1227);color:#eee;font:900 .46rem var(--font-machine);letter-spacing:.1em;cursor:pointer}
+.gm-dm-flash{padding:6px 8px;border-bottom:1px solid rgba(95,169,92,.3);background:rgba(41,74,40,.22);color:#9ed39b;font-size:.44rem}.gm-dm-flash.error{border-color:rgba(188,66,76,.35);background:rgba(83,24,30,.25);color:#e39aa0}
+body:not(.room-mode-casual) .gm-dm-console{display:none !important}
+@media(max-height:760px){body.room-mode-casual .gm-dm-console{min-height:170px;max-height:34vh}}

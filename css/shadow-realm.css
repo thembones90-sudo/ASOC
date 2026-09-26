@@ -1,0 +1,157 @@
+/* =========================================================
+   SHADOW REALM -- gray smoke punishment
+   ========================================================= */
+
+/* ---- everyone: a short gray, smoky screen flicker ---- */
+.srealm-flicker {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483050;
+  pointer-events: none;
+  background: rgba(40, 42, 48, .55);
+  backdrop-filter: grayscale(1) contrast(.9);
+  -webkit-backdrop-filter: grayscale(1) contrast(.9);
+  animation: srealm-flicker 2.4s steps(1) forwards, srealm-fade 2.4s ease-out forwards;
+}
+.srealm-flicker i {
+  position: absolute;
+  bottom: -30%;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(190, 195, 205, .45), rgba(120, 125, 135, .18) 45%, transparent 70%);
+  filter: blur(18px);
+  animation: srealm-rise 2.4s ease-out forwards;
+}
+.srealm-flicker i:nth-child(1) { left: -20vmax; }
+.srealm-flicker i:nth-child(2) { left: 25vw; animation-delay: .15s; }
+.srealm-flicker i:nth-child(3) { right: -20vmax; animation-delay: .3s; }
+.srealm-flicker.still { animation: srealm-fade 2.4s ease-out forwards; }
+.srealm-flicker.still i { animation: none; bottom: 0; }
+@keyframes srealm-flicker {
+  0% { background: rgba(200, 204, 212, .55); }
+  8% { background: rgba(20, 22, 26, .7); }
+  14% { background: rgba(170, 174, 182, .45); }
+  22% { background: rgba(40, 42, 48, .55); }
+  30% { background: rgba(150, 154, 162, .35); }
+  38%, 100% { background: rgba(40, 42, 48, .45); }
+}
+@keyframes srealm-fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes srealm-rise { from { transform: translateY(20%) scale(.8); opacity: 0; } 30% { opacity: 1; } to { transform: translateY(-60%) scale(1.3); opacity: 0; } }
+
+.srealm-toast {
+  position: fixed;
+  left: 50%;
+  top: 18px;
+  z-index: 2147483060;
+  transform: translateX(-50%);
+  padding: 12px 20px;
+  font: 800 13px/1.3 var(--font-machine, ui-monospace, monospace);
+  letter-spacing: .18em;
+  color: #e8e9ec;
+  text-align: center;
+  background: linear-gradient(180deg, #3a3d44, #1c1d22);
+  border: 1px solid #8b9099;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .6), 0 0 26px rgba(160, 165, 175, .35);
+  animation: srealm-toast-in .35s ease-out;
+  transition: opacity .6s, transform .6s;
+  max-width: calc(100vw - 32px);
+}
+.srealm-toast b { color: #fff; text-shadow: 0 0 10px rgba(255, 255, 255, .6); }
+.srealm-toast.out { opacity: 0; transform: translate(-50%, -8px); }
+@keyframes srealm-toast-in { from { opacity: 0; transform: translate(-50%, -12px); } }
+
+/* ---- the banished Little Hero: veil, countdown, locked composer ---- */
+.srealm-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483040;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 60%, rgba(60, 62, 70, .25), rgba(18, 19, 22, .62));
+  backdrop-filter: grayscale(1);
+  -webkit-backdrop-filter: grayscale(1);
+  animation: srealm-veil-in .6s ease-out;
+  transition: opacity .6s;
+}
+.srealm-veil.out { opacity: 0; }
+.srealm-smoke {
+  position: absolute;
+  inset: auto -20% -25% -20%;
+  height: 70%;
+  background:
+    radial-gradient(ellipse 30% 40% at 20% 70%, rgba(190, 195, 205, .35), transparent 70%),
+    radial-gradient(ellipse 35% 45% at 60% 80%, rgba(170, 175, 185, .3), transparent 70%),
+    radial-gradient(ellipse 25% 35% at 85% 65%, rgba(200, 204, 212, .3), transparent 70%);
+  filter: blur(14px);
+  animation: srealm-drift 7s ease-in-out infinite alternate;
+}
+.srealm-smoke.two { animation-duration: 9s; animation-direction: alternate-reverse; opacity: .8; }
+.srealm-banner {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 18px 26px;
+  text-align: center;
+  font-family: var(--font-machine, ui-monospace, monospace);
+  color: #eef0f3;
+  background: rgba(24, 25, 29, .82);
+  border: 1px solid #8b9099;
+  box-shadow: 0 0 40px rgba(170, 175, 185, .3);
+}
+.srealm-banner strong { font-size: clamp(1.1rem, 3.4vw, 1.8rem); letter-spacing: .24em; text-shadow: 0 0 16px rgba(255, 255, 255, .45); }
+.srealm-banner span { font-size: 13px; letter-spacing: .2em; color: #b8bcc4; }
+.srealm-banner b { color: #fff; font-size: 16px; }
+.srealm-veil.still .srealm-smoke { animation: none; }
+@keyframes srealm-veil-in { from { opacity: 0; } }
+@keyframes srealm-drift { from { transform: translate(-3%, 4%); } to { transform: translate(3%, -6%); } }
+
+body.shadow-realm-silenced #chat-input,
+body.shadow-realm-silenced #dmx-input,
+body.shadow-realm-silenced .chat-composer-shell,
+body.shadow-realm-silenced .dmx-compose { filter: grayscale(1); opacity: .45; pointer-events: none; }
+
+/* ---- the punished message: gray and smoking forever ---- */
+:is(.chat-message, .gm-chat-message).shadow-realmed :is(.chat-message-main, .gm-chat-message-main) {
+  position: relative;
+  overflow: hidden;
+  filter: grayscale(1);
+  background: linear-gradient(180deg, #2a2c31, #1d1e22) !important;
+  border-color: #6f747d !important;
+  box-shadow: 0 0 16px rgba(160, 165, 175, .18) !important;
+}
+:is(.chat-message, .gm-chat-message).shadow-realmed:not(#srealm-guard) :is(.chat-message-text, .gm-chat-message-text, .chat-player-name, .gm-chat-player-name) {
+  color: #a4a8b0 !important;
+  text-decoration: none;
+}
+.srealm-mark {
+  display: inline-block;
+  margin: 0 0 4px;
+  padding: 1px 8px;
+  font: 800 9.5px/1.6 var(--font-machine, ui-monospace, monospace);
+  letter-spacing: .2em;
+  color: #d8dbe0;
+  background: rgba(60, 62, 70, .8);
+  border: 1px solid #7d828b;
+}
+.srealm-mark i {
+  position: absolute;
+  inset: -20% -10%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 30% 60% at 15% 110%, rgba(200, 204, 212, .28), transparent 70%),
+    radial-gradient(ellipse 25% 55% at 55% 115%, rgba(185, 190, 200, .24), transparent 70%),
+    radial-gradient(ellipse 30% 60% at 90% 110%, rgba(200, 204, 212, .26), transparent 70%);
+  filter: blur(6px);
+  animation: srealm-wisp 6s ease-in-out infinite alternate;
+}
+@keyframes srealm-wisp { from { transform: translateY(8%); opacity: .7; } to { transform: translateY(-14%); opacity: 1; } }
+
+/* GM menu entry */
+.gm-chat-context-menu .gm-chat-shadow-realm-action { color: #d8dbe0; }
+.gm-chat-context-menu .gm-chat-shadow-realm-action:hover { background: rgba(120, 125, 135, .25); }
+
+@media (prefers-reduced-motion: reduce) {
+  .srealm-smoke, .srealm-mark i { animation: none !important; }
+}

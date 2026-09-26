@@ -8,8 +8,9 @@
 // Phases: lobby -> turn -> (tribunal) -> verdict -> turn ... -> ended.
 //
 // Rules:
-// - Any online Little Hero creates the one room lobby; others JOIN voluntarily.
-//   The creator (owner) only sets up / starts / cancels. >= 2 online to start.
+// - Any online Little Hero OR the Shadow Broker creates the one room lobby;
+//   others JOIN voluntarily. The creator (owner) sets up / starts / cancels.
+//   The Shadow Broker may end any lobby/game. >= 2 online to start.
 // - START shuffles the online members once into a fixed turn order.
 // - A turn lasts TURN_MS. Only the current player submits, once.
 // - The server judges STRUCTURE only: letters only, 2..MAX_WORD letters, the

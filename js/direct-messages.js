@@ -41,7 +41,8 @@
   }
 
   function railAvatar(p) {
-    const src = typeof p?.avatarData === 'string' && p.avatarData.startsWith('data:image/') ? p.avatarData : '';
+    const raw = typeof p?.avatarData === 'string' ? p.avatarData : '';
+    const src = raw.startsWith('data:image/') || raw.startsWith('assets/') ? raw : '';
     const initials = esc(String(p?.name || 'LH').trim().slice(0, 2).toUpperCase());
     return src ? `<img src="${esc(src)}" alt="">` : `<span>${initials}</span>`;
   }
@@ -141,7 +142,7 @@
   function candidates() {
     const me = String(app()?.playerId || '');
     const blocked = new Set(state.blocked);
-    return (app()?.currentPlayers || [])
+    const people = (app()?.currentPlayers || [])
       .filter(p => String(p.id) !== me && !String(p.id).startsWith('__MASTER_TEST__:'))
       .map(p => ({
         id: String(p.id),
@@ -150,8 +151,9 @@
         blocked: blocked.has(String(p.id)),
         avatarData: typeof p.avatarData === 'string' ? p.avatarData : '',
         frameColor: /^#[0-9A-Fa-f]{6}$/.test(p.frameColor || '') ? p.frameColor : '#37d997'
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      }));
+    people.unshift({ id: '__GM__', name: 'Shadow Broker', online: true, blocked: blocked.has('__GM__'), avatarData: 'assets/ui/shadow-broker.png', frameColor: '#9B5DE0' });
+    return people.sort((a, b) => a.id === '__GM__' ? -1 : b.id === '__GM__' ? 1 : a.name.localeCompare(b.name));
   }
 
   function listHTML() {
@@ -310,6 +312,10 @@
     if (dossierButton) { window.ShadowCosmetics?.closeDossier?.(); open(dossierButton.dataset.dmOpen); }
   });
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && state.open) {
+      e.preventDefault();
+      return close();
+    }
     if ((e.key === 'Enter' || e.key === ' ') && e.target?.id === 'hero-hud-dm-chip') { e.preventDefault(); open(); }
   });
 

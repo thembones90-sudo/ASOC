@@ -4084,6 +4084,8 @@ function handleChatRemoteGif(ws, message) {
   if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
   const actor = pollActorForSocket(room, ws);
   if (!actor) return sendToWs(ws, { type: 'error', message: 'GIF authentication required' });
+  const silencedGif = !ws.isHost && shadowRealmRefusal(room, ws.playerId);
+  if (silencedGif) return sendToWs(ws, { type: 'error', code: 'SHADOW_REALM', message: silencedGif });
   const gif = normalizeRemoteGifPayload(message.gif);
   if (!gif) return sendToWs(ws, { type: 'error', message: 'Invalid GIF payload' });
 
@@ -4114,6 +4116,8 @@ async function handleChatImageUrl(ws, message) {
 
   const actor = pollActorForSocket(room, ws);
   if (!actor) return sendToWs(ws, { type: 'error', message: 'Image-link authentication required' });
+  const silencedLink = !ws.isHost && shadowRealmRefusal(room, ws.playerId);
+  if (silencedLink) return sendToWs(ws, { type: 'error', code: 'SHADOW_REALM', message: silencedLink });
 
   if (actor.role === 'player') {
     const now = Date.now();
@@ -4320,6 +4324,8 @@ function handleChatPollCreate(ws, message) {
   if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
   const actor = pollActorForSocket(room, ws);
   if (!actor) return sendToWs(ws, { type: 'error', message: 'Poll authentication required' });
+  const silencedPoll = !ws.isHost && shadowRealmRefusal(room, ws.playerId);
+  if (silencedPoll) return sendToWs(ws, { type: 'error', code: 'SHADOW_REALM', message: silencedPoll });
 
   if (actor.role === 'player') {
     const now = Date.now();
@@ -4667,11 +4673,16 @@ function kaladontOnlineIds(room) {
   room.players.forEach((player, socket) => {
     if (player && player.connected !== false && socket.readyState === 1) ids.add(String(player.id));
   });
+  if (room.hostConnection?.readyState === 1) ids.add('__GM__');
   return ids;
 }
 
 function kaladontActor(room, ws) {
-  if (!room || ws === room.hostConnection || !ws.playerId) return null;
+  if (!room) return null;
+  if (ws === room.hostConnection && ws.readyState === 1) {
+    return { id: '__GM__', name: 'SHADOW BROKER' };
+  }
+  if (!ws.playerId) return null;
   const player = room.players.get(ws);
   if (!player || player.connected === false || ws.readyState !== 1 || String(player.id) !== String(ws.playerId)) return null;
   return { id: String(player.id), name: player.name || 'LITTLE HERO' };
@@ -4704,7 +4715,7 @@ function kaladontSettle(room, announce) {
   const s = room.kaladont;
   if (!s || s.phase !== 'ended' || !s.winnerId || s.reward) return;
   const winner = s.players?.[s.winnerId];
-  if (!winner || isMasterTestPlayerId(s.winnerId)) {
+  if (!winner || String(s.winnerId) === '__GM__' || isMasterTestPlayerId(s.winnerId)) {
     s.reward = { playerId: s.winnerId, amount: 0, skipped: true };
     return;
   }
@@ -4741,13 +4752,10 @@ function handleKaladont(ws, message) {
   const fail = error => sendToWs(ws, { type: 'error', code: 'KALADONT', message: error });
   const type = message.type;
 
-  // The Shadow Broker watches every match and may shut one down.
-  if (ws === room.hostConnection) {
-    if (type === 'kaladont:cancel' && room.kaladont && room.kaladont.phase !== 'ended') {
-      return kaladontClose(room, 'KALADONT // THE SHADOW BROKER ENDED THE GAME.');
-    }
-    if (type === 'kaladont:sync') return sendKaladontState(room, ws);
-    return fail('THE SHADOW BROKER WATCHES KALADONT; LITTLE HEROES PLAY IT');
+  // The Shadow Broker is a real Kaladont participant, but retains an
+  // emergency authority to end any open/running game regardless of ownership.
+  if (ws === room.hostConnection && type === 'kaladont:cancel' && room.kaladont && room.kaladont.phase !== 'ended') {
+    return kaladontClose(room, 'KALADONT // THE SHADOW BROKER ENDED THE GAME.');
   }
 
   const actor = kaladontActor(room, ws);
@@ -6242,6 +6250,7 @@ function getChatState(room) {
           text: m.text,
           timestamp: m.timestamp,
           editedAt: Number(m.editedAt) || null,
+          shadowRealm: m.shadowRealm && Number(m.shadowRealm.at) ? { at: Number(m.shadowRealm.at) } : undefined,
           editableByHost: m.source === 'shadowBroker' ? m.editableByHost !== false : false,
           // Persistent chat spans many games. Only a player transmission
           // created on the currently armed board may be adjudicated now.
@@ -6542,6 +6551,13 @@ function handlePlayerJoin(ws, message) {
   sendToWs(ws, { type: 'state:public', ...publicState });
   setImmediate(() => sendDmSummary(ws));
   setImmediate(() => { deliverMegabonkTo(room, ws); sendMegabonkProgress(room); });
+  setImmediate(() => {
+    const left = shadowRealmRemaining(room, playerId);
+    if (left > 0) {
+      const entry = room.shadowRealm[String(playerId)];
+      sendToWs(ws, { type: 'shadowRealm:banish', playerId: String(playerId), playerName: cleanName, messageId: entry.messageId, until: entry.until, remainingMs: left, resumed: true });
+    }
+  });
   sendToWs(ws, {
     type: 'join:success',
     playerId,
@@ -6817,6 +6833,52 @@ function playerCooldown(room, ws) {
   return room.cooldowns.get(id);
 }
 // ---------------------------------------------------------------------------
+// SHADOW REALM -- the Shadow Broker's gimmick punishment. Right-click a Little
+// Hero's message -> SEND TO SHADOW REALM: everyone's screen flickers gray
+// and smoky, the Broker announces it, the player cannot type anything (chat,
+// commands, GIFs, images, polls, DMs) for SHADOW_REALM_MS, and the message
+// stays gray and smoking forever as a memento. Pure theatre: no score,
+// coins or game state are touched.
+const SHADOW_REALM_MS = Math.max(1000, Number(process.env.ASOC_SHADOW_REALM_MS) || 20000);
+
+function shadowRealmRemaining(room, playerId) {
+  const entry = room?.shadowRealm?.[String(playerId || '')];
+  const left = entry ? Number(entry.until) - Date.now() : 0;
+  return left > 0 ? left : 0;
+}
+
+function shadowRealmRefusal(room, playerId) {
+  const left = shadowRealmRemaining(room, playerId);
+  return left > 0 ? `YOU ARE IN THE SHADOW REALM // SILENCED FOR ${Math.ceil(left / 1000)}s` : null;
+}
+
+function handleGmShadowRealm(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection) return sendToWs(ws, { type: 'error', message: 'Only the Shadow Broker commands the Shadow Realm' });
+  const target = room.chat.messages.find(m => m.id === String(message?.messageId || ''));
+  if (!target || target.deleted === true || !target.playerId || target.source === 'shadowBroker') {
+    return sendToWs(ws, { type: 'error', message: 'SHADOW REALM // choose a Little Hero message' });
+  }
+  const playerId = String(target.playerId);
+  const now = Date.now();
+  room.shadowRealm ||= {};
+  room.shadowRealm[playerId] = { until: now + SHADOW_REALM_MS, messageId: target.id };
+  target.shadowRealm = { at: now };
+  addShadowBrokerMessage(room, `${target.playerName || 'A LITTLE HERO'} HAS BEEN SENT TO THE SHADOW REALM.`, { editableByHost: false });
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+  broadcastToRoom(room, {
+    type: 'shadowRealm:banish',
+    playerId,
+    playerName: target.playerName || 'LITTLE HERO',
+    messageId: target.id,
+    until: now + SHADOW_REALM_MS,
+    remainingMs: SHADOW_REALM_MS
+  });
+  console.log(`[ROOM ${room.code}] ${target.playerName} sent to the SHADOW REALM`);
+}
+
+// ---------------------------------------------------------------------------
 // SCOREBOARD RESET (Backdoor). Wipes all Battle scoring -- lifetime points and
 // records on every profile, the completed-match archive (RECOUNT overall
 // rankings) and the live session scores -- while every Little Hero keeps
@@ -6957,6 +7019,7 @@ function handleMegabonkEnd(ws) {
 // Identity comes from the authenticated socket only. Casual only: the
 // channel is closed while a Battle is armed or live, so no answers can be
 // passed privately. Text only, rate limited, blocks and "nobody" respected.
+const GM_DM_ID = '__GM__';
 const DM_MIN_INTERVAL_MS = 600;
 const DM_BURST_WINDOW_MS = 60 * 1000;
 const DM_BURST_MAX = 20;
@@ -6970,6 +7033,12 @@ function socketsForPlayer(playerId) {
   const id = String(playerId || '');
   const out = [];
   if (!id) return out;
+  if (id === GM_DM_ID) {
+    for (const room of rooms.values()) {
+      if (room.hostConnection && room.hostConnection.readyState === 1) out.push(room.hostConnection);
+    }
+    return out;
+  }
   for (const room of rooms.values()) {
     room.players.forEach((player, socket) => {
       if (String(player?.id) === id && socket.readyState === 1) out.push(socket);
@@ -6982,6 +7051,7 @@ function socketsForPlayer(playerId) {
 function dmIdentityFor(playerId) {
   const id = String(playerId || '');
   if (!id) return null;
+  if (id === GM_DM_ID) return { id: GM_DM_ID, name: 'Shadow Broker', online: true };
   for (const room of rooms.values()) {
     for (const player of room.players.values()) {
       if (String(player?.id) === id) return { id, name: player.name || 'Little Hero', online: true };
@@ -7030,6 +7100,8 @@ function handleDirectMessage(ws, message) {
         return sendDmSummary(ws);
       }
       case 'dm:send': {
+        const silencedDm = shadowRealmRefusal(room, me.id);
+        if (silencedDm) return sendToWs(ws, { type: 'dm:error', message: silencedDm });
         if (dmLocked(room)) return sendToWs(ws, { type: 'dm:error', message: 'SILENCE // THE MATCH IS LIVE. Direct messages reopen after the battle.' });
         const now = Date.now();
         ws.dmTimes = (ws.dmTimes || []).filter(at => now - at < DM_BURST_WINDOW_MS);
@@ -7088,14 +7160,48 @@ function handleDirectMessage(ws, message) {
   }
 }
 
-// Shadow Broker oversight: host socket only, read-only, leaves no trace
-// (nothing is marked read, nobody is notified).
+// Shadow Broker direct messages + hidden oversight. Host socket only.
 function handleGmDirectMessages(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || ws !== room.hostConnection) return;
-  if (message.type === 'gm:dmOverview') return sendToWs(ws, { type: 'gm:dmOverview', data: dmStore.overview() });
-  if (message.type === 'gm:dmThread') return sendToWs(ws, { type: 'gm:dmThread', conversation: dmStore.fullConversation(String(message.conversationId || '')) });
-  if (message.type === 'gm:dmReport') return sendToWs(ws, { type: 'gm:dmReport', report: dmStore.fullReport(String(message.reportId || '')) });
+  const me = { id: GM_DM_ID, name: 'Shadow Broker' };
+  try {
+    if (message.type === 'gm:dmOverview') return sendToWs(ws, { type: 'gm:dmOverview', data: dmStore.overview() });
+    if (message.type === 'gm:dmThread') return sendToWs(ws, { type: 'gm:dmThread', conversation: dmStore.fullConversation(String(message.conversationId || '')) });
+    if (message.type === 'gm:dmReport') return sendToWs(ws, { type: 'gm:dmReport', report: dmStore.fullReport(String(message.reportId || '')) });
+    if (message.type === 'gm:privateList') return sendToWs(ws, { type: 'gm:privateList', conversations: dmStore.listFor(GM_DM_ID), locked: dmLocked(room) });
+    if (message.type === 'gm:privateOpen') {
+      const other = dmIdentityFor(message.playerId);
+      if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:dmError', message:'No such Little Hero' });
+      const convo = dmStore.conversationFor(GM_DM_ID, other.id);
+      if (convo) dmStore.markRead(convo.id, GM_DM_ID);
+      const thread = convo ? dmThreadPayload(dmStore.conversationFor(GM_DM_ID, other.id), GM_DM_ID) : { id:null, other:{ id:other.id, name:other.name, online:other.online }, messages:[], otherReadAt:0, blocked:false, blockedYou:dmStore.isBlocked(other.id, GM_DM_ID) };
+      sendToWs(ws, { type:'gm:privateThread', thread, locked:dmLocked(room) });
+      if (convo) socketsForPlayer(other.id).forEach(socket => sendToWs(socket, { type:'dm:read', conversationId:convo.id, readerId:GM_DM_ID, at:Date.now() }));
+      return;
+    }
+    if (message.type === 'gm:privateSend') {
+      if (dmLocked(room)) return sendToWs(ws, { type:'gm:privateError', message:'SILENCE // THE MATCH IS LIVE.' });
+      const other = dmIdentityFor(message.toId);
+      if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:dmError', message:'No such Little Hero' });
+      const text = sanitizeText(String(message.text || '')).slice(0, dmStore.MAX_TEXT + 1);
+      const result = dmStore.send(me, other, text, Date.now());
+      if (!result.ok) return sendToWs(ws, { type:'gm:privateError', message:result.error });
+      sendToWs(ws, { type:'gm:privateMessage', conversationId:result.conversation.id, other:{ id:other.id, name:other.name }, message:result.message });
+      if (!dmStore.isBlocked(other.id, GM_DM_ID)) socketsForPlayer(other.id).forEach(socket => { sendToWs(socket, { type:'dm:message', conversationId:result.conversation.id, other:{ id:GM_DM_ID, name:'Shadow Broker' }, message:result.message }); sendDmSummary(socket); });
+      return;
+    }
+    if (message.type === 'gm:privateRead') {
+      const convo = dmStore.conversationById(String(message.conversationId || ''));
+      if (!convo || !convo.members.includes(GM_DM_ID)) return;
+      dmStore.markRead(convo.id, GM_DM_ID);
+      const otherId = convo.members.find(m => m !== GM_DM_ID);
+      socketsForPlayer(otherId).forEach(socket => sendToWs(socket, { type:'dm:read', conversationId:convo.id, readerId:GM_DM_ID, at:Date.now() }));
+    }
+  } catch (error) {
+    console.error('[gm-dm] failed:', error.message);
+    sendToWs(ws, { type:'gm:privateError', message:'PRIVATE CHANNEL FAILED' });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -7319,6 +7425,8 @@ function handleChatGuess(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Host cannot submit guesses' });
     return;
   }
+  const silenced = shadowRealmRefusal(room, ws.playerId);
+  if (silenced) return sendToWs(ws, { type: 'error', code: 'SHADOW_REALM', message: silenced });
 
   const { text } = message;
   if (!text || typeof text !== 'string') {
@@ -8540,6 +8648,7 @@ function handleApiRequest(req, res) {
     if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
     const actor = getChatImageActor(req, room);
     if (!actor) return sendJson(res, 401, { error: 'Chat upload authentication required' });
+    if (actor.role !== 'gm' && shadowRealmRefusal(room, actor.playerId)) return sendJson(res, 423, { error: shadowRealmRefusal(room, actor.playerId), code: 'SHADOW_REALM' });
 
     return readJsonBody(req, async (err, body) => {
       if (err) return sendJson(res, 400, { error: 'Invalid image address request' });
@@ -8573,6 +8682,7 @@ function handleApiRequest(req, res) {
 
     const actor = getChatImageActor(req, room);
     if (!actor) return sendJson(res, 401, { error: 'Chat upload authentication required' });
+    if (actor.role !== 'gm' && shadowRealmRefusal(room, actor.playerId)) return sendJson(res, 423, { error: shadowRealmRefusal(room, actor.playerId), code: 'SHADOW_REALM' });
 
     const captionLimit = actor.role === 'gm' ? 500 : MAX_CHAT_LENGTH;
     const caption = sanitizeText(url.searchParams.get('caption') || '').slice(0, captionLimit);
@@ -9412,6 +9522,10 @@ wss.on('connection', (ws, req) => {
           handleMegabonkAck(ws, message);
           break;
         }
+        case 'gm:shadowRealm': {
+          handleGmShadowRealm(ws, message);
+          break;
+        }
         case 'gm:resetScoreboard': {
           handleGmResetScoreboard(ws, message);
           break;
@@ -9432,7 +9546,11 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:dmOverview':
         case 'gm:dmThread':
-        case 'gm:dmReport': {
+        case 'gm:dmReport':
+        case 'gm:privateList':
+        case 'gm:privateOpen':
+        case 'gm:privateSend':
+        case 'gm:privateRead': {
           handleGmDirectMessages(ws, message);
           break;
         }

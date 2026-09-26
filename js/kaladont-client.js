@@ -90,7 +90,7 @@
       toast.id = 'kaladont-invite';
       toast.className = 'kaladont-invite';
       toast.setAttribute('role', 'status');
-      toast.innerHTML = `<div><b>KALADONT</b><small>${KaladontUI.esc(state.ownerName)} opened a lobby</small></div><button type="button" data-kaladont-action="invite-join">JOIN</button><button type="button" data-kaladont-action="invite-dismiss" class="is-dismiss" aria-label="Dismiss">×</button>`;
+      toast.innerHTML = `<div><b>KALADONT INVITATION</b><small>${KaladontUI.esc(state.ownerName)} opened a lobby. Join the word chain?</small></div><button type="button" data-kaladont-action="invite-join">JOIN</button><button type="button" data-kaladont-action="invite-decline" class="is-dismiss">DECLINE</button>`;
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 15000);
     },
@@ -138,7 +138,10 @@
         this.send({ type: 'kaladont:join' });
         return this.show();
       }
-      if (action === 'invite-dismiss') document.getElementById('kaladont-invite')?.remove();
+      if (action === 'invite-decline' || action === 'invite-dismiss') {
+        document.getElementById('kaladont-invite')?.remove();
+        return;
+      }
     },
 
     handleSubmit(event) {

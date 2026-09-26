@@ -20,6 +20,7 @@
         this.close();
       });
       document.addEventListener('click', e => this.click(e));
+      document.addEventListener('submit', e => this.submit(e));
       this.renderConcoctionStatus();
     },
     toggleLibrary(force) {
@@ -56,7 +57,16 @@
       if (action === 'decline' && this.challenge) App.send({type:'threefold:decline',challengeId:this.challenge.id});
       if (action === 'rematch' && this.lastOpponentId) App.send({type:'threefold:challenge',opponentId:this.lastOpponentId});
       const kal = e.target.closest('[data-kaladont-action]')?.dataset.kaladontAction;
-      if (kal === 'gm-cancel') { if (confirm('END THIS KALADONT GAME FOR EVERYONE?')) App.send({type:'kaladont:cancel'}); return; }
+      if (kal === 'create' || kal === 'new') { App.send({type:'kaladont:create'}); return; }
+      if (kal === 'join') { App.send({type:'kaladont:join'}); return; }
+      if (kal === 'leave') { App.send({type:'kaladont:leave'}); return; }
+      if (kal === 'start') { App.send({type:'kaladont:start'}); return; }
+      if (kal === 'cancel' || kal === 'gm-cancel') { if (confirm('END THIS KALADONT GAME FOR EVERYONE?')) App.send({type:'kaladont:cancel'}); return; }
+      if (kal === 'vote-accept' || kal === 'vote-reject') {
+        const seq=Number(e.target.closest('[data-tribunal-seq]')?.dataset.tribunalSeq);
+        App.send({type:'kaladont:vote',choice:kal==='vote-accept'?'accept':'reject',tribunalSeq:seq});
+        return;
+      }
       if (kal === 'close') { this.kaladontOpen=false; return this.close(); }
       const iks = e.target.closest('[data-gm-iks]')?.dataset.gmIks;
       if (iks === 'set-max') {
@@ -105,7 +115,7 @@
     renderKaladont() {
       // Only repaint while the panel is showing KALADONT (IKS OKS shares it).
       if(!this.kaladontOpen||document.getElementById('gm-minigames-title')?.textContent!=='KALADONT')return;
-      document.getElementById('gm-minigames-content').innerHTML=window.KaladontUI?KaladontUI.render(this.kaladont,{spectator:true,canCancel:true}):'';
+      document.getElementById('gm-minigames-content').innerHTML=window.KaladontUI?KaladontUI.render(this.kaladont,{viewerId:'__GM__',spectator:false,canCancel:true}):'';
       window.KaladontUI?.tickClocks(document.getElementById('gm-minigames-content'));
     },
     onKaladont(state) {

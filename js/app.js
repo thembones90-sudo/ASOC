@@ -1817,6 +1817,8 @@ const App = {
       const cancelTributeButton = gmContextMenu.querySelector('[data-gm-chat-action="tribute-cancel"]');
       if (tributeButton) tributeButton.hidden = !chatMessage?.imageUrl || !!chatMessage?.bloodTribute;
       if (cancelTributeButton) cancelTributeButton.hidden = !chatMessage?.bloodTribute?.active;
+    { const realmButton = document.getElementById('gm-chat-context-menu')?.querySelector('[data-gm-chat-action="shadow-realm"]');
+      if (realmButton) realmButton.hidden = !this.canSendToShadowRealm(chatMessage); }
       gmContextMenu.hidden = false;
       if (gmReactionPicker) gmReactionPicker.hidden = true;
       if (gmEmojiPicker) gmEmojiPicker.hidden = true;
@@ -1962,6 +1964,10 @@ const App = {
       }
       if (action === 'tribute') { this.openBloodTributeConfirmation(messageId); return; }
       if (action === 'tribute-cancel') { this.send({ type: 'gm:bloodTributeCancel', messageId }); return; }
+      if (action === 'shadow-realm') {
+        if (this.canSendToShadowRealm(this.chatMessages.find(item => item.id === messageId))) this.send({ type: 'gm:shadowRealm', messageId });
+        return;
+      }
       if (action === 'reply') {
         const composer = this.getGMComposerElement();
         if (!composer) return;
@@ -2573,6 +2579,7 @@ const App = {
   },
 
   handleServerMessage(message) {
+    window.GMDirectMessages?.onMessage?.(message);
     if (this._gmModules) {
       for (const module of Object.values(this._gmModules)) {
         try { module.onMessage?.(message); } catch (error) { console.warn('[gm-module]', error); }
@@ -2589,6 +2596,10 @@ const App = {
 
       case 'megabonk:progress':
         window.Megabonk?.onMessage(message);
+        break;
+
+      case 'shadowRealm:banish':
+        window.ShadowRealm?.onMessage(message, null);
         break;
 
       case 'gm:scoreboardReset':
@@ -2705,6 +2716,7 @@ const App = {
       case 'players:update':
         this.iksArena = message.iksArena || null;
         this.updatePlayerList(message.players);
+        window.GMDirectMessages?.sync?.();
         this.renderGMOnlinePresence(message.players || []);
         window.GMMinigames?.onArena?.();
         window.AsocAlerts?.gmPlayers(message.players);
@@ -5460,10 +5472,10 @@ const App = {
     }
 
     return `
-      <div class="gm-chat-message gm-flow-message ${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+      <div class="gm-chat-message gm-flow-message ${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.messageClass(msg) || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
         <div class="gm-chat-avatar-rail">${this.littleHeroAvatarHTML(identity, true)}</div>
         <div class="gm-chat-bubble-cluster">
-          <div class="gm-chat-message-main">${manualBadge}${window.ShadowCosmetics?.celebrationHTML(msg, identity, this.currentPlayers) || ''}
+          <div class="gm-chat-message-main">${manualBadge}${window.ShadowCosmetics?.celebrationHTML(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.markHTML(msg) || ''}
             <div class="gm-chat-flow-header"><span class="gm-chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
             ${replyContextHtml}
             <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
@@ -5518,6 +5530,13 @@ const App = {
     return msg.playerId == null && String(msg.playerName || '') === 'SHADOW BROKER';
   },
 
+  // SEND TO SHADOW REALM is offered on a live Little Hero message that has
+  // not been banished yet (never on the Broker's own lines or tombstones).
+  canSendToShadowRealm(msg) {
+    return !!(this.mode === 'multiplayer' && msg && msg.playerId && !msg.deleted && !msg.shadowRealm
+      && msg.source !== 'shadowBroker' && msg.source !== 'bloodTribute' && !msg.messageType);
+  },
+
   openGMMessageActionMenu(event, messageEl) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -5536,6 +5555,8 @@ const App = {
     const cancelTributeButton = menu.querySelector('[data-gm-chat-action="tribute-cancel"]');
     if (tributeButton) tributeButton.hidden = !chatMessage?.imageUrl || !!chatMessage?.bloodTribute;
     if (cancelTributeButton) cancelTributeButton.hidden = !chatMessage?.bloodTribute?.active;
+    { const realmButton = document.getElementById('gm-chat-context-menu')?.querySelector('[data-gm-chat-action="shadow-realm"]');
+      if (realmButton) realmButton.hidden = !this.canSendToShadowRealm(chatMessage); }
     menu.hidden = false;
     const reactionPicker = document.getElementById('gm-chat-reaction-picker');
     const emojiPicker = document.getElementById('gm-emoji-picker');

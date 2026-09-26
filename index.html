@@ -12,9 +12,11 @@
   <meta name="theme-color" content="#16091f">
   <link rel="stylesheet" href="css/asoc.css?v=20260926-tribute-reason-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
+  <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-1">
   <link rel="stylesheet" href="css/megabonk.css?v=20260926-force-refresh-1">
   <link rel="stylesheet" href="css/tweaks.css?v=20260924-command-repaint-1">
   <link rel="stylesheet" href="css/backdoor-console.css?v=20260925-backdoor-vault-2">
+  <link rel="stylesheet" href="css/gm-direct-messages.css?v=20260926-gm-dm-1">
 </head>
 <body>
   <div id="loading-overlay" class="loading-overlay">
@@ -57,6 +59,7 @@
              the Final's points are still withheld (state.finalResultsPending). -->
         <button class="gm-global-btn final-panel-reopen-btn" id="final-panel-reopen-btn" type="button" style="display: none;" title="Reopen the Final Solution panel // results not yet shown">END GAME</button>
         <button class="gm-global-btn recount-btn" id="recount-btn" type="button">SHOW RESULTS</button>
+        <section id="gm-dm-console" class="gm-dm-console" aria-label="Shadow Broker private channels" hidden></section>
         <div class="battle-controls-utility-row" style="display:grid;grid-template-columns:minmax(0,1.35fr) auto minmax(0,.65fr);gap:10px;margin-top:10px;">
           <button class="toolbar-btn" id="library-btn-footer" style="width:100%;margin:0;">GAME LIBRARY</button>
           <button class="toolbar-btn sound-toggle-btn" id="sound-toggle-btn" type="button" aria-pressed="false" title="Mute every ASOC sound on this device" style="margin:0;">SOUNDS ON</button>
@@ -109,6 +112,7 @@
             <button type="button" data-gm-chat-action="delete" role="menuitem" hidden><span>&#128465;</span> DELETE MESSAGE</button>
             <button type="button" data-gm-chat-action="tribute" role="menuitem" hidden><span>&#9760;</span> MARK FOR BLOOD TRIBUTE</button>
             <button type="button" data-gm-chat-action="tribute-cancel" role="menuitem" hidden><span>&#10005;</span> CANCEL BLOOD TRIBUTE</button>
+            <button type="button" data-gm-chat-action="shadow-realm" role="menuitem" hidden class="gm-chat-shadow-realm-action"><span>&#9729;</span> SEND TO SHADOW REALM</button>
           </div>
           <div id="gm-chat-seen-popover" class="chat-seen-popover" hidden></div>
           <div id="gm-chat-reaction-details" class="chat-reaction-details" hidden role="dialog" aria-label="Message reactions"></div>
@@ -328,11 +332,13 @@
   <script src="js/chat-media-preview.js?v=20260925-link-paste-2"></script>
   <script src="js/kaladont-ui.js?v=20260925-coin-earnings-1"></script>
   <script src="js/gm-minigames.js?v=20260926-arcade-casual-only-1"></script>
+  <script src="js/gm-direct-messages.js?v=20260926-gm-dm-1"></script>
   <script src="js/read-receipts.js?v=20260926-seen-dedupe-1"></script>
   <script src="js/shadow-cosmetics.js?v=20260926-dm-1"></script>
   <script src="js/stale-guard.js?v=20260926-force-refresh-1"></script>
   <script src="js/megabonk.js?v=20260926-force-refresh-1"></script>
-  <script src="js/app.js?v=20260926-scoring-v2-1"></script>
+  <script src="js/shadow-realm.js?v=20260926-shadow-realm-1"></script>
+  <script src="js/app.js?v=20260926-shadow-realm-1"></script>
   <script src="js/tweaks.js?v=20260924-command-repaint-1"></script>
   <script src="js/forge.js?v=20260926-direct-board-editor-1"></script>
 </body>
