@@ -143,7 +143,14 @@
     const blocked = new Set(state.blocked);
     return (app()?.currentPlayers || [])
       .filter(p => String(p.id) !== me && !String(p.id).startsWith('__MASTER_TEST__:'))
-      .map(p => ({ id: String(p.id), name: p.name || 'Little Hero', online: p.connected !== false, blocked: blocked.has(String(p.id)) }))
+      .map(p => ({
+        id: String(p.id),
+        name: p.name || 'Little Hero',
+        online: p.connected !== false,
+        blocked: blocked.has(String(p.id)),
+        avatarData: typeof p.avatarData === 'string' ? p.avatarData : '',
+        frameColor: /^#[0-9A-Fa-f]{6}$/.test(p.frameColor || '') ? p.frameColor : '#37d997'
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
