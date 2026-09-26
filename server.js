@@ -9337,7 +9337,7 @@ function resolveAllowedStaticPath(requestUrl) {
 
   const root = segments[0];
   let rootPrefix;
-  if (root === 'index.html' || root === 'join.html') {
+  if (root === 'index.html' || root === 'join.html' || root === 'site.webmanifest') {
     if (segments.length !== 1) return null;
     rootPrefix = __dirname;
   } else if (root === 'css' || root === 'js' || root === 'assets') {

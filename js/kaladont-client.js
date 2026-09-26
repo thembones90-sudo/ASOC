@@ -82,12 +82,17 @@
 
     // Quiet invitation: a small toast, never a forced overlay.
     invite(state) {
+      // Only one invitation at a time: a stale one (lobby gone, started, or
+      // already joined) never lingers next to a newer one.
+      const existing = document.getElementById('kaladont-invite');
+      if (existing && (!state || state.phase !== 'lobby' || state.you?.member || existing.dataset.lobby !== String(state.id))) existing.remove();
       if (!state || state.phase !== 'lobby' || state.you?.member || this.invitedLobbies.has(state.id)) return;
       if (PlayerApp.roomMode !== 'CASUAL') return;
       this.invitedLobbies.add(state.id);
       document.getElementById('kaladont-invite')?.remove();
       const toast = document.createElement('div');
       toast.id = 'kaladont-invite';
+      toast.dataset.lobby = String(state.id);
       toast.className = 'kaladont-invite';
       toast.setAttribute('role', 'status');
       toast.innerHTML = `<div><b>KALADONT INVITATION</b><small>${KaladontUI.esc(state.ownerName)} opened a lobby. Join the word chain?</small></div><button type="button" data-kaladont-action="invite-join">JOIN</button><button type="button" data-kaladont-action="invite-decline" class="is-dismiss">DECLINE</button>`;

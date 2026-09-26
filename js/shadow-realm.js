@@ -105,7 +105,7 @@
   // Persistent memento on the punished message.
   function messageClass(msg) { return msg?.shadowRealm ? ' shadow-realmed' : ''; }
   function markHTML(msg) {
-    return msg?.shadowRealm ? '<span class="srealm-mark" aria-label="Sent to the Shadow Realm"><i></i>SENT TO THE SHADOW REALM</span>' : '';
+    return msg?.shadowRealm ? '<span class="srealm-mark" aria-label="Banished to the Shadow Realm"><i></i>BANISHED TO THE SHADOW REALM</span>' : '';
   }
 
   window.ShadowRealm = { onMessage, messageClass, markHTML, _release: release };
