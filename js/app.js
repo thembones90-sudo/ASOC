@@ -2551,6 +2551,11 @@ const App = {
         this.send({ type: 'protocol:hello', protocolVersion: 1 });
         break;
 
+      case 'shadow:dossierResult':
+      case 'shadow:error':
+        window.ShadowCosmetics?.onMessage(message);
+        break;
+
       case 'protocol:ready':
         this._protocolReady = true;
         if (this.roomCode && this.hostToken) {
@@ -5289,7 +5294,7 @@ const App = {
           <div class="gm-chat-avatar-rail">${avatar}</div>
           <div class="gm-chat-bubble-cluster">
             <div class="gm-chat-message-main">
-              <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="gm-chat-time">${time}</span></div>
+              <div class="gm-chat-flow-header"><span class="gm-chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="gm-chat-time">${time}</span></div>
               <button type="button" class="gm-chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>
               <div class="gm-chat-gif-provider-mark">GIPHY</div>
               ${this.createGMReactionSummaryHTML(msg)}
@@ -5329,7 +5334,7 @@ const App = {
           <div class="gm-chat-avatar-rail">${avatar}</div>
           <div class="gm-chat-bubble-cluster">
             <div class="gm-chat-message-main">
-              <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="gm-chat-time">${time}</span></div>
+              <div class="gm-chat-flow-header"><span class="gm-chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="gm-chat-time">${time}</span></div>
               ${this.createGMPollCardHTML(msg)}
               ${this.createGMReactionSummaryHTML(msg)}
             </div>
@@ -5398,11 +5403,11 @@ const App = {
     }
 
     return `
-      <div class="gm-chat-message gm-flow-message ${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+      <div class="gm-chat-message gm-flow-message ${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
         <div class="gm-chat-avatar-rail">${this.littleHeroAvatarHTML(identity, true)}</div>
         <div class="gm-chat-bubble-cluster">
-          <div class="gm-chat-message-main">${manualBadge}
-            <div class="gm-chat-flow-header"><span class="gm-chat-player-name">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
+          <div class="gm-chat-message-main">${manualBadge}${window.ShadowCosmetics?.celebrationHTML(msg, identity, this.currentPlayers) || ''}
+            <div class="gm-chat-flow-header"><span class="gm-chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
             ${replyContextHtml}
             <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
             ${verdictMetaHtml}

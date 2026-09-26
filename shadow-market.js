@@ -20,8 +20,12 @@
 //             only once the profile stat reaches `min`
 //   relic     true -> earned only, never purchasable
 //   command   (kind 'command') the /verb it unlocks
+//   earn      (relics) { label, counter?, min? } how it is earned; counter
+//             relics progress through profile.relicProgress[counter]
 
-const SLOT_KINDS = Object.freeze(['appearance', 'effect', 'frame', 'title']);
+// Equip slots: one item id each. 'card' is the dossier background.
+const SLOT_KINDS = Object.freeze(['appearance', 'effect', 'frame', 'title', 'celebration', 'name', 'sigil', 'card']);
+const SHOWCASE_BASE_SLOTS = 1;
 
 const CATALOG = Object.freeze([
   // ---- Avatar looks: permanent alternate treatments of the player's avatar.
@@ -60,7 +64,43 @@ const CATALOG = Object.freeze([
   { id: 'cmd-glitch', kind: 'command', command: 'glitch', name: '/glitch', price: 5, desc: 'Tear the signal around someone.' },
   { id: 'cmd-omen', kind: 'command', command: 'omen', name: '/omen', price: 7, desc: 'Announce a bad sign for the room.' },
   { id: 'cmd-rupture', kind: 'command', command: 'rupture', name: '/rupture', price: 8, desc: 'Crack reality open for a moment.' },
-  { id: 'cmd-vanish', kind: 'command', command: 'vanish', name: '/vanish', price: 4, desc: 'Disappear in smoke. You are still here.' }
+  { id: 'cmd-vanish', kind: 'command', command: 'vanish', name: '/vanish', price: 4, desc: 'Disappear in smoke. You are still here.' },
+
+  // ---- Correct-answer celebrations: play on YOUR accepted answers.
+  { id: 'cel-broker-nod', kind: 'celebration', name: "THE BROKER'S NOD", price: 6, desc: 'A gold ACCEPTED stamp slams onto your answer.' },
+  { id: 'cel-shatter', kind: 'celebration', name: 'SHATTER', price: 8, desc: 'Your answer cracks the glass it was written on.' },
+  { id: 'cel-blood-ink', kind: 'celebration', name: 'BLOOD INK', price: 6, desc: 'Your answer rewrites itself in red.' },
+  { id: 'cel-final-witness', kind: 'celebration', name: 'FINAL WITNESS', price: 12, requires: { stat: 'finalSolutions', min: 10, label: 'Solve 10 Finals' }, desc: 'Plays only when you take the Final. The room goes dark for you.' },
+
+  // ---- Name styles.
+  { id: 'name-ember', kind: 'name', name: 'EMBER NAME', price: 4, desc: 'Your name smoulders orange.' },
+  { id: 'name-frost', kind: 'name', name: 'FROST NAME', price: 4, desc: 'Your name in cold blue light.' },
+  { id: 'name-gold', kind: 'name', name: 'GILDED NAME', price: 6, desc: 'Your name in old gold.' },
+  { id: 'name-void', kind: 'name', name: 'VOID NAME', price: 6, desc: 'Violet, and it flickers.' },
+  { id: 'name-burnt', kind: 'name', name: 'BURNT NAME', price: 5, desc: 'Scorched at the edges.' },
+
+  // ---- Sigils: a mark after your name.
+  { id: 'sigil-eye', kind: 'sigil', name: 'EYE SIGIL', price: 3, desc: 'Watching.' },
+  { id: 'sigil-skull', kind: 'sigil', name: 'SKULL SIGIL', price: 3, desc: 'Memento mori.' },
+  { id: 'sigil-crown', kind: 'sigil', name: 'CROWN SIGIL', price: 5, desc: 'Presumptuous.' },
+  { id: 'sigil-dagger', kind: 'sigil', name: 'DAGGER SIGIL', price: 3, desc: 'For the knife-work of deduction.' },
+  { id: 'sigil-coin', kind: 'sigil', name: 'COIN SIGIL', price: 4, desc: 'Paid in shadow.' },
+
+  // ---- Dossier: card backgrounds and relic showcase slots.
+  { id: 'card-blood', kind: 'card', name: 'BLOOD DOSSIER', price: 5, desc: 'A red-stamped file.' },
+  { id: 'card-void', kind: 'card', name: 'VOID DOSSIER', price: 5, desc: 'A file that should not exist.' },
+  { id: 'card-gilded', kind: 'card', name: 'GILDED DOSSIER', price: 8, desc: 'Gold leaf on a confidential record.' },
+  {
+    id: 'showcase-slots', kind: 'showcase', name: 'RELIC SHOWCASE', price: 5, tiers: [5, 10],
+    tierNames: ['SECOND RELIC SLOT', 'THIRD RELIC SLOT'],
+    desc: 'Show more relics on your dossier. Everyone starts with one slot.'
+  },
+
+  // ---- Relics: earned only. Shown on the dossier.
+  { id: 'relic-spun-returned', kind: 'relic', name: 'SPUN AND RETURNED', relic: true, earn: { label: 'Survive 5 WOMF spins', counter: 'wheelSurvivals', min: 5 }, desc: 'The Wheel passed over you five times.' },
+  { id: 'relic-fastest-hand', kind: 'relic', name: 'FASTEST HAND', relic: true, earn: { label: 'Make the first solve in 10 matches', counter: 'firstSolves', min: 10 }, desc: 'First blood, ten times over.' },
+  { id: 'relic-last-second-heretic', kind: 'relic', name: 'LAST-SECOND HERETIC', relic: true, earn: { label: 'Solve no column, then take the Final' }, desc: 'Silent all match. Then the only answer that mattered.' },
+  { id: 'relic-word-killer', kind: 'relic', name: 'WORD KILLER', relic: true, earn: { label: 'Win KALADONT with the word KALADONT' }, desc: 'Ended it with the word itself.' }
 ]);
 
 const BY_ID = new Map(CATALOG.map(item => [item.id, item]));
@@ -92,6 +132,12 @@ function catalogFor(profile) {
     const req = item.requires
       ? { label: item.requires.label, progress: Math.min(Number(profile?.[item.requires.stat]) || 0, item.requires.min), min: item.requires.min, met: requirementMet(item, profile) }
       : null;
+    const earn = item.earn
+      ? {
+        label: item.earn.label,
+        ...(item.earn.counter ? { progress: Math.min(Number(profile?.relicProgress?.[item.earn.counter]) || 0, item.earn.min), min: item.earn.min } : {})
+      }
+      : null;
     return {
       id: item.id,
       kind: item.kind,
@@ -103,9 +149,50 @@ function catalogFor(profile) {
       maxTier: tierCount(item),
       tierNames: item.tierNames || null,
       nextPrice: price,
-      requires: req
+      requires: req,
+      earn
     };
   });
+}
+
+// Relic items a profile may place in its showcase (relics + relic titles).
+function isShowcaseable(item) { return !!item && item.relic === true; }
+
+function showcaseSlots(profile) {
+  return SHOWCASE_BASE_SLOTS + (Number(profile?.cosmetics?.owned?.['showcase-slots']) || 0);
+}
+
+// The public dossier another player sees when they open a profile.
+function dossierFor(profile, { online = true } = {}) {
+  const owned = profile?.cosmetics?.owned || {};
+  const pub = publicCosmetics(profile);
+  const card = getItem(profile?.cosmetics?.equipped?.card);
+  const showcase = (profile?.cosmetics?.showcase || [])
+    .map(getItem)
+    .filter(item => isShowcaseable(item) && Number(owned[item.id]) > 0)
+    .slice(0, showcaseSlots(profile))
+    .map(item => ({ id: item.id, name: item.name, desc: item.desc || '' }));
+  const relicCount = CATALOG.filter(item => item.relic && Number(owned[item.id]) > 0).length;
+  const n = key => Math.max(0, Number(profile?.[key]) || 0);
+  return {
+    name: profile?.name || 'LITTLE HERO',
+    online,
+    cosmetics: pub,
+    card: card && card.kind === 'card' && Number(owned[card.id]) > 0 ? card.id : null,
+    showcase,
+    relicCount,
+    relicTotal: CATALOG.filter(item => item.relic).length,
+    since: typeof profile?.createdAt === 'string' ? profile.createdAt : null,
+    stats: {
+      lifetimeScore: n('lifetimeScore'),
+      gamesPlayed: n('gamesPlayed'),
+      gamesWon: n('gamesWon'),
+      columnSolutions: n('columnSolutions'),
+      finalSolutions: n('finalSolutions'),
+      bestColumnStreak: n('bestColumnStreak'),
+      threefoldWins: n('threefoldWins')
+    }
+  };
 }
 
 // What other players see: equipped cosmetics only, resolved to safe tokens.
@@ -115,6 +202,7 @@ function publicCosmetics(profile) {
   const out = {};
   for (const slot of SLOT_KINDS) {
     const item = getItem(equipped[slot]);
+    if (slot === 'card') continue; // dossier-only
     if (!item || item.kind !== slot || !(Number(owned[item.id]) > 0)) continue;
     if (slot === 'title') out.title = item.name;
     else out[slot] = item.id;
@@ -231,6 +319,9 @@ module.exports = {
   requirementMet,
   catalogFor,
   publicCosmetics,
+  dossierFor,
+  isShowcaseable,
+  showcaseSlots,
   ROULETTE_MAX_WAGER,
   ROULETTE_MIN_WAGER,
   ROULETTE_CONFIRM_ABOVE,

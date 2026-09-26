@@ -68,6 +68,27 @@ function checkPure() {
   assert.equal(market.requirementMet(witness, { finalSolutions: 10 }), true);
   // public cosmetics expose only equipped + owned items
   assert.deepEqual(market.publicCosmetics({ cosmetics: { owned: { 'fx-fire': 1 }, equipped: { effect: 'fx-fire', title: 'title-little-heretic' } } }), { effect: 'fx-fire', effectTier: 1 });
+  assert.deepEqual(market.publicCosmetics({ cosmetics: {
+    owned: { 'name-void': 1, 'sigil-crown': 1, 'cel-shatter': 1, 'card-void': 1 },
+    equipped: { name: 'name-void', sigil: 'sigil-crown', celebration: 'cel-shatter', card: 'card-void' }
+  } }), { name: 'name-void', sigil: 'sigil-crown', celebration: 'cel-shatter' }, 'the dossier card is not broadcast');
+  for (const kind of ['celebration', 'name', 'sigil', 'card', 'showcase', 'relic']) assert.ok(kinds.has(kind), `catalog has ${kind}`);
+  assert.equal(market.getItem('cel-final-witness').requires.min, 10);
+  // relics are earned only; showcase slots grow with the tiered upgrade
+  for (const id of ['relic-spun-returned', 'relic-fastest-hand', 'relic-last-second-heretic', 'relic-word-killer']) {
+    assert.equal(market.nextPrice(market.getItem(id), 0), null, `${id} is never sold`);
+  }
+  assert.equal(market.showcaseSlots({}), 1);
+  assert.equal(market.showcaseSlots({ cosmetics: { owned: { 'showcase-slots': 2 } } }), 3);
+  const dossier = market.dossierFor({
+    name: 'Ana', finalSolutions: 3, gamesPlayed: 9,
+    cosmetics: { owned: { 'relic-word-killer': 1, 'relic-fastest-hand': 1, 'card-gilded': 1 }, equipped: { card: 'card-gilded' }, showcase: ['relic-word-killer', 'relic-fastest-hand'] }
+  });
+  assert.equal(dossier.card, 'card-gilded');
+  assert.deepEqual(dossier.showcase.map(r => r.id), ['relic-word-killer'], 'showcase is capped by slots');
+  assert.equal(dossier.relicCount, 2);
+  assert.equal(dossier.stats.finalSolutions, 3);
+  assert.ok(!('shadowCoins' in dossier) && !('email' in dossier), 'no private fields');
 }
 
 // ---------------------------------------------------------------------------
@@ -130,6 +151,16 @@ function checkStore() {
     assert.equal(ledger[3].detail.pocket, 3);
     assert.equal(ledger.at(-1).balance, 0.9);
 
+    // relic counters are idempotent per event; showcase needs ownership
+    assert.equal(store.bumpRelicProgress(ana, 'wheelSurvivals', 'womf:1'), 1);
+    assert.equal(store.bumpRelicProgress(ana, 'wheelSurvivals', 'womf:1'), 1, 'the same spin never counts twice');
+    assert.equal(store.bumpRelicProgress(ana, 'wheelSurvivals', 'womf:2'), 2);
+    assert.equal(store.setShowcase(ana, ['relic-word-killer']).ok, false);
+    assert.deepEqual(store.setShowcase(ana, ['title-broker-mistake']).showcase, ['title-broker-mistake']);
+    store = fresh();
+    assert.equal(store.getShadowProfile(ana).relicProgress.wheelSurvivals, 2);
+    assert.deepEqual(store.getShadowProfile(ana).cosmetics.showcase, ['title-broker-mistake']);
+
     // generic counters still cannot move currency
     store.adjustProfile(ana, { statDeltas: { shadowCoins: 500, shadowCoinUnits: 5000 } });
     assert.equal(store.getShadowCoins(ana), 0.9);
@@ -183,6 +214,7 @@ class Client {
         if (m.type === 'players:update') this.players = m.players || [];
         if (m.type === 'shadow:state') this.shadow = m;
         if (m.type === 'chat:update') this.chat = m.messages || [];
+        if (m.type === 'state:public') this.state = m;
         if (m.type === 'join:success') this.playerId = m.playerId;
       });
     });
@@ -277,7 +309,7 @@ async function runServer() {
     const durablePath = require.resolve('../durable-io');
     delete require.cache[storePath]; delete require.cache[durablePath];
     const store = require('../player-store');
-    store.awardShadowCoins({ id: anaId, name: 'Ana' }, 40, 'test:seed', { reason: 'test seed' });
+    store.awardShadowCoins({ id: anaId, name: 'Ana' }, 100, 'test:seed', { reason: 'test seed' });
     delete process.env.ASOC_DATA_DIR;
     server = spawnServer();
     await healthy();
@@ -286,7 +318,7 @@ async function runServer() {
     bo = await connect('Bo');
 
     reply = await ana.ask({ type: 'shadow:state' }, 'seeded state');
-    assert.equal(reply.balance, 40);
+    assert.equal(reply.balance, 100);
 
     // Buying: unknown / relic / gated are refused; a real buy charges once and auto-equips.
     assert.equal((await ana.ask({ type: 'shadow:buy', itemId: 'nope' }, 'unknown')).type, 'shadow:error');
@@ -294,15 +326,15 @@ async function runServer() {
     assert.match((await ana.ask({ type: 'shadow:buy', itemId: 'title-final-witness' }, 'gated')).message, /Solve 10 Finals/);
     reply = await ana.ask({ type: 'shadow:buy', itemId: 'title-little-heretic' }, 'buy title');
     assert.equal(reply.type, 'shadow:state');
-    assert.equal(reply.balance, 37);
+    assert.equal(reply.balance, 97);
     assert.equal(reply.equipped.title, 'title-little-heretic');
     assert.match(reply.notice, /ACQUIRED/);
     assert.equal((await ana.ask({ type: 'shadow:buy', itemId: 'title-little-heretic' }, 'rebuy')).type, 'shadow:error');
     // Tiered upgrade: Void Eye I then II.
     reply = await ana.ask({ type: 'shadow:buy', itemId: 'fx-void-eye' }, 'void I');
-    assert.equal(reply.balance, 33);
+    assert.equal(reply.balance, 93);
     reply = await ana.ask({ type: 'shadow:buy', itemId: 'fx-void-eye' }, 'void II');
-    assert.equal(reply.balance, 27);
+    assert.equal(reply.balance, 87);
     assert.equal(reply.catalog.find(i => i.id === 'fx-void-eye').tier, 2);
     await sleep(150);
     // Everyone sees the equipped cosmetics; nothing else about the profile.
@@ -367,6 +399,96 @@ async function runServer() {
 
     // Battle score untouched by any of it.
     assert.equal(gm.players.find(p => p.id === anaId).score, 0);
+
+    // Name style + sigil + celebration: bought, equipped, broadcast.
+    await ana.ask({ type: 'shadow:buy', itemId: 'name-void' }, 'name');
+    await ana.ask({ type: 'shadow:buy', itemId: 'sigil-crown' }, 'sigil');
+    reply = await ana.ask({ type: 'shadow:buy', itemId: 'cel-broker-nod' }, 'celebration');
+    assert.equal(reply.equipped.celebration, 'cel-broker-nod');
+    assert.match((await ana.ask({ type: 'shadow:buy', itemId: 'cel-final-witness' }, 'gated cel')).message, /Solve 10 Finals/);
+    await sleep(150);
+    assert.deepEqual(
+      (({ name, sigil, celebration }) => ({ name, sigil, celebration }))(bo.players.find(p => p.id === anaId).cosmetics),
+      { name: 'name-void', sigil: 'sigil-crown', celebration: 'cel-broker-nod' }
+    );
+
+    // Relics through real events: a live battle.
+    gm.send({ type: 'gm:setRoomMode', mode: 'BATTLE' });
+    await sleep(350);
+    // The Summon Ritual needs five voices.
+    const fillers = [await connect('Cy'), await connect('Dee'), await connect('Eli')];
+    [ana, bo, ...fillers].forEach(p => p.send({ type: 'ritual:join' }));
+    await gm.next(m => m.type === 'ritual:gmUpdate' && m.ritual?.joinedCount === 5, 'ritual 5/5');
+    gm.send({ type: 'gm:timerLaunchCountdown' });
+    await sleep(200);
+    gm.send({ type: 'gm:timerStart' });
+    await sleep(400);
+    const say = async (player, text) => {
+      const since = gm.mark();
+      player.send({ type: 'chat:guess', text });
+      const update = await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text === text), `guess ${text}`, since);
+      await sleep(400);
+      return update.messages.find(x => x.text === text);
+    };
+    const judge = async (messageId, target) => {
+      const since = gm.mark();
+      gm.send({ type: 'gm:judgeGuess', messageId, verdict: 'correct', target });
+      await gm.next(m => m.type === 'gm:judge:ack' || m.type === 'error', 'judge', since);
+      await sleep(250);
+    };
+    // Ana makes the first solve of the match (FASTEST HAND progress 1/10).
+    await judge((await say(ana, 'relic alpha')).id, 'A');
+    reply = await ana.ask({ type: 'shadow:state' }, 'fastest progress');
+    assert.equal(reply.catalog.find(i => i.id === 'relic-fastest-hand').earn.progress, 1);
+    // A second solve in the same match is not a first solve.
+    await judge((await say(ana, 'relic beta')).id, 'B');
+    reply = await ana.ask({ type: 'shadow:state' }, 'fastest progress unchanged');
+    assert.equal(reply.catalog.find(i => i.id === 'relic-fastest-hand').earn.progress, 1);
+    // Bo solved no column and takes the Final: LAST-SECOND HERETIC.
+    const chatMark = gm.mark();
+    await judge((await say(bo, 'relic final')).id, 'FINAL');
+    const unearthed = await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /RELIC UNEARTHED \/\/ Bo -- LAST-SECOND HERETIC/.test(x.text || '')), 'relic announcement', chatMark);
+    assert.ok(unearthed);
+    reply = await bo.ask({ type: 'shadow:state' }, 'bo relics');
+    assert.equal(reply.catalog.find(i => i.id === 'relic-last-second-heretic').tier, 1);
+    assert.equal(reply.catalog.find(i => i.id === 'relic-last-second-heretic').nextPrice, null);
+
+    // GM grants SHADOW BROKER'S MISTAKE with /relic; a second grant is refused.
+    let gmMark = gm.mark();
+    gm.send({ type: 'gm:broadcast', text: '/relic @Ana' });
+    await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /RELIC UNEARTHED \/\/ Ana -- SHADOW BROKER'S MISTAKE/.test(x.text || '')), '/relic', gmMark);
+    gmMark = gm.mark();
+    gm.send({ type: 'gm:broadcast', text: '/relic @Ana' });
+    assert.match((await gm.next(m => m.type === 'error', 'second /relic', gmMark)).message, /ALREADY HOLDS/);
+
+    // Showcase: one base slot; relics only; more slots are bought.
+    assert.match((await ana.ask({ type: 'shadow:showcase', itemIds: ['fx-void-eye'] }, 'not a relic')).message, /Only relics/);
+    assert.match((await ana.ask({ type: 'shadow:showcase', itemIds: ['relic-word-killer'] }, 'unowned')).message, /Not owned/);
+    reply = await ana.ask({ type: 'shadow:showcase', itemIds: ['title-broker-mistake'] }, 'showcase');
+    assert.deepEqual(reply.showcase, ['title-broker-mistake']);
+    assert.equal(reply.showcaseSlots, 1);
+    assert.match((await ana.ask({ type: 'shadow:showcase', itemIds: ['title-broker-mistake', 'relic-fastest-hand'] }, 'too many')).message, /slots/);
+    reply = await ana.ask({ type: 'shadow:buy', itemId: 'showcase-slots' }, 'slot 2');
+    assert.equal(reply.showcaseSlots, 2);
+    reply = await ana.ask({ type: 'shadow:buy', itemId: 'card-gilded' }, 'card');
+    assert.equal(reply.equipped.card, 'card-gilded');
+
+    // Dossier: Bo and the GM can read Ana's public dossier.
+    from = bo.mark();
+    bo.send({ type: 'shadow:dossier', playerId: anaId });
+    const dossier = (await bo.next(m => m.type === 'shadow:dossierResult', 'dossier', from)).dossier;
+    assert.equal(dossier.name, 'Ana');
+    assert.equal(dossier.card, 'card-gilded');
+    assert.deepEqual(dossier.showcase.map(r => r.id), ['title-broker-mistake']);
+    assert.equal(dossier.cosmetics.sigil, 'sigil-crown');
+    assert.equal(typeof dossier.stats.columnSolutions, 'number');
+    assert.ok(!('shadowCoins' in dossier) && !('ledger' in dossier), 'dossier stays public-only');
+    from = gm.mark();
+    gm.send({ type: 'shadow:dossier', playerId: anaId });
+    assert.equal((await gm.next(m => m.type === 'shadow:dossierResult', 'gm dossier', from)).dossier.name, 'Ana');
+    from = bo.mark();
+    bo.send({ type: 'shadow:dossier', playerId: 'nobody' });
+    assert.equal((await bo.next(m => m.type === 'shadow:error', 'missing dossier', from)).message, 'No dossier on file');
 
     // Restart: inventory, equips and balance persist.
     const finalBalance = reply.balance;

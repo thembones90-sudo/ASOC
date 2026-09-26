@@ -249,6 +249,7 @@ async function runServer() {
     const profile = Object.values(persisted).find(p => p.accountId === winnerId || p.id === winnerId);
     assert.equal(profile.shadowCoins, 1);
     assert.ok(profile.shadowCoinReceipts.some(r => r.startsWith('kaladont:')), 'the award receipt is recorded');
+    assert.equal(profile.cosmetics.owned['relic-word-killer'], 1, 'winning with the word KALADONT unearths WORD KILLER');
     void back;
 
     assert.equal(server.errors.trim(), '', 'no server errors');

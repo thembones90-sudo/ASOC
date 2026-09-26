@@ -2,17 +2,25 @@
 //   MARKET    buy / upgrade / equip cosmetics (appearance, effect, frame,
 //             title) and unlock cosmetic /commands
 //   ROULETTE  Shadow Roulette 0-12: optional Shadow Coin wagering
+//   DOSSIER   relic showcase, relic catalogue, preview of your dossier
 //   LEDGER    the server's transaction history for this account
 // The server decides every price, gate and payout (shadow-market.js); this
 // file only names items, slots and bets. Opened from the HUD coin chip.
 (function () {
   const KIND_LABELS = {
+    celebration: 'CORRECT-ANSWER CELEBRATIONS',
+    name: 'NAME STYLES',
+    sigil: 'SIGILS',
     appearance: 'AVATAR LOOKS',
     effect: 'AVATAR EFFECTS',
     frame: 'FRAMES',
     title: 'TITLES',
-    command: 'COSMETIC /COMMANDS'
+    command: 'COSMETIC /COMMANDS',
+    card: 'DOSSIER BACKGROUNDS',
+    showcase: 'RELIC SHOWCASE'
   };
+  const EQUIP_KINDS = new Set(['appearance', 'effect', 'frame', 'title', 'celebration', 'name', 'sigil', 'card']);
+  const SIGIL_GLYPHS = { 'sigil-eye': '◉', 'sigil-skull': '☠', 'sigil-crown': '♛', 'sigil-dagger': '†' };
   const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
   // Pocket order around the wheel (clockwise from the pointer).
   const WHEEL_ORDER = [0, 7, 2, 9, 4, 1, 10, 5, 8, 3, 6, 12, 11]; // alternates red / black
@@ -153,7 +161,7 @@
         actions.push(`<button type="button" class="smk-btn smk-btn-buy${armed ? ' is-armed' : ''}" data-buy="${esc(item.id)}"${afford ? '' : ' disabled'}>${armed ? `CONFIRM ${fmt(item.nextPrice)} SC` : `${verb} // ${fmt(item.nextPrice)} SC`}</button>`);
       }
     }
-    if (owned && item.kind !== 'command') {
+    if (owned && EQUIP_KINDS.has(item.kind)) {
       actions.push(isEquipped
         ? `<button type="button" class="smk-btn smk-btn-equipped" data-unequip="${esc(item.kind)}">EQUIPPED // REMOVE</button>`
         : `<button type="button" class="smk-btn smk-btn-equip" data-equip="${esc(item.id)}" data-slot="${esc(item.kind)}">EQUIP</button>`);
@@ -163,11 +171,20 @@
     const tierTrack = tiered
       ? `<ol class="smk-tiers">${(item.tierNames || []).map((name, i) => `<li class="${i < item.tier ? 'is-owned' : ''}"><b>${ROMAN[i + 1]}</b> ${esc(name)}</li>`).join('')}</ol>`
       : '';
-    const preview = visual
-      ? `<div class="smk-preview">${previewAvatar(item)}</div>`
-      : item.kind === 'title'
-        ? `<div class="smk-preview smk-preview-title"><span class="cos-title">${esc(item.name)}</span></div>`
-        : `<div class="smk-preview smk-preview-cmd">/${esc(item.command)}</div>`;
+    const selfName = esc(selfEntity().name || 'LITTLE HERO');
+    let preview;
+    if (visual) preview = `<div class="smk-preview">${previewAvatar(item)}</div>`;
+    else if (item.kind === 'title') preview = `<div class="smk-preview smk-preview-title"><span class="cos-title">${esc(item.name)}</span></div>`;
+    else if (item.kind === 'command') preview = `<div class="smk-preview smk-preview-cmd">/${esc(item.command)}</div>`;
+    else if (item.kind === 'name') preview = `<div class="smk-preview smk-preview-name"><span class="cos-name cos-${esc(item.id)}">${selfName}</span></div>`;
+    else if (item.kind === 'sigil') {
+      const glyph = item.id === 'sigil-coin'
+        ? '<span class="cos-sigil cos-sigil-coin"><img src="assets/ui/shadow-coin.webp" alt=""></span>'
+        : `<span class="cos-sigil cos-${esc(item.id)}">${SIGIL_GLYPHS[item.id] || ''}</span>`;
+      preview = `<div class="smk-preview smk-preview-sigil">${glyph}</div>`;
+    } else if (item.kind === 'celebration') preview = `<div class="smk-preview smk-preview-cel cel-demo-${esc(item.id)}"><span>ANSWER</span></div>`;
+    else if (item.kind === 'card') preview = `<div class="smk-preview smk-preview-card dsr-${esc(item.id)}"><span>FILE</span></div>`;
+    else preview = `<div class="smk-preview smk-preview-cmd">${item.kind === 'showcase' ? '▣▣▣' : ''}</div>`;
     return `
       <article class="smk-item smk-kind-${esc(item.kind)}${owned ? ' is-owned' : ''}${isEquipped ? ' is-equipped' : ''}${item.relic ? ' is-relic' : ''}">
         ${preview}
@@ -190,6 +207,46 @@
         <h3>${KIND_LABELS[kind]}</h3>
         <div class="smk-grid">${groups[kind].map(item => itemCard(item, data.equipped || {})).join('')}</div>
       </section>`).join('') + '<p class="smk-rule">SHADOW COIN BUYS APPEARANCE, EXPRESSION AND PRESTIGE. IT NEVER BUYS COMPETENCE.</p>';
+  }
+
+  // DOSSIER tab: relic catalogue with earn progress + showcase selection.
+  function dossierTabHTML() {
+    const data = state.data;
+    if (!data) return '<div class="smk-empty">CONTACTING THE SHADOW MARKET…</div>';
+    const relics = data.catalog.filter(item => item.relic);
+    const showcase = data.showcase || [];
+    const slots = data.showcaseSlots || 1;
+    const full = showcase.length >= slots;
+    const cards = relics.map(item => {
+      const owned = item.tier > 0;
+      const shown = showcase.includes(item.id);
+      const progress = item.earn && item.earn.min
+        ? `<div class="smk-progress"><i style="width:${Math.round(100 * (item.earn.progress || 0) / item.earn.min)}%"></i><span>${esc(item.earn.progress || 0)} / ${esc(item.earn.min)}</span></div>`
+        : '';
+      const how = item.earn ? item.earn.label : 'Granted by the Shadow Broker';
+      const action = !owned
+        ? '<span class="smk-hint smk-hint-locked">SEALED</span>'
+        : shown
+          ? `<button type="button" class="smk-btn smk-btn-equipped" data-showcase-remove="${esc(item.id)}">ON DISPLAY // REMOVE</button>`
+          : `<button type="button" class="smk-btn smk-btn-equip" data-showcase-add="${esc(item.id)}"${full ? ' disabled title="All showcase slots are full"' : ''}>DISPLAY</button>`;
+      return `
+        <article class="smk-item smk-relic${owned ? ' is-owned' : ' is-sealed'}${shown ? ' is-equipped' : ''}">
+          <div class="smk-preview smk-preview-relic">${owned ? '✦' : '?'}</div>
+          <div class="smk-item-body">
+            <div class="smk-item-head"><h4>${esc(item.name)}</h4>${owned ? '<span class="smk-tag smk-tag-relic">UNEARTHED</span>' : ''}</div>
+            <p>${esc(owned ? item.desc : how)}</p>
+            ${owned ? '' : progress}
+            <div class="smk-actions">${action}</div>
+          </div>
+        </article>`;
+    }).join('');
+    return `
+      <div class="smk-dossier-bar">
+        <span>SHOWCASE <b>${showcase.length} / ${slots}</b> SLOTS</span>
+        <button type="button" class="smk-btn" data-preview-dossier>PREVIEW MY DOSSIER</button>
+      </div>
+      <p class="smk-fine">RELICS ARE EARNED, NEVER SOLD. BUY MORE SHOWCASE SLOTS AND DOSSIER BACKGROUNDS IN THE MARKET. OTHERS OPEN YOUR DOSSIER BY CLICKING YOUR NAME IN CHAT.</p>
+      <section class="smk-group"><h3>RELICS</h3><div class="smk-grid">${cards}</div></section>`;
   }
 
   function wheelHTML() {
@@ -292,7 +349,7 @@
     const root = ensureRoot();
     const balance = state.data ? fmt(state.data.balance) : '…';
     const tab = (id, text) => `<button type="button" class="smk-tab${state.tab === id ? ' is-active' : ''}" data-tab="${id}">${text}</button>`;
-    const body = state.tab === 'roulette' ? rouletteHTML() : state.tab === 'ledger' ? ledgerHTML() : marketHTML();
+    const body = state.tab === 'roulette' ? rouletteHTML() : state.tab === 'ledger' ? ledgerHTML() : state.tab === 'dossier' ? dossierTabHTML() : marketHTML();
     const scroll = root.querySelector('.smk-body')?.scrollTop || 0;
     root.innerHTML = `
       <div class="smk-panel">
@@ -304,7 +361,7 @@
           <div class="smk-balance"><img src="assets/ui/shadow-coin.webp" alt=""><b>${balance}</b><span>SC</span></div>
           <button type="button" class="smk-close" data-close aria-label="Close Shadow Market">CLOSE</button>
         </header>
-        <nav class="smk-tabs">${tab('market', 'MARKET')}${tab('roulette', 'SHADOW ROULETTE')}${tab('ledger', 'LEDGER')}</nav>
+        <nav class="smk-tabs">${tab('market', 'MARKET')}${tab('roulette', 'SHADOW ROULETTE')}${tab('dossier', 'DOSSIER')}${tab('ledger', 'LEDGER')}</nav>
         ${state.error ? `<div class="smk-flash smk-flash-error">${esc(state.error)}</div>` : state.notice ? `<div class="smk-flash">${esc(state.notice)}</div>` : ''}
         <div class="smk-body">${body}</div>
       </div>`;
@@ -335,6 +392,11 @@
     }
     const equip = t.closest('[data-equip]');
     if (equip) return send({ type: 'shadow:equip', slot: equip.dataset.slot, itemId: equip.dataset.equip });
+    const addRelic = t.closest('[data-showcase-add]');
+    if (addRelic && !addRelic.disabled) return send({ type: 'shadow:showcase', itemIds: [...(state.data?.showcase || []), addRelic.dataset.showcaseAdd] });
+    const removeRelic = t.closest('[data-showcase-remove]');
+    if (removeRelic) return send({ type: 'shadow:showcase', itemIds: (state.data?.showcase || []).filter(id => id !== removeRelic.dataset.showcaseRemove) });
+    if (t.closest('[data-preview-dossier]')) return window.ShadowCosmetics?.openDossier(app()?.playerId);
     const unequip = t.closest('[data-unequip]');
     if (unequip) return send({ type: 'shadow:equip', slot: unequip.dataset.unequip, itemId: null });
 

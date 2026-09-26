@@ -1916,6 +1916,7 @@ function armWheelSettlement(room) {
     if (!live || live.wheel?.spinToken !== token || live.wheel.phase !== 'spinning') return;
     live.wheel.phase = 'result';
     delete live.wheel.settleAt;
+    try { checkWheelRelics(live); } catch (error) { console.error('[relics] wheel check failed:', error.message); }
 
     // Result presentation and punishment presentation are deliberately
     // separate stages. Everyone, INCLUDING the selected Little Hero, gets
@@ -3472,6 +3473,7 @@ function awardBattleCoins(room, message, target) {
   const receipt = `battle:${room.boardId}:${message.id}:${target}:${message.coinSeq}`;
   const result = playerStore.awardShadowCoins(account, amount, receipt, { reason: target === 'FINAL' ? 'Final solved' : `column ${target} solved` });
   if (result.ok) message.coinAward = { receipt, amount, target };
+  try { checkSolveRelics(room, message, target); } catch (error) { console.error('[relics] solve check failed:', error.message); }
 }
 
 function revokeBattleCoins(room, message) {
@@ -4580,6 +4582,10 @@ function kaladontSettle(room, announce) {
     return;
   }
   s.reward = { playerId: s.winnerId, amount: KALADONT_WIN_COINS, balance: result.balance };
+  const lastWord = Array.isArray(s.history) ? s.history[s.history.length - 1] : null;
+  if (lastWord && lastWord.word === 'KALADONT' && String(lastWord.by) === String(s.winnerId)) {
+    try { awardRelic(room, { id: String(s.winnerId), name: winner.name }, 'relic-word-killer'); } catch (error) { console.error('[relics] kaladont check failed:', error.message); }
+  }
   const index = announce.findIndex(line => /WINS KALADONT/.test(line));
   if (index !== -1) announce[index] = announce[index].replace(/\.$/, '') + ` +${KALADONT_WIN_COINS} SHADOW COIN.`;
   broadcastPlayersUpdate(room);
@@ -5322,6 +5328,7 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/timer', help: '/timer A1 -- warn Column A has 1 minute left (A-D, 1 or 2 minutes)' },
   { name: '/vote', help: '/vote <question> -- instant YES/NO poll' },
   { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
+  { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
   { name: '/dice', help: '/dice 2d6 -- roll N dice with M faces, optional +K' },
   { name: '/flip', help: '/flip [heads|tails] -- coin flip' },
   { name: '/choose', help: '/choose A | B | C -- pick one option at random' },
@@ -5773,6 +5780,16 @@ function dispatchGmSlashCommand(room, ws, text) {
   if (emote) {
     const result = handleEmoteCommand(room, author, raw, '', emote[1].toLowerCase());
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  if (/^\/relic\b/i.test(raw)) {
+    const match = raw.match(/^\/relic\s+@?(.+?)\s*$/i);
+    if (!match) return { success: false, error: 'RELIC INVALID // USE /relic @Name' };
+    const resolved = resolveNamedTarget(room, null, '', match[1], 'RELIC');
+    if (resolved.error) return { success: false, error: resolved.error };
+    const account = coinAccount(resolved.target.id, resolved.target.name);
+    if (!account) return { success: false, error: 'RELIC // TEST PERSONAS HAVE NO DOSSIER' };
+    if (!awardRelic(room, account, 'title-broker-mistake')) return { success: false, error: `RELIC // ${resolved.target.name} ALREADY HOLDS IT` };
+    return { success: true, broadcast: true };
   }
   if (/^\/afk\b/i.test(raw)) {
     const result = handleAfkCommand(room, raw, '');
@@ -6661,6 +6678,8 @@ function shadowStatePayload(account) {
     balance: Math.max(0, Number(profile.shadowCoinUnits) || 0) / 10,
     catalog: shadowMarket.catalogFor(profile),
     equipped: { ...(profile.cosmetics?.equipped || {}) },
+    showcase: [...(profile.cosmetics?.showcase || [])],
+    showcaseSlots: shadowMarket.showcaseSlots(profile),
     ledger: (profile.shadowCoinLedger || []).slice(-40).reverse(),
     roulette: shadowMarket.rouletteRules()
   };
@@ -6708,6 +6727,84 @@ function handleShadowEquip(ws, message) {
   if (!result.ok) return sendToWs(ws, { type: 'shadow:error', message: result.error });
   sendToWs(ws, shadowStatePayload(ctx.account));
   broadcastPlayersUpdate(ctx.room);
+}
+
+function handleShadowShowcase(ws, message) {
+  const ctx = shadowAccountFor(ws);
+  if (ctx.error) return sendToWs(ws, { type: 'shadow:error', message: ctx.error });
+  const raw = Array.isArray(message?.itemIds) ? message.itemIds : [];
+  const ids = [...new Set(raw.map(id => String(id || '')))];
+  const profile = playerStore.getShadowProfile(ctx.account);
+  if (ids.length > shadowMarket.showcaseSlots(profile)) return sendToWs(ws, { type: 'shadow:error', message: 'Not enough showcase slots' });
+  if (!ids.every(id => shadowMarket.isShowcaseable(shadowMarket.getItem(id)))) return sendToWs(ws, { type: 'shadow:error', message: 'Only relics can be showcased' });
+  const result = playerStore.setShowcase(ctx.account, ids);
+  if (!result.ok) return sendToWs(ws, { type: 'shadow:error', message: result.error });
+  sendToWs(ws, shadowStatePayload(ctx.account));
+}
+
+// Anyone in the room (Little Heroes and the Shadow Broker) may open the
+// dossier of a Little Hero in the same room. Read-only, public fields only.
+function handleShadowDossier(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || (!ws.playerId && ws !== room.hostConnection)) return sendToWs(ws, { type: 'shadow:error', message: 'Dossiers require a room' });
+  const targetId = String(message?.playerId || '');
+  let target = null;
+  let online = false;
+  room.players.forEach((player, socket) => {
+    if (String(player.id) === targetId) { target = player; online = socket.readyState === 1; }
+  });
+  if (!target || target.isTestPersona === true) return sendToWs(ws, { type: 'shadow:error', message: 'No dossier on file' });
+  const profile = playerStore.getShadowProfile({ id: String(target.id), name: target.name });
+  const dossier = shadowMarket.dossierFor(profile, { online });
+  dossier.name = target.name || dossier.name;
+  dossier.avatar = { id: String(target.id), name: target.name, avatarData: target.avatarData || '', frameColor: target.frameColor || '#9B5DE0' };
+  sendToWs(ws, { type: 'shadow:dossierResult', playerId: targetId, dossier });
+}
+
+// RELICS -- earned only. Grants are idempotent; a first grant is announced
+// by the Shadow Broker and shows up on the next players:update.
+function awardRelic(room, account, relicId) {
+  const item = shadowMarket.getItem(relicId);
+  if (!room || !account || !item?.relic) return false;
+  const result = playerStore.grantRelic(account, relicId);
+  if (!result.ok || result.duplicate) return false;
+  addShadowBrokerMessage(room, `RELIC UNEARTHED // ${account.name} -- ${String(item.name).toUpperCase()}`, { editableByHost: false });
+  broadcastChatUpdate(room);
+  broadcastPlayersUpdate(room);
+  console.log(`[relics] ${account.name} earned ${item.name}`);
+  return true;
+}
+
+function bumpRelicCounter(room, account, relicId, receiptId) {
+  const item = shadowMarket.getItem(relicId);
+  if (!account || !item?.earn?.counter) return;
+  const count = playerStore.bumpRelicProgress(account, item.earn.counter, receiptId);
+  if (count >= item.earn.min) awardRelic(room, account, relicId);
+}
+
+// Called once per NEW battle solve (after the solve is recorded).
+function checkSolveRelics(room, message, target) {
+  const account = coinAccount(message.playerId, message.playerName);
+  if (!account) return;
+  const solved = Object.values(room.chat.solvedTargets || {});
+  if (solved.length === 1) bumpRelicCounter(room, account, 'relic-fastest-hand', `first-solve:${room.boardId}`);
+  if (target === 'FINAL') {
+    const ownColumns = ['A', 'B', 'C', 'D'].some(col => String(room.chat.solvedTargets?.[col]?.playerId) === String(message.playerId));
+    if (!ownColumns) awardRelic(room, account, 'relic-last-second-heretic');
+  }
+}
+
+// Every Little Hero on a settled WOMF wheel who was NOT selected survived it.
+function checkWheelRelics(room) {
+  const wheel = room.wheel || {};
+  const segments = Array.isArray(wheel.segments) ? wheel.segments : [];
+  const loser = String(segments[Number(wheel.winnerIndex)] || '').trim().toLowerCase();
+  const survivors = new Set(segments.map(name => String(name || '').trim().toLowerCase()).filter(name => name && name !== loser));
+  room.players.forEach(player => {
+    if (!survivors.has(String(player.name || '').trim().toLowerCase())) return;
+    const account = coinAccount(player.id, player.name);
+    if (account) bumpRelicCounter(room, account, 'relic-spun-returned', `womf:${wheel.spinToken}`);
+  });
 }
 
 const SHADOW_SPIN_MIN_INTERVAL_MS = 1500;
@@ -8769,6 +8866,14 @@ wss.on('connection', (ws) => {
         }
         case 'shadow:spin': {
           handleShadowSpin(ws, message);
+          break;
+        }
+        case 'shadow:showcase': {
+          handleShadowShowcase(ws, message);
+          break;
+        }
+        case 'shadow:dossier': {
+          handleShadowDossier(ws, message);
           break;
         }
         case 'chat:gif': {

@@ -78,12 +78,32 @@ function blankProfile(displayName) {
     // Cosmetic inventory. owned: { itemId: tier } (tier 1 for untiered
     // items). equipped: one item id (or null) per visual slot. Purely
     // presentational -- no gameplay code ever reads this.
-    cosmetics: blankCosmetics()
+    cosmetics: blankCosmetics(),
+    // Relic earning: counters (e.g. wheelSurvivals) and the idempotency keys
+    // of the events that bumped them, so a replay never counts twice.
+    relicProgress: {},
+    relicReceipts: []
   };
 }
 
 function blankCosmetics() {
-  return { owned: {}, equipped: { appearance: null, effect: null, frame: null, title: null } };
+  return {
+    owned: {},
+    equipped: { appearance: null, effect: null, frame: null, title: null, celebration: null, name: null, sigil: null, card: null },
+    // Relic ids shown on the dossier, in order (slot count checked by server).
+    showcase: []
+  };
+}
+
+function normalizeRelicProgress(raw) {
+  const out = {};
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const [key, value] of Object.entries(raw)) {
+      const n = Math.floor(Number(value));
+      if (/^[a-zA-Z0-9]{1,32}$/.test(key) && n > 0) out[key] = n;
+    }
+  }
+  return out;
 }
 
 function normalizeCosmetics(raw) {
@@ -100,6 +120,9 @@ function normalizeCosmetics(raw) {
       const id = raw.equipped[slot];
       out.equipped[slot] = typeof id === 'string' && out.owned[id] ? id : null;
     }
+  }
+  if (Array.isArray(raw.showcase)) {
+    out.showcase = [...new Set(raw.showcase.filter(id => typeof id === 'string' && out.owned[id]))].slice(0, 3);
   }
   return out;
 }
@@ -179,6 +202,8 @@ function validateAndNormalizePlayers(raw) {
     if (!Array.isArray(profile.shadowCoinReceipts)) profile.shadowCoinReceipts = [];
     if (!Array.isArray(profile.shadowCoinLedger)) profile.shadowCoinLedger = [];
     profile.cosmetics = normalizeCosmetics(candidate.cosmetics);
+    profile.relicProgress = normalizeRelicProgress(candidate.relicProgress);
+    profile.relicReceipts = Array.isArray(candidate.relicReceipts) ? candidate.relicReceipts.filter(r => typeof r === 'string').slice(-500) : [];
     // Older profiles stored whole coins only; derive tenths from them once.
     const units = candidate.shadowCoinUnits === undefined
       ? Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT)
@@ -369,6 +394,9 @@ function coinProfile(players, identity) {
   if (!Array.isArray(profile.shadowCoinReceipts)) profile.shadowCoinReceipts = [];
   if (!Array.isArray(profile.shadowCoinLedger)) profile.shadowCoinLedger = [];
   if (!profile.cosmetics || typeof profile.cosmetics !== 'object') profile.cosmetics = blankCosmetics();
+  if (!Array.isArray(profile.cosmetics.showcase)) profile.cosmetics.showcase = [];
+  if (!profile.relicProgress || typeof profile.relicProgress !== 'object') profile.relicProgress = {};
+  if (!Array.isArray(profile.relicReceipts)) profile.relicReceipts = [];
   return profile;
 }
 
@@ -489,6 +517,29 @@ function equipCosmetic(identity, slot, itemId) {
   equipped[slot] = itemId;
   savePlayersAtomic(players);
   return { ok: true, equipped: { ...equipped } };
+}
+
+// Bumps a relic counter once per receiptId. Returns the counter value.
+function bumpRelicProgress(identity, counter, receiptId) {
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  if (profile.relicReceipts.includes(receiptId)) return Number(profile.relicProgress[counter]) || 0;
+  profile.relicProgress[counter] = (Number(profile.relicProgress[counter]) || 0) + 1;
+  profile.relicReceipts.push(receiptId);
+  if (profile.relicReceipts.length > 500) profile.relicReceipts.splice(0, profile.relicReceipts.length - 500);
+  savePlayersAtomic(players);
+  return profile.relicProgress[counter];
+}
+
+// Replaces the dossier showcase. The caller validates ids and slot count.
+function setShowcase(identity, itemIds) {
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  const ids = itemIds.filter(id => Number(profile.cosmetics.owned[id]) > 0);
+  if (ids.length !== itemIds.length) return { ok: false, error: 'Not owned' };
+  profile.cosmetics.showcase = ids;
+  savePlayersAtomic(players);
+  return { ok: true, showcase: [...ids] };
 }
 
 function ownsCosmetic(identity, itemId) {
@@ -632,6 +683,8 @@ module.exports = {
   grantRelic,
   equipCosmetic,
   ownsCosmetic,
+  bumpRelicProgress,
+  setShowcase,
   settleRouletteSpin,
   maybeRecordBestStreak,
   maybeRecordEarliestFinal,

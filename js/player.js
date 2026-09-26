@@ -1512,6 +1512,11 @@ const PlayerApp = {
       case 'shadow:spinResult':
       case 'shadow:error':
         window.ShadowMarketUI?.onMessage(message);
+        window.ShadowCosmetics?.onMessage(message);
+        break;
+
+      case 'shadow:dossierResult':
+        window.ShadowCosmetics?.onMessage(message);
         break;
 
       case 'players:update': {
@@ -4637,7 +4642,7 @@ const PlayerApp = {
         <div class="chat-message chat-gif-message ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           <div class="chat-avatar-rail">${avatar}</div>
           <div class="chat-message-main">
-            <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="chat-time">${time}</span></div>
+            <div class="chat-message-header"><span class="chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="chat-time">${time}</span></div>
             <button type="button" class="chat-reply-btn" data-reply-id="${this.escapeHtml(msg.id)}" title="Reply" aria-label="Reply to GIF">&#8617;</button>
             <button type="button" class="chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>
             <div class="chat-gif-provider-mark">GIPHY</div>
@@ -4676,7 +4681,7 @@ const PlayerApp = {
         <div class="chat-message chat-poll-message ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           <div class="chat-avatar-rail">${this.littleHeroAvatarHTML(identity)}</div>
           <div class="chat-message-main">
-            <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="chat-time">${time}</span></div>
+            <div class="chat-message-header"><span class="chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="chat-time">${time}</span></div>
             <button type="button" class="chat-reply-btn" data-reply-id="${this.escapeHtml(msg.id)}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName || 'poll')}">&#8617;</button>
             ${this.createPollCardHTML(msg)}
             ${this.createReactionBarHTML(msg)}
@@ -4747,10 +4752,10 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${manualTribute ? 'active-blood-tribute' : ''} ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+      <div class="chat-message ${manualTribute ? 'active-blood-tribute' : ''} ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
         <div class="chat-avatar-rail">${this.littleHeroAvatarHTML(identity)}</div>
-        <div class="chat-message-main">${manualBadge}
-          <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
+        <div class="chat-message-main">${manualBadge}${window.ShadowCosmetics?.celebrationHTML(msg, identity, this.currentPlayers) || ''}
+          <div class="chat-message-header"><span class="chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
           <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">&#8617;</button>
           ${replyContextHtml}
           <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
