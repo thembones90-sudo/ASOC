@@ -56,3 +56,13 @@ when manual repair is needed. Do not delete both files to bypass protection.
 blocked login, verification, successful login, and persisted WebSocket sessions
 across disabled/enabled verification transitions, including legacy compatibility.
 No real email is sent by tests.
+
+## Forgot password
+
+The Little Hero login has **FORGOT PASSWORD?**. It uses the same email provider as verification.
+
+- `POST /api/auth/player/forgot-password` `{ email }` always answers the same generic message (no account enumeration). Unknown emails send nothing; one request per account per resend cooldown.
+- The email links to `/join.html?reset=<token>`; the page scrubs the token from the address bar and shows NEW PASSWORD / CONFIRM.
+- `POST /api/auth/player/reset-password` `{ token, password }`: tokens are single-use, stored only as a SHA-256 digest, and expire after 30 minutes (`ASOC_PASSWORD_RESET_TTL_MS`, minimum 5 minutes). A reset signs out every existing session of that account and completes a pending email verification.
+- Both endpoints are throttled per client (6 link requests / 12 attempts per 15 minutes).
+- `ASOC_PUBLIC_BASE_URL` must be set in production so reset links are never built from a spoofable Host header.

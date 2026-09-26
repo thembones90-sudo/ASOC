@@ -664,6 +664,14 @@ function isMasterTestPlayerId(playerId) {
   return typeof playerId === 'string' && playerId.startsWith(MASTER_TEST_PLAYER_PREFIX);
 }
 
+// Stable viewer identity for read receipts. Every Master Mirror session
+// mints a fresh persona id, but they are all the GM's one TEST SUBJECT, so
+// they collapse to a single key (mirrors js/read-receipts.js identityKey).
+function receiptIdentityKey(playerId) {
+  const id = String(playerId || '');
+  return isMasterTestPlayerId(id) ? MASTER_TEST_PLAYER_PREFIX : id;
+}
+
 function masterTestAccount(auth) {
   if (!auth?.isMasterTest || !isMasterTestPlayerId(auth.playerId)) return null;
   return {
@@ -5862,12 +5870,13 @@ function sendToWs(ws, message) {
 function chatRecipientIds(room, senderId) {
   const ids = [];
   const seen = new Set();
-  const sender = String(senderId || '');
+  const sender = receiptIdentityKey(senderId);
   for (const player of room.players.values()) {
     if (!player || player.connected === false) continue;
     const id = player && typeof player.id === 'string' ? player.id : '';
-    if (!id || id === sender || seen.has(id)) continue;
-    seen.add(id);
+    const key = receiptIdentityKey(id);
+    if (!id || key === sender || seen.has(key)) continue;
+    seen.add(key);
     ids.push(id);
   }
   return ids;
@@ -5945,11 +5954,13 @@ function handleChatSeen(ws, message) {
 
   const target = room.chat.messages.find(entry => entry.id === messageId);
   if (!target || target.deleted === true) return;
-  if (String(target.playerId || '') === String(ws.playerId || '')) return;
+  if (receiptIdentityKey(target.playerId) === receiptIdentityKey(ws.playerId)) return;
 
+  // One receipt per unique player (by stable identity, never display name).
   const viewerId = String(ws.playerId);
+  const viewerKey = receiptIdentityKey(viewerId);
   if (!Array.isArray(target.seenBy)) target.seenBy = [];
-  if (target.seenBy.some(entry => String(entry.playerId) === viewerId)) return;
+  if (target.seenBy.some(entry => receiptIdentityKey(entry.playerId) === viewerKey)) return;
 
   target.seenBy.push({
     playerId: viewerId,
@@ -8041,6 +8052,34 @@ function issuePlayerAuthToken(player) {
   return token;
 }
 
+// FORGOT PASSWORD -- per-client throttle on reset requests/attempts (on top
+// of the per-account cooldown in auth-store), so the endpoint cannot be used
+// to spam mailboxes or brute-force tokens.
+const PASSWORD_RESET_WINDOW_MS = 15 * 60 * 1000;
+const PASSWORD_RESET_LIMITS = { request: 6, attempt: 12 }; // per client per window
+const passwordResetHits = new Map();
+function passwordResetThrottled(req, kind) {
+  const key = kind + ':' + gmClientKey(req);
+  const now = Date.now();
+  const hits = (passwordResetHits.get(key) || []).filter(at => now - at < PASSWORD_RESET_WINDOW_MS);
+  hits.push(now);
+  passwordResetHits.set(key, hits);
+  if (passwordResetHits.size > 5000) {
+    for (const [k, list] of passwordResetHits) if (!list.some(at => now - at < PASSWORD_RESET_WINDOW_MS)) passwordResetHits.delete(k);
+  }
+  return hits.length > PASSWORD_RESET_LIMITS[kind];
+}
+
+// A changed password ends every existing Little Hero session of that account.
+function revokePlayerSessions(playerId) {
+  let removed = 0;
+  for (const [key, record] of playerAuthTokens) {
+    if (record && record.playerId === playerId) { playerAuthTokens.delete(key); removed++; }
+  }
+  if (removed) savePlayerAuthSessions();
+  return removed;
+}
+
 function redirectPlayerVerification(res, state) {
   res.writeHead(302, {
     Location: '/join.html?' + state,
@@ -8273,6 +8312,58 @@ function handleApiRequest(req, res) {
         return sendJson(res, 502, { error: 'Verification email could not be sent. Try again shortly.', code: 'EMAIL_DELIVERY_FAILED' });
       }
       return sendJson(res, 200, generic);
+    });
+  }
+
+  // FORGOT PASSWORD, step 1: always the same answer, so the endpoint never
+  // reveals whether an email has an account.
+  if (method === 'POST' && url.pathname === '/api/auth/player/forgot-password') {
+    return readJsonBody(req, async (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
+      if (!emailService.isConfigured()) {
+        return sendJson(res, 503, { error: 'Password reset email is not available right now. Contact the Shadow Broker.', code: 'EMAIL_SERVICE_UNAVAILABLE' });
+      }
+      if (passwordResetThrottled(req, 'request')) {
+        return sendJson(res, 429, { error: 'Too many reset requests. Wait a few minutes and try again.', code: 'RATE_LIMITED' });
+      }
+      const generic = { ok: true, message: 'If this email belongs to a Little Hero, a reset link is on its way.' };
+      const issued = authStore.issueResetToken(String(body?.email || ''));
+      if (!issued.ok) return sendJson(res, 200, generic);
+      try {
+        const resetUrl = publicBaseUrl(req) + '/join.html?reset=' + encodeURIComponent(issued.resetToken);
+        await emailService.sendPasswordResetEmail({
+          to: issued.player.email,
+          name: issued.player.name,
+          resetUrl,
+          ttlMinutes: Math.round(authStore.RESET_TTL_MS / 60000),
+          idempotencyKey: 'reset-' + issued.player.id + '-' + Date.now()
+        });
+      } catch (mailError) {
+        console.error('[auth] Password reset email failed:', mailError.message);
+        return sendJson(res, 502, { error: 'Reset email could not be sent. Try again shortly.', code: 'EMAIL_DELIVERY_FAILED' });
+      }
+      console.log('[auth] Password reset link sent to account ' + issued.player.id);
+      return sendJson(res, 200, generic);
+    });
+  }
+
+  // FORGOT PASSWORD, step 2: consume the single-use token, set the password,
+  // end every existing session of that account.
+  if (method === 'POST' && url.pathname === '/api/auth/player/reset-password') {
+    return readJsonBody(req, (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
+      if (passwordResetThrottled(req, 'attempt')) {
+        return sendJson(res, 429, { error: 'Too many attempts. Wait a few minutes and try again.', code: 'RATE_LIMITED' });
+      }
+      const result = authStore.resetPassword(String(body?.token || ''), String(body?.password || ''));
+      if (!result.ok) {
+        if (result.reason === 'weak') return sendJson(res, 400, { error: result.error, code: 'WEAK_PASSWORD' });
+        if (result.reason === 'expired') return sendJson(res, 400, { error: 'This reset link has expired. Request a new one.', code: 'RESET_EXPIRED' });
+        return sendJson(res, 400, { error: 'This reset link is invalid or has already been used.', code: 'RESET_INVALID' });
+      }
+      const revoked = revokePlayerSessions(result.player.id);
+      console.log('[auth] Password reset for account ' + result.player.id + ' (' + revoked + ' session(s) ended)');
+      return sendJson(res, 200, { ok: true, email: result.player.email });
     });
   }
 

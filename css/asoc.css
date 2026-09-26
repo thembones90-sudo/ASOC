@@ -19666,3 +19666,9 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
 
   .recount-overlay .rc-block:last-child { padding: 24px 26px 16px; }
 }
+
+/* READ RECEIPTS -- compact SEEN BY footer: "+N" collapses long lists; the
+   readout opens the full deduplicated roster popover. */
+.gm-latest-readout.has-readers { cursor: pointer; }
+.gm-latest-readout.has-readers:hover .gm-latest-readout-state { color: #e6dfea; }
+.gm-latest-readout-more { margin-left: 4px; padding: 0 4px; border: 1px solid rgba(125, 191, 125, .45); border-radius: 3px; color: #9fd69f; font-style: normal; font-weight: 800; }

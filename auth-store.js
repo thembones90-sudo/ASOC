@@ -5,6 +5,7 @@ fs.mkdirSync(path.dirname(file),{recursive:true});
 const ITER=210000;
 const VERIFY_TTL_MS=Math.max(5*60*1000,Number(process.env.ASOC_EMAIL_VERIFY_TTL_MS)||60*60*1000);
 const RESEND_COOLDOWN_MS=Math.max(15000,Number(process.env.ASOC_EMAIL_RESEND_COOLDOWN_MS)||60*1000);
+const RESET_TTL_MS=Math.max(5*60*1000,Number(process.env.ASOC_PASSWORD_RESET_TTL_MS)||30*60*1000);
 
 const backupFile=file+'.bak';
 function validate(d){
@@ -21,6 +22,10 @@ function validate(d){
       if(p[field]!=null&&(!Number.isFinite(p[field])||p[field]<0))throw Error('Invalid verification timestamp');
     }
     if(p.verificationTokenHash!==undefined&&!/^[a-f0-9]{64}$/i.test(p.verificationTokenHash))throw Error('Invalid verification digest');
+    for(const field of ['resetExpiresAt','resetSentAt']){
+      if(p[field]!=null&&(!Number.isFinite(p[field])||p[field]<0))throw Error('Invalid password reset timestamp');
+    }
+    if(p.resetTokenHash!==undefined&&!/^[a-f0-9]{64}$/i.test(p.resetTokenHash))throw Error('Invalid password reset digest');
   }
   return d;
 }
@@ -144,8 +149,56 @@ function issueVerificationToken(email){
   return {ok:true,player:safe(p),verificationToken};
 }
 
+// FORGOT PASSWORD -- a single-use reset link, stored only as a digest, valid
+// for RESET_TTL_MS. Only real email identities can reset (legacy identity
+// IDs have no mailbox). Requests are rate limited per account; the caller
+// always answers generically so accounts cannot be enumerated.
+function issueResetToken(email){
+  email=normEmail(email);
+  if(!isRealEmail(email))return {ok:false,reason:'not_found'};
+  const d=load();
+  const p=d.players[email];
+  if(!p)return {ok:false,reason:'not_found'};
+  const now=Date.now();
+  const retryAfterMs=Math.max(0,RESEND_COOLDOWN_MS-(now-Number(p.resetSentAt||0)));
+  if(retryAfterMs>0)return {ok:false,reason:'cooldown',retryAfterMs};
+  const resetToken=crypto.randomBytes(32).toString('base64url');
+  p.resetTokenHash=digestToken(resetToken);
+  p.resetExpiresAt=now+RESET_TTL_MS;
+  p.resetSentAt=now;
+  save(d);
+  return {ok:true,player:safe(p),resetToken};
+}
+
+// Consumes a reset token and sets the new password. Receiving the link also
+// proves the mailbox, so a pending email verification is completed.
+function resetPassword(token,password){
+  if(String(password||'').length<6)return {ok:false,reason:'weak',error:'Password must be at least 6 characters'};
+  if(!token)return {ok:false,reason:'invalid'};
+  const tokenHash=digestToken(token);
+  const d=load();
+  const p=Object.values(d.players||{}).find(player=>player&&player.resetTokenHash===tokenHash);
+  if(!p)return {ok:false,reason:'invalid'};
+  if(!p.resetExpiresAt||Number(p.resetExpiresAt)<Date.now()){
+    delete p.resetTokenHash;delete p.resetExpiresAt;
+    save(d);
+    return {ok:false,reason:'expired'};
+  }
+  p.salt=crypto.randomBytes(16).toString('hex');
+  p.hash=hash(password,p.salt);
+  p.passwordChangedAt=Date.now();
+  delete p.resetTokenHash;delete p.resetExpiresAt;
+  if(p.verificationRequired===true&&!p.emailVerifiedAt){
+    p.emailVerifiedAt=Date.now();
+    delete p.verificationTokenHash;delete p.verificationExpiresAt;delete p.verificationSentAt;
+  }
+  save(d);
+  return {ok:true,player:safe(p)};
+}
+
 module.exports={
   isHealthy() { try { load(); return true; } catch { return false; } },
   register,login,getById,updateName,verifyEmail,issueVerificationToken,isVerified,
-  VERIFY_TTL_MS,RESEND_COOLDOWN_MS
+  issueResetToken,resetPassword,
+  VERIFY_TTL_MS,RESEND_COOLDOWN_MS,RESET_TTL_MS
 };

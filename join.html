@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260926-recount-audit-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260926-seen-dedupe-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-v1-3">
   <link rel="stylesheet" href="css/tweaks.css?v=20260923-utility-icon-fix-1">
   <style>
@@ -3690,6 +3690,8 @@ position:absolute;
     .access-shell[data-channel] .access-field input{height:44px}
     .access-shell[data-channel] .access-submit{min-height:46px}
     .access-shell[data-channel] .access-alt{min-height:40px;margin-top:9px}
+    .access-shell[data-channel] #player-auth-panel .access-alt.access-alt-forgot{min-height:30px;margin-top:6px;border-color:transparent;background:none;color:#a996b6;font-size:10px;letter-spacing:1.4px;text-decoration:underline;text-underline-offset:3px}
+    .access-shell[data-channel] #player-auth-panel .access-alt.access-alt-forgot:hover,.access-shell[data-channel] #player-auth-panel .access-alt.access-alt-forgot:focus-visible{color:#fff;border-color:transparent;outline:none}
     .access-panel::before{font-size:12px;letter-spacing:1.7px;margin-bottom:14px}
     .access-panel h2{font-size:26px;letter-spacing:1.7px;margin-bottom:8px}
     .access-panel p{font-size:15px;line-height:1.55;color:#c1c7cc}
@@ -8420,11 +8422,12 @@ position:absolute;
       <form id="player-auth-panel" class="access-panel" hidden>
         <button class="access-back" type="button">RETURN</button><h2>LITTLE HERO ACCESS</h2><p id="player-auth-copy">Sign in with your ASOC identity.</p>
         <label class="access-field"><span id="auth-email-label">EMAIL / IDENTITY ID</span><input id="auth-email" type="text" autocomplete="username" minlength="3" maxlength="254" required></label>
-        <label class="access-field"><span>PASSWORD</span><input id="auth-password" type="password" autocomplete="current-password" minlength="6" required></label>
+        <label class="access-field" id="auth-password-field"><span id="auth-password-label">PASSWORD</span><input id="auth-password" type="password" autocomplete="current-password" minlength="6" required></label>
+        <label class="access-field" id="auth-password2-field" hidden><span>CONFIRM NEW PASSWORD</span><input id="auth-password2" type="password" autocomplete="new-password" minlength="6"></label>
         <label class="access-field" id="auth-name-field" hidden><span>INITIAL LITTLE HERO DESIGNATION</span><input id="auth-name" type="text" maxlength="20" autocomplete="nickname"></label>
         <div class="access-remember-row"><label class="access-remember"><input id="player-remember" type="checkbox" checked><span>REMEMBER ME ON THIS DEVICE</span></label><button class="access-forget" type="button" id="player-forget" hidden>FORGET SAVED LOGIN</button></div>
         <button class="access-submit" type="submit" id="player-auth-submit">AUTHENTICATE</button>
-        <button class="access-alt" type="button" id="player-auth-mode">NEW HERO? CREATE ID</button><button class="access-alt" type="button" id="player-auth-resend" hidden>RESEND VERIFICATION</button><div class="access-success" id="player-auth-status" role="status"></div><div class="access-error" id="player-auth-error" role="alert"></div>
+        <button class="access-alt" type="button" id="player-auth-mode">NEW HERO? CREATE ID</button><button class="access-alt access-alt-forgot" type="button" id="player-auth-forgot">FORGOT PASSWORD?</button><button class="access-alt" type="button" id="player-auth-resend" hidden>RESEND VERIFICATION</button><div class="access-success" id="player-auth-status" role="status"></div><div class="access-error" id="player-auth-error" role="alert"></div>
       </form>
       <form id="gm-auth-panel" class="access-panel" hidden>
         <button class="access-back" type="button">RETURN</button><h2>SHADOW BROKER</h2><p>Command authority requires one thing. The password.</p>
@@ -9148,14 +9151,50 @@ position:absolute;
     };
     syncPlayerLogoutVisibility();
     if(isMasterMirrorTab()&&!getStoredPlayerAuthToken())bootstrapMasterMirror();
-    else restorePlayerSession();
+    // A password-reset link always lands on the reset form, even on a device
+    // that still holds a saved session.
+    else if(!new URLSearchParams(location.search).get('reset'))restorePlayerSession();
     const authEmail=document.getElementById('auth-email');
     const authEmailLabel=document.getElementById('auth-email-label');
     const authError=document.getElementById('player-auth-error');
     const authStatus=document.getElementById('player-auth-status');
     const resendVerification=document.getElementById('player-auth-resend');
+    // FORGOT PASSWORD: two extra panel modes on top of sign-in / create.
+    //   'forgot' -> email only, SEND RESET LINK
+    //   'reset'  -> new password twice, from the emailed /join.html?reset=<token>
+    const forgotButton=document.getElementById('player-auth-forgot');
+    const authPassword=document.getElementById('auth-password');
+    const authPassword2=document.getElementById('auth-password2');
+    let recoveryMode=null;
+    let resetToken='';
+    const setRecoveryMode=(mode)=>{
+      recoveryMode=mode;
+      const forgot=mode==='forgot', reset=mode==='reset';
+      authEmail.closest('label').hidden=reset;
+      authEmail.required=!reset;
+      document.getElementById('auth-password-field').hidden=forgot;
+      authPassword.required=!forgot;
+      authPassword.autocomplete=reset?'new-password':'current-password';
+      document.getElementById('auth-password-label').textContent=reset?'NEW PASSWORD':'PASSWORD';
+      document.getElementById('auth-password2-field').hidden=!reset;
+      authPassword2.required=reset;
+      document.getElementById('auth-name-field').hidden=true;
+      pp.querySelector('.access-remember-row').hidden=Boolean(mode);
+      forgotButton.hidden=Boolean(mode)||register;
+      resendVerification.hidden=true;
+      document.getElementById('player-auth-copy').textContent=forgot
+        ?'Enter the email of your Little Hero identity. If it exists, a reset link will be sent to it.'
+        :reset?'Choose a new password for your Little Hero identity.':'Sign in with your ASOC identity.';
+      document.getElementById('player-auth-submit').textContent=forgot?'SEND RESET LINK':reset?'SET NEW PASSWORD':'AUTHENTICATE';
+      document.getElementById('player-auth-mode').textContent=mode?'BACK TO SIGN IN':'NEW HERO? CREATE ID';
+      if(forgot){authEmailLabel.textContent='EMAIL ADDRESS';authEmail.type='email';authEmail.autocomplete='email';}
+      authError.textContent='';authStatus.textContent='';
+      queueFit();
+    };
     const setPlayerAuthMode=(creating)=>{
+      if(recoveryMode){setRecoveryMode(null);resetToken='';authPassword2.value='';}
       register=Boolean(creating);
+      forgotButton.hidden=register;
       document.getElementById('auth-name-field').hidden=!register;
       document.getElementById('player-auth-copy').textContent=register?'Create a persistent Little Hero identity. A real email address is required for verification.':'Sign in with your ASOC identity.';
       document.getElementById('player-auth-submit').textContent=register?'CREATE LITTLE HERO':'AUTHENTICATE';
@@ -9166,7 +9205,8 @@ position:absolute;
       authError.textContent=''; authStatus.textContent=''; resendVerification.hidden=true;
       queueFit();
     };
-    document.getElementById('player-auth-mode').onclick=()=>setPlayerAuthMode(!register);
+    document.getElementById('player-auth-mode').onclick=()=>setPlayerAuthMode(recoveryMode?false:!register);
+    forgotButton.onclick=()=>setRecoveryMode('forgot');
 
     resendVerification.addEventListener('click',async()=>{
       const email=pendingVerificationEmail||authEmail.value.trim();
@@ -9182,6 +9222,40 @@ position:absolute;
 
     pp.addEventListener('submit',async e=>{
       e.preventDefault(); authError.textContent='';authStatus.textContent='';
+      if(recoveryMode==='forgot'){
+        const email=authEmail.value.trim();
+        const submit=document.getElementById('player-auth-submit');
+        submit.disabled=true;authStatus.textContent='TRANSMITTING RESET REQUEST...';
+        try{
+          const res=await fetch('/api/auth/player/forgot-password',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email})});
+          const data=await res.json();if(!res.ok)throw Error(data.error||'Reset request failed');
+          authStatus.textContent='IF THIS EMAIL BELONGS TO A LITTLE HERO, A RESET LINK IS ON ITS WAY // CHECK YOUR INBOX';
+        }catch(x){authStatus.textContent='';authError.textContent=x.message;}
+        finally{submit.disabled=false;queueFit();}
+        return;
+      }
+      if(recoveryMode==='reset'){
+        if(authPassword.value!==authPassword2.value){authError.textContent='The two passwords do not match.';queueFit();return;}
+        const submit=document.getElementById('player-auth-submit');
+        submit.disabled=true;
+        try{
+          const res=await fetch('/api/auth/player/reset-password',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:resetToken,password:authPassword.value})});
+          const data=await res.json();
+          if(!res.ok){
+            if(data.code==='RESET_EXPIRED'||data.code==='RESET_INVALID'){
+              setRecoveryMode('forgot');
+            }
+            throw Error(data.error||'Password reset failed');
+          }
+          authPassword.value='';authPassword2.value='';
+          setPlayerAuthMode(false);
+          if(data.email)authEmail.value=data.email;
+          authStatus.textContent='PASSWORD RESET // SIGN IN WITH YOUR NEW PASSWORD';
+          authPassword.focus();
+        }catch(x){authError.textContent=x.message;}
+        finally{submit.disabled=false;queueFit();}
+        return;
+      }
       const payload={email:authEmail.value,password:document.getElementById('auth-password').value,name:document.getElementById('auth-name').value};
       try{
         const res=await fetch(register?'/api/auth/player/register':'/api/auth/player/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
@@ -9220,7 +9294,13 @@ position:absolute;
     });
 
     const verificationParams=new URLSearchParams(location.search);
-    if(verificationParams.get('verified')==='1'){
+    if(verificationParams.get('reset')){
+      // Take the token and scrub it from the address bar and history at once.
+      resetToken=verificationParams.get('reset');
+      history.replaceState(null,'',location.pathname);
+      setPlayerAuthMode(false);show('player');setRecoveryMode('reset');
+      authPassword.value='';authPassword2.value='';
+    }else if(verificationParams.get('verified')==='1'){
       setPlayerAuthMode(false);show('player');
       authStatus.textContent='EMAIL VERIFIED // IDENTITY ACTIVATED // SIGN IN TO ENTER MASTER';
       history.replaceState(null,'',location.pathname);
@@ -9293,9 +9373,10 @@ position:absolute;
   <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
   <script src="js/asoc-alerts.js?v=20260925-iks-rings-2"></script>
   <script src="js/chat-media-preview.js?v=20260925-link-paste-2"></script>
+  <script src="js/read-receipts.js?v=20260926-seen-dedupe-1"></script>
   <script src="js/shadow-cosmetics.js?v=20260926-shadow-v1-3"></script>
   <script src="js/shadow-market-ui.js?v=20260926-shadow-v1-3"></script>
-  <script src="js/player.js?v=20260926-shadow-v1-3"></script>
+  <script src="js/player.js?v=20260926-seen-dedupe-1"></script>
   <script src="js/threefold.js?v=20260925-kaladont-1"></script>
   <script src="js/kaladont-ui.js?v=20260925-coin-earnings-1"></script>
   <script src="js/kaladont-client.js?v=20260925-kaladont-1"></script>

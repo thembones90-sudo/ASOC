@@ -18,23 +18,56 @@ function isConfigured(){
   return false;
 }
 
-function verificationEmailHtml(name,verifyUrl){
-  const hero=escapeHtml(name||'Little Hero');
-  const url=escapeHtml(verifyUrl);
+// One ASOC-styled email shell for every identity-control message.
+function identityEmailHtml({heading,lead,buttonLabel,url,footnote}){
+  const link=escapeHtml(url);
   return [
     '<div style="font-family:Arial,sans-serif;background:#09090d;color:#e8e8ef;padding:32px">',
     '<div style="max-width:620px;margin:auto;border:1px solid #5d2b75;padding:28px;background:#111118">',
     '<div style="font-size:12px;letter-spacing:2px;color:#a86bc3">ASOC // IDENTITY CONTROL</div>',
-    '<h1 style="font-size:24px;margin:14px 0">Verify your Little Hero identity</h1>',
-    '<p>'+hero+', your account exists but remains locked until this email address is confirmed.</p>',
-    '<p style="margin:28px 0"><a href="'+url+'" style="display:inline-block;padding:14px 20px;background:#4b165c;color:#fff;text-decoration:none;border:1px solid #a86bc3">VERIFY IDENTITY</a></p>',
-    '<p style="font-size:13px;color:#aaa">This link expires automatically. If you did not create an ASOC account, ignore this message.</p>',
-    '<p style="font-size:12px;color:#777;word-break:break-all">'+url+'</p>',
+    '<h1 style="font-size:24px;margin:14px 0">'+escapeHtml(heading)+'</h1>',
+    '<p>'+lead+'</p>',
+    '<p style="margin:28px 0"><a href="'+link+'" style="display:inline-block;padding:14px 20px;background:#4b165c;color:#fff;text-decoration:none;border:1px solid #a86bc3">'+escapeHtml(buttonLabel)+'</a></p>',
+    '<p style="font-size:13px;color:#aaa">'+escapeHtml(footnote)+'</p>',
+    '<p style="font-size:12px;color:#777;word-break:break-all">'+link+'</p>',
     '</div></div>'
   ].join('');
 }
 
-async function sendViaResend({to,name,verifyUrl,idempotencyKey}){
+function verificationMessage({name,verifyUrl}){
+  const hero=escapeHtml(name||'Little Hero');
+  return {
+    subject:'ASOC // Verify your Little Hero identity',
+    html:identityEmailHtml({
+      heading:'Verify your Little Hero identity',
+      lead:hero+', your account exists but remains locked until this email address is confirmed.',
+      buttonLabel:'VERIFY IDENTITY',
+      url:verifyUrl,
+      footnote:'This link expires automatically. If you did not create an ASOC account, ignore this message.'
+    }),
+    text:'Verify your ASOC Little Hero identity: '+verifyUrl,
+    tag:'asoc-email-verification'
+  };
+}
+
+function resetMessage({name,resetUrl,ttlMinutes}){
+  const hero=escapeHtml(name||'Little Hero');
+  const minutes=ttlMinutes||30;
+  return {
+    subject:'ASOC // Reset your Little Hero password',
+    html:identityEmailHtml({
+      heading:'Reset your Little Hero password',
+      lead:hero+', a password reset was requested for this identity. Use the link below to set a new password.',
+      buttonLabel:'SET NEW PASSWORD',
+      url:resetUrl,
+      footnote:'This link works once and expires in '+minutes+' minutes. If you did not request a reset, ignore this message -- your password is unchanged.'
+    }),
+    text:'Reset your ASOC Little Hero password (expires in '+minutes+' minutes): '+resetUrl,
+    tag:'asoc-password-reset'
+  };
+}
+
+async function sendViaResend({to,idempotencyKey},{subject,html}){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),10000);
   try{
@@ -45,19 +78,14 @@ async function sendViaResend({to,name,verifyUrl,idempotencyKey}){
         authorization:'Bearer '+RESEND_API_KEY,
         ...(idempotencyKey?{'Idempotency-Key':idempotencyKey}:{})
       },
-      body:JSON.stringify({
-        from:FROM,
-        to:[to],
-        subject:'ASOC // Verify your Little Hero identity',
-        html:verificationEmailHtml(name,verifyUrl)
-      }),
+      body:JSON.stringify({from:FROM,to:[to],subject,html}),
       signal:controller.signal
     });
     const raw=await response.text();
     if(!response.ok){
       let detail='';
       try{detail=JSON.parse(raw)?.message||''}catch{}
-      throw Error('Email provider rejected verification message'+(detail?': '+detail:''));
+      throw Error('Email provider rejected the message'+(detail?': '+detail:''));
     }
     let data={};
     try{data=raw?JSON.parse(raw):{}}catch{}
@@ -67,7 +95,7 @@ async function sendViaResend({to,name,verifyUrl,idempotencyKey}){
   }
 }
 
-async function sendViaPostmark({to,name,verifyUrl}) {
+async function sendViaPostmark({to},{subject,html,text,tag}) {
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),10000);
   try{
@@ -78,22 +106,14 @@ async function sendViaPostmark({to,name,verifyUrl}) {
         'content-type':'application/json',
         'X-Postmark-Server-Token':POSTMARK_SERVER_TOKEN
       },
-      body:JSON.stringify({
-        From:FROM,
-        To:to,
-        Subject:'ASOC // Verify your Little Hero identity',
-        HtmlBody:verificationEmailHtml(name,verifyUrl),
-        TextBody:'Verify your ASOC Little Hero identity: '+verifyUrl,
-        MessageStream:'outbound',
-        Tag:'asoc-email-verification'
-      }),
+      body:JSON.stringify({From:FROM,To:to,Subject:subject,HtmlBody:html,TextBody:text,MessageStream:'outbound',Tag:tag}),
       signal:controller.signal
     });
     const raw=await response.text();
     if(!response.ok){
       let detail='';
       try{detail=JSON.parse(raw)?.Message||JSON.parse(raw)?.ErrorCode||''}catch{}
-      throw Error('Email provider rejected verification message'+(detail?': '+detail:''));
+      throw Error('Email provider rejected the message'+(detail?': '+detail:''));
     }
     let data={};
     try{data=raw?JSON.parse(raw):{}}catch{}
@@ -103,18 +123,26 @@ async function sendViaPostmark({to,name,verifyUrl}) {
   }
 }
 
-function sendViaTest({to,name,verifyUrl}){
+function sendViaTest(record){
   fs.mkdirSync(path.dirname(TEST_OUTBOX),{recursive:true});
-  fs.appendFileSync(TEST_OUTBOX,JSON.stringify({to,name,verifyUrl,sentAt:Date.now()})+'\n','utf8');
+  fs.appendFileSync(TEST_OUTBOX,JSON.stringify({...record,sentAt:Date.now()})+'\n','utf8');
   return {provider:'test',id:null};
 }
 
-async function sendVerificationEmail(payload){
-  if(!isConfigured())throw Error('Email verification service is not configured');
-  if(PROVIDER==='test')return sendViaTest(payload);
-  if(PROVIDER==='resend')return sendViaResend(payload);
-  if(PROVIDER==='postmark')return sendViaPostmark(payload);
+async function deliver(payload,message,testRecord){
+  if(!isConfigured())throw Error('Email service is not configured');
+  if(PROVIDER==='test')return sendViaTest(testRecord);
+  if(PROVIDER==='resend')return sendViaResend(payload,message);
+  if(PROVIDER==='postmark')return sendViaPostmark(payload,message);
   throw Error('Unsupported email provider');
 }
 
-module.exports={provider:PROVIDER,isConfigured,sendVerificationEmail};
+async function sendVerificationEmail(payload){
+  return deliver(payload,verificationMessage(payload),{to:payload.to,name:payload.name,verifyUrl:payload.verifyUrl});
+}
+
+async function sendPasswordResetEmail(payload){
+  return deliver(payload,resetMessage(payload),{kind:'reset',to:payload.to,name:payload.name,resetUrl:payload.resetUrl});
+}
+
+module.exports={provider:PROVIDER,isConfigured,sendVerificationEmail,sendPasswordResetEmail};

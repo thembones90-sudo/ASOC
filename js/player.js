@@ -3910,7 +3910,7 @@ const PlayerApp = {
 
   createPlayerSeenChipHTML(msg) {
     if (!msg || msg.deleted === true || String(msg.playerId || '') !== String(this.playerId || '')) return '';
-    const seen = (Array.isArray(msg.seenBy) ? msg.seenBy : []).filter(r => String(r.playerId) !== String(this.playerId)).length;
+    const seen = ReadReceipts.viewers(msg, { roster: this.currentPlayers || [], excludeIds: [this.playerId] }).length;
     if (seen <= 0) return '';
     return `<button type="button" class="chat-seen-chip" data-message-id="${this.escapeHtml(msg.id)}" title="Who has seen this" aria-label="Who has seen this message"><span class="chat-seen-icon">&#10003;</span><b>${seen}</b></button>`;
   },
@@ -3920,19 +3920,9 @@ const PlayerApp = {
     if (!popover || !messageId) return false;
     const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
     if (!msg) return false;
-    const seenIds = (Array.isArray(msg.seenBy) ? msg.seenBy : [])
-      .map(entry => String(entry.playerId))
-      .filter(id => id && id !== String(this.playerId));
-    const roster = this.currentPlayers || [];
-    const nameFor = (id) => {
-      const member = roster.find(p => String(p.id) === String(id));
-      return member?.name || 'Little Hero';
-    };
-    const names = [...new Set(seenIds)].map(id => {
-      const receipt = (Array.isArray(msg.seenBy) ? msg.seenBy : [])
-        .find(entry => String(entry.playerId) === String(id));
-      return String(receipt?.playerName || '').trim() || nameFor(id);
-    });
+    // Unique viewers by stable identity (js/read-receipts.js).
+    const names = ReadReceipts.viewers(msg, { roster: this.currentPlayers || [], excludeIds: [this.playerId] })
+      .map(v => v.name);
     const inner = names.length
       ? names.map(name => `<div class="chat-seen-name seen">${this.escapeHtml(name)}</div>`).join('')
       : `<div class="chat-seen-name muted">Seen by no one yet</div>`;

@@ -2114,7 +2114,7 @@ const App = {
         this.openGMChatReactionPicker(gmReactionAdd.dataset.messageId || '', { x: e.clientX, y: e.clientY });
       }
 
-      const gmSeenChip = e.target.closest('.gm-chat-seen-chip');
+      const gmSeenChip = e.target.closest('.gm-chat-seen-chip, .gm-latest-readout.has-readers');
       if (gmSeenChip) {
         e.stopPropagation();
         const opened = this.openGMSeenPopover(gmSeenChip.dataset.messageId || '', gmSeenChip);
@@ -2126,7 +2126,7 @@ const App = {
       }
 
       const gmSeenPopover = document.getElementById('gm-chat-seen-popover');
-      if (gmSeenPopover && !gmSeenPopover.hidden && !gmSeenPopover.contains(e.target) && !e.target.closest('.gm-chat-seen-chip')) {
+      if (gmSeenPopover && !gmSeenPopover.hidden && !gmSeenPopover.contains(e.target) && !e.target.closest('.gm-chat-seen-chip, .gm-latest-readout.has-readers')) {
         gmSeenPopover.hidden = true;
       }
 
@@ -4890,21 +4890,12 @@ const App = {
     if (!popover || !messageId) return false;
     const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
     if (!msg) return false;
-    const seenIds = new Set((Array.isArray(msg.seenBy) ? msg.seenBy : []).map(entry => String(entry.playerId)));
+    // Unique viewers by stable identity (js/read-receipts.js).
     const roster = this.currentPlayers || [];
-    const nameFor = (id) => {
-      const member = roster.find(p => String(p.id) === String(id));
-      return member?.name || 'Little Hero';
-    };
-    const receiptNameFor = (id) => {
-      const receipt = (Array.isArray(msg.seenBy) ? msg.seenBy : [])
-        .find(entry => String(entry.playerId) === String(id));
-      return String(receipt?.playerName || '').trim() || nameFor(id);
-    };
-    const seenNames = [...seenIds].map(receiptNameFor);
-    const notSeenIds = (Array.isArray(msg.recipientIds) ? msg.recipientIds : [])
-      .filter(id => !seenIds.has(String(id)));
-    const notSeenNames = [...new Set(notSeenIds)].map(nameFor);
+    const viewers = ReadReceipts.viewers(msg, { roster });
+    const seenNames = viewers.map(v => v.name);
+    const notSeenNames = ReadReceipts.notSeen(msg, viewers, roster).map(v => v.name);
+    const total = ReadReceipts.recipientTotal(msg, viewers.length);
 
     const seenHtml = seenNames.length
       ? seenNames.map(name => `<div class="chat-seen-name seen">${this.escapeHtml(name)}</div>`).join('')
@@ -4914,7 +4905,7 @@ const App = {
       : '';
     if (popover.parentElement !== document.body) document.body.appendChild(popover);
     popover.innerHTML = `<div class="chat-seen-id">${this.escapeHtml(msg.id)}</div>
-      <div class="chat-seen-section-label">SEEN · ${seenNames.length}/${msg.recipientCount || 0}</div>${seenHtml}${notSeenHtml}`;
+      <div class="chat-seen-section-label">SEEN · ${seenNames.length}/${total}</div>${seenHtml}${notSeenHtml}`;
     popover.hidden = false;
     const rect = anchorEl?.getBoundingClientRect?.();
     if (rect) {
@@ -4936,17 +4927,18 @@ const App = {
       readout.innerHTML = `<span class="gm-latest-readout-label">LATEST READOUT</span><span class="gm-latest-readout-state">NO TRANSMISSIONS</span>`;
       return;
     }
-    const roster = this.currentPlayers || [];
-    const names = [...new Map((Array.isArray(latest.seenBy) ? latest.seenBy : []).map(receipt => {
-      const id = String(receipt.playerId || '');
-      const member = roster.find(player => String(player.id) === id);
-      return [id, String(receipt.playerName || member?.name || 'Little Hero').trim() || 'Little Hero'];
-    })).values()];
-    const seen = names.length;
-    const total = Number(latest.recipientCount) || 0;
+    // Each unique player once (js/read-receipts.js); long lists collapse to
+    // "+N" and the full roster opens in the SEEN popover on click.
+    const viewers = ReadReceipts.viewers(latest, { roster: this.currentPlayers || [] });
+    const seen = viewers.length;
+    const total = ReadReceipts.recipientTotal(latest, seen);
+    const { shown, more } = ReadReceipts.compact(viewers, 4);
     const state = seen
-      ? `<strong>SEEN BY</strong> ${names.map(name => this.escapeHtml(name)).join(' · ')}`
+      ? `<strong>SEEN BY</strong> ${shown.map(v => this.escapeHtml(v.name)).join(' · ')}${more ? ` <em class="gm-latest-readout-more">+${more}</em>` : ''}`
       : `<strong>AWAITING READERS</strong>`;
+    readout.dataset.messageId = String(latest.id || '');
+    readout.title = seen ? `Seen by ${viewers.map(v => v.name).join(', ')}` : '';
+    readout.classList.toggle('has-readers', seen > 0);
     readout.innerHTML = `<span class="gm-latest-readout-label">LATEST READOUT <b>${seen}/${total}</b></span><span class="gm-latest-readout-state">${state}</span>`;
   },
 
@@ -5011,9 +5003,9 @@ const App = {
 
   createGMSeenChipHTML(msg) {
     if (!msg || msg.deleted === true) return '';
-    const total = Number(msg.recipientCount) || 0;
-    const seen = Array.isArray(msg.seenBy) ? msg.seenBy.length : 0;
-    if (total <= 0) return '';
+    if ((Number(msg.recipientCount) || 0) <= 0) return '';
+    const seen = ReadReceipts.viewers(msg, { roster: this.currentPlayers || [] }).length;
+    const total = ReadReceipts.recipientTotal(msg, seen);
     return `<button type="button" class="gm-chat-seen-chip" data-message-id="${this.escapeHtml(msg.id)}" title="Who has seen this transmission"><span class="gm-chat-seen-icon">&#10003;</span><b>${seen}/${total}</b></button>`;
   },
 
