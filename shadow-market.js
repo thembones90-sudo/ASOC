@@ -40,7 +40,7 @@ const CATALOG = Object.freeze([
     desc: 'It watches. Upgrade it and it watches harder.'
   },
   { id: 'fx-smoke', kind: 'effect', name: 'SMOKE', price: 6, desc: 'Slow grey smoke curling off the frame.' },
-  { id: 'fx-fire', kind: 'effect', name: 'FIRE', price: 8, desc: 'The frame burns. Nobody is putting it out.' },
+  { id: 'fx-fire', kind: 'effect', name: 'FIRE', price: 8, desc: 'Engulfed in slow flames. Nobody is putting it out.' },
   { id: 'fx-frost', kind: 'effect', name: 'FROST', price: 8, desc: 'Cold light and a creeping rime.' },
   { id: 'fx-corruption', kind: 'effect', name: 'CORRUPTION', price: 10, desc: 'Something wrong is leaking in.' },
   { id: 'fx-glitch', kind: 'effect', name: 'GLITCH', price: 10, desc: 'Signal tearing at the edges.' },
