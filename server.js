@@ -6879,7 +6879,7 @@ function handleGmShadowRealm(ws, message) {
   room.shadowRealm ||= {};
   room.shadowRealm[playerId] = { until: now + SHADOW_REALM_MS, messageId: target.id };
   target.shadowRealm = { at: now };
-  addShadowBrokerMessage(room, `${target.playerName || 'A LITTLE HERO'} HAS BEEN SENT TO THE SHADOW REALM.`, { editableByHost: false });
+  addShadowBrokerMessage(room, `${target.playerName || 'A Little Hero'} has been banished to the Shadow Realm`, { editableByHost: false });
   persistActiveRooms();
   broadcastChatUpdate(room);
   broadcastToRoom(room, {

@@ -38,7 +38,7 @@
     const toast = document.createElement('div');
     toast.className = 'srealm-toast';
     toast.setAttribute('role', 'status');
-    toast.innerHTML = `<b>${esc(name)}</b> WAS SENT TO THE SHADOW REALM`;
+    toast.innerHTML = `<b>${esc(name)}</b> has been banished to the Shadow Realm`;
     document.body.appendChild(toast);
     setTimeout(() => toast.classList.add('out'), 3600);
     setTimeout(() => toast.remove(), 4200);

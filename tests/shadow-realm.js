@@ -125,7 +125,7 @@ async function healthy() {
     await ana.next(m => m.type === 'shadowRealm:banish' && m.playerId === ana.playerId, 'ana sees it', anaMark);
     await gm.next(m => m.type === 'shadowRealm:banish', 'gm sees it', from);
     const update = await bo.next(m => m.type === 'chat:update' && m.messages.some(x => x.id === target.id && x.shadowRealm), 'memento flag', boMark);
-    assert.ok(update.messages.some(x => /Ana HAS BEEN SENT TO THE SHADOW REALM/.test(x.text || '')), 'the Broker announces it');
+    assert.ok(update.messages.some(x => /^Ana has been banished to the Shadow Realm$/.test(x.text || '')), 'the Broker announces it');
 
     // Silenced: chat, commands, DMs, GIFs, image links, polls.
     const refused = async (msg, label, type = 'error') => {
