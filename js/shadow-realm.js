@@ -67,7 +67,7 @@
       veil = document.createElement('div');
       veil.className = 'srealm-veil' + (reduced() ? ' still' : '');
       veil.setAttribute('role', 'status');
-      veil.innerHTML = '<i class="srealm-smoke"></i><i class="srealm-smoke two"></i><div class="srealm-banner"><strong>BANISHED TO THE SHADOW REALM</strong><span>YOUR VOICE RETURNS IN <b class="srealm-count">20</b>s</span></div>';
+      veil.innerHTML = '<i class="srealm-smoke"></i><i class="srealm-smoke two"></i><div class="srealm-banner"><strong>BANISHED TO THE SHADOW REALM</strong><span>YOUR VOICE RETURNS IN <b class="srealm-count">10</b>s</span></div>';
       document.body.appendChild(veil);
     }
     const count = veil.querySelector('.srealm-count');

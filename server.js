@@ -6854,7 +6854,7 @@ function playerCooldown(room, ws) {
 // commands, GIFs, images, polls, DMs) for SHADOW_REALM_MS, and the message
 // stays gray and smoking forever as a memento. Pure theatre: no score,
 // coins or game state are touched.
-const SHADOW_REALM_MS = Math.max(1000, Number(process.env.ASOC_SHADOW_REALM_MS) || 20000);
+const SHADOW_REALM_MS = Math.max(1000, Number(process.env.ASOC_SHADOW_REALM_MS) || 10000);
 
 function shadowRealmRemaining(room, playerId) {
   const entry = room?.shadowRealm?.[String(playerId || '')];
