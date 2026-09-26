@@ -2580,7 +2580,7 @@ const App = {
     }
     switch (message.type) {
       case 'protocol:hello':
-        this.send({ type: 'protocol:hello', protocolVersion: 1 });
+        this.send({ type: 'protocol:hello', protocolVersion: 1, clientBuild: window.StaleGuard?.pageBuild('gm') || 'unknown' });
         break;
 
       case 'gm:module':
@@ -2613,6 +2613,7 @@ const App = {
 
       case 'protocol:mismatch':
         this._protocolReady = false;
+        if (message.reload) { location.reload(); break; }
         alert(message.message || 'SYSTEM VERSION MISMATCH // REFRESH REQUIRED');
         break;
 

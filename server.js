@@ -9101,7 +9101,11 @@ const heartbeatInterval = setInterval(() => {
 
 server.on('close', () => clearInterval(heartbeatInterval));
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  // Browsers always send an Origin header on a WebSocket upgrade; scripts
+  // and tests do not. Used below to spot pages opened before the stale-page
+  // guard existed.
+  ws.fromBrowser = Boolean(req?.headers?.origin);
   if (shuttingDown) {
     ws.close(1012, 'Server shutting down');
     return;
@@ -9154,6 +9158,22 @@ wss.on('connection', (ws) => {
           ws.close(1008, 'Protocol version mismatch');
           return;
         }
+        // A browser page that does not report its build predates the
+        // stale-page guard: it is running old code and would silently miss
+        // new features (MEGABONK). Its own mismatch handler shows a blocking
+        // "refresh" alert, so refuse it until the player refreshes.
+        if (ws.fromBrowser && !message.clientBuild && (CLIENT_BUILD.player || CLIENT_BUILD.gm)) {
+          sendToWs(ws, {
+            type: 'protocol:mismatch',
+            serverVersion: PROTOCOL_VERSION,
+            clientVersion: message.protocolVersion ?? null,
+            reload: true,
+            message: 'ASOC WAS UPDATED // PRESS OK, THEN REFRESH THIS PAGE (F5 or pull down) TO KEEP PLAYING'
+          });
+          ws.close(1008, 'Outdated client build');
+          return;
+        }
+        ws.clientBuild = typeof message.clientBuild === 'string' ? message.clientBuild.slice(0, 80) : null;
         ws.protocolVerified = true;
         clearTimeout(handshakeTimer);
         sendToWs(ws, { type: 'protocol:ready', protocolVersion: PROTOCOL_VERSION, clientBuild: CLIENT_BUILD });

@@ -245,6 +245,25 @@ function checkClientNeverSelfDismisses() {
     await sleep(400);
     assert.equal(await bo.none(m => m.type === 'megabonk:alert' && m.id !== fourthId, boErr, 50), true, 'players cannot MEGABONK');
 
+    // Outdated browser pages (no build reported) are told to refresh;
+    // current pages and scripts connect normally.
+    const handshake = (headers, hello) => new Promise((resolve, reject) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${PORT}`, { headers });
+      ws.once('error', reject);
+      ws.on('message', data => {
+        const m = JSON.parse(data.toString());
+        if (m.type === 'protocol:hello') return ws.send(JSON.stringify(hello));
+        resolve(m); ws.close();
+      });
+    });
+    const old = await handshake({ origin: 'https://asocengine.com' }, { type: 'protocol:hello', protocolVersion: 1 });
+    assert.equal(old.type, 'protocol:mismatch');
+    assert.equal(old.reload, true);
+    assert.match(old.message, /REFRESH/);
+    const fresh = await handshake({ origin: 'https://asocengine.com' }, { type: 'protocol:hello', protocolVersion: 1, clientBuild: 'x' });
+    assert.equal(fresh.type, 'protocol:ready');
+    assert.ok(fresh.clientBuild.player, 'the served build is announced');
+
     assert.equal(server.errors.trim(), '', 'no server errors');
     console.log('PASS MEGABONK: GM-only persistent alert to every connected player, per-player acknowledgement, live GM progress, re-delivered on reconnect until acknowledged, never again once acknowledged, new event needs fresh acks, survives restart, END, not a ritual vote, never starts the game, refused in live Battle');
   } finally {
