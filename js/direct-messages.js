@@ -24,6 +24,48 @@
   const battleLive = () => /^BATTLE/.test(String(app()?.roomMode || ''));
   const locked = () => state.locked || battleLive();
 
+  function railRoot() {
+    let rail = document.getElementById('dmx-rail');
+    if (rail) return rail;
+    rail = document.createElement('aside');
+    rail.id = 'dmx-rail';
+    rail.className = 'dmx-rail';
+    rail.setAttribute('aria-label', 'Private messages');
+    rail.addEventListener('click', e => {
+      const person = e.target.closest?.('[data-dmx-rail-player]');
+      if (person) return open(person.dataset.dmxRailPlayer);
+      if (e.target.closest?.('[data-dmx-rail-new]')) { open(); state.picking = true; return render(); }
+    });
+    document.body.appendChild(rail);
+    return rail;
+  }
+
+  function railAvatar(p) {
+    const src = typeof p?.avatarData === 'string' && p.avatarData.startsWith('data:image/') ? p.avatarData : '';
+    const initials = esc(String(p?.name || 'LH').trim().slice(0, 2).toUpperCase());
+    return src ? `<img src="${esc(src)}" alt="">` : `<span>${initials}</span>`;
+  }
+
+  function renderRail() {
+    const rail = railRoot();
+    const screen = document.getElementById('game-screen');
+    const casual = !!screen?.classList.contains('room-mode-casual');
+    rail.classList.toggle('is-casual', casual);
+    if (!casual) { rail.innerHTML = ''; return; }
+    const conversations = new Map((state.list || []).map(c => [String(c.other.id), c]));
+    const people = candidates();
+    rail.innerHTML = `<div class="dmx-rail-head"><span>PRIVATE</span>${state.unread ? `<b>${state.unread}</b>` : ''}</div>
+      <div class="dmx-rail-people">${people.map(p => {
+        const c = conversations.get(String(p.id));
+        const unread = Number(c?.unread || 0);
+        return `<button type="button" class="dmx-rail-person${state.thread?.other?.id === p.id ? ' active' : ''}${unread ? ' unread' : ''}" data-dmx-rail-player="${esc(p.id)}" title="${esc(p.name)}${unread ? ` // ${unread} unread` : ''}">
+          <i class="dmx-rail-avatar" style="--dmx-frame:${esc(p.frameColor || '#37d997')}">${railAvatar(p)}</i>
+          <em class="dmx-rail-presence${p.online ? ' on' : ''}"></em>${unread ? `<b class="dmx-rail-badge">${unread}</b>` : ''}<span>${esc(p.name)}</span>
+        </button>`;
+      }).join('')}</div>
+      <button type="button" class="dmx-rail-new" data-dmx-rail-new title="New private message">+</button>`;
+  }
+
   function root() {
     let el = document.getElementById('direct-messages');
     if (el) return el;
@@ -45,8 +87,11 @@
     state.open = true;
     state.error = '';
     state.notice = '';
-    root().hidden = false;
+    const el = root();
+    el.hidden = false;
+    el.classList.toggle('dmx-casual-drawer', document.getElementById('game-screen')?.classList.contains('room-mode-casual'));
     document.body.classList.add('dmx-open');
+    renderRail();
     send({ type: 'dm:list' });
     if (playerId) openThread(playerId);
     render();
@@ -59,6 +104,7 @@
     const el = document.getElementById('direct-messages');
     if (el) el.hidden = true;
     document.body.classList.remove('dmx-open');
+    renderRail();
   }
 
   function openThread(playerId) {
@@ -74,6 +120,7 @@
     const chip = document.getElementById('hero-hud-dm-chip');
     if (value) value.textContent = String(state.unread);
     chip?.classList.toggle('has-unread', state.unread > 0);
+    renderRail();
   }
 
   function toast(from, text) {
@@ -262,12 +309,14 @@
       case 'dm:summary':
         setUnread(m.unread);
         if (m.allow) state.allow = m.allow;
+        send({ type: 'dm:list' });
         return render();
       case 'dm:list':
         state.list = m.conversations || [];
         state.blocked = m.blocked || [];
         state.allow = m.allow || 'everyone';
         state.locked = m.locked === true;
+        renderRail();
         return render();
       case 'dm:thread':
         state.thread = m.thread;
@@ -329,5 +378,7 @@
     return true;
   }
 
-  window.DirectMessages = { open, close, onMessage, handleWhisper };
+  renderRail();
+  setInterval(renderRail, 1800);
+  window.DirectMessages = { open, close, onMessage, handleWhisper, renderRail };
 })();
