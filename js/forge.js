@@ -290,9 +290,13 @@ const Forge = {
     this.isNew = !!isNew;
     this.dirty = false;
     this.view = 'creator';
-    this.renderCreator();
-    this.updatePreview();
-    this.updatePreviewBackground();
+    if (this.isNew) {
+      this.renderCreator();
+      this.updatePreview();
+      this.updatePreviewBackground();
+    } else {
+      this.renderBoardEditor();
+    }
   },
 
   emptyDraft() {
@@ -441,6 +445,53 @@ const Forge = {
     this.updatePreviewBackground();
   },
 
+  renderBoardEditor() {
+    this.view = 'creator';
+    const shell = document.getElementById('forge-shell');
+    if (!shell || !this.editingGame) return;
+
+    const d = this.editingGame;
+    const cols = ['A', 'B', 'C', 'D'];
+    const rows = [1, 2, 3, 4, 5];
+    const gridRows = rows.map(row => {
+      const cells = cols.map(col => {
+        const colData = d.columns?.[col] || { clues: ['', '', '', ''], solution: '' };
+        const value = row === 5 ? (colData.solution || '') : (colData.clues?.[row - 1] || '');
+        return `<div class="board-editor-cell ${row === 5 ? 'solution' : ''}">
+          <span>${col}${row}${row === 5 ? ' · SOLUTION' : ''}</span>
+          <input type="text" class="forge-input" data-creator-field="${col}${row}" maxlength="60" value="${this.escapeAttr(value)}">
+        </div>`;
+      }).join('');
+      return `<div class="board-editor-row"><div class="board-editor-rownum">${row}</div>${cells}</div>`;
+    }).join('');
+
+    shell.innerHTML = `
+      <div class="forge-header">
+        <div class="board-editor-heading">
+          <span class="forge-title">EDIT BOARD</span>
+          <small>${this.escapeHtml(d.title || 'UNTITLED GAME')}</small>
+        </div>
+        <button class="forge-close" data-forge-close title="Close">✕</button>
+      </div>
+      <div class="board-editor-wrap">
+        <div class="board-editor-note">DIRECT BOARD DOCUMENT // EDIT CELLS AND SAVE</div>
+        <div class="board-editor-sheet">
+          <div class="board-editor-head"><div></div>${cols.map(col => `<div>COLUMN ${col}</div>`).join('')}</div>
+          ${gridRows}
+        </div>
+        <label class="board-editor-final">
+          <span>FINAL SOLUTION</span>
+          <input type="text" class="forge-input" data-creator-field="finalSolution" maxlength="60" value="${this.escapeAttr(d.finalSolution || '')}">
+        </label>
+        <div id="forge-errors" class="forge-errors"></div>
+        <div class="board-editor-actions">
+          <button class="forge-btn ghost" data-forge-back-library>BACK TO LIBRARY</button>
+          <button class="forge-btn primary" data-forge-save>SAVE CHANGES</button>
+        </div>
+      </div>
+    `;
+  },
+
   getFieldValue(field) {
     const el = document.getElementById(field) || null;
     return el ? el.value : '';
@@ -524,6 +575,20 @@ const Forge = {
   collectDraft() {
     const d = this.editingGame;
     if (!d) return null;
+
+    // Existing games use the direct board document editor. Preserve every
+    // non-board field exactly as stored and only update A1-D5 + FINAL.
+    if (!this.isNew) {
+      ['A', 'B', 'C', 'D'].forEach(col => {
+        if (!d.columns[col]) d.columns[col] = { clues: ['', '', '', ''], solution: '' };
+        for (let r = 1; r <= 4; r++) {
+          d.columns[col].clues[r - 1] = (document.querySelector(`[data-creator-field="${col}${r}"]`)?.value || '').trim();
+        }
+        d.columns[col].solution = (document.querySelector(`[data-creator-field="${col}5"]`)?.value || '').trim();
+      });
+      d.finalSolution = (document.querySelector('[data-creator-field="finalSolution"]')?.value || '').trim();
+      return d;
+    }
 
     d.title = (document.querySelector('[data-creator-field="title"]')?.value || '').trim();
     d.theme = (document.querySelector('[data-creator-field="theme"]')?.value || '').trim();

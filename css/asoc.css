@@ -19672,3 +19672,35 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
 .gm-latest-readout.has-readers { cursor: pointer; }
 .gm-latest-readout.has-readers:hover .gm-latest-readout-state { color: #e6dfea; }
 .gm-latest-readout-more { margin-left: 4px; padding: 0 4px; border: 1px solid rgba(125, 191, 125, .45); border-radius: 3px; color: #9fd69f; font-style: normal; font-weight: 800; }
+
+/* Direct board document editor: existing Library games only */
+.board-editor-wrap { padding:18px 22px 22px; }
+.board-editor-heading { display:grid; gap:4px; }
+.board-editor-heading small { color:var(--text-dim); font-size:.58rem; letter-spacing:.08em; text-transform:uppercase; }
+.board-editor-note { margin-bottom:12px; color:#739295; font:700 .52rem var(--font-machine); letter-spacing:.12em; }
+.board-editor-sheet { border:1px solid var(--panel-border); background:#0a0d11; overflow:hidden; }
+.board-editor-head,
+.board-editor-row { display:grid; grid-template-columns:42px repeat(4,minmax(0,1fr)); }
+.board-editor-head { background:#11171c; border-bottom:1px solid var(--panel-border); }
+.board-editor-head > div { padding:9px 10px; border-left:1px solid var(--panel-border); color:var(--accent-silver); font:800 .55rem var(--font-machine); letter-spacing:.09em; text-align:center; }
+.board-editor-head > div:first-child { border-left:0; }
+.board-editor-row { border-bottom:1px solid var(--panel-border); }
+.board-editor-row:last-child { border-bottom:0; }
+.board-editor-rownum { display:flex; align-items:center; justify-content:center; color:#52616a; font:800 .6rem var(--font-mono); background:#0d1216; }
+.board-editor-cell { padding:8px 9px; border-left:1px solid var(--panel-border); background:#0b0f13; }
+.board-editor-cell > span { display:block; margin-bottom:4px; color:#596b73; font:700 .48rem var(--font-machine); letter-spacing:.08em; }
+.board-editor-cell .forge-input { width:100%; box-sizing:border-box; min-height:34px; }
+.board-editor-cell.solution { background:#15130d; }
+.board-editor-cell.solution > span { color:var(--accent-gold); }
+.board-editor-cell.solution .forge-input { border-color:#6b5628; }
+
+.board-editor-final { display:grid; grid-template-columns:150px 1fr; align-items:center; gap:12px; margin-top:14px; padding:12px; border:1px solid #6b5628; background:#15130d; }
+.board-editor-final > span { color:var(--accent-gold); font:800 .58rem var(--font-machine); letter-spacing:.1em; }
+.board-editor-final .forge-input { min-height:38px; font-weight:700; }
+.board-editor-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
+.board-editor-actions .forge-btn { min-width:150px; }
+@media (max-width:900px) {
+  .board-editor-wrap { padding:14px; overflow-x:auto; }
+  .board-editor-sheet { min-width:760px; }
+  .board-editor-final { min-width:732px; }
+}
