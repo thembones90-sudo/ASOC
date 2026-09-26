@@ -331,13 +331,23 @@ async function runServer() {
     await sleep(300);
     const before = { womf: JSON.stringify(gm.state.womf), mode: gm.state.roomMode, scores: JSON.stringify(gm.players.map(p => [p.id, p.score])) };
 
-    // Guards: the GM cannot play; identity comes from the socket.
+    // The Shadow Broker can create and play Kaladont; identity still comes
+    // exclusively from the socket.
     let mark = gm.mark();
     gm.send({ type: 'kaladont:create' });
-    await sleep(200);
-    assert.match(gm.errorsSince(mark).join(' '), /WATCHES KALADONT/);
+    const gmLobby = await bo.waitKal(k => k?.phase === 'lobby' && k.ownerId === '__GM__', 'GM lobby broadcast');
+    assert.equal(gmLobby.ownerName, 'SHADOW BROKER');
+    assert.equal(gm.kal.you.member, true);
+    assert.equal(gm.kal.you.owner, true);
+    bo.send({ type: 'kaladont:join', playerId: 'spoofed' });
+    await gm.waitKal(k => k?.members?.length === 2, 'Bo joins GM lobby');
+    gm.send({ type: 'kaladont:start' });
+    const gmStarted = await gm.waitKal(k => k?.phase === 'turn', 'GM-created game starts');
+    assert.ok(gmStarted.order.some(p => p.id === '__GM__'), 'GM is a real Kaladont participant');
+    gm.send({ type: 'kaladont:cancel' });
+    await gm.waitKal(k => k === null, 'GM ends test game');
 
-    // create -> lobby visible to everyone (quiet invitation data)
+    // create -> lobby visible to everyone (invitation data)
     ana.send({ type: 'kaladont:create' });
     await bo.waitKal(k => k?.phase === 'lobby', 'Bo sees the lobby');
     assert.equal(bo.kal.you.member, false);

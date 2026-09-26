@@ -57,6 +57,7 @@
     else if (you.owner) actions = `<button type="button" data-kaladont-action="start" ${online < 2 ? 'disabled' : ''}>START GAME</button><button type="button" data-kaladont-action="cancel" class="is-danger">CANCEL LOBBY</button>`;
     else if (you.member) actions = '<button type="button" data-kaladont-action="leave" class="is-danger">LEAVE</button>';
     else actions = '<button type="button" data-kaladont-action="join">JOIN</button>';
+    if (!opts.spectator && opts.canCancel && !you.owner) actions += '<button type="button" data-kaladont-action="gm-cancel" class="is-danger">END LOBBY</button>';
     return `
       <div class="kal-lobby">
         <div class="kal-kicker">LOBBY // ${esc(state.ownerName)}</div>
@@ -156,7 +157,7 @@
       : state.phase === 'tribunal' ? tribunalView(state, opts)
       : state.phase === 'verdict' ? verdictView(state)
       : endedView(state, opts);
-    const gmEnd = opts.spectator && opts.canCancel && state.phase !== 'ended'
+    const gmEnd = opts.canCancel && state.phase !== 'ended'
       ? '<div class="kal-actions"><button type="button" data-kaladont-action="gm-cancel" class="is-danger">END GAME</button></div>' : '';
     return `<div class="kal-game is-${esc(state.phase)}">${orderStrip(state)}${body}${state.phase === 'ended' ? '' : history(state)}${gmEnd}</div>`;
   }

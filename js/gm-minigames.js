@@ -103,6 +103,17 @@
       return `<div class="gm-iks-gauntlet is-${this.esc(a.status)}"><div><b>IKS OKS GAUNTLET</b><span>${line}</span></div><div class="gm-iks-actions">${buttons}</div></div>`;
     },
     // KALADONT: the Broker watches (spectator view) and may end a game.
+    submit(e) {
+      const form=e.target.closest?.('[data-kaladont-form]');
+      if(!form || !this.kaladontOpen) return;
+      e.preventDefault();
+      const input=form.querySelector('input[name="word"]');
+      const word=String(input?.value||'').trim();
+      if(!word || form.dataset.sent==='1') return;
+      form.dataset.sent='1';
+      form.querySelectorAll('input,button').forEach(el=>{el.disabled=true;});
+      App.send({type:'kaladont:submit',word,turnSeq:Number(form.dataset.turnSeq)});
+    },
     openKaladont() {
       this.kaladontOpen=true;
       this.chooserOpen=false;
