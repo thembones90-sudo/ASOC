@@ -2587,6 +2587,10 @@ const App = {
         this.loadGmModule(message.name);
         break;
 
+      case 'megabonk:progress':
+        window.Megabonk?.onMessage(message);
+        break;
+
       case 'shadow:dossierResult':
       case 'shadow:error':
         window.ShadowCosmetics?.onMessage(message);

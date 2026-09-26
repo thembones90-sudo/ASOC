@@ -333,6 +333,7 @@ function serializeRoomForRecovery(room) {
     pendingTribute: room.pendingTribute || null,
     nudgeCounts: room.nudgeCounts || {},
     moonTolls: room.moonTolls || {},
+    megabonk: room.megabonk || null,
     ritual: normalizeRitualState(room.ritual),
     unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
     kaladont: room.kaladont || null,
@@ -442,6 +443,7 @@ function restoreActiveRooms() {
         pendingTribute: saved.pendingTribute || null,
         nudgeCounts: saved.nudgeCounts && typeof saved.nudgeCounts === 'object' ? saved.nudgeCounts : {},
         moonTolls: saved.moonTolls && typeof saved.moonTolls === 'object' ? saved.moonTolls : {},
+        megabonk: normalizeMegabonk(saved.megabonk),
         ritual: normalizeRitualState(saved.ritual),
         unstableConcoction: unstableConcoction.normalizeState(saved.unstableConcoction),
         // KALADONT survives a restart; the phase in flight gets a fresh window
@@ -5339,6 +5341,7 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/vote', help: '/vote <question> -- instant YES/NO poll' },
   { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
+  { name: '/megabonk', help: '/megabonk all -- persistent alert every connected Little Hero must ACKNOWLEDGE' },
   { name: '/dice', help: '/dice 2d6 -- roll N dice with M faces, optional +K' },
   { name: '/flip', help: '/flip [heads|tails] -- coin flip' },
   { name: '/choose', help: '/choose A | B | C -- pick one option at random' },
@@ -5794,6 +5797,11 @@ function dispatchGmSlashCommand(room, ws, text) {
   if (emote) {
     const result = handleEmoteCommand(room, author, raw, '', emote[1].toLowerCase());
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  if (/^\/megabonk\b/i.test(raw)) {
+    if (!/^\/megabonk(?:\s+all)?\s*$/i.test(raw)) return { success: false, error: 'MEGABONK INVALID // USE /megabonk all' };
+    const result = triggerMegabonk(room);
+    return result.ok ? { success: true, broadcast: false } : { success: false, error: result.error };
   }
   // Unlisted: loads the Shadow Broker's private oversight module.
   if (/^\/intercept\s*$/i.test(raw)) {
@@ -6411,6 +6419,7 @@ function handlePlayerJoin(ws, message) {
   const publicState = getPublicState(room);
   sendToWs(ws, { type: 'state:public', ...publicState });
   setImmediate(() => sendDmSummary(ws));
+  setImmediate(() => { deliverMegabonkTo(room, ws); sendMegabonkProgress(room); });
   sendToWs(ws, {
     type: 'join:success',
     playerId,
@@ -6498,6 +6507,7 @@ function broadcastPlayersUpdate(room) {
   if (room.hostConnection?.readyState === 1) {
     room.hostConnection.send(JSON.stringify({ type: 'players:update', players: getPlayersSnapshot(room, true), iksArena: iksArena.publicState(), brokerOnline: true }));
   }
+  if (room.megabonk) sendMegabonkProgress(room); // online/offline dots
 }
 
 function handleModeratePlayer(ws, message, shouldBan) {
@@ -6627,6 +6637,7 @@ function handleHostReconnect(ws, message) {
   const publicState = getPublicState(room);
   sendToWs(ws, { type: 'state:public', ...publicState });
   sendToWs(ws, { type: 'host:reconnected', roomCode: room.code });
+  sendToWs(ws, megabonkProgress(room));
 
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
@@ -6664,6 +6675,7 @@ function handleHostRecover(ws) {
   sendToWs(ws, { type: 'game:loaded', game: room.gameData });
   sendToWs(ws, { type: 'state:public', ...getPublicState(room) });
   sendToWs(ws, { type: 'host:recovered', roomCode: room.code, hostToken });
+  sendMegabonkProgress(room);
   sendToWs(ws, { type: 'chat:update', ...getChatState(room) });
   sendRecountHydration(ws, room);
   sendTributeVaultToHost(room);
@@ -6682,6 +6694,97 @@ function playerCooldown(room, ws) {
   if (!room.cooldowns.has(id)) room.cooldowns.set(id, {});
   return room.cooldowns.get(id);
 }
+// ---------------------------------------------------------------------------
+// MEGABONK -- the Shadow Broker's persistent pre-game attention call.
+// One event at a time (room.megabonk). Every Little Hero connected when it
+// fires becomes a target and keeps a full-screen alert until THEY press
+// ACKNOWLEDGE; nothing else (timeouts, reconnects, state refreshes, chat)
+// clears it. Unacknowledged targets get it again on reconnect; a new
+// MEGABONK is a new event id and needs fresh acknowledgements. It is not a
+// ritual vote and never starts anything. Survives restarts with the room.
+function normalizeMegabonk(raw) {
+  if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !raw.targets || typeof raw.targets !== 'object') return null;
+  const targets = {};
+  for (const [id, t] of Object.entries(raw.targets)) {
+    if (!t || typeof t !== 'object') continue;
+    targets[id] = { name: String(t.name || 'Little Hero').slice(0, 40), ackAt: Number.isFinite(t.ackAt) ? t.ackAt : null };
+  }
+  return { id: raw.id, at: Number(raw.at) || Date.now(), targets };
+}
+
+function triggerMegabonk(room) {
+  if (room.roomMode === ROOM_MODES.BATTLE) return { ok: false, error: 'MEGABONK // NOT DURING A LIVE BATTLE. USE IT BEFORE THE GAME BEGINS.' };
+  const targets = {};
+  room.players.forEach((player, socket) => {
+    if (!player?.id || socket.readyState !== 1 || player.connected === false) return;
+    targets[String(player.id)] = { name: String(player.name || 'Little Hero').slice(0, 40), ackAt: null };
+  });
+  if (!Object.keys(targets).length) return { ok: false, error: 'MEGABONK // NO LITTLE HEROES ARE CONNECTED' };
+  room.megabonk = { id: 'megabonk-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex'), at: Date.now(), targets };
+  persistActiveRooms();
+  room.players.forEach((player, socket) => deliverMegabonkTo(room, socket));
+  sendMegabonkProgress(room);
+  console.log(`[ROOM ${room.code}] MEGABONK ${room.megabonk.id} -> ${Object.keys(targets).length} Little Heroes`);
+  return { ok: true };
+}
+
+function deliverMegabonkTo(room, ws) {
+  const event = room?.megabonk;
+  if (!event || !ws?.playerId || ws.readyState !== 1) return;
+  const target = event.targets[String(ws.playerId)];
+  if (!target || target.ackAt) return;
+  sendToWs(ws, { type: 'megabonk:alert', id: event.id, at: event.at });
+}
+
+function megabonkProgress(room) {
+  const event = room.megabonk;
+  if (!event) return { type: 'megabonk:progress', event: null };
+  const online = new Set();
+  room.players.forEach((player, socket) => { if (socket.readyState === 1) online.add(String(player.id)); });
+  const players = Object.entries(event.targets)
+    .map(([id, t]) => ({ id, name: t.name, ackAt: t.ackAt, connected: online.has(id) }))
+    .sort((a, b) => (a.ackAt ? 1 : 0) - (b.ackAt ? 1 : 0) || a.name.localeCompare(b.name));
+  return {
+    type: 'megabonk:progress',
+    event: { id: event.id, at: event.at, total: players.length, acknowledged: players.filter(p => p.ackAt).length, players }
+  };
+}
+
+function sendMegabonkProgress(room) {
+  if (room?.hostConnection) sendToWs(room.hostConnection, megabonkProgress(room));
+}
+
+function handleMegabonkAck(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || !ws.playerId) return;
+  const event = room.megabonk;
+  const id = String(ws.playerId);
+  // A stale id (an older MEGABONK) just clears that old alert locally.
+  if (!event || event.id !== message?.id || !event.targets[id]) {
+    return sendToWs(ws, { type: 'megabonk:cleared', id: String(message?.id || '') });
+  }
+  if (!event.targets[id].ackAt) {
+    event.targets[id].ackAt = Date.now();
+    persistActiveRooms();
+  }
+  // Every tab/device of this Little Hero drops the alert.
+  room.players.forEach((player, socket) => {
+    if (String(player.id) === id) sendToWs(socket, { type: 'megabonk:cleared', id: event.id });
+  });
+  sendMegabonkProgress(room);
+}
+
+// The GM can call the event off: pending alerts disappear everywhere.
+function handleMegabonkEnd(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection || !room.megabonk) return;
+  const id = room.megabonk.id;
+  room.megabonk = null;
+  persistActiveRooms();
+  room.players.forEach((player, socket) => sendToWs(socket, { type: 'megabonk:cleared', id }));
+  sendMegabonkProgress(room);
+}
+
 // ---------------------------------------------------------------------------
 // DIRECT MESSAGES -- one-to-one Little Hero conversations (dm-store.js).
 // Identity comes from the authenticated socket only. Casual only: the
@@ -9116,6 +9219,14 @@ wss.on('connection', (ws) => {
         }
         case 'shadow:state': {
           handleShadowState(ws);
+          break;
+        }
+        case 'megabonk:ack': {
+          handleMegabonkAck(ws, message);
+          break;
+        }
+        case 'gm:megabonkEnd': {
+          handleMegabonkEnd(ws);
           break;
         }
         case 'dm:list':

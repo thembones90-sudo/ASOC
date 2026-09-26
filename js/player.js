@@ -1520,6 +1520,11 @@ const PlayerApp = {
         window.ShadowCosmetics?.onMessage(message);
         break;
 
+      case 'megabonk:alert':
+      case 'megabonk:cleared':
+        window.Megabonk?.onMessage(message);
+        break;
+
       case 'dm:summary':
       case 'dm:list':
       case 'dm:thread':
