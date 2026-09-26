@@ -130,6 +130,27 @@ const ControlSurfaces = {
     });
     [resetBoard, layoutReset].forEach(button => button && recovery.appendChild(button));
 
+    // RESET SCOREBOARD: wipes every Battle score and record, keeps Shadow Coins.
+    const scoreboardReset = document.createElement('button');
+    scoreboardReset.type = 'button';
+    scoreboardReset.id = 'gm-scoreboard-reset-btn';
+    scoreboardReset.className = 'gm-global-btn reset-btn gm-scoreboard-reset-btn';
+    scoreboardReset.textContent = 'RESET SCOREBOARD';
+    scoreboardReset.addEventListener('click', async () => {
+      const typed = await window.AsocDialog?.prompt({
+        title: 'RESET SCOREBOARD',
+        message: 'Wipes every Little Hero\'s points, wins, records and the match history (RECOUNT rankings). Shadow Coins, cosmetics and relics are KEPT. A backup is saved first. Type RESET to confirm.',
+        placeholder: 'RESET',
+        maxLength: 5,
+        required: true,
+        confirmLabel: 'RESET SCOREBOARD',
+        validate: value => (String(value).trim().toUpperCase() === 'RESET' ? '' : 'Type RESET to confirm')
+      });
+      if (!typed || String(typed).trim().toUpperCase() !== 'RESET') return;
+      this.app?.send({ type: 'gm:resetScoreboard', confirm: 'RESET' });
+    });
+    recovery.appendChild(scoreboardReset);
+
     if (womf) {
       womf.querySelector('.gm-section-title').textContent = 'WOMF Intervention';
       womf.classList.add('maintenance-module');

@@ -145,4 +145,15 @@ function listMatches() {
   return Object.values(load().matches).sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
 }
 
-module.exports = { isHealthy() { load(); return storageHealthy; }, storageHealthy() { return storageHealthy; }, MATCHES_FILE, upsertMatch, removeMatch, getMatch, listMatches };
+// SCOREBOARD RESET: empties the archive (the previous file stays as the
+// one-write-behind .bak; the server also writes a timestamped backup first).
+function clearAll() {
+  const archive = load();
+  if (!storageHealthy) return { ok: false, cleared: 0 };
+  const cleared = Object.keys(archive.matches).length;
+  return { ok: saveAtomic({ version: 1, matches: {} }), cleared };
+}
+
+function readRaw() { return load(); }
+
+module.exports = { isHealthy() { load(); return storageHealthy; }, storageHealthy() { return storageHealthy; }, MATCHES_FILE, upsertMatch, removeMatch, getMatch, listMatches, clearAll, readRaw };

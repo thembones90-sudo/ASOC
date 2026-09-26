@@ -2728,13 +2728,13 @@ function solvedTargetsForFieldState(room) {
   return solved;
 }
 
-// A column solution is KNOWN once it is visible to the players: solved
-// (chat or GM), declared failed (the red solution is shown), or its solution
-// cell revealed on the board. Drives the Final's value (FINAL_SCORE_BY_COLUMNS).
+// A column solution counts toward the Final only once it is actually VISIBLE
+// to the players: its A5/B5/C5/D5 solution cell is revealed on the board
+// (a GM solve or a failed column reveals it at once; a chat solve reveals it
+// after COLUMN_REVEAL_DELAY_MS). A column merely marked failed but whose
+// solution is still hidden does not count. Drives FINAL_SCORE_BY_COLUMNS.
 function isColumnSolutionKnown(room, col) {
-  return isColumnSolvedGreen(room, col)
-    || room.sessionState?.cells?.[`${col}5`] === true
-    || room.sessionState?.cellOutcomes?.[`${col}5`] === 'failed';
+  return room.sessionState?.cells?.[`${col}5`] === true;
 }
 
 function countKnownColumns(room) {
@@ -2969,6 +2969,8 @@ function recordEvent(room, fields) {
     // whether the reduction applied. reconcileColumnPoints() re-derives
     // `points` from these whenever a verdict correction changes the order.
     basePoints: fields.basePoints ?? null,
+    // Shadow Coins this event paid (column / Final solves).
+    coins: fields.coins ?? null,
     afterFinal: fields.afterFinal ?? null
   };
   room.scoring.events.push(event);
@@ -2976,7 +2978,7 @@ function recordEvent(room, fields) {
 }
 
 // Once the FINAL has been solved, every column solved AFTER it scores
-// COLUMN_SCORE_MULTIPLIER_AFTER_FINAL of its normal value (it is easier to hit
+// the explicit COLUMN_*_AFTER_FINAL_BY_CLUES values (points AND coins; it is easier to hit
 // with the meta answer known). Whether a column is "after" is decided by the
 // authoritative solve order (chat.solvedTargets timestamps), never by a cached
 // flag, so a GM verdict correction -- reversing or re-accepting the Final, or
@@ -2991,12 +2993,17 @@ function reconcileColumnPoints(room) {
     if (event.boardId !== room.boardId || event.type !== 'column' || typeof event.basePoints !== 'number') continue;
     const columnSolve = room.chat.solvedTargets[event.target];
     const after = !!(finalSolve && columnSolve && columnSolve.timestamp > finalSolve.timestamp);
-    const expected = after
-      ? Math.round(event.basePoints * scoring.COLUMN_SCORE_MULTIPLIER_AFTER_FINAL)
-      : event.basePoints;
-    if (expected === event.points && event.afterFinal === after) continue;
+    const clues = Math.min(Math.max(Number(event.cluesRevealed) || 4, 1), 4);
+    const expected = after ? scoring.COLUMN_SCORE_AFTER_FINAL_BY_CLUES[clues] : event.basePoints;
+    const expectedCoins = after ? scoring.COLUMN_COINS_AFTER_FINAL_BY_CLUES[clues] : scoring.COLUMN_COINS_BY_CLUES[clues];
+    if (expected === event.points && event.afterFinal === after && expectedCoins === event.coins) continue;
     if (expected !== event.points) {
       adjustPlayerScore(room, event.playerId, event.playerName, expected - event.points);
+    }
+    if (expectedCoins !== event.coins) {
+      const source = room.chat.messages.find(m => m.id === event.sourceMessageId);
+      adjustBattleCoins(room, source, expectedCoins);
+      event.coins = expectedCoins;
     }
     event.points = expected;
     event.afterFinal = after;
@@ -3016,13 +3023,14 @@ function awardColumnSolve(room, target, message) {
     return { rejected: true, reason: `Column ${target} has no revealed clues -- cannot award a column score.` };
   }
 
-  const basePoints = scoring.COLUMN_SCORE_BY_CLUES[Math.min(cluesRevealed, 4)];
+  const clues = Math.min(cluesRevealed, 4);
+  const basePoints = scoring.COLUMN_SCORE_BY_CLUES[clues];
+  const baseCoins = scoring.COLUMN_COINS_BY_CLUES[clues];
   // This column is being solved NOW, so any existing real Final solve is
-  // earlier: the after-Final reduction applies (see reconcileColumnPoints).
+  // earlier: the explicit after-Final values apply (see reconcileColumnPoints).
   const afterFinal = !!room.chat.solvedTargets.FINAL;
-  const points = afterFinal
-    ? Math.round(basePoints * scoring.COLUMN_SCORE_MULTIPLIER_AFTER_FINAL)
-    : basePoints;
+  const points = afterFinal ? scoring.COLUMN_SCORE_AFTER_FINAL_BY_CLUES[clues] : basePoints;
+  const coins = afterFinal ? scoring.COLUMN_COINS_AFTER_FINAL_BY_CLUES[clues] : baseCoins;
   const difficulty = getAuthoritativeColumnDifficulty(room, target);
 
   const event = recordEvent(room, {
@@ -3033,6 +3041,7 @@ function awardColumnSolve(room, target, message) {
     playerName: message.playerName,
     points,
     basePoints,
+    coins,
     afterFinal,
     cluesRevealed,
     difficulty
@@ -3074,14 +3083,13 @@ function reverseColumnSolve(room, target) {
 }
 
 function awardFinalSolve(room, message) {
-  // Column solutions visible when the guess was sent (fallback: now).
+  // Column solutions VISIBLE when the guess was submitted (fallback: now).
+  // Zero visible is a valid solve that earns 0 points and 0 Shadow Coins.
   const atSend = Number(message.scoreContext?.knownColumns);
-  const columnsKnownAtSolve = Number.isInteger(atSend) && atSend >= 1 ? atSend : countKnownColumns(room);
-  if (columnsKnownAtSolve < 1) {
-    return { rejected: true, reason: 'No column solution is known yet -- the Final cannot be scored until at least one column is solved.' };
-  }
-
-  const points = scoring.FINAL_SCORE_BY_COLUMNS[Math.min(columnsKnownAtSolve, 4)];
+  const columnsKnownAtSolve = Number.isInteger(atSend) && atSend >= 0 ? atSend : countKnownColumns(room);
+  const known = Math.min(columnsKnownAtSolve, 4);
+  const points = scoring.FINAL_SCORE_BY_COLUMNS[known];
+  const coins = scoring.FINAL_COINS_BY_COLUMNS[known];
 
   const event = recordEvent(room, {
     type: 'final',
@@ -3090,6 +3098,7 @@ function awardFinalSolve(room, message) {
     playerId: message.playerId,
     playerName: message.playerName,
     points,
+    coins,
     columnsKnownAtSolve
   });
 
@@ -3206,16 +3215,9 @@ function finalizeBoard(room, outcome) {
     if (outcome === 'success') {
       recordPersistentBoardFinalization(playerId, playerName, true);
     } else {
-      const event = recordEvent(room, {
-        type: 'failedFinal',
-        target: 'FINAL',
-        playerId,
-        playerName,
-        points: -scoring.FAILED_FINAL_PENALTY
-      });
-      adjustPlayerScore(room, playerId, playerName, -scoring.FAILED_FINAL_PENALTY);
+      // A failed Final costs nobody points or Shadow Coins -- players simply
+      // receive no Final reward (scoring.FAILED_FINAL_PENALTY is 0).
       recordPersistentBoardFinalization(playerId, playerName, false);
-      penaltyEvents.push(event);
     }
   });
 
@@ -3560,13 +3562,13 @@ function isValidTarget(target) {
 
 // ---------------------------------------------------------------------
 // SHADOW COIN EARNINGS (cosmetic currency; never touches Battle scoring).
-//   column solved by a CORRECT chat verdict: +1   //  Final solved: +5
+//   column solved by a CORRECT chat verdict: 1.0 / 0.7 / 0.4 / 0.2 by clues
+//   (0.5 / 0.4 / 0.2 / 0.1 after the Final); Final: 5 / 3 / 2 / 1 by visible
+//   column solutions (0 with none) -- see scoring-constants.js.
 //   IKS OKS win: +0.2   //   IKS OKS loss: -0.1 (never below zero)
 // Battle payouts follow the verdict: a correction that takes the solve away
 // takes the coins back; re-accepting pays again under a new receipt.
 // Master Mirror test personas are not accounts and never earn.
-const SHADOW_COIN_COLUMN = 1;
-const SHADOW_COIN_FINAL = 5;
 const SHADOW_COIN_IKS_WIN = 0.2;
 const SHADOW_COIN_IKS_LOSS = 0.1;
 
@@ -3575,15 +3577,35 @@ function coinAccount(playerId, name) {
   return { id: String(playerId), name: name || 'LITTLE HERO' };
 }
 
-function awardBattleCoins(room, message, target) {
+// Shadow Coins for a Battle solve. `amount` is the value frozen on the score
+// event (scoring-constants.js); 0 (e.g. a zero-visible-column Final) pays
+// nothing. Each award has its own receipt, so a reversed-then-reaccepted
+// verdict pays again exactly once.
+function awardBattleCoins(room, message, target, amount) {
   const account = coinAccount(message.playerId, message.playerName);
-  if (!account || message.coinAward) return;
-  const amount = target === 'FINAL' ? SHADOW_COIN_FINAL : SHADOW_COIN_COLUMN;
-  message.coinSeq = (Number(message.coinSeq) || 0) + 1;
-  const receipt = `battle:${room.boardId}:${message.id}:${target}:${message.coinSeq}`;
-  const result = playerStore.awardShadowCoins(account, amount, receipt, { reason: target === 'FINAL' ? 'Final solved' : `column ${target} solved` });
-  if (result.ok) message.coinAward = { receipt, amount, target };
+  if (account && !message.coinAward && Number(amount) > 0) {
+    message.coinSeq = (Number(message.coinSeq) || 0) + 1;
+    const receipt = `battle:${room.boardId}:${message.id}:${target}:${message.coinSeq}`;
+    const result = playerStore.awardShadowCoins(account, amount, receipt, { reason: target === 'FINAL' ? 'Final solved' : `column ${target} solved` });
+    if (result.ok) message.coinAward = { receipt, amount, target, adjustments: 0 };
+  }
   try { checkSolveRelics(room, message, target); } catch (error) { console.error('[relics] solve check failed:', error.message); }
+}
+
+// Moves an existing solve's coins to a new total (a verdict correction
+// changed whether the column came after the Final). Receipt-based and exact.
+function adjustBattleCoins(room, message, newAmount) {
+  const award = message?.coinAward;
+  const account = coinAccount(message?.playerId, message?.playerName);
+  if (!award || !account) return;
+  const delta = Math.round((Number(newAmount) - Number(award.amount)) * 10) / 10;
+  if (!delta) return;
+  award.adjustments = (Number(award.adjustments) || 0) + 1;
+  const receipt = `${award.receipt}:adjust:${award.adjustments}`;
+  const result = delta > 0
+    ? playerStore.awardShadowCoins(account, delta, receipt, { reason: 'column value corrected' })
+    : playerStore.deductShadowCoins(account, -delta, receipt, { reason: 'column value corrected' });
+  if (result.ok) award.amount = Math.round(Number(newAmount) * 10) / 10;
 }
 
 function revokeBattleCoins(room, message) {
@@ -3688,10 +3710,9 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
         messageId: message.id,
         timestamp: Date.now()
       };
-      awardBattleCoins(room, message, target);
-
       if (target === 'FINAL') {
         const result = awardFinalSolve(room, message);
+        awardBattleCoins(room, message, target, result.rejected ? 0 : result.event.coins);
         if (result.rejected) {
           scoreWarning = result.reason;
         } else {
@@ -3729,6 +3750,7 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
         }
       } else {
         const result = awardColumnSolve(room, target, message);
+        awardBattleCoins(room, message, target, result.rejected ? 0 : result.event.coins);
         if (result.rejected) {
           scoreWarning = result.reason;
         } else {
@@ -6795,6 +6817,51 @@ function playerCooldown(room, ws) {
   return room.cooldowns.get(id);
 }
 // ---------------------------------------------------------------------------
+// SCOREBOARD RESET (Backdoor). Wipes all Battle scoring -- lifetime points and
+// records on every profile, the completed-match archive (RECOUNT overall
+// rankings) and the live session scores -- while every Little Hero keeps
+// their Shadow Coins, cosmetics and relics. Typed confirmation, host only,
+// never during a battle, and a timestamped backup is written first.
+function handleGmResetScoreboard(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection) return sendToWs(ws, { type: 'error', message: 'Only the Shadow Broker can reset the scoreboard' });
+  if (String(message?.confirm || '') !== 'RESET') return sendToWs(ws, { type: 'error', message: 'Scoreboard reset not confirmed' });
+  if (isBattleSurface(room)) return sendToWs(ws, { type: 'error', message: 'SCOREBOARD RESET // NOT DURING A BATTLE. RETURN TO THE AMUSEMENT PARK FIRST.' });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupDir = path.join(ASOC_DATA_DIR, 'backups', 'scoreboard-reset-' + stamp);
+  try {
+    fs.mkdirSync(backupDir, { recursive: true });
+    durableIO.writeJson(path.join(backupDir, 'players.json'), playerStore.loadPlayers());
+    durableIO.writeJson(path.join(backupDir, 'matches.json'), matchStore.readRaw());
+  } catch (error) {
+    console.error('[scoreboard] backup failed, reset aborted:', error.message);
+    return sendToWs(ws, { type: 'error', message: 'SCOREBOARD RESET ABORTED // backup could not be written' });
+  }
+  let profiles = 0;
+  let matches = 0;
+  try {
+    profiles = playerStore.resetScoreboard().profiles;
+    const cleared = matchStore.clearAll();
+    if (!cleared.ok) throw Error('match archive could not be cleared');
+    matches = cleared.cleared;
+  } catch (error) {
+    console.error('[scoreboard] reset failed:', error.message);
+    return sendToWs(ws, { type: 'error', message: 'SCOREBOARD RESET FAILED // ' + error.message + ' // backup: ' + path.basename(backupDir) });
+  }
+  // Live session scores in the Master Room.
+  room.scoring ||= { players: {}, events: [] };
+  for (const entry of Object.values(room.scoring.players || {})) entry.sessionScore = 0;
+  room.scoring.events = [];
+  room.scoring.activeStreak = null;
+  room.revision++;
+  persistActiveRooms();
+  broadcastPlayersUpdate(room);
+  sendToWs(ws, { type: 'leaderboard:allTime', players: playerStore.getAllTimeLeaderboard(50) });
+  sendToWs(ws, { type: 'gm:scoreboardReset', profiles, matches, backup: path.basename(backupDir) });
+  console.log(`[scoreboard] RESET by the Shadow Broker: ${profiles} profiles, ${matches} matches cleared; backup ${backupDir}`);
+}
+
+// ---------------------------------------------------------------------------
 // MEGABONK -- the Shadow Broker's persistent pre-game attention call.
 // One event at a time (room.megabonk). Every Little Hero connected when it
 // fires becomes a target and keeps a full-screen alert until THEY press
@@ -9343,6 +9410,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'megabonk:ack': {
           handleMegabonkAck(ws, message);
+          break;
+        }
+        case 'gm:resetScoreboard': {
+          handleGmResetScoreboard(ws, message);
           break;
         }
         case 'gm:megabonkEnd': {

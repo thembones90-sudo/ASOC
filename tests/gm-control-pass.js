@@ -471,16 +471,19 @@ async function runServerChecks() {
     await judge(alpha.id, 'clear');
     assert.match(gm.errorsSince(mark).join(' '), /Only a WRONG verdict can be cleared/);
 
-    // 2. DENY ALL.
+    // 2. DENY ALL. Column A gets one clue open first so a solve scores (and
+    // pays coins: 1 clue = 1.0 Shadow Coin; an unscorable 0-clue solve pays 0).
+    gm.send({ type: 'gm:command', command: 'revealCell', payload: { cell: 'A1', reveal: true }, cmdId: 'gcp-reveal-a1' });
+    await sleep(300);
     const bravo = await say(players[1], 'bravo guess');
     const charlie = await say(players[2], 'charlie guess');
     const delta = await say(players[3], 'delta guess');
     await judge(delta.id, 'correct', { target: 'A' });
     assert.equal(verdictOf(delta.id), 'correct');
-    // SHADOW COINS: a solved column pays +1; correcting the verdict takes it
+    // SHADOW COINS: a 1-clue column pays 1.0; correcting the verdict takes it
     // back; re-accepting pays again (never twice for one acceptance).
     await settle();
-    assert.equal(coinsOf(players[3]), 1, 'a solved column pays +1 Shadow Coin');
+    assert.equal(coinsOf(players[3]), 1, 'a 1-clue column pays 1.0 Shadow Coin');
     assert.equal(coinsOf(players[1]), 0, 'a WRONG guess pays nothing');
     await judge(delta.id, 'wrong');
     await settle();

@@ -2871,7 +2871,9 @@ const PlayerApp = {
     resultsEl.innerHTML = isSuccess
       ? `<div class="fo-columns-known">FINAL SOLVED AFTER ${results.columnsKnownAtSolve} COLUMN${results.columnsKnownAtSolve === 1 ? '' : 'S'}</div>
          <div class="fo-points fo-points-positive">+${results.points} — ${this.escapeHtml(results.playerName)}</div>`
-      : `<div class="fo-points fo-points-negative">-${results.penalty} PER PLAYER</div>`;
+      : (Number(results.penalty) > 0
+        ? `<div class="fo-points fo-points-negative">-${results.penalty} PER PLAYER</div>`
+        : '<div class="fo-points fo-points-negative">NO FINAL REWARD</div>');
     resultsEl.style.display = 'block';
 
     this.scheduleFinalBannerDismiss(banner);

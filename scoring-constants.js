@@ -1,60 +1,87 @@
 /*
  * ASOC ENGINE - Scoring Constants
  *
- * Centralized, tunable point values for the competitive/scoring layer.
+ * Centralized, tunable point AND Shadow Coin values for Battle Mode.
  * Nothing in this file has logic -- it exists purely so values can be
  * rebalanced later without touching gameplay code (server.js).
+ *
+ * Every lookup is keyed by what was on the board WHEN THE GUESS WAS
+ * SUBMITTED (server.js freezes it on the chat message), never by the board
+ * at judging time.
  */
 
-// Column solved after N revealed clues (1-4). Solving from the hardest
-// clue (fewest reveals) carries the greatest reward. There is no 0 entry:
-// a column cannot be scored with zero clues revealed (see COLUMN SCORING
-// in server.js -- that state is rejected, never silently scored).
+// Column solved with N clues revealed at submission (1-4). There is no 0
+// entry: a column cannot be scored with zero clues revealed (server.js
+// rejects that state rather than silently scoring it).
 const COLUMN_SCORE_BY_CLUES = {
-  1: 400,
-  2: 300,
+  1: 500,
+  2: 325,
   3: 200,
   4: 100
 };
-
-// FINAL solved after N column solutions are already known (1-4). There is
-// deliberately no 0 entry -- the Final cannot score before at least one
-// column solution exists (see server.js's FINAL scoring guard).
-const FINAL_SCORE_BY_COLUMNS = {
-  1: 1200,
-  2: 800,
-  3: 500,
-  4: 300
+const COLUMN_COINS_BY_CLUES = {
+  1: 1.0,
+  2: 0.7,
+  3: 0.4,
+  4: 0.2
 };
 
-// Once the FINAL has been solved, any column solved AFTER it scores this
-// fraction of its normal COLUMN_SCORE_BY_CLUES value -- with the meta answer
-// known, a remaining column is easier to hit. Applies only to columns solved
-// after a real Final solve (a failed Final does not make columns easier), and
-// never to streak bonuses. Every base value is a multiple of 100, so 0.5
-// always yields whole points (400/300/200/100 -> 200/150/100/50).
-const COLUMN_SCORE_MULTIPLIER_AFTER_FINAL = 0.5;
+// A column solved AFTER a legitimate Final solve (the meta answer is known,
+// so the column is easier). Explicit values, not a multiplier. Never applied
+// to streak bonuses; a failed Final does not make columns easier.
+const COLUMN_SCORE_AFTER_FINAL_BY_CLUES = {
+  1: 250,
+  2: 160,
+  3: 100,
+  4: 50
+};
+const COLUMN_COINS_AFTER_FINAL_BY_CLUES = {
+  1: 0.5,
+  2: 0.4,
+  3: 0.2,
+  4: 0.1
+};
 
-// Column streak MILESTONE bonuses (not cumulative totals). Each milestone
-// is awarded once, the moment it is reached, in addition to any bonus(es)
-// already awarded earlier in the same streak. A full 4-column sweep by one
-// player earns 50 + 125 + 250 = 425 in streak bonuses on top of the four
-// individual column awards.
+// FINAL solved with N column solutions VISIBLE (their A5-D5 solution cell
+// on the board) at submission. A Final accepted with zero visible solutions
+// is still a solve, but earns nothing.
+const FINAL_SCORE_BY_COLUMNS = {
+  0: 0,
+  1: 2200,
+  2: 1400,
+  3: 850,
+  4: 450
+};
+const FINAL_COINS_BY_COLUMNS = {
+  0: 0,
+  1: 5.0,
+  2: 3.0,
+  3: 2.0,
+  4: 1.0
+};
+
+// Column streak MILESTONE bonuses -- POINTS ONLY, never Shadow Coins. Each
+// milestone is awarded once, the moment it is reached, on top of earlier
+// milestones in the same streak: a four-column sweep earns 50 + 100 + 150 =
+// 300 bonus points.
 const STREAK_MILESTONE_BONUS = {
   2: 50,
-  3: 125,
-  4: 250
+  3: 100,
+  4: 150
 };
 
-// Flat penalty applied to every active participant's session AND lifetime
-// score when the GM explicitly declares the Final failed. Negative scores
-// are allowed -- this value is never floored at zero.
-const FAILED_FINAL_PENALTY = 200;
+// Declaring the Final failed costs nobody points or Shadow Coins: players
+// simply receive no Final reward. (GAME LOST, WOMF, match result, story and
+// RECOUNT consequences are unchanged.)
+const FAILED_FINAL_PENALTY = 0;
 
 module.exports = {
   COLUMN_SCORE_BY_CLUES,
-  COLUMN_SCORE_MULTIPLIER_AFTER_FINAL,
+  COLUMN_COINS_BY_CLUES,
+  COLUMN_SCORE_AFTER_FINAL_BY_CLUES,
+  COLUMN_COINS_AFTER_FINAL_BY_CLUES,
   FINAL_SCORE_BY_COLUMNS,
+  FINAL_COINS_BY_COLUMNS,
   STREAK_MILESTONE_BONUS,
   FAILED_FINAL_PENALTY
 };

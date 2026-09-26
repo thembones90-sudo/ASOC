@@ -2591,6 +2591,15 @@ const App = {
         window.Megabonk?.onMessage(message);
         break;
 
+      case 'gm:scoreboardReset':
+        window.ControlSurfaces?.recordEvent?.(`SCOREBOARD RESET // ${message.profiles} HEROES // ${message.matches} MATCHES CLEARED`);
+        window.AsocDialog?.prompt({
+          title: 'SCOREBOARD RESET',
+          message: `Done. ${message.profiles} Little Heroes start from zero and ${message.matches} past matches were cleared. Shadow Coins were kept. Backup: ${message.backup}`,
+          confirmLabel: 'OK'
+        });
+        break;
+
       case 'shadow:dossierResult':
       case 'shadow:error':
         window.ShadowCosmetics?.onMessage(message);
@@ -4051,7 +4060,9 @@ const App = {
     resultsEl.innerHTML = isSuccess
       ? `<div class="fo-columns-known">FINAL SOLVED AFTER ${results.columnsKnownAtSolve} COLUMN${results.columnsKnownAtSolve === 1 ? '' : 'S'}</div>
          <div class="fo-points fo-points-positive">+${results.points} — ${this.escapeHtml(results.playerName)}</div>`
-      : `<div class="fo-points fo-points-negative">-${results.penalty} PER PLAYER</div>`;
+      : (Number(results.penalty) > 0
+        ? `<div class="fo-points fo-points-negative">-${results.penalty} PER PLAYER</div>`
+        : '<div class="fo-points fo-points-negative">NO FINAL REWARD</div>');
     resultsEl.style.display = 'block';
 
     setTimeout(() => {

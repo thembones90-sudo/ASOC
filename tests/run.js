@@ -1651,11 +1651,11 @@ async function testMatchCaptureAndCompletion() {
   assert.ok(me, 'the participant is in the archive');
   assert.deepEqual(me.judged, { total: 2, correct: 1, wrong: 1 }, 'only GM-judged messages are attempts');
   assert.equal(me.messages, 3, 'unjudged chatter is counted as activity');
-  assert.equal(me.matchPoints, -200, 'this match only: the failed-Final penalty (column A had no clues to score)');
+  assert.equal(me.matchPoints, 0, 'this match only: a failed Final costs no points (and column A had no clues to score)');
   assert.ok(a.attempts.some(x => x.textKey === 'a wrong answer' && x.verdict === 'wrong' && x.target === null));
   const standing = a.standings.find(s => s.key === TEST_PLAYER_ID);
   assert.ok(standing, 'standings are captured for participants');
-  assert.equal(standing.lifetimeAfter - standing.lifetimeBefore, -200);
+  assert.equal(standing.lifetimeAfter - standing.lifetimeBefore, 0, 'no failed-Final penalty on lifetime score either');
 
   // RESET BOARD clears completion but KEEPS the archived completed match.
   const cleared = stateWhere(m => m.gameComplete === false, 'reset clears completion');
@@ -1766,33 +1766,35 @@ async function testColumnScoreAfterFinal() {
     return award;
   }
 
-  // Column A is solved BEFORE the Final: full value (1 clue revealed = 400).
+  // Column A is solved BEFORE the Final: full value (1 clue revealed = 500).
   await reveal('A1');
   const a = await solveColumn('A', 'column a answer');
-  assert.equal(a.points, 400);
+  assert.equal(a.points, 500);
   assert.equal(a.afterFinal, false, 'a column solved before the Final scores in full');
 
-  // The Final is solved (1 column known = 1200).
+  // The Final is solved with 1 column solution VISIBLE (2200). A chat solve
+  // shows its solution after a short delay; reveal A5 now so it is visible.
+  await reveal('A5');
   const finalId = await guess('the final answer');
   await judge(finalId, 'correct', 'FINAL');
 
-  // Column B is solved AFTER the Final: half of its 300 (2 clues revealed).
+  // Column B is solved AFTER the Final: the after-Final value for 2 clues (160).
   await reveal('B1');
   await reveal('B2');
   const b = await solveColumn('B', 'column b answer');
   assert.equal(b.cluesRevealed, 2);
-  assert.equal(b.points, 150, 'a column solved after the Final scores 50%');
+  assert.equal(b.points, 160, 'a column solved after the Final scores the after-Final value');
   assert.equal(b.afterFinal, true);
   await delay(100);
   const scoreAfterB = lastScore;
 
-  // Reversing the Final removes its 1200 AND restores B to its full 300 (+150).
+  // Reversing the Final removes its 2200 AND restores B to its full 325 (+165).
   await judge(finalId, 'wrong');
   const scoreAfterReversal = lastScore;
-  assert.equal(scoreAfterB - scoreAfterReversal, 1200 - 150, 'reversal restores the full column value');
+  assert.equal(scoreAfterB - scoreAfterReversal, 2200 - 165, 'reversal restores the full column value');
 
   // Re-accepting the Final: it is valued by what was known when the guess was
-  // SENT (1 column = 1200), not at re-acceptance. B was solved BEFORE this
+  // SENT (1 column = 2200), not at re-acceptance. B was solved BEFORE this
   // new Final solve, so it stays at its full value. The reversal reopened the
   // board, so this is a fresh Final acceptance: its points are committed now
   // but, like every Final, only displayed once the GM presses SHOW RESULTS.
@@ -1801,7 +1803,7 @@ async function testColumnScoreAfterFinal() {
   host.send(JSON.stringify({ type: 'gm:revealResults' }));
   await released;
   await delay(100);
-  assert.equal(lastScore - scoreAfterReversal, 1200, 'columns solved before the (re-)accepted Final stay in full; the Final keeps its send-time value');
+  assert.equal(lastScore - scoreAfterReversal, 2200, 'columns solved before the (re-)accepted Final stay in full; the Final keeps its send-time value');
 
   // FINAL RED is the canonical GAME LOST: it resolves the match, so no
   // column can be scored (halved or otherwise) after it.
@@ -1818,7 +1820,7 @@ async function testColumnScoreAfterFinal() {
   host.send(JSON.stringify({ type: 'gm:judgeGuess', messageId: lateId, verdict: 'correct', target: 'C' }));
   await locked;
 
-  console.log('PASS column score is 50% once the Final is solved (and corrects with verdicts)');
+  console.log('PASS column score uses the after-Final values once the Final is solved (and corrects with verdicts)');
   closeWs(player);
   closeWs(host);
 }

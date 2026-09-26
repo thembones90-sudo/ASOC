@@ -660,6 +660,27 @@ function setBan(identity, banned = true, reason = '') {
   };
 }
 
+// SCOREBOARD RESET -- the Shadow Broker's "start playing for real" switch.
+// Zeroes every Battle scoreboard field on every profile. Deliberately KEEPS
+// Shadow Coins (balance, receipts, ledger), cosmetics, relics and relic
+// progress, identity/appearance, moderation state and IKS OKS records.
+const SCOREBOARD_FIELDS = [
+  'lifetimeScore', 'gamesPlayed', 'gamesWon', 'columnSolutions', 'oneClueColumnSolutions',
+  'finalSolutions', 'earlyFinalSolutions', 'bestColumnStreak', 'purpleSolves', 'blackSolves'
+];
+function resetScoreboard() {
+  const players = loadPlayers();
+  if (!storageHealthy) throw Error('Player storage unavailable');
+  let count = 0;
+  for (const profile of Object.values(players)) {
+    for (const field of SCOREBOARD_FIELDS) profile[field] = 0;
+    profile.earliestFinalColumnsKnown = null;
+    count++;
+  }
+  savePlayersAtomic(players);
+  return { profiles: count };
+}
+
 function getAllTimeLeaderboard(limit = 50) {
   const players = loadPlayers();
   return Object.values(players)
@@ -682,6 +703,8 @@ module.exports = {
   deductShadowCoins,
   spendShadowCoins,
   getShadowProfile,
+  resetScoreboard,
+  SCOREBOARD_FIELDS,
   purchaseCosmetic,
   grantRelic,
   equipCosmetic,
