@@ -2143,13 +2143,10 @@ const App = {
 
       if (e.target.closest('.gm-verdict-btn')) {
         const btn = e.target.closest('.gm-verdict-btn');
-        const messageId = btn.dataset.messageId;
-        const verdict = btn.dataset.verdict;
-        if (verdict === 'correct') {
-          this.showTargetSelector(messageId);
-        } else {
-          this.judgeGuess(messageId, verdict);
-        }
+        // Mouse/touch presses were already handled on pointerdown (below);
+        // this path is for keyboard activation (Enter/Space, detail === 0).
+        if (e.detail !== 0 && this._verdictPressHandledAt && Date.now() - this._verdictPressHandledAt < 1500) return;
+        this.activateVerdictButton(btn);
       }
 
       if (e.target.closest('.gm-target-btn')) {
@@ -4683,6 +4680,7 @@ const App = {
   renderGMChat() {
     const container = document.getElementById('gm-chat-messages');
     if (!container) return;
+    this.bindVerdictPress();
 
     const previousScrollTop = container.scrollTop;
     const previousScrollHeight = container.scrollHeight;
@@ -5973,6 +5971,32 @@ const App = {
       this.setGMComposerPlaceholder(this._brokerNoRoomPlaceholder || 'Transmit to players...');
       this._brokerNoRoomTimeout = null;
     }, 1400);
+  },
+
+  // HEART / X act on PRESS, not on click: while players are guessing, the
+  // newest message is rebuilt several times a second (seen receipts,
+  // reactions), and a click whose press and release land on different DOM
+  // nodes is silently dropped -- the "press it 2-3 times" bug.
+  bindVerdictPress() {
+    const container = document.getElementById('gm-chat-messages');
+    if (!container || container.dataset.verdictPressBound) return;
+    container.dataset.verdictPressBound = '1';
+    container.addEventListener('pointerdown', event => {
+      if (event.button != null && event.button !== 0) return;
+      const btn = event.target.closest('.gm-verdict-btn');
+      if (!btn || btn.disabled) return;
+      event.preventDefault();
+      this._verdictPressHandledAt = Date.now();
+      this.activateVerdictButton(btn);
+    });
+  },
+
+  activateVerdictButton(btn) {
+    const messageId = btn?.dataset?.messageId;
+    const verdict = btn?.dataset?.verdict;
+    if (!messageId || !verdict) return;
+    if (verdict === 'correct') this.showTargetSelector(messageId);
+    else this.judgeGuess(messageId, verdict);
   },
 
   judgeGuess(messageId, verdict) {

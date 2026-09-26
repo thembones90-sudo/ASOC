@@ -6116,8 +6116,23 @@ function handleChatSeen(ws, message) {
     playerName: String(ws.playerName || 'Little Hero').slice(0, 80),
     seenAt: Date.now()
   });
-  persistActiveRooms();
-  broadcastChatUpdate(room);
+  scheduleSeenBroadcast(room);
+}
+
+// Seen receipts arrive in bursts -- every other player's screen reports the
+// newest message within the same second. Each one used to rewrite the room
+// snapshot to disk AND re-send the whole chat to everyone, rebuilding that
+// message on every screen several times a second (and swallowing the GM's
+// verdict clicks). Coalesce a burst into one persist + one chat update.
+const SEEN_BROADCAST_DELAY_MS = 300;
+function scheduleSeenBroadcast(room) {
+  if (room._seenBroadcastTimer) return;
+  room._seenBroadcastTimer = setTimeout(() => runtimeAction(() => {
+    room._seenBroadcastTimer = null;
+    if (rooms.get(room.code) !== room) return;
+    persistActiveRooms();
+    broadcastChatUpdate(room);
+  }), SEEN_BROADCAST_DELAY_MS);
 }
 
 // COMMAND PAYLOADS -- whitelisted, server-built metadata for the system

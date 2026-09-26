@@ -164,7 +164,7 @@ async function runServer() {
 
     // 1. repeated seen events -> one receipt
     for (let i = 0; i < 4; i++) bo.send({ type: 'chat:seen', messageId: posted.id });
-    await sleep(300);
+    await sleep(650);
     assert.equal(receiptsOf(posted.id).filter(r => r.playerId === bo.playerId).length, 1);
     // 2. reconnect -> still one
     const boId = bo.playerId;
@@ -173,7 +173,7 @@ async function runServer() {
     bo = await player('Bo');
     assert.equal(bo.playerId, boId, 'stable account id across reconnects');
     bo.send({ type: 'chat:seen', messageId: posted.id });
-    await sleep(300);
+    await sleep(650);
     assert.equal(receiptsOf(posted.id).filter(r => r.playerId === boId).length, 1);
     // Master Mirror: many sessions, many events -> one TEST SUBJECT receipt
     mirrorA.send({ type: 'chat:seen', messageId: posted.id });
@@ -181,7 +181,7 @@ async function runServer() {
     const mirrorC = await mirror();
     mirrorC.send({ type: 'chat:seen', messageId: posted.id });
     mirrorA.send({ type: 'chat:seen', messageId: posted.id });
-    await sleep(400);
+    await sleep(650);
     const receipts = receiptsOf(posted.id);
     assert.equal(receipts.filter(r => r.playerId.startsWith('__MASTER_TEST__:')).length, 1, 'TEST SUBJECT appears once');
     assert.equal(receipts.length, 2, 'unique viewers: Bo and TEST SUBJECT');
@@ -192,11 +192,29 @@ async function runServer() {
       .messages.find(x => x.text === 'mirror probe');
     assert.ok(!mirrorPost.recipientIds.some(id => id.startsWith('__MASTER_TEST__:')), 'no other mirror session counts as a recipient');
     mirrorB.send({ type: 'chat:seen', messageId: mirrorPost.id });
-    await sleep(300);
+    await sleep(650);
     assert.equal(receiptsOf(mirrorPost.id).length, 0);
 
+    // Seen receipts are batched: a burst from several players produces ONE
+    // chat update, not one per receipt (this churn used to swallow GM clicks).
+    const burstFrom = ana.mark();
+    ana.send({ type: 'chat:guess', text: 'burst probe' });
+    const burstMsg = (await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text === 'burst probe'), 'burst post', gm.mark() - 1 < 0 ? 0 : 0)).messages.find(x => x.text === 'burst probe');
+    await sleep(650);
+    const updatesBefore = gm.msgs.filter(m => m.type === 'chat:update').length;
+    bo.send({ type: 'chat:seen', messageId: burstMsg.id });
+    mirrorA.send({ type: 'chat:seen', messageId: burstMsg.id });
+    await sleep(700);
+    const burstUpdates = gm.msgs.filter(m => m.type === 'chat:update').length - updatesBefore;
+    assert.equal(burstUpdates, 1, 'a burst of seen receipts is one chat update');
+    assert.equal((gm.chat.find(m => m.id === burstMsg.id)?.seenBy || []).length, 2, 'both receipts are in it');
+    void burstFrom;
+
     // 8. chat state intact: every message still present, in order.
-    assert.deepEqual(gm.chat.filter(m => /probe/.test(m.text || '')).map(m => m.text), ['receipt probe', 'mirror probe']);
+    assert.deepEqual(gm.chat.filter(m => /probe/.test(m.text || '')).map(m => m.text), ['receipt probe', 'mirror probe', 'burst probe']);
+    // The GM's heart / X act on press (a rebuilt node cannot swallow them).
+    const app = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+    assert.match(app, /bindVerdictPress\(\) \{[\s\S]{0,400}addEventListener\('pointerdown'[\s\S]{0,300}gm-verdict-btn/);
     assert.equal(server.errors.trim(), '', 'no server errors');
   } finally {
     clients.forEach(c => c.close());
