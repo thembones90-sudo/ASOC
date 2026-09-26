@@ -102,7 +102,10 @@
     state.thread = null;
     state.picking = false;
     const el = document.getElementById('direct-messages');
-    if (el) el.hidden = true;
+    if (el) {
+      el.hidden = true;
+      el.classList.remove('dmx-casual-drawer');
+    }
     document.body.classList.remove('dmx-open');
     renderRail();
   }
