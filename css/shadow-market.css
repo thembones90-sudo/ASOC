@@ -661,3 +661,77 @@ body.smk-open { overflow: hidden; }
   .dsr-avatar .little-hero-avatar { width: 62px; height: 62px; flex-basis: 62px; }
 }
 .smk-dossier-bar + .smk-fine { margin-bottom: 18px; }
+
+/* =========================================================
+   LOVESTRUCK avatar + /love
+   ========================================================= */
+/* Pink glow that beats like a heart; a soft pink wash; little hearts
+   floating up through the portrait. Heart glyphs are sized in container
+   units, so they scale from the roster chip to the dossier portrait. */
+.little-hero-avatar.cos-fx-hearts { container-type: size; animation: cos-heartbeat 1.6s ease-in-out infinite; }
+.little-hero-avatar.cos-fx-hearts .cos-layer {
+  background: radial-gradient(circle at 50% 60%, transparent 42%, rgba(255, 95, 162, .28) 100%);
+  mix-blend-mode: screen;
+}
+.little-hero-avatar.cos-fx-hearts .cos-layer > i { background: radial-gradient(circle at 50% 110%, rgba(255, 120, 190, .35), transparent 60%); }
+.little-hero-avatar.cos-fx-hearts .cos-layer::before,
+.little-hero-avatar.cos-fx-hearts .cos-layer::after,
+.little-hero-avatar.cos-fx-hearts .cos-layer > i::before,
+.little-hero-avatar.cos-fx-hearts .cos-layer > i::after {
+  content: "♥";
+  position: absolute;
+  top: 66%;
+  line-height: 1;
+  font-size: 34cqw;
+  color: #ff6fb1;
+  text-shadow: 0 0 3px rgba(255, 60, 150, .9);
+  opacity: 0;
+  animation: cos-heart-rise 3s ease-in infinite;
+}
+.little-hero-avatar.cos-fx-hearts .cos-layer::before { left: 12%; animation-delay: 0s; }
+.little-hero-avatar.cos-fx-hearts .cos-layer::after { left: 60%; font-size: 26cqw; color: #ff9fd0; animation-delay: .75s; animation-duration: 3.4s; }
+.little-hero-avatar.cos-fx-hearts .cos-layer > i::before { left: 36%; font-size: 22cqw; color: #ffc2e0; animation-delay: 1.5s; animation-duration: 2.7s; }
+.little-hero-avatar.cos-fx-hearts .cos-layer > i::after { left: 70%; font-size: 30cqw; color: #ff4f9a; animation-delay: 2.2s; animation-duration: 3.2s; }
+@keyframes cos-heart-rise {
+  0% { transform: translate(0, 0) scale(.6); opacity: 0; }
+  15% { opacity: .95; }
+  50% { transform: translate(-3cqw, -26cqw) scale(1); }
+  85% { opacity: .8; }
+  100% { transform: translate(3cqw, -54cqw) scale(1.1); opacity: 0; }
+}
+@keyframes cos-heartbeat {
+  0%, 100% { box-shadow: inset 0 0 0 1px rgba(10, 12, 16, .9), 0 0 0 2px #ff6fb1, 0 0 10px rgba(255, 95, 162, .6); }
+  12% { box-shadow: inset 0 0 0 1px rgba(10, 12, 16, .9), 0 0 0 2px #ff9fd0, 0 0 18px rgba(255, 95, 162, .85); }
+  24% { box-shadow: inset 0 0 0 1px rgba(10, 12, 16, .9), 0 0 0 2px #ff6fb1, 0 0 11px rgba(255, 95, 162, .6); }
+  36% { box-shadow: inset 0 0 0 1px rgba(10, 12, 16, .9), 0 0 0 2px #ffb3da, 0 0 22px rgba(255, 95, 162, .9); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .little-hero-avatar.cos-fx-hearts { animation: none; box-shadow: inset 0 0 0 1px rgba(10, 12, 16, .9), 0 0 0 2px #ff6fb1, 0 0 12px rgba(255, 95, 162, .7); }
+  .little-hero-avatar.cos-fx-hearts .cos-layer::before,
+  .little-hero-avatar.cos-fx-hearts .cos-layer::after,
+  .little-hero-avatar.cos-fx-hearts .cos-layer > i::before,
+  .little-hero-avatar.cos-fx-hearts .cos-layer > i::after { animation: none; opacity: .85; top: 55%; }
+}
+
+/* /love -- hearts drifting up over the chat log. */
+.love-burst { position: fixed; z-index: 8900; pointer-events: none; overflow: hidden; }
+.love-burst i {
+  position: absolute;
+  bottom: -40px;
+  font-style: normal;
+  line-height: 1;
+  text-shadow: 0 0 8px currentColor, 0 2px 4px rgba(0, 0, 0, .5);
+  opacity: 0;
+  animation-name: love-float;
+  animation-timing-function: cubic-bezier(.3, .6, .5, 1);
+  animation-fill-mode: forwards;
+}
+@keyframes love-float {
+  0% { transform: translate(0, 0) scale(.5) rotate(0); opacity: 0; }
+  12% { opacity: 1; }
+  45% { transform: translate(var(--sway), calc(var(--rise, 90vh) * -.48)) scale(1) rotate(var(--spin)); }
+  80% { opacity: .9; }
+  100% { transform: translate(calc(var(--sway) * -.6), calc(var(--rise, 90vh) * -1)) scale(1.15) rotate(calc(var(--spin) * -1)); opacity: 0; }
+}
+.chat-system-card.shadow-fx-card-love { border-color: rgba(255, 111, 177, .65) !important; box-shadow: 0 0 16px rgba(255, 95, 162, .3); }
+.chat-system-card.shadow-fx-card-love .chat-system-label { color: #ff9fd0 !important; }

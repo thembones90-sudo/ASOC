@@ -5,7 +5,8 @@
 // read-only player DOSSIER. The server sends only sanitized ids.
 (function () {
   const SAFE_ID = /^[a-z0-9-]{1,48}$/;
-  const FX = new Set(['smite', 'freeze', 'glitch', 'omen', 'rupture', 'vanish']);
+  const FX = new Set(['smite', 'freeze', 'glitch', 'omen', 'rupture', 'vanish', 'love']);
+  const LOVE_COLORS = ['#ff5fa2', '#ff3b6b', '#ff8fc8', '#c77dff', '#ffd166', '#5ee6ff', '#7dff9b', '#ff9f5a'];
   const SIGILS = { 'sigil-eye': '◉', 'sigil-skull': '☠', 'sigil-crown': '♛', 'sigil-dagger': '†', 'sigil-coin': '' };
   const BOOT_AT = Date.now();
   const played = new Set();
@@ -122,7 +123,38 @@
     played.add(msg.id);
     if (Date.now() - Number(msg.timestamp || 0) > 8000) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    if (fx === 'love') { setTimeout(loveBurst, 0); return; }
     setTimeout(() => screenLayer('shadow-fx-' + fx, String(msg.emote.label || fx).toUpperCase()), 0);
+  }
+
+  // /love -- colourful hearts drift up over the chat log (or the whole
+  // screen if no chat log is on this page). Non-interactive, ~3.5s.
+  function loveBurst() {
+    const host = document.getElementById('chat-messages') || document.getElementById('gm-chat-messages');
+    const rect = host?.getBoundingClientRect?.();
+    const box = rect && rect.width > 80 && rect.height > 80
+      ? rect
+      : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+    const layer = document.createElement('div');
+    layer.className = 'love-burst';
+    layer.setAttribute('aria-hidden', 'true');
+    Object.assign(layer.style, { left: box.left + 'px', top: box.top + 'px', width: box.width + 'px', height: box.height + 'px' });
+    layer.style.setProperty('--rise', (box.height + 60) + 'px');
+    const count = Math.round(Math.min(34, Math.max(16, box.width / 22)));
+    let html = '';
+    for (let i = 0; i < count; i++) {
+      const size = 14 + Math.random() * 22;
+      html += '<i style="left:' + (Math.random() * 94 + 3).toFixed(1) + '%;' +
+        'font-size:' + size.toFixed(0) + 'px;' +
+        'color:' + LOVE_COLORS[i % LOVE_COLORS.length] + ';' +
+        '--sway:' + ((Math.random() - .5) * 90).toFixed(0) + 'px;' +
+        '--spin:' + ((Math.random() - .5) * 50).toFixed(0) + 'deg;' +
+        'animation-duration:' + (2.2 + Math.random() * 1.4).toFixed(2) + 's;' +
+        'animation-delay:' + (Math.random() * .9).toFixed(2) + 's">♥</i>';
+    }
+    layer.innerHTML = html;
+    document.body.appendChild(layer);
+    setTimeout(() => layer.remove(), 4000);
   }
 
   function cardClass(msg) {

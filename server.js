@@ -5327,6 +5327,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/omen', help: '/omen -- SHADOW MARKET unlock: a bad sign for the room' },
   { name: '/rupture', help: '/rupture -- SHADOW MARKET unlock: crack reality open' },
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
+  { name: '/love', help: '/love [@Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
   { name: '/commands', help: '/commands -- this list' }
 ];
 
@@ -5591,7 +5592,10 @@ const CHAT_EMOTES = Object.freeze({
   glitch:   { label: 'GLITCH',    premium: true, targeted: true, actor: 'You tear the signal around {T}.', target: '{A} tears the signal around you.', other: '{A} tears the signal around {T}.' },
   omen:     { label: 'OMEN',      premium: true, actor: 'You announce an omen. Something is coming.', other: '{A} announces an omen. Something is coming.' },
   rupture:  { label: 'RUPTURE',   premium: true, actor: 'You crack reality open.', other: '{A} cracks reality open.' },
-  vanish:   { label: 'VANISH',    premium: true, actor: 'You vanish in a curl of smoke.', other: '{A} vanishes in a curl of smoke.' }
+  vanish:   { label: 'VANISH',    premium: true, actor: 'You vanish in a curl of smoke.', other: '{A} vanishes in a curl of smoke.' },
+  // Target is optional: /love spreads love, /love @Name sends it to someone.
+  love:     { label: 'LOVE',      premium: true, optionalTarget: true, actor: 'You spread love across the room.', other: '{A} spreads love across the room.',
+              aimed: { actor: 'You send love to {T}.', target: '{A} sends you love.', other: '{A} sends love to {T}.' } }
 });
 // Visual-spam guard for premium commands, per Little Hero.
 const PREMIUM_EMOTE_COOLDOWN_MS = 20000;
@@ -5640,15 +5644,16 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
     room.premiumEmoteAt[String(author.id)] = Date.now();
   }
   let target = null;
-  if (def.targeted) {
+  const aimed = def.optionalTarget && (String(match[1] || '').trim() || targetPlayerId);
+  if (def.targeted || aimed) {
     const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', def.label, { allowBroker: !actorIsBroker });
     if (resolved.error) return { success: false, error: resolved.error };
     target = resolved.target;
   }
   const fill = template => template.replace(/\{A\}/g, author.name).replace(/\{T\}/g, target ? target.name : '');
-  const voice = actorIsBroker && def.broker ? def.broker : def;
+  const voice = target && def.aimed ? def.aimed : actorIsBroker && def.broker ? def.broker : def;
   const lines = { actor: fill(voice.actor), other: fill(voice.other) };
-  if (def.targeted) lines.target = fill(def.target);
+  if (target) lines.target = fill(voice.target);
   const result = buildChatCommandMessage(room, author, 'emote', 'emote', lines.other, {
     emote: {
       act: name,

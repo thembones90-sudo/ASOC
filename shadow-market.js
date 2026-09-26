@@ -44,6 +44,7 @@ const CATALOG = Object.freeze([
   { id: 'fx-frost', kind: 'effect', name: 'FROST', price: 8, desc: 'Cold light and a creeping rime.' },
   { id: 'fx-corruption', kind: 'effect', name: 'CORRUPTION', price: 10, desc: 'Something wrong is leaking in.' },
   { id: 'fx-glitch', kind: 'effect', name: 'GLITCH', price: 10, desc: 'Signal tearing at the edges.' },
+  { id: 'fx-hearts', kind: 'effect', name: 'LOVESTRUCK', price: 8, desc: 'A pink glow and little hearts floating up.' },
 
   // ---- Frames.
   { id: 'frame-gilded', kind: 'frame', name: 'GILDED FRAME', price: 5, desc: 'Old gold, badly earned.' },
@@ -65,6 +66,7 @@ const CATALOG = Object.freeze([
   { id: 'cmd-omen', kind: 'command', command: 'omen', name: '/omen', price: 7, desc: 'Announce a bad sign for the room.' },
   { id: 'cmd-rupture', kind: 'command', command: 'rupture', name: '/rupture', price: 8, desc: 'Crack reality open for a moment.' },
   { id: 'cmd-vanish', kind: 'command', command: 'vanish', name: '/vanish', price: 4, desc: 'Disappear in smoke. You are still here.' },
+  { id: 'cmd-love', kind: 'command', command: 'love', name: '/love', price: 4, desc: 'Colourful hearts fly over the chat. Aim it: /love @Name.' },
 
   // ---- Correct-answer celebrations: play on YOUR accepted answers.
   { id: 'cel-broker-nod', kind: 'celebration', name: "THE BROKER'S NOD", price: 6, desc: 'A gold ACCEPTED stamp slams onto your answer.' },

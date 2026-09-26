@@ -363,6 +363,27 @@ async function runServer() {
     ana.send({ type: 'chat:guess', text: '/smite @Bo' });
     err = await ana.next(m => m.type === 'error', 'cooldown', from);
     assert.match(err.message, /RECHARGING/);
+    // /love: owned by Ana, target optional; the Broker may aim it too.
+    assert.match((await ana.ask({ type: 'shadow:buy', itemId: 'fx-hearts' }, 'lovestruck')).notice, /LOVESTRUCK ACQUIRED/);
+    await ana.ask({ type: 'shadow:buy', itemId: 'cmd-love' }, 'buy love');
+    // The premium cooldown is shared across commands: /smite just fired.
+    from = ana.mark();
+    ana.send({ type: 'chat:guess', text: '/love' });
+    assert.match((await ana.next(m => m.type === 'error', 'love cooldown', from)).message, /LOVE RECHARGING/);
+    from = gm.mark();
+    gm.send({ type: 'gm:broadcast', text: '/love' });
+    const loveCard = (await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.emote?.act === 'love'), 'love card', from))
+      .messages.find(x => x.emote?.act === 'love');
+    assert.equal(loveCard.emote.fx, 'love');
+    assert.equal(loveCard.emote.targetId, null, '/love without a target spreads love to the room');
+    assert.match(loveCard.emote.lines.other, /spreads love across the room/);
+    from = gm.mark();
+    gm.send({ type: 'gm:broadcast', text: '/love @Bo' });
+    const aimed = (await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.emote?.act === 'love' && x.emote.targetName === 'Bo'), 'aimed love', from))
+      .messages.find(x => x.emote?.act === 'love' && x.emote.targetName === 'Bo');
+    assert.match(aimed.emote.lines.target, /sends you love/);
+    await sleep(150);
+    assert.equal(bo.players.find(p => p.id === anaId).cosmetics.effect, 'fx-hearts');
     // Bo does not own it.
     from = bo.mark();
     bo.send({ type: 'chat:guess', text: '/smite @Ana' });
@@ -393,7 +414,7 @@ async function runServer() {
     reply = await ana.ask({ type: 'shadow:state' }, 'ledger');
     const kinds = reply.ledger.map(e => e.kind);
     assert.deepEqual(kinds.slice(0, 2), ['roulette', 'roulette']);
-    assert.equal(kinds.filter(k => k === 'purchase').length, 4);
+    assert.equal(kinds.filter(k => k === 'purchase').length, 6);
     assert.equal(kinds.at(-1), 'reward');
     assert.equal(reply.ledger[0].balance, reply.balance);
 
@@ -501,10 +522,11 @@ async function runServer() {
     ana = await connect('Ana');
     reply = await ana.ask({ type: 'shadow:state' }, 'after restart');
     assert.equal(reply.balance, finalBalance);
-    assert.equal(reply.equipped.effect, 'fx-void-eye');
+    assert.equal(reply.equipped.effect, 'fx-hearts');
     assert.equal(reply.catalog.find(i => i.id === 'cmd-smite').tier, 1);
     await sleep(200);
-    assert.equal(gm2.players.find(p => p.id === anaId).cosmetics.effectTier, 2);
+    assert.equal(gm2.players.find(p => p.id === anaId).cosmetics.effect, 'fx-hearts');
+    assert.equal(reply.catalog.find(i => i.id === 'fx-void-eye').tier, 2, 'owned tiers survive switching effects');
 
     // The GM (Shadow Broker) has no Shadow Coin account.
     assert.equal((await gm2.ask({ type: 'shadow:state' }, 'gm state')).type, 'shadow:error');
