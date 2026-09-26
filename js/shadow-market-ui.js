@@ -40,7 +40,8 @@
     spinning: false,
     wheelTurn: 0,
     lastSpin: null,
-    pendingState: null   // state held back until the wheel lands
+    pendingState: null,  // state held back until the wheel lands
+    returnFocus: null    // element that opened the market; restored on close
   };
 
   const esc = value => String(value == null ? '' : value)
@@ -80,6 +81,7 @@
 
   function open(tab) {
     const root = ensureRoot();
+    if (!state.open) state.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     state.open = true;
     if (tab) state.tab = tab;
     state.error = '';
@@ -87,6 +89,7 @@
     document.body.classList.add('smk-open');
     send({ type: 'shadow:state' });
     render();
+    requestAnimationFrame(() => root.querySelector('[data-close]')?.focus());
   }
 
   function close() {
@@ -94,6 +97,9 @@
     const root = document.getElementById('shadow-market');
     if (root) root.hidden = true;
     document.body.classList.remove('smk-open');
+    const target = state.returnFocus;
+    state.returnFocus = null;
+    if (target?.isConnected && typeof target.focus === 'function') requestAnimationFrame(() => target.focus());
   }
 
   function onMessage(message) {
@@ -175,14 +181,18 @@
     let preview;
     if (visual) preview = `<div class="smk-preview">${previewAvatar(item)}</div>`;
     else if (item.kind === 'title') preview = `<div class="smk-preview smk-preview-title"><span class="cos-title">${esc(item.name)}</span></div>`;
-    else if (item.kind === 'command') preview = `<div class="smk-preview smk-preview-cmd">/${esc(item.command)}</div>`;
+    else if (item.kind === 'command') preview = item.asset
+      ? `<div class="smk-preview smk-preview-art smk-preview-cmd" style="--smk-art:url('${esc(item.asset)}')"><span>/${esc(item.command)}</span></div>`
+      : `<div class="smk-preview smk-preview-cmd">/${esc(item.command)}</div>`;
     else if (item.kind === 'name') preview = `<div class="smk-preview smk-preview-name"><span class="cos-name cos-${esc(item.id)}">${selfName}</span></div>`;
     else if (item.kind === 'sigil') {
       const glyph = item.id === 'sigil-coin'
         ? '<span class="cos-sigil cos-sigil-coin"><img src="assets/ui/shadow-coin.webp" alt=""></span>'
         : `<span class="cos-sigil cos-${esc(item.id)}">${SIGIL_GLYPHS[item.id] || ''}</span>`;
       preview = `<div class="smk-preview smk-preview-sigil">${glyph}</div>`;
-    } else if (item.kind === 'celebration') preview = `<div class="smk-preview smk-preview-cel cel-demo-${esc(item.id)}"><span>ANSWER</span></div>`;
+    } else if (item.kind === 'celebration') preview = item.asset
+      ? `<div class="smk-preview smk-preview-art smk-preview-cel cel-demo-${esc(item.id)}" style="--smk-art:url('${esc(item.asset)}')"><span>ANSWER</span></div>`
+      : `<div class="smk-preview smk-preview-cel cel-demo-${esc(item.id)}"><span>ANSWER</span></div>`;
     else if (item.kind === 'card') preview = `<div class="smk-preview smk-preview-card dsr-${esc(item.id)}"><span>FILE</span></div>`;
     else preview = `<div class="smk-preview smk-preview-cmd">${item.kind === 'showcase' ? '▣▣▣' : ''}</div>`;
     return `
@@ -231,7 +241,7 @@
           : `<button type="button" class="smk-btn smk-btn-equip" data-showcase-add="${esc(item.id)}"${full ? ' disabled title="All showcase slots are full"' : ''}>DISPLAY</button>`;
       return `
         <article class="smk-item smk-relic${owned ? ' is-owned' : ' is-sealed'}${shown ? ' is-equipped' : ''}">
-          <div class="smk-preview smk-preview-relic">${owned ? '✦' : '?'}</div>
+          <div class="smk-preview smk-preview-relic${item.asset ? ' smk-preview-art' : ''}"${item.asset ? ` style="--smk-art:url('${esc(owned ? item.asset : 'assets/shop/relic-sealed.png')}')"` : ''}>${owned ? '✦' : '?'}</div>
           <div class="smk-item-body">
             <div class="smk-item-head"><h4>${esc(item.name)}</h4>${owned ? '<span class="smk-tag smk-tag-relic">UNEARTHED</span>' : ''}</div>
             <p>${esc(owned ? item.desc : how)}</p>
@@ -491,7 +501,29 @@
     if (event.target.closest('#hero-hud-coins-chip')) open('market');
   });
   document.addEventListener('keydown', event => {
-    if (state.open && event.key === 'Escape') close();
+    if (state.open && event.key === 'Escape') {
+      event.preventDefault();
+      close();
+      return;
+    }
+    if (state.open && event.key === 'Tab') {
+      const root = document.getElementById('shadow-market');
+      const focusable = root ? [...root.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter(el => !el.hidden && el.offsetParent !== null) : [];
+      if (focusable.length) {
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!root.contains(document.activeElement)) {
+          event.preventDefault();
+          first.focus();
+        } else if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }
     if ((event.key === 'Enter' || event.key === ' ') && event.target?.id === 'hero-hud-coins-chip') {
       event.preventDefault();
       open('market');

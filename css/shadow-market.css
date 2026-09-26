@@ -205,19 +205,21 @@
 .shadow-fx-layer {
   position: fixed;
   inset: 0;
-  z-index: 9000;
+  /* Theatre belongs behind modal UI. Cosmetic commands must never block the
+     Market, Dossier or any other critical overlay. */
+  z-index: 7900;
   pointer-events: none;
   display: grid;
   place-items: center;
   animation: shadow-fx-fade 1.9s ease-out forwards;
 }
-.shadow-fx-layer > i { position: absolute; inset: 0; }
+.shadow-fx-layer > i { position: absolute; inset: 0; opacity: .48; }
 .shadow-fx-layer > b {
   position: relative;
-  font: 900 clamp(2.4rem, 8vw, 6rem)/1 var(--font-machine, ui-monospace, monospace);
+  opacity: .78;
+  font: 900 clamp(1.8rem, 5vw, 4rem)/1 var(--font-machine, ui-monospace, monospace);
   letter-spacing: .35em;
   color: #fff;
-  opacity: .9;
   text-shadow: 0 0 24px currentColor;
 }
 @keyframes shadow-fx-fade { 0% { opacity: 0; } 12% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
@@ -589,6 +591,11 @@ body.smk-open { overflow: hidden; }
 .smk-preview-card { border-radius: 3px; border: 1px solid #4a4560; background: linear-gradient(180deg, #1a1812, #0e0d0a); }
 .smk-preview-card span { font-size: 10px; letter-spacing: .2em; color: #b5acc9; }
 .smk-preview-relic { font-size: 30px; color: #f0c65d; text-shadow: 0 0 12px rgba(232, 184, 74, .6); border: 1px solid rgba(232, 184, 74, .35); border-radius: 50%; width: 56px; height: 56px; min-height: 0; margin: 4px auto; }
+.smk-preview-art { position: relative; isolation: isolate; }
+.smk-preview-art::before { content: ""; position: absolute; inset: 4px; z-index: -1; background: var(--smk-art) center/contain no-repeat; filter: drop-shadow(0 0 8px rgba(0,0,0,.55)); }
+.smk-preview-art > span, .smk-preview-art:not(.smk-preview-relic) { text-shadow: 0 1px 3px #000; }
+.smk-preview-art.smk-preview-cmd > span, .smk-preview-art.smk-preview-cel > span { opacity: .18; }
+.smk-preview-art.smk-preview-relic { color: transparent; text-shadow: none; border-color: rgba(232,184,74,.15); }
 .smk-relic.is-sealed .smk-preview-relic { color: #5c5670; text-shadow: none; border-color: #3a3350; }
 .smk-relic.is-sealed h4 { color: #a59bc0; }
 .smk-hint-locked { color: #8d86a0; }
@@ -646,7 +653,8 @@ body.smk-open { overflow: hidden; }
 .dsr-section h3 { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, .1); font-size: 13px; letter-spacing: .3em; color: var(--dsr-accent); }
 .dsr-section h3 em { font-style: normal; font-size: 11px; letter-spacing: .14em; color: #9b927c; }
 .dsr-relics { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
-.dsr-relic { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid rgba(232, 184, 74, .35); background: rgba(232, 184, 74, .05); }
+.dsr-relic { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid rgba(232, 184, 74, .35); background: rgba(232, 184, 74, .05); }
+.dsr-relic-art { width: 42px; height: 42px; border-radius: 50%; background: var(--dsr-art) center/contain no-repeat; filter: drop-shadow(0 0 7px rgba(232,184,74,.22)); }
 .dsr-relic b { color: #f0c65d; font-size: 14px; letter-spacing: .14em; }
 .dsr-relic b::before { content: "✦ "; }
 .dsr-relic span { font-size: 12px; color: #b9b09a; }
@@ -714,7 +722,7 @@ body.smk-open { overflow: hidden; }
 }
 
 /* /love -- hearts drifting up over the chat log. */
-.love-burst { position: fixed; z-index: 8900; pointer-events: none; overflow: hidden; }
+.love-burst { position: fixed; z-index: 7900; pointer-events: none; overflow: hidden; }
 .love-burst i {
   position: absolute;
   bottom: -40px;

@@ -535,8 +535,11 @@ function bumpRelicProgress(identity, counter, receiptId) {
 function setShowcase(identity, itemIds) {
   const players = loadPlayers();
   const profile = coinProfile(players, identity);
-  const ids = itemIds.filter(id => Number(profile.cosmetics.owned[id]) > 0);
-  if (ids.length !== itemIds.length) return { ok: false, error: 'Not owned' };
+  // Server already deduplicates, but the store is the persistence boundary:
+  // never let duplicate ids consume or fake showcase slots if called directly.
+  const requested = [...new Set((Array.isArray(itemIds) ? itemIds : []).map(id => String(id || '')))];
+  const ids = requested.filter(id => Number(profile.cosmetics.owned[id]) > 0);
+  if (ids.length !== requested.length) return { ok: false, error: 'Not owned' };
   profile.cosmetics.showcase = ids;
   savePlayersAtomic(players);
   return { ok: true, showcase: [...ids] };

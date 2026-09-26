@@ -214,7 +214,9 @@
     const s = d.stats || {};
     const since = d.since ? new Date(d.since) : null;
     const relics = (d.showcase || []).length
-      ? d.showcase.map(r => '<li class="dsr-relic"><b>' + escape(r.name) + '</b><span>' + escape(r.desc) + '</span></li>').join('')
+      ? d.showcase.map(r => '<li class="dsr-relic">' +
+          (r.asset ? '<i class="dsr-relic-art" aria-hidden="true" style="--dsr-art:url(\'' + escape(r.asset) + '\')"></i>' : '') +
+          '<div><b>' + escape(r.name) + '</b><span>' + escape(r.desc) + '</span></div></li>').join('')
       : '<li class="dsr-relic dsr-relic-empty"><span>NO RELICS ON DISPLAY</span></li>';
     const card = SAFE_ID.test(d.card || '') ? ' dsr-' + d.card : '';
     dossierRoot().innerHTML = `

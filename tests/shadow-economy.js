@@ -66,6 +66,10 @@ function checkPure() {
   assert.equal(witness.price, 15);
   assert.equal(market.requirementMet(witness, { finalSolutions: 9 }), false);
   assert.equal(market.requirementMet(witness, { finalSolutions: 10 }), true);
+  const womfTitle = market.getItem('title-womf-survivor');
+  assert.equal(market.requirementMet(womfTitle, { relicProgress: {} }), false);
+  assert.equal(market.requirementMet(womfTitle, { relicProgress: { wheelSurvivals: 1 } }), true);
+  assert.equal(market.catalogFor({ relicProgress: { wheelSurvivals: 1 }, cosmetics: { owned: {} } }).find(i => i.id === 'title-womf-survivor').requires.met, true);
   // public cosmetics expose only equipped + owned items
   assert.deepEqual(market.publicCosmetics({ cosmetics: { owned: { 'fx-fire': 1 }, equipped: { effect: 'fx-fire', title: 'title-little-heretic' } } }), { effect: 'fx-fire', effectTier: 1 });
   assert.deepEqual(market.publicCosmetics({ cosmetics: {
@@ -74,12 +78,14 @@ function checkPure() {
   } }), { name: 'name-void', sigil: 'sigil-crown', celebration: 'cel-shatter' }, 'the dossier card is not broadcast');
   for (const kind of ['celebration', 'name', 'sigil', 'card', 'showcase', 'relic']) assert.ok(kinds.has(kind), `catalog has ${kind}`);
   assert.equal(market.getItem('cel-final-witness').requires.min, 10);
+  assert.equal(market.getItem('cel-final-witness').name, 'WITNESS THE FINAL', 'celebration name does not collide with the Final Witness title');
   // relics are earned only; showcase slots grow with the tiered upgrade
   for (const id of ['relic-spun-returned', 'relic-fastest-hand', 'relic-last-second-heretic', 'relic-word-killer']) {
     assert.equal(market.nextPrice(market.getItem(id), 0), null, `${id} is never sold`);
   }
   assert.equal(market.showcaseSlots({}), 1);
   assert.equal(market.showcaseSlots({ cosmetics: { owned: { 'showcase-slots': 2 } } }), 3);
+  assert.equal(market.showcaseSlots({ cosmetics: { owned: { 'showcase-slots': 99 } } }), 3, 'corrupt showcase tiers are clamped');
   const dossier = market.dossierFor({
     name: 'Ana', finalSolutions: 3, gamesPlayed: 9,
     cosmetics: { owned: { 'relic-word-killer': 1, 'relic-fastest-hand': 1, 'card-gilded': 1 }, equipped: { card: 'card-gilded' }, showcase: ['relic-word-killer', 'relic-fastest-hand'] }
@@ -157,6 +163,7 @@ function checkStore() {
     assert.equal(store.bumpRelicProgress(ana, 'wheelSurvivals', 'womf:2'), 2);
     assert.equal(store.setShowcase(ana, ['relic-word-killer']).ok, false);
     assert.deepEqual(store.setShowcase(ana, ['title-broker-mistake']).showcase, ['title-broker-mistake']);
+    assert.deepEqual(store.setShowcase(ana, ['title-broker-mistake', 'title-broker-mistake']).showcase, ['title-broker-mistake'], 'store deduplicates showcase ids');
     store = fresh();
     assert.equal(store.getShadowProfile(ana).relicProgress.wheelSurvivals, 2);
     assert.deepEqual(store.getShadowProfile(ana).cosmetics.showcase, ['title-broker-mistake']);

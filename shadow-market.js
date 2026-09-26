@@ -16,8 +16,8 @@
 //   price     purchase price in coins (tier I for tiered items)
 //   tiers     optional [tier I price, tier II price, ...] upgrade track
 //   tierNames optional labels per tier
-//   requires  optional { stat, min, label } achievement gate: purchasable
-//             only once the profile stat reaches `min`
+//   requires  optional { stat|counter, min, label } achievement gate:
+//             purchasable only once the profile stat or relic counter reaches `min`
 //   relic     true -> earned only, never purchasable
 //   command   (kind 'command') the /verb it unlocks
 //   earn      (relics) { label, counter?, min? } how it is earned; counter
@@ -54,25 +54,25 @@ const CATALOG = Object.freeze([
   // ---- Titles.
   { id: 'title-little-heretic', kind: 'title', name: 'Little Heretic', price: 3 },
   { id: 'title-void-touched', kind: 'title', name: 'Void-Touched', price: 8 },
-  { id: 'title-womf-survivor', kind: 'title', name: 'WOMF Survivor', price: 8 },
+  { id: 'title-womf-survivor', kind: 'title', name: 'WOMF Survivor', price: 8, requires: { counter: 'wheelSurvivals', min: 1, label: 'Survive WOMF once' } },
   { id: 'title-pattern-seeker', kind: 'title', name: 'Pattern Seeker', price: 6, requires: { stat: 'columnSolutions', min: 25, label: 'Solve 25 columns' } },
   { id: 'title-final-witness', kind: 'title', name: 'Final Witness', price: 15, requires: { stat: 'finalSolutions', min: 10, label: 'Solve 10 Finals' } },
-  { id: 'title-broker-mistake', kind: 'title', name: "Shadow Broker's Mistake", relic: true, desc: 'Relic. Granted, never sold.' },
+  { id: 'title-broker-mistake', kind: 'title', name: "Shadow Broker's Mistake", relic: true, asset: 'assets/shop/relic-broker-mistake.png', desc: 'Relic. Granted, never sold.' },
 
   // ---- Cosmetic /commands: permanent unlocks, pure theatre, cooldown-limited.
-  { id: 'cmd-smite', kind: 'command', command: 'smite', name: '/smite', price: 6, desc: 'Call down a strike of judgement on someone.' },
-  { id: 'cmd-freeze', kind: 'command', command: 'freeze', name: '/freeze', price: 5, desc: 'Encase someone in theatrical ice.' },
-  { id: 'cmd-glitch', kind: 'command', command: 'glitch', name: '/glitch', price: 5, desc: 'Tear the signal around someone.' },
-  { id: 'cmd-omen', kind: 'command', command: 'omen', name: '/omen', price: 7, desc: 'Announce a bad sign for the room.' },
-  { id: 'cmd-rupture', kind: 'command', command: 'rupture', name: '/rupture', price: 8, desc: 'Crack reality open for a moment.' },
-  { id: 'cmd-vanish', kind: 'command', command: 'vanish', name: '/vanish', price: 4, desc: 'Disappear in smoke. You are still here.' },
-  { id: 'cmd-love', kind: 'command', command: 'love', name: '/love', price: 4, desc: 'Colourful hearts fly over the chat. Aim it: /love @Name.' },
+  { id: 'cmd-smite', kind: 'command', command: 'smite', name: '/smite', price: 6, asset: 'assets/shop/cmd-smite.png', desc: 'Call down a strike of judgement on someone.' },
+  { id: 'cmd-freeze', kind: 'command', command: 'freeze', name: '/freeze', price: 5, asset: 'assets/shop/cmd-freeze.png', desc: 'Encase someone in theatrical ice.' },
+  { id: 'cmd-glitch', kind: 'command', command: 'glitch', name: '/glitch', price: 5, asset: 'assets/shop/cmd-glitch.png', desc: 'Tear the signal around someone.' },
+  { id: 'cmd-omen', kind: 'command', command: 'omen', name: '/omen', price: 7, asset: 'assets/shop/cmd-omen.png', desc: 'Announce a bad sign for the room.' },
+  { id: 'cmd-rupture', kind: 'command', command: 'rupture', name: '/rupture', price: 8, asset: 'assets/shop/cmd-rupture.png', desc: 'Crack reality open for a moment.' },
+  { id: 'cmd-vanish', kind: 'command', command: 'vanish', name: '/vanish', price: 4, asset: 'assets/shop/cmd-vanish.png', desc: 'Disappear in smoke. You are still here.' },
+  { id: 'cmd-love', kind: 'command', command: 'love', name: '/love', price: 4, asset: 'assets/shop/cmd-love.png', desc: 'Colourful hearts fly over the chat. Aim it: /love @Name.' },
 
   // ---- Correct-answer celebrations: play on YOUR accepted answers.
-  { id: 'cel-broker-nod', kind: 'celebration', name: "THE BROKER'S NOD", price: 6, desc: 'A gold ACCEPTED stamp slams onto your answer.' },
-  { id: 'cel-shatter', kind: 'celebration', name: 'SHATTER', price: 8, desc: 'Your answer cracks the glass it was written on.' },
-  { id: 'cel-blood-ink', kind: 'celebration', name: 'BLOOD INK', price: 6, desc: 'Your answer rewrites itself in red.' },
-  { id: 'cel-final-witness', kind: 'celebration', name: 'FINAL WITNESS', price: 12, requires: { stat: 'finalSolutions', min: 10, label: 'Solve 10 Finals' }, desc: 'Plays only when you take the Final. The room goes dark for you.' },
+  { id: 'cel-broker-nod', kind: 'celebration', name: "THE BROKER'S NOD", price: 6, asset: 'assets/shop/cel-broker-nod.png', desc: 'A gold ACCEPTED stamp slams onto your answer.' },
+  { id: 'cel-shatter', kind: 'celebration', name: 'SHATTER', price: 8, asset: 'assets/shop/cel-shatter.png', desc: 'Your answer cracks the glass it was written on.' },
+  { id: 'cel-blood-ink', kind: 'celebration', name: 'BLOOD INK', price: 6, asset: 'assets/shop/cel-blood-ink.png', desc: 'Your answer rewrites itself in red.' },
+  { id: 'cel-final-witness', kind: 'celebration', name: 'WITNESS THE FINAL', price: 12, asset: 'assets/shop/cel-final-witness.png', requires: { stat: 'finalSolutions', min: 10, label: 'Solve 10 Finals' }, desc: 'Plays only when you take the Final. The room goes dark for you.' },
 
   // ---- Name styles.
   { id: 'name-ember', kind: 'name', name: 'EMBER NAME', price: 4, desc: 'Your name smoulders orange.' },
@@ -99,10 +99,10 @@ const CATALOG = Object.freeze([
   },
 
   // ---- Relics: earned only. Shown on the dossier.
-  { id: 'relic-spun-returned', kind: 'relic', name: 'SPUN AND RETURNED', relic: true, earn: { label: 'Survive 5 WOMF spins', counter: 'wheelSurvivals', min: 5 }, desc: 'The Wheel passed over you five times.' },
-  { id: 'relic-fastest-hand', kind: 'relic', name: 'FASTEST HAND', relic: true, earn: { label: 'Make the first solve in 10 matches', counter: 'firstSolves', min: 10 }, desc: 'First blood, ten times over.' },
-  { id: 'relic-last-second-heretic', kind: 'relic', name: 'LAST-SECOND HERETIC', relic: true, earn: { label: 'Solve no column, then take the Final' }, desc: 'Silent all match. Then the only answer that mattered.' },
-  { id: 'relic-word-killer', kind: 'relic', name: 'WORD KILLER', relic: true, earn: { label: 'Win KALADONT with the word KALADONT' }, desc: 'Ended it with the word itself.' }
+  { id: 'relic-spun-returned', kind: 'relic', name: 'SPUN AND RETURNED', relic: true, asset: 'assets/shop/relic-spun-returned.png', earn: { label: 'Survive 5 WOMF spins', counter: 'wheelSurvivals', min: 5 }, desc: 'The Wheel passed over you five times.' },
+  { id: 'relic-fastest-hand', kind: 'relic', name: 'FASTEST HAND', relic: true, asset: 'assets/shop/relic-fastest-hand.png', earn: { label: 'Make the first solve in 10 matches', counter: 'firstSolves', min: 10 }, desc: 'First blood, ten times over.' },
+  { id: 'relic-last-second-heretic', kind: 'relic', name: 'LAST-SECOND HERETIC', relic: true, asset: 'assets/shop/relic-last-second-heretic.png', earn: { label: 'Solve no column, then take the Final' }, desc: 'Silent all match. Then the only answer that mattered.' },
+  { id: 'relic-word-killer', kind: 'relic', name: 'WORD KILLER', relic: true, asset: 'assets/shop/relic-word-killer.png', earn: { label: 'Win KALADONT with the word KALADONT' }, desc: 'Ended it with the word itself.' }
 ]);
 
 const BY_ID = new Map(CATALOG.map(item => [item.id, item]));
@@ -120,9 +120,16 @@ function nextPrice(item, ownedTier) {
   return Array.isArray(item.tiers) ? item.tiers[tier] : item.price;
 }
 
+function requirementProgress(requirement, profile) {
+  if (!requirement) return 0;
+  if (requirement.counter) return Number(profile?.relicProgress?.[requirement.counter]) || 0;
+  if (requirement.stat) return Number(profile?.[requirement.stat]) || 0;
+  return 0;
+}
+
 function requirementMet(item, profile) {
   if (!item?.requires) return true;
-  return (Number(profile?.[item.requires.stat]) || 0) >= item.requires.min;
+  return requirementProgress(item.requires, profile) >= item.requires.min;
 }
 
 // Catalog as the client sees it, annotated for one profile.
@@ -132,7 +139,7 @@ function catalogFor(profile) {
     const tier = Number(owned[item.id]) || 0;
     const price = nextPrice(item, tier);
     const req = item.requires
-      ? { label: item.requires.label, progress: Math.min(Number(profile?.[item.requires.stat]) || 0, item.requires.min), min: item.requires.min, met: requirementMet(item, profile) }
+      ? { label: item.requires.label, progress: Math.min(requirementProgress(item.requires, profile), item.requires.min), min: item.requires.min, met: requirementMet(item, profile) }
       : null;
     const earn = item.earn
       ? {
@@ -145,6 +152,7 @@ function catalogFor(profile) {
       kind: item.kind,
       name: item.name,
       desc: item.desc || '',
+      asset: item.asset || null,
       relic: item.relic === true,
       command: item.command || null,
       tier,
@@ -161,7 +169,11 @@ function catalogFor(profile) {
 function isShowcaseable(item) { return !!item && item.relic === true; }
 
 function showcaseSlots(profile) {
-  return SHOWCASE_BASE_SLOTS + (Number(profile?.cosmetics?.owned?.['showcase-slots']) || 0);
+  // The upgrade has exactly two purchasable tiers: slot II and slot III.
+  // Clamp corrupted/legacy profile data so a bad tier can never create an
+  // arbitrarily large public relic showcase.
+  const upgradeTier = Math.max(0, Math.min(2, Number(profile?.cosmetics?.owned?.['showcase-slots']) || 0));
+  return SHOWCASE_BASE_SLOTS + upgradeTier;
 }
 
 // The public dossier another player sees when they open a profile.
@@ -173,7 +185,7 @@ function dossierFor(profile, { online = true } = {}) {
     .map(getItem)
     .filter(item => isShowcaseable(item) && Number(owned[item.id]) > 0)
     .slice(0, showcaseSlots(profile))
-    .map(item => ({ id: item.id, name: item.name, desc: item.desc || '' }));
+    .map(item => ({ id: item.id, name: item.name, desc: item.desc || '', asset: item.asset || null }));
   const relicCount = CATALOG.filter(item => item.relic && Number(owned[item.id]) > 0).length;
   const n = key => Math.max(0, Number(profile?.[key]) || 0);
   return {
@@ -318,6 +330,7 @@ module.exports = {
   getItem,
   tierCount,
   nextPrice,
+  requirementProgress,
   requirementMet,
   catalogFor,
   publicCosmetics,
