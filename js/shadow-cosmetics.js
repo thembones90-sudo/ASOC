@@ -223,7 +223,9 @@
       <article class="dsr-card${card}">
         <header class="dsr-head">
           <span class="dsr-stamp">CONFIDENTIAL</span>
-          <button type="button" class="dsr-close" data-dossier-close aria-label="Close dossier">CLOSE</button>
+          <span class="dsr-actions">${window.DirectMessages && d.avatar?.id && String(d.avatar.id) !== String(window.PlayerApp?.playerId || '')
+            ? `<button type="button" class="dsr-close dsr-dm" data-dm-open="${escape(d.avatar.id)}">SEND MESSAGE</button>` : ''}
+          <button type="button" class="dsr-close" data-dossier-close aria-label="Close dossier">CLOSE</button></span>
         </header>
         <div class="dsr-ident">
           <div class="dsr-avatar">${avatar}</div>

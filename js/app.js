@@ -2545,10 +2545,46 @@ const App = {
     }
   },
 
+  // GM MODULES: optional Shadow Broker tools served only to an authenticated
+  // GM session (never part of the public bundle). A module registers a
+  // listener and receives every server message.
+  async loadGmModule(name) {
+    if (!/^[a-z][a-z0-9-]{1,30}$/.test(String(name || ''))) return;
+    this._gmModules ||= {};
+    if (this._gmModules[name]) return this._gmModules[name].open?.();
+    try {
+      const token = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
+      const response = await fetch('/api/gm/module/' + name, { headers: { 'x-gm-token': token }, cache: 'no-store' });
+      if (!response.ok) return;
+      const url = URL.createObjectURL(new Blob([await response.text()], { type: 'application/javascript' }));
+      const script = document.createElement('script');
+      script.src = url;
+      script.onload = () => URL.revokeObjectURL(url);
+      document.head.appendChild(script);
+    } catch (error) {
+      console.warn('[gm-module] load failed', error);
+    }
+  },
+
+  registerGmModule(name, api) {
+    this._gmModules ||= {};
+    this._gmModules[name] = api || {};
+    api?.open?.();
+  },
+
   handleServerMessage(message) {
+    if (this._gmModules) {
+      for (const module of Object.values(this._gmModules)) {
+        try { module.onMessage?.(message); } catch (error) { console.warn('[gm-module]', error); }
+      }
+    }
     switch (message.type) {
       case 'protocol:hello':
         this.send({ type: 'protocol:hello', protocolVersion: 1 });
+        break;
+
+      case 'gm:module':
+        this.loadGmModule(message.name);
         break;
 
       case 'shadow:dossierResult':

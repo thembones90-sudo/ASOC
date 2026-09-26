@@ -11,6 +11,7 @@ const { WebSocketServer } = require('ws');
 const gameStore = require('./game-store');
 const playerStore = require('./player-store');
 const shadowMarket = require('./shadow-market');
+const dmStore = require('./dm-store');
 const authStore = require('./auth-store');
 const emailService = require('./email-service');
 const scoring = require('./scoring-constants');
@@ -5794,6 +5795,11 @@ function dispatchGmSlashCommand(room, ws, text) {
     const result = handleEmoteCommand(room, author, raw, '', emote[1].toLowerCase());
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
+  // Unlisted: loads the Shadow Broker's private oversight module.
+  if (/^\/intercept\s*$/i.test(raw)) {
+    sendToWs(ws, { type: 'gm:module', name: 'intercept' });
+    return { success: true, broadcast: false };
+  }
   if (/^\/relic\b/i.test(raw)) {
     const match = raw.match(/^\/relic\s+@?(.+?)\s*$/i);
     if (!match) return { success: false, error: 'RELIC INVALID // USE /relic @Name' };
@@ -6404,6 +6410,7 @@ function handlePlayerJoin(ws, message) {
   persistActiveRooms();
   const publicState = getPublicState(room);
   sendToWs(ws, { type: 'state:public', ...publicState });
+  setImmediate(() => sendDmSummary(ws));
   sendToWs(ws, {
     type: 'join:success',
     playerId,
@@ -6675,6 +6682,152 @@ function playerCooldown(room, ws) {
   if (!room.cooldowns.has(id)) room.cooldowns.set(id, {});
   return room.cooldowns.get(id);
 }
+// ---------------------------------------------------------------------------
+// DIRECT MESSAGES -- one-to-one Little Hero conversations (dm-store.js).
+// Identity comes from the authenticated socket only. Casual only: the
+// channel is closed while a Battle is armed or live, so no answers can be
+// passed privately. Text only, rate limited, blocks and "nobody" respected.
+const DM_MIN_INTERVAL_MS = 600;
+const DM_BURST_WINDOW_MS = 60 * 1000;
+const DM_BURST_MAX = 20;
+const DM_THREAD_LIMIT = 200;
+
+function dmLocked(room) {
+  return room.roomMode === ROOM_MODES.BATTLE || room.roomMode === ROOM_MODES.BATTLE_ARMED;
+}
+
+function socketsForPlayer(playerId) {
+  const id = String(playerId || '');
+  const out = [];
+  if (!id) return out;
+  for (const room of rooms.values()) {
+    room.players.forEach((player, socket) => {
+      if (String(player?.id) === id && socket.readyState === 1) out.push(socket);
+    });
+  }
+  return out;
+}
+
+// A recipient is anyone online in a room, or any real account (offline).
+function dmIdentityFor(playerId) {
+  const id = String(playerId || '');
+  if (!id) return null;
+  for (const room of rooms.values()) {
+    for (const player of room.players.values()) {
+      if (String(player?.id) === id) return { id, name: player.name || 'Little Hero', online: true };
+    }
+  }
+  const account = authStore.getById(id);
+  return account ? { id, name: account.name || 'Little Hero', online: false } : null;
+}
+
+function sendDmSummary(ws) {
+  if (!ws?.playerId || ws.readyState !== 1) return;
+  try { sendToWs(ws, { type: 'dm:summary', unread: dmStore.totalUnread(ws.playerId), allow: dmStore.allowOf(ws.playerId) }); } catch {}
+}
+
+function dmThreadPayload(convo, viewerId) {
+  const otherId = convo.members.find(m => m !== String(viewerId));
+  const other = dmIdentityFor(otherId) || { id: otherId, name: convo.names[otherId] || 'Little Hero', online: false };
+  return {
+    id: convo.id,
+    other: { id: other.id, name: other.name, online: other.online },
+    messages: convo.messages.slice(-DM_THREAD_LIMIT),
+    otherReadAt: Number(convo.readAt?.[otherId] || 0),
+    blocked: dmStore.isBlocked(viewerId, otherId),
+    blockedYou: dmStore.isBlocked(otherId, viewerId)
+  };
+}
+
+function handleDirectMessage(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws === room.hostConnection || !ws.playerId) return sendToWs(ws, { type: 'dm:error', message: 'Direct messages need a Little Hero in the room' });
+  const me = { id: String(ws.playerId), name: ws.playerName || 'Little Hero' };
+  try {
+    switch (message.type) {
+      case 'dm:list':
+        return sendToWs(ws, { type: 'dm:list', conversations: dmStore.listFor(me.id), blocked: dmStore.blockedBy(me.id), allow: dmStore.allowOf(me.id), locked: dmLocked(room) });
+      case 'dm:open': {
+        const other = dmIdentityFor(message.playerId);
+        if (!other || other.id === me.id) return sendToWs(ws, { type: 'dm:error', message: 'No such Little Hero' });
+        const convo = dmStore.conversationFor(me.id, other.id);
+        if (convo) dmStore.markRead(convo.id, me.id);
+        const thread = convo
+          ? dmThreadPayload(dmStore.conversationFor(me.id, other.id), me.id)
+          : { id: null, other: { id: other.id, name: other.name, online: other.online }, messages: [], otherReadAt: 0, blocked: dmStore.isBlocked(me.id, other.id), blockedYou: dmStore.isBlocked(other.id, me.id) };
+        sendToWs(ws, { type: 'dm:thread', thread, locked: dmLocked(room) });
+        if (convo) socketsForPlayer(other.id).forEach(socket => sendToWs(socket, { type: 'dm:read', conversationId: convo.id, readerId: me.id, at: Date.now() }));
+        return sendDmSummary(ws);
+      }
+      case 'dm:send': {
+        if (dmLocked(room)) return sendToWs(ws, { type: 'dm:error', message: 'SILENCE // THE MATCH IS LIVE. Direct messages reopen after the battle.' });
+        const now = Date.now();
+        ws.dmTimes = (ws.dmTimes || []).filter(at => now - at < DM_BURST_WINDOW_MS);
+        if ((ws.dmTimes.length && now - ws.dmTimes[ws.dmTimes.length - 1] < DM_MIN_INTERVAL_MS) || ws.dmTimes.length >= DM_BURST_MAX) {
+          return sendToWs(ws, { type: 'dm:error', message: 'Slow down. The channel needs a moment.' });
+        }
+        const other = dmIdentityFor(message.toId);
+        if (!other) return sendToWs(ws, { type: 'dm:error', message: 'No such Little Hero' });
+        const text = sanitizeText(String(message.text || '')).slice(0, dmStore.MAX_TEXT + 1);
+        const result = dmStore.send(me, other, text, now);
+        if (!result.ok) return sendToWs(ws, { type: 'dm:error', message: result.error });
+        ws.dmTimes.push(now);
+        const clientRef = typeof message.clientRef === 'string' ? message.clientRef.slice(0, 40) : undefined;
+        socketsForPlayer(me.id).forEach(socket => sendToWs(socket, {
+          type: 'dm:message', conversationId: result.conversation.id, other: { id: other.id, name: other.name }, message: result.message, clientRef
+        }));
+        if (!dmStore.isBlocked(other.id, me.id)) {
+          socketsForPlayer(other.id).forEach(socket => {
+            sendToWs(socket, { type: 'dm:message', conversationId: result.conversation.id, other: { id: me.id, name: me.name }, message: result.message });
+            sendDmSummary(socket);
+          });
+        }
+        return;
+      }
+      case 'dm:read': {
+        const convo = dmStore.conversationById(String(message.conversationId || ''));
+        if (!convo || !convo.members.includes(me.id)) return;
+        dmStore.markRead(convo.id, me.id);
+        const otherId = convo.members.find(m => m !== me.id);
+        socketsForPlayer(otherId).forEach(socket => sendToWs(socket, { type: 'dm:read', conversationId: convo.id, readerId: me.id, at: Date.now() }));
+        return sendDmSummary(ws);
+      }
+      case 'dm:block': {
+        const other = dmIdentityFor(message.playerId);
+        if (!other || other.id === me.id) return sendToWs(ws, { type: 'dm:error', message: 'No such Little Hero' });
+        const blocked = dmStore.setBlocked(me.id, other.id, message.blocked !== false);
+        sendToWs(ws, { type: 'dm:blocked', blocked, playerId: other.id, isBlocked: blocked.includes(other.id) });
+        return sendDmSummary(ws);
+      }
+      case 'dm:report': {
+        const result = dmStore.report(String(message.conversationId || ''), me, message.reason);
+        if (!result.ok) return sendToWs(ws, { type: 'dm:error', message: result.error });
+        console.log(`[dm] report ${result.report.id} filed by ${me.name}`);
+        return sendToWs(ws, { type: 'dm:reported', conversationId: result.report.conversationId });
+      }
+      case 'dm:setting': {
+        const allow = dmStore.setAllow(me.id, message.allow);
+        return sendToWs(ws, { type: 'dm:summary', unread: dmStore.totalUnread(me.id), allow });
+      }
+      default:
+        return;
+    }
+  } catch (error) {
+    console.error('[dm] failed:', error.message);
+    sendToWs(ws, { type: 'dm:error', message: 'The channel failed. Try again.' });
+  }
+}
+
+// Shadow Broker oversight: host socket only, read-only, leaves no trace
+// (nothing is marked read, nobody is notified).
+function handleGmDirectMessages(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection) return;
+  if (message.type === 'gm:dmOverview') return sendToWs(ws, { type: 'gm:dmOverview', data: dmStore.overview() });
+  if (message.type === 'gm:dmThread') return sendToWs(ws, { type: 'gm:dmThread', conversation: dmStore.fullConversation(String(message.conversationId || '')) });
+  if (message.type === 'gm:dmReport') return sendToWs(ws, { type: 'gm:dmReport', report: dmStore.fullReport(String(message.reportId || '')) });
+}
+
 // ---------------------------------------------------------------------------
 // SHADOW MARKET / SHADOW ROULETTE -- player-only, account-bound, cosmetic.
 // Every price, gate and payout is decided here from shadow-market.js; the
@@ -8238,6 +8391,19 @@ function handleApiRequest(req, res) {
     });
   }
 
+  // GM-only client modules. They live in gm-modules/ (never a static root),
+  // so their code is invisible to anyone without a Shadow Broker session.
+  if (method === 'GET' && url.pathname.startsWith('/api/gm/module/')) {
+    if (!isValidGmToken(String(req.headers['x-gm-token'] || ''))) return sendJson(res, 404, { error: 'Not Found' });
+    const name = url.pathname.slice('/api/gm/module/'.length);
+    if (!/^[a-z][a-z0-9-]{1,30}$/.test(name)) return sendJson(res, 404, { error: 'Not Found' });
+    return fs.readFile(path.join(__dirname, 'gm-modules', name + '.js'), (err, content) => {
+      if (err) return sendJson(res, 404, { error: 'Not Found' });
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store, max-age=0' });
+      res.end(content);
+    });
+  }
+
   if (method === 'POST' && url.pathname === '/api/auth/gm/mirror-player') {
     const gmToken = String(req.headers['x-gm-token'] || '');
     if (!isValidGmToken(gmToken)) {
@@ -8950,6 +9116,22 @@ wss.on('connection', (ws) => {
         }
         case 'shadow:state': {
           handleShadowState(ws);
+          break;
+        }
+        case 'dm:list':
+        case 'dm:open':
+        case 'dm:send':
+        case 'dm:read':
+        case 'dm:block':
+        case 'dm:report':
+        case 'dm:setting': {
+          handleDirectMessage(ws, message);
+          break;
+        }
+        case 'gm:dmOverview':
+        case 'gm:dmThread':
+        case 'gm:dmReport': {
+          handleGmDirectMessages(ws, message);
           break;
         }
         case 'shadow:buy': {

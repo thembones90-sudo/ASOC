@@ -50,3 +50,7 @@ tweaks.json.tmp-*
 # Desktop app (desktop/) build output and its own dependencies.
 desktop/node_modules/
 desktop/dist/
+
+# Direct messages between Little Heroes -- private runtime data, never source.
+direct-messages.json
+direct-messages.json.*

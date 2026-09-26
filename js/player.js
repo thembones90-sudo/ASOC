@@ -1519,6 +1519,17 @@ const PlayerApp = {
         window.ShadowCosmetics?.onMessage(message);
         break;
 
+      case 'dm:summary':
+      case 'dm:list':
+      case 'dm:thread':
+      case 'dm:message':
+      case 'dm:read':
+      case 'dm:blocked':
+      case 'dm:reported':
+      case 'dm:error':
+        window.DirectMessages?.onMessage(message);
+        break;
+
       case 'players:update': {
         this.updatePlayerLeaderboard(message.players);
         this.iksArena = message.iksArena || null;
@@ -4058,6 +4069,13 @@ const PlayerApp = {
     if (editing) {
       this._pendingSpitTarget = null;
       this.send({ type: 'chat:edit', messageId: editing.id, text: (editing.prefix || '') + text });
+      return;
+    }
+
+    // "/w @Name message" never reaches the public chat: it opens a direct
+    // message (js/direct-messages.js).
+    if (!reply && window.DirectMessages?.handleWhisper(text)) {
+      this._pendingSpitTarget = null;
       return;
     }
 
