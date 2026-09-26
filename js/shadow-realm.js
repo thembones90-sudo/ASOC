@@ -11,12 +11,30 @@
   let timer = null;
 
   function flicker(name) {
+    // A 3-second smoke storm: a gray flicker, then billowing smoke rolls in
+    // from every edge until it fills the screen, a faint SHADOW REALM glyph
+    // glows through, and it all clears. Puffs get random spots and timing so
+    // no two banishments look the same.
     const layer = document.createElement('div');
     layer.className = 'srealm-flicker' + (reduced() ? ' still' : '');
     layer.setAttribute('aria-hidden', 'true');
-    layer.innerHTML = '<i></i><i></i><i></i>';
+    let puffs = '';
+    const PUFFS = 22;
+    for (let i = 0; i < PUFFS; i++) {
+      // Spread starting points around the edges and across the bottom.
+      const edge = i % 4;
+      const along = Math.random() * 100;
+      const x = edge === 0 ? along : edge === 1 ? 100 + Math.random() * 10 : edge === 2 ? along : -10 - Math.random() * 10;
+      const y = edge === 0 ? 105 + Math.random() * 10 : edge === 1 ? along : edge === 2 ? -10 - Math.random() * 10 : along;
+      const size = 45 + Math.random() * 45;            // vmax
+      const dx = (50 - x) * (0.5 + Math.random() * 0.5); // drift toward the centre
+      const dy = (50 - y) * (0.5 + Math.random() * 0.5);
+      const shade = 150 + Math.round(Math.random() * 60);
+      puffs += `<i style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;--s:${size.toFixed(0)}vmax;--dx:${dx.toFixed(0)}vw;--dy:${dy.toFixed(0)}vh;--c:${shade};--d:${(Math.random() * 0.5).toFixed(2)}s;--r:${(Math.random() * 60 - 30).toFixed(0)}deg"></i>`;
+    }
+    layer.innerHTML = `<div class="srealm-cloud">${puffs}</div><b class="srealm-glyph">SHADOW REALM</b>`;
     document.body.appendChild(layer);
-    setTimeout(() => layer.remove(), 2600);
+    setTimeout(() => layer.remove(), 3100);
     const toast = document.createElement('div');
     toast.className = 'srealm-toast';
     toast.setAttribute('role', 'status');
