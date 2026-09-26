@@ -1422,7 +1422,7 @@ const PlayerApp = {
         const previousById = new Map(this.chatMessages.map(m => [m.id, m]));
         this._chatArrivalIds = new Set();
         this._chatVerdictTransitionIds = new Set();
-        let followLatest = false;
+        let followLatest = Number(this._forceChatFollowLatestUntil || 0) > Date.now();
         // Only look for a "new" standalone Broker broadcast to trigger the
         // board-line reveal AFTER the first hydration -- otherwise a
         // player joining mid-game would see the room's entire chat history
@@ -1430,7 +1430,7 @@ const PlayerApp = {
         if (this._chatEverInitialized) {
           const newMessages = incoming.filter(m => !previousIds.has(m.id));
           window.AsocAlerts?.playerChat(newMessages, { selfId: this.playerId, selfName: this.playerName });
-          followLatest = newMessages.some(m =>
+          followLatest = followLatest || newMessages.some(m =>
             String(m.playerId || '') === String(this.playerId || '')
           );
           const verdictUpdates = incoming.filter(m => {
@@ -1466,6 +1466,7 @@ const PlayerApp = {
             this._highTrafficTimer = setTimeout(() => panel?.classList.remove('chat-high-traffic'), 5000);
           }
           if (newMessages.some(m => String(m.playerId || '') === String(this.playerId || ''))) {
+            this._forceChatFollowLatestUntil = 0;
             this.setChatDeliveryState('DELIVERED', 'delivered', 1800);
           }
           const newBrokerMsg = newMessages.find(m => m.source === 'shadowBroker');
@@ -4096,6 +4097,16 @@ const PlayerApp = {
       }
     }
     if (this.ws?.readyState === WebSocket.OPEN) {
+      // Sending is an explicit request to return to the live edge. Keep the
+      // viewport pinned while the server echo arrives so a submit click can
+      // never strand the sender several messages up in history.
+      this._forceChatFollowLatestUntil = Date.now() + 2500;
+      this.userScrolledUp = false;
+      this.jumpToLatestChat();
+      requestAnimationFrame(() => {
+        this.jumpToLatestChat();
+        input.focus({ preventScroll: true });
+      });
       this.setChatDeliveryState('SENDING', 'sending');
       this.send(payload);
     } else {
