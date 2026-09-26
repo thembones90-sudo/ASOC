@@ -1288,6 +1288,7 @@ const PlayerApp = {
 
       case 'protocol:ready': {
         this._protocolReady = true;
+        window.StaleGuard?.check(message.clientBuild, { role: 'player', liveBattle: this.roomMode === 'BATTLE' });
         // Only join after both sides agree on the wire protocol. A stale
         // browser therefore cannot accidentally issue commands to a newer
         // server (or vice versa).

@@ -19704,3 +19704,12 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
   .board-editor-sheet { min-width:760px; }
   .board-editor-final { min-width:732px; }
 }
+
+/* Denied ritual Blood Tribute: the Shadow Broker's reason, shown only to the
+   Little Hero who offered it (and on the GM ritual panel). */
+.ritual-tribute-rejection { display: grid; gap: 4px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid rgba(224, 96, 95, .6); border-left: 3px solid #e0605f; background: rgba(80, 16, 20, .45); text-align: left; animation: ritual-reject-in .5s ease-out; }
+.ritual-tribute-rejection b { color: #ff8a88; font-size: .72rem; letter-spacing: .18em; }
+.ritual-tribute-rejection span { color: #f3dede; font-size: .85rem; line-height: 1.4; overflow-wrap: anywhere; }
+.ritual-gm-rejection { margin: 6px 0; padding: 6px 10px; border-left: 3px solid #e0605f; background: rgba(80, 16, 20, .35); color: #f3dede; font-size: .72rem; letter-spacing: .06em; overflow-wrap: anywhere; }
+@keyframes ritual-reject-in { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .ritual-tribute-rejection { animation: none; } }

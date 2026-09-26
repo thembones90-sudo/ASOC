@@ -2598,6 +2598,7 @@ const App = {
 
       case 'protocol:ready':
         this._protocolReady = true;
+        window.StaleGuard?.check(message.clientBuild, { role: 'gm' });
         if (this.roomCode && this.hostToken) {
           this._reconnectPending = true;
           this.send({ type: 'host:reconnect', roomCode: this.roomCode, hostToken: this.hostToken, gmToken: GameData.gmToken });
@@ -3857,7 +3858,19 @@ const App = {
     Ritual.update('ritual-tracker-gm', this.ritual, true, {
       onViewBoard: () => this.togglePublicView(true),
       onAcceptTribute: () => this.send({ type: 'ritual:tributeAccept' }),
-      onRejectTribute: () => this.send({ type: 'ritual:tributeReject' }),
+      onRejectTribute: async () => {
+        const who = this.ritual?.tribute?.submittedByName || 'the Little Hero';
+        const reason = await window.AsocDialog.prompt({
+          title: 'DENY BLOOD TRIBUTE',
+          message: `Tell ${who} why. They will see this reason.`,
+          placeholder: 'e.g. Not bloody enough. Try again.',
+          maxLength: 200,
+          required: true,
+          confirmLabel: 'DENY'
+        });
+        if (reason === null || reason === undefined || !String(reason).trim()) return;
+        this.send({ type: 'ritual:tributeReject', reason: String(reason).trim() });
+      },
       onReset: () => { if (confirm('RESET RITUAL?\n\nClears every joined vote and any tribute decision. START GAME re-locks.')) this.send({ type: 'ritual:reset' }); },
       onCancel: () => { if (confirm('CANCEL RITUAL?\n\nAborts this battle attempt entirely and returns the room to AMUSEMENT PARK. This does not start Battle.')) this.send({ type: 'ritual:cancel' }); }
     });

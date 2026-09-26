@@ -157,7 +157,7 @@ const Ritual = {
       if (showPending) tributeEl.textContent = 'A TRIBUTE HAS BEEN OFFERED. AWAITING JUDGMENT.';
     }
 
-    if (!isGM) this._renderPlayerActions(el, { joinedCount, required, fulfilled, tributeStatus, iJoined: !!state?.iJoined }, handlers);
+    if (!isGM) this._renderPlayerActions(el, { joinedCount, required, fulfilled, tributeStatus, iJoined: !!state?.iJoined, rejection: tributeStatus === 'REJECTED' ? state?.tributeRejection : null }, handlers);
     else this._renderGmDetail(el, { joinedCount, required, fulfilled, fulfilledBy, tributeStatus, joined: state?.joined || [], tribute: state?.tribute || {} }, handlers);
   },
 
@@ -165,7 +165,10 @@ const Ritual = {
     const actions = el.querySelector('.ritual-actions');
     if (!actions) return;
     const canOfferTribute = !ctx.fulfilled && ['NONE', 'REJECTED'].includes(ctx.tributeStatus);
-    actions.innerHTML = `
+    const rejection = ctx.rejection && ctx.rejection.reason
+      ? `<div class="ritual-tribute-rejection" role="status"><b>YOUR TRIBUTE WAS DENIED</b><span>${this.escapeHtml(ctx.rejection.reason)}</span></div>`
+      : '';
+    actions.innerHTML = `${rejection}
       <button type="button" class="ritual-join-btn" ${(ctx.iJoined || ctx.fulfilled || this._joinPending) ? 'disabled' : ''}>${ctx.iJoined ? 'BOUND TO THE RITUAL' : this._joinPending ? 'BINDING SOUL…' : 'JOIN THE RITUAL'}</button>
       <div class="ritual-join-feedback" ${this._joinError ? '' : 'hidden'}>${this.escapeHtml(this._joinError)}</div>
       ${canOfferTribute ? `
@@ -219,11 +222,15 @@ const Ritual = {
       ACCEPTED: 'ACCEPTED',
       REJECTED: 'REJECTED // may resubmit'
     }[ctx.tributeStatus] || 'NONE';
+    const rejectionNote = ctx.tributeStatus === 'REJECTED' && ctx.tribute?.rejection?.reason
+      ? `<div class="ritual-gm-rejection">DENIED ${this.escapeHtml(ctx.tribute.rejection.playerName || '')} // ${this.escapeHtml(ctx.tribute.rejection.reason)}</div>`
+      : '';
     detail.innerHTML = `
       <div class="ritual-gm-summary">
         <div class="ritual-gm-roster"><span>BOUND //</span> ${names}</div>
         <div class="ritual-gm-meta"><b>${missing ? `${missing} SOUL${missing === 1 ? '' : 'S'} REMAIN` : 'CIRCLE COMPLETE'}</b><span>TRIBUTE // ${tributeLine}</span>${ctx.fulfilled ? `<span class="ritual-gm-fulfilled-tag">FULFILLED BY ${ctx.fulfilledBy === 'BLOOD_TRIBUTE' ? 'BLOOD TRIBUTE' : 'VOTES'}</span>` : ''}</div>
       </div>
+      ${rejectionNote}
       ${ctx.tributeStatus === 'PENDING' && ctx.tribute.imageData ? `<button type="button" class="ritual-gm-tribute-preview-btn"><img class="ritual-gm-tribute-preview" src="${this.escapeHtml(ctx.tribute.imageData)}" alt="Offered tribute"></button>` : ''}
       <div class="ritual-gm-actions">
         ${ctx.tributeStatus === 'PENDING' ? '<button type="button" class="ritual-gm-accept-btn">ACCEPT BLOOD TRIBUTE</button><button type="button" class="ritual-gm-reject-btn">DENY BLOOD TRIBUTE</button>' : ''}

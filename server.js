@@ -45,6 +45,8 @@ const GIPHY_API_BASE = 'https://api.giphy.com/v1/gifs';
 const GIPHY_API_KEY = String(process.env.GIPHY_API_KEY || '').trim();
 const GIPHY_RATING = String(process.env.GIPHY_RATING || 'pg-13').trim() || 'pg-13';
 const MASTER_ROOM_CODE = 'MASTER';
+// Max length of the reason the Shadow Broker gives when denying a ritual Blood Tribute.
+const RITUAL_REJECT_REASON_MAX = 200;
 const ROOM_MODES = Object.freeze({
   CASUAL: 'CASUAL',
   BATTLE_ARMED: 'BATTLE_ARMED',
@@ -87,6 +89,23 @@ const WS_HEARTBEAT_MS = 30000;
 const WS_HANDSHAKE_TIMEOUT_MS = Math.max(100, Number(process.env.ASOC_WS_HANDSHAKE_TIMEOUT_MS) || 10000);
 const COLUMN_REVEAL_DELAY_MS = Math.max(100, Number(process.env.ASOC_COLUMN_REVEAL_DELAY_MS) || 5000);
 const PROTOCOL_VERSION = 1;
+// The client build currently being served (the ?v= of player.js / app.js in
+// join.html / index.html), read once at startup. Announced on every
+// connection so a page opened before a deploy can tell it is stale
+// (js/stale-guard.js).
+const CLIENT_BUILD = (() => {
+  const read = (file, script) => {
+    try {
+      const html = fs.readFileSync(path.join(__dirname, file), 'utf8');
+      const marker = '<script src="js/' + script + '?v=';
+      const at = html.indexOf(marker);
+      if (at === -1) return null;
+      const from = at + marker.length;
+      return html.slice(from, html.indexOf('"', from)) || null;
+    } catch { return null; }
+  };
+  return { player: read('join.html', 'player.js'), gm: read('index.html', 'app.js') };
+})();
 const DEPLOY_BUILD_ID = String(
   process.env.RAILWAY_GIT_COMMIT_SHA
   || process.env.SOURCE_VERSION
@@ -1403,7 +1422,16 @@ function normalizeRitualState(saved) {
       status,
       submittedBy: status === 'NONE' ? null : (tributeSource.submittedBy ? String(tributeSource.submittedBy) : null),
       submittedByName: status === 'NONE' ? null : (String(tributeSource.submittedByName || '') || null),
-      imageData: status === 'PENDING' ? (sanitizeTributeImageData(tributeSource.imageData) || null) : null
+      imageData: status === 'PENDING' ? (sanitizeTributeImageData(tributeSource.imageData) || null) : null,
+      // Why the Shadow Broker denied it -- shown only to the Little Hero who offered it.
+      rejection: status === 'REJECTED' && tributeSource.rejection && typeof tributeSource.rejection === 'object'
+        ? {
+          playerId: String(tributeSource.rejection.playerId || ''),
+          playerName: String(tributeSource.rejection.playerName || '').slice(0, 40),
+          reason: String(tributeSource.rejection.reason || '').slice(0, RITUAL_REJECT_REASON_MAX),
+          at: Number(tributeSource.rejection.at) || 0
+        }
+        : null
     },
     fulfilled: source.fulfilled === true,
     fulfilledBy: source.fulfilledBy === 'VOTES' || source.fulfilledBy === 'BLOOD_TRIBUTE' ? source.fulfilledBy : null
@@ -1447,6 +1475,12 @@ function isRitualFulfilled(room) {
 // Player-safe projection -- no names, no submitter identity, no image.
 // "The public representation should feel like anonymous ritual
 // participation rather than an attendance checklist."
+// The denial reason is private to the Little Hero whose tribute was denied.
+function ritualRejectionFor(room, playerId) {
+  const rejection = room.ritual?.tribute?.status === 'REJECTED' ? room.ritual.tribute.rejection : null;
+  return rejection && rejection.playerId && rejection.playerId === String(playerId) ? { reason: rejection.reason, at: rejection.at } : null;
+}
+
 function getRitualSafeState(room) {
   const ritual = room.ritual || normalizeRitualState(null);
   return {
@@ -1474,7 +1508,8 @@ function sendRitualDetailToHost(room) {
       tribute: {
         status: ritual.tribute.status,
         submittedByName: ritual.tribute.submittedByName,
-        imageData: ritual.tribute.status === 'PENDING' ? ritual.tribute.imageData : null
+        imageData: ritual.tribute.status === 'PENDING' ? ritual.tribute.imageData : null,
+        rejection: ritual.tribute.rejection || null
       }
     }
   });
@@ -1486,7 +1521,7 @@ function broadcastRitualState(room) {
   const joinedIds = room.ritual?.joinedPlayerIds || [];
   room.players.forEach((player, ws) => {
     if (player.isTestPersona === true || ws.readyState !== 1) return;
-    sendToWs(ws, { type: 'ritual:update', ritual: { ...safe, iJoined: joinedIds.includes(String(player.id)) } });
+    sendToWs(ws, { type: 'ritual:update', ritual: { ...safe, iJoined: joinedIds.includes(String(player.id)), tributeRejection: ritualRejectionFor(room, player.id) } });
   });
   sendRitualDetailToHost(room);
 }
@@ -1561,13 +1596,19 @@ function handleRitualTributeAccept(ws) {
   sendTributeVaultToHost(room);
 }
 
-function handleRitualTributeReject(ws) {
+function handleRitualTributeReject(ws, message) {
   const room = requireGmRoom(ws);
   if (!room) return;
   if (!room.ritual?.active || room.ritual.tribute.status !== 'PENDING') {
     return sendToWs(ws, { type: 'error', message: 'No Blood Tribute is awaiting judgment' });
   }
-  room.ritual.tribute = { status: 'REJECTED', submittedBy: null, submittedByName: null, imageData: null };
+  const reason = sanitizeText(String(message?.reason || '')).trim().slice(0, RITUAL_REJECT_REASON_MAX);
+  if (!reason) return sendToWs(ws, { type: 'error', message: 'Give the Little Hero a reason for denying the tribute' });
+  const offered = room.ritual.tribute;
+  room.ritual.tribute = {
+    status: 'REJECTED', submittedBy: null, submittedByName: null, imageData: null,
+    rejection: { playerId: String(offered.submittedBy || ''), playerName: offered.submittedByName || '', reason, at: Date.now() }
+  };
   recomputeRitualFulfillment(room);
   broadcastRitualState(room);
 }
@@ -6447,7 +6488,7 @@ function handlePlayerJoin(ws, message) {
   // before a ritual field existed in its persisted snapshot).
   sendToWs(ws, {
     type: 'ritual:update',
-    ritual: { ...getRitualSafeState(room), iJoined: !!room.ritual?.joinedPlayerIds?.includes(String(playerId)) }
+    ritual: { ...getRitualSafeState(room), iJoined: !!room.ritual?.joinedPlayerIds?.includes(String(playerId)), tributeRejection: ritualRejectionFor(room, playerId) }
   });
 
   broadcastPlayersUpdate(room);
@@ -9115,7 +9156,7 @@ wss.on('connection', (ws) => {
         }
         ws.protocolVerified = true;
         clearTimeout(handshakeTimer);
-        sendToWs(ws, { type: 'protocol:ready', protocolVersion: PROTOCOL_VERSION });
+        sendToWs(ws, { type: 'protocol:ready', protocolVersion: PROTOCOL_VERSION, clientBuild: CLIENT_BUILD });
         return;
       }
 
@@ -9357,7 +9398,7 @@ wss.on('connection', (ws) => {
           break;
         }
         case 'ritual:tributeReject': {
-          handleRitualTributeReject(ws);
+          handleRitualTributeReject(ws, message);
           break;
         }
         case 'ritual:reset': {
