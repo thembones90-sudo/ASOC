@@ -2071,7 +2071,8 @@ const TIMER_DURATIONS_MS = {
   PURPLE: 35 * 60 * 1000,
   BLACK: 35 * 60 * 1000
 };
-const TIMER_BORROWED_MS = 2 * 60 * 1000;
+// Tests may shorten it; production is always 2:00.
+const TIMER_BORROWED_MS = Math.max(1000, Number(process.env.ASOC_TIMER_BORROWED_MS) || 2 * 60 * 1000);
 const TIMER_TICK_MS = 1000;
 
 function defaultTimerDuration(room) {
@@ -2563,11 +2564,45 @@ setInterval(() => runtimeAction(() => {
 // Borrowed Time crosses into 'expired'. Entering Borrowed Time is a pure
 // phase/number change; expiry hands off to declareGameLost(), the single
 // authoritative GAME LOST transition (FINAL RED, penalties, WOMF +3).
+// ALL COLUMNS OPEN -> BORROWED TIME. The moment all four column solutions
+// (A5-D5) are on the board -- solved or failed, it does not matter -- and
+// only the Final remains, the normal clock is forfeited and Borrowed Time
+// starts with its full 2:00. When that runs out, the existing expiry path
+// declares GAME LOST. Triggers once per board (the flag lives on the
+// per-board timer), only on a live, started, unresolved battle clock;
+// a clock already in Borrowed Time keeps what it has left.
+const ALL_COLUMNS_OPEN_MESSAGE = 'ALL COLUMNS OPEN // ONLY THE FINAL REMAINS // BORROWED TIME // 2:00 TO SOLVE IT OR THE GAME IS LOST';
+function enterBorrowedIfAllColumnsOpen(room) {
+  const t = room.timer;
+  if (!t || t.allColumnsBorrowed || (t.phase !== 'running' && t.phase !== 'paused')) return false;
+  if (room.roomMode !== ROOM_MODES.BATTLE || isMatchResolved(room)) return false;
+  const s = room.sessionState || {};
+  if (s.finalSolution === true || s.finalOutcome || room.scoring?.boardFinalized) return false;
+  // A column counts as open once its solution is on the board, it was solved
+  // from chat, or the GM declared it solved/failed.
+  const open = col => s.cells?.[col + '5'] === true || !!room.chat?.solvedTargets?.[col] || !!s.cellOutcomes?.[col + '5'];
+  if (!['A', 'B', 'C', 'D'].every(open)) return false;
+  t.allColumnsBorrowed = true;
+  t.remaining = 0;
+  t.phase = t.phase === 'paused' ? 'borrowed_paused' : 'borrowed';
+  t.borrowedRemaining = t.borrowedDuration || TIMER_BORROWED_MS;
+  t.borrowedStartedAt = Date.now();
+  console.log(`[ROOM ${room.code}] All four columns open -- BORROWED TIME for the Final`);
+  addShadowBrokerMessage(room, ALL_COLUMNS_OPEN_MESSAGE, { editableByHost: false });
+  broadcastChatUpdate(room);
+  return true;
+}
+
 setInterval(() => runtimeAction(() => {
   const dirty = [];
   rooms.forEach((room) => {
     if (!room.timer) return;
     const t = room.timer;
+
+    if (enterBorrowedIfAllColumnsOpen(room)) {
+      dirty.push(room);
+      return;
+    }
 
     if (t.phase === 'running') {
       t.remaining = Math.max(0, t.remaining - TIMER_TICK_MS);
