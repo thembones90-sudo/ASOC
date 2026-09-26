@@ -245,6 +245,39 @@ function checkClientNeverSelfDismisses() {
     await sleep(400);
     assert.equal(await bo.none(m => m.type === 'megabonk:alert' && m.id !== fourthId, boErr, 50), true, 'players cannot MEGABONK');
 
+    // Custom message + single-player target (back in the Amusement Park).
+    gm.send({ type: 'gm:setRoomMode', mode: 'CASUAL' });
+    await gm.next(m => m.type === 'state:public' && m.roomMode === 'CASUAL', 'casual again');
+    gm.send({ type: 'gm:megabonkEnd' });
+    await sleep(300);
+    from = gm.mark();
+    const anaM = ana.mark(), boM = bo.mark();
+    gm.send({ type: 'gm:broadcast', text: '/megabonk all Battle starts in 2 minutes, get ready' });
+    const withMsg = await progress(gm, e => e.message === 'Battle starts in 2 minutes, get ready', 'message event', from);
+    assert.equal(withMsg.scope, 'all');
+    assert.equal((await ana.next(m => m.type === 'megabonk:alert', 'ana msg alert', anaM)).message, 'Battle starts in 2 minutes, get ready');
+    gm.send({ type: 'gm:megabonkEnd' });
+    await sleep(300);
+    from = gm.mark();
+    const anaM2 = ana.mark(), boM2 = bo.mark();
+    gm.send({ type: 'gm:broadcast', text: '/megabonk @Bo wake up, you are AFK' });
+    const one = await progress(gm, e => e.scope === 'one', 'single target', from);
+    assert.equal(one.total, 1);
+    assert.equal(one.players[0].name, 'Bo');
+    assert.equal(one.message, 'wake up, you are AFK');
+    assert.equal((await bo.next(m => m.type === 'megabonk:alert', 'bo alerted', boM2)).message, 'wake up, you are AFK');
+    assert.equal(await ana.none(m => m.type === 'megabonk:alert', anaM2, 500), true, 'only the targeted player is alerted');
+    const errMark = gm.mark();
+    gm.send({ type: 'gm:broadcast', text: '/megabonk @Nobody hello' });
+    assert.match((await gm.next(m => m.type === 'error', 'unknown target', errMark)).message, /NO CONNECTED LITTLE HERO/);
+    gm.send({ type: 'gm:broadcast', text: '/megabonk sideways' });
+    assert.match((await gm.next(m => m.type === 'error' && /INVALID/.test(m.message), 'bad syntax', errMark)).message, /megabonk all/);
+    void boM; void anaM;
+    // The GM command picker offers both forms.
+    const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+    assert.match(appSrc, /insert: '\/megabonk all '/);
+    assert.match(appSrc, /insert: '\/megabonk @'/);
+
     // Outdated browser pages (no build reported) are told to refresh;
     // current pages and scripts connect normally.
     const handshake = (headers, hello) => new Promise((resolve, reject) => {

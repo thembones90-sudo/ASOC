@@ -59,11 +59,11 @@ class Client {
   close() { try { this.ws.close(); } catch {} }
 }
 
-async function battle(label, scenario) {
+async function battle(label, scenario, envOverrides = {}) {
   const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'asoc-scoring-'));
   const server = spawn(process.execPath, ['server.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'sc-pass', ASOC_EMAIL_VERIFICATION: '0', ASOC_COLUMN_REVEAL_DELAY_MS: '150' },
+    env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'sc-pass', ASOC_EMAIL_VERIFICATION: '0', ASOC_COLUMN_REVEAL_DELAY_MS: '150', ...envOverrides },
     stdio: ['ignore', 'ignore', 'pipe']
   });
   server.errors = '';
@@ -237,6 +237,21 @@ async function battle(label, scenario) {
     await judge(await guess('Dee', 'b'), 'B');
     expect('Dee', 50, 0.1, 'after the Final, 4 clues = 50 / 0.1');
   });
+
+  // 6b. Loophole closed: a column accepted from chat counts as visible from
+  //     the moment it is accepted, even while its board cell is still
+  //     waiting to reveal (5s in production). The GM's live FINAL NOW value
+  //     follows it.
+  await battle('accepted-counts', async ({ reveal, guess, judge, expect, gm }) => {
+    assert.deepEqual(gm.state.finalValue, { columns: 0, points: 0, coins: 0 }, 'nothing visible yet');
+    await reveal('A1');
+    await judge(await guess('Ana', 'alpha'), 'A');
+    assert.equal(gm.state.cells?.A5?.revealed === true, false, 'A5 not revealed on the board yet');
+    assert.deepEqual(gm.state.finalValue, { columns: 1, points: 2200, coins: 5 }, 'GM sees FINAL NOW 2200 / 5 SC');
+    await judge(await guess('Bo', 'quick final'), 'FINAL');
+    expect('Bo', 2200, 5.0, 'a Final guessed before A5 appears still counts A as visible');
+    assert.equal(gm.state.finalValue, null, 'no Final value once the Final is solved');
+  }, { ASOC_COLUMN_REVEAL_DELAY_MS: '20000' });
 
   // 7. Failed Final: no point or coin penalty for anyone.
   await battle('failed-final', async ({ reveal, guess, judge, expect, gm }) => {

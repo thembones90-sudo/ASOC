@@ -102,3 +102,8 @@ body.mbk-shake { animation: mbk-shake .7s cubic-bezier(.36, .07, .19, .97) both;
 @media (prefers-reduced-motion: reduce) {
   .mbk-slam .mbk-hammer, .mbk-slam .mbk-card, .mbk-slam .mbk-title, body.mbk-shake { animation: none !important; }
 }
+
+/* MEGABONK message from the Shadow Broker */
+.mbk-msg { margin: 2px 0 0; max-width: 520px; font: 700 clamp(1rem, 2.8vw, 1.25rem)/1.45 var(--font-system, system-ui, sans-serif); color: #fff; text-shadow: 0 0 12px rgba(255, 60, 70, .45); overflow-wrap: anywhere; }
+.mbk-msg[hidden] { display: none; }
+.mbk-gm-msg { margin: 0 12px 8px; font-size: 12px; line-height: 1.4; color: #f0d6d8; overflow-wrap: anywhere; }

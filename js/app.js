@@ -94,6 +94,16 @@ const App = {
     { name: 'order', insert: '/order', icon: '⇅', label: 'TURN ORDER', description: '/order -- shuffled turn order of connected players' },
     { name: 'stats', insert: '/stats', icon: '▤', label: 'THE BOOK', description: '/stats -- the Broker consults the book' },
     { name: 'all', insert: '/all ', icon: '⚡', label: 'ALL', description: '/all [message] -- shake every screen' },
+    { name: 'megabonk', insert: '/megabonk all ', icon: '🔨', label: 'MEGABONK ALL', description: '/megabonk all [message] -- every Little Hero must ACKNOWLEDGE' },
+    { name: 'megabonk', insert: '/megabonk @', icon: '🔨', label: 'MEGABONK ONE', description: '/megabonk @Name [message] -- one Little Hero must ACKNOWLEDGE' },
+    { name: 'relic', insert: '/relic @', icon: '✦', label: 'RELIC', description: "/relic @Name -- grant SHADOW BROKER'S MISTAKE" },
+    { name: 'smite', insert: '/smite @', icon: '⚡', label: 'SMITE', description: '/smite @Name -- strike of judgement' },
+    { name: 'freeze', insert: '/freeze @', icon: '❄', label: 'FREEZE', description: '/freeze @Name -- theatrical ice' },
+    { name: 'glitch', insert: '/glitch @', icon: '▦', label: 'GLITCH', description: '/glitch @Name -- tear the signal' },
+    { name: 'omen', insert: '/omen', icon: '☽', label: 'OMEN', description: '/omen -- a bad sign for the room' },
+    { name: 'rupture', insert: '/rupture', icon: '✶', label: 'RUPTURE', description: '/rupture -- crack reality open' },
+    { name: 'vanish', insert: '/vanish', icon: '☁', label: 'VANISH', description: '/vanish -- disappear in smoke' },
+    { name: 'love', insert: '/love ', icon: '♥', label: 'LOVE', description: '/love [@Name] -- hearts over the chat' },
     { name: 'grovel', insert: '/grovel', icon: '⛓', label: 'GROVEL', description: '/grovel -- demand groveling' },
     { name: 'spit', insert: '/spit ', icon: '➤', label: 'SPIT', description: '/spit @Name -- the Broker spits too' },
     { name: 'fart', insert: '/fart ', icon: '☁', label: 'FART', description: '/fart @Name -- the Broker farts too' },
@@ -2676,7 +2686,9 @@ const App = {
         break;
 
       case 'state:public':
+        this.finalValue = message.finalValue || null;
         this.applyServerState(message);
+        this.updateSolvedCount();
         break;
 
       case 'game:loaded':
@@ -5861,8 +5873,15 @@ const App = {
     }
     const solved = Object.keys(this.solvedTargets).length;
     if (countEl.hidden) countEl.hidden = false;
-    const text = `SOLVED: ${solved}/5`;
+    // FINAL value: what a correct Final guessed right now would earn.
+    const fv = this.finalValue;
+    const coins = fv ? (Number.isInteger(fv.coins) ? String(fv.coins) : Number(fv.coins).toFixed(1)) : '';
+    const text = fv
+      ? `SOLVED: ${solved}/5 · FINAL NOW ${fv.points} PTS / ${coins} SC`
+      : `SOLVED: ${solved}/5`;
     if (countEl.textContent !== text) countEl.textContent = text;
+    const title = fv ? `A correct Final right now is worth ${fv.points} points and ${coins} Shadow Coins (${fv.columns} column solution${fv.columns === 1 ? '' : 's'} visible)` : '';
+    if (countEl.title !== title) countEl.title = title;
   },
 
   // SHADOW BROKER free-form broadcast -- host-only, sent as its own new

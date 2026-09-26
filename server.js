@@ -1173,6 +1173,13 @@ function getPublicState(room) {
     background: room.currentBackground,
     cells: publicCells,
     finalSolution: finalCell,
+    // What a correct Final guessed NOW would earn (GM panel readout).
+    finalValue: finalCell.revealed || room.sessionState.finalSolution === true || room.chat?.solvedTargets?.FINAL
+      ? null
+      : (() => {
+        const known = Math.min(countKnownColumns(room), 4);
+        return { columns: known, points: scoring.FINAL_SCORE_BY_COLUMNS[known], coins: scoring.FINAL_COINS_BY_COLUMNS[known] };
+      })(),
     // Authoritative victory flag: late joiners / reconnects hydrate straight
     // into the completed state from this; the live sequence is client-side and
     // plays only on the false->true transition.
@@ -2734,7 +2741,11 @@ function solvedTargetsForFieldState(room) {
 // after COLUMN_REVEAL_DELAY_MS). A column merely marked failed but whose
 // solution is still hidden does not count. Drives FINAL_SCORE_BY_COLUMNS.
 function isColumnSolutionKnown(room, col) {
-  return room.sessionState?.cells?.[`${col}5`] === true;
+  // A column accepted from chat counts from the moment of acceptance: the
+  // accepted answer is already in everyone's chat, even though its board
+  // cell only reveals COLUMN_REVEAL_DELAY_MS later (closing a window where a
+  // Final guessed in those seconds was worth more than it should be).
+  return room.sessionState?.cells?.[`${col}5`] === true || !!room.chat?.solvedTargets?.[col];
 }
 
 function countKnownColumns(room) {
@@ -3689,6 +3700,7 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
     const oldRecord = room.chat.solvedTargets[oldSolvedKey];
     if (oldRecord && oldRecord.messageId === message.id) {
       delete room.chat.solvedTargets[oldSolvedKey];
+      changed = true;
       revokeBattleCoins(room, message);
       if (oldTarget === 'FINAL') {
         reverseFinalSolve(room);
@@ -3710,6 +3722,9 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
         messageId: message.id,
         timestamp: Date.now()
       };
+      // Public state carries derived values (the Final's live worth), so a
+      // new solve is a state change even before any cell is revealed.
+      changed = true;
       if (target === 'FINAL') {
         const result = awardFinalSolve(room, message);
         awardBattleCoins(room, message, target, result.rejected ? 0 : result.event.coins);
@@ -5471,7 +5486,7 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/vote', help: '/vote <question> -- instant YES/NO poll' },
   { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
-  { name: '/megabonk', help: '/megabonk all -- persistent alert every connected Little Hero must ACKNOWLEDGE' },
+  { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' },
   { name: '/dice', help: '/dice 2d6 -- roll N dice with M faces, optional +K' },
   { name: '/flip', help: '/flip [heads|tails] -- coin flip' },
   { name: '/choose', help: '/choose A | B | C -- pick one option at random' },
@@ -5929,8 +5944,9 @@ function dispatchGmSlashCommand(room, ws, text) {
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
   if (/^\/megabonk\b/i.test(raw)) {
-    if (!/^\/megabonk(?:\s+all)?\s*$/i.test(raw)) return { success: false, error: 'MEGABONK INVALID // USE /megabonk all' };
-    const result = triggerMegabonk(room);
+    const parsed = parseMegabonkCommand(room, raw);
+    if (parsed.error) return { success: false, error: parsed.error };
+    const result = triggerMegabonk(room, parsed);
     return result.ok ? { success: true, broadcast: false } : { success: false, error: result.error };
   }
   // Unlisted: loads the Shadow Broker's private oversight module.
@@ -6953,18 +6969,46 @@ function normalizeMegabonk(raw) {
     if (!t || typeof t !== 'object') continue;
     targets[id] = { name: String(t.name || 'Little Hero').slice(0, 40), ackAt: Number.isFinite(t.ackAt) ? t.ackAt : null };
   }
-  return { id: raw.id, at: Number(raw.at) || Date.now(), targets };
+  return { id: raw.id, at: Number(raw.at) || Date.now(), targets, message: String(raw.message || '').slice(0, 160), scope: raw.scope === 'one' ? 'one' : 'all' };
 }
 
-function triggerMegabonk(room) {
+// /megabonk                     -> everyone
+// /megabonk all [message]       -> everyone, with the Broker's message
+// /megabonk @Name [message]     -> one connected Little Hero (names may
+//                                  contain spaces: the longest matching
+//                                  connected name wins)
+const MEGABONK_MESSAGE_MAX = 160;
+function parseMegabonkCommand(room, raw) {
+  const rest = String(raw || '').replace(/^\/megabonk\b/i, '').trim();
+  if (!rest) return { scope: 'all', message: '' };
+  if (/^all\b/i.test(rest)) return { scope: 'all', message: rest.replace(/^all\b/i, '').trim().slice(0, MEGABONK_MESSAGE_MAX) };
+  if (!rest.startsWith('@')) return { error: 'MEGABONK INVALID // USE /megabonk all [message] OR /megabonk @Name [message]' };
+  const after = rest.slice(1);
+  const lower = after.toLocaleLowerCase();
+  const candidates = [];
+  room.players.forEach((player, socket) => {
+    if (!player?.id || socket.readyState !== 1 || player.connected === false) return;
+    const name = String(player.name || '').trim();
+    const n = name.toLocaleLowerCase();
+    if (n && (lower === n || lower.startsWith(n + ' '))) candidates.push({ player, name });
+  });
+  candidates.sort((a, b) => b.name.length - a.name.length);
+  const hit = candidates[0];
+  if (!hit) return { error: 'MEGABONK // NO CONNECTED LITTLE HERO BY THAT NAME' };
+  return { scope: 'one', playerId: String(hit.player.id), message: after.slice(hit.name.length).trim().slice(0, MEGABONK_MESSAGE_MAX) };
+}
+
+function triggerMegabonk(room, options = {}) {
   if (room.roomMode === ROOM_MODES.BATTLE) return { ok: false, error: 'MEGABONK // NOT DURING A LIVE BATTLE. USE IT BEFORE THE GAME BEGINS.' };
   const targets = {};
   room.players.forEach((player, socket) => {
     if (!player?.id || socket.readyState !== 1 || player.connected === false) return;
+    if (options.scope === 'one' && String(player.id) !== options.playerId) return;
     targets[String(player.id)] = { name: String(player.name || 'Little Hero').slice(0, 40), ackAt: null };
   });
   if (!Object.keys(targets).length) return { ok: false, error: 'MEGABONK // NO LITTLE HEROES ARE CONNECTED' };
-  room.megabonk = { id: 'megabonk-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex'), at: Date.now(), targets };
+  const message = sanitizeText(String(options.message || '')).slice(0, MEGABONK_MESSAGE_MAX);
+  room.megabonk = { id: 'megabonk-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex'), at: Date.now(), targets, message, scope: options.scope === 'one' ? 'one' : 'all' };
   persistActiveRooms();
   room.players.forEach((player, socket) => deliverMegabonkTo(room, socket));
   sendMegabonkProgress(room);
@@ -6977,7 +7021,7 @@ function deliverMegabonkTo(room, ws) {
   if (!event || !ws?.playerId || ws.readyState !== 1) return;
   const target = event.targets[String(ws.playerId)];
   if (!target || target.ackAt) return;
-  sendToWs(ws, { type: 'megabonk:alert', id: event.id, at: event.at });
+  sendToWs(ws, { type: 'megabonk:alert', id: event.id, at: event.at, message: event.message || '' });
 }
 
 function megabonkProgress(room) {
@@ -6990,7 +7034,7 @@ function megabonkProgress(room) {
     .sort((a, b) => (a.ackAt ? 1 : 0) - (b.ackAt ? 1 : 0) || a.name.localeCompare(b.name));
   return {
     type: 'megabonk:progress',
-    event: { id: event.id, at: event.at, total: players.length, acknowledged: players.filter(p => p.ackAt).length, players }
+    event: { id: event.id, at: event.at, total: players.length, acknowledged: players.filter(p => p.ackAt).length, players, message: event.message || '', scope: event.scope || 'all' }
   };
 }
 

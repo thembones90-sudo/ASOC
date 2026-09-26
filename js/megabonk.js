@@ -21,7 +21,7 @@
     <path d="M10 30l-8-6v30l8-6z M110 30l8-6v30l-8-6z" fill="#c0202c" stroke="#101216" stroke-width="2"/>
   </svg>`;
 
-  function showAlert(id) {
+  function showAlert(id, message) {
     pendingId = id;
     if (!overlay || !overlay.isConnected) {
       overlay = document.createElement('div');
@@ -36,6 +36,7 @@
           ${HAMMER}
           <h1 id="mbk-title" class="mbk-title">MEGABONK</h1>
           <p id="mbk-sub" class="mbk-sub">SHADOW BROKER REQUIRES YOUR ATTENTION</p>
+          <p class="mbk-msg" hidden></p>
           <button type="button" class="mbk-ack">ACKNOWLEDGE</button>
         </div>`;
       overlay.querySelector('.mbk-ack').addEventListener('click', acknowledge);
@@ -48,6 +49,11 @@
         setTimeout(() => document.body.classList.remove('mbk-shake'), 900);
       }
       window.AsocAlerts?.signal?.({ popup: { title: 'MEGABONK', body: 'The Shadow Broker requires your attention.', tag: 'megabonk' } });
+    }
+    const msgEl = overlay.querySelector('.mbk-msg');
+    if (msgEl) {
+      msgEl.textContent = message || '';
+      msgEl.hidden = !message;
     }
     const button = overlay.querySelector('.mbk-ack');
     button.disabled = false;
@@ -118,10 +124,11 @@
     widget.classList.toggle('collapsed', collapsed);
     widget.innerHTML = `
       <header class="mbk-gm-head">
-        <strong>MEGABONK // ${event.acknowledged} / ${event.total} ACKNOWLEDGED</strong>
+        <strong>MEGABONK${event.scope === 'one' ? ' ONE' : ''} // ${event.acknowledged} / ${event.total} ACKNOWLEDGED</strong>
         <button type="button" class="mbk-gm-btn" data-mbk-toggle aria-label="${collapsed ? 'Expand' : 'Collapse'}">${collapsed ? '▴' : '▾'}</button>
       </header>
       <div class="mbk-gm-bar"><i style="width:${pct}%"></i></div>
+      ${event.message ? `<p class="mbk-gm-msg">“${esc(event.message)}”</p>` : ''}
       ${collapsed ? '' : `
         <ul class="mbk-gm-list">${event.players.map(p => `
           <li class="${p.ackAt ? 'ack' : 'pending'}">
@@ -137,7 +144,7 @@
   }
 
   function onMessage(message) {
-    if (message.type === 'megabonk:alert') return showAlert(message.id);
+    if (message.type === 'megabonk:alert') return showAlert(message.id, String(message.message || ''));
     if (message.type === 'megabonk:cleared') return clearAlert(message.id);
     if (message.type === 'megabonk:progress') return renderProgress(message.event);
   }
