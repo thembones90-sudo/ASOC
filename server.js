@@ -352,7 +352,7 @@ function serializeRoomForRecovery(room) {
     pendingTribute: room.pendingTribute || null,
     nudgeCounts: room.nudgeCounts || {},
     moonTolls: room.moonTolls || {},
-    megabonk: room.megabonk || null,
+    megabonks: Array.isArray(room.megabonks) ? room.megabonks : [],
     ritual: normalizeRitualState(room.ritual),
     unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
     kaladont: room.kaladont || null,
@@ -462,7 +462,9 @@ function restoreActiveRooms() {
         pendingTribute: saved.pendingTribute || null,
         nudgeCounts: saved.nudgeCounts && typeof saved.nudgeCounts === 'object' ? saved.nudgeCounts : {},
         moonTolls: saved.moonTolls && typeof saved.moonTolls === 'object' ? saved.moonTolls : {},
-        megabonk: normalizeMegabonk(saved.megabonk),
+        // Older saves held a single event in `megabonk`.
+        megabonks: (Array.isArray(saved.megabonks) ? saved.megabonks : (saved.megabonk ? [saved.megabonk] : []))
+          .map(normalizeMegabonk).filter(Boolean).slice(-8), // MEGABONK_MAX_EVENTS
         ritual: normalizeRitualState(saved.ritual),
         unstableConcoction: unstableConcoction.normalizeState(saved.unstableConcoction),
         // KALADONT survives a restart; the phase in flight gets a fresh window
@@ -6676,7 +6678,7 @@ function broadcastPlayersUpdate(room) {
   if (room.hostConnection?.readyState === 1) {
     room.hostConnection.send(JSON.stringify({ type: 'players:update', players: getPlayersSnapshot(room, true), iksArena: iksArena.publicState(), brokerOnline: true }));
   }
-  if (room.megabonk) sendMegabonkProgress(room); // online/offline dots
+  if (room.megabonks?.length) sendMegabonkProgress(room); // online/offline dots
 }
 
 function handleModeratePlayer(ws, message, shouldBan) {
@@ -6956,8 +6958,9 @@ function handleGmResetScoreboard(ws, message) {
 
 // ---------------------------------------------------------------------------
 // MEGABONK -- the Shadow Broker's persistent pre-game attention call.
-// One event at a time (room.megabonk). Every Little Hero connected when it
-// fires becomes a target and keeps a full-screen alert until THEY press
+// Several events can run at once (room.megabonks, oldest first; a player
+// with more than one pending sees them one after another). Every Little Hero
+// connected when an event fires becomes a target and keeps a full-screen alert until THEY press
 // ACKNOWLEDGE; nothing else (timeouts, reconnects, state refreshes, chat)
 // clears it. Unacknowledged targets get it again on reconnect; a new
 // MEGABONK is a new event id and needs fresh acknowledgements. It is not a
@@ -6978,6 +6981,7 @@ function normalizeMegabonk(raw) {
 //                                  contain spaces: the longest matching
 //                                  connected name wins)
 const MEGABONK_MESSAGE_MAX = 160;
+const MEGABONK_MAX_EVENTS = 8;
 function parseMegabonkCommand(room, raw) {
   const rest = String(raw || '').replace(/^\/megabonk\b/i, '').trim();
   if (!rest) return { scope: 'all', message: '' };
@@ -7008,34 +7012,42 @@ function triggerMegabonk(room, options = {}) {
   });
   if (!Object.keys(targets).length) return { ok: false, error: 'MEGABONK // NO LITTLE HEROES ARE CONNECTED' };
   const message = sanitizeText(String(options.message || '')).slice(0, MEGABONK_MESSAGE_MAX);
-  room.megabonk = { id: 'megabonk-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex'), at: Date.now(), targets, message, scope: options.scope === 'one' ? 'one' : 'all' };
+  const event = { id: 'megabonk-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex'), at: Date.now(), targets, message, scope: options.scope === 'one' ? 'one' : 'all' };
+  if (!Array.isArray(room.megabonks)) room.megabonks = [];
+  room.megabonks.push(event);
+  // Bounded: past the cap the oldest event is retired (its alerts cleared).
+  while (room.megabonks.length > MEGABONK_MAX_EVENTS) {
+    const old = room.megabonks.shift();
+    room.players.forEach((player, socket) => sendToWs(socket, { type: 'megabonk:cleared', id: old.id }));
+  }
   persistActiveRooms();
-  room.players.forEach((player, socket) => deliverMegabonkTo(room, socket));
+  room.players.forEach((player, socket) => deliverMegabonkTo(room, socket, event));
   sendMegabonkProgress(room);
-  console.log(`[ROOM ${room.code}] MEGABONK ${room.megabonk.id} -> ${Object.keys(targets).length} Little Heroes`);
+  console.log(`[ROOM ${room.code}] MEGABONK ${event.id} -> ${Object.keys(targets).length} Little Heroes`);
   return { ok: true };
 }
 
-function deliverMegabonkTo(room, ws) {
-  const event = room?.megabonk;
-  if (!event || !ws?.playerId || ws.readyState !== 1) return;
-  const target = event.targets[String(ws.playerId)];
-  if (!target || target.ackAt) return;
-  sendToWs(ws, { type: 'megabonk:alert', id: event.id, at: event.at, message: event.message || '' });
+function deliverMegabonkTo(room, ws, only = null) {
+  if (!ws?.playerId || ws.readyState !== 1) return;
+  (only ? [only] : (room?.megabonks || [])).forEach(event => {
+    const target = event.targets[String(ws.playerId)];
+    if (!target || target.ackAt) return;
+    sendToWs(ws, { type: 'megabonk:alert', id: event.id, at: event.at, message: event.message || '' });
+  });
 }
 
+// `events` is every running MEGABONK (oldest first); `event` is the newest
+// one (or null), kept for single-event consumers.
 function megabonkProgress(room) {
-  const event = room.megabonk;
-  if (!event) return { type: 'megabonk:progress', event: null };
   const online = new Set();
   room.players.forEach((player, socket) => { if (socket.readyState === 1) online.add(String(player.id)); });
-  const players = Object.entries(event.targets)
-    .map(([id, t]) => ({ id, name: t.name, ackAt: t.ackAt, connected: online.has(id) }))
-    .sort((a, b) => (a.ackAt ? 1 : 0) - (b.ackAt ? 1 : 0) || a.name.localeCompare(b.name));
-  return {
-    type: 'megabonk:progress',
-    event: { id: event.id, at: event.at, total: players.length, acknowledged: players.filter(p => p.ackAt).length, players, message: event.message || '', scope: event.scope || 'all' }
-  };
+  const events = (room.megabonks || []).map(event => {
+    const players = Object.entries(event.targets)
+      .map(([id, t]) => ({ id, name: t.name, ackAt: t.ackAt, connected: online.has(id) }))
+      .sort((a, b) => (a.ackAt ? 1 : 0) - (b.ackAt ? 1 : 0) || a.name.localeCompare(b.name));
+    return { id: event.id, at: event.at, total: players.length, acknowledged: players.filter(p => p.ackAt).length, players, message: event.message || '', scope: event.scope || 'all' };
+  });
+  return { type: 'megabonk:progress', events, event: events.at(-1) || null };
 }
 
 function sendMegabonkProgress(room) {
@@ -7045,9 +7057,9 @@ function sendMegabonkProgress(room) {
 function handleMegabonkAck(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || !ws.playerId) return;
-  const event = room.megabonk;
+  const event = (room.megabonks || []).find(e => e.id === message?.id);
   const id = String(ws.playerId);
-  // A stale id (an older MEGABONK) just clears that old alert locally.
+  // A stale id (an ended MEGABONK) just clears that old alert locally.
   if (!event || event.id !== message?.id || !event.targets[id]) {
     return sendToWs(ws, { type: 'megabonk:cleared', id: String(message?.id || '') });
   }
@@ -7062,14 +7074,17 @@ function handleMegabonkAck(ws, message) {
   sendMegabonkProgress(room);
 }
 
-// The GM can call the event off: pending alerts disappear everywhere.
-function handleMegabonkEnd(ws) {
+// The GM can call an event off (message.id), or all of them (no id):
+// pending alerts disappear everywhere.
+function handleMegabonkEnd(ws, message = {}) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
-  if (!room || ws !== room.hostConnection || !room.megabonk) return;
-  const id = room.megabonk.id;
-  room.megabonk = null;
+  if (!room || ws !== room.hostConnection || !room.megabonks?.length) return;
+  const wanted = message?.id ? String(message.id) : '';
+  const ended = room.megabonks.filter(e => !wanted || e.id === wanted);
+  if (!ended.length) return sendMegabonkProgress(room);
+  room.megabonks = room.megabonks.filter(e => !ended.includes(e));
   persistActiveRooms();
-  room.players.forEach((player, socket) => sendToWs(socket, { type: 'megabonk:cleared', id }));
+  ended.forEach(e => room.players.forEach((player, socket) => sendToWs(socket, { type: 'megabonk:cleared', id: e.id })));
   sendMegabonkProgress(room);
 }
 
@@ -9590,7 +9605,7 @@ wss.on('connection', (ws, req) => {
           break;
         }
         case 'gm:megabonkEnd': {
-          handleMegabonkEnd(ws);
+          handleMegabonkEnd(ws, message);
           break;
         }
         case 'dm:list':

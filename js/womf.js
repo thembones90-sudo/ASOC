@@ -96,7 +96,7 @@ const Womf = {
     });
 
     const countEl = el.querySelector('.womf-count-value');
-    if (countEl) countEl.textContent = String(charge);
+    if (countEl && countEl.textContent !== String(charge)) countEl.textContent = String(charge);
 
     const statusEl = el.querySelector('.womf-status');
 
@@ -104,9 +104,9 @@ const Womf = {
     // and the shake states don't use it for the glow (they have their own
     // fixed treatments), and ready holds it at full.
     const intensity = state === 'charging' ? Math.min(1, Math.max(0, (charge - 3) / 4)) : (state === 'dormant' ? 0 : 1);
-    el.style.setProperty('--womf-intensity', String(intensity));
-    el.style.setProperty('--womf-charge-pct', `${charge * 10}%`);
-    el.dataset.charge = String(charge);
+    if (el.style.getPropertyValue('--womf-intensity') !== String(intensity)) el.style.setProperty('--womf-intensity', String(intensity));
+    if (el.style.getPropertyValue('--womf-charge-pct') !== `${charge * 10}%`) el.style.setProperty('--womf-charge-pct', `${charge * 10}%`);
+    if (el.dataset.charge !== String(charge)) el.dataset.charge = String(charge);
 
     if (charge >= 10 && !wasReady) {
       // Reaching 10 for the first time: brief escalation (reuse whatever
@@ -124,8 +124,9 @@ const Womf = {
         setTimeout(() => el.classList.remove('womf-arm-flash'), 650);
       }, 1100);
     } else {
-      el.dataset.state = state;
-      if (statusEl) statusEl.textContent = this.statusLabel(state);
+      if (el.dataset.state !== state) el.dataset.state = state;
+      const label = this.statusLabel(state);
+      if (statusEl && statusEl.textContent !== label) statusEl.textContent = label;
     }
 
     this._lastCharge[containerId] = charge;

@@ -82,16 +82,18 @@
       if (!button || !status) return;
       const remaining = Math.max(0, Number(this.state.cooldownUntil) - Date.now());
       const locked = this.state.spinning || remaining > 0;
-      button.disabled = locked;
-      button.setAttribute('aria-disabled', String(locked));
-      if (this.state.spinning) status.textContent = 'REACTING';
-      else if (!remaining) status.textContent = 'READY';
+      if (button.disabled !== locked) button.disabled = locked;
+      if (button.getAttribute('aria-disabled') !== String(locked)) button.setAttribute('aria-disabled', String(locked));
+      let text;
+      if (this.state.spinning) text = 'REACTING';
+      else if (!remaining) text = 'READY';
       else {
         const totalMinutes = Math.ceil(remaining / 60000);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
-        status.textContent = hours ? `${hours}H ${String(minutes).padStart(2, '0')}M` : `${minutes}M`;
+        text = hours ? `${hours}H ${String(minutes).padStart(2, '0')}M` : `${minutes}M`;
       }
+      if (status.textContent !== text) status.textContent = text;
       clearTimeout(this.tickTimer);
       if (remaining > 0) {
         const nextTick = remaining < 60000 ? 1000 : (remaining % 60000) + 25;

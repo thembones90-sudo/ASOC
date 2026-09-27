@@ -227,6 +227,40 @@ function checkClientNeverSelfDismisses() {
     await sleep(300);
     assert.equal(gm.msgs.filter(m => m.type === 'megabonk:progress').at(-1).event.id, fourthId, 'only the GM can end it');
 
+    // Several MEGABONKs at once: each has its own acknowledgements and END.
+    await bo.next(m => m.type === 'megabonk:alert' && m.id === fourthId, 'bo fourth alert');
+    from = gm.mark();
+    const boConc = bo.mark();
+    gm.send({ type: 'gm:broadcast', text: '/megabonk @Bo second one' });
+    const both = (await gm.next(m => m.type === 'megabonk:progress' && m.events?.length === 2, 'two concurrent events', from)).events;
+    assert.equal(both[0].id, fourthId, 'the first event keeps running');
+    const fifthId = both[1].id;
+    assert.equal(both[1].scope, 'one');
+    await bo.next(m => m.type === 'megabonk:alert' && m.id === fifthId, 'bo gets the second alert too', boConc);
+    assert.equal(await bo.none(m => m.type === 'megabonk:cleared' && m.id === fourthId, boConc, 100), true, 'the new one does not replace the old one');
+    from = gm.mark();
+    bo.send({ type: 'megabonk:ack', id: fourthId });
+    await bo.next(m => m.type === 'megabonk:cleared' && m.id === fourthId, 'bo acks the first', boConc);
+    const afterAck = (await gm.next(m => m.type === 'megabonk:progress' && m.events?.length === 2 && m.events[0].players.find(x => x.name === 'Bo')?.ackAt, 'per-event ack', from)).events;
+    assert.equal(afterAck[1].acknowledged, 0, 'the ack only counts for its own event');
+    // A reconnect re-delivers every pending event.
+    bo.close();
+    await sleep(300);
+    bo = await connect('Bo');
+    await bo.next(m => m.type === 'megabonk:alert' && m.id === fifthId, 'bo pending second after reconnect');
+    // END one event by id: the other keeps running.
+    from = gm.mark();
+    const cyEnd = cy.mark(), boEnd = bo.mark();
+    gm.send({ type: 'gm:megabonkEnd', id: fifthId });
+    await bo.next(m => m.type === 'megabonk:cleared' && m.id === fifthId, 'fifth ended', boEnd);
+    const left = (await gm.next(m => m.type === 'megabonk:progress' && m.events?.length === 1, 'one left', from)).events;
+    assert.equal(left[0].id, fourthId);
+    assert.equal(await cy.none(m => m.type === 'megabonk:cleared' && m.id === fourthId, cyEnd, 100), true, 'ending one leaves the other alone');
+    // The GM tracker and the player alert queue handle several events.
+    const mbSrc = fs.readFileSync(path.join(ROOT, 'js/megabonk.js'), 'utf8');
+    assert.match(mbSrc, /data-mbk-end="\$\{esc\(event\.id\)\}"/);
+    assert.match(mbSrc, /function enqueue\(/);
+
     // Refused during a live Battle; GM only.
     const fillers = [await connect('Dee'), await connect('Eli')];
     gm.send({ type: 'gm:setRoomMode', mode: 'BATTLE' });
@@ -298,7 +332,7 @@ function checkClientNeverSelfDismisses() {
     assert.ok(fresh.clientBuild.player, 'the served build is announced');
 
     assert.equal(server.errors.trim(), '', 'no server errors');
-    console.log('PASS MEGABONK: GM-only persistent alert to every connected player, per-player acknowledgement, live GM progress, re-delivered on reconnect until acknowledged, never again once acknowledged, new event needs fresh acks, survives restart, END, not a ritual vote, never starts the game, refused in live Battle');
+    console.log('PASS MEGABONK: GM-only persistent alert to every connected player, per-player acknowledgement, live GM progress, re-delivered on reconnect until acknowledged, never again once acknowledged, new event needs fresh acks, several concurrent events with their own acks and END, survives restart, END, not a ritual vote, never starts the game, refused in live Battle');
   } finally {
     clients.forEach(c => c.close());
     server.kill();

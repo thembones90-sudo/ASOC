@@ -13,6 +13,6 @@ assert.match(client, /class="concoction-dismiss" hidden>RETURN TO CHAT/, 'resolv
 assert.match(client, /onLocked\(message\)[\s\S]*closePanel\(\)/, 'rejected/locked spin must release the overlay');
 assert.match(client, /onError\(\)[\s\S]*closePanel\(\)/, 'generic rejection must release optimistic UI');
 assert.match(player, /case 'error':[\s\S]*UnstableConcoction\?\.onError/, 'player errors must notify the minigame UI');
-assert.match(join, /unstable-concoction\.js\?v=20260925-player-release-1/, 'player must receive the repaired bundle');
+assert.match(join, /unstable-concoction\.js\?v=(20260925-player-release-1|20260927-calm-1)/, 'player must receive the repaired bundle');
 
 console.log('PASS player Unstable Concoction always releases after result, state recovery, timeout, lock or error');

@@ -190,7 +190,8 @@ const Recount = (() => {
   function updatePill() {
     if (!pill) return;
     const casual = document.getElementById('game-screen')?.classList.contains('room-mode-casual') === true;
-    pill.hidden = !data || !!overlay || casual;
+    const hide = !data || !!overlay || casual;
+    if (pill.hidden !== hide) pill.hidden = hide;
   }
   function mountPill() {
     if (pill) return;

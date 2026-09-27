@@ -4769,6 +4769,7 @@ const App = {
       container.textContent = '';
     }
     const { inserted } = DomPatch.patch(container, entries);
+    Skeleton.applyGlitchIn(inserted, this._seenShadowBrokerKeys);
     inserted.forEach(node => {
       this.decorateGMChatLinks(node);
       this.decorateGMChatMentions(node);
@@ -5439,8 +5440,6 @@ const App = {
     }
 
     if (msg.source === 'shadowBroker') {
-      const isNew = !this._seenShadowBrokerKeys.has(msg.id);
-      if (isNew) this._seenShadowBrokerKeys.add(msg.id);
       const replyMatch = typeof msg.text === 'string'
         ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
         : null;
@@ -5451,7 +5450,7 @@ const App = {
       return `
         <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
-          ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchIn: isNew })}\n          ${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
+          ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchKey: msg.id })}\n          ${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
           ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
           ${this.createGMReactionSummaryHTML(msg)}
         </div>
@@ -5487,10 +5486,8 @@ const App = {
     let verdictResponseHtml = '';
     if (msg.verdict === 'correct') {
       const verdictKey = `${msg.id}:${msg.verdict}`;
-      const isNew = !this._seenShadowBrokerKeys.has(verdictKey);
-      if (isNew) this._seenShadowBrokerKeys.add(verdictKey);
       verdictResponseHtml = `<div class="gm-chat-verdict-response">${Skeleton.shadowBrokerTransmissionHTML(msg.verdictResponse || 'Indeed.', {
-        glitchIn: isNew,
+        glitchKey: verdictKey,
         variant: 'verdict-response',
         verdict: msg.verdict
       })}</div>`;

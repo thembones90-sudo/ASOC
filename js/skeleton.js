@@ -334,11 +334,15 @@ const Skeleton = (() => {
     return div.innerHTML;
   }
 
-  function shadowBrokerTransmissionHTML(text, { glitchIn = false, variant = 'broadcast', verdict = null } = {}) {
+  // glitchKey: the markup stays byte-identical across renders (so keyed
+  // patching keeps the node); applyGlitchIn() adds the one-shot glitch class
+  // to freshly inserted transmissions whose key has not been seen yet.
+  function shadowBrokerTransmissionHTML(text, { glitchIn = false, glitchKey = '', variant = 'broadcast', verdict = null } = {}) {
     const variantClass = variant === 'verdict-response' ? 'shadow-broker-verdict-response' : 'shadow-broker-broadcast';
     const verdictClass = verdict ? ` sb-${verdict}` : '';
+    const keyAttr = glitchKey ? ` data-sb-glitch-key="${escapeHtmlText(String(glitchKey)).replace(/"/g, '&quot;')}"` : '';
     return `
-      <div class="shadow-broker-transmission ${variantClass}${verdictClass} ${glitchIn ? 'sb-glitch-in' : ''}">
+      <div class="shadow-broker-transmission ${variantClass}${verdictClass} ${glitchIn ? 'sb-glitch-in' : ''}"${keyAttr}>
         <img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">
         <div class="shadow-broker-body">
           <span class="shadow-broker-name">SHADOW BROKER</span>
@@ -1181,6 +1185,31 @@ const Skeleton = (() => {
     BROKER_LINE_HOLD_PER_CHAR_MS,
     BROKER_LINE_FADE_MS,
     shadowBrokerTransmissionHTML,
+    // A transmission rebuilt within its first second (e.g. the verdict's
+    // local render followed by the server's) keeps its glitch-in instead of
+    // having it cut off.
+    _glitchFirstSeen: new Map(),
+    applyGlitchIn(nodes, seen) {
+      const firstSeen = this._glitchFirstSeen;
+      const now = Date.now();
+      (nodes || []).forEach(node => {
+        if (!node?.querySelectorAll) return;
+        const list = node.matches?.('[data-sb-glitch-key]') ? [node] : [];
+        node.querySelectorAll('[data-sb-glitch-key]').forEach(el => list.push(el));
+        list.forEach(el => {
+          const key = el.getAttribute('data-sb-glitch-key');
+          if (!key) return;
+          if (seen.has(key)) {
+            if (now - (firstSeen.get(key) || 0) < 1000) el.classList.add('sb-glitch-in');
+            return;
+          }
+          seen.add(key);
+          firstSeen.set(key, now);
+          if (firstSeen.size > 400) firstSeen.delete(firstSeen.keys().next().value);
+          el.classList.add('sb-glitch-in');
+        });
+      });
+    },
     playMentionAllShake,
     playNemaAsoc,
     playBiceAsoc,

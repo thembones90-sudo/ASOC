@@ -1500,7 +1500,8 @@ const PlayerApp = {
         this.chatMessages = incoming;
         this.solvedTargets = message.solvedTargets || {};
         const solvedCount = document.getElementById('chat-solved-count');
-        if (solvedCount) solvedCount.textContent = this.roomMode === 'CASUAL' ? 'CHANNEL OPEN' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
+        const solvedText = this.roomMode === 'CASUAL' ? 'CHANNEL OPEN' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
+        if (solvedCount && solvedCount.textContent !== solvedText) solvedCount.textContent = solvedText;
         this.renderChat({ forceLatest: followLatest });
         this._chatArrivalIds.clear();
         this._chatVerdictTransitionIds.clear();
@@ -1956,6 +1957,7 @@ const PlayerApp = {
       const cell = board.querySelector(`.board-cell[data-label="${CSS.escape(key)}"]`);
       if (!cell) return;
       if (deadline > now) {
+        if (cell.classList.contains('cell-new-reveal-flash')) return;
         cell.classList.add('cell-new-reveal-flash');
         setTimeout(() => cell.classList.remove('cell-new-reveal-flash'), Math.max(0, deadline - now));
       } else {
@@ -1968,10 +1970,12 @@ const PlayerApp = {
   renderSolutionCountdownBadges() {
     const board = document.querySelector('#public-board > .asoc-board');
     if (!board) return;
-    board.querySelectorAll('.solution-countdown-badge').forEach(el => el.remove());
+    // Badges are updated in place (this runs on every state:public and
+    // every 250ms while a countdown runs); only stale ones are removed.
     clearTimeout(this._solutionCountdownTicker);
     const now = Date.now();
     let active = false;
+    const keep = new Set();
     Object.values(this.solutionCountdowns || {}).forEach(entry => {
       // A paused battle freezes its countdowns: the server sends remainingMs
       // instead of a deadline, and the badge holds still until resume.
@@ -1984,19 +1988,29 @@ const PlayerApp = {
       const cell = board.querySelector(`.board-cell[data-label="${CSS.escape(key)}"]`);
       if (!cell) return;
       const total = Math.ceil(remaining / 1000);
-      const badge = document.createElement('div');
-      badge.className = 'solution-countdown-badge' + (entry.paused ? ' is-paused' : '');
-      badge.textContent = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-      cell.appendChild(badge);
+      let badge = cell.querySelector(':scope > .solution-countdown-badge');
+      if (!badge) {
+        badge = document.createElement('div');
+        cell.appendChild(badge);
+      }
+      const className = 'solution-countdown-badge' + (entry.paused ? ' is-paused' : '');
+      if (badge.className !== className) badge.className = className;
+      const text = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+      if (badge.textContent !== text) badge.textContent = text;
+      keep.add(badge);
     });
+    board.querySelectorAll('.solution-countdown-badge').forEach(el => { if (!keep.has(el)) el.remove(); });
     if (active) this._solutionCountdownTicker = setTimeout(() => this.renderSolutionCountdownBadges(), 250);
   },
 
   renderHintButtons() {
     const board = document.querySelector('#public-board > .asoc-board');
     if (!board) return;
-    board.querySelectorAll('.cell-hint-button').forEach(el => el.remove());
-    if (this.roomMode !== 'BATTLE') return;
+    // Kept in place and only updated when their state changes: rebuilding
+    // them on every state:public replaced HINT under the player's finger.
+    const keep = new Set();
+    const sweep = () => board.querySelectorAll('.cell-hint-button').forEach(el => { if (!keep.has(el)) el.remove(); });
+    if (this.roomMode !== 'BATTLE') return sweep();
 
     for (const col of ['A', 'B', 'C', 'D']) {
       for (let row = 1; row <= 4; row++) {
@@ -2006,23 +2020,33 @@ const PlayerApp = {
         const cell = board.querySelector(`.board-cell[data-label="${CSS.escape(key)}"]`);
         if (!cell) continue;
         const claim = this.hintClaims?.[key];
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'cell-hint-button' + (claim ? ' is-used' : '');
-        button.textContent = claim ? 'HINT USED' : 'HINT';
-        button.disabled = !!claim;
-        button.title = claim ? `Hint used by ${claim.playerName || 'Little Hero'}` : `Request the one hint available for ${key}`;
-        if (!claim) {
-          button.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            button.disabled = true;
-            this.send({ type: 'player:hintRequest', cell: key });
-          });
+        const stateKey = claim ? `used:${claim.playerName || ''}` : 'open';
+        let button = cell.querySelector(':scope > .cell-hint-button');
+        if (button && button.dataset.hintState !== stateKey) { button.remove(); button = null; }
+        if (!button) {
+          button = document.createElement('button');
+          button.type = 'button';
+          button.dataset.hintState = stateKey;
+          button.className = 'cell-hint-button' + (claim ? ' is-used' : '');
+          button.textContent = claim ? 'HINT USED' : 'HINT';
+          button.disabled = !!claim;
+          button.title = claim ? `Hint used by ${claim.playerName || 'Little Hero'}` : `Request the one hint available for ${key}`;
+          if (!claim) {
+            button.addEventListener('click', (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              button.disabled = true;
+              this.send({ type: 'player:hintRequest', cell: key });
+              // Refused (or lost): the button is kept now, so re-arm it.
+              setTimeout(() => { if (button.isConnected && button.dataset.hintState === 'open') button.disabled = false; }, 4000);
+            });
+          }
+          cell.appendChild(button);
         }
-        cell.appendChild(button);
+        keep.add(button);
       }
     }
+    sweep();
   },
 
   renderShadowBrokerBoardLineInPlace() {
@@ -2036,12 +2060,15 @@ const PlayerApp = {
       current?.remove();
       return;
     }
+    // Unchanged line (a timer tick while the line is fully typed): keep it.
+    if (current && current._markup === markup) return;
 
     const holder = document.createElement('div');
     holder.innerHTML = markup.trim();
     const next = holder.firstElementChild;
     if (!next) return;
 
+    next._markup = markup;
     if (current) current.replaceWith(next);
     else {
       const skeleton = board.querySelector(':scope > .skeleton-img');
@@ -2311,7 +2338,7 @@ const PlayerApp = {
     const previous = this.roomMode;
     const hadBaseline = this._masterStateBaselined;
     this.roomMode = next;
-    if (next !== 'CASUAL') window.UnstableConcoction?.leaveCasual?.();
+    if (next !== 'CASUAL' && previous !== next) window.UnstableConcoction?.leaveCasual?.();
     this.masterArmed = next !== 'CASUAL';
     this._masterStateBaselined = true;
     if (hadBaseline) this.playRoomModeTransition(previous, next);
@@ -2324,25 +2351,24 @@ const PlayerApp = {
       screen.classList.toggle('room-mode-battle-armed', next === 'BATTLE_ARMED');
       screen.classList.toggle('room-mode-battle', next === 'BATTLE');
       screen.classList.toggle('room-mode-recount', next === 'RECOUNT');
-      screen.dataset.roomMode = next;
+      if (screen.dataset.roomMode !== next) screen.dataset.roomMode = next;
     }
-    if (standby) standby.hidden = true;
+    if (standby && !standby.hidden) standby.hidden = true;
     Recount.refreshPill?.();
 
     const title = document.querySelector('.chat-title');
     const roomLabel = document.getElementById('battle-comms-room');
     const solvedCount = document.getElementById('chat-solved-count');
     if (title) {
-      title.innerHTML = next === 'CASUAL'
+      const titleHtml = next === 'CASUAL'
         ? '<span class="casual-network-name">ASOC NETWORK</span><span class="casual-network-state"> // AMUSEMENT PARK</span>'
         : 'BATTLE COMMS';
+      if (title._html !== titleHtml) { title._html = titleHtml; title.innerHTML = titleHtml; }
     }
-    if (roomLabel) roomLabel.textContent = next === 'CASUAL'
-      ? 'MASTER ROOM'
-      : 'ABUSEMENT PARK // MASTER ROOM';
-    if (solvedCount) solvedCount.textContent = next === 'CASUAL'
-      ? 'CHANNEL OPEN'
-      : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
+    const roomText = next === 'CASUAL' ? 'MASTER ROOM' : 'ABUSEMENT PARK // MASTER ROOM';
+    if (roomLabel && roomLabel.textContent !== roomText) roomLabel.textContent = roomText;
+    const solvedText = next === 'CASUAL' ? 'CHANNEL OPEN' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
+    if (solvedCount && solvedCount.textContent !== solvedText) solvedCount.textContent = solvedText;
 
     // Casual and Battle are the SAME transcript. Re-render only when the
     // room mode actually changes; state:public also carries timer/cell ticks,
@@ -2357,10 +2383,13 @@ const PlayerApp = {
   },
 
   showGameScreen() {
-    document.getElementById('join-screen').style.display = 'none';
-    document.getElementById('game-screen').classList.add('active');
+    const joinScreen = document.getElementById('join-screen');
+    if (joinScreen.style.display !== 'none') joinScreen.style.display = 'none';
+    const gameScreen = document.getElementById('game-screen');
+    if (!gameScreen.classList.contains('active')) gameScreen.classList.add('active');
     if (typeof this._hudBandSync === 'function') this._hudBandSync();
-    document.getElementById('reconnecting-overlay').classList.remove('active');
+    const reconnecting = document.getElementById('reconnecting-overlay');
+    if (reconnecting.classList.contains('active')) reconnecting.classList.remove('active');
     this.bindChatForm();
     this.bindLeaderboardToggle();
     Recount.mountPill();
@@ -2629,20 +2658,25 @@ const PlayerApp = {
   },
 
   setConnectionStatus(status) {
+    // Called on every state packet: write only what changed.
     const el = document.getElementById('connection-status');
-    el.className = 'connection-status ' + status;
+    const elClass = 'connection-status ' + status;
+    if (el.className !== elClass) el.className = elClass;
     const textMap = {
       connecting: 'CONNECTING',
       connected: 'CONNECTED',
       disconnected: 'DISCONNECTED'
     };
-    el.querySelector('.status-text').textContent = textMap[status] || status.toUpperCase();
+    const statusText = el.querySelector('.status-text');
+    const text = textMap[status] || status.toUpperCase();
+    if (statusText && statusText.textContent !== text) statusText.textContent = text;
     const link = document.getElementById('hero-hud-link');
     if (link) {
-      link.className = 'hero-hud-link hero-stat hero-stat-link ' + (status === 'connected' ? 'stable' : status === 'disconnected' ? 'lost' : '');
+      const linkClass = 'hero-hud-link hero-stat hero-stat-link ' + (status === 'connected' ? 'stable' : status === 'disconnected' ? 'lost' : '');
+      if (link.className !== linkClass) link.className = linkClass;
       const value = link.querySelector('.hero-link-value');
       const label = status === 'connected' ? 'STABLE' : status === 'disconnected' ? 'LOST' : 'CONNECTING';
-      if (value) value.textContent = label;
+      if (value && value.textContent !== label) value.textContent = label;
     }
   },
 
@@ -4025,12 +4059,14 @@ const PlayerApp = {
   updateNewMessageChip() {
     const chip = document.getElementById('chat-new-messages');
     if (!chip) return;
-    chip.hidden = this._newMessageCount <= 0;
-    if (!chip.hidden) {
+    const hide = this._newMessageCount <= 0;
+    if (chip.hidden !== hide) chip.hidden = hide;
+    if (!hide) {
       const parts = [];
       if (this._unreadChatCount) parts.push(`${this._unreadChatCount} CHAT`);
       if (this._unreadSystemCount) parts.push(`${this._unreadSystemCount} SYSTEM`);
-      chip.textContent = `↓ ${parts.join(' · ') || `${this._newMessageCount} NEW`}`;
+      const text = `↓ ${parts.join(' · ') || `${this._newMessageCount} NEW`}`;
+      if (chip.textContent !== text) chip.textContent = text;
     }
   },
 
@@ -4134,7 +4170,7 @@ const PlayerApp = {
     const overlay = document.getElementById('blood-tribute-overlay');
     if (!overlay) return;
     const mine = this.bloodTribute.status === 'required' && this.bloodTribute.playerId === this.playerId;
-    overlay.hidden = !mine;
+    if (overlay.hidden !== !mine) overlay.hidden = !mine;
     if (!mine) {
       this.tributeUploading = false;
       return;
@@ -4374,7 +4410,7 @@ const PlayerApp = {
       }
     }
 
-    let html = '';
+    const entries = [];
     let nextWrongFadeMs = Infinity;
     let nextTributeTickMs = Infinity;
     const now = Date.now();
@@ -4386,7 +4422,7 @@ const PlayerApp = {
     visibleMessages.forEach((msg, index) => {
       const previous = index > 0 ? visibleMessages[index - 1] : null;
       if (previous && (Number(msg.timestamp) - Number(previous.timestamp)) > 300000) {
-        html += this.createChatTimeSeparator(msg.timestamp);
+        entries.push({ key: `sep:${msg.id}`, html: this.createChatTimeSeparator(msg.timestamp) });
       }
       if (msg.verdict === 'wrong') {
         const wrongSeenAt = this._wrongVerdictSeenAt.get(msg.id) ?? (now - 3000);
@@ -4397,11 +4433,22 @@ const PlayerApp = {
         const tributeRemaining = Number(msg.bloodTribute?.expiresAt || msg.publicUntil) - now;
         if (tributeRemaining > 0) nextTributeTickMs = Math.min(nextTributeTickMs, tributeRemaining, 1000);
       }
-      html += this.createChatMessageHTML(msg, this.shouldGroupChatMessage(previous, msg), now);
+      entries.push({ key: `msg:${msg.id}`, html: this.createChatMessageHTML(msg, this.shouldGroupChatMessage(previous, msg), now) });
     });
 
     this._chatProgrammaticScroll = true;
-    container.innerHTML = html;
+    // Keyed patch, not innerHTML: every chat:update (a new line, a seen
+    // receipt, a reaction, a verdict) used to rebuild the whole transcript,
+    // so images/GIFs reloaded, animations restarted and a tap landing
+    // mid-rebuild was lost. Unchanged messages now stay the same DOM nodes.
+    // @mention decoration depends on the roster, so a roster change rebuilds.
+    const mentionRoster = (this.currentPlayers || []).map(player => String(player?.name || '')).sort().join('|') + '#' + String(this.playerName || '');
+    if (this._chatMentionRoster !== mentionRoster) {
+      this._chatMentionRoster = mentionRoster;
+      container.textContent = '';
+    }
+    const { inserted } = DomPatch.patch(container, entries);
+    Skeleton.applyGlitchIn(inserted, this._seenShadowBrokerKeys);
 
     this.scanChatSeen(container);
 
@@ -4414,8 +4461,10 @@ const PlayerApp = {
       el?.classList.add('chat-verdict-transition');
     });
 
-    this.decorateChatLinks(container);
-    this.decorateChatMentions(container);
+    inserted.forEach(node => {
+      this.decorateChatLinks(node);
+      this.decorateChatMentions(node);
+    });
     this.armPollCountdowns(container);
 
     clearTimeout(this._wrongFadeTimer);
@@ -4443,7 +4492,7 @@ const PlayerApp = {
       // While the user is following live chat, keep the newest message pinned
       // through those late media reflows instead of letting the viewport drift
       // several messages upward.
-      container.querySelectorAll('img,video').forEach(media => {
+      inserted.forEach(node => node.querySelectorAll?.('img,video').forEach(media => {
         const repin = () => {
           if (!this.userScrolledUp) {
             this._chatProgrammaticScroll = true;
@@ -4457,7 +4506,7 @@ const PlayerApp = {
         } else if (media.tagName === 'VIDEO') {
           media.addEventListener('loadedmetadata', repin, { once:true });
         }
-      });
+      }));
 
       requestAnimationFrame(() => {
         pinLatest();
@@ -4726,8 +4775,6 @@ const PlayerApp = {
     // not tied to any player's guess. Entirely separate markup from the
     // guess-bubble path below; no verdict, no target, no "own" styling.
     if (msg.source === 'shadowBroker') {
-      const isNew = !this._seenShadowBrokerKeys.has(msg.id);
-      if (isNew) this._seenShadowBrokerKeys.add(msg.id);
       const replyMatch = typeof msg.text === 'string'
         ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
         : null;
@@ -4738,7 +4785,7 @@ const PlayerApp = {
       return `
         <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
-          ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchIn: isNew })}\n          ${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
+          ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchKey: msg.id })}\n          ${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
           ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
           ${this.createReactionBarHTML(msg)}
         </div>
@@ -4774,10 +4821,8 @@ const PlayerApp = {
     let verdictResponseHtml = '';
     if (msg.verdict === 'correct') {
       const verdictKey = `${msg.id}:${msg.verdict}`;
-      const isNew = !this._seenShadowBrokerKeys.has(verdictKey);
-      if (isNew) this._seenShadowBrokerKeys.add(verdictKey);
       verdictResponseHtml = Skeleton.shadowBrokerTransmissionHTML(msg.verdictResponse || 'Indeed.', {
-        glitchIn: isNew,
+        glitchKey: verdictKey,
         variant: 'verdict-response',
         verdict: msg.verdict
       });

@@ -139,8 +139,9 @@ const Timer = {
     }
     this._lastPhase[containerId] = phase;
 
-    el.dataset.phase = phase;
-    el.dataset.mode = inBorrowed ? 'borrowed' : 'normal';
+    const setData = (name, value) => { if (el.dataset[name] !== value) el.dataset[name] = value; };
+    setData('phase', phase);
+    setData('mode', inBorrowed ? 'borrowed' : 'normal');
 
     const normalRatio = state.duration > 0 ? Math.max(0, Math.min(1, state.remaining / state.duration)) : 1;
     const borrowedRatio = state.borrowedDuration > 0 ? Math.max(0, Math.min(1, state.borrowedRemaining / state.borrowedDuration)) : 1;
@@ -152,7 +153,7 @@ const Timer = {
 
     el.style.setProperty('--fuse-progress', String(fuseProgress));
     el.style.setProperty('--fuse-progress-pct', `${fuseProgress * 100}%`);
-    el.dataset.stage = timerStage;
+    setData('stage', timerStage);
     const stageOrder = ['ignition', 'fuse-burn', 'detonation'];
     const activeStageIndex = stageOrder.indexOf(timerStage);
     el.querySelectorAll('[data-timer-stage]').forEach((marker) => {
@@ -162,7 +163,7 @@ const Timer = {
     });
 
     const level = this.classify(normalRatio);
-    el.dataset.level = level;
+    setData('level', level);
     el.classList.toggle('timer-critical', phase === 'running' && state.remaining > 0 && state.remaining <= 60000);
     el.classList.toggle('timer-borrowed-critical', phase === 'borrowed' && state.borrowedRemaining > 0 && state.borrowedRemaining <= 30000);
     el.classList.toggle('timer-paused', phase === 'paused' || phase === 'borrowed_paused');
