@@ -465,14 +465,26 @@ const Board = {
     if (!el) return;
     const prevIsRevealed = this.isRevealed;
     const prevIsFinal = this.isFinalRevealed;
-    this.isRevealed = () => false;
-    this.isFinalRevealed = () => false;
+    const prevCellOutcome = this.getCellOutcome;
+    const prevFinalOutcome = this.getFinalOutcome;
+    // The live game's outcomes (failed columns) never tint the draft.
+    this.getCellOutcome = () => null;
+    this.getFinalOutcome = () => null;
+    // Creator preview: every field that already has a word shows it, so
+    // the GM can watch the board fill in while typing; empty ones stay
+    // covered.
+    const draft = game || window.GameData.currentGame;
+    const filled = value => !!String(value || '').trim();
+    this.isRevealed = (col, row) => filled(row === 5 ? draft?.columns?.[col]?.solution : draft?.columns?.[col]?.clues?.[row - 1]);
+    this.isFinalRevealed = () => filled(draft?.finalSolution);
     try {
-      el.innerHTML = this.buildBoardHTML(game || window.GameData.currentGame);
+      el.innerHTML = this.buildBoardHTML(draft);
       Skeleton.attach(el);
     } finally {
       this.isRevealed = prevIsRevealed;
       this.isFinalRevealed = prevIsFinal;
+      this.getCellOutcome = prevCellOutcome;
+      this.getFinalOutcome = prevFinalOutcome;
     }
   },
 

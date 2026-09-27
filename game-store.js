@@ -218,12 +218,13 @@ function normalizeGame(raw, id) {
 
 function validateGame(game) {
   const errors = [];
-  const title = String(game?.title || '').trim();
+  // A game created without a separate title is named by its theme.
+  const title = String(game?.title || game?.theme || '').trim();
   const difficulty = String(game?.difficulty || '').toUpperCase();
   const finalSolution = String(game?.finalSolution || game?.final_solution || '').trim();
 
-  if (!title) errors.push('Title is empty.');
-  else if (title.length > 80) errors.push('Title is too long (max 80 characters).');
+  if (!title) errors.push('Theme is empty.');
+  else if (title.length > 80) errors.push('Theme is too long (max 80 characters).');
 
   if (!DIFFICULTY_VALUES.includes(difficulty)) {
     errors.push('Difficulty must be one of: ' + DIFFICULTY_VALUES.join(', ') + '.');
@@ -250,6 +251,7 @@ function saveGame(game) {
 
   const errors = validateGame(game);
   if (errors.length) return { errors };
+  if (!String(game.title || '').trim()) game = { ...game, title: String(game.theme || '').trim() };
 
   const prevFile = findGameFile(game.id);
 

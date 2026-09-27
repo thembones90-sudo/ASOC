@@ -358,10 +358,6 @@ const Forge = {
           <div class="creator-section">
             <h4 class="creator-label">IDENTITY</h4>
             <label class="cell-field">
-              <span class="cell-field-label">TITLE</span>
-              <input type="text" class="forge-input" data-creator-field="title" maxlength="80" value="${this.escapeAttr(d.title)}" placeholder="e.g. PRIMAL">
-            </label>
-            <label class="cell-field">
               <span class="cell-field-label">THEME</span>
               <input type="text" class="forge-input" data-creator-field="theme" maxlength="80" value="${this.escapeAttr(d.theme)}" placeholder="e.g. Birth of Earth">
             </label>
@@ -505,7 +501,7 @@ const Forge = {
     this.dirty = true;
     this.clearErrors();
 
-    if (name === 'title') this.updatePreviewTitle();
+    if (name === 'title' || name === 'theme') this.updatePreviewTitle();
 
     clearTimeout(this._debounceTimer);
     this._debounceTimer = setTimeout(() => this.updatePreview(), 150);
@@ -539,12 +535,9 @@ const Forge = {
     const d = this.editingGame;
     const wrap = document.querySelector('.creator-preview-title');
     if (!wrap) return;
-    wrap.innerHTML = `
-      <div class="public-title"></div>
-      <div class="public-theme"></div>
-    `;
-    wrap.querySelector('.public-title').textContent = d.title || 'UNTITLED';
-    wrap.querySelector('.public-theme').textContent = d.theme || '—';
+    // The THEME is the game's name (there is no separate title field).
+    wrap.innerHTML = `<div class="public-title"></div>`;
+    wrap.querySelector('.public-title').textContent = d.theme || d.title || 'UNTITLED';
   },
 
   updatePreview() {
@@ -590,8 +583,9 @@ const Forge = {
       return d;
     }
 
-    d.title = (document.querySelector('[data-creator-field="title"]')?.value || '').trim();
     d.theme = (document.querySelector('[data-creator-field="theme"]')?.value || '').trim();
+    // The library still lists games by title: it simply follows the theme.
+    d.title = d.theme;
     d.difficulty = (document.querySelector('[data-creator-field="difficulty"]')?.value || 'GREEN').toUpperCase();
     d.finalSolution = (document.querySelector('[data-creator-field="finalSolution"]')?.value || '').trim();
     d.story = document.querySelector('[data-creator-field="story"]')?.value || '';
