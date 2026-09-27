@@ -90,7 +90,9 @@ body.room-mode-casual #gm-panel.maintenance-open .gm-content { overflow-y:auto !
 /* Readable operator console: everything inside the Backdoor (including the
    modules moved in from the battle panel) gets a comfortable size. */
 #gm-panel.maintenance-open .gm-maintenance :is(button, select, input, label, .gm-global-btn) { font-size:.84rem !important; }
-#gm-panel.maintenance-open .gm-maintenance :is(button, .gm-global-btn) { min-height:40px; }
+#gm-panel.maintenance-open .gm-maintenance :is(button, .gm-global-btn):not(.diff-swatch) { min-height:40px; }
+/* Difficulty swatches stay perfect circles. */
+#gm-panel.maintenance-open .gm-maintenance .diff-swatch { min-height:0; aspect-ratio:1; padding:0; }
 #gm-panel.maintenance-open .gm-maintenance :is(select, input:not([type=checkbox]):not([type=radio])) { min-height:38px; }
 #gm-panel.maintenance-open .gm-maintenance .gm-backdoor-telemetry small,
 #gm-panel.maintenance-open .gm-maintenance .gm-maintenance-readout small,
