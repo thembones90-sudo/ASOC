@@ -8416,10 +8416,15 @@ position:absolute;
         right:auto;
       }
     }
-    .signed-desktop-download{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-left:auto;padding:6px 10px;border:1px solid rgba(181,102,223,.55);border-radius:5px;background:linear-gradient(180deg,rgba(67,33,82,.92),rgba(24,16,31,.96));color:#e8c7fa;font:800 9px var(--font-machine),monospace;letter-spacing:1.1px;text-decoration:none;white-space:nowrap;box-shadow:inset 0 1px rgba(255,255,255,.05),0 0 12px rgba(155,93,224,.08)}
-    .signed-desktop-download:hover,.signed-desktop-download:focus-visible{border-color:#d072ff;color:#fff;box-shadow:0 0 15px rgba(184,83,235,.24);outline:none}
+    .signed-desktop-download{position:relative;z-index:2;display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:13px;margin:9px 12px 4px;padding:11px 13px;border:1px solid rgba(190,103,239,.72);border-left:4px solid #bd59ee;border-radius:8px;background:radial-gradient(circle at 8% 50%,rgba(177,75,225,.22),transparent 24%),linear-gradient(100deg,rgba(38,19,48,.98),rgba(17,17,26,.98) 62%,rgba(45,17,40,.98));color:#f2dcff;text-decoration:none;box-shadow:inset 0 1px rgba(255,255,255,.06),0 0 24px rgba(155,63,204,.15);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+    .signed-desktop-download:hover,.signed-desktop-download:focus-visible{transform:translateY(-1px);border-color:#dd8cff;border-left-color:#ec8cff;color:#fff;box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 28px rgba(184,83,235,.3);outline:none}
     .signed-desktop-download[hidden]{display:none!important}
-    @media(max-width:760px){.signed-desktop-download{padding:5px 7px;font-size:8px}.signed-desktop-download span{display:none}}
+    .signed-desktop-download-icon{width:46px;height:46px;display:grid;place-items:center;border:1px solid rgba(197,116,239,.55);border-radius:9px;background:#130c19;color:#db8cff;font:900 25px var(--font-machine);box-shadow:inset 0 0 14px rgba(165,63,215,.2)}
+    .signed-desktop-download-copy{display:grid;gap:4px;min-width:0}
+    .signed-desktop-download-copy strong{font:900 13px var(--font-machine);letter-spacing:1.5px;color:#f1d7ff}
+    .signed-desktop-download-copy small{font:700 9px var(--font-machine);letter-spacing:.8px;color:#9a90a1}
+    .signed-desktop-download-action{padding:9px 13px;border:1px solid rgba(218,132,255,.62);border-radius:5px;background:rgba(113,45,143,.28);font:900 9px var(--font-machine);letter-spacing:1.2px;color:#eac3ff;white-space:nowrap}
+    @media(max-width:760px){.signed-desktop-download{grid-template-columns:38px minmax(0,1fr);margin:6px 7px;padding:8px}.signed-desktop-download-icon{width:36px;height:36px;font-size:20px}.signed-desktop-download-copy strong{font-size:10px}.signed-desktop-download-copy small{font-size:7px}.signed-desktop-download-action{display:none}}
 </style>
 </head>
 <body>
@@ -8736,11 +8741,15 @@ position:absolute;
     <section class="detainee-status-module">
       <div class="detainee-status-label">
         <span>LITTLE HERO STATUS</span>
-        <a id="signed-desktop-download" class="signed-desktop-download" href="https://github.com/thembones90-sudo/ASOC/releases/latest/download/ASOC-Engine-Setup.exe" title="Download ASOC Engine for Windows" aria-label="Download ASOC Engine desktop app for Windows">↓ <span>DESKTOP APP</span></a>
         <span id="casual-online-count" class="casual-online-count" aria-label="Players online">
           <i class="casual-online-dot" aria-hidden="true"></i><b>0</b><span>ONLINE</span>
         </span>
       </div>
+      <a id="signed-desktop-download" class="signed-desktop-download" href="https://github.com/thembones90-sudo/ASOC/releases/latest/download/ASOC-Engine-Setup.exe" title="Download ASOC Engine for Windows" aria-label="Download ASOC Engine desktop app for Windows">
+        <span class="signed-desktop-download-icon" aria-hidden="true">↓</span>
+        <span class="signed-desktop-download-copy"><strong>DOWNLOAD ASOC DESKTOP APP</strong><small>WINDOWS 10/11 // INSTALLER // VERSION 1.2.0</small></span>
+        <span class="signed-desktop-download-action">GET APP</span>
+      </a>
     <div id="player-leaderboard-strip" class="player-leaderboard-strip" style="display: none;">
       <div id="player-leaderboard-list" class="player-leaderboard-list"></div>
       <button type="button" id="player-alltime-toggle-btn" class="player-alltime-toggle-btn">ALL-TIME</button>
