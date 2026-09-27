@@ -19418,6 +19418,73 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
 @media (prefers-reduced-motion: reduce) { .battle-flow-row > #finish-game-btn { animation: none; } }
 body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none !important; }
 
+/* ONLINE TELEMETRY // compact green ASOC signal module, not a generic pill. */
+#gm-chat-presence.gm-chat-presence {
+  position:relative !important;
+  isolation:isolate;
+  display:grid !important;
+  grid-template-columns:10px auto auto 8px;
+  align-items:center;
+  gap:6px;
+  min-width:112px;
+  min-height:30px !important;
+  padding:0 10px 0 11px !important;
+  border:1px solid rgba(70,219,115,.5) !important;
+  border-radius:0 !important;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  background:
+    linear-gradient(90deg,rgba(58,236,116,.08) 0 1px,transparent 1px 9px),
+    linear-gradient(180deg,rgba(15,47,27,.98),rgba(5,20,12,.99)) !important;
+  color:#83f7a6 !important;
+  box-shadow:inset 3px 0 rgba(77,231,124,.18),inset 0 0 16px rgba(46,207,98,.08),0 0 13px rgba(38,215,92,.12) !important;
+  filter:none !important;
+  text-shadow:none !important;
+}
+#gm-chat-presence.gm-chat-presence::before {
+  content:"";
+  position:absolute;
+  z-index:-1;
+  inset:3px;
+  border-top:1px solid rgba(144,255,177,.1);
+  border-bottom:1px solid rgba(14,91,40,.35);
+  pointer-events:none;
+}
+#gm-chat-presence .gm-presence-signal {
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#4df47e;
+  box-shadow:0 0 0 2px rgba(58,219,107,.12),0 0 9px rgba(66,244,121,.8);
+  animation:gm-presence-core 1.9s ease-in-out infinite;
+}
+#gm-chat-presence .gm-presence-count {
+  color:#d7ffe2;
+  font:900 14px/1 var(--font-machine);
+  letter-spacing:.04em;
+  text-shadow:0 0 9px rgba(87,244,132,.38);
+}
+#gm-chat-presence .gm-presence-label {
+  color:#68d98a;
+  font:800 9px/1 var(--font-tech);
+  letter-spacing:.15em;
+}
+#gm-chat-presence .gm-presence-bracket {
+  width:6px;
+  height:12px;
+  border-top:1px solid #55cc79;
+  border-right:2px solid #55cc79;
+  border-bottom:1px solid #55cc79;
+  opacity:.68;
+}
+#gm-chat-presence.gm-chat-presence:hover,
+#gm-chat-presence.gm-chat-presence[aria-expanded="true"] {
+  border-color:rgba(116,255,158,.82) !important;
+  background:linear-gradient(180deg,rgba(18,65,35,.99),rgba(6,27,15,.99)) !important;
+  box-shadow:inset 3px 0 rgba(98,255,146,.28),inset 0 0 18px rgba(65,235,119,.12),0 0 18px rgba(50,226,105,.25) !important;
+}
+@keyframes gm-presence-core { 0%,100%{opacity:.72;transform:scale(.88)} 50%{opacity:1;transform:scale(1.12)} }
+@media(prefers-reduced-motion:reduce){#gm-chat-presence .gm-presence-signal{animation:none}}
+
 /* BATTLE CONTROL UTILITIES // four equal operator controls.
    RESET BOARD stays on the live command surface. */
 #battle-controls-panel > .battle-controls-utility-row {

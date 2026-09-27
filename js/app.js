@@ -3463,7 +3463,8 @@ const App = {
     if (!presence || !dropdown) return;
 
     const onlinePlayers = (players || []).filter(player => player.connected === true);
-    presence.textContent = `● ${onlinePlayers.length} ONLINE`;
+    presence.innerHTML = `<span class="gm-presence-signal" aria-hidden="true"></span><strong class="gm-presence-count">${onlinePlayers.length}</strong><span class="gm-presence-label">ONLINE</span><i class="gm-presence-bracket" aria-hidden="true"></i>`;
+    presence.setAttribute('aria-label', `${onlinePlayers.length} Little Heroes online`);
     presence.classList.toggle('has-online', onlinePlayers.length > 0);
 
     dropdown.innerHTML = onlinePlayers.length

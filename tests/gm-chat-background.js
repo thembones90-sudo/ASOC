@@ -24,5 +24,8 @@ assert.match(section, /radial-gradient\(ellipse at 88% 68%, rgba\(147, 70, 183, 
 assert.match(section, /#gm-panel \.gm-module-chat \.gm-chat-header[\s\S]*linear-gradient\(90deg, rgba\(54,19,29,\.94\), rgba\(41,20,53,\.94\)/);
 assert.match(app, /onopen[\s\S]*classList\.remove\('is-reconnecting'\)/);
 assert.match(app, /onclose[\s\S]*classList\.add\('is-reconnecting'\)/);
+assert.match(app, /gm-presence-count[\s\S]*Little Heroes online/);
+assert.match(styles, /ONLINE TELEMETRY[\s\S]*clip-path:polygon[\s\S]*gm-presence-core/);
+assert.match(styles, /prefers-reduced-motion:reduce[\s\S]*gm-presence-signal/);
 
 console.log('PASS GM tactical comms background, reconnect interference, latest emphasis and reduced-motion safety');
