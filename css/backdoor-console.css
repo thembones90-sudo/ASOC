@@ -117,6 +117,14 @@ body.room-mode-casual #gm-panel.maintenance-open .gm-content { overflow-y:auto !
     box-shadow:0 0 0 100vmax rgba(3,5,8,.72), -30px 0 90px rgba(0,0,0,.8) !important;
   }
 }
+
+/* Library / New Game are launched from inside the fixed Backdoor console.
+   The Forge must become the active surface, while leaving Backdoor preserved
+   underneath so closing the Forge returns the operator to the same console. */
+#forge-overlay.active {
+  z-index:9600;
+}
+
 #gm-panel.maintenance-open .gm-maintenance :is(.difficulty-badge, .cg-theme, #battle-session-mode, #battle-session-code, #battle-session-player-count, .battle-session-strip span) { font-size:.8rem !important; }
 #gm-panel.maintenance-open .gm-maintenance .blood-tribute-vault-status { font-size:.9rem !important; padding:10px 0; }
 #gm-panel.maintenance-open .gm-maintenance :is(.mp-label, .mp-value) { font-size:.84rem !important; }

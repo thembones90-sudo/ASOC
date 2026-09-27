@@ -33,6 +33,12 @@ assert.match(backdoorCss, /#gm-panel\.maintenance-open \{\s*position:fixed !impo
 assert.match(app, /openBloodTributeImage\(tribute\)/);
 assert.match(backdoorCss, /maintenance-open \.gm-content[\s\S]*overflow-y:auto !important/);
 assert.match(backdoorCss, /width:min\(1180px,100%\)/);
+// Library and New Game are legitimate Backdoor commands. Their Forge layer
+// must sit above the fixed Backdoor instead of opening invisibly underneath.
+assert.match(backdoorCss, /#forge-overlay\.active\s*\{\s*z-index:9600;/);
+assert.match(html, /backdoor-console\.css\?v=20260927-forge-stack-1/);
+assert.match(app, /library-btn'\)\.addEventListener\('click', \(\) => Forge\.open\(\)\)/);
+assert.match(app, /new-game-btn'\)\.addEventListener\('click', \(\) => Forge\.open\(\)\.then\(\(\) => Forge\.openCreator\(null, true\)\)\)/);
 assert.match(media, /looksLikeImageUrl/);
 assert.match(media, /\\\.\(\?:png\|jpe\?g\|webp\|gif\)/);
 assert.doesNotMatch(media, /return \^https\?:\\\/\\\//);
