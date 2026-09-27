@@ -1478,7 +1478,7 @@ position:absolute;
       font:800 .43rem var(--font-machine);
       letter-spacing:1.25px;
     }
-    .detainee-status-label span:first-child { color:#d4a843; }
+    .detainee-status-label > span:first-child { color:#d4a843; }
     .detainee-status-module .player-leaderboard-strip,
     .detainee-status-module .little-hero-hud {
       position:relative;
@@ -8416,6 +8416,10 @@ position:absolute;
         right:auto;
       }
     }
+    .signed-desktop-download{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-left:auto;padding:6px 10px;border:1px solid rgba(181,102,223,.55);border-radius:5px;background:linear-gradient(180deg,rgba(67,33,82,.92),rgba(24,16,31,.96));color:#e8c7fa;font:800 9px var(--font-machine),monospace;letter-spacing:1.1px;text-decoration:none;white-space:nowrap;box-shadow:inset 0 1px rgba(255,255,255,.05),0 0 12px rgba(155,93,224,.08)}
+    .signed-desktop-download:hover,.signed-desktop-download:focus-visible{border-color:#d072ff;color:#fff;box-shadow:0 0 15px rgba(184,83,235,.24);outline:none}
+    .signed-desktop-download[hidden]{display:none!important}
+    @media(max-width:760px){.signed-desktop-download{padding:5px 7px;font-size:8px}.signed-desktop-download span{display:none}}
 </style>
 </head>
 <body>
@@ -8732,6 +8736,7 @@ position:absolute;
     <section class="detainee-status-module">
       <div class="detainee-status-label">
         <span>LITTLE HERO STATUS</span>
+        <a id="signed-desktop-download" class="signed-desktop-download" href="https://github.com/thembones90-sudo/ASOC/releases/latest/download/ASOC-Engine-Setup.exe" title="Download ASOC Engine for Windows" aria-label="Download ASOC Engine desktop app for Windows">↓ <span>DESKTOP APP</span></a>
         <span id="casual-online-count" class="casual-online-count" aria-label="Players online">
           <i class="casual-online-dot" aria-hidden="true"></i><b>0</b><span>ONLINE</span>
         </span>
@@ -8879,8 +8884,8 @@ position:absolute;
   <script>
   (() => {
     const gate=document.getElementById('access-gate'), home=document.getElementById('access-home');
-    const desktopDownloadPanel=document.getElementById('desktop-download-panel');
-    if(window.asocDesktop&&desktopDownloadPanel)desktopDownloadPanel.hidden=true;
+    const desktopDownloadPanel=document.getElementById('desktop-download-panel'),signedDesktopDownload=document.getElementById('signed-desktop-download');
+    if(window.asocDesktop){if(desktopDownloadPanel)desktopDownloadPanel.hidden=true;if(signedDesktopDownload)signedDesktopDownload.hidden=true;}
     const pp=document.getElementById('player-auth-panel'), gp=document.getElementById('gm-auth-panel');
     let register=false, pendingVerificationEmail='';
     const shell=gate.querySelector('.access-shell'), diagnostic=document.getElementById('access-diagnostic');
