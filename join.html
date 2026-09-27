@@ -3527,6 +3527,16 @@ position:absolute;
     .access-logo{display:block;width:min(530px,85%);height:auto;margin:20px auto 8px;filter:drop-shadow(0 0 7px #b91d2525)}    .access-diagnostic{display:flex;align-items:center;justify-content:center;gap:12px;min-height:46px;margin:18px 0;color:#f07575;font-size:11px;letter-spacing:2px;text-align:center;border-block:1px solid #383d42;background:#080a0c;line-height:1.5;padding:8px}
     .access-diagnostic::before{content:">";color:#eb4444}.access-diagnostic::after{content:"";width:6px;height:12px;background:#c84646;flex-shrink:0;animation:access-blip 2s infinite}
     .access-choices{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;transition:grid-template-columns .35s ease}
+    .desktop-download{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;margin-top:14px;padding:12px 14px;border:1px solid #4b4054;background:linear-gradient(105deg,#0b0d10 0,#17111c 55%,#230f1c 100%);box-shadow:inset 3px 0 #9a45cb,0 8px 24px #0005;color:#d8dbe0;text-decoration:none;position:relative;z-index:6}
+    .desktop-download:hover,.desktop-download:focus-visible{border-color:#b667df;background:linear-gradient(105deg,#11151a 0,#24162b 55%,#351323 100%);box-shadow:inset 3px 0 #d16cff,0 0 18px #9f3bd52c;color:#fff}
+    .desktop-download[hidden]{display:none}
+    .desktop-download-icon{width:42px;height:42px;display:grid;place-items:center;border:1px solid #76518a;background:#120d17;color:#d58cff;font-size:22px;box-shadow:inset 0 0 14px #8e37b92c}
+    .desktop-download-copy{min-width:0;display:grid;gap:3px}
+    .desktop-download-copy b{font-size:14px;letter-spacing:1.8px;color:#f0d7ff}
+    .desktop-download-copy small{font:600 10px/1.4 var(--font-machine),monospace;letter-spacing:1px;color:#929aa4}
+    .desktop-download-action{padding:9px 12px;border:1px solid #76518a;color:#e4b6ff;font-size:10px;font-weight:800;letter-spacing:1.4px;white-space:nowrap}
+    .desktop-download-links{grid-column:2/-1;display:flex;gap:14px;align-items:center;font:700 9px var(--font-machine),monospace;letter-spacing:1px;color:#777f89}
+    .desktop-download-links a{color:#b98bd1;text-underline-offset:3px}
     .access-choice{position:relative;isolation:isolate;overflow:hidden;min-width:0;min-height:230px;text-align:left;padding:24px;border:1px solid #596168;border-top:3px solid #7b8389;background:linear-gradient(125deg,#ffffff06,transparent 45%),linear-gradient(#23282c,#111417);color:#e4e7e9;cursor:pointer;box-shadow:inset 0 0 0 5px #0c0e10,inset 0 0 0 6px #353b40;transition:border-color .2s,opacity .3s,background .2s}
     .access-choice::before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(105deg,transparent 25%,#d636361c 50%,transparent 75%);transform:translateX(-110%)}
     .access-choice::after{content:"+";position:absolute;right:13px;bottom:10px;color:#7c858b;font-size:16px}
@@ -3601,7 +3611,7 @@ position:absolute;
     @keyframes lh-radar-needle{to{transform:translate(-50%,-50%) rotate(360deg)}}
     @keyframes access-sweep{to{transform:translateX(110%)}}@keyframes access-blip{0%,90%,100%{opacity:1}95%{opacity:.35}}@keyframes access-terminal-in{from{opacity:.35;transform:translateY(-8px)}to{opacity:1;transform:none}}
     .skynet-denial{margin-top:14px;padding:14px 15px;border:1px solid #a13d48;background:linear-gradient(90deg,rgba(145,30,45,.16),rgba(35,8,15,.7));color:#e6d9dc;font-size:12px;line-height:1.65;box-shadow:inset 3px 0 #d34e5e,0 0 22px rgba(190,35,55,.1);animation:skynet-denial-in .28s steps(3,end)}.skynet-denial b{display:block;color:#f05d6e;letter-spacing:2px;font-size:10px;margin-bottom:5px}.skynet-denial[hidden]{display:none}@keyframes skynet-denial-in{0%{opacity:0;transform:translateX(-8px);filter:blur(2px)}60%{opacity:.65;transform:translateX(3px)}100%{opacity:1;transform:none;filter:none}}
-    @media(max-width:600px){#access-gate{padding:6px;place-items:center}.access-shell{padding:18px!important}.access-hardware{font-size:8px;letter-spacing:1px}.access-logo{width:95%;margin-top:18px}.access-diagnostic{font-size:9px;letter-spacing:1px;margin:14px 0}.access-choices,.access-shell[data-channel] .access-choices{grid-template-columns:minmax(0,1fr)}.access-choice{min-height:190px;padding:20px}.access-choice b{font-size:28px;margin:16px 0 8px}.access-bay-status{margin-top:14px}.access-shell[data-channel] .access-choice{min-height:100px}.access-shell[data-channel] .access-choice:not(.is-selected){min-height:74px;padding-block:12px}.access-shell[data-channel] .access-choice:not(.is-selected) .access-bay-status{display:none}.access-panel{min-height:0;padding:20px 16px}#access-player::after{background-size:100% 100%,auto 112%;background-position:center,78% center;opacity:.58}#access-player:hover::after,#access-player:focus-visible::after{opacity:.66}#access-player.is-selected::after{opacity:.7}}
+    @media(max-width:600px){#access-gate{padding:6px;place-items:center}.access-shell{padding:18px!important}.access-hardware{font-size:8px;letter-spacing:1px}.access-logo{width:95%;margin-top:18px}.access-diagnostic{font-size:9px;letter-spacing:1px;margin:14px 0}.access-choices,.access-shell[data-channel] .access-choices{grid-template-columns:minmax(0,1fr)}.access-choice{min-height:190px;padding:20px}.access-choice b{font-size:28px;margin:16px 0 8px}.access-bay-status{margin-top:14px}.access-shell[data-channel] .access-choice{min-height:100px}.access-shell[data-channel] .access-choice:not(.is-selected){min-height:74px;padding-block:12px}.access-shell[data-channel] .access-choice:not(.is-selected) .access-bay-status{display:none}.access-panel{min-height:0;padding:20px 16px}.desktop-download{grid-template-columns:auto minmax(0,1fr);gap:10px;padding:10px}.desktop-download-action{display:none}.desktop-download-links{grid-column:1/-1;justify-content:center}#access-player::after{background-size:100% 100%,auto 112%;background-position:center,78% center;opacity:.58}#access-player:hover::after,#access-player:focus-visible::after{opacity:.66}#access-player.is-selected::after{opacity:.7}}
     @media(max-width:600px){#access-gm::after{background-size:100% 100%,auto 112%;background-position:center,82% center;opacity:.58}#access-gm:hover::after,#access-gm:focus-visible::after{opacity:.66}#access-gm.is-selected::after{opacity:.7}#access-gm > .access-art-fx,#access-player > .access-art-fx{mix-blend-mode:normal}#access-player > .access-art-fx{opacity:.2}#access-gm:hover > .access-art-fx,#access-gm:focus-visible > .access-art-fx{opacity:.5}#access-player:hover > .access-art-fx,#access-player:focus-visible > .access-art-fx{opacity:.48}}
 
     /* LITTLE HERO LOGIN SURGE // restored screen-wide purple scan.
@@ -8420,6 +8430,12 @@ position:absolute;
           <button class="access-choice" id="access-gm" type="button"><span class="num">01 // RESTRICTED CHANNEL</span><b>SHADOW BROKER</b><span class="access-requirement">COMMAND AUTHORITY REQUIRED</span><small>Single-password command authority. Restricted to the Shadow Broker.</small><span class="access-bay-status">COMMAND LINK // STANDBY</span><span class="access-art-fx" aria-hidden="true"></span></button>
           <button class="access-choice" id="access-player" type="button"><span class="num">02 // PLAYER CHANNEL</span><b>LITTLE HERO</b><span class="access-requirement">IDENTITY LINK REQUIRED</span><small>Identify yourself, little hero. The Shadow Broker is already watching.</small><span class="access-bay-status">HERO LINK // AWAITING SUBJECT</span><span class="access-art-fx" aria-hidden="true"></span></button>
         </div>
+        <div class="desktop-download" id="desktop-download-panel">
+          <span class="desktop-download-icon" aria-hidden="true">↓</span>
+          <span class="desktop-download-copy"><b>DOWNLOAD DESKTOP APP</b><small>WINDOWS 10/11 // VERSION 1.2.0 // APPROX. 108 MB</small></span>
+          <a class="desktop-download-action" href="https://github.com/thembones90-sudo/ASOC/releases/latest/download/ASOC-Engine-Setup.exe">DOWNLOAD INSTALLER</a>
+          <span class="desktop-download-links"><a href="https://github.com/thembones90-sudo/ASOC/releases/latest/download/ASOC-Engine-Portable.exe">PORTABLE VERSION</a><a href="https://github.com/thembones90-sudo/ASOC/releases/latest/download/SHA256SUMS.txt">SHA-256 CHECKSUMS</a><span>UNSIGNED BUILD // SMARTSCREEN MAY WARN</span></span>
+        </div>
       </div>
       <form id="player-auth-panel" class="access-panel" hidden>
         <button class="access-back" type="button">RETURN</button><h2>LITTLE HERO ACCESS</h2><p id="player-auth-copy">Sign in with your ASOC identity.</p>
@@ -8863,6 +8879,8 @@ position:absolute;
   <script>
   (() => {
     const gate=document.getElementById('access-gate'), home=document.getElementById('access-home');
+    const desktopDownloadPanel=document.getElementById('desktop-download-panel');
+    if(window.asocDesktop&&desktopDownloadPanel)desktopDownloadPanel.hidden=true;
     const pp=document.getElementById('player-auth-panel'), gp=document.getElementById('gm-auth-panel');
     let register=false, pendingVerificationEmail='';
     const shell=gate.querySelector('.access-shell'), diagnostic=document.getElementById('access-diagnostic');

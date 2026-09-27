@@ -17,6 +17,15 @@ Output in `desktop/dist/` (emptied at the start of every build, so old versions 
 - `ASOC-Engine-Setup-<version>.exe`: installer (Start Menu and desktop shortcuts, uninstaller)
 - `ASOC-Engine-Portable-<version>.exe`: single file, no install
 
+## Publish a website download
+
+The public access page links to stable assets in the latest GitHub Release. Bump
+the version in `desktop/package.json`, then push a matching `desktop-v<version>`
+tag. `.github/workflows/desktop-release.yml` builds Windows packages, publishes
+stable `ASOC-Engine-Setup.exe` and `ASOC-Engine-Portable.exe` aliases, and adds
+`SHA256SUMS.txt`. The same workflow can also be started manually from GitHub
+Actions. Do not commit `desktop/dist/` binaries to the repository.
+
 ## Run / test
 
 | Command | What it does |

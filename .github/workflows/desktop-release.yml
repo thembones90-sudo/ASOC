@@ -1,0 +1,65 @@
+name: Desktop release
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Resolve release tag
+        shell: pwsh
+        run: |
+          $version = (Get-Content desktop/package.json | ConvertFrom-Json).version
+          $tag = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { "desktop-v$version" }
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "DESKTOP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Install desktop dependencies
+        run: npm ci --prefix desktop
+
+      - name: Build Windows installer and portable package
+        run: npm run dist --prefix desktop
+
+      - name: Prepare stable download assets
+        shell: pwsh
+        run: |
+          Copy-Item "desktop/dist/ASOC-Engine-Setup-$env:DESKTOP_VERSION.exe" "desktop/dist/ASOC-Engine-Setup.exe"
+          Copy-Item "desktop/dist/ASOC-Engine-Portable-$env:DESKTOP_VERSION.exe" "desktop/dist/ASOC-Engine-Portable.exe"
+          $files = @("desktop/dist/ASOC-Engine-Setup.exe", "desktop/dist/ASOC-Engine-Portable.exe")
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLowerInvariant()
+            "$hash  $([IO.Path]::GetFileName($file))"
+          }
+          $lines | Set-Content -Encoding ascii "desktop/dist/SHA256SUMS.txt"
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(
+            "desktop/dist/ASOC-Engine-Setup.exe",
+            "desktop/dist/ASOC-Engine-Portable.exe",
+            "desktop/dist/SHA256SUMS.txt"
+          )
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG @assets --clobber
+          } else {
+            gh release create $env:RELEASE_TAG @assets --title "ASOC Engine Desktop $env:DESKTOP_VERSION" --generate-notes --latest
+          }
