@@ -7,8 +7,7 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'css', 'asoc.css'), 'utf8');
-const tweaksCss = fs.readFileSync(path.join(root, 'css', 'tweaks.css'), 'utf8');
-const tweaksJs = fs.readFileSync(path.join(root, 'js', 'tweaks.js'), 'utf8');
+const join = fs.readFileSync(path.join(root, 'join.html'), 'utf8');
 
 // Cache-busting contract: each stylesheet's ?v= must be dated no earlier than
 // the release that shipped this repaint. Later features legitimately bump the
@@ -18,7 +17,6 @@ function cacheVersionDate(file) {
   return match ? match[1] : '';
 }
 assert(cacheVersionDate('css/asoc.css') >= '20260924', 'combined desktop command CSS must be cache-busted');
-assert(cacheVersionDate('css/tweaks.css') >= '20260924', 'TWEAKS repaint CSS must be cache-busted');
 
 assert(html.includes('class="bice-btn-sigil"'), 'BIĆE ASOC must use the cyber-organic SVG sigil');
 assert(css.includes('.bice-sigil-reticle'), 'BIĆE ASOC sigil styling must include its targeting reticle');
@@ -33,8 +31,10 @@ assert(css.includes('border-color:#ff2638 !important'), 'NEMA ASOC must use a bl
 assert(css.includes("fill='%23ff3b48'"), 'NEMA ASOC trefoil pattern must be repainted blood red');
 assert(css.includes('repeating-linear-gradient(-45deg,#ff2638 0 7px,#160306 7px 14px)'), 'NEMA ASOC must retain red hazard rails');
 
-assert(tweaksCss.includes('color:#ffd8ad'), 'GM TWEAKS must use pale-orange text');
-assert(tweaksCss.includes('border-color:#ffc27c'), 'GM TWEAKS hover must use pale-orange emphasis');
-assert(tweaksJs.includes('aria-hidden="true">⚙</span><span>TWEAKS'), 'TWEAKS must use a maintenance gear glyph');
+assert(!html.includes('css/tweaks.css') && !html.includes('js/tweaks.js'), 'GM no longer loads the retired TWEAKS interface');
+assert(!join.includes('css/tweaks.css') && !join.includes('js/tweaks.js'), 'players no longer load the retired TWEAKS interface');
+assert(html.includes('class="toolbar-btn reset-board-utility-btn" id="reset-board-btn"'), 'RESET BOARD replaces TWEAKS in the live utility row');
+assert(css.includes('grid-template-columns:repeat(4,minmax(0,1fr)) !important'), 'desktop utility controls use four equal columns');
+assert(css.includes('.reset-board-utility-btn'), 'RESET BOARD has dedicated live-control styling');
 
 console.log('command-repaint: all checks passed');

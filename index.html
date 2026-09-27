@@ -10,11 +10,10 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260926-tribute-reason-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260927-reset-control-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
   <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-2">
   <link rel="stylesheet" href="css/megabonk.css?v=20260927-megabonk-multi-1">
-  <link rel="stylesheet" href="css/tweaks.css?v=20260924-command-repaint-1">
   <link rel="stylesheet" href="css/backdoor-console.css?v=20260927-forge-stack-1">
   <link rel="stylesheet" href="css/forge-creator.css?v=20260927-creator-2">
   <link rel="stylesheet" href="css/gm-direct-messages.css?v=20260926-gm-dm-1">
@@ -61,9 +60,10 @@
         <button class="gm-global-btn final-panel-reopen-btn" id="final-panel-reopen-btn" type="button" style="display: none;" title="Reopen the Final Solution panel // results not yet shown">END GAME</button>
         <button class="gm-global-btn recount-btn" id="recount-btn" type="button">SHOW RESULTS</button>
         <section id="gm-dm-console" class="gm-dm-console" aria-label="Shadow Broker private channels" hidden></section>
-        <div class="battle-controls-utility-row" style="display:grid;grid-template-columns:minmax(0,1.35fr) auto minmax(0,.65fr);gap:10px;margin-top:10px;">
+        <div class="battle-controls-utility-row">
           <button class="toolbar-btn" id="library-btn-footer" style="width:100%;margin:0;">GAME LIBRARY</button>
           <button class="toolbar-btn sound-toggle-btn" id="sound-toggle-btn" type="button" aria-pressed="false" title="Mute every ASOC sound on this device" style="margin:0;">SOUNDS ON</button>
+          <button class="toolbar-btn reset-board-utility-btn" id="reset-board-btn" type="button" title="Reset every reveal and restore the current board">RESET BOARD</button>
           <div class="master-access-wrap">
             <button class="toolbar-btn master-access-btn" id="master-access-btn" type="button" aria-haspopup="true" aria-expanded="false"><svg class="master-access-sigil" viewBox="0 0 40 40" aria-hidden="true" focusable="false"><path class="master-sigil-outer" d="M20 2 32 8l6 12-6 12-12 6-12-6-6-12L8 8Z"/><circle class="master-sigil-ring" cx="20" cy="20" r="10"/><path class="master-sigil-key" d="M20 11a6 6 0 1 0 4.3 10.2L31 28v4h-4v-3h-3v-3l-2.4-2.4A6 6 0 0 0 20 11Zm0 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg><span>MASTER ACCESS</span></button>
             <div class="master-access-menu" id="master-access-menu" hidden>
@@ -185,7 +185,6 @@
           <h3 class="gm-section-title">Global Actions</h3>
           <div class="gm-global-controls">
             <button class="gm-global-btn undo-btn" id="undo-btn" disabled>UNDO LAST</button>
-            <button class="gm-global-btn reset-btn" id="reset-board-btn">RESET BOARD</button>
           </div>
           <div class="gm-global-controls" style="grid-template-columns: 1fr;">
             <button class="gm-global-btn primary" id="reveal-hide-all-btn">REVEAL ALL</button>
@@ -340,7 +339,6 @@
   <script src="js/megabonk.js?v=20260927-megabonk-multi-1"></script>
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
   <script src="js/app.js?v=20260927-hint-prep-1"></script>
-  <script src="js/tweaks.js?v=20260924-command-repaint-1"></script>
   <script src="js/forge.js?v=20260927-creator-optimization-1"></script>
 </body>
 </html>

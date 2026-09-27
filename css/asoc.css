@@ -19419,6 +19419,42 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
 @media (prefers-reduced-motion: reduce) { .battle-flow-row > #finish-game-btn { animation: none; } }
 body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none !important; }
 
+/* BATTLE CONTROL UTILITIES // four equal operator controls.
+   TWEAKS retired; RESET BOARD now stays on the live command surface. */
+#battle-controls-panel > .battle-controls-utility-row {
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  align-items:stretch !important;
+  gap:8px !important;
+  width:100% !important;
+  margin-top:8px !important;
+}
+#battle-controls-panel > .battle-controls-utility-row > :is(button,.master-access-wrap),
+#battle-controls-panel > .battle-controls-utility-row .master-access-btn {
+  width:100% !important;
+  min-width:0 !important;
+  min-height:46px !important;
+  height:46px !important;
+  margin:0 !important;
+  box-sizing:border-box !important;
+}
+#battle-controls-panel .reset-board-utility-btn {
+  border-color:rgba(201,74,74,.86) !important;
+  color:#ffb0b0 !important;
+  background:linear-gradient(180deg,rgba(79,29,32,.9),rgba(34,19,22,.98)) !important;
+  font-weight:800;
+  letter-spacing:.07em;
+}
+#battle-controls-panel .reset-board-utility-btn:hover,
+#battle-controls-panel .reset-board-utility-btn:focus-visible {
+  border-color:#ef6d75 !important;
+  color:#fff !important;
+  box-shadow:0 0 18px rgba(218,67,77,.2) !important;
+}
+@media(max-width:760px) {
+  #battle-controls-panel > .battle-controls-utility-row { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
+
 /* SHADOW COINS in the player's status HUD (next to SCORE / RANK / STREAK). */
 #game-screen:not(#casual-scale-guard) .hero-stat.hero-stat-coins { border-color: rgba(150, 200, 90, .4) !important; }
 #game-screen .hero-stat-coins .hero-stat-coin { width: 18px; height: auto; aspect-ratio: 256 / 251; object-fit: contain; filter: drop-shadow(0 0 4px rgba(140, 210, 60, .35)); }

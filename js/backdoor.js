@@ -75,7 +75,6 @@ const ControlSurfaces = {
     const boardMaintenance = makeModule('02 // BOARD', primaryGrid);
     boardMaintenance.classList.add('gm-board-maintenance');
     const undo = document.getElementById('undo-btn');
-    const resetBoard = document.getElementById('reset-board-btn');
     const revealAll = document.getElementById('reveal-hide-all-btn');
     const boardState = document.createElement('div');
     boardState.className = 'gm-maintenance-readout';
@@ -128,7 +127,7 @@ const ControlSurfaces = {
       if (!confirm('Reset GM panel width and Battle Chat height to defaults?')) return;
       this.app?.resetGMPanelLayout?.();
     });
-    [resetBoard, layoutReset].forEach(button => button && recovery.appendChild(button));
+    recovery.appendChild(layoutReset);
 
     // RESET SCOREBOARD: wipes every Battle score and record, keeps Shadow Coins.
     const scoreboardReset = document.createElement('button');
