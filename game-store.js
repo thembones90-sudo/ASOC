@@ -465,7 +465,7 @@ async function importXlsx(buffer, sourceFilename) {
 
   if (namedBoardSheet && namedBoardSheet.actualRowCount > 0 && namedBoardSheet.actualColumnCount > 0) {
     sheet = namedBoardSheet;
-    const ignored = workbook.worksheets.filter(ws => ws !== sheet && ws.actualRowCount > 0 && ws.actualColumnCount > 0);
+    const ignored = workbook.worksheets.filter(ws => ws !== sheet && String(ws.name || '').trim().toUpperCase() !== 'ASOC NOTES' && ws.actualRowCount > 0 && ws.actualColumnCount > 0);
     if (ignored.length) {
       warnings.push(`Using sheet "${sheet.name}"; ignored auxiliary sheet${ignored.length === 1 ? '' : 's'}: ${ignored.map(ws => ws.name).join(', ')}.`);
     }
@@ -556,22 +556,90 @@ async function importXlsx(buffer, sourceFilename) {
 
   if (errors.length) return { errors };
 
+  const metadata = {};
+  const importedCellHints = {};
+  const notesSheet = workbook.getWorksheet('ASOC NOTES');
+  if (notesSheet) {
+    notesSheet.eachRow({ includeEmpty: false }, row => {
+      const key = String(row.getCell(1).text || '').trim().toUpperCase();
+      const value = String(row.getCell(2).text || '').trim();
+      const hintMatch = /^HINT\s+([A-D][1-4])$/.exec(key);
+      if (hintMatch && value) importedCellHints[hintMatch[1]] = value.slice(0, 160);
+      else if (key && value) metadata[key] = value;
+    });
+  }
+
+  const importedTheme = metadata.THEME || deriveTitleFromFilename(sourceFilename);
+  const importedDifficulty = DIFFICULTY_VALUES.includes(metadata.DIFFICULTY) ? metadata.DIFFICULTY : 'GREEN';
   const game = {
     id: generateGameId(),
-    title: deriveTitleFromFilename(sourceFilename),
-    theme: '',
-    background: DEFAULT_BACKGROUND,
-    difficulty: 'GREEN',
+    title: importedTheme,
+    theme: importedTheme,
+    background: metadata.BACKGROUND || DEFAULT_BACKGROUND,
+    difficulty: importedDifficulty,
     columns,
     finalSolution,
-    story: '',
-    gmNotes: '',
+    story: metadata.STORY || '',
+    gmNotes: metadata['GM NOTES'] || '',
     hints: [],
+    cellHints: importedCellHints,
     created: today(),
     modified: nowISO()
   };
 
   return { game, warnings };
+}
+
+async function exportXlsx(gameId) {
+  const game = readGame(gameId);
+  if (!game) return { error: 'Game not found' };
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'ASOC Engine';
+  workbook.created = new Date();
+  const sheet = workbook.addWorksheet('ASOC GAME', {
+    views: [{ state: 'frozen', ySplit: 1 }]
+  });
+  sheet.columns = ['A', 'B', 'C', 'D'].map(key => ({ key, width: 28 }));
+  ['A', 'B', 'C', 'D'].forEach((col, colIndex) => {
+    for (let row = 1; row <= 4; row++) sheet.getCell(row, colIndex + 1).value = game.columns?.[col]?.clues?.[row - 1] || '';
+    sheet.getCell(5, colIndex + 1).value = game.columns?.[col]?.solution || '';
+  });
+  sheet.getCell('A6').value = game.finalSolution || '';
+  sheet.getRow(5).font = { bold: true, color: { argb: 'FFB888E8' } };
+  sheet.getRow(6).font = { bold: true, color: { argb: 'FFFFD36A' } };
+  sheet.eachRow(row => {
+    row.height = 24;
+    row.eachCell({ includeEmpty: true }, cell => {
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF55505E' } },
+        left: { style: 'thin', color: { argb: 'FF55505E' } },
+        bottom: { style: 'thin', color: { argb: 'FF55505E' } },
+        right: { style: 'thin', color: { argb: 'FF55505E' } }
+      };
+    });
+  });
+
+  const notes = workbook.addWorksheet('ASOC NOTES');
+  notes.columns = [{ width: 24 }, { width: 72 }];
+  const noteRows = [
+    ['THEME', game.theme || game.title || ''],
+    ['DIFFICULTY', game.difficulty || 'GREEN'],
+    ['BACKGROUND', game.background || ''],
+    ['STORY', game.story || ''],
+    ['GM NOTES', game.gmNotes || '']
+  ];
+  Object.entries(game.cellHints || {}).sort().forEach(([cell, hint]) => noteRows.push([`HINT ${cell}`, hint]));
+  notes.addRows(noteRows);
+  notes.getColumn(1).font = { bold: true, color: { argb: 'FFB888E8' } };
+  notes.eachRow(row => { row.alignment = { vertical: 'top', wrapText: true }; });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return {
+    buffer: Buffer.from(buffer),
+    filename: `${safeName(game.theme || game.title, 'asoc-game')}.xlsx`
+  };
 }
 
 module.exports = {
@@ -591,6 +659,7 @@ module.exports = {
   listBackgrounds,
   saveBackgroundUpload,
   importXlsx,
+  exportXlsx,
   validateGame,
   findGameFile,
   safeName,

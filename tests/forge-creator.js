@@ -12,7 +12,7 @@ const css = fs.readFileSync(path.join(root, 'css', 'forge-creator.css'), 'utf8')
 assert.doesNotMatch(forge, /data-creator-field="title"/, 'creator no longer asks for a redundant title');
 assert.match(forge, /d\.title = this\.isNew \? d\.theme/, 'new games derive their library title from the theme');
 assert.match(forge, /FIELD_ORDER: \['A1'.*'finalSolution'\]/s, 'creator has a deterministic keyboard and paste order');
-assert.match(forge, /click the preview board to jump to a field/, 'creator explains click-to-focus navigation');
+assert.match(forge, /click preview to jump/, 'creator explains click-to-focus navigation');
 assert.match(forge, /data-creator-test/, 'creator exposes private test play');
 assert.match(forge, /_testRevealed = new Set\(\)/, 'test play uses isolated reveal state');
 assert.match(forge, /DRAFT_PREFIX: 'asoc_forge_draft:'/, 'creator autosaves browser-local drafts');
@@ -26,5 +26,15 @@ assert.match(app, /PREPARED HINT \/\//, 'GM hint requests surface the prepared h
 assert.match(index, /forge-creator\.css\?v=/, 'creator-specific styling is loaded and cache-busted');
 assert.match(css, /#creator-board \.board-cell\.creator-focus/, 'focused field is visibly linked to its preview cell');
 assert.match(css, /\.creator-paste-card/, 'bulk paste has a dedicated readable dialog');
+assert.match(forge, /USE AS TEMPLATE/, 'library can create a clean board from an existing game');
+assert.match(forge, /EXPORT \.XLSX/, 'library and editor expose spreadsheet export');
+assert.match(forge, /data-creator-column-focus/, 'creator supports column-focused work');
+assert.match(forge, /swapClueRows\(/, 'clue rows can be reordered by dragging');
+assert.match(forge, /runQualityCheck\(/, 'creator provides one consolidated readiness audit');
+assert.match(forge, /SUGGEST STRUCTURAL HINT/, 'creator can draft a safe structural hint');
+assert.match(forge, /CTRL\+S SAVE · CTRL\+K COMMANDS/, 'keyboard-first creator shortcuts are visible');
+assert.match(forge, /TEMPLATE_KEY: 'asoc_forge_templates:v1'/, 'reusable settings templates are browser-local and versioned');
+assert.match(css, /\.creator-palette-card/, 'command palette has production styling');
+assert.match(index, /forge\.js\?v=20260927-creator-optimization-1/, 'optimized creator script is cache-busted');
 
 console.log('PASS ASOC Creator: theme identity, unified editor, guided entry, drafts, test play, fit warnings and prepared hints');

@@ -171,6 +171,20 @@ const GameData = {
     });
   },
 
+  async exportXlsx(id) {
+    const headers = {};
+    if (this.gmToken) headers['x-gm-token'] = this.gmToken;
+    const response = await fetch(`api/games/${encodeURIComponent(id)}/export-xlsx`, { headers });
+    if (!response.ok) {
+      let message = `HTTP ${response.status}`;
+      try { message = (await response.json()).error || message; } catch (_) {}
+      throw new Error(message);
+    }
+    const disposition = response.headers.get('content-disposition') || '';
+    const match = /filename="?([^";]+)"?/i.exec(disposition);
+    return { blob: await response.blob(), filename: match?.[1] || 'asoc-game.xlsx' };
+  },
+
   getCellKey(column, row) {
     return `${column}${row}`;
   },

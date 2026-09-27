@@ -16,6 +16,8 @@ const Forge = {
   searchTerm: '',
   sortBy: 'newest',
   difficultyFilter: 'ALL',
+  activeColumn: 'ALL',
+  TEMPLATE_KEY: 'asoc_forge_templates:v1',
   _debounceTimer: null,
 
   CANVAS_W: 1900,
@@ -75,6 +77,16 @@ const Forge = {
       const dupBtn = e.target.closest('[data-game-dup]');
       if (dupBtn) {
         this.duplicateGame(dupBtn.dataset.gameDup);
+        return;
+      }
+      const templateBtn = e.target.closest('[data-game-use-template]');
+      if (templateBtn) {
+        this.useGameAsTemplate(templateBtn.dataset.gameUseTemplate);
+        return;
+      }
+      const exportBtn = e.target.closest('[data-game-export]');
+      if (exportBtn) {
+        this.exportGame(exportBtn.dataset.gameExport);
         return;
       }
       const delBtn = e.target.closest('[data-game-del]');
@@ -273,7 +285,9 @@ const Forge = {
           <div class="game-card-actions">
             <button class="forge-btn" data-game-load="${this.escapeAttr(g.id)}">LOAD</button>
             <button class="forge-btn" data-game-edit="${this.escapeAttr(g.id)}">EDIT</button>
-            <button class="forge-btn" data-game-dup="${this.escapeAttr(g.id)}">DUPLICATE</button>
+            <button class="forge-btn" data-game-dup="${this.escapeAttr(g.id)}">CLONE FULL</button>
+            <button class="forge-btn" data-game-use-template="${this.escapeAttr(g.id)}">USE AS TEMPLATE</button>
+            <button class="forge-btn" data-game-export="${this.escapeAttr(g.id)}">EXPORT .XLSX</button>
             <button class="forge-btn danger" data-game-del="${this.escapeAttr(g.id)}" ${isSample ? 'disabled title="Sample game cannot be deleted"' : ''}>DELETE</button>
           </div>
         </div>
@@ -298,6 +312,7 @@ const Forge = {
     this.view = 'creator';
     this._showMissing = false;
     this._longLabels = new Set();
+    this.activeColumn = 'ALL';
     this.renderCreator();
     this.offerDraft();
     setTimeout(() => this.focusField(this.isNew && !this.editingGame.theme ? 'theme' : 'A1', { select: false }), 60);
@@ -343,7 +358,7 @@ const Forge = {
     const colHtml = cols.map(col => {
       const colData = d.columns[col] || { clues: ['', '', '', ''], solution: '' };
       const cellInputs = [1, 2, 3, 4].map(r => `
-        <label class="cell-field" data-cell-wrap="${col}${r}">
+        <label class="cell-field" data-cell-wrap="${col}${r}" data-creator-column="${col}" data-drag-cell="${col}${r}" draggable="true">
           <span class="cell-field-label">${col}${r}<i class="creator-hint-dot" title="Has a prepared hint"${d.cellHints[`${col}${r}`] ? '' : ' hidden'}></i></span>
           <input type="text" class="forge-input" data-creator-field="${col}${r}" maxlength="60" autocomplete="off" value="${this.escapeAttr(colData.clues[r - 1] || '')}">
         </label>
@@ -352,7 +367,7 @@ const Forge = {
         <div class="creator-col">
           <div class="creator-col-header">COLUMN ${col}</div>
           ${cellInputs}
-          <label class="cell-field solution" data-cell-wrap="${col}5">
+          <label class="cell-field solution" data-cell-wrap="${col}5" data-creator-column="${col}">
             <span class="cell-field-label">${col}5 · SOLUTION</span>
             <input type="text" class="forge-input" data-creator-field="${col}5" maxlength="60" autocomplete="off" value="${this.escapeAttr(colData.solution || '')}">
           </label>
@@ -370,6 +385,17 @@ const Forge = {
         <button class="forge-close" data-forge-close title="Close">✕</button>
       </div>
       <div class="creator-draft-banner" id="creator-draft-banner" hidden></div>
+      <div class="creator-command-strip">
+        <div class="creator-template-tools">
+          <select class="forge-select" id="creator-template-select" aria-label="Creator template">
+            <option value="">TEMPLATE // NONE</option>
+            ${this.templateOptionsHTML()}
+          </select>
+          <button type="button" class="forge-btn ghost" data-creator-template-apply>APPLY TEMPLATE</button>
+          <button type="button" class="forge-btn ghost" data-creator-template-save>SAVE SETTINGS AS TEMPLATE</button>
+        </div>
+        <div class="creator-shortcuts">CTRL+S SAVE · CTRL+K COMMANDS · ALT+1–4 COLUMNS</div>
+      </div>
       <div class="creator-grid">
         <div class="creator-form">
           <div class="creator-section">
@@ -409,7 +435,12 @@ const Forge = {
             <h4 class="creator-label">BOARD — ALL 20 ENTRIES + FINAL</h4>
             <div class="creator-board-tools">
               <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-paste>PASTE WHOLE BOARD</button>
-              <span class="creator-tip">ENTER → next field · SHIFT+ENTER ← back · click the preview board to jump to a field</span>
+              <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-quality>CHECK READINESS</button>
+              <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-export ${this.isNew || !d.id ? 'disabled title="Save the game before exporting"' : ''}>EXPORT .XLSX</button>
+              <span class="creator-tip">ENTER → next · drag clue rows to reorder · click preview to jump</span>
+            </div>
+            <div class="creator-column-focus" role="tablist" aria-label="Column focus">
+              ${['ALL','A','B','C','D'].map(col => `<button type="button" class="creator-column-tab${this.activeColumn === col ? ' active' : ''}" data-creator-column-focus="${col}" role="tab" aria-selected="${this.activeColumn === col}">${col === 'ALL' ? 'ALL COLUMNS' : `COLUMN ${col}`}</button>`).join('')}
             </div>
             <div class="creator-cols">${colHtml}</div>
             <label class="cell-field final" data-cell-wrap="finalSolution">
@@ -419,8 +450,10 @@ const Forge = {
             <div class="creator-hint-bar" id="creator-hint-bar" hidden>
               <span class="cell-field-label" id="creator-hint-label">HINT FOR A1</span>
               <input type="text" class="forge-input" data-creator-hint maxlength="${this.HINT_MAX}" autocomplete="off" placeholder="Optional. Shown to you (GM only) when a player asks for this row's hint.">
+              <button type="button" class="forge-btn ghost creator-hint-suggest" data-creator-hint-suggest>SUGGEST STRUCTURAL HINT</button>
             </div>
             <div class="creator-warnings" id="creator-warnings" aria-live="polite"></div>
+            <div class="creator-quality-report" id="creator-quality-report" hidden aria-live="polite"></div>
           </div>
 
           <div class="creator-section">
@@ -452,7 +485,7 @@ const Forge = {
           <div class="creator-preview-header">
             <span>${'LIVE PREVIEW'}</span>
             <span class="creator-preview-tools">
-              <button type="button" class="creator-test-btn" data-creator-test aria-pressed="false">TEST PLAY</button>
+              <button type="button" class="creator-test-btn" data-creator-test aria-pressed="false">PLAYER REHEARSAL</button>
               <button type="button" class="creator-test-btn" data-creator-test-reset hidden>HIDE ALL</button>
             </span>
           </div>
@@ -480,6 +513,17 @@ const Forge = {
           </div>
         </div>
       </div>
+      <div class="creator-palette" id="creator-palette" hidden>
+        <div class="creator-palette-card" role="dialog" aria-modal="true" aria-labelledby="creator-palette-title">
+          <h4 id="creator-palette-title">CREATOR COMMANDS</h4>
+          <button type="button" data-creator-command="save">SAVE GAME <kbd>CTRL+S</kbd></button>
+          <button type="button" data-creator-command="quality">CHECK READINESS</button>
+          <button type="button" data-creator-command="paste">PASTE WHOLE BOARD</button>
+          <button type="button" data-creator-command="rehearsal">PLAYER REHEARSAL</button>
+          <button type="button" data-creator-command="empty">FIND FIRST EMPTY</button>
+          <button type="button" data-creator-command="all">SHOW ALL COLUMNS</button>
+        </div>
+      </div>
     `;
 
     this._testPlay = false;
@@ -488,10 +532,79 @@ const Forge = {
     this.updatePreview();
     this.updatePreviewBackground();
     this.refreshCreatorState();
+    this.applyColumnFocus(this.activeColumn);
   },
 
   // ------------------------------------------------------------------
   // Creator helpers
+  readTemplates() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(this.TEMPLATE_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed.filter(item => item && item.name && item.settings) : [];
+    } catch (_) { return []; }
+  },
+
+  templateOptionsHTML() {
+    const builtIns = [
+      { id: 'builtin:standard', name: 'STANDARD ASOC' },
+      { id: 'builtin:finals', name: 'FINALS / HIGH STAKES' },
+      { id: 'builtin:quick', name: 'QUICK GAME' }
+    ];
+    return [...builtIns, ...this.readTemplates().map((item, index) => ({ id: `custom:${index}`, name: item.name }))]
+      .map(item => `<option value="${this.escapeAttr(item.id)}">${this.escapeHtml(item.name)}</option>`).join('');
+  },
+
+  templateSettings(id) {
+    if (id === 'builtin:standard') return { difficulty: 'GREEN', background: this.backgrounds[0]?.path || '', story: '', gmNotes: '' };
+    if (id === 'builtin:finals') return { difficulty: 'RED', background: this.editingGame?.background || this.backgrounds[0]?.path || '', story: '', gmNotes: 'FINALS // verify every answer and prepared hint before launch.' };
+    if (id === 'builtin:quick') return { difficulty: 'YELLOW', background: this.backgrounds[0]?.path || '', story: '', gmNotes: 'QUICK GAME // shortened session.' };
+    const match = /^custom:(\d+)$/.exec(id || '');
+    return match ? this.readTemplates()[Number(match[1])]?.settings || null : null;
+  },
+
+  applySelectedTemplate() {
+    const select = document.getElementById('creator-template-select');
+    const settings = this.templateSettings(select?.value);
+    if (!settings || !this.editingGame) return;
+    ['difficulty', 'background', 'story', 'gmNotes'].forEach(key => {
+      if (settings[key] != null) this.editingGame[key] = settings[key];
+    });
+    this.markDirty();
+    this.renderCreator();
+  },
+
+  saveCurrentTemplate() {
+    if (!this.editingGame) return;
+    const name = prompt('Name this reusable Creator template:');
+    if (!name || !name.trim()) return;
+    const templates = this.readTemplates();
+    templates.push({
+      name: name.trim().slice(0, 48),
+      settings: {
+        difficulty: this.editingGame.difficulty || 'GREEN',
+        background: this.editingGame.background || '',
+        story: this.editingGame.story || '',
+        gmNotes: this.editingGame.gmNotes || ''
+      }
+    });
+    try { localStorage.setItem(this.TEMPLATE_KEY, JSON.stringify(templates.slice(-20))); } catch (_) {}
+    this.renderCreator();
+  },
+
+  applyColumnFocus(column = 'ALL') {
+    this.activeColumn = ['ALL', 'A', 'B', 'C', 'D'].includes(column) ? column : 'ALL';
+    document.querySelectorAll('#forge-shell .creator-col').forEach((node, index) => {
+      const col = ['A', 'B', 'C', 'D'][index];
+      node.hidden = this.activeColumn !== 'ALL' && this.activeColumn !== col;
+    });
+    document.querySelectorAll('#forge-shell [data-creator-column-focus]').forEach(button => {
+      const active = button.dataset.creatorColumnFocus === this.activeColumn;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+    document.querySelector('#forge-shell .creator-cols')?.classList.toggle('single-column', this.activeColumn !== 'ALL');
+  },
+
   fieldInput(name) {
     return document.querySelector(`#forge-shell [data-creator-field="${name}"]`);
   },
@@ -783,7 +896,7 @@ const Forge = {
     this._testRevealed = new Set();
     const btn = document.querySelector('#forge-shell [data-creator-test]');
     if (btn) {
-      btn.textContent = this._testPlay ? 'EXIT TEST PLAY' : 'TEST PLAY';
+      btn.textContent = this._testPlay ? 'EXIT REHEARSAL' : 'PLAYER REHEARSAL';
       btn.setAttribute('aria-pressed', String(this._testPlay));
       btn.classList.toggle('active', this._testPlay);
     }
@@ -794,9 +907,107 @@ const Forge = {
     this.updatePreview();
   },
 
+  swapClueRows(from, to) {
+    if (!/^[A-D][1-4]$/.test(from || '') || !/^[A-D][1-4]$/.test(to || '') || from[0] !== to[0] || from === to) return;
+    const first = this.fieldValue(from);
+    const second = this.fieldValue(to);
+    this.applyField(from, second);
+    this.applyField(to, first);
+    const hints = this.editingGame.cellHints || (this.editingGame.cellHints = {});
+    const firstHint = hints[from] || '';
+    const secondHint = hints[to] || '';
+    if (secondHint) hints[from] = secondHint; else delete hints[from];
+    if (firstHint) hints[to] = firstHint; else delete hints[to];
+    this.markDirty();
+    this.renderCreator();
+    this.applyColumnFocus(from[0]);
+    this.focusField(to, { select: false });
+  },
+
+  suggestHint() {
+    const cell = this._hintCell;
+    if (!/^[A-D][1-4]$/.test(cell || '')) return;
+    const answer = String(this.fieldValue(cell) || '').trim();
+    if (!answer) {
+      this.focusField(cell);
+      return;
+    }
+    const letters = [...answer.replace(/\s/g, '')].length;
+    const words = answer.split(/\s+/).filter(Boolean).length;
+    const hint = `Starts with ${answer[0].toUpperCase()} · ${letters} letter${letters === 1 ? '' : 's'}${words > 1 ? ` · ${words} words` : ''}`;
+    const input = document.querySelector('#forge-shell [data-creator-hint]');
+    if (input) input.value = hint;
+    this.setCellHint(hint);
+  },
+
+  qualityIssues() {
+    const issues = [];
+    const missing = this.missingFields();
+    if (missing.length) issues.push({ level: 'error', text: `${missing.length} required field${missing.length === 1 ? '' : 's'} missing: ${missing.map(this.previewLabelFor).join(', ')}` });
+    const seen = new Map();
+    this.FIELD_ORDER.forEach(name => {
+      const word = String(this.fieldValue(name) || '').trim().toLocaleUpperCase();
+      if (!word) return;
+      if (!seen.has(word)) seen.set(word, []);
+      seen.get(word).push(this.previewLabelFor(name));
+    });
+    [...seen.entries()].filter(([, labels]) => labels.length > 1).forEach(([word, labels]) => issues.push({ level: 'warn', text: `Duplicate “${word}” in ${labels.join(', ')}` }));
+    ['A', 'B', 'C', 'D'].forEach(col => {
+      const solution = String(this.fieldValue(`${col}5`) || '').trim().toLocaleUpperCase();
+      for (let row = 1; row <= 4; row++) {
+        const clue = String(this.fieldValue(`${col}${row}`) || '').trim().toLocaleUpperCase();
+        if (solution && clue && (clue === solution || clue.includes(solution))) issues.push({ level: 'warn', text: `${col}${row} appears to expose the ${col}5 solution.` });
+        if (clue && !this.editingGame.cellHints?.[`${col}${row}`]) issues.push({ level: 'note', text: `${col}${row} has no prepared hint.` });
+      }
+    });
+    (this._longLabels || new Set()).forEach(label => issues.push({ level: 'warn', text: `${label} will shrink heavily on the live board.` }));
+    return issues;
+  },
+
+  runQualityCheck() {
+    const box = document.getElementById('creator-quality-report');
+    if (!box) return;
+    const issues = this.qualityIssues();
+    box.hidden = false;
+    box.innerHTML = issues.length
+      ? `<b>READINESS CHECK // ${issues.length} ITEM${issues.length === 1 ? '' : 'S'}</b>${issues.map(issue => `<span class="is-${issue.level}">${this.escapeHtml(issue.text)}</span>`).join('')}`
+      : '<b>READY TO PLAY</b><span class="is-ok">All required fields are complete. No duplicate, exposure, fit or hint issues detected.</span>';
+  },
+
+  toggleCommandPalette(force) {
+    const palette = document.getElementById('creator-palette');
+    if (!palette) return;
+    palette.hidden = typeof force === 'boolean' ? !force : !palette.hidden;
+    if (!palette.hidden) palette.querySelector('button')?.focus();
+  },
+
+  runCreatorCommand(command) {
+    this.toggleCommandPalette(false);
+    if (command === 'save') return this.saveGame();
+    if (command === 'quality') return this.runQualityCheck();
+    if (command === 'paste') return this.openPastePanel();
+    if (command === 'rehearsal') return this.toggleTestPlay();
+    if (command === 'empty') {
+      const first = this.missingFields()[0];
+      if (first) this.focusField(first);
+      return;
+    }
+    if (command === 'all') this.applyColumnFocus('ALL');
+  },
+
   initCreatorUX(overlay) {
     overlay.addEventListener('click', (e) => {
       if (this.view !== 'creator') return;
+      if (e.target.closest('[data-creator-template-apply]')) return this.applySelectedTemplate();
+      if (e.target.closest('[data-creator-template-save]')) return this.saveCurrentTemplate();
+      if (e.target.closest('[data-creator-quality]')) return this.runQualityCheck();
+      if (e.target.closest('[data-creator-export]')) return this.editingGame?.id && this.exportGame(this.editingGame.id);
+      if (e.target.closest('[data-creator-hint-suggest]')) return this.suggestHint();
+      const focusButton = e.target.closest('[data-creator-column-focus]');
+      if (focusButton) return this.applyColumnFocus(focusButton.dataset.creatorColumnFocus);
+      const commandButton = e.target.closest('[data-creator-command]');
+      if (commandButton) return this.runCreatorCommand(commandButton.dataset.creatorCommand);
+      if (e.target.id === 'creator-palette') { e.target.hidden = true; return; }
       if (e.target.closest('[data-creator-paste]')) return this.openPastePanel();
       if (e.target.closest('[data-creator-paste-apply]')) return this.applyPastePanel();
       if (e.target.closest('[data-creator-paste-cancel]')) { document.getElementById('creator-paste').hidden = true; return; }
@@ -823,6 +1034,23 @@ const Forge = {
 
     overlay.addEventListener('keydown', (e) => {
       if (this.view !== 'creator') return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        this.saveGame();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        this.toggleCommandPalette();
+        return;
+      }
+      if (e.altKey && /^[1-4]$/.test(e.key)) {
+        e.preventDefault();
+        const col = ['A', 'B', 'C', 'D'][Number(e.key) - 1];
+        this.applyColumnFocus(col);
+        this.focusField(`${col}1`, { select: false });
+        return;
+      }
       if (e.key === 'Escape' && !document.getElementById('creator-paste')?.hidden) {
         document.getElementById('creator-paste').hidden = true;
         e.stopPropagation();
@@ -858,6 +1086,32 @@ const Forge = {
     overlay.addEventListener('input', (e) => {
       if (this.view !== 'creator') return;
       if (e.target.closest?.('[data-creator-hint]')) this.setCellHint(e.target.value);
+    });
+
+    overlay.addEventListener('dragstart', e => {
+      const row = e.target.closest?.('[data-drag-cell]');
+      if (!row || this.view !== 'creator') return;
+      this._dragCell = row.dataset.dragCell;
+      row.classList.add('is-dragging');
+      e.dataTransfer?.setData('text/plain', this._dragCell);
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    });
+    overlay.addEventListener('dragover', e => {
+      const row = e.target.closest?.('[data-drag-cell]');
+      if (!row || !this._dragCell || row.dataset.dragCell[0] !== this._dragCell[0]) return;
+      e.preventDefault();
+      row.classList.add('drag-target');
+    });
+    overlay.addEventListener('dragleave', e => e.target.closest?.('[data-drag-cell]')?.classList.remove('drag-target'));
+    overlay.addEventListener('drop', e => {
+      const row = e.target.closest?.('[data-drag-cell]');
+      if (!row || !this._dragCell) return;
+      e.preventDefault();
+      this.swapClueRows(this._dragCell, row.dataset.dragCell);
+    });
+    overlay.addEventListener('dragend', () => {
+      document.querySelectorAll('#forge-shell .is-dragging,#forge-shell .drag-target').forEach(node => node.classList.remove('is-dragging', 'drag-target'));
+      this._dragCell = '';
     });
   },
 
@@ -1081,6 +1335,42 @@ const Forge = {
       this.showStatus(`Duplicated as "${res.game.title}".`);
     } catch (e) {
       alert('Duplicate failed: ' + e.message);
+    }
+  },
+
+  async useGameAsTemplate(id) {
+    try {
+      const source = await GameData.fetchGame(id);
+      const draft = JSON.parse(JSON.stringify(source));
+      draft.id = '';
+      draft.title = '';
+      draft.theme = '';
+      draft.created = new Date().toISOString().slice(0, 10);
+      draft.modified = '';
+      draft.finalSolution = '';
+      draft.cellHints = {};
+      ['A', 'B', 'C', 'D'].forEach(col => {
+        draft.columns[col] = { clues: ['', '', '', ''], solution: '' };
+      });
+      this.openCreator(draft, true);
+    } catch (error) {
+      alert('Could not create from template: ' + error.message);
+    }
+  },
+
+  async exportGame(id) {
+    try {
+      const result = await GameData.exportXlsx(id);
+      const url = URL.createObjectURL(result.blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = result.filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      alert('Excel export failed: ' + error.message);
     }
   },
 

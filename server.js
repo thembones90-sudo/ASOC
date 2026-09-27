@@ -9175,7 +9175,26 @@ function handleApiRequest(req, res) {
       return sendJson(res, 404, { error: 'Not found' });
     }
 
-    if (method === 'GET') {
+    if (method === 'GET' && parts[3] === 'export-xlsx') {
+      gameStore.exportXlsx(id)
+        .then(result => {
+          if (result.error) return sendJson(res, 404, { error: result.error });
+          res.writeHead(200, {
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': `attachment; filename="${result.filename.replace(/["\\]/g, '')}"`,
+            'Content-Length': result.buffer.length,
+            'Cache-Control': 'no-store'
+          });
+          res.end(result.buffer);
+        })
+        .catch(error => {
+          console.error('XLSX export error:', error);
+          sendJson(res, 500, { error: 'Could not export this game.' });
+        });
+      return;
+    }
+
+    if (method === 'GET' && !parts[3]) {
       const game = gameStore.readGame(id);
       if (!game) return sendJson(res, 404, { error: 'Game not found' });
       return sendJson(res, 200, { game });
