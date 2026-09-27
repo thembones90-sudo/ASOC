@@ -102,6 +102,7 @@ const GameData = {
       story: raw.story || '',
       gmNotes: raw.gmNotes || raw.gm_notes || '',
       hints: raw.hints || [],
+      cellHints: raw.cellHints && typeof raw.cellHints === 'object' ? { ...raw.cellHints } : {},
       created: raw.created || new Date().toISOString().split('T')[0],
       modified: raw.modified || '',
       isSample: raw.isSample === true || raw.id === 'sample-001'

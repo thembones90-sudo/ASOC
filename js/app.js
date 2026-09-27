@@ -5493,6 +5493,11 @@ const App = {
       ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
       : '';
 
+    // A player's HINT REQUEST shows the GM the hint prepared for that field
+    // in the creator (GM page only; players never receive it).
+    const hintCell = msg.source === 'hintRequest' ? (/HINT REQUEST \/\/ ([A-D][1-4])/.exec(String(msg.text || '')) || [])[1] : '';
+    const preparedHint = hintCell ? GameData.currentGame?.cellHints?.[hintCell] : '';
+    const preparedHintHtml = preparedHint ? `<div class="gm-hint-prepared"><b>PREPARED HINT // ${hintCell}</b><span>${this.escapeHtml(preparedHint)}</span></div>` : '';
     const verdictMetaHtml = msg.verdict === 'correct'
       ? `<div class="gm-chat-machine-verdict accepted">ACCEPTED // ${this.escapeHtml(this.getTargetLabel(msg.target || 'LOCKED'))}</div>`
       : msg.verdict === 'wrong'
@@ -5517,7 +5522,7 @@ const App = {
             <div class="gm-chat-flow-header"><span class="gm-chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
             ${replyContextHtml}
             <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
-            ${verdictMetaHtml}
+            ${verdictMetaHtml}${preparedHintHtml}
             ${verdictResponseHtml}
             ${this.createGMReactionSummaryHTML(msg)}
           </div>

@@ -1,0 +1,71 @@
+/* ASOC CREATOR // faster, guided game building (js/forge.js). */
+
+.forge-header .creator-progress {
+  margin: 0 14px 0 auto;
+  padding: 5px 10px;
+  border: 1px solid #5a4a2a;
+  color: #e3c16a;
+  font: 800 .72rem var(--font-machine, monospace);
+  letter-spacing: .12em;
+  white-space: nowrap;
+}
+.forge-header .creator-progress.is-ready { border-color: #3f7a4c; color: #8fe0a0; box-shadow: 0 0 12px rgba(80, 200, 110, .15); }
+
+.creator-draft-banner {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 10px 20px 0; padding: 10px 12px;
+  border: 1px solid #8a6a26; background: rgba(120, 90, 20, .14);
+  color: #f0d58a; font: 800 .72rem var(--font-machine, monospace); letter-spacing: .08em;
+}
+.creator-draft-banner[hidden] { display: none; }
+.creator-draft-banner span { margin-right: auto; }
+.creator-draft-banner .forge-btn { min-height: 34px; padding: 6px 12px; }
+
+.creator-board-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
+.creator-tool-btn { min-height: 34px; padding: 6px 12px; }
+.creator-tip { color: #7c8a93; font: 700 .66rem var(--font-machine, monospace); letter-spacing: .06em; }
+
+/* Field states */
+.creator-form .forge-input.is-missing { border-color: #c0414c !important; box-shadow: 0 0 0 1px rgba(192, 65, 76, .45), 0 0 10px rgba(192, 65, 76, .25); }
+.creator-form .forge-input.is-duplicate { border-color: #d49a2a !important; box-shadow: 0 0 0 1px rgba(212, 154, 42, .35); }
+.creator-form .forge-input.is-long { border-style: dashed !important; border-color: #9a7fd0 !important; }
+.creator-form .cell-field.creator-flash .forge-input { animation: creator-flash .9s ease-out; }
+@keyframes creator-flash { 0% { box-shadow: 0 0 0 3px rgba(240, 200, 90, .8); } 100% { box-shadow: 0 0 0 0 rgba(240, 200, 90, 0); } }
+.creator-form .forge-input:focus { outline: none; border-color: #e3c16a; box-shadow: 0 0 0 1px #e3c16a; }
+
+.creator-hint-dot { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: #6fc3ff; box-shadow: 0 0 6px #6fc3ff; vertical-align: middle; }
+.creator-hint-dot[hidden] { display: none; }
+
+.creator-hint-bar { display: grid; gap: 6px; margin-top: 12px; padding: 10px; border: 1px solid #2d4a5e; background: rgba(40, 90, 130, .1); }
+.creator-hint-bar[hidden] { display: none; }
+.creator-hint-bar .cell-field-label { color: #8fd0ff; }
+
+.creator-warnings { display: grid; gap: 6px; margin-top: 10px; }
+.creator-warning { padding: 7px 10px; border-left: 3px solid #d49a2a; background: rgba(212, 154, 42, .08); color: #eac47a; font: 700 .7rem var(--font-machine, monospace); letter-spacing: .05em; }
+
+/* Preview: header tools, clickable cells, focus tracking */
+.creator-preview-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.creator-preview-tools { display: inline-flex; gap: 6px; }
+.creator-test-btn { min-height: 30px; padding: 4px 10px; border: 1px solid #45535c; background: #10161b; color: #b9c6ca; font: 800 .66rem var(--font-machine, monospace); letter-spacing: .1em; cursor: pointer; }
+.creator-test-btn:hover { border-color: #e3c16a; color: #f3dd9a; }
+.creator-test-btn.active { border-color: #c0414c; color: #ff9aa2; background: #2a0f13; }
+.creator-test-btn[hidden] { display: none; }
+.creator-test-note { margin: 6px 12px 0; color: #ff9aa2; font: 700 .68rem var(--font-machine, monospace); letter-spacing: .06em; }
+.creator-test-note[hidden] { display: none; }
+#creator-board .board-cell { cursor: pointer; }
+#creator-board .board-cell.creator-focus { outline: 2px solid #f0c85a; outline-offset: 1px; filter: drop-shadow(0 0 8px rgba(240, 200, 90, .75)); z-index: 3; }
+
+/* Paste panel */
+.creator-paste { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(4, 6, 9, .78); }
+.creator-paste[hidden] { display: none; }
+.creator-paste-card { width: min(640px, calc(100% - 32px)); padding: 18px; border: 1px solid #5a4a2a; background: #0e1216; box-shadow: 0 20px 60px rgba(0, 0, 0, .7); }
+.creator-paste-card h4 { margin: 0 0 8px; color: #e3c16a; font: 900 .9rem var(--font-machine, monospace); letter-spacing: .14em; }
+.creator-paste-card p { margin: 0 0 10px; color: #aab6bc; font-size: .82rem; line-height: 1.45; }
+.creator-paste-card textarea { width: 100%; box-sizing: border-box; font-family: var(--font-mono, monospace); }
+.creator-paste-status { min-height: 1.2em; margin-top: 6px; color: #ff9aa2; font-size: .78rem; }
+.forge-shell { position: relative; }
+
+/* GM chat: the hint prepared for a requested field */
+.gm-hint-prepared { display: grid; gap: 3px; margin-top: 6px; padding: 7px 9px; border-left: 3px solid #6fc3ff; background: rgba(60, 130, 190, .12); }
+.gm-hint-prepared b { color: #8fd0ff; font: 800 .62rem var(--font-machine, monospace); letter-spacing: .12em; }
+.gm-hint-prepared span { color: #e6f3ff; font-size: .86rem; }

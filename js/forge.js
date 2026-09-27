@@ -30,6 +30,7 @@ const Forge = {
       if (closeBtn) {
         if (this.view === 'creator' && this.dirty) {
           if (!confirm('Discard unsaved changes to this game?')) return;
+          this.clearDraft();
         }
         this.close();
         return;
@@ -44,7 +45,10 @@ const Forge = {
         return;
       }
       if (e.target.closest('[data-forge-back-library]')) {
-        if (this.dirty && !confirm('Discard unsaved changes and return to library?')) return;
+        if (this.dirty) {
+          if (!confirm('Discard unsaved changes and return to library?')) return;
+          this.clearDraft();
+        }
         this.renderLibrary();
         return;
       }
@@ -84,6 +88,8 @@ const Forge = {
         return;
       }
     });
+
+    this.initCreatorUX(overlay);
 
     overlay.addEventListener('input', (e) => {
       const search = e.target.closest('#forge-search');
@@ -290,13 +296,11 @@ const Forge = {
     this.isNew = !!isNew;
     this.dirty = false;
     this.view = 'creator';
-    if (this.isNew) {
-      this.renderCreator();
-      this.updatePreview();
-      this.updatePreviewBackground();
-    } else {
-      this.renderBoardEditor();
-    }
+    this._showMissing = false;
+    this._longLabels = new Set();
+    this.renderCreator();
+    this.offerDraft();
+    setTimeout(() => this.focusField(this.isNew && !this.editingGame.theme ? 'theme' : 'A1', { select: false }), 60);
   },
 
   emptyDraft() {
@@ -316,9 +320,16 @@ const Forge = {
       story: '',
       gmNotes: '',
       hints: [],
+      cellHints: {},
       created: new Date().toISOString().split('T')[0]
     };
   },
+
+  // Fill order for ENTER navigation and plain-list pastes: down each column
+  // (A1-A5, B1-B5, ...), then the FINAL.
+  FIELD_ORDER: ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'B2', 'B3', 'B4', 'B5', 'C1', 'C2', 'C3', 'C4', 'C5', 'D1', 'D2', 'D3', 'D4', 'D5', 'finalSolution'],
+  HINT_MAX: 160,
+  DRAFT_PREFIX: 'asoc_forge_draft:',
 
   renderCreator() {
     this.view = 'creator';
@@ -326,40 +337,46 @@ const Forge = {
     if (!shell) return;
 
     const d = this.editingGame;
+    if (!d.cellHints || typeof d.cellHints !== 'object') d.cellHints = {};
     const cols = ['A', 'B', 'C', 'D'];
 
     const colHtml = cols.map(col => {
       const colData = d.columns[col] || { clues: ['', '', '', ''], solution: '' };
       const cellInputs = [1, 2, 3, 4].map(r => `
-        <label class="cell-field">
-          <span class="cell-field-label">${col}${r}</span>
-          <input type="text" class="forge-input" data-creator-field="${col}${r}" maxlength="60" value="${this.escapeAttr(colData.clues[r - 1] || '')}">
+        <label class="cell-field" data-cell-wrap="${col}${r}">
+          <span class="cell-field-label">${col}${r}<i class="creator-hint-dot" title="Has a prepared hint"${d.cellHints[`${col}${r}`] ? '' : ' hidden'}></i></span>
+          <input type="text" class="forge-input" data-creator-field="${col}${r}" maxlength="60" autocomplete="off" value="${this.escapeAttr(colData.clues[r - 1] || '')}">
         </label>
       `).join('');
       return `
         <div class="creator-col">
           <div class="creator-col-header">COLUMN ${col}</div>
           ${cellInputs}
-          <label class="cell-field solution">
+          <label class="cell-field solution" data-cell-wrap="${col}5">
             <span class="cell-field-label">${col}5 · SOLUTION</span>
-            <input type="text" class="forge-input" data-creator-field="${col}5" maxlength="60" value="${this.escapeAttr(colData.solution || '')}">
+            <input type="text" class="forge-input" data-creator-field="${col}5" maxlength="60" autocomplete="off" value="${this.escapeAttr(colData.solution || '')}">
           </label>
         </div>
       `;
     }).join('');
 
+    const legacyHints = Array.isArray(d.hints) && d.hints.length;
+    const heading = this.isNew ? 'NEW GAME — ASOC CREATOR' : `EDIT GAME — ${this.escapeHtml(d.theme || d.title || 'ASOC CREATOR')}`;
+
     shell.innerHTML = `
       <div class="forge-header">
-        <span class="forge-title">${this.isNew ? 'NEW GAME — ASOC CREATOR' : 'EDIT — ASOC CREATOR'}</span>
+        <span class="forge-title">${heading}</span>
+        <span class="creator-progress" id="creator-progress" aria-live="polite"></span>
         <button class="forge-close" data-forge-close title="Close">✕</button>
       </div>
+      <div class="creator-draft-banner" id="creator-draft-banner" hidden></div>
       <div class="creator-grid">
         <div class="creator-form">
           <div class="creator-section">
             <h4 class="creator-label">IDENTITY</h4>
-            <label class="cell-field">
+            <label class="cell-field" data-cell-wrap="theme">
               <span class="cell-field-label">THEME</span>
-              <input type="text" class="forge-input" data-creator-field="theme" maxlength="80" value="${this.escapeAttr(d.theme)}" placeholder="e.g. Birth of Earth">
+              <input type="text" class="forge-input" data-creator-field="theme" maxlength="80" autocomplete="off" value="${this.escapeAttr(d.theme)}" placeholder="e.g. Birth of Earth">
             </label>
             <label class="cell-field">
               <span class="cell-field-label">DIFFICULTY</span>
@@ -390,11 +407,20 @@ const Forge = {
 
           <div class="creator-section">
             <h4 class="creator-label">BOARD — ALL 20 ENTRIES + FINAL</h4>
+            <div class="creator-board-tools">
+              <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-paste>PASTE WHOLE BOARD</button>
+              <span class="creator-tip">ENTER → next field · SHIFT+ENTER ← back · click the preview board to jump to a field</span>
+            </div>
             <div class="creator-cols">${colHtml}</div>
-            <label class="cell-field final">
+            <label class="cell-field final" data-cell-wrap="finalSolution">
               <span class="cell-field-label">FINAL SOLUTION</span>
-              <input type="text" class="forge-input" data-creator-field="finalSolution" maxlength="60" value="${this.escapeAttr(d.finalSolution)}" placeholder="The final answer">
+              <input type="text" class="forge-input" data-creator-field="finalSolution" maxlength="60" autocomplete="off" value="${this.escapeAttr(d.finalSolution)}" placeholder="The final answer">
             </label>
+            <div class="creator-hint-bar" id="creator-hint-bar" hidden>
+              <span class="cell-field-label" id="creator-hint-label">HINT FOR A1</span>
+              <input type="text" class="forge-input" data-creator-hint maxlength="${this.HINT_MAX}" autocomplete="off" placeholder="Optional. Shown to you (GM only) when a player asks for this row's hint.">
+            </div>
+            <div class="creator-warnings" id="creator-warnings" aria-live="polite"></div>
           </div>
 
           <div class="creator-section">
@@ -407,22 +433,30 @@ const Forge = {
               <span class="cell-field-label">GM NOTES</span>
               <textarea class="forge-textarea" data-creator-field="gmNotes" rows="2">${this.escapeHtml(d.gmNotes || '')}</textarea>
             </label>
+            ${legacyHints ? `
             <label class="cell-field">
-              <span class="cell-field-label">HINTS (ONE PER LINE)</span>
-              <textarea class="forge-textarea" data-creator-field="hints" rows="3">${this.escapeHtml((Array.isArray(d.hints) ? d.hints : []).join('\n'))}</textarea>
-            </label>
+              <span class="cell-field-label">OLDER HINTS (ONE PER LINE) — new hints go on each board field</span>
+              <textarea class="forge-textarea" data-creator-field="hints" rows="3">${this.escapeHtml(d.hints.join('\n'))}</textarea>
+            </label>` : ''}
           </div>
 
           <div id="forge-errors" class="forge-errors"></div>
 
           <div class="forge-actions">
-            <button class="forge-btn primary" data-forge-save>SAVE GAME</button>
+            <button class="forge-btn primary" data-forge-save>${this.isNew ? 'SAVE GAME' : 'SAVE CHANGES'}</button>
             <button class="forge-btn ghost" data-forge-back-library>BACK TO LIBRARY</button>
           </div>
         </div>
 
         <div class="creator-preview">
-          <div class="creator-preview-header">LIVE PREVIEW</div>
+          <div class="creator-preview-header">
+            <span>${'LIVE PREVIEW'}</span>
+            <span class="creator-preview-tools">
+              <button type="button" class="creator-test-btn" data-creator-test aria-pressed="false">TEST PLAY</button>
+              <button type="button" class="creator-test-btn" data-creator-test-reset hidden>HIDE ALL</button>
+            </span>
+          </div>
+          <div class="creator-test-note" id="creator-test-note" hidden>TEST PLAY // click cells to reveal them like in a real game. Nothing is saved.</div>
           <div class="creator-preview-stage">
             <div class="creator-preview-frame">
               <img class="creator-bg" id="creator-bg" alt="Preview background">
@@ -434,58 +468,397 @@ const Forge = {
           </div>
         </div>
       </div>
+      <div class="creator-paste" id="creator-paste" hidden>
+        <div class="creator-paste-card" role="dialog" aria-modal="true" aria-labelledby="creator-paste-title">
+          <h4 id="creator-paste-title">PASTE WHOLE BOARD</h4>
+          <p>Paste either <b>21 lines</b> in order (A1…A5, B1…B5, C1…C5, D1…D5, FINAL), lines like <b>A1: word</b>, or a <b>spreadsheet block</b> (4 columns × 5 rows, optional 6th row with the FINAL).</p>
+          <textarea class="forge-textarea" id="creator-paste-text" rows="12" spellcheck="false"></textarea>
+          <div class="creator-paste-status" id="creator-paste-status"></div>
+          <div class="forge-actions">
+            <button type="button" class="forge-btn primary" data-creator-paste-apply>FILL BOARD</button>
+            <button type="button" class="forge-btn ghost" data-creator-paste-cancel>CANCEL</button>
+          </div>
+        </div>
+      </div>
     `;
 
+    this._testPlay = false;
+    this._testRevealed = new Set();
     this.updatePreviewTitle();
     this.updatePreview();
     this.updatePreviewBackground();
+    this.refreshCreatorState();
   },
 
-  renderBoardEditor() {
-    this.view = 'creator';
-    const shell = document.getElementById('forge-shell');
-    if (!shell || !this.editingGame) return;
+  // ------------------------------------------------------------------
+  // Creator helpers
+  fieldInput(name) {
+    return document.querySelector(`#forge-shell [data-creator-field="${name}"]`);
+  },
 
+  fieldValue(name) {
     const d = this.editingGame;
-    const cols = ['A', 'B', 'C', 'D'];
-    const rows = [1, 2, 3, 4, 5];
-    const gridRows = rows.map(row => {
-      const cells = cols.map(col => {
-        const colData = d.columns?.[col] || { clues: ['', '', '', ''], solution: '' };
-        const value = row === 5 ? (colData.solution || '') : (colData.clues?.[row - 1] || '');
-        return `<div class="board-editor-cell ${row === 5 ? 'solution' : ''}">
-          <span>${col}${row}${row === 5 ? ' · SOLUTION' : ''}</span>
-          <input type="text" class="forge-input" data-creator-field="${col}${row}" maxlength="60" value="${this.escapeAttr(value)}">
-        </div>`;
-      }).join('');
-      return `<div class="board-editor-row"><div class="board-editor-rownum">${row}</div>${cells}</div>`;
-    }).join('');
+    if (!d) return '';
+    if (name === 'finalSolution') return d.finalSolution || '';
+    if (name === 'theme') return d.theme || '';
+    const m = /^([A-D])([1-5])$/.exec(name);
+    if (!m) return '';
+    const col = d.columns[m[1]] || {};
+    return (m[2] === '5' ? col.solution : col.clues?.[Number(m[2]) - 1]) || '';
+  },
 
-    shell.innerHTML = `
-      <div class="forge-header">
-        <div class="board-editor-heading">
-          <span class="forge-title">EDIT BOARD</span>
-          <small>${this.escapeHtml(d.title || 'UNTITLED GAME')}</small>
-        </div>
-        <button class="forge-close" data-forge-close title="Close">✕</button>
-      </div>
-      <div class="board-editor-wrap">
-        <div class="board-editor-note">DIRECT BOARD DOCUMENT // EDIT CELLS AND SAVE</div>
-        <div class="board-editor-sheet">
-          <div class="board-editor-head"><div></div>${cols.map(col => `<div>COLUMN ${col}</div>`).join('')}</div>
-          ${gridRows}
-        </div>
-        <label class="board-editor-final">
-          <span>FINAL SOLUTION</span>
-          <input type="text" class="forge-input" data-creator-field="finalSolution" maxlength="60" value="${this.escapeAttr(d.finalSolution || '')}">
-        </label>
-        <div id="forge-errors" class="forge-errors"></div>
-        <div class="board-editor-actions">
-          <button class="forge-btn ghost" data-forge-back-library>BACK TO LIBRARY</button>
-          <button class="forge-btn primary" data-forge-save>SAVE CHANGES</button>
-        </div>
-      </div>
-    `;
+  previewLabelFor(name) { return name === 'finalSolution' ? 'FINAL' : name; },
+  fieldForPreviewLabel(label) { return label === 'FINAL' ? 'finalSolution' : label; },
+
+  // Progress, missing / duplicate / too-long marks, all from the draft.
+  refreshCreatorState() {
+    const d = this.editingGame;
+    if (!d || this.view !== 'creator') return;
+    const filled = this.FIELD_ORDER.filter(name => String(this.fieldValue(name)).trim()).length;
+    const total = this.FIELD_ORDER.length;
+    const progress = document.getElementById('creator-progress');
+    if (progress) {
+      const themeMissing = !String(d.theme || '').trim();
+      const ready = filled === total && !themeMissing;
+      progress.textContent = ready ? `${filled} / ${total} FILLED · READY TO SAVE` : `${filled} / ${total} FILLED${themeMissing ? ' · THEME MISSING' : ''}`;
+      progress.classList.toggle('is-ready', ready);
+    }
+
+    // Missing fields are only outlined after a save attempt.
+    ['theme', ...this.FIELD_ORDER].forEach(name => {
+      const input = this.fieldInput(name);
+      if (input) input.classList.toggle('is-missing', !!this._showMissing && !String(this.fieldValue(name)).trim());
+    });
+
+    // Duplicates (warning only, never blocks saving).
+    const byWord = new Map();
+    this.FIELD_ORDER.forEach(name => {
+      const word = String(this.fieldValue(name)).trim().toLocaleUpperCase();
+      if (!word) return;
+      if (!byWord.has(word)) byWord.set(word, []);
+      byWord.get(word).push(this.previewLabelFor(name));
+    });
+    const dupes = [...byWord.entries()].filter(([, labels]) => labels.length > 1);
+    const dupeLabels = new Set(dupes.flatMap(([, labels]) => labels));
+    this.FIELD_ORDER.forEach(name => this.fieldInput(name)?.classList.toggle('is-duplicate', dupeLabels.has(this.previewLabelFor(name))));
+    const longLabels = this._longLabels || new Set();
+    this.FIELD_ORDER.forEach(name => this.fieldInput(name)?.classList.toggle('is-long', longLabels.has(this.previewLabelFor(name))));
+
+    const warnings = [];
+    dupes.forEach(([word, labels]) => warnings.push(`DUPLICATE // “${word}” is used in ${labels.join(', ')}`));
+    if (longLabels.size) warnings.push(`LONG WORDS // ${[...longLabels].join(', ')} will be shrunk a lot on the board (hard to read from afar)`);
+    const box = document.getElementById('creator-warnings');
+    if (box) {
+      const html = warnings.map(w => `<div class="creator-warning">${this.escapeHtml(w)}</div>`).join('');
+      if (box.innerHTML !== html) box.innerHTML = html;
+    }
+  },
+
+  // Highlight the preview cell of the field being typed in.
+  highlightPreview(name) {
+    const board = document.getElementById('creator-board');
+    if (!board) return;
+    board.querySelectorAll('.board-cell.creator-focus').forEach(el => el.classList.remove('creator-focus'));
+    if (!name) return;
+    const label = this.previewLabelFor(name);
+    board.querySelector(`.board-cell[data-label="${label}"]`)?.classList.add('creator-focus');
+  },
+
+  focusField(name, { select = true } = {}) {
+    const input = this.fieldInput(name);
+    if (!input) return;
+    input.focus({ preventScroll: false });
+    input.scrollIntoView({ block: 'nearest' });
+    if (select) input.select?.();
+    const wrap = input.closest('.cell-field');
+    if (wrap) {
+      wrap.classList.remove('creator-flash');
+      void wrap.offsetWidth;
+      wrap.classList.add('creator-flash');
+    }
+  },
+
+  // Per-cell hint bar follows the focused clue field (rows 1-4 only: hint
+  // requests exist for opened clue rows).
+  showHintBar(name) {
+    const bar = document.getElementById('creator-hint-bar');
+    if (!bar) return;
+    if (!/^[A-D][1-4]$/.test(name || '')) {
+      if (!bar.contains(document.activeElement)) bar.hidden = true;
+      return;
+    }
+    this._hintCell = name;
+    bar.hidden = false;
+    const label = document.getElementById('creator-hint-label');
+    if (label) label.textContent = `HINT FOR ${name}`;
+    const input = bar.querySelector('[data-creator-hint]');
+    if (input) input.value = this.editingGame.cellHints?.[name] || '';
+  },
+
+  setCellHint(value) {
+    const cell = this._hintCell;
+    if (!cell || !this.editingGame) return;
+    const hints = this.editingGame.cellHints || (this.editingGame.cellHints = {});
+    const text = String(value || '').slice(0, this.HINT_MAX);
+    if (text.trim()) hints[cell] = text;
+    else delete hints[cell];
+    const dot = document.querySelector(`#forge-shell [data-cell-wrap="${cell}"] .creator-hint-dot`);
+    if (dot) dot.hidden = !text.trim();
+    this.markDirty();
+  },
+
+  markDirty() {
+    this.dirty = true;
+    clearTimeout(this._draftTimer);
+    this._draftTimer = setTimeout(() => this.saveDraft(), 400);
+  },
+
+  // ------------------------------------------------------------------
+  // Auto-saved drafts (this browser only): a reload or an accidental close
+  // never loses a half-built board.
+  draftKey() {
+    return this.DRAFT_PREFIX + (this.isNew ? 'new' : String(this.editingGame?.id || 'new'));
+  },
+
+  saveDraft() {
+    if (!this.editingGame || this.view !== 'creator' || !this.dirty) return;
+    try {
+      localStorage.setItem(this.draftKey(), JSON.stringify({ savedAt: Date.now(), game: this.editingGame }));
+    } catch (_) { /* storage unavailable: drafts are a convenience only */ }
+  },
+
+  readDraft() {
+    try {
+      const raw = localStorage.getItem(this.draftKey());
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && parsed.game && typeof parsed.game === 'object' ? parsed : null;
+    } catch (_) { return null; }
+  },
+
+  clearDraft() {
+    clearTimeout(this._draftTimer);
+    try { localStorage.removeItem(this.draftKey()); } catch (_) { /* ignore */ }
+  },
+
+  offerDraft() {
+    const draft = this.readDraft();
+    const banner = document.getElementById('creator-draft-banner');
+    if (!banner) return;
+    if (!draft || JSON.stringify(draft.game) === JSON.stringify(this.editingGame)) {
+      banner.hidden = true;
+      return;
+    }
+    const when = new Date(draft.savedAt || Date.now());
+    const stamp = when.toLocaleDateString([], { day: '2-digit', month: 'short' }) + ' ' + when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const filled = this.FIELD_ORDER.filter(name => {
+      const m = /^([A-D])([1-5])$/.exec(name);
+      const g = draft.game;
+      const v = name === 'finalSolution' ? g.finalSolution : (m && (m[2] === '5' ? g.columns?.[m[1]]?.solution : g.columns?.[m[1]]?.clues?.[Number(m[2]) - 1]));
+      return String(v || '').trim();
+    }).length;
+    banner.innerHTML = `<span>UNSAVED DRAFT FOUND // ${this.escapeHtml(draft.game.theme || 'UNTITLED')} · ${filled}/21 FILLED · ${this.escapeHtml(stamp)}</span><button type="button" class="forge-btn primary" data-creator-draft-restore>RESTORE DRAFT</button><button type="button" class="forge-btn ghost" data-creator-draft-discard>DISCARD</button>`;
+    banner.hidden = false;
+  },
+
+  restoreDraft() {
+    const draft = this.readDraft();
+    if (!draft) return;
+    const keepId = this.editingGame?.id;
+    this.editingGame = JSON.parse(JSON.stringify(draft.game));
+    if (!this.isNew && keepId) this.editingGame.id = keepId;
+    this.renderCreator();
+    this.dirty = true;
+    const banner = document.getElementById('creator-draft-banner');
+    if (banner) banner.hidden = true;
+  },
+
+  // ------------------------------------------------------------------
+  // Paste a whole board: 21 ordered lines, "A1: word" lines, or a
+  // spreadsheet block (tabs). Returns { values: {A1: 'x', ...}, labeled }.
+  parseBoardText(text) {
+    const lines = String(text || '').replace(/\r/g, '').split('\n').map(line => line.replace(/\s+$/, '')).filter(line => line.trim() !== '');
+    const values = {};
+    if (!lines.length) return { values, labeled: false };
+
+    const labeledRe = /^\s*(FINAL(?:\s+SOLUTION)?|[A-D][1-5])\s*[:=.)\-–—]\s*(.*)$/i;
+    if (lines.every(line => labeledRe.test(line))) {
+      lines.forEach(line => {
+        const m = labeledRe.exec(line);
+        const key = /^FINAL/i.test(m[1]) ? 'finalSolution' : m[1].toUpperCase();
+        values[key] = m[2].trim();
+      });
+      return { values, labeled: true };
+    }
+
+    if (lines.some(line => line.includes('\t'))) {
+      let rows = lines.map(line => line.split('\t').map(cell => cell.trim()));
+      if (rows[0].every(cell => !cell || /^(col(umn)?\s*)?[A-D]$/i.test(cell))) rows = rows.slice(1);
+      if (rows.length && rows.every(row => /^(\d|row\s*\d|[A-D]?[1-5])?$/i.test(row[0] || '') && row.length >= 5)) rows = rows.map(row => row.slice(1));
+      ['A', 'B', 'C', 'D'].forEach((col, c) => {
+        for (let r = 1; r <= 5; r++) {
+          const v = rows[r - 1]?.[c];
+          if (v) values[`${col}${r}`] = v;
+        }
+      });
+      const finalRow = rows[5];
+      const finalValue = finalRow && finalRow.find(cell => cell);
+      if (finalValue) values.finalSolution = finalValue;
+      return { values, labeled: true };
+    }
+
+    lines.map(line => line.trim()).forEach((line, i) => {
+      if (i < this.FIELD_ORDER.length) values[this.FIELD_ORDER[i]] = line;
+    });
+    return { values, labeled: false, list: lines.map(line => line.trim()) };
+  },
+
+  applyBoardValues(values) {
+    let count = 0;
+    Object.entries(values).forEach(([name, value]) => {
+      if (!this.FIELD_ORDER.includes(name)) return;
+      const text = String(value || '').slice(0, 60);
+      this.applyField(name, text);
+      const input = this.fieldInput(name);
+      if (input) input.value = text;
+      count++;
+    });
+    if (count) {
+      this.markDirty();
+      this.clearErrors();
+      this.updatePreview();
+    }
+    return count;
+  },
+
+  openPastePanel() {
+    const panel = document.getElementById('creator-paste');
+    if (!panel) return;
+    panel.hidden = false;
+    const area = document.getElementById('creator-paste-text');
+    const status = document.getElementById('creator-paste-status');
+    if (status) status.textContent = '';
+    if (area) { area.value = ''; area.focus(); }
+  },
+
+  applyPastePanel() {
+    const area = document.getElementById('creator-paste-text');
+    const status = document.getElementById('creator-paste-status');
+    const { values } = this.parseBoardText(area?.value || '');
+    const count = this.applyBoardValues(values);
+    if (!count) {
+      if (status) status.textContent = 'Nothing recognised. Use 21 lines, “A1: word” lines, or a spreadsheet block.';
+      return;
+    }
+    document.getElementById('creator-paste').hidden = true;
+    const firstEmpty = this.FIELD_ORDER.find(name => !String(this.fieldValue(name)).trim());
+    if (firstEmpty) this.focusField(firstEmpty);
+  },
+
+  // Pasting several lines / a spreadsheet block straight into a board field
+  // fills the board: labeled or grid pastes go to their own cells, a plain
+  // list fills forward from the field pasted into.
+  handleFieldPaste(event, input) {
+    const text = event.clipboardData?.getData('text/plain') || '';
+    const lineCount = text.replace(/\r/g, '').split('\n').filter(line => line.trim()).length;
+    if (!text.includes('\t') && lineCount < 2) return;
+    const parsed = this.parseBoardText(text);
+    let values = parsed.values;
+    if (!parsed.labeled && parsed.list) {
+      values = {};
+      const start = this.FIELD_ORDER.indexOf(input.dataset.creatorField);
+      parsed.list.forEach((word, i) => {
+        const name = this.FIELD_ORDER[start + i];
+        if (name) values[name] = word;
+      });
+    }
+    event.preventDefault();
+    this.applyBoardValues(values);
+  },
+
+  // ------------------------------------------------------------------
+  // Test play: the preview behaves like the live board (all covered, click
+  // to reveal). Purely local; nothing is sent or saved.
+  toggleTestPlay(force) {
+    this._testPlay = typeof force === 'boolean' ? force : !this._testPlay;
+    this._testRevealed = new Set();
+    const btn = document.querySelector('#forge-shell [data-creator-test]');
+    if (btn) {
+      btn.textContent = this._testPlay ? 'EXIT TEST PLAY' : 'TEST PLAY';
+      btn.setAttribute('aria-pressed', String(this._testPlay));
+      btn.classList.toggle('active', this._testPlay);
+    }
+    const reset = document.querySelector('#forge-shell [data-creator-test-reset]');
+    if (reset) reset.hidden = !this._testPlay;
+    const note = document.getElementById('creator-test-note');
+    if (note) note.hidden = !this._testPlay;
+    this.updatePreview();
+  },
+
+  initCreatorUX(overlay) {
+    overlay.addEventListener('click', (e) => {
+      if (this.view !== 'creator') return;
+      if (e.target.closest('[data-creator-paste]')) return this.openPastePanel();
+      if (e.target.closest('[data-creator-paste-apply]')) return this.applyPastePanel();
+      if (e.target.closest('[data-creator-paste-cancel]')) { document.getElementById('creator-paste').hidden = true; return; }
+      if (e.target.closest('[data-creator-test]')) return this.toggleTestPlay();
+      if (e.target.closest('[data-creator-test-reset]')) { this._testRevealed = new Set(); this.updatePreview(); return; }
+      if (e.target.closest('[data-creator-draft-restore]')) return this.restoreDraft();
+      if (e.target.closest('[data-creator-draft-discard]')) {
+        this.clearDraft();
+        document.getElementById('creator-draft-banner').hidden = true;
+        return;
+      }
+      const cell = e.target.closest('#creator-board .board-cell[data-label]');
+      if (cell) {
+        const label = cell.dataset.label;
+        if (this._testPlay) {
+          if (this._testRevealed.has(label)) this._testRevealed.delete(label);
+          else this._testRevealed.add(label);
+          this.updatePreview();
+          return;
+        }
+        this.focusField(this.fieldForPreviewLabel(label));
+      }
+    });
+
+    overlay.addEventListener('keydown', (e) => {
+      if (this.view !== 'creator') return;
+      if (e.key === 'Escape' && !document.getElementById('creator-paste')?.hidden) {
+        document.getElementById('creator-paste').hidden = true;
+        e.stopPropagation();
+        return;
+      }
+      const input = e.target.closest?.('input[data-creator-field]');
+      if (!input || e.key !== 'Enter' || e.isComposing) return;
+      const order = ['theme', ...this.FIELD_ORDER];
+      const index = order.indexOf(input.dataset.creatorField);
+      if (index < 0) return;
+      e.preventDefault();
+      const next = order[index + (e.shiftKey ? -1 : 1)];
+      if (next) this.focusField(next);
+      else input.blur();
+    });
+
+    overlay.addEventListener('focusin', (e) => {
+      if (this.view !== 'creator') return;
+      const input = e.target.closest?.('[data-creator-field]');
+      if (!input) return;
+      const name = input.dataset.creatorField;
+      this._focusField = this.FIELD_ORDER.includes(name) ? name : null;
+      this.highlightPreview(this._focusField);
+      this.showHintBar(name);
+    });
+
+    overlay.addEventListener('paste', (e) => {
+      if (this.view !== 'creator') return;
+      const input = e.target.closest?.('input[data-creator-field]');
+      if (input && this.FIELD_ORDER.includes(input.dataset.creatorField)) this.handleFieldPaste(e, input);
+    });
+
+    overlay.addEventListener('input', (e) => {
+      if (this.view !== 'creator') return;
+      if (e.target.closest?.('[data-creator-hint]')) this.setCellHint(e.target.value);
+    });
   },
 
   getFieldValue(field) {
@@ -498,10 +871,11 @@ const Forge = {
     const value = field.value;
 
     this.applyField(name, value);
-    this.dirty = true;
+    this.markDirty();
     this.clearErrors();
 
     if (name === 'title' || name === 'theme') this.updatePreviewTitle();
+    this.refreshCreatorState();
 
     clearTimeout(this._debounceTimer);
     this._debounceTimer = setTimeout(() => this.updatePreview(), 150);
@@ -542,7 +916,26 @@ const Forge = {
 
   updatePreview() {
     if (!this.editingGame) return;
-    Board.renderPreview('#creator-board', this.editingGame);
+    Board.renderPreview('#creator-board', this.editingGame, this._testPlay ? { revealed: this._testRevealed } : {});
+    this.highlightPreview(this._focusField);
+    this.refreshCreatorState();
+    // After the board fitted its words, note which ones had to shrink a lot.
+    clearTimeout(this._fitCheckTimer);
+    this._fitCheckTimer = setTimeout(() => this.checkLongWords(), 180);
+  },
+
+  checkLongWords() {
+    const board = document.getElementById('creator-board');
+    if (!board || this._testPlay) return;
+    const long = new Set();
+    board.querySelectorAll('.board-cell.revealed[data-label]').forEach(cell => {
+      const txt = cell.querySelector('.cell-text') || cell.querySelector('.cell-content');
+      const m = /scale\(([\d.]+)\)/.exec(txt?.style.transform || '');
+      if (m && Number(m[1]) < 0.62) long.add(cell.dataset.label);
+    });
+    const before = [...(this._longLabels || [])].join();
+    this._longLabels = long;
+    if ([...long].join() !== before) this.refreshCreatorState();
   },
 
   updatePreviewBackground() {
@@ -568,38 +961,33 @@ const Forge = {
   collectDraft() {
     const d = this.editingGame;
     if (!d) return null;
-
-    // Existing games use the direct board document editor. Preserve every
-    // non-board field exactly as stored and only update A1-D5 + FINAL.
-    if (!this.isNew) {
-      ['A', 'B', 'C', 'D'].forEach(col => {
-        if (!d.columns[col]) d.columns[col] = { clues: ['', '', '', ''], solution: '' };
-        for (let r = 1; r <= 4; r++) {
-          d.columns[col].clues[r - 1] = (document.querySelector(`[data-creator-field="${col}${r}"]`)?.value || '').trim();
-        }
-        d.columns[col].solution = (document.querySelector(`[data-creator-field="${col}5"]`)?.value || '').trim();
-      });
-      d.finalSolution = (document.querySelector('[data-creator-field="finalSolution"]')?.value || '').trim();
-      return d;
-    }
-
-    d.theme = (document.querySelector('[data-creator-field="theme"]')?.value || '').trim();
-    // The library still lists games by title: it simply follows the theme.
-    d.title = d.theme;
-    d.difficulty = (document.querySelector('[data-creator-field="difficulty"]')?.value || 'GREEN').toUpperCase();
-    d.finalSolution = (document.querySelector('[data-creator-field="finalSolution"]')?.value || '').trim();
+    const value = name => (document.querySelector(`[data-creator-field="${name}"]`)?.value || '').trim();
+    d.theme = value('theme');
+    // The theme names the game. A new game's title follows it; an existing
+    // game keeps the title it was saved under (library name / file).
+    d.title = this.isNew ? d.theme : (String(d.title || '').trim() || d.theme);
+    d.difficulty = (document.querySelector('[data-creator-field="difficulty"]')?.value || d.difficulty || 'GREEN').toUpperCase();
+    d.finalSolution = value('finalSolution');
     d.story = document.querySelector('[data-creator-field="story"]')?.value || '';
     d.gmNotes = document.querySelector('[data-creator-field="gmNotes"]')?.value || '';
-    d.hints = (document.querySelector('[data-creator-field="hints"]')?.value || '').split('\n').map(h => h.trim()).filter(Boolean);
+    const legacy = document.querySelector('[data-creator-field="hints"]');
+    if (legacy) d.hints = legacy.value.split('\n').map(h => h.trim()).filter(Boolean);
+    d.cellHints = Object.fromEntries(Object.entries(d.cellHints || {})
+      .filter(([cell, text]) => /^[A-D][1-4]$/.test(cell) && String(text || '').trim())
+      .map(([cell, text]) => [cell, String(text).trim().slice(0, this.HINT_MAX)]));
 
     ['A', 'B', 'C', 'D'].forEach(col => {
-      for (let r = 1; r <= 4; r++) {
-        d.columns[col].clues[r - 1] = (document.querySelector(`[data-creator-field="${col}${r}"]`)?.value || '').trim();
-      }
-      d.columns[col].solution = (document.querySelector(`[data-creator-field="${col}5"]`)?.value || '').trim();
+      if (!d.columns[col]) d.columns[col] = { clues: ['', '', '', ''], solution: '' };
+      for (let r = 1; r <= 4; r++) d.columns[col].clues[r - 1] = value(`${col}${r}`);
+      d.columns[col].solution = value(`${col}5`);
     });
 
     return d;
+  },
+
+  // Everything missing, in fill order (theme first).
+  missingFields() {
+    return ['theme', ...this.FIELD_ORDER].filter(name => !String(this.fieldValue(name)).trim());
   },
 
   async saveGame() {
@@ -610,8 +998,21 @@ const Forge = {
     d.background = this.editingGame.background || '';
     if (!d.id && this.isNew) d.id = '';
 
+    // Outline every empty field and jump to the first one instead of
+    // listing errors at the bottom.
+    const missing = this.missingFields();
+    if (missing.length) {
+      this._showMissing = true;
+      this.refreshCreatorState();
+      const names = missing.map(name => name === 'finalSolution' ? 'FINAL' : name === 'theme' ? 'THEME' : name);
+      this.showErrors([`${missing.length} field${missing.length === 1 ? ' is' : 's are'} still empty: ${names.join(', ')}`]);
+      this.focusField(missing[0]);
+      return;
+    }
+
     try {
       const res = await GameData.saveGame(d);
+      this.clearDraft();
       this.dirty = false;
       this.showStatus('Game saved successfully.');
       await this.reloadLibrary();

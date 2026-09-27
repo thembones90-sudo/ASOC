@@ -460,7 +460,8 @@ const Board = {
     else next.onload = begin;
   },
 
-  renderPreview(containerSelector, game) {
+  // options.revealed (Set of labels): TEST PLAY -- only those cells show.
+  renderPreview(containerSelector, game, options = {}) {
     const el = typeof containerSelector === 'string' ? document.querySelector(containerSelector) : containerSelector;
     if (!el) return;
     const prevIsRevealed = this.isRevealed;
@@ -475,8 +476,11 @@ const Board = {
     // covered.
     const draft = game || window.GameData.currentGame;
     const filled = value => !!String(value || '').trim();
-    this.isRevealed = (col, row) => filled(row === 5 ? draft?.columns?.[col]?.solution : draft?.columns?.[col]?.clues?.[row - 1]);
-    this.isFinalRevealed = () => filled(draft?.finalSolution);
+    const testSet = options.revealed instanceof Set ? options.revealed : null;
+    this.isRevealed = testSet
+      ? (col, row) => testSet.has(`${col}${row}`)
+      : (col, row) => filled(row === 5 ? draft?.columns?.[col]?.solution : draft?.columns?.[col]?.clues?.[row - 1]);
+    this.isFinalRevealed = testSet ? () => testSet.has('FINAL') : () => filled(draft?.finalSolution);
     try {
       el.innerHTML = this.buildBoardHTML(draft);
       Skeleton.attach(el);

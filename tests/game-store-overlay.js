@@ -22,7 +22,14 @@ function makeValidGame(title) {
       C: { clues: ['c1', 'c2', 'c3', 'c4'], solution: 'CSOL' },
       D: { clues: ['d1', 'd2', 'd3', 'd4'], solution: 'DSOL' }
     },
-    finalSolution: 'FSOL'
+    finalSolution: 'FSOL',
+    cellHints: {
+      A1: 'Prepared clue for the GM',
+      d4: 'Lower-case coordinates normalize',
+      A5: 'Solution rows cannot have prepared hints',
+      Z9: 'Invalid coordinate',
+      B2: 'x'.repeat(200)
+    }
   };
 }
 
@@ -40,6 +47,12 @@ try {
   assert.equal(fs.existsSync(path.join(store.GAMES_DIR, 'overlay-test.json')), false, 'bundled games/ untouched by a save');
   assert.equal(fs.existsSync(path.join(store.DURABLE_GAMES_DIR, 'overlay-test.json')), true, 'durable games/ holds the new file');
   assert.equal(store.listGameFiles().filter(g => g.id === created.game.id).length, 1, 'listing never shows the same game twice');
+  const createdGame = store.readGame(created.game.id);
+  assert.equal(createdGame.cellHints.A1, 'Prepared clue for the GM', 'prepared per-cell hint survives save/read');
+  assert.equal(createdGame.cellHints.D4, 'Lower-case coordinates normalize', 'cell hint coordinates normalize to upper case');
+  assert.equal(createdGame.cellHints.B2.length, 160, 'prepared hints are capped server-side');
+  assert.equal(createdGame.cellHints.A5, undefined, 'solution-row hints are rejected server-side');
+  assert.equal(createdGame.cellHints.Z9, undefined, 'invalid hint coordinates are rejected server-side');
 
   // 2. Reads prefer the durable overlay: shadow the bundled sample by id.
   const sampleRaw = JSON.parse(fs.readFileSync(path.join(store.GAMES_DIR, 'sample-game.json'), 'utf8'));

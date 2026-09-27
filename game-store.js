@@ -182,6 +182,17 @@ function readGame(gameId) {
   }
 }
 
+function normalizeCellHints(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [cell, text] of Object.entries(raw)) {
+    const key = String(cell).toUpperCase();
+    const value = String(text == null ? '' : text).trim().slice(0, 160);
+    if (/^[A-D][1-4]$/.test(key) && value) out[key] = value;
+  }
+  return out;
+}
+
 function normalizeGame(raw, id) {
   const normalized = {
     id: id || raw.id || generateGameId(),
@@ -194,6 +205,8 @@ function normalizeGame(raw, id) {
     story: raw.story || '',
     gmNotes: raw.gmNotes || raw.gm_notes || '',
     hints: Array.isArray(raw.hints) ? raw.hints.map(String).filter(Boolean) : [],
+    // Per-field hints the GM prepared in the creator (clue rows only).
+    cellHints: normalizeCellHints(raw.cellHints),
     created: raw.created || today(),
     modified: raw.modified || nowISO()
   };
