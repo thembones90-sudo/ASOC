@@ -12,6 +12,8 @@ const desktop = JSON.parse(fs.readFileSync(path.join(root, 'desktop', 'package.j
 assert(join.includes('id="desktop-download-panel"'), 'public access gate exposes the desktop download panel');
 assert(join.includes('id="signed-desktop-download"'), 'signed-in browser interface exposes a persistent desktop download control');
 assert(join.includes('DOWNLOAD ASOC DESKTOP APP') && join.includes('signed-desktop-download-action">GET APP'), 'signed-in download is a prominent labeled action, not a small utility chip');
+assert(join.includes('@keyframes desktop-app-gold-pulse') && join.includes('@keyframes desktop-app-gold-sweep'), 'prominent desktop download has gold pulse and highlight animations');
+assert(join.includes('@media(prefers-reduced-motion:reduce){.signed-desktop-download'), 'desktop download animation respects reduced-motion preferences');
 assert(join.includes(`VERSION ${desktop.version}`), 'download panel version matches the Electron package');
 assert(join.includes('/releases/latest/download/ASOC-Engine-Setup.exe'), 'installer uses a stable latest-release URL');
 assert(join.includes('/releases/latest/download/ASOC-Engine-Portable.exe'), 'portable build remains available as a secondary option');

@@ -8416,14 +8416,19 @@ position:absolute;
         right:auto;
       }
     }
-    .signed-desktop-download{position:relative;z-index:2;display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:13px;margin:9px 12px 4px;padding:11px 13px;border:1px solid rgba(190,103,239,.72);border-left:4px solid #bd59ee;border-radius:8px;background:radial-gradient(circle at 8% 50%,rgba(177,75,225,.22),transparent 24%),linear-gradient(100deg,rgba(38,19,48,.98),rgba(17,17,26,.98) 62%,rgba(45,17,40,.98));color:#f2dcff;text-decoration:none;box-shadow:inset 0 1px rgba(255,255,255,.06),0 0 24px rgba(155,63,204,.15);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
-    .signed-desktop-download:hover,.signed-desktop-download:focus-visible{transform:translateY(-1px);border-color:#dd8cff;border-left-color:#ec8cff;color:#fff;box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 28px rgba(184,83,235,.3);outline:none}
+    .signed-desktop-download{position:relative;z-index:2;overflow:hidden;display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:13px;margin:9px 12px 4px;padding:11px 13px;border:1px solid rgba(232,185,71,.84);border-left:4px solid #ffd257;border-radius:8px;background:radial-gradient(circle at 8% 50%,rgba(255,202,70,.2),transparent 25%),linear-gradient(100deg,rgba(50,37,12,.98),rgba(20,18,15,.99) 58%,rgba(58,37,8,.98));color:#fff0bc;text-decoration:none;box-shadow:inset 0 1px rgba(255,244,187,.18),inset 0 0 22px rgba(226,171,42,.08),0 0 20px rgba(226,169,38,.18);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;animation:desktop-app-gold-pulse 2.35s ease-in-out infinite}
+    .signed-desktop-download::after{content:"";position:absolute;z-index:0;top:-80%;bottom:-80%;left:-28%;width:18%;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,244,191,.42),transparent);transform:skewX(-18deg);animation:desktop-app-gold-sweep 3.2s ease-in-out infinite}
+    .signed-desktop-download>*{position:relative;z-index:1}
+    .signed-desktop-download:hover,.signed-desktop-download:focus-visible{transform:translateY(-1px);border-color:#ffe189;border-left-color:#fff0a8;color:#fff;box-shadow:inset 0 1px rgba(255,255,255,.22),inset 0 0 25px rgba(255,204,70,.15),0 0 32px rgba(240,181,43,.38);outline:none}
     .signed-desktop-download[hidden]{display:none!important}
-    .signed-desktop-download-icon{width:46px;height:46px;display:grid;place-items:center;border:1px solid rgba(197,116,239,.55);border-radius:9px;background:#130c19;color:#db8cff;font:900 25px var(--font-machine);box-shadow:inset 0 0 14px rgba(165,63,215,.2)}
+    .signed-desktop-download-icon{width:46px;height:46px;display:grid;place-items:center;border:1px solid rgba(255,213,105,.68);border-radius:9px;background:linear-gradient(145deg,#302206,#100d08);color:#ffd862;font:900 25px var(--font-machine);text-shadow:0 0 10px rgba(255,205,72,.52);box-shadow:inset 0 0 14px rgba(242,186,48,.18),0 0 12px rgba(237,180,41,.14)}
     .signed-desktop-download-copy{display:grid;gap:4px;min-width:0}
-    .signed-desktop-download-copy strong{font:900 13px var(--font-machine);letter-spacing:1.5px;color:#f1d7ff}
-    .signed-desktop-download-copy small{font:700 9px var(--font-machine);letter-spacing:.8px;color:#9a90a1}
-    .signed-desktop-download-action{padding:9px 13px;border:1px solid rgba(218,132,255,.62);border-radius:5px;background:rgba(113,45,143,.28);font:900 9px var(--font-machine);letter-spacing:1.2px;color:#eac3ff;white-space:nowrap}
+    .signed-desktop-download-copy strong{font:900 13px var(--font-machine);letter-spacing:1.5px;color:#ffe69a;text-shadow:0 0 12px rgba(255,203,63,.22)}
+    .signed-desktop-download-copy small{font:700 9px var(--font-machine);letter-spacing:.8px;color:#b8a876}
+    .signed-desktop-download-action{padding:9px 13px;border:1px solid rgba(255,218,117,.8);border-radius:5px;background:linear-gradient(180deg,rgba(180,126,18,.45),rgba(80,53,6,.45));font:900 9px var(--font-machine);letter-spacing:1.2px;color:#ffe89c;white-space:nowrap;box-shadow:inset 0 1px rgba(255,248,205,.18),0 0 12px rgba(236,177,36,.14)}
+    @keyframes desktop-app-gold-pulse{0%,100%{box-shadow:inset 0 1px rgba(255,244,187,.18),inset 0 0 22px rgba(226,171,42,.08),0 0 16px rgba(226,169,38,.14)}50%{box-shadow:inset 0 1px rgba(255,250,219,.24),inset 0 0 28px rgba(255,205,73,.15),0 0 31px rgba(240,181,43,.35)}}
+    @keyframes desktop-app-gold-sweep{0%,58%{left:-28%;opacity:0}66%{opacity:1}88%,100%{left:112%;opacity:0}}
+    @media(prefers-reduced-motion:reduce){.signed-desktop-download,.signed-desktop-download::after{animation:none!important}}
     @media(max-width:760px){.signed-desktop-download{grid-template-columns:38px minmax(0,1fr);margin:6px 7px;padding:8px}.signed-desktop-download-icon{width:36px;height:36px;font-size:20px}.signed-desktop-download-copy strong{font-size:10px}.signed-desktop-download-copy small{font-size:7px}.signed-desktop-download-action{display:none}}
 </style>
 </head>
