@@ -5358,7 +5358,7 @@ position:absolute;
 
 
     /* PLAYER UTILITY PLACEMENT // identity first, utilities second.
-       The narrow Battle sidebar must never crush MASTER/TWEAKS into the edge. */
+       The narrow Battle sidebar must never crush MASTER ACCESS into the edge. */
     .hero-hud-identity-block {
       display:grid;
       grid-template-columns:minmax(0,1fr) minmax(0,1fr);
@@ -8367,10 +8367,10 @@ position:absolute;
     }
 
     /* HUD UTILITY ROW REPAIR // the older identity-block passes give
-       DISCONNECT, MASTER ACCESS and TWEAKS width:100% !important for the
+       DISCONNECT and MASTER ACCESS width:100% !important for the
        two-column grid. The AMUSEMENT PARK header lays the same controls out
        as one nowrap flex row, so each became a full-row-wide button and
-       pushed MASTER ACCESS and TWEAKS off-screen. In the row they size to
+       pushed MASTER ACCESS off-screen. In the row it sizes to
        their label. Its display:inline-flex !important also overrode [hidden],
        leaving DISCONNECT visible in Master Mirror tabs; [hidden] wins in
        every mode. */
@@ -8744,10 +8744,6 @@ position:absolute;
             <button type="button" class="master-access-signout" id="player-master-signout">SIGN OUT MASTER ACCOUNT</button>
           </div>
         </div>
-        <button type="button" id="player-tweaks-launch" class="tweaks-launch hero-utility-btn hero-utility-tweaks" aria-label="Open TWEAKS">
-          <svg class="hero-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M10 12h10M4 12h2M4 18h6M14 18h6"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg>
-          <span>TWEAKS</span><span class="tweaks-badge">0</span>
-        </button>
       </div>
       <div class="hero-hud-stats">
         <span class="hero-stat hero-stat-score">

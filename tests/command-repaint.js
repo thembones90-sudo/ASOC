@@ -8,6 +8,7 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'css', 'asoc.css'), 'utf8');
 const join = fs.readFileSync(path.join(root, 'join.html'), 'utf8');
+const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
 
 // Cache-busting contract: each stylesheet's ?v= must be dated no earlier than
 // the release that shipped this repaint. Later features legitimately bump the
@@ -33,7 +34,10 @@ assert(css.includes('repeating-linear-gradient(-45deg,#ff2638 0 7px,#160306 7px 
 
 assert(!html.includes('css/tweaks.css') && !html.includes('js/tweaks.js'), 'GM no longer loads the retired TWEAKS interface');
 assert(!join.includes('css/tweaks.css') && !join.includes('js/tweaks.js'), 'players no longer load the retired TWEAKS interface');
-assert(html.includes('class="toolbar-btn reset-board-utility-btn" id="reset-board-btn"'), 'RESET BOARD replaces TWEAKS in the live utility row');
+assert(!join.includes('player-tweaks-launch') && !html.includes('gm-tweaks-launch'), 'no TWEAKS launcher remains in either interface');
+assert(!server.includes('/api/tweaks') && !server.includes('tweakStore'), 'retired TWEAKS API and server store are removed');
+assert(!fs.existsSync(path.join(root, 'js', 'tweaks.js')) && !fs.existsSync(path.join(root, 'css', 'tweaks.css')) && !fs.existsSync(path.join(root, 'tweak-store.js')), 'retired TWEAKS implementation files are removed');
+assert(html.includes('class="toolbar-btn reset-board-utility-btn" id="reset-board-btn"'), 'RESET BOARD is an independent live utility control');
 assert(css.includes('grid-template-columns:repeat(4,minmax(0,1fr)) !important'), 'desktop utility controls use four equal columns');
 assert(css.includes('.reset-board-utility-btn'), 'RESET BOARD has dedicated live-control styling');
 

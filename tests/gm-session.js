@@ -49,7 +49,7 @@ async function stop() {
 }
 const login = async password => (await request('/api/auth/gm/login', { body: { password } })).data.token;
 // Any GM-only endpoint: 200 with a valid GM token, 401 without.
-const gmStatus = async token => (await request('/api/tweaks', { headers: { 'x-gm-token': token } })).status;
+const gmStatus = async token => (await request('/api/games', { headers: { 'x-gm-token': token } })).status;
 
 async function run() {
   try {
