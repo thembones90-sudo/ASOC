@@ -11,53 +11,53 @@
 #gm-panel.maintenance-open .gm-maintenance { display:block; width:min(1180px,100%); max-width:none; min-height:max-content; margin:0 auto; padding-bottom:24px; box-sizing:border-box; }
 .gm-backdoor-header { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:48px; padding:0 0 10px; border-bottom:1px solid #33444b; }
 .gm-backdoor-header > div { display:grid; gap:3px; }
-.gm-backdoor-header strong { color:#91c7c6; font:900 .72rem var(--font-machine); letter-spacing:.15em; }
-.gm-backdoor-header span { color:#596872; font:800 .43rem var(--font-machine); letter-spacing:.14em; }
-.gm-backdoor-return { min-width:150px; min-height:32px; border:1px solid #9d7b27; background:linear-gradient(180deg,#332b17,#16130c); color:#f0cb63; font:900 .52rem var(--font-machine); letter-spacing:.11em; cursor:pointer; }
+.gm-backdoor-header strong { color:#91c7c6; font:900 1.05rem var(--font-machine); letter-spacing:.15em; }
+.gm-backdoor-header span { color:#596872; font:800 .78rem var(--font-machine); letter-spacing:.14em; }
+.gm-backdoor-return { min-width:170px; min-height:40px; border:1px solid #9d7b27; background:linear-gradient(180deg,#332b17,#16130c); color:#f0cb63; font:900 .88rem var(--font-machine); letter-spacing:.11em; cursor:pointer; }
 .gm-backdoor-return:hover { border-color:#e5bb45; color:#fff2bd; box-shadow:0 0 14px rgba(213,169,53,.14); }
 .gm-backdoor-telemetry { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:10px 0; border:1px solid #29383f; background:#0b1014; }
 .gm-backdoor-telemetry > span { display:grid; gap:3px; min-width:0; padding:7px 10px; border-right:1px solid #26343a; }
 .gm-backdoor-telemetry > span:last-child { border-right:0; }
-.gm-backdoor-telemetry small { color:#52636b; font:800 .39rem var(--font-machine); letter-spacing:.14em; }
-.gm-backdoor-telemetry b { overflow:hidden; color:#b9c6ca; font:900 .52rem var(--font-machine); letter-spacing:.08em; text-overflow:ellipsis; white-space:nowrap; }
+.gm-backdoor-telemetry small { color:#52636b; font:800 .72rem var(--font-machine); letter-spacing:.14em; }
+.gm-backdoor-telemetry b { overflow:hidden; color:#b9c6ca; font:900 .88rem var(--font-machine); letter-spacing:.08em; text-overflow:ellipsis; white-space:nowrap; }
 .gm-backdoor-primary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
 #gm-panel.maintenance-open .maintenance-module { min-width:0; margin:0; padding:10px; border:1px solid #303c43; border-radius:0; background:linear-gradient(180deg,#12181d,#090d10); box-shadow:inset 0 1px rgba(255,255,255,.025); }
-#gm-panel.maintenance-open .maintenance-module .gm-section-title { margin:0 0 9px; padding:0 0 6px; border-bottom:1px solid #26343a; color:#75aaa9; font-size:.53rem; letter-spacing:.13em; }
+#gm-panel.maintenance-open .maintenance-module .gm-section-title { margin:0 0 9px; padding:0 0 6px; border-bottom:1px solid #26343a; color:#75aaa9; font-size:.9rem; letter-spacing:.13em; }
 #gm-panel.maintenance-open .current-game { margin-bottom:7px; }
 #gm-panel.maintenance-open .difficulty-picker { margin:7px 0; gap:5px; }
-#gm-panel.maintenance-open .gm-global-btn { min-height:32px; padding:6px 8px; font-size:.53rem; }
+#gm-panel.maintenance-open .gm-global-btn { min-height:40px; padding:8px 10px; font-size:.9rem; }
 #gm-panel.maintenance-open #next-game-btn { width:100% !important; margin:7px 0 0 !important; }
 .battle-session-strip[hidden] { display:none !important; }
 .gm-maintenance-readout { display:grid; gap:3px; margin-bottom:8px; padding:7px 8px; border:1px solid #253138; background:#080c0f; }
-.gm-maintenance-readout small { color:#526069; font:800 .38rem var(--font-machine); letter-spacing:.13em; }
-.gm-maintenance-readout strong { color:#8fbf9a; font:800 .48rem var(--font-machine); letter-spacing:.07em; }
+.gm-maintenance-readout small { color:#526069; font:800 .72rem var(--font-machine); letter-spacing:.13em; }
+.gm-maintenance-readout strong { color:#8fbf9a; font:800 .84rem var(--font-machine); letter-spacing:.07em; }
 .gm-board-control-row { display:grid; grid-template-columns:1fr; gap:6px; }
 .gm-board-control-row .gm-global-btn { width:100% !important; margin:0 !important; grid-column:auto !important; }
 .gm-board-control-row #undo-btn { border-color:#43535d; color:#afbbc2; }
 .gm-board-control-row #reveal-hide-all-btn { border-color:#9b7929; color:#edcf76; }
-.gm-appearance-maintenance #gm-layout-lock-status { min-height:25px; margin:0 0 6px; padding:5px 7px; font-size:.43rem; }
+.gm-appearance-maintenance #gm-layout-lock-status { min-height:25px; margin:0 0 6px; padding:5px 7px; font-size:.78rem; }
 .gm-appearance-maintenance #gm-layout-lock-btn { width:100%; margin-bottom:8px; }
 .gm-appearance-background { display:block !important; margin:0 !important; padding:8px 0 0 !important; border:0 !important; border-top:1px solid #26343a !important; background:none !important; box-shadow:none !important; }
 .gm-appearance-background .background-selector { display:grid !important; grid-template-columns:1fr; gap:6px; }
-.gm-appearance-background .bg-label { font-size:.42rem; }
-.gm-appearance-background .bg-select { width:100%; min-height:31px; font-size:.48rem; }
+.gm-appearance-background .bg-label { font-size:.76rem; }
+.gm-appearance-background .bg-select { width:100%; min-height:38px; font-size:.84rem; }
 .gm-appearance-background .upload-zone { display:grid; grid-template-columns:1fr; gap:4px; padding:0; border:0; }
 .gm-appearance-background .upload-label { width:100%; margin:0; box-sizing:border-box; text-align:center; }
 .gm-appearance-background .upload-note, .gm-appearance-background .upload-status { display:none; }
 .gm-backdoor-log { margin:9px 0; border:1px solid #29363d; background:#080c0f; }
 .gm-backdoor-log-head { display:flex; justify-content:space-between; padding:7px 10px; border-bottom:1px solid #26343a; background:#10161a; }
-.gm-backdoor-log-head strong { color:#81999f; font:900 .48rem var(--font-machine); letter-spacing:.13em; }
-.gm-backdoor-log-head span { color:#46545c; font:800 .38rem var(--font-machine); letter-spacing:.11em; }
-.gm-backdoor-log-entries { display:grid; min-height:78px; max-height:112px; overflow:auto; padding:5px 10px; }
-.gm-backdoor-log-entries div { display:grid; grid-template-columns:48px 1fr; gap:9px; padding:4px 0; border-bottom:1px solid rgba(48,61,68,.42); }
+.gm-backdoor-log-head strong { color:#81999f; font:900 .84rem var(--font-machine); letter-spacing:.13em; }
+.gm-backdoor-log-head span { color:#46545c; font:800 .72rem var(--font-machine); letter-spacing:.11em; }
+.gm-backdoor-log-entries { display:grid; min-height:90px; max-height:150px; overflow:auto; padding:5px 10px; }
+.gm-backdoor-log-entries div { display:grid; grid-template-columns:64px 1fr; gap:9px; padding:4px 0; border-bottom:1px solid rgba(48,61,68,.42); }
 .gm-backdoor-log-entries div:last-child { border-bottom:0; }
-.gm-backdoor-log-entries time { color:#53636b; font:700 .42rem var(--font-mono); }
-.gm-backdoor-log-entries span { color:#8e9ba1; font:700 .44rem var(--font-machine); letter-spacing:.065em; }
+.gm-backdoor-log-entries time { color:#53636b; font:700 .76rem var(--font-mono); }
+.gm-backdoor-log-entries span { color:#8e9ba1; font:700 .8rem var(--font-machine); letter-spacing:.065em; }
 .gm-advanced-maintenance { border:1px solid #6d5525; border-radius:0; background:linear-gradient(180deg,#1a1710,#0c0d0e); overflow:hidden; }
-.gm-advanced-maintenance > summary { display:flex; align-items:center; gap:10px; min-height:38px; padding:7px 11px; list-style:none; cursor:pointer; color:#d2ad55; font:900 .52rem var(--font-machine); letter-spacing:.1em; }
+.gm-advanced-maintenance > summary { display:flex; align-items:center; gap:10px; min-height:48px; padding:7px 11px; list-style:none; cursor:pointer; color:#d2ad55; font:900 .88rem var(--font-machine); letter-spacing:.1em; }
 .gm-advanced-maintenance > summary::-webkit-details-marker { display:none; }
 .gm-advanced-maintenance > summary span { margin-right:auto; }
-.gm-advanced-maintenance > summary small { color:#6d6555; font-size:.38rem; letter-spacing:.08em; }
+.gm-advanced-maintenance > summary small { color:#6d6555; font-size:.72rem; letter-spacing:.08em; }
 .gm-advanced-maintenance[open] > summary { border-bottom:1px solid #51421f; background:rgba(111,82,22,.08); }
 .gm-advanced-maintenance-body { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:8px; }
 #gm-panel.maintenance-open .gm-advanced-maintenance-body .maintenance-module { background:#0d1114; }
@@ -86,3 +86,38 @@ body.room-mode-casual #gm-panel.maintenance-open .gm-content { overflow-y:auto !
   #gm-panel.maintenance-open .gm-advanced-maintenance-body #records-section { grid-column:auto; }
   .gm-advanced-maintenance > summary small { display:none; }
 }
+
+/* Readable operator console: everything inside the Backdoor (including the
+   modules moved in from the battle panel) gets a comfortable size. */
+#gm-panel.maintenance-open .gm-maintenance :is(button, select, input, label, .gm-global-btn) { font-size:.84rem !important; }
+#gm-panel.maintenance-open .gm-maintenance :is(button, .gm-global-btn) { min-height:40px; }
+#gm-panel.maintenance-open .gm-maintenance :is(select, input:not([type=checkbox]):not([type=radio])) { min-height:38px; }
+#gm-panel.maintenance-open .gm-maintenance .gm-backdoor-telemetry small,
+#gm-panel.maintenance-open .gm-maintenance .gm-maintenance-readout small,
+#gm-panel.maintenance-open .gm-maintenance .gm-backdoor-log-head span { font-size:.72rem; }
+#gm-panel.maintenance-open .gm-maintenance .gm-backdoor-header strong { font-size:1.05rem; }
+#gm-panel.maintenance-open .gm-maintenance .maintenance-module .gm-section-title { font-size:.9rem; }
+#gm-panel.maintenance-open .gm-maintenance .gm-advanced-maintenance > summary { font-size:.88rem; }
+#gm-panel.maintenance-open .gm-maintenance .gm-advanced-maintenance > summary small { font-size:.72rem; }
+.blood-vault-modal nav .blood-vault-purge { margin-left:auto; width:auto !important; }
+
+/* The Backdoor opens WIDE: the 380px battle sidebar crushed its three
+   columns into unreadable slivers. While it is open the panel becomes a
+   wide console over the board (the board is not needed while in here). */
+@media (min-width:901px) {
+  #gm-panel.maintenance-open {
+    position:fixed !important;
+    top:0; right:0; bottom:0;
+    height:100vh;
+    width:min(1240px, 94vw) !important;
+    max-width:none !important;
+    z-index:9500;
+    box-shadow:0 0 0 100vmax rgba(3,5,8,.72), -30px 0 90px rgba(0,0,0,.8) !important;
+  }
+}
+#gm-panel.maintenance-open .gm-maintenance :is(.difficulty-badge, .cg-theme, #battle-session-mode, #battle-session-code, #battle-session-player-count, .battle-session-strip span) { font-size:.8rem !important; }
+#gm-panel.maintenance-open .gm-maintenance .blood-tribute-vault-status { font-size:.9rem !important; padding:10px 0; }
+#gm-panel.maintenance-open .gm-maintenance :is(.mp-label, .mp-value) { font-size:.84rem !important; }
+#gm-panel.maintenance-open .gm-maintenance .mp-player-name > span:last-child { font-size:1rem !important; font-weight:800; margin-left:8px; }
+#gm-panel.maintenance-open .gm-maintenance .mp-player-name .little-hero-avatar-fallback { font-size:.62rem !important; }
+#gm-panel.maintenance-open .gm-maintenance .gm-backdoor-telemetry b { font-size:1rem; }

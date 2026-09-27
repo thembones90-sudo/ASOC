@@ -16,7 +16,20 @@ assert.doesNotMatch(app, /name: 'reliquary'/);
 assert.doesNotMatch(app, /label: 'OPEN RELIQUARY'/);
 assert.ok(app.includes('/^\\/reliquary'), 'the /reliquary command still opens it');
 assert.match(app, /gm:reliquaryAccess.*String\(code\)\.trim\(\)/s);
-assert.match(app, /data-vault-preview-id/);
+// The panel (SEALED SYSTEMS included) never shows archived tribute images;
+// they live only in the vault opened by /reliquary, and closing it wipes
+// them from the page and re-seals the server side.
+const renderFn = app.slice(app.indexOf('  renderBloodTributeVault() {'), app.indexOf('    if (clearBtn) clearBtn.disabled'));
+assert.doesNotMatch(renderFn, /<img/, 'no tribute images in the panel list');
+assert.doesNotMatch(html.slice(html.indexOf('blood-tribute-vault-section'), html.indexOf('gm-module-global')), /Vault/, 'the panel section does not advertise a vault');
+const closeFn = app.slice(app.indexOf('  closeBloodTributeVault() {'), app.indexOf('  openBloodTributeImage('));
+assert.match(closeFn, /this\.bloodTributes = \[\]/);
+assert.match(closeFn, /grid\.innerHTML = ''/);
+assert.match(closeFn, /gm:reliquaryLock/);
+assert.match(app, /case 'tribute:vault':\s*\/\/ Only held while the vault is open/);
+assert.match(read('server.js'), /case 'gm:reliquaryLock':[\s\S]{0,300}reliquaryUnlockedUntil = 0/);
+// The Backdoor opens as a wide, readable console.
+assert.match(backdoorCss, /#gm-panel\.maintenance-open \{\s*position:fixed !important;[\s\S]*width:min\(1240px, 94vw\) !important;/);
 assert.match(app, /openBloodTributeImage\(tribute\)/);
 assert.match(backdoorCss, /maintenance-open \.gm-content[\s\S]*overflow-y:auto !important/);
 assert.match(backdoorCss, /width:min\(1180px,100%\)/);
@@ -24,4 +37,4 @@ assert.match(media, /looksLikeImageUrl/);
 assert.match(media, /\\\.\(\?:png\|jpe\?g\|webp\|gif\)/);
 assert.doesNotMatch(media, /return \^https\?:\\\/\\\//);
 
-console.log('PASS responsive Backdoor, Reliquary entry/viewer, and normal URL paste routing');
+console.log('PASS responsive readable Backdoor, Reliquary entry/viewer (sealed everywhere else, re-sealed on close), and normal URL paste routing');

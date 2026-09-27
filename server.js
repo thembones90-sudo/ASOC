@@ -9767,6 +9767,12 @@ wss.on('connection', (ws, req) => {
           handleTributeVaultUpdate(ws, message);
           break;
         }
+        case 'gm:reliquaryLock': {
+          // The GM closed the vault: seal it again right away.
+          const lockRoom = rooms.get(ws.roomCode?.toUpperCase());
+          if (lockRoom && ws === lockRoom.hostConnection) ws.reliquaryUnlockedUntil = 0;
+          break;
+        }
         case 'gm:reliquaryAccess': {
           handleReliquaryAccess(ws, message);
           break;
