@@ -197,11 +197,19 @@ async function run() {
     let from = gm.mark();
     command('revealCell', { cell: 'B1' });
     await gm.waitFor((m, i) => i >= from && m.type === 'state:public' && m.cells?.B1?.revealed === true, 'B1 revealed');
+    // Hints unlock only once all 4 fields of the column are open.
+    let refusedMark = players[2].mark();
+    players[2].send({ type: 'player:hintRequest', column: 'B' });
+    await players[2].waitFor((m, i) => i >= refusedMark && m.type === 'error', 'hint refused with column partly open');
+    assert.match(players[2].errorsSince(refusedMark).join(' '), /all 4 fields of column B/);
+    assert.ok(!gm.state.hintClaims?.B, 'no claim recorded for a partly open column');
+    for (const cell of ['B2', 'B3', 'B4']) command('revealCell', { cell });
+    await gm.waitFor(m => m.type === 'state:public' && ['B2', 'B3', 'B4'].every(c => m.cells?.[c]?.revealed === true), 'column B open');
     from = gm.mark();
     const hintMark = players[2].mark();
-    players[2].send({ type: 'player:hintRequest', cell: 'B1' });
+    players[2].send({ type: 'player:hintRequest', column: 'B' });
     try {
-      await gm.waitFor((m, i) => i >= from && m.type === 'state:public' && m.hintClaims?.B1, 'B1 hint claim');
+      await gm.waitFor((m, i) => i >= from && m.type === 'state:public' && m.hintClaims?.B, 'column B hint claim');
     } catch (error) {
       throw new Error(`hint claim not recorded; server said: ${JSON.stringify(players[2].errorsSince(hintMark))}`);
     }
@@ -209,12 +217,16 @@ async function run() {
     assert.deepEqual(gm.state.hintClaims || {}, {}, 'NEXT GAME drops the previous board\'s hint claims');
     assert.deepEqual(gm.state.solutionCountdowns || {}, {}, 'NEXT GAME drops the previous board\'s countdowns');
     await launchBattle();
-    command('revealCell', { cell: 'B1' });
+    for (const cell of ['B1', 'B2', 'B3', 'B4']) command('revealCell', { cell });
     await settle();
     mark = players[2].mark();
-    players[2].send({ type: 'player:hintRequest', cell: 'B1' });
+    players[2].send({ type: 'player:hintRequest', column: 'B' });
     await settle();
-    assert.deepEqual(players[2].errorsSince(mark), [], 'the same row hint is available on the new board');
+    assert.deepEqual(players[2].errorsSince(mark), [], 'the same column hint is available on the new board');
+    mark = players[3].mark();
+    players[3].send({ type: 'player:hintRequest', column: 'B' });
+    await settle();
+    assert.match(players[3].errorsSince(mark).join(' '), /already been used/, 'one hint per column');
 
     // 5. REVEAL ALL mid-battle stops the clock, HIDE resumes it, GAME LOST stays available.
     command('revealAll');

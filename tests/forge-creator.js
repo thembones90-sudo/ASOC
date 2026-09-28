@@ -43,6 +43,6 @@ assert.match(forge, /normalizeCreatorGame\(JSON\.parse/, 'loaded games and resto
 assert.match(forge, /this\.uppercaseCreatorText\(value\)\.slice\(0, 60\)/, 'bulk-pasted board cells are stored in uppercase');
 assert.match(forge, /return this\.normalizeCreatorGame\(d\)/, 'saved creator data has an uppercase normalization safety barrier');
 assert.match(index, /forge\.js\?v=20260928-creator-uppercase-1/, 'uppercase creator script is cache-busted');
-assert.match(index, /asoc\.css\?v=20260928-board-coronation-1/, 'compact library and contracts styling is cache-busted');
+assert.match(index, /asoc\.css\?v=20260929-hint-column-1/, 'compact library and contracts styling is cache-busted');
 
 console.log('PASS ASOC Creator: theme identity, unified editor, guided entry, drafts, test play, fit warnings and prepared hints');

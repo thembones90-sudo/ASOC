@@ -2889,6 +2889,7 @@ const App = {
         if (this._chatEverInitialized) {
           const newMessages = incoming.filter(m => !previousIds.has(m.id));
           window.AsocAlerts?.gmChat(newMessages);
+          newMessages.filter(m => m.source === 'hintRequest').forEach(m => this.showHintRequestAlert(m));
           const verdictUpdates = incoming.filter(m => {
             const previous = previousById.get(m.id);
             return previous && previous.verdict !== m.verdict && m.verdict;
@@ -4758,6 +4759,46 @@ const App = {
     `);
   },
 
+  // "HINT REQUEST // COLUMN B" (older rooms: "HINT REQUEST // B1").
+  hintColumnOf(msg) {
+    return (/HINT REQUEST \/\/ (?:COLUMN )?([A-D])/.exec(String(msg?.text || '')) || [])[1] || '';
+  },
+
+  // The hints prepared in the creator for a column's fields (GM page only;
+  // players never receive them).
+  preparedHintsHtml(column) {
+    if (!column) return '';
+    const hints = GameData.currentGame?.cellHints || {};
+    const rows = [1, 2, 3, 4].map(row => `${column}${row}`).filter(cell => hints[cell])
+      .map(cell => `<div class="gm-hint-prepared"><b>PREPARED HINT // ${cell}</b><span>${this.escapeHtml(hints[cell])}</span></div>`);
+    return rows.join('');
+  },
+
+  // A Little Hero asked for a hint: a banner the Shadow Broker cannot miss.
+  // It stays until dismissed; several requests stack in the same banner.
+  showHintRequestAlert(msg) {
+    const column = this.hintColumnOf(msg);
+    let banner = document.getElementById('gm-hint-alert');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'gm-hint-alert';
+      banner.className = 'gm-hint-alert';
+      banner.setAttribute('role', 'alert');
+      banner.innerHTML = '<div class="gm-hint-alert-list"></div><button type="button" class="gm-hint-alert-dismiss">GOT IT</button>';
+      banner.querySelector('.gm-hint-alert-dismiss').addEventListener('click', () => banner.remove());
+      document.body.appendChild(banner);
+    }
+    const entry = document.createElement('div');
+    entry.className = 'gm-hint-alert-entry';
+    entry.innerHTML = `<div class="gm-hint-alert-title">HINT REQUESTED${column ? ` // COLUMN ${column}` : ''}</div>`
+      + `<div class="gm-hint-alert-who">${this.escapeHtml(msg.playerName || 'Little Hero')} is asking for a hint</div>`
+      + this.preparedHintsHtml(column);
+    banner.querySelector('.gm-hint-alert-list').appendChild(entry);
+    banner.classList.remove('is-pulsing');
+    void banner.offsetWidth;
+    banner.classList.add('is-pulsing');
+  },
+
   escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -5583,9 +5624,7 @@ const App = {
 
     // A player's HINT REQUEST shows the GM the hint prepared for that field
     // in the creator (GM page only; players never receive it).
-    const hintCell = msg.source === 'hintRequest' ? (/HINT REQUEST \/\/ ([A-D][1-4])/.exec(String(msg.text || '')) || [])[1] : '';
-    const preparedHint = hintCell ? GameData.currentGame?.cellHints?.[hintCell] : '';
-    const preparedHintHtml = preparedHint ? `<div class="gm-hint-prepared"><b>PREPARED HINT // ${hintCell}</b><span>${this.escapeHtml(preparedHint)}</span></div>` : '';
+    const preparedHintHtml = msg.source === 'hintRequest' ? this.preparedHintsHtml(this.hintColumnOf(msg)) : '';
     const verdictMetaHtml = msg.verdict === 'correct'
       ? `<div class="gm-chat-machine-verdict accepted">ACCEPTED // ${this.escapeHtml(this.getTargetLabel(msg.target || 'LOCKED'))}</div>`
       : msg.verdict === 'wrong'
