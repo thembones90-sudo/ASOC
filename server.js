@@ -7918,19 +7918,25 @@ function handleHintRequest(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Hints are only available during an active battle' });
     return;
   }
-  const cell = String(message.cell || '').toUpperCase();
-  if (!/^[A-D][1-4]$/.test(cell) || room.sessionState.cells[cell] !== true) {
-    sendToWs(ws, { type: 'error', message: 'Hint is only available for an opened clue row' });
+  // One hint per column, unlocked only once all 4 of its fields are open.
+  // (`cell` is accepted from older clients and maps to its column.)
+  const column = String(message.column || message.cell || '').toUpperCase().charAt(0);
+  if (!/^[A-D]$/.test(column)) {
+    sendToWs(ws, { type: 'error', message: 'Hint request needs a column' });
+    return;
+  }
+  if (![1, 2, 3, 4].every(row => room.sessionState.cells[column + row] === true)) {
+    sendToWs(ws, { type: 'error', message: `Hints unlock once all 4 fields of column ${column} are open` });
     return;
   }
   room.hintClaims ||= {};
-  if (room.hintClaims[cell]) {
-    sendToWs(ws, { type: 'error', message: 'That row hint has already been used' });
+  if (room.hintClaims[column]) {
+    sendToWs(ws, { type: 'error', message: `The column ${column} hint has already been used` });
     return;
   }
 
-  room.hintClaims[cell] = { playerId: ws.playerId, playerName: ws.playerName, at: Date.now() };
-  const posted = addChatMessage(room, ws.playerId, ws.playerName, `HINT REQUEST // ${cell}`);
+  room.hintClaims[column] = { playerId: ws.playerId, playerName: ws.playerName, at: Date.now() };
+  const posted = addChatMessage(room, ws.playerId, ws.playerName, `HINT REQUEST // COLUMN ${column}`);
   if (posted.success) {
     posted.message.source = 'hintRequest';
     posted.message.boardId = null;
