@@ -2801,37 +2801,37 @@ position:absolute;
     }
 
     @media (max-width: 900px) {
-      #game-screen { overflow-y:auto; }
-      .player-battle-layout { display:flex; flex-direction:column; height:auto; min-height:100%; padding:8px; }
-      #board-layer { min-height:70vh; }
-      .battle-comms-lobby { min-height:48vh; border-left:0; border-top:1px solid rgba(116,126,139,.28); padding:10px 0 0; }
-      #chat-panel { min-height:38vh; }
-      .battle-comms-lobby .chat-reply-btn,
-      .battle-comms-lobby .chat-reaction-add {
+      :where(html:not(.asoc-mobile)) #game-screen { overflow-y:auto; }
+      :where(html:not(.asoc-mobile)) .player-battle-layout { display:flex; flex-direction:column; height:auto; min-height:100%; padding:8px; }
+      :where(html:not(.asoc-mobile)) #board-layer { min-height:70vh; }
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby { min-height:48vh; border-left:0; border-top:1px solid rgba(116,126,139,.28); padding:10px 0 0; }
+      :where(html:not(.asoc-mobile)) #chat-panel { min-height:38vh; }
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-reply-btn,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-reaction-add {
         opacity:.42;
         pointer-events:auto;
       }
     }
 
     @media (max-width: 480px) {
-      .join-form {
+      :where(html:not(.asoc-mobile)) .join-form {
         padding: 1.5rem 1.2rem;
       }
-      .form-input {
+      :where(html:not(.asoc-mobile)) .form-input {
         padding: 12px 14px;
         font-size: 1.1rem;
       }
-      #game-screen { padding-left:max(8px, env(safe-area-inset-left)); padding-right:max(8px, env(safe-area-inset-right)); padding-bottom:max(74px, env(safe-area-inset-bottom)); overflow-x:hidden; }
-      .little-hero-hud { align-items:flex-start; flex-direction:column; gap:7px; }
-      .hero-hud-stats { width:100%; justify-content:space-between; gap:6px; }
-      .battle-comms-online { display:none; }
-      .chat-header { gap:8px; padding:9px 10px; }
-      .chat-form { flex-direction:row; flex-wrap:wrap; padding:8px; }
-      #chat-input { min-width:0; padding:12px 10px; }
-      .chat-send-btn { width:auto; min-width:92px; padding:12px 10px; }
-      #chat-panel { max-height:48vh; }
-      .connection-status { bottom:max(10px, env(safe-area-inset-bottom)); }
-      .player-logout-control{left:max(8px,env(safe-area-inset-left));bottom:max(8px,env(safe-area-inset-bottom));min-height:34px;padding:0 10px;font-size:9px;letter-spacing:1px}
+      :where(html:not(.asoc-mobile)) #game-screen { padding-left:max(8px, env(safe-area-inset-left)); padding-right:max(8px, env(safe-area-inset-right)); padding-bottom:max(74px, env(safe-area-inset-bottom)); overflow-x:hidden; }
+      :where(html:not(.asoc-mobile)) .little-hero-hud { align-items:flex-start; flex-direction:column; gap:7px; }
+      :where(html:not(.asoc-mobile)) .hero-hud-stats { width:100%; justify-content:space-between; gap:6px; }
+      :where(html:not(.asoc-mobile)) .battle-comms-online { display:none; }
+      :where(html:not(.asoc-mobile)) .chat-header { gap:8px; padding:9px 10px; }
+      :where(html:not(.asoc-mobile)) .chat-form { flex-direction:row; flex-wrap:wrap; padding:8px; }
+      :where(html:not(.asoc-mobile)) #chat-input { min-width:0; padding:12px 10px; }
+      :where(html:not(.asoc-mobile)) .chat-send-btn { width:auto; min-width:92px; padding:12px 10px; }
+      :where(html:not(.asoc-mobile)) #chat-panel { max-height:48vh; }
+      :where(html:not(.asoc-mobile)) .connection-status { bottom:max(10px, env(safe-area-inset-bottom)); }
+      :where(html:not(.asoc-mobile)) .player-logout-control{left:max(8px,env(safe-area-inset-left));bottom:max(8px,env(safe-area-inset-bottom));min-height:34px;padding:0 10px;font-size:9px;letter-spacing:1px}
     }
 
     /* =========================================================
@@ -3092,28 +3092,28 @@ position:absolute;
     #join-screen .error-message { margin-top:7px; }
 
     @media (max-width:620px) {
-      #join-screen { justify-content:flex-start; padding:16px 10px 20px; }
-      .join-brand { margin-bottom:12px; }
-      .join-brand::before,.join-brand::after { display:none; }
-      .join-form { padding:13px 12px 14px; }
-      .join-form-head small { display:none; }
-      .join-primary-grid { grid-template-columns:1fr; gap:8px; }
-      .join-form .form-input { height:44px; font-size:.95rem; letter-spacing:2px; }
-      .little-hero-appearance { grid-template-columns:108px minmax(0,1fr); gap:8px; }
-      .little-hero-avatar-upload { min-height:152px; padding:8px; }
-      .little-hero-avatar-preview { width:74px; height:74px; }
-      .little-hero-frame-controls { padding:9px; }
-      .theme-select-copy small { display:none; }
-      .join-btn { min-height:49px; }
+      :where(html:not(.asoc-mobile)) #join-screen { justify-content:flex-start; padding:16px 10px 20px; }
+      :where(html:not(.asoc-mobile)) .join-brand { margin-bottom:12px; }
+      :where(html:not(.asoc-mobile)) .join-brand::before,:where(html:not(.asoc-mobile)) .join-brand::after { display:none; }
+      :where(html:not(.asoc-mobile)) .join-form { padding:13px 12px 14px; }
+      :where(html:not(.asoc-mobile)) .join-form-head small { display:none; }
+      :where(html:not(.asoc-mobile)) .join-primary-grid { grid-template-columns:1fr; gap:8px; }
+      :where(html:not(.asoc-mobile)) .join-form .form-input { height:44px; font-size:.95rem; letter-spacing:2px; }
+      :where(html:not(.asoc-mobile)) .little-hero-appearance { grid-template-columns:108px minmax(0,1fr); gap:8px; }
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-upload { min-height:152px; padding:8px; }
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-preview { width:74px; height:74px; }
+      :where(html:not(.asoc-mobile)) .little-hero-frame-controls { padding:9px; }
+      :where(html:not(.asoc-mobile)) .theme-select-copy small { display:none; }
+      :where(html:not(.asoc-mobile)) .join-btn { min-height:49px; }
     }
 
     @media (max-width:430px) {
-      .join-primary-grid { grid-template-columns:1fr; }
-      .join-primary-grid .form-group { margin-bottom:7px; }
-      .little-hero-appearance { grid-template-columns:96px minmax(0,1fr); }
-      .little-hero-avatar-preview { width:66px; height:66px; }
-      .little-hero-avatar-upload { min-height:146px; }
-      .join-form { padding:12px 10px 13px; }
+      :where(html:not(.asoc-mobile)) .join-primary-grid { grid-template-columns:1fr; }
+      :where(html:not(.asoc-mobile)) .join-primary-grid .form-group { margin-bottom:7px; }
+      :where(html:not(.asoc-mobile)) .little-hero-appearance { grid-template-columns:96px minmax(0,1fr); }
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-preview { width:66px; height:66px; }
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-upload { min-height:146px; }
+      :where(html:not(.asoc-mobile)) .join-form { padding:12px 10px 13px; }
     }
 
     /* =========================================================
@@ -3185,18 +3185,18 @@ position:absolute;
     .join-btn { min-height:54px; }
 
     @media (max-width:620px) {
-      .join-logo { width:min(88vw,440px,42vh); }
-      .little-hero-appearance { grid-template-columns:122px minmax(0,1fr); gap:8px 9px; }
-      .little-hero-avatar-upload { min-height:166px; }
-      .little-hero-avatar-preview { width:86px; height:86px; }
-      .little-hero-appearance::before { font-size:.43rem; }
+      :where(html:not(.asoc-mobile)) .join-logo { width:min(88vw,440px,42vh); }
+      :where(html:not(.asoc-mobile)) .little-hero-appearance { grid-template-columns:122px minmax(0,1fr); gap:8px 9px; }
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-upload { min-height:166px; }
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-preview { width:86px; height:86px; }
+      :where(html:not(.asoc-mobile)) .little-hero-appearance::before { font-size:.43rem; }
     }
     @media (max-width:430px) {
-      .join-logo { width:min(92vw,390px,38vh); }
-      .little-hero-appearance { grid-template-columns:104px minmax(0,1fr); }
-      .little-hero-avatar-upload { min-height:154px; }
-      .little-hero-avatar-preview { width:72px; height:72px; border-width:3px; }
-      .little-hero-appearance::before { content:"LITTLE HERO IDENTITY"; }
+      :where(html:not(.asoc-mobile)) .join-logo { width:min(92vw,390px,38vh); }
+      :where(html:not(.asoc-mobile)) .little-hero-appearance { grid-template-columns:104px minmax(0,1fr); }
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-upload { min-height:154px; }
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-preview { width:72px; height:72px; border-width:3px; }
+      :where(html:not(.asoc-mobile)) .little-hero-appearance::before { content:"LITTLE HERO IDENTITY"; }
     }
 
     /* =========================================================
@@ -3478,43 +3478,43 @@ position:absolute;
     .profile-preview-card[data-theme-id="revan"] { border-color:#6e3d64; }
 
     @media (max-width:620px) {
-      .little-hero-appearance {
+      :where(html:not(.asoc-mobile)) .little-hero-appearance {
         grid-template-columns:1fr;
         gap:10px;
       }
-      .profile-preview-card { min-height:230px; }
-      .profile-preview-banner { height:112px; }
-      .profile-preview-body { min-height:118px; padding-top:62px; }
-      .profile-avatar-edit,
-      .little-hero-avatar-upload.profile-avatar-edit {
+      :where(html:not(.asoc-mobile)) .profile-preview-card { min-height:230px; }
+      :where(html:not(.asoc-mobile)) .profile-preview-banner { height:112px; }
+      :where(html:not(.asoc-mobile)) .profile-preview-body { min-height:118px; padding-top:62px; }
+      :where(html:not(.asoc-mobile)) .profile-avatar-edit,
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-upload.profile-avatar-edit {
         width:104px;
         height:104px;
         top:-52px;
       }
-      .profile-avatar-edit .little-hero-avatar-preview {
+      :where(html:not(.asoc-mobile)) .profile-avatar-edit .little-hero-avatar-preview {
         width:104px;
         height:104px;
       }
-      .little-hero-frame-controls { padding:12px; }
+      :where(html:not(.asoc-mobile)) .little-hero-frame-controls { padding:12px; }
     }
     @media (max-width:430px) {
-      .profile-preview-card { min-height:218px; }
-      .profile-preview-banner { height:104px; }
-      .profile-preview-body { min-height:114px; padding:58px 13px 12px; }
-      .profile-avatar-edit,
-      .little-hero-avatar-upload.profile-avatar-edit {
+      :where(html:not(.asoc-mobile)) .profile-preview-card { min-height:218px; }
+      :where(html:not(.asoc-mobile)) .profile-preview-banner { height:104px; }
+      :where(html:not(.asoc-mobile)) .profile-preview-body { min-height:114px; padding:58px 13px 12px; }
+      :where(html:not(.asoc-mobile)) .profile-avatar-edit,
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-upload.profile-avatar-edit {
         left:13px;
         width:94px;
         height:94px;
         top:-47px;
       }
-      .profile-avatar-edit .little-hero-avatar-preview {
+      :where(html:not(.asoc-mobile)) .profile-avatar-edit .little-hero-avatar-preview {
         width:94px;
         height:94px;
         border-width:3px;
         outline-width:4px;
       }
-      .profile-preview-name { font-size:.88rem; }
+      :where(html:not(.asoc-mobile)) .profile-preview-name { font-size:.88rem; }
     }
 
     /* ASOC ACCESS GATE // cabinet surfaces remain isolated from battle UI. */
@@ -3613,8 +3613,8 @@ position:absolute;
     @keyframes lh-radar-needle{to{transform:translate(-50%,-50%) rotate(360deg)}}
     @keyframes access-sweep{to{transform:translateX(110%)}}@keyframes access-blip{0%,90%,100%{opacity:1}95%{opacity:.35}}@keyframes access-terminal-in{from{opacity:.35;transform:translateY(-8px)}to{opacity:1;transform:none}}
     .skynet-denial{margin-top:14px;padding:14px 15px;border:1px solid #a13d48;background:linear-gradient(90deg,rgba(145,30,45,.16),rgba(35,8,15,.7));color:#e6d9dc;font-size:12px;line-height:1.65;box-shadow:inset 3px 0 #d34e5e,0 0 22px rgba(190,35,55,.1);animation:skynet-denial-in .28s steps(3,end)}.skynet-denial b{display:block;color:#f05d6e;letter-spacing:2px;font-size:10px;margin-bottom:5px}.skynet-denial[hidden]{display:none}@keyframes skynet-denial-in{0%{opacity:0;transform:translateX(-8px);filter:blur(2px)}60%{opacity:.65;transform:translateX(3px)}100%{opacity:1;transform:none;filter:none}}
-    @media(max-width:600px){#access-gate{padding:6px;place-items:center}.access-shell{padding:18px!important}.access-hardware{font-size:8px;letter-spacing:1px}.access-logo{width:95%;margin-top:18px}.access-diagnostic{font-size:9px;letter-spacing:1px;margin:14px 0}.access-choices,.access-shell[data-channel] .access-choices{grid-template-columns:minmax(0,1fr)}.access-choice{min-height:190px;padding:20px}.access-choice b{font-size:28px;margin:16px 0 8px}.access-bay-status{margin-top:14px}.access-shell[data-channel] .access-choice{min-height:100px}.access-shell[data-channel] .access-choice:not(.is-selected){min-height:74px;padding-block:12px}.access-shell[data-channel] .access-choice:not(.is-selected) .access-bay-status{display:none}.access-panel{min-height:0;padding:20px 16px}.desktop-download{grid-template-columns:auto minmax(0,1fr);gap:10px;padding:10px}.desktop-download-action{display:none}.desktop-download-links{grid-column:1/-1;justify-content:center}#access-player::after{background-size:100% 100%,auto 112%;background-position:center,78% center;opacity:.58}#access-player:hover::after,#access-player:focus-visible::after{opacity:.66}#access-player.is-selected::after{opacity:.7}}
-    @media(max-width:600px){#access-gm::after{background-size:100% 100%,auto 112%;background-position:center,82% center;opacity:.58}#access-gm:hover::after,#access-gm:focus-visible::after{opacity:.66}#access-gm.is-selected::after{opacity:.7}#access-gm > .access-art-fx,#access-player > .access-art-fx{mix-blend-mode:normal}#access-player > .access-art-fx{opacity:.2}#access-gm:hover > .access-art-fx,#access-gm:focus-visible > .access-art-fx{opacity:.5}#access-player:hover > .access-art-fx,#access-player:focus-visible > .access-art-fx{opacity:.48}}
+    @media(max-width:600px){:where(html:not(.asoc-mobile)) #access-gate{padding:6px;place-items:center}:where(html:not(.asoc-mobile)) .access-shell{padding:18px!important}:where(html:not(.asoc-mobile)) .access-hardware{font-size:8px;letter-spacing:1px}:where(html:not(.asoc-mobile)) .access-logo{width:95%;margin-top:18px}:where(html:not(.asoc-mobile)) .access-diagnostic{font-size:9px;letter-spacing:1px;margin:14px 0}:where(html:not(.asoc-mobile)) .access-choices,:where(html:not(.asoc-mobile)) .access-shell[data-channel] .access-choices{grid-template-columns:minmax(0,1fr)}:where(html:not(.asoc-mobile)) .access-choice{min-height:190px;padding:20px}:where(html:not(.asoc-mobile)) .access-choice b{font-size:28px;margin:16px 0 8px}:where(html:not(.asoc-mobile)) .access-bay-status{margin-top:14px}:where(html:not(.asoc-mobile)) .access-shell[data-channel] .access-choice{min-height:100px}:where(html:not(.asoc-mobile)) .access-shell[data-channel] .access-choice:not(.is-selected){min-height:74px;padding-block:12px}:where(html:not(.asoc-mobile)) .access-shell[data-channel] .access-choice:not(.is-selected) .access-bay-status{display:none}:where(html:not(.asoc-mobile)) .access-panel{min-height:0;padding:20px 16px}:where(html:not(.asoc-mobile)) .desktop-download{grid-template-columns:auto minmax(0,1fr);gap:10px;padding:10px}:where(html:not(.asoc-mobile)) .desktop-download-action{display:none}:where(html:not(.asoc-mobile)) .desktop-download-links{grid-column:1/-1;justify-content:center}:where(html:not(.asoc-mobile)) #access-player::after{background-size:100% 100%,auto 112%;background-position:center,78% center;opacity:.58}:where(html:not(.asoc-mobile)) #access-player:hover::after,:where(html:not(.asoc-mobile)) #access-player:focus-visible::after{opacity:.66}:where(html:not(.asoc-mobile)) #access-player.is-selected::after{opacity:.7}}
+    @media(max-width:600px){:where(html:not(.asoc-mobile)) #access-gm::after{background-size:100% 100%,auto 112%;background-position:center,82% center;opacity:.58}:where(html:not(.asoc-mobile)) #access-gm:hover::after,:where(html:not(.asoc-mobile)) #access-gm:focus-visible::after{opacity:.66}:where(html:not(.asoc-mobile)) #access-gm.is-selected::after{opacity:.7}:where(html:not(.asoc-mobile)) #access-gm > .access-art-fx,:where(html:not(.asoc-mobile)) #access-player > .access-art-fx{mix-blend-mode:normal}:where(html:not(.asoc-mobile)) #access-player > .access-art-fx{opacity:.2}:where(html:not(.asoc-mobile)) #access-gm:hover > .access-art-fx,:where(html:not(.asoc-mobile)) #access-gm:focus-visible > .access-art-fx{opacity:.5}:where(html:not(.asoc-mobile)) #access-player:hover > .access-art-fx,:where(html:not(.asoc-mobile)) #access-player:focus-visible > .access-art-fx{opacity:.48}}
 
     /* LITTLE HERO LOGIN SURGE // restored screen-wide purple scan.
        This is the original join-power-surge language brought back onto the
@@ -3736,11 +3736,11 @@ position:absolute;
       box-shadow:0 0 0 12px rgba(184,193,202,.035),0 0 0 26px rgba(184,193,202,.018),inset 0 0 28px rgba(184,193,202,.025);
     }
     @media(max-width:900px){
-      #access-gate .access-shell{width:min(760px,calc(100vw - 20px));padding:24px}
-      .access-choices,.access-shell[data-channel] .access-choices{grid-template-columns:1fr}
-      .access-choice,.access-shell[data-channel] .access-choice{min-height:170px}
-      .access-shell[data-channel] .access-choice:not(.is-selected){min-height:110px}
-      .access-logo{width:min(520px,84%)}
+      :where(html:not(.asoc-mobile)) #access-gate .access-shell{width:min(760px,calc(100vw - 20px));padding:24px}
+      :where(html:not(.asoc-mobile)) .access-choices,:where(html:not(.asoc-mobile)) .access-shell[data-channel] .access-choices{grid-template-columns:1fr}
+      :where(html:not(.asoc-mobile)) .access-choice,:where(html:not(.asoc-mobile)) .access-shell[data-channel] .access-choice{min-height:170px}
+      :where(html:not(.asoc-mobile)) .access-shell[data-channel] .access-choice:not(.is-selected){min-height:110px}
+      :where(html:not(.asoc-mobile)) .access-logo{width:min(520px,84%)}
     }
     @media(prefers-reduced-motion:reduce){#access-gate *,#access-gate *::before,#access-gate *::after{animation:none!important;transition:none!important}.little-hero-login-surge{display:none!important}}
 
@@ -4081,9 +4081,9 @@ position:absolute;
     }
 
     @media(max-width:620px){
-      #join-screen .little-hero-appearance { grid-template-columns:1fr; }
-      #join-screen .little-hero-frame-controls { border-radius:10px; }
-      #join-screen .theme-select-menu { max-width:calc(100vw - 44px); }
+      :where(html:not(.asoc-mobile)) #join-screen .little-hero-appearance { grid-template-columns:1fr; }
+      :where(html:not(.asoc-mobile)) #join-screen .little-hero-frame-controls { border-radius:10px; }
+      :where(html:not(.asoc-mobile)) #join-screen .theme-select-menu { max-width:calc(100vw - 44px); }
     }
     @media(prefers-reduced-motion:reduce){
       #join-screen .profile-avatar-edit { animation:none!important; }
@@ -4098,7 +4098,7 @@ position:absolute;
        The authored board remains ratio-locked and unthemed.
        ========================================================= */
     @media (max-width: 760px) {
-      #join-screen {
+      :where(html:not(.asoc-mobile)) #join-screen {
         min-height: 100dvh;
         height: auto;
         padding: max(14px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom));
@@ -4107,11 +4107,11 @@ position:absolute;
         -webkit-overflow-scrolling: touch;
       }
 
-      .join-logo { width:min(88vw,420px); }
-      .join-form { max-width:100%; padding:20px 14px; }
+      :where(html:not(.asoc-mobile)) .join-logo { width:min(88vw,420px); }
+      :where(html:not(.asoc-mobile)) .join-form { max-width:100%; padding:20px 14px; }
 
-      #game-screen,
-      #game-screen.active {
+      :where(html:not(.asoc-mobile)) #game-screen,
+      :where(html:not(.asoc-mobile)) #game-screen.active {
         width:100%;
         min-height:100dvh;
         height:auto;
@@ -4119,7 +4119,7 @@ position:absolute;
         overflow-y:visible;
       }
 
-      .player-battle-layout {
+      :where(html:not(.asoc-mobile)) .player-battle-layout {
         display:flex;
         flex-direction:column;
         width:100%;
@@ -4129,7 +4129,7 @@ position:absolute;
         padding:max(6px,env(safe-area-inset-top)) 6px max(76px,env(safe-area-inset-bottom));
       }
 
-      #board-layer {
+      :where(html:not(.asoc-mobile)) #board-layer {
         order:1;
         flex:none;
         width:100%;
@@ -4138,21 +4138,21 @@ position:absolute;
         justify-content:flex-start;
       }
 
-      .public-board-frame {
+      :where(html:not(.asoc-mobile)) .public-board-frame {
         width:100%;
         max-width:100%;
         flex:none;
         aspect-ratio:var(--board-aspect);
       }
 
-      .public-board-ratio {
+      :where(html:not(.asoc-mobile)) .public-board-ratio {
         width:100%;
         height:100%;
         max-width:100%;
         max-height:100%;
       }
 
-      .battle-comms-lobby {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby {
         order:2;
         width:100%;
         min-height:0;
@@ -4162,43 +4162,43 @@ position:absolute;
         overflow:visible;
       }
 
-      .battle-comms-lobby #chat-panel {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-panel {
         flex:none;
         min-height:360px;
         height:min(62dvh,560px);
         margin-top:6px;
       }
 
-      .battle-comms-lobby #chat-messages {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-messages {
         min-height:0;
         overflow-y:auto;
         overscroll-behavior:contain;
         -webkit-overflow-scrolling:touch;
       }
 
-      .battle-comms-lobby .chat-form {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-form {
         position:sticky;
         bottom:0;
         z-index:8;
         padding:7px max(7px,env(safe-area-inset-right)) max(7px,env(safe-area-inset-bottom)) max(7px,env(safe-area-inset-left));
       }
 
-      .battle-comms-lobby #chat-input {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-input {
         min-width:0;
         min-height:44px;
         font-size:16px;
       }
 
-      .battle-comms-lobby .chat-send-btn {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-send-btn {
         min-width:64px;
         min-height:44px;
         padding:10px 12px;
         touch-action:manipulation;
       }
 
-      .battle-comms-lobby .chat-reply-btn,
-      .battle-comms-lobby .chat-reaction-add,
-      .battle-comms-lobby .chat-reaction-chip {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-reply-btn,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-reaction-add,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-reaction-chip {
         min-height:32px;
         min-width:32px;
         opacity:1;
@@ -4206,24 +4206,24 @@ position:absolute;
         touch-action:manipulation;
       }
 
-      .chat-message-context-menu button {
+      :where(html:not(.asoc-mobile)) .chat-message-context-menu button {
         min-height:44px;
         font-size:.68rem;
       }
 
-      #chat-reaction-picker.chat-floating-emoji-picker,
-      .battle-comms-lobby .chat-floating-emoji-picker,
-      .battle-comms-lobby .chat-input-emoji-picker {
+      :where(html:not(.asoc-mobile)) #chat-reaction-picker.chat-floating-emoji-picker,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-floating-emoji-picker,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-input-emoji-picker {
         grid-template-columns:repeat(4,44px);
       }
 
-      .player-logout-control {
+      :where(html:not(.asoc-mobile)) .player-logout-control {
         left:max(8px,env(safe-area-inset-left));
         bottom:max(8px,env(safe-area-inset-bottom));
         min-height:44px;
       }
 
-      .connection-status {
+      :where(html:not(.asoc-mobile)) .connection-status {
         right:max(8px,env(safe-area-inset-right));
         left:auto;
         bottom:max(8px,env(safe-area-inset-bottom));
@@ -4232,50 +4232,50 @@ position:absolute;
         padding:8px 11px;
       }
 
-      .master-room-standby {
+      :where(html:not(.asoc-mobile)) .master-room-standby {
         inset:8px;
         padding:16px 12px;
       }
 
-      .master-room-standby-title {
+      :where(html:not(.asoc-mobile)) .master-room-standby-title {
         font-size:clamp(1rem,5vw,1.45rem);
       }
 
-      .master-room-standby-copy {
+      :where(html:not(.asoc-mobile)) .master-room-standby-copy {
         font-size:.68rem;
         line-height:1.5;
       }
     }
 
     @media (max-width: 430px) {
-      .little-hero-appearance {
+      :where(html:not(.asoc-mobile)) .little-hero-appearance {
         grid-template-columns:84px minmax(0,1fr);
         gap:10px;
         padding:10px;
       }
 
-      .little-hero-avatar-preview {
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-preview {
         width:72px;
         height:72px;
       }
 
-      .battle-comms-lobby .little-hero-hud {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .little-hero-hud {
         align-items:flex-start;
         flex-direction:column;
       }
 
-      .battle-comms-lobby .hero-hud-stats {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .hero-hud-stats {
         width:100%;
         justify-content:flex-start;
         flex-wrap:wrap;
       }
 
-      .battle-comms-lobby .chat-message {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message {
         grid-template-columns:24px minmax(0,1fr);
         column-gap:6px;
       }
 
-      .battle-comms-lobby .chat-message-main {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message-main {
         min-width:0;
         max-width:100%;
         padding-right:24px;
@@ -4285,43 +4285,43 @@ position:absolute;
 
     /* MOBILE POLISH 02 // iOS, landscape, touch and keyboard behavior */
     @media (max-width: 760px) {
-      html, body {
+      html:where(:not(.asoc-mobile)), :where(html:not(.asoc-mobile)) body {
         width:100%;
         min-height:100%;
         overflow-x:hidden;
         overscroll-behavior-x:none;
       }
 
-      body {
+      :where(html:not(.asoc-mobile)) body {
         min-height:100dvh;
         -webkit-text-size-adjust:100%;
       }
 
-      button, input, select, textarea {
+      :where(html:not(.asoc-mobile)) button, :where(html:not(.asoc-mobile)) input, :where(html:not(.asoc-mobile)) select, :where(html:not(.asoc-mobile)) textarea {
         touch-action:manipulation;
       }
 
-      .battle-comms-lobby .chat-message {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message {
         -webkit-user-select:text;
         user-select:text;
       }
 
-      .battle-comms-lobby .chat-floating-emoji-picker,
-      #chat-reaction-picker.chat-floating-emoji-picker {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-floating-emoji-picker,
+      :where(html:not(.asoc-mobile)) #chat-reaction-picker.chat-floating-emoji-picker {
         max-width:calc(100vw - 16px);
         max-height:min(52dvh,320px);
         overflow-y:auto;
         overscroll-behavior:contain;
       }
 
-      .theme-select-menu {
+      :where(html:not(.asoc-mobile)) .theme-select-menu {
         max-width:calc(100vw - 20px) !important;
         max-height:min(56dvh,420px);
         overflow-y:auto;
         overscroll-behavior:contain;
       }
 
-      .reconnecting {
+      :where(html:not(.asoc-mobile)) .reconnecting {
         width:100dvw;
         height:100dvh;
         padding:
@@ -4333,31 +4333,31 @@ position:absolute;
       }
 
       @supports (-webkit-touch-callout: none) {
-        .battle-comms-lobby #chat-panel {
+        :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-panel {
           height:min(58dvh,520px);
         }
       }
     }
 
     @media (max-width: 900px) and (orientation: landscape) {
-      #game-screen,
-      #game-screen.active {
+      :where(html:not(.asoc-mobile)) #game-screen,
+      :where(html:not(.asoc-mobile)) #game-screen.active {
         min-height:100dvh;
         height:auto;
         overflow-y:auto;
       }
 
-      .player-battle-layout {
+      :where(html:not(.asoc-mobile)) .player-battle-layout {
         min-height:100dvh;
         height:auto;
       }
 
-      .public-board-frame {
+      :where(html:not(.asoc-mobile)) .public-board-frame {
         width:min(100%,calc((100dvh - 18px) * var(--board-aspect)));
         align-self:center;
       }
 
-      .battle-comms-lobby #chat-panel {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-panel {
         height:max(260px,72dvh);
       }
     }
@@ -4366,10 +4366,10 @@ position:absolute;
 
     /* MOBILE OVERLAY SAFETY 04 // player-side system surfaces */
     @media (max-width:760px) {
-      .blood-tribute-overlay,
-      .wheel-overlay,
-      .forge-overlay,
-      .recount-overlay {
+      :where(html:not(.asoc-mobile)) .blood-tribute-overlay,
+      :where(html:not(.asoc-mobile)) .wheel-overlay,
+      :where(html:not(.asoc-mobile)) .forge-overlay,
+      :where(html:not(.asoc-mobile)) .recount-overlay {
         width:100dvw;
         min-height:100dvh;
         box-sizing:border-box;
@@ -4383,71 +4383,71 @@ position:absolute;
           max(8px,env(safe-area-inset-left));
       }
 
-      .blood-tribute-shell,
-      .wheel-shell,
-      .forge-shell,
-      .recount-panel {
+      :where(html:not(.asoc-mobile)) .blood-tribute-shell,
+      :where(html:not(.asoc-mobile)) .wheel-shell,
+      :where(html:not(.asoc-mobile)) .forge-shell,
+      :where(html:not(.asoc-mobile)) .recount-panel {
         width:100%;
         max-width:100%;
         max-height:none;
         box-sizing:border-box;
       }
 
-      .blood-tribute-shell {
+      :where(html:not(.asoc-mobile)) .blood-tribute-shell {
         margin:auto;
         padding:18px 14px;
       }
 
-      .blood-tribute-shell h2 {
+      :where(html:not(.asoc-mobile)) .blood-tribute-shell h2 {
         overflow-wrap:anywhere;
       }
 
-      .blood-tribute-upload input {
+      :where(html:not(.asoc-mobile)) .blood-tribute-upload input {
         min-height:44px;
         font-size:16px;
       }
 
-      .blood-tribute-submit {
+      :where(html:not(.asoc-mobile)) .blood-tribute-submit {
         min-height:46px;
         touch-action:manipulation;
       }
 
-      .player-leaderboard-strip {
+      :where(html:not(.asoc-mobile)) .player-leaderboard-strip {
         max-width:100%;
         overflow-x:auto;
         overscroll-behavior-x:contain;
         -webkit-overflow-scrolling:touch;
       }
 
-      .player-leaderboard-list {
+      :where(html:not(.asoc-mobile)) .player-leaderboard-list {
         min-width:max-content;
       }
 
-      .recount-panel {
+      :where(html:not(.asoc-mobile)) .recount-panel {
         overflow:hidden;
       }
 
-      .recount-head {
+      :where(html:not(.asoc-mobile)) .recount-head {
         flex-direction:column;
         align-items:stretch;
       }
 
-      .recount-controls {
+      :where(html:not(.asoc-mobile)) .recount-controls {
         width:100%;
       }
 
-      .recount-controls button {
+      :where(html:not(.asoc-mobile)) .recount-controls button {
         flex:1;
         min-height:44px;
       }
 
-      .rc-block {
+      :where(html:not(.asoc-mobile)) .rc-block {
         max-width:100%;
         overflow-x:auto;
         -webkit-overflow-scrolling:touch;
       }
 
-      .rc-table {
+      :where(html:not(.asoc-mobile)) .rc-table {
         min-width:520px;
       }
     }
@@ -4456,27 +4456,27 @@ position:absolute;
 
     /* MOBILE PLAYER MODE LOCK 07 // complete phone composition */
     @media (max-width:760px) {
-      #join-screen,
-      #game-screen,
-      #game-screen.active {
+      :where(html:not(.asoc-mobile)) #join-screen,
+      :where(html:not(.asoc-mobile)) #game-screen,
+      :where(html:not(.asoc-mobile)) #game-screen.active {
         width:100dvw;
         max-width:100dvw;
         box-sizing:border-box;
       }
 
-      #join-screen * ,
-      #game-screen * { min-width:0; box-sizing:border-box; }
+      :where(html:not(.asoc-mobile)) #join-screen * ,
+      :where(html:not(.asoc-mobile)) #game-screen * { min-width:0; box-sizing:border-box; }
 
-      .join-form {
+      :where(html:not(.asoc-mobile)) .join-form {
         width:100%;
         max-width:520px;
       }
 
-      .little-hero-appearance {
+      :where(html:not(.asoc-mobile)) .little-hero-appearance {
         width:100%;
       }
 
-      .frame-color-panel {
+      :where(html:not(.asoc-mobile)) .frame-color-panel {
         position:relative;
         inset:auto;
         width:100%;
@@ -4484,51 +4484,51 @@ position:absolute;
         margin-top:6px;
       }
 
-      .frame-color-field { height:min(142px,34vw); }
-      .frame-color-presets { grid-template-columns:repeat(4,minmax(0,1fr)); }
-      .frame-color-presets button { min-height:32px; }
+      :where(html:not(.asoc-mobile)) .frame-color-field { height:min(142px,34vw); }
+      :where(html:not(.asoc-mobile)) .frame-color-presets { grid-template-columns:repeat(4,minmax(0,1fr)); }
+      :where(html:not(.asoc-mobile)) .frame-color-presets button { min-height:32px; }
 
-      .player-battle-layout {
+      :where(html:not(.asoc-mobile)) .player-battle-layout {
         display:flex;
         flex-direction:column;
         align-items:stretch;
       }
 
-      #board-layer,
-      .battle-comms-lobby {
+      :where(html:not(.asoc-mobile)) #board-layer,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby {
         width:100%;
         max-width:100%;
       }
 
-      .battle-comms-lobby {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby {
         display:flex;
         flex-direction:column;
       }
 
-      .little-hero-roster {
+      :where(html:not(.asoc-mobile)) .little-hero-roster {
         width:100%;
         max-width:100%;
         overscroll-behavior-x:contain;
       }
 
-      .battle-event-feed,
-      .little-hero-hud,
-      #chat-panel {
+      :where(html:not(.asoc-mobile)) .battle-event-feed,
+      :where(html:not(.asoc-mobile)) .little-hero-hud,
+      :where(html:not(.asoc-mobile)) #chat-panel {
         width:100%;
         max-width:100%;
       }
 
-      .hero-hud-stats { flex-wrap:wrap; }
+      :where(html:not(.asoc-mobile)) .hero-hud-stats { flex-wrap:wrap; }
 
-      .chat-header { flex-wrap:wrap; }
-      .battle-comms-room {
+      :where(html:not(.asoc-mobile)) .chat-header { flex-wrap:wrap; }
+      :where(html:not(.asoc-mobile)) .battle-comms-room {
         max-width:100%;
         overflow:hidden;
         text-overflow:ellipsis;
         white-space:nowrap;
       }
 
-      .chat-message-context-menu {
+      :where(html:not(.asoc-mobile)) .chat-message-context-menu {
         position:fixed;
         left:8px !important;
         right:8px !important;
@@ -4538,12 +4538,12 @@ position:absolute;
         max-width:none;
       }
 
-      .chat-message-context-menu button {
+      :where(html:not(.asoc-mobile)) .chat-message-context-menu button {
         min-height:48px;
       }
 
-      .chat-floating-emoji-picker,
-      .chat-input-emoji-picker {
+      :where(html:not(.asoc-mobile)) .chat-floating-emoji-picker,
+      :where(html:not(.asoc-mobile)) .chat-input-emoji-picker {
         position:fixed;
         left:8px !important;
         right:8px !important;
@@ -4555,33 +4555,33 @@ position:absolute;
         z-index:5000;
       }
 
-      .chat-floating-emoji-picker button,
-      .chat-input-emoji-picker button {
+      :where(html:not(.asoc-mobile)) .chat-floating-emoji-picker button,
+      :where(html:not(.asoc-mobile)) .chat-input-emoji-picker button {
         width:100% !important;
         min-width:40px;
         min-height:44px;
       }
 
-      .player-alltime-overlay,
-      .player-profile-overlay,
-      .player-settings-overlay {
+      :where(html:not(.asoc-mobile)) .player-alltime-overlay,
+      :where(html:not(.asoc-mobile)) .player-profile-overlay,
+      :where(html:not(.asoc-mobile)) .player-settings-overlay {
         max-width:100dvw;
         max-height:100dvh;
         overflow-y:auto;
       }
 
-      .connection-status,
-      .player-logout-control {
+      :where(html:not(.asoc-mobile)) .connection-status,
+      :where(html:not(.asoc-mobile)) .player-logout-control {
         z-index:6000;
       }
     }
 
     @media (max-width:430px) {
-      .little-hero-appearance { grid-template-columns:1fr; }
-      .little-hero-avatar-upload { min-height:0; }
-      .frame-color-presets { grid-template-columns:repeat(4,1fr); }
-      .chat-floating-emoji-picker,
-      .chat-input-emoji-picker {
+      :where(html:not(.asoc-mobile)) .little-hero-appearance { grid-template-columns:1fr; }
+      :where(html:not(.asoc-mobile)) .little-hero-avatar-upload { min-height:0; }
+      :where(html:not(.asoc-mobile)) .frame-color-presets { grid-template-columns:repeat(4,1fr); }
+      :where(html:not(.asoc-mobile)) .chat-floating-emoji-picker,
+      :where(html:not(.asoc-mobile)) .chat-input-emoji-picker {
         grid-template-columns:repeat(4,minmax(44px,1fr)) !important;
       }
     }
@@ -4590,14 +4590,14 @@ position:absolute;
 
     /* MOBILE SCROLL GUARANTEE 08 // final cascade authority */
     @media (max-width:760px) {
-      html {
+      html:where(:not(.asoc-mobile)) {
         height:auto !important;
         min-height:100% !important;
         overflow-x:hidden !important;
         overflow-y:auto !important;
         -webkit-overflow-scrolling:touch;
       }
-      body {
+      :where(html:not(.asoc-mobile)) body {
         height:auto !important;
         min-height:100dvh !important;
         overflow-x:hidden !important;
@@ -4605,36 +4605,36 @@ position:absolute;
         position:relative !important;
         -webkit-overflow-scrolling:touch;
       }
-      #join-screen,
-      #game-screen,
-      #game-screen.active,
-      .player-battle-layout {
+      :where(html:not(.asoc-mobile)) #join-screen,
+      :where(html:not(.asoc-mobile)) #game-screen,
+      :where(html:not(.asoc-mobile)) #game-screen.active,
+      :where(html:not(.asoc-mobile)) .player-battle-layout {
         height:auto !important;
         max-height:none !important;
         min-height:100dvh !important;
         overflow-x:hidden !important;
         overflow-y:visible !important;
       }
-      .battle-comms-lobby {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby {
         height:auto !important;
         max-height:none !important;
         overflow:visible !important;
       }
-      .battle-comms-lobby #chat-panel {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-panel {
         height:min(62dvh,560px) !important;
         min-height:360px;
         overflow:hidden;
       }
-      .battle-comms-lobby #chat-messages {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-messages {
         overflow-y:auto !important;
         -webkit-overflow-scrolling:touch;
       }
-      .blood-tribute-overlay,
-      .wheel-overlay,
-      .forge-overlay,
-      .recount-overlay,
-      .victory-overlay,
-      .defeat-overlay {
+      :where(html:not(.asoc-mobile)) .blood-tribute-overlay,
+      :where(html:not(.asoc-mobile)) .wheel-overlay,
+      :where(html:not(.asoc-mobile)) .forge-overlay,
+      :where(html:not(.asoc-mobile)) .recount-overlay,
+      :where(html:not(.asoc-mobile)) .victory-overlay,
+      :where(html:not(.asoc-mobile)) .defeat-overlay {
         overflow-y:auto !important;
         -webkit-overflow-scrolling:touch;
       }
@@ -4644,25 +4644,25 @@ position:absolute;
 
     /* MOBILE PLAYER CHAT WIDTH LOCK V1 */
     @media (max-width: 760px) {
-      .battle-comms-lobby,
-      .battle-comms-lobby #chat-panel,
-      .battle-comms-lobby #chat-messages {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-panel,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-messages {
         width:100% !important;
         max-width:100% !important;
         min-width:0 !important;
         box-sizing:border-box !important;
       }
 
-      .battle-comms-lobby #chat-panel,
-      .battle-comms-lobby #chat-messages {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-panel,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-messages {
         overflow-x:hidden !important;
       }
 
-      .battle-comms-lobby #chat-messages {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-messages {
         padding:8px 6px 12px !important;
       }
 
-      .battle-comms-lobby .chat-message {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message {
         width:100% !important;
         max-width:100% !important;
         min-width:0 !important;
@@ -4672,21 +4672,21 @@ position:absolute;
         padding:4px 2px 6px 0 !important;
       }
 
-      .battle-comms-lobby .chat-avatar-rail,
-      .battle-comms-lobby .chat-message.grouped .chat-avatar-rail {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-avatar-rail,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message.grouped .chat-avatar-rail {
         width:42px !important;
         min-width:42px !important;
         max-width:42px !important;
       }
 
-      .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
-      .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact {
         width:38px !important;
         height:38px !important;
         flex:0 0 38px !important;
       }
 
-      .battle-comms-lobby .chat-message-main {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message-main {
         justify-self:stretch !important;
         width:100% !important;
         min-width:0 !important;
@@ -4695,15 +4695,15 @@ position:absolute;
         padding:8px 10px 7px !important;
       }
 
-      .battle-comms-lobby .chat-message-header,
-      .battle-comms-lobby .chat-message.grouped .chat-message-header {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message-header,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message.grouped .chat-message-header {
         width:100% !important;
         min-width:0 !important;
         box-sizing:border-box !important;
         padding-right:38px !important;
       }
 
-      .battle-comms-lobby .chat-message-line {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message-line {
         display:grid !important;
         grid-template-columns:minmax(0,1fr) auto !important;
         align-items:end !important;
@@ -4713,7 +4713,7 @@ position:absolute;
         max-width:100% !important;
       }
 
-      .battle-comms-lobby .chat-message-text {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message-text {
         min-width:0 !important;
         max-width:100% !important;
         overflow-wrap:break-word !important;
@@ -4722,15 +4722,15 @@ position:absolute;
         white-space:normal !important;
       }
 
-      .battle-comms-lobby .chat-message-line .chat-time,
-      .battle-comms-lobby .chat-edited-marker {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-message-line .chat-time,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-edited-marker {
         flex:none !important;
         white-space:nowrap !important;
       }
 
-      .battle-comms-lobby .chat-reply-context,
-      .battle-comms-lobby .chat-reactions,
-      .battle-comms-lobby .shadow-broker-transmission {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-reply-context,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-reactions,
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .shadow-broker-transmission {
         max-width:100% !important;
         box-sizing:border-box !important;
       }
@@ -4909,7 +4909,7 @@ position:absolute;
     }
 
     @media (max-width: 900px) {
-      .player-layout-splitter {
+      :where(html:not(.asoc-mobile)) .player-layout-splitter {
         display:none !important;
       }
     }
@@ -5057,7 +5057,7 @@ position:absolute;
     }
 
     @media (max-width:760px) {
-      #game-screen.room-mode-casual .player-battle-layout {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .player-battle-layout {
         display:flex !important;
         width:100% !important;
         max-width:100% !important;
@@ -5069,7 +5069,7 @@ position:absolute;
           max(76px,env(safe-area-inset-bottom));
       }
 
-      #game-screen.room-mode-casual .battle-comms-lobby {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .battle-comms-lobby {
         display:flex !important;
         height:auto !important;
         min-height:calc(100dvh - 88px) !important;
@@ -5079,7 +5079,7 @@ position:absolute;
         overflow:visible !important;
       }
 
-      #game-screen.room-mode-casual #chat-panel {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual #chat-panel {
         flex:1 1 auto !important;
         height:min(68dvh,640px) !important;
         min-height:420px !important;
@@ -5087,7 +5087,7 @@ position:absolute;
         overflow:hidden !important;
       }
 
-      #game-screen.room-mode-casual #chat-messages {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual #chat-messages {
         overflow-y:auto !important;
         -webkit-overflow-scrolling:touch;
       }
@@ -5111,12 +5111,12 @@ position:absolute;
     }
 
     @media (max-width:760px) {
-      .battle-comms-lobby .chat-form {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby .chat-form {
         width:100% !important;
         max-width:none !important;
       }
 
-      .battle-comms-lobby #chat-input {
+      :where(html:not(.asoc-mobile)) .battle-comms-lobby #chat-input {
         min-width:0 !important;
         flex:1 1 auto !important;
       }
@@ -5530,17 +5530,17 @@ position:absolute;
     }
 
     @media (max-width:760px) {
-      .hero-hud-identity-block {
+      :where(html:not(.asoc-mobile)) .hero-hud-identity-block {
         width:100%;
         justify-content:space-between;
       }
 
-      .hero-hud-identity-block .player-logout-control {
+      :where(html:not(.asoc-mobile)) .hero-hud-identity-block .player-logout-control {
         min-height:30px !important;
         height:30px !important;
       }
 
-      .battle-comms-status {
+      :where(html:not(.asoc-mobile)) .battle-comms-status {
         gap:7px;
       }
     }
@@ -5631,7 +5631,7 @@ position:absolute;
     }
 
     @media (max-width:900px) {
-      .player-layout-splitter {
+      :where(html:not(.asoc-mobile)) .player-layout-splitter {
         display:none !important;
       }
     }
@@ -5822,15 +5822,15 @@ position:absolute;
     }
 
     @media (max-width:760px) {
-      #game-screen .detainee-status-label {
+      :where(html:not(.asoc-mobile)) #game-screen .detainee-status-label {
         font-size:.62rem !important;
       }
 
-      #game-screen .hero-hud-stats,
-      #game-screen .battle-comms-room,
-      #game-screen .battle-comms-online,
-      #game-screen .chat-solved,
-      #game-screen .battle-comms-status .connection-status {
+      :where(html:not(.asoc-mobile)) #game-screen .hero-hud-stats,
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-room,
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-online,
+      :where(html:not(.asoc-mobile)) #game-screen .chat-solved,
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-status .connection-status {
         font-size:.60rem !important;
       }
     }
@@ -6201,14 +6201,14 @@ position:absolute;
     }
 
     @media (max-width:420px) {
-      #game-screen .battle-comms-lobby .chat-composer-shell {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-composer-shell {
         min-height:44px;
         padding:3px 5px;
       }
 
-      #game-screen .battle-comms-lobby .chat-image-upload-btn,
-      #game-screen .battle-comms-lobby .chat-emoji-toggle,
-      #game-screen .battle-comms-lobby .chat-attachment-wrap {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-image-upload-btn,
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-emoji-toggle,
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-attachment-wrap {
         width:34px !important;
         height:34px !important;
         min-width:34px !important;
@@ -6216,12 +6216,12 @@ position:absolute;
         flex-basis:34px !important;
       }
 
-      #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker {
         left:0 !important;
         width:min(228px,calc(100vw - 34px)) !important;
       }
 
-      #game-screen .battle-comms-lobby .chat-attachment-menu {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-attachment-menu {
         width:min(210px,calc(100vw - 34px));
       }
     }
@@ -6283,7 +6283,7 @@ position:absolute;
     }
 
     @media (max-width:420px) {
-      #chat-reaction-picker.chat-floating-emoji-picker {
+      :where(html:not(.asoc-mobile)) #chat-reaction-picker.chat-floating-emoji-picker {
         width:min(228px,calc(100vw - 16px)) !important;
         grid-template-columns:repeat(5,minmax(36px,40px)) !important;
       }
@@ -6622,13 +6622,13 @@ position:absolute;
     }
 
     @media (max-width:420px) {
-      #game-screen .battle-comms-lobby .chat-poll-composer {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-poll-composer {
         width:min(310px,calc(100vw - 22px));
       }
-      #game-screen .battle-comms-lobby .chat-poll-composer-actions {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-poll-composer-actions {
         grid-template-columns:1fr 1fr;
       }
-      #game-screen .battle-comms-lobby .chat-poll-composer-actions label {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-poll-composer-actions label {
         grid-column:1 / -1;
         grid-row:1;
       }
@@ -6740,8 +6740,8 @@ position:absolute;
     }
 
     @media (max-width:420px) {
-      #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker,
-      #chat-reaction-picker.chat-floating-emoji-picker {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker,
+      :where(html:not(.asoc-mobile)) #chat-reaction-picker.chat-floating-emoji-picker {
         width:min(236px,calc(100vw - 16px)) !important;
         max-width:min(236px,calc(100vw - 16px)) !important;
       }
@@ -6769,7 +6769,7 @@ position:absolute;
     }
 
     @media (max-width:420px) {
-      #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby #chat-emoji-picker.chat-input-emoji-picker {
         left:auto !important;
         right:0 !important;
         width:min(228px,calc(100vw - 16px)) !important;
@@ -6985,10 +6985,10 @@ position:absolute;
     }
 
     @media (max-width:420px) {
-      #game-screen .battle-comms-lobby .chat-gif-picker {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-gif-picker {
         width:min(320px,calc(100vw - 18px));
       }
-      #game-screen .battle-comms-lobby .chat-gif-grid {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-gif-grid {
         max-height:230px;
       }
     }
@@ -7173,7 +7173,7 @@ position:absolute;
     }
 
     @media (max-width:760px) {
-      #game-screen[data-room-mode="CASUAL"] .battle-comms-lobby #chat-panel::before {
+      :where(html:not(.asoc-mobile)) #game-screen[data-room-mode="CASUAL"] .battle-comms-lobby #chat-panel::before {
         background-size:56% auto,auto;
         opacity:.08;
         filter:saturate(.68) brightness(.52) blur(2px);
@@ -7318,7 +7318,7 @@ position:absolute;
     }
 
     @media (max-width:520px) {
-      #game-screen .battle-comms-lobby .chat-poll-card {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-poll-card {
         width:100% !important;
       }
     }
@@ -7536,11 +7536,11 @@ position:absolute;
     }
 
     @media (max-width:520px) {
-      #game-screen .battle-comms-lobby .chat-poll-config-row {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-poll-config-row {
         align-items:stretch;
         flex-direction:column;
       }
-      #game-screen .battle-comms-lobby .chat-poll-card-head {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-poll-card-head {
         align-items:flex-start !important;
       }
     }
@@ -7927,28 +7927,28 @@ position:absolute;
     }
 
     @media (max-width:760px) {
-      #game-screen.room-mode-casual #little-hero-hud {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual #little-hero-hud {
         padding:10px !important;
       }
 
-      #game-screen.room-mode-casual .hero-hud-identity-block {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .hero-hud-identity-block {
         flex-wrap:wrap !important;
       }
 
-      #game-screen.room-mode-casual .hero-hud-identity {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .hero-hud-identity {
         width:100%;
       }
 
-      #game-screen.room-mode-casual .hero-designation-edit,
-      #game-screen.room-mode-casual .hero-utility-btn {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .hero-designation-edit,
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .hero-utility-btn {
         flex:1 1 auto !important;
       }
 
-      #game-screen.room-mode-casual .hero-hud-stats {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .hero-hud-stats {
         gap:5px !important;
       }
 
-      #game-screen.room-mode-casual .hero-stat {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .hero-stat {
         flex:1 1 auto;
         justify-content:center;
       }
@@ -8133,33 +8133,33 @@ position:absolute;
     }
 
     @media (max-width:760px) {
-      #game-screen .battle-comms-lobby .chat-message {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-message {
         grid-template-columns:35px minmax(0,1fr) !important;
         column-gap:5px !important;
       }
 
-      #game-screen .battle-comms-lobby .chat-avatar-rail,
-      #game-screen .battle-comms-lobby .chat-message.grouped .chat-avatar-rail {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-avatar-rail,
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-message.grouped .chat-avatar-rail {
         width:35px !important;
         min-width:35px !important;
         max-width:35px !important;
       }
 
-      #game-screen .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
-      #game-screen .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact,
-      #game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-avatar {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact,
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-avatar {
         width:30px !important;
         height:30px !important;
         flex-basis:30px !important;
       }
 
-      #game-screen .battle-comms-lobby .chat-message.own {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-message.own {
         grid-template-columns:minmax(0,1fr) 35px !important;
       }
 
-      #game-screen .battle-comms-lobby .chat-message-text,
-      #game-screen .battle-comms-lobby .chat-message.correct .chat-message-text,
-      #game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-text {
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-message-text,
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-message.correct .chat-message-text,
+      :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-text {
         font-size:.84rem !important;
       }
     }
@@ -8406,15 +8406,15 @@ position:absolute;
       width:auto !important;
     }
     @media (max-width:760px) {
-      #game-screen.room-mode-casual .hero-hud-identity-block .player-master-access-wrap {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .hero-hud-identity-block .player-master-access-wrap {
         flex:1 1 auto;
       }
-      #game-screen.room-mode-casual .hero-hud-identity-block .player-master-access-control {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .hero-hud-identity-block .player-master-access-control {
         width:100% !important;
       }
       /* The wrapped row puts MASTER ACCESS on the left half, so a
          right-anchored menu would open off the left edge of the screen. */
-      #game-screen.room-mode-casual .hero-hud-identity-block .player-master-access-menu {
+      :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .hero-hud-identity-block .player-master-access-menu {
         left:0;
         right:auto;
       }
@@ -8512,7 +8512,7 @@ position:absolute;
       margin-left:38px !important;
       margin-right:auto !important;
     }
-    @media(max-width:760px){.signed-desktop-download{grid-template-columns:38px minmax(0,1fr);margin:6px 7px;padding:8px}.signed-desktop-download-icon{width:36px;height:36px;font-size:20px}.signed-desktop-download-copy strong{font-size:10px}.signed-desktop-download-copy small{font-size:7px}.signed-desktop-download-action{display:none}}
+    @media(max-width:760px){:where(html:not(.asoc-mobile)) .signed-desktop-download{grid-template-columns:38px minmax(0,1fr);margin:6px 7px;padding:8px}:where(html:not(.asoc-mobile)) .signed-desktop-download-icon{width:36px;height:36px;font-size:20px}:where(html:not(.asoc-mobile)) .signed-desktop-download-copy strong{font-size:10px}:where(html:not(.asoc-mobile)) .signed-desktop-download-copy small{font-size:7px}:where(html:not(.asoc-mobile)) .signed-desktop-download-action{display:none}}
 
     /* PLAYER COMMS DENSITY PATCH V1 // 2026-09-28 */
     @media (min-width: 901px) {
