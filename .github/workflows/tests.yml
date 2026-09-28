@@ -31,6 +31,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Browser-level tests (desktop layout baseline, mobile shell) drive a
+      # real Chromium through Playwright's pinned build.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Syntax check server and client scripts
         run: |
           for f in *.js js/*.js gm-modules/*.js scripts/*.js tests/*.js; do

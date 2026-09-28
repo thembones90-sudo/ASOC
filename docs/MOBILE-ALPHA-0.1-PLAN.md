@@ -84,7 +84,7 @@ Proposed architecture: **one client, one socket, one state; a mobile *shell* tha
 
 ### 4.1 One switch, one boundary
 
-- **Mobile mode is a single root class, `html.asoc-mobile`**, set by a tiny `js/mobile-shell.js` from one media query, evaluated live:
+- **Mobile mode is a single root class, `html.asoc-mobile`.** Per decision 1 (§10) it is set from the player's stored **MOBILE VERSION** choice. The media query below is used only to decide where to offer the button prominently:
   ```
   (pointer: coarse) and (max-width: 900px), (pointer: coarse) and (max-height: 500px)
   ```
@@ -222,7 +222,8 @@ Recommended separately, before or with Alpha 0.1: moving avatars out of `players
 
 | Step | PR | Contents | Gate |
 |---|---|---|---|
-| 0 | **Baselines** | Playwright dev dependency; desktop screenshot baselines from `main`; mobile test harness | CI green, baselines committed |
+| 0 | **Baselines** | Playwright dev dependency; desktop layout-fingerprint baseline from `main` (`tests/desktop-layout-baseline.js`); mobile isolation guard (`tests/mobile-isolation.js`); browser harness (`tests/lib/`) | CI green, baselines committed |
+| 0b | **Avatar storage** | Avatars out of `players.json` into per-avatar files, served cacheably; automatic migration (decision 5) | Existing suite + new migration tests green |
 | 1 | **Quarantine** | Re-scope the existing phone rules to `html:not(.asoc-mobile)`; no visual change | Desktop pixel-identical; existing phone layout unchanged |
 | 2 | **Session survival** | §6.1 + §6.2 (+ §6.3); applies to desktop too and is invisible there | `mobile-resume` green; existing suite green |
 | 3 | **Weight** | Gzip, logo and icon fixes, lazy media, manifest `start_url` | Desktop pixel-identical; payload measured |
@@ -234,15 +235,15 @@ Each PR is independently deployable and reversible. Steps 1–3 already improve 
 
 ---
 
-## 10. Decisions needed from you
+## 10. Decisions (confirmed 2026-09-28)
 
-1. **Mobile detection:** capability-based (`pointer: coarse` + size) as proposed, rather than width only? It means a narrow *desktop* window keeps today's layout.
-2. **BATTLE on phones in Alpha 0.1:** a CHAT-only shell with a "battle view in 0.2" note (proposed), or keep today's stacked board for battle modes until 0.2?
-3. **Chat idempotency (§6.3):** include it in 0.1 (recommended; small server change) or defer?
-4. **Playwright as a dev dependency** for the mobile and desktop-regression tests: OK?
-5. **Avatar storage move** (out of `players.json`): before Alpha 0.1 step 4, or after 0.1?
-
----
+1. **Mobile mode is engaged manually** with a visible **MOBILE VERSION** button, not by automatic detection. The choice is remembered per device (`localStorage`), and the same control switches back to desktop. The button appears on the access/join screen and in the in-game menu. Capability detection (`pointer: coarse`) is used only to decide where the button is offered prominently, never to switch on its own. This supersedes the automatic switch in §4.1: `html.asoc-mobile` is set from the stored choice, not from a media query.
+2. **Battle requires landscape.** In BATTLE_ARMED/BATTLE the mobile shell shows the game only when the phone is horizontal: **board on top, chat below**. A phone held upright during a battle shows chat plus a **"Turn your phone sideways to play"** prompt, and chat stays live either way. AMUSEMENT PARK (CASUAL) remains portrait-first.
+   - *Open detail, to be shown on a real layout:* at 932×430 (iPhone 14 Pro Max, landscape) a full-width board is about 620 px tall, taller than the screen, so "chat below" means scrolling to reach chat. The alternative is fitting the board to the screen height with chat beside it. The first implementation follows the stated preference (board on top, chat below) and is reviewed on device.
+   - Rendering in 0.1 reuses the existing authoritative board view scaled to the landscape width; the dedicated column-by-column mobile board remains Alpha 0.2.
+3. **Chat message IDs (§6.3) are in Alpha 0.1.**
+4. **Playwright is a dev dependency** (pinned `1.56.1`) for browser-level tests: the desktop layout baseline and the mobile shell and resume tests.
+5. **Avatar storage moves out of `players.json` before the mobile shell** (before step 4 in §9).
 
 ## 11. Risks
 
