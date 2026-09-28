@@ -2201,7 +2201,7 @@ body.game-lost .board-cell.final-solution.revealed {
 .defeat-overlay.is-live{animation:defeat-jolt 8s steps(1,end)}
 @keyframes defeat-step{from{opacity:0;transform:translateY(8px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
 @keyframes defeat-jolt{6%,42%{transform:translateX(-2px)}7%,43%{transform:translateX(2px)}8%,44%{transform:none}}
-@media(max-width:700px){.defeat-columns{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){:where(html:not(.asoc-mobile)) .defeat-columns{grid-template-columns:repeat(2,1fr)}}
 @media(prefers-reduced-motion:reduce){.defeat-overlay *{animation:none!important}.defeat-overlay.is-live .defeat-message,.defeat-overlay.is-live h1,.defeat-overlay.is-live .defeat-subline,.defeat-overlay.is-live .defeat-solution,.defeat-overlay.is-live .defeat-recount{opacity:1}}
 
 /* GAME WON PARITY // the approved loss protocol's exact staged hierarchy,
@@ -2234,7 +2234,7 @@ body.game-lost .board-cell.final-solution.revealed {
    started fading out -- see the properly-timed .is-ceremony reveal below. */
 .victory-overlay.is-live {cursor:pointer}
 .victory-overlay.is-settled::after {content:'CLICK TO CONFIRM';position:fixed;right:24px;bottom:18px;color:#6fa58c;font:700 .54rem var(--font-machine);letter-spacing:.18em;animation:defeat-step .5s both}
-@media(max-width:700px){.victory-columns{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){:where(html:not(.asoc-mobile)) .victory-columns{grid-template-columns:repeat(2,1fr)}}
 @media(prefers-reduced-motion:reduce){.victory-overlay *{animation:none!important}.victory-overlay.is-live .victory-message,.victory-overlay.is-live .victory-title,.victory-overlay.is-live .victory-subline,.victory-overlay.is-live .victory-solution,.victory-overlay.is-live .victory-recount{opacity:1}}
 
 /* GAME WON // authoritative victory state. Two layers:
@@ -3081,8 +3081,8 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 @media (max-width: 900px) {
-  .battle-controls-grid { grid-template-columns: 1fr; }
-  .battle-controls-header > small { display: none; }
+  :where(html:not(.asoc-mobile)) .battle-controls-grid { grid-template-columns: 1fr; }
+  :where(html:not(.asoc-mobile)) .battle-controls-header > small { display: none; }
 }
 
 .shadow-broker-form {
@@ -5243,16 +5243,16 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 @media (max-width: 720px) {
-  .timer-tracker {
+  :where(html:not(.asoc-mobile)) .timer-tracker {
     flex-wrap: wrap;
     gap: 8px;
     padding: 8px 12px;
   }
-  .timer-bars {
+  :where(html:not(.asoc-mobile)) .timer-bars {
     order: 3;
     flex-basis: 100%;
   }
-  .timer-status {
+  :where(html:not(.asoc-mobile)) .timer-status {
     min-width: 0;
   }
 }
@@ -5493,11 +5493,11 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 @media (max-width: 720px) {
-  .womf-tracker {
+  :where(html:not(.asoc-mobile)) .womf-tracker {
     flex-wrap: wrap;
     gap: 8px;
   }
-  .womf-segments {
+  :where(html:not(.asoc-mobile)) .womf-segments {
     order: 3;
     width: 100%;
   }
@@ -5685,7 +5685,7 @@ body.gm-layout-locked .gm-module-height-splitter {
 .chat-command-option>small { color:#778a91; font:600 .48rem var(--font-machine); }
 .chat-command-option>em { grid-column:3; grid-row:1/3; align-self:center; color:#80929a; font:600 .48rem var(--font-machine); font-style:normal; }
 .chat-command-option:hover,.chat-command-option.active { border-color:#3e9caf!important; background:#122229!important; }
-@media (max-width:560px) { .chat-command-option>em { display:none; } }
+@media (max-width:560px) { :where(html:not(.asoc-mobile)) .chat-command-option>em { display:none; } }
 .blood-vault-overlay[hidden] { display:none!important; }
 .blood-vault-overlay { position:fixed; inset:0; z-index:12000; display:grid; place-items:center; padding:24px; background:rgba(2,4,7,.88); backdrop-filter:blur(8px); }
 .blood-tribute-confirm-card,.blood-vault-modal { border:1px solid #6c282f; background:linear-gradient(145deg,#15181e,#090b0e); box-shadow:0 0 40px rgba(144,15,26,.3); color:#d9dde4; }
@@ -6193,25 +6193,25 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 @media (max-width: 720px) {
-  .wheel-overlay { padding: 8px; }
-  .wheel-shell {
+  :where(html:not(.asoc-mobile)) .wheel-overlay { padding: 8px; }
+  :where(html:not(.asoc-mobile)) .wheel-shell {
     --wheel-size: min(360px, 84vw, 54vh);
     width: 98vw;
     padding: 20px 12px 18px;
   }
-  .wheel-title {
+  :where(html:not(.asoc-mobile)) .wheel-title {
     font-size: 0.9rem;
     letter-spacing: 3.2px;
   }
-  .wheel-stage { margin-top: 14px; }
-  .wheel-label { width: clamp(66px, calc(var(--wheel-size) * 0.25), 100px); }
-  .wheel-label span { font-size: 0.54rem; letter-spacing: 0.25px; }
-  .wheel-hub-label { font-size: 0.42rem; }
-  .wheel-hub-count { font-size: 0.7rem; }
-  .wheel-hub-state { font-size: 0.38rem; }
-  .wheel-controls { flex-direction: column; align-items: stretch; }
-  .wheel-action-primary,
-  .wheel-action-secondary {
+  :where(html:not(.asoc-mobile)) .wheel-stage { margin-top: 14px; }
+  :where(html:not(.asoc-mobile)) .wheel-label { width: clamp(66px, calc(var(--wheel-size) * 0.25), 100px); }
+  :where(html:not(.asoc-mobile)) .wheel-label span { font-size: 0.54rem; letter-spacing: 0.25px; }
+  :where(html:not(.asoc-mobile)) .wheel-hub-label { font-size: 0.42rem; }
+  :where(html:not(.asoc-mobile)) .wheel-hub-count { font-size: 0.7rem; }
+  :where(html:not(.asoc-mobile)) .wheel-hub-state { font-size: 0.38rem; }
+  :where(html:not(.asoc-mobile)) .wheel-controls { flex-direction: column; align-items: stretch; }
+  :where(html:not(.asoc-mobile)) .wheel-action-primary,
+  :where(html:not(.asoc-mobile)) .wheel-action-secondary {
     flex: 1 1 auto;
     max-width: none;
     width: 100%;
@@ -6292,11 +6292,11 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 @media (max-width: 720px) {
-  .wheel-stage {
+  :where(html:not(.asoc-mobile)) .wheel-stage {
     width: 220px;
     height: 220px;
   }
-  .wheel-label span {
+  :where(html:not(.asoc-mobile)) .wheel-label span {
     max-width: 76px;
     font-size: 0.58rem;
   }
@@ -6527,14 +6527,14 @@ body.gm-layout-locked .gm-module-height-splitter {
   background: linear-gradient(180deg, rgba(105,79,27,0.92), rgba(41,31,15,0.96));
 }
 @media (max-width: 720px) {
-  .timer-tracker,
-  .womf-tracker { min-height: 0; padding: 8px 10px; }
-  .timer-identity,
-  .womf-identity { width: 88px; }
-  .timer-core { grid-template-columns: 82px minmax(100px, 1fr); gap: 8px; }
-  .timer-count { font-size: 1rem; }
-  .womf-readout { width: 66px; }
-  .timer-controls { width: 100%; border-left: 0; padding: 6px 0 0; }
+  :where(html:not(.asoc-mobile)) .timer-tracker,
+  :where(html:not(.asoc-mobile)) .womf-tracker { min-height: 0; padding: 8px 10px; }
+  :where(html:not(.asoc-mobile)) .timer-identity,
+  :where(html:not(.asoc-mobile)) .womf-identity { width: 88px; }
+  :where(html:not(.asoc-mobile)) .timer-core { grid-template-columns: 82px minmax(100px, 1fr); gap: 8px; }
+  :where(html:not(.asoc-mobile)) .timer-count { font-size: 1rem; }
+  :where(html:not(.asoc-mobile)) .womf-readout { width: 66px; }
+  :where(html:not(.asoc-mobile)) .timer-controls { width: 100%; border-left: 0; padding: 6px 0 0; }
 }
 /* =========================================================
    TIMER — LIVE BURNING FUSE
@@ -6725,13 +6725,13 @@ body.gm-layout-locked .gm-module-height-splitter {
   bottom: 0;
 }
 @media (max-width: 720px) {
-  .timer-fuse-wrap { height: 34px; padding-bottom: 11px; }
-  .timer-fuse { height: 21px; }
-  .timer-fuse-cord,
-  .timer-fuse-burned,
-  .timer-fuse-live { top: 7px; height: 7px; }
-  .timer-fuse-tip { top: 10.5px; width: 21px; height: 21px; }
-  .timer-fuse-core { left: 7px; top: 7px; }
+  :where(html:not(.asoc-mobile)) .timer-fuse-wrap { height: 34px; padding-bottom: 11px; }
+  :where(html:not(.asoc-mobile)) .timer-fuse { height: 21px; }
+  :where(html:not(.asoc-mobile)) .timer-fuse-cord,
+  :where(html:not(.asoc-mobile)) .timer-fuse-burned,
+  :where(html:not(.asoc-mobile)) .timer-fuse-live { top: 7px; height: 7px; }
+  :where(html:not(.asoc-mobile)) .timer-fuse-tip { top: 10.5px; width: 21px; height: 21px; }
+  :where(html:not(.asoc-mobile)) .timer-fuse-core { left: 7px; top: 7px; }
 }
 
 .timer-fuse {
@@ -6739,7 +6739,7 @@ body.gm-layout-locked .gm-module-height-splitter {
   margin: 0 12px;
 }
 @media (max-width: 720px) {
-  .timer-fuse { width: calc(100% - 20px); margin: 0 10px; }
+  :where(html:not(.asoc-mobile)) .timer-fuse { width: calc(100% - 20px); margin: 0 10px; }
 }
 
 /* =========================================================
@@ -7010,11 +7010,11 @@ body.gm-layout-locked .gm-module-height-splitter {
 .womf-tracker[data-state="ready"] .womf-segment{animation:none;filter:none}
 .womf-tracker[data-state="ready"] .womf-status{border-color:#b88938;background:rgba(87,59,18,.62);color:#ffd278}
 @media(max-width:720px){
-  .timer-tracker,.womf-tracker{min-height:0}
-  .timer-identity,.womf-identity{width:92px}
-  .timer-count{font-size:1.12rem}
-  .womf-segments{height:25px;gap:3px}
-  .womf-segment{height:25px}
+  :where(html:not(.asoc-mobile)) .timer-tracker,:where(html:not(.asoc-mobile)) .womf-tracker{min-height:0}
+  :where(html:not(.asoc-mobile)) .timer-identity,:where(html:not(.asoc-mobile)) .womf-identity{width:92px}
+  :where(html:not(.asoc-mobile)) .timer-count{font-size:1.12rem}
+  :where(html:not(.asoc-mobile)) .womf-segments{height:25px;gap:3px}
+  :where(html:not(.asoc-mobile)) .womf-segment{height:25px}
 }
 
 /* =========================================================
@@ -7264,12 +7264,12 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 @media (max-width: 720px) {
-  .battle-launch-countdown::before { top: 35%; }
-  .battle-launch-countdown::after { bottom: 35%; }
-  .battle-controls-online { padding: 20px 14px 22px; }
-  .battle-controls-title { font-size: clamp(2rem, 12vw, 4rem); }
-  .battle-controls-link,
-  .battle-controls-channel { letter-spacing: .16em; }
+  :where(html:not(.asoc-mobile)) .battle-launch-countdown::before { top: 35%; }
+  :where(html:not(.asoc-mobile)) .battle-launch-countdown::after { bottom: 35%; }
+  :where(html:not(.asoc-mobile)) .battle-controls-online { padding: 20px 14px 22px; }
+  :where(html:not(.asoc-mobile)) .battle-controls-title { font-size: clamp(2rem, 12vw, 4rem); }
+  :where(html:not(.asoc-mobile)) .battle-controls-link,
+  :where(html:not(.asoc-mobile)) .battle-controls-channel { letter-spacing: .16em; }
 }
 /* =========================================================
    GM CONTROL SURFACES — BATTLE CONTROL + BACKDOOR
@@ -8495,12 +8495,12 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 @media (max-width: 620px) {
-  .final-outcome-banner.fo-debrief {
+  :where(html:not(.asoc-mobile)) .final-outcome-banner.fo-debrief {
     width: 92vw;
     max-width: 92vw;
     padding: 20px 16px 22px;
   }
-  .fo-debrief-grid {
+  :where(html:not(.asoc-mobile)) .fo-debrief-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -8744,12 +8744,12 @@ body.game-complete .recount-btn,
 
 .rc-hide-sm { }
 @media (max-width: 560px) {
-  .rc-hide-sm { display: none; }
-  .recount-head { flex-wrap: wrap; }
-  .recount-controls { width: 100%; }
-  .recount-controls button { flex: 1; min-height: 40px; }
-  .rc-table td, .rc-table th { padding: 7px 5px; }
-  .recount-pill { bottom: 70px; }
+  :where(html:not(.asoc-mobile)) .rc-hide-sm { display: none; }
+  :where(html:not(.asoc-mobile)) .recount-head { flex-wrap: wrap; }
+  :where(html:not(.asoc-mobile)) .recount-controls { width: 100%; }
+  :where(html:not(.asoc-mobile)) .recount-controls button { flex: 1; min-height: 40px; }
+  :where(html:not(.asoc-mobile)) .rc-table td, :where(html:not(.asoc-mobile)) .rc-table th { padding: 7px 5px; }
+  :where(html:not(.asoc-mobile)) .recount-pill { bottom: 70px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -8822,10 +8822,10 @@ body.game-complete .recount-btn,
    Preserve the canonical board geometry; adapt only the shell.
    ========================================================= */
 @media (max-width: 760px) {
-  .gm-layout-splitter { display: none !important; }
-  #gm-panel { width: 100% !important; }
+  :where(html:not(.asoc-mobile)) .gm-layout-splitter { display: none !important; }
+  :where(html:not(.asoc-mobile)) #gm-panel { width: 100% !important; }
 
-  html, body {
+  html:where(:not(.asoc-mobile)), :where(html:not(.asoc-mobile)) body {
     height: auto;
     min-height: 100%;
     overflow-x: hidden;
@@ -8834,9 +8834,9 @@ body.game-complete .recount-btn,
     -webkit-overflow-scrolling: touch;
   }
 
-  body { min-height: 100dvh; }
+  :where(html:not(.asoc-mobile)) body { min-height: 100dvh; }
 
-  #app-layout {
+  :where(html:not(.asoc-mobile)) #app-layout {
     width: 100%;
     height: auto;
     min-height: 100dvh;
@@ -8844,7 +8844,7 @@ body.game-complete .recount-btn,
     flex-direction: column;
   }
 
-  #main-content {
+  :where(html:not(.asoc-mobile)) #main-content {
     width: 100%;
     flex: none;
     min-height: auto;
@@ -8852,19 +8852,19 @@ body.game-complete .recount-btn,
     padding: max(8px, env(safe-area-inset-top)) 8px 10px;
   }
 
-  #board-layer {
+  :where(html:not(.asoc-mobile)) #board-layer {
     width: 100%;
     max-width: 100%;
     flex: none;
   }
 
-  .asoc-board {
+  :where(html:not(.asoc-mobile)) .asoc-board {
     width: 100%;
     max-width: 100%;
     aspect-ratio: var(--board-aspect);
   }
 
-  #gm-panel {
+  :where(html:not(.asoc-mobile)) #gm-panel {
     position: relative;
     width: 100%;
     height: auto;
@@ -8876,61 +8876,61 @@ body.game-complete .recount-btn,
     box-shadow: 0 -14px 36px rgba(0,0,0,.38);
   }
 
-  .gm-content {
+  :where(html:not(.asoc-mobile)) .gm-content {
     overflow: visible;
     padding: 10px;
   }
 
-  .gm-section { margin-bottom: 14px; }
+  :where(html:not(.asoc-mobile)) .gm-section { margin-bottom: 14px; }
 
-  .gm-footer {
+  :where(html:not(.asoc-mobile)) .gm-footer {
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 
-  .gm-grid {
+  :where(html:not(.asoc-mobile)) .gm-grid {
     grid-template-columns: repeat(2, minmax(0,1fr));
     gap: 8px;
   }
 
-  .gm-cell-btn,
-  .gm-global-btn,
-  .toolbar-btn,
-  .forge-btn {
+  :where(html:not(.asoc-mobile)) .gm-cell-btn,
+  :where(html:not(.asoc-mobile)) .gm-global-btn,
+  :where(html:not(.asoc-mobile)) .toolbar-btn,
+  :where(html:not(.asoc-mobile)) .forge-btn {
     min-height: 44px;
     touch-action: manipulation;
   }
 
-  .battle-controls-panel,
-  .gm-broker-bar {
+  :where(html:not(.asoc-mobile)) .battle-controls-panel,
+  :where(html:not(.asoc-mobile)) .gm-broker-bar {
     width: 100%;
     max-width: 100%;
   }
 
-  .battle-controls-grid {
+  :where(html:not(.asoc-mobile)) .battle-controls-grid {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
 
-  .shadow-broker-form {
+  :where(html:not(.asoc-mobile)) .shadow-broker-form {
     padding: 8px;
     gap: 6px;
   }
 
-  .shadow-broker-form-label { display: none; }
+  :where(html:not(.asoc-mobile)) .shadow-broker-form-label { display: none; }
 
-  .shadow-broker-input {
+  :where(html:not(.asoc-mobile)) .shadow-broker-input {
     min-height: 44px;
     font-size: 16px;
   }
 
-  .timer-tracker,
-  .womf-tracker {
+  :where(html:not(.asoc-mobile)) .timer-tracker,
+  :where(html:not(.asoc-mobile)) .womf-tracker {
     width: 100%;
     max-width: 100%;
     margin-bottom: 8px;
   }
 
-  #public-view {
+  :where(html:not(.asoc-mobile)) #public-view {
     height: 100dvh;
     min-height: 100dvh;
     padding: max(8px, env(safe-area-inset-top)) 6px max(8px, env(safe-area-inset-bottom));
@@ -8938,42 +8938,42 @@ body.game-complete .recount-btn,
     -webkit-overflow-scrolling: touch;
   }
 
-  .public-header {
+  :where(html:not(.asoc-mobile)) .public-header {
     width: 100%;
     margin-bottom: 8px;
     padding: 0 8px;
   }
 
-  .public-board-frame {
+  :where(html:not(.asoc-mobile)) .public-board-frame {
     width: 100%;
     max-width: 100%;
     aspect-ratio: var(--board-aspect);
     flex: 0 0 auto;
   }
 
-  .public-title {
+  :where(html:not(.asoc-mobile)) .public-title {
     font-size: clamp(.9rem, 4vw, 1.25rem);
     letter-spacing: .12em;
   }
 
-  .gm-chat-messages {
+  :where(html:not(.asoc-mobile)) .gm-chat-messages {
     min-height: 220px;
     max-height: 52dvh;
     -webkit-overflow-scrolling: touch;
   }
 
-  .gm-chat-context-menu button,
-  .gm-chat-floating-emoji-picker button,
-  .gm-emoji-option {
+  :where(html:not(.asoc-mobile)) .gm-chat-context-menu button,
+  :where(html:not(.asoc-mobile)) .gm-chat-floating-emoji-picker button,
+  :where(html:not(.asoc-mobile)) .gm-emoji-option {
     min-width: 44px;
     min-height: 44px;
   }
 
-  input, select, textarea { font-size: 16px; }
+  :where(html:not(.asoc-mobile)) input, :where(html:not(.asoc-mobile)) select, :where(html:not(.asoc-mobile)) textarea { font-size: 16px; }
 }
 
 @media (max-width: 430px) {
-  .battle-controls-grid { grid-template-columns: 1fr; }
+  :where(html:not(.asoc-mobile)) .battle-controls-grid { grid-template-columns: 1fr; }
 }
 
 
@@ -8983,37 +8983,37 @@ body.game-complete .recount-btn,
    Functional game geometry remains untouched.
    ========================================================= */
 @media (max-width: 760px) {
-  .gm-module-height-splitter {
+  :where(html:not(.asoc-mobile)) .gm-module-height-splitter {
     display: none;
   }
 
-  .gm-module-chat .gm-chat-panel {
+  :where(html:not(.asoc-mobile)) .gm-module-chat .gm-chat-panel {
     height: auto !important;
     min-height: 220px;
   }
 
-  .gm-module-clues {
+  :where(html:not(.asoc-mobile)) .gm-module-clues {
     height: auto !important;
     min-height: 0;
     overflow: visible;
   }
 
-  .gm-module-clues #gm-clue-grid {
+  :where(html:not(.asoc-mobile)) .gm-module-clues #gm-clue-grid {
     overflow: visible;
   }
 
-  #gm-panel {
+  :where(html:not(.asoc-mobile)) #gm-panel {
     max-width:none;
   }
 
-  #gm-panel .gm-header,
-  #gm-panel .gm-content,
-  #gm-panel .gm-footer {
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-header,
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-content,
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-footer {
     width:100%;
     box-sizing:border-box;
   }
 
-  #gm-panel .gm-header {
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-header {
     position:sticky;
     top:0;
     z-index:40;
@@ -9021,39 +9021,39 @@ body.game-complete .recount-btn,
     backdrop-filter:blur(10px);
   }
 
-  #gm-panel .gm-section,
-  #gm-panel .gm-module {
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-section,
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-module {
     min-width:0;
     max-width:100%;
   }
 
-  #gm-panel .gm-global-controls,
-  #gm-panel .gm-column-controls,
-  #gm-panel .difficulty-picker {
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-global-controls,
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-column-controls,
+  :where(html:not(.asoc-mobile)) #gm-panel .difficulty-picker {
     min-width:0;
     max-width:100%;
   }
 
-  #gm-panel button,
-  #gm-panel input,
-  #gm-panel select,
-  #gm-panel textarea {
+  :where(html:not(.asoc-mobile)) #gm-panel button,
+  :where(html:not(.asoc-mobile)) #gm-panel input,
+  :where(html:not(.asoc-mobile)) #gm-panel select,
+  :where(html:not(.asoc-mobile)) #gm-panel textarea {
     max-width:100%;
     box-sizing:border-box;
   }
 
-  .session-leaderboard,
-  .alltime-leaderboard,
-  .blood-tribute-vault-list {
+  :where(html:not(.asoc-mobile)) .session-leaderboard,
+  :where(html:not(.asoc-mobile)) .alltime-leaderboard,
+  :where(html:not(.asoc-mobile)) .blood-tribute-vault-list {
     max-width:100%;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
   }
 
-  .blood-tribute-overlay,
-  .forge-overlay,
-  .wheel-overlay,
-  .loading-overlay {
+  :where(html:not(.asoc-mobile)) .blood-tribute-overlay,
+  :where(html:not(.asoc-mobile)) .forge-overlay,
+  :where(html:not(.asoc-mobile)) .wheel-overlay,
+  :where(html:not(.asoc-mobile)) .loading-overlay {
     padding:
       max(10px,env(safe-area-inset-top))
       max(10px,env(safe-area-inset-right))
@@ -9065,9 +9065,9 @@ body.game-complete .recount-btn,
     -webkit-overflow-scrolling:touch;
   }
 
-  .blood-tribute-shell,
-  .forge-shell,
-  .wheel-shell {
+  :where(html:not(.asoc-mobile)) .blood-tribute-shell,
+  :where(html:not(.asoc-mobile)) .forge-shell,
+  :where(html:not(.asoc-mobile)) .wheel-shell {
     width:min(100%,560px);
     max-width:100%;
     max-height:none;
@@ -9075,39 +9075,39 @@ body.game-complete .recount-btn,
     box-sizing:border-box;
   }
 
-  .blood-tribute-upload input[type="file"] {
+  :where(html:not(.asoc-mobile)) .blood-tribute-upload input[type="file"] {
     min-height:44px;
     font-size:16px;
   }
 
-  .blood-tribute-submit,
-  .womf-open-btn {
+  :where(html:not(.asoc-mobile)) .blood-tribute-submit,
+  :where(html:not(.asoc-mobile)) .womf-open-btn {
     min-height:44px;
     touch-action:manipulation;
   }
 
-  .timer-tracker,
-  .womf-tracker {
+  :where(html:not(.asoc-mobile)) .timer-tracker,
+  :where(html:not(.asoc-mobile)) .womf-tracker {
     box-sizing:border-box;
     min-width:0;
   }
 
-  .womf-identity,
-  .timer-identity {
+  :where(html:not(.asoc-mobile)) .womf-identity,
+  :where(html:not(.asoc-mobile)) .timer-identity {
     min-width:0;
   }
 
-  .womf-segments {
+  :where(html:not(.asoc-mobile)) .womf-segments {
     min-width:0;
     gap:3px;
   }
 
-  .womf-segment {
+  :where(html:not(.asoc-mobile)) .womf-segment {
     min-width:0;
   }
 
-  .victory-overlay,
-  .defeat-overlay {
+  :where(html:not(.asoc-mobile)) .victory-overlay,
+  :where(html:not(.asoc-mobile)) .defeat-overlay {
     width:100dvw;
     height:100dvh;
     min-height:100dvh;
@@ -9122,9 +9122,9 @@ body.game-complete .recount-btn,
       max(10px,env(safe-area-inset-left));
   }
 
-  .victory-frame,
-  .defeat-frame,
-  .victory-overlay .victory-frame {
+  :where(html:not(.asoc-mobile)) .victory-frame,
+  :where(html:not(.asoc-mobile)) .defeat-frame,
+  :where(html:not(.asoc-mobile)) .victory-overlay .victory-frame {
     inset:
       max(6px,env(safe-area-inset-top))
       max(6px,env(safe-area-inset-right))
@@ -9132,8 +9132,8 @@ body.game-complete .recount-btn,
       max(6px,env(safe-area-inset-left));
   }
 
-  .victory-ceremony,
-  .defeat-ceremony {
+  :where(html:not(.asoc-mobile)) .victory-ceremony,
+  :where(html:not(.asoc-mobile)) .defeat-ceremony {
     width:100%;
     max-width:100%;
     margin:auto;
@@ -9141,37 +9141,37 @@ body.game-complete .recount-btn,
     box-sizing:border-box;
   }
 
-  .victory-message,
-  .defeat-message {
+  :where(html:not(.asoc-mobile)) .victory-message,
+  :where(html:not(.asoc-mobile)) .defeat-message {
     margin-bottom:18px;
     font-size:clamp(.72rem,3.2vw,.95rem);
     line-height:1.55;
   }
 
-  .victory-ceremony .victory-title,
-  .defeat-ceremony h1 {
+  :where(html:not(.asoc-mobile)) .victory-ceremony .victory-title,
+  :where(html:not(.asoc-mobile)) .defeat-ceremony h1 {
     font-size:clamp(2.35rem,15vw,5rem);
     overflow-wrap:anywhere;
   }
 
-  .victory-solution,
-  .defeat-solution {
+  :where(html:not(.asoc-mobile)) .victory-solution,
+  :where(html:not(.asoc-mobile)) .defeat-solution {
     margin-top:24px;
     padding:14px 10px;
   }
 
-  .victory-columns,
-  .defeat-columns {
+  :where(html:not(.asoc-mobile)) .victory-columns,
+  :where(html:not(.asoc-mobile)) .defeat-columns {
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
 
-  .victory-recount,
-  .defeat-recount {
+  :where(html:not(.asoc-mobile)) .victory-recount,
+  :where(html:not(.asoc-mobile)) .defeat-recount {
     padding:16px 10px;
   }
 
-  .victory-overlay.is-settled::after,
-  .defeat-overlay.is-test-preview::after {
+  :where(html:not(.asoc-mobile)) .victory-overlay.is-settled::after,
+  :where(html:not(.asoc-mobile)) .defeat-overlay.is-test-preview::after {
     right:max(10px,env(safe-area-inset-right));
     bottom:max(10px,env(safe-area-inset-bottom));
     max-width:calc(100vw - 20px);
@@ -9180,7 +9180,7 @@ body.game-complete .recount-btn,
     text-align:right;
   }
 
-  .recount-overlay {
+  :where(html:not(.asoc-mobile)) .recount-overlay {
     width:100dvw;
     min-height:100dvh;
     padding:
@@ -9191,7 +9191,7 @@ body.game-complete .recount-btn,
     box-sizing:border-box;
   }
 
-  .recount-panel {
+  :where(html:not(.asoc-mobile)) .recount-panel {
     width:100%;
     max-width:100%;
     padding:12px 9px;
@@ -9199,46 +9199,46 @@ body.game-complete .recount-btn,
     overflow:hidden;
   }
 
-  .recount-head {
+  :where(html:not(.asoc-mobile)) .recount-head {
     flex-direction:column;
     align-items:stretch;
   }
 
-  .recount-title {
+  :where(html:not(.asoc-mobile)) .recount-title {
     font-size:clamp(1.35rem,8vw,2rem);
     letter-spacing:.16em;
     overflow-wrap:anywhere;
   }
 
-  .recount-controls {
+  :where(html:not(.asoc-mobile)) .recount-controls {
     width:100%;
   }
 
-  .recount-controls button {
+  :where(html:not(.asoc-mobile)) .recount-controls button {
     flex:1;
     min-height:44px;
     touch-action:manipulation;
   }
 
-  .rc-block {
+  :where(html:not(.asoc-mobile)) .rc-block {
     max-width:100%;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
   }
 
-  .rc-table {
+  :where(html:not(.asoc-mobile)) .rc-table {
     min-width:520px;
   }
 
-  .rc-award-title {
+  :where(html:not(.asoc-mobile)) .rc-award-title {
     overflow-wrap:anywhere;
   }
 
-  .rc-evidence {
+  :where(html:not(.asoc-mobile)) .rc-evidence {
     gap:5px;
   }
 
-  .recount-pill {
+  :where(html:not(.asoc-mobile)) .recount-pill {
     max-width:calc(100vw - 20px);
     min-height:44px;
     touch-action:manipulation;
@@ -9246,43 +9246,43 @@ body.game-complete .recount-btn,
 }
 
 @media (max-width: 430px) {
-  .womf-tracker,
-  .timer-tracker {
+  :where(html:not(.asoc-mobile)) .womf-tracker,
+  :where(html:not(.asoc-mobile)) .timer-tracker {
     padding-left:7px;
     padding-right:7px;
   }
 
-  .womf-identity,
-  .timer-identity {
+  :where(html:not(.asoc-mobile)) .womf-identity,
+  :where(html:not(.asoc-mobile)) .timer-identity {
     width:72px;
   }
 
-  .womf-label,
-  .timer-label {
+  :where(html:not(.asoc-mobile)) .womf-label,
+  :where(html:not(.asoc-mobile)) .timer-label {
     font-size:.76rem;
   }
 
-  .womf-count,
-  .timer-value {
+  :where(html:not(.asoc-mobile)) .womf-count,
+  :where(html:not(.asoc-mobile)) .timer-value {
     font-size:.9rem;
   }
 
-  .womf-segments {
+  :where(html:not(.asoc-mobile)) .womf-segments {
     gap:2px;
   }
 
-  .victory-columns,
-  .defeat-columns {
+  :where(html:not(.asoc-mobile)) .victory-columns,
+  :where(html:not(.asoc-mobile)) .defeat-columns {
     gap:5px;
   }
 
-  .victory-columns span,
-  .defeat-columns span {
+  :where(html:not(.asoc-mobile)) .victory-columns span,
+  :where(html:not(.asoc-mobile)) .defeat-columns span {
     padding:7px 4px;
     font-size:.62rem;
   }
 
-  .rc-table {
+  :where(html:not(.asoc-mobile)) .rc-table {
     min-width:480px;
   }
 }
@@ -9294,34 +9294,34 @@ body.game-complete .recount-btn,
    difficulty controls, announcements and compact system dialogs.
    ========================================================= */
 @media (max-width:760px) {
-  .forge-header {
+  :where(html:not(.asoc-mobile)) .forge-header {
     position:sticky;
     top:0;
     z-index:5;
     padding:10px 12px;
     gap:8px;
   }
-  .forge-title { font-size:.72rem; letter-spacing:1px; }
-  .forge-close { width:44px; height:44px; flex:0 0 44px; }
-  .forge-body,
-  .wheel-setup-body { padding:12px 10px 16px; }
-  .forge-btn { min-height:44px; padding:9px 10px; touch-action:manipulation; }
+  :where(html:not(.asoc-mobile)) .forge-title { font-size:.72rem; letter-spacing:1px; }
+  :where(html:not(.asoc-mobile)) .forge-close { width:44px; height:44px; flex:0 0 44px; }
+  :where(html:not(.asoc-mobile)) .forge-body,
+  :where(html:not(.asoc-mobile)) .wheel-setup-body { padding:12px 10px 16px; }
+  :where(html:not(.asoc-mobile)) .forge-btn { min-height:44px; padding:9px 10px; touch-action:manipulation; }
 
-  .wheel-shell { padding:18px 10px; }
-  .wheel-title { margin-bottom:14px; font-size:.82rem; letter-spacing:2px; }
-  .wheel-stage {
+  :where(html:not(.asoc-mobile)) .wheel-shell { padding:18px 10px; }
+  :where(html:not(.asoc-mobile)) .wheel-title { margin-bottom:14px; font-size:.82rem; letter-spacing:2px; }
+  :where(html:not(.asoc-mobile)) .wheel-stage {
     width:min(280px,76vw);
     height:min(280px,76vw);
   }
-  .wheel-controls { flex-wrap:wrap; }
-  .wheel-controls > * { min-height:44px; flex:1 1 120px; }
-  .wheel-setup-list { max-height:42dvh; }
-  .wheel-setup-row { min-height:44px; }
-  .wheel-setup-checkbox { width:22px; height:22px; }
-  .wheel-setup-add-row { flex-wrap:wrap; }
-  .wheel-setup-input { min-width:0; min-height:44px; font-size:16px; }
+  :where(html:not(.asoc-mobile)) .wheel-controls { flex-wrap:wrap; }
+  :where(html:not(.asoc-mobile)) .wheel-controls > * { min-height:44px; flex:1 1 120px; }
+  :where(html:not(.asoc-mobile)) .wheel-setup-list { max-height:42dvh; }
+  :where(html:not(.asoc-mobile)) .wheel-setup-row { min-height:44px; }
+  :where(html:not(.asoc-mobile)) .wheel-setup-checkbox { width:22px; height:22px; }
+  :where(html:not(.asoc-mobile)) .wheel-setup-add-row { flex-wrap:wrap; }
+  :where(html:not(.asoc-mobile)) .wheel-setup-input { min-width:0; min-height:44px; font-size:16px; }
 
-  .final-outcome-banner.fo-debrief {
+  :where(html:not(.asoc-mobile)) .final-outcome-banner.fo-debrief {
     width:calc(100vw - 16px);
     max-width:calc(100vw - 16px);
     max-height:calc(100dvh - 20px);
@@ -9329,49 +9329,49 @@ body.game-complete .recount-btn,
     box-sizing:border-box;
     -webkit-overflow-scrolling:touch;
   }
-  .fo-debrief-grid { grid-template-columns:1fr; }
-  .fo-debrief-row,
-  .fo-final-answer { min-width:0; }
-  .fo-debrief-row > *,
-  .fo-final-answer > * { min-width:0; overflow-wrap:anywhere; }
+  :where(html:not(.asoc-mobile)) .fo-debrief-grid { grid-template-columns:1fr; }
+  :where(html:not(.asoc-mobile)) .fo-debrief-row,
+  :where(html:not(.asoc-mobile)) .fo-final-answer { min-width:0; }
+  :where(html:not(.asoc-mobile)) .fo-debrief-row > *,
+  :where(html:not(.asoc-mobile)) .fo-final-answer > * { min-width:0; overflow-wrap:anywhere; }
 
-  #gm-panel.maintenance-open .gm-content { padding:10px 8px 24px; }
-  .gm-maintenance .maintenance-module { padding:10px; margin-bottom:12px; }
-  #gm-panel.maintenance-open .gm-maintenance .gm-global-controls { gap:7px; }
-  #gm-panel.maintenance-open .gm-maintenance .difficulty-picker { gap:6px; }
+  :where(html:not(.asoc-mobile)) #gm-panel.maintenance-open .gm-content { padding:10px 8px 24px; }
+  :where(html:not(.asoc-mobile)) .gm-maintenance .maintenance-module { padding:10px; margin-bottom:12px; }
+  :where(html:not(.asoc-mobile)) #gm-panel.maintenance-open .gm-maintenance .gm-global-controls { gap:7px; }
+  :where(html:not(.asoc-mobile)) #gm-panel.maintenance-open .gm-maintenance .difficulty-picker { gap:6px; }
 
-  .difficulty-picker,
-  .gm-global-controls,
-  .gm-column-controls {
+  :where(html:not(.asoc-mobile)) .difficulty-picker,
+  :where(html:not(.asoc-mobile)) .gm-global-controls,
+  :where(html:not(.asoc-mobile)) .gm-column-controls {
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
 
-  .battle-session-strip {
+  :where(html:not(.asoc-mobile)) .battle-session-strip {
     gap:5px 8px;
     overflow-wrap:anywhere;
   }
 
-  #library-btn-footer.maintenance-toggle-btn,
-  #public-view-btn,
-  #host-room-btn {
+  :where(html:not(.asoc-mobile)) #library-btn-footer.maintenance-toggle-btn,
+  :where(html:not(.asoc-mobile)) #public-view-btn,
+  :where(html:not(.asoc-mobile)) #host-room-btn {
     min-height:48px;
   }
 
-  .final-outcome-banner,
-  .score-announcement,
-  .timer-countdown-overlay {
+  :where(html:not(.asoc-mobile)) .final-outcome-banner,
+  :where(html:not(.asoc-mobile)) .score-announcement,
+  :where(html:not(.asoc-mobile)) .timer-countdown-overlay {
     max-width:calc(100vw - 16px);
     box-sizing:border-box;
   }
 
-  .nema-asoc-terminal,
-  .nema-asoc-lock {
+  :where(html:not(.asoc-mobile)) .nema-asoc-terminal,
+  :where(html:not(.asoc-mobile)) .nema-asoc-lock {
     max-width:calc(100vw - 20px);
     box-sizing:border-box;
   }
 
-  .gm-chat-context-menu,
-  .gm-chat-floating-emoji-picker {
+  :where(html:not(.asoc-mobile)) .gm-chat-context-menu,
+  :where(html:not(.asoc-mobile)) .gm-chat-floating-emoji-picker {
     max-width:calc(100vw - 12px);
     max-height:60dvh;
     overflow-y:auto;
@@ -9379,14 +9379,14 @@ body.game-complete .recount-btn,
 }
 
 @media (max-width:430px) {
-  .difficulty-picker,
-  .gm-global-controls {
+  :where(html:not(.asoc-mobile)) .difficulty-picker,
+  :where(html:not(.asoc-mobile)) .gm-global-controls {
     grid-template-columns:1fr;
   }
-  .gm-column-controls {
+  :where(html:not(.asoc-mobile)) .gm-column-controls {
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
-  .wheel-label span {
+  :where(html:not(.asoc-mobile)) .wheel-label span {
     max-width:76px;
     font-size:.55rem;
   }
@@ -9398,70 +9398,70 @@ body.game-complete .recount-btn,
    Desktop remains canonical. Everything below exists only for phones.
    ========================================================= */
 @media (max-width:760px) {
-  :root { --mobile-ui-gap:8px; }
+  :root:where(:not(.asoc-mobile)) { --mobile-ui-gap:8px; }
 
   /* The GM application becomes a real document on mobile. */
-  #app-layout { display:block; }
-  #main-content { display:block; }
-  #main-content > * { max-width:100%; }
-  #gm-panel { display:block; }
+  :where(html:not(.asoc-mobile)) #app-layout { display:block; }
+  :where(html:not(.asoc-mobile)) #main-content { display:block; }
+  :where(html:not(.asoc-mobile)) #main-content > * { max-width:100%; }
+  :where(html:not(.asoc-mobile)) #gm-panel { display:block; }
 
   /* No desktop module is allowed to force the phone wider than its viewport. */
-  #gm-panel *,
-  .forge-overlay *,
-  .wheel-overlay *,
-  .blood-tribute-overlay *,
-  .recount-overlay * { min-width:0; }
+  :where(html:not(.asoc-mobile)) #gm-panel *,
+  :where(html:not(.asoc-mobile)) .forge-overlay *,
+  :where(html:not(.asoc-mobile)) .wheel-overlay *,
+  :where(html:not(.asoc-mobile)) .blood-tribute-overlay *,
+  :where(html:not(.asoc-mobile)) .recount-overlay * { min-width:0; }
 
-  .gm-global-controls,
-  .gm-column-controls,
-  .difficulty-picker,
-  .forge-toolbar,
-  .forge-form-row {
+  :where(html:not(.asoc-mobile)) .gm-global-controls,
+  :where(html:not(.asoc-mobile)) .gm-column-controls,
+  :where(html:not(.asoc-mobile)) .difficulty-picker,
+  :where(html:not(.asoc-mobile)) .forge-toolbar,
+  :where(html:not(.asoc-mobile)) .forge-form-row {
     width:100%;
     max-width:100%;
   }
 
-  .forge-grid {
+  :where(html:not(.asoc-mobile)) .forge-grid {
     grid-template-columns:1fr;
     max-height:none;
     overflow:visible;
     padding:10px;
   }
-  .forge-card { min-width:0; }
-  .forge-toolbar { flex-wrap:wrap; padding:10px; gap:8px; }
-  .forge-toolbar > * { flex:1 1 140px; }
-  .forge-editor,
-  .forge-form,
-  .forge-form-row { max-width:100%; }
-  .forge-form-row { flex-wrap:wrap; }
-  .forge-form-row input,
-  .forge-form-row select,
-  .forge-form-row textarea { width:100%; max-width:100%; font-size:16px; }
+  :where(html:not(.asoc-mobile)) .forge-card { min-width:0; }
+  :where(html:not(.asoc-mobile)) .forge-toolbar { flex-wrap:wrap; padding:10px; gap:8px; }
+  :where(html:not(.asoc-mobile)) .forge-toolbar > * { flex:1 1 140px; }
+  :where(html:not(.asoc-mobile)) .forge-editor,
+  :where(html:not(.asoc-mobile)) .forge-form,
+  :where(html:not(.asoc-mobile)) .forge-form-row { max-width:100%; }
+  :where(html:not(.asoc-mobile)) .forge-form-row { flex-wrap:wrap; }
+  :where(html:not(.asoc-mobile)) .forge-form-row input,
+  :where(html:not(.asoc-mobile)) .forge-form-row select,
+  :where(html:not(.asoc-mobile)) .forge-form-row textarea { width:100%; max-width:100%; font-size:16px; }
 
   /* System layers become viewport-safe, not desktop canvases clipped by glass. */
-  #score-announcement-layer,
-  .final-outcome-banner,
-  .nema-asoc-overlay,
-  .battle-controls-online,
-  .loading-overlay {
+  :where(html:not(.asoc-mobile)) #score-announcement-layer,
+  :where(html:not(.asoc-mobile)) .final-outcome-banner,
+  :where(html:not(.asoc-mobile)) .nema-asoc-overlay,
+  :where(html:not(.asoc-mobile)) .battle-controls-online,
+  :where(html:not(.asoc-mobile)) .loading-overlay {
     max-width:100dvw;
     box-sizing:border-box;
   }
 
-  .final-outcome-banner {
+  :where(html:not(.asoc-mobile)) .final-outcome-banner {
     width:calc(100dvw - 16px);
     max-height:calc(100dvh - 20px);
     overflow-y:auto;
     -webkit-overflow-scrolling:touch;
   }
 
-  .nema-asoc-terminal {
+  :where(html:not(.asoc-mobile)) .nema-asoc-terminal {
     min-width:0;
     width:min(100%,620px);
   }
 
-  .battle-controls-online {
+  :where(html:not(.asoc-mobile)) .battle-controls-online {
     width:100dvw;
     min-height:100dvh;
     overflow-y:auto;
@@ -9473,14 +9473,14 @@ body.game-complete .recount-btn,
   }
 
   /* GM chat is a touch interface on phones. */
-  .gm-chat-message,
-  .gm-chat-broker-entry {
+  :where(html:not(.asoc-mobile)) .gm-chat-message,
+  :where(html:not(.asoc-mobile)) .gm-chat-broker-entry {
     max-width:100%;
     overflow-wrap:anywhere;
   }
-  .gm-chat-reply-btn,
-  .gm-chat-reaction-add,
-  .gm-chat-reaction-chip {
+  :where(html:not(.asoc-mobile)) .gm-chat-reply-btn,
+  :where(html:not(.asoc-mobile)) .gm-chat-reaction-add,
+  :where(html:not(.asoc-mobile)) .gm-chat-reaction-chip {
     opacity:1;
     pointer-events:auto;
     min-width:32px;
@@ -9489,27 +9489,27 @@ body.game-complete .recount-btn,
   }
 
   /* Tables keep their data instead of becoming microscopic. */
-  .session-leaderboard table,
-  .alltime-leaderboard table,
-  .blood-tribute-vault-list table {
+  :where(html:not(.asoc-mobile)) .session-leaderboard table,
+  :where(html:not(.asoc-mobile)) .alltime-leaderboard table,
+  :where(html:not(.asoc-mobile)) .blood-tribute-vault-list table {
     min-width:520px;
   }
 
   /* Footer/navigation is finger-sized. */
-  .gm-footer {
+  :where(html:not(.asoc-mobile)) .gm-footer {
     display:grid;
     grid-template-columns:1fr;
     gap:8px;
   }
-  .gm-footer button { width:100%; min-height:48px; }
+  :where(html:not(.asoc-mobile)) .gm-footer button { width:100%; min-height:48px; }
 
   /* Prevent decorative animation layers from stealing gestures. */
-  .victory-overlay::before,
-  .victory-overlay::after,
-  .defeat-overlay::before,
-  .defeat-overlay::after,
-  .nema-asoc-overlay::before,
-  .nema-asoc-overlay::after {
+  :where(html:not(.asoc-mobile)) .victory-overlay::before,
+  :where(html:not(.asoc-mobile)) .victory-overlay::after,
+  :where(html:not(.asoc-mobile)) .defeat-overlay::before,
+  :where(html:not(.asoc-mobile)) .defeat-overlay::after,
+  :where(html:not(.asoc-mobile)) .nema-asoc-overlay::before,
+  :where(html:not(.asoc-mobile)) .nema-asoc-overlay::after {
     pointer-events:none;
   }
 }
@@ -9519,14 +9519,14 @@ body.game-complete .recount-btn,
    Phone pages must always be vertically scrollable. Override every desktop
    viewport lock at the end of the cascade. */
 @media (max-width:760px) {
-  html {
+  html:where(:not(.asoc-mobile)) {
     height:auto !important;
     min-height:100% !important;
     overflow-x:hidden !important;
     overflow-y:auto !important;
     -webkit-overflow-scrolling:touch;
   }
-  body {
+  :where(html:not(.asoc-mobile)) body {
     height:auto !important;
     min-height:100dvh !important;
     overflow-x:hidden !important;
@@ -9534,26 +9534,26 @@ body.game-complete .recount-btn,
     position:relative !important;
     -webkit-overflow-scrolling:touch;
   }
-  #app-layout,
-  #main-content,
-  #gm-panel {
+  :where(html:not(.asoc-mobile)) #app-layout,
+  :where(html:not(.asoc-mobile)) #main-content,
+  :where(html:not(.asoc-mobile)) #gm-panel {
     height:auto !important;
     max-height:none !important;
     overflow:visible !important;
   }
-  #app-layout { min-height:100dvh !important; }
-  #gm-panel { min-height:100dvh; }
+  :where(html:not(.asoc-mobile)) #app-layout { min-height:100dvh !important; }
+  :where(html:not(.asoc-mobile)) #gm-panel { min-height:100dvh; }
 
   /* Fixed full-screen system layers scroll themselves while open. */
-  .forge-overlay,
-  .wheel-overlay,
-  .blood-tribute-overlay,
-  .recount-overlay,
-  .victory-overlay,
-  .defeat-overlay,
-  .nema-asoc-overlay,
-  .battle-controls-online,
-  .loading-overlay {
+  :where(html:not(.asoc-mobile)) .forge-overlay,
+  :where(html:not(.asoc-mobile)) .wheel-overlay,
+  :where(html:not(.asoc-mobile)) .blood-tribute-overlay,
+  :where(html:not(.asoc-mobile)) .recount-overlay,
+  :where(html:not(.asoc-mobile)) .victory-overlay,
+  :where(html:not(.asoc-mobile)) .defeat-overlay,
+  :where(html:not(.asoc-mobile)) .nema-asoc-overlay,
+  :where(html:not(.asoc-mobile)) .battle-controls-online,
+  :where(html:not(.asoc-mobile)) .loading-overlay {
     overflow-x:hidden !important;
     overflow-y:auto !important;
     -webkit-overflow-scrolling:touch;
@@ -10147,13 +10147,13 @@ body.game-complete .recount-btn,
 }
 
 @media (max-width: 420px) {
-  #chat-emoji-picker.chat-input-emoji-picker,
-  #chat-reaction-picker.chat-floating-emoji-picker {
+  :where(html:not(.asoc-mobile)) #chat-emoji-picker.chat-input-emoji-picker,
+  :where(html:not(.asoc-mobile)) #chat-reaction-picker.chat-floating-emoji-picker {
     grid-template-columns: repeat(7, minmax(30px, 1fr)) !important;
     width: min(266px, calc(100vw - 16px));
   }
-  #chat-emoji-picker .chat-emoji-option,
-  #chat-reaction-picker .chat-emoji-option {
+  :where(html:not(.asoc-mobile)) #chat-emoji-picker .chat-emoji-option,
+  :where(html:not(.asoc-mobile)) #chat-reaction-picker .chat-emoji-option {
     width: 100% !important;
     min-width: 30px !important;
   }
@@ -10275,21 +10275,21 @@ body.game-complete .recount-btn,
 }
 
 @media (max-width: 760px) {
-  .chat-mention-picker,
-  .gm-chat-mention-picker {
+  :where(html:not(.asoc-mobile)) .chat-mention-picker,
+  :where(html:not(.asoc-mobile)) .gm-chat-mention-picker {
     left: 5px;
     right: 5px;
     max-height: min(42dvh, 260px);
   }
 
-  .chat-mention-option,
-  .gm-chat-mention-option {
+  :where(html:not(.asoc-mobile)) .chat-mention-option,
+  :where(html:not(.asoc-mobile)) .gm-chat-mention-option {
     min-height: 44px;
     grid-template-columns: 34px minmax(0,1fr) auto;
   }
 
-  .chat-mention-option .little-hero-avatar,
-  .gm-chat-mention-option .little-hero-avatar {
+  :where(html:not(.asoc-mobile)) .chat-mention-option .little-hero-avatar,
+  :where(html:not(.asoc-mobile)) .gm-chat-mention-option .little-hero-avatar {
     width: 30px;
     height: 30px;
     flex-basis: 30px;
@@ -10449,10 +10449,10 @@ body.game-complete .recount-btn,
 }
 
 @media (max-width: 420px) {
-  #chat-emoji-picker,
-  #chat-reaction-picker,
-  .gm-emoji-picker,
-  .gm-chat-floating-emoji-picker {
+  :where(html:not(.asoc-mobile)) #chat-emoji-picker,
+  :where(html:not(.asoc-mobile)) #chat-reaction-picker,
+  :where(html:not(.asoc-mobile)) .gm-emoji-picker,
+  :where(html:not(.asoc-mobile)) .gm-chat-floating-emoji-picker {
     grid-template-columns: repeat(5, minmax(30px, 1fr)) !important;
     width: min(192px, calc(100vw - 16px));
   }
@@ -10715,12 +10715,12 @@ body.game-complete .recount-btn,
 }
 
 @media (max-width: 760px) {
-  .commander-emoji-picker-icon {
+  :where(html:not(.asoc-mobile)) .commander-emoji-picker-icon {
     width: 34px;
     height: 34px;
   }
 
-  .commander-reaction-emoji {
+  :where(html:not(.asoc-mobile)) .commander-reaction-emoji {
     width: 22px;
     height: 22px;
   }
@@ -11015,7 +11015,7 @@ body.game-complete .recount-btn,
 }
 
 @media (max-width: 760px) {
-  .shadow-broker-rich-input .commander-composer-emoji {
+  :where(html:not(.asoc-mobile)) .shadow-broker-rich-input .commander-composer-emoji {
     width: 26px;
     height: 26px;
     flex-basis: 26px;
@@ -11158,13 +11158,13 @@ body.room-mode-casual #gm-logout-btn {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #gm-panel {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel {
     height: auto !important;
     min-height: 100dvh;
     overflow: visible !important;
   }
 
-  body.room-mode-casual #gm-panel .gm-content {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-content {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -11176,17 +11176,17 @@ body.room-mode-casual #gm-logout-btn {
       8px;
   }
 
-  body.room-mode-casual #gm-panel .gm-module-chat {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-module-chat {
     display: flex;
     flex: 0 0 min(72dvh,720px);
     min-height: 460px;
   }
 
-  body.room-mode-casual #gm-panel .gm-chat-panel {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-chat-panel {
     height: 100%;
   }
 
-    body.room-mode-casual #gm-broker-bar {
+    :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-broker-bar {
     position: sticky;
     bottom: 0;
     z-index: 8;
@@ -11372,19 +11372,19 @@ body.room-mode-casual #gm-panel {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #app-layout {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #app-layout {
     display:flex !important;
     flex-direction:column !important;
   }
 
-  body.room-mode-casual #main-content {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #main-content {
     order:0;
     width:100% !important;
     max-width:none !important;
     padding:8px !important;
   }
 
-  body.room-mode-casual #gm-panel {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel {
     order:1;
     width:100% !important;
   }
@@ -11438,12 +11438,12 @@ body.room-mode-casual #gm-panel {
 }
 
 @media (max-width:760px) {
-  .battle-controls-host-slot .room-mode-toggle {
+  :where(html:not(.asoc-mobile)) .battle-controls-host-slot .room-mode-toggle {
     min-width:0;
     width:100% !important;
   }
 
-  .battle-controls-host-slot .room-mode-segment {
+  :where(html:not(.asoc-mobile)) .battle-controls-host-slot .room-mode-segment {
     font-size:11px;
     letter-spacing:1px;
   }
@@ -11489,7 +11489,7 @@ body.room-mode-casual #gm-panel {
 }
 
 @media (max-width:760px) {
-  .battle-controls-grid {
+  :where(html:not(.asoc-mobile)) .battle-controls-grid {
     grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   }
 }
@@ -11612,13 +11612,13 @@ body.room-mode-casual #blood-tribute-vault-section {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #gm-panel .gm-content,
-  #game-screen.room-mode-casual .player-battle-layout {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-content,
+  :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .player-battle-layout {
     padding-left:8px;
     padding-right:8px;
   }
 
-  .gm-chat-presence {
+  :where(html:not(.asoc-mobile)) .gm-chat-presence {
     font-size:9px;
     letter-spacing:.8px;
   }
@@ -11675,18 +11675,18 @@ body.room-mode-casual .disconnect-host-btn {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #app-layout {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #app-layout {
     min-height:100dvh !important;
     height:auto !important;
   }
 
-  body.room-mode-casual #gm-panel {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel {
     min-height:calc(100dvh - 62px) !important;
     height:calc(100dvh - 62px) !important;
   }
 
-  body.room-mode-casual #disconnect-host-btn,
-  body.room-mode-casual .disconnect-host-btn {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #disconnect-host-btn,
+  :where(html:not(.asoc-mobile)) body.room-mode-casual .disconnect-host-btn {
     right:8px !important;
     bottom:6px !important;
     min-width:0 !important;
@@ -11741,17 +11741,17 @@ body.room-mode-casual #gm-broker-bar {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #gm-panel {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel {
     overflow:visible !important;
   }
 
-  body.room-mode-casual #gm-panel .gm-module-chat {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-module-chat {
     flex:0 0 min(72dvh,720px) !important;
     height:min(72dvh,720px) !important;
     overflow:hidden !important;
   }
 
-  body.room-mode-casual #gm-chat-messages {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-chat-messages {
     height:0 !important;
     overflow-y:auto !important;
   }
@@ -11811,12 +11811,12 @@ body.room-mode-casual #gm-broker-bar {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #gm-panel {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel {
     height:100dvh !important;
     min-height:100dvh !important;
   }
 
-  body.room-mode-casual #gm-panel .gm-content {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-content {
     height:calc(100dvh - 56px) !important;
     padding:8px !important;
   }
@@ -11892,7 +11892,7 @@ body.room-mode-casual #blood-tribute-vault-section {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #gm-panel .gm-chat-panel {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-chat-panel {
     height:min(72dvh,680px) !important;
     min-height:360px !important;
   }
@@ -12035,7 +12035,7 @@ body.room-mode-casual #library-btn-footer {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #app-layout {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #app-layout {
     display:flex !important;
     flex-direction:column !important;
     width:100% !important;
@@ -12043,7 +12043,7 @@ body.room-mode-casual #library-btn-footer {
     min-height:100dvh !important;
   }
 
-  body.room-mode-casual #main-content {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #main-content {
     flex:0 0 auto !important;
     width:100% !important;
     height:auto !important;
@@ -12052,19 +12052,19 @@ body.room-mode-casual #library-btn-footer {
     border-bottom:1px solid rgba(116,126,139,.26);
   }
 
-  body.room-mode-casual #gm-panel {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel {
     flex:1 1 auto !important;
     width:100% !important;
     height:auto !important;
     min-height:0 !important;
   }
 
-  body.room-mode-casual #gm-panel .gm-content {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-content {
     height:100% !important;
     padding:6px 8px 8px !important;
   }
 
-  body.room-mode-casual #gm-panel .gm-footer {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-footer {
     display:none !important;
   }
 }
@@ -12115,7 +12115,7 @@ body.room-mode-casual #gm-chat-messages {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #gm-panel .gm-content {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-content {
     height:100% !important;
   }
 }
@@ -12181,14 +12181,14 @@ body.room-mode-casual #gm-panel .gm-footer {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #gm-panel,
-  body.room-mode-casual #gm-panel .gm-content {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel,
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-content {
     height:calc(100dvh - 58px) !important;
     min-height:calc(100dvh - 58px) !important;
   }
 
-  body.room-mode-casual #gm-panel .gm-module-chat,
-  body.room-mode-casual #gm-panel .gm-chat-panel {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-module-chat,
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-chat-panel {
     height:calc(100dvh - 74px) !important;
     min-height:calc(100dvh - 74px) !important;
   }
@@ -12211,12 +12211,12 @@ body.room-mode-casual #gm-panel .gm-footer {
 }
 
 @media (max-width:760px) {
-  #gm-broker-bar .shadow-broker-form {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .shadow-broker-form {
     width:100% !important;
     max-width:none !important;
   }
 
-  #gm-broker-bar #shadow-broker-composer {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar #shadow-broker-composer {
     min-width:0 !important;
     flex:1 1 auto !important;
   }
@@ -12521,23 +12521,23 @@ body.room-mode-casual #gm-panel .gm-footer {
 }
 
 @media (max-width:760px) {
-  #gm-broker-bar .shadow-broker-form {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .shadow-broker-form {
     gap:5px !important;
   }
 
-  #gm-broker-bar .shadow-broker-form-label {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .shadow-broker-form-label {
     display:none !important;
   }
 
-  #gm-broker-bar .gm-composer-shell {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .gm-composer-shell {
     width:100%;
     min-height:44px;
     padding:3px 5px;
   }
 
-  #gm-broker-bar #gm-image-upload-btn,
-  #gm-broker-bar #gm-emoji-toggle,
-  #gm-broker-bar .gm-attachment-wrap {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar #gm-image-upload-btn,
+  :where(html:not(.asoc-mobile)) #gm-broker-bar #gm-emoji-toggle,
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .gm-attachment-wrap {
     width:34px !important;
     height:34px !important;
     min-width:34px !important;
@@ -12545,12 +12545,12 @@ body.room-mode-casual #gm-panel .gm-footer {
     flex-basis:34px !important;
   }
 
-  #gm-broker-bar #gm-emoji-picker.gm-emoji-picker {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar #gm-emoji-picker.gm-emoji-picker {
     left:0 !important;
     width:min(228px,calc(100vw - 34px)) !important;
   }
 
-  #gm-broker-bar .gm-attachment-menu {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .gm-attachment-menu {
     width:min(218px,calc(100vw - 34px));
   }
 }
@@ -12893,14 +12893,14 @@ body.room-mode-casual #gm-panel .gm-footer {
 }
 
 @media (max-width:760px) {
-  #gm-broker-bar .gm-poll-composer {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .gm-poll-composer {
     left:0;
     width:min(320px,calc(100vw - 22px));
   }
-  #gm-broker-bar .gm-poll-composer-actions {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .gm-poll-composer-actions {
     grid-template-columns:1fr 1fr;
   }
-  #gm-broker-bar .gm-poll-composer-actions label {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .gm-poll-composer-actions label {
     grid-column:1 / -1;
     grid-row:1;
   }
@@ -13011,7 +13011,7 @@ body.room-mode-casual #gm-panel .gm-footer {
 }
 
 @media (max-width:760px) {
-  #gm-broker-bar #gm-emoji-picker.gm-emoji-picker {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar #gm-emoji-picker.gm-emoji-picker {
     width:min(236px,calc(100vw - 34px)) !important;
     max-width:min(236px,calc(100vw - 34px)) !important;
   }
@@ -13038,7 +13038,7 @@ body.room-mode-casual #gm-panel .gm-footer {
 }
 
 @media (max-width:760px) {
-  #gm-broker-bar #gm-emoji-picker.gm-emoji-picker {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar #gm-emoji-picker.gm-emoji-picker {
     left:auto !important;
     right:0 !important;
     width:min(228px,calc(100vw - 16px)) !important;
@@ -13423,10 +13423,10 @@ body.room-mode-recount .gm-module-chat .gm-online-dropdown {
 }
 
 @media (max-width:760px) {
-  #gm-broker-bar .gm-gif-picker {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .gm-gif-picker {
     width:min(325px,calc(100vw - 18px));
   }
-  #gm-broker-bar .gm-gif-grid {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .gm-gif-grid {
     max-height:235px;
   }
 }
@@ -14656,22 +14656,22 @@ body.chat-media-preview-open {
 }
 
 @media (max-width: 760px) {
-  .chat-media-lightbox {
+  :where(html:not(.asoc-mobile)) .chat-media-lightbox {
     padding: 12px;
   }
 
-  .chat-media-lightbox-shell {
+  :where(html:not(.asoc-mobile)) .chat-media-lightbox-shell {
     width: min(94vw, 760px);
     max-height: 82dvh;
     padding: 8px;
   }
 
-  .chat-media-lightbox-stage,
-  .chat-media-lightbox-media {
+  :where(html:not(.asoc-mobile)) .chat-media-lightbox-stage,
+  :where(html:not(.asoc-mobile)) .chat-media-lightbox-media {
     max-height: 72dvh;
   }
 
-  .chat-media-lightbox-close {
+  :where(html:not(.asoc-mobile)) .chat-media-lightbox-close {
     top: -8px;
     right: -8px;
   }
@@ -14726,7 +14726,7 @@ body.chat-media-preview-open {
   49%, 100% { opacity: .08; }
 }
 @media (max-width: 760px) {
-  .asoc-mode-transition--battle .asoc-mode-transition-sub {
+  :where(html:not(.asoc-mobile)) .asoc-mode-transition--battle .asoc-mode-transition-sub {
     width: min(94vw, 760px);
     min-height: 3.2em;
     margin-top: 12px;
@@ -14794,7 +14794,7 @@ body.chat-media-preview-open {
 }
 
 @media (max-width: 760px) {
-  .asoc-mode-transition--battle .asoc-mode-transition-omen {
+  :where(html:not(.asoc-mobile)) .asoc-mode-transition--battle .asoc-mode-transition-omen {
     bottom: clamp(54px, 10vh, 90px);
     width: min(94vw, 760px);
     font-size: clamp(1.08rem, 5.4vw, 1.7rem);
@@ -14929,20 +14929,20 @@ body.room-mode-casual #gm-broker-bar #shadow-broker-composer {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #main-content,
-  body.room-mode-casual #gm-panel .gm-content {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #main-content,
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-content {
     padding:8px !important;
   }
 
-  body.room-mode-casual #gm-broker-bar {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-broker-bar {
     padding:8px 10px !important;
   }
 
-  body.room-mode-casual #gm-broker-bar .shadow-broker-form {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-broker-bar .shadow-broker-form {
     display:block !important;
   }
 
-  body.room-mode-casual #gm-broker-bar .shadow-broker-form-label {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-broker-bar .shadow-broker-form-label {
     display:none !important;
   }
 }
@@ -15047,7 +15047,7 @@ body.room-mode-casual #gm-broker-bar {
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #gm-broker-bar {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-broker-bar {
     padding:8px 10px max(34px, env(safe-area-inset-bottom)) !important;
   }
 }
@@ -16032,7 +16032,7 @@ body.bice-asoc-active > *:not(.bice-asoc-overlay) {
 }
 
 @media (max-width:760px) {
-  .gm-poll-card {
+  :where(html:not(.asoc-mobile)) .gm-poll-card {
     width:100% !important;
   }
 }
@@ -16132,12 +16132,12 @@ body.room-mode-casual #battle-controls-panel .battle-controls-utility-row .toolb
 }
 
 @media (max-width:760px) {
-  body.room-mode-casual #battle-controls-panel {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #battle-controls-panel {
     min-height:0 !important;
     height:auto !important;
   }
 
-  body.room-mode-casual #battle-controls-panel > .battle-controls-utility-row {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #battle-controls-panel > .battle-controls-utility-row {
     margin-top:14px !important;
   }
 }
@@ -16365,11 +16365,11 @@ body.room-mode-casual #battle-controls-panel .battle-controls-utility-row .toolb
 }
 
 @media (max-width:760px) {
-  #gm-broker-bar .gm-poll-config-row {
+  :where(html:not(.asoc-mobile)) #gm-broker-bar .gm-poll-config-row {
     align-items:stretch;
     flex-direction:column;
   }
-  .gm-poll-card-head {
+  :where(html:not(.asoc-mobile)) .gm-poll-card-head {
     align-items:flex-start !important;
   }
 }
@@ -16618,25 +16618,25 @@ body.room-mode-casual #battle-controls-panel .battle-controls-utility-row .toolb
 }
 
 @media (max-width: 900px) {
-  .aftermath-overlay {
+  :where(html:not(.asoc-mobile)) .aftermath-overlay {
     padding: 18px;
   }
 
-  .aftermath-stage {
+  :where(html:not(.asoc-mobile)) .aftermath-stage {
     width: min(94vw, 760px);
     max-height: 88vh;
   }
 
-  .aftermath-panel {
+  :where(html:not(.asoc-mobile)) .aftermath-panel {
     min-height: 220px;
     padding: 24px 22px;
   }
 
-  .aftermath-title {
+  :where(html:not(.asoc-mobile)) .aftermath-title {
     letter-spacing: .18em;
   }
 
-  .aftermath-kicker {
+  :where(html:not(.asoc-mobile)) .aftermath-kicker {
     letter-spacing: .16em;
   }
 }
@@ -16780,13 +16780,13 @@ body.room-mode-casual #battle-controls-panel .battle-controls-utility-row .toolb
 }
 
 @media (max-width:760px) {
-  .chat-pending-media {
+  :where(html:not(.asoc-mobile)) .chat-pending-media {
     left:4px;
     width:calc(100% - 8px);
     min-height:66px;
   }
 
-  .chat-pending-media-thumb {
+  :where(html:not(.asoc-mobile)) .chat-pending-media-thumb {
     width:54px;
     height:50px;
     flex-basis:54px;
@@ -17249,8 +17249,8 @@ button.gm-chat-gif-link:focus-visible {
 }
 #game-screen .threefold-icon { font-size:9px; font-weight:900; letter-spacing:-.03em; }
 @media (max-width: 700px) {
-  #game-screen .threefold-panel { inset:52px 7px 74px; padding:8px; }
-  #game-screen .threefold-shell { width:100%; }
+  :where(html:not(.asoc-mobile)) #game-screen .threefold-panel { inset:52px 7px 74px; padding:8px; }
+  :where(html:not(.asoc-mobile)) #game-screen .threefold-shell { width:100%; }
 }
 
 #game-screen .threefold-opponent > span { display:grid; gap:2px; }
@@ -17302,7 +17302,7 @@ button.gm-chat-gif-link:focus-visible {
 @keyframes rollFlamesBottom { from{height:18px;transform:rotate(180deg) scaleX(.96) scaleY(.86)} to{height:29px;transform:rotate(180deg) scaleX(1.02) scaleY(1.12)} }
 @media (prefers-reduced-motion:reduce) { .asoc-roll-entry.roll-legendary,.asoc-roll-entry.roll-legendary::before,.asoc-roll-entry.roll-legendary::after { animation:none; } }
 @media (max-width:560px) {
-  .asoc-roll-entry { width:100%; gap:5px; padding:8px 10px; }
+  :where(html:not(.asoc-mobile)) .asoc-roll-entry { width:100%; gap:5px; padding:8px 10px; }
 }
 
 /* ASOC SLASH COMMAND SYSTEM CARDS -- dice / flip / choose / order / stats /
@@ -17384,8 +17384,8 @@ button.gm-chat-gif-link:focus-visible {
 .player-quest-hud{position:fixed;right:22px;bottom:86px;z-index:9000;padding:11px 16px;border:1px solid #9b5fc0;border-left:4px solid #c277ed;background:linear-gradient(100deg,#24102f,#0d0b13);color:#ebcfff;box-shadow:0 0 22px #8f42b944;font:900 .62rem var(--font-machine);letter-spacing:.12em;cursor:pointer}.player-quest-hud[hidden]{display:none!important}.player-contract{position:relative;width:min(560px,calc(100vw - 28px));padding:26px}.player-contract>[data-q-close]{position:absolute;right:13px;top:9px}.player-contract>p{margin:22px 0;white-space:pre-wrap;font:700 1rem/1.55 var(--font-system)}.player-contract .quest-actions button{min-height:46px;font-size:.66rem}.player-contract.status-offered{border-color:#a865c9;box-shadow:0 30px 100px #000,0 0 38px #8c3eb944}
 .contract-sealed-toast{position:fixed;left:50%;top:18%;z-index:31000;transform:translate(-50%,-10px);padding:18px 28px;border:1px solid #b56cda;background:linear-gradient(135deg,#351543,#110b17);color:#f2d8ff;box-shadow:0 0 42px #9f48c877;font:900 .78rem var(--font-machine);letter-spacing:.22em;opacity:0;animation:contract-sealed 2.4s ease forwards;pointer-events:none}.contract-sealed-toast small{display:block;margin-top:7px;color:#bd82d8;font-size:.5rem;text-align:center}@keyframes contract-sealed{12%,72%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-12px)}}
 .daily-contract-hud{bottom:134px!important;border-color:#bd9140!important;border-left-color:#f0c45b!important;background:linear-gradient(100deg,#33250d,#110e09)!important;color:#ffe29a!important;box-shadow:0 0 22px #c18a3040!important}.daily-contracts{width:min(650px,calc(100vw - 28px))}.daily-contracts>header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:4px 0 20px;padding-right:25px}.daily-contracts>header h2{margin:5px 0}.daily-contracts>header>span{color:#e5ba60;font:900 .58rem var(--font-machine);letter-spacing:.1em}.daily-contract{position:relative;margin:10px 0;padding:14px;border:1px solid #4b3a25;background:linear-gradient(90deg,#18130d,#0d0d10);overflow:hidden}.daily-contract>div:first-child{display:flex;justify-content:space-between;gap:12px}.daily-contract b{color:#ead29b;font:900 .7rem var(--font-machine);letter-spacing:.09em}.daily-contract>div:first-child span{color:#b69a63;font:800 .65rem var(--font-machine)}.daily-contract p{margin:7px 0;color:#a9a4aa;font-size:.76rem}.daily-contract>small{display:block;margin-top:7px;color:#d5ad58;font:900 .52rem var(--font-machine);letter-spacing:.12em}.daily-progress{height:6px;border:1px solid #463a2a;background:#08090c}.daily-progress i{display:block;height:100%;background:linear-gradient(90deg,#8c5e20,#efc057);box-shadow:0 0 10px #d59c3f}.daily-contract.complete{border-color:#43805d;background:linear-gradient(90deg,#102018,#0c1110)}.daily-contract.complete b,.daily-contract.complete small{color:#7ee1a4}.daily-contract.complete .daily-progress i{background:#55ce83}.daily-bonus{border-color:#72468a;background:linear-gradient(90deg,#25122f,#100c15)}.daily-bonus b,.daily-bonus small{color:#dc9cff}.daily-gm-summary{display:flex;justify-content:space-between;margin-bottom:14px;padding:12px;border:1px solid #52345f;background:#17101d;color:#d9b7e9;font:900 .6rem var(--font-machine);letter-spacing:.1em}.daily-gm-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.daily-gm-player{padding:14px;border:1px solid #44334e;background:#0c0d12}.daily-gm-player>header{display:flex;justify-content:space-between;margin-bottom:10px;color:#ddb9ed}.daily-gm-row{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #29232d;color:#918897;font:800 .54rem var(--font-machine)}.daily-gm-row.complete{color:#69cf91}.daily-gm-bonus{margin-top:8px;padding:7px;border:1px solid #50325d;color:#9d70b2;font:900 .52rem var(--font-machine)}.daily-gm-bonus.complete{border-color:#43805d;color:#69cf91}
-@media(max-width:700px){.quest-create{grid-template-columns:1fr}.quest-create>*{grid-column:1!important}.quests-overlay{padding:8px}.quests-body{padding:14px}.player-quest-hud{right:10px;bottom:74px;max-width:calc(100vw - 20px)}}
-@media(max-width:700px){.daily-contract-hud{bottom:118px!important}.daily-gm-list{grid-template-columns:1fr}.daily-contracts>header{display:block}.daily-contracts>header>span{display:block;margin-top:8px}}
+@media(max-width:700px){:where(html:not(.asoc-mobile)) .quest-create{grid-template-columns:1fr}:where(html:not(.asoc-mobile)) .quest-create>*{grid-column:1!important}:where(html:not(.asoc-mobile)) .quests-overlay{padding:8px}:where(html:not(.asoc-mobile)) .quests-body{padding:14px}:where(html:not(.asoc-mobile)) .player-quest-hud{right:10px;bottom:74px;max-width:calc(100vw - 20px)}}
+@media(max-width:700px){:where(html:not(.asoc-mobile)) .daily-contract-hud{bottom:118px!important}:where(html:not(.asoc-mobile)) .daily-gm-list{grid-template-columns:1fr}:where(html:not(.asoc-mobile)) .daily-contracts>header{display:block}:where(html:not(.asoc-mobile)) .daily-contracts>header>span{display:block;margin-top:8px}}
 
 /* =========================================================
    QUEST LEDGER // ASOC occult-command visual system
@@ -17440,7 +17440,7 @@ button.gm-chat-gif-link:focus-visible {
 .daily-contract-hud{border-color:#8f6930!important;border-left-color:#d9a643!important;background:linear-gradient(110deg,#251a0b,#0d0d10)!important}.daily-contracts{width:min(760px,calc(100vw - 28px));padding:34px 38px 38px}.daily-ledger-crest{position:absolute!important;left:50%;top:0;display:grid;place-items:center;width:58px;height:32px;transform:translate(-50%,-35%);border:1px solid #a07937;background:#17120b;color:#e8bd59;clip-path:polygon(15% 0,85% 0,100% 50%,85% 100%,15% 100%,0 50%);box-shadow:0 0 18px #000}.daily-contracts>header{align-items:center;margin:0 0 22px;padding:4px 34px 20px 0;border-bottom:1px solid #604a2b}.daily-contracts>header h2{font-size:1.55rem;background:linear-gradient(#fff0bd,#c79741);-webkit-background-clip:text;background-clip:text;color:transparent}.daily-contracts>header p{margin:5px 0 0;color:#8e877c;font-size:.72rem}.daily-contracts>header>span{display:grid;gap:5px;min-width:160px;padding:10px 14px;border:1px solid #52442e;background:#0d0d0e;text-align:right}.daily-contracts>header>span small{color:#756c5d}.daily-contracts>header>span b{color:#e1b957;font-size:.75rem}.daily-contract-list{display:grid;gap:10px}.daily-contract{display:grid;grid-template-columns:58px 1fr;gap:14px;margin:0;padding:15px 17px;border-color:#4d4230;background:linear-gradient(90deg,#17140f,#0b0c0f)}.daily-contract::after{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 0 76%,rgba(209,164,76,.035) 76% 77%,transparent 77%);pointer-events:none}.daily-contract-icon{display:grid;place-items:center;width:48px;height:48px;align-self:center;border:1px solid #705b37;border-radius:50%;background:radial-gradient(circle,#2a2113,#0b0c0f);color:#e0b354;font:900 1rem var(--font-machine);box-shadow:inset 0 0 0 4px #0b0c0f,0 0 0 1px #2a251d}.daily-contract-copy>header{display:flex;justify-content:space-between;gap:12px}.daily-contract-copy>header small{display:block;color:#756d61;font-size:.42rem}.daily-contract-copy>header b{display:block;margin-top:3px;color:#e9d39e;font-size:.74rem}.daily-contract-copy>header>span{color:#b29a69;font:900 .62rem var(--font-machine)}.daily-contract-copy>p{margin:8px 0;color:#a7a199;font-size:.76rem}.daily-progress{position:relative;height:9px;border-color:#55472f;background:#060709;box-shadow:inset 0 1px 3px #000}.daily-progress i{background:linear-gradient(90deg,#6f4516,#dcaa43 75%,#ffe18a);transition:width .4s ease}.daily-progress em{position:absolute;right:5px;top:-1px;color:#070708;font:900 7px/9px var(--font-machine);font-style:normal;text-shadow:0 0 2px #fff}.daily-contract footer{display:flex;justify-content:space-between;gap:12px;margin-top:8px}.daily-contract footer>span{color:#716b63;font:800 .45rem var(--font-machine);letter-spacing:.11em}.daily-contract footer>b{color:#d9ac4b;font:900 .5rem var(--font-machine);letter-spacing:.08em}.daily-contract footer b i{font-style:normal}.daily-contract.complete{border-color:#47765a;background:linear-gradient(90deg,#102018,#0a0f0c)}.daily-contract.complete .daily-contract-icon{border-color:#508265;color:#7fe3a5;background:radial-gradient(circle,#173523,#0a0e0b);box-shadow:inset 0 0 0 4px #0a0e0b,0 0 14px rgba(71,190,115,.18)}.daily-contract.complete .daily-contract-copy>header b,.daily-contract.complete footer>b{color:#82dfa4}.daily-contract.complete .daily-progress i{background:linear-gradient(90deg,#286743,#71d598)}.daily-bonus{margin-top:14px;border-color:#81539a;background:radial-gradient(circle at 0 50%,rgba(143,74,165,.2),transparent 30%),linear-gradient(90deg,#211128,#0d0a11)}.daily-bonus .daily-contract-icon{border-color:#84549a;color:#e0a5f7;background:radial-gradient(circle,#351640,#0d0911);box-shadow:inset 0 0 0 4px #0d0911,0 0 16px rgba(177,72,218,.18)}.daily-bonus .daily-contract-copy>header b,.daily-bonus footer>b{color:#dca2f3}
 .daily-gm-summary{display:grid;grid-template-columns:1fr auto;align-items:center;gap:5px 18px;padding:16px 18px;border-color:#705932;background:linear-gradient(90deg,#22190d,#0d0d10)}.daily-gm-summary small{display:block;color:#81735d;font-size:.42rem}.daily-gm-summary b{display:block;margin-top:4px;color:#e5c370;font-size:.7rem}.daily-gm-summary strong{grid-row:1/3;grid-column:2;color:#f0c962;font:900 1.35rem var(--font-machine)}.daily-gm-summary strong em{color:#796d58;font-size:.65rem;font-style:normal}.daily-gm-meter{grid-column:1/-1;height:5px;margin-top:7px;background:#090a0d}.daily-gm-meter i{display:block;height:100%;background:linear-gradient(90deg,#74489a,#daa94d);box-shadow:0 0 9px #b37a45}.daily-gm-list{gap:14px}.daily-gm-player{padding:0;border-color:#4d4231;background:#0b0c0f;overflow:hidden}.daily-gm-player>header{align-items:center;margin:0;padding:13px 14px;border-bottom:1px solid #443922;background:linear-gradient(90deg,#1b160e,#0d0d10)}.daily-player-sigil{display:grid;place-items:center;width:34px;height:34px;border:1px solid #76558a;transform:rotate(45deg);background:#17101c;color:#d69aeb;font:900 .7rem var(--font-machine)}.daily-gm-player>header>div:nth-child(2){flex:1;margin-left:12px}.daily-gm-player>header small{display:block;color:#6d6570;font-size:.39rem}.daily-gm-player>header b{display:block;margin-top:3px;color:#ead19a}.daily-gm-player>header>span{padding:5px 8px;border:1px solid #625033;color:#dab65f;font:900 .6rem var(--font-machine)}.daily-gm-row{align-items:center;gap:9px;padding:9px 14px;border-top:0;border-bottom:1px solid #25231f}.daily-gm-row i{color:#6c5a38;font-style:normal}.daily-gm-row span{flex:1}.daily-gm-row.complete i,.daily-gm-row.complete span,.daily-gm-row.complete b{color:#71d398}.daily-gm-bonus{display:flex;gap:8px;margin:0;padding:10px 14px;border:0;background:#120d16}.daily-gm-bonus i{color:#b775d0;font-style:normal}.daily-gm-bonus b{margin-left:auto}.daily-gm-player.all-complete{border-color:#427556;box-shadow:0 0 18px rgba(72,174,108,.08)}
 @keyframes quest-orbit{to{transform:rotate(360deg)}}
-@media(max-width:700px){.quests-console>header{padding:20px 18px 14px}.quests-console>header p{display:none}.quests-console>nav{padding:0 8px}.quests-console>nav button{min-height:48px;padding:8px 4px}.quests-console>nav button i{display:none}.quests-console>nav button span{font-size:.5rem}.quests-body{padding:14px}.quest-confirm{padding:85px 14px 14px}.quest-wax-seal{left:50%;top:14px;transform:translateX(-50%)}.quest-confirm-ledger{grid-template-columns:1fr 1fr}.quest-card{padding:58px 12px 14px}.quest-card-rune{left:14px;top:14px;width:27px;height:27px}.quest-card>header>span{position:absolute;right:12px;top:14px}.quest-visibility{grid-template-columns:1fr}.player-contract,.daily-contracts{padding:28px 18px 22px}.player-contract-heading{padding-inline:10px}.player-contract-sigil{width:38px;height:38px}.player-contract-heading h2{font-size:1.2rem}.quest-reward-panel{grid-template-columns:1fr}.quest-reward-panel>div+div{border-left:0;border-top:1px solid #4f432f}.daily-contracts>header{display:grid;padding-right:30px}.daily-contracts>header>span{min-width:0;text-align:left}.daily-contract{grid-template-columns:42px 1fr;padding:12px 10px}.daily-contract-icon{width:36px;height:36px}.daily-contract-copy>header{display:grid}.daily-contract footer{display:grid}.daily-gm-summary{grid-template-columns:1fr auto}.player-quest-hud{min-width:0;max-width:calc(100vw - 20px)}}
+@media(max-width:700px){:where(html:not(.asoc-mobile)) .quests-console>header{padding:20px 18px 14px}:where(html:not(.asoc-mobile)) .quests-console>header p{display:none}:where(html:not(.asoc-mobile)) .quests-console>nav{padding:0 8px}:where(html:not(.asoc-mobile)) .quests-console>nav button{min-height:48px;padding:8px 4px}:where(html:not(.asoc-mobile)) .quests-console>nav button i{display:none}:where(html:not(.asoc-mobile)) .quests-console>nav button span{font-size:.5rem}:where(html:not(.asoc-mobile)) .quests-body{padding:14px}:where(html:not(.asoc-mobile)) .quest-confirm{padding:85px 14px 14px}:where(html:not(.asoc-mobile)) .quest-wax-seal{left:50%;top:14px;transform:translateX(-50%)}:where(html:not(.asoc-mobile)) .quest-confirm-ledger{grid-template-columns:1fr 1fr}:where(html:not(.asoc-mobile)) .quest-card{padding:58px 12px 14px}:where(html:not(.asoc-mobile)) .quest-card-rune{left:14px;top:14px;width:27px;height:27px}:where(html:not(.asoc-mobile)) .quest-card>header>span{position:absolute;right:12px;top:14px}:where(html:not(.asoc-mobile)) .quest-visibility{grid-template-columns:1fr}:where(html:not(.asoc-mobile)) .player-contract,:where(html:not(.asoc-mobile)) .daily-contracts{padding:28px 18px 22px}:where(html:not(.asoc-mobile)) .player-contract-heading{padding-inline:10px}:where(html:not(.asoc-mobile)) .player-contract-sigil{width:38px;height:38px}:where(html:not(.asoc-mobile)) .player-contract-heading h2{font-size:1.2rem}:where(html:not(.asoc-mobile)) .quest-reward-panel{grid-template-columns:1fr}:where(html:not(.asoc-mobile)) .quest-reward-panel>div+div{border-left:0;border-top:1px solid #4f432f}:where(html:not(.asoc-mobile)) .daily-contracts>header{display:grid;padding-right:30px}:where(html:not(.asoc-mobile)) .daily-contracts>header>span{min-width:0;text-align:left}:where(html:not(.asoc-mobile)) .daily-contract{grid-template-columns:42px 1fr;padding:12px 10px}:where(html:not(.asoc-mobile)) .daily-contract-icon{width:36px;height:36px}:where(html:not(.asoc-mobile)) .daily-contract-copy>header{display:grid}:where(html:not(.asoc-mobile)) .daily-contract footer{display:grid}:where(html:not(.asoc-mobile)) .daily-gm-summary{grid-template-columns:1fr auto}:where(html:not(.asoc-mobile)) .player-quest-hud{min-width:0;max-width:calc(100vw - 20px)}}
 @media(prefers-reduced-motion:reduce){.quest-awaiting i{animation:none}.daily-progress i{transition:none}}
 
 /* BOARD SOLVE CORONATIONS // verdict-driven name and crown theatre. */
@@ -17468,7 +17468,7 @@ button.gm-chat-gif-link:focus-visible {
 @keyframes crown-descend{0%{opacity:0;transform:translate(-50%,-165px) scale(.3)}20%,76%{opacity:1;transform:translate(-50%,-118px) scale(1)}100%{opacity:0;transform:translate(-50%,-110px) scale(1.08)}}
 @keyframes solve-plate{0%{opacity:0;transform:scale(.65)}15%,78%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.04)}}
 .final-coronation .solve-crown{animation-name:crown-descend-final}@keyframes crown-descend-final{0%{opacity:0;transform:translate(-50%,-205px) scale(.3) rotate(-6deg)}18%,78%{opacity:1;transform:translate(-50%,-154px) scale(1) rotate(0)}100%{opacity:0;transform:translate(-50%,-144px) scale(1.12)}}
-@media(max-width:700px){.solve-nameplate{min-width:82%;padding:14px 25px 12px}.solve-nameplate b{font-size:1rem}.solve-nameplate::before{left:11px}.solve-nameplate::after{right:11px}.final-coronation .solve-nameplate{min-width:90%;padding:21px 28px 17px}.solve-crown{font-size:1.8rem}.final-coronation .solve-crown{font-size:3.6rem}}
+@media(max-width:700px){:where(html:not(.asoc-mobile)) .solve-nameplate{min-width:82%;padding:14px 25px 12px}:where(html:not(.asoc-mobile)) .solve-nameplate b{font-size:1rem}:where(html:not(.asoc-mobile)) .solve-nameplate::before{left:11px}:where(html:not(.asoc-mobile)) .solve-nameplate::after{right:11px}:where(html:not(.asoc-mobile)) .final-coronation .solve-nameplate{min-width:90%;padding:21px 28px 17px}:where(html:not(.asoc-mobile)) .solve-crown{font-size:1.8rem}:where(html:not(.asoc-mobile)) .final-coronation .solve-crown{font-size:3.6rem}}
 @media(prefers-reduced-motion:reduce){.board-solve-coronation,.board-solve-coronation::before,.solve-light-burst,.solve-light-burst>i,.solve-orbit,.solve-crown,.solve-nameplate{animation:none!important}.board-solve-coronation{opacity:1}.board-solve-coronation::before,.solve-light-burst,.solve-orbit{display:none}.solve-crown{opacity:1;transform:translate(-50%,-118px)}.final-coronation .solve-crown{transform:translate(-50%,-154px)}.solve-nameplate{opacity:1;transform:none}}
 .chat-system-emote { --sys-accent:#e8a33d; }
 .chat-system-emote .chat-system-body { font-style:italic; }
@@ -17478,7 +17478,7 @@ button.gm-chat-gif-link:focus-visible {
 .chat-system-command code { color:var(--sys-accent); font-weight:900; white-space:nowrap; }
 .chat-system-command span { color:#aab1b9; font-size:.66rem; font-weight:600; }
 @media (max-width:560px) {
-  .chat-system-card { width:100%; }
+  :where(html:not(.asoc-mobile)) .chat-system-card { width:100%; }
 }
 
 /* CASUAL COMMAND RAIL BOTTOM LOCK
@@ -17649,7 +17649,7 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
 .gm-chat-context-menu:not([hidden]),.chat-message-context-menu:not([hidden]){display:block}
 .gm-chat-context-menu[hidden],.chat-message-context-menu[hidden],.gm-chat-context-menu button[hidden],.chat-message-context-menu button[hidden]{display:none !important}
 .gm-chat-context-menu button,.chat-message-context-menu button{display:grid;width:100% !important;min-height:38px;padding:7px 9px !important;border-radius:5px;white-space:nowrap}
-@media(max-width:560px){.chat-reaction-details{width:calc(100vw - 16px)}.gm-chat-context-menu,.chat-message-context-menu{width:min(260px,calc(100vw - 16px)) !important}.gm-chat-context-menu button,.chat-message-context-menu button{min-height:44px}}
+@media(max-width:560px){:where(html:not(.asoc-mobile)) .chat-reaction-details{width:calc(100vw - 16px)}:where(html:not(.asoc-mobile)) .gm-chat-context-menu,:where(html:not(.asoc-mobile)) .chat-message-context-menu{width:min(260px,calc(100vw - 16px)) !important}:where(html:not(.asoc-mobile)) .gm-chat-context-menu button,:where(html:not(.asoc-mobile)) .chat-message-context-menu button{min-height:44px}}
 
 /* GAME FOCUS CHAT // fast tactical reading during live rounds */
 .chat-priority-lane {
@@ -17762,7 +17762,7 @@ body:not(.room-mode-casual) .gm-minigames-panel{display:none!important}
 .gm-minigames-menu[hidden],.gm-minigames-panel[hidden]{display:none!important}.gm-minigames-menu{position:absolute;z-index:146;inset:49px 10px 76px;display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));align-content:center;gap:14px;padding:clamp(18px,4vw,54px);border:1px solid rgba(116,70,143,.62);border-radius:10px;background:radial-gradient(circle at 50% 18%,rgba(121,47,157,.2),transparent 38%),linear-gradient(145deg,rgba(31,17,37,.98),rgba(10,11,17,.985));box-shadow:inset 0 1px rgba(255,255,255,.04),0 18px 45px #000}
 .gm-minigames-menu>div{grid-column:1/-1;padding:0 6px 18px;border-bottom:1px solid rgba(123,81,146,.35);text-align:center}.gm-minigames-menu>div b{color:#e6c7f7;font:900 clamp(.8rem,1.4vw,1.15rem) var(--font-machine);letter-spacing:.18em}.gm-minigames-menu>div small{margin-top:6px;color:#8e8295;font-size:.56rem;letter-spacing:.14em}
 .gm-minigames-menu>button{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:14px;min-height:108px;width:100%;padding:18px;border:1px solid #4b3a56;border-radius:10px;background:linear-gradient(145deg,rgba(35,25,42,.98),rgba(17,19,25,.98));color:#e5e8ec;text-align:left;cursor:pointer;box-shadow:inset 0 1px rgba(255,255,255,.035)}.gm-minigames-menu>button:hover{border-color:#a75bd5;background:linear-gradient(145deg,rgba(67,34,81,.98),rgba(26,21,33,.98));box-shadow:0 0 22px rgba(160,70,210,.18)}.gm-minigames-menu>button strong{display:grid;place-items:center;width:58px;height:58px;border:1px solid rgba(148,91,184,.55);border-radius:50%;color:#d4a4f3;font:900 1rem var(--font-machine)}.gm-minigames-menu>button img{width:58px;height:58px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(183,239,44,.42))}.gm-minigames-menu>button span b{font-size:.72rem;letter-spacing:.08em}.gm-minigames-menu>button span small{margin-top:5px;color:#96909b;font-size:.52rem}.gm-minigames-menu>button i{color:#bd91db;font-size:.5rem;font-style:normal;letter-spacing:.08em}
-@media(max-width:760px){.gm-minigames-menu{grid-template-columns:1fr;align-content:start;overflow:auto;padding:16px}.gm-minigames-menu>button{min-height:90px}.gm-minigames-toggle{padding:0 10px;font-size:.5rem}}
+@media(max-width:760px){:where(html:not(.asoc-mobile)) .gm-minigames-menu{grid-template-columns:1fr;align-content:start;overflow:auto;padding:16px}:where(html:not(.asoc-mobile)) .gm-minigames-menu>button{min-height:90px}:where(html:not(.asoc-mobile)) .gm-minigames-toggle{padding:0 10px;font-size:.5rem}}
 .gm-minigames-panel{position:absolute;z-index:145;inset:52px 10px 76px;display:grid;place-items:center;padding:16px;background:rgba(4,6,9,.78);backdrop-filter:blur(7px)}.gm-minigames-shell{width:min(390px,94%);max-height:100%;overflow:auto;border:1px solid #694c7c;border-radius:13px;background:linear-gradient(#18131e,#090b0f);box-shadow:0 20px 55px #000}.gm-minigames-shell header{display:flex;justify-content:space-between;padding:14px;border-bottom:1px solid #302737}.gm-minigames-shell header b,.gm-minigames-shell header small{display:block}.gm-minigames-shell header small{color:#7c7482;font-size:.48rem}.gm-minigames-shell header button{border:0;background:transparent;color:#aaa;font-size:1.3rem;cursor:pointer}#gm-minigames-content{padding:16px}.gm-arcade-kicker{color:#b477db;font-size:.55rem;letter-spacing:.14em;margin-bottom:9px}.gm-arcade-opponents{display:grid;gap:6px}.gm-arcade-opponents button{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;padding:8px;border:1px solid #2d333b;border-radius:7px;background:#14181e;color:#eee;text-align:left;cursor:pointer}.gm-arcade-opponents img{width:30px;height:30px;border-radius:50%;object-fit:cover}.gm-arcade-opponents i{color:#aa83c7;font-size:.5rem;font-style:normal}.gm-arcade-status{text-align:center;padding:28px 8px;color:#89919b}.gm-arcade-status b,.gm-arcade-status span{display:block}.gm-arcade-status b{color:#eee;margin-bottom:7px}.gm-arcade-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.gm-arcade-actions button,.gm-arcade-rematch{padding:9px;border:1px solid #754b94;border-radius:7px;background:#21152b;color:#e9d9f4}.gm-arcade-versus{display:grid;grid-template-columns:1fr auto 1fr;gap:9px;text-align:center}.gm-arcade-versus span{display:grid}.gm-arcade-turn{text-align:center;margin:14px;color:#c486ef;font-weight:900}.gm-arcade-board{position:relative;width:280px;max-width:100%;aspect-ratio:1;margin:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.gm-arcade-board button{border:1px solid #3c414a;border-radius:8px;background:#14181e;color:#d0a5ee;font-size:2rem}.gm-arcade-rematch{display:block;margin:12px auto 0}.gm-concoction-drop{display:block;width:140px;margin:10px auto;filter:drop-shadow(0 0 14px #9fdf16)}.gm-arcade-result{text-align:center;color:#d5ed87;font-size:1.2rem;font-weight:900;padding:15px}
 @media (prefers-reduced-motion:reduce) { .threefold-win-line { animation:none; transform:translate(-50%,-50%) rotate(var(--line-angle)) scaleX(1); } }
 #game-screen .casual-minigames-dock { display:none; }
@@ -17923,19 +17923,19 @@ body:not(.room-mode-casual) .gm-minigames-panel{display:none!important}
   }
 }
 @media (max-width:760px) {
-  #game-screen.room-mode-casual .casual-minigames-dock {
+  :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual .casual-minigames-dock {
     position:absolute;
     left:10px;
     top:10px;
   }
-  #game-screen .casual-minigames-toggle {
+  :where(html:not(.asoc-mobile)) #game-screen .casual-minigames-toggle {
     width:58px;
     height:58px;
     padding:6px;
   }
-  #game-screen .casual-minigames-emblem { width:30px; height:30px; }
-  #game-screen .casual-minigames-label { display:none; }
-  #game-screen .casual-minigames-menu {
+  :where(html:not(.asoc-mobile)) #game-screen .casual-minigames-emblem { width:30px; height:30px; }
+  :where(html:not(.asoc-mobile)) #game-screen .casual-minigames-label { display:none; }
+  :where(html:not(.asoc-mobile)) #game-screen .casual-minigames-menu {
     left:66px;
     width:min(300px,calc(100vw - 86px));
   }
@@ -18133,8 +18133,8 @@ body:not(.room-mode-casual) .gm-minigames-panel{display:none!important}
   50% { transform:translateY(-3px) scale(1.035); filter:drop-shadow(0 0 16px rgba(201,255,28,.68)); }
 }
 @media (max-width:560px) {
-  #game-screen .concoction-wheel-wrap { width:218px; height:218px; }
-  #game-screen .unstable-concoction-shell { padding:17px 12px 15px; }
+  :where(html:not(.asoc-mobile)) #game-screen .concoction-wheel-wrap { width:218px; height:218px; }
+  :where(html:not(.asoc-mobile)) #game-screen .unstable-concoction-shell { padding:17px 12px 15px; }
 }
 
 /* =========================================================================
@@ -18591,12 +18591,12 @@ body:not(.room-mode-casual) .gm-minigames-panel{display:none!important}
 .ritual-tribute-form-status { margin-top: 10px; min-height: 1.2em; color: #d8cee5; font: 700 0.62rem var(--font-machine); letter-spacing: 0.6px; }
 
 @media (max-width: 560px) {
-  .ritual-pentagon { width: 132px; height: 132px; }
-  .ritual-overlay-body { padding: 18px 16px 16px; }
-  .ritual-tracker { padding: 8px; }
-  .ritual-tracker .ritual-stage { display: block; width: 98%; padding: 15px 14px 13px; }
-  .ritual-tracker .ritual-pentagon { width: 165px; height: 165px; }
-  .ritual-tracker .ritual-soul-name { width: 82px; font-size: .43rem; }
+  :where(html:not(.asoc-mobile)) .ritual-pentagon { width: 132px; height: 132px; }
+  :where(html:not(.asoc-mobile)) .ritual-overlay-body { padding: 18px 16px 16px; }
+  :where(html:not(.asoc-mobile)) .ritual-tracker { padding: 8px; }
+  :where(html:not(.asoc-mobile)) .ritual-tracker .ritual-stage { display: block; width: 98%; padding: 15px 14px 13px; }
+  :where(html:not(.asoc-mobile)) .ritual-tracker .ritual-pentagon { width: 165px; height: 165px; }
+  :where(html:not(.asoc-mobile)) .ritual-tracker .ritual-soul-name { width: 82px; font-size: .43rem; }
 }
 
 /* REPLY READABILITY // reply context is conversation, not machine metadata.
@@ -19390,7 +19390,7 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
    ========================================================= */
 #game-screen .casual-minigames-menu { width: 340px; }
 @media (max-width: 760px) {
-  #game-screen .casual-minigames-menu { width: min(340px, calc(100vw - 86px)); }
+  :where(html:not(.asoc-mobile)) #game-screen .casual-minigames-menu { width: min(340px, calc(100vw - 86px)); }
 }
 #game-screen .casual-minigame-card {
   grid-template-columns: 46px minmax(0, 1fr) auto;
@@ -19620,10 +19620,10 @@ body:is(.room-mode-casual,.room-mode-battle-armed,.room-mode-battle,.room-mode-r
 
 /* Narrow screens: keep the old compact proportions where space is scarce. */
 @media (max-width: 760px) {
-  #game-screen.room-mode-casual:not(#casual-scale-guard) .hero-stat { height: 26px !important; padding: 0 7px !important; }
-  #game-screen.room-mode-casual:not(#casual-scale-guard) .chat-message-main { max-width: 88% !important; }
-  #game-screen.room-mode-casual:not(#casual-scale-guard) .chat-broker-entry { max-width: 94% !important; }
-  #game-screen.room-mode-casual:not(#casual-scale-guard) .shadow-broker-avatar { width: 42px !important; height: 42px !important; }
+  :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual:not(#casual-scale-guard) .hero-stat { height: 26px !important; padding: 0 7px !important; }
+  :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual:not(#casual-scale-guard) .chat-message-main { max-width: 88% !important; }
+  :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual:not(#casual-scale-guard) .chat-broker-entry { max-width: 94% !important; }
+  :where(html:not(.asoc-mobile)) #game-screen.room-mode-casual:not(#casual-scale-guard) .shadow-broker-avatar { width: 42px !important; height: 42px !important; }
 }
 
 /* =========================================================
@@ -19807,14 +19807,14 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
 }
 
 @media (max-width: 900px) {
-  .game-list-head { display: none; }
-  .game-list-row {
+  :where(html:not(.asoc-mobile)) .game-list-head { display: none; }
+  :where(html:not(.asoc-mobile)) .game-list-row {
     grid-template-columns: minmax(150px, 1fr) auto;
     gap: 8px 12px;
   }
-  .game-list-difficulty { justify-self: end; }
-  .game-list-date { grid-column: 1; }
-  .game-list-actions { grid-column: 2; grid-row: 2; }
+  :where(html:not(.asoc-mobile)) .game-list-difficulty { justify-self: end; }
+  :where(html:not(.asoc-mobile)) .game-list-date { grid-column: 1; }
+  :where(html:not(.asoc-mobile)) .game-list-actions { grid-column: 2; grid-row: 2; }
 }
 #gm-chat-presence.gm-chat-presence::before {
   content:"";
@@ -19894,7 +19894,7 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
   box-shadow:0 0 18px rgba(218,67,77,.2) !important;
 }
 @media(max-width:760px) {
-  #battle-controls-panel > .battle-controls-utility-row { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  :where(html:not(.asoc-mobile)) #battle-controls-panel > .battle-controls-utility-row { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
 }
 
 /* SHADOW COINS in the player's status HUD (next to SCORE / RANK / STREAK). */
@@ -20178,9 +20178,9 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
 .board-editor-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
 .board-editor-actions .forge-btn { min-width:150px; }
 @media (max-width:900px) {
-  .board-editor-wrap { padding:14px; overflow-x:auto; }
-  .board-editor-sheet { min-width:760px; }
-  .board-editor-final { min-width:732px; }
+  :where(html:not(.asoc-mobile)) .board-editor-wrap { padding:14px; overflow-x:auto; }
+  :where(html:not(.asoc-mobile)) .board-editor-sheet { min-width:760px; }
+  :where(html:not(.asoc-mobile)) .board-editor-final { min-width:732px; }
 }
 
 /* Denied ritual Blood Tribute: the Shadow Broker's reason, shown only to the

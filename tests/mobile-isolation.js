@@ -39,8 +39,24 @@ if (fs.existsSync(mobilePath)) {
 
 for (const file of ['css/asoc.css', 'join.html']) {
   const css = file.endsWith('.html') ? (read(file).match(/<style[^>]*>([\s\S]*?)<\/style>/g) || []).join('\n') : read(file);
-  const stray = selectors(css).filter(sel => /asoc-mobile/.test(sel) && !/^html(\.asoc-mobile|:not\(\.asoc-mobile\))/.test(sel));
+  const stray = selectors(css).filter(sel => /asoc-mobile/.test(sel) && !/^(html(\.asoc-mobile|:not\(\.asoc-mobile\)|:where\(:not\(\.asoc-mobile\)\))|:where\(html:not\(\.asoc-mobile\)\)|:root:where\(:not\(\.asoc-mobile\)\))/.test(sel));
   assert.deepEqual(stray, [], `${file}: asoc-mobile appears only as html.asoc-mobile / html:not(.asoc-mobile)`);
 }
 
-console.log('PASS mobile isolation: GM page loads no mobile files; mobile rules are root-scoped; legacy phone rules only via html:not(.asoc-mobile)');
+// Step 1 quarantine is complete: re-running it changes nothing, i.e. every
+// rule inside a phone-sized @media block is already scoped away from the
+// mobile shell (a new unscoped phone rule fails here).
+{
+  const { rewrite } = require('../scripts/quarantine-phone-css');
+  const joinHtml = fs.readFileSync(path.join(ROOT, 'join.html'), 'utf8');
+  const sheets = Array.from(joinHtml.matchAll(/href="(css\/[^"?]+\.css)/g), m => m[1]).filter(f => f !== 'css/mobile.css');
+  for (const file of sheets) {
+    const css = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    assert.equal(rewrite(css, false) === css, true, `${file}: phone @media rules must be quarantined (run scripts/quarantine-phone-css.js)`);
+  }
+  for (const [, css] of joinHtml.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)) {
+    assert.equal(rewrite(css, false) === css, true, 'join.html: inline phone @media rules must be quarantined (run scripts/quarantine-phone-css.js)');
+  }
+}
+
+console.log('PASS mobile isolation: GM page loads no mobile files; mobile rules are root-scoped; legacy phone rules only via html:not(.asoc-mobile), and all of them are quarantined');
