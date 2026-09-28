@@ -5408,10 +5408,12 @@ function getChatImageActor(req, room) {
 // Admits one upload attempt before its body is read: per-actor throttle for
 // Little Heroes (the Shadow Broker is trusted) and a worst-case capacity check
 // for everyone. Returns false after answering the request itself.
-function admitChatUpload(res, actor) {
+// Voice notes are small and conversational: their own, larger allowance.
+const CHAT_VOICE_LIMITS = { maxCount: 30, minGapMs: 1000, maxBytes: 40 * 1024 * 1024 };
+function admitChatUpload(res, actor, kind = 'image') {
   if (actor.role !== 'gm') {
-    const key = 'player:' + actor.playerId;
-    const verdict = chatUploadGuard.checkActor(key);
+    const key = (kind === 'voice' ? 'voice:' : 'player:') + actor.playerId;
+    const verdict = chatUploadGuard.checkActor(key, Date.now(), kind === 'voice' ? CHAT_VOICE_LIMITS : null);
     if (!verdict.ok) {
       res.setHeader('Retry-After', String(Math.max(1, Math.ceil(verdict.retryAfterMs / 1000))));
       sendJson(res, 429, { error: verdict.error, code: 'UPLOAD_THROTTLED', retryAfterMs: verdict.retryAfterMs });
@@ -9361,7 +9363,7 @@ function handleApiRequest(req, res) {
     const actor = getChatImageActor(req, room);
     if (!actor) return sendJson(res, 401, { error: 'Chat upload authentication required' });
     if (actor.role !== 'gm' && shadowRealmRefusal(room, actor.playerId)) return sendJson(res, 423, { error: shadowRealmRefusal(room, actor.playerId), code: 'SHADOW_REALM' });
-    if (!admitChatUpload(res, actor)) return;
+    if (!admitChatUpload(res, actor, 'voice')) return;
 
     return readChatImageBody(req, (err, body) => {
       if (err) return sendJson(res, err.code === 'TOO_LARGE' ? 413 : 400, { error: err.code === 'TOO_LARGE' ? 'Voice message exceeds 2 MB' : 'Voice upload failed' });

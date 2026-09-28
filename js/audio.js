@@ -147,6 +147,15 @@ const AsocAudio = (() => {
     tone({ frequency: 1220, start: 0.07, duration: 0.16, gain: 0.045, type: 'sine' });
   }
 
+  // A Little Hero asked for a hint: a bright two-tone ping plus a glitch tick,
+  // distinct from verdict/column sounds so the Shadow Broker notices it.
+  function hintRequest() {
+    tone({ frequency: 988, duration: 0.14, gain: 0.08, type: 'square', filter: { type: 'lowpass', frequency: 2600, q: 0.7 } });
+    tone({ frequency: 1319, start: 0.16, duration: 0.2, gain: 0.08, type: 'square', filter: { type: 'lowpass', frequency: 2600, q: 0.7 } });
+    tone({ frequency: 1319, start: 0.42, duration: 0.24, gain: 0.06, type: 'sine' });
+    noise({ start: 0.12, duration: 0.05, gain: 0.03, type: 'highpass', frequency: 3200 });
+  }
+
   function columnSolved() {
     correct();
     [330, 495, 660].forEach((f, i) => tone({ frequency: f, endFrequency: f * 1.08, start: 0.12 + i * 0.085, duration: 0.23, gain: 0.055, type: 'triangle' }));
@@ -355,6 +364,7 @@ const AsocAudio = (() => {
     countdown,
     clueReveal,
     correct,
+    hintRequest,
     columnSolved,
     finalSolved,
     womfIncrease,

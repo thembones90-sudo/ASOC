@@ -37,5 +37,5 @@ assert.match(index,/quest-icon-system\.css\?v=20260928-skynet-quest-icons-1/,'GM
 assert.match(index,/gm-quests\.js\?v=20260929-quest-duration-1/,'GM quest client is cache-busted');
 assert.match(join,/asoc\.css\?v=20260929-voice-1/,'player loads the redesigned stylesheet immediately');
 assert.match(join,/quest-icon-system\.css\?v=20260928-skynet-quest-icons-1/,'player loads the quest sigil layer immediately');
-assert.match(join,/player-quests\.js\?v=20260929-quest-duration-1/,'player quest client is cache-busted');
+assert.match(join,/player-quests\.js\?v=20260929-voice-1/,'player quest client is cache-busted');
 console.log('PASS quest visuals: Skynet sigils, GM forge, contract ledger, player oath, daily oversight, responsive states and reduced motion');

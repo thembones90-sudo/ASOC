@@ -52,25 +52,27 @@ function createChatUploadGuard(options = {}) {
   }
   measure();
 
-  function recent(actorKey, now) {
-    const kept = (history.get(actorKey) || []).filter(entry => now - entry.at < limits.windowMs);
+  function recent(actorKey, now, lim = limits) {
+    const kept = (history.get(actorKey) || []).filter(entry => now - entry.at < lim.windowMs);
     if (kept.length) history.set(actorKey, kept); else history.delete(actorKey);
     return kept;
   }
 
   // Checked BEFORE a body is read, so a throttled actor costs no bandwidth.
-  function checkActor(actorKey, now = Date.now()) {
-    const entries = recent(actorKey, now);
+  // `overrides` gives a kind of upload (voice) its own allowance.
+  function checkActor(actorKey, now = Date.now(), overrides = null) {
+    const limits_ = overrides ? { ...limits, ...overrides } : limits;
+    const entries = recent(actorKey, now, limits_);
     const last = entries[entries.length - 1];
-    if (last && now - last.at < limits.minGapMs) {
-      return { ok: false, retryAfterMs: limits.minGapMs - (now - last.at), error: 'Uploads are cooling down. Try again in a moment.' };
+    if (last && now - last.at < limits_.minGapMs) {
+      return { ok: false, retryAfterMs: limits_.minGapMs - (now - last.at), error: 'Uploads are cooling down. Try again in a moment.' };
     }
-    if (entries.length >= limits.maxCount) {
-      return { ok: false, retryAfterMs: limits.windowMs - (now - entries[0].at), error: 'Upload limit reached. Try again in a few minutes.' };
+    if (entries.length >= limits_.maxCount) {
+      return { ok: false, retryAfterMs: limits_.windowMs - (now - entries[0].at), error: 'Upload limit reached. Try again in a few minutes.' };
     }
     const bytes = entries.reduce((sum, entry) => sum + entry.bytes, 0);
-    if (bytes >= limits.maxBytes) {
-      return { ok: false, retryAfterMs: limits.windowMs - (now - entries[0].at), error: 'Upload volume limit reached. Try again in a few minutes.' };
+    if (bytes >= limits_.maxBytes) {
+      return { ok: false, retryAfterMs: limits_.windowMs - (now - entries[0].at), error: 'Upload volume limit reached. Try again in a few minutes.' };
     }
     return { ok: true };
   }

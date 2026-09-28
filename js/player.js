@@ -2037,7 +2037,10 @@ const PlayerApp = {
     const eligible = inBattle
       ? ['A', 'B', 'C', 'D'].filter(col => !this.hintClaims?.[col] && [1, 2, 3, 4].every(row => cells[`${col}${row}`]?.revealed === true))
       : [];
-    const stateKey = `${inBattle}|${eligible.join('')}|${this._hintPending ? 'p' : ''}`;
+    const used = inBattle
+      ? ['A', 'B', 'C', 'D'].filter(col => this.hintClaims?.[col]).map(col => `COLUMN ${col} HINT USED BY ${String(this.hintClaims[col].playerName || 'A LITTLE HERO').toUpperCase()}`)
+      : [];
+    const stateKey = `${inBattle}|${eligible.join('')}|${this._hintPending ? 'p' : ''}|${used.join(';')}`;
     if (bar.dataset.hintState === stateKey) return;
     bar.dataset.hintState = stateKey;
     bar.hidden = !inBattle;
@@ -2057,6 +2060,8 @@ const PlayerApp = {
         this.requestHint(col);
       });
     }
+    const usedEl = document.getElementById('chat-hint-used');
+    if (usedEl) usedEl.textContent = used.join(' · ');
     button.dataset.columns = eligible.join('');
     button.disabled = !eligible.length || !!this._hintPending;
     button.textContent = eligible.length === 1 ? `HINT · COLUMN ${eligible[0]}` : 'HINT';

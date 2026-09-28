@@ -4802,6 +4802,7 @@ const App = {
       + `<div class="gm-hint-alert-who">${this.escapeHtml(msg.playerName || 'Little Hero')} is asking for a hint</div>`
       + this.preparedHintsHtml(column);
     banner.querySelector('.gm-hint-alert-list').appendChild(entry);
+    window.AsocAudio?.hintRequest?.();
     banner.classList.remove('is-pulsing');
     void banner.offsetWidth;
     banner.classList.add('is-pulsing');

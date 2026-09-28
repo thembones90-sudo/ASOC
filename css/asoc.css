@@ -14465,6 +14465,19 @@ body.asoc-transition-to-battle #game-screen .player-battle-layout {
   padding: 6px 10px 0;
 }
 .chat-hint-bar[hidden] { display: none; }
+.chat-hint-used {
+  flex: 1 1 auto;
+  align-self: center;
+  min-width: 0;
+  margin-right: 10px;
+  overflow: hidden;
+  color: #7fa9c9;
+  font: 800 9px/1.3 var(--font-machine, monospace);
+  letter-spacing: .1em;
+  text-align: right;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .chat-hint-button {
   min-height: 28px;
   padding: 4px 14px;
@@ -20418,4 +20431,32 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
 @media (prefers-reduced-motion: reduce) {
   #quests-btn::after, #sound-toggle-btn::after, #bice-asoc-btn::after, #reset-board-btn::after, #master-access-btn::after { animation: none; display: none; }
   #quests-btn:hover, #sound-toggle-btn:hover, #bice-asoc-btn:hover, #reset-board-btn:hover, #master-access-btn:hover { animation: none; }
+}
+
+/* GM composer: the label ate the input's width; the panel already says who is typing. */
+#shadow-broker-form > .shadow-broker-form-label { display: none !important; }
+#shadow-broker-form > .gm-composer-shell { flex: 1 1 auto !important; min-width: 0 !important; width: 100% !important; }
+
+/* Quest + Daily Ledger cards sat bottom-right, on top of the newest chat
+   messages and the HINT bar. On desktop they live bottom-left instead,
+   over the board poster's empty corner. */
+@media (min-width: 701px) {
+  .player-quest-hud { right: auto !important; left: 22px !important; }
+}
+.daily-contract-hud .daily-hud-word { font-style: normal; }
+/* Lobby (CASUAL): the chat spans the screen, so the ledger folds into a small
+   badge inside the left rail instead of covering messages. */
+@media (min-width: 701px) {
+  body:has(#game-screen.room-mode-casual) .daily-contract-hud {
+    left: 16px !important;
+    bottom: 64px !important;
+    flex-direction: column;
+    gap: 4px;
+    width: 80px;
+    min-width: 0 !important;
+    padding: 8px 4px !important;
+    text-align: center !important;
+  }
+  body:has(#game-screen.room-mode-casual) .daily-contract-hud small,
+  body:has(#game-screen.room-mode-casual) .daily-contract-hud .daily-hud-word { display: none; }
 }
