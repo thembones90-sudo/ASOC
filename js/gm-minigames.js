@@ -46,6 +46,7 @@
         if (launch.dataset.gmMinigame !== 'kaladont') this.kaladontOpen=false;
         if (launch.dataset.gmMinigame === 'threefold') this.openChooser();
         else if (launch.dataset.gmMinigame === 'kaladont') this.openKaladont();
+        else if (launch.dataset.gmMinigame === 'rouletteCarnage') window.RouletteCarnageUI?.open?.('gm');
         else this.spinConcoction();
         return;
       }

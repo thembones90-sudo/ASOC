@@ -9,6 +9,7 @@
     "deploy:manifest": "node scripts/generate-deploy-manifest.js",
     "test:creator": "node tests/forge-creator.js && node tests/forge-xlsx-export.js",
     "test:quests": "node tests/quests.js && node tests/daily-contracts.js && node tests/quest-visuals.js && node tests/board-celebrations.js",
+    "test:roulette-carnage": "node tests/roulette-carnage.js && node tests/roulette-carnage-server.js",
     "test": "node scripts/run-all-tests.js"
   },
   "dependencies": {
@@ -16,7 +17,7 @@
     "ws": "^8.16.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "22.x"
   },
   "devDependencies": {
     "playwright": "1.56.1"

@@ -228,6 +228,10 @@
       const guesses = [];
       const direct = [];
       players.forEach(msg => {
+        if (msg.source === 'hintRequest') {
+          guesses.unshift({ title: `${senderName(msg)} asked for a hint`, body: describeMessage(msg), tag: 'hint' });
+          return;
+        }
         if (msg.adjudicable === true && !msg.verdict) {
           guesses.push({ title: `${senderName(msg)} is waiting for a verdict`, body: describeMessage(msg), tag: 'verdict' });
           return;

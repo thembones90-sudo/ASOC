@@ -1369,7 +1369,7 @@ const PlayerApp = {
         Womf.update('womf-tracker-player', battleVisible ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
         Wheel.update('wheel-overlay', battleVisible ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false);
         const tributeState = message.bloodTribute || { status: 'idle' };
-        this.updateBloodTributeDemand(battleVisible || ['unstableConcoction', 'nudge', 'moon'].includes(tributeState.source) ? tributeState : { status: 'idle' });
+        this.updateBloodTributeDemand(battleVisible || ['unstableConcoction', 'nudge', 'moon', 'rouletteCarnage'].includes(tributeState.source) ? tributeState : { status: 'idle' });
         Timer.update('timer-tracker-player', battleVisible ? (message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }) : { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
         if (battleVisible) this.updateTerminalPhase(message);
         else Recount.apply(null);
@@ -1393,7 +1393,7 @@ const PlayerApp = {
         (masterMirror ? sessionStorage : localStorage).setItem('asoc_player_in_master', '1');
         {
           const tributeState = this.lastPublicState?.bloodTribute || { status: 'idle' };
-          this.updateBloodTributeDemand(this.roomMode !== 'CASUAL' || ['unstableConcoction', 'nudge', 'moon'].includes(tributeState.source) ? tributeState : { status: 'idle' });
+          this.updateBloodTributeDemand(this.roomMode !== 'CASUAL' || ['unstableConcoction', 'nudge', 'moon', 'rouletteCarnage'].includes(tributeState.source) ? tributeState : { status: 'idle' });
         }
         if (message.littleHero) {
           if (message.littleHero.name) {
@@ -1578,6 +1578,9 @@ const PlayerApp = {
         window.Kaladont?.onState?.(message.state || null);
         break;
 
+      case 'rouletteCarnage:state': window.RouletteCarnageUI?.onState?.(message.state); break;
+      case 'rouletteCarnage:error': window.RouletteCarnageUI?.onError?.(message.message); break;
+
       case 'unstableConcoction:started':
         window.UnstableConcoction?.onStarted?.(message);
         break;
@@ -1743,6 +1746,7 @@ const PlayerApp = {
     }
     this.solutionCountdowns = state.solutionCountdowns || {};
     this.hintClaims = state.hintClaims || {};
+    if (this._hintPending && this.hintClaims[this._hintPending]) this._hintPending = false;
     const gameId = String(state.gameId || '');
     const difficulty = String(state.difficulty || '');
 
@@ -1957,50 +1961,57 @@ const PlayerApp = {
     if (active) this._solutionCountdownTicker = setTimeout(() => this.renderSolutionCountdownBadges(), 250);
   },
 
+  // HINT lives beside the chat, never on the board: one hint per column,
+  // usable only once all 4 fields of that column are open.
   renderHintButtons() {
-    const board = document.querySelector('#public-board > .asoc-board');
-    if (!board) return;
-    // Kept in place and only updated when their state changes: rebuilding
-    // them on every state:public replaced HINT under the player's finger.
-    const keep = new Set();
-    const sweep = () => board.querySelectorAll('.cell-hint-button').forEach(el => { if (!keep.has(el)) el.remove(); });
-    if (this.roomMode !== 'BATTLE') return sweep();
-
-    for (const col of ['A', 'B', 'C', 'D']) {
-      for (let row = 1; row <= 4; row++) {
-        const key = `${col}${row}`;
-        const cellState = this.lastPublicState?.cells?.[key];
-        if (cellState?.revealed !== true) continue;
-        const cell = board.querySelector(`.board-cell[data-label="${CSS.escape(key)}"]`);
-        if (!cell) continue;
-        const claim = this.hintClaims?.[key];
-        const stateKey = claim ? `used:${claim.playerName || ''}` : 'open';
-        let button = cell.querySelector(':scope > .cell-hint-button');
-        if (button && button.dataset.hintState !== stateKey) { button.remove(); button = null; }
-        if (!button) {
-          button = document.createElement('button');
-          button.type = 'button';
-          button.dataset.hintState = stateKey;
-          button.className = 'cell-hint-button' + (claim ? ' is-used' : '');
-          button.textContent = claim ? 'HINT USED' : 'HINT';
-          button.disabled = !!claim;
-          button.title = claim ? `Hint used by ${claim.playerName || 'Little Hero'}` : `Request the one hint available for ${key}`;
-          if (!claim) {
-            button.addEventListener('click', (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              button.disabled = true;
-              this.send({ type: 'player:hintRequest', cell: key });
-              // Refused (or lost): the button is kept now, so re-arm it.
-              setTimeout(() => { if (button.isConnected && button.dataset.hintState === 'open') button.disabled = false; }, 4000);
-            });
-          }
-          cell.appendChild(button);
-        }
-        keep.add(button);
-      }
+    const bar = document.getElementById('chat-hint-bar');
+    const button = document.getElementById('chat-hint-button');
+    const picker = document.getElementById('chat-hint-columns');
+    if (!bar || !button || !picker) return;
+    const inBattle = this.roomMode === 'BATTLE' && !this.lastPublicState?.matchResult;
+    const cells = this.lastPublicState?.cells || {};
+    const eligible = inBattle
+      ? ['A', 'B', 'C', 'D'].filter(col => !this.hintClaims?.[col] && [1, 2, 3, 4].every(row => cells[`${col}${row}`]?.revealed === true))
+      : [];
+    const stateKey = `${inBattle}|${eligible.join('')}|${this._hintPending ? 'p' : ''}`;
+    if (bar.dataset.hintState === stateKey) return;
+    bar.dataset.hintState = stateKey;
+    bar.hidden = !inBattle;
+    if (!button.dataset.bound) {
+      button.dataset.bound = '1';
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        const cols = (button.dataset.columns || '').split('').filter(Boolean);
+        if (cols.length === 1) return this.requestHint(cols[0]);
+        if (cols.length > 1) picker.hidden = !picker.hidden;
+      });
+      picker.addEventListener('click', event => {
+        const col = event.target.closest('[data-hint-column]')?.dataset.hintColumn;
+        if (!col) return;
+        event.preventDefault();
+        picker.hidden = true;
+        this.requestHint(col);
+      });
     }
-    sweep();
+    button.dataset.columns = eligible.join('');
+    button.disabled = !eligible.length || !!this._hintPending;
+    button.textContent = eligible.length === 1 ? `HINT · COLUMN ${eligible[0]}` : 'HINT';
+    button.title = eligible.length
+      ? 'Ask the Shadow Broker for a hint'
+      : 'A hint unlocks once all 4 fields of a column are open';
+    picker.innerHTML = eligible.length > 1
+      ? eligible.map(col => `<button type="button" data-hint-column="${col}">COLUMN ${col}</button>`).join('')
+      : '';
+    if (eligible.length < 2) picker.hidden = true;
+  },
+
+  requestHint(column) {
+    this._hintPending = column;
+    this.send({ type: 'player:hintRequest', column });
+    this.renderHintButtons();
+    // The claim arrives with state:public; a refused or lost request re-arms.
+    clearTimeout(this._hintPendingTimer);
+    this._hintPendingTimer = setTimeout(() => { this._hintPending = false; this.renderHintButtons(); }, 4000);
   },
 
   renderShadowBrokerBoardLineInPlace() {
@@ -2328,6 +2339,7 @@ const PlayerApp = {
     // room mode actually changes; state:public also carries timer/cell ticks,
     // and rebuilding chat for those packets causes visible shimmer and lag.
     if (previous !== next && Array.isArray(this.chatMessages)) this.renderChat();
+    if (previous !== next) this.renderHintButtons();
 
     if (hadBaseline && previous === 'CASUAL' && next === 'BATTLE_ARMED') {
       this.addBattleEvent('BATTLE CONTROL SIGNAL DETECTED');
