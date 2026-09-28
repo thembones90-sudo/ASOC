@@ -48,7 +48,7 @@ async function withServer(env, fn, seed) {
     await fn();
     assert.equal(errors.trim(), '', 'no server errors');
   } finally {
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(300);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

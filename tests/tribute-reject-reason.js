@@ -157,7 +157,7 @@ async function healthy() {
     console.log('PASS ritual tribute denial: reason required and capped, private to the offering Little Hero, shown to the GM, survives restart, cleared on a new offering');
   } finally {
     clients.forEach(c => c.close());
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(250);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

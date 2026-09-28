@@ -24,6 +24,7 @@ const unstableConcoction = require('./unstable-concoction');
 const questEngine = require('./quest-engine');
 const dailyContracts = require('./daily-contracts');
 const { createChatUploadGuard } = require('./chat-upload-guard');
+const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
 
 const PORT = Number(process.env.PORT) || 8080;
@@ -78,7 +79,6 @@ const CHAT_REACTION_EMOJIS = new Set([
   '💜', '💔', '⚡', '💥', '✅', '❌', '🏆', '🥰', '🐺',
   ...COMMANDER_REACTION_EMOJIS
 ]);
-const MAX_AVATAR_DATA_LENGTH = 200000;
 const MAX_TRIBUTE_DATA_LENGTH = 3000000;
 const BLOOD_TRIBUTE_PUBLIC_MS = 2 * 60 * 1000;
 const BLOOD_TRIBUTE_VAULT_LIMIT = 24;
@@ -212,6 +212,8 @@ assertDataDirectoryWritable(ASOC_DATA_DIR);
 const CHAT_UPLOAD_DIR = path.join(ASOC_DATA_DIR, 'chat-uploads');
 fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
 const chatUploadGuard = createChatUploadGuard({ dir: CHAT_UPLOAD_DIR });
+// Same conservative orphan sweep for avatar files (budget/throttle unused).
+const avatarFileGuard = createChatUploadGuard({ dir: avatarStore.AVATAR_DIR });
 const ACTIVE_ROOMS_FILE = process.env.ASOC_SESSION_FILE
   ? path.resolve(process.env.ASOC_SESSION_FILE)
   : path.join(ASOC_DATA_DIR, 'active-rooms.json');
@@ -534,7 +536,8 @@ function restoreActiveRooms() {
         room.players.set(makeOfflinePlayerSocket(), {
           id: player.id,
           name: player.name,
-          avatarData: sanitizeAvatarData(player.avatarData) || sanitizeAvatarData(storedProfiles[player.id]?.avatarData) || '',
+          // Older snapshots carried inline avatars; they become files here.
+          avatarData: (player.avatarData && avatarStore.normalize(player.avatarData)) || (storedProfiles[player.id]?.avatarData && avatarStore.normalize(storedProfiles[player.id].avatarData)) || '',
           lastSeenAt: Number(player.lastSeenAt) || Number(player.joinedAt) || Date.now(),
           frameColor: sanitizeFrameColor(player.frameColor) || '#9B5DE0',
           themeId: sanitizeThemeId(player.themeId) || 'gunmetal',
@@ -883,14 +886,6 @@ function sanitizeFrameColor(value) {
 
 function sanitizeThemeId(value) {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(LITTLE_HERO_THEMES, value)
-    ? value
-    : null;
-}
-
-function sanitizeAvatarData(value) {
-  if (typeof value !== 'string' || !value) return null;
-  if (value.length > MAX_AVATAR_DATA_LENGTH) return null;
-  return /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
     ? value
     : null;
 }
@@ -6909,7 +6904,9 @@ function handlePlayerJoin(ws, message) {
   }
 
   const hasAvatarUpdate = Object.prototype.hasOwnProperty.call(message, 'avatarData');
-  const requestedAvatar = message.avatarData === '' ? '' : sanitizeAvatarData(message.avatarData);
+  // An uploaded data URI is stored as a file; an existing /avatars/ URL (the
+  // client's remembered avatar) is accepted as is. Anything else is invalid.
+  const requestedAvatar = hasAvatarUpdate ? avatarStore.normalize(message.avatarData) : null;
   const requestedFrameColor = sanitizeFrameColor(message.frameColor);
   const requestedThemeId = sanitizeThemeId(message.themeId);
   if (hasAvatarUpdate && requestedAvatar === null) {
@@ -9862,6 +9859,17 @@ function applySecurityHeaders(res) {
 const server = http.createServer((req, res) => {
   applySecurityHeaders(res);
   const urlPath = req.url.split('?')[0];
+  if ((req.method === 'GET' || req.method === 'HEAD') && urlPath.startsWith('/avatars/')) {
+    // Content-addressed avatar files: the name is the image hash, so a URL
+    // never changes meaning and can be cached for good.
+    const target = avatarStore.resolveRequest(urlPath);
+    if (!target) return sendJson(res, 404, { error: 'Not Found' });
+    return fs.readFile(target.file, (err, content) => {
+      if (err) return sendJson(res, 404, { error: 'Not Found' });
+      res.writeHead(200, { 'Content-Type': target.contentType, 'Content-Length': content.length, 'Cache-Control': 'public, max-age=31536000, immutable' });
+      res.end(req.method === 'HEAD' ? undefined : content);
+    });
+  }
   if ((req.method === 'GET' || req.method === 'HEAD') && urlPath.startsWith('/uploads/chat/')) {
     if (serveChatUpload(req, res, urlPath)) return;
   }
@@ -10433,6 +10441,16 @@ wss.on('connection', (ws, req) => {
   ws.on('error', (err) => console.error('WebSocket error:', err));
 });
 
+// Avatars moved out of players.json into files (avatar-store.js). Idempotent;
+// runs before recovery so restored identities resolve their stored avatars.
+try {
+  const avatarMigration = playerStore.migrateAvatarsToFiles();
+  if (avatarMigration.migrated || avatarMigration.skipped || avatarMigration.error) {
+    console.log(`[avatars] Migrated ${avatarMigration.migrated} inline avatar(s) to files` + (avatarMigration.skipped ? `; ${avatarMigration.skipped} invalid left untouched` : '') + (avatarMigration.error ? ` (${avatarMigration.error})` : ''));
+  }
+} catch (error) {
+  console.error('[avatars] Migration failed; inline avatars stay in place:', error.message);
+}
 const restoredRoomCount = restoreActiveRooms();
 ensureMasterRoom();
 for (const room of rooms.values()) {
@@ -10491,6 +10509,11 @@ function chatUploadReferenceFiles() {
 function sweepChatUploads() {
   if (recoveryStoreLocked || persistenceFailed) return null;
   const texts = Array.from(rooms.values(), room => JSON.stringify(serializeRoomForRecovery(room)));
+  // Live roster avatars (including in-memory test personas) are references
+  // too: the recovery snapshot no longer carries them.
+  rooms.forEach(room => room.players.forEach(player => { if (player?.avatarData) texts.push(player.avatarData); }));
+  const avatars = avatarFileGuard.sweep({ texts, files: chatUploadReferenceFiles() });
+  if (avatars.ok && avatars.removed.length) console.log(`[avatars] Removed ${avatars.removed.length} unreferenced avatar file(s)`);
   const result = chatUploadGuard.sweep({ texts, files: chatUploadReferenceFiles() });
   if (!result.ok) console.warn('[chat-uploads] Sweep skipped:', result.error);
   else if (result.removed.length) console.log(`[chat-uploads] Removed ${result.removed.length} orphaned upload(s); ${(result.usedBytes / 1048576).toFixed(1)} MB in use`);

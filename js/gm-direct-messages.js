@@ -11,7 +11,7 @@
   }
 
   function avatar(player = {}) {
-    const src = typeof player.avatarData === 'string' && player.avatarData.startsWith('data:image/') ? player.avatarData : '';
+    const src = typeof player.avatarData === 'string' && (player.avatarData.startsWith('data:image/') || player.avatarData.startsWith('/avatars/')) ? player.avatarData : '';
     const initials = esc(String(player.name || 'LH').trim().slice(0, 2).toUpperCase());
     const frame = /^#[0-9A-Fa-f]{6}$/.test(player.frameColor || '') ? player.frameColor : '#37d997';
     return '<i class="gm-dm-avatar" style="--gm-dm-frame:' + esc(frame) + '">' + (src ? '<img src="' + esc(src) + '" alt="">' : '<span>' + initials + '</span>') + '</i>';

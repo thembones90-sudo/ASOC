@@ -235,3 +235,13 @@ file) must be green in GitHub Actions before a deploy.
 Administrative Shadow Coin grants never run at startup. Use
 `node scripts/grant-shadow-coins.js` (dry run without `--yes`) with the server
 stopped and `ASOC_DATA_DIR=/data`.
+
+### Avatar files (2026-09-29)
+
+Little Hero avatars are stored as files in `/data/avatars/` (content-addressed:
+`<sha256>.png|jpg|webp`) and served from `/avatars/<name>` with immutable
+caching. `players.json` keeps only the short URL. The first boot after this
+deploy migrates existing inline avatars automatically (logged as
+`[avatars] Migrated N inline avatar(s) to files`); the migration is idempotent,
+and an avatar that fails validation is left untouched. Include `/data/avatars/`
+in every backup alongside `players.json`.

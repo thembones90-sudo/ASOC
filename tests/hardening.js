@@ -137,10 +137,14 @@ async function joinPlayer(token, suppliedName = 'SPOOFED') {
 
 async function armHost(gmToken) {
   const ws = await openWs();
+  // Listen for both before sending: the server flushes room:created and the
+  // first state:public together, so a listener attached after the first
+  // resolves can miss the second when both arrive in one packet.
   const createdP = wait(ws, m => m.type === 'room:created', 'room created');
+  const stateP = wait(ws, m => m.type === 'state:public', 'host initial state');
   ws.send(JSON.stringify({ type: 'room:create', gameId: 'sample-game', gmToken }));
   const created = await createdP;
-  await wait(ws, m => m.type === 'state:public', 'host initial state');
+  await stateP;
   return { ws, ...created };
 }
 

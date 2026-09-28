@@ -142,7 +142,7 @@ async function run(scenario) {
     assert.equal(server.errors.trim(), '', 'no server errors');
   } finally {
     clients.forEach(c => c.close());
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(300);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

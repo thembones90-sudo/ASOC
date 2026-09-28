@@ -17,8 +17,10 @@ const WebSocket = require('ws');
 const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.ASOC_BLOAT_TEST_PORT) || 18896;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const avatarFor = name => 'data:image/png;base64,' + Buffer.from(name).toString('base64').replace(/=/g, '') + 'A'.repeat(60000);
-const AVATAR_MARK = 'A'.repeat(200);
+// Real PNG signature + distinct bytes per hero (the server validates image signatures).
+const avatarFor = name => 'data:image/png;base64,' + Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(name + ':'), Buffer.alloc(45000, 7)]).toString('base64');
+const AVATAR_URL = /^\/avatars\/[a-f0-9]{32}\.png$/;
+const AVATAR_MARK = 'data:image';
 
 function api(urlPath, body) {
   return new Promise((resolve, reject) => {
@@ -129,9 +131,10 @@ function unitPlayerStoreCache() {
     const dan = update.players.find(p => p.name === 'Dan');
     assert.ok(ben.avatarHash, 'every roster entry carries an avatar hash');
     assert.equal(ben.avatarData, undefined, 'an avatar already sent to this socket is not re-sent');
-    assert.ok(dan.avatarData === avatarFor('Dan'), 'a new avatar is sent once');
+    assert.match(dan.avatarData, AVATAR_URL, 'a new avatar is sent once, as its stored file URL');
     const first = late.msgs.find(m => m.type === 'players:update');
-    assert.ok(first.players.filter(p => typeof p.avatarData === 'string' && p.avatarData.length > 60000).length >= 4, 'a fresh socket receives every avatar once');
+    assert.ok(first.players.filter(p => AVATAR_URL.test(p.avatarData || '')).length >= 4, 'a fresh socket receives every avatar once');
+    const benUrl = first.players.find(p => p.name === 'Ben').avatarData;
 
     // Chat + poll carry no avatar copies.
     for (let i = 0; i < 25; i++) { heroes[i % 3].send({ type: 'chat:guess', text: `park chatter ${i}` }); await sleep(i % 3 === 2 ? 1100 : 30); }
@@ -171,7 +174,7 @@ function unitPlayerStoreCache() {
     await ready();
     const gm2 = await gmClient(); clients.push(gm2);
     const roster = await gm2.next(m => m.type === 'players:update' && m.players.some(p => p.id === benId), 'restored roster');
-    assert.ok(roster.players.find(p => p.id === benId).avatarData === avatarFor('Ben'), 'offline avatar restored from the stored profile');
+    assert.equal(roster.players.find(p => p.id === benId).avatarData, benUrl, 'offline avatar restored from the stored profile');
     clients.forEach(c => c.close()); clients.length = 0;
     await sleep(300);
     await stop(server);
@@ -194,7 +197,7 @@ function unitPlayerStoreCache() {
     assert.equal(server.errors.trim(), '', 'no server errors after restart');
   } finally {
     clients.forEach(c => c.close());
-    try { server.kill(); } catch {}
+    await require('./lib/stop-process')(server);
     await sleep(300);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

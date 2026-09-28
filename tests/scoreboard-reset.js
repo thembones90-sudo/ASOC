@@ -160,7 +160,7 @@ class Client {
     console.log('PASS scoreboard reset: host-only, typed confirmation, refused during battle; wipes session scores, lifetime points/records and match history; keeps Shadow Coins and ledger; backup written first');
   } finally {
     clients.forEach(c => c.close());
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(300);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

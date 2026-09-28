@@ -142,7 +142,7 @@ async function live(extraEnv, scenario) {
     assert.equal(errors.replace(/\[chat-image\] upload failed[^\n]*\n?(\s+at [^\n]*\n?)*/g, '').trim(), '', 'no unexpected server errors');
   } finally {
     sockets.forEach(ws => { try { ws.close(); } catch {} });
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(300);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

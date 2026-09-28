@@ -180,7 +180,7 @@ async function healthy() {
     console.log('PASS Shadow Realm: GM-only on Little Hero messages, everyone notified, permanent memento flag (survives restart), 20s silence across chat/commands/DMs/GIFs/image links/polls that survives reconnect, others unaffected, ends on time');
   } finally {
     clients.forEach(c => c.close());
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(250);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

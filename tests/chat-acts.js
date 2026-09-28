@@ -131,7 +131,7 @@ async function run() {
     assert.match(appSrc, /case 'error':[\s\S]*this\.showGMCommandError\(message\.message\)/, 'GM server failures use the in-app error path');
     assert.doesNotMatch(appSrc.match(/case 'error':[\s\S]*?break;/)?.[0] || '', /alert\(/, 'GM server failures never open a native Electron alert');
     assert.match(appSrc, /composer\?\.focus\(\{ preventScroll: true \}\)/, 'GM error path restores composer focus');
-    assert.match(joinSrc, /player\.js\?v=20260929-hardening-2/, 'targeted-act, HUD, contracts and roster-avatar client is cache-busted');
+    assert.match(joinSrc, /player\.js\?v=20260929-avatars-1/, 'targeted-act, HUD, contracts and roster-avatar client is cache-busted');
     assert.doesNotMatch(playerSrc, /msg\.imageUrl \? 'IMAGE TRANSMISSION'/, 'player image-only Broker posts have no redundant transmission plaque');
     assert.doesNotMatch(appSrc, /msg\.imageUrl \? 'IMAGE TRANSMISSION'/, 'GM image-only Broker posts have no redundant transmission plaque');
     assert.match(joinSrc, /PLAYER STATUS HEADER FINAL GUARD/, 'player HUD has a final cascade guard against inflated utility controls');
@@ -266,7 +266,7 @@ async function run() {
     console.log('PASS chat acts: /spit, /fart, /hiss and /nod use authoritative targets, emotes carry three perspectives, moon toll is one-time, the Broker runs every command');
   } finally {
     clients.forEach(client => { try { client.ws.close(); } catch {} });
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(200);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

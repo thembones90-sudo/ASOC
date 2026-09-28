@@ -347,7 +347,7 @@ function checkClientNeverSelfDismisses() {
     console.log('PASS MEGABONK: GM-only persistent alert to every connected player, per-player acknowledgement, live GM progress, re-delivered on reconnect until acknowledged, never again once acknowledged, new event needs fresh acks, several concurrent events with their own acks and END, survives restart, END, not a ritual vote, never starts the game, refused in live Battle');
   } finally {
     clients.forEach(c => c.close());
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(250);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

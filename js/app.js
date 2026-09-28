@@ -4743,7 +4743,7 @@ const App = {
       ? entity.frameColor.toUpperCase()
       : '#9B5DE0';
     const avatarData = typeof entity.avatarData === 'string' &&
-      /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(entity.avatarData)
+      /^(?:data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+|\/avatars\/[a-f0-9]{32}\.(?:png|jpg|webp))$/.test(entity.avatarData)
       ? entity.avatarData
       : '';
     const avatarName = this.escapeHtml(entity.name || entity.playerName || 'Little Hero');
@@ -5262,7 +5262,7 @@ const App = {
         const voterAvatar = voter.avatarData || (this.currentPlayers || []).find(player => String(player?.id) === String(id))?.avatarData || '';
         const avatar = id === gmId
           ? '<img src="assets/ui/shadow-broker.png" alt="">'
-          : (typeof voterAvatar === 'string' && voterAvatar.startsWith('data:image/')
+          : (typeof voterAvatar === 'string' && (voterAvatar.startsWith('data:image/') || voterAvatar.startsWith('/avatars/'))
               ? `<img src="${this.escapeHtml(voterAvatar)}" alt="">`
               : `<i>${this.escapeHtml(name.slice(0, 1).toUpperCase())}</i>`);
         return `<span class="gm-poll-voter-chip" title="${this.escapeHtml(name)}" style="--poll-voter-color:${frameColor}">${avatar}<b>${this.escapeHtml(name)}</b></span>`;
