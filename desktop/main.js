@@ -33,7 +33,7 @@ const WEB_PREFERENCES = Object.freeze({
   // Game audio cues (timer, verdicts, wheel) must not wait for a click.
   autoplayPolicy: 'no-user-gesture-required'
 });
-const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write', 'clipboard-read', 'fullscreen', 'notifications']);
+const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write', 'clipboard-read', 'fullscreen', 'notifications', 'media']);
 
 const DEFAULT_SETTINGS = Object.freeze({
   popups: true,        // Windows notifications for mentions, results, etc.

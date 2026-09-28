@@ -1581,6 +1581,16 @@ const App = {
         return;
       }
       if (action === 'poll') openGMPollComposer();
+      if (action === 'voice') {
+        closeGMAttachmentMenu();
+        const token = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
+        window.AsocVoice?.record({ anchor: document.getElementById('shadow-broker-composer')?.parentElement, headers: { 'x-gm-token': token } });
+      }
+    });
+    document.getElementById('gm-voice-btn')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      const token = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
+      window.AsocVoice?.record({ anchor: event.currentTarget.parentElement, headers: { 'x-gm-token': token } });
     });
 
     document.getElementById('gm-poll-cancel')?.addEventListener('click', (event) => {
@@ -5593,7 +5603,7 @@ const App = {
         <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
           ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}
-          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
+          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}
           ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
           ${this.createGMReactionSummaryHTML(msg)}
         </div>
@@ -5646,7 +5656,7 @@ const App = {
           <div class="gm-chat-message-main">${manualBadge}${window.ShadowCosmetics?.celebrationHTML(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.markHTML(msg) || ''}
             <div class="gm-chat-flow-header"><span class="gm-chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
             ${replyContextHtml}
-            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
+            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}
             ${verdictMetaHtml}${preparedHintHtml}
             ${verdictResponseHtml}
             ${this.createGMReactionSummaryHTML(msg)}

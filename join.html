@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260929-hint-column-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260929-voice-1">
   <link rel="stylesheet" href="css/quest-icon-system.css?v=20260928-skynet-quest-icons-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
   <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-2">
@@ -5924,6 +5924,7 @@ position:absolute;
     #game-screen .chat-image-upload-btn:disabled { opacity:.45; cursor:wait; }
     #game-screen .chat-emoji-toggle { order:3 !important; }
     #game-screen .chat-input-emoji-picker { order:4 !important; }
+    #game-screen .chat-voice-btn { order:5 !important; }
     #game-screen .chat-image-link { display:block; width:fit-content; max-width:100%; margin-top:6px; }
     #game-screen .chat-image-attachment {
       display:block;
@@ -9278,6 +9279,10 @@ position:absolute;
                 <span class="chat-attachment-option-icon chat-attachment-gif-icon" aria-hidden="true">GIF</span>
                 <span class="chat-attachment-option-copy"><b>GIF</b><small>Search GIPHY · upload fallback</small></span>
               </button>
+              <button type="button" class="chat-attachment-option" data-chat-attachment="voice" role="menuitem">
+                <span class="chat-attachment-option-icon chat-attachment-voice-icon" aria-hidden="true">🎙</span>
+                <span class="chat-attachment-option-copy"><b>VOICE</b><small>Record up to 1 minute</small></span>
+              </button>
               <button type="button" class="chat-attachment-option" data-chat-attachment="poll" role="menuitem">
                 <span class="chat-attachment-option-icon chat-attachment-poll-icon" aria-hidden="true">▤</span>
                 <span class="chat-attachment-option-copy"><b>POLL</b><small>2–8 options · live results</small></span>
@@ -9300,6 +9305,7 @@ position:absolute;
           </div>
           <button type="button" id="chat-emoji-toggle" class="chat-emoji-toggle" title="Emoji" aria-label="Open emoji picker" aria-expanded="false">☺</button>
           <input type="text" id="chat-input" placeholder="Insult here" maxlength="100" autocomplete="off">
+          <button type="button" id="chat-voice-btn" class="chat-emoji-toggle chat-voice-btn" title="Voice message (up to 1 min)" aria-label="Record voice message"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg></button>
           <div id="chat-emoji-picker" class="chat-input-emoji-picker" hidden></div>
         </div>
         <input type="file" id="chat-image-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
@@ -9835,7 +9841,7 @@ position:absolute;
   <script src="js/iks-ring.js?v=20260925-health-bars-1"></script>
   <script src="js/iks-board.js?v=20260925-iks-board-2"></script>
   <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
-  <script src="js/asoc-alerts.js?v=20260929-hint-column-1"></script>
+  <script src="js/asoc-alerts.js?v=20260929-voice-1"></script>
   <script src="js/chat-media-preview.js?v=20260928-save-as-3"></script>
   <script src="js/read-receipts.js?v=20260926-seen-dedupe-1"></script>
   <script src="js/shadow-cosmetics.js?v=20260926-dm-1"></script>
@@ -9844,7 +9850,8 @@ position:absolute;
   <script src="js/stale-guard.js?v=20260926-force-refresh-1"></script>
   <script src="js/megabonk.js?v=20260928-searchlight-1"></script>
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
-  <script src="js/player.js?v=20260929-hint-column-1"></script>
+  <script src="js/voice-messages.js?v=20260929-voice-1"></script>
+  <script src="js/player.js?v=20260929-voice-1"></script>
   <script src="js/player-quests.js?v=20260929-quest-duration-1"></script>
   <script src="js/threefold.js?v=20260925-kaladont-1"></script>
   <script src="js/kaladont-ui.js?v=20260928-kaladont-chat-timer-1"></script>

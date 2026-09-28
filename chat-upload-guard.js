@@ -17,8 +17,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const UPLOAD_NAME = /^[a-f0-9]{32}\.(?:png|jpg|webp|gif)$/i;
-const UPLOAD_NAME_GLOBAL = /[a-f0-9]{32}\.(?:png|jpg|webp|gif)/gi;
+const UPLOAD_NAME = /^[a-f0-9]{32}\.(?:png|jpg|webp|gif|webm|ogg|m4a)$/i;
+const UPLOAD_NAME_GLOBAL = /[a-f0-9]{32}\.(?:png|jpg|webp|gif|webm|ogg|m4a)/gi;
 
 function numberEnv(name, fallback) {
   const value = Number(process.env[name]);

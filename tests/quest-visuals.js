@@ -32,10 +32,10 @@ assert.match(css,/\.quest-card\.status-failed/,'failed contract state is styled'
 assert.match(css,/\.daily-contract\.complete/,'completed daily state is styled');
 assert.match(css,/@media\(max-width:700px\)[\s\S]*?\.daily-contract\{grid-template-columns:42px 1fr/,'quest ledger has a compact narrow layout');
 assert.match(css,/@media\(prefers-reduced-motion:reduce\)/,'quest motion respects reduced-motion preferences');
-assert.match(index,/asoc\.css\?v=20260929-hint-column-1/,'GM loads the redesigned stylesheet immediately');
+assert.match(index,/asoc\.css\?v=20260929-voice-1/,'GM loads the redesigned stylesheet immediately');
 assert.match(index,/quest-icon-system\.css\?v=20260928-skynet-quest-icons-1/,'GM loads the quest sigil layer immediately');
 assert.match(index,/gm-quests\.js\?v=20260929-quest-duration-1/,'GM quest client is cache-busted');
-assert.match(join,/asoc\.css\?v=20260929-hint-column-1/,'player loads the redesigned stylesheet immediately');
+assert.match(join,/asoc\.css\?v=20260929-voice-1/,'player loads the redesigned stylesheet immediately');
 assert.match(join,/quest-icon-system\.css\?v=20260928-skynet-quest-icons-1/,'player loads the quest sigil layer immediately');
 assert.match(join,/player-quests\.js\?v=20260929-quest-duration-1/,'player quest client is cache-busted');
 console.log('PASS quest visuals: Skynet sigils, GM forge, contract ledger, player oath, daily oversight, responsive states and reduced motion');
