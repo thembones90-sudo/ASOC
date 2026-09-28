@@ -993,7 +993,9 @@ async function testCrashRecovery(server) {
   const restoredPlayer = players.players.find(p => p.id === joined.playerId);
   assert.ok(restoredPlayer);
   assert.equal(restoredPlayer.connected, false);
-  assert.equal(restoredPlayer.avatarData, recoveryAvatar);
+  // Avatars are stored as files; recovery preserves the stored avatar URL.
+  assert.match(joined.littleHero.avatarData, /^\/avatars\/[a-f0-9]{32}\.png$/);
+  assert.equal(restoredPlayer.avatarData, joined.littleHero.avatarData);
   assert.equal(restoredPlayer.frameColor, recoveryFrame);
 
   const player2 = await openWs();

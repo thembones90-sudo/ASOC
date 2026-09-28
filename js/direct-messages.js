@@ -42,7 +42,7 @@
 
   function railAvatar(p) {
     const raw = typeof p?.avatarData === 'string' ? p.avatarData : '';
-    const src = raw.startsWith('data:image/') || raw.startsWith('assets/') ? raw : '';
+    const src = raw.startsWith('data:image/') || raw.startsWith('/avatars/') || raw.startsWith('assets/') ? raw : '';
     const initials = esc(String(p?.name || 'LH').trim().slice(0, 2).toUpperCase());
     return src ? `<img src="${esc(src)}" alt="">` : `<span>${initials}</span>`;
   }

@@ -246,6 +246,7 @@ function writeJsonAtomic(filePath, value) { return require('./durable-io').write
 // the full validated read. Callers of loadPlayers() always receive a private
 // deep copy they may mutate; peekPlayers() is the read-only shared view.
 const durableIOModule = require('./durable-io');
+const avatarStore = require('./avatar-store');
 let playersCache = null; // { sig, text, data }
 function playersFileSig() {
   try {
@@ -403,7 +404,12 @@ function updateProfileAppearance(displayName, { avatarData, frameColor, themeId,
   const profile = players[key];
   profile.name = String((typeof displayName === 'object' ? displayName.name : displayName) || '').trim() || profile.name;
 
-  if (typeof avatarData === 'string') profile.avatarData = avatarData;
+  // Avatars are stored as files (avatar-store.js); the profile keeps only the
+  // short /avatars/<hash> URL. An invalid image leaves the avatar unchanged.
+  if (typeof avatarData === 'string') {
+    const stored = avatarStore.normalize(avatarData);
+    if (stored !== null) profile.avatarData = stored;
+  }
   if (typeof frameColor === 'string' && /^#[0-9A-Fa-f]{6}$/.test(frameColor)) {
     profile.frameColor = frameColor.toUpperCase();
   }
@@ -802,6 +808,24 @@ function getAllTimeLeaderboard(limit = 50) {
     .slice(0, limit);
 }
 
+// One-time (idempotent) migration: inline data-URI avatars become files and
+// profiles keep the /avatars/<hash> URL. An avatar that fails validation is
+// left untouched rather than dropped. Returns { migrated, skipped }.
+function migrateAvatarsToFiles() {
+  const players = loadPlayers();
+  if (!storageHealthy) return { migrated: 0, skipped: 0, error: 'Player storage unavailable' };
+  let migrated = 0;
+  let skipped = 0;
+  for (const profile of Object.values(players)) {
+    const value = profile?.avatarData;
+    if (typeof value !== 'string' || !value.startsWith('data:')) continue;
+    const stored = avatarStore.storeDataUri(value);
+    if (stored) { profile.avatarData = stored; migrated++; } else skipped++;
+  }
+  if (migrated && !savePlayersAtomic(players)) return { migrated: 0, skipped, error: 'Player storage refused the migration write' };
+  return { migrated, skipped };
+}
+
 // Read-only shared view for hot read paths. NEVER mutate the result.
 function peekPlayers() {
   const cached = cachedPlayers();
@@ -813,6 +837,7 @@ function peekPlayers() {
 module.exports = {
   isHealthy() { peekPlayers(); return storageHealthy; },
   peekPlayers,
+  migrateAvatarsToFiles,
   storageHealthy() { return storageHealthy; },
   PLAYERS_FILE,
   normalizeNameKey,
