@@ -17455,7 +17455,7 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
 .chat-reaction-detail-person{display:grid;grid-template-columns:38px minmax(0,1fr) 30px;align-items:center;gap:10px;min-height:48px;padding:5px 7px;border-radius:7px}
 .chat-reaction-detail-person:hover{background:rgba(255,255,255,.045)}.chat-reaction-detail-person.filtered{display:none}
 .chat-reaction-detail-person i{display:grid;place-items:center;width:34px;height:34px;overflow:hidden;border:2px solid var(--reaction-frame,#6f7885);border-radius:50%;background:#0c0f13;color:#cbd1d9;font-size:.56rem;font-style:normal;box-shadow:0 0 8px color-mix(in srgb,var(--reaction-frame) 42%,transparent)}
-.chat-reaction-detail-person i img{width:100%;height:100%;object-fit:cover}.chat-reaction-detail-person strong{overflow:hidden;color:#e7e9ed;font-size:.72rem;text-overflow:ellipsis;white-space:nowrap}.chat-reaction-detail-person em{justify-self:center;font-size:1.12rem;font-style:normal}
+.chat-reaction-detail-person i img{width:100%;height:100%;object-fit:cover}.chat-reaction-detail-person strong{overflow:hidden;color:#f1f3f6;font-size:.88rem;font-weight:800;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}.chat-reaction-detail-person em{justify-self:center;font-size:1.12rem;font-style:normal}
 .gm-chat-reaction-chip,.chat-reaction-chip{cursor:pointer}.gm-chat-reaction-chip:hover,.chat-reaction-chip:hover{transform:translateY(-1px)}
 .gm-chat-reaction-chip[data-reactors],.chat-reaction-chip[data-reactors]{position:relative}
 .gm-chat-reaction-chip[data-reactors]::after,.chat-reaction-chip[data-reactors]::after{
