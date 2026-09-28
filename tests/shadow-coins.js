@@ -204,12 +204,12 @@ async function runServer() {
     const ended = await first.waitKal(k => k?.phase === 'ended' && k.reward, 'win settled');
     assert.equal(ended.winnerId, first.playerId);
     assert.equal(ended.reward.amount, 1);
-    assert.equal(ended.reward.balance, 1, 'the winner sees the new balance');
-    assert.equal(other.kal.reward.balance, null, 'others do not see the winner balance');
+    assert.equal(ended.reward.balance, 2, 'the winner sees the match award plus the completed daily contract');
+    assert.equal(other.kal.reward?.balance ?? null, null, 'others do not see the winner balance');
     await sleep(300);
-    // 3. / 4. / 5. winner +1 exactly, loser and spectator nothing
-    assert.equal(coins(gm, first.playerId), 1, 'winner receives exactly +1');
-    assert.equal(coins(gm, other.playerId), 0, 'loser receives nothing');
+    // The winner earns +1 for victory and +1 for actively playing the valid LAST WORD.
+    assert.equal(coins(gm, first.playerId), 2, 'winner receives the match award and daily reward');
+    assert.equal(coins(gm, other.playerId), 0, 'a player eliminated before submitting a valid word earns nothing');
     assert.equal(coins(gm, cy.playerId), 0, 'a spectator receives nothing');
     const lastChat = [...gm.msgs].reverse().find(m => m.type === 'chat:update').messages.map(m => m.text);
     assert.ok(lastChat.some(t => /WINS KALADONT \+1 SHADOW COIN/.test(t || '')), 'the winner line announces the coin');
@@ -221,10 +221,10 @@ async function runServer() {
     // 10. + 7. reconnect with a fresh login, 9. under a new display name
     const again = await connect(first.name, `${first.name} Renamed`, { shadowCoins: 9999 });
     await sleep(250);
-    assert.equal(coins(gm, again.playerId), 1, 'reconnect / login / rename / forged fields keep exactly 1');
+    assert.equal(coins(gm, again.playerId), 2, 'reconnect / login / rename / forged fields preserve the earned balance');
     // 11. the same finished match never pays again (the clock keeps ticking over it)
     await sleep(800);
-    assert.equal(coins(gm, again.playerId), 1);
+    assert.equal(coins(gm, again.playerId), 2);
     // 13. no Battle/WOMF/scoring side effects
     assert.equal(JSON.stringify(gm.state.womf), womfBefore, 'WOMF untouched');
     assert.equal(gm.state.roomMode, 'CASUAL');
@@ -244,10 +244,10 @@ async function runServer() {
     await gm2.waitFor(m => m.type === 'host:recovered', 'host after restart');
     const back = await connect(first.name);
     await sleep(900);
-    assert.equal(coins(gm2, winnerId), 11, 'restart preserves the win and applies the one-time global +10 grant without replaying the win');
+    assert.equal(coins(gm2, winnerId), 12, 'restart preserves both rewards and applies the one-time global +10 grant without replaying either');
     const persisted = JSON.parse(fs.readFileSync(path.join(DATA, 'players.json'), 'utf8'));
     const profile = Object.values(persisted).find(p => p.accountId === winnerId || p.id === winnerId);
-    assert.equal(profile.shadowCoins, 11);
+    assert.equal(profile.shadowCoins, 12);
     assert.ok(profile.shadowCoinReceipts.some(r => r.startsWith('kaladont:')), 'the award receipt is recorded');
     assert.equal(profile.shadowCoinReceipts.filter(r => r.startsWith('kaladont:')).length, 1, 'the restored KALADONT match never pays twice');
     assert.equal(profile.cosmetics.owned['relic-word-killer'], 1, 'winning with the word KALADONT unearths WORD KILLER');
