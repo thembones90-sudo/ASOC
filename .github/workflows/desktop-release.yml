@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'desktop-v*'
+    branches:
+      - main
+    paths:
+      - 'desktop/**'
   workflow_dispatch:
 
 permissions:
