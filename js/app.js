@@ -2777,6 +2777,8 @@ const App = {
       case 'kaladont:state':
         window.GMMinigames?.onKaladont?.(message.state || null);
         break;
+      case 'rouletteCarnage:state': window.RouletteCarnageUI?.onState?.(message.state); break;
+      case 'rouletteCarnage:error': window.RouletteCarnageUI?.onError?.(message.message); break;
       case 'threefold:challenge':
         window.GMMinigames?.onChallenge?.(message);
         window.AsocAlerts?.threefold?.(message, '__GM__');

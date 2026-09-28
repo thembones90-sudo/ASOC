@@ -16090,7 +16090,8 @@ body.room-mode-casual #battle-controls-panel .battle-controls-grid::before {
 }
 
 body.room-mode-casual #battle-controls-panel #nema-asoc-btn,
-body.room-mode-casual #battle-controls-panel #bice-asoc-btn {
+body.room-mode-casual #battle-controls-panel #bice-asoc-btn,
+body.room-mode-casual #battle-controls-panel #black-market-gm-button {
   display:flex !important;
   order:2 !important;
   width:100% !important;
@@ -16103,6 +16104,10 @@ body.room-mode-casual #battle-controls-panel #bice-asoc-btn {
 
 body.room-mode-casual #battle-controls-panel #bice-asoc-btn {
   order:3 !important;
+}
+
+body.room-mode-casual #battle-controls-panel #black-market-gm-button {
+  order:4 !important;
 }
 
 body.room-mode-casual #battle-controls-panel #next-game-btn {

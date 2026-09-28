@@ -11,6 +11,7 @@ const { WebSocketServer } = require('ws');
 const gameStore = require('./game-store');
 const playerStore = require('./player-store');
 const shadowMarket = require('./shadow-market');
+const blackMarket = require('./black-market');
 const dmStore = require('./dm-store');
 const authStore = require('./auth-store');
 const emailService = require('./email-service');
@@ -23,6 +24,7 @@ const kaladont = require('./kaladont');
 const unstableConcoction = require('./unstable-concoction');
 const questEngine = require('./quest-engine');
 const dailyContracts = require('./daily-contracts');
+const rouletteCarnage = require('./roulette-carnage');
 const { createChatUploadGuard } = require('./chat-upload-guard');
 const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
@@ -369,12 +371,15 @@ function serializeRoomForRecovery(room) {
     wheel: room.wheel,
     bloodTributes: room.bloodTributes || [],
     pendingTribute: room.pendingTribute || null,
+    blackMarket: blackMarket.normalizeState(room.blackMarket),
     nudgeCounts: room.nudgeCounts || {},
     moonTolls: room.moonTolls || {},
     megabonks: Array.isArray(room.megabonks) ? room.megabonks : [],
     ritual: normalizeRitualState(room.ritual),
     unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
     kaladont: room.kaladont || null,
+    // Private recovery data only. Network clients receive rouletteViewFor().
+    rouletteCarnage: room.rouletteCarnage || null,
     timer: room.timer,
     pendingReveals: room.pendingReveals || {},
     solutionCountdowns: room.solutionCountdowns || {},
@@ -490,6 +495,7 @@ function restoreActiveRooms() {
         },
         bloodTributes: Array.isArray(saved.bloodTributes) ? saved.bloodTributes : [],
         pendingTribute: saved.pendingTribute || null,
+        blackMarket: blackMarket.normalizeState(saved.blackMarket),
         nudgeCounts: saved.nudgeCounts && typeof saved.nudgeCounts === 'object' ? saved.nudgeCounts : {},
         moonTolls: saved.moonTolls && typeof saved.moonTolls === 'object' ? saved.moonTolls : {},
         // Older saves held a single event in `megabonk`.
@@ -500,6 +506,7 @@ function restoreActiveRooms() {
         // KALADONT survives a restart; the phase in flight gets a fresh window
         // so nobody is eliminated for time lost to the outage.
         kaladont: kaladont.resumeAfterRestart(kaladont.normalizeState(saved.kaladont), Date.now()),
+        rouletteCarnage: rouletteCarnage.normalizeState(saved.rouletteCarnage),
         timer: saved.timer || null,
         pendingReveals: saved.pendingReveals || {},
         solutionCountdowns: saved.solutionCountdowns || {},
@@ -525,6 +532,7 @@ function restoreActiveRooms() {
         }
       }
       scheduleUnstableConcoctionResolution(room);
+      scheduleRouletteCarnage(room);
       // Every restored player comes back offline, so any presence interval
       // that was open at the moment of the crash ends now.
       matchLedger.closeAllPresence(room.match, Date.now());
@@ -1137,6 +1145,7 @@ function createRoom(gameId, hostWs) {
     // its publicUntil deadline is still active.
     bloodTributes: [],
     pendingTribute: null,
+    blackMarket: blackMarket.normalizeState(null),
     // Little Hero @all nudges used toward the one-time nudge Blood Tribute
     // (a number), or 'settled' once that toll was paid/forgiven.
     nudgeCounts: {},
@@ -1145,6 +1154,7 @@ function createRoom(gameId, hostWs) {
     unstableConcoction: unstableConcoction.normalizeState(),
     // KALADONT (Casual word-chain elimination game) -- see kaladont.js.
     kaladont: null,
+    rouletteCarnage: null,
     // TIMER + BORROWED TIME -- server-authoritative, per-board (unlike WOMF's
     // persistent charge, a fresh board gets a fresh, un-started timer -- see
     // resetTimer(), called here and again from resetBoard/switchGame). Never
@@ -1823,6 +1833,87 @@ function handleBloodTributeSubmit(ws, message) {
     const stillRoom = rooms.get(room.code);
     if (stillRoom) broadcastChatUpdate(stillRoom);
   }, BLOOD_TRIBUTE_PUBLIC_MS + 50);
+}
+
+function blackMarketRoom(ws) {
+  return rooms.get(String(ws.roomCode || '').toUpperCase()) || null;
+}
+function sendBlackMarketPlayer(room, playerId) {
+  if (!room || !playerId) return;
+  for (const [socket, player] of room.players.entries()) {
+    if (socket?.readyState === 1 && String(player?.id) === String(playerId)) {
+      sendToWs(socket, { type: 'blackMarket:state', ...blackMarket.playerView(room.blackMarket, playerId) });
+    }
+  }
+}
+function sendBlackMarketGm(room) {
+  if (room?.hostConnection?.readyState === 1) {
+    sendToWs(room.hostConnection, { type: 'blackMarket:gmState', ...blackMarket.gmView(room.blackMarket) });
+  }
+}
+function syncBlackMarket(room, playerId) {
+  sendBlackMarketPlayer(room, playerId);
+  sendBlackMarketGm(room);
+}
+function handleBlackMarket(ws, message) {
+  const room = blackMarketRoom(ws);
+  if (!room) return;
+  const isHost = ws === room.hostConnection;
+  const state = room.blackMarket = blackMarket.normalizeState(room.blackMarket);
+  if (message.type === 'blackMarket:sync') {
+    if (isHost) sendBlackMarketGm(room);
+    else if (ws.playerId) sendBlackMarketPlayer(room, ws.playerId);
+    return;
+  }
+  if (!isHost) {
+    const player = room.players.get(ws);
+    if (!player || !ws.playerId || String(player.id) !== String(ws.playerId)) return;
+    let result;
+    if (message.type === 'blackMarket:petition') result = blackMarket.createPetition(state, { id: ws.playerId, name: player.name }, message);
+    else if (message.type === 'blackMarket:acceptCounter') result = blackMarket.acceptCounter(state, ws.playerId, message.pactId);
+    else if (message.type === 'blackMarket:tributeSubmit') {
+      const imageData = sanitizeTributeImageData(message.imageData);
+      if (!imageData) return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING IS INVALID' });
+      result = blackMarket.submitTribute(state, ws.playerId, message.pactId, imageData, message.consent === true);
+    } else return;
+    if (result?.error) return sendToWs(ws, { type: 'blackMarket:error', message: result.error });
+    persistActiveRooms();
+    syncBlackMarket(room, ws.playerId);
+    return;
+  }
+  if (!['blackMarket:gmDecision', 'blackMarket:tributeJudge'].includes(message.type)) return;
+  if (message.type === 'blackMarket:gmDecision') {
+    const result = blackMarket.gmDecision(state, message);
+    if (result?.error) return sendToWs(ws, { type: 'blackMarket:error', message: result.error });
+    persistActiveRooms();
+    syncBlackMarket(room, result.pact.playerId);
+    return;
+  }
+  const pact = blackMarket.findPact(state, message.pactId);
+  if (!pact || pact.state !== 'TRIBUTE_SUBMITTED') return sendToWs(ws, { type: 'blackMarket:error', message: 'NO TRIBUTE AWAITS JUDGMENT' });
+  if (message.accepted === true) {
+    const tributeId = 'black-market-' + crypto.randomBytes(8).toString('hex');
+    room.bloodTributes = Array.isArray(room.bloodTributes) ? room.bloodTributes : [];
+    room.bloodTributes.push({
+      id: tributeId,
+      playerId: pact.playerId,
+      playerName: pact.playerName,
+      submittedAt: Date.now(),
+      originalMessageTimestamp: Date.now(),
+      sessionId: room.boardId || 'CASUAL',
+      imageData: pact.tributeImageData,
+      viewedByGM: true,
+      reliquary: true,
+      source: 'blackMarket',
+      pactId: pact.id
+    });
+    blackMarket.judgeTribute(state, pact.id, true, '', tributeId);
+    sendTributeVaultToHost(room);
+  } else {
+    blackMarket.judgeTribute(state, pact.id, false, message.reason || '', null);
+  }
+  persistActiveRooms();
+  syncBlackMarket(room, pact.playerId);
 }
 
 function handleBloodTributeVaultClear(ws) {
@@ -4991,6 +5082,125 @@ function kaladontDisconnect(room, playerId) {
   kaladontCommit(room, out.announce);
 }
 
+// ---------------------------------------------------------------------
+// ROULETTE CARNAGE -- server-authoritative multiplayer Shadow Coin table.
+// Raw wagers never enter state:public. Each socket receives a private view;
+// only the Shadow Broker receives the full wager ledger.
+// ---------------------------------------------------------------------
+const ROULETTE_CARNAGE_SPIN_MS = 4200;
+function rouletteActor(room, ws) {
+  if (!room || ws === room.hostConnection || !ws.playerId) return null;
+  const player=room.players.get(ws);
+  return player&&player.connected!==false?{id:String(player.id),name:player.name||'LITTLE HERO'}:null;
+}
+function rouletteIdentity(entry){return{id:String(entry.id),name:entry.name||'LITTLE HERO'};}
+function rouletteError(ws,message){sendToWs(ws,{type:'rouletteCarnage:error',message});}
+function rouletteViewFor(room,ws){
+  const isGm=ws===room.hostConnection&&ws.gmAuthenticated===true;
+  const actor=isGm?null:rouletteActor(room,ws);
+  const balance=actor?playerStore.getShadowCoins(rouletteIdentity(actor)):0;
+  return {type:'rouletteCarnage:state',state:rouletteCarnage.view(room.rouletteCarnage,isGm?'__GM__':actor?.id||'',isGm,balance),serverNow:Date.now()};
+}
+function sendRouletteState(room,ws){if(room&&ws?.readyState===1)sendToWs(ws,rouletteViewFor(room,ws));}
+function broadcastRouletteState(room){room.players.forEach((_p,socket)=>sendRouletteState(room,socket));sendRouletteState(room,room.hostConnection);}
+function rouletteCommit(room,{players=false,publicState=false}={}){
+  persistActiveRooms();broadcastRouletteState(room);if(players)broadcastPlayersUpdate(room);if(publicState)broadcastToRoom(room,{type:'state:public',...getPublicState(room)});
+}
+function rouletteRefundRound(room,reason='ROULETTE CARNAGE round aborted'){
+  const round=room.rouletteCarnage?.round;if(!round)return true;
+  for(const wager of round.wagers||[]){
+    const refund=playerStore.awardShadowCoins(rouletteIdentity({id:wager.playerId,name:wager.playerName}),wager.amount,`roulette-carnage:${round.id}:refund:${wager.id}`,{reason});
+    if(!refund.ok)return false;
+  }
+  return true;
+}
+function finalizeRouletteCarnage(room){
+  const table=room?.rouletteCarnage,round=table?.round;
+  if(!table||round?.phase!=='SPINNING'||round.settled===true||!Number.isInteger(round.winningNumber))return;
+  if(Number(round.revealAt)>Date.now())return scheduleRouletteCarnage(room);
+  for(const wager of round.wagers){
+    const result=rouletteCarnage.resolveBet(wager,round.winningNumber);wager.result=result;
+    if(result.gross>0){const paid=playerStore.awardShadowCoins(rouletteIdentity({id:wager.playerId,name:wager.playerName}),result.gross,`roulette-carnage:${round.id}:payout:${wager.id}`,{reason:`ROULETTE CARNAGE ${round.winningNumber} // ${result.label}`});if(!paid.ok){console.error('[roulette-carnage] payout failed:',paid.error);round.revealAt=Date.now()+1000;persistActiveRooms();scheduleRouletteCarnage(room);return;}}
+  }
+  round.settled=true;round.settledAt=Date.now();
+  if(round.winningNumber===0){
+    const activeIds=[...new Set(round.wagers.map(w=>String(w.playerId)))];
+    const immune=activeIds.filter(id=>rouletteCarnage.isZeroImmune(round.wagers,id,0));
+    const eligible=activeIds.filter(id=>!immune.includes(id));
+    if(eligible.length){
+      const chosenId=eligible[crypto.randomInt(eligible.length)],chosen=round.joined[chosenId]||{id:chosenId,name:'LITTLE HERO'};
+      round.phase='CARNAGE';round.carnage={status:'TRIBUTE_SELECTED',selectedPlayerId:chosenId,selectedPlayerName:chosen.name,eligibleNames:eligible.map(id=>round.joined[id]?.name||'LITTLE HERO'),immunePlayerIds:immune};
+      armBloodTributeForPlayer(room,chosen,round.spinToken,'rouletteCarnage');
+      addShadowBrokerMessage(room,`ZERO HAS ANSWERED. ${chosen.name} HAS BEEN CHOSEN. THE RELIQUARY DEMANDS TRIBUTE.`,{editableByHost:false});broadcastChatUpdate(room);
+    }else{
+      round.phase='CARNAGE';round.carnage={status:'ESCAPED',selectedPlayerId:null,selectedPlayerName:null,eligibleNames:[],immunePlayerIds:immune};
+      addShadowBrokerMessage(room,'ZERO HAS ANSWERED // EVERY ACTIVE GAMBLER HELD A WINNING ZERO WAGER // THE TABLE ESCAPES CARNAGE.',{editableByHost:false});broadcastChatUpdate(room);
+    }
+  }else round.phase='RESULT';
+  rouletteCommit(room,{players:true,publicState:round.winningNumber===0});
+}
+function scheduleRouletteCarnage(room){
+  const round=room?.rouletteCarnage?.round;if(round?.phase!=='SPINNING'||round.settled)return;
+  clearTimeout(room._rouletteCarnageTimer);room._rouletteCarnageTimer=setTimeout(()=>runtimeAction(()=>finalizeRouletteCarnage(room)),Math.max(0,Number(round.revealAt||0)-Date.now()));
+}
+function handleRouletteCarnage(ws,message){
+  const room=rooms.get(ws.roomCode?.toUpperCase());if(!room)return;
+  const type=String(message.type||''),isGm=ws===room.hostConnection&&ws.gmAuthenticated===true;
+  if(type==='rouletteCarnage:sync')return sendRouletteState(room,ws);
+  if(room.roomMode!==ROOM_MODES.CASUAL)return rouletteError(ws,'ROULETTE CARNAGE IS AVAILABLE ONLY IN AMUSEMENT PARK');
+  if(type.startsWith('gm:rouletteCarnage:')){
+    if(!isGm)return rouletteError(ws,'ONLY THE SHADOW BROKER DEALS THIS TABLE');
+    const action=type.slice('gm:rouletteCarnage:'.length),table=room.rouletteCarnage,round=table?.round;
+    if(action==='openTable'){
+      if(table?.open)return rouletteError(ws,'THE ROULETTE TABLE IS ALREADY OPEN');
+      room.rouletteCarnage=rouletteCarnage.createTable('rct-'+crypto.randomBytes(6).toString('hex'),'rcr-'+crypto.randomBytes(8).toString('hex'),rouletteCarnage.MINIMUM_BET);
+      return rouletteCommit(room);
+    }
+    if(!table?.open)return rouletteError(ws,'OPEN THE TABLE FIRST');
+    if(action==='openBetting'){
+      if(['SPINNING','LOCKED'].includes(round.phase))return rouletteError(ws,'THE CURRENT ROUND IS NOT FINISHED');
+      if(['RESULT','CARNAGE','ABORTED'].includes(round.phase)){const joined={...round.joined};table.history.push({id:round.id,result:round.winningNumber,settledAt:round.settledAt,carnage:round.carnage});table.history=table.history.slice(-20);table.round=rouletteCarnage.newRound('rcr-'+crypto.randomBytes(8).toString('hex'));table.round.joined=joined;}
+      table.round.phase='BETTING_OPEN';return rouletteCommit(room);
+    }
+    if(action==='lockBets'){
+      if(round.phase!=='BETTING_OPEN')return rouletteError(ws,'BETTING IS NOT OPEN');
+      if(!(round.wagers||[]).length)return rouletteError(ws,'NO VALID WAGERS ARE ON THE TABLE');
+      round.phase='LOCKED';return rouletteCommit(room);
+    }
+    if(action==='spin'){
+      if(round.phase!=='LOCKED')return rouletteError(ws,'LOCK BETS BEFORE SPINNING');
+      if(room.pendingTribute?.status==='required')return rouletteError(ws,'THE RELIQUARY IS ALREADY AWAITING BLOOD TRIBUTE');
+      round.phase='SPINNING';round.winningNumber=crypto.randomInt(0,37);round.spinToken=crypto.randomBytes(12).toString('hex');round.revealAt=Date.now()+ROULETTE_CARNAGE_SPIN_MS;rouletteCommit(room);return scheduleRouletteCarnage(room);
+    }
+    if(action==='abort'){
+      if(round.settled||['RESULT','CARNAGE'].includes(round.phase))return rouletteError(ws,'A FINALIZED ROUND IS IMMUTABLE');
+      if(!rouletteRefundRound(room))return rouletteError(ws,'ESCROW REFUND FAILED // RETRY');
+      round.phase='ABORTED';round.settled=true;round.settledAt=Date.now();clearTimeout(room._rouletteCarnageTimer);return rouletteCommit(room,{players:true});
+    }
+    if(action==='closeTable'){
+      if(round&&!round.settled&&(round.wagers||[]).length&&!rouletteRefundRound(room,'ROULETTE CARNAGE table closed'))return rouletteError(ws,'ESCROW REFUND FAILED // RETRY');
+      clearTimeout(room._rouletteCarnageTimer);room.rouletteCarnage=null;return rouletteCommit(room,{players:true});
+    }
+    return rouletteError(ws,'UNKNOWN DEALER COMMAND');
+  }
+  const actor=rouletteActor(room,ws);if(!actor)return rouletteError(ws,'A CONNECTED LITTLE HERO IDENTITY IS REQUIRED');
+  const table=room.rouletteCarnage,round=table?.round;if(!table?.open)return rouletteError(ws,'THE TABLE IS CLOSED');
+  if(type==='rouletteCarnage:join'){
+    if(!['TABLE_OPEN','BETTING_OPEN'].includes(round.phase))return rouletteError(ws,'JOINING IS CLOSED FOR THIS ROUND');
+    round.joined[actor.id]=actor;return rouletteCommit(room);
+  }
+  if(type==='rouletteCarnage:bet'){
+    if(round.phase!=='BETTING_OPEN')return rouletteError(ws,'THE HOUSE IS NOT ACCEPTING WAGERS');
+    if(!round.joined[actor.id])return rouletteError(ws,'JOIN THE TABLE BEFORE BETTING');
+    const bet=rouletteCarnage.validateBet(message,table.minimumBet);if(bet.error)return rouletteError(ws,bet.error);
+    const id='rcw-'+crypto.randomBytes(8).toString('hex');
+    const spent=playerStore.spendShadowCoins(rouletteIdentity(actor),bet.amount,`roulette-carnage:${round.id}:stake:${id}`,{reason:`ROULETTE CARNAGE escrow // ${rouletteCarnage.betLabel(bet)}`});
+    if(!spent.ok)return rouletteError(ws,spent.error||'WAGER COULD NOT BE RESERVED');
+    round.wagers.push({id,playerId:actor.id,playerName:actor.name,...bet,placedAt:Date.now()});return rouletteCommit(room,{players:true});
+  }
+  rouletteError(ws,'UNKNOWN ROULETTE CARNAGE ACTION');
+}
+
 function hostRoomFor(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   return room && ws === room.hostConnection ? room : null;
@@ -7083,6 +7293,7 @@ function handlePlayerJoin(ws, message) {
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
   sendQuestState(room, ws);
+  sendRouletteState(room, ws);
   sendDailyState(ws, dailyIdentity(playerId, cleanName));
   sendGmDailies(room);
   sendRecountHydration(ws, room);
@@ -7334,6 +7545,7 @@ function handleHostReconnect(ws, message) {
   broadcastPlayersUpdate(room);
   sendKaladontState(room, ws);
   sendQuestState(room, ws);
+  sendRouletteState(room, ws);
   sendGmDailies(room);
   console.log(`[ROOM ${room.code}] Host reconnected`);
 }
@@ -7371,6 +7583,7 @@ function handleHostRecover(ws) {
   broadcastPlayersUpdate(room);
   sendKaladontState(room, ws);
   sendQuestState(room, ws);
+  sendRouletteState(room, ws);
   sendGmDailies(room);
   console.log(`[MASTER ROOM] Shadow Broker recovered ${normalizeRoomMode(room.roomMode, room.armed)} session without browser host token`);
 }
@@ -10210,6 +10423,15 @@ wss.on('connection', (ws, req) => {
           handleShadowState(ws);
           break;
         }
+        case 'blackMarket:sync':
+        case 'blackMarket:petition':
+        case 'blackMarket:acceptCounter':
+        case 'blackMarket:tributeSubmit':
+        case 'blackMarket:gmDecision':
+        case 'blackMarket:tributeJudge': {
+          handleBlackMarket(ws, message);
+          break;
+        }
         case 'megabonk:ack': {
           handleMegabonkAck(ws, message);
           break;
@@ -10315,6 +10537,18 @@ wss.on('connection', (ws, req) => {
         case 'kaladont:vote':
         case 'kaladont:sync': {
           handleKaladont(ws, message);
+          break;
+        }
+        case 'rouletteCarnage:sync':
+        case 'rouletteCarnage:join':
+        case 'rouletteCarnage:bet':
+        case 'gm:rouletteCarnage:openTable':
+        case 'gm:rouletteCarnage:openBetting':
+        case 'gm:rouletteCarnage:lockBets':
+        case 'gm:rouletteCarnage:spin':
+        case 'gm:rouletteCarnage:abort':
+        case 'gm:rouletteCarnage:closeTable': {
+          handleRouletteCarnage(ws, message);
           break;
         }
         case 'iks:join': {
