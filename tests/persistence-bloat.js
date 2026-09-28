@@ -194,7 +194,7 @@ function unitPlayerStoreCache() {
     assert.equal(server.errors.trim(), '', 'no server errors after restart');
   } finally {
     clients.forEach(c => c.close());
-    try { server.kill(); } catch {}
+    await require('./lib/stop-process')(server);
     await sleep(300);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

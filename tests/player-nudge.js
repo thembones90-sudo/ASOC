@@ -148,7 +148,7 @@ async function run() {
 
     // The debt survives a server restart (nudge counts are persisted too).
     [gm, nudger, witness].forEach(client => client.close());
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(600);
     server = startServer();
     await waitHealthy();
@@ -183,7 +183,7 @@ async function run() {
     console.log('PASS player nudge: @all and /all shake everyone, five free, sixth demands a one-time Blood Tribute, paid/forgiven means free forever, survives restart');
   } finally {
     [gm, nudger, witness].forEach(client => client?.close());
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(200);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

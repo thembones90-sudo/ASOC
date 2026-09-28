@@ -115,7 +115,7 @@ async function run() {
     console.log('PASS board refresh: saved games reach the live board, RESET BOARD re-reads the game, Forge loads keep the room mode');
   } finally {
     try { ws?.close(); } catch {}
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(200);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

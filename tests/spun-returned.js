@@ -176,7 +176,7 @@ function profiles() {
     console.log(`PASS SPUN AND RETURNED: ${spins} real WOMF spins; survival counters exact after every spin; relic granted exactly at the 5th survival (${earners.map(n => `${n}@spin${awardedAt[n]}`).join(', ')}), once, with one transmission; the selected player never counts`);
   } finally {
     clients.forEach(c => c.close());
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(300);
     try { fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); } catch {}
   }

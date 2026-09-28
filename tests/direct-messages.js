@@ -241,7 +241,7 @@ function checkHiddenFromPublic() {
     console.log('PASS direct messages: delivery, unread + read receipts, offline delivery, text rules, rate limit, blocks, accept-from-nobody, Battle lock, reports, persistence; Shadow Broker oversight host-only, read-only, traceless, module GM-gated and absent from public files');
   } finally {
     clients.forEach(c => c.close());
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(250);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

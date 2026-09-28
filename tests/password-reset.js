@@ -160,7 +160,7 @@ function startServer() {
     assert.match(join, /verificationParams\.get\('reset'\)[\s\S]{0,200}history\.replaceState/, 'the token is scrubbed from the address bar');
     console.log('PASS forgot password: generic answers, cooldown, digest-only single-use expiring tokens, new password + session sign-out, verification completion, throttling, login-page wiring');
   } finally {
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(250);
     fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }

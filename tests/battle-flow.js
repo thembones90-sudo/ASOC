@@ -258,7 +258,7 @@ async function run() {
     console.log('PASS battle flow: launch lock, FINAL undo, countdown pause, NEXT GAME reset, REVEAL ALL, Wheel in RECOUNT');
   } finally {
     [gm, ...players].forEach(client => client?.close());
-    server.kill();
+    await require('./lib/stop-process')(server);
     await sleep(200);
     fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
