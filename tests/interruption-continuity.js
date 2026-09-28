@@ -71,5 +71,5 @@ async function joinPlayer(token,name='CONTINUITY PLAYER'){
     assert.match(joinSource,/asoc:player-session-restored/);
     console.log('PASS interruption continuity: player reconnect, GM token-loss recovery, process restart, browser auto-resume hooks');
     host.ws.close();player.ws.close();
-  }finally{await stop();fs.rmSync(dir,{recursive:true,force:true});}
+  }finally{await stop();fs.rmSync(dir,{recursive:true,force:true,maxRetries:20,retryDelay:100});}
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -121,7 +121,7 @@ function waitForExit(child, timeoutMs = 7000) {
   } finally {
     if (first?.child.exitCode === null) first.child.kill('SIGKILL');
     if (restored?.child.exitCode === null) restored.child.kill('SIGKILL');
-    fs.rmSync(DATA_DIR, { recursive: true, force: true });
+    fs.rmSync(DATA_DIR, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 })().catch(error => {
   console.error(error);

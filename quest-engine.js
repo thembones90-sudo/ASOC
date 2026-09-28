@@ -74,6 +74,10 @@ function create(input, target, now = Date.now()) {
   } };
 }
 
+function canTransition(quest, next) {
+  return !!quest && !!TRANSITIONS[quest.status]?.has(next);
+}
+
 function transition(state, questId, next, now = Date.now(), reason = null) {
   const quest = state.active[String(questId || '')];
   if (!quest) return { error: 'QUEST NOT FOUND OR ALREADY RESOLVED' };
@@ -106,4 +110,4 @@ function expire(state, now = Date.now()) {
   return expired;
 }
 
-module.exports = { ACTIVE, TERMINAL, VISIBILITIES, HISTORY_LIMIT, cleanText, normalizeState, validateCreate, create, transition, expire };
+module.exports = { ACTIVE, TERMINAL, VISIBILITIES, HISTORY_LIMIT, cleanText, normalizeState, validateCreate, create, canTransition, transition, expire };

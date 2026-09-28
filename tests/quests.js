@@ -111,7 +111,7 @@ async function runLive(){
     clients.forEach(c=>c.close());await sleep(100);await stopServer(server);server=startServer();await healthy();gm=await connectGM();target=await connectPlayer('Target',targetCreds);
     const restarted=await gm.wait(m=>m.type==='quest:update'&&m.active.some(q=>q.id===publicQ.id),'restart restore');assert.equal(restarted.active.find(q=>q.id===publicQ.id).deadline,originalDeadline,'restart never refreshes deadline');assert.ok(restarted.history.some(q=>q.id===quest.id&&q.status==='COMPLETED'),'history survives restart');
     assert.equal(server.errors.trim(),'','no server errors');
-  } finally { clients.forEach(c=>c.close()); await stopServer(server); fs.rmSync(DATA,{recursive:true,force:true}); }
+  } finally { clients.forEach(c=>c.close()); await stopServer(server); fs.rmSync(DATA,{recursive:true,force:true,maxRetries:20,retryDelay:100}); }
 }
 
 (async()=>{unitChecks();await runLive();console.log('QUESTS tests passed');})().catch(e=>{console.error(e);process.exitCode=1;});

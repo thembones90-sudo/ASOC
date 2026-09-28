@@ -467,7 +467,7 @@ async function runServer() {
     clients.forEach(client => client.close());
     server.kill();
     await sleep(250);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 

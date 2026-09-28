@@ -185,7 +185,7 @@ function checkStore() {
     assert.equal(legacy.cosmetics.equipped.effect, null, 'unowned equips are cleared');
     assert.deepEqual(legacy.shadowCoinLedger, []);
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
     delete process.env.ASOC_DATA_DIR;
   }
 }
@@ -316,9 +316,8 @@ async function runServer() {
     const durablePath = require.resolve('../durable-io');
     delete require.cache[storePath]; delete require.cache[durablePath];
     const store = require('../player-store');
-    // The next server boot applies the intentional one-time global +10 grant,
-    // so seed 90 here to retain this economy test's 100 SC starting balance.
-    store.awardShadowCoins({ id: anaId, name: 'Ana' }, 90, 'test:seed', { reason: 'test seed' });
+    // Administrative grants never run at startup, so seed the full 100 SC.
+    store.awardShadowCoins({ id: anaId, name: 'Ana' }, 100, 'test:seed', { reason: 'test seed' });
     delete process.env.ASOC_DATA_DIR;
     server = spawnServer();
     await healthy();
@@ -545,7 +544,7 @@ async function runServer() {
     clients.forEach(c => c.close());
     server.kill();
     await sleep(250);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 

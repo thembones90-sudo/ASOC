@@ -46,6 +46,6 @@ delete require.cache[require.resolve('../player-store')];
 const reloadedStore = require('../player-store');
 const profile = reloadedStore.loadPlayers().p1;
 assert.strictEqual(profile.asocGamesEarned, 1, '+1 ASOC GAME reward must persist');
-fs.rmSync(tmp, { recursive: true, force: true });
+fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
 
 console.log('PASS unstable concoction cooldown, race lock, outcomes, Casual-only gate and persistent reward');

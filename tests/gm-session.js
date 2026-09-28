@@ -90,7 +90,7 @@ async function run() {
     console.log('PASS GM sessions: survive restart, hashed at rest, sign-out GM-only and durable, password change and expiry invalidate');
   } finally {
     await stop();
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 

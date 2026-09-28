@@ -144,7 +144,7 @@ async function run(scenario) {
     clients.forEach(c => c.close());
     server.kill();
     await sleep(300);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 

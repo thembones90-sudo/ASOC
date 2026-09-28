@@ -146,7 +146,7 @@ function checkStore() {
     assert.equal(store.isFighter('a'), true, 'the gauntlet survives a restart');
     store.reset();
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 
@@ -391,7 +391,7 @@ async function runServer() {
     clients.forEach(client => client.close());
     server.kill();
     await sleep(200);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 

@@ -174,5 +174,5 @@ main().catch(error => {
     server.kill('SIGTERM');
     await Promise.race([once(server, 'exit'), new Promise(resolve => setTimeout(resolve, 2000))]);
   }
-  fs.rmSync(DATA, { recursive: true, force: true });
+  fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
 });

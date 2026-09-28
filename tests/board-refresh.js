@@ -117,7 +117,7 @@ async function run() {
     try { ws?.close(); } catch {}
     server.kill();
     await sleep(200);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 

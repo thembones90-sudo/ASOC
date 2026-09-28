@@ -9,7 +9,7 @@ process.env.ASOC_DATA_DIR = overlay;
 const store = require('../game-store');
 
 function cleanup() {
-  try { fs.rmSync(overlay, { recursive: true, force: true }); } catch {}
+  try { fs.rmSync(overlay, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); } catch {}
 }
 
 function makeValidGame(title) {

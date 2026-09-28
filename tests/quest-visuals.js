@@ -26,5 +26,5 @@ assert.match(css,/@media\(prefers-reduced-motion:reduce\)/,'quest motion respect
 assert.match(index,/asoc\.css\?v=20260928-board-coronation-1/,'GM loads the redesigned stylesheet immediately');
 assert.match(index,/gm-quests\.js\?v=20260928-quest-ledger-1/,'GM quest client is cache-busted');
 assert.match(join,/asoc\.css\?v=20260928-board-coronation-1/,'player loads the redesigned stylesheet immediately');
-assert.match(join,/player-quests\.js\?v=20260928-quest-ledger-1/,'player quest client is cache-busted');
+assert.match(join,/player-quests\.js\?v=20260929-hardening-2/,'player quest client is cache-busted');
 console.log('PASS quest visuals: GM forge, contract ledger, player oath, daily oversight, responsive states and reduced motion');

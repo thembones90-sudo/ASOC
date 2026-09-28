@@ -233,9 +233,58 @@ function readPlayersFile(filePath) {
   return validateAndNormalizePlayers(parsed);
 }
 
-function writeJsonAtomic(filePath, value) { require('./durable-io').writeJson(filePath, value); }
+function writeJsonAtomic(filePath, value) { return require('./durable-io').writeJson(filePath, value); }
+
+// IN-MEMORY CACHE of the validated database. The server is the only writer of
+// players.json, and a full read + parse + validate costs ~100 ms per MB-scale
+// file, so hot paths (roster broadcasts, coin reads, daily contracts) reuse
+// the last validated copy whenever it provably still matches storage:
+//   - inside a durable-io transaction: the queued text is the exact string
+//     this store wrote (identity check), or
+//   - otherwise: the file's inode/size/mtime equal what we last saw.
+// Anything else (external edit, aborted transaction, corruption) falls back to
+// the full validated read. Callers of loadPlayers() always receive a private
+// deep copy they may mutate; peekPlayers() is the read-only shared view.
+const durableIOModule = require('./durable-io');
+let playersCache = null; // { sig, text, data }
+function playersFileSig() {
+  try {
+    const st = require('fs').statSync(PLAYERS_FILE);
+    return `${st.ino}:${st.size}:${st.mtimeMs}`;
+  } catch {
+    return null;
+  }
+}
+function cachedPlayers() {
+  if (!playersCache) return null;
+  const queued = durableIOModule.pendingValue(PLAYERS_FILE);
+  if (queued !== undefined) return queued === playersCache.text ? playersCache.data : null;
+  if (playersCache.sig && playersCache.sig === playersFileSig()) return playersCache.data;
+  return null;
+}
+function rememberPlayers(data, text = null) {
+  const queued = durableIOModule.pendingValue(PLAYERS_FILE) !== undefined;
+  playersCache = { sig: queued ? null : playersFileSig(), text, data: structuredClone(data) };
+}
+// A committed write re-validates the cache only when it is byte-for-byte the
+// content the cache holds; any other write to the file (backup recovery,
+// another code path) drops the cache so the next read is a full validated one.
+durableIOModule.onCommit(writes => {
+  if (!playersCache) return;
+  const target = path.resolve(PLAYERS_FILE);
+  for (const [file, data] of writes) {
+    if (file !== target) continue;
+    if (data === playersCache.text) playersCache.sig = playersFileSig();
+    else playersCache = null;
+  }
+});
 
 function loadPlayers() {
+  const cached = cachedPlayers();
+  if (cached) {
+    storageHealthy = true;
+    return structuredClone(cached);
+  }
   if (!fs.existsSync(PLAYERS_FILE)) {
     if (!fs.existsSync(PLAYERS_BACKUP_FILE)) {
       storageHealthy = true;
@@ -258,6 +307,8 @@ function loadPlayers() {
   try {
     const players = readPlayersFile(PLAYERS_FILE);
     storageHealthy = true;
+    const queued = durableIOModule.pendingValue(PLAYERS_FILE);
+    rememberPlayers(players, queued === undefined ? null : queued);
     return players;
   } catch (mainError) {
     console.error('[player-store] players.json is corrupt or invalid:', mainError.message);
@@ -300,11 +351,13 @@ function savePlayersAtomic(players) {
 
   try {
     if (fs.existsSync(PLAYERS_FILE)) {
-      const previousGood = readPlayersFile(PLAYERS_FILE);
+      // The cached copy is the validated current file (see cachedPlayers).
+      const previousGood = cachedPlayers() || readPlayersFile(PLAYERS_FILE);
       writeJsonAtomic(PLAYERS_BACKUP_FILE, previousGood);
     }
 
-    writeJsonAtomic(PLAYERS_FILE, normalized);
+    const written = writeJsonAtomic(PLAYERS_FILE, normalized);
+    rememberPlayers(normalized, written);
 
     if (!fs.existsSync(PLAYERS_BACKUP_FILE)) {
       writeJsonAtomic(PLAYERS_BACKUP_FILE, normalized);
@@ -412,8 +465,11 @@ function recordCoinChange(players, profile, receiptId, units, { kind = 'adjust',
   if (detail) entry.detail = detail;
   profile.shadowCoinLedger.push(entry);
   if (profile.shadowCoinLedger.length > COIN_LEDGER_LIMIT) profile.shadowCoinLedger.splice(0, profile.shadowCoinLedger.length - COIN_LEDGER_LIMIT);
-  savePlayersAtomic(players);
+  // A refused save means the change did not happen: callers report failure
+  // instead of a phantom success (the in-memory copy is discarded).
+  return savePlayersAtomic(players);
 }
+const COIN_STORAGE_ERROR = 'Shadow Coin storage unavailable';
 
 function getShadowCoins(identity) {
   const players = loadPlayers();
@@ -433,7 +489,7 @@ function awardShadowCoins(identity, amount, receiptId, { reason = '' } = {}) {
   const profile = coinProfile(players, identity);
   if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: unitsToCoins(profile.shadowCoinUnits) };
   profile.name = String(identity.name || profile.name || '').trim() || profile.name;
-  recordCoinChange(players, profile, receiptId, units, { kind: 'reward', reason });
+  if (!recordCoinChange(players, profile, receiptId, units, { kind: 'reward', reason })) return { ok: false, error: COIN_STORAGE_ERROR };
   if (reason) console.log(`[shadow-coins] +${unitsToCoins(units)} to ${profile.name} (${reason}) -> ${profile.shadowCoins}`);
   return { ok: true, balance: profile.shadowCoins, duplicate: false };
 }
@@ -448,7 +504,7 @@ function deductShadowCoins(identity, amount, receiptId, { reason = '' } = {}) {
   const profile = coinProfile(players, identity);
   if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: unitsToCoins(profile.shadowCoinUnits), deducted: 0 };
   const taken = Math.min(units, profile.shadowCoinUnits);
-  recordCoinChange(players, profile, receiptId, -taken, { kind: 'penalty', reason });
+  if (!recordCoinChange(players, profile, receiptId, -taken, { kind: 'penalty', reason })) return { ok: false, error: COIN_STORAGE_ERROR };
   if (reason) console.log(`[shadow-coins] -${unitsToCoins(taken)} from ${profile.name} (${reason}) -> ${profile.shadowCoins}`);
   return { ok: true, balance: profile.shadowCoins, deducted: unitsToCoins(taken), duplicate: false };
 }
@@ -463,7 +519,7 @@ function spendShadowCoins(identity, amount, receiptId, { reason = 'spend' } = {}
   const profile = coinProfile(players, identity);
   if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: unitsToCoins(profile.shadowCoinUnits) };
   if (profile.shadowCoinUnits < units) return { ok: false, error: 'Not enough Shadow Coins', balance: unitsToCoins(profile.shadowCoinUnits) };
-  recordCoinChange(players, profile, receiptId, -units, { kind: 'purchase', reason });
+  if (!recordCoinChange(players, profile, receiptId, -units, { kind: 'purchase', reason })) return { ok: false, error: COIN_STORAGE_ERROR };
   return { ok: true, balance: profile.shadowCoins, duplicate: false };
 }
 
@@ -495,7 +551,7 @@ function purchaseCosmetic(identity, itemId, tier, price, receiptId, { reason = '
   if ((Number(owned[itemId]) || 0) !== tier - 1) return { ok: false, error: 'Already owned' };
   if (profile.shadowCoinUnits < units) return { ok: false, error: 'Not enough Shadow Coins', balance: unitsToCoins(profile.shadowCoinUnits) };
   owned[itemId] = tier;
-  recordCoinChange(players, profile, receiptId, -units, { kind: 'purchase', reason: reason || `bought ${itemId}`, detail: { itemId, tier } });
+  if (!recordCoinChange(players, profile, receiptId, -units, { kind: 'purchase', reason: reason || `bought ${itemId}`, detail: { itemId, tier } })) return { ok: false, error: COIN_STORAGE_ERROR };
   return { ok: true, balance: profile.shadowCoins, tier };
 }
 
@@ -564,11 +620,11 @@ function settleRouletteSpin(identity, wager, receiptId, resolve) {
   const outcome = resolve();
   const net = outcome.won ? stake * outcome.odds : -stake;
   const detail = { wager: unitsToCoins(stake), bet: outcome.label, pocket: outcome.pocket, won: outcome.won, payout: outcome.won ? unitsToCoins(stake * (outcome.odds + 1)) : 0 };
-  recordCoinChange(players, profile, receiptId, net, {
+  if (!recordCoinChange(players, profile, receiptId, net, {
     kind: 'roulette',
     reason: `ROULETTE ${outcome.pocket} // ${outcome.label} // ${unitsToCoins(stake)} SC`,
     detail
-  });
+  })) return { ok: false, error: COIN_STORAGE_ERROR };
   return { ok: true, balance: profile.shadowCoins, net: (net < 0 ? -1 : 1) * unitsToCoins(Math.abs(net)), outcome };
 }
 
@@ -683,7 +739,10 @@ function resetScoreboard() {
   return { profiles: count };
 }
 
-function grantAllShadowCoins(amount, receiptId, { reason = '' } = {}) {
+// Idempotent per receipt. `createdBefore` (ms epoch or ISO) limits the grant to
+// profiles that already existed at that moment; profiles with no creation
+// timestamp predate tracking and count as existing.
+function grantAllShadowCoins(amount, receiptId, { reason = '', createdBefore = null } = {}) {
   const units = coinUnits(amount);
   if (!units) return { ok: false, error: 'Invalid Shadow Coin amount', granted: 0, skipped: 0 };
   const receipt = String(receiptId || '').trim();
@@ -694,8 +753,13 @@ function grantAllShadowCoins(amount, receiptId, { reason = '' } = {}) {
 
   let granted = 0;
   let skipped = 0;
+  const cutoff = createdBefore === null || createdBefore === undefined ? null : new Date(createdBefore).getTime();
+  if (cutoff !== null && !Number.isFinite(cutoff)) return { ok: false, error: 'Invalid creation cutoff', granted: 0, skipped: 0 };
+  let ineligible = 0;
   for (const profile of Object.values(players)) {
     if (!profile || !profile.id) continue;
+    const created = profile.createdAt ? new Date(profile.createdAt).getTime() : null;
+    if (cutoff !== null && Number.isFinite(created) && created > cutoff) { ineligible++; continue; }
     if (!Number.isInteger(profile.shadowCoinUnits) || profile.shadowCoinUnits < 0) {
       profile.shadowCoinUnits = Math.max(0, Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT));
     }
@@ -727,8 +791,8 @@ function grantAllShadowCoins(amount, receiptId, { reason = '' } = {}) {
     granted++;
   }
 
-  if (granted) savePlayersAtomic(players);
-  return { ok: true, granted, skipped, amount: unitsToCoins(units) };
+  if (granted && !savePlayersAtomic(players)) return { ok: false, error: COIN_STORAGE_ERROR, granted: 0, skipped };
+  return { ok: true, granted, skipped, ineligible, amount: unitsToCoins(units) };
 }
 
 function getAllTimeLeaderboard(limit = 50) {
@@ -738,8 +802,17 @@ function getAllTimeLeaderboard(limit = 50) {
     .slice(0, limit);
 }
 
+// Read-only shared view for hot read paths. NEVER mutate the result.
+function peekPlayers() {
+  const cached = cachedPlayers();
+  if (cached) return cached;
+  const fresh = loadPlayers();
+  return cachedPlayers() || fresh;
+}
+
 module.exports = {
-  isHealthy() { loadPlayers(); return storageHealthy; },
+  isHealthy() { peekPlayers(); return storageHealthy; },
+  peekPlayers,
   storageHealthy() { return storageHealthy; },
   PLAYERS_FILE,
   normalizeNameKey,

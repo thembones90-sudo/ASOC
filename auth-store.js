@@ -65,6 +65,14 @@ function normEmail(v){return String(v||'').trim().toLowerCase()}
 function isRealEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)}
 function isLegacyIdentity(v){return /^[a-z0-9][a-z0-9_-]{2,31}$/.test(v)}
 function hash(p,s){return crypto.pbkdf2Sync(String(p),s,ITER,32,'sha256').toString('hex')}
+// Non-blocking twin of hash(): identical parameters, byte-identical output, so
+// every existing account verifies unchanged. The server's HTTP paths use this;
+// the synchronous API above stays for tools and older tests.
+function hashAsync(p,s){return new Promise((resolve,reject)=>crypto.pbkdf2(String(p),s,ITER,32,'sha256',(error,key)=>error?reject(error):resolve(key.toString('hex'))))}
+// Unknown accounts still pay for one full hash so response time does not
+// reveal whether an email is registered.
+const DUMMY_SALT=crypto.randomBytes(16).toString('hex');
+const DUMMY_HASH=Buffer.alloc(32);
 function digestToken(token){return crypto.createHash('sha256').update(String(token||'')).digest('hex')}
 function isVerified(p){return Boolean(p&&(p.verificationRequired!==true||p.emailVerifiedAt))}
 function safe(p){return {id:p.id,email:p.email,name:p.name||'',createdAt:p.createdAt,emailVerified:isVerified(p),emailVerifiedAt:p.emailVerifiedAt||null}}
@@ -95,6 +103,41 @@ function register(email,password,name='',options={}){
   d.players[email]=p;
   save(d);
   return {player:safe(p),verificationToken};
+}
+
+async function registerAsync(email,password,name='',options={}){
+  email=normEmail(email);
+  const requireVerification=options.requireVerification!==false;
+  if(requireVerification?!isRealEmail(email):!(isRealEmail(email)||isLegacyIdentity(email)))throw Error(requireVerification?'Enter a valid email address':'Enter a valid identity ID');
+  if(String(password).length<6)throw Error('Password must be at least 6 characters');
+  if(load().players[email])throw Error('Account already exists');
+  const salt=crypto.randomBytes(16).toString('hex');
+  const passwordHash=await hashAsync(password,salt);
+  // Re-read after the await: another request may have claimed the email.
+  const d=load();
+  if(d.players[email])throw Error('Account already exists');
+  const p={id:'lh-'+crypto.randomBytes(10).toString('base64url'),email,name:String(name||'').trim().slice(0,20),salt,hash:passwordHash,createdAt:Date.now()};
+  let verificationToken=null;
+  if(requireVerification)verificationToken=stampVerification(p);
+  else{p.verificationRequired=false;p.emailVerifiedAt=Date.now();}
+  d.players[email]=p;
+  save(d);
+  return {player:safe(p),verificationToken};
+}
+
+async function loginAsync(email,password){
+  email=normEmail(email);
+  const p=load().players[email];
+  if(!p){
+    const dummy=Buffer.from(await hashAsync(password,DUMMY_SALT),'hex');
+    crypto.timingSafeEqual(dummy,DUMMY_HASH);
+    return null;
+  }
+  const a=Buffer.from(await hashAsync(password,p.salt),'hex'),b=Buffer.from(p.hash,'hex');
+  if(!(a.length===b.length&&crypto.timingSafeEqual(a,b)))return null;
+  // Re-read: the account may have been changed (e.g. password reset) meanwhile.
+  const current=load().players[email];
+  return current&&current.hash===p.hash?safe(current):null;
 }
 
 function login(email,password){
@@ -172,6 +215,32 @@ function issueResetToken(email){
 
 // Consumes a reset token and sets the new password. Receiving the link also
 // proves the mailbox, so a pending email verification is completed.
+async function resetPasswordAsync(token,password){
+  if(String(password||'').length<6)return {ok:false,reason:'weak',error:'Password must be at least 6 characters'};
+  if(!token)return {ok:false,reason:'invalid'};
+  const tokenHash=digestToken(token);
+  const before=Object.values(load().players||{}).find(player=>player&&player.resetTokenHash===tokenHash);
+  if(!before)return {ok:false,reason:'invalid'};
+  if(!before.resetExpiresAt||Number(before.resetExpiresAt)<Date.now())return resetPassword(token,password);
+  const salt=crypto.randomBytes(16).toString('hex');
+  const passwordHash=await hashAsync(password,salt);
+  // Re-validate after the await: the single-use token must still be live.
+  const d=load();
+  const p=Object.values(d.players||{}).find(player=>player&&player.resetTokenHash===tokenHash);
+  if(!p)return {ok:false,reason:'invalid'};
+  if(!p.resetExpiresAt||Number(p.resetExpiresAt)<Date.now())return resetPassword(token,password);
+  p.salt=salt;
+  p.hash=passwordHash;
+  p.passwordChangedAt=Date.now();
+  delete p.resetTokenHash;delete p.resetExpiresAt;
+  if(p.verificationRequired===true&&!p.emailVerifiedAt){
+    p.emailVerifiedAt=Date.now();
+    delete p.verificationTokenHash;delete p.verificationExpiresAt;delete p.verificationSentAt;
+  }
+  save(d);
+  return {ok:true,player:safe(p)};
+}
+
 function resetPassword(token,password){
   if(String(password||'').length<6)return {ok:false,reason:'weak',error:'Password must be at least 6 characters'};
   if(!token)return {ok:false,reason:'invalid'};
@@ -198,6 +267,7 @@ function resetPassword(token,password){
 
 module.exports={
   isHealthy() { try { load(); return true; } catch { return false; } },
+  registerAsync,loginAsync,resetPasswordAsync,
   register,login,getById,updateName,verifyEmail,issueVerificationToken,isVerified,
   issueResetToken,resetPassword,
   VERIFY_TTL_MS,RESEND_COOLDOWN_MS,RESET_TTL_MS

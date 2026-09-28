@@ -44,7 +44,7 @@ const game = {
     assert.equal(imported.game.cellHints.A1, 'Prepared A1 hint', 'prepared hints survive the Excel round trip');
     console.log('PASS Creator Excel round trip exports board, Final, metadata and prepared hints');
   } finally {
-    fs.rmSync(overlay, { recursive: true, force: true });
+    fs.rmSync(overlay, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
     delete process.env.ASOC_DATA_DIR;
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

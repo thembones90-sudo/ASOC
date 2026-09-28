@@ -215,6 +215,11 @@ async function run() {
     command('hideFinal');
     await settle();
     assert.equal(gm.state.timer.phase, 'running', 'hiding a GM-revealed Final resumes play');
+    // Across a full timer tick: A5-D5 are only visible through the GM's
+    // administrative REVEAL ALL, which is not gameplay, so no Borrowed Time.
+    await sleep(1300);
+    assert.equal(gm.state.timer.phase, 'running', 'an administrative REVEAL ALL never manufactures Borrowed Time');
+    assert.ok(!gm.chat.some(m => /ALL COLUMNS OPEN/.test(m.text || '')), 'no ALL COLUMNS OPEN announcement from a GM reveal');
     command('revealFinal');
     await settle();
     assert.equal(gm.state.timer.phase, 'stopped');
@@ -255,7 +260,7 @@ async function run() {
     [gm, ...players].forEach(client => client?.close());
     server.kill();
     await sleep(200);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 
