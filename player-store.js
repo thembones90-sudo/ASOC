@@ -682,7 +682,7 @@ function resetScoreboard() {
 }
 
 function grantAllShadowCoins(amount, receiptId, { reason = '' } = {}) {
-  const units = coinsToUnits(amount);
+  const units = coinUnits(amount);
   if (!units) return { ok: false, error: 'Invalid Shadow Coin amount', granted: 0, skipped: 0 };
   const receipt = String(receiptId || '').trim();
   if (!receipt) return { ok: false, error: 'Shadow Coin receipt required', granted: 0, skipped: 0 };
