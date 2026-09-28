@@ -52,7 +52,7 @@ class Client {
     const started = Date.now();
     let index = 0;
     while (Date.now() - started < timeout) {
-      for (; index < this.msgs.length; index++) if (predicate(this.msgs[index])) return this.msgs[index];
+      for (; index < this.msgs.length; index++) if (predicate(this.msgs[index], index)) return this.msgs[index];
       await sleep(20);
     }
     throw new Error(`${this.name}: timed out waiting for ${label}`);
@@ -192,11 +192,19 @@ async function run() {
     assert.equal(gm.state.cells.D5.revealed, false, 'nothing auto-failed while paused');
 
     // 4. NEXT GAME starts clean.
+    // Wait on authoritative state, not fixed sleeps: the hint is only valid
+    // once B1 is revealed, and a slow runner can take longer than a settle().
+    let from = gm.mark();
     command('revealCell', { cell: 'B1' });
-    await settle();
+    await gm.waitFor((m, i) => i >= from && m.type === 'state:public' && m.cells?.B1?.revealed === true, 'B1 revealed');
+    from = gm.mark();
+    const hintMark = players[2].mark();
     players[2].send({ type: 'player:hintRequest', cell: 'B1' });
-    await settle();
-    assert.ok(gm.state.hintClaims.B1);
+    try {
+      await gm.waitFor((m, i) => i >= from && m.type === 'state:public' && m.hintClaims?.B1, 'B1 hint claim');
+    } catch (error) {
+      throw new Error(`hint claim not recorded; server said: ${JSON.stringify(players[2].errorsSince(hintMark))}`);
+    }
     await nextGame();
     assert.deepEqual(gm.state.hintClaims || {}, {}, 'NEXT GAME drops the previous board\'s hint claims');
     assert.deepEqual(gm.state.solutionCountdowns || {}, {}, 'NEXT GAME drops the previous board\'s countdowns');
