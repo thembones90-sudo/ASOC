@@ -1,5 +1,18 @@
 (() => {
   const TRIGGER_SELECTOR = '.chat-image-link, .chat-gif-link, .gm-chat-gif-link, .avatar-preview-trigger';
+
+  // Let the browser own right-click on an image once it is inside the media
+  // lightbox. Player/GM chat install document-level capture handlers for their
+  // message action menus, so stopping at the image itself is too late: the
+  // document handler has already intercepted the event. Window capture runs
+  // first, leaves the default action intact, and blocks ASOC's chat menu only
+  // for the opened preview image.
+  window.addEventListener('contextmenu', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLImageElement)) return;
+    if (!target.classList.contains('chat-media-lightbox-media')) return;
+    event.stopPropagation();
+  }, true);
   let overlay = null;
   let stage = null;
   let caption = null;
