@@ -8348,6 +8348,27 @@ function handleWomfSubtract(ws) {
   console.log(`[ROOM ${room.code}] GM subtracted a WOMF charge (now ${room.womf.charge}/10)`);
 }
 
+function handleWomfAdd(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can adjust WOMF' });
+    return;
+  }
+
+  if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
+  room.womf.charge = Math.min(10, room.womf.charge + 1);
+  room.revision++;
+
+  persistActiveRooms();
+  const publicState = getPublicState(room);
+  broadcastToRoom(room, { type: 'state:public', ...publicState });
+  console.log(`[ROOM ${room.code}] GM added a WOMF charge (now ${room.womf.charge}/10)`);
+}
+
 function handleWomfReset(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -9782,6 +9803,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:womfSubtract': {
           handleWomfSubtract(ws);
+          break;
+        }
+        case 'gm:womfAdd': {
+          handleWomfAdd(ws);
           break;
         }
         case 'gm:womfReset': {
