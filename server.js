@@ -3678,6 +3678,7 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
   let newAward = null;
   let finalOutcome = null;
   let streakChanged = false;
+  let celebration = null;
 
   // verdict null = CLEAR (the GM toggled WRONG back off): the message goes
   // back to unjudged and stops being a ledger attempt. Any credit it held is
@@ -3740,6 +3741,13 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
         playerName: message.playerName,
         messageId: message.id,
         timestamp: Date.now()
+      };
+      celebration = {
+        id: `solve:${room.boardId}:${message.id}:${solvedKey}`,
+        kind: target === 'FINAL' ? 'final' : 'column',
+        target,
+        playerName: message.playerName,
+        playerId: message.playerId
       };
       // Public state carries derived values (the Final's live worth), so a
       // new solve is a state change even before any cell is revealed.
@@ -3814,7 +3822,7 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
     room.revision++;
   }
 
-  return { success: true, changed, revision: room.revision, message, scoreWarning, newAward, finalOutcome, streakChanged };
+  return { success: true, changed, revision: room.revision, message, scoreWarning, newAward, finalOutcome, streakChanged, celebration };
 }
 
 
@@ -8290,6 +8298,9 @@ function handleJudgeGuess(ws, message) {
     }
     if (result.streakChanged) {
       broadcastToRoom(room, { type: 'score:streak', activeStreak: room.scoring.activeStreak });
+    }
+    if (result.celebration) {
+      broadcastToRoom(room, { type: 'board:solveCelebration', ...result.celebration });
     }
     if (
       verdict === 'correct' &&

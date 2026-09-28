@@ -1653,6 +1653,10 @@ const PlayerApp = {
         this.addBattleEvent(`${message.playerName} // ${message.awardType === 'final' ? 'FINAL SOLUTION' : 'COLUMN ' + message.target} // +${message.points}`);
         break;
 
+      case 'board:solveCelebration':
+        window.BoardCelebrations?.show?.(message, document.getElementById('public-board'));
+        break;
+
       case 'score:streak': {
         this.showStreakBanner(message.activeStreak);
         const streak = document.getElementById('hero-hud-streak');

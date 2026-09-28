@@ -2799,6 +2799,10 @@ const App = {
         else window.AsocAudio?.columnSolved?.();
         break;
 
+      case 'board:solveCelebration':
+        window.BoardCelebrations?.show?.(message, document.getElementById('asoc-board'));
+        break;
+
       case 'score:streak':
         this.showStreakBanner(message.activeStreak);
         break;
