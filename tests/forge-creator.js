@@ -35,6 +35,14 @@ assert.match(forge, /SUGGEST STRUCTURAL HINT/, 'creator can draft a safe structu
 assert.match(forge, /CTRL\+S SAVE · CTRL\+K COMMANDS/, 'keyboard-first creator shortcuts are visible');
 assert.match(forge, /TEMPLATE_KEY: 'asoc_forge_templates:v1'/, 'reusable settings templates are browser-local and versioned');
 assert.match(css, /\.creator-palette-card/, 'command palette has production styling');
-assert.match(index, /forge\.js\?v=20260927-creator-optimization-1/, 'optimized creator script is cache-busted');
+assert.match(forge, /game-list-head/, 'library uses a compact labelled list instead of oversized cards');
+assert.match(forge, /LAST UPDATED/, 'library exposes the saved date as a primary column');
+assert.match(forge, /toLocaleDateString/, 'library renders compact human-readable dates');
+assert.match(forge, /uppercaseCreatorInput\(field\)/, 'creator uppercases text at the point of entry');
+assert.match(forge, /normalizeCreatorGame\(JSON\.parse/, 'loaded games and restored drafts are normalized to uppercase');
+assert.match(forge, /this\.uppercaseCreatorText\(value\)\.slice\(0, 60\)/, 'bulk-pasted board cells are stored in uppercase');
+assert.match(forge, /return this\.normalizeCreatorGame\(d\)/, 'saved creator data has an uppercase normalization safety barrier');
+assert.match(index, /forge\.js\?v=20260928-creator-uppercase-1/, 'uppercase creator script is cache-busted');
+assert.match(index, /asoc\.css\?v=20260928-library-list-1/, 'compact library styling is cache-busted');
 
 console.log('PASS ASOC Creator: theme identity, unified editor, guided entry, drafts, test play, fit warnings and prepared hints');

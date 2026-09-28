@@ -16,6 +16,12 @@ const PORT = Number(process.env.ASOC_DM_TEST_PORT) || 18851;
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'asoc-dm-'));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+const dmCss = fs.readFileSync(path.join(ROOT, 'css', 'direct-messages.css'), 'utf8');
+const joinHtml = fs.readFileSync(path.join(ROOT, 'join.html'), 'utf8');
+assert.match(dmCss, /min-width:761px[\s\S]*max-width:1380px[\s\S]*player-battle-layout[\s\S]*width:calc\(100% - 92px\)/, 'compact desktop reserves a lane for the fixed social rail');
+assert.match(dmCss, /margin-left:92px !important/, 'casual chat starts to the right of the rail');
+assert.match(joinHtml, /direct-messages\.css\?v=20260928-chat-rail-layout-1/, 'rail layout fix is cache-busted');
+
 function api(urlPath, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request({ host: '127.0.0.1', port: PORT, path: urlPath, method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', ...headers } }, res => {

@@ -104,24 +104,24 @@ const PlayerApp = {
     { name: 'choose', insert: '/choose ', syntax: '/choose A | B | C', description: 'Choose one option randomly' },
     { name: 'order', insert: '/order', syntax: '/order', description: 'Shuffle connected-player turn order' },
     { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
-    { name: 'spit', insert: '/spit ', syntax: '/spit @Name', description: 'Spit on a player or the Shadow Broker' },
-    { name: 'fart', insert: '/fart ', syntax: '/fart @Name', description: 'Fart on a player or the Shadow Broker' },
-    { name: 'nod', insert: '/nod ', syntax: '/nod @Name', description: 'Acknowledge a player or the Shadow Broker' },
+    { name: 'spit', insert: '/spit ', syntax: '/spit Name | all', description: 'Spit on one target or everyone online' },
+    { name: 'fart', insert: '/fart ', syntax: '/fart Name | all', description: 'Fart on one target or everyone online' },
+    { name: 'nod', insert: '/nod ', syntax: '/nod Name | all', description: 'Acknowledge one target or everyone online' },
     { name: 'all', insert: '/all ', syntax: '/all [message]', description: 'Nudge everyone // every screen shakes' },
-    { name: 'slap', insert: '/slap ', syntax: '/slap @Name', description: 'Slap someone across the face' },
-    { name: 'moon', insert: '/moon ', syntax: '/moon @Name', description: 'Drop your pants and moon someone' },
-    { name: 'chicken', insert: '/chicken ', syntax: '/chicken @Name', description: 'Call someone a chicken. BAWK!' },
-    { name: 'violin', insert: '/violin ', syntax: '/violin @Name', description: "Play the world's smallest violin" },
-    { name: 'golfclap', insert: '/golfclap ', syntax: '/golfclap @Name', description: 'Golf-clap, unimpressed' },
-    { name: 'pity', insert: '/pity ', syntax: '/pity @Name', description: 'Look at someone with pity' },
-    { name: 'mock', insert: '/mock ', syntax: '/mock @Name', description: "Mock someone's foolishness" },
-    { name: 'poke', insert: '/poke ', syntax: '/poke @Name', description: 'Poke someone. Hey!' },
-    { name: 'bonk', insert: '/bonk ', syntax: '/bonk @Name', description: 'Bonk someone on the head' },
-    { name: 'taunt', insert: '/taunt ', syntax: '/taunt @Name', description: 'Taunt someone. Bring it!' },
-    { name: 'threaten', insert: '/threaten ', syntax: '/threaten @Name', description: 'Threaten someone with the wrath of doom' },
-    { name: 'lick', insert: '/lick ', syntax: '/lick @Name', description: 'Lick someone' },
-    { name: 'train', insert: '/train ', syntax: '/train @Name', description: 'CHOO CHOO!' },
-    { name: 'ass', insert: '/ass ', syntax: '/ass @Name', description: 'Kick someone in the ass' },
+    { name: 'slap', insert: '/slap ', syntax: '/slap Name | all', description: 'Slap one target or everyone online' },
+    { name: 'moon', insert: '/moon ', syntax: '/moon Name | all', description: 'Moon one target or everyone online' },
+    { name: 'chicken', insert: '/chicken ', syntax: '/chicken Name | all', description: 'Call one target or everyone a chicken' },
+    { name: 'violin', insert: '/violin ', syntax: '/violin Name | all', description: "Play the world's smallest violin for one or all" },
+    { name: 'golfclap', insert: '/golfclap ', syntax: '/golfclap Name | all', description: 'Golf-clap at one target or everyone' },
+    { name: 'pity', insert: '/pity ', syntax: '/pity Name | all', description: 'Pity one target or everyone online' },
+    { name: 'mock', insert: '/mock ', syntax: '/mock Name | all', description: 'Mock one target or everyone online' },
+    { name: 'poke', insert: '/poke ', syntax: '/poke Name | all', description: 'Poke one target or everyone online' },
+    { name: 'bonk', insert: '/bonk ', syntax: '/bonk Name | all', description: 'Bonk one target or everyone online' },
+    { name: 'taunt', insert: '/taunt ', syntax: '/taunt Name | all', description: 'Taunt one target or everyone online' },
+    { name: 'threaten', insert: '/threaten ', syntax: '/threaten Name | all', description: 'Threaten one target or everyone online' },
+    { name: 'lick', insert: '/lick ', syntax: '/lick Name | all', description: 'Lick one target or everyone online' },
+    { name: 'train', insert: '/train ', syntax: '/train Name | all', description: 'CHOO CHOO at one target or everyone' },
+    { name: 'ass', insert: '/ass ', syntax: '/ass Name | all', description: 'Kick one target or everyone online' },
     { name: 'facepalm', insert: '/facepalm', syntax: '/facepalm', description: 'Facepalm' },
     { name: 'cower', insert: '/cower', syntax: '/cower', description: 'Cower in fear' },
     { name: 'grovel', insert: '/grovel', syntax: '/grovel', description: 'Grovel before the Shadow Broker' },
@@ -132,9 +132,10 @@ const PlayerApp = {
     { name: 'oom', insert: '/oom', syntax: '/oom', description: 'Out of ideas!' },
     { name: 'commands', insert: '/commands', syntax: '/commands', description: 'Show every available command' }
   ],
-  // Commands that take an @target: the target picker opens for all of them,
-  // and every one can also aim at the Shadow Broker.
-  targetedChatActs: ['spit', 'fart', 'nod', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass'],
+  // Commands that take a player target: the target picker opens as soon as
+  // the verb is complete and filters the online roster while a name is typed.
+  // Legacy @Name input remains accepted by the server, but the UI never adds it.
+  targetedChatActs: ['spit', 'fart', 'nod', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass', 'smite', 'freeze', 'glitch'],
   targetedChatActPattern(suffix) {
     return new RegExp(`^\\s*\\/(?:${this.targetedChatActs.join('|')})${suffix}`, 'i');
   },
@@ -3071,9 +3072,9 @@ const PlayerApp = {
     return { start: at, end: caret, query };
   },
 
-  /* /spit and /fart targeting reuse the mention-picker machinery. When the
-     composer starts with "/spit " or "/fart " the roster opens; picking a
-     hero inserts "@Name " and records candidate.id so the server resolves
+  /* Targeted commands reuse the mention-picker machinery. When the composer
+     contains a complete targeted verb the roster opens; picking a hero
+     inserts "Name " and records candidate.id so the server resolves
      the authoritative target (names alone can collide). Self is never a
      target; the Shadow Broker always is (server id __SHADOW_BROKER__). The
      `spit` flag marks any targeted act, not just /spit. */
@@ -3090,10 +3091,13 @@ const PlayerApp = {
   getChatMentionCandidates(query = '', context = null) {
     const needle = String(query || '').trim().toLocaleLowerCase();
     const selfId = context?.spit ? String(this.playerId || '') : null;
+    const everyone = context?.spit && (!needle || 'all'.startsWith(needle) || 'all online'.includes(needle))
+      ? [{ id: '__ALL_ONLINE__', name: 'ALL', displayName: 'ALL ONLINE', connected: true, isAll: true }]
+      : [];
     const broker = context?.spit && (!needle || 'shadow broker'.includes(needle))
       ? [{ id: '__SHADOW_BROKER__', name: 'SHADOW BROKER', connected: true, isBroker: true }]
       : [];
-    return broker.concat((this.currentPlayers || [])
+    return everyone.concat(broker, (this.currentPlayers || [])
       .filter(player => player && String(player.name || '').trim())
       .filter(player => !context?.spit || player.connected !== false)
       .filter(player => !selfId || String(player.id || '') !== selfId)
@@ -3122,12 +3126,14 @@ const PlayerApp = {
     if (!picker || picker.hidden) return;
     const candidates = this._chatMentionCandidates || [];
     picker.innerHTML = candidates.map((player, index) => `
-      <button type="button" class="chat-mention-option${player.isBroker ? ' chat-mention-broker' : ''}${index === this._chatMentionIndex ? ' active' : ''}" data-mention-index="${index}" role="option" aria-selected="${index === this._chatMentionIndex ? 'true' : 'false'}">
-        ${player.isBroker
+      <button type="button" class="chat-mention-option${player.isBroker ? ' chat-mention-broker' : ''}${player.isAll ? ' chat-mention-all' : ''}${index === this._chatMentionIndex ? ' active' : ''}" data-mention-index="${index}" role="option" aria-selected="${index === this._chatMentionIndex ? 'true' : 'false'}">
+        ${player.isAll
+          ? '<span class="little-hero-avatar little-hero-avatar-compact chat-mention-all-icon" aria-hidden="true">ALL</span>'
+          : player.isBroker
           ? '<span class="little-hero-avatar little-hero-avatar-compact" style="--lh-frame:#C0392B"><img src="assets/ui/shadow-broker-eye.webp" alt="Shadow Broker"></span>'
           : this.littleHeroAvatarHTML(player, true)}
-        <span>${this.escapeHtml(player.name)}</span>
-        <small>${player.isBroker ? 'GM' : player.connected === false ? 'OFFLINE' : 'TAG'}</small>
+        <span>${this.escapeHtml(player.displayName || player.name)}</span>
+        <small>${player.isAll ? 'EVERY CONNECTED PLAYER' : player.isBroker ? 'GM' : player.connected === false ? 'OFFLINE' : 'TAG'}</small>
       </button>
     `).join('');
   },
@@ -3135,8 +3141,8 @@ const PlayerApp = {
   updateChatMentionPicker(input = document.getElementById('chat-input'), picker = document.getElementById('chat-mention-picker')) {
     if (!input || !picker) return;
 
-    // /spit and /fart are two-step verbs: the instant one is typed fully,
-    // nudge the composer with a trailing space so the roster picker attaches.
+    // Targeted commands are two-step verbs: the instant one is typed fully,
+    // nudge the composer with a trailing space so the online roster attaches.
     const rawValue = input.value;
     if (this.targetedChatActPattern('$').test(rawValue) && (Number.isInteger(input.selectionStart) ? input.selectionStart : rawValue.length) >= rawValue.length) {
       input.value = rawValue + ' ';
@@ -3152,8 +3158,8 @@ const PlayerApp = {
       return;
     }
 
-    // @ always resolves against the authoritative MASTER session roster.
-    // Ask the server for a fresh snapshot while mention mode is active so
+    // Command targets always resolve against the authoritative MASTER roster.
+    // Ask the server for a fresh snapshot while target mode is active so
     // reconnects, renames and restored session participants are targetable.
     if (spitContext) this.refreshChatMentionRoster();
 
@@ -3193,7 +3199,7 @@ const PlayerApp = {
     const candidate = (this._chatMentionCandidates || [])[Number(index)];
     const context = this._chatMentionContext;
     if (!candidate || !context || !input) return false;
-    const replacement = '@' + String(candidate.name) + ' ';
+    const replacement = (context.spit ? '' : '@') + String(candidate.name) + ' ';
     const next = input.value.slice(0, context.start) + replacement + input.value.slice(context.end);
     const maxLength = Number(input.maxLength) > 0 ? Number(input.maxLength) : 100;
     if (next.length > maxLength) return false;
@@ -3360,6 +3366,9 @@ const PlayerApp = {
       input.setSelectionRange(input.value.length, input.value.length);
       commandPicker.hidden = true;
       input.focus();
+      // Selecting a targeted verb is equivalent to typing it: immediately
+      // open the online-player list without requiring another click/key press.
+      this.updateChatMentionPicker(input, mentionPicker);
     };
     if (reactionPicker && reactionPicker.parentElement !== document.body) document.body.appendChild(reactionPicker);
     if (contextMenu && contextMenu.parentElement !== document.body) document.body.appendChild(contextMenu);
@@ -4134,13 +4143,20 @@ const PlayerApp = {
       : '';
     const payload = { type: 'chat:guess', text: reply ? replyPrefix + text : text };
     // /spit rides the picker's resolved playerId so the server never guesses
-    // between duplicate names. Only attached if the typed @Name still matches
+    // between duplicate names. Only attached if the typed name still matches
     // the picked hero (or the verb is still bare).
     const pending = this._pendingSpitTarget;
     this._pendingSpitTarget = null;
+    const typedTargetMatch = text.match(this.targetedChatActPattern('\\s+@?([^\\r\\n@]*)$'));
+    const typedTarget = typedTargetMatch ? typedTargetMatch[1].trim().toLocaleLowerCase() : '';
+    // Treat the typed aliases exactly like choosing ALL ONLINE. This bypasses
+    // name lookup entirely and remains compatible with an older UI that left
+    // an @ in front of ALL.
+    if (['all', 'all online', 'everyone'].includes(typedTarget)) {
+      payload.targetPlayerId = '__ALL_ONLINE__';
+    }
     if (pending && this.targetedChatActPattern('\\b').test(text)) {
-      const tokenMatch = text.match(this.targetedChatActPattern('\\s+@?([^\\r\\n@]*)$'));
-      const typed = tokenMatch ? tokenMatch[1].trim().toLocaleLowerCase() : '';
+      const typed = typedTarget;
       if (!typed || typed === String(pending.name).trim().toLocaleLowerCase()) {
         payload.targetPlayerId = pending.id;
       }
@@ -4547,8 +4563,9 @@ const PlayerApp = {
     const viewerId = String(this.playerId || '');
     const actorName = this.escapeHtml(String(data.actorName || msg.playerName || 'SHADOW BROKER'));
     const targetName = this.escapeHtml(String(data.targetName || '???'));
+    const targetIds = Array.isArray(data.targetIds) ? data.targetIds.map(String) : [];
     if (viewerId && String(data.actorId || '') === viewerId) return `You ${verbs[0]} ${targetName}.`;
-    if (viewerId && String(data.targetId || '') === viewerId) return `${actorName} ${verbs[1]} you.`;
+    if (viewerId && (String(data.targetId || '') === viewerId || targetIds.includes(viewerId))) return `${actorName} ${verbs[1]} you.`;
     return `${actorName} ${verbs[1]} ${targetName}.`;
   },
 
@@ -4557,8 +4574,9 @@ const PlayerApp = {
     const emote = msg.emote || {};
     const lines = emote.lines || {};
     const viewerId = String(this.playerId || '');
+    const targetIds = Array.isArray(emote.targetIds) ? emote.targetIds.map(String) : [];
     if (viewerId && String(emote.actorId || '') === viewerId) return this.escapeHtml(lines.actor || lines.other || '');
-    if (viewerId && emote.targetId && String(emote.targetId) === viewerId) return this.escapeHtml(lines.target || lines.other || '');
+    if (viewerId && ((emote.targetId && String(emote.targetId) === viewerId) || targetIds.includes(viewerId))) return this.escapeHtml(lines.target || lines.other || '');
     return this.escapeHtml(lines.other || msg.text || '');
   },
 

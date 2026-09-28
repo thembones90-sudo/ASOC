@@ -97,17 +97,17 @@ const App = {
     { name: 'megabonk', insert: '/megabonk all ', icon: '🔨', label: 'MEGABONK ALL', description: '/megabonk all [message] -- every Little Hero must ACKNOWLEDGE' },
     { name: 'megabonk', insert: '/megabonk @', icon: '🔨', label: 'MEGABONK ONE', description: '/megabonk @Name [message] -- one Little Hero must ACKNOWLEDGE' },
     { name: 'relic', insert: '/relic @', icon: '✦', label: 'RELIC', description: "/relic @Name -- grant SHADOW BROKER'S MISTAKE" },
-    { name: 'smite', insert: '/smite @', icon: '⚡', label: 'SMITE', description: '/smite @Name -- strike of judgement' },
-    { name: 'freeze', insert: '/freeze @', icon: '❄', label: 'FREEZE', description: '/freeze @Name -- theatrical ice' },
-    { name: 'glitch', insert: '/glitch @', icon: '▦', label: 'GLITCH', description: '/glitch @Name -- tear the signal' },
+    { name: 'smite', insert: '/smite ', icon: '⚡', label: 'SMITE', description: '/smite Name | all -- strike one target or everyone' },
+    { name: 'freeze', insert: '/freeze ', icon: '❄', label: 'FREEZE', description: '/freeze Name | all -- freeze one target or everyone' },
+    { name: 'glitch', insert: '/glitch ', icon: '▦', label: 'GLITCH', description: '/glitch Name | all -- tear one signal or everyone' },
     { name: 'omen', insert: '/omen', icon: '☽', label: 'OMEN', description: '/omen -- a bad sign for the room' },
     { name: 'rupture', insert: '/rupture', icon: '✶', label: 'RUPTURE', description: '/rupture -- crack reality open' },
     { name: 'vanish', insert: '/vanish', icon: '☁', label: 'VANISH', description: '/vanish -- disappear in smoke' },
     { name: 'love', insert: '/love ', icon: '♥', label: 'LOVE', description: '/love [@Name] -- hearts over the chat' },
     { name: 'grovel', insert: '/grovel', icon: '⛓', label: 'GROVEL', description: '/grovel -- demand groveling' },
-    { name: 'spit', insert: '/spit ', icon: '➤', label: 'SPIT', description: '/spit @Name -- the Broker spits too' },
-    { name: 'fart', insert: '/fart ', icon: '☁', label: 'FART', description: '/fart @Name -- the Broker farts too' },
-    { name: 'slap', insert: '/slap ', icon: '✋', label: 'SLAP', description: '/slap @Name -- the Broker emotes too' },
+    { name: 'spit', insert: '/spit ', icon: '➤', label: 'SPIT', description: '/spit Name | all -- one target or everyone' },
+    { name: 'fart', insert: '/fart ', icon: '☁', label: 'FART', description: '/fart Name | all -- one target or everyone' },
+    { name: 'slap', insert: '/slap ', icon: '✋', label: 'SLAP', description: '/slap Name | all -- one target or everyone' },
     { name: 'moon', insert: '/moon ', icon: '☾', label: 'MOON', description: '/moon @Name -- the Broker emotes too' },
     { name: 'chicken', insert: '/chicken ', icon: '🐔', label: 'CHICKEN', description: '/chicken @Name -- the Broker emotes too' },
     { name: 'violin', insert: '/violin ', icon: '🎻', label: 'VIOLIN', description: '/violin @Name -- the Broker emotes too' },
@@ -128,7 +128,7 @@ const App = {
     { name: 'rofl', insert: '/rofl', icon: '🤣', label: 'ROFL', description: '/rofl -- the Broker emotes too' },
     { name: 'burp', insert: '/burp', icon: '💨', label: 'BURP', description: '/burp -- the Broker emotes too' },
     { name: 'oom', insert: '/oom', icon: '∅', label: 'OOM', description: '/oom -- the Broker emotes too' },
-    { name: 'nod', insert: '/nod ', icon: '✓', label: 'NOD', description: '/nod @Name -- acknowledge a Little Hero' },
+    { name: 'nod', insert: '/nod ', icon: '✓', label: 'NOD', description: '/nod Name | all -- acknowledge one or every Little Hero' },
     { name: 'commands', insert: '/commands', icon: '☰', label: 'COMMANDS', description: 'List every Shadow Broker command' }
     // The Reliquary is deliberately absent: a hidden GM mechanic reached only by
     // typing /reliquary <code> (or the bare code) in the composer.
@@ -2996,7 +2996,7 @@ const App = {
           // now (duplicate tab / reconnect race). Keep the saved
           // credentials — they may still be valid if that connection drops.
         }
-        alert(message.message);
+        this.showGMCommandError(message.message);
         break;
 
       case 'room:casual':
@@ -3992,6 +3992,21 @@ const App = {
     layer.appendChild(toast);
     setTimeout(() => toast.classList.add('score-toast-out'), 4200);
     setTimeout(() => toast.remove(), 4700);
+  },
+
+  // Server command failures must stay inside the page. Native alert() opens
+  // a separate Windows dialog in Electron, steals pointer focus, and can
+  // leave the app without a visible cursor after dismissal.
+  showGMCommandError(message) {
+    const text = String(message || 'COMMAND REJECTED');
+    this.showScoreWarning(`COMMAND REJECTED // ${text}`);
+    this.setGMDeliveryState('COMMAND REJECTED', 'error', 4200);
+    const composer = this.getGMComposerElement();
+    requestAnimationFrame(() => {
+      try { composer?.focus({ preventScroll: true }); } catch { composer?.focus?.(); }
+      document.body.style.removeProperty('cursor');
+      document.documentElement.style.removeProperty('cursor');
+    });
   },
 
   showStreakBanner(activeStreak) {

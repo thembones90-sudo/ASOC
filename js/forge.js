@@ -264,31 +264,47 @@ const Forge = {
       return;
     }
 
-    body.innerHTML = list.map(g => {
+    body.innerHTML = `
+      <div class="game-list-head" aria-hidden="true">
+        <span>GAME</span>
+        <span>DIFFICULTY</span>
+        <span>LAST UPDATED</span>
+        <span>ACTIONS</span>
+      </div>
+    ` + list.map(g => {
       const isSample = g.isSample === true;
-      const modified = g.modified ? new Date(g.modified).toLocaleString() : g.created || '';
+      const rawDate = g.modified || g.created || '';
+      const parsedDate = rawDate ? new Date(rawDate) : null;
+      const validDate = parsedDate && !Number.isNaN(parsedDate.getTime());
+      const modified = validDate
+        ? parsedDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        : (rawDate || '—');
+      const modifiedFull = validDate ? parsedDate.toLocaleString() : modified;
       return `
-        <div class="game-card">
-          <div class="game-card-top">
+        <div class="game-card game-list-row">
+          <div class="game-card-top game-list-identity">
             <div class="game-card-title-wrap">
               <span class="game-card-title">${this.escapeHtml(g.title)}</span>
               ${isSample ? '<span class="game-card-sample">SAMPLE</span>' : ''}
             </div>
+            <div class="game-card-theme">${g.theme ? this.escapeHtml(g.theme) : '—'}</div>
+          </div>
+          <div class="game-list-difficulty">
             <span class="difficulty-badge diff-${g.difficulty.toLowerCase()}">${g.difficulty}</span>
           </div>
-          <div class="game-card-theme">${g.theme ? this.escapeHtml(g.theme) : '—'}</div>
-          <div class="game-card-final">FINAL: <span>${this.escapeHtml(g.finalSolution || '—')}</span></div>
-          <div class="game-card-meta">
-            <span>${this.escapeHtml(g.background || '')}</span>
-            <span>${isSample ? 'SAMPLE' : modified}</span>
-          </div>
-          <div class="game-card-actions">
-            <button class="forge-btn" data-game-load="${this.escapeAttr(g.id)}">LOAD</button>
+          <time class="game-list-date" datetime="${validDate ? parsedDate.toISOString() : ''}" title="${this.escapeAttr(modifiedFull)}">${this.escapeHtml(isSample ? 'BUILT-IN' : modified)}</time>
+          <div class="game-card-actions game-list-actions">
+            <button class="forge-btn primary" data-game-load="${this.escapeAttr(g.id)}">LOAD</button>
             <button class="forge-btn" data-game-edit="${this.escapeAttr(g.id)}">EDIT</button>
-            <button class="forge-btn" data-game-dup="${this.escapeAttr(g.id)}">CLONE FULL</button>
-            <button class="forge-btn" data-game-use-template="${this.escapeAttr(g.id)}">USE AS TEMPLATE</button>
-            <button class="forge-btn" data-game-export="${this.escapeAttr(g.id)}">EXPORT .XLSX</button>
-            <button class="forge-btn danger" data-game-del="${this.escapeAttr(g.id)}" ${isSample ? 'disabled title="Sample game cannot be deleted"' : ''}>DELETE</button>
+            <details class="game-list-more">
+              <summary class="forge-btn" aria-label="More actions for ${this.escapeAttr(g.title)}">MORE</summary>
+              <div class="game-list-more-menu">
+                <button class="forge-btn" data-game-dup="${this.escapeAttr(g.id)}">CLONE FULL</button>
+                <button class="forge-btn" data-game-use-template="${this.escapeAttr(g.id)}">USE AS TEMPLATE</button>
+                <button class="forge-btn" data-game-export="${this.escapeAttr(g.id)}">EXPORT .XLSX</button>
+                <button class="forge-btn danger" data-game-del="${this.escapeAttr(g.id)}" ${isSample ? 'disabled title="Sample game cannot be deleted"' : ''}>DELETE</button>
+              </div>
+            </details>
           </div>
         </div>
       `;
@@ -306,7 +322,7 @@ const Forge = {
 
   openCreator(game, isNew) {
     const base = game || this.emptyDraft();
-    this.editingGame = JSON.parse(JSON.stringify(base));
+    this.editingGame = this.normalizeCreatorGame(JSON.parse(JSON.stringify(base)));
     this.isNew = !!isNew;
     this.dirty = false;
     this.view = 'creator';
@@ -345,6 +361,44 @@ const Forge = {
   FIELD_ORDER: ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'B2', 'B3', 'B4', 'B5', 'C1', 'C2', 'C3', 'C4', 'C5', 'D1', 'D2', 'D3', 'D4', 'D5', 'finalSolution'],
   HINT_MAX: 160,
   DRAFT_PREFIX: 'asoc_forge_draft:',
+
+  uppercaseCreatorText(value) {
+    return String(value ?? '').toUpperCase();
+  },
+
+  normalizeCreatorGame(game) {
+    const d = game || this.emptyDraft();
+    ['title', 'theme', 'finalSolution', 'story', 'gmNotes'].forEach(name => {
+      d[name] = this.uppercaseCreatorText(d[name]);
+    });
+    d.hints = Array.isArray(d.hints) ? d.hints.map(hint => this.uppercaseCreatorText(hint)) : [];
+    d.cellHints = Object.fromEntries(Object.entries(d.cellHints || {})
+      .map(([cell, hint]) => [cell, this.uppercaseCreatorText(hint)]));
+    d.columns = d.columns || {};
+    ['A', 'B', 'C', 'D'].forEach(col => {
+      const data = d.columns[col] || (d.columns[col] = { clues: [], solution: '' });
+      data.clues = Array.from({ length: 4 }, (_, i) => this.uppercaseCreatorText(data.clues?.[i]));
+      data.solution = this.uppercaseCreatorText(data.solution);
+    });
+    return d;
+  },
+
+  uppercaseCreatorInput(field) {
+    if (!field || field.tagName === 'SELECT') return field?.value || '';
+    const raw = field.value || '';
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    const normalized = this.uppercaseCreatorText(raw);
+    if (normalized !== raw) {
+      field.value = normalized;
+      if (typeof start === 'number' && typeof end === 'number') {
+        const nextStart = this.uppercaseCreatorText(raw.slice(0, start)).length;
+        const nextEnd = this.uppercaseCreatorText(raw.slice(0, end)).length;
+        field.setSelectionRange?.(nextStart, nextEnd);
+      }
+    }
+    return normalized;
+  },
 
   renderCreator() {
     this.view = 'creator';
@@ -402,7 +456,7 @@ const Forge = {
             <h4 class="creator-label">IDENTITY</h4>
             <label class="cell-field" data-cell-wrap="theme">
               <span class="cell-field-label">THEME</span>
-              <input type="text" class="forge-input" data-creator-field="theme" maxlength="80" autocomplete="off" value="${this.escapeAttr(d.theme)}" placeholder="e.g. Birth of Earth">
+              <input type="text" class="forge-input" data-creator-field="theme" maxlength="80" autocomplete="off" value="${this.escapeAttr(d.theme)}" placeholder="E.G. BIRTH OF EARTH">
             </label>
             <label class="cell-field">
               <span class="cell-field-label">DIFFICULTY</span>
@@ -445,11 +499,11 @@ const Forge = {
             <div class="creator-cols">${colHtml}</div>
             <label class="cell-field final" data-cell-wrap="finalSolution">
               <span class="cell-field-label">FINAL SOLUTION</span>
-              <input type="text" class="forge-input" data-creator-field="finalSolution" maxlength="60" autocomplete="off" value="${this.escapeAttr(d.finalSolution)}" placeholder="The final answer">
+              <input type="text" class="forge-input" data-creator-field="finalSolution" maxlength="60" autocomplete="off" value="${this.escapeAttr(d.finalSolution)}" placeholder="THE FINAL ANSWER">
             </label>
             <div class="creator-hint-bar" id="creator-hint-bar" hidden>
               <span class="cell-field-label" id="creator-hint-label">HINT FOR A1</span>
-              <input type="text" class="forge-input" data-creator-hint maxlength="${this.HINT_MAX}" autocomplete="off" placeholder="Optional. Shown to you (GM only) when a player asks for this row's hint.">
+              <input type="text" class="forge-input" data-creator-hint maxlength="${this.HINT_MAX}" autocomplete="off" placeholder="OPTIONAL. SHOWN TO YOU (GM ONLY) WHEN A PLAYER ASKS FOR THIS ROW'S HINT.">
               <button type="button" class="forge-btn ghost creator-hint-suggest" data-creator-hint-suggest>SUGGEST STRUCTURAL HINT</button>
             </div>
             <div class="creator-warnings" id="creator-warnings" aria-live="polite"></div>
@@ -712,7 +766,7 @@ const Forge = {
     const cell = this._hintCell;
     if (!cell || !this.editingGame) return;
     const hints = this.editingGame.cellHints || (this.editingGame.cellHints = {});
-    const text = String(value || '').slice(0, this.HINT_MAX);
+    const text = this.uppercaseCreatorText(value).slice(0, this.HINT_MAX);
     if (text.trim()) hints[cell] = text;
     else delete hints[cell];
     const dot = document.querySelector(`#forge-shell [data-cell-wrap="${cell}"] .creator-hint-dot`);
@@ -777,7 +831,7 @@ const Forge = {
     const draft = this.readDraft();
     if (!draft) return;
     const keepId = this.editingGame?.id;
-    this.editingGame = JSON.parse(JSON.stringify(draft.game));
+    this.editingGame = this.normalizeCreatorGame(JSON.parse(JSON.stringify(draft.game)));
     if (!this.isNew && keepId) this.editingGame.id = keepId;
     this.renderCreator();
     this.dirty = true;
@@ -829,7 +883,7 @@ const Forge = {
     let count = 0;
     Object.entries(values).forEach(([name, value]) => {
       if (!this.FIELD_ORDER.includes(name)) return;
-      const text = String(value || '').slice(0, 60);
+      const text = this.uppercaseCreatorText(value).slice(0, 60);
       this.applyField(name, text);
       const input = this.fieldInput(name);
       if (input) input.value = text;
@@ -1085,7 +1139,11 @@ const Forge = {
 
     overlay.addEventListener('input', (e) => {
       if (this.view !== 'creator') return;
-      if (e.target.closest?.('[data-creator-hint]')) this.setCellHint(e.target.value);
+      if (e.target.closest?.('[data-creator-hint]')) {
+        const value = this.uppercaseCreatorInput(e.target);
+        this.setCellHint(value);
+      }
+      if (e.target.id === 'creator-paste-text') this.uppercaseCreatorInput(e.target);
     });
 
     overlay.addEventListener('dragstart', e => {
@@ -1122,7 +1180,7 @@ const Forge = {
 
   onFieldChange(field) {
     const name = field.dataset.creatorField;
-    const value = field.value;
+    const value = name === 'difficulty' ? field.value : this.uppercaseCreatorInput(field);
 
     this.applyField(name, value);
     this.markDirty();
@@ -1138,6 +1196,7 @@ const Forge = {
   applyField(name, value) {
     const d = this.editingGame;
     if (!d) return;
+    if (name !== 'difficulty') value = this.uppercaseCreatorText(value);
     if (name === 'title' || name === 'theme' || name === 'difficulty' || name === 'story' || name === 'gmNotes') {
       d[name] = value;
       return;
@@ -1215,20 +1274,20 @@ const Forge = {
   collectDraft() {
     const d = this.editingGame;
     if (!d) return null;
-    const value = name => (document.querySelector(`[data-creator-field="${name}"]`)?.value || '').trim();
+    const value = name => this.uppercaseCreatorText(document.querySelector(`[data-creator-field="${name}"]`)?.value || '').trim();
     d.theme = value('theme');
     // The theme names the game. A new game's title follows it; an existing
     // game keeps the title it was saved under (library name / file).
-    d.title = this.isNew ? d.theme : (String(d.title || '').trim() || d.theme);
+    d.title = this.isNew ? d.theme : (this.uppercaseCreatorText(d.title).trim() || d.theme);
     d.difficulty = (document.querySelector('[data-creator-field="difficulty"]')?.value || d.difficulty || 'GREEN').toUpperCase();
     d.finalSolution = value('finalSolution');
-    d.story = document.querySelector('[data-creator-field="story"]')?.value || '';
-    d.gmNotes = document.querySelector('[data-creator-field="gmNotes"]')?.value || '';
+    d.story = this.uppercaseCreatorText(document.querySelector('[data-creator-field="story"]')?.value || '');
+    d.gmNotes = this.uppercaseCreatorText(document.querySelector('[data-creator-field="gmNotes"]')?.value || '');
     const legacy = document.querySelector('[data-creator-field="hints"]');
-    if (legacy) d.hints = legacy.value.split('\n').map(h => h.trim()).filter(Boolean);
+    if (legacy) d.hints = this.uppercaseCreatorText(legacy.value).split('\n').map(h => h.trim()).filter(Boolean);
     d.cellHints = Object.fromEntries(Object.entries(d.cellHints || {})
       .filter(([cell, text]) => /^[A-D][1-4]$/.test(cell) && String(text || '').trim())
-      .map(([cell, text]) => [cell, String(text).trim().slice(0, this.HINT_MAX)]));
+      .map(([cell, text]) => [cell, this.uppercaseCreatorText(text).trim().slice(0, this.HINT_MAX)]));
 
     ['A', 'B', 'C', 'D'].forEach(col => {
       if (!d.columns[col]) d.columns[col] = { clues: ['', '', '', ''], solution: '' };
@@ -1236,7 +1295,7 @@ const Forge = {
       d.columns[col].solution = value(`${col}5`);
     });
 
-    return d;
+    return this.normalizeCreatorGame(d);
   },
 
   // Everything missing, in fill order (theme first).

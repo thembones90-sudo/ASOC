@@ -5440,23 +5440,23 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/choose', help: '/choose A | B | C -- pick one option at random' },
   { name: '/order', help: '/order -- shuffled turn order of connected players' },
   { name: '/stats', help: '/stats -- your messages, correct/wrong, points' },
-  { name: '/spit', help: '/spit @Name -- spit on a player or the Shadow Broker' },
-  { name: '/fart', help: '/fart @Name -- fart on a player or the Shadow Broker' },
-  { name: '/nod', help: '/nod @Name -- acknowledge a player or the Shadow Broker' },
-  { name: '/slap', help: '/slap @Name -- emote at a player or the Shadow Broker' },
-  { name: '/moon', help: '/moon @Name -- emote at a player or the Shadow Broker' },
-  { name: '/chicken', help: '/chicken @Name -- emote at a player or the Shadow Broker' },
-  { name: '/violin', help: '/violin @Name -- emote at a player or the Shadow Broker' },
-  { name: '/golfclap', help: '/golfclap @Name -- emote at a player or the Shadow Broker' },
-  { name: '/pity', help: '/pity @Name -- emote at a player or the Shadow Broker' },
-  { name: '/mock', help: '/mock @Name -- emote at a player or the Shadow Broker' },
-  { name: '/poke', help: '/poke @Name -- emote at a player or the Shadow Broker' },
-  { name: '/bonk', help: '/bonk @Name -- emote at a player or the Shadow Broker' },
-  { name: '/taunt', help: '/taunt @Name -- emote at a player or the Shadow Broker' },
-  { name: '/threaten', help: '/threaten @Name -- emote at a player or the Shadow Broker' },
-  { name: '/lick', help: '/lick @Name -- emote at a player or the Shadow Broker' },
-  { name: '/train', help: '/train @Name -- emote at a player or the Shadow Broker' },
-  { name: '/ass', help: '/ass @Name -- kick a player or the Shadow Broker in the ass' },
+  { name: '/spit', help: '/spit Name|all -- spit on one target or everyone online' },
+  { name: '/fart', help: '/fart Name|all -- fart on one target or everyone online' },
+  { name: '/nod', help: '/nod Name|all -- acknowledge one target or everyone online' },
+  { name: '/slap', help: '/slap Name|all -- emote at one target or everyone online' },
+  { name: '/moon', help: '/moon Name|all -- emote at one target or everyone online' },
+  { name: '/chicken', help: '/chicken Name|all -- emote at one target or everyone online' },
+  { name: '/violin', help: '/violin Name|all -- emote at one target or everyone online' },
+  { name: '/golfclap', help: '/golfclap Name|all -- emote at one target or everyone online' },
+  { name: '/pity', help: '/pity Name|all -- emote at one target or everyone online' },
+  { name: '/mock', help: '/mock Name|all -- emote at one target or everyone online' },
+  { name: '/poke', help: '/poke Name|all -- emote at one target or everyone online' },
+  { name: '/bonk', help: '/bonk Name|all -- emote at one target or everyone online' },
+  { name: '/taunt', help: '/taunt Name|all -- emote at one target or everyone online' },
+  { name: '/threaten', help: '/threaten Name|all -- emote at one target or everyone online' },
+  { name: '/lick', help: '/lick Name|all -- emote at one target or everyone online' },
+  { name: '/train', help: '/train Name|all -- emote at one target or everyone online' },
+  { name: '/ass', help: '/ass Name|all -- emote at one target or everyone online' },
   { name: '/facepalm', help: '/facepalm -- emote' },
   { name: '/cower', help: '/cower -- emote' },
   { name: '/grovel', help: '/grovel -- emote' },
@@ -5466,13 +5466,13 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/burp', help: '/burp -- emote' },
   { name: '/oom', help: '/oom -- emote' },
   { name: '/all', help: '/all [message] -- nudge everyone (shakes every screen)' },
-  { name: '/smite', help: '/smite @Name -- SHADOW MARKET unlock: strike of judgement' },
-  { name: '/freeze', help: '/freeze @Name -- SHADOW MARKET unlock: theatrical ice' },
-  { name: '/glitch', help: '/glitch @Name -- SHADOW MARKET unlock: signal tear' },
+  { name: '/smite', help: '/smite Name|all -- SHADOW MARKET unlock: strike one target or everyone' },
+  { name: '/freeze', help: '/freeze Name|all -- SHADOW MARKET unlock: freeze one target or everyone' },
+  { name: '/glitch', help: '/glitch Name|all -- SHADOW MARKET unlock: glitch one target or everyone' },
   { name: '/omen', help: '/omen -- SHADOW MARKET unlock: a bad sign for the room' },
   { name: '/rupture', help: '/rupture -- SHADOW MARKET unlock: crack reality open' },
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
-  { name: '/love', help: '/love [@Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
+  { name: '/love', help: '/love [Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
   { name: '/commands', help: '/commands -- this list' }
 ];
 
@@ -5563,26 +5563,39 @@ function buildChatCommandMessage(room, author, messageType, source, text, payloa
 const SHADOW_BROKER_TARGET_ID = '__SHADOW_BROKER__';
 const SHADOW_BROKER_TARGET = Object.freeze({ id: SHADOW_BROKER_TARGET_ID, name: 'SHADOW BROKER' });
 const SHADOW_BROKER_TARGET_NAMES = new Set(['shadow broker', 'broker', 'gm']);
+const ALL_ONLINE_TARGET_ID = '__ALL_ONLINE__';
 
 // Named-target resolution shared by /spit, /fart and /afk: prefer the
 // picker-supplied connected playerId, fall back to an exact-then-fuzzy match
-// on the typed "@Name" token. The actor can never target themselves.
+// on the typed name token. The actor can never target themselves. A leading
+// @ remains accepted for compatibility with older clients.
 // `allowBroker` (player /spit and /fart) also accepts the Shadow Broker, by
-// picker id or by typing @Shadow Broker / @Broker / @GM -- a real player with
+// picker id or by typing Shadow Broker / Broker / GM -- a real player with
 // that exact name still wins. `verbLabel` only shapes the error text.
-function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel, { allowBroker = false } = {}) {
+function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel, { allowBroker = false, allowAll = false } = {}) {
   const connected = Array.from(room.players.values())
     .filter(player => player.connected !== false && String(player.name || '').trim());
   const selfId = actorId === null || actorId === undefined ? '' : String(actorId);
+  const allTarget = () => {
+    const targetIds = connected.map(player => String(player.id)).filter(id => id !== selfId);
+    return targetIds.length
+      ? { target: { id: ALL_ONLINE_TARGET_ID, name: 'everyone', targetIds, all: true } }
+      : { error: `${verbLabel} TARGET REQUIRED // NO OTHER PLAYERS ARE ONLINE` };
+  };
   if (typeof targetPlayerId === 'string' && targetPlayerId) {
+    if (allowAll && targetPlayerId === ALL_ONLINE_TARGET_ID) return allTarget();
     if (allowBroker && targetPlayerId === SHADOW_BROKER_TARGET_ID) return { target: SHADOW_BROKER_TARGET };
     const target = connected.find(player => String(player.id) === targetPlayerId);
     if (!target) return { error: `${verbLabel} TARGET MUST BE A CONNECTED PLAYER` };
     if (String(target.id) === selfId) return { error: `${verbLabel} TARGET MUST BE ANOTHER PLAYER` };
     return { target };
   }
-  const needle = String(rawTarget || '').trim().replace(/^@/, '').toLocaleLowerCase();
+  // Accept both the current no-@ syntax and legacy desktop clients that may
+  // still submit @all / @Name. Collapse repeated leading @ characters too,
+  // so an old picker can never turn the group target into a failed username.
+  const needle = String(rawTarget || '').trim().replace(/^@+\s*/, '').trim().toLocaleLowerCase();
   if (!needle) return { error: `${verbLabel} TARGET REQUIRED // PICK A PLAYER FROM THE LIST` };
+  if (allowAll && (needle === 'all' || needle === 'all online' || needle === 'everyone')) return allTarget();
   const exact = connected.find(player => String(player.name).toLocaleLowerCase() === needle && String(player.id) !== selfId);
   if (exact) return { target: exact };
   if (allowBroker && SHADOW_BROKER_TARGET_NAMES.has(needle)) return { target: SHADOW_BROKER_TARGET };
@@ -5692,12 +5705,18 @@ function handleActCommand(room, author, raw, targetPlayerId, act) {
   const match = raw.match(new RegExp(`^\\/${act}(?:\\s+@?(.*))?\\s*$`, 'i'));
   if (!match) return { success: false, error: `${label} INVALID // USE /${act}` };
   const actorIsBroker = author.id === null || author.id === undefined;
-  const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', label, { allowBroker: !actorIsBroker });
+  const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', label, { allowBroker: !actorIsBroker, allowAll: true });
   if (resolved.error) return { success: false, error: resolved.error };
   const target = resolved.target;
   return buildChatCommandMessage(room, author, act, act,
     `${author.name} ${verb} ${target.name}.`,
-    { [act]: { actorId: author.id ?? null, actorName: author.name, targetId: String(target.id), targetName: target.name } });
+    { [act]: {
+      actorId: author.id ?? null,
+      actorName: author.name,
+      targetId: String(target.id),
+      targetName: target.name,
+      ...(target.all ? { targetIds: target.targetIds } : {})
+    } });
 }
 
 // WORLD OF WARCRAFT EMOTES. Same idea as /spit and /fart, but the server
@@ -5739,7 +5758,7 @@ const CHAT_EMOTES = Object.freeze({
   omen:     { label: 'OMEN',      premium: true, actor: 'You announce an omen. Something is coming.', other: '{A} announces an omen. Something is coming.' },
   rupture:  { label: 'RUPTURE',   premium: true, actor: 'You crack reality open.', other: '{A} cracks reality open.' },
   vanish:   { label: 'VANISH',    premium: true, actor: 'You vanish in a curl of smoke.', other: '{A} vanishes in a curl of smoke.' },
-  // Target is optional: /love spreads love, /love @Name sends it to someone.
+  // Target is optional: /love spreads love, /love Name sends it to someone.
   love:     { label: 'LOVE',      premium: true, optionalTarget: true, actor: 'You spread love across the room.', other: '{A} spreads love across the room.',
               aimed: { actor: 'You send love to {T}.', target: '{A} sends you love.', other: '{A} sends love to {T}.' } }
 });
@@ -5792,7 +5811,7 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
   let target = null;
   const aimed = def.optionalTarget && (String(match[1] || '').trim() || targetPlayerId);
   if (def.targeted || aimed) {
-    const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', def.label, { allowBroker: !actorIsBroker });
+    const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', def.label, { allowBroker: !actorIsBroker, allowAll: true });
     if (resolved.error) return { success: false, error: resolved.error };
     target = resolved.target;
   }
@@ -5808,6 +5827,7 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
       actorName: author.name,
       targetId: target ? String(target.id) : null,
       targetName: target ? target.name : null,
+      ...(target?.all ? { targetIds: target.targetIds } : {}),
       ...(def.premium ? { fx: name } : {}),
       lines
     }
@@ -6210,7 +6230,10 @@ function sanitizeChatCommandMeta(m) {
       actorId: act.actorId === null || act.actorId === undefined || act.actorId === '' ? null : String(act.actorId).slice(0, 64),
       actorName: sanitizeText(String(act.actorName || '')).slice(0, 40),
       targetId: String(act.targetId || '').slice(0, 64),
-      targetName: sanitizeText(String(act.targetName || '')).slice(0, 40)
+      targetName: sanitizeText(String(act.targetName || '')).slice(0, 40),
+      targetIds: Array.isArray(act.targetIds)
+        ? Array.from(new Set(act.targetIds.map(id => String(id).slice(0, 64)).filter(Boolean))).slice(0, 60)
+        : undefined
     };
   } else if (m.messageType === 'emote' && m.emote && typeof m.emote === 'object' && CHAT_EMOTES[m.emote.act]) {
     const emote = m.emote;
@@ -6222,6 +6245,9 @@ function sanitizeChatCommandMeta(m) {
       actorName: sanitizeText(String(emote.actorName || '')).slice(0, 40),
       targetId: emote.targetId ? String(emote.targetId).slice(0, 64) : null,
       targetName: emote.targetName ? sanitizeText(String(emote.targetName)).slice(0, 40) : null,
+      targetIds: Array.isArray(emote.targetIds)
+        ? Array.from(new Set(emote.targetIds.map(id => String(id).slice(0, 64)).filter(Boolean))).slice(0, 60)
+        : undefined,
       ...(CHAT_EMOTES[emote.act].premium ? { fx: emote.act } : {}),
       lines: { actor: line(emote.lines?.actor), target: line(emote.lines?.target), other: line(emote.lines?.other) }
     };

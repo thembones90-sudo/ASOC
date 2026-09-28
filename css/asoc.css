@@ -4095,12 +4095,33 @@ body.gm-layout-locked .gm-module-height-splitter {
 
 /* FORGE LIBRARY */
 .forge-library {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   padding: 18px 20px;
   max-height: calc(100vh - 180px);
   overflow-y: auto;
+}
+
+.game-list-head,
+.game-list-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 130px 180px minmax(245px, auto);
+  align-items: center;
+  gap: 16px;
+}
+
+.game-list-head {
+  position: sticky;
+  top: -18px;
+  z-index: 3;
+  padding: 10px 14px;
+  color: var(--text-dim);
+  background: #0c0e14;
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 1px;
 }
 
 .game-card {
@@ -19439,6 +19460,111 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
   box-shadow:inset 3px 0 rgba(77,231,124,.18),inset 0 0 16px rgba(46,207,98,.08),0 0 13px rgba(38,215,92,.12) !important;
   filter:none !important;
   text-shadow:none !important;
+}
+
+.game-card.game-list-row {
+  min-height: 64px;
+  padding: 10px 14px;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: rgba(18, 20, 26, 0.72);
+}
+
+.game-card.game-list-row:nth-child(odd) {
+  background: rgba(24, 26, 34, 0.72);
+}
+
+.game-card.game-list-row:hover {
+  position: relative;
+  z-index: 2;
+  background: rgba(33, 35, 45, 0.92);
+  border-color: var(--accent-silver);
+}
+
+.game-list-identity {
+  display: block;
+  min-width: 0;
+}
+
+.game-list-identity .game-card-title-wrap {
+  flex-wrap: nowrap;
+}
+
+.game-list-identity .game-card-title,
+.game-list-identity .game-card-theme {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-list-identity .game-card-theme {
+  margin-top: 4px;
+}
+
+.game-list-date {
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+
+.game-list-actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  margin: 0;
+}
+
+.game-list-actions .forge-btn,
+.game-list-more > summary {
+  min-height: 34px;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+
+.game-list-more {
+  position: relative;
+}
+
+.game-list-more > summary {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.game-list-more > summary::-webkit-details-marker { display: none; }
+
+.game-list-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  display: grid;
+  gap: 6px;
+  width: max-content;
+  min-width: 168px;
+  padding: 8px;
+  background: #11131a;
+  border: 1px solid var(--accent-silver);
+  border-radius: 6px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.48);
+}
+
+.game-list-more-menu .forge-btn {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+@media (max-width: 900px) {
+  .game-list-head { display: none; }
+  .game-list-row {
+    grid-template-columns: minmax(150px, 1fr) auto;
+    gap: 8px 12px;
+  }
+  .game-list-difficulty { justify-self: end; }
+  .game-list-date { grid-column: 1; }
+  .game-list-actions { grid-column: 2; grid-row: 2; }
 }
 #gm-chat-presence.gm-chat-presence::before {
   content:"";

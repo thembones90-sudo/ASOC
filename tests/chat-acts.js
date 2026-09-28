@@ -83,7 +83,7 @@ async function run() {
     const say = async (text, extra = {}) => { farter.ws.send(JSON.stringify({ type: 'chat:guess', text, ...extra })); await sleep(420); };
 
     // /fart by typed name: server-authoritative card, same contract as /spit.
-    await say('/fart @Victim');
+    await say('/fart Victim');
     const typed = await waitFor(victim, m => m.messageType === 'fart' && m.fart?.targetId === victim.playerId, 'typed fart');
     assert.equal(typed.text, 'Farter farts on Victim.');
     assert.equal(typed.source, 'fart');
@@ -93,21 +93,46 @@ async function run() {
 
     // /fart via the picker's resolved id.
     victim.chat = [];
-    await say('/fart @Victim', { targetPlayerId: victim.playerId });
+    await say('/fart Victim', { targetPlayerId: victim.playerId });
     await waitFor(victim, m => m.messageType === 'fart' && m.fart?.targetId === victim.playerId, 'picker fart');
 
     // /nod is an acknowledgement with the same authoritative target contract.
-    await say('/nod @Victim', { targetPlayerId: victim.playerId });
+    await say('/nod Victim', { targetPlayerId: victim.playerId });
     const nod = await waitFor(victim, m => m.messageType === 'nod' && m.nod?.targetId === victim.playerId, 'player nod');
     assert.equal(nod.text, 'Farter nods at Victim.');
     assert.deepEqual(nod.nod, { actorId: farter.playerId, actorName: 'Farter', targetId: victim.playerId, targetName: 'Victim' });
 
+    // Every targeted fun command also accepts ALL. It remains one compact
+    // card, but carries the authoritative connected-player target set so
+    // each recipient receives the target perspective.
+    await say('/fart all');
+    const allFart = await waitFor(victim, m => m.messageType === 'fart' && m.fart?.targetId === '__ALL_ONLINE__', 'fart all');
+    assert.equal(allFart.text, 'Farter farts on everyone.');
+    assert.deepEqual(allFart.fart.targetIds, [victim.playerId]);
+
+    // Compatibility with an installed desktop build that still inserts @.
+    const firstAllId = allFart.id;
+    await say('/fart @all');
+    const legacyAllFart = await waitFor(victim, m => m.id !== firstAllId && m.messageType === 'fart' && m.fart?.targetId === '__ALL_ONLINE__', 'legacy fart @all');
+    assert.equal(legacyAllFart.text, 'Farter farts on everyone.');
+
+    const playerSrc = fs.readFileSync(path.join(ROOT, 'js', 'player.js'), 'utf8');
+    const appSrc = fs.readFileSync(path.join(ROOT, 'js', 'app.js'), 'utf8');
+    const joinSrc = fs.readFileSync(path.join(ROOT, 'join.html'), 'utf8');
+    assert.match(playerSrc, /id: '__ALL_ONLINE__'.*displayName: 'ALL ONLINE'/, 'target picker offers ALL ONLINE');
+    assert.match(playerSrc, /targetIds\.includes\(viewerId\)/, 'group targets render the recipient perspective');
+    assert.match(playerSrc, /payload\.targetPlayerId = '__ALL_ONLINE__'/, 'typed ALL bypasses single-player name lookup');
+    assert.match(appSrc, /case 'error':[\s\S]*this\.showGMCommandError\(message\.message\)/, 'GM server failures use the in-app error path');
+    assert.doesNotMatch(appSrc.match(/case 'error':[\s\S]*?break;/)?.[0] || '', /alert\(/, 'GM server failures never open a native Electron alert');
+    assert.match(appSrc, /composer\?\.focus\(\{ preventScroll: true \}\)/, 'GM error path restores composer focus');
+    assert.match(joinSrc, /player\.js\?v=20260928-command-all-2/, 'hardened command-all client is cache-busted');
+
     // The Shadow Broker is a valid target for both acts: picker id, full name, short name.
-    await say('/fart @SHADOW BROKER', { targetPlayerId: BROKER });
+    await say('/fart SHADOW BROKER', { targetPlayerId: BROKER });
     const brokerFart = await waitFor(gm, m => m.messageType === 'fart' && m.fart?.targetId === BROKER, 'fart on the Broker');
     assert.equal(brokerFart.text, 'Farter farts on SHADOW BROKER.');
     assert.equal(brokerFart.fart.targetName, 'SHADOW BROKER');
-    await say('/spit @Shadow Broker');
+    await say('/spit Shadow Broker');
     await waitFor(gm, m => m.messageType === 'spit' && m.spit?.targetId === BROKER, 'spit on the Broker by name');
     gm.chat = [];
     await say('/spit @broker');
@@ -125,6 +150,15 @@ async function run() {
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart @Victim' }));
     const brokerAct = await waitFor(victim, m => m.messageType === 'fart' && m.fart?.actorId === null, 'Broker fart');
     assert.equal(brokerAct.text, 'SHADOW BROKER farts on Victim.');
+
+    const brokerSingleId = brokerAct.id;
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart all' }));
+    const brokerAll = await waitFor(victim, m => m.id !== brokerSingleId && m.messageType === 'fart' && m.fart?.actorId === null && m.fart?.targetId === '__ALL_ONLINE__', 'Broker fart all');
+    assert.equal(brokerAll.text, 'SHADOW BROKER farts on everyone.');
+
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart @all' }));
+    const brokerLegacyAll = await waitFor(victim, m => m.id !== brokerAll.id && m.messageType === 'fart' && m.fart?.actorId === null && m.fart?.targetId === '__ALL_ONLINE__', 'Broker legacy fart @all');
+    assert.equal(brokerLegacyAll.text, 'SHADOW BROKER farts on everyone.');
     mark = gm.msgs.length;
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart @broker' }));
     assert.match(await lastError(gm, mark), /FART TARGET NOT FOUND/, 'the Broker cannot target itself');
@@ -141,7 +175,7 @@ async function run() {
     assert.ok(commands.commands.commands.some(entry => entry.name === '/nod'));
 
     // WoW emotes: the server writes actor / target / other lines.
-    await say('/slap @Victim', { targetPlayerId: victim.playerId });
+    await say('/slap Victim', { targetPlayerId: victim.playerId });
     const slap = await waitFor(victim, m => m.messageType === 'emote' && m.emote?.act === 'slap', 'slap emote');
     assert.equal(slap.text, 'Farter slaps Victim.');
     assert.equal(slap.emote.label, 'SLAP');

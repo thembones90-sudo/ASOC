@@ -15,6 +15,21 @@
   const queue = [];              // [{ id, message }] oldest first
   let overlay = null;
   let guard = null;
+  let shakeTimer = null;
+
+  function shakePlayerScreen() {
+    if (reduced()) return;
+    const root = document.documentElement;
+    // Restart the impact even when another MEGABONK arrives while the modal
+    // is already open. Removing + flushing the class makes repeated server
+    // deliveries produce a new animation instead of reusing a finished one.
+    root.classList.remove('mbk-shake');
+    document.body.classList.remove('mbk-shake'); // clear legacy builds
+    void root.offsetWidth;
+    root.classList.add('mbk-shake');
+    clearTimeout(shakeTimer);
+    shakeTimer = setTimeout(() => root.classList.remove('mbk-shake'), 1100);
+  }
 
   const HAMMER = `<svg class="mbk-hammer" viewBox="0 0 120 120" aria-hidden="true">
     <rect x="54" y="44" width="12" height="70" rx="3" fill="#3a3f47" stroke="#101216" stroke-width="3"/>
@@ -68,8 +83,6 @@
       document.body.appendChild(overlay);
       if (!reduced()) {
         overlay.classList.add('mbk-slam');
-        document.body.classList.add('mbk-shake');
-        setTimeout(() => document.body.classList.remove('mbk-shake'), 900);
       }
       window.AsocAlerts?.signal?.({ popup: { title: 'MEGABONK', body: 'The Shadow Broker requires your attention.', tag: 'megabonk' } });
     }
@@ -193,7 +206,10 @@
   }
 
   function onMessage(message) {
-    if (message.type === 'megabonk:alert') return enqueue(message.id, String(message.message || ''));
+    if (message.type === 'megabonk:alert') {
+      shakePlayerScreen();
+      return enqueue(message.id, String(message.message || ''));
+    }
     if (message.type === 'megabonk:cleared') return clearAlert(message.id);
     if (message.type === 'megabonk:progress') {
       const events = Array.isArray(message.events) ? message.events : (message.event ? [message.event] : []);

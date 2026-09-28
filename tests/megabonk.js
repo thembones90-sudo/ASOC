@@ -78,6 +78,8 @@ function checkClientNeverSelfDismisses() {
   assert.match(src, /megabonk:cleared'\) return clearAlert/);
   assert.equal((src.match(/clearAlert\(/g) || []).length, 2, 'clearAlert is defined once and called only for megabonk:cleared');
   assert.doesNotMatch(src.slice(src.indexOf('function showAlert'), src.indexOf('function acknowledge')), /setTimeout\([^)]*remove|clearAlert/, 'no timed self-dismissal');
+  assert.match(src, /message\.type === 'megabonk:alert'[\s\S]*shakePlayerScreen\(\)[\s\S]*enqueue/, 'every delivered player alert shakes before it is queued');
+  assert.match(src, /void root\.offsetWidth/, 'repeated MEGABONKs restart the screen-shake animation');
 }
 
 (async () => {
