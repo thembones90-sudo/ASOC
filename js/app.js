@@ -2026,6 +2026,7 @@ const App = {
     document.getElementById('final-panel-reopen-btn')?.addEventListener('click', () => this.openFinalPanel());
 
     document.getElementById('womf-subtract-btn')?.addEventListener('click', () => this.declareWomfSubtract());
+    document.getElementById('womf-add-btn')?.addEventListener('click', () => this.declareWomfAdd());
     document.getElementById('womf-reset-btn')?.addEventListener('click', () => this.declareWomfReset());
     document.getElementById('blood-tribute-vault-clear')?.addEventListener('click', () => this.clearBloodTributeVault());
     document.getElementById('blood-tribute-override-btn')?.addEventListener('click', () => this.overrideBloodTribute());
@@ -3630,6 +3631,11 @@ const App = {
   declareWomfSubtract() {
     if (this.mode !== 'multiplayer') return;
     this.send({ type: 'gm:womfSubtract' });
+  },
+
+  declareWomfAdd() {
+    if (this.mode !== 'multiplayer') return;
+    this.send({ type: 'gm:womfAdd' });
   },
 
   declareWomfReset() {
