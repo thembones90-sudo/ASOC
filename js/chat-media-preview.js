@@ -67,6 +67,13 @@
       preview.className = 'chat-media-lightbox-media';
       preview.src = source;
       preview.alt = image.alt || 'Chat media';
+      // Preserve the browser's native image context menu in the lightbox so
+      // every user can right-click the opened image and use "Save image as…".
+      // Chat message context menus live higher in the page and must not steal
+      // this event once the media is opened.
+      preview.addEventListener('contextmenu', (event) => {
+        event.stopPropagation();
+      });
       return preview;
     }
 
