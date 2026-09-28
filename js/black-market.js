@@ -22,19 +22,16 @@
     pacts: [],
     send(payload) { host.send?.(payload); },
     install() {
-      const button = document.createElement('button');
-      button.id = isGM ? 'black-market-gm-button' : 'black-market-player-button';
-      button.className = 'black-market-entry';
-      if (!isGM) button.hidden = true;
-      button.innerHTML = '<span>BLACK MARKET</span><small>PRIVATE CHANNEL</small>';
-      button.addEventListener('click', () => this.open());
-      if (isGM) {
-        button.classList.add('gm-global-btn','black-market-command-btn');
-        const commandGrid = document.querySelector('#battle-controls-panel .battle-controls-grid');
-        (commandGrid || document.body).appendChild(button);
-      } else {
+      let button = document.getElementById(isGM ? 'black-market-gm-button' : 'black-market-player-button');
+      if (!button) {
+        button = document.createElement('button');
+        button.id = 'black-market-player-button';
+        button.className = 'black-market-entry';
+        button.hidden = true;
+        button.innerHTML = '<span>BLACK MARKET</span><small>PRIVATE CHANNEL</small>';
         document.body.appendChild(button);
       }
+      button.addEventListener('click', () => this.open());
       this.wrapMessages();
       setTimeout(() => this.send({ type: 'blackMarket:sync' }), 500);
     },
