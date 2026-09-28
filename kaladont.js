@@ -28,7 +28,20 @@
 // - Last living player wins.
 const crypto = require('crypto');
 
-const TURN_MS = Number(process.env.ASOC_KALADONT_TURN_MS) || 60000;
+const TURN_MS = Number(process.env.ASOC_KALADONT_TURN_MS) || 40000;
+const ROUND_TURN_MS = Object.freeze({
+  1: 40000,
+  2: 35000,
+  3: 30000,
+  4: 30000,
+  5: 25000
+});
+const LATE_ROUND_TURN_MS = 20000;
+
+function turnMsForRound(round) {
+  const n = Math.max(1, Number(round) || 1);
+  return Number(process.env.ASOC_KALADONT_TURN_MS) || ROUND_TURN_MS[n] || LATE_ROUND_TURN_MS;
+}
 const VOTE_MS = Number(process.env.ASOC_KALADONT_VOTE_MS) || 15000;
 const VERDICT_MS = Number(process.env.ASOC_KALADONT_VERDICT_MS) || 4000;
 const ENDED_TTL_MS = 10 * 60 * 1000;
@@ -83,6 +96,7 @@ function createLobby(owner, now) {
     eliminations: [],
     winnerId: null,
     endedAt: 0,
+    round: 1,
     seq: 0
   };
 }
@@ -105,7 +119,12 @@ function normalizeState(raw) {
 // executing a player for time lost to the outage. Votes already cast stand.
 function resumeAfterRestart(state, now) {
   if (!state) return state;
-  if (state.phase === 'turn' && state.turn) state.turn.deadline = now + TURN_MS;
+  if (state.phase === 'turn' && state.turn) {
+    const duration = turnMsForRound(state.round);
+    state.turn.durationMs = duration;
+    state.turn.round = Math.max(1, Number(state.round) || 1);
+    state.turn.deadline = now + duration;
+  }
   if (state.phase === 'tribunal' && state.tribunal) state.tribunal.deadline = now + VOTE_MS;
   if (state.phase === 'verdict') state.verdictUntil = now + VERDICT_MS;
   return state;
@@ -183,6 +202,7 @@ function start(state, actorId, onlineIds, now, random = Math.random) {
   state.prefix = '';
   state.history = [];
   state.eliminations = [];
+  state.round = 1;
   beginTurn(state, 0, now);
   return { ok: true, announce: [`KALADONT // THE GAME BEGINS. ${order.length} PLAYERS: ${order.map(id => nameOf(state, id)).join(' → ')}.`] };
 }
@@ -197,7 +217,16 @@ function beginTurn(state, index, now) {
   state.tribunal = null;
   state.result = null;
   state.seq++;
-  state.turn = { seq: state.seq, index: i, playerId: state.order[i], deadline: now + TURN_MS, prefix: state.prefix };
+  const durationMs = turnMsForRound(state.round);
+  state.turn = {
+    seq: state.seq,
+    index: i,
+    playerId: state.order[i],
+    deadline: now + durationMs,
+    durationMs,
+    round: Math.max(1, Number(state.round) || 1),
+    prefix: state.prefix
+  };
 }
 
 function eliminate(state, id, reason, word, now) {
@@ -240,6 +269,12 @@ function afterResolution(state, fromIndex, now, announce) {
   state.phase = 'verdict';
   state.verdictUntil = now + VERDICT_MS;
   state.resumeIndex = nextLivingIndex(state, fromIndex);
+  // A round is one pass through the fixed randomized seating order.
+  // Eliminated seats are skipped, but crossing the end of the order still
+  // advances the round and therefore tightens the turn clock.
+  if (state.resumeIndex >= 0 && state.resumeIndex <= fromIndex) {
+    state.round = Math.max(1, Number(state.round) || 1) + 1;
+  }
   state.seq++;
 }
 
@@ -391,7 +426,16 @@ function view(state, viewerId, now, onlineIds = null) {
     ownerName: nameOf(state, state.ownerId),
     members: state.members.map(m => ({ id: m.id, name: m.name, online: isOnline(m.id) })),
     order: state.order.map(id => ({ id, name: nameOf(state, id), online: isOnline(id), alive: !!state.players[id]?.alive, reason: state.players[id]?.reason || null, place: state.players[id]?.place || null })),
-    turn: state.turn ? { seq: state.turn.seq, playerId: state.turn.playerId, playerName: nameOf(state, state.turn.playerId), deadline: state.turn.deadline, prefix: state.turn.prefix } : null,
+    turn: state.turn ? {
+      seq: state.turn.seq,
+      playerId: state.turn.playerId,
+      playerName: nameOf(state, state.turn.playerId),
+      deadline: state.turn.deadline,
+      durationMs: state.turn.durationMs || turnMsForRound(state.round),
+      round: state.turn.round || Math.max(1, Number(state.round) || 1),
+      prefix: state.turn.prefix
+    } : null,
+    round: Math.max(1, Number(state.round) || 1),
     prefix: state.prefix,
     history: state.history.map(h => ({ word: h.word, by: h.by, byName: nameOf(state, h.by) })),
     tribunal,
@@ -417,7 +461,7 @@ function view(state, viewerId, now, onlineIds = null) {
 }
 
 module.exports = {
-  TURN_MS, VOTE_MS, VERDICT_MS, MAX_WORD, MAX_PLAYERS, SPECIAL, REASONS,
+  TURN_MS, ROUND_TURN_MS, LATE_ROUND_TURN_MS, turnMsForRound, VOTE_MS, VERDICT_MS, MAX_WORD, MAX_PLAYERS, SPECIAL, REASONS,
   normalizeWord, lastTwo, createLobby, normalizeState, resumeAfterRestart,
   join, leave, lobbyDisconnect, start, submit, vote, tick, view,
   isActive, isOpenLobby, living
