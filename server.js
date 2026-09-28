@@ -108,6 +108,23 @@ const DEPLOY_BUILD_ID = String(
   || `local-${fs.statSync(__filename).mtimeMs}`
 );
 const EMAIL_VERIFICATION_REQUIRED = process.env.ASOC_EMAIL_VERIFICATION !== '0';
+
+// One-time account grant requested by the Shadow Broker. The receipt makes the
+// operation idempotent across deploys/restarts: every existing player profile
+// receives +10 Shadow Coins exactly once.
+const SHADOW_COIN_GLOBAL_GRANT_RECEIPT = 'admin:global-grant:2026-09-28:10';
+try {
+  const grant = playerStore.grantAllShadowCoins(10, SHADOW_COIN_GLOBAL_GRANT_RECEIPT, {
+    reason: 'Shadow Broker global grant'
+  });
+  if (grant?.ok) {
+    console.log(`[shadow-coins] Global +10 grant: ${grant.granted} granted, ${grant.skipped} already granted`);
+  } else {
+    console.error('[shadow-coins] Global +10 grant failed:', grant?.error || 'unknown error');
+  }
+} catch (error) {
+  console.error('[shadow-coins] Global +10 grant failed:', error.message);
+}
 const GAME_LOST_MESSAGES = Object.freeze([
   'Final association unresolved. Time exhausted. Cognitive adaptation insufficient. Expected result.',
   'All available time consumed. Required inference not achieved. Failure state confirmed.',
