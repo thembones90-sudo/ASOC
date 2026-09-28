@@ -58,7 +58,7 @@ function validateCreate(input) {
   if (!directive) return { error: 'QUEST DIRECTIVE REQUIRED' };
   if (String(input?.directive || '').trim().length > 500) return { error: 'QUEST DIRECTIVE MAXIMUM IS 500 CHARACTERS' };
   if (!Number.isFinite(rewardCoins) || rewardCoins < 0.1 || rewardCoins > 50 || Math.round(rewardCoins * 10) !== rewardCoins * 10) return { error: 'QUEST REWARD MUST BE 0.1–50 SC WITH ONE DECIMAL PLACE' };
-  if (!Number.isFinite(durationMs) || durationMs < 30000 || durationMs > 86400000 || !Number.isInteger(durationMs)) return { error: 'QUEST DURATION MUST BE 30 SECONDS–24 HOURS' };
+  if (!Number.isFinite(durationMs) || durationMs < 60000 || durationMs > 86400000000 || !Number.isInteger(durationMs)) return { error: 'QUEST DURATION MUST BE 1 MINUTE–1000 DAYS' };
   if (!VISIBILITIES.has(visibility)) return { error: 'QUEST VISIBILITY INVALID' };
   return { directive, rewardCoins, durationMs, visibility };
 }
