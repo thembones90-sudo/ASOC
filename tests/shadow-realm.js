@@ -122,10 +122,11 @@ async function healthy() {
     assert.equal(seenByBo.playerId, ana.playerId);
     assert.equal(seenByBo.playerName, 'Ana');
     assert.equal(seenByBo.remainingMs, WINDOW_MS);
+    assert.match(seenByBo.announcement, /Ana/);
     await ana.next(m => m.type === 'shadowRealm:banish' && m.playerId === ana.playerId, 'ana sees it', anaMark);
     await gm.next(m => m.type === 'shadowRealm:banish', 'gm sees it', from);
     const update = await bo.next(m => m.type === 'chat:update' && m.messages.some(x => x.id === target.id && x.shadowRealm), 'memento flag', boMark);
-    assert.ok(update.messages.some(x => /^Ana has been banished to the Shadow Realm$/.test(x.text || '')), 'the Broker announces it');
+    assert.ok(update.messages.some(x => x.text === seenByBo.announcement), 'every client receives the same sarcastic Broker announcement');
 
     // Silenced: chat, commands, DMs, GIFs, image links, polls.
     const refused = async (msg, label, type = 'error') => {
@@ -173,6 +174,9 @@ async function healthy() {
 
     // GM UI wiring.
     const app = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+    const serverSource = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+    const realmLines = serverSource.match(/const SHADOW_REALM_LINES = Object\.freeze\(\[([\s\S]*?)\]\);/)?.[1]?.match(/'[^']*\{player\}[^']*'/g) || [];
+    assert.equal(realmLines.length, 20, 'twenty Shadow Broker verdicts are available');
     assert.match(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'), /data-gm-chat-action="shadow-realm"[^>]*>.*SEND TO SHADOW REALM/);
     assert.match(app, /action === 'shadow-realm'[\s\S]{0,200}gm:shadowRealm/);
 

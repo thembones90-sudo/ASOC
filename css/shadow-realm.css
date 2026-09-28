@@ -2,7 +2,7 @@
    SHADOW REALM -- gray smoke punishment
    ========================================================= */
 
-/* ---- everyone: a 3-second smoke storm over the whole screen ---- */
+/* ---- everyone: a subtle 3.4-second passage into the Realm ---- */
 .srealm-flicker {
   position: fixed;
   inset: 0;
@@ -11,19 +11,16 @@
   overflow: hidden;
   display: grid;
   place-items: center;
-  backdrop-filter: grayscale(1) contrast(.85) brightness(.8);
-  -webkit-backdrop-filter: grayscale(1) contrast(.85) brightness(.8);
-  animation: srealm-storm 3s linear forwards;
+  backdrop-filter: grayscale(.72) contrast(.94) brightness(.88);
+  -webkit-backdrop-filter: grayscale(.72) contrast(.94) brightness(.88);
+  animation: srealm-storm 3.4s ease-in-out forwards;
 }
-/* Flash + gray-out in the first moments, heavy haze in the middle, clear at the end. */
+/* One soft dim, no strobing flashes, then an unhurried clear. */
 @keyframes srealm-storm {
-  0% { background: rgba(225, 228, 234, .75); opacity: 1; }
-  5% { background: rgba(12, 13, 16, .85); }
-  10% { background: rgba(190, 194, 202, .6); }
-  15% { background: rgba(30, 32, 37, .78); }
-  20% { background: rgba(150, 154, 162, .5); }
-  26%, 86% { background: rgba(58, 61, 68, .62); opacity: 1; }
-  100% { background: rgba(58, 61, 68, 0); opacity: 0; }
+  0% { background: rgba(30, 32, 38, 0); opacity: 0; }
+  16% { background: rgba(38, 40, 47, .34); opacity: 1; }
+  72% { background: rgba(45, 47, 54, .4); opacity: .92; }
+  100% { background: rgba(45, 47, 54, 0); opacity: 0; }
 }
 .srealm-cloud { position: absolute; inset: 0; }
 .srealm-cloud i {
@@ -33,19 +30,19 @@
   margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
   border-radius: 50%;
   background:
-    radial-gradient(circle at 38% 40%, rgba(var(--c), var(--c), calc(var(--c) + 8), .62), transparent 38%),
-    radial-gradient(circle at 62% 58%, rgba(var(--c), var(--c), calc(var(--c) + 8), .5), transparent 44%),
-    radial-gradient(circle at 50% 50%, rgba(calc(var(--c) - 40), calc(var(--c) - 40), calc(var(--c) - 32), .55), rgba(90, 94, 102, .2) 55%, transparent 70%);
-  filter: blur(10px);
+    radial-gradient(circle at 38% 40%, rgba(var(--c), var(--c), calc(var(--c) + 8), .25), transparent 42%),
+    radial-gradient(circle at 62% 58%, rgba(var(--c), var(--c), calc(var(--c) + 8), .18), transparent 48%),
+    radial-gradient(circle at 50% 50%, rgba(calc(var(--c) - 40), calc(var(--c) - 40), calc(var(--c) - 32), .2), rgba(90, 94, 102, .08) 58%, transparent 72%);
+  filter: blur(16px);
   opacity: 0;
-  animation: srealm-billow 3s cubic-bezier(.2, .6, .3, 1) var(--d) forwards;
+  animation: srealm-billow 3.4s cubic-bezier(.22, .58, .35, 1) var(--d) forwards;
 }
 /* Rolls in from the edge toward the middle, swelling and turning, then thins out. */
 @keyframes srealm-billow {
-  0% { opacity: 0; transform: translate(0, 0) scale(.35) rotate(0deg); }
-  16% { opacity: .95; }
-  82% { opacity: .92; transform: translate(calc(var(--dx) * .85), calc(var(--dy) * .85)) scale(1.35) rotate(calc(var(--r) * .8)); }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.6) rotate(var(--r)); }
+  0% { opacity: 0; transform: translate(0, 0) scale(.55) rotate(0deg); }
+  22% { opacity: .42; }
+  78% { opacity: .36; transform: translate(calc(var(--dx) * .82), calc(var(--dy) * .82)) scale(1.12) rotate(calc(var(--r) * .45)); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.25) rotate(calc(var(--r) * .55)); }
 }
 .srealm-glyph {
   position: relative;
@@ -56,11 +53,11 @@
   letter-spacing: .26em;
   color: rgba(235, 238, 243, .0);
   text-shadow: 0 0 30px rgba(220, 224, 232, .0);
-  animation: srealm-glyph 3s ease-in-out forwards;
+  animation: srealm-glyph 3.4s ease-in-out forwards;
 }
 @keyframes srealm-glyph {
   0%, 22% { color: rgba(235, 238, 243, 0); text-shadow: 0 0 30px rgba(220, 224, 232, 0); transform: scale(.94); }
-  40%, 80% { color: rgba(235, 238, 243, .55); text-shadow: 0 0 34px rgba(220, 224, 232, .7), 0 0 80px rgba(160, 165, 175, .5); transform: scale(1); }
+  40%, 80% { color: rgba(235, 238, 243, .38); text-shadow: 0 0 30px rgba(220, 224, 232, .38), 0 0 70px rgba(160, 165, 175, .24); transform: scale(1); }
   100% { color: rgba(235, 238, 243, 0); text-shadow: 0 0 30px rgba(220, 224, 232, 0); transform: scale(1.06); }
 }
 /* Reduced motion: a steady gray haze and the glyph, no flicker or drift. */
