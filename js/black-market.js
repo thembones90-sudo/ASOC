@@ -28,7 +28,13 @@
       if (!isGM) button.hidden = true;
       button.innerHTML = '<span>BLACK MARKET</span><small>PRIVATE CHANNEL</small>';
       button.addEventListener('click', () => this.open());
-      document.body.appendChild(button);
+      if (isGM) {
+        button.classList.add('gm-global-btn','black-market-command-btn');
+        const commandGrid = document.querySelector('#battle-controls-panel .battle-controls-grid');
+        (commandGrid || document.body).appendChild(button);
+      } else {
+        document.body.appendChild(button);
+      }
       this.wrapMessages();
       setTimeout(() => this.send({ type: 'blackMarket:sync' }), 500);
     },
