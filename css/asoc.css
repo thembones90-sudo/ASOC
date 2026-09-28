@@ -14458,19 +14458,26 @@ body.asoc-transition-to-battle #game-screen .player-battle-layout {
 
 .cell-hint-button {
   position: absolute;
-  left: 7px;
-  bottom: 5px;
+  /* Keep HINT completely outside the clue pill's text lane.
+     The board cells already sit well inside the 1900px poster bounds, so
+     this left-side tab remains visible without stealing word space. */
+  left: -50px;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
   z-index: 19;
   min-width: 42px;
   min-height: 20px;
   padding: 2px 6px;
   border: 1px solid rgba(113, 190, 255, .62);
   border-radius: 4px;
-  background: rgba(5, 13, 20, .9);
+  background: rgba(5, 13, 20, .94);
   color: #8fd2ff;
   font: 900 8px/1 var(--font-machine);
   letter-spacing: .09em;
   cursor: pointer;
+  white-space: nowrap;
+  pointer-events: auto;
 }
 
 .cell-hint-button:hover:not(:disabled),
