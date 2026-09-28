@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260928-library-list-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260928-ritual-board-toggle-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
   <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-2">
   <link rel="stylesheet" href="css/megabonk.css?v=20260928-megabonk-shake-1">
@@ -29,6 +29,10 @@
       <div class="timer-tracker" id="timer-tracker-gm"></div>
       <div class="womf-tracker" id="womf-tracker-gm"></div>
       <div id="board-layer">
+        <button type="button" id="ritual-board-toggle" class="ritual-board-toggle" aria-pressed="false" hidden>
+          <span class="ritual-board-toggle-indicator" aria-hidden="true"></span>
+          <span class="ritual-board-toggle-label">VIEW LOADED BOARD</span>
+        </button>
         <img id="background-layer" alt="Game background">
         <div id="asoc-board" class="asoc-board"></div>
         <div class="ritual-tracker" id="ritual-tracker-gm" hidden></div>
@@ -338,7 +342,7 @@
   <script src="js/stale-guard.js?v=20260926-force-refresh-1"></script>
   <script src="js/megabonk.js?v=20260928-megabonk-shake-1"></script>
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
-  <script src="js/app.js?v=20260928-gm-error-focus-1"></script>
+  <script src="js/app.js?v=20260928-ritual-board-toggle-1"></script>
   <script src="js/forge.js?v=20260928-creator-uppercase-1"></script>
 </body>
 </html>

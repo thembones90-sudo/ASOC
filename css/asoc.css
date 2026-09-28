@@ -18135,6 +18135,33 @@ body:not(.room-mode-casual) .gm-minigames-panel{display:none!important}
 }
 .ritual-join-feedback[hidden] { display: none; }
 .ritual-tracker[hidden] { display: none !important; }
+.ritual-board-toggle {
+  position: absolute;
+  z-index: 82;
+  top: clamp(10px, 1.6vh, 18px);
+  left: 50%;
+  min-width: min(320px, calc(100% - 32px));
+  padding: 10px 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(91, 214, 235, .78);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+  background: linear-gradient(180deg, rgba(18, 70, 82, .98), rgba(7, 31, 39, .98));
+  box-shadow: 0 0 20px rgba(61, 190, 218, .2), inset 0 0 20px rgba(65, 195, 220, .08);
+  color: #dffcff;
+  font: 900 .68rem var(--font-machine);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.ritual-board-toggle[hidden] { display: none !important; }
+.ritual-board-toggle:hover,
+.ritual-board-toggle:focus-visible { border-color: #9ff5ff; box-shadow: 0 0 28px rgba(61, 206, 235, .38), inset 0 0 22px rgba(65, 195, 220, .15); outline: none; }
+.ritual-board-toggle-indicator { width: 8px; height: 8px; border: 1px solid currentColor; transform: rotate(45deg); box-shadow: 0 0 8px currentColor; }
+.ritual-board-toggle.is-board-visible { border-color: rgba(190, 112, 232, .82); background: linear-gradient(180deg, rgba(74, 30, 96, .98), rgba(30, 12, 42, .98)); color: #f0d8ff; box-shadow: 0 0 22px rgba(175, 80, 225, .24), inset 0 0 20px rgba(178, 87, 224, .1); }
 .ritual-tracker .ritual-stage {
   position: relative;
   width: min(590px, 94%);

@@ -1258,6 +1258,7 @@ const App = {
       e.target.value = '';
     });
     document.getElementById('reset-board-btn').addEventListener('click', () => this.confirmReset());
+    document.getElementById('ritual-board-toggle')?.addEventListener('click', () => this.toggleRitualBoardPreview());
     document.getElementById('undo-btn').addEventListener('click', () => this.handleUndo());
     document.getElementById('nema-asoc-btn')?.addEventListener('click', () => this.triggerNemaAsoc());
     document.getElementById('bice-asoc-btn')?.addEventListener('click', () => this.triggerBiceAsoc());
@@ -3908,10 +3909,9 @@ const App = {
 
   updateRitualUI(ritual) {
     this.ritual = ritual || { active: false };
-    const el = document.getElementById('ritual-tracker-gm');
-    if (el) el.hidden = !this.ritual.active;
+    if (!this.ritual.active) this._ritualBoardPreview = false;
     Ritual.update('ritual-tracker-gm', this.ritual, true, {
-      onViewBoard: () => this.togglePublicView(true),
+      onViewBoard: () => this.toggleRitualBoardPreview(true),
       onAcceptTribute: () => this.send({ type: 'ritual:tributeAccept' }),
       onRejectTribute: async () => {
         const who = this.ritual?.tribute?.submittedByName || 'the Little Hero';
@@ -3929,11 +3929,36 @@ const App = {
       onReset: () => { if (confirm('RESET RITUAL?\n\nClears every joined vote and any tribute decision. START GAME re-locks.')) this.send({ type: 'ritual:reset' }); },
       onCancel: () => { if (confirm('CANCEL RITUAL?\n\nAborts this battle attempt entirely and returns the room to AMUSEMENT PARK. This does not start Battle.')) this.send({ type: 'ritual:cancel' }); }
     });
+    this.renderRitualBoardPreview();
     // The START GAME button's own ritual-lock state depends on Ritual's
     // last-received data (see ritual.js's isBlockingStart) -- re-render it
     // now so a fulfillment/un-fulfillment reflects immediately rather than
     // waiting for the next unrelated timer tick.
     this.updateTimerUI();
+  },
+
+  // GM-only inspection switch. It simply lifts the ritual cover from the
+  // already-rendered local board; no reveal, vote, timer, or room state is
+  // changed and players continue seeing the ritual normally.
+  toggleRitualBoardPreview(force = null) {
+    if (!this.ritual?.active) return;
+    this._ritualBoardPreview = force === null ? !this._ritualBoardPreview : !!force;
+    this.renderRitualBoardPreview();
+  },
+
+  renderRitualBoardPreview() {
+    const active = !!this.ritual?.active;
+    const previewingBoard = active && !!this._ritualBoardPreview;
+    const ritual = document.getElementById('ritual-tracker-gm');
+    const button = document.getElementById('ritual-board-toggle');
+    if (ritual) ritual.hidden = !active || previewingBoard;
+    if (!button) return;
+    button.hidden = !active;
+    button.classList.toggle('is-board-visible', previewingBoard);
+    button.setAttribute('aria-pressed', String(previewingBoard));
+    button.setAttribute('aria-label', previewingBoard ? 'Return to summon ritual' : 'Inspect loaded game board');
+    const label = button.querySelector('.ritual-board-toggle-label');
+    if (label) label.textContent = previewingBoard ? 'VIEW SUMMON RITUAL' : 'VIEW LOADED BOARD';
   },
 
   updateFailFinalButtonVisibility() {

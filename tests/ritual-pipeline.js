@@ -141,12 +141,19 @@ async function main() {
   }
 
   const ritualSource = fs.readFileSync(path.join(ROOT, 'js', 'ritual.js'), 'utf8');
+  const appSource = fs.readFileSync(path.join(ROOT, 'js', 'app.js'), 'utf8');
+  const indexSource = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const ritualStyles = fs.readFileSync(path.join(ROOT, 'css', 'asoc.css'), 'utf8');
   assert.match(ritualSource, /nowActive \? runeImage\.dataset\.activeSrc : runeImage\.dataset\.idleSrc/);
   assert.match(ritualSource, /const nowActive = byBlood \? true : index < joinedCount/);
   assert.match(ritualStyles, /\.ritual-crystal\.is-active::before[^}]*animation:\s*ritual-crystal-glow/);
   assert.match(ritualStyles, /\.ritual-crystal-wake::after[^}]*animation:\s*ritual-crystal-ignition-ring/);
   assert.match(ritualStyles, /prefers-reduced-motion:\s*reduce[\s\S]*\.ritual-crystal\.is-active::before/);
+  assert.match(indexSource, /id="ritual-board-toggle"[\s\S]*VIEW LOADED BOARD/, 'GM board has a prominent ritual/board toggle');
+  assert.match(appSource, /toggleRitualBoardPreview\(force = null\)/, 'GM can switch locally between ritual and loaded board');
+  assert.match(appSource, /ritual\.hidden = !active \|\| previewingBoard/, 'board inspection lifts only the ritual cover');
+  assert.match(appSource, /no reveal, vote, timer, or room state is/, 'inspection toggle documents its state-isolation contract');
+  assert.match(ritualStyles, /\.ritual-board-toggle \{[\s\S]*z-index: 82/, 'toggle is styled above the ritual stage');
   for (let index = 1; index <= 5; index++) {
     const id = String(index).padStart(2, '0');
     const idle = fs.readFileSync(path.join(ROOT, 'assets', 'ritual', `rune-${id}-idle.png`));
