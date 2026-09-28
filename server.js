@@ -11,6 +11,7 @@ const { WebSocketServer } = require('ws');
 const gameStore = require('./game-store');
 const playerStore = require('./player-store');
 const shadowMarket = require('./shadow-market');
+const blackMarket = require('./black-market');
 const dmStore = require('./dm-store');
 const authStore = require('./auth-store');
 const emailService = require('./email-service');
@@ -362,6 +363,7 @@ function serializeRoomForRecovery(room) {
     wheel: room.wheel,
     bloodTributes: room.bloodTributes || [],
     pendingTribute: room.pendingTribute || null,
+    blackMarket: blackMarket.normalizeState(room.blackMarket),
     nudgeCounts: room.nudgeCounts || {},
     moonTolls: room.moonTolls || {},
     megabonks: Array.isArray(room.megabonks) ? room.megabonks : [],
@@ -485,6 +487,7 @@ function restoreActiveRooms() {
         },
         bloodTributes: Array.isArray(saved.bloodTributes) ? saved.bloodTributes : [],
         pendingTribute: saved.pendingTribute || null,
+        blackMarket: blackMarket.normalizeState(saved.blackMarket),
         nudgeCounts: saved.nudgeCounts && typeof saved.nudgeCounts === 'object' ? saved.nudgeCounts : {},
         moonTolls: saved.moonTolls && typeof saved.moonTolls === 'object' ? saved.moonTolls : {},
         // Older saves held a single event in `megabonk`.
@@ -1134,6 +1137,7 @@ function createRoom(gameId, hostWs) {
     // its publicUntil deadline is still active.
     bloodTributes: [],
     pendingTribute: null,
+    blackMarket: blackMarket.normalizeState(null),
     // Little Hero @all nudges used toward the one-time nudge Blood Tribute
     // (a number), or 'settled' once that toll was paid/forgiven.
     nudgeCounts: {},
@@ -1821,6 +1825,87 @@ function handleBloodTributeSubmit(ws, message) {
     const stillRoom = rooms.get(room.code);
     if (stillRoom) broadcastChatUpdate(stillRoom);
   }, BLOOD_TRIBUTE_PUBLIC_MS + 50);
+}
+
+function blackMarketRoom(ws) {
+  return rooms.get(String(ws.roomCode || '').toUpperCase()) || null;
+}
+function sendBlackMarketPlayer(room, playerId) {
+  if (!room || !playerId) return;
+  for (const [socket, player] of room.players.entries()) {
+    if (socket?.readyState === 1 && String(player?.id) === String(playerId)) {
+      sendToWs(socket, { type: 'blackMarket:state', ...blackMarket.playerView(room.blackMarket, playerId) });
+    }
+  }
+}
+function sendBlackMarketGm(room) {
+  if (room?.hostConnection?.readyState === 1) {
+    sendToWs(room.hostConnection, { type: 'blackMarket:gmState', ...blackMarket.gmView(room.blackMarket) });
+  }
+}
+function syncBlackMarket(room, playerId) {
+  sendBlackMarketPlayer(room, playerId);
+  sendBlackMarketGm(room);
+}
+function handleBlackMarket(ws, message) {
+  const room = blackMarketRoom(ws);
+  if (!room) return;
+  const isHost = ws === room.hostConnection;
+  const state = room.blackMarket = blackMarket.normalizeState(room.blackMarket);
+  if (message.type === 'blackMarket:sync') {
+    if (isHost) sendBlackMarketGm(room);
+    else if (ws.playerId) sendBlackMarketPlayer(room, ws.playerId);
+    return;
+  }
+  if (!isHost) {
+    const player = room.players.get(ws);
+    if (!player || !ws.playerId || String(player.id) !== String(ws.playerId)) return;
+    let result;
+    if (message.type === 'blackMarket:petition') result = blackMarket.createPetition(state, { id: ws.playerId, name: player.name }, message);
+    else if (message.type === 'blackMarket:acceptCounter') result = blackMarket.acceptCounter(state, ws.playerId, message.pactId);
+    else if (message.type === 'blackMarket:tributeSubmit') {
+      const imageData = sanitizeTributeImageData(message.imageData);
+      if (!imageData) return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING IS INVALID' });
+      result = blackMarket.submitTribute(state, ws.playerId, message.pactId, imageData, message.consent === true);
+    } else return;
+    if (result?.error) return sendToWs(ws, { type: 'blackMarket:error', message: result.error });
+    persistActiveRooms();
+    syncBlackMarket(room, ws.playerId);
+    return;
+  }
+  if (!['blackMarket:gmDecision', 'blackMarket:tributeJudge'].includes(message.type)) return;
+  if (message.type === 'blackMarket:gmDecision') {
+    const result = blackMarket.gmDecision(state, message);
+    if (result?.error) return sendToWs(ws, { type: 'blackMarket:error', message: result.error });
+    persistActiveRooms();
+    syncBlackMarket(room, result.pact.playerId);
+    return;
+  }
+  const pact = blackMarket.findPact(state, message.pactId);
+  if (!pact || pact.state !== 'TRIBUTE_SUBMITTED') return sendToWs(ws, { type: 'blackMarket:error', message: 'NO TRIBUTE AWAITS JUDGMENT' });
+  if (message.accepted === true) {
+    const tributeId = 'black-market-' + crypto.randomBytes(8).toString('hex');
+    room.bloodTributes = Array.isArray(room.bloodTributes) ? room.bloodTributes : [];
+    room.bloodTributes.push({
+      id: tributeId,
+      playerId: pact.playerId,
+      playerName: pact.playerName,
+      submittedAt: Date.now(),
+      originalMessageTimestamp: Date.now(),
+      sessionId: room.boardId || 'CASUAL',
+      imageData: pact.tributeImageData,
+      viewedByGM: true,
+      reliquary: true,
+      source: 'blackMarket',
+      pactId: pact.id
+    });
+    blackMarket.judgeTribute(state, pact.id, true, '', tributeId);
+    sendTributeVaultToHost(room);
+  } else {
+    blackMarket.judgeTribute(state, pact.id, false, message.reason || '', null);
+  }
+  persistActiveRooms();
+  syncBlackMarket(room, pact.playerId);
 }
 
 function handleBloodTributeVaultClear(ws) {
@@ -10242,6 +10327,15 @@ wss.on('connection', (ws, req) => {
         }
         case 'shadow:state': {
           handleShadowState(ws);
+          break;
+        }
+        case 'blackMarket:sync':
+        case 'blackMarket:petition':
+        case 'blackMarket:acceptCounter':
+        case 'blackMarket:tributeSubmit':
+        case 'blackMarket:gmDecision':
+        case 'blackMarket:tributeJudge': {
+          handleBlackMarket(ws, message);
           break;
         }
         case 'megabonk:ack': {
