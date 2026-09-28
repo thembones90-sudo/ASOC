@@ -83,7 +83,26 @@ const MAX_TRIBUTE_DATA_LENGTH = 3000000;
 const BLOOD_TRIBUTE_PUBLIC_MS = 2 * 60 * 1000;
 const BLOOD_TRIBUTE_VAULT_LIMIT = 24;
 const RELIQUARY_CODE_SHA256 = 'fd6fcc2d232d073cd8f6165f593af62cf3ba480018e423b5f50444f079979233';
-const CHAT_HISTORY_LIMIT = 200;
+// How many chat messages a room keeps in memory. This used to be 200, which
+// doubled as a bandwidth clamp: every chat event re-broadcast the whole log,
+// so the per-event payload was O(history) and the session total was quadratic.
+// Mutations now ship as deltas (see broadcastChatUpdate), so keeping more
+// messages costs disk and memory only. The remaining bound is a runaway guard
+// against a long-lived room, not a user-facing limit -- clients page older
+// messages with chat:history, so nothing is unreachable at this ceiling.
+const CHAT_HISTORY_LIMIT = 5000;
+// The recovery mirror is rewritten in full on every mutation (see
+// persistActiveRooms), so it stores only a recent tail. A restart therefore
+// restores the room and its recent chat, not the full scrollback -- the mirror
+// exists to recover game state, not to archive chat.
+const CHAT_RECOVERY_LIMIT = 200;
+// Cap on a single chat:history page.
+const CHAT_HISTORY_PAGE_MAX = 100;
+// A full chat:update carries only the most recent window, never the whole log.
+// Without this the snapshot itself would ship every message the room has ever
+// kept, which puts the quadratic cost straight back on join, reconnect and
+// resync. Everything older is reached with chat:history instead.
+const CHAT_SNAPSHOT_LIMIT = 200;
 const WS_HEARTBEAT_MS = 30000;
 const WS_HANDSHAKE_TIMEOUT_MS = Math.max(100, Number(process.env.ASOC_WS_HANDSHAKE_TIMEOUT_MS) || 10000);
 const COLUMN_REVEAL_DELAY_MS = Math.max(100, Number(process.env.ASOC_COLUMN_REVEAL_DELAY_MS) || 5000);
@@ -354,7 +373,16 @@ function serializeRoomForRecovery(room) {
     currentBackground: room.currentBackground,
     hostToken: room.hostToken,
     createdAt: room.createdAt,
-    chat: room.chat,
+    // Only a recent tail of chat is mirrored. persistActiveRooms rewrites this
+    // entire file on every mutation, so mirroring the whole in-memory log would
+    // make the cost of every write scale with how much chat the room has ever
+    // seen. The sequence counter is carried over so a restored room keeps
+    // advancing from where it stopped.
+    chat: {
+      messages: room.chat.messages.slice(-CHAT_RECOVERY_LIMIT),
+      solvedTargets: { ...room.chat.solvedTargets },
+      seq: Number(room.chat.seq) || 0
+    },
     scoring,
     match: room.match,
     womf: room.womf,
@@ -6508,7 +6536,8 @@ function handleChatDelete(ws, message) {
   delete target.gif;
   delete target.poll;
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  // The tombstone is a change to the one message it replaced.
+  broadcastChatUpdate(room, [target.id]);
 }
 
 // Client-viewport SEEN report. Identity comes from the authenticated socket --
@@ -6536,22 +6565,28 @@ function handleChatSeen(ws, message) {
     playerName: String(ws.playerName || 'Little Hero').slice(0, 80),
     seenAt: Date.now()
   });
-  scheduleSeenBroadcast(room);
+  scheduleSeenBroadcast(room, target.id);
 }
 
 // Seen receipts arrive in bursts -- every other player's screen reports the
 // newest message within the same second. Each one used to rewrite the room
 // snapshot to disk AND re-send the whole chat to everyone, rebuilding that
 // message on every screen several times a second (and swallowing the GM's
-// verdict clicks). Coalesce a burst into one persist + one chat update.
+// verdict clicks). Coalesce a burst into one persist + one chat update, and
+// carry the ids the burst actually touched so that update ships only those
+// messages rather than the whole log.
 const SEEN_BROADCAST_DELAY_MS = 300;
-function scheduleSeenBroadcast(room) {
+function scheduleSeenBroadcast(room, messageId) {
+  room._seenMessageIds ||= new Set();
+  if (messageId) room._seenMessageIds.add(String(messageId));
   if (room._seenBroadcastTimer) return;
   room._seenBroadcastTimer = setTimeout(() => runtimeAction(() => {
     room._seenBroadcastTimer = null;
     if (rooms.get(room.code) !== room) return;
+    const changedIds = Array.from(room._seenMessageIds || []);
+    room._seenMessageIds = null;
     persistActiveRooms();
-    broadcastChatUpdate(room);
+    broadcastChatUpdate(room, changedIds.length ? changedIds : null);
   }), SEEN_BROADCAST_DELAY_MS);
 }
 
@@ -6657,124 +6692,238 @@ function sanitizeChatCommandMeta(m) {
   return out;
 }
 
-function getChatState(room) {
+// Single source of truth for the wire shape of one chat message. Both the full
+// snapshot (chat:update) and the incremental path (chat:delta) serialize
+// through this, so a message can never look different depending on which route
+// delivered it.
+function createChatSerializer(room) {
   const now = Date.now();
   const tributeById = new Map((room.bloodTributes || []).map(t => [t.id, t]));
-  return {
-    messages: room.chat.messages.map(m => {
-        const tribute = m.source === 'bloodTribute' ? tributeById.get(m.tributeId) : null;
-        const manualState = m.bloodTribute && typeof m.bloodTribute === 'object' ? m.bloodTribute : null;
-        const manualExpiresAt = Number(manualState?.expiresAt) || 0;
-        const manualClaimed = !!manualState && (manualState.claimed === true || manualExpiresAt <= now);
-        const legacyClaimed = m.source === 'bloodTribute' && Number(m.publicUntil) <= now;
-        // DELETED MESSAGE -- tombstone. The slot stays in history, the content
-        // never leaves the server (and is stripped server-side at delete time
-        // anyway). No reactions, attachments, poll card or seen receipts are
-        // exposed on a tombstone; the author identity survives for context.
-        if (m.deleted === true) {
-          return {
-            id: m.id,
-            playerId: m.playerId,
-            playerName: m.playerName,
-            deleted: true,
-            deletedAt: Number(m.deletedAt) || null,
-            timestamp: m.timestamp,
-            text: '',
-            source: m.source || null,
-            messageType: null
-          };
-        }
-        return {
-          id: m.id,
-          playerId: m.playerId,
-          playerName: m.playerName,
-          text: m.text,
-          timestamp: m.timestamp,
-          editedAt: Number(m.editedAt) || null,
-          shadowRealm: m.shadowRealm && Number(m.shadowRealm.at) ? { at: Number(m.shadowRealm.at) } : undefined,
-          editableByHost: m.source === 'shadowBroker' ? m.editableByHost !== false : false,
-          // Persistent chat spans many games. Only a player transmission
-          // created on the currently armed board may be adjudicated now.
-          adjudicable: room.roomMode === ROOM_MODES.BATTLE && !room.sessionState.matchResult && !m.source && m.boardId === room.boardId,
-          verdict: m.verdict,
-          target: m.target,
-          verdictResponse: m.verdictResponse || null,
-          reactions: Object.fromEntries(
-            Object.entries(m.reactions || {})
-              .filter(([emoji, playerIds]) => CHAT_REACTION_EMOJIS.has(emoji) && Array.isArray(playerIds) && playerIds.length)
-              .map(([emoji, playerIds]) => [emoji, Array.from(new Set(playerIds.filter(id => typeof id === 'string')))])
-          ),
-          source: m.source || null,
-          // A Little Hero @all that actually shook every screen.
-          nudge: m.nudge === true || undefined,
-          imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
-          messageType: m.messageType || null,
-          ...sanitizeChatCommandMeta(m),
-          gif: m.messageType === 'gifRemote' && m.gif ? {
-            provider: m.gif.provider === 'giphy' ? 'giphy' : undefined,
-            providerId: String(m.gif.providerId || '').slice(0, 120),
-            title: sanitizeText(m.gif.title || 'GIF').slice(0, 120),
-            previewUrl: isAllowedGiphyUrl(m.gif.previewUrl) ? m.gif.previewUrl : undefined,
-            mp4Url: isAllowedGiphyUrl(m.gif.mp4Url) ? m.gif.mp4Url : undefined,
-            gifUrl: isAllowedGiphyUrl(m.gif.gifUrl) ? m.gif.gifUrl : undefined,
-            pageUrl: isAllowedGiphyUrl(m.gif.pageUrl) ? m.gif.pageUrl : undefined,
-            width: Math.min(2000, Math.max(1, Number(m.gif.width) || 320)),
-            height: Math.min(2000, Math.max(1, Number(m.gif.height) || 240))
-          } : undefined,
-          poll: m.messageType === 'poll' && m.poll ? {
-            question: m.poll.question,
-            options: Array.isArray(m.poll.options) ? m.poll.options.slice(0, MAX_POLL_OPTIONS) : [],
-            allowMultiple: m.poll.allowMultiple === true,
-            createdByRole: m.poll.createdByRole || 'player',
-            createdById: m.poll.createdById || null,
-            createdAt: Number(m.poll.createdAt) || m.timestamp,
-            durationSeconds: Number(m.poll.durationSeconds) || 0,
-            expiresAt: Number(m.poll.expiresAt) || null,
-            closedAt: Number(m.poll.closedAt) || null,
-            votes: Object.fromEntries(
-              Object.entries(m.poll.votes || {})
-                .filter(([key, ids]) => /^\d+$/.test(key) && Array.isArray(ids))
-                .map(([key, ids]) => [key, Array.from(new Set(ids.map(String)))])
-            ),
-            voters: Object.fromEntries(
-              Object.entries(m.poll.voters || {}).map(([id, voter]) => [String(id), {
-                name: sanitizeText(voter?.name || '').slice(0, 80),
-                frameColor: /^#[0-9A-Fa-f]{6}$/.test(voter?.frameColor || '') ? voter.frameColor : '#9B5DE0'
-              }])
-            )
-          } : undefined,
-          imageData: tribute && !legacyClaimed ? tribute.imageData : undefined,
-          publicUntil: tribute ? tribute.publicUntil : undefined,
-          bloodTribute: manualState ? { active: !manualClaimed, claimed: manualClaimed, expiresAt: manualExpiresAt }
-            : (legacyClaimed ? { active: false, claimed: true, expiresAt: Number(m.publicUntil) } : undefined),
-          // READ RECEIPTS -- server-recorded viewers (actual viewport sightings
-          // reported by clients), never websocket delivery. The sender never
-          // appears (excluded at record time). recipientIds is a send-time
-          // snapshot so the GM can still split SEEN/NOT SEEN after players leave.
-          // Receipt names are stored with the sighting so disconnected readers
-          // remain identifiable; older receipts still resolve through the roster.
-          seenBy: Array.isArray(m.seenBy)
-            ? m.seenBy
-                .filter(r => r && typeof r.playerId === 'string')
-                .map(r => ({
-                  playerId: r.playerId,
-                  playerName: sanitizeText(r.playerName || '').slice(0, 80),
-                  seenAt: Number(r.seenAt) || 0
-                }))
-            : [],
-          recipientCount: Number(m.recipientCount) || 0,
-          recipientIds: Array.isArray(m.recipientIds)
-            ? m.recipientIds.filter(id => typeof id === 'string')
-            : []
-        };
-      }),
-    solvedTargets: { ...room.chat.solvedTargets }
+  return m => {
+    const tribute = m.source === 'bloodTribute' ? tributeById.get(m.tributeId) : null;
+    const manualState = m.bloodTribute && typeof m.bloodTribute === 'object' ? m.bloodTribute : null;
+    const manualExpiresAt = Number(manualState?.expiresAt) || 0;
+    const manualClaimed = !!manualState && (manualState.claimed === true || manualExpiresAt <= now);
+    const legacyClaimed = m.source === 'bloodTribute' && Number(m.publicUntil) <= now;
+    // DELETED MESSAGE -- tombstone. The slot stays in history, the content
+    // never leaves the server (and is stripped server-side at delete time
+    // anyway). No reactions, attachments, poll card or seen receipts are
+    // exposed on a tombstone; the author identity survives for context.
+    if (m.deleted === true) {
+      return {
+        id: m.id,
+        playerId: m.playerId,
+        playerName: m.playerName,
+        deleted: true,
+        deletedAt: Number(m.deletedAt) || null,
+        timestamp: m.timestamp,
+        text: '',
+        source: m.source || null,
+        messageType: null
+      };
+    }
+    return {
+      id: m.id,
+      playerId: m.playerId,
+      playerName: m.playerName,
+      text: m.text,
+      timestamp: m.timestamp,
+      editedAt: Number(m.editedAt) || null,
+      shadowRealm: m.shadowRealm && Number(m.shadowRealm.at) ? { at: Number(m.shadowRealm.at) } : undefined,
+      editableByHost: m.source === 'shadowBroker' ? m.editableByHost !== false : false,
+      // Persistent chat spans many games. Only a player transmission
+      // created on the currently armed board may be adjudicated now.
+      adjudicable: room.roomMode === ROOM_MODES.BATTLE && !room.sessionState.matchResult && !m.source && m.boardId === room.boardId,
+      verdict: m.verdict,
+      target: m.target,
+      verdictResponse: m.verdictResponse || null,
+      reactions: Object.fromEntries(
+        Object.entries(m.reactions || {})
+          .filter(([emoji, playerIds]) => CHAT_REACTION_EMOJIS.has(emoji) && Array.isArray(playerIds) && playerIds.length)
+          .map(([emoji, playerIds]) => [emoji, Array.from(new Set(playerIds.filter(id => typeof id === 'string')))])
+      ),
+      source: m.source || null,
+      // A Little Hero @all that actually shook every screen.
+      nudge: m.nudge === true || undefined,
+      imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
+      messageType: m.messageType || null,
+      ...sanitizeChatCommandMeta(m),
+      gif: m.messageType === 'gifRemote' && m.gif ? {
+        provider: m.gif.provider === 'giphy' ? 'giphy' : undefined,
+        providerId: String(m.gif.providerId || '').slice(0, 120),
+        title: sanitizeText(m.gif.title || 'GIF').slice(0, 120),
+        previewUrl: isAllowedGiphyUrl(m.gif.previewUrl) ? m.gif.previewUrl : undefined,
+        mp4Url: isAllowedGiphyUrl(m.gif.mp4Url) ? m.gif.mp4Url : undefined,
+        gifUrl: isAllowedGiphyUrl(m.gif.gifUrl) ? m.gif.gifUrl : undefined,
+        pageUrl: isAllowedGiphyUrl(m.gif.pageUrl) ? m.gif.pageUrl : undefined,
+        width: Math.min(2000, Math.max(1, Number(m.gif.width) || 320)),
+        height: Math.min(2000, Math.max(1, Number(m.gif.height) || 240))
+      } : undefined,
+      poll: m.messageType === 'poll' && m.poll ? {
+        question: m.poll.question,
+        options: Array.isArray(m.poll.options) ? m.poll.options.slice(0, MAX_POLL_OPTIONS) : [],
+        allowMultiple: m.poll.allowMultiple === true,
+        createdByRole: m.poll.createdByRole || 'player',
+        createdById: m.poll.createdById || null,
+        createdAt: Number(m.poll.createdAt) || m.timestamp,
+        durationSeconds: Number(m.poll.durationSeconds) || 0,
+        expiresAt: Number(m.poll.expiresAt) || null,
+        closedAt: Number(m.poll.closedAt) || null,
+        votes: Object.fromEntries(
+          Object.entries(m.poll.votes || {})
+            .filter(([key, ids]) => /^\d+$/.test(key) && Array.isArray(ids))
+            .map(([key, ids]) => [key, Array.from(new Set(ids.map(String)))])
+        ),
+        voters: Object.fromEntries(
+          Object.entries(m.poll.voters || {}).map(([id, voter]) => [String(id), {
+            name: sanitizeText(voter?.name || '').slice(0, 80),
+            frameColor: /^#[0-9A-Fa-f]{6}$/.test(voter?.frameColor || '') ? voter.frameColor : '#9B5DE0'
+          }])
+        )
+      } : undefined,
+      imageData: tribute && !legacyClaimed ? tribute.imageData : undefined,
+      publicUntil: tribute ? tribute.publicUntil : undefined,
+      bloodTribute: manualState ? { active: !manualClaimed, claimed: manualClaimed, expiresAt: manualExpiresAt }
+        : (legacyClaimed ? { active: false, claimed: true, expiresAt: Number(m.publicUntil) } : undefined),
+      // READ RECEIPTS -- server-recorded viewers (actual viewport sightings
+      // reported by clients), never websocket delivery. The sender never
+      // appears (excluded at record time). recipientIds is a send-time
+      // snapshot so the GM can still split SEEN/NOT SEEN after players leave.
+      // Receipt names are stored with the sighting so disconnected readers
+      // remain identifiable; older receipts still resolve through the roster.
+      seenBy: Array.isArray(m.seenBy)
+        ? m.seenBy
+            .filter(r => r && typeof r.playerId === 'string')
+            .map(r => ({
+              playerId: r.playerId,
+              playerName: sanitizeText(r.playerName || '').slice(0, 80),
+              seenAt: Number(r.seenAt) || 0
+            }))
+        : [],
+    recipientCount: Number(m.recipientCount) || 0,
+    recipientIds: Array.isArray(m.recipientIds)
+      ? m.recipientIds.filter(id => typeof id === 'string')
+      : []
+    };
   };
 }
 
-function broadcastChatUpdate(room) {
+function getChatState(room) {
+  const serialize = createChatSerializer(room);
+  const all = room.chat.messages;
+  // Only the recent window travels. solvedTargets is room-wide and small, so it
+  // always goes with the snapshot.
+  const window = all.length > CHAT_SNAPSHOT_LIMIT ? all.slice(-CHAT_SNAPSHOT_LIMIT) : all;
+  return {
+    messages: window.map(serialize),
+    solvedTargets: { ...room.chat.solvedTargets },
+    // How much chat exists behind the window, so a client can tell there is
+    // more to page for instead of assuming it has reached the beginning.
+    totalMessages: all.length
+  };
+}
+
+// Monotonic per-room chat sequence. Both the full snapshot and every delta
+// bump it, so a client can tell whether it applied every event in order. A gap
+// (reconnect mid-stream, dropped frame) tells the client its view is stale and
+// it must take a fresh snapshot instead of silently rendering a hole.
+function nextChatSeq(room) {
+  const next = (Number(room.chat.seq) || 0) + 1;
+  room.chat.seq = next;
+  return next;
+}
+
+function broadcastChatUpdate(room, changedIds) {
+  // Deltas are opt-in per call site. Pass the ids of the messages that actually
+  // changed and only those get re-serialized and sent, which is what makes a
+  // long log affordable. Call sites that also change state the message payload
+  // does not carry -- room mode, armed board, match result, adjudicability --
+  // must keep sending the full snapshot, which stays the default whenever no
+  // ids are supplied.
+  if (Array.isArray(changedIds) && changedIds.length) {
+    const wanted = new Set(changedIds.map(id => String(id)));
+    const serialize = createChatSerializer(room);
+    const messages = [];
+    for (const message of room.chat.messages) {
+      if (wanted.has(String(message.id))) messages.push(serialize(message));
+    }
+    if (messages.length) {
+      const seq = nextChatSeq(room);
+      // solvedTargets is small and is cleared by verdicts that need not have
+      // touched a message in this same event, so it rides every delta.
+      const solvedTargets = { ...room.chat.solvedTargets };
+      const delta = JSON.stringify({ type: 'chat:delta', seq, messages, solvedTargets });
+      // A connection only takes delts once its handshake declared the
+      // capability, so a stale cached client or an old test harness keeps
+      // receiving the full snapshot it understands. The fallback payload is
+      // built lazily and at most once per event, and only while such a client
+      // is still attached.
+      let legacyData = null;
+      const deliver = ws => {
+        if (!ws || ws.readyState !== 1) return;
+        if (ws.supportsChatDelta === true) {
+          ws.send(delta);
+          return;
+        }
+        if (legacyData === null) {
+          legacyData = JSON.stringify({ type: 'chat:update', seq, ...getChatState(room) });
+        }
+        ws.send(legacyData);
+      };
+      room.players.forEach((player, ws) => deliver(ws));
+      deliver(room.hostConnection);
+      return;
+    }
+  }
   const chatState = getChatState(room);
-  broadcastToRoom(room, { type: 'chat:update', ...chatState });
+  // The snapshot reports the sequence as-is rather than bumping it. Only
+  // deltas advance the counter, so a client that takes a snapshot mid-stream
+  // and then receives the next delta sees a contiguous seq.
+  broadcastToRoom(room, { type: 'chat:update', seq: Number(room.chat.seq) || 0, ...chatState });
+}
+
+// Full snapshot for a single connection (join, reconnect, resync). Same
+// contract as the broadcast snapshot above: reports the current sequence
+// without advancing it.
+function sendChatSnapshot(ws, room) {
+  sendToWs(ws, {
+    type: 'chat:update',
+    seq: Number(room.chat.seq) || 0,
+    ...getChatState(room)
+  });
+}
+
+// Cursor-paged scrollback. The client starts from the page it already holds and
+// walks backwards with beforeId, so the in-memory log can grow well past a
+// single payload without ever being shipped whole.
+function handleChatHistory(ws, message) {
+  const room = rooms.get(ws.roomCode);
+  if (!room) return;
+
+  const requested = Number(message?.limit);
+  const limit = Math.max(1, Math.min(
+    CHAT_HISTORY_PAGE_MAX,
+    Number.isFinite(requested) ? Math.trunc(requested) : CHAT_HISTORY_PAGE_MAX
+  ));
+
+  const beforeId = message?.beforeId == null ? null : String(message.beforeId);
+  let end = room.chat.messages.length;
+  if (beforeId) {
+    const index = room.chat.messages.findIndex(m => String(m.id) === beforeId);
+    // An unknown cursor (server restarted, client held a stale id) falls back
+    // to the newest page so the client can rebuild instead of stalling.
+    if (index >= 0) end = index;
+  }
+  const start = Math.max(0, end - limit);
+  const serialize = createChatSerializer(room);
+  sendToWs(ws, {
+    type: 'chat:history',
+    messages: room.chat.messages.slice(start, end).map(serialize),
+    // Once the start of the log is reached there is nothing older left to ask
+    // for, so the client stops requesting and shows a floor marker.
+    hasMore: start > 0,
+    nextBeforeId: start > 0 ? String(room.chat.messages[start].id) : null
+  });
 }
 
 function handleHostCommand(ws, message) {
@@ -7014,8 +7163,7 @@ function handlePlayerJoin(ws, message) {
     }
   });
 
-  const chatState = getChatState(room);
-  sendToWs(ws, { type: 'chat:update', ...chatState });
+  sendChatSnapshot(ws, room);
   sendQuestState(room, ws);
   sendDailyState(ws, dailyIdentity(playerId, cleanName));
   sendGmDailies(room);
@@ -7259,8 +7407,7 @@ function handleHostReconnect(ws, message) {
   sendToWs(ws, { type: 'host:reconnected', roomCode: room.code });
   sendToWs(ws, megabonkProgress(room));
 
-  const chatState = getChatState(room);
-  sendToWs(ws, { type: 'chat:update', ...chatState });
+  sendChatSnapshot(ws, room);
   sendRecountHydration(ws, room);
   sendTributeVaultToHost(room);
   sendRitualDetailToHost(room);
@@ -7298,7 +7445,7 @@ function handleHostRecover(ws) {
   sendToWs(ws, { type: 'state:public', ...getPublicState(room) });
   sendToWs(ws, { type: 'host:recovered', roomCode: room.code, hostToken });
   sendMegabonkProgress(room);
-  sendToWs(ws, { type: 'chat:update', ...getChatState(room) });
+  sendChatSnapshot(ws, room);
   sendRecountHydration(ws, room);
   sendTributeVaultToHost(room);
   sendRitualDetailToHost(room);
@@ -7983,7 +8130,15 @@ function handleChatGuess(ws, message) {
     // Permanent channel contract: if clients can see a transmission, it has
     // already reached the recovery snapshot.
     persistActiveRooms();
-    broadcastChatUpdate(room);
+    // A plain post touches exactly one message, so ship only that one. A nudge
+    // or a triggered tribute can add a second message in the same tick, and a
+    // slash command can post, mutate and clear solved targets at once -- every
+    // one of those still takes the full snapshot.
+    const singleMessageOnly = dispatch === null
+      && !result.tributeTriggered
+      && nudge !== 'tribute'
+      && result.message?.id;
+    broadcastChatUpdate(room, singleMessageOnly ? [result.message.id] : null);
     if (result.tributeTriggered || nudge === 'tribute') broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
     if (nudge === 'nudge') {
       broadcastToRoom(room, {
@@ -8056,7 +8211,8 @@ function handleChatEdit(ws, message) {
   target.text = sanitized;
   target.editedAt = Date.now();
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  // An edit is confined to the one message it rewrote.
+  broadcastChatUpdate(room, [target.id]);
 }
 
 function handleChatReaction(ws, message) {
@@ -8115,7 +8271,8 @@ function handleChatReaction(ws, message) {
 
   cooldown.reactionAt = now;
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  // A reaction only ever mutates the reactions map of the one message it hit.
+  broadcastChatUpdate(room, [target.id]);
 }
 
 // SHADOW BROKER free-form broadcast -- host-only, presentation layer only.
@@ -9982,6 +10139,13 @@ wss.on('connection', (ws, req) => {
           return;
         }
         ws.clientBuild = typeof message.clientBuild === 'string' ? message.clientBuild.slice(0, 80) : null;
+        // Optional capabilities. A connection that does not declare
+        // 'chat:delta' is served the legacy full chat snapshot, so the delta
+        // transport can ship without requiring clients to update in lockstep.
+        const capabilities = Array.isArray(message.capabilities)
+          ? message.capabilities.filter(entry => typeof entry === 'string').slice(0, 16)
+          : [];
+        ws.supportsChatDelta = capabilities.includes('chat:delta');
         ws.protocolVerified = true;
         clearTimeout(handshakeTimer);
         sendToWs(ws, { type: 'protocol:ready', protocolVersion: PROTOCOL_VERSION, clientBuild: CLIENT_BUILD });
@@ -10023,7 +10187,7 @@ wss.on('connection', (ws, req) => {
               // Sending an (empty, for a brand new room) baseline here,
               // mirroring what handlePlayerJoin already does for players,
               // closes that gap.
-              sendToWs(ws, { type: 'chat:update', ...getChatState(newRoom) });
+              sendChatSnapshot(ws, newRoom);
               sendTributeVaultToHost(newRoom);
               sendRitualDetailToHost(newRoom);
               // The Master Room already contains players before a game is armed.
@@ -10104,6 +10268,17 @@ wss.on('connection', (ws, req) => {
         }
         case 'chat:react': {
           handleChatReaction(ws, message);
+          break;
+        }
+        case 'chat:history': {
+          handleChatHistory(ws, message);
+          break;
+        }
+        case 'chat:resync': {
+          // A delta client that spotted a sequence gap asks for the full log
+          // again. Cheap and rare: it only fires after a missed event.
+          const resyncRoom = rooms.get(ws.roomCode?.toUpperCase());
+          if (resyncRoom) sendChatSnapshot(ws, resyncRoom);
           break;
         }
         case 'shadow:state': {

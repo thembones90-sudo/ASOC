@@ -2016,6 +2016,10 @@ const App = {
       }
       const { scrollTop, scrollHeight, clientHeight } = gmChatContainer;
       this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 80);
+      // Reached the top of what is loaded: ask the server for the page of
+      // older messages before it. Only real user scrolling reaches here, so
+      // the restore renderGMChat() does cannot start a paging loop.
+      if (scrollTop <= 8) this.loadOlderChat();
       if (!this.userScrolledUp && this._gmNewMessageCount) {
         this._gmNewMessageCount = 0;
         this._gmUnreadChat = 0;
@@ -2618,7 +2622,14 @@ const App = {
     }
     switch (message.type) {
       case 'protocol:hello':
-        this.send({ type: 'protocol:hello', protocolVersion: 1, clientBuild: window.StaleGuard?.pageBuild('gm') || 'unknown' });
+        this.send({
+          type: 'protocol:hello',
+          protocolVersion: 1,
+          clientBuild: window.StaleGuard?.pageBuild('gm') || 'unknown',
+          // Opt into incremental chat. Without this the server keeps sending
+          // the full chat snapshot on every event.
+          capabilities: ['chat:delta']
+        });
         break;
 
       case 'gm:module':
@@ -2877,74 +2888,28 @@ const App = {
         break;
 
       case 'chat:update': {
-        const incoming = message.messages || [];
-        const previousIds = new Set(this.chatMessages.map(m => m.id));
-        const previousById = new Map(this.chatMessages.map(m => [m.id, m]));
-        // Same first-hydration guard as PlayerApp's copy in js/player.js --
-        // without it, a GM reconnecting mid-game would see the room's
-        // entire chat history replay as a fresh Broker transmission on
-        // their own Public View the instant the reconnect completes.
-        if (this._chatEverInitialized) {
-          const newMessages = incoming.filter(m => !previousIds.has(m.id));
-          window.AsocAlerts?.gmChat(newMessages);
-          const verdictUpdates = incoming.filter(m => {
-            const previous = previousById.get(m.id);
-            return previous && previous.verdict !== m.verdict && m.verdict;
-          });
-          if (verdictUpdates.some(m => m.verdict === 'correct')) {
-            window.AsocAudio?.correct?.();
-          }
-          const newActivityCount = newMessages.length + verdictUpdates.length;
-          if (this.userScrolledUp && newActivityCount) {
-            this._gmNewMessageCount += newActivityCount;
-            this._gmUnreadSystem += newMessages.filter(m => this.isPriorityChatMessage(m)).length + verdictUpdates.length;
-            this._gmUnreadChat += newMessages.filter(m => !this.isPriorityChatMessage(m)).length;
-            this.updateGMNewMessageChip();
-          }
+        this._chatSeq = Number(message.seq) || 0;
+        this.applyChatMessages(message.messages || [], message.solvedTargets || {});
+        break;
+      }
 
-          const priority = [...newMessages.filter(m => this.isPriorityChatMessage(m)), ...verdictUpdates];
-          if (priority.length) this.showGMChatPriority(priority.at(-1));
-          if (newMessages.length >= 4) {
-            const panel = document.querySelector('.gm-chat-panel');
-            panel?.classList.add('chat-high-traffic');
-            clearTimeout(this._gmHighTrafficTimer);
-            this._gmHighTrafficTimer = setTimeout(() => panel?.classList.remove('chat-high-traffic'), 5000);
-          }
-
-          const newBrokerMsg = newMessages.find(m => m.source === 'shadowBroker');
-          if (newBrokerMsg) {
-            this.setGMDeliveryState('DELIVERED', 'delivered', 1800);
-            this.playShadowBrokerBoardLine(newBrokerMsg.text);
-            // The GM's own working board (js/board.js) previously never
-            // showed this at all -- the GM had to trust the chat log or
-            // switch to Public View to see it. Play it there too so
-            // hosting shows exactly what players are about to see.
-            Board.playShadowBrokerBoardLine(newBrokerMsg.text);
-          }
+      case 'chat:delta': {
+        // Only a connection that declared the 'chat:delta' capability is ever
+        // sent one. A seq this client never saw means an event was missed
+        // (reconnect mid-stream, dropped frame). Its view is then unreliable,
+        // so take a fresh snapshot instead of silently rendering a hole.
+        const seq = Number(message.seq) || 0;
+        if (this._chatSeq && seq > this._chatSeq + 1) {
+          this.requestChatResync();
+          break;
         }
+        this._chatSeq = Math.max(this._chatSeq || 0, seq);
+        this.applyChatMessages(this.mergeChatDelta(message.messages || []), message.solvedTargets || {});
+        break;
+      }
 
-        const verdictNow = Date.now();
-        incoming.forEach(msg => {
-          const previous = previousById.get(msg.id);
-          if (msg.verdict === 'wrong') {
-            if (previous?.verdict !== 'wrong') {
-              this._gmWrongVerdictSeenAt.set(
-                msg.id,
-                this._chatEverInitialized ? verdictNow : verdictNow - 3000
-              );
-            } else if (!this._gmWrongVerdictSeenAt.has(msg.id)) {
-              this._gmWrongVerdictSeenAt.set(msg.id, verdictNow - 3000);
-            }
-          } else {
-            this._gmWrongVerdictSeenAt.delete(msg.id);
-          }
-        });
-
-        this._chatEverInitialized = true;
-        this.chatMessages = incoming;
-        this.solvedTargets = message.solvedTargets || {};
-        this.renderGMChat();
-        this.updateFailFinalButtonVisibility();
+      case 'chat:history': {
+        this.prependChatHistory(message.messages || [], message.hasMore === true);
         break;
       }
 
@@ -4789,7 +4754,136 @@ const App = {
     }
   },
 
-  renderGMChat() {
+  // The server keeps far more chat than it ever sends at once. A delta carries
+  // only the messages that changed, so it is merged into the local log first
+  // and the resulting full array is handed to the normal reconciliation path --
+  // same contract as the PlayerApp copy in js/player.js.
+  mergeChatDelta(changed) {
+    if (!changed.length) return this.chatMessages;
+    const byId = new Map(this.chatMessages.map(m => [String(m.id), m]));
+    for (const message of changed) byId.set(String(message.id), message);
+    const merged = Array.from(byId.values());
+    // Tombstones keep their slot, so timestamp ordering stays stable and a
+    // deleted message still occupies its position in the log.
+    merged.sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
+    return this.trimChatLog(merged);
+  },
+
+  // Bound the live log so a long session cannot grow the client array without
+  // limit. Explicit scrollback paging is allowed to grow past this, because the
+  // user asked for those messages; the next live update trims back.
+  trimChatLog(messages) {
+    const limit = 1000;
+    return messages.length > limit ? messages.slice(-limit) : messages;
+  },
+
+  prependChatHistory(older, hasMore) {
+    if (!older.length) {
+      this._chatHistoryExhausted = !hasMore;
+      return;
+    }
+    const byId = new Map(this.chatMessages.map(m => [String(m.id), m]));
+    for (const message of older) {
+      const id = String(message.id);
+      if (!byId.has(id)) byId.set(id, message);
+    }
+    const merged = Array.from(byId.values());
+    merged.sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
+    this.chatMessages = merged;
+    this._chatHistoryExhausted = !hasMore;
+    this.renderGMChat({ preserveScroll: true });
+  },
+
+  loadOlderChat() {
+    if (this._chatHistoryLoading || this._chatHistoryExhausted) return;
+    const oldest = this.chatMessages[0];
+    this._chatHistoryLoading = true;
+    this.send({
+      type: 'chat:history',
+      beforeId: oldest ? String(oldest.id) : null,
+      limit: 100
+    });
+    setTimeout(() => { this._chatHistoryLoading = false; }, 1000);
+  },
+
+  requestChatResync() {
+    if (this._chatResyncPending) return;
+    this._chatResyncPending = true;
+    this.send({ type: 'chat:resync' });
+    setTimeout(() => { this._chatResyncPending = false; }, 2000);
+  },
+
+  applyChatMessages(incoming, solvedTargets) {
+    const previousIds = new Set(this.chatMessages.map(m => m.id));
+    const previousById = new Map(this.chatMessages.map(m => [m.id, m]));
+    // Same first-hydration guard as PlayerApp's copy in js/player.js --
+    // without it, a GM reconnecting mid-game would see the room's
+    // entire chat history replay as a fresh Broker transmission on
+    // their own Public View the instant the reconnect completes.
+    if (this._chatEverInitialized) {
+      const newMessages = incoming.filter(m => !previousIds.has(m.id));
+      window.AsocAlerts?.gmChat(newMessages);
+      const verdictUpdates = incoming.filter(m => {
+        const previous = previousById.get(m.id);
+        return previous && previous.verdict !== m.verdict && m.verdict;
+      });
+      if (verdictUpdates.some(m => m.verdict === 'correct')) {
+        window.AsocAudio?.correct?.();
+      }
+      const newActivityCount = newMessages.length + verdictUpdates.length;
+      if (this.userScrolledUp && newActivityCount) {
+        this._gmNewMessageCount += newActivityCount;
+        this._gmUnreadSystem += newMessages.filter(m => this.isPriorityChatMessage(m)).length + verdictUpdates.length;
+        this._gmUnreadChat += newMessages.filter(m => !this.isPriorityChatMessage(m)).length;
+        this.updateGMNewMessageChip();
+      }
+
+      const priority = [...newMessages.filter(m => this.isPriorityChatMessage(m)), ...verdictUpdates];
+      if (priority.length) this.showGMChatPriority(priority.at(-1));
+      if (newMessages.length >= 4) {
+        const panel = document.querySelector('.gm-chat-panel');
+        panel?.classList.add('chat-high-traffic');
+        clearTimeout(this._gmHighTrafficTimer);
+        this._gmHighTrafficTimer = setTimeout(() => panel?.classList.remove('chat-high-traffic'), 5000);
+      }
+
+      const newBrokerMsg = newMessages.find(m => m.source === 'shadowBroker');
+      if (newBrokerMsg) {
+        this.setGMDeliveryState('DELIVERED', 'delivered', 1800);
+        this.playShadowBrokerBoardLine(newBrokerMsg.text);
+        // The GM's own working board (js/board.js) previously never
+        // showed this at all -- the GM had to trust the chat log or
+        // switch to Public View to see it. Play it there too so
+        // hosting shows exactly what players are about to see.
+        Board.playShadowBrokerBoardLine(newBrokerMsg.text);
+      }
+    }
+
+    const verdictNow = Date.now();
+    incoming.forEach(msg => {
+      const previous = previousById.get(msg.id);
+      if (msg.verdict === 'wrong') {
+        if (previous?.verdict !== 'wrong') {
+          this._gmWrongVerdictSeenAt.set(
+            msg.id,
+            this._chatEverInitialized ? verdictNow : verdictNow - 3000
+          );
+        } else if (!this._gmWrongVerdictSeenAt.has(msg.id)) {
+          this._gmWrongVerdictSeenAt.set(msg.id, verdictNow - 3000);
+        }
+      } else {
+        this._gmWrongVerdictSeenAt.delete(msg.id);
+      }
+    });
+
+    this._chatEverInitialized = true;
+    this.chatMessages = this.trimChatLog(incoming);
+    this.solvedTargets = solvedTargets || {};
+    this.renderGMChat();
+    this.updateFailFinalButtonVisibility();
+  },
+
+  renderGMChat({ preserveScroll = false } = {}) {
     const container = document.getElementById('gm-chat-messages');
     if (!container) return;
     this.bindVerdictPress();
@@ -4799,7 +4893,9 @@ const App = {
     const previousClientHeight = container.clientHeight;
     const physicallyNearBottom =
       (previousScrollTop + previousClientHeight) >= (previousScrollHeight - 80);
-    const followLatest = physicallyNearBottom || !this.userScrolledUp;
+    // A prepended history page must never yank the viewport: force the anchor
+    // path so the message the GM was reading stays exactly where it was.
+    const followLatest = !preserveScroll && (physicallyNearBottom || !this.userScrolledUp);
 
     let historyAnchorId = '';
     let historyAnchorOffset = 0;
