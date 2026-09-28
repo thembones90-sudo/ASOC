@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260928-hint-lane-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260928-hint-lane-2">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
   <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-2">
   <link rel="stylesheet" href="css/megabonk.css?v=20260928-searchlight-1">
@@ -797,7 +797,7 @@
        fits the layer AFTER the HUD band is deducted -- which is by
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
-       --hud-band is measured and set by js/player.js?v=20260928-hint-lane-1"";
+       --hud-band is measured and set by js/player.js?v=20260922-media-lightbox-hardfix-1"";
 position:absolute;
       left:5px;
       width:5px;
@@ -9073,7 +9073,10 @@ position:absolute;
     </div>
 
 <!-- PLAYER DESKTOP BOARD/CHAT SPLITTER -- unarmed-but-present drag separator
-         between the battlefield and Battle Comms (js/player.js?v=20260928-hint-lane-1"player-layout-splitter" class="player-layout-splitter" role="separator" aria-orientation="vertical" aria-label="Resize Little Hero battle sidebar" tabindex="0" title="Drag to resize // Double-click to reset">
+         between the battlefield and Battle Comms (js/player.js?v=20260922-aftermath-2         setupPlayerLayoutSplitter). The adjacent aside selector
+         (.player-layout-splitter + .battle-comms-lobby) fixes its grid column.
+         Hides itself on narrow/mobile layouts. -->
+    <div id="player-layout-splitter" class="player-layout-splitter" role="separator" aria-orientation="vertical" aria-label="Resize Little Hero battle sidebar" tabindex="0" title="Drag to resize // Double-click to reset">
       <span class="player-layout-splitter-grip" data-resize-readout="" aria-hidden="true"></span>
     </div>
 
@@ -9755,7 +9758,7 @@ position:absolute;
   <script src="js/stale-guard.js?v=20260926-force-refresh-1"></script>
   <script src="js/megabonk.js?v=20260928-searchlight-1"></script>
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
-  <script src="js/player.js?v=20260928-hint-lane-1"></script>
+  <script src="js/player.js?v=20260928-hint-lane-2"></script>
   <script src="js/threefold.js?v=20260925-kaladont-1"></script>
   <script src="js/kaladont-ui.js?v=20260926-kaladont-gm-1"></script>
   <script src="js/kaladont-client.js?v=20260927-kaladont-invite-1"></script>
