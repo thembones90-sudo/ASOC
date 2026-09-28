@@ -19,8 +19,10 @@ function unitChecks() {
   assert.ok(engine.validateCreate({directive:'x',rewardCoins:0,durationMs:30000,visibility:'PRIVATE'}).error);
   assert.ok(engine.validateCreate({directive:'x',rewardCoins:50.1,durationMs:30000,visibility:'PRIVATE'}).error);
   assert.ok(engine.validateCreate({directive:'x',rewardCoins:1.11,durationMs:30000,visibility:'PRIVATE'}).error);
-  assert.ok(engine.validateCreate({directive:'x',rewardCoins:1,durationMs:29999,visibility:'PRIVATE'}).error);
-  assert.ok(engine.validateCreate({directive:'x',rewardCoins:1,durationMs:86400001,visibility:'PRIVATE'}).error);
+  assert.ok(engine.validateCreate({directive:'x',rewardCoins:1,durationMs:59999,visibility:'PRIVATE'}).error);
+  assert.ok(engine.validateCreate({directive:'x',rewardCoins:1,durationMs:86400000001,visibility:'PRIVATE'}).error);
+  assert.equal(engine.validateCreate({directive:'x',rewardCoins:1,durationMs:60000,visibility:'PRIVATE'}).durationMs,60000);
+  assert.equal(engine.validateCreate({directive:'x',rewardCoins:1,durationMs:86400000000,visibility:'PRIVATE'}).durationMs,86400000000);
   const made=engine.create({directive:'Do the thing',rewardCoins:3,durationMs:60000,visibility:'PRIVATE'},target,1000).quest;
   assert.equal(made.status,'OFFERED'); assert.equal(made.deadline,null); assert.equal(made.acceptedAt,null);
   const state={active:{[made.id]:made},history:[]};

@@ -15,6 +15,8 @@ assert.match(gm,/QUEST COMMAND/,'GM console has the redesigned command-ledger ma
 assert.match(gm,/FORGE AN OATH/,'contract creation has a guided forge hierarchy');
 assert.match(gm,/quest-wax-seal/,'contract review has a ceremonial seal');
 assert.match(gm,/daily-gm-meter/,'GM daily oversight has room-wide progress');
+assert.match(gm,/quest-duration-custom/,'GM can enter a manual quest duration with a readable unit');
+assert.match(gm,/1 MINUTE TO 1000 DAYS/,'manual quest duration advertises the full supported range');
 assert.match(player,/player-contract-scroll/,'player oath is rendered as a contract document');
 assert.match(player,/quest-reward-panel/,'player contract separates bounty and deadline');
 assert.match(player,/daily-contract-list/,'daily objectives use the redesigned ledger list');
@@ -32,8 +34,8 @@ assert.match(css,/@media\(max-width:700px\)[\s\S]*?\.daily-contract\{grid-templa
 assert.match(css,/@media\(prefers-reduced-motion:reduce\)/,'quest motion respects reduced-motion preferences');
 assert.match(index,/asoc\.css\?v=20260928-board-coronation-1/,'GM loads the redesigned stylesheet immediately');
 assert.match(index,/quest-icon-system\.css\?v=20260928-skynet-quest-icons-1/,'GM loads the quest sigil layer immediately');
-assert.match(index,/gm-quests\.js\?v=20260928-skynet-quest-icons-1/,'GM quest client is cache-busted');
+assert.match(index,/gm-quests\.js\?v=20260929-quest-duration-1/,'GM quest client is cache-busted');
 assert.match(join,/asoc\.css\?v=20260928-board-coronation-1/,'player loads the redesigned stylesheet immediately');
 assert.match(join,/quest-icon-system\.css\?v=20260928-skynet-quest-icons-1/,'player loads the quest sigil layer immediately');
-assert.match(join,/player-quests\.js\?v=20260928-skynet-quest-icons-1/,'player quest client is cache-busted');
+assert.match(join,/player-quests\.js\?v=20260929-quest-duration-1/,'player quest client is cache-busted');
 console.log('PASS quest visuals: Skynet sigils, GM forge, contract ledger, player oath, daily oversight, responsive states and reduced motion');
