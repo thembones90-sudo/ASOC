@@ -1,0 +1,35 @@
+/* ASOC QUESTS // Shadow Broker contract console. Server owns every mutation. */
+(() => {
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtCoins = n => Number(n).toFixed(Number(n) % 1 ? 1 : 0);
+  const fmtTime = ms => { const s=Math.max(0,Math.ceil(ms/1000)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+  const api = {
+    state:{active:[],history:[],serverNow:Date.now()}, tab:'create',
+    send(type,payload={}) { window.App?.send?.({type,...payload}); },
+    init() {
+      document.getElementById('quests-btn')?.addEventListener('click',()=>this.open());
+      setInterval(()=>this.renderCards(),1000);
+      if (window.App?.questState) this.update(window.App.questState);
+    },
+    ensure() {
+      let root=document.getElementById('gm-quests-overlay'); if(root) return root;
+      root=document.createElement('div'); root.id='gm-quests-overlay'; root.className='quests-overlay'; root.hidden=true;
+      root.innerHTML=`<section class="quests-console"><header><div><small>SHADOW BROKER OPERATIONS</small><h2>QUESTS // SHADOW CONTRACTS</h2></div><button data-q-close>×</button></header><nav><button data-q-tab="create">CREATE</button><button data-q-tab="active">ACTIVE</button><button data-q-tab="archive">ARCHIVE</button></nav><div class="quests-body" data-q-body></div></section>`;
+      document.body.appendChild(root);
+      root.querySelector('[data-q-close]').onclick=()=>root.hidden=true;
+      root.addEventListener('click',e=>{ const tab=e.target.closest('[data-q-tab]'); if(tab){this.tab=tab.dataset.qTab;this.render();} const action=e.target.closest('[data-q-action]'); if(action)this.act(action); });
+      return root;
+    },
+    open(){this.ensure().hidden=false;this.render();this.send('quest:sync');},
+    update(msg){this.state={active:msg.active||[],history:msg.history||[],serverNow:msg.serverNow||Date.now()};this.render();},
+    error(message){window.AsocDialog?.alert?.(String(message||'QUEST COMMAND REJECTED')) || alert(message);},
+    players(){return (window.App?.currentPlayers||[]).filter(p=>p.connected!==false&&!p.isTestPersona&&p.id);},
+    render(){const root=this.ensure(); root.querySelectorAll('[data-q-tab]').forEach(b=>b.classList.toggle('active',b.dataset.qTab===this.tab)); const body=root.querySelector('[data-q-body]'); if(this.tab==='create')body.innerHTML=this.createHTML(); else body.innerHTML='<div data-q-list></div>'; this.bindCreate(); this.renderCards();},
+    createHTML(){return `<form class="quest-create" data-q-form><label>TARGET<select name="targetPlayerId" required><option value="">SELECT ONLINE LITTLE HERO</option>${this.players().map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></label><label>QUEST DIRECTIVE<textarea name="directive" maxlength="500" required placeholder="Issue a precise Shadow Broker directive..."></textarea></label><fieldset><legend>REWARD // SHADOW COINS</legend><div class="quest-presets">${[.5,1,2,3,5,10].map(n=>`<button type="button" data-q-reward="${n}">${n}</button>`).join('')}</div><input name="rewardCoins" type="number" min="0.1" max="50" step="0.1" value="3" required></fieldset><fieldset><legend>DURATION</legend><div class="quest-presets">${[[1,'1m'],[3,'3m'],[5,'5m'],[10,'10m'],[15,'15m'],[30,'30m'],[60,'60m']].map(([n,l])=>`<button type="button" data-q-duration="${n*60000}">${l}</button>`).join('')}</div><input name="durationMs" type="number" min="30000" max="86400000" step="1000" value="600000" required><small>CUSTOM VALUE IN MILLISECONDS</small></fieldset><fieldset><legend>VISIBILITY</legend><div class="quest-visibility">${['PRIVATE','CLASSIFIED','PUBLIC'].map((v,i)=>`<label><input type="radio" name="visibility" value="${v}" ${i===0?'checked':''}>${v}</label>`).join('')}</div></fieldset><button class="quest-issue" type="submit">REVIEW CONTRACT</button><div data-q-confirm></div></form>`;},
+    bindCreate(){const form=document.querySelector('[data-q-form]');if(!form)return;form.querySelectorAll('[data-q-reward]').forEach(b=>b.onclick=()=>form.rewardCoins.value=b.dataset.qReward);form.querySelectorAll('[data-q-duration]').forEach(b=>b.onclick=()=>form.durationMs.value=b.dataset.qDuration);form.onsubmit=e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form));const player=this.players().find(p=>String(p.id)===data.targetPlayerId);const high=Number(data.rewardCoins)>10;form.querySelector('[data-q-confirm]').innerHTML=`<div class="quest-confirm ${high?'high-reward':''}"><h3>${high?'HIGH VALUE CONTRACT // CONFIRM':'CONFIRM SHADOW CONTRACT'}</h3><b>${esc(player?.name||'UNKNOWN')} // ${esc(data.visibility)} // ${fmtCoins(data.rewardCoins)} SC // ${fmtTime(data.durationMs)}</b><p>${esc(data.directive)}</p><button type="button" data-q-send>ISSUE CONTRACT</button></div>`;form.querySelector('[data-q-send]').onclick=()=>{this.send('gm:questCreate',{...data,rewardCoins:Number(data.rewardCoins),durationMs:Number(data.durationMs)});this.tab='active';};};},
+    card(q,archive=false){const remaining=q.deadline?fmtTime(q.deadline-Date.now()):'NOT STARTED';let actions='';if(!archive){if(q.status==='OFFERED')actions='<button data-q-action="cancel">CANCEL</button>';if(q.status==='ACTIVE')actions='<button data-q-action="complete">COMPLETE</button><button data-q-action="fail">FAIL</button><button data-q-action="cancel">CANCEL</button>';if(q.status==='CLAIMED')actions='<button data-q-action="complete">APPROVE</button><button data-q-action="rejectClaim">REJECT CLAIM</button><button data-q-action="fail">FAIL</button><button data-q-action="cancel">CANCEL</button>';}return `<article class="quest-card status-${q.status.toLowerCase()}" data-q-id="${esc(q.id)}"><header><b>${esc(q.targetPlayerName)}</b><span>${q.status}</span></header><p>${esc(q.directive)}</p><div class="quest-meta"><span>${fmtCoins(q.rewardCoins)} SC</span><span>${remaining}</span><span>${q.visibility}</span></div>${archive?`<small>CREATED ${new Date(q.createdAt).toLocaleString()} // RESOLVED ${new Date(q.resolvedAt).toLocaleString()}</small>`:`<div class="quest-actions">${actions}</div>`}</article>`;},
+    renderCards(){const list=document.querySelector('#gm-quests-overlay [data-q-list]');if(!list)return;const rows=this.tab==='archive'?this.state.history:this.state.active;list.innerHTML=rows.length?rows.map(q=>this.card(q,this.tab==='archive')).join(''):'<div class="quest-empty">NO CONTRACTS IN THIS CHANNEL</div>';},
+    act(button){const card=button.closest('[data-q-id]');const action=button.dataset.qAction;const type={complete:'gm:questComplete',rejectClaim:'gm:questRejectClaim',fail:'gm:questFail',cancel:'gm:questCancel'}[action];if(type)this.send(type,{questId:card.dataset.qId});}
+  };
+  window.GMQuests=api; document.readyState==='loading'?document.addEventListener('DOMContentLoaded',()=>api.init()):api.init();
+})();

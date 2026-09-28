@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260928-hiss-media-hud-4">
+  <link rel="stylesheet" href="css/asoc.css?v=20260928-shadow-contracts-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
   <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-2">
   <link rel="stylesheet" href="css/megabonk.css?v=20260928-searchlight-1">
@@ -8500,6 +8500,15 @@ position:absolute;
       background:transparent !important;
       box-shadow:none !important;
     }
+    /* COMMAND LANES // sender-owned acts follow the sender to the right. */
+    #game-screen .battle-comms-lobby .chat-system-card.chat-system-own {
+      margin-left:auto !important;
+      margin-right:38px !important;
+    }
+    #game-screen .battle-comms-lobby .chat-system-card.chat-system-other {
+      margin-left:38px !important;
+      margin-right:auto !important;
+    }
     @media(max-width:760px){.signed-desktop-download{grid-template-columns:38px minmax(0,1fr);margin:6px 7px;padding:8px}.signed-desktop-download-icon{width:36px;height:36px;font-size:20px}.signed-desktop-download-copy strong{font-size:10px}.signed-desktop-download-copy small{font-size:7px}.signed-desktop-download-action{display:none}}
 
     /* PLAYER COMMS DENSITY PATCH V1 // 2026-09-28 */
@@ -8855,7 +8864,7 @@ position:absolute;
         </div>
         <div class="desktop-download" id="desktop-download-panel">
           <span class="desktop-download-icon" aria-hidden="true">↓</span>
-          <span class="desktop-download-copy"><b>DOWNLOAD DESKTOP APP</b><small>WINDOWS 10/11 // VERSION 1.2.0 // APPROX. 108 MB</small></span>
+          <span class="desktop-download-copy"><b>DOWNLOAD DESKTOP APP</b><small>WINDOWS 10/11 // VERSION 1.2.1 // APPROX. 108 MB</small></span>
           <a class="desktop-download-action" href="https://github.com/thembones90-sudo/ASOC/releases/latest/download/ASOC-Engine-Setup.exe">DOWNLOAD INSTALLER</a>
           <span class="desktop-download-links"><a href="https://github.com/thembones90-sudo/ASOC/releases/latest/download/ASOC-Engine-Portable.exe">PORTABLE VERSION</a><a href="https://github.com/thembones90-sudo/ASOC/releases/latest/download/SHA256SUMS.txt">SHA-256 CHECKSUMS</a><span>UNSIGNED BUILD // SMARTSCREEN MAY WARN</span></span>
         </div>
@@ -9161,7 +9170,7 @@ position:absolute;
       </div>
       <a id="signed-desktop-download" class="signed-desktop-download" href="https://github.com/thembones90-sudo/ASOC/releases/latest/download/ASOC-Engine-Setup.exe" title="Download ASOC Engine for Windows" aria-label="Download ASOC Engine desktop app for Windows">
         <span class="signed-desktop-download-icon" aria-hidden="true">↓</span>
-        <span class="signed-desktop-download-copy"><strong>DOWNLOAD ASOC DESKTOP APP</strong><small>WINDOWS 10/11 // INSTALLER // VERSION 1.2.0</small></span>
+        <span class="signed-desktop-download-copy"><strong>DOWNLOAD ASOC DESKTOP APP</strong><small>WINDOWS 10/11 // INSTALLER // VERSION 1.2.1</small></span>
         <span class="signed-desktop-download-action">GET APP</span>
       </a>
     <div id="player-leaderboard-strip" class="player-leaderboard-strip" style="display: none;">
@@ -9821,7 +9830,7 @@ position:absolute;
   <script src="js/iks-board.js?v=20260925-iks-board-2"></script>
   <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
   <script src="js/asoc-alerts.js?v=20260928-hiss-media-hud-1"></script>
-  <script src="js/chat-media-preview.js?v=20260928-save-as-2"></script>
+  <script src="js/chat-media-preview.js?v=20260928-save-as-3"></script>
   <script src="js/read-receipts.js?v=20260926-seen-dedupe-1"></script>
   <script src="js/shadow-cosmetics.js?v=20260926-dm-1"></script>
   <script src="js/shadow-market-ui.js?v=20260926-shadow-market-hardening-1"></script>
@@ -9829,7 +9838,8 @@ position:absolute;
   <script src="js/stale-guard.js?v=20260926-force-refresh-1"></script>
   <script src="js/megabonk.js?v=20260928-searchlight-1"></script>
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
-  <script src="js/player.js?v=20260928-hiss-media-hud-2"></script>
+  <script src="js/player.js?v=20260928-shadow-contracts-1"></script>
+  <script src="js/player-quests.js?v=20260928-shadow-contracts-1"></script>
   <script src="js/threefold.js?v=20260925-kaladont-1"></script>
   <script src="js/kaladont-ui.js?v=20260928-kaladont-chat-timer-1"></script>
   <script src="js/kaladont-client.js?v=20260928-kaladont-chat-timer-1"></script>

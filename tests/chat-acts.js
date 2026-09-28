@@ -124,16 +124,21 @@ async function run() {
     const playerSrc = fs.readFileSync(path.join(ROOT, 'js', 'player.js'), 'utf8');
     const appSrc = fs.readFileSync(path.join(ROOT, 'js', 'app.js'), 'utf8');
     const joinSrc = fs.readFileSync(path.join(ROOT, 'join.html'), 'utf8');
+    const cssSrc = fs.readFileSync(path.join(ROOT, 'css', 'asoc.css'), 'utf8');
     assert.match(playerSrc, /id: '__ALL_ONLINE__'.*displayName: 'ALL ONLINE'/, 'target picker offers ALL ONLINE');
     assert.match(playerSrc, /targetIds\.includes\(viewerId\)/, 'group targets render the recipient perspective');
     assert.match(playerSrc, /payload\.targetPlayerId = '__ALL_ONLINE__'/, 'typed ALL bypasses single-player name lookup');
     assert.match(appSrc, /case 'error':[\s\S]*this\.showGMCommandError\(message\.message\)/, 'GM server failures use the in-app error path');
     assert.doesNotMatch(appSrc.match(/case 'error':[\s\S]*?break;/)?.[0] || '', /alert\(/, 'GM server failures never open a native Electron alert');
     assert.match(appSrc, /composer\?\.focus\(\{ preventScroll: true \}\)/, 'GM error path restores composer focus');
-    assert.match(joinSrc, /player\.js\?v=20260928-hiss-media-hud-2/, 'targeted-act and HUD client is cache-busted');
+    assert.match(joinSrc, /player\.js\?v=20260928-shadow-contracts-1/, 'targeted-act, HUD and contracts client is cache-busted');
     assert.doesNotMatch(playerSrc, /msg\.imageUrl \? 'IMAGE TRANSMISSION'/, 'player image-only Broker posts have no redundant transmission plaque');
     assert.doesNotMatch(appSrc, /msg\.imageUrl \? 'IMAGE TRANSMISSION'/, 'GM image-only Broker posts have no redundant transmission plaque');
     assert.match(joinSrc, /PLAYER STATUS HEADER FINAL GUARD/, 'player HUD has a final cascade guard against inflated utility controls');
+    assert.match(playerSrc, /chat-system-own/, 'player command cards identify the sender lane');
+    assert.match(appSrc, /chat-system-own/, 'GM command cards identify the sender lane');
+    assert.match(cssSrc, /\.chat-system-card\.chat-system-own\s*\{[\s\S]*?margin-left:auto !important;[\s\S]*?margin-right:38px !important;/, 'sender command cards stay on the right');
+    assert.match(cssSrc, /\.chat-system-card\.chat-system-other\s*\{[\s\S]*?margin-left:38px !important;[\s\S]*?margin-right:auto !important;/, 'other command cards stay on the left');
 
     // The Shadow Broker is a valid target for both acts: picker id, full name, short name.
     await say('/fart SHADOW BROKER', { targetPlayerId: BROKER });

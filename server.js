@@ -21,6 +21,7 @@ const recountEngine = require('./recount-engine');
 const iksArena = require('./iks-arena-store');
 const kaladont = require('./kaladont');
 const unstableConcoction = require('./unstable-concoction');
+const questEngine = require('./quest-engine');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -373,6 +374,7 @@ function serializeRoomForRecovery(room) {
     solutionCountdowns: room.solutionCountdowns || {},
     hintClaims: room.hintClaims || {},
     commandReceipts: room.commandReceipts || [],
+    quests: questEngine.normalizeState(room.quests),
     players
   };
 }
@@ -487,6 +489,7 @@ function restoreActiveRooms() {
         solutionCountdowns: saved.solutionCountdowns || {},
         hintClaims: saved.hintClaims || {},
         commandReceipts: Array.isArray(saved.commandReceipts) ? saved.commandReceipts.slice(-2048) : [],
+        quests: questEngine.normalizeState(saved.quests),
         // Per-board match ledger (RECOUNT data capture). Only trusted when it
         // belongs to the restored board; an older snapshot without one just
         // starts a fresh ledger for the current board.
@@ -1103,6 +1106,7 @@ function createRoom(gameId, hostWs) {
     // Recent UUID command receipts survive reconnect/restart, making GM board
     // commands safely idempotent when an ACK was lost in transit.
     commandReceipts: [],
+    quests: questEngine.normalizeState(null),
     // MATCH LEDGER -- per-board data capture for the post-game RECOUNT (see
     // match-ledger.js). Replaced with a fresh ledger whenever a new board id
     // is minted (RESET BOARD / NEXT GAME).
@@ -6065,6 +6069,118 @@ function sendToWs(ws, message) {
   }
 }
 
+// SHADOW CONTRACTS // private, per-viewer projection. Quest details never
+// travel through state:public, so unrelated clients cannot inspect them.
+function questState(room) {
+  room.quests = questEngine.normalizeState(room.quests);
+  return room.quests;
+}
+
+function questProjection(room, ws) {
+  const state = questState(room);
+  const isHost = ws === room.hostConnection && ws.gmAuthenticated === true;
+  const viewerId = isHost ? null : String(ws.playerId || '');
+  const active = Object.values(state.active).filter(q => isHost || q.targetPlayerId === viewerId);
+  const history = state.history.filter(q => isHost || q.targetPlayerId === viewerId).slice(0, isHost ? 200 : 25);
+  return { type: 'quest:update', serverNow: Date.now(), active, history, role: isHost ? 'GM' : 'PLAYER' };
+}
+
+function sendQuestState(room, ws) {
+  if (ws?.readyState === 1) sendToWs(ws, questProjection(room, ws));
+}
+
+function broadcastQuestState(room) {
+  room.players.forEach((_player, ws) => sendQuestState(room, ws));
+  sendQuestState(room, room.hostConnection);
+}
+
+function questPlayer(room, playerId) {
+  for (const player of room.players.values()) {
+    if (String(player.id) === String(playerId) && player.connected !== false && player.isTestPersona !== true) return player;
+  }
+  return null;
+}
+
+function questRoom(ws) { return rooms.get(String(ws.roomCode || '').toUpperCase()); }
+function questError(ws, message) { sendToWs(ws, { type: 'quest:error', message }); }
+
+function questAnnouncement(room, quest, completed = false) {
+  if (quest.visibility === 'PRIVATE') return;
+  let text;
+  if (quest.visibility === 'CLASSIFIED') {
+    text = completed ? 'CLASSIFIED QUEST COMPLETE // A SHADOW CONTRACT HAS BEEN FULFILLED.' : 'CLASSIFIED QUEST ACCEPTED // A LITTLE HERO HAS ACCEPTED A SHADOW CONTRACT.';
+  } else {
+    text = completed
+      ? `QUEST COMPLETE // ${quest.targetPlayerName} COMPLETED A SHADOW CONTRACT // +${quest.rewardCoins} SC`
+      : `QUEST ACCEPTED // ${quest.targetPlayerName} ACCEPTED A SHADOW CONTRACT // REWARD ${quest.rewardCoins} SC`;
+  }
+  addShadowBrokerMessage(room, text, { editableByHost: false });
+  broadcastChatUpdate(room);
+}
+
+function handleQuestCreate(ws, message) {
+  const room = questRoom(ws);
+  if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) return questError(ws, 'ONLY THE SHADOW BROKER MAY ISSUE CONTRACTS');
+  const target = questPlayer(room, message.targetPlayerId);
+  if (!target) return questError(ws, 'QUEST TARGET MUST BE AN ONLINE AUTHENTICATED LITTLE HERO');
+  const made = questEngine.create(message, target);
+  if (made.error) return questError(ws, made.error);
+  const state = questState(room);
+  state.active[made.quest.id] = made.quest;
+  persistActiveRooms();
+  broadcastQuestState(room);
+}
+
+function handlePlayerQuest(ws, message, action) {
+  const room = questRoom(ws);
+  if (!room || ws === room.hostConnection || !ws.playerId) return questError(ws, 'LITTLE HERO CONTRACT IDENTITY REQUIRED');
+  const state = questState(room);
+  const quest = state.active[String(message.questId || '')];
+  if (!quest || quest.targetPlayerId !== String(ws.playerId)) return questError(ws, 'YOU MAY ONLY ACT ON YOUR OWN SHADOW CONTRACT');
+  const next = action === 'accept' ? 'ACTIVE' : action === 'decline' ? 'DECLINED' : 'CLAIMED';
+  if (action === 'claim' && quest.status !== 'ACTIVE') return questError(ws, 'ONLY AN ACTIVE CONTRACT MAY BE CLAIMED');
+  const changed = questEngine.transition(state, quest.id, next);
+  if (changed.error) return questError(ws, changed.error);
+  if (next === 'ACTIVE') questAnnouncement(room, changed.quest, false);
+  persistActiveRooms();
+  broadcastQuestState(room);
+}
+
+function handleGmQuest(ws, message, action) {
+  const room = questRoom(ws);
+  if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) return questError(ws, 'ONLY THE SHADOW BROKER MAY ADJUDICATE CONTRACTS');
+  const state = questState(room);
+  const quest = state.active[String(message.questId || '')];
+  if (!quest) return questError(ws, 'QUEST NOT FOUND OR ALREADY RESOLVED');
+  const next = { complete: 'COMPLETED', rejectClaim: 'ACTIVE', fail: 'FAILED', cancel: 'CANCELLED' }[action];
+  if (action === 'rejectClaim' && quest.status !== 'CLAIMED') return questError(ws, 'ONLY A CLAIMED CONTRACT MAY RETURN TO ACTIVE');
+  const changed = questEngine.transition(state, quest.id, next, Date.now(), message.reason);
+  if (changed.error) return questError(ws, changed.error);
+  if (next === 'COMPLETED') {
+    const receipt = `quest:${quest.id}:reward`;
+    const reward = playerStore.awardShadowCoins({ id: quest.targetPlayerId, name: quest.targetPlayerName }, quest.rewardCoins, receipt, {
+      reason: `Quest completed: ${quest.directive.slice(0, 80)}`
+    });
+    if (!reward.ok) return questError(ws, reward.error || 'QUEST REWARD FAILED');
+    changed.quest.rewardReceipt = receipt;
+    questAnnouncement(room, changed.quest, true);
+  }
+  persistActiveRooms();
+  broadcastQuestState(room);
+  broadcastPlayersUpdate(room);
+}
+
+function expireQuests(now = Date.now()) {
+  const dirty = [];
+  rooms.forEach(room => {
+    const expired = questEngine.expire(questState(room), now);
+    if (expired.length) { dirty.push(room); broadcastQuestState(room); }
+  });
+  if (dirty.length) persistActiveRooms();
+}
+
+setInterval(() => runtimeAction(() => expireQuests()), 1000).unref();
+
 // A sender's message is seen by the OTHER connected little heroes. The host
 // (Shadow Broker) is never a recipient and never records a receipt. The list
 // is a send-time snapshot: players present for that message stay counted even
@@ -6647,6 +6763,7 @@ function handlePlayerJoin(ws, message) {
 
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
+  sendQuestState(room, ws);
   sendRecountHydration(ws, room);
   // KALADONT rehydration: a (re)joining Little Hero resumes as player or
   // spectator exactly where the match stands; others learn of an open lobby.
@@ -6806,6 +6923,7 @@ function handlePlayersList(ws) {
     return;
   }
   sendPlayersUpdateTo(room, ws);
+  sendQuestState(room, ws);
 }
 
 function handleHostReconnect(ws, message) {
@@ -6859,6 +6977,7 @@ function handleHostReconnect(ws, message) {
 
   broadcastPlayersUpdate(room);
   sendKaladontState(room, ws);
+  sendQuestState(room, ws);
   console.log(`[ROOM ${room.code}] Host reconnected`);
 }
 
@@ -6894,6 +7013,7 @@ function handleHostRecover(ws) {
   sendRitualDetailToHost(room);
   broadcastPlayersUpdate(room);
   sendKaladontState(room, ws);
+  sendQuestState(room, ws);
   console.log(`[MASTER ROOM] Shadow Broker recovered ${normalizeRoomMode(room.roomMode, room.armed)} session without browser host token`);
 }
 
@@ -9554,6 +9674,19 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:command': {
           handleHostCommand(ws, message);
+          break;
+        }
+        case 'gm:questCreate': handleQuestCreate(ws, message); break;
+        case 'player:questAccept': handlePlayerQuest(ws, message, 'accept'); break;
+        case 'player:questDecline': handlePlayerQuest(ws, message, 'decline'); break;
+        case 'player:questClaim': handlePlayerQuest(ws, message, 'claim'); break;
+        case 'gm:questComplete': handleGmQuest(ws, message, 'complete'); break;
+        case 'gm:questRejectClaim': handleGmQuest(ws, message, 'rejectClaim'); break;
+        case 'gm:questFail': handleGmQuest(ws, message, 'fail'); break;
+        case 'gm:questCancel': handleGmQuest(ws, message, 'cancel'); break;
+        case 'quest:sync': {
+          const room = questRoom(ws);
+          if (room) sendQuestState(room, ws);
           break;
         }
         case 'player:hintRequest': {

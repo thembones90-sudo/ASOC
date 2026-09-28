@@ -38,7 +38,7 @@ assert(!join.includes('player-tweaks-launch') && !html.includes('gm-tweaks-launc
 assert(!server.includes('/api/tweaks') && !server.includes('tweakStore'), 'retired TWEAKS API and server store are removed');
 assert(!fs.existsSync(path.join(root, 'js', 'tweaks.js')) && !fs.existsSync(path.join(root, 'css', 'tweaks.css')) && !fs.existsSync(path.join(root, 'tweak-store.js')), 'retired TWEAKS implementation files are removed');
 assert(html.includes('class="toolbar-btn reset-board-utility-btn" id="reset-board-btn"'), 'RESET BOARD is an independent live utility control');
-assert(css.includes('grid-template-columns:repeat(4,minmax(0,1fr)) !important'), 'desktop utility controls use four equal columns');
+assert(css.includes('grid-template-columns:repeat(5,minmax(0,1fr)) !important'), 'desktop utility controls use five equal columns including QUESTS');
 assert(css.includes('.reset-board-utility-btn'), 'RESET BOARD has dedicated live-control styling');
 
 console.log('command-repaint: all checks passed');

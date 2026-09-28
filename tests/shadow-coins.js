@@ -244,11 +244,12 @@ async function runServer() {
     await gm2.waitFor(m => m.type === 'host:recovered', 'host after restart');
     const back = await connect(first.name);
     await sleep(900);
-    assert.equal(coins(gm2, winnerId), 1, 'the balance survives a restart without a second payout');
+    assert.equal(coins(gm2, winnerId), 11, 'restart preserves the win and applies the one-time global +10 grant without replaying the win');
     const persisted = JSON.parse(fs.readFileSync(path.join(DATA, 'players.json'), 'utf8'));
     const profile = Object.values(persisted).find(p => p.accountId === winnerId || p.id === winnerId);
-    assert.equal(profile.shadowCoins, 1);
+    assert.equal(profile.shadowCoins, 11);
     assert.ok(profile.shadowCoinReceipts.some(r => r.startsWith('kaladont:')), 'the award receipt is recorded');
+    assert.equal(profile.shadowCoinReceipts.filter(r => r.startsWith('kaladont:')).length, 1, 'the restored KALADONT match never pays twice');
     assert.equal(profile.cosmetics.owned['relic-word-killer'], 1, 'winning with the word KALADONT unearths WORD KILLER');
     void back;
 

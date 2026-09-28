@@ -1941,6 +1941,12 @@ const App = {
     });
 
     document.addEventListener('contextmenu', (e) => {
+      // The opened chat image lives on <body>, outside every chat message, and
+      // must keep the browser's own menu so "Save image as…" works. The guard
+      // lives here, in the handler that actually cancels the event: relying on
+      // another file to stop propagation first is ordering-dependent and
+      // silently breaks the moment a handler is registered earlier.
+      if (window.ChatMediaPreview?.isOpenedMediaTarget?.(e.target)) return;
       const messageEl = e.target.closest('#gm-chat-messages .gm-chat-message, #gm-chat-messages .gm-shadow-broker-entry');
       if (!messageEl) return;
       e.preventDefault();
@@ -2748,6 +2754,9 @@ const App = {
         window.GMMinigames?.onArena?.();
         window.AsocAlerts?.gmPlayers(message.players);
         break;
+
+      case 'quest:update': this.questState = message; window.GMQuests?.update?.(message); break;
+      case 'quest:error': window.GMQuests?.error?.(message.message); break;
 
       case 'ritual:gmUpdate':
         this.updateRitualUI(message.ritual);
@@ -5157,8 +5166,12 @@ const App = {
           if (String(id) === '__GM__') return 'Shadow Broker';
           return (this.currentPlayers || []).find(player => String(player.id) === String(id))?.name || 'Little Hero';
         });
+        // The reactor list lives in data-reactors only. A title attribute here
+        // would stack a second, OS-drawn tooltip on top of the styled one, and
+        // the browser's native tooltip cannot be sized or weighted at all --
+        // that tiny unstyleable label is what users were complaining about.
         const reactors = this.escapeHtmlAttr(reactorNames.join('\n'));
-        return `<button type="button" class="gm-chat-reaction-chip${mine ? ' mine' : ''}${window.CommanderEmojis?.has?.(emoji) ? ' commander-reaction-chip' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" data-reactors="${reactors}" title="${reactors}" aria-label="Reacted by ${this.escapeHtmlAttr(reactorNames.join(', '))}" aria-pressed="${mine ? 'true' : 'false'}"><span>${emojiHtml}</span><b>${playerIds.length}</b></button>`;
+        return `<button type="button" class="gm-chat-reaction-chip${mine ? ' mine' : ''}${window.CommanderEmojis?.has?.(emoji) ? ' commander-reaction-chip' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-emoji="${this.escapeHtml(emoji)}" data-reactors="${reactors}" aria-label="Reacted by ${this.escapeHtmlAttr(reactorNames.join(', '))}" aria-pressed="${mine ? 'true' : 'false'}"><span>${emojiHtml}</span><b>${playerIds.length}</b></button>`;
       })
       .join('');
 
@@ -5360,8 +5373,9 @@ const App = {
     if (!render) return '';
     window.ShadowCosmetics?.maybePlayFx(msg);
     const { label, body, detail } = render();
+    const lane = msg.playerId == null ? ' chat-system-own' : ' chat-system-other';
     return `
-      <div class="chat-system-card chat-system-${esc(msg.messageType)}${window.ShadowCosmetics?.cardClass(msg) || ''}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
+      <div class="chat-system-card chat-system-${esc(msg.messageType)}${lane}${window.ShadowCosmetics?.cardClass(msg) || ''}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
         <div class="chat-system-label">${esc(label)}</div>
         <div class="chat-system-body">${body}</div>
         ${detail ? `<div class="chat-system-detail">${detail}</div>` : ''}

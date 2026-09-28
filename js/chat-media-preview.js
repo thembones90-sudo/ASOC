@@ -1,16 +1,30 @@
 (() => {
   const TRIGGER_SELECTOR = '.chat-image-link, .chat-gif-link, .gm-chat-gif-link, .avatar-preview-trigger';
 
-  // Let the browser own right-click on an image once it is inside the media
-  // lightbox. Player/GM chat install document-level capture handlers for their
-  // message action menus, so stopping at the image itself is too late: the
-  // document handler has already intercepted the event. Window capture runs
-  // first, leaves the default action intact, and blocks ASOC's chat menu only
-  // for the opened preview image.
+  const OVERLAY_CLASS = 'chat-media-lightbox';
+  const MEDIA_CLASS = 'chat-media-lightbox-media';
+
+  // Right-clicking the opened preview image must reach the browser's own menu
+  // ("Save image as…"), and that is only true while nothing cancels the event.
+  //
+  // Event order matters, and it is the opposite of what the old fix assumed.
+  // Propagation runs window -> document -> ... -> target, so a listener added
+  // ON the <img> is the LAST thing that runs: by then the document-level
+  // capture handlers in player.js/app.js have already called preventDefault()
+  // and the native menu is already gone. The window capture phase is the only
+  // place ASOC can still get in front of them.
+  //
+  // stopPropagation() (never preventDefault) is deliberate: it keeps ASOC's
+  // chat menu from seeing the event while leaving the event uncancelled so the
+  // browser still renders its native image menu.
+  function isOpenedMediaTarget(target) {
+    if (!target || typeof target.closest !== 'function') return false;
+    return !!target.closest(`.${OVERLAY_CLASS} .${MEDIA_CLASS}`)
+      || target.classList?.contains(MEDIA_CLASS) === true;
+  }
+
   window.addEventListener('contextmenu', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLImageElement)) return;
-    if (!target.classList.contains('chat-media-lightbox-media')) return;
+    if (!isOpenedMediaTarget(event.target)) return;
     event.stopPropagation();
   }, true);
   let overlay = null;
@@ -23,7 +37,7 @@
     if (overlay?.isConnected) return overlay;
 
     overlay = document.createElement('div');
-    overlay.className = 'chat-media-lightbox';
+    overlay.className = OVERLAY_CLASS;
     overlay.hidden = true;
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
@@ -57,7 +71,7 @@
       if (!source) return null;
 
       const preview = document.createElement('video');
-      preview.className = 'chat-media-lightbox-media';
+      preview.className = MEDIA_CLASS;
       preview.autoplay = true;
       preview.loop = true;
       preview.muted = true;
@@ -69,6 +83,8 @@
       sourceEl.src = source;
       sourceEl.type = video.querySelector('source')?.type || 'video/mp4';
       preview.appendChild(sourceEl);
+      // Same rule as images: an opened GIF keeps the browser's own menu.
+      preview.addEventListener('contextmenu', event => event.stopPropagation());
       return preview;
     }
 
@@ -77,13 +93,14 @@
       const source = image.currentSrc || image.src || '';
       if (!source) return null;
       const preview = document.createElement('img');
-      preview.className = 'chat-media-lightbox-media';
+      preview.className = MEDIA_CLASS;
       preview.src = source;
       preview.alt = image.alt || 'Chat media';
       // Preserve the browser's native image context menu in the lightbox so
       // every user can right-click the opened image and use "Save image as…".
-      // Chat message context menus live higher in the page and must not steal
-      // this event once the media is opened.
+      // Belt and braces: the window capture handler above is what actually
+      // gets ahead of the chat menus, but leaving the target clean as well
+      // means the event also survives handlers bound below the document.
       preview.addEventListener('contextmenu', (event) => {
         event.stopPropagation();
       });
@@ -160,7 +177,7 @@
     open(trigger);
   }, true);
 
-  window.ChatMediaPreview = { open, close };
+  window.ChatMediaPreview = { open, close, isOpenedMediaTarget };
 })();
 
 

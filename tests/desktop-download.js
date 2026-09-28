@@ -19,7 +19,7 @@ assert(join.includes('/releases/latest/download/ASOC-Engine-Setup.exe'), 'instal
 assert(join.includes('/releases/latest/download/ASOC-Engine-Portable.exe'), 'portable build remains available as a secondary option');
 assert(join.includes('/releases/latest/download/SHA256SUMS.txt'), 'release checksums are exposed');
 assert(join.includes('if(window.asocDesktop){') && join.includes('signedDesktopDownload.hidden=true'), 'desktop shell does not advertise downloading itself');
-assert(workflow.includes("tags:\n      - 'desktop-v*'"), 'desktop version tags trigger packaging');
+assert(/tags:\r?\n\s+- 'desktop-v\*'/.test(workflow), 'desktop version tags trigger packaging');
 assert(workflow.includes('ASOC-Engine-Setup.exe') && workflow.includes('SHA256SUMS.txt'), 'release pipeline publishes stable installer and checksum assets');
 
 console.log('desktop-download: all checks passed');
