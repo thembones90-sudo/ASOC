@@ -2757,6 +2757,7 @@ const App = {
 
       case 'quest:update': this.questState = message; window.GMQuests?.update?.(message); break;
       case 'quest:error': window.GMQuests?.error?.(message.message); break;
+      case 'daily:gmUpdate': this.dailyState = message; window.GMQuests?.updateDailies?.(message); break;
 
       case 'ritual:gmUpdate':
         this.updateRitualUI(message.ritual);

@@ -22,6 +22,7 @@ const iksArena = require('./iks-arena-store');
 const kaladont = require('./kaladont');
 const unstableConcoction = require('./unstable-concoction');
 const questEngine = require('./quest-engine');
+const dailyContracts = require('./daily-contracts');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -4746,7 +4747,10 @@ function broadcastKaladont(room) {
 const KALADONT_WIN_COINS = 1;
 function kaladontSettle(room, announce) {
   const s = room.kaladont;
-  if (!s || s.phase !== 'ended' || !s.winnerId || s.reward) return;
+  if (!s || s.phase !== 'ended') return;
+  const participants=new Set((Array.isArray(s.history)?s.history:[]).map(entry=>String(entry?.by||'')).filter(Boolean));
+  participants.forEach(id=>{const player=s.players?.[id];if(player)recordDaily(room,{id,name:player.name},'kaladont',1,s.id);});
+  if (!s.winnerId || s.reward) return;
   const winner = s.players?.[s.winnerId];
   if (!winner || String(s.winnerId) === '__GM__' || isMasterTestPlayerId(s.winnerId)) {
     s.reward = { playerId: s.winnerId, amount: 0, skipped: true };
@@ -4925,6 +4929,7 @@ function recordThreefoldResult(game, room = null) {
   applyThreefoldCoins(game);
   const xIdentity = { id: game.xId, name: game.xName };
   const oIdentity = { id: game.oId, name: game.oName };
+  [xIdentity,oIdentity].forEach(identity=>recordDaily(room,identity,'iks-five',1,game.id));
   if (game.xId === '__GM__' || game.oId === '__GM__' || isMasterTestPlayerId(game.xId) || isMasterTestPlayerId(game.oId)) return;
   if (game.winnerId) {
     const winner = String(game.winnerId) === String(game.xId) ? xIdentity : oIdentity;
@@ -6181,6 +6186,76 @@ function expireQuests(now = Date.now()) {
 
 setInterval(() => runtimeAction(() => expireQuests()), 1000).unref();
 
+// DAILY CONTRACTS // persistent account progress, automatic exact-once rewards.
+function dailyIdentity(id, name='LITTLE HERO') { return { id:String(id), name:String(name||'LITTLE HERO') }; }
+
+function settleDailyRewards(identity, now=Date.now()) {
+  let players=playerStore.loadPlayers(); let profile=players[String(identity.id)];
+  if(!profile)return null;
+  let pending=dailyContracts.pendingRewards(profile.dailyContracts,now);
+  profile.dailyContracts=pending.state; playerStore.savePlayersAtomic(players);
+  for(const reward of pending.due){
+    const receipt=`daily:${pending.state.current.dayKey}:${reward.id}`;
+    const paid=playerStore.awardShadowCoins(identity,reward.amount,receipt,{reason:`Daily Contract: ${reward.title}`});
+    if(!paid.ok)continue;
+    players=playerStore.loadPlayers();profile=players[String(identity.id)];if(!profile)continue;
+    profile.dailyContracts=dailyContracts.normalize(profile.dailyContracts,now);
+    profile.dailyContracts.current.rewards[reward.id]=true;
+    playerStore.savePlayersAtomic(players);
+  }
+  players=playerStore.loadPlayers();profile=players[String(identity.id)];
+  return profile?dailyContracts.view(profile.dailyContracts,now):null;
+}
+
+function dailyView(identity, now=Date.now()) {
+  playerStore.getOrCreateProfile(identity);
+  return settleDailyRewards(identity,now);
+}
+
+function advanceDaily(identity,type,amount,eventReceipt,now=Date.now()) {
+  const players=playerStore.loadPlayers();let profile=players[String(identity.id)];
+  if(!profile){playerStore.getOrCreateProfile(identity);return advanceDaily(identity,type,amount,eventReceipt,now);}
+  const out=dailyContracts.advance(profile.dailyContracts,type,amount,eventReceipt,now);
+  if(out.error)return out;
+  profile.dailyContracts=out.state;
+  playerStore.savePlayersAtomic(players);
+  const state=settleDailyRewards(identity,now);
+  return {...out,state};
+}
+
+function sendDailyState(ws, identity) {
+  if(ws?.readyState!==1||!identity?.id)return;
+  sendToWs(ws,{type:'daily:update',...dailyView(identity)});
+}
+
+function sendGmDailies(room) {
+  const ws=room?.hostConnection;if(ws?.readyState!==1||ws.gmAuthenticated!==true)return;
+  const seen=new Set(),players=[];
+  room.players.forEach(player=>{if(!player||player.connected===false||player.isTestPersona===true||seen.has(String(player.id)))return;seen.add(String(player.id));players.push({id:String(player.id),name:player.name,...dailyView(dailyIdentity(player.id,player.name))});});
+  sendToWs(ws,{type:'daily:gmUpdate',serverNow:Date.now(),players});
+}
+
+function broadcastDailyIdentity(room, identity) {
+  room?.players.forEach((player,socket)=>{if(String(player?.id)===String(identity.id))sendDailyState(socket,identity);});
+  sendGmDailies(room);
+  broadcastPlayersUpdate(room);
+}
+
+function recordDaily(room, identity, type, amount, receipt) {
+  if(!identity?.id||String(identity.id)==='__GM__'||isMasterTestPlayerId(identity.id))return;
+  const out=advanceDaily(dailyIdentity(identity.id,identity.name),type,amount,receipt);
+  if(out.changed||out.completed)broadcastDailyIdentity(room,identity);
+}
+
+const DAILY_ATTENDANCE_TICK_MS=Math.max(1000,Number(process.env.ASOC_DAILY_ATTENDANCE_TICK_MS)||10000);
+function tickDailyAttendance(now=Date.now()) {
+  const room=rooms.get(MASTER_ROOM_CODE);if(!room||room.hostConnection?.readyState!==1)return;
+  const unique=new Map();room.players.forEach((p,socket)=>{if(p&&p.connected!==false&&p.isTestPersona!==true&&socket.readyState===1)unique.set(String(p.id),p);});
+  const bucket=Math.floor(now/DAILY_ATTENDANCE_TICK_MS);
+  unique.forEach(p=>recordDaily(room,p,'attendance',DAILY_ATTENDANCE_TICK_MS,`${dailyContracts.dayKey(now)}:${bucket}`));
+}
+setInterval(()=>runtimeAction(()=>tickDailyAttendance()),DAILY_ATTENDANCE_TICK_MS).unref();
+
 // A sender's message is seen by the OTHER connected little heroes. The host
 // (Shadow Broker) is never a recipient and never records a receipt. The list
 // is a send-time snapshot: players present for that message stay counted even
@@ -6764,6 +6839,8 @@ function handlePlayerJoin(ws, message) {
   const chatState = getChatState(room);
   sendToWs(ws, { type: 'chat:update', ...chatState });
   sendQuestState(room, ws);
+  sendDailyState(ws, dailyIdentity(playerId, cleanName));
+  sendGmDailies(room);
   sendRecountHydration(ws, room);
   // KALADONT rehydration: a (re)joining Little Hero resumes as player or
   // spectator exactly where the match stands; others learn of an open lobby.
@@ -6924,6 +7001,8 @@ function handlePlayersList(ws) {
   }
   sendPlayersUpdateTo(room, ws);
   sendQuestState(room, ws);
+  if(ws===room.hostConnection)sendGmDailies(room);
+  else if(ws.playerId){const player=room.players.get(ws);sendDailyState(ws,dailyIdentity(ws.playerId,player?.name));}
 }
 
 function handleHostReconnect(ws, message) {
@@ -6978,6 +7057,7 @@ function handleHostReconnect(ws, message) {
   broadcastPlayersUpdate(room);
   sendKaladontState(room, ws);
   sendQuestState(room, ws);
+  sendGmDailies(room);
   console.log(`[ROOM ${room.code}] Host reconnected`);
 }
 
@@ -7014,6 +7094,7 @@ function handleHostRecover(ws) {
   broadcastPlayersUpdate(room);
   sendKaladontState(room, ws);
   sendQuestState(room, ws);
+  sendGmDailies(room);
   console.log(`[MASTER ROOM] Shadow Broker recovered ${normalizeRoomMode(room.roomMode, room.armed)} session without browser host token`);
 }
 
@@ -9645,6 +9726,7 @@ wss.on('connection', (ws, req) => {
               broadcastToRoom(newRoom, { type: 'state:public', ...getPublicState(newRoom) });
               broadcastChatUpdate(newRoom);
               broadcastPlayersUpdate(newRoom);
+              sendGmDailies(newRoom);
               broadcastRitualState(newRoom);
             }
           }
@@ -9687,6 +9769,12 @@ wss.on('connection', (ws, req) => {
         case 'quest:sync': {
           const room = questRoom(ws);
           if (room) sendQuestState(room, ws);
+          break;
+        }
+        case 'daily:sync': {
+          const room=questRoom(ws);
+          if(room&&ws===room.hostConnection)sendGmDailies(room);
+          else if(room&&ws.playerId){const player=room.players.get(ws);sendDailyState(ws,dailyIdentity(ws.playerId,player?.name));}
           break;
         }
         case 'player:hintRequest': {

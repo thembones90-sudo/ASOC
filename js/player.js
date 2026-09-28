@@ -1571,6 +1571,7 @@ const PlayerApp = {
 
       case 'quest:update': this.questState = message; window.PlayerQuests?.update?.(message); break;
       case 'quest:error': window.PlayerQuests?.error?.(message.message); break;
+      case 'daily:update': this.dailyState = message; window.PlayerQuests?.updateDaily?.(message); break;
 
       case 'ritual:update':
         this.updateRitualUI(message.ritual);

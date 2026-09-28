@@ -82,7 +82,8 @@ function blankProfile(displayName) {
     // Relic earning: counters (e.g. wheelSurvivals) and the idempotency keys
     // of the events that bumped them, so a replay never counts twice.
     relicProgress: {},
-    relicReceipts: []
+    relicReceipts: [],
+    dailyContracts: null
   };
 }
 
@@ -204,6 +205,7 @@ function validateAndNormalizePlayers(raw) {
     profile.cosmetics = normalizeCosmetics(candidate.cosmetics);
     profile.relicProgress = normalizeRelicProgress(candidate.relicProgress);
     profile.relicReceipts = Array.isArray(candidate.relicReceipts) ? candidate.relicReceipts.filter(r => typeof r === 'string').slice(-500) : [];
+    profile.dailyContracts = candidate.dailyContracts && typeof candidate.dailyContracts === 'object' ? candidate.dailyContracts : null;
     // Older profiles stored whole coins only; derive tenths from them once.
     const units = candidate.shadowCoinUnits === undefined
       ? Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT)
