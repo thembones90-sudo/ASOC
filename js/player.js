@@ -485,6 +485,16 @@ const PlayerApp = {
         return;
       }
       if (action === 'poll') openPollComposer();
+      if (action === 'voice') {
+        closeAttachmentMenu();
+        const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
+        window.AsocVoice?.record({ anchor: document.getElementById('chat-input')?.parentElement, headers: { 'x-player-token': token } });
+      }
+    });
+    document.getElementById('chat-voice-btn')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
+      window.AsocVoice?.record({ anchor: event.currentTarget.parentElement, headers: { 'x-player-token': token } });
     });
 
     document.getElementById('chat-poll-cancel')?.addEventListener('click', (event) => {
@@ -1973,7 +1983,10 @@ const PlayerApp = {
     const eligible = inBattle
       ? ['A', 'B', 'C', 'D'].filter(col => !this.hintClaims?.[col] && [1, 2, 3, 4].every(row => cells[`${col}${row}`]?.revealed === true))
       : [];
-    const stateKey = `${inBattle}|${eligible.join('')}|${this._hintPending ? 'p' : ''}`;
+    const used = inBattle
+      ? ['A', 'B', 'C', 'D'].filter(col => this.hintClaims?.[col]).map(col => `COLUMN ${col} HINT USED BY ${String(this.hintClaims[col].playerName || 'A LITTLE HERO').toUpperCase()}`)
+      : [];
+    const stateKey = `${inBattle}|${eligible.join('')}|${this._hintPending ? 'p' : ''}|${used.join(';')}`;
     if (bar.dataset.hintState === stateKey) return;
     bar.dataset.hintState = stateKey;
     bar.hidden = !inBattle;
@@ -1993,6 +2006,8 @@ const PlayerApp = {
         this.requestHint(col);
       });
     }
+    const usedEl = document.getElementById('chat-hint-used');
+    if (usedEl) usedEl.textContent = used.join(' · ');
     button.dataset.columns = eligible.join('');
     button.disabled = !eligible.length || !!this._hintPending;
     button.textContent = eligible.length === 1 ? `HINT · COLUMN ${eligible[0]}` : 'HINT';
@@ -4958,7 +4973,7 @@ const PlayerApp = {
         <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
           ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}
-          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
+          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}
           ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
           ${this.createReactionBarHTML(msg)}
         </div>
@@ -5008,7 +5023,7 @@ const PlayerApp = {
           <div class="chat-message-header"><span class="chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
           <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">&#8617;</button>
           ${replyContextHtml}
-          <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
+          <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}
           ${verdictMetaHtml}
           ${verdictResponseHtml}
           ${this.createReactionBarHTML(msg)}

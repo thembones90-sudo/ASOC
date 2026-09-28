@@ -33,6 +33,11 @@ const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_WS_PAYLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
+// Voice messages: up to 60 s. Opus at typical recorder bitrates is ~0.5 MB a
+// minute and AAC (Safari) ~1 MB, so 2 MB is a generous hard ceiling.
+const MAX_CHAT_VOICE_BYTES = 2 * 1024 * 1024;
+const MAX_CHAT_VOICE_SECONDS = 60;
+const CHAT_VOICE_TYPES = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a' };
 const MAX_POLL_QUESTION_LENGTH = 160;
 const MAX_POLL_OPTION_LENGTH = 80;
 const MAX_POLL_OPTIONS = 8;
@@ -201,6 +206,9 @@ const mimeTypes = {
   '.json': 'application/json',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.webm': 'audio/webm',
+  '.ogg': 'audio/ogg',
+  '.m4a': 'audio/mp4',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
@@ -400,6 +408,10 @@ function serializeRoomForRecovery(room) {
     kaladont: room.kaladont || null,
     // Private recovery data only. Network clients receive rouletteViewFor().
     rouletteCarnage: room.rouletteCarnage || null,
+    shadowRealm: room.shadowRealm || {},
+    shadowRealmHistory: Array.isArray(room.shadowRealmHistory) ? room.shadowRealmHistory.slice(-100) : [],
+    shadowRealmRecentLines: Array.isArray(room.shadowRealmRecentLines) ? room.shadowRealmRecentLines.slice(-5) : [],
+    shadowRealmOffenses: room.shadowRealmOffenses || {},
     timer: room.timer,
     pendingReveals: room.pendingReveals || {},
     solutionCountdowns: room.solutionCountdowns || {},
@@ -527,6 +539,10 @@ function restoreActiveRooms() {
         // so nobody is eliminated for time lost to the outage.
         kaladont: kaladont.resumeAfterRestart(kaladont.normalizeState(saved.kaladont), Date.now()),
         rouletteCarnage: rouletteCarnage.normalizeState(saved.rouletteCarnage),
+        shadowRealm: saved.shadowRealm && typeof saved.shadowRealm === 'object' ? saved.shadowRealm : {},
+        shadowRealmHistory: Array.isArray(saved.shadowRealmHistory) ? saved.shadowRealmHistory.slice(-100) : [],
+        shadowRealmRecentLines: Array.isArray(saved.shadowRealmRecentLines) ? saved.shadowRealmRecentLines.slice(-5) : [],
+        shadowRealmOffenses: saved.shadowRealmOffenses && typeof saved.shadowRealmOffenses === 'object' ? saved.shadowRealmOffenses : {},
         timer: saved.timer || null,
         pendingReveals: saved.pendingReveals || {},
         solutionCountdowns: saved.solutionCountdowns || {},
@@ -1175,6 +1191,10 @@ function createRoom(gameId, hostWs) {
     // KALADONT (Casual word-chain elimination game) -- see kaladont.js.
     kaladont: null,
     rouletteCarnage: null,
+    shadowRealm: {},
+    shadowRealmHistory: [],
+    shadowRealmRecentLines: [],
+    shadowRealmOffenses: {},
     // TIMER + BORROWED TIME -- server-authoritative, per-board (unlike WOMF's
     // persistent charge, a fresh board gets a fresh, un-started timer -- see
     // resetTimer(), called here and again from resetBoard/switchGame). Never
@@ -4419,6 +4439,42 @@ function appendChatImageMessage(room, actor, imageUrl, caption = '') {
   return message;
 }
 
+const CHAT_VOICE_URL = /^\/uploads\/chat\/[a-f0-9]{32}\.(?:webm|ogg|m4a)$/;
+
+function appendChatVoiceMessage(room, actor, audioUrl, seconds) {
+  const message = appendChatImageMessage(room, actor, audioUrl, '');
+  delete message.imageUrl;
+  message.audioUrl = audioUrl;
+  message.messageType = 'voice';
+  message.voiceSeconds = seconds;
+  if (message.source === 'chatImage') message.source = 'chatVoice';
+  return message;
+}
+
+// Real container signatures, so a renamed file of another kind is refused.
+function validChatVoiceBytes(buffer, contentType) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return false;
+  if (contentType === 'audio/webm') return buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3;
+  if (contentType === 'audio/ogg') return buffer.toString('ascii', 0, 4) === 'OggS';
+  if (contentType === 'audio/mp4') return buffer.toString('ascii', 4, 8) === 'ftyp';
+  return false;
+}
+
+function persistChatVoice(room, actor, buffer, contentType, seconds) {
+  const ext = CHAT_VOICE_TYPES[contentType];
+  if (!ext) throw new Error('Unsupported audio type');
+  const capacity = chatUploadGuard.checkCapacity(buffer.length);
+  if (!capacity.ok) throw Object.assign(new Error(capacity.error), { code: 'UPLOAD_CAPACITY' });
+  const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
+  fs.writeFileSync(path.join(CHAT_UPLOAD_DIR, filename), buffer, { flag: 'wx', mode: 0o600 });
+  chatUploadGuard.recordStored(actor.uploadSlot, buffer.length);
+  const audioUrl = '/uploads/chat/' + filename;
+  const message = appendChatVoiceMessage(room, actor, audioUrl, seconds);
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+  return { audioUrl, messageId: message.id };
+}
+
 
 function normalizeChatPoll(question, options, allowMultiple, durationSeconds) {
   const cleanQuestion = sanitizeText(question || '').slice(0, MAX_POLL_QUESTION_LENGTH);
@@ -5602,10 +5658,12 @@ function getChatImageActor(req, room) {
 // Admits one upload attempt before its body is read: per-actor throttle for
 // Little Heroes (the Shadow Broker is trusted) and a worst-case capacity check
 // for everyone. Returns false after answering the request itself.
-function admitChatUpload(res, actor) {
+// Voice notes are small and conversational: their own, larger allowance.
+const CHAT_VOICE_LIMITS = { maxCount: 30, minGapMs: 1000, maxBytes: 40 * 1024 * 1024 };
+function admitChatUpload(res, actor, kind = 'image') {
   if (actor.role !== 'gm') {
-    const key = 'player:' + actor.playerId;
-    const verdict = chatUploadGuard.checkActor(key);
+    const key = (kind === 'voice' ? 'voice:' : 'player:') + actor.playerId;
+    const verdict = chatUploadGuard.checkActor(key, Date.now(), kind === 'voice' ? CHAT_VOICE_LIMITS : null);
     if (!verdict.ok) {
       res.setHeader('Retry-After', String(Math.max(1, Math.ceil(verdict.retryAfterMs / 1000))));
       sendJson(res, 429, { error: verdict.error, code: 'UPLOAD_THROTTLED', retryAfterMs: verdict.retryAfterMs });
@@ -5647,14 +5705,14 @@ function persistChatImage(room, actor, buffer, contentType, caption) {
   return { imageUrl, messageId: message.id };
 }
 
-function readChatImageBody(req, cb) {
+function readChatImageBody(req, cb, limit = MAX_CHAT_IMAGE_BYTES) {
   const chunks = [];
   let size = 0;
   let rejected = false;
   req.on('data', chunk => {
     if (rejected) return;
     size += chunk.length;
-    if (size > MAX_CHAT_IMAGE_BYTES) {
+    if (size > limit) {
       rejected = true;
       cb(Object.assign(new Error('Image too large'), { code: 'TOO_LARGE' }));
       req.resume();
@@ -5671,7 +5729,7 @@ function readChatImageBody(req, cb) {
 }
 
 function serveChatUpload(req, res, urlPath) {
-  const match = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp|gif))$/i.exec(urlPath);
+  const match = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp|gif|webm|ogg|m4a))$/i.exec(urlPath);
   if (!match) return false;
   const active = Array.from(rooms.values()).some(room => room.chat?.messages?.some(message =>
     message.imageUrl === urlPath && message.bloodTribute?.active === true && Number(message.bloodTribute.expiresAt) > Date.now()
@@ -5694,10 +5752,27 @@ function serveChatUpload(req, res, urlPath) {
       return;
     }
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, {
+    const headers = {
       'Content-Type': mimeTypes[ext] || 'application/octet-stream',
-      'Cache-Control': 'private, no-store'
-    });
+      'Cache-Control': 'private, no-store',
+      'Accept-Ranges': 'bytes'
+    };
+    // Audio players (Safari in particular) require byte-range responses.
+    const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''));
+    if (range && (range[1] || range[2])) {
+      const size = content.length;
+      let start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+      let end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+      if (start >= size || start > end) {
+        res.writeHead(416, { 'Content-Range': `bytes */${size}` });
+        res.end();
+        return;
+      }
+      res.writeHead(206, { ...headers, 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': end - start + 1 });
+      res.end(content.subarray(start, end + 1));
+      return;
+    }
+    res.writeHead(200, headers);
     res.end(content);
   });
   return true;
@@ -5791,6 +5866,7 @@ function addChatMessage(room, playerId, playerName, text) {
     reactions: {}
   };
   if (message.boardId) message.scoreContext = scoreContextNow(room);
+  markShadowRealmReturn(room, playerId, message);
 
   attachChatReceipts(room, message);
   room.chat.messages.push(message);
@@ -6743,6 +6819,7 @@ function handleChatDelete(ws, message) {
   target.deletedBy = isHost ? '__GM__' : String(ws.playerId || '');
   target.text = '';
   delete target.imageUrl;
+  delete target.audioUrl;
   delete target.gif;
   delete target.poll;
   persistActiveRooms();
@@ -6955,6 +7032,9 @@ function createChatSerializer(room) {
       source: m.source || null,
       // A Little Hero @all that actually shook every screen.
       nudge: m.nudge === true || undefined,
+      imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
+      audioUrl: typeof m.audioUrl === 'string' && CHAT_VOICE_URL.test(m.audioUrl) ? m.audioUrl : undefined,
+      voiceSeconds: m.messageType === 'voice' ? Math.min(MAX_CHAT_VOICE_SECONDS, Math.max(1, Number(m.voiceSeconds) || 1)) : undefined,
       imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
       messageType: m.messageType || null,
       ...sanitizeChatCommandMeta(m),
@@ -7357,7 +7437,7 @@ function handlePlayerJoin(ws, message) {
     const left = shadowRealmRemaining(room, playerId);
     if (left > 0) {
       const entry = room.shadowRealm[String(playerId)];
-      sendToWs(ws, { type: 'shadowRealm:banish', playerId: String(playerId), playerName: cleanName, messageId: entry.messageId, until: entry.until, remainingMs: left, resumed: true });
+      sendToWs(ws, { type: 'shadowRealm:banish', playerId: String(playerId), playerName: cleanName, messageId: entry.messageId, until: entry.until, remainingMs: left, durationMs: Math.max(left, Number(entry.durationMs) || left), offenseCount: Number(entry.offenseCount) || 1, resumed: true });
     }
   });
   sendToWs(ws, {
@@ -7709,9 +7789,42 @@ const SHADOW_REALM_LINES = Object.freeze([
   '{player} has left the chat spiritually, if not technically.'
 ]);
 
-function shadowRealmAnnouncement(playerName) {
-  const line = SHADOW_REALM_LINES[crypto.randomInt(SHADOW_REALM_LINES.length)];
-  return line.replace('{player}', String(playerName || 'A Little Hero'));
+const SHADOW_REALM_RELEASE_LINES = Object.freeze([
+  '{player} has been returned to public discourse. Standards have been adjusted.',
+  '{player} has been released. The silence was beginning to improve them.',
+  '{player} may speak again. This is a privilege, not an endorsement.',
+  '{player} has completed their government-mandated introspection.',
+  '{player} returns from the void with exactly as much wisdom as expected.',
+  '{player} has been restored to the conversation under strict supervision.'
+]);
+
+function shadowRealmAnnouncement(room, playerName) {
+  room.shadowRealmRecentLines ||= [];
+  const recent = new Set(room.shadowRealmRecentLines);
+  const available = SHADOW_REALM_LINES.map((_line, index) => index).filter(index => !recent.has(index));
+  const pool = available.length ? available : SHADOW_REALM_LINES.map((_line, index) => index);
+  const index = pool[crypto.randomInt(pool.length)];
+  room.shadowRealmRecentLines.push(index);
+  room.shadowRealmRecentLines = room.shadowRealmRecentLines.slice(-5);
+  return SHADOW_REALM_LINES[index].replace('{player}', String(playerName || 'A Little Hero'));
+}
+
+function shadowRealmReleaseAnnouncement(playerName) {
+  return SHADOW_REALM_RELEASE_LINES[crypto.randomInt(SHADOW_REALM_RELEASE_LINES.length)].replace('{player}', String(playerName || 'A Little Hero'));
+}
+
+function sendShadowRealmHistory(room, ws = room?.hostConnection) {
+  if (!room || !ws || ws.readyState !== 1 || ws !== room.hostConnection) return;
+  sendToWs(ws, { type: 'shadowRealm:history', entries: (room.shadowRealmHistory || []).slice(-100).reverse(), now: Date.now() });
+}
+
+function markShadowRealmReturn(room, playerId, message) {
+  const id = String(playerId || '');
+  const entry = room?.shadowRealm?.[id];
+  if (!entry || entry.returnConsumed || Number(entry.until) > Date.now()) return;
+  message.shadowRealmReturn = { at: Date.now(), offenseCount: Number(entry.offenseCount) || 1 };
+  entry.returnConsumed = true;
+  delete room.shadowRealm[id];
 }
 
 function shadowRealmRemaining(room, playerId) {
@@ -7734,11 +7847,19 @@ function handleGmShadowRealm(ws, message) {
   }
   const playerId = String(target.playerId);
   const now = Date.now();
+  const requestedMs = Math.round(Number(message?.durationMs));
+  const durationMs = Number.isFinite(requestedMs) ? Math.max(1000, Math.min(86400000, requestedMs)) : SHADOW_REALM_MS;
   room.shadowRealm ||= {};
-  room.shadowRealm[playerId] = { until: now + SHADOW_REALM_MS, messageId: target.id };
+  room.shadowRealmOffenses ||= {};
+  const offenseCount = (Number(room.shadowRealmOffenses[playerId]) || 0) + 1;
+  room.shadowRealmOffenses[playerId] = offenseCount;
+  room.shadowRealm[playerId] = { until: now + durationMs, durationMs, messageId: target.id, playerName: target.playerName, offenseCount, returnConsumed: false };
   target.shadowRealm = { at: now };
-  const announcement = shadowRealmAnnouncement(target.playerName || 'A Little Hero');
+  const announcement = shadowRealmAnnouncement(room, target.playerName || 'A Little Hero');
   addShadowBrokerMessage(room, announcement, { editableByHost: false });
+  room.shadowRealmHistory ||= [];
+  room.shadowRealmHistory.push({ id:'sr-'+crypto.randomBytes(8).toString('hex'), playerId, playerName:target.playerName||'LITTLE HERO', messageId:target.id, announcement, offenseCount, durationMs, at:now, status:'BANISHED' });
+  room.shadowRealmHistory = room.shadowRealmHistory.slice(-100);
   persistActiveRooms();
   broadcastChatUpdate(room);
   broadcastToRoom(room, {
@@ -7747,10 +7868,30 @@ function handleGmShadowRealm(ws, message) {
     playerName: target.playerName || 'LITTLE HERO',
     messageId: target.id,
     announcement,
-    until: now + SHADOW_REALM_MS,
-    remainingMs: SHADOW_REALM_MS
+    offenseCount,
+    durationMs,
+    until: now + durationMs,
+    remainingMs: durationMs
   });
+  sendShadowRealmHistory(room);
   console.log(`[ROOM ${room.code}] ${target.playerName} sent to the SHADOW REALM`);
+}
+
+function handleGmShadowRealmRelease(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker commands the Shadow Realm' });
+  const playerId = String(message?.playerId || '');
+  const entry = room.shadowRealm?.[playerId];
+  if (!entry || Number(entry.until) <= Date.now()) return sendToWs(ws, { type:'error', message:'SHADOW REALM // that sentence is no longer active' });
+  const playerName = entry.playerName || Array.from(room.players.values()).find(player => String(player.id) === playerId)?.name || 'LITTLE HERO';
+  entry.until = Date.now(); entry.releasedAt = Date.now();
+  const announcement = shadowRealmReleaseAnnouncement(playerName);
+  addShadowBrokerMessage(room, announcement, { editableByHost:false });
+  const history = [...(room.shadowRealmHistory || [])].reverse().find(item => item.playerId === playerId && item.status === 'BANISHED');
+  if (history) { history.status='RELEASED'; history.releasedAt=entry.releasedAt; history.releaseAnnouncement=announcement; }
+  persistActiveRooms(); broadcastChatUpdate(room);
+  broadcastToRoom(room, { type:'shadowRealm:release', playerId, playerName, announcement, offenseCount:entry.offenseCount });
+  sendShadowRealmHistory(room);
 }
 
 // ---------------------------------------------------------------------------
@@ -9684,6 +9825,34 @@ function handleApiRequest(req, res) {
     });
   }
 
+  if (method === 'POST' && url.pathname === '/api/chat/voice') {
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    if (!CHAT_VOICE_TYPES[contentType]) return sendJson(res, 415, { error: 'Only WEBM, OGG and MP4 audio are allowed' });
+    const seconds = Math.round(Number(url.searchParams.get('seconds')));
+    if (!Number.isFinite(seconds) || seconds < 1) return sendJson(res, 400, { error: 'Voice message is too short' });
+    if (seconds > MAX_CHAT_VOICE_SECONDS) return sendJson(res, 413, { error: 'Voice messages are limited to 1 minute' });
+
+    const room = rooms.get(MASTER_ROOM_CODE);
+    if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
+    const actor = getChatImageActor(req, room);
+    if (!actor) return sendJson(res, 401, { error: 'Chat upload authentication required' });
+    if (actor.role !== 'gm' && shadowRealmRefusal(room, actor.playerId)) return sendJson(res, 423, { error: shadowRealmRefusal(room, actor.playerId), code: 'SHADOW_REALM' });
+    if (!admitChatUpload(res, actor, 'voice')) return;
+
+    return readChatImageBody(req, (err, body) => {
+      if (err) return sendJson(res, err.code === 'TOO_LARGE' ? 413 : 400, { error: err.code === 'TOO_LARGE' ? 'Voice message exceeds 2 MB' : 'Voice upload failed' });
+      if (!body || body.length === 0) return sendJson(res, 400, { error: 'Empty voice upload' });
+      if (!validChatVoiceBytes(body, contentType)) return sendJson(res, 415, { error: 'Audio file signature does not match its declared type' });
+      try {
+        return sendJson(res, 201, { ok: true, ...persistChatVoice(room, actor, body, contentType, seconds) });
+      } catch (writeError) {
+        console.error('[chat-voice] upload failed', writeError);
+        const status = uploadFailureStatus(writeError);
+        return sendJson(res, status, { error: status === 507 ? writeError.message : 'Voice message could not be stored', code: status === 507 ? 'UPLOAD_CAPACITY' : undefined });
+      }
+    }, MAX_CHAT_VOICE_BYTES);
+  }
+
 
   // GM-only client modules. They live in gm-modules/ (never a static root),
   // so their code is invisible to anyone without a Shadow Broker session.
@@ -10548,6 +10717,15 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:shadowRealm': {
           handleGmShadowRealm(ws, message);
+          break;
+        }
+        case 'gm:shadowRealmRelease': {
+          handleGmShadowRealmRelease(ws, message);
+          break;
+        }
+        case 'gm:shadowRealmHistory': {
+          const room = rooms.get(ws.roomCode?.toUpperCase());
+          if (room && ws === room.hostConnection) sendShadowRealmHistory(room, ws);
           break;
         }
         case 'gm:resetScoreboard': {

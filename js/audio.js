@@ -147,6 +147,15 @@ const AsocAudio = (() => {
     tone({ frequency: 1220, start: 0.07, duration: 0.16, gain: 0.045, type: 'sine' });
   }
 
+  // A Little Hero asked for a hint: a bright two-tone ping plus a glitch tick,
+  // distinct from verdict/column sounds so the Shadow Broker notices it.
+  function hintRequest() {
+    tone({ frequency: 988, duration: 0.14, gain: 0.08, type: 'square', filter: { type: 'lowpass', frequency: 2600, q: 0.7 } });
+    tone({ frequency: 1319, start: 0.16, duration: 0.2, gain: 0.08, type: 'square', filter: { type: 'lowpass', frequency: 2600, q: 0.7 } });
+    tone({ frequency: 1319, start: 0.42, duration: 0.24, gain: 0.06, type: 'sine' });
+    noise({ start: 0.12, duration: 0.05, gain: 0.03, type: 'highpass', frequency: 3200 });
+  }
+
   function columnSolved() {
     correct();
     [330, 495, 660].forEach((f, i) => tone({ frequency: f, endFrequency: f * 1.08, start: 0.12 + i * 0.085, duration: 0.23, gain: 0.055, type: 'triangle' }));
@@ -188,6 +197,13 @@ const AsocAudio = (() => {
     tone({ frequency: 74, endFrequency: 98, start: 0.18, duration: 0.56, gain: 0.15, type: 'sine' });
     metallicClick(0.72, 0.12);
     tone({ frequency: 196, start: 0.74, duration: 0.36, gain: 0.075, type: 'triangle' });
+  }
+
+  function shadowRealm() {
+    tone({ frequency: 118, endFrequency: 46, duration: 1.35, gain: 0.085, type: 'sine' });
+    tone({ frequency: 420, endFrequency: 116, start: 0.08, duration: 1.05, gain: 0.022, type: 'sawtooth', filter: { type: 'bandpass', frequency: 520, q: 1.8 } });
+    noise({ start: 0.12, duration: 1.1, gain: 0.018, type: 'lowpass', frequency: 620, q: 0.7 });
+    metallicClick(1.18, 0.035);
   }
 
   function omen() {
@@ -355,11 +371,13 @@ const AsocAudio = (() => {
     countdown,
     clueReveal,
     correct,
+    hintRequest,
     columnSolved,
     finalSolved,
     womfIncrease,
     womfCritical,
     borrowedTime,
+    shadowRealm,
     omen,
     gameWon,
     gameLost,

@@ -54,6 +54,7 @@
     if (!msg) return '';
     if (msg.messageType === 'gif' || msg.messageType === 'gifRemote') return msg.text ? truncate('GIF · ' + msg.text) : 'GIF';
     if (msg.messageType === 'image' || msg.imageUrl) return truncate(msg.text ? '📷 ' + msg.text : '📷 Image');
+    if (msg.messageType === 'voice') return '🎙 Voice message';
     if (msg.messageType === 'poll') return truncate('📊 ' + (msg.poll?.question || msg.text || 'Poll'));
     return truncate(stripReplyPrefix(msg.text));
   }

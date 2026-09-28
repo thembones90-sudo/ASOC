@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260929-hint-column-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20260929-voice-1">
   <link rel="stylesheet" href="css/quest-icon-system.css?v=20260928-skynet-quest-icons-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
   <link rel="stylesheet" href="css/black-market.css?v=20260929-black-market-1">
@@ -141,6 +141,7 @@
                     <div id="gm-attachment-menu" class="gm-attachment-menu" hidden role="menu" aria-label="Attachments">
                       <button type="button" class="gm-attachment-option" data-gm-attachment="image" role="menuitem"><span class="gm-attachment-option-icon" aria-hidden="true">▧</span><span class="gm-attachment-option-copy"><b>PHOTOS</b><small>UPLOAD · PASTE · DROP · 5 MB</small></span></button>
                       <button type="button" class="gm-attachment-option" data-gm-attachment="gif" role="menuitem"><span class="gm-attachment-option-icon gm-attachment-gif-icon" aria-hidden="true">GIF</span><span class="gm-attachment-option-copy"><b>GIF</b><small>Search GIPHY · upload fallback</small></span></button>
+                      <button type="button" class="gm-attachment-option" data-gm-attachment="voice" role="menuitem"><span class="gm-attachment-option-icon gm-attachment-voice-icon" aria-hidden="true">🎙</span><span class="gm-attachment-option-copy"><b>VOICE</b><small>Record up to 1 minute</small></span></button>
                       <button type="button" class="gm-attachment-option" data-gm-attachment="poll" role="menuitem"><span class="gm-attachment-option-icon gm-attachment-poll-icon" aria-hidden="true">▤</span><span class="gm-attachment-option-copy"><b>POLL</b><small>2–8 options · live results</small></span></button>
                     </div>
                     <div id="gm-poll-composer" class="gm-poll-composer" hidden>
@@ -154,6 +155,7 @@
                   <button type="button" id="gm-emoji-toggle" class="gm-emoji-toggle" title="Emoji" aria-label="Open emoji picker" aria-expanded="false">☺</button>
                   <div id="gm-emoji-picker" class="gm-emoji-picker" hidden></div>
                   <div id="shadow-broker-composer" class="shadow-broker-input shadow-broker-rich-input" contenteditable="true" role="textbox" aria-label="Shadow Broker transmission" aria-multiline="false" data-placeholder="Transmit to players..." spellcheck="true"></div>
+                  <button type="button" id="gm-voice-btn" class="gm-emoji-toggle gm-voice-btn" title="Voice message (up to 1 min)" aria-label="Record voice message"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg></button>
                 </div>
                 <input type="file" id="gm-image-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
                 <input type="file" id="gm-gif-upload-input" accept="image/gif" hidden>
@@ -323,7 +325,7 @@
       }
     });
   </script>
-  <script src="js/audio.js?v=20260925-gm-control-pass-1"></script>
+  <script src="js/audio.js?v=20260929-voice-1"></script>
   <script src="js/themes.js"></script>
   <script src="js/skeleton.js?v=20260927-sb-stable-2"></script>
   <script src="js/board-celebrations.js?v=20260928-board-coronation-1"></script>
@@ -340,7 +342,7 @@
   <script src="js/iks-ring.js?v=20260925-health-bars-1"></script>
   <script src="js/iks-board.js?v=20260925-iks-board-2"></script>
   <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
-  <script src="js/asoc-alerts.js?v=20260929-hint-column-1"></script>
+  <script src="js/asoc-alerts.js?v=20260929-voice-1"></script>
   <script src="js/chat-media-preview.js?v=20260928-save-as-3"></script>
   <script src="js/kaladont-ui.js?v=20260928-kaladont-chat-timer-1"></script>
   <script src="js/roulette-carnage-ui.js?v=20260929-roulette-carnage-1"></script>
@@ -351,7 +353,8 @@
   <script src="js/stale-guard.js?v=20260926-force-refresh-1"></script>
   <script src="js/megabonk.js?v=20260928-searchlight-1"></script>
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
-  <script src="js/app.js?v=20260929-hint-column-1"></script>
+  <script src="js/voice-messages.js?v=20260929-voice-1"></script>
+  <script src="js/app.js?v=20260929-voice-1"></script>
   <script src="js/gm-quests.js?v=20260929-quest-duration-1"></script>
   <script src="js/black-market.js?v=20260929-black-market-1"></script>
   <script src="js/forge.js?v=20260928-creator-uppercase-1"></script>
