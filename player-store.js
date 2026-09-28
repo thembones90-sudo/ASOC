@@ -681,6 +681,54 @@ function resetScoreboard() {
   return { profiles: count };
 }
 
+function grantAllShadowCoins(amount, receiptId, { reason = '' } = {}) {
+  const units = coinsToUnits(amount);
+  if (!units) return { ok: false, error: 'Invalid Shadow Coin amount', granted: 0, skipped: 0 };
+  const receipt = String(receiptId || '').trim();
+  if (!receipt) return { ok: false, error: 'Shadow Coin receipt required', granted: 0, skipped: 0 };
+
+  const players = loadPlayers();
+  if (!storageHealthy) throw Error('Player storage unavailable');
+
+  let granted = 0;
+  let skipped = 0;
+  for (const profile of Object.values(players)) {
+    if (!profile || !profile.id) continue;
+    if (!Number.isInteger(profile.shadowCoinUnits) || profile.shadowCoinUnits < 0) {
+      profile.shadowCoinUnits = Math.max(0, Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT));
+    }
+    if (!Array.isArray(profile.shadowCoinReceipts)) profile.shadowCoinReceipts = [];
+    if (!Array.isArray(profile.shadowCoinLedger)) profile.shadowCoinLedger = [];
+
+    if (profile.shadowCoinReceipts.includes(receipt)) {
+      skipped++;
+      continue;
+    }
+
+    profile.shadowCoinUnits += units;
+    profile.shadowCoins = unitsToCoins(profile.shadowCoinUnits);
+    profile.shadowCoinReceipts.push(receipt);
+    if (profile.shadowCoinReceipts.length > COIN_RECEIPT_LIMIT) {
+      profile.shadowCoinReceipts.splice(0, profile.shadowCoinReceipts.length - COIN_RECEIPT_LIMIT);
+    }
+    profile.shadowCoinLedger.push({
+      id: receipt,
+      at: nowISO(),
+      delta: unitsToCoins(units),
+      balance: profile.shadowCoins,
+      kind: 'admin_grant',
+      reason: String(reason || '').slice(0, 120)
+    });
+    if (profile.shadowCoinLedger.length > COIN_LEDGER_LIMIT) {
+      profile.shadowCoinLedger.splice(0, profile.shadowCoinLedger.length - COIN_LEDGER_LIMIT);
+    }
+    granted++;
+  }
+
+  if (granted) savePlayersAtomic(players);
+  return { ok: true, granted, skipped, amount: unitsToCoins(units) };
+}
+
 function getAllTimeLeaderboard(limit = 50) {
   const players = loadPlayers();
   return Object.values(players)
@@ -699,6 +747,7 @@ module.exports = {
   updateProfileAppearance,
   adjustProfile,
   getShadowCoins,
+  grantAllShadowCoins,
   awardShadowCoins,
   deductShadowCoins,
   spendShadowCoins,
