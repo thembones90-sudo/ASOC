@@ -190,10 +190,10 @@ html.mbk-shake {
 }
 
 @media (max-width: 620px), (max-height: 650px) {
-  .mbk-card { gap: 7px; padding: 14px 24px 22px; }
-  .mbk-searchlight { width: 175px; height: 116px; margin-bottom: -8px; }
-  .mbk-title { font-size: clamp(2.25rem, 14vw, 4rem); }
-  .mbk-ack { padding: 13px 20px; }
+  :where(html:not(.asoc-mobile)) .mbk-card { gap: 7px; padding: 14px 24px 22px; }
+  :where(html:not(.asoc-mobile)) .mbk-searchlight { width: 175px; height: 116px; margin-bottom: -8px; }
+  :where(html:not(.asoc-mobile)) .mbk-title { font-size: clamp(2.25rem, 14vw, 4rem); }
+  :where(html:not(.asoc-mobile)) .mbk-ack { padding: 13px 20px; }
 }
 
 /* MEGABONK message from the Shadow Broker */

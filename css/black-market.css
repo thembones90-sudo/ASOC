@@ -98,11 +98,11 @@
 .black-market-toast { position:fixed; left:50%; bottom:84px; z-index:9500; transform:translate(-50%,18px); opacity:0; padding:10px 14px; border:1px solid #6e273b; background:#0c090d; color:#d7b8c1; font:800 11px var(--font-machine,monospace); letter-spacing:.14em; transition:.18s; pointer-events:none; }
 .black-market-toast.show { opacity:1; transform:translate(-50%,0); }
 @media(max-width:700px){
-  .bm-petition{grid-template-columns:1fr}
-  .bm-petition label,.bm-petition label:last-of-type,.bm-petition>button{grid-column:1}
-  .bm-pact-head{display:grid}
-  .bm-pact-head span{max-width:none;text-align:left}
-  .black-market-entry{right:10px;bottom:10px}
+  :where(html:not(.asoc-mobile)) .bm-petition{grid-template-columns:1fr}
+  :where(html:not(.asoc-mobile)) .bm-petition label,:where(html:not(.asoc-mobile)) .bm-petition label:last-of-type,:where(html:not(.asoc-mobile)) .bm-petition>button{grid-column:1}
+  :where(html:not(.asoc-mobile)) .bm-pact-head{display:grid}
+  :where(html:not(.asoc-mobile)) .bm-pact-head span{max-width:none;text-align:left}
+  :where(html:not(.asoc-mobile)) .black-market-entry{right:10px;bottom:10px}
 }
 @media(prefers-reduced-motion:reduce){.black-market-void{animation:none}}
 

@@ -131,13 +131,13 @@ body.dmx-open { overflow: hidden; }
 
 /* ---- small screens: list OR thread ---- */
 @media (max-width: 720px) {
-  .dmx-panel { height: 100%; }
-  .dmx-body { grid-template-columns: 1fr; }
-  .dmx-panel.has-thread .dmx-list { display: none; }
-  .dmx-panel:not(.has-thread) .dmx-thread { display: none; }
-  .dmx-panel.has-thread .dmx-back { display: inline-block; }
-  .dmx-allow { display: none; }
-  .dmx-msg { max-width: 86%; }
+  :where(html:not(.asoc-mobile)) .dmx-panel { height: 100%; }
+  :where(html:not(.asoc-mobile)) .dmx-body { grid-template-columns: 1fr; }
+  :where(html:not(.asoc-mobile)) .dmx-panel.has-thread .dmx-list { display: none; }
+  :where(html:not(.asoc-mobile)) .dmx-panel:not(.has-thread) .dmx-thread { display: none; }
+  :where(html:not(.asoc-mobile)) .dmx-panel.has-thread .dmx-back { display: inline-block; }
+  :where(html:not(.asoc-mobile)) .dmx-allow { display: none; }
+  :where(html:not(.asoc-mobile)) .dmx-msg { max-width: 86%; }
 }
 @media (prefers-reduced-motion: reduce) {
   #game-screen .hero-stat-dm.has-unread, .dmx-toast { animation: none; }
@@ -164,6 +164,6 @@ body.dmx-open { overflow: hidden; }
     margin-right:auto !important;
   }
 }
-@media(max-width:760px){.dmx-rail.is-casual{display:none}.dmx-overlay.dmx-casual-drawer{inset:0;width:auto;padding:16px;display:grid;background:rgba(3,4,7,.86);backdrop-filter:blur(3px);pointer-events:auto}.dmx-overlay.dmx-casual-drawer .dmx-panel{width:min(1040px,100%);height:min(720px,100%);margin:auto}.dmx-overlay.dmx-casual-drawer .dmx-body{grid-template-columns:minmax(230px,320px) 1fr}}
+@media(max-width:760px){:where(html:not(.asoc-mobile)) .dmx-rail.is-casual{display:none}:where(html:not(.asoc-mobile)) .dmx-overlay.dmx-casual-drawer{inset:0;width:auto;padding:16px;display:grid;background:rgba(3,4,7,.86);backdrop-filter:blur(3px);pointer-events:auto}:where(html:not(.asoc-mobile)) .dmx-overlay.dmx-casual-drawer .dmx-panel{width:min(1040px,100%);height:min(720px,100%);margin:auto}:where(html:not(.asoc-mobile)) .dmx-overlay.dmx-casual-drawer .dmx-body{grid-template-columns:minmax(230px,320px) 1fr}}
 /* Hidden must always beat drawer layout rules, including the mobile override above. */
 .dmx-overlay.dmx-casual-drawer[hidden]{display:none}
