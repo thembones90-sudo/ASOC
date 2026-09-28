@@ -47,11 +47,11 @@ const built = overlay.rebuilds;
 assert.match(overlay.innerHTML, /CLAIM COMPLETION/);
 for (let i = 0; i < 5; i++) api.render();
 assert.equal(overlay.rebuilds, built, 'the per-second tick does not rebuild the contract markup');
-assert.match(overlay._clock.textContent, /TIME LIMIT \/\/ \d+:\d{2}/, 'the countdown still updates');
+assert.match(overlay._clock.textContent, /^\d+:\d{2}$/, 'the countdown still updates');
 
 api.update({ active: [{ ...quest, status: 'CLAIMED' }], history: [] });
 assert.equal(overlay.rebuilds, built + 1, 'a status change rebuilds once');
-assert.match(overlay.innerHTML, /AWAITING SHADOW BROKER ADJUDICATION/);
+assert.match(overlay.innerHTML, /AWAITING SHADOW BROKER/);
 
 // Daily Contracts.
 const daily = {
@@ -65,7 +65,7 @@ const dailyOverlay = byId.get('daily-contract-overlay');
 const dailyBuilt = dailyOverlay.rebuilds;
 for (let i = 0; i < 5; i++) api.renderDaily();
 assert.equal(dailyOverlay.rebuilds, dailyBuilt, 'the daily tick does not rebuild unchanged contracts');
-assert.match(dailyOverlay._clock.textContent, /RESET \/\/ \d{2}:\d{2}:\d{2}/);
+assert.match(dailyOverlay._clock.textContent, /^\d{2}:\d{2}:\d{2}$/);
 api.updateDaily({ ...daily, contracts: [{ ...daily.contracts[0], progress: 11000 }] });
 assert.equal(dailyOverlay.rebuilds, dailyBuilt + 1, 'new progress rebuilds once');
 

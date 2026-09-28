@@ -1,0 +1,23 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const ROOT=path.join(__dirname,'..');
+const read=file=>fs.readFileSync(path.join(ROOT,file),'utf8');
+const server=read('server.js'),app=read('js/app.js'),player=read('js/player.js');
+const fx=read('js/board-celebrations.js'),css=read('css/asoc.css');
+const index=read('index.html'),join=read('join.html');
+
+assert.match(server,/celebration = \{[\s\S]*?kind: target === 'FINAL' \? 'final' : 'column'[\s\S]*?playerName: message\.playerName/,'new authoritative solves create a named celebration');
+assert.match(server,/if \(result\.celebration\) \{[\s\S]*?type: 'board:solveCelebration'/,'only a fresh solve broadcasts the effect');
+assert.match(app,/case 'board:solveCelebration':[\s\S]*?getElementById\('asoc-board'\)/,'GM renders celebration over its board');
+assert.match(player,/case 'board:solveCelebration':[\s\S]*?getElementById\('public-board'\)/,'players render celebration over the public board');
+assert.match(fx,/seen\.has\(message\.id\)/,'clients deduplicate celebration events');
+assert.match(fx,/final\?'♛':'♕'/,'column and Final use distinct crown treatments');
+assert.match(fx,/final\?30:18/,'Final uses the larger particle explosion');
+assert.match(css,/\.column-coronation/,'column coronation styling exists');
+assert.match(css,/\.final-coronation/,'Final golden coronation styling exists');
+assert.match(css,/@media\(prefers-reduced-motion:reduce\)[\s\S]*?\.board-solve-coronation/,'celebration has a reduced-motion presentation');
+assert.match(index,/board-celebrations\.js\?v=20260928-board-coronation-1/,'GM loads the celebration controller');
+assert.match(join,/board-celebrations\.js\?v=20260928-board-coronation-1/,'players load the celebration controller');
+console.log('PASS board coronations: fresh verdict event, silver column crown, gold Final crown, dedupe and reduced motion');

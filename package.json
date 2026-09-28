@@ -8,7 +8,7 @@
     "dev": "node server.js",
     "deploy:manifest": "node scripts/generate-deploy-manifest.js",
     "test:creator": "node tests/forge-creator.js && node tests/forge-xlsx-export.js",
-    "test:quests": "node tests/quests.js && node tests/daily-contracts.js",
+    "test:quests": "node tests/quests.js && node tests/daily-contracts.js && node tests/quest-visuals.js && node tests/board-celebrations.js",
     "test": "node scripts/run-all-tests.js"
   },
   "dependencies": {
