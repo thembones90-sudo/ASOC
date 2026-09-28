@@ -1295,7 +1295,14 @@ const PlayerApp = {
   handleMessage(message) {
     switch (message.type) {
       case 'protocol:hello':
-        this.send({ type: 'protocol:hello', protocolVersion: 1, clientBuild: window.StaleGuard?.pageBuild('player') || 'unknown' });
+        this.send({
+          type: 'protocol:hello',
+          protocolVersion: 1,
+          clientBuild: window.StaleGuard?.pageBuild('player') || 'unknown',
+          // Opt into incremental chat. Without this the server keeps sending
+          // the full chat snapshot on every event.
+          capabilities: ['chat:delta']
+        });
         break;
 
       case 'protocol:ready': {
@@ -1431,92 +1438,28 @@ const PlayerApp = {
         break;
 
       case 'chat:update': {
-        const incoming = message.messages || [];
-        const previousIds = new Set(this.chatMessages.map(m => m.id));
-        const previousById = new Map(this.chatMessages.map(m => [m.id, m]));
-        this._chatArrivalIds = new Set();
-        this._chatVerdictTransitionIds = new Set();
-        let followLatest = Number(this._forceChatFollowLatestUntil || 0) > Date.now();
-        // Only look for a "new" standalone Broker broadcast to trigger the
-        // board-line reveal AFTER the first hydration -- otherwise a
-        // player joining mid-game would see the room's entire chat history
-        // replay as a fresh transmission the moment they connect.
-        if (this._chatEverInitialized) {
-          const newMessages = incoming.filter(m => !previousIds.has(m.id));
-          window.AsocAlerts?.playerChat(newMessages, { selfId: this.playerId, selfName: this.playerName });
-          followLatest = followLatest || newMessages.some(m =>
-            String(m.playerId || '') === String(this.playerId || '')
-          );
-          const verdictUpdates = incoming.filter(m => {
-            const previous = previousById.get(m.id);
-            return previous && previous.verdict !== m.verdict && m.verdict;
-          });
-          if (verdictUpdates.some(m => m.verdict === 'correct')) {
-            window.AsocAudio?.correct?.();
-          }
-          this._chatArrivalIds = new Set(
-            newMessages
-              .filter(m => m?.source !== 'shadowBroker')
-              .map(m => String(m.id || ''))
-              .filter(Boolean)
-          );
-          this._chatVerdictTransitionIds = new Set(
-            verdictUpdates.map(m => String(m.id || '')).filter(Boolean)
-          );
+        this._chatSeq = Number(message.seq) || 0;
+        this.applyChatMessages(message.messages || [], message.solvedTargets || {});
+        break;
+      }
 
-          const newActivityCount = newMessages.length + verdictUpdates.length;
-          if (this.userScrolledUp && newActivityCount) {
-            this._newMessageCount += newActivityCount;
-            this._unreadSystemCount += newMessages.filter(m => this.isPriorityChatMessage(m)).length + verdictUpdates.length;
-            this._unreadChatCount += newMessages.filter(m => !this.isPriorityChatMessage(m)).length;
-            this.updateNewMessageChip();
-          }
-          const priority = [...newMessages.filter(m => this.isPriorityChatMessage(m)), ...verdictUpdates];
-          if (priority.length) this.showChatPriority(priority.at(-1));
-          if (newMessages.length >= 4) {
-            const panel = document.getElementById('chat-panel');
-            panel?.classList.add('chat-high-traffic');
-            clearTimeout(this._highTrafficTimer);
-            this._highTrafficTimer = setTimeout(() => panel?.classList.remove('chat-high-traffic'), 5000);
-          }
-          if (newMessages.some(m => String(m.playerId || '') === String(this.playerId || ''))) {
-            this._forceChatFollowLatestUntil = 0;
-            this.setChatDeliveryState('DELIVERED', 'delivered', 1800);
-          }
-          const newBrokerMsg = newMessages.find(m => m.source === 'shadowBroker');
-          if (newBrokerMsg) {
-            this.playShadowBrokerBoardLine(newBrokerMsg.text);
-            const panel = document.getElementById('chat-panel');
-            panel?.classList.add('broker-priority');
-            clearTimeout(this._brokerPriorityTimer);
-            this._brokerPriorityTimer = setTimeout(() => panel?.classList.remove('broker-priority'), 4200);
-          }
+      case 'chat:delta': {
+        // Only a connection that declared the 'chat:delta' capability is ever
+        // sent one. A seq this client never saw means an event was missed
+        // (reconnect mid-stream, dropped frame). Its view is then unreliable,
+        // so take a fresh snapshot instead of silently rendering a hole.
+        const seq = Number(message.seq) || 0;
+        if (this._chatSeq && seq > this._chatSeq + 1) {
+          this.requestChatResync();
+          break;
         }
-        const verdictNow = Date.now();
-        incoming.forEach(msg => {
-          const previous = previousById.get(msg.id);
-          if (msg.verdict === 'wrong') {
-            if (previous?.verdict !== 'wrong') {
-              this._wrongVerdictSeenAt.set(
-                msg.id,
-                this._chatEverInitialized ? verdictNow : verdictNow - 3000
-              );
-            } else if (!this._wrongVerdictSeenAt.has(msg.id)) {
-              this._wrongVerdictSeenAt.set(msg.id, verdictNow - 3000);
-            }
-          } else {
-            this._wrongVerdictSeenAt.delete(msg.id);
-          }
-        });
-        this._chatEverInitialized = true;
-        this.chatMessages = incoming;
-        this.solvedTargets = message.solvedTargets || {};
-        const solvedCount = document.getElementById('chat-solved-count');
-        const solvedText = this.roomMode === 'CASUAL' ? 'CHANNEL OPEN' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
-        if (solvedCount && solvedCount.textContent !== solvedText) solvedCount.textContent = solvedText;
-        this.renderChat({ forceLatest: followLatest });
-        this._chatArrivalIds.clear();
-        this._chatVerdictTransitionIds.clear();
+        this._chatSeq = Math.max(this._chatSeq || 0, seq);
+        this.applyChatMessages(this.mergeChatDelta(message.messages || []), message.solvedTargets || {});
+        break;
+      }
+
+      case 'chat:history': {
+        this.prependChatHistory(message.messages || [], message.hasMore === true);
         break;
       }
 
@@ -3632,6 +3575,10 @@ const PlayerApp = {
 
         const { scrollTop, scrollHeight, clientHeight } = chatContainer;
         this.userScrolledUp = (scrollTop + clientHeight) < (scrollHeight - 80);
+        // Reached the top of what is loaded: ask the server for the page of
+        // older messages before it. Only fires on real user scrolling, so the
+        // restore renderChat() does cannot start a paging loop.
+        if (scrollTop <= 8) this.loadOlderChat();
         if (!this.userScrolledUp && this._newMessageCount) {
           this._newMessageCount = 0;
           this._unreadChatCount = 0;
@@ -4456,7 +4403,162 @@ const PlayerApp = {
     `;
   },
 
-  renderChat({ forceLatest = false } = {}) {
+  // The server keeps far more chat than it ever sends at once. A delta carries
+  // only the messages that changed, so it is merged into the local log first
+  // and the resulting full array is handed to the normal reconciliation path --
+  // that way new-message detection, verdict transitions, alerts and unread
+  // counting behave identically whether the log arrived as one snapshot or as
+  // two hundred deltas.
+  mergeChatDelta(changed) {
+    if (!changed.length) return this.chatMessages;
+    const byId = new Map(this.chatMessages.map(m => [String(m.id), m]));
+    for (const message of changed) byId.set(String(message.id), message);
+    const merged = Array.from(byId.values());
+    // Tombstones keep their slot: the timestamp ordering below is stable, and a
+    // deleted message still has to occupy its position in the log.
+    merged.sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
+    return this.trimChatLog(merged);
+  },
+
+  // Bound the live log so a long session cannot grow the client array without
+  // limit. This runs on the live-update path only. Explicit scrollback paging
+  // is allowed to grow the array past this, because the user asked for those
+  // messages and dropping them again under them would be worse than the cost;
+  // the next live update trims back to the newest window.
+  trimChatLog(messages) {
+    const limit = 1000;
+    return messages.length > limit ? messages.slice(-limit) : messages;
+  },
+
+  prependChatHistory(older, hasMore) {
+    if (!older.length) {
+      this._chatHistoryExhausted = !hasMore;
+      return;
+    }
+    const byId = new Map(this.chatMessages.map(m => [String(m.id), m]));
+    for (const message of older) {
+      const id = String(message.id);
+      // Never let a page overwrite what is already on screen; the live log is
+      // newer than anything history can return.
+      if (!byId.has(id)) byId.set(id, message);
+    }
+    const merged = Array.from(byId.values());
+    merged.sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
+    this.chatMessages = merged;
+    this._chatHistoryExhausted = !hasMore;
+    this.renderChat({ preserveScroll: true });
+  },
+
+  loadOlderChat() {
+    if (this._chatHistoryLoading || this._chatHistoryExhausted) return;
+    const oldest = this.chatMessages[0];
+    this._chatHistoryLoading = true;
+    this.send({
+      type: 'chat:history',
+      beforeId: oldest ? String(oldest.id) : null,
+      limit: 100
+    });
+    // The server always answers a well-formed request, so release the latch
+    // on the next frame even if the reply never lands.
+    setTimeout(() => { this._chatHistoryLoading = false; }, 1000);
+  },
+
+  requestChatResync() {
+    if (this._chatResyncPending) return;
+    this._chatResyncPending = true;
+    this.send({ type: 'chat:resync' });
+    setTimeout(() => { this._chatResyncPending = false; }, 2000);
+  },
+
+  applyChatMessages(incoming, solvedTargets) {
+    const previousIds = new Set(this.chatMessages.map(m => m.id));
+    const previousById = new Map(this.chatMessages.map(m => [m.id, m]));
+    this._chatArrivalIds = new Set();
+    this._chatVerdictTransitionIds = new Set();
+    let followLatest = Number(this._forceChatFollowLatestUntil || 0) > Date.now();
+    // Only look for a "new" standalone Broker broadcast to trigger the
+    // board-line reveal AFTER the first hydration -- otherwise a
+    // player joining mid-game would see the room's entire chat history
+    // replay as a fresh transmission the moment they connect.
+    if (this._chatEverInitialized) {
+      const newMessages = incoming.filter(m => !previousIds.has(m.id));
+      window.AsocAlerts?.playerChat(newMessages, { selfId: this.playerId, selfName: this.playerName });
+      followLatest = followLatest || newMessages.some(m =>
+        String(m.playerId || '') === String(this.playerId || '')
+      );
+      const verdictUpdates = incoming.filter(m => {
+        const previous = previousById.get(m.id);
+        return previous && previous.verdict !== m.verdict && m.verdict;
+      });
+      if (verdictUpdates.some(m => m.verdict === 'correct')) {
+        window.AsocAudio?.correct?.();
+      }
+      this._chatArrivalIds = new Set(
+        newMessages
+          .filter(m => m?.source !== 'shadowBroker')
+          .map(m => String(m.id || ''))
+          .filter(Boolean)
+      );
+      this._chatVerdictTransitionIds = new Set(
+        verdictUpdates.map(m => String(m.id || '')).filter(Boolean)
+      );
+
+      const newActivityCount = newMessages.length + verdictUpdates.length;
+      if (this.userScrolledUp && newActivityCount) {
+        this._newMessageCount += newActivityCount;
+        this._unreadSystemCount += newMessages.filter(m => this.isPriorityChatMessage(m)).length + verdictUpdates.length;
+        this._unreadChatCount += newMessages.filter(m => !this.isPriorityChatMessage(m)).length;
+        this.updateNewMessageChip();
+      }
+      const priority = [...newMessages.filter(m => this.isPriorityChatMessage(m)), ...verdictUpdates];
+      if (priority.length) this.showChatPriority(priority.at(-1));
+      if (newMessages.length >= 4) {
+        const panel = document.getElementById('chat-panel');
+        panel?.classList.add('chat-high-traffic');
+        clearTimeout(this._highTrafficTimer);
+        this._highTrafficTimer = setTimeout(() => panel?.classList.remove('chat-high-traffic'), 5000);
+      }
+      if (newMessages.some(m => String(m.playerId || '') === String(this.playerId || ''))) {
+        this._forceChatFollowLatestUntil = 0;
+        this.setChatDeliveryState('DELIVERED', 'delivered', 1800);
+      }
+      const newBrokerMsg = newMessages.find(m => m.source === 'shadowBroker');
+      if (newBrokerMsg) {
+        this.playShadowBrokerBoardLine(newBrokerMsg.text);
+        const panel = document.getElementById('chat-panel');
+        panel?.classList.add('broker-priority');
+        clearTimeout(this._brokerPriorityTimer);
+        this._brokerPriorityTimer = setTimeout(() => panel?.classList.remove('broker-priority'), 4200);
+      }
+    }
+    const verdictNow = Date.now();
+    incoming.forEach(msg => {
+      const previous = previousById.get(msg.id);
+      if (msg.verdict === 'wrong') {
+        if (previous?.verdict !== 'wrong') {
+          this._wrongVerdictSeenAt.set(
+            msg.id,
+            this._chatEverInitialized ? verdictNow : verdictNow - 3000
+          );
+        } else if (!this._wrongVerdictSeenAt.has(msg.id)) {
+          this._wrongVerdictSeenAt.set(msg.id, verdictNow - 3000);
+        }
+      } else {
+        this._wrongVerdictSeenAt.delete(msg.id);
+      }
+    });
+    this._chatEverInitialized = true;
+    this.chatMessages = this.trimChatLog(incoming);
+    this.solvedTargets = solvedTargets || {};
+    const solvedCount = document.getElementById('chat-solved-count');
+    const solvedText = this.roomMode === 'CASUAL' ? 'CHANNEL OPEN' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
+    if (solvedCount && solvedCount.textContent !== solvedText) solvedCount.textContent = solvedText;
+    this.renderChat({ forceLatest: followLatest });
+    this._chatArrivalIds.clear();
+    this._chatVerdictTransitionIds.clear();
+  },
+
+  renderChat({ forceLatest = false, preserveScroll = false } = {}) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
 
@@ -4468,7 +4570,9 @@ const PlayerApp = {
     const previousClientHeight = container.clientHeight;
     const physicallyNearBottom =
       (previousScrollTop + previousClientHeight) >= (previousScrollHeight - 80);
-    const followLatest = forceLatest || physicallyNearBottom || !this.userScrolledUp;
+    // A prepended history page must never yank the viewport: force the anchor
+    // path so the message the user was reading stays exactly where it was.
+    const followLatest = !preserveScroll && (forceLatest || physicallyNearBottom || !this.userScrolledUp);
 
     // When the user is deliberately reading history, anchor the first visible
     // real message and its visual offset. Rebuilding the transcript can change

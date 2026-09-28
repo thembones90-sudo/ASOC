@@ -199,6 +199,13 @@ const AsocAudio = (() => {
     tone({ frequency: 196, start: 0.74, duration: 0.36, gain: 0.075, type: 'triangle' });
   }
 
+  function shadowRealm() {
+    tone({ frequency: 118, endFrequency: 46, duration: 1.35, gain: 0.085, type: 'sine' });
+    tone({ frequency: 420, endFrequency: 116, start: 0.08, duration: 1.05, gain: 0.022, type: 'sawtooth', filter: { type: 'bandpass', frequency: 520, q: 1.8 } });
+    noise({ start: 0.12, duration: 1.1, gain: 0.018, type: 'lowpass', frequency: 620, q: 0.7 });
+    metallicClick(1.18, 0.035);
+  }
+
   function omen() {
     const c = ensureContext();
     if (!c || !unlocked) return;
@@ -370,6 +377,7 @@ const AsocAudio = (() => {
     womfIncrease,
     womfCritical,
     borrowedTime,
+    shadowRealm,
     omen,
     gameWon,
     gameLost,

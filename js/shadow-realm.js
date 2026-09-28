@@ -10,6 +10,13 @@
   let veil = null;
   let timer = null;
 
+  function sentenceTitle(offenseCount) {
+    const count = Number(offenseCount) || 1;
+    if (count >= 3) return 'PERMANENTLY UNIMPRESSIVE';
+    if (count === 2) return 'RETURNING OFFENDER';
+    return 'BANISHED TO THE SHADOW REALM';
+  }
+
   function flicker(name, announcement) {
     // A restrained gray passage: a soft desaturation and a few slow wisps
     // move in from the edges while the SHADOW REALM glyph fades through.
@@ -59,21 +66,26 @@
     }
   }
 
-  function banishSelf(until) {
+  function banishSelf(until, durationMs, offenseCount) {
     clearInterval(timer);
     if (!veil || !veil.isConnected) {
       veil = document.createElement('div');
       veil.className = 'srealm-veil' + (reduced() ? ' still' : '');
       veil.setAttribute('role', 'status');
-      veil.innerHTML = '<i class="srealm-smoke"></i><i class="srealm-smoke two"></i><div class="srealm-banner"><strong>BANISHED TO THE SHADOW REALM</strong><span>YOUR VOICE RETURNS IN <b class="srealm-count">10</b>s</span></div>';
+      veil.innerHTML = `<i class="srealm-smoke"></i><i class="srealm-smoke two"></i><div class="srealm-seal"><div><b class="srealm-count">10</b><small>SECONDS</small></div></div><div class="srealm-banner"><strong>${sentenceTitle(offenseCount)}</strong><span>YOUR VOICE RETURNS WHEN THE SEAL OPENS</span></div>`;
       document.body.appendChild(veil);
     }
     const count = veil.querySelector('.srealm-count');
+    const title = veil.querySelector('.srealm-banner strong');
+    if (title) title.textContent = sentenceTitle(offenseCount);
+    const total = Math.max(1000, Number(durationMs) || (until - Date.now()));
     const tick = () => {
-      const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      const leftMs = Math.max(0, until - Date.now());
+      const left = Math.ceil(leftMs / 1000);
       if (count) count.textContent = String(left);
-      lockInputs(left > 0);
-      if (left <= 0) release();
+      veil?.style.setProperty('--realm-progress', `${Math.max(0, Math.min(360, (leftMs / total) * 360))}deg`);
+      lockInputs(leftMs > 0);
+      if (leftMs <= 0) release();
     };
     tick();
     timer = setInterval(tick, 250);
@@ -91,19 +103,37 @@
     }
   }
 
+  function releaseEvent(message, selfId) {
+    const self = selfId && String(selfId) === String(message.playerId);
+    if (self) release();
+    const toast = document.createElement('div');
+    toast.className = 'srealm-toast srealm-release-toast';
+    toast.setAttribute('role', 'status');
+    toast.textContent = message.announcement || `${message.playerName || 'A Little Hero'} has returned from the Shadow Realm.`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.classList.add('out'), 3600);
+    setTimeout(() => toast.remove(), 4200);
+  }
+
   function onMessage(message, selfId) {
+    if (message.type === 'shadowRealm:release') return releaseEvent(message, selfId);
     if (message.type !== 'shadowRealm:banish') return;
     // Count down the server's remaining time on this device's own clock, so a
     // skewed device clock cannot shorten or stretch the punishment.
     const until = Date.now() + Math.max(0, Number(message.remainingMs) || 0);
-    if (!message.resumed) flicker(message.playerName || 'A LITTLE HERO', message.announcement);
-    if (selfId && String(selfId) === String(message.playerId)) banishSelf(until);
+    if (!message.resumed) {
+      flicker(message.playerName || 'A LITTLE HERO', message.announcement);
+      window.AsocAudio?.shadowRealm?.();
+    }
+    if (selfId && String(selfId) === String(message.playerId)) banishSelf(until, message.durationMs, message.offenseCount);
   }
 
   // Persistent memento on the punished message.
-  function messageClass(msg) { return msg?.shadowRealm ? ' shadow-realmed' : ''; }
+  function messageClass(msg) { return `${msg?.shadowRealm ? ' shadow-realmed' : ''}${msg?.shadowRealmReturn ? ' shadow-returned' : ''}`; }
   function markHTML(msg) {
-    return msg?.shadowRealm ? '<span class="srealm-mark" aria-label="Banished to the Shadow Realm"><i></i>BANISHED TO THE SHADOW REALM</span>' : '';
+    if (msg?.shadowRealm) return '<span class="srealm-mark" aria-label="Banished to the Shadow Realm"><i></i>BANISHED TO THE SHADOW REALM</span>';
+    if (msg?.shadowRealmReturn) return '<span class="srealm-return-mark"><i></i>RETURNED FROM THE REALM</span>';
+    return '';
   }
 
   window.ShadowRealm = { onMessage, messageClass, markHTML, _release: release };
