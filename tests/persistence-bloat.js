@@ -104,7 +104,7 @@ function unitPlayerStoreCache() {
       assert.equal(store.loadPlayers()['lh-a'].lifetimeScore, 77, 'external edits are detected');`;
     execFileSync(process.execPath, ['-e', script], { cwd: ROOT, env: { ...process.env, ASOC_DATA_DIR: dir } });
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 
@@ -196,7 +196,7 @@ function unitPlayerStoreCache() {
     clients.forEach(c => c.close());
     try { server.kill(); } catch {}
     await sleep(300);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
   console.log('PASS persistence bloat: no avatar copies in chat/polls/recovery, recovery size bounded, roster avatars sent once per socket, profile avatars restored, long-offline identities released, daily views and capped attendance write nothing, cache never leaks mutations');
 })().catch(error => {

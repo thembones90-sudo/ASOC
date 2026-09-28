@@ -263,8 +263,8 @@ function testSessionStoreRecovery() {
   `;
   const failed = spawnSync(process.execPath, ['-e', failScript, failDir, failTrigger, ROOT], { encoding: 'utf8' });
   assert.equal(failed.status, 0, failed.stderr || failed.stdout);
-  fs.rmSync(dir, { recursive: true, force: true });
-  fs.rmSync(failDir, { recursive: true, force: true });
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+  fs.rmSync(failDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   console.log('PASS player auth session backup recovery, corruption quarantine, hashed keys and write failure');
 }
 
@@ -388,7 +388,7 @@ function testSessionStoreRecovery() {
 
     console.log('ALL HARDENING REGRESSIONS PASSED');
     await stopServer();
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   } catch (error) {
     console.error('HARDENING TEST FAILURE:', error);
     if (serverOutput) console.error('--- server output tail ---\n' + serverOutput.slice(-4000));

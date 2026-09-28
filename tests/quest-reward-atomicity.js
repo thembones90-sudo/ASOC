@@ -123,7 +123,7 @@ function unitGrantAndLedger() {
       assert.equal(paid.ok, false, 'award reports failure when storage refuses the write');`;
     execFileSync(process.execPath, ['-e', script], { cwd: ROOT, env: { ...process.env, ASOC_DATA_DIR: dir }, stdio: ['ignore', 'ignore', 'pipe'] });
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 
@@ -194,7 +194,7 @@ function unitGrantAndLedger() {
   } finally {
     await closeAll();
     try { await stop(server); } catch {}
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
   console.log('PASS quest reward atomicity + admin grant: pay-then-complete, landed payments never repaid, storage failure leaves the quest retryable, refused saves are failures, grants honour a creation cutoff exactly once and never run at startup');
 })().catch(error => {

@@ -78,7 +78,7 @@ function checkStore() {
     assert.equal(store.getShadowCoins(ana), 4, 'legacy whole-coin balances migrate unchanged');
     assert.equal(store.awardShadowCoins(ana, 0.2, 'after-migration').balance, 4.2);
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
     delete process.env.ASOC_DATA_DIR;
   }
 }
@@ -259,7 +259,7 @@ async function runServer() {
     clients.forEach(c => c.close());
     server.kill();
     await sleep(250);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 

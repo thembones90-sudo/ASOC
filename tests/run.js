@@ -2552,6 +2552,6 @@ function startServer() {
     try { fs.unlinkSync(TEST_AUTH_FILE + '.tmp'); } catch {}
     try { fs.unlinkSync(TEST_MATCHES); } catch {}
     try { fs.unlinkSync(TEST_MATCHES + '.bak'); } catch {}
-    try { fs.rmSync(TEST_DATA, { recursive: true, force: true }); } catch {}
+    try { fs.rmSync(TEST_DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); } catch {}
   }
 })();

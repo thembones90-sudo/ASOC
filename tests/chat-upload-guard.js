@@ -44,7 +44,7 @@ function unitThrottleAndCapacity() {
     const floor = createChatUploadGuard({ dir, budgetBytes: 1e12, minFreeBytes: Number.MAX_SAFE_INTEGER });
     if (typeof fs.statfsSync === 'function') assert.equal(floor.checkCapacity(1).ok, false, 'free-disk floor refuses');
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 
@@ -83,7 +83,7 @@ function unitSweep() {
     assert.ok(fs.existsSync(path.join(dir, tribute + '.tribute')), 'tribute marker untouched');
     assert.equal(guard.usedBytes(), PNG.length * 5, 'usage re-measured after sweep');
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 
@@ -144,7 +144,7 @@ async function live(extraEnv, scenario) {
     sockets.forEach(ws => { try { ws.close(); } catch {} });
     server.kill();
     await sleep(300);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 

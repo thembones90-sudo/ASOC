@@ -50,7 +50,7 @@ async function withServer(env, fn, seed) {
   } finally {
     server.kill();
     await sleep(300);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 

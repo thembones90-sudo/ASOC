@@ -45,4 +45,4 @@ try{
   assert.ok(!fs.readdirSync(dir).some(n=>n.includes('.tmp-')));
   assert.ok(store.login('legacy','password'));
   console.log('PASS auth durability, rename persistence, recovery, legacy/verified compatibility and write failures');
-}finally{fs.rmSync(dir,{recursive:true,force:true})}
+}finally{fs.rmSync(dir,{recursive:true,force:true,maxRetries:20,retryDelay:100})}

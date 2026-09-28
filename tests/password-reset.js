@@ -162,7 +162,7 @@ function startServer() {
   } finally {
     server.kill();
     await sleep(250);
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 })().catch(error => {
   console.error('FAIL forgot password:', error);

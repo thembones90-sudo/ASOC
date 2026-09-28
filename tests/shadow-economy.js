@@ -185,7 +185,7 @@ function checkStore() {
     assert.equal(legacy.cosmetics.equipped.effect, null, 'unowned equips are cleared');
     assert.deepEqual(legacy.shadowCoinLedger, []);
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
     delete process.env.ASOC_DATA_DIR;
   }
 }
@@ -544,7 +544,7 @@ async function runServer() {
     clients.forEach(c => c.close());
     server.kill();
     await sleep(250);
-    fs.rmSync(DATA, { recursive: true, force: true });
+    fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 

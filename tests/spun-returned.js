@@ -178,6 +178,6 @@ function profiles() {
     clients.forEach(c => c.close());
     server.kill();
     await sleep(300);
-    try { fs.rmSync(DATA, { recursive: true, force: true }); } catch {}
+    try { fs.rmSync(DATA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); } catch {}
   }
 })().catch(error => { console.error('FAIL', error); process.exit(1); });
