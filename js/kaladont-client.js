@@ -8,6 +8,7 @@
     open: false,
     invitedLobbies: new Set(),
     lastPhaseKey: '',
+    chatMode: false,
 
     init() {
       if (this.initialized) return;
@@ -35,11 +36,22 @@
         <div class="threefold-shell kaladont-shell">
           <div class="threefold-head">
             <div><b>KALADONT</b><small>WORD CHAIN // LAST ONE STANDING</small></div>
-            <button type="button" data-kaladont-action="close" aria-label="Close">×</button>
+            <div class="kal-head-actions">
+              <button type="button" data-kaladont-action="chat" class="kal-chat-toggle" aria-label="Open chat">CHAT</button>
+              <button type="button" data-kaladont-action="close" aria-label="Close">×</button>
+            </div>
           </div>
           <div id="kaladont-content" class="threefold-content kaladont-content"></div>
         </div>`;
       document.getElementById('chat-panel')?.appendChild(panel);
+      const restore = document.createElement('button');
+      restore.type = 'button';
+      restore.id = 'kaladont-restore';
+      restore.className = 'kaladont-restore';
+      restore.dataset.kaladontAction = 'game';
+      restore.textContent = 'KALADONT';
+      restore.hidden = true;
+      document.getElementById('chat-panel')?.appendChild(restore);
     },
 
     show() {
@@ -47,6 +59,8 @@
       this.open = true;
       const panel = document.getElementById('kaladont-panel');
       if (panel) panel.hidden = false;
+      this.chatMode = false;
+      document.getElementById('kaladont-restore')?.setAttribute('hidden', '');
       PlayerApp.send({ type: 'kaladont:sync' });
       this.render();
     },
@@ -55,6 +69,26 @@
       this.open = false;
       const panel = document.getElementById('kaladont-panel');
       if (panel) panel.hidden = true;
+      this.chatMode = false;
+      document.getElementById('kaladont-restore')?.setAttribute('hidden', '');
+    },
+
+    showChat() {
+      const panel = document.getElementById('kaladont-panel');
+      if (panel) panel.hidden = true;
+      this.chatMode = true;
+      const restore = document.getElementById('kaladont-restore');
+      if (restore) restore.hidden = false;
+      document.getElementById('chat-input')?.focus();
+    },
+
+    showGame() {
+      this.chatMode = false;
+      const restore = document.getElementById('kaladont-restore');
+      if (restore) restore.hidden = true;
+      const panel = document.getElementById('kaladont-panel');
+      if (panel && this.open) panel.hidden = false;
+      this.render();
     },
 
     render() {
@@ -124,6 +158,8 @@
       const action = button.dataset.kaladontAction;
       event.preventDefault();
       if (action === 'close') return this.hide();
+      if (action === 'chat') return this.showChat();
+      if (action === 'game') return this.showGame();
       if (action === 'create' || action === 'new') return this.send({ type: 'kaladont:create' });
       if (action === 'join') return this.send({ type: 'kaladont:join' });
       if (action === 'leave') return this.send({ type: 'kaladont:leave' });
