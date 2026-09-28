@@ -17461,7 +17461,7 @@ body.room-mode-casual #battle-controls-panel .master-access-menu {
 .gm-chat-reaction-chip[data-reactors]::after,.chat-reaction-chip[data-reactors]::after{
   content:attr(data-reactors);position:absolute;z-index:200010;left:50%;bottom:calc(100% + 8px);display:block;width:max-content;max-width:220px;
   padding:7px 9px;border:1px solid #54475f;border-radius:6px;background:#111015;color:#ece8f0;box-shadow:0 8px 22px rgba(0,0,0,.72);
-  font:700 .54rem/1.45 var(--font-system);letter-spacing:.03em;text-align:left;white-space:pre-line;pointer-events:none;opacity:0;transform:translate(-50%,4px);transition:opacity .11s ease,transform .11s ease;
+  font:800 .74rem/1.45 var(--font-system);letter-spacing:.025em;text-align:left;white-space:pre-line;pointer-events:none;opacity:0;transform:translate(-50%,4px);transition:opacity .11s ease,transform .11s ease;
 }
 .gm-chat-reaction-chip[data-reactors]:hover::after,.gm-chat-reaction-chip[data-reactors]:focus-visible::after,.chat-reaction-chip[data-reactors]:hover::after,.chat-reaction-chip[data-reactors]:focus-visible::after{opacity:1;transform:translate(-50%,0)}
 
