@@ -98,6 +98,26 @@ function showWindow(win = mainWindow) {
   win.focus();
 }
 
+// Access/login pages are uniquely vulnerable to becoming stale because the
+// desktop app normally stays alive in the tray. If the user "reopens" ASOC,
+// Electron may merely reveal the old renderer instead of requesting the fixed
+// website again. Refresh only while the access gate is actually visible;
+// never reload an active game/session.
+async function refreshAccessGateIfVisible(win = mainWindow) {
+  if (!win || win.isDestroyed()) return showWindow(win);
+  try {
+    const visible = await win.webContents.executeJavaScript(
+      `Boolean(document.getElementById('access-gate') && !document.getElementById('access-gate').hidden)`,
+      true
+    );
+    if (visible) {
+      await win.webContents.session.clearCache();
+      win.webContents.reloadIgnoringCache();
+    }
+  } catch {}
+  showWindow(win);
+}
+
 // ---------------------------------------------------------------------------
 // ATTENTION: taskbar flash, unread badge, tray dot, Windows notifications.
 // The page (js/asoc-alerts.js via preload.js) decides what matters; main only
@@ -284,8 +304,8 @@ function refreshTray() {
 function createTray() {
   trayIcons = makeTrayIcons();
   tray = new Tray(trayIcons.normal);
-  tray.on('click', () => showWindow());
-  tray.on('double-click', () => showWindow());
+  tray.on('click', () => refreshAccessGateIfVisible());
+  tray.on('double-click', () => refreshAccessGateIfVisible());
   refreshTray();
 }
 
@@ -390,7 +410,16 @@ function createMainWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 
   if (SMOKE_TEST) runSmokeTest(contents);
-  mainWindow.loadURL(START_URL.href);
+  // Always start from a fresh copy of the live access page. This prevents a
+  // broken pre-deploy login DOM from surviving indefinitely in Electron's
+  // persistent session cache.
+  contents.session.clearCache()
+    .catch(() => {})
+    .finally(() => {
+      const bootUrl = new URL(START_URL.href);
+      bootUrl.searchParams.set('desktop_build', app.getVersion());
+      mainWindow?.loadURL(bootUrl.href);
+    });
 }
 
 // `electron . --smoke --url=...` loads the site headlessly, checks the page
@@ -482,7 +511,7 @@ function buildMenu() {
 if (!SMOKE_TEST && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => showWindow());
+  app.on('second-instance', () => refreshAccessGateIfVisible());
   app.on('before-quit', () => { quitting = true; });
 
   app.whenReady().then(() => {
