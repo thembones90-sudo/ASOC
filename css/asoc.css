@@ -20422,14 +20422,17 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
     inset 0 0 0 1px rgba(0, 0, 0, .7),
     inset 0 0 30px color-mix(in srgb, var(--gb-accent) 40%, transparent),
     0 0 22px color-mix(in srgb, var(--gb-accent) 45%, transparent) !important;
-  animation: gm-void-tear .42s steps(2, end) 2;
+  animation: gm-void-tear .36s steps(3, end) 1 both;
 }
 #quests-btn:active, #sound-toggle-btn:active, #bice-asoc-btn:active, #reset-board-btn:active, #master-access-btn:active { transform: scale(.98); }
+/* The tear moves only the text's colour channels. It never changes the
+   button's clip-path or position: those define the hover hit area, and
+   animating them made the pointer drop in and out of :hover (flicker). */
 @keyframes gm-void-tear {
-  0% { clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px)); text-shadow: -3px 0 rgba(255, 40, 90, .9), 3px 0 var(--gb-accent-2); }
-  25% { clip-path: polygon(0 12%, 100% 12%, 100% 44%, 0 44%, 0 58%, 100% 58%, 100% 100%, 0 100%); transform: translateX(2px); }
-  50% { clip-path: polygon(0 0, 100% 0, 100% 30%, 0 30%, 0 70%, 100% 70%, 100% 88%, 0 88%); transform: translateX(-2px); text-shadow: 2px 0 rgba(255, 40, 90, .9), -2px 0 var(--gb-accent-2); }
-  100% { clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px)); transform: none; }
+  0% { text-shadow: -3px 0 rgba(255, 40, 90, .9), 3px 0 var(--gb-accent-2); }
+  30% { text-shadow: 2px 0 rgba(255, 40, 90, .9), -2px 0 var(--gb-accent-2), 0 0 12px var(--gb-accent); }
+  60% { text-shadow: -1px 0 rgba(255, 40, 90, .8), 1px 0 var(--gb-accent-2); }
+  100% { text-shadow: -1px 0 rgba(255, 40, 90, .75), 1px 0 var(--gb-accent-2), 0 0 10px var(--gb-accent); }
 }
 #bice-asoc-btn .bice-btn-sigil, #master-access-btn .master-access-sigil { filter: drop-shadow(-1px 0 rgba(255, 40, 90, .6)) drop-shadow(1px 0 rgba(61, 224, 255, .6)); }
 
@@ -20464,4 +20467,28 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
   }
   body:has(#game-screen.room-mode-casual) .daily-contract-hud small,
   body:has(#game-screen.room-mode-casual) .daily-contract-hud .daily-hud-word { display: none; }
+}
+/* Hover must never move these buttons: a moving box drags its edge out from
+   under the pointer and hover flickers on and off. */
+#quests-btn:hover, #sound-toggle-btn:hover, #bice-asoc-btn:hover, #reset-board-btn:hover, #master-access-btn:hover { transform: none !important; }
+/* GM mic: a round button that echoes the composer's rounded end. */
+#gm-voice-btn.gm-voice-btn {
+  display: grid !important;
+  place-items: center !important;
+  flex: 0 0 34px !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(155, 93, 224, .55) !important;
+  border-radius: 50% !important;
+  background: radial-gradient(circle at 50% 35%, rgba(155, 93, 224, .28), rgba(20, 12, 28, .95)) !important;
+  color: #d8b8ff !important;
+}
+#gm-voice-btn.gm-voice-btn:hover,
+#gm-voice-btn.gm-voice-btn:focus-visible {
+  outline: none;
+  border-color: #c79bff !important;
+  box-shadow: 0 0 10px rgba(155, 93, 224, .5) !important;
+  color: #fff !important;
 }
