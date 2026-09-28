@@ -8430,6 +8430,344 @@ position:absolute;
     @keyframes desktop-app-gold-sweep{0%,58%{left:-28%;opacity:0}66%{opacity:1}88%,100%{left:112%;opacity:0}}
     @media(prefers-reduced-motion:reduce){.signed-desktop-download,.signed-desktop-download::after{animation:none!important}}
     @media(max-width:760px){.signed-desktop-download{grid-template-columns:38px minmax(0,1fr);margin:6px 7px;padding:8px}.signed-desktop-download-icon{width:36px;height:36px;font-size:20px}.signed-desktop-download-copy strong{font-size:10px}.signed-desktop-download-copy small{font-size:7px}.signed-desktop-download-action{display:none}}
+
+    /* PLAYER COMMS DENSITY PATCH V1 // 2026-09-28 */
+    @media (min-width: 901px) {
+      /* Sidebar owns one job: communication. Everything above it stays compact. */
+      #game-screen .battle-comms-lobby {
+        display:grid !important;
+        grid-template-rows:auto minmax(0,1fr) !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+        padding:0 !important;
+      }
+
+      #game-screen .detainee-status-module {
+        min-height:0 !important;
+        max-height:168px !important;
+        overflow:visible !important;
+        padding:0 8px 5px !important;
+        border-bottom:1px solid rgba(116,126,139,.34) !important;
+      }
+      #game-screen .detainee-status-module::after { display:none !important; }
+      #game-screen .detainee-status-label {
+        min-height:22px !important;
+        height:22px !important;
+        padding:0 2px !important;
+        font-size:.42rem !important;
+        letter-spacing:.9px !important;
+      }
+
+      /* Desktop-app promo becomes a utility strip instead of a billboard. */
+      #game-screen .signed-desktop-download {
+        grid-template-columns:26px minmax(0,1fr) auto !important;
+        gap:8px !important;
+        min-height:34px !important;
+        margin:3px 0 4px !important;
+        padding:4px 7px !important;
+        border-left-width:2px !important;
+        border-radius:5px !important;
+        animation:none !important;
+        box-shadow:inset 0 1px rgba(255,244,187,.10),0 2px 8px rgba(0,0,0,.28) !important;
+      }
+      #game-screen .signed-desktop-download::after { display:none !important; }
+      #game-screen .signed-desktop-download-icon {
+        width:24px !important;
+        height:24px !important;
+        border-radius:5px !important;
+        font-size:14px !important;
+      }
+      #game-screen .signed-desktop-download-copy { gap:0 !important; }
+      #game-screen .signed-desktop-download-copy strong {
+        font-size:8px !important;
+        letter-spacing:1px !important;
+        line-height:1.1 !important;
+      }
+      #game-screen .signed-desktop-download-copy small { display:none !important; }
+      #game-screen .signed-desktop-download-action {
+        padding:5px 8px !important;
+        font-size:7px !important;
+        letter-spacing:.8px !important;
+      }
+
+      /* Presence strip and identity HUD stop eating the transcript. */
+      #game-screen .detainee-status-module .player-leaderboard-strip {
+        min-height:25px !important;
+        max-height:25px !important;
+        padding:2px 4px !important;
+        margin:0 !important;
+        overflow:hidden !important;
+      }
+      #game-screen .detainee-status-module .little-hero-hud {
+        min-height:0 !important;
+        padding:4px 3px 2px !important;
+        gap:4px !important;
+      }
+      #game-screen .battle-comms-lobby .hero-hud-identity {
+        min-height:28px !important;
+        padding:2px 4px !important;
+      }
+      #game-screen .battle-comms-lobby .hero-hud-stats {
+        gap:3px !important;
+        padding:0 !important;
+      }
+      #game-screen .battle-comms-lobby .hero-stat {
+        min-height:24px !important;
+        padding:2px 5px !important;
+        gap:4px !important;
+      }
+      #game-screen .battle-comms-lobby .hero-stat-icon {
+        width:12px !important;
+        height:12px !important;
+      }
+      #game-screen .battle-comms-lobby .hero-stat-label {
+        font-size:.37rem !important;
+        letter-spacing:.55px !important;
+      }
+      #game-screen .battle-comms-lobby .hero-stat b,
+      #game-screen .battle-comms-lobby .hero-link-value {
+        font-size:.52rem !important;
+      }
+
+      /* Transcript-first chat geometry. */
+      #game-screen .battle-comms-lobby #chat-panel {
+        display:flex !important;
+        flex-direction:column !important;
+        min-height:0 !important;
+        height:100% !important;
+        overflow:hidden !important;
+      }
+      #game-screen .battle-comms-lobby .chat-header {
+        flex:0 0 30px !important;
+        min-height:30px !important;
+        padding:4px 8px !important;
+        gap:8px !important;
+        border-bottom:1px solid rgba(116,126,139,.28) !important;
+      }
+      #game-screen .battle-comms-lobby .battle-comms-heading,
+      #game-screen .battle-comms-lobby .battle-comms-status {
+        flex-direction:row !important;
+        align-items:center !important;
+        gap:7px !important;
+      }
+      #game-screen .battle-comms-lobby .battle-comms-room,
+      #game-screen .battle-comms-lobby .connection-status {
+        display:none !important;
+      }
+      #game-screen .battle-comms-lobby .chat-title {
+        font-size:.58rem !important;
+        letter-spacing:1.2px !important;
+      }
+      #game-screen .battle-comms-lobby .battle-comms-online,
+      #game-screen .battle-comms-lobby .chat-solved {
+        font-size:.39rem !important;
+        letter-spacing:.55px !important;
+      }
+
+      #game-screen .battle-comms-lobby .chat-search-strip {
+        flex:0 0 30px !important;
+        min-height:30px !important;
+        padding:3px 7px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-search-strip input {
+        height:24px !important;
+        min-height:24px !important;
+        padding:0 8px !important;
+        font-size:.54rem !important;
+        letter-spacing:.55px !important;
+      }
+
+      #game-screen .battle-comms-lobby .battle-event-feed {
+        flex:0 0 auto !important;
+        gap:2px !important;
+        padding:2px 7px 0 !important;
+      }
+      #game-screen .battle-comms-lobby .battle-event {
+        min-height:20px !important;
+        padding:3px 7px !important;
+        font-size:.43rem !important;
+        letter-spacing:.7px !important;
+      }
+
+      #game-screen .battle-comms-lobby #chat-messages {
+        flex:1 1 auto !important;
+        min-height:0 !important;
+        overflow-y:auto !important;
+        overscroll-behavior:contain !important;
+        padding:5px 7px 6px !important;
+        scrollbar-gutter:stable !important;
+      }
+
+      /* WhatsApp/Discord-ish density while preserving ASOC identity colors. */
+      #game-screen .battle-comms-lobby .chat-message {
+        grid-template-columns:32px minmax(0,1fr) !important;
+        column-gap:6px !important;
+        margin-top:4px !important;
+        padding:2px 3px 3px 1px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-avatar-rail,
+      #game-screen .battle-comms-lobby .chat-message.grouped .chat-avatar-rail {
+        width:32px !important;
+        min-width:32px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
+      #game-screen .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact {
+        width:29px !important;
+        height:29px !important;
+        flex-basis:29px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-message-main {
+        min-width:92px !important;
+        max-width:82% !important;
+        padding:5px 27px 5px 8px !important;
+        border-radius:7px 7px 7px 3px !important;
+        box-shadow:inset 0 1px rgba(255,255,255,.045),0 1px 3px rgba(0,0,0,.30) !important;
+      }
+      #game-screen .battle-comms-lobby .chat-message-header,
+      #game-screen .battle-comms-lobby .chat-message.grouped .chat-message-header {
+        min-height:10px !important;
+        margin:0 0 1px !important;
+        padding-right:20px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-player-name {
+        font-size:.58rem !important;
+        line-height:1.05 !important;
+      }
+      #game-screen .battle-comms-lobby .chat-message-text,
+      #game-screen .battle-comms-lobby .chat-message.correct .chat-message-text {
+        font-size:.78rem !important;
+        line-height:1.25 !important;
+      }
+      #game-screen .battle-comms-lobby .chat-message-line .chat-time,
+      #game-screen .battle-comms-lobby .chat-edited-marker {
+        font-size:.47rem !important;
+        opacity:.72 !important;
+      }
+      #game-screen .battle-comms-lobby .chat-reply-btn {
+        top:3px !important;
+        right:3px !important;
+        width:22px !important;
+        height:22px !important;
+        line-height:20px !important;
+        font-size:.82rem !important;
+      }
+      #game-screen .battle-comms-lobby .chat-reactions.has-reactions {
+        margin-top:3px !important;
+        gap:2px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-reaction-chip,
+      #game-screen .battle-comms-lobby .chat-reaction-add {
+        min-height:17px !important;
+        padding:0 4px !important;
+        font-size:.45rem !important;
+      }
+
+      /* Room-wide acts become compact separators, not giant pseudo-messages. */
+      #game-screen .battle-comms-lobby .chat-system-card {
+        display:grid !important;
+        grid-template-columns:auto minmax(0,1fr) auto !important;
+        align-items:center !important;
+        gap:7px !important;
+        min-height:24px !important;
+        margin:3px 38px !important;
+        padding:3px 7px !important;
+        border-radius:5px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-system-label {
+        font-size:.46rem !important;
+        letter-spacing:.75px !important;
+        white-space:nowrap !important;
+      }
+      #game-screen .battle-comms-lobby .chat-system-body {
+        font-size:.59rem !important;
+        line-height:1.15 !important;
+        min-width:0 !important;
+      }
+      #game-screen .battle-comms-lobby .chat-system-detail {
+        font-size:.40rem !important;
+        line-height:1 !important;
+        white-space:nowrap !important;
+        opacity:.72 !important;
+      }
+
+      /* Polls remain public and informative, but stop occupying half a screen. */
+      #game-screen .battle-comms-lobby .chat-broker-poll-entry {
+        margin:5px 0 !important;
+      }
+      #game-screen .battle-comms-lobby .chat-broker-poll-entry > .shadow-broker-poll-transmission {
+        max-width:88% !important;
+        padding:5px 7px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-card {
+        padding:7px 8px !important;
+        border-radius:6px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-card-head {
+        min-height:17px !important;
+        padding-bottom:3px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-question {
+        margin:4px 0 5px !important;
+        font-size:.70rem !important;
+        line-height:1.18 !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-choice-list {
+        gap:3px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-choice {
+        min-height:25px !important;
+        padding:3px 7px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-choice-label {
+        font-size:.58rem !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-choice-result b {
+        font-size:.50rem !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-choice-result small,
+      #game-screen .battle-comms-lobby .chat-poll-card-head,
+      #game-screen .battle-comms-lobby .chat-poll-card-foot {
+        font-size:.40rem !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-card-foot {
+        min-height:17px !important;
+        padding-top:4px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-voters {
+        min-height:0 !important;
+        max-height:22px !important;
+        gap:3px !important;
+        padding:2px 0 !important;
+        overflow:hidden !important;
+      }
+      #game-screen .battle-comms-lobby .chat-poll-voter-chip {
+        min-height:17px !important;
+        padding:1px 4px !important;
+        font-size:.40rem !important;
+      }
+
+      /* Composer is the visual scale anchor and remains fixed at the bottom. */
+      #game-screen .battle-comms-lobby .chat-form {
+        flex:0 0 auto !important;
+        padding:5px 7px 6px !important;
+      }
+      #game-screen .battle-comms-lobby .chat-composer-shell {
+        min-height:34px !important;
+      }
+      #game-screen .battle-comms-lobby #chat-input {
+        min-height:32px !important;
+        padding:6px 8px !important;
+        font-size:.76rem !important;
+        line-height:1.2 !important;
+      }
+      #game-screen .battle-comms-lobby .chat-image-upload-btn,
+      #game-screen .battle-comms-lobby .chat-emoji-toggle {
+        width:30px !important;
+        min-width:30px !important;
+        height:30px !important;
+      }
+    }
+
 </style>
 </head>
 <body>
