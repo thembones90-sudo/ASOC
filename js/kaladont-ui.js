@@ -63,7 +63,7 @@
         <div class="kal-kicker">LOBBY // ${esc(state.ownerName)}</div>
         <div class="kal-count"><b>${state.members.length}</b> JOINED${online !== state.members.length ? ` · ${online} ONLINE` : ''}</div>
         <ul class="kal-members">${rows}</ul>
-        <p class="kal-rules">Turns are 60s. Each word must start with the last two letters of the last accepted word. Every living player votes on it: silence counts as ACCEPT, ties ACCEPT, a REJECT majority eliminates. <b>KALADONT</b> kills the next player. Last one standing wins.</p>
+        <p class="kal-rules">Turn clocks tighten by round: 40s → 35s → 30s → 30s → 25s → 20s thereafter. Each word must start with the last two letters of the last accepted word. Every living player votes on it: silence counts as ACCEPT, ties ACCEPT, a REJECT majority eliminates. <b>KALADONT</b> kills the next player. Last one standing wins.</p>
         <div class="kal-actions">${actions}</div>
         ${!opts.spectator && you.owner && online < 2 ? '<div class="kal-hint">WAITING FOR AT LEAST 2 ONLINE PLAYERS</div>' : ''}
       </div>`;
@@ -81,9 +81,9 @@
       : `<div class="kal-waiting">${state.you?.alive ? 'WAITING FOR' : 'SPECTATING'} <b>${esc(state.turn.playerName)}</b></div>`;
     return `
       <div class="kal-stage">
-        <div class="kal-current"><small>CURRENT PLAYER</small><b>${esc(state.turn.playerName)}</b>${mine ? '<em>YOUR TURN</em>' : ''}</div>
+        <div class="kal-current"><small>CURRENT PLAYER · ROUND ${Number(state.turn.round || state.round || 1)}</small><b>${esc(state.turn.playerName)}</b>${mine ? '<em>YOUR TURN</em>' : ''}</div>
         ${prefixBlock(state.prefix)}
-        <div class="kal-timer">${clock(state.turn.deadline, skew, 60)}</div>
+        <div class="kal-timer">${clock(state.turn.deadline, skew, Math.max(1, Math.round(Number(state.turn.durationMs || 40000) / 1000)))}</div>
         ${input}
       </div>`;
   }
