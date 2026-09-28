@@ -8,33 +8,103 @@
   display: grid;
   place-items: center;
   padding: 16px;
+  isolation: isolate;
+  overflow: hidden;
   background:
-    radial-gradient(ellipse at 50% 45%, rgba(192, 32, 44, .35), transparent 60%),
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, .18) 0 2px, transparent 2px 4px),
-    rgba(6, 3, 4, .93);
+    linear-gradient(90deg, transparent 49.88%, rgba(255, 51, 67, .09) 50%, transparent 50.12%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 4px),
+    radial-gradient(ellipse at 50% 44%, rgba(131, 6, 19, .42), transparent 48%),
+    #050204;
   font-family: var(--font-machine, ui-monospace, monospace);
 }
+.mbk-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 119px, rgba(255, 45, 58, .035) 120px, transparent 121px);
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+.mbk-surveillance { position: absolute; inset: 0; z-index: -1; pointer-events: none; filter: blur(.2px); }
+.mbk-surveillance i {
+  position: absolute;
+  left: 50%;
+  top: -34vh;
+  width: 42vw;
+  height: 145vh;
+  transform-origin: 50% 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 23, 42, .04) 16%, rgba(255, 31, 47, .23) 50%, rgba(255, 23, 42, .04) 84%, transparent);
+  clip-path: polygon(47% 0, 53% 0, 100% 100%, 0 100%);
+  mix-blend-mode: screen;
+}
+.mbk-surveillance i:nth-child(1) { animation: mbk-surveillance-left 5.8s ease-in-out infinite alternate; }
+.mbk-surveillance i:nth-child(2) { opacity: .7; animation: mbk-surveillance-right 7.1s ease-in-out infinite alternate; }
+.mbk-surveillance i:nth-child(3) { width: 24vw; opacity: .46; animation: mbk-surveillance-center 4.3s ease-in-out infinite alternate; }
 .mbk-card {
+  position: relative;
   display: grid;
   justify-items: center;
-  gap: 14px;
-  width: min(640px, 100%);
-  padding: 34px 28px 30px;
+  gap: 10px;
+  width: min(760px, 100%);
+  padding: 18px 38px 34px;
   text-align: center;
-  border: 2px solid #c0202c;
-  background: linear-gradient(180deg, #1c0a0d, #0a0506);
-  box-shadow: 0 0 0 1px #000, 0 0 60px rgba(192, 32, 44, .45), inset 0 0 40px rgba(192, 32, 44, .15);
+  border: 1px solid #a81826;
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 64px 100%,
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(255,255,255,.022) 32px),
+    radial-gradient(circle at 50% 35%, rgba(118, 6, 17, .24), transparent 48%),
+    linear-gradient(160deg, #190609, #070304 68%);
+  box-shadow: 0 0 0 1px #000, 0 0 90px rgba(180, 15, 31, .34), inset 0 0 70px rgba(111, 4, 15, .2);
 }
-.mbk-hammer { width: clamp(90px, 18vw, 140px); height: auto; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .7)); transform-origin: 50% 90%; }
+.mbk-card::before,
+.mbk-card::after { content: ''; position: absolute; top: 8px; bottom: 8px; width: 5px; border-block: 1px solid #ce2433; background: repeating-linear-gradient(0deg, #6b0a14 0 9px, transparent 9px 17px); opacity: .72; }
+.mbk-card::before { left: 9px; }
+.mbk-card::after { right: 9px; }
+.mbk-classification { width: 100%; display: flex; justify-content: space-between; gap: 20px; padding-bottom: 9px; border-bottom: 1px solid rgba(210, 36, 52, .35); color: #8f4b54; font-size: .56rem; letter-spacing: .24em; }
+.mbk-classification b { color: #ff5360; font-weight: 900; }
+.mbk-searchlight { position: relative; width: clamp(190px, 26vw, 270px); height: clamp(132px, 18vw, 178px); margin: -2px 0 -10px; filter: drop-shadow(0 16px 20px rgba(0,0,0,.78)); }
+.mbk-searchlight-unit { position: relative; z-index: 3; width: 100%; height: 100%; overflow: visible; }
+.mbk-mount { fill: url(#mbk-metal); stroke: #07080b; stroke-width: 6; }
+.mbk-yoke { fill: none; stroke: #30343b; stroke-width: 10; stroke-linejoin: bevel; }
+.mbk-armour { fill: url(#mbk-metal); stroke: #08090c; stroke-width: 6; }
+.mbk-armour-inner { fill: #0b0c10; stroke: #777b82; stroke-width: 2; }
+.mbk-lens-ring-outer { fill: #08090c; stroke: #474b52; stroke-width: 8; stroke-dasharray: 18 7; }
+.mbk-lens-ring { fill: #170307; stroke: #bb1b2b; stroke-width: 4; }
+.mbk-lens { fill: url(#mbk-lens); stroke: #ff3445; stroke-width: 2; }
+.mbk-lens-core { fill: #fff; filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 17px #ff1f35); }
+.mbk-reticle { fill: none; stroke: rgba(255,225,219,.82); stroke-width: 2; }
+.mbk-shutters { fill: #111318; stroke: #60646b; stroke-width: 2; }
+.mbk-rivets { fill: #a42733; stroke: #050609; stroke-width: 2; }
+.mbk-searchlight-beam {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 42%;
+  width: min(760px, 86vw);
+  height: min(430px, 48vh);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 78, 88, .34) 0 8%, rgba(244, 21, 39, .14) 27%, rgba(163, 4, 18, .05) 50%, transparent 70%);
+  filter: blur(6px);
+  animation: mbk-beam-breathe 1.75s ease-in-out infinite;
+}
+.mbk-searchlight-scan { position: absolute; z-index: 4; inset: 22% 23%; border: 1px solid rgba(255,221,215,.58); border-radius: 50%; box-shadow: 0 0 11px #ff2639, inset 0 0 9px #ff2639; animation: mbk-reticle-spin 3.8s linear infinite; }
+.mbk-searchlight-scan::before,
+.mbk-searchlight-scan::after { content: ''; position: absolute; background: rgba(255, 226, 220, .75); }
+.mbk-searchlight-scan::before { left: 50%; top: -8%; width: 1px; height: 116%; }
+.mbk-searchlight-scan::after { top: 50%; left: -8%; width: 116%; height: 1px; }
 .mbk-title {
   margin: 0;
-  font-size: clamp(3rem, 12vw, 6.4rem);
+  font-size: clamp(2.8rem, 10vw, 5.8rem);
   line-height: .95;
-  letter-spacing: .12em;
-  color: #fff;
-  text-shadow: 0 0 2px #fff, 0 0 24px #ff3b46, 0 0 48px rgba(192, 32, 44, .8), 4px 4px 0 #5a0a10;
+  letter-spacing: .16em;
+  color: #f2e8e8;
+  text-shadow: 0 0 2px #fff, 0 0 20px #ff2438, 0 0 48px rgba(192, 20, 36, .72), 5px 5px 0 #4d0710;
 }
-.mbk-sub { margin: 0; font-size: clamp(.8rem, 2.4vw, 1.05rem); letter-spacing: .26em; color: #ffc2c4; line-height: 1.6; }
+.mbk-sub { margin: 4px 0 0; font-size: clamp(.78rem, 2.2vw, 1rem); letter-spacing: .42em; color: #ff4b59; line-height: 1.6; font-weight: 900; }
+.mbk-directive { margin: -2px 0 2px; font-size: clamp(.58rem, 1.8vw, .78rem); letter-spacing: .2em; color: #c9a3a8; }
 .mbk-ack {
   margin-top: 10px;
   min-width: min(360px, 100%);
@@ -43,21 +113,26 @@
   letter-spacing: .3em;
   color: #fff;
   cursor: pointer;
-  border: 2px solid #ff5a64;
-  background: linear-gradient(180deg, #b0202b, #6a0f16);
-  box-shadow: 0 0 22px rgba(255, 60, 70, .45);
+  border: 1px solid #ff5a64;
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+  background: linear-gradient(180deg, #ae1926, #5c0912);
+  box-shadow: 0 0 22px rgba(255, 35, 53, .32), inset 0 1px rgba(255,255,255,.16);
 }
 .mbk-ack:hover:not(:disabled), .mbk-ack:focus-visible { background: linear-gradient(180deg, #d02a36, #86131c); outline: 3px solid #fff; outline-offset: 3px; }
 .mbk-ack:disabled { opacity: .6; cursor: progress; }
 
-/* Arrival: the hammer drops, the card slams, the page shakes once. */
-.mbk-slam .mbk-hammer { animation: mbk-drop .55s cubic-bezier(.5, 0, .75, 0) both, mbk-bonk .35s .55s ease-out; }
-.mbk-slam .mbk-card { animation: mbk-impact .5s .5s both; }
-.mbk-slam .mbk-title { animation: mbk-title .6s .55s both; }
-@keyframes mbk-drop { from { transform: translateY(-70vh) rotate(-35deg); } to { transform: translateY(0) rotate(0); } }
-@keyframes mbk-bonk { 40% { transform: scaleY(.8) scaleX(1.1); } }
-@keyframes mbk-impact { 0% { transform: scale(1.06); box-shadow: 0 0 120px rgba(255, 60, 70, .9); } 100% { transform: none; } }
-@keyframes mbk-title { 0% { transform: scale(1.6); opacity: 0; } 60% { transform: scale(.94); opacity: 1; } 100% { transform: none; } }
+/* Arrival: surveillance aperture powers up, finds the viewer, then locks. */
+.mbk-slam .mbk-card { animation: mbk-terminal-lock .7s cubic-bezier(.18,.78,.22,1) both; }
+.mbk-slam .mbk-searchlight { animation: mbk-searchlight-acquire .9s cubic-bezier(.15,.72,.2,1) both; }
+.mbk-slam .mbk-title { animation: mbk-title-lock .7s .28s both; }
+@keyframes mbk-terminal-lock { 0% { opacity: 0; transform: scaleX(.3) scaleY(.04); filter: brightness(3); } 45% { opacity: 1; transform: scaleX(1) scaleY(.04); } 72% { transform: scaleX(1) scaleY(1.025); } 100% { transform: none; filter: none; } }
+@keyframes mbk-searchlight-acquire { 0%, 42% { opacity: 0; transform: scale(.55) rotate(-18deg); } 72% { opacity: 1; transform: scale(1.08) rotate(2deg); } 100% { transform: none; } }
+@keyframes mbk-title-lock { 0% { opacity: 0; letter-spacing: .7em; filter: blur(10px); } 65% { opacity: 1; filter: blur(0); } 100% { letter-spacing: .16em; } }
+@keyframes mbk-beam-breathe { 50% { opacity: .66; transform: translate(-50%, -50%) scale(1.13); } }
+@keyframes mbk-reticle-spin { to { transform: rotate(360deg); } }
+@keyframes mbk-surveillance-left { from { transform: translateX(-50%) rotate(-31deg); } to { transform: translateX(-50%) rotate(18deg); } }
+@keyframes mbk-surveillance-right { from { transform: translateX(-50%) rotate(30deg); } to { transform: translateX(-50%) rotate(-16deg); } }
+@keyframes mbk-surveillance-center { from { transform: translateX(-50%) rotate(-10deg); } to { transform: translateX(-50%) rotate(11deg); } }
 html.mbk-shake {
   overflow: hidden;
   animation: mbk-shake .92s cubic-bezier(.36, .07, .19, .97) both;
@@ -110,7 +185,15 @@ html.mbk-shake {
 .mbk-gm-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px 10px; border-top: 1px solid #2c1a1e; font-size: 10.5px; letter-spacing: .12em; color: #b59aa0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .mbk-slam .mbk-hammer, .mbk-slam .mbk-card, .mbk-slam .mbk-title, html.mbk-shake { animation: none !important; }
+  .mbk-slam .mbk-card, .mbk-slam .mbk-searchlight, .mbk-slam .mbk-title,
+  .mbk-searchlight-beam, .mbk-searchlight-scan, .mbk-surveillance i, html.mbk-shake { animation: none !important; }
+}
+
+@media (max-width: 620px), (max-height: 650px) {
+  .mbk-card { gap: 7px; padding: 14px 24px 22px; }
+  .mbk-searchlight { width: 175px; height: 116px; margin-bottom: -8px; }
+  .mbk-title { font-size: clamp(2.25rem, 14vw, 4rem); }
+  .mbk-ack { padding: 13px 20px; }
 }
 
 /* MEGABONK message from the Shadow Broker */

@@ -72,6 +72,8 @@ async function healthy() {
 
 function checkClientNeverSelfDismisses() {
   const src = fs.readFileSync(path.join(ROOT, 'js/megabonk.js'), 'utf8');
+  const styles = fs.readFileSync(path.join(ROOT, 'css/megabonk.css'), 'utf8');
+  const playerPage = fs.readFileSync(path.join(ROOT, 'join.html'), 'utf8');
   const clear = src.slice(src.indexOf('function clearAlert'), src.indexOf('// ---------------------------------------------------------------- GM'));
   assert.ok(clear.length > 0);
   // The only path that removes the player alert is the server's megabonk:cleared.
@@ -80,6 +82,14 @@ function checkClientNeverSelfDismisses() {
   assert.doesNotMatch(src.slice(src.indexOf('function showAlert'), src.indexOf('function acknowledge')), /setTimeout\([^)]*remove|clearAlert/, 'no timed self-dismissal');
   assert.match(src, /message\.type === 'megabonk:alert'[\s\S]*shakePlayerScreen\(\)[\s\S]*enqueue/, 'every delivered player alert shakes before it is queued');
   assert.match(src, /void root\.offsetWidth/, 'repeated MEGABONKs restart the screen-shake animation');
+  assert.match(src, /const SEARCHLIGHT =/, 'player alert uses the original surveillance searchlight artwork');
+  assert.match(src, /YOU ARE BEING OBSERVED/, 'alert carries the authoritarian surveillance warning');
+  assert.doesNotMatch(src, /mbk-hammer/, 'generic hammer artwork is gone');
+  assert.match(styles, /@keyframes mbk-surveillance-left/, 'red searchlights sweep across the alert');
+  assert.match(styles, /@keyframes mbk-searchlight-acquire/, 'searchlight performs a target-acquisition entrance');
+  assert.match(styles, /prefers-reduced-motion:[\s\S]*\.mbk-searchlight-scan/, 'searchlight motion respects reduced-motion preferences');
+  assert.match(playerPage, /megabonk\.css\?v=20260928-searchlight-1/, 'searchlight artwork stylesheet is cache-busted');
+  assert.match(playerPage, /megabonk\.js\?v=20260928-searchlight-1/, 'searchlight alert script is cache-busted');
 }
 
 (async () => {

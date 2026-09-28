@@ -31,14 +31,34 @@
     shakeTimer = setTimeout(() => root.classList.remove('mbk-shake'), 1100);
   }
 
-  const HAMMER = `<svg class="mbk-hammer" viewBox="0 0 120 120" aria-hidden="true">
-    <rect x="54" y="44" width="12" height="70" rx="3" fill="#3a3f47" stroke="#101216" stroke-width="3"/>
-    <rect x="54" y="98" width="12" height="16" rx="2" fill="#7a2a2a"/>
-    <path d="M18 18h84l8 12v18l-8 12H18l-8-12V30z" fill="#6b7480" stroke="#101216" stroke-width="4"/>
-    <path d="M22 24h76l5 8v12l-5 8H22l-5-8V32z" fill="#9aa4b1"/>
-    <g fill="#101216"><circle cx="30" cy="39" r="3"/><circle cx="90" cy="39" r="3"/><circle cx="60" cy="39" r="4"/></g>
-    <path d="M10 30l-8-6v30l8-6z M110 30l8-6v30l-8-6z" fill="#c0202c" stroke="#101216" stroke-width="2"/>
-  </svg>`;
+  // Ministry-style surveillance searchlight: an original vector assembly,
+  // built from geometric armour, shutters and an illuminated optical core.
+  // It stays sharp at every desktop scale and replaces the generic hammer.
+  const SEARCHLIGHT = `<div class="mbk-searchlight" aria-hidden="true">
+    <div class="mbk-searchlight-beam"></div>
+    <svg class="mbk-searchlight-unit" viewBox="0 0 260 170" focusable="false">
+      <defs>
+        <radialGradient id="mbk-lens" cx="50%" cy="46%" r="54%">
+          <stop offset="0" stop-color="#fff6ed"/><stop offset=".12" stop-color="#ffdfcf"/><stop offset=".3" stop-color="#ff3648"/><stop offset=".68" stop-color="#7e0713"/><stop offset="1" stop-color="#170207"/>
+        </radialGradient>
+        <linearGradient id="mbk-metal" x1="0" y1="0" x2="1" y2="1">
+          <stop stop-color="#5f6268"/><stop offset=".28" stop-color="#171a20"/><stop offset=".65" stop-color="#343840"/><stop offset="1" stop-color="#090b0f"/>
+        </linearGradient>
+      </defs>
+      <path class="mbk-mount" d="M115 112h30l10 45h-50z"/>
+      <path class="mbk-yoke" d="M43 62h23v58h128V62h23v78H43z"/>
+      <path class="mbk-armour" d="M41 25 74 8h112l33 17 18 48-18 48-33 17H74l-33-17-18-48z"/>
+      <path class="mbk-armour-inner" d="M61 35 82 23h96l21 12 14 38-14 38-21 12H82l-21-12-14-38z"/>
+      <circle class="mbk-lens-ring-outer" cx="130" cy="73" r="57"/>
+      <circle class="mbk-lens-ring" cx="130" cy="73" r="46"/>
+      <circle class="mbk-lens" cx="130" cy="73" r="35"/>
+      <circle class="mbk-lens-core" cx="130" cy="73" r="8"/>
+      <path class="mbk-reticle" d="M130 27v18M130 101v18M84 73h18M158 73h18"/>
+      <g class="mbk-shutters"><path d="m72 20 23 9-18 18-31-4z"/><path d="m188 20-23 9 18 18 31-4z"/><path d="m72 126 23-9-18-18-31 4z"/><path d="m188 126-23-9 18-18 31 4z"/></g>
+      <g class="mbk-rivets"><circle cx="51" cy="73" r="3"/><circle cx="209" cy="73" r="3"/><circle cx="80" cy="18" r="3"/><circle cx="180" cy="18" r="3"/><circle cx="80" cy="128" r="3"/><circle cx="180" cy="128" r="3"/></g>
+    </svg>
+    <div class="mbk-searchlight-scan"></div>
+  </div>`;
 
   function enqueue(id, message) {
     if (!id) return;
@@ -69,10 +89,13 @@
       overlay.setAttribute('aria-labelledby', 'mbk-title');
       overlay.setAttribute('aria-describedby', 'mbk-sub');
       overlay.innerHTML = `
+        <div class="mbk-surveillance" aria-hidden="true"><i></i><i></i><i></i></div>
         <div class="mbk-card">
-          ${HAMMER}
+          <div class="mbk-classification"><span>MINISTRY OVERRIDE</span><b>PRIORITY // RED</b></div>
+          ${SEARCHLIGHT}
           <h1 id="mbk-title" class="mbk-title">MEGABONK</h1>
-          <p id="mbk-sub" class="mbk-sub">SHADOW BROKER REQUIRES YOUR ATTENTION</p>
+          <p id="mbk-sub" class="mbk-sub">YOU ARE BEING OBSERVED</p>
+          <p class="mbk-directive">SHADOW BROKER REQUIRES IMMEDIATE ATTENTION</p>
           <p class="mbk-msg" hidden></p>
           <p class="mbk-count" hidden></p>
           <button type="button" class="mbk-ack">ACKNOWLEDGE</button>
