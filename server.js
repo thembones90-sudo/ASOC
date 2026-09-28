@@ -7539,6 +7539,33 @@ function playerCooldown(room, ws) {
 // stays gray and smoking forever as a memento. Pure theatre: no score,
 // coins or game state are touched.
 const SHADOW_REALM_MS = Math.max(1000, Number(process.env.ASOC_SHADOW_REALM_MS) || 10000);
+const SHADOW_REALM_LINES = Object.freeze([
+  '{player} has been reassigned to the part of reality with no audience.',
+  '{player} asked for attention. The Shadow Realm has plenty to spare.',
+  '{player} has entered a strategic silence. The strategy was not optional.',
+  '{player} is now arguing with the void. The void remains unconvinced.',
+  '{player} has been promoted to Minister of Unheard Opinions.',
+  '{player} has discovered that consequences also have a loading screen.',
+  '{player} has been placed where even the echoes have muted them.',
+  '{player} briefly mistook noise for influence. Correction applied.',
+  '{player} has been invited to contemplate the value of an indoor voice.',
+  '{player} is enjoying ten seconds of government-mandated introspection.',
+  '{player} has been removed from the conversation for quality assurance.',
+  '{player} has crossed into a realm where every comeback arrives too late.',
+  '{player} has been sentenced to solitary relevance.',
+  '{player} wanted the last word. The Shadow Realm kept it.',
+  '{player} has been archived under: enthusiastic but unnecessary.',
+  '{player} has been sent somewhere their typing cannot hurt us.',
+  '{player} is temporarily unavailable due to excessive confidence.',
+  '{player} has joined the silent majority by executive decision.',
+  '{player} has been muted by powers older than their argument.',
+  '{player} has left the chat spiritually, if not technically.'
+]);
+
+function shadowRealmAnnouncement(playerName) {
+  const line = SHADOW_REALM_LINES[crypto.randomInt(SHADOW_REALM_LINES.length)];
+  return line.replace('{player}', String(playerName || 'A Little Hero'));
+}
 
 function shadowRealmRemaining(room, playerId) {
   const entry = room?.shadowRealm?.[String(playerId || '')];
@@ -7563,7 +7590,8 @@ function handleGmShadowRealm(ws, message) {
   room.shadowRealm ||= {};
   room.shadowRealm[playerId] = { until: now + SHADOW_REALM_MS, messageId: target.id };
   target.shadowRealm = { at: now };
-  addShadowBrokerMessage(room, `${target.playerName || 'A Little Hero'} has been banished to the Shadow Realm`, { editableByHost: false });
+  const announcement = shadowRealmAnnouncement(target.playerName || 'A Little Hero');
+  addShadowBrokerMessage(room, announcement, { editableByHost: false });
   persistActiveRooms();
   broadcastChatUpdate(room);
   broadcastToRoom(room, {
@@ -7571,6 +7599,7 @@ function handleGmShadowRealm(ws, message) {
     playerId,
     playerName: target.playerName || 'LITTLE HERO',
     messageId: target.id,
+    announcement,
     until: now + SHADOW_REALM_MS,
     remainingMs: SHADOW_REALM_MS
   });
