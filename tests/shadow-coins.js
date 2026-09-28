@@ -244,10 +244,11 @@ async function runServer() {
     await gm2.waitFor(m => m.type === 'host:recovered', 'host after restart');
     const back = await connect(first.name);
     await sleep(900);
-    assert.equal(coins(gm2, winnerId), 12, 'restart preserves both rewards and applies the one-time global +10 grant without replaying either');
+    assert.equal(coins(gm2, winnerId), 2, 'restart preserves both rewards and never re-runs an administrative grant for a later account');
     const persisted = JSON.parse(fs.readFileSync(path.join(DATA, 'players.json'), 'utf8'));
     const profile = Object.values(persisted).find(p => p.accountId === winnerId || p.id === winnerId);
-    assert.equal(profile.shadowCoins, 12);
+    assert.equal(profile.shadowCoins, 2);
+    assert.ok(!(profile.shadowCoinReceipts || []).includes('admin:global-grant:2026-09-28:10'), 'accounts created after the 2026-09-28 grant never receive it');
     assert.ok(profile.shadowCoinReceipts.some(r => r.startsWith('kaladont:')), 'the award receipt is recorded');
     assert.equal(profile.shadowCoinReceipts.filter(r => r.startsWith('kaladont:')).length, 1, 'the restored KALADONT match never pays twice');
     assert.equal(profile.cosmetics.owned['relic-word-killer'], 1, 'winning with the word KALADONT unearths WORD KILLER');

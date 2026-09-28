@@ -278,9 +278,14 @@ function testSessionStoreRecovery() {
     assert.equal((await gmLogin(badIp, 'wrong-one')).status, 401);
     assert.equal((await gmLogin(badIp, 'wrong-two')).status, 401);
     const locked = await gmLogin(badIp, 'wrong-three');
-    assert.equal(locked.status, 423, 'third bad attempt permanently locks that derived client key');
+    assert.equal(locked.status, 423, 'third bad attempt locks that derived client key');
+    assert.ok(locked.data.retryAfterMs > 0, 'the GM lock is time-based, not permanent');
     assert.equal((await gmLogin(badIp)).status, 423, 'locked forwarded client stays locked');
     assert.equal((await gmLogin('203.0.113.11')).status, 200, 'different forwarded client is not collateral damage');
+    // Only the proxy-appended (rightmost) hop is trusted: a client-supplied
+    // left-hand entry can neither dodge nor redirect the lock.
+    assert.equal((await gmLogin(`198.51.100.77, ${badIp}`)).status, 423, 'spoofed leftmost X-Forwarded-For does not escape the lock');
+    assert.equal((await gmLogin(`${badIp}, 203.0.113.12`)).status, 200, 'naming a locked address on the left does not lock an innocent client');
 
     const gm = await gmLogin();
     assert.equal(gm.status, 200, 'GM login succeeds');

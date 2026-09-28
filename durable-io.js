@@ -120,12 +120,24 @@ function replay() {
 
 replay();
 
+// Stores that cache what they wrote (player-store) learn here when a write
+// actually reached disk, inside or outside a transaction.
+const commitListeners = new Set();
+// writes: [[absoluteFile, exactSerializedData], ...]
+function notifyCommitted(writes) {
+  for (const listener of commitListeners) {
+    try { listener(writes); } catch {}
+  }
+}
+
+// Returns the exact serialized string written (or queued), so a caller can
+// recognise its own pending write later without re-serializing.
 function writeJson(file, value) {
   if (failed) throw new Error('Durable storage unavailable');
   const data = JSON.stringify(value, null, 2);
   if (pending) {
     pending.set(path.resolve(file), data);
-    return;
+    return data;
   }
   try {
     atomic(file, data);
@@ -133,6 +145,8 @@ function writeJson(file, value) {
     markFailed(error);
     throw error;
   }
+  notifyCommitted([[path.resolve(file), data]]);
+  return data;
 }
 
 const storeFs = new Proxy(fs, {
@@ -169,6 +183,7 @@ module.exports = {
       fs.unlinkSync(journal);
       syncDirectory(root);
       pending = null;
+      notifyCommitted(writes);
     } catch (error) {
       pending = null;
       markFailed(error);
@@ -177,6 +192,14 @@ module.exports = {
   },
   abort() {
     pending = null;
+  },
+  // The queued (uncommitted) content for `file` in the open transaction, or
+  // undefined when there is none.
+  pendingValue(file) {
+    return pending ? pending.get(path.resolve(file)) : undefined;
+  },
+  onCommit(listener) {
+    if (typeof listener === 'function') commitListeners.add(listener);
   },
   healthy() {
     return !failed;

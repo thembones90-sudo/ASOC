@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check server and client scripts
+        run: |
+          for f in *.js js/*.js gm-modules/*.js scripts/*.js tests/*.js; do
+            node --check "$f" || exit 1
+          done
+
+      # Runs every tests/*.js file and reports all failures (scripts/run-all-tests.js).
+      - name: Run the complete test suite
+        run: npm test

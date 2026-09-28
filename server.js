@@ -23,6 +23,8 @@ const kaladont = require('./kaladont');
 const unstableConcoction = require('./unstable-concoction');
 const questEngine = require('./quest-engine');
 const dailyContracts = require('./daily-contracts');
+const { createChatUploadGuard } = require('./chat-upload-guard');
+const { createPlayerAuthThrottle } = require('./auth-throttle');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -111,22 +113,11 @@ const DEPLOY_BUILD_ID = String(
 );
 const EMAIL_VERIFICATION_REQUIRED = process.env.ASOC_EMAIL_VERIFICATION !== '0';
 
-// One-time account grant requested by the Shadow Broker. The receipt makes the
-// operation idempotent across deploys/restarts: every existing player profile
-// receives +10 Shadow Coins exactly once.
-const SHADOW_COIN_GLOBAL_GRANT_RECEIPT = 'admin:global-grant:2026-09-28:10';
-try {
-  const grant = playerStore.grantAllShadowCoins(10, SHADOW_COIN_GLOBAL_GRANT_RECEIPT, {
-    reason: 'Shadow Broker global grant'
-  });
-  if (grant?.ok) {
-    console.log(`[shadow-coins] Global +10 grant: ${grant.granted} granted, ${grant.skipped} already granted`);
-  } else {
-    console.error('[shadow-coins] Global +10 grant failed:', grant?.error || 'unknown error');
-  }
-} catch (error) {
-  console.error('[shadow-coins] Global +10 grant failed:', error.message);
-}
+// Administrative Shadow Coin grants are NOT run at startup. The 2026-09-28
+// "+10 for every account" event already ran in production; running it on every
+// boot kept paying accounts created afterwards. Deliberate future grants use
+// scripts/grant-shadow-coins.js (explicit receipt + creation cutoff, run while
+// the server is stopped); the receipt keeps any grant exactly-once per account.
 const GAME_LOST_MESSAGES = Object.freeze([
   'Final association unresolved. Time exhausted. Cognitive adaptation insufficient. Expected result.',
   'All available time consumed. Required inference not achieved. Failure state confirmed.',
@@ -220,6 +211,7 @@ function assertDataDirectoryWritable(dataDir) {
 assertDataDirectoryWritable(ASOC_DATA_DIR);
 const CHAT_UPLOAD_DIR = path.join(ASOC_DATA_DIR, 'chat-uploads');
 fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
+const chatUploadGuard = createChatUploadGuard({ dir: CHAT_UPLOAD_DIR });
 const ACTIVE_ROOMS_FILE = process.env.ASOC_SESSION_FILE
   ? path.resolve(process.env.ASOC_SESSION_FILE)
   : path.join(ASOC_DATA_DIR, 'active-rooms.json');
@@ -320,14 +312,17 @@ function serializeRoomForRecovery(room) {
   const players = [];
   room.players.forEach(player => {
     if (player.isTestPersona === true || isMasterTestPlayerId(player.id)) return;
+    // No avatarData: the stored profile is the authoritative avatar and is
+    // re-read on restore, so the recovery file does not carry an image per
+    // identity on every write.
     players.push({
       id: player.id,
       name: player.name,
-      avatarData: player.avatarData || '',
       frameColor: player.frameColor || '#9B5DE0',
       themeId: player.themeId || 'gunmetal',
       themeColor: player.themeColor || '#343A42',
-      joinedAt: player.joinedAt || Date.now()
+      joinedAt: player.joinedAt || Date.now(),
+      lastSeenAt: player.lastSeenAt || player.joinedAt || Date.now()
     });
   });
 
@@ -378,6 +373,16 @@ function serializeRoomForRecovery(room) {
     quests: questEngine.normalizeState(room.quests),
     players
   };
+}
+
+// Chat messages no longer carry their own avatar copy: presentation resolves
+// from the live roster record, falling back to the stored profile.
+function liveAvatarFor(room, playerId) {
+  if (!playerId) return '';
+  for (const player of room?.players?.values?.() || []) {
+    if (String(player.id) === String(playerId) && player.avatarData) return player.avatarData;
+  }
+  return playerStore.peekPlayers()[String(playerId)]?.avatarData || '';
 }
 
 function persistActiveRooms() {
@@ -514,12 +519,23 @@ function restoreActiveRooms() {
       // that was open at the moment of the crash ends now.
       matchLedger.closeAllPresence(room.match, Date.now());
 
+      // Older snapshots stored an avatar copy on every chat message and poll
+      // vote. Presentation now resolves from the roster/profile: drop them.
+      for (const chatMessage of Array.isArray(room.chat?.messages) ? room.chat.messages : []) {
+        if (chatMessage && 'avatarData' in chatMessage) delete chatMessage.avatarData;
+        for (const voter of Object.values(chatMessage?.poll?.voters || {})) {
+          if (voter && typeof voter === 'object') delete voter.avatarData;
+        }
+      }
+
+      const storedProfiles = playerStore.peekPlayers();
       for (const player of Array.isArray(saved.players) ? saved.players : []) {
         if (!player || typeof player.id !== 'string' || typeof player.name !== 'string') continue;
         room.players.set(makeOfflinePlayerSocket(), {
           id: player.id,
           name: player.name,
-          avatarData: sanitizeAvatarData(player.avatarData) || '',
+          avatarData: sanitizeAvatarData(player.avatarData) || sanitizeAvatarData(storedProfiles[player.id]?.avatarData) || '',
+          lastSeenAt: Number(player.lastSeenAt) || Number(player.joinedAt) || Date.now(),
           frameColor: sanitizeFrameColor(player.frameColor) || '#9B5DE0',
           themeId: sanitizeThemeId(player.themeId) || 'gunmetal',
           themeColor: LITTLE_HERO_THEMES[sanitizeThemeId(player.themeId) || 'gunmetal'],
@@ -600,16 +616,53 @@ function gmClientKey(req) {
   // Forwarded client addresses are attacker-controlled unless this process is
   // explicitly running behind a trusted reverse proxy. Railway production
   // sets ASOC_TRUST_PROXY=1; local/direct deployments safely ignore XFF.
+  //
+  // The client address is the entry our trusted proxy chain appended, counted
+  // from the RIGHT (ASOC_TRUSTED_PROXY_HOPS, default 1 = Railway's edge).
+  // Entries further left were supplied by the client itself and are never
+  // trusted: taking the leftmost value let a client rotate fake addresses
+  // around rate limits or aim a lockout at someone else's address.
   const trustProxy = process.env.ASOC_TRUST_PROXY === '1';
   const direct = String(req.socket?.remoteAddress || 'unknown');
   let address = direct;
   if (trustProxy) {
+    const hops = Math.max(1, Math.floor(Number(process.env.ASOC_TRUSTED_PROXY_HOPS) || 1));
     const forwarded = String(req.headers['x-forwarded-for'] || '').split(',').map(v => v.trim()).filter(Boolean);
-    if (forwarded.length > 0 && forwarded.length <= 16 && forwarded.every(v => net.isIP(v))) address = forwarded[0];
+    const candidate = forwarded.length >= hops ? forwarded[forwarded.length - hops] : '';
+    if (candidate && net.isIP(candidate)) address = candidate;
   }
   return crypto.createHash('sha256').update(address).digest('hex');
 }
+// GM LOGIN BACKOFF. Three wrong passwords lock that client for
+// ASOC_GM_LOCKOUT_BASE_MS (15 min), doubling with every further failure up to
+// 24 h -- a time-based lock, never a permanent one, so an accidental lockout
+// heals on its own. A correct password clears the record; stale records are
+// dropped after 7 days so the file cannot grow without bound. Records written
+// by the old permanent lock expire 24 h after they were locked.
+const GM_LOCKOUT_THRESHOLD = 3;
+const GM_LOCKOUT_BASE_MS = Math.max(1000, Number(process.env.ASOC_GM_LOCKOUT_BASE_MS) || 15 * 60 * 1000);
+const GM_LOCKOUT_MAX_MS = 24 * 60 * 60 * 1000;
+const GM_LOCKOUT_RETAIN_MS = 7 * 24 * 60 * 60 * 1000;
+function gmLockoutRecord(clientKey, now = Date.now()) {
+  const record = gmLockouts[clientKey] || { attempts: 0 };
+  if (record.locked === true && !Number.isFinite(record.lockedUntil)) {
+    record.lockedUntil = (Date.parse(record.lockedAt) || now) + GM_LOCKOUT_MAX_MS;
+  }
+  // A long-quiet client starts over.
+  if (now - Number(record.lastAttemptAt || Date.parse(record.lockedAt) || 0) > GM_LOCKOUT_MAX_MS && !(record.lockedUntil > now)) {
+    record.attempts = 0;
+  }
+  return record;
+}
+function gmLockoutRemaining(record, now = Date.now()) {
+  return Number(record.lockedUntil) > now ? Number(record.lockedUntil) - now : 0;
+}
 function saveGmLockouts() {
+  const now = Date.now();
+  for (const [key, record] of Object.entries(gmLockouts)) {
+    const last = Math.max(Number(record?.lastAttemptAt) || 0, Number(record?.lockedUntil) || 0, Date.parse(record?.lockedAt) || 0);
+    if (now - last > GM_LOCKOUT_RETAIN_MS) delete gmLockouts[key];
+  }
   try { durableIO.writeJson(GM_LOCKOUT_FILE, gmLockouts); } catch (e) { console.error('[gm-auth] Failed to persist lockouts:', e.message); }
 }
 let GM_PASSWORD = String(process.env.ASOC_GM_PASSWORD || '');
@@ -1352,7 +1405,7 @@ function handleMarkChatBloodTribute(ws, payload) {
   const expiresAt = now + BLOOD_TRIBUTE_PUBLIC_MS;
   const tribute = {
     id, originalMessageId: message.id, imageAssetId: path.basename(message.imageUrl), imageUrlOrStoragePath: message.imageUrl,
-    senderPlayerId: message.playerId || null, senderName: message.playerName || 'LITTLE HERO', senderAvatar: message.avatarData || '',
+    senderPlayerId: message.playerId || null, senderName: message.playerName || 'LITTLE HERO', senderAvatar: message.avatarData || liveAvatarFor(room, message.playerId),
     originalMessageTimestamp: message.timestamp, markedAt: now, expiresAt, sessionId: message.boardId || room.boardId || null,
     roomId: room.code, viewedByGM: false, reliquary: false, archivedAt: expiresAt
   };
@@ -2139,7 +2192,36 @@ function resumeStoppedClock(room) {
   if (!t || t.phase !== 'stopped' || !CLOCK_ACTIVE_PHASES.includes(t.stoppedFrom) || room.sessionState.matchResult) return false;
   t.phase = t.stoppedFrom;
   delete t.stoppedFrom;
-  if (t.phase === 'running' || t.phase === 'borrowed') resumeSolutionCountdowns(room);
+  // Resumed while the room shows AMUSEMENT PARK: hold it paused until BATTLE.
+  if (room.roomMode === ROOM_MODES.CASUAL) pauseBattleForCasual(room);
+  else if (t.phase === 'running' || t.phase === 'borrowed') resumeSolutionCountdowns(room);
+  return true;
+}
+
+// AMUSEMENT PARK PAUSE. Switching a live battle to CASUAL freezes battle time:
+// the normal clock or Borrowed Time and every solution countdown stop exactly
+// where they are, and `casualPausedFrom` remembers what was running. Returning
+// to BATTLE restores that exact phase with the time that was left. A clock the
+// GM had already paused stays paused (no flag is set for it), and nothing else
+// -- board, scores, WOMF, streaks, chat, ritual/result state -- is touched.
+function pauseBattleForCasual(room) {
+  const t = room.timer;
+  if (!t || (t.phase !== 'running' && t.phase !== 'borrowed')) return false;
+  t.casualPausedFrom = t.phase;
+  t.phase = t.phase === 'borrowed' ? 'borrowed_paused' : 'paused';
+  pauseSolutionCountdowns(room);
+  return true;
+}
+
+function resumeBattleFromCasual(room) {
+  const t = room.timer;
+  if (!t || !t.casualPausedFrom) return false;
+  const from = t.casualPausedFrom;
+  delete t.casualPausedFrom;
+  const expected = from === 'borrowed' ? 'borrowed_paused' : 'paused';
+  if (t.phase !== expected || isMatchResolved(room)) return false;
+  t.phase = from;
+  resumeSolutionCountdowns(room);
   return true;
 }
 
@@ -2604,9 +2686,11 @@ function enterBorrowedIfAllColumnsOpen(room) {
   if (room.roomMode !== ROOM_MODES.BATTLE || isMatchResolved(room)) return false;
   const s = room.sessionState || {};
   if (s.finalSolution === true || s.finalOutcome || room.scoring?.boardFinalized) return false;
-  // A column counts as open once its solution is on the board, it was solved
-  // from chat, or the GM declared it solved/failed.
-  const open = col => s.cells?.[col + '5'] === true || !!room.chat?.solvedTargets?.[col] || !!s.cellOutcomes?.[col + '5'];
+  // A column counts as open only through gameplay: solved from chat, or the
+  // GM declared it solved/failed. A solution pill merely made visible by the
+  // administrative REVEAL controls (REVEAL ALL / column / cell) is not player
+  // progression and must never manufacture Borrowed Time on its own.
+  const open = col => !!room.chat?.solvedTargets?.[col] || !!s.cellOutcomes?.[col + '5'];
   if (!['A', 'B', 'C', 'D'].every(open)) return false;
   t.allColumnsBorrowed = true;
   t.remaining = 0;
@@ -2623,6 +2707,9 @@ setInterval(() => runtimeAction(() => {
   const dirty = [];
   rooms.forEach((room) => {
     if (!room.timer) return;
+    // Battle time never drains in AMUSEMENT PARK (see pauseBattleForCasual):
+    // no Borrowed Time, no expiry, no GAME LOST while the room is CASUAL.
+    if (room.roomMode === ROOM_MODES.CASUAL) return;
     const t = room.timer;
 
     if (enterBorrowedIfAllColumnsOpen(room)) {
@@ -4090,7 +4177,6 @@ function appendChatRemoteGifMessage(room, actor, gif) {
     id: generateMessageId(),
     playerId: isHost ? null : actor.playerId,
     playerName: isHost ? 'SHADOW BROKER' : actor.playerName,
-    avatarData: isHost ? '' : (liveIdentity.avatarData || ''),
     frameColor: isHost ? '#9B5DE0' : (liveIdentity.frameColor || '#9B5DE0'),
     themeId: isHost ? 'gunmetal' : (liveIdentity.themeId || 'gunmetal'),
     themeColor: isHost ? '#343A42' : (liveIdentity.themeColor || '#343A42'),
@@ -4189,7 +4275,6 @@ function appendChatImageMessage(room, actor, imageUrl, caption = '') {
     id: generateMessageId(),
     playerId: isHost ? null : actor.playerId,
     playerName: isHost ? 'SHADOW BROKER' : actor.playerName,
-    avatarData: isHost ? '' : (liveIdentity.avatarData || ''),
     frameColor: isHost ? '#9B5DE0' : (liveIdentity.frameColor || '#9B5DE0'),
     themeId: isHost ? 'gunmetal' : (liveIdentity.themeId || 'gunmetal'),
     themeColor: isHost ? '#343A42' : (liveIdentity.themeColor || '#343A42'),
@@ -4249,7 +4334,6 @@ function appendChatPollMessage(room, actor, question, options, allowMultiple, du
     id: generateMessageId(),
     playerId: isHost ? null : actor.playerId,
     playerName: isHost ? 'SHADOW BROKER' : actor.playerName,
-    avatarData: isHost ? '' : (liveIdentity.avatarData || ''),
     frameColor: isHost ? '#9B5DE0' : (liveIdentity.frameColor || '#9B5DE0'),
     themeId: isHost ? 'gunmetal' : (liveIdentity.themeId || 'gunmetal'),
     themeColor: isHost ? '#343A42' : (liveIdentity.themeColor || '#343A42'),
@@ -4465,9 +4549,10 @@ function handleChatPollVote(ws, message) {
     }
   }
 
+  // Voter chips resolve avatars from the roster client-side; storing an image
+  // per vote would bloat every chat:update and the recovery file.
   target.poll.voters[actorId] = {
     name: actor.name,
-    avatarData: actor.avatarData || '',
     frameColor: actor.frameColor || '#9B5DE0'
   };
   persistActiveRooms();
@@ -5273,6 +5358,32 @@ function getChatImageActor(req, room) {
   return live ? { role: 'player', playerId: live.id, playerName: live.name } : null;
 }
 
+// Admits one upload attempt before its body is read: per-actor throttle for
+// Little Heroes (the Shadow Broker is trusted) and a worst-case capacity check
+// for everyone. Returns false after answering the request itself.
+function admitChatUpload(res, actor) {
+  if (actor.role !== 'gm') {
+    const key = 'player:' + actor.playerId;
+    const verdict = chatUploadGuard.checkActor(key);
+    if (!verdict.ok) {
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil(verdict.retryAfterMs / 1000))));
+      sendJson(res, 429, { error: verdict.error, code: 'UPLOAD_THROTTLED', retryAfterMs: verdict.retryAfterMs });
+      return false;
+    }
+    actor.uploadSlot = chatUploadGuard.reserve(key);
+  }
+  const capacity = chatUploadGuard.checkCapacity(MAX_CHAT_IMAGE_BYTES);
+  if (!capacity.ok) {
+    sendJson(res, 507, { error: capacity.error, code: 'UPLOAD_CAPACITY' });
+    return false;
+  }
+  return true;
+}
+
+function uploadFailureStatus(error) {
+  return error?.code === 'UPLOAD_CAPACITY' ? 507 : 500;
+}
+
 function persistChatImage(room, actor, buffer, contentType, caption) {
   const extByType = {
     'image/png': 'png',
@@ -5282,9 +5393,12 @@ function persistChatImage(room, actor, buffer, contentType, caption) {
   };
   const ext = extByType[contentType];
   if (!ext) throw new Error('Unsupported image type');
+  const capacity = chatUploadGuard.checkCapacity(buffer.length);
+  if (!capacity.ok) throw Object.assign(new Error(capacity.error), { code: 'UPLOAD_CAPACITY' });
   const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
   const filePath = path.join(CHAT_UPLOAD_DIR, filename);
   fs.writeFileSync(filePath, buffer, { flag: 'wx', mode: 0o600 });
+  chatUploadGuard.recordStored(actor.uploadSlot, buffer.length);
   const imageUrl = '/uploads/chat/' + filename;
   const message = appendChatImageMessage(room, actor, imageUrl, caption);
   persistActiveRooms();
@@ -5374,7 +5488,6 @@ function addRollMessage(room, playerId, playerName, range, options = {}) {
     id: generateMessageId(),
     playerId,
     playerName,
-    avatarData: liveIdentity.avatarData || '',
     frameColor: liveIdentity.frameColor || '#9B5DE0',
     themeId: liveIdentity.themeId || 'gunmetal',
     themeColor: liveIdentity.themeColor || '#343A42',
@@ -5423,7 +5536,6 @@ function addChatMessage(room, playerId, playerName, text) {
     id: generateMessageId(),
     playerId,
     playerName,
-    avatarData: liveIdentity.avatarData || '',
     frameColor: liveIdentity.frameColor || '#9B5DE0',
     themeId: liveIdentity.themeId || 'gunmetal',
     themeColor: liveIdentity.themeColor || '#343A42',
@@ -5567,7 +5679,6 @@ function buildChatCommandMessage(room, author, messageType, source, text, payloa
     id: generateMessageId(),
     playerId: isBroker ? null : author.id,
     playerName: isBroker ? 'SHADOW BROKER' : author.name,
-    avatarData: liveIdentity?.avatarData || '',
     frameColor: liveIdentity?.frameColor || '#9B5DE0',
     themeId: liveIdentity?.themeId || 'gunmetal',
     themeColor: liveIdentity?.themeColor || '#343A42',
@@ -6159,14 +6270,21 @@ function handleGmQuest(ws, message, action) {
   if (!quest) return questError(ws, 'QUEST NOT FOUND OR ALREADY RESOLVED');
   const next = { complete: 'COMPLETED', rejectClaim: 'ACTIVE', fail: 'FAILED', cancel: 'CANCELLED' }[action];
   if (action === 'rejectClaim' && quest.status !== 'CLAIMED') return questError(ws, 'ONLY A CLAIMED CONTRACT MAY RETURN TO ACTIVE');
-  const changed = questEngine.transition(state, quest.id, next, Date.now(), message.reason);
-  if (changed.error) return questError(ws, changed.error);
+  // COMPLETED pays FIRST, then transitions. A failed payment leaves the quest
+  // exactly as it was (still retryable); the receipt is idempotent, so a retry
+  // after a payment that did land never pays twice.
+  let receipt = null;
   if (next === 'COMPLETED') {
-    const receipt = `quest:${quest.id}:reward`;
+    if (!questEngine.canTransition(quest, next)) return questError(ws, `INVALID QUEST TRANSITION // ${quest.status} → ${next}`);
+    receipt = `quest:${quest.id}:reward`;
     const reward = playerStore.awardShadowCoins({ id: quest.targetPlayerId, name: quest.targetPlayerName }, quest.rewardCoins, receipt, {
       reason: `Quest completed: ${quest.directive.slice(0, 80)}`
     });
     if (!reward.ok) return questError(ws, reward.error || 'QUEST REWARD FAILED');
+  }
+  const changed = questEngine.transition(state, quest.id, next, Date.now(), message.reason);
+  if (changed.error) return questError(ws, changed.error);
+  if (next === 'COMPLETED') {
     changed.quest.rewardReceipt = receipt;
     questAnnouncement(room, changed.quest, true);
   }
@@ -6187,40 +6305,86 @@ function expireQuests(now = Date.now()) {
 setInterval(() => runtimeAction(() => expireQuests()), 1000).unref();
 
 // DAILY CONTRACTS // persistent account progress, automatic exact-once rewards.
+// Write discipline: players.json is only written when daily state actually
+// changes (new progress, day rollover, reward paid). Views are read-only on the
+// shared cached copy -- dailyContracts.normalize() mutates nested objects, so
+// read paths always work on a clone. Attendance ticks advance every online
+// Little Hero in ONE load/save and broadcast once.
 function dailyIdentity(id, name='LITTLE HERO') { return { id:String(id), name:String(name||'LITTLE HERO') }; }
+function peekDaily(id) { const profile=playerStore.peekPlayers()[String(id)]; return profile?{profile,daily:structuredClone(profile.dailyContracts??null)}:null; }
+function dailyStateChanged(before, after) { return JSON.stringify(before??null)!==JSON.stringify(after); }
 
+// Returns { view, paid } -- paid counts Shadow Coin rewards credited now.
 function settleDailyRewards(identity, now=Date.now()) {
-  let players=playerStore.loadPlayers(); let profile=players[String(identity.id)];
-  if(!profile)return null;
-  let pending=dailyContracts.pendingRewards(profile.dailyContracts,now);
+  const id=String(identity.id);
+  const peeked=peekDaily(id);
+  if(!peeked)return {view:null,paid:0};
+  let pending=dailyContracts.pendingRewards(structuredClone(peeked.daily),now);
+  if(!pending.due.length&&!dailyStateChanged(peeked.daily,pending.state))return {view:dailyContracts.view(pending.state,now),paid:0};
+  let players=playerStore.loadPlayers(); let profile=players[id];
+  if(!profile)return {view:null,paid:0};
+  pending=dailyContracts.pendingRewards(profile.dailyContracts,now);
   profile.dailyContracts=pending.state; playerStore.savePlayersAtomic(players);
+  let paid=0;
   for(const reward of pending.due){
     const receipt=`daily:${pending.state.current.dayKey}:${reward.id}`;
-    const paid=playerStore.awardShadowCoins(identity,reward.amount,receipt,{reason:`Daily Contract: ${reward.title}`});
-    if(!paid.ok)continue;
-    players=playerStore.loadPlayers();profile=players[String(identity.id)];if(!profile)continue;
+    const credit=playerStore.awardShadowCoins(identity,reward.amount,receipt,{reason:`Daily Contract: ${reward.title}`});
+    if(!credit.ok)continue;
+    if(!credit.duplicate)paid++;
+    players=playerStore.loadPlayers();profile=players[id];if(!profile)continue;
     profile.dailyContracts=dailyContracts.normalize(profile.dailyContracts,now);
     profile.dailyContracts.current.rewards[reward.id]=true;
     playerStore.savePlayersAtomic(players);
   }
-  players=playerStore.loadPlayers();profile=players[String(identity.id)];
-  return profile?dailyContracts.view(profile.dailyContracts,now):null;
+  const after=peekDaily(id);
+  return {view:after?dailyContracts.view(after.daily,now):null,paid};
 }
 
 function dailyView(identity, now=Date.now()) {
-  playerStore.getOrCreateProfile(identity);
-  return settleDailyRewards(identity,now);
+  if(!playerStore.peekPlayers()[String(identity.id)])playerStore.getOrCreateProfile(identity);
+  return settleDailyRewards(identity,now).view;
+}
+
+// entries: [{ identity, type, amount, receipt }] -> one load, one save.
+function advanceDailyBatch(entries, now=Date.now()) {
+  const results=new Map();
+  const live=entries.filter(e=>e?.identity?.id&&String(e.identity.id)!=='__GM__'&&!isMasterTestPlayerId(e.identity.id));
+  const missing=live.filter(e=>!playerStore.peekPlayers()[String(e.identity.id)]);
+  missing.forEach(e=>playerStore.getOrCreateProfile(dailyIdentity(e.identity.id,e.identity.name)));
+  // A contract already at its target only collects receipts: skip it, so a
+  // capped attendance contract stops rewriting the database every tick.
+  const due=live.filter(e=>{
+    const peeked=peekDaily(e.identity.id);
+    const view=dailyContracts.view(peeked?.daily??null,now);
+    const contract=view.contracts.find(c=>c.id===e.type);
+    if(contract&&!contract.complete)return true;
+    results.set(String(e.identity.id),{changed:false,completed:false});
+    return false;
+  });
+  if(due.length){
+    const players=playerStore.loadPlayers();let dirty=false;
+    for(const e of due){
+      const profile=players[String(e.identity.id)];if(!profile)continue;
+      const out=dailyContracts.advance(profile.dailyContracts,e.type,e.amount,e.receipt,now);
+      if(out.error){results.set(String(e.identity.id),out);continue;}
+      if(!out.duplicate){profile.dailyContracts=out.state;dirty=true;}
+      results.set(String(e.identity.id),{changed:!!out.changed,completed:!!out.completed,duplicate:!!out.duplicate});
+    }
+    if(dirty)playerStore.savePlayersAtomic(players);
+  }
+  let paid=0;
+  for(const e of live){
+    const r=results.get(String(e.identity.id));
+    if(!r||r.error)continue;
+    const settled=settleDailyRewards(dailyIdentity(e.identity.id,e.identity.name),now);
+    r.state=settled.view;r.paid=settled.paid;paid+=settled.paid;
+  }
+  return {results,paid};
 }
 
 function advanceDaily(identity,type,amount,eventReceipt,now=Date.now()) {
-  const players=playerStore.loadPlayers();let profile=players[String(identity.id)];
-  if(!profile){playerStore.getOrCreateProfile(identity);return advanceDaily(identity,type,amount,eventReceipt,now);}
-  const out=dailyContracts.advance(profile.dailyContracts,type,amount,eventReceipt,now);
-  if(out.error)return out;
-  profile.dailyContracts=out.state;
-  playerStore.savePlayersAtomic(players);
-  const state=settleDailyRewards(identity,now);
-  return {...out,state};
+  const {results}=advanceDailyBatch([{identity,type,amount,receipt:eventReceipt}],now);
+  return results.get(String(identity.id))||{changed:false};
 }
 
 function sendDailyState(ws, identity) {
@@ -6235,24 +6399,33 @@ function sendGmDailies(room) {
   sendToWs(ws,{type:'daily:gmUpdate',serverNow:Date.now(),players});
 }
 
-function broadcastDailyIdentity(room, identity) {
-  room?.players.forEach((player,socket)=>{if(String(player?.id)===String(identity.id))sendDailyState(socket,identity);});
+// identities: changed accounts. The roster (coin balances) is rebroadcast only
+// when Shadow Coins were actually paid.
+function broadcastDailyIdentities(room, identities, coinsPaid) {
+  if(!room||!identities.length)return;
+  const ids=new Set(identities.map(identity=>String(identity.id)));
+  room.players.forEach((player,socket)=>{if(ids.has(String(player?.id)))sendDailyState(socket,dailyIdentity(player.id,player.name));});
   sendGmDailies(room);
-  broadcastPlayersUpdate(room);
+  if(coinsPaid)broadcastPlayersUpdate(room);
 }
 
 function recordDaily(room, identity, type, amount, receipt) {
   if(!identity?.id||String(identity.id)==='__GM__'||isMasterTestPlayerId(identity.id))return;
   const out=advanceDaily(dailyIdentity(identity.id,identity.name),type,amount,receipt);
-  if(out.changed||out.completed)broadcastDailyIdentity(room,identity);
+  if(out.changed||out.completed||out.paid)broadcastDailyIdentities(room,[identity],out.paid>0);
 }
 
 const DAILY_ATTENDANCE_TICK_MS=Math.max(1000,Number(process.env.ASOC_DAILY_ATTENDANCE_TICK_MS)||10000);
 function tickDailyAttendance(now=Date.now()) {
   const room=rooms.get(MASTER_ROOM_CODE);if(!room||room.hostConnection?.readyState!==1)return;
   const unique=new Map();room.players.forEach((p,socket)=>{if(p&&p.connected!==false&&p.isTestPersona!==true&&socket.readyState===1)unique.set(String(p.id),p);});
+  if(!unique.size)return;
   const bucket=Math.floor(now/DAILY_ATTENDANCE_TICK_MS);
-  unique.forEach(p=>recordDaily(room,p,'attendance',DAILY_ATTENDANCE_TICK_MS,`${dailyContracts.dayKey(now)}:${bucket}`));
+  const receipt=`${dailyContracts.dayKey(now)}:${bucket}`;
+  const entries=Array.from(unique.values(),p=>({identity:dailyIdentity(p.id,p.name),type:'attendance',amount:DAILY_ATTENDANCE_TICK_MS,receipt}));
+  const {results,paid}=advanceDailyBatch(entries,now);
+  const changed=entries.filter(e=>{const r=results.get(String(e.identity.id));return r&&(r.changed||r.completed||r.paid);}).map(e=>e.identity);
+  broadcastDailyIdentities(room,changed,paid>0);
 }
 setInterval(()=>runtimeAction(()=>tickDailyAttendance()),DAILY_ATTENDANCE_TICK_MS).unref();
 
@@ -6563,7 +6736,6 @@ function getChatState(room) {
             voters: Object.fromEntries(
               Object.entries(m.poll.voters || {}).map(([id, voter]) => [String(id), {
                 name: sanitizeText(voter?.name || '').slice(0, 80),
-                avatarData: typeof voter?.avatarData === 'string' ? voter.avatarData : '',
                 frameColor: /^#[0-9A-Fa-f]{6}$/.test(voter?.frameColor || '') ? voter.frameColor : '#9B5DE0'
               }])
             )
@@ -6801,7 +6973,8 @@ function handlePlayerJoin(ws, message) {
     themeColor: LITTLE_HERO_THEMES[littleHeroProfile.themeId || 'gunmetal'] || '#343A42',
     connected: true,
     isTestPersona: auth.isMasterTest === true,
-    joinedAt: Date.now()
+    joinedAt: Date.now(),
+    lastSeenAt: Date.now()
   });
   // Master test personas exercise the live session but never enter durable
   // participation history. Real Little Heroes keep the normal ledger path.
@@ -6860,9 +7033,39 @@ function handlePlayerJoin(ws, message) {
   console.log(`[ROOM ${room.code}] Player joined: ${cleanName} (${playerId})`);
 }
 
+// ROSTER AVATAR DEDUPE. Every roster entry carries a short content hash of
+// its avatar; the (up to 200 KB) avatarData itself is sent to a socket only
+// the first time that socket sees that hash. Clients keep a hash -> image map
+// (hydrateRosterAvatars in app.js / player.js) and refill omitted avatars, so
+// an unchanged avatar crosses the wire once per connection, not on every
+// players:update.
+const avatarHashCache = new WeakMap(); // player record -> { data, hash }
+function avatarHashOf(player) {
+  const data = player?.avatarData || '';
+  if (!data) return '';
+  const known = avatarHashCache.get(player);
+  if (known && known.data === data) return known.hash;
+  const hash = crypto.createHash('sha1').update(data).digest('base64url').slice(0, 16);
+  avatarHashCache.set(player, { data, hash });
+  return hash;
+}
+function rosterForSocket(ws, players) {
+  const sent = ws._rosterAvatarHashes || (ws._rosterAvatarHashes = new Set());
+  return players.map(entry => {
+    if (!entry.avatarHash) return entry;
+    if (sent.has(entry.avatarHash)) {
+      const { avatarData, ...rest } = entry;
+      return rest;
+    }
+    sent.add(entry.avatarHash);
+    return entry;
+  });
+}
+
 function getPlayersSnapshot(room, includeTestPersonas = true) {
   const players = [];
-  const profiles = playerStore.loadPlayers();
+  // Read-only shared view: no per-broadcast parse of the whole player DB.
+  const profiles = playerStore.peekPlayers();
   room.players.forEach((player, ws) => {
     if (!includeTestPersonas && player.isTestPersona === true) return;
     const profile = profiles[String(player.id)] || {};
@@ -6870,6 +7073,7 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       id: player.id,
       name: player.name,
       avatarData: player.avatarData || '',
+      avatarHash: avatarHashOf(player),
       frameColor: player.frameColor || '#9B5DE0',
       themeId: player.themeId || 'gunmetal',
       themeColor: LITTLE_HERO_THEMES[player.themeId || 'gunmetal'] || '#343A42',
@@ -6901,17 +7105,19 @@ function iksArenaFields(player) {
 
 function sendPlayersUpdateTo(room, ws) {
   if (!room || !ws || ws.readyState !== 1) return;
-  sendToWs(ws, { type: 'players:update', players: getPlayersSnapshot(room, ws.isHost === true), iksArena: iksArena.publicState(), brokerOnline: room.hostConnection?.readyState === 1 });
+  sendToWs(ws, { type: 'players:update', players: rosterForSocket(ws, getPlayersSnapshot(room, ws.isHost === true)), iksArena: iksArena.publicState(), brokerOnline: room.hostConnection?.readyState === 1 });
 }
 
 function broadcastPlayersUpdate(room) {
   // brokerOnline lets Little Heroes offer the Shadow Broker as an IKS OKS opponent.
-  const playerMessage = { type: 'players:update', players: getPlayersSnapshot(room, false), iksArena: iksArena.publicState(), brokerOnline: room.hostConnection?.readyState === 1 };
+  const roster = getPlayersSnapshot(room, false);
+  const arena = iksArena.publicState();
+  const brokerOnline = room.hostConnection?.readyState === 1;
   room.players.forEach((player, ws) => {
-    if (ws.readyState === 1) ws.send(JSON.stringify(playerMessage));
+    if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'players:update', players: rosterForSocket(ws, roster), iksArena: arena, brokerOnline }));
   });
   if (room.hostConnection?.readyState === 1) {
-    room.hostConnection.send(JSON.stringify({ type: 'players:update', players: getPlayersSnapshot(room, true), iksArena: iksArena.publicState(), brokerOnline: true }));
+    room.hostConnection.send(JSON.stringify({ type: 'players:update', players: rosterForSocket(room.hostConnection, getPlayersSnapshot(room, true)), iksArena: arena, brokerOnline: true }));
   }
   if (room.megabonks?.length) sendMegabonkProgress(room); // online/offline dots
 }
@@ -8792,8 +8998,9 @@ function handleSetRoomMode(ws, message) {
     return;
   }
 
-  // Presentation-only switch. CASUAL does NOT reset the battle: timer, board,
-  // WOMF, scoring, clue state and chat all remain exactly where they are.
+  // CASUAL does NOT reset the battle: board, WOMF, scoring, clue state and
+  // chat all remain exactly where they are. A live battle clock is PAUSED
+  // while in CASUAL and resumes on return (pauseBattleForCasual).
   // BATTLE restores the surface where it left off: READY means pre-start;
   // running/borrowed/finished means an already-started battle.
   let next = ROOM_MODES.CASUAL;
@@ -8808,6 +9015,8 @@ function handleSetRoomMode(ws, message) {
     return;
   }
   room.roomMode = next;
+  if (next === ROOM_MODES.CASUAL) pauseBattleForCasual(room);
+  else if (next === ROOM_MODES.BATTLE) resumeBattleFromCasual(room);
   if (next !== ROOM_MODES.CASUAL) room.armed = true;
   // This toggle is presentation-only and must never reset an in-progress
   // battle -- but it can ALSO be the very first CASUAL->BATTLE_ARMED arm in
@@ -8883,6 +9092,7 @@ function handleClose(ws) {
       const player = room.players.get(ws);
       if (player) {
         player.connected = false;
+        player.lastSeenAt = Date.now();
         matchLedger.presenceClose(ensureMatchLedger(room), player.id, Date.now());
         // A disconnect before Battle starts always removes that player's
         // vote from the factual count (even mid Blood-Tribute-fulfillment --
@@ -8943,6 +9153,24 @@ function passwordResetThrottled(req, kind) {
   return hits.length > PASSWORD_RESET_LIMITS[kind];
 }
 
+// LITTLE HERO AUTH THROTTLING. Password hashing is asynchronous (auth-store
+// *Async) and runs behind a small concurrency gate, so a login flood can
+// neither stall the game loop nor starve libuv's thread pool. Failed logins
+// are limited per account and per client address; registrations per address.
+// The Shadow Broker's own login keeps its separate lockout.
+const playerAuthThrottle = createPlayerAuthThrottle();
+function authRetryResponse(res, waitMs, message) {
+  res.setHeader('Retry-After', String(Math.max(1, Math.ceil(waitMs / 1000))));
+  return sendJson(res, 429, { error: message, code: 'RATE_LIMITED', retryAfterMs: waitMs });
+}
+function authBusyResponse(res, error) {
+  if (error?.code !== 'AUTH_BUSY') return false;
+  res.setHeader('Retry-After', '2');
+  sendJson(res, 503, { error: error.message, code: 'AUTH_BUSY' });
+  return true;
+}
+function authAccountKey(email) { return String(email || '').trim().toLowerCase(); }
+
 // A changed password ends every existing Little Hero session of that account.
 function revokePlayerSessions(playerId) {
   let removed = 0;
@@ -8986,6 +9214,7 @@ function handleApiRequest(req, res) {
     const actor = getChatImageActor(req, room);
     if (!actor) return sendJson(res, 401, { error: 'Chat upload authentication required' });
     if (actor.role !== 'gm' && shadowRealmRefusal(room, actor.playerId)) return sendJson(res, 423, { error: shadowRealmRefusal(room, actor.playerId), code: 'SHADOW_REALM' });
+    if (!admitChatUpload(res, actor)) return;
 
     return readJsonBody(req, async (err, body) => {
       if (err) return sendJson(res, 400, { error: 'Invalid image address request' });
@@ -8997,7 +9226,7 @@ function handleApiRequest(req, res) {
         return sendJson(res, 201, { ok: true, ...stored });
       } catch (error) {
         console.error('[chat-image-url] import failed:', error.message);
-        const status = /5 MB/.test(error.message) ? 413 : /not a supported image|signature/.test(error.message) ? 415 : 400;
+        const status = error?.code === 'UPLOAD_CAPACITY' ? 507 : /5 MB/.test(error.message) ? 413 : /not a supported image|signature/.test(error.message) ? 415 : 400;
         return sendJson(res, status, { error: error.message || 'Image address import failed' });
       }
     });
@@ -9021,6 +9250,8 @@ function handleApiRequest(req, res) {
     if (!actor) return sendJson(res, 401, { error: 'Chat upload authentication required' });
     if (actor.role !== 'gm' && shadowRealmRefusal(room, actor.playerId)) return sendJson(res, 423, { error: shadowRealmRefusal(room, actor.playerId), code: 'SHADOW_REALM' });
 
+    if (!admitChatUpload(res, actor)) return;
+
     const captionLimit = actor.role === 'gm' ? 500 : MAX_CHAT_LENGTH;
     const caption = sanitizeText(url.searchParams.get('caption') || '').slice(0, captionLimit);
 
@@ -9034,7 +9265,8 @@ function handleApiRequest(req, res) {
         return sendJson(res, 201, { ok: true, ...stored });
       } catch (writeError) {
         console.error('[chat-image] upload failed', writeError);
-        return sendJson(res, 500, { error: 'Image could not be stored' });
+        const status = uploadFailureStatus(writeError);
+        return sendJson(res, status, { error: status === 507 ? writeError.message : 'Image could not be stored', code: status === 507 ? 'UPLOAD_CAPACITY' : undefined });
       }
     });
   }
@@ -9068,8 +9300,12 @@ function handleApiRequest(req, res) {
       if (EMAIL_VERIFICATION_REQUIRED && !emailService.isConfigured()) {
         return sendJson(res, 503, { error: 'Email verification service is not configured', code: 'EMAIL_SERVICE_UNAVAILABLE' });
       }
+      const clientKey = gmClientKey(req);
+      const registerWait = playerAuthThrottle.ipRegistrations.blockedFor(clientKey);
+      if (registerWait) return authRetryResponse(res, registerWait, 'Too many new identities from this connection. Try again later.');
       try {
-        const created = authStore.register(body.email, body.password, body.name, { requireVerification: EMAIL_VERIFICATION_REQUIRED });
+        playerAuthThrottle.ipRegistrations.hit(clientKey);
+        const created = await playerAuthThrottle.gate.run(() => authStore.registerAsync(body.email, body.password, body.name, { requireVerification: EMAIL_VERIFICATION_REQUIRED }));
         if (!EMAIL_VERIFICATION_REQUIRED) {
           const token = issuePlayerAuthToken(created.player);
           return sendJson(res, 201, { token, player: created.player });
@@ -9097,6 +9333,7 @@ function handleApiRequest(req, res) {
           message: 'Verification email sent. Confirm the address before signing in.'
         });
       } catch (e) {
+        if (authBusyResponse(res, e)) return;
         return sendJson(res, 400, { error: e.message });
       }
     });
@@ -9170,12 +9407,19 @@ function handleApiRequest(req, res) {
   // FORGOT PASSWORD, step 2: consume the single-use token, set the password,
   // end every existing session of that account.
   if (method === 'POST' && url.pathname === '/api/auth/player/reset-password') {
-    return readJsonBody(req, (err, body) => {
+    return readJsonBody(req, async (err, body) => {
       if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
       if (passwordResetThrottled(req, 'attempt')) {
         return sendJson(res, 429, { error: 'Too many attempts. Wait a few minutes and try again.', code: 'RATE_LIMITED' });
       }
-      const result = authStore.resetPassword(String(body?.token || ''), String(body?.password || ''));
+      let result;
+      try {
+        result = await playerAuthThrottle.gate.run(() => authStore.resetPasswordAsync(String(body?.token || ''), String(body?.password || '')));
+      } catch (error) {
+        if (authBusyResponse(res, error)) return;
+        console.error('[auth] Password reset failed:', error.message);
+        return sendJson(res, 503, { error: 'Password reset is temporarily unavailable.', code: 'AUTH_STORAGE_UNAVAILABLE' });
+      }
       if (!result.ok) {
         if (result.reason === 'weak') return sendJson(res, 400, { error: result.error, code: 'WEAK_PASSWORD' });
         if (result.reason === 'expired') return sendJson(res, 400, { error: 'This reset link has expired. Request a new one.', code: 'RESET_EXPIRED' });
@@ -9188,10 +9432,29 @@ function handleApiRequest(req, res) {
   }
 
   if (method === 'POST' && url.pathname === '/api/auth/player/login') {
-    return readJsonBody(req, (err, body) => {
+    return readJsonBody(req, async (err, body) => {
       if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
-      const player = authStore.login(body.email, body.password);
-      if (!player) return sendJson(res, 401, { error: 'Invalid identity ID or password' });
+      const clientKey = gmClientKey(req);
+      const accountKey = authAccountKey(body?.email);
+      const wait = Math.max(
+        playerAuthThrottle.ipFailures.blockedFor(clientKey),
+        accountKey ? playerAuthThrottle.accountFailures.blockedFor(accountKey) : 0
+      );
+      if (wait) return authRetryResponse(res, wait, 'Too many failed sign-in attempts. Wait a few minutes and try again.');
+      let player;
+      try {
+        player = await playerAuthThrottle.gate.run(() => authStore.loginAsync(body?.email, body?.password));
+      } catch (error) {
+        if (authBusyResponse(res, error)) return;
+        console.error('[auth] Login failed:', error.message);
+        return sendJson(res, 503, { error: 'Sign-in is temporarily unavailable.', code: 'AUTH_STORAGE_UNAVAILABLE' });
+      }
+      if (!player) {
+        playerAuthThrottle.ipFailures.hit(clientKey);
+        if (accountKey) playerAuthThrottle.accountFailures.hit(accountKey);
+        return sendJson(res, 401, { error: 'Invalid identity ID or password' });
+      }
+      if (accountKey) playerAuthThrottle.accountFailures.reset(accountKey);
       if (EMAIL_VERIFICATION_REQUIRED && !player.emailVerified) {
         return sendJson(res, 403, {
           error: 'Email verification required before entering MASTER.',
@@ -9296,20 +9559,31 @@ function handleApiRequest(req, res) {
     return readJsonBody(req, (err, body) => {
       if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
       const clientKey = gmClientKey(req);
-      const record = gmLockouts[clientKey] || { attempts: 0, locked: false };
-      if (record.locked) return sendJson(res, 423, { error: 'GM access permanently locked', locked: true });
-      const supplied = Buffer.from(String(body.password || ''));
-      const expected = Buffer.from(GM_PASSWORD);
-      const valid = supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+      const now = Date.now();
+      const record = gmLockoutRecord(clientKey, now);
+      const lockedFor = gmLockoutRemaining(record, now);
+      if (lockedFor) {
+        res.setHeader('Retry-After', String(Math.ceil(lockedFor / 1000)));
+        return sendJson(res, 423, { error: 'GM access temporarily locked', locked: true, retryAfterMs: lockedFor });
+      }
+      // Equal-length digests: comparison time does not reveal password length.
+      const supplied = crypto.createHash('sha256').update(String(body.password || '')).digest();
+      const expected = crypto.createHash('sha256').update(GM_PASSWORD).digest();
+      const valid = crypto.timingSafeEqual(supplied, expected);
       if (!valid) {
         record.attempts = Number(record.attempts || 0) + 1;
-        if (record.attempts >= 3) {
+        record.lastAttemptAt = now;
+        record.locked = false;
+        if (record.attempts >= GM_LOCKOUT_THRESHOLD) {
+          const lockMs = Math.min(GM_LOCKOUT_MAX_MS, GM_LOCKOUT_BASE_MS * 2 ** (record.attempts - GM_LOCKOUT_THRESHOLD));
           record.locked = true;
-          record.lockedAt = new Date().toISOString();
+          record.lockedAt = new Date(now).toISOString();
+          record.lockedUntil = now + lockMs;
+          res.setHeader('Retry-After', String(Math.ceil(lockMs / 1000)));
         }
         gmLockouts[clientKey] = record;
         saveGmLockouts();
-        return sendJson(res, record.locked ? 423 : 401, { error: 'Access denied', locked: record.locked, attempts: record.attempts });
+        return sendJson(res, record.locked ? 423 : 401, { error: 'Access denied', locked: record.locked, attempts: record.attempts, retryAfterMs: record.locked ? gmLockoutRemaining(record, now) : undefined });
       }
       if (gmLockouts[clientKey]) { delete gmLockouts[clientKey]; saveGmLockouts(); }
       return sendJson(res, 200, { token: refreshGMToken() });
@@ -9563,7 +9837,19 @@ function resolveAllowedStaticPath(requestUrl) {
   return absolutePath;
 }
 
+// Baseline security headers on every response. frame-ancestors/X-Frame-Options
+// stop other sites from framing the GM panel (clickjacking) while same-origin
+// framing keeps working; nosniff stops uploaded images being sniffed as HTML.
+// No script-src policy yet: the pages rely on inline scripts and styles.
+function applySecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+}
+
 const server = http.createServer((req, res) => {
+  applySecurityHeaders(res);
   const urlPath = req.url.split('?')[0];
   if ((req.method === 'GET' || req.method === 'HEAD') && urlPath.startsWith('/uploads/chat/')) {
     if (serveChatUpload(req, res, urlPath)) return;
@@ -10142,6 +10428,65 @@ for (const room of rooms.values()) {
   if (room.wheel?.phase === 'spinning') armWheelSettlement(room);
   for (const action of Object.values(room.pendingReveals || {})) armColumnReveal(room, action);
 }
+
+// LONG-OFFLINE IDENTITIES. Disconnected Little Heroes stay on the MASTER
+// roster so a reconnect reclaims the same identity and session score. After a
+// long absence (default 30 days) the roster entry itself is released: it
+// stops costing a roster slot in every players:update and recovery write.
+// Nothing historical is lost -- the account, profile, lifetime stats, coins
+// and room.scoring session totals are untouched, and the next join simply
+// re-creates the roster entry under the same account id.
+const OFFLINE_IDENTITY_TTL_MS = Math.max(60 * 1000, Number(process.env.ASOC_OFFLINE_IDENTITY_TTL_MS) || 30 * 24 * 60 * 60 * 1000);
+function pruneLongOfflineIdentities(now = Date.now()) {
+  let pruned = 0;
+  for (const room of rooms.values()) {
+    for (const [socket, player] of Array.from(room.players)) {
+      if (!player || socket.readyState === 1) continue;
+      const lastSeen = Number(player.lastSeenAt) || Number(player.joinedAt) || 0;
+      if (now - lastSeen < OFFLINE_IDENTITY_TTL_MS) continue;
+      room.players.delete(socket);
+      pruned++;
+    }
+  }
+  if (pruned) {
+    console.log(`[roster] Released ${pruned} long-offline identit${pruned === 1 ? 'y' : 'ies'} from the live roster`);
+    persistActiveRooms();
+    rooms.forEach(room => broadcastPlayersUpdate(room));
+  }
+  return pruned;
+}
+runtimeAction(() => pruneLongOfflineIdentities());
+setInterval(() => runtimeAction(() => pruneLongOfflineIdentities()), Math.min(OFFLINE_IDENTITY_TTL_MS, 60 * 60 * 1000)).unref();
+
+// Orphaned chat-upload cleanup. References are collected from live room state
+// AND from every durable JSON store (top-level data files plus any per-store
+// path override), so an image kept by the tribute vault, the Reliquary, DMs,
+// the match archive or anything added later survives even after its original
+// chat message has scrolled out of history. Skipped entirely while recovery
+// storage is locked or failed: never delete on a partial view of state.
+const CHAT_UPLOAD_SWEEP_INTERVAL_MS = Math.max(60 * 1000, Number(process.env.ASOC_CHAT_UPLOAD_SWEEP_INTERVAL_MS) || 60 * 60 * 1000);
+function chatUploadReferenceFiles() {
+  const files = new Set([ACTIVE_ROOMS_FILE]);
+  ['ASOC_DM_FILE', 'ASOC_PLAYERS_FILE', 'ASOC_MATCHES_FILE', 'ASOC_SESSION_FILE'].forEach(name => {
+    if (process.env[name]) files.add(path.resolve(process.env[name]));
+  });
+  try {
+    for (const name of fs.readdirSync(ASOC_DATA_DIR)) {
+      if (/\.json(?:\.bak)?$/i.test(name)) files.add(path.join(ASOC_DATA_DIR, name));
+    }
+  } catch {}
+  return Array.from(files);
+}
+function sweepChatUploads() {
+  if (recoveryStoreLocked || persistenceFailed) return null;
+  const texts = Array.from(rooms.values(), room => JSON.stringify(serializeRoomForRecovery(room)));
+  const result = chatUploadGuard.sweep({ texts, files: chatUploadReferenceFiles() });
+  if (!result.ok) console.warn('[chat-uploads] Sweep skipped:', result.error);
+  else if (result.removed.length) console.log(`[chat-uploads] Removed ${result.removed.length} orphaned upload(s); ${(result.usedBytes / 1048576).toFixed(1)} MB in use`);
+  return result;
+}
+setTimeout(() => { try { sweepChatUploads(); } catch (error) { console.error('[chat-uploads] Sweep failed:', error.message); } }, 30 * 1000).unref();
+setInterval(() => { try { sweepChatUploads(); } catch (error) { console.error('[chat-uploads] Sweep failed:', error.message); } }, CHAT_UPLOAD_SWEEP_INTERVAL_MS).unref();
 
 server.listen(PORT, '0.0.0.0', () => {
   pruneAuthTokens();

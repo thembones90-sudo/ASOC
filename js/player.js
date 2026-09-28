@@ -1546,6 +1546,7 @@ const PlayerApp = {
         break;
 
       case 'players:update': {
+        this.hydrateRosterAvatars(message.players);
         this.updatePlayerLeaderboard(message.players);
         this.iksArena = message.iksArena || null;
         this.brokerOnline = message.brokerOnline === true;
@@ -2737,6 +2738,20 @@ const PlayerApp = {
     if (!btn || btn._bound) return;
     btn._bound = true;
     btn.addEventListener('click', () => this.toggleAllTimeView());
+  },
+
+  // ROSTER AVATAR DEDUPE (server.js rosterForSocket): the server sends each
+  // avatar image once per connection and afterwards only its avatarHash.
+  // Refill omitted images from this connection's cache, in place, before any
+  // roster consumer reads the list.
+  hydrateRosterAvatars(players) {
+    const cache = this._rosterAvatarCache || (this._rosterAvatarCache = new Map());
+    (Array.isArray(players) ? players : []).forEach(player => {
+      if (!player || !player.avatarHash) return;
+      if (typeof player.avatarData === 'string' && player.avatarData) cache.set(player.avatarHash, player.avatarData);
+      else if (cache.has(player.avatarHash)) player.avatarData = cache.get(player.avatarHash);
+    });
+    return players;
   },
 
   updatePlayerLeaderboard(players) {
@@ -4368,10 +4383,12 @@ const PlayerApp = {
         const voter = voters[id] || {};
         const name = id === '__GM__' ? 'SHADOW BROKER' : String(voter.name || 'LITTLE HERO');
         const frameColor = /^#[0-9A-Fa-f]{6}$/.test(voter.frameColor || '') ? voter.frameColor : '#9B5DE0';
+        // Voter avatars come from the live roster (older polls may still carry one).
+        const voterAvatar = voter.avatarData || (this.currentPlayers || []).find(player => String(player?.id) === String(id))?.avatarData || '';
         const avatar = id === '__GM__'
           ? '<img src="assets/ui/shadow-broker.png" alt="">'
-          : (typeof voter.avatarData === 'string' && voter.avatarData.startsWith('data:image/')
-              ? `<img src="${this.escapeHtml(voter.avatarData)}" alt="">`
+          : (typeof voterAvatar === 'string' && voterAvatar.startsWith('data:image/')
+              ? `<img src="${this.escapeHtml(voterAvatar)}" alt="">`
               : `<i>${this.escapeHtml(name.slice(0, 1).toUpperCase())}</i>`);
         return `<span class="chat-poll-voter-chip" title="${this.escapeHtml(name)}" style="--poll-voter-color:${frameColor}">${avatar}<b>${this.escapeHtml(name)}</b></span>`;
       }).join('');

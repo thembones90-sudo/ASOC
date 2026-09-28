@@ -210,3 +210,28 @@ storage before enabling them.
 - [ ] Players/accounts verified.
 - [ ] Chat, WOMF, timer, scoring, and persistent state verified.
 - [ ] ARM performed only after all checks passed.
+
+## Hardening controls (2026-09-29)
+
+All have safe defaults; set them only to tune. `npm test` (every `tests/*.js`
+file) must be green in GitHub Actions before a deploy.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ASOC_TRUST_PROXY` | unset | `1` behind Railway: client address comes from `X-Forwarded-For`. |
+| `ASOC_TRUSTED_PROXY_HOPS` | `1` | Which `X-Forwarded-For` entry is trusted, counted from the right (Railway's edge appends one). Leftmost entries are client-supplied and ignored. |
+| `ASOC_GM_LOCKOUT_BASE_MS` | 15 min | GM login lock after 3 wrong passwords; doubles per further failure, max 24 h. No longer permanent. |
+| `ASOC_AUTH_ACCOUNT_FAILURES` / `ASOC_AUTH_ACCOUNT_WINDOW_MS` | 5 / 15 min | Failed Little Hero logins per account. |
+| `ASOC_AUTH_IP_FAILURES` / `ASOC_AUTH_IP_WINDOW_MS` | 30 / 15 min | Failed Little Hero logins per client address. |
+| `ASOC_AUTH_IP_REGISTRATIONS` / `ASOC_AUTH_REGISTER_WINDOW_MS` | 40 / 60 min | New accounts per client address. |
+| `ASOC_AUTH_HASH_CONCURRENCY` / `ASOC_AUTH_HASH_QUEUE` | 2 / 32 | Concurrent async password hashes; beyond the queue, auth answers 503 AUTH_BUSY. |
+| `ASOC_CHAT_UPLOAD_MIN_GAP_MS` | 3000 | Minimum gap between one Little Hero's chat image uploads. |
+| `ASOC_CHAT_UPLOAD_MAX_COUNT` / `ASOC_CHAT_UPLOAD_MAX_WINDOW_BYTES` / `ASOC_CHAT_UPLOAD_WINDOW_MS` | 8 / 25 MB / 5 min | Per-player upload window. |
+| `ASOC_CHAT_UPLOAD_BUDGET_BYTES` | 2 GB | Total `chat-uploads/` budget; uploads answer 507 when full. |
+| `ASOC_MIN_FREE_DISK_BYTES` | 256 MB | Uploads pause while the volume has less free space. |
+| `ASOC_CHAT_UPLOAD_SWEEP_INTERVAL_MS` / `ASOC_CHAT_UPLOAD_SWEEP_GRACE_MS` | 1 h / 24 h | Orphaned-upload sweep. A file is kept while ANY room state or durable JSON store references it, while it has a `.tribute` marker, or while younger than the grace period. |
+| `ASOC_OFFLINE_IDENTITY_TTL_MS` | 30 days | Offline Little Heroes leave the live MASTER roster after this; account, profile, coins and session score are kept. |
+
+Administrative Shadow Coin grants never run at startup. Use
+`node scripts/grant-shadow-coins.js` (dry run without `--yes`) with the server
+stopped and `ASOC_DATA_DIR=/data`.
