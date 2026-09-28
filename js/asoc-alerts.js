@@ -64,7 +64,7 @@
 
   // /spit and /fart aimed at `targetId` ("__SHADOW_BROKER__" for the GM):
   // returns the notification title, or null when it isn't aimed at them.
-  const ACT_PAST = { spit: 'spat', fart: 'farted', nod: 'nodded' };
+  const ACT_PAST = { spit: 'spat', fart: 'farted', hiss: 'hissed', nod: 'nodded' };
   function actAimedAt(msg, targetId) {
     // Emotes carry their own server-written target-perspective line.
     if (msg?.messageType === 'emote') {
@@ -74,7 +74,7 @@
     }
     const act = ACT_PAST[msg?.messageType] ? msg.messageType : null;
     if (!act || !targetId || String(msg[act]?.targetId || '') !== String(targetId)) return null;
-    const preposition = act === 'nod' ? 'at' : 'on';
+    const preposition = act === 'spit' || act === 'fart' ? 'on' : 'at';
     return `${msg[act].actorName || senderName(msg)} ${ACT_PAST[act]} ${preposition} you`;
   }
 

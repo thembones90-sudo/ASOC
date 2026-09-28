@@ -5459,6 +5459,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/stats', help: '/stats -- your messages, correct/wrong, points' },
   { name: '/spit', help: '/spit Name|all -- spit on one target or everyone online' },
   { name: '/fart', help: '/fart Name|all -- fart on one target or everyone online' },
+  { name: '/hiss', help: '/hiss Name|all -- hiss at one target or everyone online' },
   { name: '/nod', help: '/nod Name|all -- acknowledge one target or everyone online' },
   { name: '/slap', help: '/slap Name|all -- emote at one target or everyone online' },
   { name: '/moon', help: '/moon Name|all -- emote at one target or everyone online' },
@@ -5510,6 +5511,7 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/grovel', help: '/grovel -- demand groveling' },
   { name: '/spit', help: '/spit @Name -- the Broker spits too' },
   { name: '/fart', help: '/fart @Name -- the Broker farts too' },
+  { name: '/hiss', help: '/hiss Name|all -- the Broker hisses at one target or everyone' },
   { name: '/nod', help: '/nod @Name -- acknowledge a Little Hero' },
   { name: '/slap', help: '/slap @Name -- the Broker emotes too' },
   { name: '/moon', help: '/moon @Name -- the Broker emotes too' },
@@ -5713,9 +5715,10 @@ function handleCommandsCommand(room, author, raw, registry) {
 const CHAT_ACTS = Object.freeze({
   spit: { label: 'SPIT', verb: 'spits on' },
   fart: { label: 'FART', verb: 'farts on' },
+  hiss: { label: 'HISS', verb: 'hisses at' },
   nod: { label: 'NOD', verb: 'nods at' }
 });
-const CHAT_ACT_PATTERN = /^\/(spit|fart|nod)\b/i;
+const CHAT_ACT_PATTERN = /^\/(spit|fart|hiss|nod)\b/i;
 
 function handleActCommand(room, author, raw, targetPlayerId, act) {
   const { label, verb } = CHAT_ACTS[act];

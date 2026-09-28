@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260928-reaction-names-2">
+  <link rel="stylesheet" href="css/asoc.css?v=20260928-hiss-media-hud-4">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
   <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-2">
   <link rel="stylesheet" href="css/megabonk.css?v=20260928-searchlight-1">
@@ -8429,6 +8429,77 @@ position:absolute;
     @keyframes desktop-app-gold-pulse{0%,100%{box-shadow:inset 0 1px rgba(255,244,187,.18),inset 0 0 22px rgba(226,171,42,.08),0 0 16px rgba(226,169,38,.14)}50%{box-shadow:inset 0 1px rgba(255,250,219,.24),inset 0 0 28px rgba(255,205,73,.15),0 0 31px rgba(240,181,43,.35)}}
     @keyframes desktop-app-gold-sweep{0%,58%{left:-28%;opacity:0}66%{opacity:1}88%,100%{left:112%;opacity:0}}
     @media(prefers-reduced-motion:reduce){.signed-desktop-download,.signed-desktop-download::after{animation:none!important}}
+
+    /* PLAYER STATUS HEADER FINAL GUARD // legacy Battle and compact passes
+       must not inflate utility controls or hidden cosmetics into the HUD. */
+    #game-screen .detainee-status-module #little-hero-hud {
+      position:relative !important;
+      display:grid !important;
+      grid-template-columns:minmax(0,1fr) !important;
+      grid-template-areas:"identity" "stats" !important;
+      min-height:0 !important;
+      overflow:visible !important;
+    }
+    #game-screen .detainee-status-module .hero-hud-identity-block {
+      grid-area:identity !important;
+      display:flex !important;
+      align-items:center !important;
+      flex-wrap:wrap !important;
+      min-width:0 !important;
+      gap:7px !important;
+    }
+    #game-screen .detainee-status-module .hero-hud-identity {
+      flex:1 1 220px !important;
+      width:auto !important;
+      min-width:0 !important;
+    }
+    #game-screen .detainee-status-module .hero-hud-stats { grid-area:stats !important; }
+    #game-screen .detainee-status-module .hero-hud-identity-block > [hidden],
+    #game-screen .detainee-status-module .cos-title-hud[hidden] { display:none !important; }
+    #game-screen .detainee-status-module .hero-hud-identity-block > button,
+    #game-screen .detainee-status-module .hero-hud-identity-block > .player-master-access-wrap {
+      position:relative !important;
+      inset:auto !important;
+      flex:0 0 auto !important;
+      width:auto !important;
+      max-width:100% !important;
+      border-radius:5px !important;
+      transform:none !important;
+    }
+    #game-screen .detainee-status-module .hero-hud-identity-block > button::before {
+      width:auto !important;
+      height:auto !important;
+      max-width:16px !important;
+      max-height:16px !important;
+      border-radius:0 !important;
+    }
+
+    /* Broker image-only posts are the picture itself: no second plaque and
+       no padded frame around the media. */
+    #game-screen .chat-broker-entry > .chat-image-link.broker-image-only {
+      display:block !important;
+      width:fit-content !important;
+      max-width:min(100%,520px) !important;
+      margin:0 0 0 auto !important;
+      padding:0 !important;
+      border:0 !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      line-height:0 !important;
+    }
+    #game-screen .chat-broker-entry > .chat-image-link.broker-image-only .chat-image-attachment {
+      display:block !important;
+      width:auto !important;
+      height:auto !important;
+      max-width:100% !important;
+      max-height:520px !important;
+      margin:0 !important;
+      object-fit:contain !important;
+      border:0 !important;
+      border-radius:8px !important;
+      background:transparent !important;
+      box-shadow:none !important;
+    }
     @media(max-width:760px){.signed-desktop-download{grid-template-columns:38px minmax(0,1fr);margin:6px 7px;padding:8px}.signed-desktop-download-icon{width:36px;height:36px;font-size:20px}.signed-desktop-download-copy strong{font-size:10px}.signed-desktop-download-copy small{font-size:7px}.signed-desktop-download-action{display:none}}
 
     /* PLAYER COMMS DENSITY PATCH V1 // 2026-09-28 */
@@ -9749,7 +9820,7 @@ position:absolute;
   <script src="js/iks-ring.js?v=20260925-health-bars-1"></script>
   <script src="js/iks-board.js?v=20260925-iks-board-2"></script>
   <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
-  <script src="js/asoc-alerts.js?v=20260925-iks-rings-2"></script>
+  <script src="js/asoc-alerts.js?v=20260928-hiss-media-hud-1"></script>
   <script src="js/chat-media-preview.js?v=20260928-save-as-2"></script>
   <script src="js/read-receipts.js?v=20260926-seen-dedupe-1"></script>
   <script src="js/shadow-cosmetics.js?v=20260926-dm-1"></script>
@@ -9758,7 +9829,7 @@ position:absolute;
   <script src="js/stale-guard.js?v=20260926-force-refresh-1"></script>
   <script src="js/megabonk.js?v=20260928-searchlight-1"></script>
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
-  <script src="js/player.js?v=20260928-hint-lane-2"></script>
+  <script src="js/player.js?v=20260928-hiss-media-hud-2"></script>
   <script src="js/threefold.js?v=20260925-kaladont-1"></script>
   <script src="js/kaladont-ui.js?v=20260928-kaladont-chat-timer-1"></script>
   <script src="js/kaladont-client.js?v=20260928-kaladont-chat-timer-1"></script>

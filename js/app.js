@@ -107,6 +107,7 @@ const App = {
     { name: 'grovel', insert: '/grovel', icon: '⛓', label: 'GROVEL', description: '/grovel -- demand groveling' },
     { name: 'spit', insert: '/spit ', icon: '➤', label: 'SPIT', description: '/spit Name | all -- one target or everyone' },
     { name: 'fart', insert: '/fart ', icon: '☁', label: 'FART', description: '/fart Name | all -- one target or everyone' },
+    { name: 'hiss', insert: '/hiss ', icon: '🐍', label: 'HISS', description: '/hiss Name | all -- hiss at one target or everyone' },
     { name: 'slap', insert: '/slap ', icon: '✋', label: 'SLAP', description: '/slap Name | all -- one target or everyone' },
     { name: 'moon', insert: '/moon ', icon: '☾', label: 'MOON', description: '/moon @Name -- the Broker emotes too' },
     { name: 'chicken', insert: '/chicken ', icon: '🐔', label: 'CHICKEN', description: '/chicken @Name -- the Broker emotes too' },
@@ -5268,7 +5269,7 @@ const App = {
   // own act reads "You ...", a Little Hero aiming at the Broker (target id
   // __SHADOW_BROKER__) reads "X ... you.", anything else is neutral.
   gmSystemActLine(msg, act) {
-    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'], nod: ['nod at', 'nods at'] }[act] || ['acknowledge', 'acknowledges'];
+    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'], hiss: ['hiss at', 'hisses at'], nod: ['nod at', 'nods at'] }[act] || ['acknowledge', 'acknowledges'];
     const data = msg[act] || {};
     const actorName = this.escapeHtml(String(data.actorName || msg.playerName || 'SHADOW BROKER'));
     const targetName = this.escapeHtml(String(data.targetName || '???'));
@@ -5341,6 +5342,7 @@ const App = {
       },
       spit: () => ({ label: 'SPIT', body: this.gmSystemActLine(msg, 'spit'), detail: '' }),
       fart: () => ({ label: 'FART', body: this.gmSystemActLine(msg, 'fart'), detail: '' }),
+      hiss: () => ({ label: 'HISS', body: this.gmSystemActLine(msg, 'hiss'), detail: '' }),
       emote: () => ({ label: msg.emote?.label || 'EMOTE', body: this.gmSystemEmoteLine(msg), detail: '' }),
       nod: () => ({ label: 'NOD', body: this.gmSystemActLine(msg, 'nod'), detail: 'ACKNOWLEDGED' }),
       afk: () => ({ label: 'AFK CHECK', body: this.gmSystemAfkLine(msg), detail: '' }),
@@ -5397,7 +5399,7 @@ const App = {
       `;
     }
 
-    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'nod', 'emote', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'hiss', 'nod', 'emote', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
       return this.createGMSystemChatCardHTML(msg);
     }
 
@@ -5513,7 +5515,8 @@ const App = {
       return `
         <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
-          ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchKey: msg.id })}\n          ${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
+          ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}
+          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
           ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
           ${this.createGMReactionSummaryHTML(msg)}
         </div>

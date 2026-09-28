@@ -17296,6 +17296,34 @@ button.gm-chat-gif-link:focus-visible {
 .chat-system-spit .chat-system-body { font-style:italic; }
 .chat-system-fart { --sys-accent:#9acd32; }
 .chat-system-fart .chat-system-body { font-style:italic; }
+.chat-system-hiss { --sys-accent:#78d89a; }
+.chat-system-hiss .chat-system-body { font-style:italic; letter-spacing:.025em; }
+
+/* Image-only Shadow Broker posts: the image is the complete message. */
+.gm-shadow-broker-entry > .chat-image-link.broker-image-only {
+  display:block !important;
+  width:fit-content !important;
+  max-width:min(100%,520px) !important;
+  margin:0 0 0 auto !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  line-height:0 !important;
+}
+.gm-shadow-broker-entry > .chat-image-link.broker-image-only .chat-image-attachment {
+  display:block !important;
+  width:auto !important;
+  height:auto !important;
+  max-width:100% !important;
+  max-height:520px !important;
+  margin:0 !important;
+  object-fit:contain !important;
+  border:0 !important;
+  border-radius:8px !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
 .chat-system-emote { --sys-accent:#e8a33d; }
 .chat-system-emote .chat-system-body { font-style:italic; }
 /* /spit and /fart picker: the Shadow Broker target reads as the GM. */

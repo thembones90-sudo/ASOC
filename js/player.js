@@ -106,6 +106,7 @@ const PlayerApp = {
     { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
     { name: 'spit', insert: '/spit ', syntax: '/spit Name | all', description: 'Spit on one target or everyone online' },
     { name: 'fart', insert: '/fart ', syntax: '/fart Name | all', description: 'Fart on one target or everyone online' },
+    { name: 'hiss', insert: '/hiss ', syntax: '/hiss Name | all', description: 'Hiss at one target or everyone online' },
     { name: 'nod', insert: '/nod ', syntax: '/nod Name | all', description: 'Acknowledge one target or everyone online' },
     { name: 'all', insert: '/all ', syntax: '/all [message]', description: 'Nudge everyone // every screen shakes' },
     { name: 'slap', insert: '/slap ', syntax: '/slap Name | all', description: 'Slap one target or everyone online' },
@@ -135,7 +136,7 @@ const PlayerApp = {
   // Commands that take a player target: the target picker opens as soon as
   // the verb is complete and filters the online roster while a name is typed.
   // Legacy @Name input remains accepted by the server, but the UI never adds it.
-  targetedChatActs: ['spit', 'fart', 'nod', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass', 'smite', 'freeze', 'glitch'],
+  targetedChatActs: ['spit', 'fart', 'hiss', 'nod', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass', 'smite', 'freeze', 'glitch'],
   targetedChatActPattern(suffix) {
     return new RegExp(`^\\s*\\/(?:${this.targetedChatActs.join('|')})${suffix}`, 'i');
   },
@@ -4558,7 +4559,7 @@ const PlayerApp = {
      neutral -- from the structured actorId/targetId payload, never from
      guessable text. */
   systemActLine(msg, act) {
-    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'], nod: ['nod at', 'nods at'] }[act] || ['acknowledge', 'acknowledges'];
+    const verbs = { spit: ['spit on', 'spits on'], fart: ['fart on', 'farts on'], hiss: ['hiss at', 'hisses at'], nod: ['nod at', 'nods at'] }[act] || ['acknowledge', 'acknowledges'];
     const data = msg[act] || {};
     const viewerId = String(this.playerId || '');
     const actorName = this.escapeHtml(String(data.actorName || msg.playerName || 'SHADOW BROKER'));
@@ -4639,6 +4640,7 @@ const PlayerApp = {
       },
       spit: () => ({ label: 'SPIT', body: this.systemActLine(msg, 'spit'), detail: '' }),
       fart: () => ({ label: 'FART', body: this.systemActLine(msg, 'fart'), detail: '' }),
+      hiss: () => ({ label: 'HISS', body: this.systemActLine(msg, 'hiss'), detail: '' }),
       emote: () => ({ label: msg.emote?.label || 'EMOTE', body: this.systemEmoteLine(msg), detail: '' }),
       nod: () => ({ label: 'NOD', body: this.systemActLine(msg, 'nod'), detail: 'ACKNOWLEDGED' }),
       afk: () => ({ label: 'AFK CHECK', body: this.systemAfkLine(msg), detail: '' }),
@@ -4700,7 +4702,7 @@ const PlayerApp = {
       `;
     }
 
-    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'nod', 'emote', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
+    if (msg.messageType && ['dice', 'flip', 'choose', 'order', 'stats', 'commands', 'spit', 'fart', 'hiss', 'nod', 'emote', 'afk', 'unstableConcoction'].includes(msg.messageType)) {
       return this.createSystemChatCardHTML(msg);
     }
 
@@ -4803,7 +4805,8 @@ const PlayerApp = {
       return `
         <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
-          ${Skeleton.shadowBrokerTransmissionHTML(messageText || (msg.imageUrl ? 'IMAGE TRANSMISSION' : ''), { glitchKey: msg.id })}\n          ${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
+          ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}
+          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}
           ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
           ${this.createReactionBarHTML(msg)}
         </div>

@@ -1,4 +1,4 @@
-// /spit and /fart: one targeted-act mechanism. Little Heroes can aim either
+// /spit, /fart, /hiss and /nod: one targeted-act mechanism. Little Heroes can aim either
 // at another connected player or at the Shadow Broker (pseudo-target
 // __SHADOW_BROKER__); the Broker can /fart too but never at itself.
 // Private server on throwaway data.
@@ -91,6 +91,11 @@ async function run() {
     assert.equal(typed.playerId, farter.playerId, 'the fart is credited to the sender (DELIVERED ack)');
     assert.deepEqual(typed.fart, { actorId: farter.playerId, actorName: 'Farter', targetId: victim.playerId, targetName: 'Victim' });
 
+    await say('/hiss Victim');
+    const hiss = await waitFor(victim, m => m.messageType === 'hiss' && m.hiss?.targetId === victim.playerId, 'typed hiss');
+    assert.equal(hiss.text, 'Farter hisses at Victim.');
+    assert.deepEqual(hiss.hiss, { actorId: farter.playerId, actorName: 'Farter', targetId: victim.playerId, targetName: 'Victim' });
+
     // /fart via the picker's resolved id.
     victim.chat = [];
     await say('/fart Victim', { targetPlayerId: victim.playerId });
@@ -125,7 +130,10 @@ async function run() {
     assert.match(appSrc, /case 'error':[\s\S]*this\.showGMCommandError\(message\.message\)/, 'GM server failures use the in-app error path');
     assert.doesNotMatch(appSrc.match(/case 'error':[\s\S]*?break;/)?.[0] || '', /alert\(/, 'GM server failures never open a native Electron alert');
     assert.match(appSrc, /composer\?\.focus\(\{ preventScroll: true \}\)/, 'GM error path restores composer focus');
-    assert.match(joinSrc, /player\.js\?v=20260928-command-all-2/, 'hardened command-all client is cache-busted');
+    assert.match(joinSrc, /player\.js\?v=20260928-hiss-media-hud-2/, 'targeted-act and HUD client is cache-busted');
+    assert.doesNotMatch(playerSrc, /msg\.imageUrl \? 'IMAGE TRANSMISSION'/, 'player image-only Broker posts have no redundant transmission plaque');
+    assert.doesNotMatch(appSrc, /msg\.imageUrl \? 'IMAGE TRANSMISSION'/, 'GM image-only Broker posts have no redundant transmission plaque');
+    assert.match(joinSrc, /PLAYER STATUS HEADER FINAL GUARD/, 'player HUD has a final cascade guard against inflated utility controls');
 
     // The Shadow Broker is a valid target for both acts: picker id, full name, short name.
     await say('/fart SHADOW BROKER', { targetPlayerId: BROKER });
@@ -156,6 +164,10 @@ async function run() {
     const brokerAll = await waitFor(victim, m => m.id !== brokerSingleId && m.messageType === 'fart' && m.fart?.actorId === null && m.fart?.targetId === '__ALL_ONLINE__', 'Broker fart all');
     assert.equal(brokerAll.text, 'SHADOW BROKER farts on everyone.');
 
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/hiss Victim' }));
+    const brokerHiss = await waitFor(victim, m => m.messageType === 'hiss' && m.hiss?.actorId === null, 'Broker hiss');
+    assert.equal(brokerHiss.text, 'SHADOW BROKER hisses at Victim.');
+
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart @all' }));
     const brokerLegacyAll = await waitFor(victim, m => m.id !== brokerAll.id && m.messageType === 'fart' && m.fart?.actorId === null && m.fart?.targetId === '__ALL_ONLINE__', 'Broker legacy fart @all');
     assert.equal(brokerLegacyAll.text, 'SHADOW BROKER farts on everyone.');
@@ -171,6 +183,7 @@ async function run() {
     await say('/commands');
     const commands = await waitFor(farter, m => m.messageType === 'commands', '/commands card');
     assert.ok(commands.commands.commands.some(entry => entry.name === '/fart'));
+    assert.ok(commands.commands.commands.some(entry => entry.name === '/hiss'));
     assert.ok(commands.commands.commands.some(entry => entry.name === '/slap'));
     assert.ok(commands.commands.commands.some(entry => entry.name === '/nod'));
 
@@ -245,7 +258,7 @@ async function run() {
       assert.ok(gmCommands.commands.commands.some(entry => entry.name === name), `GM /commands lists ${name}`));
 
     assert.equal(serverErrors.trim(), '', 'no server errors');
-    console.log('PASS chat acts: /spit, /fart and /nod use authoritative targets, emotes carry three perspectives, moon toll is one-time, the Broker runs every command');
+    console.log('PASS chat acts: /spit, /fart, /hiss and /nod use authoritative targets, emotes carry three perspectives, moon toll is one-time, the Broker runs every command');
   } finally {
     clients.forEach(client => { try { client.ws.close(); } catch {} });
     server.kill();
