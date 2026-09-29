@@ -304,6 +304,17 @@
       background:linear-gradient(180deg,#25101e,#10080e);
       box-shadow:inset 2px 0 #b8293e, inset 0 -2px #7d2bb8;
     }
+    .theme-select[data-theme-id="whiteout"] .theme-select-toggle {
+      border-color:#aab7bf;
+      background:
+        linear-gradient(135deg,rgba(255,255,255,.82),rgba(217,229,236,.72)),
+        linear-gradient(180deg,#f8fafb,#dce4e9);
+      color:#182027;
+      box-shadow:inset 2px 0 #f7fbfd,inset 0 1px #ffffff,inset 0 -1px rgba(90,109,122,.22);
+    }
+    .theme-select[data-theme-id="whiteout"] .theme-select-copy strong { color:#182027; }
+    .theme-select[data-theme-id="whiteout"] .theme-select-copy small,
+    .theme-select[data-theme-id="whiteout"] .theme-select-arrow { color:#5e6c76; }
 
     .theme-select-preview,
     .theme-option-preview {
@@ -367,6 +378,12 @@
     .theme-option-preview.revan i:nth-child(2) { background:#b8293e; }
     .theme-select-preview.revan i:nth-child(3),
     .theme-option-preview.revan i:nth-child(3) { background:#7d2bb8; }
+    .theme-select-preview.whiteout i:nth-child(1),
+    .theme-option-preview.whiteout i:nth-child(1) { background:#ffffff; }
+    .theme-select-preview.whiteout i:nth-child(2),
+    .theme-option-preview.whiteout i:nth-child(2) { background:#d8e0e5; }
+    .theme-select-preview.whiteout i:nth-child(3),
+    .theme-option-preview.whiteout i:nth-child(3) { background:#a9d9ea; }
 
     .theme-select-copy,
     .theme-option-copy { min-width:0; }
@@ -497,6 +514,14 @@
       box-shadow:inset 2px 0 #b8293e, inset 0 -2px #7d2bb8;
       background:linear-gradient(180deg,#25101e,#10080e);
     }
+    .theme-option[data-theme-id="whiteout"].selected {
+      border-color:#b7c3cb;
+      box-shadow:inset 2px 0 #f7fbfd,inset 0 1px #ffffff;
+      background:linear-gradient(180deg,#f8fafb,#dce4e9);
+      color:#182027;
+    }
+    .theme-option[data-theme-id="whiteout"].selected .theme-option-copy strong { color:#182027; }
+    .theme-option[data-theme-id="whiteout"].selected .theme-option-copy small { color:#66747e; }
 
     .theme-option-state {
       color:#87919c;
@@ -511,6 +536,7 @@
     .theme-option[data-theme-id="our-theme"].selected .theme-option-state { color:#f2d978; }
     .theme-option[data-theme-id="undead"].selected .theme-option-state { color:#d7f2a8; }
     .theme-option[data-theme-id="revan"].selected .theme-option-state { color:#f08ac2; }
+    .theme-option[data-theme-id="whiteout"].selected .theme-option-state { color:#33434e; }
 
     .little-hero-chaos-note {
       margin-top: 8px;
@@ -8914,6 +8940,59 @@ position:absolute;
       }
     }
 
+
+    /* WHITEOUT // STERILE ARCTIC MACHINE.
+       A bright hostile shell with frosted silver machinery. The authored board
+       remains untouched; only player chrome and player-message surfaces change. */
+    #game-screen[data-player-theme="whiteout"] {
+      background:
+        radial-gradient(circle at 88% 12%,rgba(180,225,241,.42) 0 2px,rgba(180,225,241,.15) 4px 64px,transparent 150px),
+        repeating-linear-gradient(90deg,rgba(91,111,124,.055) 0 1px,transparent 1px 84px),
+        linear-gradient(132deg,rgba(255,255,255,.98),rgba(231,238,242,.95) 48%,rgba(207,218,225,.96));
+      color:#172027;
+    }
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby {
+      background:
+        linear-gradient(145deg,rgba(255,255,255,.88),rgba(214,225,232,.70) 42%,rgba(190,204,213,.72)),
+        repeating-linear-gradient(0deg,rgba(72,96,111,.05) 0 1px,transparent 1px 22px);
+      border-left-color:#aab8c1;
+      box-shadow:inset 10px 0 22px rgba(96,117,131,.14),inset 1px 0 rgba(255,255,255,.95),inset -1px 0 rgba(94,111,122,.18);
+    }
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby #chat-panel {
+      border-color:#aebbc4;
+      background:linear-gradient(180deg,rgba(248,250,251,.98),rgba(224,231,235,.98));
+      color:#172027;
+    }
+    #game-screen[data-player-theme="whiteout"] .detainee-status-module {
+      border-color:#aab8c1;
+      background:
+        linear-gradient(118deg,rgba(255,255,255,.92),rgba(218,230,236,.62) 45%,rgba(195,208,216,.72)),
+        linear-gradient(180deg,#f9fbfc,#dbe4e9);
+      box-shadow:inset 0 1px #ffffff,inset 0 -3px 10px rgba(94,111,122,.16);
+      color:#172027;
+    }
+    #game-screen[data-player-theme="whiteout"] .detainee-status-label {
+      background:linear-gradient(180deg,#ffffff,#dfe7eb);
+      color:#1d2931;
+      box-shadow:inset 0 1px #ffffff,inset 0 -1px rgba(94,111,122,.18);
+    }
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] {
+      border-color:#aebac2;
+      background:
+        linear-gradient(135deg,rgba(255,255,255,.96),rgba(231,237,241,.95) 72%,rgba(215,224,230,.95));
+      color:#172027;
+      box-shadow:inset 0 1px #ffffff,inset 0 -1px rgba(92,108,119,.16),0 2px 7px rgba(75,91,102,.12);
+    }
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-text,
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-player-name,
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] time {
+      color:#1c2830 !important;
+      text-shadow:none !important;
+    }
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-player-name {
+      color:#405764 !important;
+    }
+
 </style>
   <link rel="stylesheet" href="css/roulette-carnage.css?v=20260929-roulette-carnage-1">
   <!-- MOBILE VERSION shell: loaded last; every rule is scoped to html.asoc-mobile. -->
@@ -9118,6 +9197,14 @@ position:absolute;
                   <span class="theme-option-copy">
                     <strong>REVAN</strong>
                     <small>08 // CRIMSON VIOLET // SIGNATURE CIRCUITS</small>
+                  </span>
+                  <span class="theme-option-state">SELECT</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-id="whiteout" role="option" aria-selected="false">
+                  <span class="theme-option-preview whiteout" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="theme-option-copy">
+                    <strong>WHITEOUT</strong>
+                    <small>09 // STERILE SIGNAL // ARCTIC CIRCUITS</small>
                   </span>
                   <span class="theme-option-state">SELECT</span>
                 </button>
@@ -9906,7 +9993,7 @@ position:absolute;
     });
   })();
   </script>
-  <script src="js/themes.js"></script>
+  <script src="js/themes.js?v=20260929-whiteout-1"></script>
   <script src="js/dom-patch.js?v=20260925-gm-control-pass-1"></script>
   <script src="js/skeleton.js?v=20260927-sb-stable-2"></script>
   <script src="js/board-celebrations.js?v=20260928-board-coronation-1"></script>
