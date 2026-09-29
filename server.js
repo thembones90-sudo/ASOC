@@ -202,7 +202,8 @@ const LITTLE_HERO_THEMES = Object.freeze({
   'disco-inferno': '#F06A2A',
   'our-theme': '#B92522',
   undead: '#7FBF3F',
-  revan: '#A8328A'
+  revan: '#A8328A',
+  whiteout: '#F2F5F7'
 });
 
 const mimeTypes = {
