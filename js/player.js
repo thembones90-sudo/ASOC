@@ -888,6 +888,20 @@ const PlayerApp = {
       });
     });
 
+    const themeScrollControl = document.getElementById('theme-select-scroll-control');
+    themeScrollControl?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!themeMenu) return;
+      themeMenu.scrollBy({ top: Math.max(120, themeMenu.clientHeight * 0.72), behavior:'smooth' });
+    });
+
+    themeMenu?.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      themeMenu.scrollTop += e.deltaY;
+    }, { passive:false });
+
     document.addEventListener('click', (e) => {
       if (themeSelect && !themeSelect.contains(e.target)) closeThemeMenu();
     });
