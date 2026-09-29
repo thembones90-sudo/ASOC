@@ -19712,6 +19712,72 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
   text-shadow:none !important;
 }
 
+/* ATOMIC CLASS CLOCK // central Shadow Broker schedule telemetry. */
+.gm-atomic-clock {
+  position:absolute;
+  z-index:4;
+  left:50%;
+  top:50%;
+  display:grid;
+  grid-template-columns:auto auto;
+  align-items:center;
+  column-gap:10px;
+  min-width:250px;
+  padding:4px 16px 5px;
+  transform:translate(-50%,-50%);
+  border:1px solid rgba(126,94,157,.5);
+  clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px);
+  background:linear-gradient(180deg,rgba(25,20,33,.96),rgba(9,11,16,.98));
+  box-shadow:inset 0 0 18px rgba(132,76,181,.08),0 0 14px rgba(96,50,139,.12);
+  pointer-events:none;
+}
+body:not(.room-mode-casual) .gm-atomic-clock { display:none; }
+.gm-atomic-clock-label,
+.gm-atomic-clock-status {
+  color:#746b80;
+  font:800 .42rem/1.15 var(--font-machine);
+  letter-spacing:.14em;
+  white-space:nowrap;
+}
+.gm-atomic-clock-label { align-self:end; }
+.gm-atomic-clock-status { align-self:start; color:#9688a3; }
+.gm-atomic-clock time {
+  grid-row:1/3;
+  grid-column:2;
+  display:flex;
+  align-items:center;
+  color:#edeaf1;
+  font:900 1.05rem/1 var(--font-mono,monospace);
+  letter-spacing:.075em;
+  text-shadow:0 0 10px rgba(203,166,234,.28);
+}
+.gm-atomic-clock time i { color:#8e62b4; font-style:normal; animation:class-clock-colon 1s steps(1,end) infinite; }
+.gm-atomic-clock.is-warning {
+  border-color:#e6b958;
+  background:linear-gradient(180deg,rgba(54,37,15,.98),rgba(18,14,10,.99));
+  box-shadow:inset 0 0 24px rgba(239,181,61,.16),0 0 25px rgba(239,181,61,.32);
+  animation:class-clock-warning 1.2s ease-out both;
+}
+.gm-atomic-clock.is-warning .gm-atomic-clock-status { color:#ffd978; }
+html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes class-clock-colon { 50% { opacity:.3; } }
+@keyframes class-clock-warning { 0%,100% { filter:brightness(1); } 28% { filter:brightness(1.55); } 55% { filter:brightness(1.15); } }
+@keyframes class-clock-screen-nudge {
+  15% { transform:translate3d(-2px,1px,0); }
+  30% { transform:translate3d(3px,-1px,0); }
+  45% { transform:translate3d(-3px,0,0); }
+  60% { transform:translate3d(2px,1px,0); }
+  75% { transform:translate3d(-1px,0,0); }
+}
+@media (max-width:1050px) {
+  .gm-atomic-clock { min-width:190px; padding-inline:10px; }
+  .gm-atomic-clock-label,.gm-atomic-clock-status { display:none; }
+  .gm-atomic-clock time { grid-area:auto; font-size:.88rem; justify-content:center; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .gm-atomic-clock time i,.gm-atomic-clock.is-warning,html.class-clock-nudge body { animation:none!important; }
+}
+
 .game-card.game-list-row {
   min-height: 64px;
   padding: 10px 14px;
