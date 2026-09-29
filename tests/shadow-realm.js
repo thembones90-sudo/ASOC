@@ -200,6 +200,8 @@ async function healthy() {
     assert.match(index, /data-gm-chat-action="shadow-realm-release"/);
     assert.match(app, /gm:shadowRealmRelease/);
     assert.match(app, /durationMs:Math\.round\(seconds\*1000\)/);
+    assert.match(app, /querySelectorAll\('\[data-gm-chat-action\^="shadow-realm-"\]:not\(\[data-gm-chat-action="shadow-realm-release"\]\)'\)/, 'the live right-click menu unhides every sentence option');
+    assert.doesNotMatch(app, /querySelector\('\[data-gm-chat-action="shadow-realm"\]'\)/, 'the removed legacy action cannot hide the banish controls');
     assert.match(serverSource, /shadowRealmRecentLines[\s\S]{0,500}slice\(-5\)/, 'recent verdicts are excluded from immediate repeats');
     assert.match(fs.readFileSync(path.join(ROOT, 'js/shadow-realm.js'), 'utf8'), /srealm-seal/);
     assert.match(fs.readFileSync(path.join(ROOT, 'js/audio.js'), 'utf8'), /function shadowRealm\(/);

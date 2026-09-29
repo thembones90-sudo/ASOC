@@ -1844,8 +1844,15 @@ const App = {
       const cancelTributeButton = gmContextMenu.querySelector('[data-gm-chat-action="tribute-cancel"]');
       if (tributeButton) tributeButton.hidden = !chatMessage?.imageUrl || !!chatMessage?.bloodTribute;
       if (cancelTributeButton) cancelTributeButton.hidden = !chatMessage?.bloodTribute?.active;
-    { const realmButton = document.getElementById('gm-chat-context-menu')?.querySelector('[data-gm-chat-action="shadow-realm"]');
-      if (realmButton) realmButton.hidden = !this.canSendToShadowRealm(chatMessage); }
+      // The original menu exposed one `shadow-realm` action. Sentences now
+      // have presets plus a custom duration, so update every banish action;
+      // otherwise the legacy selector leaves the entire feature hidden.
+      const realmAllowed = this.canSendToShadowRealm(chatMessage);
+      gmContextMenu.querySelectorAll('[data-gm-chat-action^="shadow-realm-"]:not([data-gm-chat-action="shadow-realm-release"])')
+        .forEach(button => { button.hidden = !realmAllowed; });
+      const realmActive = chatMessage?.playerId && Number(this.shadowRealmActive?.[String(chatMessage.playerId)]?.until) > Date.now();
+      const realmRelease = gmContextMenu.querySelector('[data-gm-chat-action="shadow-realm-release"]');
+      if (realmRelease) realmRelease.hidden = !realmActive;
       gmContextMenu.hidden = false;
       if (gmReactionPicker) gmReactionPicker.hidden = true;
       if (gmEmojiPicker) gmEmojiPicker.hidden = true;
