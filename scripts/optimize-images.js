@@ -15,6 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '..');
@@ -40,12 +41,21 @@ function pngs(dir) {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   let before = 0, after = 0, written = 0;
+  // manifest.json: PNG path -> sha1 of the PNG each copy was made from. The
+  // server serves a copy only while its PNG still has that exact hash, so
+  // replaced artwork is never masked by an old copy (git checkouts do not
+  // keep file times, so times cannot be trusted for this).
+  const manifestFile = path.join(OUT, 'manifest.json');
+  let manifest = {};
+  try { manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8')); } catch {}
+  const next = {};
   for (const file of files) {
-    const rel = path.relative(ASSETS, file);
+    const rel = path.relative(ASSETS, file).split(path.sep).join('/');
     const target = path.join(OUT, rel + '.webp');
     const src = fs.statSync(file);
+    const sha1 = crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex');
     before += src.size;
-    if (fs.existsSync(target) && fs.statSync(target).mtimeMs >= src.mtimeMs) { after += fs.statSync(target).size; continue; }
+    if (manifest[rel] === sha1 && fs.existsSync(target)) { next[rel] = sha1; after += fs.statSync(target).size; continue; }
     const dataUrl = 'data:image/png;base64,' + fs.readFileSync(file).toString('base64');
     const webp = await page.evaluate(async ({ dataUrl, maxSide, quality }) => {
       const img = new Image();
@@ -66,9 +76,12 @@ function pngs(dir) {
     if (bytes.length >= src.size) { try { fs.unlinkSync(target); } catch {} continue; }
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, bytes);
+    next[rel] = sha1;
     after += bytes.length;
     written++;
   }
   await browser.close();
+  fs.mkdirSync(OUT, { recursive: true });
+  fs.writeFileSync(manifestFile, JSON.stringify(next, null, 2) + '\n');
   console.log(`optimize-images: ${files.length} large PNGs, ${written} (re)encoded; ${(before / 1048576).toFixed(1)} MB -> ${(after / 1048576).toFixed(1)} MB as WebP`);
 })().catch(error => { console.error(error); process.exit(1); });

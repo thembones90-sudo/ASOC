@@ -10317,7 +10317,63 @@ function handleApiRequest(req, res) {
 // `/js/../../server.js`, `/.git/config`, `/..\..\...` all resolved to a
 // path inside the project and were served). It is replaced by a strict
 // allowlist that rejects every obfuscation vector up front.
-function serveStaticFile(req, res) {
+// PAGE WEIGHT (Mobile Alpha 0.1, step 3)
+//   - text (html/js/css/json/svg/manifest) is gzipped, cached per file+mtime;
+//   - a large PNG under /assets/ is answered with its WebP copy
+//     (assets/.webp/, built by scripts/optimize-images.js) when the browser
+//     accepts image/webp -- same URL, `Vary: Accept`, no reference changes;
+//   - versioned assets (?v=...) are cached for good; other assets for an hour.
+//     HTML/JS/CSS keep no-store (the stale-page guard relies on it).
+const zlib = require('zlib');
+const COMPRESSIBLE_EXT = new Set(['.html', '.js', '.css', '.json', '.svg', '.webmanifest', '.txt']);
+const gzipCache = new Map(); // fullPath -> { mtimeMs, size, gz }
+const WEBP_DIR = path.join(__dirname, 'assets', '.webp');
+const webpCopyCache = new Map(); // fullPath -> { mtimeMs, file|null }
+
+function assetCacheControl(url) {
+  return /[?&]v=/.test(String(url || '')) ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';
+}
+
+function gzipFor(fullPath, content, mtimeMs) {
+  const hit = gzipCache.get(fullPath);
+  if (hit && hit.mtimeMs === mtimeMs && hit.size === content.length) return hit.gz;
+  const gz = zlib.gzipSync(content, { level: 6 });
+  gzipCache.set(fullPath, { mtimeMs, size: content.length, gz });
+  return gz;
+}
+
+let webpManifest = null;
+function webpManifestEntries() {
+  if (webpManifest) return webpManifest;
+  try { webpManifest = JSON.parse(fs.readFileSync(path.join(WEBP_DIR, 'manifest.json'), 'utf8')); } catch { webpManifest = {}; }
+  return webpManifest;
+}
+
+// A copy is served only while its PNG still hashes to what the copy was
+// built from (assets/.webp/manifest.json). Git checkouts do not keep file
+// times, so times cannot tell a stale copy; replaced artwork without a
+// rebuilt copy simply falls back to the PNG.
+function webpCopyFor(fullPath) {
+  const assetsRoot = path.join(__dirname, 'assets');
+  if (!fullPath.startsWith(assetsRoot + path.sep)) return null;
+  const rel = path.relative(assetsRoot, fullPath).split(path.sep).join('/');
+  const expected = webpManifestEntries()[rel];
+  if (!expected) return null;
+  let srcStat;
+  try { srcStat = fs.statSync(fullPath); } catch { return null; }
+  const hit = webpCopyCache.get(fullPath);
+  if (hit && hit.mtimeMs === srcStat.mtimeMs && hit.size === srcStat.size) return hit.file;
+  let file = null;
+  try {
+    const sha1 = crypto.createHash('sha1').update(fs.readFileSync(fullPath)).digest('hex');
+    const candidate = path.join(WEBP_DIR, rel + '.webp');
+    if (sha1 === expected && fs.existsSync(candidate)) file = candidate;
+  } catch {}
+  webpCopyCache.set(fullPath, { mtimeMs: srcStat.mtimeMs, size: srcStat.size, file });
+  return file;
+}
+
+function serveStaticFile(req, res, { noWebp = false } = {}) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { 'Content-Type': 'text/plain' });
     res.end('Method Not Allowed');
@@ -10333,6 +10389,18 @@ function serveStaticFile(req, res) {
 
   const ext = path.extname(fullPath);
   const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+  if (!noWebp && ext.toLowerCase() === '.png' && /image\/webp/.test(String(req.headers.accept || ''))) {
+    const copy = webpCopyFor(fullPath);
+    if (copy) {
+      return fs.readFile(copy, (copyErr, webp) => {
+        // Unreadable copy: serve the PNG (no retry loop through the copy).
+        if (copyErr) return serveStaticFile(req, res, { noWebp: true });
+        res.writeHead(200, { 'Content-Type': 'image/webp', 'Vary': 'Accept', 'Cache-Control': assetCacheControl(req.url) });
+        res.end(req.method === 'HEAD' ? undefined : webp);
+      });
+    }
+  }
 
   fs.readFile(fullPath, (err, content) => {
     if (err) {
@@ -10360,9 +10428,20 @@ function serveStaticFile(req, res) {
       headers['Cache-Control'] = 'no-store, max-age=0';
       headers.Pragma = 'no-cache';
       headers.Expires = '0';
+    } else if (fullPath.startsWith(path.join(__dirname, 'assets') + path.sep)) {
+      headers['Cache-Control'] = assetCacheControl(req.url);
+      if (ext.toLowerCase() === '.png') headers.Vary = 'Accept';
+    }
+    let body = content;
+    if (COMPRESSIBLE_EXT.has(ext.toLowerCase()) && content.length > 1024 && /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) {
+      let mtimeMs = 0;
+      try { mtimeMs = fs.statSync(fullPath).mtimeMs; } catch {}
+      body = gzipFor(fullPath, content, mtimeMs);
+      headers['Content-Encoding'] = 'gzip';
+      headers.Vary = headers.Vary ? headers.Vary + ', Accept-Encoding' : 'Accept-Encoding';
     }
     res.writeHead(200, headers);
-    res.end(content);
+    res.end(req.method === 'HEAD' ? undefined : body);
 
     function respondMissing() {
       if (err && err.code !== 'ENOENT' && err.code !== 'EISDIR') {
