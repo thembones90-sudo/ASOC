@@ -1,6 +1,6 @@
 # ASOC Mobile Web Alpha 0.1 — Frontend Audit and Implementation Plan
 
-**Status (2026-09-29):** steps 0, 0b, 1, 2, 3 and 4 are implemented and shipped; steps 5 (PEOPLE + PROFILE) and 6 (real-device pass) remain. See §12 for what shipped and what to review on a real phone.
+**Status (2026-09-29):** steps 0 through 5 are implemented and shipped; step 6 (real-device pass) remains. See §12 for what shipped and what to review on a real phone.
 **Baseline:** `main` at `13c19f5` (hardening deployed and verified live).
 **Scope:** the Little Hero client (`join.html`, `js/player.js` and its modules) in AMUSEMENT PARK (CASUAL). The GM client (`index.html`, `js/app.js`) is out of scope and must not change.
 
@@ -260,14 +260,16 @@ Each PR is independently deployable and reversible. Steps 1–3 already improve 
 | 0b | PR #36 | Avatars as content-addressed files | `avatar-storage` |
 | 1 | PR #40 | Legacy phone CSS re-scoped behind a zero-specificity `:where(html:not(.asoc-mobile))` guard by `scripts/quarantine-phone-css.js`; phone-width and desktop fingerprints identical before/after | `mobile-isolation` fails on any new unquarantined phone rule |
 | 2 | PR #42 | `client:ping`/`server:pong` liveness; zombie socket replaced on resume; never gives up while visible (no `alert`); `clientMsgId` exactly-once chat | `mobile-resume` |
-| 3 | this batch | gzip text, WebP copies of large PNGs (hash-verified via `assets/.webp/manifest.json`), immutable caching of versioned assets, manifest `start_url` `/join.html` — first load 17.7 MB → 3.6 MB | `page-weight` |
-| 4 | this batch | MOBILE VERSION shell: opt-in button (phones get a dismissible offer, even on the access gate); CASUAL chat-first layout; battle upright = "turn sideways" banner + live chat; battle sideways = board on top, chat below; DESKTOP VERSION switches back | `mobile-shell` |
+| 3 | PR #43 | gzip text, WebP copies of large PNGs (hash-verified via `assets/.webp/manifest.json`), immutable caching of versioned assets, manifest `start_url` `/join.html` — first load 17.7 MB → 3.6 MB | `page-weight` |
+| 4 | PR #43 | MOBILE VERSION shell: opt-in button (phones get a dismissible offer, even on the access gate); CASUAL chat-first layout; battle upright = "turn sideways" banner + live chat; battle sideways = board on top, chat below; DESKTOP VERSION switches back | `mobile-shell` |
+
+| 5 | this batch | CHAT \| PEOPLE \| PROFILE tabs under the hero bar: room list (online first, MESSAGE opens a DM), profile card + stats + actions (rename, messages, Shadow Market, mini games sheet, daily ledger, desktop version, disconnect), unread badge on CHAT; chat panel is only hidden, never moved | `mobile-shell` |
 
 ### To review on a real phone (step 6)
 
 1. **Landscape board height.** At 844×390 the timer + WOMF bars take ~250 px before the board starts, and the board itself is taller than the screen, so reaching chat means scrolling. Options if it feels too long: compact the timer/WOMF bars in landscape, or fit the board to the screen height with chat beside it (the alternative noted in decision 2).
 2. **Keyboard.** The shell sizes itself to `visualViewport` so the composer should stay above the keyboard on iOS and Android — verify on both.
-3. **Mini-games, leaderboard strip, private-message rail** are hidden in the shell for 0.1 (DMs still open full screen from the MESSAGES chip). Step 5 adds PEOPLE/PROFILE tabs.
+3. **Avatar / frame / theme** are still changed on the sign-in screen (same as desktop). The leaderboard strip is not in the shell; PEOPLE shows points per hero.
 4. **Desktop app microphone** (voice messages) needs a new desktop build to take effect.
 
 ### Re-running the tooling
