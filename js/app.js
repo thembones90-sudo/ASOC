@@ -1840,6 +1840,8 @@ const App = {
       const deleteButton = gmContextMenu.querySelector('[data-gm-chat-action="delete"]');
       if (deleteButton) deleteButton.hidden = !this.gmMessageDeletable(messageId);
       const chatMessage = this.chatMessages.find(item => item.id === messageId);
+      const shadowCoinButton = gmContextMenu.querySelector('[data-gm-chat-action="shadow-coin"]');
+      if (shadowCoinButton) shadowCoinButton.hidden = !chatMessage?.playerId || String(chatMessage.playerId) === '__GM__' || String(chatMessage.playerId).startsWith('__TEST__');
       const tributeButton = gmContextMenu.querySelector('[data-gm-chat-action="tribute"]');
       const cancelTributeButton = gmContextMenu.querySelector('[data-gm-chat-action="tribute-cancel"]');
       if (tributeButton) tributeButton.hidden = !chatMessage?.imageUrl || !!chatMessage?.bloodTribute;
@@ -2000,6 +2002,23 @@ const App = {
           return;
         }
         this.send({ type: 'chat:delete', messageId });
+        return;
+      }
+      if (action === 'shadow-coin') {
+        const chatMessage = this.chatMessages.find(item => item.id === messageId);
+        if (!chatMessage?.playerId) return;
+        const value = await window.AsocDialog?.prompt?.({
+          title:'SHADOW COIN',
+          message:`Adjust ${chatMessage.playerName || 'this Little Hero'}'s Shadow Coins. Use a positive number to add or a negative number to subtract.`,
+          placeholder:'+5 or -2.5',
+          confirmLabel:'APPLY'
+        });
+        if (value == null) return;
+        const amount = Number(String(value).replace(',', '.').trim());
+        if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 100000) {
+          return window.AsocDialog?.alert?.('Enter a non-zero amount between -100000 and 100000.');
+        }
+        this.send({ type:'gm:shadowCoinAdjust', playerId:chatMessage.playerId, playerName:chatMessage.playerName || '', amount });
         return;
       }
       if (action === 'tribute') { this.openBloodTributeConfirmation(messageId); return; }
@@ -2798,6 +2817,10 @@ const App = {
 
       case 'gm:switchGame:ack':
         console.log('[GM] Game switched:', message.gameId);
+        break;
+
+      case 'gm:shadowCoinAdjusted':
+        window.AsocDialog?.alert?.(`${message.playerName || 'LITTLE HERO'} // ${Number(message.delta) >= 0 ? '+' : ''}${message.delta} SC // BALANCE ${message.balance} SC`);
         break;
 
       case 'players:update':
