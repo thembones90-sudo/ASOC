@@ -5308,6 +5308,15 @@ function handleIksMaxHealth(ws, message) {
   broadcastPlayersUpdate(room);
 }
 
+function handleIksHealthBars(ws, message) {
+  const room = hostRoomFor(ws);
+  if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can switch IKS OKS health bars' });
+  const result = iksArena.setBarsEnabled(message.enabled !== false);
+  if (!result.ok) return sendToWs(ws, { type:'error', message: result.error });
+  iksAnnounce(room, [result.barsEnabled ? 'IKS OKS // HEALTH BARS ARE BACK. THE ARENA REMEMBERS EVERY WOUND.' : 'IKS OKS // HEALTH BARS HIDDEN. WEAR YOUR TRUE FACES, LITTLE HEROES.']);
+  broadcastPlayersUpdate(room);
+}
+
 function recordThreefoldResult(game, room = null) {
   if (!game || game.resultRecorded) return;
   game.resultRecorded = true;
@@ -7547,7 +7556,9 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
 // IKS OKS health for avatar rings; Master Mirror test personas have none.
 function iksArenaFields(player) {
   if (!player || player.isTestPersona === true || isMasterTestPlayerId(player.id)) return {};
-  // Every Little Hero wears the ring: health is always live (iks-arena-store).
+  // Every Little Hero wears the ring while health bars are on; the Broker can
+  // switch them off between games so everyone shows their usual avatar.
+  if (!iksArena.barsEnabled()) return {};
   const standing = iksArena.standingOf(player.id);
   return { iksHealth: standing.health, iksMaxHealth: standing.maxHealth, iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: standing.fighter };
 }
@@ -10926,6 +10937,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:iksMaxHealth': {
           handleIksMaxHealth(ws, message);
+          break;
+        }
+        case 'gm:iksHealthBars': {
+          handleIksHealthBars(ws, message);
           break;
         }
         case 'kaladont:create':
