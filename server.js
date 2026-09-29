@@ -10317,6 +10317,45 @@ function handleApiRequest(req, res) {
 // `/js/../../server.js`, `/.git/config`, `/..\..\...` all resolved to a
 // path inside the project and were served). It is replaced by a strict
 // allowlist that rejects every obfuscation vector up front.
+// PAGE WEIGHT (Mobile Alpha 0.1, step 3)
+//   - text (html/js/css/json/svg/manifest) is gzipped, cached per file+mtime;
+//   - a large PNG under /assets/ is answered with its WebP copy
+//     (assets/.webp/, built by scripts/optimize-images.js) when the browser
+//     accepts image/webp -- same URL, `Vary: Accept`, no reference changes;
+//   - versioned assets (?v=...) are cached for good; other assets for an hour.
+//     HTML/JS/CSS keep no-store (the stale-page guard relies on it).
+const zlib = require('zlib');
+const COMPRESSIBLE_EXT = new Set(['.html', '.js', '.css', '.json', '.svg', '.webmanifest', '.txt']);
+const gzipCache = new Map(); // fullPath -> { mtimeMs, size, gz }
+const WEBP_DIR = path.join(__dirname, 'assets', '.webp');
+const webpCopyCache = new Map(); // fullPath -> { mtimeMs, file|null }
+
+function assetCacheControl(url) {
+  return /[?&]v=/.test(String(url || '')) ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';
+}
+
+function gzipFor(fullPath, content, mtimeMs) {
+  const hit = gzipCache.get(fullPath);
+  if (hit && hit.mtimeMs === mtimeMs && hit.size === content.length) return hit.gz;
+  const gz = zlib.gzipSync(content, { level: 6 });
+  gzipCache.set(fullPath, { mtimeMs, size: content.length, gz });
+  return gz;
+}
+
+function webpCopyFor(fullPath) {
+  if (!fullPath.startsWith(path.join(__dirname, 'assets') + path.sep)) return null;
+  const candidate = path.join(WEBP_DIR, path.relative(path.join(__dirname, 'assets'), fullPath) + '.webp');
+  let srcStat, copyStat;
+  try { srcStat = fs.statSync(fullPath); } catch { return null; }
+  const hit = webpCopyCache.get(fullPath);
+  if (hit && hit.mtimeMs === srcStat.mtimeMs) return hit.file;
+  try { copyStat = fs.statSync(candidate); } catch { copyStat = null; }
+  // A copy older than its PNG is stale artwork: serve the PNG until rebuilt.
+  const file = copyStat && copyStat.mtimeMs >= srcStat.mtimeMs ? candidate : null;
+  webpCopyCache.set(fullPath, { mtimeMs: srcStat.mtimeMs, file });
+  return file;
+}
+
 function serveStaticFile(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { 'Content-Type': 'text/plain' });
@@ -10333,6 +10372,17 @@ function serveStaticFile(req, res) {
 
   const ext = path.extname(fullPath);
   const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+  if (ext.toLowerCase() === '.png' && /image\/webp/.test(String(req.headers.accept || ''))) {
+    const copy = webpCopyFor(fullPath);
+    if (copy) {
+      return fs.readFile(copy, (copyErr, webp) => {
+        if (copyErr) { webpCopyCache.delete(fullPath); return serveStaticFile(req, res); }
+        res.writeHead(200, { 'Content-Type': 'image/webp', 'Vary': 'Accept', 'Cache-Control': assetCacheControl(req.url) });
+        res.end(req.method === 'HEAD' ? undefined : webp);
+      });
+    }
+  }
 
   fs.readFile(fullPath, (err, content) => {
     if (err) {
@@ -10360,9 +10410,20 @@ function serveStaticFile(req, res) {
       headers['Cache-Control'] = 'no-store, max-age=0';
       headers.Pragma = 'no-cache';
       headers.Expires = '0';
+    } else if (fullPath.startsWith(path.join(__dirname, 'assets') + path.sep)) {
+      headers['Cache-Control'] = assetCacheControl(req.url);
+      if (ext.toLowerCase() === '.png') headers.Vary = 'Accept';
+    }
+    let body = content;
+    if (COMPRESSIBLE_EXT.has(ext.toLowerCase()) && content.length > 1024 && /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) {
+      let mtimeMs = 0;
+      try { mtimeMs = fs.statSync(fullPath).mtimeMs; } catch {}
+      body = gzipFor(fullPath, content, mtimeMs);
+      headers['Content-Encoding'] = 'gzip';
+      headers.Vary = headers.Vary ? headers.Vary + ', Accept-Encoding' : 'Accept-Encoding';
     }
     res.writeHead(200, headers);
-    res.end(content);
+    res.end(req.method === 'HEAD' ? undefined : body);
 
     function respondMissing() {
       if (err && err.code !== 'ENOENT' && err.code !== 'EISDIR') {
