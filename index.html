@@ -67,7 +67,6 @@
              the Final's points are still withheld (state.finalResultsPending). -->
         <button class="gm-global-btn final-panel-reopen-btn" id="final-panel-reopen-btn" type="button" style="display: none;" title="Reopen the Final Solution panel // results not yet shown">END GAME</button>
         <button class="gm-global-btn recount-btn" id="recount-btn" type="button">SHOW RESULTS</button>
-        <section id="gm-dm-console" class="gm-dm-console" aria-label="Shadow Broker private channels" hidden></section>
         <div class="battle-controls-utility-row">
           <button class="toolbar-btn quests-utility-btn" id="quests-btn" type="button">QUESTS</button>
           <button class="toolbar-btn" id="library-btn-footer" style="width:100%;margin:0;">GAME LIBRARY</button>
@@ -100,6 +99,7 @@
             <div class="gm-chat-header">
               <button type="button" id="gm-chat-tab" class="gm-chat-title gm-chat-tab is-active" aria-selected="true">BATTLE COMMS</button>
               <button type="button" id="gm-minigames-toggle" class="gm-minigames-toggle" aria-expanded="false" aria-selected="false">MINI GAMES</button>
+              <button type="button" id="gm-dm-toggle" class="gm-minigames-toggle gm-dm-toggle" aria-expanded="false" aria-selected="false">PRIVATE CHANNELS</button>
               <div id="gm-atomic-clock" class="gm-atomic-clock" data-class-clock role="timer" aria-live="off" aria-label="Current time">
                 <time datetime="00:00:00"><b data-clock-hours>00</b><i>:</i><b data-clock-minutes>00</b><i>:</i><b data-clock-seconds>00</b></time>
               </div>
@@ -109,6 +109,7 @@
               </div>
               <span class="gm-chat-solved" id="gm-chat-solved-count" hidden></span>
             </div>
+            <section id="gm-dm-console" class="gm-dm-console" aria-label="Shadow Broker private channels" hidden></section>
             <div id="gm-minigames-menu" class="gm-minigames-menu" hidden>
               <div><b>AMUSEMENT ARCADE</b><small>SHADOW BROKER // CASUAL MODE</small></div>
               <button type="button" data-gm-minigame="threefold"><img class="gm-minigame-art iks-oks-art" src="assets/ui/iks-oks-icon.webp?v=20260925-minigame-icons-1" alt=""><span class="minigame-copy"><b class="minigame-title">IKS OKS</b><small class="minigame-desc">Challenge an online Little Hero to a duel</small></span><i class="minigame-status">PLAY</i></button>
