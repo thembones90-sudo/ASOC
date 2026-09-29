@@ -20511,29 +20511,44 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 #shadow-broker-form > .shadow-broker-form-label { display: none !important; }
 #shadow-broker-form > .gm-composer-shell { flex: 1 1 auto !important; min-width: 0 !important; width: 100% !important; }
 
-/* Quest + Daily Ledger cards sat bottom-right, on top of the newest chat
-   messages and the HINT bar. On desktop they live bottom-left instead,
-   over the board poster's empty corner. */
-@media (min-width: 701px) {
-  .player-quest-hud { right: auto !important; left: 22px !important; }
-}
 .daily-contract-hud .daily-hud-word { font-style: normal; }
-/* Lobby (CASUAL): the chat spans the screen, so the ledger folds into a small
-   badge inside the left rail instead of covering messages. */
-@media (min-width: 701px) {
-  body:has(#game-screen.room-mode-casual) .daily-contract-hud {
-    left: 16px !important;
-    bottom: 64px !important;
-    flex-direction: column;
-    gap: 4px;
-    width: 80px;
-    min-width: 0 !important;
-    padding: 8px 4px !important;
-    text-align: center !important;
-  }
-  body:has(#game-screen.room-mode-casual) .daily-contract-hud small,
-  body:has(#game-screen.room-mode-casual) .daily-contract-hud .daily-hud-word { display: none; }
+/* Quest + Daily Ledger live in the hero stat row, right after LINK, as
+   chips of the same height (js/player-quests.js creates them there). They
+   never float over the chat, the board or the rails. */
+#little-hero-hud .hero-hud-stats > .player-quest-hud {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 4px 10px 4px 7px !important;
+  border-radius: 4px !important;
+  clip-path: none !important;
+  box-shadow: 0 0 10px rgba(193, 138, 48, .22) !important;
+  z-index: auto !important;
+  flex: 0 0 auto !important;
+  align-self: stretch;
 }
+#little-hero-hud .hero-hud-stats > .player-quest-hud[hidden] { display: none !important; }
+#little-hero-hud .hero-hud-stats > .player-quest-hud .quest-icon { flex: 0 0 auto; width: 16px !important; height: 16px !important; }
+#little-hero-hud .hero-hud-stats > .player-quest-hud > span { display: block !important; min-width: 0; }
+#little-hero-hud .hero-hud-stats > .player-quest-hud small,
+#little-hero-hud .hero-hud-stats > .player-quest-hud .daily-hud-word { display: none !important; }
+#little-hero-hud .hero-hud-stats > .player-quest-hud b {
+  display: block;
+  font: 900 10px/1.1 var(--font-machine, monospace) !important;
+  letter-spacing: .12em !important;
+  white-space: nowrap;
+}
+#little-hero-hud .hero-hud-stats > .player-quest-hud:not(.daily-contract-hud) b::before { content: 'QUEST '; }
+#little-hero-hud .hero-hud-stats > .daily-contract-hud b::before { content: 'LEDGER '; }
 /* Hover must never move these buttons: a moving box drags its edge out from
    under the pointer and hover flickers on and off. */
 #quests-btn:hover, #sound-toggle-btn:hover, #bice-asoc-btn:hover, #reset-board-btn:hover, #master-access-btn:hover { transform: none !important; }

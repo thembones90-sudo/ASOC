@@ -311,7 +311,8 @@
 
   // The quest / ledger cards (js/player-quests.js creates them once, on
   // <body>, and only updates their contents) sit in the chat header while
-  // the shell is on, and go back to <body> for the desktop layout.
+  // the shell is on, and go back to the hero stat row (beside LINK) for the
+  // desktop layout.
   function placeQuestHuds() {
     const header = doc.querySelector('#chat-panel .chat-header');
     let slot = doc.getElementById('m-quest-slot');
@@ -324,7 +325,7 @@
     ['player-quest-hud', 'daily-contract-hud'].forEach(id => {
       const hud = doc.getElementById(id);
       if (!hud) return;
-      const home = enabled && slot ? slot : doc.body;
+      const home = enabled && slot ? slot : (doc.querySelector('#little-hero-hud .hero-hud-stats') || doc.body);
       if (hud.parentElement !== home) home.appendChild(hud);
     });
   }
@@ -354,7 +355,10 @@
     // Quest cards are created on <body> by js/player-quests.js: move them into
     // the header the moment they appear, not on the next tick.
     if (typeof MutationObserver !== 'undefined') {
-      new MutationObserver(() => { if (enabled) placeQuestHuds(); }).observe(doc.body, { childList: true });
+      const watch = new MutationObserver(() => { if (enabled) placeQuestHuds(); });
+      watch.observe(doc.body, { childList: true });
+      const stats = doc.querySelector('#little-hero-hud .hero-hud-stats');
+      if (stats) watch.observe(stats, { childList: true });
     }
     syncViewport();
     const screen = doc.getElementById('game-screen');
