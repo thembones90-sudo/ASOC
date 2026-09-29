@@ -17335,6 +17335,16 @@ button.gm-chat-gif-link:focus-visible {
   margin-left:auto !important;
   margin-right:auto !important;
 }
+/* Social emote/action cards are room events, not speaker bubbles.
+   Keep them centered regardless of who triggered them. */
+.chat-system-card.chat-system-emote,
+.chat-system-card.chat-system-spit,
+.chat-system-card.chat-system-fart,
+.chat-system-card.chat-system-hiss,
+.chat-system-card.chat-system-nod {
+  margin-left:auto !important;
+  margin-right:auto !important;
+}
 .chat-system-label { color:var(--sys-accent); font-size:.6rem; font-weight:900; letter-spacing:.22em; text-transform:uppercase; }
 .chat-system-body { color:#e8ebee; font-size:.78rem; font-weight:700; letter-spacing:.02em; line-height:1.35; }
 .chat-system-body b { color:var(--sys-accent); font-weight:950; }
