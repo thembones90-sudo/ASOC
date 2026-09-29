@@ -75,6 +75,42 @@ const layout = page => page.evaluate(() => {
     await page.press('#chat-input', 'Enter');
     await page.waitForFunction(() => (PlayerApp.chatMessages || []).some(m => m.text === 'hello from the pocket'), null, { timeout: 8000 });
 
+    // Step 5 tabs. PEOPLE lists the room (online first) and MESSAGE opens a
+    // private conversation; PROFILE shows the hero and its actions.
+    const friendToken = await H.heroToken(server, 'Pocket Friend');
+    const friend = await new Promise((resolve, reject) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
+      ws.once('error', reject);
+      ws.on('message', raw => {
+        const m = JSON.parse(raw.toString());
+        if (m.type === 'protocol:hello') return ws.send(JSON.stringify({ type: 'protocol:hello', protocolVersion: 1, clientBuild: 'test' }));
+        if (m.type === 'protocol:ready') return ws.send(JSON.stringify({ type: 'room:join', authToken: friendToken, roomCode: 'MASTER', name: 'Pocket Friend' }));
+        if (m.type === 'join:success') resolve(ws);
+      });
+    });
+    await page.click('#m-tabs [data-m-tab="people"]');
+    await page.waitForFunction(() => document.querySelectorAll('#m-view-people .m-person').length >= 2, null, { timeout: 8000 });
+    assert.equal(await page.locator('#chat-panel').isVisible(), false, 'PEOPLE replaces the chat view');
+    assert.equal(await page.locator('#m-view-people .m-person.is-self').count(), 1, 'you are marked');
+    assert.equal(await page.locator('#m-view-people .m-person.is-self .m-person-dm').count(), 0, 'no MESSAGE button on yourself');
+    await page.locator('#m-view-people .m-person-dm').first().click();
+    await page.waitForFunction(() => { const o = document.querySelector('.dmx-overlay'); return o && !o.hidden && getComputedStyle(o).display !== 'none'; }, null, { timeout: 8000 });
+    await page.evaluate(() => window.DirectMessages.close());
+    await page.click('#m-tabs [data-m-tab="profile"]');
+    await page.waitForSelector('#m-view-profile .m-profile-card', { timeout: 8000 });
+    assert.match(await page.locator('#m-view-profile .m-profile-name b').innerText(), /Pocket Hero/);
+    await page.click('#m-view-profile [data-m-action="games"]');
+    await page.waitForFunction(() => document.documentElement.classList.contains('m-games-open') && getComputedStyle(document.getElementById('casual-minigames-menu')).display !== 'none');
+    await page.click('#m-games-close');
+    await page.waitForFunction(() => !document.documentElement.classList.contains('m-games-open'));
+    // Unread badge: a message arriving while away from CHAT is counted.
+    friend.send(JSON.stringify({ type: 'chat:guess', text: 'while you were away' }));
+    await page.waitForFunction(() => { const b = document.querySelector('#m-tabs [data-m-tab="chat"] .m-tab-badge'); return b && !b.hidden && Number(b.textContent) >= 1; }, null, { timeout: 8000 });
+    await page.click('#m-tabs [data-m-tab="chat"]');
+    assert.equal(await page.locator('#chat-panel').isVisible(), true, 'CHAT is back');
+    assert.equal(await page.locator('#m-tabs [data-m-tab="chat"] .m-tab-badge').isHidden(), true, 'badge clears on CHAT');
+    friend.close();
+
     // Battle held upright: banner + chat, no board.
     const gm = await gmSocket((await server.api('POST', '/api/auth/gm/login', { password: 'browser-gm-pass' })).data.token);
     gm.send(JSON.stringify({ type: 'gm:setRoomMode', mode: 'BATTLE' }));
@@ -103,8 +139,8 @@ const layout = page => page.evaluate(() => {
     gm.close();
 
     assert.deepEqual(page.pageErrors, [], 'no page errors');
-    assert.equal(server.errors().trim(), '', 'no server errors');
-    console.log('PASS mobile shell: opt-in only, remembered, CASUAL chat-first layout (no board, 16px input, no sideways scroll), upright battle banner with live chat, sideways battle board-on-top with chat below, DESKTOP VERSION switches back');
+    assert.equal(server.errors().trim(), '', `no server errors, got: ${server.errors().slice(0, 600)}`);
+    console.log('PASS mobile shell: opt-in only, remembered, CHAT/PEOPLE/PROFILE tabs (room list, MESSAGE opens a DM, profile actions, mini-games sheet, unread badge), CASUAL chat-first layout (no board, 16px input, no sideways scroll), upright battle banner with live chat, sideways battle board-on-top with chat below, DESKTOP VERSION switches back');
   } finally {
     if (browser) await browser.close();
     await server.stop();

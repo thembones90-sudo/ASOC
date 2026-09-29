@@ -151,7 +151,7 @@ html.asoc-mobile #chat-form {
   box-sizing: border-box !important;
 }
 /* 16px inputs stop iOS from zooming the page on focus. */
-html.asoc-mobile #chat-input { font-size: 16px !important; min-height: var(--m-touch) !important; }
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) #chat-input { font-size: 16px !important; min-height: var(--m-touch) !important; }
 html.asoc-mobile #chat-form button { min-width: 40px; min-height: 40px; }
 html.asoc-mobile .chat-hint-bar { padding: 4px 10px 0; }
 html.asoc-mobile .chat-hint-button { min-height: 36px; }
@@ -340,3 +340,181 @@ html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby 
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
+
+/* ---------------------------------------------------------- tabs (step 5) */
+html.asoc-mobile .m-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(155, 93, 224, .25);
+  background: rgba(8, 7, 12, .92);
+}
+html.asoc-mobile .m-tabs button {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 38px;
+  border: 1px solid rgba(155, 93, 224, .22);
+  border-radius: 8px;
+  background: transparent;
+  color: #9d93b5;
+  font: 900 11px/1 var(--font-machine, monospace);
+  letter-spacing: .16em;
+  cursor: pointer;
+}
+html.asoc-mobile .m-tabs button.is-active {
+  border-color: rgba(155, 93, 224, .75);
+  background: linear-gradient(180deg, rgba(64, 32, 94, .7), rgba(26, 14, 38, .9));
+  color: #f1e6ff;
+  box-shadow: 0 0 12px rgba(155, 93, 224, .25);
+}
+html.asoc-mobile .m-tab-badge {
+  position: absolute;
+  top: -5px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  background: #b42d60;
+  color: #fff;
+  font: 900 10px/18px var(--font-machine, monospace);
+  font-style: normal;
+  letter-spacing: 0;
+}
+html.asoc-mobile [data-m-tab="people"] .m-tab-badge { background: #1f7a4a; }
+html.asoc-mobile .m-tab-badge[hidden] { display: none; }
+
+/* One view at a time; the chat panel is only hidden, never rebuilt. */
+html.asoc-mobile .m-view { display: none; }
+html.asoc-mobile[data-m-tab="people"] #chat-panel,
+html.asoc-mobile[data-m-tab="profile"] #chat-panel { display: none !important; }
+html.asoc-mobile[data-m-tab="people"] #m-view-people,
+html.asoc-mobile[data-m-tab="profile"] #m-view-profile {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 12px calc(16px + var(--m-safe-bottom));
+  box-sizing: border-box;
+  color: #ddd6ee;
+  font-family: var(--font-machine, monospace);
+}
+html.asoc-mobile .m-view-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+html.asoc-mobile .m-view-head b { color: #f1e6ff; font-size: 13px; letter-spacing: .22em; }
+html.asoc-mobile .m-view-head small { color: #8a809c; font-size: 10px; letter-spacing: .12em; }
+html.asoc-mobile .m-empty { color: #8a809c; font-size: 12px; }
+
+html.asoc-mobile .m-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border: 2px solid var(--m-frame, #6f7885);
+  border-radius: 50%;
+  background: #151b21;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--m-frame, #6f7885) 35%, transparent);
+}
+html.asoc-mobile .m-avatar img { width: 100%; height: 100%; object-fit: cover; }
+html.asoc-mobile .m-avatar b { color: #d8dee5; font-size: 11px; }
+
+html.asoc-mobile .m-people { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+html.asoc-mobile .m-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 8px 10px;
+  border: 1px solid rgba(116, 126, 139, .22);
+  border-radius: 10px;
+  background: rgba(14, 16, 22, .88);
+}
+html.asoc-mobile .m-person:not(.is-online) { opacity: .62; }
+html.asoc-mobile .m-person.is-self { border-color: rgba(155, 93, 224, .45); }
+html.asoc-mobile .m-person-copy { flex: 1 1 auto; min-width: 0; }
+html.asoc-mobile .m-person-copy b { display: block; overflow: hidden; color: #eef0f4; font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
+html.asoc-mobile .m-person-copy b em { margin-left: 4px; color: #b98bff; font-size: 9px; font-style: normal; letter-spacing: .14em; }
+html.asoc-mobile .m-person-copy small { display: flex; align-items: center; gap: 5px; margin-top: 4px; color: #8a8f99; font-size: 10px; letter-spacing: .1em; }
+html.asoc-mobile .m-dot { width: 7px; height: 7px; border-radius: 50%; background: #59606b; }
+html.asoc-mobile .m-dot.is-online { background: #37d997; box-shadow: 0 0 6px #37d997; }
+html.asoc-mobile .m-person-dm,
+html.asoc-mobile .m-action {
+  min-height: var(--m-touch);
+  padding: 0 14px;
+  border: 1px solid rgba(155, 93, 224, .55);
+  border-radius: 8px;
+  background: rgba(20, 12, 28, .92);
+  color: #e3cfff;
+  font: 900 10px/1 var(--font-machine, monospace);
+  letter-spacing: .14em;
+  cursor: pointer;
+}
+html.asoc-mobile .m-person-dm { flex: 0 0 auto; min-height: 36px; padding: 0 10px; }
+
+html.asoc-mobile .m-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(155, 93, 224, .35);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(40, 20, 58, .75), rgba(10, 9, 14, .92));
+}
+html.asoc-mobile .m-profile-card .m-avatar { width: 64px; height: 64px; }
+html.asoc-mobile .m-profile-name { flex: 1 1 auto; min-width: 0; }
+html.asoc-mobile .m-profile-name b { display: block; overflow: hidden; color: #fff; font-size: 16px; white-space: nowrap; text-overflow: ellipsis; }
+html.asoc-mobile .m-profile-name small { color: #9d93b5; font-size: 10px; letter-spacing: .18em; }
+html.asoc-mobile .m-action-small { min-height: 36px; padding: 0 10px; }
+html.asoc-mobile .m-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 12px 0; }
+html.asoc-mobile .m-stats div { padding: 10px; border: 1px solid rgba(116, 126, 139, .22); border-radius: 10px; background: rgba(14, 16, 22, .88); }
+html.asoc-mobile .m-stats dt { color: #8a8f99; font-size: 9px; letter-spacing: .16em; }
+html.asoc-mobile .m-stats dd { margin: 6px 0 0; color: #f1e6ff; font-size: 18px; font-weight: 900; }
+html.asoc-mobile .m-actions { display: grid; gap: 8px; }
+html.asoc-mobile .m-action-danger { border-color: rgba(240, 78, 92, .55); background: rgba(40, 8, 14, .9); color: #ffc3c9; }
+html.asoc-mobile .m-note { margin: 14px 2px 0; color: #7f7690; font-size: 11px; line-height: 1.5; }
+
+/* Mini games: the desktop dock's menu as a full-screen sheet. */
+html.asoc-mobile.m-games-open #casual-minigames-dock {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9600 !important;
+  width: auto !important;
+  height: auto !important;
+  padding: calc(12px + var(--m-safe-top)) 12px calc(12px + var(--m-safe-bottom)) !important;
+  background: rgba(4, 4, 8, .94) !important;
+  overflow-y: auto !important;
+}
+html.asoc-mobile.m-games-open #casual-minigames-toggle { display: none !important; }
+html.asoc-mobile.m-games-open #casual-minigames-menu {
+  display: grid !important;
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  transform: none !important;
+  gap: 10px !important;
+}
+html.asoc-mobile .m-games-close { display: none; }
+html.asoc-mobile.m-games-open .m-games-close {
+  display: grid;
+  place-items: center;
+  justify-self: end;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(155, 93, 224, .55);
+  border-radius: 50%;
+  background: rgba(20, 12, 28, .92);
+  color: #e3cfff;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+/* The quest/ledger badge belongs to the chat tab and sits under overlays
+   (DMs, market, games); PROFILE has a DAILY LEDGER button for the rest. */
+html.asoc-mobile .player-quest-hud { z-index: 8000 !important; }
+html.asoc-mobile:not([data-m-tab="chat"]) .player-quest-hud { display: none !important; }
