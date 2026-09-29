@@ -225,25 +225,49 @@ html.asoc-mobile .dmx-overlay.dmx-casual-drawer[hidden] { display: none !importa
 html.asoc-mobile .dmx-overlay .dmx-panel { width: 100% !important; height: 100% !important; margin: 0 !important; }
 html.asoc-mobile .dmx-overlay .dmx-body { grid-template-columns: 1fr !important; }
 
-/* Quest / ledger card: a small icon badge above the composer. */
-html.asoc-mobile .player-quest-hud {
-  left: auto !important;
-  right: 10px !important;
-  top: auto !important;
-  bottom: calc(74px + var(--m-safe-bottom)) !important;
+/* Quest / ledger cards live in the chat header's empty right side as small
+   labelled pills (js/mobile-shell.js moves them into #m-quest-slot), so they
+   never cover messages and always say what they are. */
+html.asoc-mobile #chat-panel .chat-header { align-items: center !important; gap: 8px !important; }
+html.asoc-mobile .m-quest-slot {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  margin-left: auto;
+}
+html.asoc-mobile .m-quest-slot .player-quest-hud {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
   width: auto !important;
   min-width: 0 !important;
   max-width: none !important;
-  padding: 3px !important;
-  opacity: .92;
-  transform: none !important;
-  border-radius: 12px !important;
+  min-height: 34px !important;
+  margin: 0 !important;
+  padding: 4px 10px 4px 6px !important;
+  border-radius: 8px !important;
+  clip-path: none !important;
+  box-shadow: 0 0 10px rgba(193, 138, 48, .25) !important;
+  z-index: auto !important;
 }
-html.asoc-mobile .player-quest-hud > span { display: none !important; }
-/* In a battle the HINT button owns that corner: the ledger waits for the
-   lobby, and an active oath badge moves to the left. */
-html.asoc-mobile:not([data-m-room-mode="CASUAL"]) .daily-contract-hud { display: none !important; }
-html.asoc-mobile:not([data-m-room-mode="CASUAL"]) .player-quest-hud { right: auto !important; left: 10px !important; }
+html.asoc-mobile .m-quest-slot .player-quest-hud .quest-icon { flex: 0 0 auto; width: 20px !important; height: 20px !important; }
+html.asoc-mobile .m-quest-slot .player-quest-hud > span { display: block !important; min-width: 0; }
+html.asoc-mobile .m-quest-slot .player-quest-hud small,
+html.asoc-mobile .m-quest-slot .player-quest-hud .daily-hud-word { display: none !important; }
+html.asoc-mobile .m-quest-slot .player-quest-hud b {
+  display: block;
+  font: 900 10px/1.1 var(--font-machine, monospace) !important;
+  letter-spacing: .12em !important;
+  white-space: nowrap;
+}
+html.asoc-mobile .m-quest-slot .player-quest-hud:not(.daily-contract-hud) b::before { content: 'QUEST '; }
+html.asoc-mobile .m-quest-slot .daily-contract-hud b::before { content: 'LEDGER '; }
 
 /* Hero bar: name + two small actions on one line, stat chips on a second
    line that scrolls sideways instead of wrapping. */
@@ -516,5 +540,6 @@ html.asoc-mobile.m-games-open .m-games-close {
 
 /* The quest/ledger badge belongs to the chat tab and sits under overlays
    (DMs, market, games); PROFILE has a DAILY LEDGER button for the rest. */
-html.asoc-mobile .player-quest-hud { z-index: 8000 !important; }
-html.asoc-mobile:not([data-m-tab="chat"]) .player-quest-hud { display: none !important; }
+/* An idle card (no quest on offer / no ledger yet) is [hidden]: keep it so. */
+html.asoc-mobile .player-quest-hud[hidden],
+html.asoc-mobile .m-quest-slot .player-quest-hud[hidden] { display: none !important; }
