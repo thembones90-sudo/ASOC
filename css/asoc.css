@@ -19713,17 +19713,29 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
 }
 
 /* ATOMIC CLASS CLOCK // central Shadow Broker schedule telemetry. */
+body.room-mode-casual .gm-module-chat .gm-chat-header {
+  display:grid !important;
+  grid-template-columns:max-content max-content minmax(180px,1fr) max-content;
+  justify-content:stretch !important;
+}
+body.room-mode-casual .gm-module-chat .gm-chat-tab { grid-column:1; }
+body.room-mode-casual .gm-module-chat .gm-minigames-toggle { grid-column:2; }
+body.room-mode-casual .gm-module-chat .gm-chat-presence-wrap {
+  grid-column:4;
+  margin-left:0 !important;
+}
 .gm-atomic-clock {
-  position:absolute;
+  position:relative;
   z-index:4;
-  left:50%;
-  top:50%;
+  grid-column:3;
+  justify-self:center;
+  align-self:center;
   display:grid;
   place-items:center;
   align-items:center;
   min-width:180px;
   padding:7px 20px;
-  transform:translate(-50%,-50%);
+  transform:none;
   border:1px solid rgba(126,94,157,.5);
   clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px);
   background:linear-gradient(180deg,rgba(25,20,33,.96),rgba(9,11,16,.98));
