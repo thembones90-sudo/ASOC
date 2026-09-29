@@ -41,9 +41,11 @@
       setTimeout(() => this.send({ type: 'blackMarket:sync' }), 500);
     },
     wrapMessages() {
-      if (!host.handleMessage || host._blackMarketWrapped) return;
-      const original = host.handleMessage.bind(host);
-      host.handleMessage = message => {
+      if (host._blackMarketWrapped) return;
+      const method = isGM ? 'handleServerMessage' : 'handleMessage';
+      if (typeof host[method] !== 'function') return;
+      const original = host[method].bind(host);
+      host[method] = message => {
         if (message?.type === 'blackMarket:state' || message?.type === 'blackMarket:gmState') {
           this.pacts = Array.isArray(message.pacts) ? message.pacts : [];
           if (!isGM) {
