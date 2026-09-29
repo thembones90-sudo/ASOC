@@ -14,6 +14,15 @@ const ROOT = path.resolve(__dirname, '..');
 const TEST_DIR = path.join(ROOT, 'tests');
 const PER_FILE_TIMEOUT_MS = Number(process.env.ASOC_TEST_FILE_TIMEOUT_MS) || 10 * 60 * 1000;
 
+// Suites keep their scratch dirs under os.tmpdir(), which is the user profile
+// (C:) on Windows. Every test that boots a server writes a data dir there, so a
+// run litters the system drive and leaves it behind on failure. Redirecting the
+// temp env for the child processes keeps all of it beside the repo instead.
+// Overridable for anyone who wants the scratch somewhere else.
+const SCRATCH = process.env.ASOC_SCRATCH_DIR || path.join(ROOT, '.scratch');
+fs.mkdirSync(SCRATCH, { recursive: true });
+const CHILD_ENV = { ...process.env, ASOC_SCRATCH_DIR: SCRATCH, TMPDIR: SCRATCH, TMP: SCRATCH, TEMP: SCRATCH };
+
 const only = process.argv.slice(2).map(name => name.replace(/\.js$/, ''));
 const files = fs.readdirSync(TEST_DIR)
   .filter(name => name.endsWith('.js'))
@@ -28,7 +37,7 @@ if (!files.length) {
 function runFile(name) {
   return new Promise(resolve => {
     const started = Date.now();
-    const child = spawn(process.execPath, [path.join('tests', name)], { cwd: ROOT, env: process.env });
+    const child = spawn(process.execPath, [path.join('tests', name)], { cwd: ROOT, env: CHILD_ENV });
     let output = '';
     child.stdout.on('data', chunk => { output += chunk; });
     child.stderr.on('data', chunk => { output += chunk; });

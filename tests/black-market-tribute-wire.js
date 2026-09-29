@@ -15,7 +15,12 @@ const ROOT = path.join(__dirname, '..');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const PORT = Number(process.env.ASOC_BM_TRIBUTE_PORT) || 18831;
-const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'asoc-bm-tribute-'));
+// Scratch data belongs on the drive the repo lives on. os.tmpdir() is the user
+// profile on Windows, so the server's data dir would otherwise be written to
+// C: and left behind.
+const SCRATCH = process.env.ASOC_SCRATCH_DIR || path.join(ROOT, '.scratch');
+fs.mkdirSync(SCRATCH, { recursive: true });
+const DATA = fs.mkdtempSync(path.join(SCRATCH, 'asoc-bm-tribute-'));
 
 // 1x1 PNG, the smallest thing the server's data-URL guard will accept.
 const PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
