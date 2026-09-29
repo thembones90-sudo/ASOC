@@ -12,6 +12,7 @@
       toggle.addEventListener('click', e => {
         e.stopPropagation();
         if (App.roomMode !== 'CASUAL' && !document.body.classList.contains('room-mode-casual')) return;
+        window.GMDirectMessages?.setOpen?.(false);
         this.toggleLibrary();
       });
       document.getElementById('gm-chat-tab')?.addEventListener('click', e => {
