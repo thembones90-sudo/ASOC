@@ -120,6 +120,11 @@ function listGameFiles() {
 }
 
 function metadataFrom(raw, id, filename, stat) {
+  const columnSolutions = {};
+  for (const key of ['A', 'B', 'C', 'D']) {
+    const colData = raw.columns?.[key] || raw[key] || {};
+    columnSolutions[key] = String(colData.solution || '');
+  }
   return {
     id,
     filename,
@@ -127,6 +132,7 @@ function metadataFrom(raw, id, filename, stat) {
     theme: raw.theme || '',
     difficulty: DIFFICULTY_VALUES.includes(raw.difficulty) ? raw.difficulty : 'GREEN',
     background: raw.background || DEFAULT_BACKGROUND,
+    columnSolutions,
     finalSolution: raw.finalSolution || raw.final_solution || '',
     story: raw.story || '',
     gmNotes: raw.gmNotes || raw.gm_notes || '',
