@@ -10,7 +10,7 @@ if (!window.AsocAudio && document.readyState === 'loading') {
  * They must never recolor the authored game-board artwork or board elements.
  * LOCKED LINEUP: 01 SKYNET / 02 SUGARCOAT / 03 VERDANTIS /
  * 04 MY SINDRAGOSA / 05 DISCO INFERNO / 06 OUR THEME /
- * 07 THE UNDERCITY / 08 REVAN.
+ * 07 THE UNDERCITY / 08 REVAN / 09 WHITEOUT.
  */
 const ASOCThemes = {
   DEFAULT_ID: 'gunmetal',
@@ -174,6 +174,26 @@ const ASOCThemes = {
       borderAccent: '#864875',
       ambientStrength: 'rgba(168,50,138,.07)',
       ambient: 'rgba(180,42,95,.17)'
+    },
+    whiteout: {
+      id: 'whiteout',
+      code: '09',
+      name: 'WHITEOUT',
+      subtitle: 'STERILE SIGNAL // ARCTIC CIRCUITS',
+      color: '#F2F5F7',
+      shellTop: '#F7F9FA',
+      shellBottom: '#DCE3E8',
+      railTop: '#EEF3F6',
+      railBottom: '#CDD7DE',
+      statusTop: '#FAFBFC',
+      statusBottom: '#DCE5EA',
+      messageTop: '#F7F9FA',
+      messageBottom: '#E4EAEE',
+      bannerAccent: '#A9D9EA',
+      bannerGlow: 'rgba(169,217,234,.34)',
+      borderAccent: '#A8B5BE',
+      ambientStrength: 'rgba(207,236,246,.16)',
+      ambient: 'rgba(207,236,246,.24)'
     }
   },
 
