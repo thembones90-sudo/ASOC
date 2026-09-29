@@ -171,16 +171,41 @@
       }));
     },
     offerTribute(pactId) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/png,image/jpeg,image/webp';
+      let input = document.getElementById('black-market-tribute-file');
+      if (!input) {
+        input = document.createElement('input');
+        input.id = 'black-market-tribute-file';
+        input.type = 'file';
+        input.accept = 'image/png,image/jpeg,image/webp';
+        input.setAttribute('aria-hidden', 'true');
+        input.style.position = 'fixed';
+        input.style.left = '-9999px';
+        input.style.width = '1px';
+        input.style.height = '1px';
+        input.style.opacity = '0';
+        input.style.pointerEvents = 'none';
+        document.body.appendChild(input);
+      }
+      input.value = '';
       input.onchange = () => {
         const file = input.files?.[0];
-        if (!file || file.size > 2200000) return this.toast('THE OFFERING EXCEEDS THE VAULT LIMIT');
+        if (!file) return;
+        if (!/^image\/(png|jpeg|webp)$/i.test(file.type || '')) {
+          return this.toast('THE RELIQUARY REJECTS THIS IMAGE TYPE');
+        }
+        if (file.size > 2200000) {
+          return this.toast('THE OFFERING EXCEEDS THE VAULT LIMIT');
+        }
         const consent = confirm('PRIVATE SUBMISSION NOTICE\n\nVisible only to you and the Shadow Broker. If accepted, it will be consigned to the Reliquary. If rejected, it will not enter the Reliquary.\n\nConfirm you are 18+ and consent to this storage rule.');
         if (!consent) return;
         const reader = new FileReader();
-        reader.onload = () => this.send({ type:'blackMarket:tributeSubmit', pactId, imageData:reader.result, consent:true });
+        reader.onerror = () => this.toast('THE RELIQUARY COULD NOT READ THE OFFERING');
+        reader.onload = () => {
+          if (typeof reader.result !== 'string' || !reader.result.startsWith('data:image/')) {
+            return this.toast('THE OFFERING COULD NOT BE SEALED');
+          }
+          this.send({ type:'blackMarket:tributeSubmit', pactId, imageData:reader.result, consent:true });
+        };
         reader.readAsDataURL(file);
       };
       input.click();
