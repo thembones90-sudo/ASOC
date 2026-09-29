@@ -141,7 +141,8 @@
       return '<div class="bm-intro"><b>SEALED PETITIONS</b><p>Each chamber terminates here. Nothing below is broadcast to the room.</p></div><h3>AWAITING JUDGMENT</h3><div class="bm-ledger">' + (pending.map(p => this.card(p, true)).join('') || '<p class="bm-empty">THE MARKET SLEEPS.</p>') + '</div><h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + (rest.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO DEBTS RECORDED.</p>') + '</div>';
     },
     card(p, gm) {
-      const image = gm && p.state === 'TRIBUTE_SUBMITTED' && p.tributeImageData ? '<img class="bm-tribute-preview" src="' + p.tributeImageData + '" alt="Private Blood Tribute">' : '';
+      const tributeSource = p.tributeImageUrl || p.tributeImageData || '';
+      const image = gm && p.state === 'TRIBUTE_SUBMITTED' && tributeSource ? '<img class="bm-tribute-preview" src="' + this.esc(tributeSource) + '" alt="Private Blood Tribute">' : '';
       return '<article class="bm-pact is-' + this.esc(String(p.state || '').toLowerCase()) + '" data-state="' + this.esc(p.state) + '" data-pact="' + this.esc(p.id) + '"><div class="bm-pact-head"><div><small>' + this.esc(p.category) + (gm ? ' // ' + this.esc(p.playerName) : '') + '</small><b>' + this.esc(p.title) + '</b></div><span>' + this.esc(STATE_LABEL[p.state] || p.state) + '</span></div><p>' + this.esc(p.request) + '</p>' + (p.terms ? '<blockquote>' + this.esc(p.terms) + '</blockquote>' : '') + (p.rejectionReason ? '<em>' + this.esc(p.rejectionReason) + '</em>' : '') + image + this.actions(p, gm) + '</article>';
     },
     actions(p, gm) {
