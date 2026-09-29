@@ -48,6 +48,11 @@
       host[method] = message => {
         if (message?.type === 'blackMarket:state' || message?.type === 'blackMarket:gmState') {
           this.pacts = Array.isArray(message.pacts) ? message.pacts : [];
+          if (isGM) {
+            const entry = document.getElementById('black-market-gm-button');
+            const hasPending = this.pacts.some(p => p.status === 'SUBMITTED');
+            if (entry) entry.classList.toggle('bm-has-pending', hasPending);
+          }
           if (!isGM) {
             const entry = document.getElementById('black-market-player-button');
             if (entry) entry.hidden = false;
