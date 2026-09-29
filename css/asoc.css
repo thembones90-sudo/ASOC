@@ -20874,8 +20874,8 @@ html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) #asoc-view-toggle-ga
 }
 
 /* SHADOW BROKER TRANSMISSIONS must never melt into a purple chat background:
-   a solid void panel, a crisp violet edge with glow, and a blood-red
-   signal line on the avatar side. Applies to the GM and player chats. */
+   a solid void panel with a crisp violet edge and glow. The Broker's name
+   keeps its own dark purple. Applies to the GM and player chats. */
 body .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission,
 body .gm-module-chat .gm-shadow-broker-media-entry > .shadow-broker-transmission,
 body .battle-comms-lobby .chat-broker-entry .shadow-broker-transmission,
@@ -20884,24 +20884,55 @@ body #game-screen .shadow-broker-transmission.shadow-broker-broadcast {
     repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
     linear-gradient(135deg, #140c1e 0%, #07050b 70%) !important;
   border: 1px solid rgba(190, 140, 255, .75) !important;
-  border-right: 3px solid #e0334a !important;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, .85),
     0 8px 24px rgba(0, 0, 0, .65),
     0 0 18px rgba(155, 93, 224, .45) !important;
   backdrop-filter: none !important;
 }
-body .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission .shadow-broker-name,
-body .battle-comms-lobby .chat-broker-entry .shadow-broker-transmission .shadow-broker-name {
-  color: #ff5a6e !important;
-  text-shadow: 0 0 8px rgba(224, 51, 74, .55) !important;
-}
-body .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission .shadow-broker-text,
-body .battle-comms-lobby .chat-broker-entry .shadow-broker-transmission .shadow-broker-text {
-  color: #f6f0ff !important;
-}
 /* A transmission that mentions you still reads as urgent. */
 body .battle-comms-lobby .chat-broker-entry.chat-mentions-me .shadow-broker-transmission {
   border-color: #ff5a6e !important;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .85), 0 8px 24px rgba(0, 0, 0, .65), 0 0 22px rgba(224, 51, 74, .55) !important;
+}
+
+/* GM SYSTEM DOCK // RESET BOARD, SOUNDS, MASTER ACCESS.
+   AMUSE (casual): pinned to the bottom of the left command rail, stacked in
+   that order. Battle: its own three-button row under the utility row. */
+#battle-controls-panel > .gm-system-dock {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  box-sizing: border-box;
+}
+#battle-controls-panel > .gm-system-dock > :is(button, .master-access-wrap),
+#battle-controls-panel > .gm-system-dock .master-access-btn {
+  position: relative;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 46px !important;
+  height: 46px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+body:is(.room-mode-battle, .room-mode-battle-armed, .room-mode-recount) #battle-controls-panel > .gm-system-dock { gap: 7px; margin-top: 7px; }
+body:is(.room-mode-battle, .room-mode-battle-armed, .room-mode-recount) #battle-controls-panel > .gm-system-dock :is(.toolbar-btn) { min-height: 38px !important; height: 38px !important; }
+body.room-mode-casual #battle-controls-panel > #gm-system-dock {
+  display: grid !important;
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 12px;
+  width: auto;
+  grid-template-columns: 1fr;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(155, 93, 224, .22);
+}
+/* The dock sits at the bottom edge: Master Access opens upward. */
+#battle-controls-panel > .gm-system-dock .master-access-menu {
+  top: auto !important;
+  bottom: calc(100% + 6px) !important;
 }
