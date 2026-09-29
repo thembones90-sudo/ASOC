@@ -8988,47 +8988,84 @@ position:absolute;
     }
 
 
-    /* WHITEOUT // STERILE ARCTIC MACHINE.
-       A bright hostile shell with frosted silver machinery. The authored board
-       remains untouched; only player chrome and player-message surfaces change. */
+    /* WHITEOUT // ARCTIC GUNMETAL.
+       Light machinery, not a blank white page. Outer ASOC chrome remains dark;
+       only the inner player chamber and Whiteout-owned messages are frosted. */
     #game-screen[data-player-theme="whiteout"] {
       background:
-        radial-gradient(circle at 88% 12%,rgba(180,225,241,.42) 0 2px,rgba(180,225,241,.15) 4px 64px,transparent 150px),
-        repeating-linear-gradient(90deg,rgba(91,111,124,.055) 0 1px,transparent 1px 84px),
-        linear-gradient(132deg,rgba(255,255,255,.98),rgba(231,238,242,.95) 48%,rgba(207,218,225,.96));
+        radial-gradient(circle at 88% 12%,rgba(191,225,238,.20) 0 2px,rgba(191,225,238,.07) 4px 58px,transparent 138px),
+        repeating-linear-gradient(90deg,rgba(70,91,104,.050) 0 1px,transparent 1px 88px),
+        linear-gradient(132deg,#d9e0e4 0%,#cbd4d9 48%,#bfc9cf 100%);
       color:#172027;
     }
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby {
       background:
-        linear-gradient(145deg,rgba(255,255,255,.88),rgba(214,225,232,.70) 42%,rgba(190,204,213,.72)),
-        repeating-linear-gradient(0deg,rgba(72,96,111,.05) 0 1px,transparent 1px 22px);
-      border-left-color:#aab8c1;
-      box-shadow:inset 10px 0 22px rgba(96,117,131,.14),inset 1px 0 rgba(255,255,255,.95),inset -1px 0 rgba(94,111,122,.18);
+        linear-gradient(90deg,rgba(78,98,111,.075) 0 1px,transparent 1px 100%),
+        repeating-linear-gradient(0deg,rgba(66,88,101,.045) 0 1px,transparent 1px 24px),
+        linear-gradient(145deg,#d5dde2 0%,#c7d0d6 46%,#b9c5cc 100%);
+      border-left-color:#93a3ad;
+      box-shadow:
+        inset 10px 0 22px rgba(74,94,108,.16),
+        inset 1px 0 rgba(255,255,255,.68),
+        inset -1px 0 rgba(76,94,106,.22);
     }
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby #chat-panel {
-      border-color:#aebbc4;
-      background:linear-gradient(180deg,rgba(248,250,251,.98),rgba(224,231,235,.98));
+      border-color:#9eacb5;
+      background:
+        linear-gradient(90deg,rgba(82,103,117,.045) 0 1px,transparent 1px 72px),
+        linear-gradient(180deg,#e0e6e9 0%,#d3dbe0 52%,#c9d2d8 100%);
       color:#172027;
+      box-shadow:
+        inset 0 1px rgba(255,255,255,.62),
+        inset 0 0 28px rgba(82,101,114,.12),
+        0 10px 28px rgba(65,82,94,.12);
+    }
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby #chat-panel::after {
+      background:
+        linear-gradient(180deg,rgba(79,100,114,.16),rgba(79,100,114,0)) left 8px top / 1px 100% no-repeat,
+        linear-gradient(180deg,rgba(79,100,114,.16),rgba(79,100,114,0)) right 8px top / 1px 100% no-repeat;
+    }
+    #game-screen[data-player-theme="whiteout"][data-room-mode="CASUAL"] .battle-comms-lobby #chat-panel::before {
+      background:
+        url('/assets/ui/abusement-park-2026.webp') center 50% / 42% auto no-repeat,
+        repeating-linear-gradient(0deg,rgba(56,79,93,.014) 0 1px,transparent 1px 5px);
+      opacity:.035;
+      filter:grayscale(.55) saturate(.35) brightness(.62) blur(2.2px);
+      transform:scale(1.01);
     }
     #game-screen[data-player-theme="whiteout"] .detainee-status-module {
-      border-color:#aab8c1;
+      border-color:#98a8b2;
       background:
-        linear-gradient(118deg,rgba(255,255,255,.92),rgba(218,230,236,.62) 45%,rgba(195,208,216,.72)),
-        linear-gradient(180deg,#f9fbfc,#dbe4e9);
-      box-shadow:inset 0 1px #ffffff,inset 0 -3px 10px rgba(94,111,122,.16);
+        linear-gradient(118deg,rgba(255,255,255,.42),rgba(191,207,216,.24) 45%,rgba(147,165,176,.20)),
+        linear-gradient(180deg,#e1e7ea,#c6d0d6);
+      box-shadow:inset 0 1px rgba(255,255,255,.70),inset 0 -3px 10px rgba(82,100,112,.15);
       color:#172027;
     }
     #game-screen[data-player-theme="whiteout"] .detainee-status-label {
-      background:linear-gradient(180deg,#ffffff,#dfe7eb);
+      background:linear-gradient(180deg,#edf1f3,#cfd8dd);
       color:#1d2931;
-      box-shadow:inset 0 1px #ffffff,inset 0 -1px rgba(94,111,122,.18);
+      box-shadow:inset 0 1px rgba(255,255,255,.72),inset 0 -1px rgba(84,102,114,.18);
     }
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] {
-      border-color:#aebac2;
+      border-color:#9fadb6;
       background:
-        linear-gradient(135deg,rgba(255,255,255,.96),rgba(231,237,241,.95) 72%,rgba(215,224,230,.95));
+        linear-gradient(135deg,#f1f4f6 0%,#e4eaed 72%,#d7e0e5 100%);
       color:#172027;
-      box-shadow:inset 0 1px #ffffff,inset 0 -1px rgba(92,108,119,.16),0 2px 7px rgba(75,91,102,.12);
+      box-shadow:
+        inset 0 1px rgba(255,255,255,.82),
+        inset 0 -1px rgba(82,99,111,.16),
+        0 2px 7px rgba(64,80,91,.13);
+    }
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"]::after {
+      content:"";
+      position:absolute;
+      right:7px;
+      top:6px;
+      width:42px;
+      height:18px;
+      pointer-events:none;
+      background:linear-gradient(90deg,transparent,rgba(154,211,231,.30),transparent);
+      opacity:.65;
     }
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-text,
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-player-name,
@@ -9037,7 +9074,7 @@ position:absolute;
       text-shadow:none !important;
     }
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-player-name {
-      color:#405764 !important;
+      color:#3d5664 !important;
     }
 
 </style>
@@ -10041,7 +10078,7 @@ position:absolute;
     });
   })();
   </script>
-  <script src="js/themes.js?v=20260929-theme-scroll-1"></script>
+  <script src="js/themes.js?v=20260929-whiteout-refine-2"></script>
   <script src="js/dom-patch.js?v=20260925-gm-control-pass-1"></script>
   <script src="js/skeleton.js?v=20260927-sb-stable-2"></script>
   <script src="js/board-celebrations.js?v=20260928-board-coronation-1"></script>
