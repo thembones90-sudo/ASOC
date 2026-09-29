@@ -32,13 +32,9 @@
         document.body.appendChild(button);
       }
       button.addEventListener('click', () => {
-        if (isGM) {
-          button.classList.add('bm-opening');
-          setTimeout(() => button.classList.remove('bm-opening'), 420);
-          setTimeout(() => this.open(), 145);
-        } else {
-          this.open();
-        }
+        button.classList.add('bm-opening');
+        setTimeout(() => button.classList.remove('bm-opening'), 420);
+        setTimeout(() => this.open(), 145);
       });
       this.wrapMessages();
       setTimeout(() => this.send({ type: 'blackMarket:sync' }), 500);
@@ -49,6 +45,10 @@
       host.handleMessage = message => {
         if (message?.type === 'blackMarket:state' || message?.type === 'blackMarket:gmState') {
           this.pacts = Array.isArray(message.pacts) ? message.pacts : [];
+          if (!isGM) {
+            const entry = document.getElementById('black-market-player-button');
+            if (entry) entry.hidden = false;
+          }
           if (document.getElementById('black-market-overlay')) this.render();
           this.updateBadge();
           return;
