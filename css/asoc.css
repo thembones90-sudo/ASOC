@@ -4053,8 +4053,20 @@ body.gm-layout-locked .gm-module-height-splitter {
   padding: 10px 20px;
   border-bottom: 1px solid var(--panel-border);
   background: #0c0e14;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
+}
+
+.forge-toolbar-row .forge-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 220px;
+}
+
+.forge-toolbar-row .forge-select {
+  flex: 0 0 180px;
+  width: 180px;
+  cursor: pointer;
 }
 
 .forge-input,
@@ -19834,6 +19846,10 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 }
 
 .game-card.game-list-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 130px 180px minmax(245px, auto);
+  align-items: center;
+  gap: 16px;
   min-height: 64px;
   padding: 10px 14px;
   border-width: 0 0 1px;
