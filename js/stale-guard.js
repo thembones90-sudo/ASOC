@@ -8,11 +8,15 @@
 // A reload for a given build is attempted once per tab, so a cached or
 // mismatched deploy can never cause a reload loop.
 (function () {
-  const pageBuild = role => {
-    const script = document.querySelector(role === 'gm' ? 'script[src*="js/app.js"]' : 'script[src*="js/player.js"]');
-    const match = script?.getAttribute('src')?.match(/[?&]v=([^&]+)/);
+  const versionOf = selector => {
+    const match = document.querySelector(selector)?.getAttribute('src')?.match(/[?&]v=([^&]+)/);
     return match ? decodeURIComponent(match[1]) : null;
   };
+  // Must match CLIENT_BUILD in server.js: the player build is player.js
+  // plus the mobile shell, so a mobile-only release also refreshes phones.
+  const pageBuild = role => role === 'gm'
+    ? versionOf('script[src*="js/app.js"]')
+    : [versionOf('script[src*="js/player.js"]'), versionOf('script[src*="js/mobile-shell.js"]')].filter(Boolean).join('+') || null;
 
   function banner(text, withButton) {
     let el = document.getElementById('stale-guard-banner');

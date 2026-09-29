@@ -129,7 +129,11 @@ const CLIENT_BUILD = (() => {
       return html.slice(from, html.indexOf('"', from)) || null;
     } catch { return null; }
   };
-  return { player: read('join.html', 'player.js'), gm: read('index.html', 'app.js') };
+  // The player build covers the mobile shell too: a change to it alone must
+  // also refresh pages left open on phones (js/stale-guard.js joins the same
+  // two versions on the page side).
+  const player = [read('join.html', 'player.js'), read('join.html', 'mobile-shell.js')].filter(Boolean).join('+') || null;
+  return { player, gm: read('index.html', 'app.js') };
 })();
 const DEPLOY_BUILD_ID = String(
   process.env.RAILWAY_GIT_COMMIT_SHA
