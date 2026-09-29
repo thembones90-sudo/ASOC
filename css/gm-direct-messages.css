@@ -1,8 +1,9 @@
-/* SHADOW BROKER PRIVATE CHANNELS // GM Amusement Park rail */
+/* SHADOW BROKER PRIVATE CHANNELS // first-class tab inside GM chat */
 .gm-dm-console{display:none}
-body.room-mode-casual .gm-dm-console{
-  display:flex !important;flex:1 1 260px;min-height:220px;max-height:46vh;
-  margin:12px 0 0;border:1px solid rgba(116,126,139,.30);border-radius:8px;
+body.room-mode-casual .gm-chat-panel.gm-dm-open > :not(.gm-chat-header):not(.gm-dm-console){display:none !important}
+body.room-mode-casual .gm-chat-panel.gm-dm-open .gm-dm-console{
+  display:flex !important;flex:1 1 auto;min-height:0;max-height:none;
+  margin:0;border:0;border-top:1px solid rgba(116,126,139,.30);border-radius:0;
   background:linear-gradient(180deg,rgba(13,17,22,.96),rgba(7,9,12,.98));
   overflow:hidden;flex-direction:column;box-shadow:inset 0 1px rgba(255,255,255,.025);
   font-family:var(--font-machine,ui-monospace,monospace);color:#d9dce2;
@@ -33,4 +34,4 @@ body.room-mode-casual .gm-dm-console{
 .gm-dm-compose button{padding:0 10px;border:1px solid #70439c;background:linear-gradient(180deg,#352046,#1c1227);color:#eee;font:900 .46rem var(--font-machine);letter-spacing:.1em;cursor:pointer}
 .gm-dm-flash{padding:6px 8px;border-bottom:1px solid rgba(95,169,92,.3);background:rgba(41,74,40,.22);color:#9ed39b;font-size:.44rem}.gm-dm-flash.error{border-color:rgba(188,66,76,.35);background:rgba(83,24,30,.25);color:#e39aa0}
 body:not(.room-mode-casual) .gm-dm-console{display:none !important}
-@media(max-height:760px){body.room-mode-casual .gm-dm-console{min-height:170px;max-height:34vh}}
+@media(max-height:760px){body.room-mode-casual .gm-chat-panel.gm-dm-open .gm-dm-console{min-height:0;max-height:none}}
