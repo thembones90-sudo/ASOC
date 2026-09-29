@@ -42,13 +42,13 @@
 }
 @keyframes bm-void { 0%,94%,100%{filter:none} 95%{filter:contrast(1.7) hue-rotate(12deg);transform:translateX(1px)} 96%{transform:translateX(-2px)} }
 .black-market-room {
-  position:relative; width:min(980px,96vw); max-height:90vh; overflow:auto;
-  border:1px solid #383941; border-left:4px solid #6f2033;
+  position:relative; width:min(1120px,96vw); max-height:92vh; overflow:auto;
+  border:1px solid #51404d; border-left:5px solid #a42d4a;
   background:
     linear-gradient(90deg, transparent 0 98%, rgba(123,28,55,.08)),
     repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 5px),
     linear-gradient(145deg,#1a1c20,#09090d 52%,#050508);
-  color:#d7d6db; box-shadow:0 34px 100px #000, inset 0 0 70px rgba(0,0,0,.65);
+  color:#e4e0e6; box-shadow:0 34px 100px #000, 0 0 44px rgba(105,18,61,.18), inset 0 0 70px rgba(0,0,0,.65);
 }
 .black-market-room::before {
   content:""; position:absolute; inset:0; pointer-events:none;
@@ -57,44 +57,48 @@
 .black-market-room header {
   position:sticky; top:0; z-index:2;
   display:flex; justify-content:space-between; align-items:center;
-  padding:22px 26px 18px; border-bottom:1px solid #292a30;
+  padding:28px 34px 24px; border-bottom:1px solid #402b38;
   background:rgba(10,10,14,.96); backdrop-filter:blur(8px);
 }
-.black-market-room header small { color:#76536d; letter-spacing:.28em; font-size:9px; }
-.black-market-room h2 { margin:5px 0 0; color:#ece9ee; font-size:24px; letter-spacing:.28em; }
-.black-market-room header button { border:1px solid #4c3038; background:#100d11; color:#a98f98; width:36px; height:36px; font-size:22px; cursor:pointer; }
-#black-market-body { padding:24px 26px 34px; }
-.bm-intro { padding:16px 18px; border:1px solid #302c35; background:#0b0b0f; }
-.bm-intro b { color:#c65c74; letter-spacing:.22em; }
-.bm-intro p { margin:7px 0 0; color:#8f8992; }
-.black-market-room h3 { margin:26px 0 10px; color:#8e8392; font-size:11px; letter-spacing:.28em; }
+.black-market-room header small { color:#b47696; letter-spacing:.28em; font-size:11px; }
+.black-market-room h2 { margin:7px 0 0; color:#fff9ff; font-size:30px; letter-spacing:.3em; text-shadow:0 0 20px rgba(204,76,132,.2); }
+.black-market-room header button { border:1px solid #69404d; background:#160d13; color:#d0aeb9; width:44px; height:44px; font-size:27px; cursor:pointer; transition:.18s ease; }
+.black-market-room header button:hover { border-color:#c44967; color:#fff; background:#35121e; box-shadow:0 0 18px rgba(211,43,85,.25); }
+#black-market-body { padding:30px 34px 42px; }
+.bm-intro { position:relative; padding:22px 24px; border:1px solid #493541; background:linear-gradient(105deg,rgba(38,13,24,.72),#0b0b0f 48%); box-shadow:inset 4px 0 0 #a93453; }
+.bm-intro::after { content:"PRIVATE // ENCRYPTED"; position:absolute; right:22px; top:20px; color:#5e4856; font:800 9px var(--font-machine,monospace); letter-spacing:.2em; }
+.bm-intro b { color:#f06f91; font-size:20px; letter-spacing:.22em; text-shadow:0 0 14px rgba(224,55,102,.22); }
+.bm-intro p { margin:10px 0 0; color:#bbb1bb; font-size:18px; line-height:1.5; }
+.black-market-room h3 { display:flex; align-items:center; gap:12px; margin:32px 0 13px; color:#b9a9b8; font-size:13px; letter-spacing:.3em; }
+.black-market-room h3::after { content:""; flex:1; height:1px; background:linear-gradient(90deg,#48313e,transparent); }
 .bm-petition { display:grid; grid-template-columns:1fr 190px; gap:12px; margin-top:16px; }
-.bm-petition label { display:grid; gap:6px; color:#7f7684; font-size:9px; letter-spacing:.18em; }
+.bm-petition label { display:grid; gap:8px; color:#a898a8; font-size:11px; letter-spacing:.18em; }
 .bm-petition label:last-of-type { grid-column:1/-1; }
 .bm-petition input,.bm-petition select,.bm-petition textarea {
   width:100%; box-sizing:border-box; border:1px solid #34323a; background:#08090c; color:#ddd9e0;
-  padding:10px 11px; font:600 12px var(--font-machine,ui-monospace,monospace); outline:none;
+  padding:13px 14px; font:600 15px var(--font-machine,ui-monospace,monospace); outline:none;
 }
 .bm-petition textarea { min-height:110px; resize:vertical; }
 .bm-petition input:focus,.bm-petition select:focus,.bm-petition textarea:focus { border-color:#743147; }
 .bm-petition>button { grid-column:1/-1; justify-self:end; }
-.bm-ledger { display:grid; gap:12px; }
-.bm-pact { padding:16px; border:1px solid #2e2e35; background:#0b0c10; box-shadow:inset 3px 0 0 #3a2029; }
+.bm-ledger { display:grid; gap:16px; }
+.bm-pact { position:relative; padding:22px; border:1px solid #403541; background:linear-gradient(110deg,#121016,#090a0e 70%); box-shadow:inset 4px 0 0 #713044,0 12px 26px rgba(0,0,0,.22); }
+.bm-pact::after { content:""; position:absolute; right:0; bottom:0; width:42px; height:42px; border-right:1px solid #6f3447; border-bottom:1px solid #6f3447; opacity:.48; pointer-events:none; }
 .bm-pact-head { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; }
-.bm-pact-head small { display:block; color:#755b69; font-size:9px; letter-spacing:.18em; }
-.bm-pact-head b { display:block; margin-top:5px; color:#ddd9de; font-size:14px; letter-spacing:.1em; }
-.bm-pact-head span { max-width:44%; color:#b74e65; font-size:9px; letter-spacing:.15em; text-align:right; }
-.bm-pact p { margin:13px 0 0; color:#aaa4ad; line-height:1.55; white-space:pre-wrap; }
-.bm-pact blockquote { margin:12px 0 0; padding:10px 12px; border-left:2px solid #68425a; background:#09080c; color:#c1b6c2; }
-.bm-pact em { display:block; margin-top:10px; color:#9f5665; font-style:normal; font-size:11px; }
+.bm-pact-head small { display:block; color:#a87991; font-size:11px; letter-spacing:.2em; }
+.bm-pact-head b { display:block; margin-top:7px; color:#f0eaf0; font-size:18px; letter-spacing:.1em; }
+.bm-pact-head span { max-width:44%; padding:5px 8px; border:1px solid rgba(205,67,99,.28); color:#ed6685; background:rgba(111,19,43,.14); font-size:11px; line-height:1.4; letter-spacing:.16em; text-align:right; }
+.bm-pact p { margin:17px 0 0; color:#cbc2cc; font-size:18px; line-height:1.6; white-space:pre-wrap; }
+.bm-pact blockquote { margin:16px 0 0; padding:13px 15px; border-left:3px solid #8c4968; background:#0d090f; color:#d5c8d5; font-size:16px; line-height:1.55; }
+.bm-pact em { display:block; margin-top:13px; color:#d07588; font-style:normal; font-size:13px; }
 .bm-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
 .bm-actions button,.bm-petition>button {
-  border:1px solid #55313d; background:#151016; color:#c9b7bf; padding:9px 12px;
-  font:800 10px var(--font-machine,ui-monospace,monospace); letter-spacing:.14em; cursor:pointer;
+  border:1px solid #704052; background:linear-gradient(180deg,#21131a,#120d12); color:#e1cad3; padding:12px 16px;
+  font:800 12px var(--font-machine,ui-monospace,monospace); letter-spacing:.14em; cursor:pointer;
 }
 .bm-actions button:hover,.bm-petition>button:hover { border-color:#9a3a54; color:#fff; }
 .bm-tribute-preview { display:block; max-width:min(420px,100%); max-height:360px; object-fit:contain; margin:14px auto 0; border:1px solid #4c2531; background:#020203; }
-.bm-empty { padding:18px; border:1px dashed #2e2c32; color:#625d66; text-align:center; letter-spacing:.18em; font-size:10px; }
+.bm-empty { padding:24px; border:1px dashed #463640; color:#8e808c; text-align:center; letter-spacing:.2em; font-size:12px; }
 .black-market-toast { position:fixed; left:50%; bottom:84px; z-index:9500; transform:translate(-50%,18px); opacity:0; padding:10px 14px; border:1px solid #6e273b; background:#0c090d; color:#d7b8c1; font:800 11px var(--font-machine,monospace); letter-spacing:.14em; transition:.18s; pointer-events:none; }
 .black-market-toast.show { opacity:1; transform:translate(-50%,0); }
 @media(max-width:700px){
