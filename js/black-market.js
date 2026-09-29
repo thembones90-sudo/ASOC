@@ -31,7 +31,15 @@
         button.innerHTML = '<span>BLACK MARKET</span><small>PRIVATE CHANNEL</small>';
         document.body.appendChild(button);
       }
-      button.addEventListener('click', () => this.open());
+      button.addEventListener('click', () => {
+        if (isGM) {
+          button.classList.add('bm-opening');
+          setTimeout(() => button.classList.remove('bm-opening'), 420);
+          setTimeout(() => this.open(), 145);
+        } else {
+          this.open();
+        }
+      });
       this.wrapMessages();
       setTimeout(() => this.send({ type: 'blackMarket:sync' }), 500);
     },
