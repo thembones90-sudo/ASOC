@@ -407,3 +407,82 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
     box-shadow:inset 0 0 24px rgba(255,20,45,.42),0 0 16px rgba(255,25,50,.70),0 0 32px rgba(255,20,45,.38);
   }
 }
+
+
+/* BLACK MARKET TRIBUTE CONSENT CHAMBER */
+.bm-tribute-consent{
+  position:fixed!important;
+  inset:0!important;
+  z-index:26000!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:24px!important;
+  background:rgba(2,2,5,.82)!important;
+  backdrop-filter:blur(8px) saturate(.75)!important;
+}
+.bm-tribute-consent-card{
+  width:min(560px,calc(100vw - 48px));
+  padding:28px 30px 26px;
+  border:1px solid rgba(139,45,70,.72);
+  border-left:4px solid #a92f4c;
+  background:
+    linear-gradient(180deg,rgba(23,8,15,.96),rgba(7,7,10,.98)),
+    url('../assets/black-market-void.svg?v=20260929-tribute-consent-1') center/100% 100% no-repeat;
+  box-shadow:0 0 36px rgba(132,25,54,.24),inset 0 0 28px rgba(100,25,62,.12);
+  color:#e8e2e8;
+}
+.bm-tribute-consent-card>small{
+  display:block;
+  margin-bottom:10px;
+  color:#9f758f;
+  font:800 10px/1.2 var(--font-machine,ui-monospace,monospace);
+  letter-spacing:.18em;
+}
+.bm-tribute-consent-card h3{
+  margin:0 0 18px;
+  color:#ef6f88;
+  font:900 19px/1.15 var(--font-machine,ui-monospace,monospace);
+  letter-spacing:.11em;
+}
+.bm-tribute-consent-card p{
+  margin:0 0 13px;
+  color:#c9c0c8;
+  font:700 14px/1.5 var(--font-display,system-ui,sans-serif);
+}
+.bm-tribute-consent-card .bm-tribute-consent-age{
+  color:#a998a5;
+  font-size:12px;
+}
+.bm-tribute-consent-actions{
+  display:flex;
+  gap:10px;
+  margin-top:22px;
+  flex-wrap:wrap;
+}
+.bm-tribute-consent-actions button{
+  min-height:42px;
+  padding:0 16px;
+  border:1px solid rgba(143,50,76,.75);
+  background:#120a0f;
+  color:#f0dfe4;
+  font:900 11px/1 var(--font-machine,ui-monospace,monospace);
+  letter-spacing:.10em;
+  cursor:pointer;
+}
+.bm-tribute-consent-actions button[data-bm-consent-open]{
+  background:linear-gradient(180deg,#3a101c,#17080d);
+  border-color:#c43c5d;
+  box-shadow:0 0 14px rgba(197,50,83,.18);
+}
+.bm-tribute-consent-actions button:hover,
+.bm-tribute-consent-actions button:focus-visible{
+  outline:none;
+  filter:brightness(1.18);
+  box-shadow:0 0 18px rgba(208,55,87,.28);
+}
+@media(max-width:620px){
+  .bm-tribute-consent{padding:14px!important}
+  .bm-tribute-consent-card{width:calc(100vw - 28px);padding:22px 20px}
+  .bm-tribute-consent-actions{flex-direction:column}
+  .bm-tribute-consent-actions button{width:100%}
+}
