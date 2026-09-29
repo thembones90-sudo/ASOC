@@ -1964,7 +1964,7 @@ const App = {
       openGMContextMenu(messageEl, e.clientX, e.clientY);
     }, true);
 
-    gmContextMenu?.addEventListener('click', (e) => {
+    gmContextMenu?.addEventListener('click', async (e) => {
       const action = e.target.closest('[data-gm-chat-action]')?.dataset.gmChatAction;
       if (!action) return;
       // Keep this click away from the page-level outside-click handlers: they
@@ -1997,8 +1997,21 @@ const App = {
       }
       if (action === 'tribute') { this.openBloodTributeConfirmation(messageId); return; }
       if (action === 'tribute-cancel') { this.send({ type: 'gm:bloodTributeCancel', messageId }); return; }
-      if (action === 'shadow-realm') {
-        if (this.canSendToShadowRealm(this.chatMessages.find(item => item.id === messageId))) this.send({ type: 'gm:shadowRealm', messageId });
+      if (action.startsWith('shadow-realm-')) {
+        const chatMessage = this.chatMessages.find(item => item.id === messageId);
+        if (action === 'shadow-realm-release') {
+          if (chatMessage?.playerId) this.send({ type:'gm:shadowRealmRelease', playerId:chatMessage.playerId });
+          return;
+        }
+        if (!this.canSendToShadowRealm(chatMessage)) return;
+        let seconds = Number(action.split('-').pop());
+        if (action === 'shadow-realm-custom') {
+          const value = await window.AsocDialog?.prompt?.({ title:'CUSTOM SHADOW SENTENCE', message:'Enter the sentence in seconds (1–86400).', placeholder:'SECONDS', confirmLabel:'BANISH' });
+          if (value == null) return;
+          seconds = Number(value);
+          if (!Number.isFinite(seconds) || seconds < 1 || seconds > 86400) return window.AsocDialog?.alert?.('Sentence must be between 1 and 86400 seconds.');
+        }
+        this.send({ type: 'gm:shadowRealm', messageId, durationMs:Math.round(seconds*1000) });
         return;
       }
       if (action === 'reply') {
@@ -2651,7 +2664,20 @@ const App = {
         break;
 
       case 'shadowRealm:banish':
+        this.shadowRealmActive ||= {};
+        this.shadowRealmActive[String(message.playerId)] = { until:Date.now()+Number(message.remainingMs||0), playerName:message.playerName };
         window.ShadowRealm?.onMessage(message, null);
+        break;
+      case 'shadowRealm:release':
+        if (this.shadowRealmActive) delete this.shadowRealmActive[String(message.playerId)];
+        window.ShadowRealm?.onMessage(message, null);
+        break;
+      case 'shadowRealm:history':
+        this.shadowRealmHistory = message.entries || [];
+        this.shadowRealmActive ||= {};
+        for (const key of Object.keys(this.shadowRealmActive)) delete this.shadowRealmActive[key];
+        for (const entry of this.shadowRealmHistory) if (entry.status === 'BANISHED' && Number(entry.at)+Number(entry.durationMs) > Number(message.now||Date.now())) this.shadowRealmActive[String(entry.playerId)] = { until:Number(entry.at)+Number(entry.durationMs), playerName:entry.playerName };
+        window.ControlSurfaces?.updateShadowRealmHistory?.(this.shadowRealmHistory, message.now);
         break;
 
       case 'gm:scoreboardReset':
@@ -5835,8 +5861,12 @@ const App = {
     const cancelTributeButton = menu.querySelector('[data-gm-chat-action="tribute-cancel"]');
     if (tributeButton) tributeButton.hidden = !chatMessage?.imageUrl || !!chatMessage?.bloodTribute;
     if (cancelTributeButton) cancelTributeButton.hidden = !chatMessage?.bloodTribute?.active;
-    { const realmButton = document.getElementById('gm-chat-context-menu')?.querySelector('[data-gm-chat-action="shadow-realm"]');
-      if (realmButton) realmButton.hidden = !this.canSendToShadowRealm(chatMessage); }
+    { const allowed = this.canSendToShadowRealm(chatMessage);
+      menu.querySelectorAll('[data-gm-chat-action^="shadow-realm-"]:not([data-gm-chat-action="shadow-realm-release"])').forEach(button => { button.hidden = !allowed; });
+      const active = chatMessage?.playerId && Number(this.shadowRealmActive?.[String(chatMessage.playerId)]?.until) > Date.now();
+      const releaseButton = menu.querySelector('[data-gm-chat-action="shadow-realm-release"]');
+      if (releaseButton) releaseButton.hidden = !active;
+    }
     menu.hidden = false;
     const reactionPicker = document.getElementById('gm-chat-reaction-picker');
     const emojiPicker = document.getElementById('gm-emoji-picker');

@@ -127,6 +127,11 @@
   border: 1px solid #8b9099;
   box-shadow: 0 0 40px rgba(170, 175, 185, .3);
 }
+.srealm-seal { position:relative; width:150px; height:150px; display:grid; place-items:center; margin-bottom:22px; border-radius:50%; background:conic-gradient(from -90deg,#d7d9df 0 var(--realm-progress,360deg),rgba(97,101,111,.16) var(--realm-progress,360deg) 360deg); box-shadow:0 0 34px rgba(177,181,190,.18); }
+.srealm-seal::before { content:""; position:absolute; inset:7px; border-radius:50%; background:radial-gradient(circle,#25272d,#111216 72%); border:1px solid #747984; }
+.srealm-seal>div { position:relative; z-index:1; display:grid; place-items:center; gap:2px; }
+.srealm-seal b { color:#f4f5f7; font:900 2.25rem/1 var(--font-machine,ui-monospace,monospace); text-shadow:0 0 14px rgba(255,255,255,.35); }
+.srealm-seal small { color:#8f949e; font:800 .48rem var(--font-machine,ui-monospace,monospace); letter-spacing:.22em; }
 .srealm-banner strong { font-size: clamp(1.1rem, 3.4vw, 1.8rem); letter-spacing: .24em; text-shadow: 0 0 16px rgba(255, 255, 255, .45); }
 .srealm-banner span { font-size: 13px; letter-spacing: .2em; color: #b8bcc4; }
 .srealm-banner b { color: #fff; font-size: 16px; }
@@ -173,11 +178,16 @@ body.shadow-realm-silenced .dmx-compose { filter: grayscale(1); opacity: .45; po
   filter: blur(6px);
   animation: srealm-wisp 6s ease-in-out infinite alternate;
 }
+.srealm-return-mark { display:inline-flex; align-items:center; gap:7px; margin:0 0 5px; padding:2px 9px; border:1px solid #8c82ad; color:#ddd5f4; background:linear-gradient(90deg,rgba(68,55,91,.9),rgba(33,31,42,.85)); font:800 9.5px/1.6 var(--font-machine,ui-monospace,monospace); letter-spacing:.18em; box-shadow:0 0 13px rgba(146,117,202,.2); }
+.srealm-return-mark i { width:7px; height:7px; border-radius:50%; background:#c1a8ef; box-shadow:0 0 8px #9f7eda; }
+:is(.chat-message,.gm-chat-message).shadow-returned :is(.chat-message-main,.gm-chat-message-main) { border-color:#74688f!important; box-shadow:0 0 15px rgba(147,116,196,.16)!important; }
+.srealm-release-toast { border-color:#75698f; background:linear-gradient(180deg,#302a3d,#19171f); }
 @keyframes srealm-wisp { from { transform: translateY(8%); opacity: .7; } to { transform: translateY(-14%); opacity: 1; } }
 
 /* GM menu entry */
 .gm-chat-context-menu .gm-chat-shadow-realm-action { color: #d8dbe0; }
 .gm-chat-context-menu .gm-chat-shadow-realm-action:hover { background: rgba(120, 125, 135, .25); }
+.gm-chat-context-menu .gm-chat-shadow-realm-release { color:#d8caef; }
 
 @media (prefers-reduced-motion: reduce) {
   .srealm-smoke, .srealm-mark i { animation: none !important; }
