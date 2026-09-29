@@ -8497,10 +8497,22 @@ function handleChatGuess(ws, message) {
     return;
   }
 
+  // Delivered exactly once: a client re-sends a message it never saw
+  // acknowledged (sent into a dead socket) after reconnecting. A repeat of
+  // an id already accepted is acknowledged again and otherwise ignored.
+  const clientMsgId = typeof message.clientMsgId === 'string' && /^[A-Za-z0-9_-]{8,40}$/.test(message.clientMsgId) ? message.clientMsgId : null;
+  const seenKey = clientMsgId ? `${ws.playerId}:${clientMsgId}` : null;
+  room.clientMsgIds ||= new Map();
+  if (seenKey && room.clientMsgIds.has(seenKey)) {
+    sendToWs(ws, { type: 'chat:ack', clientMsgId, duplicate: true });
+    return;
+  }
+
   const now = Date.now();
   const cooldown = playerCooldown(room, ws);
   if (!cooldown) return;
   if (cooldown.chatAt && now - cooldown.chatAt < PLAYER_CHAT_MIN_INTERVAL_MS) {
+    if (clientMsgId) sendToWs(ws, { type: 'chat:ack', clientMsgId, refused: true });
     sendToWs(ws, { type: 'error', message: 'Battle Comms cooling down' });
     return;
   }
@@ -8511,6 +8523,15 @@ function handleChatGuess(ws, message) {
   const result = dispatch !== null
     ? dispatch
     : addChatMessage(room, ws.playerId, ws.playerName, chatText);
+  if (clientMsgId) {
+    // Settled either way (posted, or refused for a reason a resend won't
+    // fix): the client stops tracking it. Only accepted ids block repeats.
+    if (result.success) {
+      room.clientMsgIds.set(seenKey, now);
+      if (room.clientMsgIds.size > 2000) room.clientMsgIds.delete(room.clientMsgIds.keys().next().value);
+    }
+    sendToWs(ws, { type: 'chat:ack', clientMsgId, refused: !result.success || undefined });
+  }
   if (result.success) {
     cooldown.chatAt = now;
     const nudge = dispatch === null && containsAllMention(result.message.text)
@@ -10566,6 +10587,13 @@ wss.on('connection', (ws, req) => {
         ws.protocolVerified = true;
         clearTimeout(handshakeTimer);
         sendToWs(ws, { type: 'protocol:ready', protocolVersion: PROTOCOL_VERSION, clientBuild: CLIENT_BUILD });
+        return;
+      }
+
+      // Liveness probe (mobile resume, silent network changes): stateless,
+      // answered immediately, never touches game state.
+      if (message.type === 'client:ping') {
+        sendToWs(ws, { type: 'server:pong', id: typeof message.id === 'string' ? message.id.slice(0, 40) : null, now: Date.now() });
         return;
       }
 

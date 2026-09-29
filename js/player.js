@@ -84,6 +84,7 @@ const PlayerApp = {
   _unreadChatCount: 0,
   _unreadSystemCount: 0,
   _pendingChatPayloads: [],
+  _unackedChat: new Map(),
   _wrongFadeTimer: null,
   _wrongVerdictSeenAt: new Map(),
   _tributeExpiryTimer: null,
@@ -1430,11 +1431,15 @@ const PlayerApp = {
           this._themeChangedByUser = false;
           this.updateAppearancePreview();
         }
-        if (this._pendingChatPayloads.length && this.ws?.readyState === WebSocket.OPEN) {
-          const queued = this._pendingChatPayloads.splice(0, 10);
-          queued.forEach(payload => this.send(payload));
-          this.setChatDeliveryState(`SENDING ${queued.length} QUEUED`, 'sending');
-        }
+        this.flushChatAfterReconnect();
+        break;
+
+      case 'chat:ack':
+        this._unackedChat.delete(message.clientMsgId);
+        break;
+
+      case 'server:pong':
+        this.onLinkPong(message);
         break;
 
       case 'chat:update': {
@@ -2370,8 +2375,10 @@ const PlayerApp = {
     if (!gameScreen.classList.contains('active')) gameScreen.classList.add('active');
     if (typeof this._hudBandSync === 'function') this._hudBandSync();
     const reconnecting = document.getElementById('reconnecting-overlay');
+    clearTimeout(this._reconnectOverlayTimer);
     if (reconnecting.classList.contains('active')) reconnecting.classList.remove('active');
     this.bindChatForm();
+    this.bindLinkWatch();
     this.bindLeaderboardToggle();
     Recount.mountPill();
   },
@@ -2634,8 +2641,94 @@ const PlayerApp = {
   },
 
   showReconnecting(isPermanent = false) {
-    document.getElementById('reconnecting-overlay').classList.add('active');
+    // A blip under 3 s shows only the status pill; the full overlay appears
+    // only if the link stays down.
     this.setConnectionStatus('disconnected');
+    clearTimeout(this._reconnectOverlayTimer);
+    this._reconnectOverlayTimer = setTimeout(() => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this._protocolReady) {
+        document.getElementById('reconnecting-overlay').classList.add('active');
+      }
+    }, isPermanent ? 0 : 3000);
+  },
+
+  newClientMsgId() {
+    const bytes = new Uint8Array(12);
+    (window.crypto || window.msCrypto).getRandomValues(bytes);
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  // After (re)joining: send what was typed while offline, then re-send what
+  // went into a socket that died before the server acknowledged it. The
+  // server drops repeats by clientMsgId, so each message lands exactly once.
+  // Staggered past the server's 350 ms chat interval.
+  flushChatAfterReconnect() {
+    const now = Date.now();
+    const byId = new Map();
+    for (const [id, entry] of this._unackedChat) {
+      if (now - entry.at < 2 * 60 * 1000) byId.set(id, entry.payload);
+      else this._unackedChat.delete(id);
+    }
+    for (const payload of this._pendingChatPayloads.splice(0, 10)) {
+      payload.clientMsgId ||= this.newClientMsgId();
+      byId.set(payload.clientMsgId, payload);
+    }
+    const queue = Array.from(byId.values());
+    if (!queue.length) return;
+    this.setChatDeliveryState(`SENDING ${queue.length} QUEUED`, 'sending');
+    queue.forEach((payload, index) => setTimeout(() => {
+      if (this.ws?.readyState !== WebSocket.OPEN) return;
+      this._unackedChat.set(payload.clientMsgId, { payload, at: this._unackedChat.get(payload.clientMsgId)?.at || Date.now() });
+      this.send(payload);
+    }, index * 450));
+  },
+
+  // LIVENESS -- a socket can look OPEN while it is dead (phone slept, Wi-Fi
+  // to mobile data). On resume/online, and every 25 s while visible, ping;
+  // no pong within 4 s means a zombie: drop it and reconnect now.
+  bindLinkWatch() {
+    if (this._linkWatchBound) return;
+    this._linkWatchBound = true;
+    const check = () => this.verifyLink();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    window.addEventListener('pageshow', check);
+    window.addEventListener('online', check);
+    this._linkHeartbeat = setInterval(() => { if (document.visibilityState === 'visible') this.verifyLink(); }, 25000);
+  },
+
+  verifyLink() {
+    // Only while in the game: a superseded, kicked or logged-out page
+    // (join screen showing) must never reconnect by itself.
+    if (this._roomClosedByServer || !document.getElementById('game-screen')?.classList.contains('active')) return;
+    const socket = this.ws;
+    if (!socket || socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
+      if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+      this.reconnectAttempts = 0;
+      this.connectWebSocket();
+      return;
+    }
+    if (socket.readyState !== WebSocket.OPEN || !this._protocolReady || this._linkProbe) return;
+    const id = this.newClientMsgId();
+    this._linkProbe = { id, socket, timer: setTimeout(() => this.onLinkZombie(socket), 4000) };
+    this.send({ type: 'client:ping', id });
+  },
+
+  onLinkPong(message) {
+    if (!this._linkProbe || (message.id && message.id !== this._linkProbe.id)) return;
+    clearTimeout(this._linkProbe.timer);
+    this._linkProbe = null;
+  },
+
+  onLinkZombie(socket) {
+    this._linkProbe = null;
+    if (this.ws !== socket) return;
+    console.log('[PLAYER] Link silent after resume; reconnecting');
+    socket.onopen = socket.onmessage = socket.onclose = socket.onerror = null;
+    try { socket.close(); } catch {}
+    this.ws = null;
+    this.reconnectAttempts = 0;
+    this.setChatDeliveryState('RECONNECTING', 'queued');
+    this.handleDisconnect();
   },
 
   setConnectionStatus(status) {
@@ -2678,14 +2771,14 @@ const PlayerApp = {
     if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) return;
     if (this.reconnectTimer) return;
 
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      alert('Unable to reconnect. Please refresh the page.');
-      this.showJoinScreen();
-      return;
-    }
-
+    // Never give up while the page is open: after the fast attempts keep
+    // trying every 20 s (a phone in a tunnel comes back eventually). A hidden
+    // page waits; returning to it reconnects at once (verifyLink).
+    if (this.reconnectAttempts >= this.maxReconnectAttempts && document.visibilityState === 'hidden') return;
     this.reconnectAttempts++;
-    const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
+    const delay = this.reconnectAttempts > this.maxReconnectAttempts
+      ? 20000
+      : Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
@@ -4149,7 +4242,7 @@ const PlayerApp = {
     const replyPrefix = reply
       ? `↳ @${reply.name}${reply.excerpt ? ` // ${reply.excerpt}` : ''}: `
       : '';
-    const payload = { type: 'chat:guess', text: reply ? replyPrefix + text : text };
+    const payload = { type: 'chat:guess', text: reply ? replyPrefix + text : text, clientMsgId: this.newClientMsgId() };
     // /spit rides the picker's resolved playerId so the server never guesses
     // between duplicate names. Only attached if the typed name still matches
     // the picked hero (or the verb is still bare).
@@ -4181,6 +4274,7 @@ const PlayerApp = {
         input.focus({ preventScroll: true });
       });
       this.setChatDeliveryState('SENDING', 'sending');
+      this._unackedChat.set(payload.clientMsgId, { payload, at: Date.now() });
       this.send(payload);
     } else {
       this._pendingChatPayloads.push(payload);

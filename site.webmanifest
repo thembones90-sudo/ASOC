@@ -2,7 +2,7 @@
   "name": "ASOC Engine",
   "short_name": "ASOC",
   "description": "Automated Systems of Cruelty",
-  "start_url": "/",
+  "start_url": "/join.html",
   "display": "standalone",
   "background_color": "#07080c",
   "theme_color": "#16091f",
@@ -17,5 +17,7 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "id": "/join.html",
+  "scope": "/"
 }
