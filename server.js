@@ -5308,6 +5308,13 @@ function handleIksMaxHealth(ws, message) {
   broadcastPlayersUpdate(room);
 }
 
+function handleIksHealthVisibility(ws, message) {
+  const room = hostRoomFor(ws);
+  if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can toggle IKS OKS health bars' });
+  iksArena.setHealthVisible(message.visible !== false);
+  broadcastPlayersUpdate(room);
+}
+
 function recordThreefoldResult(game, room = null) {
   if (!game || game.resultRecorded) return;
   game.resultRecorded = true;
@@ -7549,7 +7556,7 @@ function iksArenaFields(player) {
   if (!player || player.isTestPersona === true || isMasterTestPlayerId(player.id)) return {};
   // Every Little Hero wears the ring: health is always live (iks-arena-store).
   const standing = iksArena.standingOf(player.id);
-  return { iksHealth: standing.health, iksMaxHealth: standing.maxHealth, iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: standing.fighter };
+  return { iksHealth: standing.health, iksMaxHealth: standing.maxHealth, iksHealthVisible: iksArena.healthVisible(), iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: standing.fighter };
 }
 
 function sendPlayersUpdateTo(room, ws) {
@@ -10926,6 +10933,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:iksMaxHealth': {
           handleIksMaxHealth(ws, message);
+          break;
+        }
+        case 'gm:iksHealthVisibility': {
+          handleIksHealthVisibility(ws, message);
           break;
         }
         case 'kaladont:create':

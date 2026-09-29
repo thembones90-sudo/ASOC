@@ -131,6 +131,12 @@ function checkStore() {
     store.recordGame({ x: hero('a'), o: hero('b'), winnerId: 'b' });
     assert.equal(hp('b'), 3, 'the winner is capped at the new maximum');
     assert.equal(hp('a'), 2);
+    assert.equal(store.publicState().healthVisible, true);
+    const healthBeforeHide = hp('a');
+    assert.equal(store.setHealthVisible(false).healthVisible, false);
+    assert.equal(hp('a'), healthBeforeHide, 'hiding rings never changes health');
+    assert.equal(store.setHealthVisible(true).healthVisible, true);
+    assert.equal(hp('a'), healthBeforeHide, 'showing rings never resets health');
     store.reset();
     assert.equal(store.maxHealth(), 3, 'reset keeps the chosen bars');
     assert.equal(hp('a'), 3);
@@ -399,6 +405,7 @@ function checkRing() {
   const ring = require('../js/iks-ring.js');
   assert.equal(ring.wrap({ name: 'X' }, '<img>'), '<img>', 'no gauntlet health, no ring');
   const seven = ring.wrap({ iksHealth: 7 }, '<img>');
+  assert.equal(ring.wrap({ iksHealth: 7, iksHealthVisible: false }, '<img>'), '<img>', 'hidden health uses the normal avatar');
   assert.match(seven, /--iks-hp:7/);
   assert.match(seven, /iks-hp-ring/);
   assert.doesNotMatch(seven, /iks-fire/);

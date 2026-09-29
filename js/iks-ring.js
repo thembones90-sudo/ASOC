@@ -7,6 +7,7 @@
   const MAX = 10;
 
   function standing(entity) {
+    if (entity?.iksHealthVisible === false) return null;
     const hp = Number(entity?.iksHealth);
     if (!Number.isFinite(hp)) return null;
     const max = Math.max(1, Math.min(MAX, Math.round(Number(entity.iksMaxHealth) || MAX)));
