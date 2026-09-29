@@ -4166,7 +4166,7 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 .game-card-title {
-  font-size: 0.95rem;
+  font-size: 1.14rem;
   font-weight: 600;
   color: var(--text-primary);
   text-transform: uppercase;
@@ -4186,7 +4186,7 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 .game-card-theme {
-  font-size: 0.72rem;
+  font-size: 0.864rem;
   color: var(--text-dim);
 }
 
@@ -4220,7 +4220,7 @@ body.gm-layout-locked .gm-module-height-splitter {
 
 .difficulty-badge {
   display: inline-block;
-  font-size: 0.55rem;
+  font-size: 0.66rem;
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 3px;
@@ -19893,11 +19893,11 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 .game-list-solutions {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px 8px;
-  margin-top: 7px;
+  gap: 6px 10px;
+  margin-top: 8px;
   min-width: 0;
   color: #a9afbb;
-  font-size: 0.58rem;
+  font-size: 0.696rem;
   line-height: 1.2;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -19917,7 +19917,7 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 
 .game-list-solutions b {
   color: #7f8796;
-  font-size: 0.52rem;
+  font-size: 0.624rem;
   letter-spacing: 0.08em;
 }
 
@@ -19933,7 +19933,7 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 
 .game-list-date {
   color: var(--text-dim);
-  font-size: 0.68rem;
+  font-size: 0.816rem;
   font-weight: 700;
   letter-spacing: 0.35px;
   text-transform: uppercase;
@@ -19947,8 +19947,9 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 
 .game-list-actions .forge-btn,
 .game-list-more > summary {
-  min-height: 34px;
-  padding: 7px 12px;
+  min-height: 41px;
+  padding: 8px 14px;
+  font-size: 0.84rem;
   white-space: nowrap;
 }
 
