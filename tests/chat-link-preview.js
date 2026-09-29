@@ -89,29 +89,35 @@ assert.equal(plain.title, 'Only A Title');
 assert.equal(plain.siteName, 'example.com', 'the site name falls back to the hostname');
 assert.equal(plain.image, null);
 
-// A hostile og:image never survives, whatever the page claims. With nothing
-// else on the page there is no card at all; with a real title the card appears
-// but carries no picture.
-assert.equal(
-  extractMetadata('<html><head><meta property="og:image" content="javascript:alert(1)"></head><body>x</body></html>', 'https://example.com/'),
-  null,
-  'a page whose only metadata is a hostile image unfurls to nothing'
-);
+// A hostile og:image never survives. The card still appears, but carries no
+// picture, and the hostname stands in when there is nothing else to show.
 const hostile = extractMetadata(
-  '<html><head><title>Real Story</title><meta property="og:image" content="javascript:alert(1)"></head><body>x</body></html>',
+  '<html><head><meta property="og:image" content="javascript:alert(1)"></head><body>x</body></html>',
   'https://example.com/'
 );
-assert.ok(hostile, 'the card still renders on its title');
+assert.ok(hostile, 'a page whose only metadata is a hostile image still unfurls to a hostname card');
 assert.equal(hostile.image, null, 'a javascript: og:image is dropped');
+assert.equal(hostile.title, 'example.com', 'the hostname is shown when there is no other title');
 const dataUrl = extractMetadata(
   '<html><head><title>Real Story</title><meta property="og:image" content="data:image/png;base64,AAAA"></head><body>x</body></html>',
   'https://example.com/'
 );
 assert.equal(dataUrl.image, null, 'a data: og:image is dropped');
 
-// Nothing worth rendering means no card at all, not an empty one.
-assert.equal(extractMetadata('<html><body><p>hello</p></body></html>', 'https://example.com/'), null);
-assert.equal(extractMetadata('', 'https://example.com/'), null);
+// A valid link with no metadata still unfurls to a hostname card.
+const noMeta = extractMetadata('<html><body><p>hello</p></body></html>', 'https://example.com/');
+assert.ok(noMeta, 'a page with no metadata still unfurls to a hostname card');
+assert.equal(noMeta.title, 'example.com', 'the hostname is shown when there is no other metadata');
+
+// An empty fetch result lets the caller fall back to minimalPreview.
+assert.equal(extractMetadata('', 'https://example.com/'), null, 'an empty fetch result yields no metadata');
+
+// Every valid link gets at least a hostname card from the service, even if the
+// fetch fails completely.
+const minimal = service.minimalPreview('https://example.com/');
+assert.ok(minimal, 'minimalPreview returns a card');
+assert.equal(minimal.title, 'example.com');
+assert.equal(minimal.url, 'https://example.com/');
 
 // Lengths are capped so a hostile <title> cannot flood the room log.
 const huge = extractMetadata(

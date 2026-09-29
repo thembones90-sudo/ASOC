@@ -36,6 +36,7 @@ const CACHE_TTL_MS = 30 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 250;
 const MAX_TITLE = 200;
 const MAX_DESCRIPTION = 400;
+const MAX_LINKS_PER_MESSAGE = 4;
 
 // A URL as it appears in a chat line. Deliberately strict: no quotes, angle
 // brackets or backticks can be part of a match, so a link can never eat the
@@ -155,9 +156,8 @@ function extractMetadata(html, pageUrl) {
     }
   }
 
-  // Nothing worth rendering: a page with no title and no description is just a
-  // bare address, which the chat line already shows as a clickable link.
-  if (!title && !description && !image) return null;
+  // Every valid link gets a card, even if the page is blank. The hostname is
+  // always shown so the preview is never an empty box.
   return {
     url: safeWebUrl(pageUrl) || String(pageUrl || ''),
     title: title || truncate(new URL(pageUrl).hostname, MAX_TITLE),
@@ -236,20 +236,34 @@ function createLinkPreviewService(options = {}) {
   // The first address in a chat line, validated. Returns null when the line
   // holds no link or holds one we would refuse to fetch anyway.
   function extractFirstUrl(text) {
+    const urls = extractAllUrls(text, 1);
+    return urls[0] || null;
+  }
+
+  // Every address in a chat line, validated and deduplicated, in the order they
+  // appear. Capped so a wall of pasted links cannot turn the chat server into a
+  // DDoS cannon.
+  function extractAllUrls(text, max = MAX_LINKS_PER_MESSAGE) {
     const matches = String(text || '').match(URL_PATTERN);
-    if (!matches || !matches.length) return null;
+    if (!matches || !matches.length) return [];
+    const seen = new Set();
+    const out = [];
     for (const match of matches) {
+      if (out.length >= max) break;
       const candidate = trimUrlTail(match);
       if (!candidate) continue;
       try {
         const parsed = normalizeUrl(candidate);
         if (isRefusedTarget(parsed)) continue;
-        return parsed.toString();
+        const url = parsed.toString();
+        if (seen.has(url)) continue;
+        seen.add(url);
+        out.push(url);
       } catch (_) {
-        // Keep looking: a refused first link must not suppress a valid second.
+        // Keep looking: a refused link must not suppress a valid one.
       }
     }
-    return null;
+    return out;
   }
 
   async function resolvePublicAddress(hostname) {
@@ -373,6 +387,24 @@ function createLinkPreviewService(options = {}) {
     return hit.preview;
   }
 
+  function minimalPreview(rawUrl) {
+    try {
+      const url = normalizeUrl(rawUrl);
+      if (isRefusedTarget(url)) return null;
+      const host = url.hostname;
+      return {
+        url: url.toString(),
+        title: truncate(host, MAX_TITLE),
+        description: '',
+        image: null,
+        siteName: host,
+        fetchedAt: Date.now()
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
   // Returns a cached preview immediately, or null while a fetch is started in
   // the background. Chat must never wait on a stranger's web server: the
   // message posts first and the room is updated again when the preview lands.
@@ -392,7 +424,7 @@ function createLinkPreviewService(options = {}) {
 
     const task = fetchDocument(key)
       .then(({ html, finalUrl }) => {
-        const preview = extractMetadata(html, finalUrl);
+        const preview = extractMetadata(html, finalUrl) || minimalPreview(finalUrl);
         if (preview && preview.image && literalHostIsPrivate(safeHost(preview.image))) preview.image = null;
         if (preview) {
           cache.set(key, { at: now(), preview });
@@ -400,7 +432,7 @@ function createLinkPreviewService(options = {}) {
         }
         return preview;
       })
-      .catch(() => null)
+      .catch(() => minimalPreview(key))
       .then(preview => {
         inflight.delete(key);
         return preview;
@@ -423,15 +455,40 @@ function createLinkPreviewService(options = {}) {
     return inflight.get(key) || Promise.resolve(null);
   }
 
+  // Prime every URL in a chat line. Returns the cached previews that were
+  // already available; the rest are fetched in the background and the caller
+  // is notified via the returned promise when each one lands.
+  function primeAll(rawUrls, onEach) {
+    const urls = (rawUrls || []).slice(0, MAX_LINKS_PER_MESSAGE);
+    const immediate = [];
+    const pending = [];
+    for (const raw of urls) {
+      const cached = prime(raw);
+      if (cached) {
+        immediate.push(cached);
+      } else {
+        const promise = unfurl(raw).then(preview => {
+          if (onEach && preview) onEach(preview);
+          return preview;
+        }).catch(() => null);
+        pending.push(promise);
+      }
+    }
+    return { immediate, pending };
+  }
+
   function safeHost(rawUrl) {
     try { return new URL(String(rawUrl || '')).hostname.toLowerCase(); } catch (_) { return ''; }
   }
 
   return {
     extractFirstUrl,
+    extractAllUrls,
     normalizeUrl,
     extractMetadata,
+    minimalPreview,
     prime,
+    primeAll,
     unfurl,
     cached: readCache,
     pending: () => inflight.size,

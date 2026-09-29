@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/quest-icon-system.css?v=20260928-skynet-quest-icons-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
   <link rel="stylesheet" href="css/black-market.css?v=20260929-tribute-consent-2">
-  <link rel="stylesheet" href="css/chat-links.css?v=20260929-link-preview-1">
+  <link rel="stylesheet" href="css/chat-links.css?v=20260929-link-preview-2">
   <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-2">
   <link rel="stylesheet" href="css/megabonk.css?v=20260928-searchlight-1">
   <link rel="stylesheet" href="css/direct-messages.css?v=20260928-chat-rail-layout-1">
@@ -8989,93 +8989,127 @@ position:absolute;
     }
 
 
-    /* WHITEOUT // ARCTIC GUNMETAL.
-       Light machinery, not a blank white page. Outer ASOC chrome remains dark;
-       only the inner player chamber and Whiteout-owned messages are frosted. */
+    /* WHITEOUT 09 // ARCTIC GUNMETAL.
+       Hierarchy: dark ASOC frame -> pale metallic chamber -> frosted Whiteout
+       messages. The shell, rails and status slab stay gunmetal-dark so Whiteout
+       still belongs to the console; only the centre comms chamber is steel and
+       frost gray. No pure white, no haze, no pastel. */
     #game-screen[data-player-theme="whiteout"] {
       background:
-        radial-gradient(circle at 88% 12%,rgba(191,225,238,.20) 0 2px,rgba(191,225,238,.07) 4px 58px,transparent 138px),
-        repeating-linear-gradient(90deg,rgba(70,91,104,.050) 0 1px,transparent 1px 88px),
-        linear-gradient(132deg,#d9e0e4 0%,#cbd4d9 48%,#bfc9cf 100%);
-      color:#172027;
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20520%20300'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23C9D6DD'%20stroke-width%3D'1'%3E%3Cpath%20opacity%3D'.085'%20d%3D'M16%20244%20L86%20244%20L120%20210%20L196%20210%20L230%20176%20L300%20176%20L336%20140%20L406%20140%20L444%20102%20L508%20102'%2F%3E%3Cpath%20opacity%3D'.055'%20d%3D'M58%20284%20L112%20230%20L164%20230%20L204%20190%20L252%20190%20L292%20150%20L340%20150'%2F%3E%3Cpath%20opacity%3D'.04'%20d%3D'M252%20292%20L252%20246%20L288%20214%20L288%20168%20L328%20132%20L372%20132%20L406%2098'%2F%3E%3Cpath%20opacity%3D'.03'%20d%3D'M20%2068%20L72%2068%20L104%2036%20L168%2036%20L200%204%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23D6E0E6'%3E%3Ccircle%20opacity%3D'.16'%20cx%3D'86'%20cy%3D'244'%20r%3D'1.6'%2F%3E%3Ccircle%20opacity%3D'.12'%20cx%3D'120'%20cy%3D'210'%20r%3D'1.9'%2F%3E%3Ccircle%20opacity%3D'.10'%20cx%3D'230'%20cy%3D'176'%20r%3D'1.8'%2F%3E%3Ccircle%20opacity%3D'.085'%20cx%3D'336'%20cy%3D'140'%20r%3D'1.7'%2F%3E%3Ccircle%20opacity%3D'.07'%20cx%3D'444'%20cy%3D'102'%20r%3D'1.7'%2F%3E%3Ccircle%20opacity%3D'.10'%20cx%3D'104'%20cy%3D'36'%20r%3D'1.6'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%239FD4E7'%3E%3Ccircle%20opacity%3D'.40'%20cx%3D'508'%20cy%3D'102'%20r%3D'2.1'%2F%3E%3Ccircle%20opacity%3D'.20'%20cx%3D'406'%20cy%3D'98'%20r%3D'1.7'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 2vw top 8vh / min(520px,38vw) auto no-repeat,
+        radial-gradient(circle at 90% 12%,rgba(159,212,231,.13) 0 2px,rgba(159,212,231,.04) 4px 52px,transparent 132px),
+        repeating-linear-gradient(114deg,rgba(200,214,222,.022) 0 1px,transparent 1px 5px),
+        linear-gradient(115deg,rgba(0,0,0,.16) 0%,rgba(159,212,231,.020) 32%,rgba(206,219,227,.040) 47%,rgba(0,0,0,.12) 100%),
+        linear-gradient(180deg,rgba(224,233,238,.020),transparent 8%),
+        linear-gradient(145deg,#151c22 0%,#0b1015 48%,#05080b 100%);
     }
+    /* Pale metallic chamber. Brushed steel, not milk glass. */
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby {
       background:
-        linear-gradient(90deg,rgba(78,98,111,.075) 0 1px,transparent 1px 100%),
-        repeating-linear-gradient(0deg,rgba(66,88,101,.045) 0 1px,transparent 1px 24px),
-        linear-gradient(145deg,#d5dde2 0%,#c7d0d6 46%,#b9c5cc 100%);
-      border-left-color:#93a3ad;
+        linear-gradient(90deg,rgba(62,80,93,.10) 0 1px,transparent 1px 100%),
+        repeating-linear-gradient(0deg,rgba(58,78,92,.055) 0 1px,transparent 1px 22px),
+        linear-gradient(90deg,rgba(255,255,255,.34),transparent 18%,rgba(58,78,92,.06) 62%,rgba(58,78,92,.12)),
+        linear-gradient(145deg,#cbd4da 0%,#c2cbd1 46%,#b6c1c8 100%);
+      border-left-color:#8e9ea8;
       box-shadow:
-        inset 10px 0 22px rgba(74,94,108,.16),
-        inset 1px 0 rgba(255,255,255,.68),
-        inset -1px 0 rgba(76,94,106,.22);
+        inset 11px 0 24px rgba(58,78,92,.24),
+        inset 1px 0 rgba(236,244,248,.55),
+        inset -1px 0 rgba(62,82,95,.30);
     }
+    /* Inner chat surface: one distinctly darker frost-gray layer so it never
+       merges into the chamber behind it. */
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby #chat-panel {
-      border-color:#9eacb5;
+      border-color:#8e9ea8;
       background:
-        linear-gradient(90deg,rgba(82,103,117,.045) 0 1px,transparent 1px 72px),
-        linear-gradient(180deg,#e0e6e9 0%,#d3dbe0 52%,#c9d2d8 100%);
+        repeating-linear-gradient(0deg,rgba(52,72,86,.05) 0 1px,transparent 1px 18px),
+        linear-gradient(90deg,rgba(52,72,86,.055) 0 1px,transparent 1px 68px),
+        linear-gradient(180deg,#c4ced4 0%,#bcc6cd 54%,#b3bfc6 100%);
       color:#172027;
       box-shadow:
-        inset 0 1px rgba(255,255,255,.62),
-        inset 0 0 28px rgba(82,101,114,.12),
-        0 10px 28px rgba(65,82,94,.12);
+        inset 0 1px rgba(240,246,249,.62),
+        inset 0 0 0 1px rgba(255,255,255,.16),
+        inset 0 0 30px rgba(60,80,94,.16),
+        0 12px 30px rgba(46,60,71,.26);
     }
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby #chat-panel::after {
       background:
-        linear-gradient(180deg,rgba(79,100,114,.16),rgba(79,100,114,0)) left 8px top / 1px 100% no-repeat,
-        linear-gradient(180deg,rgba(79,100,114,.16),rgba(79,100,114,0)) right 8px top / 1px 100% no-repeat;
+        linear-gradient(180deg,rgba(86,106,120,.42),rgba(86,106,120,0)) left 8px top / 1px 100% no-repeat,
+        linear-gradient(180deg,rgba(86,106,120,.42),rgba(86,106,120,0)) right 8px top / 1px 100% no-repeat,
+        linear-gradient(180deg,rgba(159,212,231,.34),rgba(159,212,231,0)) left 8px top / 1px 30px no-repeat;
     }
-    #game-screen[data-player-theme="whiteout"][data-room-mode="CASUAL"] .battle-comms-lobby #chat-panel::before {
+    /* Amusement Park watermark stays a whisper behind the transcript. */
+    #game-screen[data-player-theme="whiteout"][data-room-mode="CASUAL"] .battle-comms-lobby #chat-panel::before,
+    #game-screen[data-player-theme="whiteout"].room-mode-casual .battle-comms-lobby #chat-panel::before {
       background:
         url('/assets/ui/abusement-park-2026.webp') center 50% / 42% auto no-repeat,
-        repeating-linear-gradient(0deg,rgba(56,79,93,.014) 0 1px,transparent 1px 5px);
-      opacity:.035;
-      filter:grayscale(.55) saturate(.35) brightness(.62) blur(2.2px);
+        repeating-linear-gradient(0deg,rgba(46,66,80,.02) 0 1px,transparent 1px 5px);
+      opacity:.03;
+      filter:grayscale(.7) saturate(.2) brightness(.5) blur(2.4px);
       transform:scale(1.01);
     }
+    /* The status slab is ASOC instrumentation, so it stays dark gunmetal with a
+       single cyan lamp. Pale here destroyed the gold label, clock and stat HUD. */
     #game-screen[data-player-theme="whiteout"] .detainee-status-module {
-      border-color:#98a8b2;
+      border-color:#7d8d98;
       background:
-        linear-gradient(118deg,rgba(255,255,255,.42),rgba(191,207,216,.24) 45%,rgba(147,165,176,.20)),
-        linear-gradient(180deg,#e1e7ea,#c6d0d6);
-      box-shadow:inset 0 1px rgba(255,255,255,.70),inset 0 -3px 10px rgba(82,100,112,.15);
-      color:#172027;
+        linear-gradient(112deg,rgba(0,0,0,.20) 0%,rgba(159,176,187,.05) 26%,rgba(226,238,244,.11) 44%,rgba(117,134,145,.04) 58%,rgba(0,0,0,.18) 100%),
+        repeating-linear-gradient(114deg,rgba(200,214,222,.020) 0 1px,transparent 1px 5px),
+        radial-gradient(circle at 88% 16%,rgba(159,212,231,.16) 0 2px,transparent 38px),
+        linear-gradient(180deg,#1a2128,#0b1015 84%);
+      box-shadow:inset 0 1px rgba(225,233,239,.12),inset 0 -3px 10px rgba(0,0,0,.80);
+      color:#dce4ea;
     }
     #game-screen[data-player-theme="whiteout"] .detainee-status-label {
-      background:linear-gradient(180deg,#edf1f3,#cfd8dd);
-      color:#1d2931;
-      box-shadow:inset 0 1px rgba(255,255,255,.72),inset 0 -1px rgba(84,102,114,.18);
-    }
-    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] {
-      border-color:#9fadb6;
       background:
-        linear-gradient(135deg,#f1f4f6 0%,#e4eaed 72%,#d7e0e5 100%);
-      color:#172027;
-      box-shadow:
-        inset 0 1px rgba(255,255,255,.82),
-        inset 0 -1px rgba(82,99,111,.16),
-        0 2px 7px rgba(64,80,91,.13);
+        linear-gradient(90deg,rgba(224,230,236,.05),transparent 46%),
+        linear-gradient(180deg,#232b33,#10151a);
+      color:#e2e8ed;
+      border-bottom-color:#6d7d88;
+      box-shadow:inset 0 1px rgba(229,234,239,.08),inset 0 -1px rgba(0,0,0,.66);
     }
-    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"]::after {
+    /* Message hover must not smear near-white across a foreign dark bubble. */
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message:hover {
+      background:linear-gradient(90deg,rgba(86,104,118,.14),rgba(86,104,118,0) 78%) !important;
+    }
+    /* WHITEOUT-OWNED MESSAGES // scoped to the message owner, never to the
+       viewer's theme, so a Whiteout player's frosted bubble stays readable in
+       every other transcript. Every other theme's bubbles and the Shadow Broker
+       purple/black transmissions are left exactly as they were. */
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-main {
+      border-color:#9aa9b3 !important;
+      background:linear-gradient(135deg,#eef2f4 0%,#e6ebee 58%,#d9e2e7 100%) !important;
+      box-shadow:
+        inset 0 1px rgba(255,255,255,.86),
+        inset 0 -1px rgba(74,92,105,.20),
+        0 2px 8px rgba(56,72,84,.16) !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-main::after {
       content:"";
       position:absolute;
-      right:7px;
-      top:6px;
-      width:42px;
-      height:18px;
+      right:5px;
+      bottom:4px;
+      width:44px;
+      height:14px;
       pointer-events:none;
-      background:linear-gradient(90deg,transparent,rgba(154,211,231,.30),transparent);
-      opacity:.65;
+      background:linear-gradient(90deg,transparent,rgba(159,212,231,.30),transparent);
+      opacity:.55;
     }
-    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-text,
-    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-player-name,
-    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] time {
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-main:hover,
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-main:focus-within {
+      border-color:#84949f !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-text,
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-player-name {
       color:#1c2830 !important;
       text-shadow:none !important;
     }
-    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-player-name {
-      color:#3d5664 !important;
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-player-name {
+      color:#2f4a5a !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-time,
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-edited-marker {
+      color:#4c5c68 !important;
+      text-shadow:none !important;
     }
 
 </style>
@@ -10079,7 +10113,7 @@ position:absolute;
     });
   })();
   </script>
-  <script src="js/themes.js?v=20260929-whiteout-refine-2"></script>
+  <script src="js/themes.js?v=20260929-whiteout-arctic-1"></script>
   <script src="js/dom-patch.js?v=20260925-gm-control-pass-1"></script>
   <script src="js/skeleton.js?v=20260927-sb-stable-2"></script>
   <script src="js/board-celebrations.js?v=20260928-board-coronation-1"></script>
@@ -10096,7 +10130,7 @@ position:absolute;
   <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
   <script src="js/asoc-alerts.js?v=20260929-voice-1"></script>
   <script src="js/chat-media-preview.js?v=20260928-save-as-3"></script>
-  <script src="js/chat-links.js?v=20260929-link-preview-1"></script>
+  <script src="js/chat-links.js?v=20260929-link-preview-2"></script>
   <script src="js/read-receipts.js?v=20260926-seen-dedupe-1"></script>
   <script src="js/shadow-cosmetics.js?v=20260926-dm-1"></script>
   <script src="js/shadow-market-ui.js?v=20260926-shadow-market-hardening-1"></script>

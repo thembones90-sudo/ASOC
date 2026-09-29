@@ -5899,35 +5899,50 @@ function addRollMessage(room, playerId, playerName, range, options = {}) {
   return { success: true, message, tributeTriggered };
 }
 
-// LINK PREVIEW -- unfurls the first address in a posted line.
+// LINK PREVIEW -- unfurls every address in a posted line.
 //
 // Chat never waits on a stranger's web server. The message is stored and
 // broadcast immediately with whatever is already cached (usually nothing), and
-// when the fetch finishes the room gets a second, single-message chat update
-// carrying the card. A failed or refused fetch is simply never shown: the
-// address is still a clickable link in the line itself.
+// when each fetch finishes the room gets a single-message chat:delta carrying
+// the updated card(s). A failed or refused fetch still produces a minimal card
+// showing the hostname, so a link in Battle Comms is never without a preview.
 function primeChatLinkPreview(room, message) {
   if (!message || typeof message.text !== 'string') return;
-  const url = linkPreviewService.extractFirstUrl(message.text);
-  if (!url) return;
+  const urls = linkPreviewService.extractAllUrls(message.text);
+  if (!urls.length) return;
 
-  const cached = linkPreviewService.prime(url);
-  if (cached) {
-    message.linkPreview = cached;
-    return;
-  }
-
-  linkPreviewService.unfurl(url).then(preview => {
-    if (!preview) return;
+  message.linkPreviews = [];
+  const { immediate, pending } = linkPreviewService.primeAll(urls, preview => {
     // The message may have been deleted, or aged out of the history window,
     // while the fetch was in flight. A preview for a message nobody can see is
     // dropped rather than resurrected onto a different object.
     if (!room?.chat?.messages?.includes(message)) return;
-    message.linkPreview = preview;
+    upsertLinkPreview(message, preview);
     message.linkPreviewAt = Date.now();
     persistActiveRooms();
     broadcastChatUpdate(room, [message.id]);
+  });
+  for (const preview of immediate) upsertLinkPreview(message, preview);
+  if (immediate.length) {
+    message.linkPreviewAt = Date.now();
+    // The initial broadcast already goes out for the text; including any
+    // immediately-cached previews keeps the first render from flickering.
+  }
+
+  Promise.allSettled(pending).then(() => {
+    if (!room?.chat?.messages?.includes(message)) return;
+    if (!message.linkPreviews?.length) return;
+    persistActiveRooms();
+    broadcastChatUpdate(room, [message.id]);
   }).catch(() => {});
+}
+
+function upsertLinkPreview(message, preview) {
+  if (!message || !preview || typeof preview !== 'object' || !preview.url) return;
+  message.linkPreviews = Array.isArray(message.linkPreviews) ? message.linkPreviews : [];
+  const existing = message.linkPreviews.findIndex(p => p.url === preview.url);
+  if (existing >= 0) message.linkPreviews[existing] = preview;
+  else message.linkPreviews.push(preview);
 }
 
 function addChatMessage(room, playerId, playerName, text) {
@@ -7167,6 +7182,7 @@ function createChatSerializer(room) {
       imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
       messageType: m.messageType || null,
       linkPreview: sanitizeChatLinkPreview(m.linkPreview),
+      linkPreviews: sanitizeChatLinkPreviews(m.linkPreviews),
       ...sanitizeChatCommandMeta(m),
       gif: m.messageType === 'gifRemote' && m.gif ? {
         provider: m.gif.provider === 'giphy' ? 'giphy' : undefined,
@@ -8251,6 +8267,12 @@ function sanitizeChatLinkPreview(raw) {
   } catch (_) {
     return undefined;
   }
+}
+
+function sanitizeChatLinkPreviews(rawArray) {
+  if (!Array.isArray(rawArray)) return undefined;
+  const out = rawArray.map(sanitizeChatLinkPreview).filter(Boolean);
+  return out.length ? out : undefined;
 }
 
 function socketsForPlayer(playerId) {

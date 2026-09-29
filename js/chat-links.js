@@ -129,9 +129,14 @@
     return `<a class="chat-link-preview" href="${esc(href)}" target="_blank" rel="noopener noreferrer nofollow external" title="${esc(href)}">${image}<span class="chat-link-preview-body"><small class="chat-link-preview-site">${esc(site || 'LINK')}</small>${title ? `<b class="chat-link-preview-title">${esc(title)}</b>` : ''}${description ? `<span class="chat-link-preview-description">${esc(description)}</span>` : ''}<span class="chat-link-preview-open">OPEN LINK ↗</span></span></a>`;
   }
 
-  function messageHTML(message, decorateText) {
+  function previewsHTML(previews) {
+    const list = Array.isArray(previews) ? previews : (previews ? [previews] : []);
+    return list.map(previewHTML).join('');
+  }
+
+  function messageHTML(message) {
     if (!message) return '';
-    return previewHTML(message.linkPreview);
+    return previewsHTML(message.linkPreviews || message.linkPreview);
   }
 
   window.ChatLinks = {
@@ -139,6 +144,7 @@
     textHTML,
     urlHTML,
     previewHTML,
+    previewsHTML,
     messageHTML,
     safeHttpUrl,
     isUrlSegment,

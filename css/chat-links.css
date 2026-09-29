@@ -1,12 +1,12 @@
 /* CHAT LINKS -- clickable addresses and unfurled link previews.
-   Same palette language as the rest of Battle Comms: machine-mono labels,
-   deep plum panels, a single hot accent. The card is a link, so hover has to
-   read as "this opens something". */
+   Normal blue links for recognizability, dark-blue cards that still fit the
+   Battle Comms panel aesthetic. The card is a link, so hover has to read as
+   "this opens something". */
 
 .chat-link {
-  color: #e58bb0;
+  color: #2f7de1;
   text-decoration: underline;
-  text-decoration-color: rgba(197, 63, 111, .55);
+  text-decoration-color: rgba(47, 125, 225, .55);
   text-underline-offset: 2px;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -15,8 +15,8 @@
 }
 .chat-link:hover,
 .chat-link:focus-visible {
-  color: #ffb3cd;
-  text-decoration-color: #ffb3cd;
+  color: #1a5fc7;
+  text-decoration-color: #1a5fc7;
   outline: none;
 }
 
@@ -27,9 +27,9 @@
   margin-top: 9px;
   padding: 9px 11px;
   max-width: 460px;
-  border: 1px solid #4a2b3c;
-  border-left: 3px solid #a92f4c;
-  background: linear-gradient(180deg, rgba(28, 14, 23, .92), rgba(10, 8, 13, .96));
+  border: 1px solid #2a3a52;
+  border-left: 3px solid #1a73e8;
+  background: linear-gradient(180deg, rgba(18, 24, 36, .92), rgba(8, 10, 16, .96));
   color: inherit;
   text-decoration: none;
   cursor: pointer;
@@ -37,9 +37,9 @@
 }
 .chat-link-preview:hover,
 .chat-link-preview:focus-visible {
-  border-color: #8d4b79;
-  border-left-color: #c43c5d;
-  box-shadow: 0 0 16px rgba(160, 40, 84, .22);
+  border-color: #3b6cb3;
+  border-left-color: #2f7de1;
+  box-shadow: 0 0 16px rgba(47, 125, 225, .22);
   outline: none;
 }
 .chat-link-preview:active {
@@ -52,7 +52,7 @@
   height: 92px;
   object-fit: cover;
   background: #020203;
-  border: 1px solid #3a1f2c;
+  border: 1px solid #1f2d42;
 }
 
 .chat-link-preview-body {
@@ -64,7 +64,7 @@
 }
 
 .chat-link-preview-site {
-  color: #b47696;
+  color: #7aa7e8;
   font: 800 9px/1.2 var(--font-machine, ui-monospace, monospace);
   letter-spacing: .22em;
   text-transform: uppercase;
@@ -74,7 +74,7 @@
 }
 
 .chat-link-preview-title {
-  color: #fff6fb;
+  color: #f2f7ff;
   font: 800 14px/1.3 var(--font-display, system-ui, sans-serif);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -83,7 +83,7 @@
 }
 
 .chat-link-preview-description {
-  color: #b9a9b8;
+  color: #b8c4d6;
   font: 600 12px/1.45 var(--font-display, system-ui, sans-serif);
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -93,7 +93,7 @@
 
 .chat-link-preview-open {
   margin-top: 2px;
-  color: #e58bb0;
+  color: #2f7de1;
   font: 800 9px/1.2 var(--font-machine, ui-monospace, monospace);
   letter-spacing: .2em;
 }
