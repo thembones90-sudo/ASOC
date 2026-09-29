@@ -5139,7 +5139,7 @@ const PlayerApp = {
           <div class="chat-message-header"><span class="chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
           <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">&#8617;</button>
           ${replyContextHtml}
-          <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}
+          <div class="chat-message-line"><div class="chat-message-text">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.previewHTML(msg.linkPreview) || ''}
           ${verdictMetaHtml}
           ${verdictResponseHtml}
           ${this.createReactionBarHTML(msg)}

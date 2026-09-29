@@ -27,6 +27,7 @@ const questEngine = require('./quest-engine');
 const dailyContracts = require('./daily-contracts');
 const rouletteCarnage = require('./roulette-carnage');
 const { createChatUploadGuard } = require('./chat-upload-guard');
+const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
 
@@ -249,6 +250,11 @@ const CHAT_UPLOAD_DIR = path.join(ASOC_DATA_DIR, 'chat-uploads');
 fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
 const chatUploadGuard = createChatUploadGuard({ dir: CHAT_UPLOAD_DIR });
 const blackMarketUploadClaims = new Map();
+// Link previews unfurl on the host, never in a reader's browser: the same
+// private-address predicate the chat image importer uses is injected in, so
+// the two can never drift apart on what counts as unreachable. Declared here
+// because isBlockedRemoteAddress() is a hoisted function declaration.
+const linkPreviewService = createLinkPreviewService({ isBlockedAddress: isBlockedRemoteAddress });
 // Same conservative orphan sweep for avatar files (budget/throttle unused).
 const avatarFileGuard = createChatUploadGuard({ dir: avatarStore.AVATAR_DIR });
 const ACTIVE_ROOMS_FILE = process.env.ASOC_SESSION_FILE
@@ -5893,6 +5899,37 @@ function addRollMessage(room, playerId, playerName, range, options = {}) {
   return { success: true, message, tributeTriggered };
 }
 
+// LINK PREVIEW -- unfurls the first address in a posted line.
+//
+// Chat never waits on a stranger's web server. The message is stored and
+// broadcast immediately with whatever is already cached (usually nothing), and
+// when the fetch finishes the room gets a second, single-message chat update
+// carrying the card. A failed or refused fetch is simply never shown: the
+// address is still a clickable link in the line itself.
+function primeChatLinkPreview(room, message) {
+  if (!message || typeof message.text !== 'string') return;
+  const url = linkPreviewService.extractFirstUrl(message.text);
+  if (!url) return;
+
+  const cached = linkPreviewService.prime(url);
+  if (cached) {
+    message.linkPreview = cached;
+    return;
+  }
+
+  linkPreviewService.unfurl(url).then(preview => {
+    if (!preview) return;
+    // The message may have been deleted, or aged out of the history window,
+    // while the fetch was in flight. A preview for a message nobody can see is
+    // dropped rather than resurrected onto a different object.
+    if (!room?.chat?.messages?.includes(message)) return;
+    message.linkPreview = preview;
+    message.linkPreviewAt = Date.now();
+    persistActiveRooms();
+    broadcastChatUpdate(room, [message.id]);
+  }).catch(() => {});
+}
+
 function addChatMessage(room, playerId, playerName, text) {
   const sanitized = sanitizeText(text);
   if (!sanitized) return { success: false, error: 'Empty message' };
@@ -5926,6 +5963,11 @@ function addChatMessage(room, playerId, playerName, text) {
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   }
+
+  // Fires and forgets: the address is linkified in every client immediately,
+  // and the unfurled card arrives as a follow-up update if one is ever going
+  // to. Never awaited, never able to fail a post.
+  primeChatLinkPreview(room, message);
 
   // MATCH LEDGER is battle telemetry, not social telemetry.
   if (room.roomMode === ROOM_MODES.BATTLE && !room.sessionState.matchResult) {
@@ -7124,6 +7166,7 @@ function createChatSerializer(room) {
       voiceSeconds: m.messageType === 'voice' ? Math.min(MAX_CHAT_VOICE_SECONDS, Math.max(1, Number(m.voiceSeconds) || 1)) : undefined,
       imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
       messageType: m.messageType || null,
+      linkPreview: sanitizeChatLinkPreview(m.linkPreview),
       ...sanitizeChatCommandMeta(m),
       gif: m.messageType === 'gifRemote' && m.gif ? {
         provider: m.gif.provider === 'giphy' ? 'giphy' : undefined,
@@ -8171,6 +8214,43 @@ const DM_THREAD_LIMIT = 200;
 
 function dmLocked(room) {
   return room.roomMode === ROOM_MODES.BATTLE || room.roomMode === ROOM_MODES.BATTLE_ARMED;
+}
+
+// The unfurled card as it leaves the server. Every field is re-derived here
+// rather than trusted from the stored object: the room file is writable state
+// and a preview is a set of URLs and strings a client will place into the DOM.
+// The image is scheme-checked (and private hosts dropped) so a stored card can
+// never make a reader's browser reach for an intranet address.
+function sanitizeChatLinkPreview(raw) {
+  try {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const url = linkPreviewService.normalizeUrl(String(raw.url || '').trim());
+    const text = (value, max) => {
+      const clean = sanitizeText(String(value || '')).replace(/\s+/g, ' ').trim();
+      return clean ? clean.slice(0, max) : '';
+    };
+    let image = '';
+    if (raw.image) {
+      try {
+        const parsed = linkPreviewService.normalizeUrl(String(raw.image).trim());
+        const host = parsed.hostname.toLowerCase();
+        const literal = net.isIP(host);
+        if (!literal || !isBlockedRemoteAddress(host)) image = parsed.toString();
+      } catch (_) {
+        image = '';
+      }
+    }
+    return {
+      url: url.toString(),
+      title: text(raw.title, 200),
+      description: text(raw.description, 400),
+      siteName: text(raw.siteName, 80),
+      image: image || null,
+      fetchedAt: Number(raw.fetchedAt) || Date.now()
+    };
+  } catch (_) {
+    return undefined;
+  }
 }
 
 function socketsForPlayer(playerId) {
