@@ -20649,3 +20649,226 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 #game-screen:not(#m-guard):not(#m-guard-2) #asoc-view-toggle-game { display: none !important; }
 @media (pointer: coarse) { #game-screen:not(#m-guard):not(#m-guard-2) #asoc-view-toggle-game { display: inline-flex !important; } }
 html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) #asoc-view-toggle-game { display: inline-flex !important; }
+
+/* QUEST COMMAND // SHADOW BROKER VOID
+   The GM contract console in the Broker's own language: a void-black
+   terminal, violet signal, blood-red seals, scanlines and chromatic glitch
+   type. Structure is untouched; this only re-skins .quests-console. */
+.quests-overlay .quests-console {
+  --qv-void: #050408;
+  --qv-ink: #0c0912;
+  --qv-violet: #9b5de0;
+  --qv-violet-hot: #c79bff;
+  --qv-blood: #e0334a;
+  --qv-cyan: #3de0ff;
+  --qv-text: #e9e2f5;
+  --qv-dim: #7d7090;
+  position: relative;
+  border: 1px solid rgba(155, 93, 224, .55) !important;
+  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px));
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
+    radial-gradient(90% 60% at 85% -10%, rgba(155, 93, 224, .22), transparent 60%),
+    radial-gradient(70% 50% at 0% 110%, rgba(224, 51, 74, .14), transparent 60%),
+    linear-gradient(160deg, #0d0914, var(--qv-void) 60%) !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .8), 0 30px 90px #000, 0 0 60px rgba(155, 93, 224, .18), inset 0 0 80px rgba(0, 0, 0, .7) !important;
+  color: var(--qv-text) !important;
+}
+.quests-overlay .quests-console::before {
+  background:
+    linear-gradient(var(--qv-violet), var(--qv-violet)) left top / 40px 1px no-repeat,
+    linear-gradient(var(--qv-violet), var(--qv-violet)) left top / 1px 40px no-repeat,
+    linear-gradient(var(--qv-blood), var(--qv-blood)) right bottom / 40px 1px no-repeat,
+    linear-gradient(var(--qv-blood), var(--qv-blood)) right bottom / 1px 40px no-repeat !important;
+  opacity: .9 !important;
+}
+/* A slow void scanline over the whole console. */
+.quests-overlay .quests-console::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -20%;
+  height: 20%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(155, 93, 224, .07), transparent);
+  animation: qv-scan 7s linear infinite;
+}
+@keyframes qv-scan { to { top: 120%; } }
+
+/* Header: glitch title, terminal subtitle. */
+.quests-overlay .quests-console > header {
+  position: relative;
+  z-index: 1;
+  border-bottom: 1px solid rgba(155, 93, 224, .3) !important;
+  background: linear-gradient(90deg, rgba(155, 93, 224, .1), transparent 60%) !important;
+}
+.quests-overlay .quests-console > header h2 {
+  color: #fff !important;
+  background: none !important;
+  -webkit-text-fill-color: #fff !important;
+  letter-spacing: .3em !important;
+  text-shadow: -2px 0 rgba(224, 51, 74, .85), 2px 0 rgba(61, 224, 255, .7), 0 0 18px rgba(155, 93, 224, .6) !important;
+  animation: qv-flicker 6s steps(1) infinite;
+}
+@keyframes qv-flicker {
+  0%, 93%, 100% { text-shadow: -2px 0 rgba(224, 51, 74, .85), 2px 0 rgba(61, 224, 255, .7), 0 0 18px rgba(155, 93, 224, .6); transform: none; }
+  94% { text-shadow: -5px 0 rgba(224, 51, 74, .95), 4px 0 rgba(61, 224, 255, .9); transform: translateX(2px); }
+  96% { text-shadow: 3px 0 rgba(224, 51, 74, .9), -3px 0 rgba(61, 224, 255, .8); transform: translateX(-1px); }
+}
+.quests-overlay .quests-console > header small { color: var(--qv-blood) !important; letter-spacing: .28em !important; }
+.quests-overlay .quests-console > header p { color: var(--qv-dim) !important; font-family: var(--font-machine, monospace) !important; letter-spacing: .06em; }
+.quests-overlay .quests-console > header button {
+  border: 1px solid rgba(155, 93, 224, .5) !important;
+  background: rgba(12, 9, 18, .9) !important;
+  color: var(--qv-violet-hot) !important;
+}
+.quests-overlay .quests-console > header button:hover { border-color: var(--qv-blood) !important; color: #fff !important; box-shadow: 0 0 14px rgba(224, 51, 74, .45); }
+
+/* Tabs: void slabs, the active one burns blood-red. */
+.quests-overlay .quests-console > nav {
+  position: relative;
+  z-index: 1;
+  gap: 6px;
+  padding: 10px 22px !important;
+  border-bottom: 1px solid rgba(155, 93, 224, .22) !important;
+  background: rgba(5, 4, 8, .6) !important;
+}
+.quests-overlay .quests-console > nav button {
+  flex: 1 1 0;
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  border: 0 !important;
+  background: linear-gradient(180deg, rgba(28, 20, 38, .9), rgba(10, 8, 14, .95)) !important;
+  color: var(--qv-dim) !important;
+  letter-spacing: .22em !important;
+  transition: color .15s ease, background .15s ease;
+}
+.quests-overlay .quests-console > nav button:hover { color: var(--qv-text) !important; }
+.quests-overlay .quests-console > nav button.active {
+  background: linear-gradient(180deg, rgba(120, 22, 38, .75), rgba(40, 8, 16, .95)) !important;
+  color: #fff !important;
+  text-shadow: -1px 0 rgba(224, 51, 74, .9), 1px 0 rgba(61, 224, 255, .6);
+  box-shadow: inset 0 -2px 0 var(--qv-blood) !important;
+}
+.quests-overlay .quests-console .quest-icon { filter: drop-shadow(-1px 0 rgba(224, 51, 74, .55)) drop-shadow(1px 0 rgba(61, 224, 255, .45)); }
+
+.quests-overlay .quests-console .quests-body { position: relative; z-index: 1; }
+
+/* Intro: a transmission, not a card. */
+.quests-overlay .quests-console .quest-forge-intro {
+  border: 1px solid rgba(155, 93, 224, .35) !important;
+  border-left: 3px solid var(--qv-blood) !important;
+  background:
+    repeating-linear-gradient(90deg, rgba(155, 93, 224, .05) 0 2px, transparent 2px 6px),
+    linear-gradient(90deg, rgba(60, 12, 24, .55), rgba(12, 9, 18, .9)) !important;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, .6) !important;
+}
+.quests-overlay .quests-console .quest-forge-intro small { color: var(--qv-blood) !important; letter-spacing: .3em !important; }
+.quests-overlay .quests-console .quest-forge-intro b {
+  color: #fff !important;
+  letter-spacing: .26em !important;
+  text-shadow: -1px 0 rgba(224, 51, 74, .8), 1px 0 rgba(61, 224, 255, .6);
+}
+.quests-overlay .quests-console .quest-forge-intro p { color: var(--qv-dim) !important; }
+
+/* Step labels read like terminal prompts. */
+.quests-overlay .quests-console .quest-create label > span,
+.quests-overlay .quests-console .quest-create legend {
+  color: var(--qv-violet-hot) !important;
+  letter-spacing: .24em !important;
+}
+.quests-overlay .quests-console .quest-create label > span::before,
+.quests-overlay .quests-console .quest-create legend::before { content: '> '; color: var(--qv-blood); }
+.quests-overlay .quests-console .quest-create small { color: var(--qv-dim) !important; }
+.quests-overlay .quests-console .quest-create fieldset {
+  border: 1px solid rgba(155, 93, 224, .28) !important;
+  background: rgba(8, 6, 12, .55) !important;
+}
+
+/* Inputs: void wells with a violet signal on focus. */
+.quests-overlay .quests-console .quest-create input:not([type="radio"]),
+.quests-overlay .quests-console .quest-create select,
+.quests-overlay .quests-console .quest-create textarea {
+  border: 1px solid rgba(155, 93, 224, .32) !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, #07060b, #0c0912) !important;
+  color: var(--qv-text) !important;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, .75) !important;
+  caret-color: var(--qv-blood);
+}
+.quests-overlay .quests-console .quest-create input:not([type="radio"]):focus,
+.quests-overlay .quests-console .quest-create select:focus,
+.quests-overlay .quests-console .quest-create textarea:focus {
+  outline: none !important;
+  border-color: var(--qv-violet-hot) !important;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, .75), 0 0 0 1px rgba(155, 93, 224, .5), 0 0 16px rgba(155, 93, 224, .35) !important;
+}
+.quests-overlay .quests-console .quest-create textarea::placeholder { color: #4f4560 !important; font-style: italic; }
+
+/* Preset chips: coin and time glyphs as glitch keys. */
+.quests-overlay .quests-console .quest-presets button {
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  border: 1px solid rgba(155, 93, 224, .38) !important;
+  background: linear-gradient(180deg, rgba(26, 18, 36, .95), rgba(10, 8, 14, .98)) !important;
+  color: var(--qv-violet-hot) !important;
+  transition: color .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.quests-overlay .quests-console .quest-presets button:hover,
+.quests-overlay .quests-console .quest-presets button.active,
+.quests-overlay .quests-console .quest-presets button[aria-pressed="true"] {
+  border-color: var(--qv-blood) !important;
+  color: #fff !important;
+  box-shadow: inset 0 0 14px rgba(224, 51, 74, .35), 0 0 12px rgba(224, 51, 74, .3) !important;
+  text-shadow: -1px 0 rgba(224, 51, 74, .9), 1px 0 rgba(61, 224, 255, .6);
+}
+
+/* Seal classification: three sigil plates; the chosen one is branded. */
+.quests-overlay .quests-console .quest-visibility label {
+  border: 1px solid rgba(155, 93, 224, .3) !important;
+  background: linear-gradient(180deg, rgba(20, 14, 28, .9), rgba(8, 6, 12, .95)) !important;
+  color: var(--qv-dim) !important;
+}
+.quests-overlay .quests-console .quest-visibility label:has(input:checked) {
+  border-color: var(--qv-violet-hot) !important;
+  background: linear-gradient(180deg, rgba(70, 30, 104, .55), rgba(16, 8, 24, .95)) !important;
+  color: #fff !important;
+  box-shadow: inset 0 0 22px rgba(155, 93, 224, .35), 0 0 14px rgba(155, 93, 224, .3) !important;
+}
+
+/* The seal: a blood-red transmission bar that tears on hover (text only,
+   so the hit area never moves). */
+.quests-overlay .quests-console .quest-issue {
+  clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+  border: 1px solid rgba(224, 51, 74, .8) !important;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .04) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, #3a0712, #7a1024 50%, #3a0712) !important;
+  color: #fff !important;
+  letter-spacing: .3em !important;
+  text-shadow: -1px 0 rgba(255, 60, 90, .9), 1px 0 rgba(61, 224, 255, .7) !important;
+  box-shadow: 0 0 24px rgba(224, 51, 74, .35), inset 0 0 30px rgba(0, 0, 0, .5) !important;
+}
+.quests-overlay .quests-console .quest-issue:hover {
+  box-shadow: 0 0 34px rgba(224, 51, 74, .55), inset 0 0 30px rgba(0, 0, 0, .4) !important;
+  animation: qv-tear .32s steps(3, end) 1;
+}
+@keyframes qv-tear {
+  0% { text-shadow: -4px 0 rgba(255, 60, 90, .95), 4px 0 rgba(61, 224, 255, .9); }
+  50% { text-shadow: 3px 0 rgba(255, 60, 90, .95), -3px 0 rgba(61, 224, 255, .9); }
+  100% { text-shadow: -1px 0 rgba(255, 60, 90, .9), 1px 0 rgba(61, 224, 255, .7); }
+}
+
+/* Oath cards and the ledger lists get the same void skin. */
+.quests-overlay .quests-console .quest-card,
+.quests-overlay .quests-console .daily-gm-player {
+  border: 1px solid rgba(155, 93, 224, .3) !important;
+  background: linear-gradient(160deg, rgba(20, 14, 28, .92), rgba(6, 5, 9, .96)) !important;
+}
+.quests-overlay .quests-console .quest-card:hover { border-color: rgba(155, 93, 224, .6) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .quests-overlay .quests-console::after,
+  .quests-overlay .quests-console > header h2,
+  .quests-overlay .quests-console .quest-issue:hover { animation: none !important; }
+}
