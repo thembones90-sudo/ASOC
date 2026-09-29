@@ -8,7 +8,6 @@
   const hoursNode = node.querySelector('[data-clock-hours]');
   const minutesNode = node.querySelector('[data-clock-minutes]');
   const secondsNode = node.querySelector('[data-clock-seconds]');
-  const statusNode = node.querySelector('[data-clock-status]');
   const timeNode = node.querySelector('time');
   const ALERT_STORAGE_KEY = 'asoc_class_clock_last_alert';
   let tickTimer = 0;
@@ -75,11 +74,6 @@
     secondsNode.textContent = seconds;
     timeNode.dateTime = `${hours}:${minutes}:${seconds}`;
     node.setAttribute('aria-label', `Current time ${hours}:${minutes}:${seconds}`);
-
-    const next = nextClassStart(now);
-    statusNode.textContent = next
-      ? `NEXT CLASS // ${pad(next.getHours())}:${pad(next.getMinutes())}`
-      : 'CLASSES // COMPLETE';
 
     if (isWarningMinute(now)) classNudge(now);
     clearTimeout(tickTimer);

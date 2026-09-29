@@ -9,6 +9,7 @@ const css = fs.readFileSync(path.join(ROOT, 'css', 'asoc.css'), 'utf8');
 
 assert.match(html, /id="gm-atomic-clock"[^>]*role="timer"/);
 assert.match(html, /data-clock-hours>[\s\S]*data-clock-minutes>[\s\S]*data-clock-seconds>/);
+assert.doesNotMatch(html, /ATOMIC \/\/ BELGRADE|NEXT CLASS \/\//);
 assert.match(html, /js\/class-clock\.js/);
 assert.match(js, /minute === 59 && hour >= 7 && hour <= 14/);
 assert.match(js, /minute === 29 && hour >= 8 && hour <= 15/);
