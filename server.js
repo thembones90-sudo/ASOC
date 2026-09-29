@@ -34,6 +34,7 @@ const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_WS_PAYLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
+const BLACK_MARKET_TRIBUTE_MAX_BYTES = 20 * 1024 * 1024;
 // Voice messages: up to 60 s. Opus at typical recorder bitrates is ~0.5 MB a
 // minute and AAC (Safari) ~1 MB, so 2 MB is a generous hard ceiling.
 const MAX_CHAT_VOICE_BYTES = 2 * 1024 * 1024;
@@ -246,6 +247,7 @@ assertDataDirectoryWritable(ASOC_DATA_DIR);
 const CHAT_UPLOAD_DIR = path.join(ASOC_DATA_DIR, 'chat-uploads');
 fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
 const chatUploadGuard = createChatUploadGuard({ dir: CHAT_UPLOAD_DIR });
+const blackMarketUploadClaims = new Map();
 // Same conservative orphan sweep for avatar files (budget/throttle unused).
 const avatarFileGuard = createChatUploadGuard({ dir: avatarStore.AVATAR_DIR });
 const ACTIVE_ROOMS_FILE = process.env.ASOC_SESSION_FILE
@@ -1419,7 +1421,9 @@ function getBloodTributeVaultState(room) {
       playerId: t.senderPlayerId || t.playerId || null,
       playerName: t.senderName || t.playerName || 'LITTLE HERO',
       senderAvatar: t.senderAvatar || '',
-      imageData: getTributeImageData(t),
+      imageData: t.source === 'blackMarket' && /^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(String(t.imageUrlOrStoragePath || ''))
+        ? t.imageUrlOrStoragePath
+        : getTributeImageData(t),
       originalMessageTimestamp: Number(t.originalMessageTimestamp || t.submittedAt) || null,
       submittedAt: Number(t.markedAt || t.submittedAt) || null,
       publicUntil: Number(t.expiresAt || t.publicUntil) || null,
@@ -1917,9 +1921,25 @@ function handleBlackMarket(ws, message) {
     if (message.type === 'blackMarket:petition') result = blackMarket.createPetition(state, { id: ws.playerId, name: player.name }, message);
     else if (message.type === 'blackMarket:acceptCounter') result = blackMarket.acceptCounter(state, ws.playerId, message.pactId);
     else if (message.type === 'blackMarket:tributeSubmit') {
-      const imageData = sanitizeTributeImageData(message.imageData);
-      if (!imageData) return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING IS INVALID' });
-      result = blackMarket.submitTribute(state, ws.playerId, message.pactId, imageData, message.consent === true);
+      let imageRef = '';
+      const imageUrl = String(message.imageUrl || '');
+      if (/^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(imageUrl)) {
+        const claim = blackMarketUploadClaims.get(imageUrl);
+        if (!claim || String(claim.playerId) !== String(ws.playerId) || String(claim.pactId) !== String(message.pactId)) {
+          return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING IS INVALID' });
+        }
+        const filename = path.basename(imageUrl);
+        if (!fs.existsSync(path.join(CHAT_UPLOAD_DIR, filename))) {
+          blackMarketUploadClaims.delete(imageUrl);
+          return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING WAS LOST' });
+        }
+        imageRef = imageUrl;
+      } else {
+        imageRef = sanitizeTributeImageData(message.imageData) || '';
+      }
+      if (!imageRef) return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING IS INVALID' });
+      result = blackMarket.submitTribute(state, ws.playerId, message.pactId, imageRef, message.consent === true);
+      if (!result?.error && imageUrl) blackMarketUploadClaims.delete(imageUrl);
     } else return;
     if (result?.error) return sendToWs(ws, { type: 'blackMarket:error', message: result.error });
     persistActiveRooms();
@@ -1947,6 +1967,7 @@ function handleBlackMarket(ws, message) {
       originalMessageTimestamp: Date.now(),
       sessionId: room.boardId || 'CASUAL',
       imageData: pact.tributeImageData,
+      imageUrlOrStoragePath: pact.tributeImageUrl || '',
       viewedByGM: true,
       reliquary: true,
       source: 'blackMarket',
@@ -5715,6 +5736,25 @@ function persistChatImage(room, actor, buffer, contentType, caption) {
   persistActiveRooms();
   broadcastChatUpdate(room);
   return { imageUrl, messageId: message.id };
+}
+
+function persistBlackMarketTributeUpload(actor, buffer, contentType, pactId) {
+  const extByType = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+  const ext = extByType[contentType];
+  if (!ext) throw new Error('Unsupported image type');
+  const capacity = chatUploadGuard.checkCapacity(buffer.length);
+  if (!capacity.ok) throw Object.assign(new Error(capacity.error), { code: 'UPLOAD_CAPACITY' });
+  const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
+  const filePath = path.join(CHAT_UPLOAD_DIR, filename);
+  fs.writeFileSync(filePath, buffer, { flag: 'wx', mode: 0o600 });
+  chatUploadGuard.recordStored(actor.uploadSlot, buffer.length);
+  const imageUrl = '/uploads/chat/' + filename;
+  blackMarketUploadClaims.set(imageUrl, {
+    playerId: String(actor.playerId),
+    pactId: String(pactId),
+    createdAt: Date.now()
+  });
+  return { imageUrl };
 }
 
 function readChatImageBody(req, cb, limit = MAX_CHAT_IMAGE_BYTES) {
@@ -9868,6 +9908,54 @@ function handleApiRequest(req, res) {
       if (!res.headersSent) sendJson(res, 500, { ok: false, code: 'GIF_INTERNAL_ERROR', message: 'GIF NETWORK // INTERNAL ERROR' });
     });
     return;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/black-market/tribute-image') {
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    if (!['image/png','image/jpeg','image/webp'].includes(contentType)) {
+      return sendJson(res, 415, { error: 'Only PNG, JPEG and WEBP images are allowed' });
+    }
+
+    const room = rooms.get(MASTER_ROOM_CODE);
+    if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
+    const actor = getChatImageActor(req, room);
+    if (!actor || actor.role !== 'player') return sendJson(res, 401, { error: 'Black Market upload authentication required' });
+
+    const pactId = String(url.searchParams.get('pactId') || '');
+    const state = room.blackMarket = blackMarket.normalizeState(room.blackMarket);
+    const pact = blackMarket.findPact(state, pactId);
+    if (!pact || String(pact.playerId) !== String(actor.playerId)) return sendJson(res, 404, { error: 'Pact not found' });
+    if (!['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(pact.state)) {
+      return sendJson(res, 409, { error: 'Blood is not owed for this pact' });
+    }
+
+    const actorKey = 'black-market:' + actor.playerId;
+    const verdict = chatUploadGuard.checkActor(actorKey, Date.now(), {
+      maxCount: 4,
+      minGapMs: 1000,
+      maxBytes: 40 * 1024 * 1024
+    });
+    if (!verdict.ok) {
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil(verdict.retryAfterMs / 1000))));
+      return sendJson(res, 429, { error: verdict.error, code: 'UPLOAD_THROTTLED' });
+    }
+    const capacity = chatUploadGuard.checkCapacity(BLACK_MARKET_TRIBUTE_MAX_BYTES);
+    if (!capacity.ok) return sendJson(res, 507, { error: capacity.error, code: 'UPLOAD_CAPACITY' });
+    actor.uploadSlot = chatUploadGuard.reserve(actorKey);
+
+    return readChatImageBody(req, (err, body) => {
+      if (err) return sendJson(res, err.code === 'TOO_LARGE' ? 413 : 400, { error: err.code === 'TOO_LARGE' ? 'Image exceeds 20 MB limit' : 'Image upload failed' });
+      if (!body || body.length === 0) return sendJson(res, 400, { error: 'Empty image upload' });
+      if (!validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Image file signature does not match its declared type' });
+      try {
+        const stored = persistBlackMarketTributeUpload(actor, body, contentType, pactId);
+        return sendJson(res, 201, { ok: true, ...stored });
+      } catch (writeError) {
+        console.error('[black-market-tribute] upload failed', writeError);
+        const status = uploadFailureStatus(writeError);
+        return sendJson(res, status, { error: status === 507 ? writeError.message : 'Tribute image could not be stored', code: status === 507 ? 'UPLOAD_CAPACITY' : undefined });
+      }
+    }, BLACK_MARKET_TRIBUTE_MAX_BYTES);
   }
 
   if (method === 'POST' && url.pathname === '/api/chat/image-url') {
