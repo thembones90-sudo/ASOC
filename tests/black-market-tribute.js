@@ -31,11 +31,15 @@ assert.match(SOURCE, /BLOOD TRIBUTE AWAITS/, 'the GM control explicitly names a 
 // successful submission, which is the second half of the original silent failure.
 assert.match(codeOnly, /send\(payload\)\s*\{\s*return host\.send\?\.\(payload\);/, 'send() returns the underlying result');
 
-// Consent has to be taken before the picker opens.
-const consentAt = codeOnly.indexOf('confirm(TRIBUTE_CONSENT_NOTICE)');
-const pickerAt = codeOnly.indexOf('this.tributeInput().click()');
-assert.ok(consentAt > -1 && pickerAt > -1, 'consent and picker both present');
-assert.ok(consentAt < pickerAt, 'consent is confirmed BEFORE the file picker opens');
+// Consent is taken in an in-page chamber, not a native confirm(): the OFFER
+// action renders the chamber and only the accepted-consent handler is allowed
+// to click the hidden input. Nothing else may reach the picker.
+assert.match(codeOnly, /showTributeConsent\(/, 'the OFFER action routes through the in-page consent chamber');
+assert.match(codeOnly, /data-bm-consent-open/, 'the consent chamber exposes an explicit accept control');
+const consentOpenAt = codeOnly.indexOf('data-bm-consent-open');
+const pickerAt = codeOnly.indexOf('input.click()');
+assert.ok(consentOpenAt > -1 && pickerAt > -1, 'consent chamber and picker both present');
+assert.ok(consentOpenAt < pickerAt, 'the consent chamber is built BEFORE the picker is clicked');
 
 const PNG_1x1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -56,21 +60,19 @@ async function bootPage(browser, { sendResult = true, fileReaderOverride = null 
     ${fileReaderOverride || ''}
   `});
   await page.addScriptTag({ content: SOURCE });
-  // The consent notice is a native modal dialog; accept it so the flow proceeds.
-  page.on('dialog', dialog => dialog.accept());
   return page;
 }
 
 const tributes = page => page.evaluate(() => window.__sent.filter(m => m.type === 'blackMarket:tributeSubmit'));
 const toastText = page => page.evaluate(() => document.getElementById('black-market-toast')?.textContent || '');
 
-// Opens the picker through the real consent flow and hands the chooser back, so
-// the file can be chosen the way a player would. Letting the chooser go
-// unhandled also exercises the cancel path: Chromium dismisses it and the input
-// fires 'cancel', which is exactly what releases the pending lock.
+// Opens the picker through the in-page consent chamber and hands the chooser
+// back, so the file can be chosen the way a player would: OFFER shows the
+// chamber, accepting it opens the picker.
 async function offer(page, pactId, file) {
   const chooserPromise = page.waitForEvent('filechooser');
   await page.evaluate(id => window.BlackMarket.offerTribute(id, document.querySelector('[data-act="offer-tribute"]')), pactId);
+  await page.click('[data-bm-consent-open]');
   const chooser = await chooserPromise;
   if (file) await chooser.setFiles(file);
   return chooser;
@@ -89,6 +91,8 @@ async function offer(page, pactId, file) {
 
     const chooserPromise = page.waitForEvent('filechooser');
     await page.evaluate(() => window.BlackMarket.offerTribute('pact-1', document.querySelector('[data-act="offer-tribute"]')));
+    assert.equal(await page.evaluate(() => !!document.getElementById('bm-tribute-consent')), true, 'the OFFER action raises the consent chamber first');
+    await page.click('[data-bm-consent-open]');
     const chooser = await chooserPromise;
 
     // Consent was accepted, the picker is open, and the button says so.
@@ -145,10 +149,10 @@ async function offer(page, pactId, file) {
     // The old code reported "exceeds the vault limit" here, which is a lie: the
     // player simply cancelled, and the lock must not be stranded.
     page = await bootPage(browser);
-    await page.evaluate(() => {
-      window.BlackMarket.offerTribute('pact-5', null);
-      window.BlackMarket.onTributePicked({ files: [], value: 'x' });
-    });
+    page.on('filechooser', () => {});
+    await page.evaluate(() => window.BlackMarket.offerTribute('pact-5', null));
+    await page.click('[data-bm-consent-open]');
+    await page.evaluate(() => window.BlackMarket.onTributePicked({ files: [], value: 'x' }));
     assert.equal(await toastText(page), '', 'cancelling the picker is not reported as an error');
     assert.equal(await page.evaluate(() => window.BlackMarket._tributeBusy), false, 'the pending lock is released after a cancel');
     await page.close();
@@ -158,16 +162,18 @@ async function offer(page, pactId, file) {
     await page.setContent('<!doctype html><html><body><div id="black-market-body"></div></body></html>');
     await page.addScriptTag({ content: 'window.PlayerApp={send(){return true;},handleMessage(){}};' });
     await page.addScriptTag({ content: SOURCE });
-    page.on('dialog', dialog => dialog.dismiss());
     let chooserOpened = false;
     page.on('filechooser', () => { chooserOpened = true; });
     await page.evaluate(() => window.BlackMarket.offerTribute('pact-7', null));
-    await page.waitForTimeout(300);
-    assert.equal(chooserOpened, false, 'refusing consent never opens the picker');
-    assert.equal(await page.evaluate(() => !!document.getElementById('bm-tribute-input')), false, 'refusing consent never even mounts a picker');
+    assert.equal(await page.evaluate(() => !!document.getElementById('bm-tribute-consent')), true, 'the consent chamber is raised before any picker');
+    await page.click('[data-bm-consent-cancel]');
+    await page.waitForTimeout(200);
+    assert.equal(chooserOpened, false, 'withdrawing consent never opens the picker');
+    assert.equal(await page.evaluate(() => !!document.getElementById('bm-tribute-input')), false, 'withdrawing consent never even mounts a picker');
+    assert.equal(await page.evaluate(() => !!document.getElementById('bm-tribute-consent')), false, 'the consent chamber is dismissed on withdraw');
     await page.close();
 
-    console.log('PASS black market tribute: player module binds to PlayerApp, consent precedes the picker, MIME/size/read failures are reported, a dead socket surfaces as THE RELIQUARY HAS LOST THE LINK, success confirms THE OFFERING HAS BEEN SEALED');
+    console.log('PASS black market tribute: player module binds to PlayerApp, the in-page consent chamber precedes the picker, MIME/size/read failures are reported, a dead socket surfaces as THE RELIQUARY HAS LOST THE LINK, success confirms THE OFFERING HAS BEEN SEALED');
   } finally {
     await browser.close();
   }
