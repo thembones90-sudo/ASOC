@@ -1,0 +1,223 @@
+/* MOBILE SHELL (Mobile Alpha 0.1, step 4)
+   Every rule is scoped under html.asoc-mobile, which only the player's
+   MOBILE VERSION choice sets (js/mobile-shell.js). The desktop page never
+   matches anything here. The legacy phone rules are quarantined behind
+   html:not(.asoc-mobile) (step 1), so this sheet starts from the desktop
+   cascade, not from the old phone patches.
+
+   Layout:
+   - CASUAL, and any battle held upright: one column -- compact hero bar,
+     live chat filling the screen, composer above the keyboard.
+   - BATTLE / BATTLE_ARMED / RECOUNT held sideways: the board on top at full
+     width, chat below (scroll down to it). Held upright: chat plus a
+     "turn your phone sideways" banner; chat never stops. */
+
+html.asoc-mobile {
+  --m-vvh: 100vh;
+  --m-gap: 8px;
+  --m-touch: 44px;
+  --m-safe-top: env(safe-area-inset-top, 0px);
+  --m-safe-right: env(safe-area-inset-right, 0px);
+  --m-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --m-safe-left: env(safe-area-inset-left, 0px);
+  -webkit-text-size-adjust: 100%;
+}
+html.asoc-mobile,
+html.asoc-mobile body {
+  height: var(--m-vvh);
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* ---------------------------------------------------------------- frame */
+html.asoc-mobile #game-screen {
+  position: fixed !important;
+  inset: 0 0 auto 0 !important;
+  width: 100% !important;
+  height: var(--m-vvh) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+html.asoc-mobile #player-battle-layout {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: var(--m-safe-top) var(--m-safe-right) 0 var(--m-safe-left) !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+html.asoc-mobile #battle-comms-lobby {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Desktop-only chrome. */
+html.asoc-mobile #player-layout-splitter,
+html.asoc-mobile #player-leaderboard-strip,
+html.asoc-mobile #player-alltime-panel,
+html.asoc-mobile #signed-desktop-download,
+html.asoc-mobile .detainee-status-label,
+html.asoc-mobile #casual-minigames-dock,
+html.asoc-mobile .chat-search-strip,
+html.asoc-mobile #chat-delivery-state:empty { display: none !important; }
+
+/* ------------------------------------------------------- compact hero bar */
+html.asoc-mobile .detainee-status-module {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+}
+html.asoc-mobile #little-hero-hud {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 6px var(--m-gap) !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 8px 10px !important;
+  box-sizing: border-box !important;
+}
+html.asoc-mobile .hero-hud-identity-block {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex: 1 1 100% !important;
+  min-width: 0 !important;
+}
+html.asoc-mobile #hero-hud-identity { flex: 1 1 auto !important; min-width: 0 !important; overflow: hidden !important; }
+html.asoc-mobile .hero-hud-stats {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 6px !important;
+  flex: 1 1 100% !important;
+  overflow-x: auto !important;
+  scrollbar-width: none;
+}
+html.asoc-mobile .hero-hud-stats::-webkit-scrollbar { display: none; }
+html.asoc-mobile .hero-stat-rank,
+html.asoc-mobile .hero-stat-streak { display: none !important; }
+html.asoc-mobile .hero-stat { flex: 0 0 auto !important; min-height: 32px !important; }
+html.asoc-mobile .hero-utility-btn,
+html.asoc-mobile .asoc-view-toggle-game {
+  min-height: 34px !important;
+  padding: 6px 10px !important;
+  font-size: 10px !important;
+}
+
+/* ----------------------------------------------------------------- chat */
+html.asoc-mobile #chat-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+}
+html.asoc-mobile #chat-messages {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+html.asoc-mobile #chat-form {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 6px 8px calc(6px + var(--m-safe-bottom)) !important;
+  box-sizing: border-box !important;
+}
+/* 16px inputs stop iOS from zooming the page on focus. */
+html.asoc-mobile #chat-input { font-size: 16px !important; min-height: var(--m-touch) !important; }
+html.asoc-mobile #chat-form button { min-width: 40px; min-height: 40px; }
+html.asoc-mobile .chat-hint-bar { padding: 4px 10px 0; }
+html.asoc-mobile .chat-hint-button { min-height: 36px; }
+
+/* Quest / ledger cards float small, above the composer, out of the way. */
+html.asoc-mobile .player-quest-hud {
+  left: auto !important;
+  right: 8px !important;
+  top: calc(8px + var(--m-safe-top)) !important;
+  bottom: auto !important;
+  min-width: 0 !important;
+  max-width: 46vw !important;
+  padding: 6px 8px !important;
+  transform: scale(.86);
+  transform-origin: top right;
+}
+
+/* ---------------------------------------------------------------- board */
+/* Upright: never the squeezed board. */
+html.asoc-mobile[data-m-orientation="portrait"] #board-layer,
+html.asoc-mobile[data-m-room-mode="CASUAL"] #board-layer { display: none !important; }
+
+/* Sideways battle: board on top at full width, chat below. The column
+   scrolls; the chat below still fills a whole screen once reached. */
+html.asoc-mobile[data-m-orientation="landscape"]:not([data-m-room-mode="CASUAL"]) #player-battle-layout {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+html.asoc-mobile[data-m-orientation="landscape"]:not([data-m-room-mode="CASUAL"]) #board-layer {
+  display: block !important;
+  position: relative !important;
+  inset: auto !important;
+  order: -1;
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+html.asoc-mobile[data-m-orientation="landscape"]:not([data-m-room-mode="CASUAL"]) #battle-comms-lobby {
+  flex: 0 0 auto !important;
+  height: var(--m-vvh) !important;
+}
+
+/* --------------------------------------------------- rotate prompt */
+html.asoc-mobile[data-m-orientation="portrait"]:not([data-m-room-mode="CASUAL"]) .m-rotate-prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: calc(10px + var(--m-safe-top)) 14px 10px;
+  border-bottom: 1px solid rgba(240, 78, 92, .55);
+  background: linear-gradient(90deg, rgba(64, 10, 18, .96), rgba(18, 6, 12, .96));
+  color: #ffd9dd;
+  font-family: var(--font-machine, monospace);
+}
+html.asoc-mobile[data-m-orientation="portrait"]:not([data-m-room-mode="CASUAL"]) #game-screen {
+  display: flex !important;
+  flex-direction: column !important;
+}
+html.asoc-mobile[data-m-orientation="portrait"]:not([data-m-room-mode="CASUAL"]) #player-battle-layout {
+  flex: 1 1 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding-top: 0 !important;
+}
+
+html.asoc-mobile .asoc-view-toggle-game { display: inline-flex !important; }
