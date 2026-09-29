@@ -19890,6 +19890,47 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
   margin-top: 4px;
 }
 
+.game-list-solutions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  margin-top: 7px;
+  min-width: 0;
+  color: #a9afbb;
+  font-size: 0.58rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.game-list-solutions span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid rgba(110, 118, 136, 0.28);
+  border-radius: 3px;
+  background: rgba(11, 13, 18, 0.5);
+  white-space: nowrap;
+}
+
+.game-list-solutions b {
+  color: #7f8796;
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+}
+
+.game-list-solutions .game-list-final {
+  border-color: rgba(212, 168, 67, 0.42);
+  color: #e2d4a6;
+  background: rgba(92, 69, 19, 0.12);
+}
+
+.game-list-solutions .game-list-final b {
+  color: var(--accent-gold);
+}
+
 .game-list-date {
   color: var(--text-dim);
   font-size: 0.68rem;
