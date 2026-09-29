@@ -119,8 +119,8 @@ body:has(#black-market-gm-button) #black-market-gm-button.black-market-command-b
   border: 1px solid rgba(128, 52, 105, .72) !important;
   background-image:
     linear-gradient(rgba(4,3,7,.12), rgba(4,3,7,.12)),
-    url('../assets/black-market-void.svg') !important;
-  background-size: cover !important;
+    url('../assets/black-market-void.svg?v=20260929-void-reliquary-3') !important;
+  background-size: 100% 100% !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
   box-shadow:
@@ -134,7 +134,7 @@ body:has(#black-market-gm-button) #black-market-gm-button.black-market-command-b
   content:"";
   position:absolute;
   inset:-35% -15%;
-  z-index:-1;
+  z-index:1;
   pointer-events:none;
   opacity:.15;
   background:
@@ -237,4 +237,20 @@ body:has(#black-market-gm-button) #black-market-gm-button.black-market-command-b
   #black-market-gm-button.black-market-command-btn,
   #black-market-gm-button.black-market-command-btn::before,
   #black-market-gm-button.black-market-command-btn::after { animation:none !important; }
+}
+
+
+/* VOID RELIQUARY FINAL HARDENING
+   Keep the generated reliquary art as the actual surface; animated energy lives above it. */
+#black-market-gm-button.black-market-command-btn {
+  background-color:#050407 !important;
+  background-image:
+    linear-gradient(180deg,rgba(4,3,7,.03),rgba(4,3,7,.16)),
+    url('../assets/black-market-void.svg?v=20260929-void-reliquary-3') !important;
+  background-size:100% 100% !important;
+  background-position:center !important;
+  background-repeat:no-repeat !important;
+}
+#black-market-gm-button.black-market-command-btn::before {
+  z-index:1;
 }
