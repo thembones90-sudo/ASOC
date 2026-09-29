@@ -2,6 +2,12 @@
   'use strict';
 
   const isGM = !!window.App;
+  // The player global is window.PlayerApp (see js/player.js). This module reached
+  // for window.Player, which has never existed in this codebase, so on the
+  // player side `host` was undefined and the module returned before install():
+  // the BLACK MARKET entry button rendered (it is static markup in join.html)
+  // but nothing was ever wired to it, and every offer-tribute path was dead
+  // code. That is why the submission looked like a no-op from the outside.
   const host = isGM ? window.App : window.PlayerApp;
   if (!host) return;
 
@@ -18,9 +24,22 @@
     BROKEN: 'THE PACT IS BROKEN'
   };
 
+  // Tribute image limits. The 2.2MB file cap is what keeps the base64 data URL
+  // (~2.93MB) under the server's MAX_TRIBUTE_DATA_LENGTH of 3,000,000 and well
+  // under the 5MB WebSocket payload ceiling, so a legal file is never rejected
+  // on arrival for size.
+  const TRIBUTE_MAX_BYTES = 2200000;
+  const TRIBUTE_MIME = ['image/png', 'image/jpeg', 'image/webp'];
+  const TRIBUTE_DATA_URL = /^data:image\/(?:png|jpeg|webp);base64,/;
+  const TRIBUTE_CONSENT_NOTICE = 'PRIVATE SUBMISSION NOTICE\n\nVisible only to you and the Shadow Broker. If accepted, it will be consigned to the Reliquary. If rejected, it will not enter the Reliquary.\n\nConfirm you are 18+ and consent to this storage rule.';
+
   const ui = {
     pacts: [],
-    send(payload) { host.send?.(payload); },
+    // Returns the underlying send() result. PlayerApp.send answers true when the
+    // frame left and false when the socket is down; the old wrapper threw that
+    // answer away, so a submission into a dead socket was indistinguishable
+    // from a successful one.
+    send(payload) { return host.send?.(payload); },
     install() {
       let button = document.getElementById(isGM ? 'black-market-gm-button' : 'black-market-player-button');
       if (!button) {
@@ -141,7 +160,7 @@
         const pactId = btn.closest('[data-pact]')?.dataset.pact;
         const act = btn.dataset.act;
         if (act === 'accept-counter') return this.send({ type:'blackMarket:acceptCounter', pactId });
-        if (act === 'offer-tribute') return this.offerTribute(pactId);
+        if (act === 'offer-tribute') return this.offerTribute(pactId, btn);
         if (act === 'tribute-accept') return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:true });
         if (act === 'tribute-reject') {
           const reason = prompt('WHY IS THE OFFERING DENIED?') || '';
@@ -170,45 +189,115 @@
         this.send({ type:'blackMarket:gmDecision', pactId, action:act, terms:'', tributeRequired:false });
       }));
     },
-    offerTribute(pactId) {
-      let input = document.getElementById('black-market-tribute-file');
-      if (!input) {
-        input = document.createElement('input');
-        input.id = 'black-market-tribute-file';
-        input.type = 'file';
-        input.accept = 'image/png,image/jpeg,image/webp';
-        input.setAttribute('aria-hidden', 'true');
-        input.style.position = 'fixed';
-        input.style.left = '-9999px';
-        input.style.width = '1px';
-        input.style.height = '1px';
-        input.style.opacity = '0';
-        input.style.pointerEvents = 'none';
-        document.body.appendChild(input);
+    // One hidden file input, mounted once and reused. A fresh input per click
+    // leaked a node on every attempt, and a detached input is exactly the kind
+    // of thing the desktop shell will refuse to open a picker for.
+    _tributeInput: null,
+    _tributePactId: null,
+    _tributeBusy: false,
+    _tributeButton: null,
+
+    tributeInput() {
+      if (this._tributeInput) return this._tributeInput;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = TRIBUTE_MIME.join(',');
+      input.id = 'bm-tribute-input';
+      input.hidden = true;
+      input.addEventListener('change', () => this.onTributePicked(input));
+      // Fired when the picker is dismissed without a choice. Without this a
+      // cancelled dialog would strand the pending lock on the button forever.
+      input.addEventListener('cancel', () => this.releaseTribute());
+      document.body.appendChild(input);
+      this._tributeInput = input;
+      return input;
+    },
+
+    // The button may already be detached if the market re-rendered underneath
+    // us, so only touch it while it is still in the document.
+    releaseTribute() {
+      this._tributeBusy = false;
+      this._tributePactId = null;
+      const btn = this._tributeButton;
+      this._tributeButton = null;
+      if (btn && btn.isConnected) {
+        btn.disabled = false;
+        btn.textContent = 'OFFER BLOOD TRIBUTE';
       }
+    },
+
+    offerTribute(pactId, button) {
+      if (this._tributeBusy) return;
+      // Consent is taken BEFORE the picker opens. A blocking confirm() placed
+      // after a native file dialog has closed is the classic way to lose a
+      // submission: the dialog can swallow the confirmation or park it behind
+      // the window, and the player's selection evaporates with nothing on
+      // screen. Asking first keeps consent -> pick -> read -> send inside a
+      // single user gesture, so input.click() is still trusted when it runs.
+      if (!confirm(TRIBUTE_CONSENT_NOTICE)) return;
+      this._tributePactId = pactId;
+      this._tributeBusy = true;
+      this._tributeButton = button || null;
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'THE VAULT IS WAITING…';
+      }
+      this.tributeInput().click();
+    },
+
+    onTributePicked(input) {
+      const pactId = this._tributePactId;
+      const file = input.files && input.files[0];
+      // Clear the selection so choosing the same file again still fires change.
       input.value = '';
-      input.onchange = () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        if (!/^image\/(png|jpeg|webp)$/i.test(file.type || '')) {
-          return this.toast('THE RELIQUARY REJECTS THIS IMAGE TYPE');
-        }
-        if (file.size > 2200000) {
-          return this.toast('THE OFFERING EXCEEDS THE VAULT LIMIT');
-        }
-        const consent = confirm('PRIVATE SUBMISSION NOTICE\n\nVisible only to you and the Shadow Broker. If accepted, it will be consigned to the Reliquary. If rejected, it will not enter the Reliquary.\n\nConfirm you are 18+ and consent to this storage rule.');
-        if (!consent) return;
-        const reader = new FileReader();
-        reader.onerror = () => this.toast('THE RELIQUARY COULD NOT READ THE OFFERING');
-        reader.onload = () => {
-          if (typeof reader.result !== 'string' || !reader.result.startsWith('data:image/')) {
-            return this.toast('THE OFFERING COULD NOT BE SEALED');
-          }
-          this.send({ type:'blackMarket:tributeSubmit', pactId, imageData:reader.result, consent:true });
-        };
-        reader.readAsDataURL(file);
+      // Dismissed with nothing chosen: not an error, just release and wait.
+      if (!file) return this.releaseTribute();
+      // accept= on the input is only a filter hint; the picker can still hand
+      // back anything, so the type is checked for real.
+      if (!TRIBUTE_MIME.includes(String(file.type || '').toLowerCase())) {
+        this.releaseTribute();
+        return this.toast('THE VAULT ACCEPTS ONLY PNG, JPEG OR WEBP');
+      }
+      if (file.size > TRIBUTE_MAX_BYTES) {
+        this.releaseTribute();
+        return this.toast('THE OFFERING EXCEEDS THE VAULT LIMIT');
+      }
+      const reader = new FileReader();
+      // A read that never completes is precisely the "OFFER flashes, nothing
+      // happens" symptom, so every failure path reports instead of vanishing.
+      reader.onerror = () => {
+        this.releaseTribute();
+        this.toast('THE IMAGE COULD NOT BE READ');
       };
-      input.click();
+      reader.onabort = () => {
+        this.releaseTribute();
+        this.toast('THE READING WAS INTERRUPTED');
+      };
+      reader.onload = () => {
+        const imageData = String(reader.result || '');
+        if (!TRIBUTE_DATA_URL.test(imageData)) {
+          this.releaseTribute();
+          return this.toast('THE OFFERING IS INVALID');
+        }
+        let sent = false;
+        try {
+          sent = this.send({ type:'blackMarket:tributeSubmit', pactId, imageData, consent:true }) === true;
+        } catch (error) {
+          sent = false;
+        }
+        if (!sent) {
+          this.releaseTribute();
+          return this.toast('THE RELIQUARY HAS LOST THE LINK');
+        }
+        // The pact leaves APPROVED_PENDING_TRIBUTE the moment the server
+        // accepts it, so the refreshed state re-renders the ledger without an
+        // OFFER button; the lock is dropped rather than released.
+        this._tributeBusy = false;
+        this._tributePactId = null;
+        this._tributeButton = null;
+        this.toast('THE OFFERING HAS BEEN SEALED');
+      };
+      reader.readAsDataURL(file);
     },
     toast(message) {
       let node = document.getElementById('black-market-toast');
