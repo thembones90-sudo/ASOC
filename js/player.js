@@ -3189,7 +3189,7 @@ const PlayerApp = {
     const everyone = context?.spit && (!needle || 'all'.startsWith(needle) || 'all online'.includes(needle))
       ? [{ id: '__ALL_ONLINE__', name: 'ALL', displayName: 'ALL ONLINE', connected: true, isAll: true }]
       : [];
-    const broker = context?.spit && (!needle || 'shadow broker'.includes(needle))
+    const broker = (!needle || 'shadow broker'.includes(needle))
       ? [{ id: '__SHADOW_BROKER__', name: 'SHADOW BROKER', connected: true, isBroker: true }]
       : [];
     return everyone.concat(broker, (this.currentPlayers || [])
@@ -3386,7 +3386,7 @@ const PlayerApp = {
       .sort((a, b) => b.length - a.length);
 
     const regexSpecials = '^$.*+?()[]{}|' + String.fromCharCode(92);
-    const escaped = ['all', ...names].map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
+    const escaped = ['all', 'SHADOW BROKER', ...names].map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
     const pattern = new RegExp('@(' + escaped.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
     const me = String(this.playerName || '').trim().toLocaleLowerCase();
     const targets = container.querySelectorAll('.chat-message-text, .shadow-broker-text');
