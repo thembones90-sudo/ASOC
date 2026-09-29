@@ -19776,6 +19776,53 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
   .gm-atomic-clock time i,.gm-atomic-clock.is-warning,html.class-clock-nudge body { animation:none!important; }
 }
 
+/* CLASS WARNING BANNER // "don't be late", server-scheduled, 5 seconds.
+   Sits above every layer the app uses (the previous ceiling was 2147483000) and
+   never takes pointer events, so a board or a puzzle underneath stays usable
+   while it is up. Authored to exactly 5s to match BANNER_MS in class-clock.js. */
+.class-warning-banner {
+  position:fixed;
+  inset:0;
+  z-index:2147483100;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(8px,1.4vw,18px);
+  padding:clamp(18px,4vw,40px);
+  text-align:center;
+  pointer-events:none;
+  background:radial-gradient(circle at 50% 44%,rgba(239,181,61,.17),rgba(9,6,4,.74) 56%,rgba(6,4,3,.92));
+  animation:class-warning-banner-life 5s cubic-bezier(.22,.61,.36,1) both;
+}
+.class-warning-banner-text {
+  margin:0;
+  max-width:22ch;
+  font:900 clamp(1.35rem,5.4vw,3.3rem)/1.08 var(--font-mono,monospace);
+  letter-spacing:.055em;
+  color:#ffdc95;
+  text-shadow:0 0 22px rgba(239,181,61,.6),0 0 60px rgba(239,181,61,.28),0 2px 0 rgba(0,0,0,.65);
+}
+.class-warning-banner-label {
+  margin:0;
+  font:800 clamp(.72rem,1.7vw,1rem)/1 var(--font-mono,monospace);
+  letter-spacing:.32em;
+  color:rgba(239,181,61,.78);
+}
+/* 0-9% slam in, 9-78% hold, 78-100% disperse. The node is removed by a timer at
+   the same 5000ms, so the last frame and the teardown agree. */
+@keyframes class-warning-banner-life {
+  0%   { opacity:0; transform:scale(1.16); filter:blur(7px); }
+  9%   { opacity:1; transform:scale(1); filter:blur(0); }
+  78%  { opacity:1; transform:scale(1); filter:blur(0); }
+  100% { opacity:0; transform:scale(.965); filter:blur(3px); }
+}
+@keyframes class-warning-banner-fade { 0% { opacity:0; } 8% { opacity:1; } 84% { opacity:1; } 100% { opacity:0; } }
+@media (prefers-reduced-motion:reduce) {
+  .class-warning-banner { animation:class-warning-banner-fade 5s linear both; }
+  .class-warning-banner-text { text-shadow:none; }
+}
+
 .game-card.game-list-row {
   min-height: 64px;
   padding: 10px 14px;

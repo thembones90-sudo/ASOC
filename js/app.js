@@ -2925,6 +2925,12 @@ const App = {
         alert(`BLOOD TRIBUTE UNAVAILABLE // ${message.playerName || 'UNKNOWN'} is not linked to a player identity.`);
         break;
 
+      // Authoritative, server-scheduled: reaches the GM view even if this tab
+      // was backgrounded and missed its own local clock tick.
+      case 'class:warning':
+        window.AsocClassClock?.warn(message);
+        break;
+
       case 'chat:update': {
         this._chatSeq = Number(message.seq) || 0;
         this.applyChatMessages(message.messages || [], message.solvedTargets || {});

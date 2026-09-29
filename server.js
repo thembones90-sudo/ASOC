@@ -21,6 +21,7 @@ const matchStore = require('./match-store');
 const recountEngine = require('./recount-engine');
 const iksArena = require('./iks-arena-store');
 const kaladont = require('./kaladont');
+const classSchedule = require('./class-schedule');
 const unstableConcoction = require('./unstable-concoction');
 const questEngine = require('./quest-engine');
 const dailyContracts = require('./daily-contracts');
@@ -6512,6 +6513,39 @@ function sendToWs(ws, message) {
     ws.send(JSON.stringify(message));
   }
 }
+
+// CLASS WARNING // server-driven so it reaches EVERYONE.
+// The client-side class clock is a per-tab render loop, and a tab that was
+// backgrounded, throttled or asleep simply misses the minute it was supposed to
+// warn in -- which is exactly when a "do not be late" banner matters most. The
+// authoritative schedule lives on the server and is pushed to every room, so a
+// client only has to be connected to receive it.
+let lastAnnouncedClassKey = '';
+
+function announceClassWarning() {
+  const warning = classSchedule.classWarningFor(new Date());
+  // Deduped on the CLASS, not on the current minute: a 1s tick sees the same
+  // due warning for a whole 60s, and a server that restarts mid-window should
+  // announce once more rather than stay silent for that class.
+  if (!warning || warning.key === lastAnnouncedClassKey) return;
+  lastAnnouncedClassKey = warning.key;
+  const payload = JSON.stringify({
+    type: 'class:warning',
+    label: warning.label,
+    classKey: warning.key,
+    startAt: warning.startAt,
+    message: "DON'T BE LATE FOR THE CLASS, LITTLE HERO"
+  });
+  for (const room of rooms.values()) {
+    room.players.forEach((player, ws) => {
+      if (ws.readyState === 1) ws.send(payload);
+    });
+    if (room.hostConnection && room.hostConnection.readyState === 1) {
+      room.hostConnection.send(payload);
+    }
+  }
+}
+setInterval(() => announceClassWarning(), 1000).unref();
 
 // SHADOW CONTRACTS // private, per-viewer projection. Quest details never
 // travel through state:public, so unrelated clients cannot inspect them.

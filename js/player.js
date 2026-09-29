@@ -1442,6 +1442,11 @@ const PlayerApp = {
         this.onLinkPong(message);
         break;
 
+      // Authoritative, server-scheduled: arrives even if this tab was asleep.
+      case 'class:warning':
+        window.AsocClassClock?.warn(message);
+        break;
+
       case 'chat:update': {
         this._chatSeq = Number(message.seq) || 0;
         this.applyChatMessages(message.messages || [], message.solvedTargets || {});
