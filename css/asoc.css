@@ -20529,7 +20529,8 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
   position: fixed;
   left: 50%;
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  z-index: 9800;
+  /* Above the access gate (100000): the offer must be seen before sign-in. */
+  z-index: 100001;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -20566,5 +20567,6 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
 }
 /* In game, the toggle shows on touch devices (and always inside the shell);
    desktop mouse users get it on the access screen only. */
-.asoc-view-toggle-game { display: none !important; }
-@media (pointer: coarse) { .asoc-view-toggle-game { display: inline-flex !important; } }
+#game-screen:not(#m-guard):not(#m-guard-2) #asoc-view-toggle-game { display: none !important; }
+@media (pointer: coarse) { #game-screen:not(#m-guard):not(#m-guard-2) #asoc-view-toggle-game { display: inline-flex !important; } }
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) #asoc-view-toggle-game { display: inline-flex !important; }

@@ -156,18 +156,6 @@ html.asoc-mobile #chat-form button { min-width: 40px; min-height: 40px; }
 html.asoc-mobile .chat-hint-bar { padding: 4px 10px 0; }
 html.asoc-mobile .chat-hint-button { min-height: 36px; }
 
-/* Quest / ledger cards float small, above the composer, out of the way. */
-html.asoc-mobile .player-quest-hud {
-  left: auto !important;
-  right: 8px !important;
-  top: calc(8px + var(--m-safe-top)) !important;
-  bottom: auto !important;
-  min-width: 0 !important;
-  max-width: 46vw !important;
-  padding: 6px 8px !important;
-  transform: scale(.86);
-  transform-origin: top right;
-}
 
 /* ---------------------------------------------------------------- board */
 /* Upright: never the squeezed board. */
@@ -221,3 +209,134 @@ html.asoc-mobile[data-m-orientation="portrait"]:not([data-m-room-mode="CASUAL"])
 }
 
 html.asoc-mobile .asoc-view-toggle-game { display: inline-flex !important; }
+
+/* Private messages: no side rail on a phone -- the MESSAGES chip opens the
+   conversations full screen. */
+html.asoc-mobile .dmx-rail.is-casual { display: none !important; }
+html.asoc-mobile .dmx-overlay.dmx-casual-drawer {
+  inset: 0 !important;
+  width: auto !important;
+  padding: calc(8px + var(--m-safe-top)) 8px calc(8px + var(--m-safe-bottom)) !important;
+  display: grid !important;
+  background: rgba(3, 4, 7, .9) !important;
+  pointer-events: auto !important;
+}
+html.asoc-mobile .dmx-overlay.dmx-casual-drawer[hidden] { display: none !important; }
+html.asoc-mobile .dmx-overlay .dmx-panel { width: 100% !important; height: 100% !important; margin: 0 !important; }
+html.asoc-mobile .dmx-overlay .dmx-body { grid-template-columns: 1fr !important; }
+
+/* Quest / ledger card: a small icon badge above the composer. */
+html.asoc-mobile .player-quest-hud {
+  left: auto !important;
+  right: 10px !important;
+  top: auto !important;
+  bottom: calc(74px + var(--m-safe-bottom)) !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  padding: 3px !important;
+  opacity: .92;
+  transform: none !important;
+  border-radius: 12px !important;
+}
+html.asoc-mobile .player-quest-hud > span { display: none !important; }
+/* In a battle the HINT button owns that corner: the ledger waits for the
+   lobby, and an active oath badge moves to the left. */
+html.asoc-mobile:not([data-m-room-mode="CASUAL"]) .daily-contract-hud { display: none !important; }
+html.asoc-mobile:not([data-m-room-mode="CASUAL"]) .player-quest-hud { right: auto !important; left: 10px !important; }
+
+/* Hero bar: name + two small actions on one line, stat chips on a second
+   line that scrolls sideways instead of wrapping. */
+html.asoc-mobile .hero-hud-identity-block { flex-wrap: nowrap !important; }
+html.asoc-mobile #player-logout-control span { display: none !important; }
+html.asoc-mobile #player-logout-control { padding: 6px 9px !important; min-width: 36px !important; }
+html.asoc-mobile .asoc-view-toggle-game {
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  padding: 0 10px !important;
+  border: 1px solid rgba(155, 93, 224, .55) !important;
+  border-radius: 8px !important;
+  background: rgba(20, 12, 28, .92) !important;
+  color: #d8c2f5 !important;
+  font-size: 9px !important;
+  letter-spacing: .12em !important;
+  white-space: nowrap !important;
+}
+html.asoc-mobile .hero-stat-score { display: none !important; }
+html.asoc-mobile .hero-hud-stats .hero-stat { padding: 4px 8px !important; font-size: 10px !important; }
+
+/* Desktop HUD rules target #game-screen by id, so these carry it too. */
+html.asoc-mobile #game-screen .hero-hud-stats { flex-wrap: nowrap !important; overflow-x: auto !important; }
+html.asoc-mobile #game-screen .hero-hud-stats .hero-stat-rank,
+html.asoc-mobile #game-screen .hero-hud-stats .hero-stat-streak,
+html.asoc-mobile #game-screen .hero-hud-stats .hero-stat-score { display: none !important; }
+html.asoc-mobile #game-screen .hero-hud-stats .hero-stat { flex: 0 0 auto !important; }
+
+/* Chat message layout -- ported from the proven legacy phone block
+   ("MOBILE PLAYER CHAT WIDTH LOCK V1" in join.html), now owned by the shell.
+   The double :not(#id) guard out-ranks the desktop rules that pin bubbles
+   by #game-screen id. */
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby #chat-messages {
+  overflow-x: hidden !important;
+  padding: 8px 6px 12px !important;
+}
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-message {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  grid-template-columns: 42px minmax(0, 1fr) !important;
+  column-gap: 8px !important;
+  padding: 4px 2px 6px 0 !important;
+}
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-avatar-rail {
+  width: 42px !important;
+  min-width: 42px !important;
+  max-width: 42px !important;
+}
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-avatar-rail .little-hero-avatar,
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-avatar-rail .little-hero-avatar-compact {
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+}
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-message-main {
+  justify-self: stretch !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 8px 10px 7px !important;
+}
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-message-header {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  padding-right: 38px !important;
+}
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-message-line {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: end !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-message-text {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  white-space: normal !important;
+}
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-message-line .chat-time {
+  flex: none !important;
+  white-space: nowrap !important;
+}
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-reply-context,
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .chat-reactions,
+html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) .battle-comms-lobby .shadow-broker-transmission {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}

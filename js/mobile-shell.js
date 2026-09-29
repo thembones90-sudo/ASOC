@@ -38,6 +38,7 @@
     enabled = !!next;
     try { localStorage.setItem(KEY, enabled ? '1' : '0'); } catch {}
     html.classList.toggle('asoc-mobile', enabled);
+    if (enabled) mountRotatePrompt();
     syncButtons();
     syncViewport();
     syncMode();
@@ -80,7 +81,8 @@
       identity.appendChild(btn);
     }
     // Phones get a prominent, dismissible offer (never an automatic switch).
-    if (!doc.getElementById('asoc-phone-offer')) {
+    // Built only on a touch phone, so the desktop page carries none of it.
+    if (looksLikePhone() && !doc.getElementById('asoc-phone-offer')) {
       const offer = doc.createElement('div');
       offer.id = 'asoc-phone-offer';
       offer.className = 'asoc-phone-offer';
@@ -136,7 +138,7 @@
 
   function start() {
     mountButtons();
-    mountRotatePrompt();
+    if (enabled) mountRotatePrompt();
     syncViewport();
     const screen = doc.getElementById('game-screen');
     if (screen && typeof MutationObserver !== 'undefined') {

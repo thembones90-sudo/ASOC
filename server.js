@@ -10342,21 +10342,38 @@ function gzipFor(fullPath, content, mtimeMs) {
   return gz;
 }
 
+let webpManifest = null;
+function webpManifestEntries() {
+  if (webpManifest) return webpManifest;
+  try { webpManifest = JSON.parse(fs.readFileSync(path.join(WEBP_DIR, 'manifest.json'), 'utf8')); } catch { webpManifest = {}; }
+  return webpManifest;
+}
+
+// A copy is served only while its PNG still hashes to what the copy was
+// built from (assets/.webp/manifest.json). Git checkouts do not keep file
+// times, so times cannot tell a stale copy; replaced artwork without a
+// rebuilt copy simply falls back to the PNG.
 function webpCopyFor(fullPath) {
-  if (!fullPath.startsWith(path.join(__dirname, 'assets') + path.sep)) return null;
-  const candidate = path.join(WEBP_DIR, path.relative(path.join(__dirname, 'assets'), fullPath) + '.webp');
-  let srcStat, copyStat;
+  const assetsRoot = path.join(__dirname, 'assets');
+  if (!fullPath.startsWith(assetsRoot + path.sep)) return null;
+  const rel = path.relative(assetsRoot, fullPath).split(path.sep).join('/');
+  const expected = webpManifestEntries()[rel];
+  if (!expected) return null;
+  let srcStat;
   try { srcStat = fs.statSync(fullPath); } catch { return null; }
   const hit = webpCopyCache.get(fullPath);
-  if (hit && hit.mtimeMs === srcStat.mtimeMs) return hit.file;
-  try { copyStat = fs.statSync(candidate); } catch { copyStat = null; }
-  // A copy older than its PNG is stale artwork: serve the PNG until rebuilt.
-  const file = copyStat && copyStat.mtimeMs >= srcStat.mtimeMs ? candidate : null;
-  webpCopyCache.set(fullPath, { mtimeMs: srcStat.mtimeMs, file });
+  if (hit && hit.mtimeMs === srcStat.mtimeMs && hit.size === srcStat.size) return hit.file;
+  let file = null;
+  try {
+    const sha1 = crypto.createHash('sha1').update(fs.readFileSync(fullPath)).digest('hex');
+    const candidate = path.join(WEBP_DIR, rel + '.webp');
+    if (sha1 === expected && fs.existsSync(candidate)) file = candidate;
+  } catch {}
+  webpCopyCache.set(fullPath, { mtimeMs: srcStat.mtimeMs, size: srcStat.size, file });
   return file;
 }
 
-function serveStaticFile(req, res) {
+function serveStaticFile(req, res, { noWebp = false } = {}) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { 'Content-Type': 'text/plain' });
     res.end('Method Not Allowed');
@@ -10373,11 +10390,12 @@ function serveStaticFile(req, res) {
   const ext = path.extname(fullPath);
   const contentType = mimeTypes[ext] || 'application/octet-stream';
 
-  if (ext.toLowerCase() === '.png' && /image\/webp/.test(String(req.headers.accept || ''))) {
+  if (!noWebp && ext.toLowerCase() === '.png' && /image\/webp/.test(String(req.headers.accept || ''))) {
     const copy = webpCopyFor(fullPath);
     if (copy) {
       return fs.readFile(copy, (copyErr, webp) => {
-        if (copyErr) { webpCopyCache.delete(fullPath); return serveStaticFile(req, res); }
+        // Unreadable copy: serve the PNG (no retry loop through the copy).
+        if (copyErr) return serveStaticFile(req, res, { noWebp: true });
         res.writeHead(200, { 'Content-Type': 'image/webp', 'Vary': 'Accept', 'Cache-Control': assetCacheControl(req.url) });
         res.end(req.method === 'HEAD' ? undefined : webp);
       });
