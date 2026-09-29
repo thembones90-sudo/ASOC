@@ -31,7 +31,6 @@
   const TRIBUTE_MAX_BYTES = 2200000;
   const TRIBUTE_MIME = ['image/png', 'image/jpeg', 'image/webp'];
   const TRIBUTE_DATA_URL = /^data:image\/(?:png|jpeg|webp);base64,/;
-  const TRIBUTE_CONSENT_NOTICE = 'PRIVATE SUBMISSION NOTICE\n\nVisible only to you and the Shadow Broker. If accepted, it will be consigned to the Reliquary. If rejected, it will not enter the Reliquary.\n\nConfirm you are 18+ and consent to this storage rule.';
 
   const ui = {
     pacts: [],
@@ -204,6 +203,8 @@
     _tributePactId: null,
     _tributeBusy: false,
     _tributeButton: null,
+    _tributePickerTimer: null,
+    _tributeFocusRecovery: null,
 
     tributeInput() {
       if (this._tributeInput) return this._tributeInput;
@@ -211,7 +212,15 @@
       input.type = 'file';
       input.accept = TRIBUTE_MIME.join(',');
       input.id = 'bm-tribute-input';
-      input.hidden = true;
+      input.setAttribute('aria-hidden', 'true');
+      input.tabIndex = -1;
+      input.style.position = 'fixed';
+      input.style.left = '-10000px';
+      input.style.top = '0';
+      input.style.width = '1px';
+      input.style.height = '1px';
+      input.style.opacity = '0';
+      input.style.pointerEvents = 'none';
       input.addEventListener('change', () => this.onTributePicked(input));
       // Fired when the picker is dismissed without a choice. Without this a
       // cancelled dialog would strand the pending lock on the button forever.
@@ -226,6 +235,12 @@
     releaseTribute() {
       this._tributeBusy = false;
       this._tributePactId = null;
+      clearTimeout(this._tributePickerTimer);
+      this._tributePickerTimer = null;
+      if (this._tributeFocusRecovery) {
+        window.removeEventListener('focus', this._tributeFocusRecovery);
+        this._tributeFocusRecovery = null;
+      }
       const btn = this._tributeButton;
       this._tributeButton = null;
       if (btn && btn.isConnected) {
@@ -235,27 +250,77 @@
     },
 
     offerTribute(pactId, button) {
-      if (this._tributeBusy) return;
-      // Consent is taken BEFORE the picker opens. A blocking confirm() placed
-      // after a native file dialog has closed is the classic way to lose a
-      // submission: the dialog can swallow the confirmation or park it behind
-      // the window, and the player's selection evaporates with nothing on
-      // screen. Asking first keeps consent -> pick -> read -> send inside a
-      // single user gesture, so input.click() is still trusted when it runs.
-      if (!confirm(TRIBUTE_CONSENT_NOTICE)) return;
-      this._tributePactId = pactId;
-      this._tributeBusy = true;
-      this._tributeButton = button || null;
-      if (button) {
-        button.disabled = true;
-        button.textContent = 'THE VAULT IS WAITING…';
+      if (this._tributeBusy || document.getElementById('bm-tribute-consent')) return;
+      this.showTributeConsent(pactId, button);
+    },
+
+    showTributeConsent(pactId, button) {
+      document.getElementById('bm-tribute-consent')?.remove();
+      const veil = document.createElement('div');
+      veil.id = 'bm-tribute-consent';
+      veil.className = 'bm-tribute-consent';
+      veil.innerHTML = `
+        <section class="bm-tribute-consent-card" role="dialog" aria-modal="true" aria-labelledby="bm-tribute-consent-title">
+          <small>PRIVATE CHANNEL // BLOOD TRIBUTE</small>
+          <h3 id="bm-tribute-consent-title">THE RELIQUARY REQUIRES CONSENT</h3>
+          <p>Your offering is visible only to you and the Shadow Broker. If accepted, it will be consigned to the Reliquary. If rejected, it will not enter the Reliquary.</p>
+          <p class="bm-tribute-consent-age">By proceeding, you confirm you are 18+ and consent to this storage rule.</p>
+          <div class="bm-tribute-consent-actions">
+            <button type="button" data-bm-consent-open>I CONSENT // OPEN THE VAULT</button>
+            <button type="button" data-bm-consent-cancel>WITHDRAW</button>
+          </div>
+        </section>`;
+      const close = () => veil.remove();
+      veil.querySelector('[data-bm-consent-cancel]')?.addEventListener('click', close);
+      veil.addEventListener('click', e => { if (e.target === veil) close(); });
+      veil.querySelector('[data-bm-consent-open]')?.addEventListener('click', () => {
+        close();
+        this._tributePactId = pactId;
+        this._tributeBusy = true;
+        this._tributeButton = button || null;
+        if (button && button.isConnected) {
+          button.disabled = true;
+          button.textContent = 'THE VAULT IS WAITING…';
+        }
+        const input = this.tributeInput();
+        input.value = '';
+        this.armTributePickerRecovery(input);
+        input.click();
+      });
+      document.body.appendChild(veil);
+    },
+
+    armTributePickerRecovery(input) {
+      clearTimeout(this._tributePickerTimer);
+      if (this._tributeFocusRecovery) {
+        window.removeEventListener('focus', this._tributeFocusRecovery);
+        this._tributeFocusRecovery = null;
       }
-      this.tributeInput().click();
+      const started = Date.now();
+      this._tributeFocusRecovery = () => {
+        setTimeout(() => {
+          if (!this._tributeBusy) return;
+          const hasFile = !!(input.files && input.files.length);
+          if (!hasFile && Date.now() - started > 250) {
+            this.releaseTribute();
+          }
+        }, 350);
+      };
+      window.addEventListener('focus', this._tributeFocusRecovery, { once:true });
+      this._tributePickerTimer = setTimeout(() => {
+        if (this._tributeBusy && !(input.files && input.files.length)) this.releaseTribute();
+      }, 45000);
     },
 
     onTributePicked(input) {
       const pactId = this._tributePactId;
       const file = input.files && input.files[0];
+      clearTimeout(this._tributePickerTimer);
+      this._tributePickerTimer = null;
+      if (this._tributeFocusRecovery) {
+        window.removeEventListener('focus', this._tributeFocusRecovery);
+        this._tributeFocusRecovery = null;
+      }
       // Clear the selection so choosing the same file again still fires change.
       input.value = '';
       // Dismissed with nothing chosen: not an error, just release and wait.
