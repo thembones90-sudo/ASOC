@@ -40,6 +40,7 @@
     html.classList.toggle('asoc-mobile', enabled);
     if (enabled) { mountRotatePrompt(); mountTabs(); }
     else { closeGames(); if (doc.getElementById('m-tabs')) setTab('chat'); }
+    placeQuestHuds();
     syncButtons();
     syncViewport();
     syncMode();
@@ -308,8 +309,31 @@
     if (menu) menu.hidden = true;
   }
 
+  // The quest / ledger cards (js/player-quests.js creates them once, on
+  // <body>, and only updates their contents) sit in the chat header while
+  // the shell is on, and go back to <body> for the desktop layout.
+  function placeQuestHuds() {
+    const header = doc.querySelector('#chat-panel .chat-header');
+    let slot = doc.getElementById('m-quest-slot');
+    if (enabled && header && !slot) {
+      slot = doc.createElement('div');
+      slot.id = 'm-quest-slot';
+      slot.className = 'm-quest-slot';
+      header.appendChild(slot);
+    }
+    ['player-quest-hud', 'daily-contract-hud'].forEach(id => {
+      const hud = doc.getElementById(id);
+      if (!hud) return;
+      const home = enabled && slot ? slot : doc.body;
+      if (hud.parentElement !== home) home.appendChild(hud);
+    });
+  }
+
   function refreshTabs(force) {
+    placeQuestHuds();
     if (!enabled) return;
+    // Self-heal: if the chat panel was not ready when the shell started.
+    if (!doc.getElementById('m-tabs')) mountTabs();
     const a = app();
     const count = (a?.chatMessages || []).length;
     if (tab === 'chat') seenChatCount = count;
@@ -327,6 +351,11 @@
     mountButtons();
     if (enabled) { mountRotatePrompt(); mountTabs(); }
     setInterval(() => refreshTabs(false), 1200);
+    // Quest cards are created on <body> by js/player-quests.js: move them into
+    // the header the moment they appear, not on the next tick.
+    if (typeof MutationObserver !== 'undefined') {
+      new MutationObserver(() => { if (enabled) placeQuestHuds(); }).observe(doc.body, { childList: true });
+    }
     syncViewport();
     const screen = doc.getElementById('game-screen');
     if (screen && typeof MutationObserver !== 'undefined') {

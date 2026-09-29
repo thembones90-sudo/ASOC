@@ -48,6 +48,10 @@ const layout = page => page.evaluate(() => {
     const context = await browser.newContext(phone);
     const page = await H.openHeroPage(context, server, await H.heroToken(server, 'Pocket Hero'));
 
+    // The stale-page build covers the mobile shell, so a mobile-only release
+    // refreshes pages left open on phones.
+    assert.match(await page.evaluate(() => window.StaleGuard.pageBuild('player')), /\+.*mobile/, 'player build includes the mobile shell version');
+
     // Off by default, even on a phone -- only offered.
     let l = await layout(page);
     assert.equal(l.mobile, false, 'never switches itself on');
