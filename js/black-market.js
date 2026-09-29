@@ -2,7 +2,7 @@
   'use strict';
 
   const isGM = !!window.App;
-  const host = isGM ? window.App : window.Player;
+  const host = isGM ? window.App : window.PlayerApp;
   if (!host) return;
 
   const STATE_LABEL = {
