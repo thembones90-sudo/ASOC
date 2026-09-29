@@ -8307,6 +8307,47 @@ function handleGmDirectMessages(ws, message) {
   }
 }
 
+function handleGmShadowCoinAdjust(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker may alter Shadow Coins' });
+
+  const playerId = String(message?.playerId || '');
+  const requestedName = String(message?.playerName || '').slice(0, 80);
+  const amount = Number(message?.amount);
+  if (!playerId || playerId === '__GM__' || isMasterTestPlayerId(playerId)) {
+    return sendToWs(ws, { type:'error', message:'That identity has no Shadow Coin account' });
+  }
+  if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 100000) {
+    return sendToWs(ws, { type:'error', message:'Invalid Shadow Coin adjustment' });
+  }
+
+  let liveName = '';
+  room.players.forEach(player => {
+    if (String(player?.id) === playerId) liveName = String(player?.name || '');
+  });
+  const account = coinAccount(playerId, liveName || requestedName || 'LITTLE HERO');
+  if (!account) return sendToWs(ws, { type:'error', message:'Shadow Coin account not found' });
+
+  const receipt = `gm-adjust:${Date.now()}:${crypto.randomBytes(6).toString('hex')}`;
+  const normalized = Math.round(amount * 10) / 10;
+  const result = normalized > 0
+    ? playerStore.awardShadowCoins(account, normalized, receipt, { reason:'Shadow Broker manual adjustment' })
+    : playerStore.deductShadowCoins(account, -normalized, receipt, { reason:'Shadow Broker manual adjustment' });
+
+  if (!result?.ok) return sendToWs(ws, { type:'error', message:result?.error || 'Shadow Coin adjustment failed' });
+
+  const applied = normalized > 0 ? normalized : -Number(result.deducted || 0);
+  persistActiveRooms();
+  broadcastPlayersUpdate(room);
+  sendToWs(ws, {
+    type:'gm:shadowCoinAdjusted',
+    playerId,
+    playerName:account.name,
+    delta:applied,
+    balance:result.balance
+  });
+}
+
 // ---------------------------------------------------------------------------
 // SHADOW MARKET / SHADOW ROULETTE -- player-only, account-bound, cosmetic.
 // Every price, gate and payout is decided here from shadow-market.js; the
@@ -10866,6 +10907,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'megabonk:ack': {
           handleMegabonkAck(ws, message);
+          break;
+        }
+        case 'gm:shadowCoinAdjust': {
+          handleGmShadowCoinAdjust(ws, message);
           break;
         }
         case 'gm:shadowRealm': {
