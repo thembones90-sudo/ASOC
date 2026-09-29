@@ -281,7 +281,7 @@ const Forge = {
         : (rawDate || '—');
       const modifiedFull = validDate ? parsedDate.toLocaleString() : modified;
       return `
-        <div class="game-card game-list-row">
+        <div class="game-list-row">
           <div class="game-card-top game-list-identity">
             <div class="game-card-title-wrap">
               <span class="game-card-title">${this.escapeHtml(g.title)}</span>
