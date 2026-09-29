@@ -370,3 +370,36 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
     max-height:calc(100dvh - 24px)!important;
   }
 }
+
+
+/* GM BLACK MARKET PENDING PETITION ALERT */
+#black-market-gm-button.bm-has-pending{
+  border-color:#ff354f!important;
+  box-shadow:
+    inset 0 0 18px rgba(255,20,45,.30),
+    0 0 10px rgba(255,25,50,.45),
+    0 0 22px rgba(255,20,45,.28)!important;
+  animation:bmPendingRedGlow 1.15s ease-in-out infinite!important;
+}
+#black-market-gm-button.bm-has-pending::before{
+  opacity:.78!important;
+  background:
+    radial-gradient(circle at 50% 50%,rgba(255,30,55,.24),transparent 34%),
+    radial-gradient(circle at 18% 50%,rgba(160,18,42,.20),transparent 28%),
+    radial-gradient(circle at 82% 50%,rgba(160,18,42,.20),transparent 28%)!important;
+}
+#black-market-gm-button.bm-has-pending .black-market-command-label,
+#black-market-gm-button.bm-has-pending .black-market-command-sub{
+  color:#ffd8de!important;
+  text-shadow:0 0 6px rgba(255,34,58,.75),0 0 12px rgba(255,34,58,.45)!important;
+}
+@keyframes bmPendingRedGlow{
+  0%,100%{
+    filter:brightness(1);
+    box-shadow:inset 0 0 14px rgba(255,20,45,.22),0 0 8px rgba(255,25,50,.35),0 0 18px rgba(255,20,45,.20);
+  }
+  50%{
+    filter:brightness(1.18) saturate(1.18);
+    box-shadow:inset 0 0 24px rgba(255,20,45,.42),0 0 16px rgba(255,25,50,.70),0 0 32px rgba(255,20,45,.38);
+  }
+}
