@@ -110,6 +110,11 @@ const ControlSurfaces = {
     log.innerHTML = '<div class="gm-backdoor-log-head"><strong>SYSTEM EVENT LOG</strong><span>LIVE // LOCAL AUDIT</span></div><div id="gm-backdoor-log-entries" class="gm-backdoor-log-entries"></div>';
     maintenance.appendChild(log);
 
+    const realmAudit = document.createElement('section');
+    realmAudit.className = 'gm-shadow-realm-audit';
+    realmAudit.innerHTML = '<div class="gm-backdoor-log-head"><strong>SHADOW REALM LEDGER</strong><span>SENTENCES // RELEASES // RETURNS</span></div><div id="gm-shadow-realm-history" class="gm-shadow-realm-history"><p>NO SENTENCES RECORDED</p></div>';
+    maintenance.appendChild(realmAudit);
+
     const advanced = document.createElement('details');
     advanced.className = 'gm-advanced-maintenance';
     advanced.innerHTML = '<summary><span>⚠ SEALED SYSTEMS // DANGEROUS OPERATIONS</span><small>RECOVERY · WOMF · PLAYERS · RECORDS · VAULT</small></summary><div class="gm-advanced-maintenance-body"></div>';
@@ -227,12 +232,25 @@ const ControlSurfaces = {
     if (open) {
       this.updateSessionSummary();
       this.recordEvent('BACKDOOR // ACCESS GRANTED');
+      this.app?.send?.({ type:'gm:shadowRealmHistory' });
     }
     const scroll = document.querySelector('.gm-content');
     if (scroll) scroll.scrollTop = 0;
   },
 
   toggle() { this.setOpen(!!document.getElementById('gm-maintenance')?.hidden); },
+
+  updateShadowRealmHistory(entries = [], now = Date.now()) {
+    const node = document.getElementById('gm-shadow-realm-history');
+    if (!node) return;
+    if (!entries.length) { node.innerHTML='<p>NO SENTENCES RECORDED</p>'; return; }
+    node.innerHTML = entries.slice(0, 30).map(entry => {
+      const active = entry.status === 'BANISHED' && Number(entry.at)+Number(entry.durationMs) > Number(now);
+      const status = active ? 'ACTIVE' : entry.status === 'RELEASED' ? 'RELEASED' : 'SERVED';
+      const date = new Date(Number(entry.at)||Date.now()).toLocaleString([], { month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+      return `<article class="is-${status.toLowerCase()}"><div><b>${this.escape(entry.playerName||'LITTLE HERO')}</b><span>${status} // OFFENSE ${Number(entry.offenseCount)||1}</span></div><p>${this.escape(entry.announcement||'')}</p><small>${date} // ${Math.round(Number(entry.durationMs||0)/1000)}S // MESSAGE ${this.escape(entry.messageId||'—')}</small></article>`;
+    }).join('');
+  },
 
   updateSessionSummary() {
     const app = this.app;

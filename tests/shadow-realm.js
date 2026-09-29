@@ -117,11 +117,13 @@ async function healthy() {
     // BANISH.
     const boMark = bo.mark(), anaMark = ana.mark();
     from = gm.mark();
-    gm.send({ type: 'gm:shadowRealm', messageId: target.id });
+    gm.send({ type: 'gm:shadowRealm', messageId: target.id, durationMs: WINDOW_MS });
     const seenByBo = await bo.next(m => m.type === 'shadowRealm:banish', 'bo sees it', boMark);
     assert.equal(seenByBo.playerId, ana.playerId);
     assert.equal(seenByBo.playerName, 'Ana');
     assert.equal(seenByBo.remainingMs, WINDOW_MS);
+    assert.equal(seenByBo.durationMs, WINDOW_MS);
+    assert.equal(seenByBo.offenseCount, 1);
     assert.match(seenByBo.announcement, /Ana/);
     await ana.next(m => m.type === 'shadowRealm:banish' && m.playerId === ana.playerId, 'ana sees it', anaMark);
     await gm.next(m => m.type === 'shadowRealm:banish', 'gm sees it', from);
@@ -144,7 +146,8 @@ async function healthy() {
     // Bo is unaffected.
     from = gm.mark();
     bo.send({ type: 'chat:guess', text: 'rest in peace Ana' });
-    await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text === 'rest in peace Ana'), 'bo still talks', from);
+    const boUpdate = await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text === 'rest in peace Ana'), 'bo still talks', from);
+    const boTarget = boUpdate.messages.find(x => x.text === 'rest in peace Ana');
 
     // Reconnecting does not escape it.
     ana.close();
@@ -159,7 +162,21 @@ async function healthy() {
     await sleep(WINDOW_MS + 300);
     from = gm.mark();
     ana.send({ type: 'chat:guess', text: 'I have returned' });
-    await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text === 'I have returned'), 'voice returns', from);
+    const returnedUpdate = await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text === 'I have returned'), 'voice returns', from);
+    assert.ok(returnedUpdate.messages.find(x => x.text === 'I have returned')?.shadowRealmReturn, 'first message after release carries spectral return mark');
+
+    // The GM can impose a custom sentence and release it early.
+    from = bo.mark();
+    gm.send({ type:'gm:shadowRealm', messageId:boTarget.id, durationMs:5000 });
+    await bo.next(m => m.type === 'shadowRealm:banish' && m.playerId === bo.playerId, 'custom sentence', from);
+    from = bo.mark();
+    gm.send({ type:'gm:shadowRealmRelease', playerId:bo.playerId });
+    const released = await bo.next(m => m.type === 'shadowRealm:release' && m.playerId === bo.playerId, 'early release', from);
+    assert.match(released.announcement, /Bo/);
+    from = gm.mark();
+    bo.send({ type:'chat:guess', text:'released early' });
+    const releaseUpdate = await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text === 'released early'), 'early-release voice', from);
+    assert.ok(releaseUpdate.messages.find(x => x.text === 'released early')?.shadowRealmReturn, 'early release also marks the first returning message');
 
     // The memento survives a restart.
     clients.forEach(c => c.close());
@@ -177,8 +194,16 @@ async function healthy() {
     const serverSource = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
     const realmLines = serverSource.match(/const SHADOW_REALM_LINES = Object\.freeze\(\[([\s\S]*?)\]\);/)?.[1]?.match(/'[^']*\{player\}[^']*'/g) || [];
     assert.equal(realmLines.length, 20, 'twenty Shadow Broker verdicts are available');
-    assert.match(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'), /data-gm-chat-action="shadow-realm"[^>]*>.*SEND TO SHADOW REALM/);
-    assert.match(app, /action === 'shadow-realm'[\s\S]{0,200}gm:shadowRealm/);
+    const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    assert.match(index, /data-gm-chat-action="shadow-realm-10"/);
+    assert.match(index, /data-gm-chat-action="shadow-realm-custom"/);
+    assert.match(index, /data-gm-chat-action="shadow-realm-release"/);
+    assert.match(app, /gm:shadowRealmRelease/);
+    assert.match(app, /durationMs:Math\.round\(seconds\*1000\)/);
+    assert.match(serverSource, /shadowRealmRecentLines[\s\S]{0,500}slice\(-5\)/, 'recent verdicts are excluded from immediate repeats');
+    assert.match(fs.readFileSync(path.join(ROOT, 'js/shadow-realm.js'), 'utf8'), /srealm-seal/);
+    assert.match(fs.readFileSync(path.join(ROOT, 'js/audio.js'), 'utf8'), /function shadowRealm\(/);
+    assert.match(fs.readFileSync(path.join(ROOT, 'js/backdoor.js'), 'utf8'), /SHADOW REALM LEDGER/);
 
     assert.equal(server.errors.trim(), '', 'no server errors');
     console.log('PASS Shadow Realm: GM-only on Little Hero messages, everyone notified, permanent memento flag (survives restart), 20s silence across chat/commands/DMs/GIFs/image links/polls that survives reconnect, others unaffected, ends on time');

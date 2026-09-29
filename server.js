@@ -7017,6 +7017,7 @@ function createChatSerializer(room) {
       timestamp: m.timestamp,
       editedAt: Number(m.editedAt) || null,
       shadowRealm: m.shadowRealm && Number(m.shadowRealm.at) ? { at: Number(m.shadowRealm.at) } : undefined,
+      shadowRealmReturn: m.shadowRealmReturn && Number(m.shadowRealmReturn.at) ? { at:Number(m.shadowRealmReturn.at), offenseCount:Number(m.shadowRealmReturn.offenseCount)||1 } : undefined,
       editableByHost: m.source === 'shadowBroker' ? m.editableByHost !== false : false,
       // Persistent chat spans many games. Only a player transmission
       // created on the currently armed board may be adjudicated now.

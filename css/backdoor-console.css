@@ -53,6 +53,16 @@
 .gm-backdoor-log-entries div:last-child { border-bottom:0; }
 .gm-backdoor-log-entries time { color:#53636b; font:700 .76rem var(--font-mono); }
 .gm-backdoor-log-entries span { color:#8e9ba1; font:700 .8rem var(--font-machine); letter-spacing:.065em; }
+.gm-shadow-realm-audit { margin:9px 0; border:1px solid #393144; background:linear-gradient(180deg,#0e0b12,#08090c); }
+.gm-shadow-realm-history { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:7px; max-height:260px; overflow:auto; padding:10px; }
+.gm-shadow-realm-history>p { grid-column:1/-1; color:#615a68; font:800 .7rem var(--font-machine); letter-spacing:.12em; }
+.gm-shadow-realm-history article { display:grid; gap:6px; padding:10px 12px; border:1px solid #3e3946; border-left:3px solid #77717f; background:#111015; }
+.gm-shadow-realm-history article.is-active { border-left-color:#d9dbe0; box-shadow:inset 8px 0 18px rgba(204,208,216,.05); }
+.gm-shadow-realm-history article.is-released { border-left-color:#9b78ca; }
+.gm-shadow-realm-history article>div { display:flex; justify-content:space-between; gap:10px; }
+.gm-shadow-realm-history b { color:#d7d8dc; font:900 .72rem var(--font-machine); letter-spacing:.08em; }
+.gm-shadow-realm-history span,.gm-shadow-realm-history small { color:#6d6873; font:700 .52rem var(--font-machine); letter-spacing:.08em; }
+.gm-shadow-realm-history p { margin:0; color:#96929b; font:600 .62rem/1.45 var(--font-machine); }
 .gm-advanced-maintenance { border:1px solid #6d5525; border-radius:0; background:linear-gradient(180deg,#1a1710,#0c0d0e); overflow:hidden; }
 .gm-advanced-maintenance > summary { display:flex; align-items:center; gap:10px; min-height:48px; padding:7px 11px; list-style:none; cursor:pointer; color:#d2ad55; font:900 .88rem var(--font-machine); letter-spacing:.1em; }
 .gm-advanced-maintenance > summary::-webkit-details-marker { display:none; }

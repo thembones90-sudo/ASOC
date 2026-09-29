@@ -1491,6 +1491,9 @@ const PlayerApp = {
       case 'shadowRealm:banish':
         window.ShadowRealm?.onMessage(message, this.playerId);
         break;
+      case 'shadowRealm:release':
+        window.ShadowRealm?.onMessage(message, this.playerId);
+        break;
 
       case 'dm:summary':
       case 'dm:list':
