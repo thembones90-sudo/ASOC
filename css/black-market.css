@@ -388,8 +388,8 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
     radial-gradient(circle at 18% 50%,rgba(160,18,42,.20),transparent 28%),
     radial-gradient(circle at 82% 50%,rgba(160,18,42,.20),transparent 28%)!important;
 }
-#black-market-gm-button.bm-has-pending .black-market-command-label,
-#black-market-gm-button.bm-has-pending .black-market-command-sub{
+#black-market-gm-button.bm-has-pending span,
+#black-market-gm-button.bm-has-pending small{
   color:#ffd8de!important;
   text-shadow:0 0 6px rgba(255,34,58,.75),0 0 12px rgba(255,34,58,.45)!important;
 }

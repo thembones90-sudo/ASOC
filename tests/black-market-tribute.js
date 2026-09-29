@@ -23,6 +23,9 @@ assert.match(playerJs, /window\.PlayerApp\s*=\s*PlayerApp;/, 'the player app is 
 const codeOnly = SOURCE.replace(/^\s*\/\/.*$/gm, '');
 assert.doesNotMatch(codeOnly, /window\.Player\b/, 'the market must not reach for the non-existent window.Player');
 assert.match(SOURCE, /isGM \? window\.App : window\.PlayerApp/, 'the market binds to PlayerApp on the player side');
+assert.match(SOURCE, /\['SUBMITTED','TRIBUTE_SUBMITTED'\]\.includes\(p\.state\)/, 'the GM alert reads the real pact state and includes submitted Blood Tributes');
+assert.doesNotMatch(codeOnly, /p\.status\s*===\s*'SUBMITTED'/, 'the GM alert cannot inspect the nonexistent status field');
+assert.match(SOURCE, /BLOOD TRIBUTE AWAITS/, 'the GM control explicitly names a pending Blood Tribute');
 
 // A wrapper that throws away send()'s result makes a dead socket look like a
 // successful submission, which is the second half of the original silent failure.

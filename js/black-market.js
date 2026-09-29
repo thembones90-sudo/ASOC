@@ -69,7 +69,7 @@
           this.pacts = Array.isArray(message.pacts) ? message.pacts : [];
           if (isGM) {
             const entry = document.getElementById('black-market-gm-button');
-            const hasPending = this.pacts.some(p => p.status === 'SUBMITTED');
+            const hasPending = this.pacts.some(p => ['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state));
             if (entry) entry.classList.toggle('bm-has-pending', hasPending);
           }
           if (!isGM) {
@@ -95,14 +95,22 @@
       host._blackMarketWrapped = true;
     },
     updateBadge() {
-      const btn = document.querySelector('.black-market-entry');
+      const btn = document.getElementById(isGM ? 'black-market-gm-button' : 'black-market-player-button');
       if (!btn) return;
-      const pending = this.pacts.filter(p => isGM
+      const actionable = this.pacts.filter(p => isGM
         ? ['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state)
         : ['COUNTEROFFERED','APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(p.state)
-      ).length;
+      );
+      const pending = actionable.length;
       btn.classList.toggle('has-pending', pending > 0);
+      if (isGM) btn.classList.toggle('bm-has-pending', pending > 0);
       btn.dataset.pending = pending || '';
+      if (isGM) {
+        const subtitle = btn.querySelector('small');
+        const bloodAwaits = actionable.some(p => p.state === 'TRIBUTE_SUBMITTED');
+        if (subtitle) subtitle.textContent = bloodAwaits ? 'BLOOD TRIBUTE AWAITS' : pending ? 'PETITION AWAITS' : 'PRIVATE CHANNEL';
+        btn.setAttribute('aria-label', bloodAwaits ? `Black Market: ${pending} pending, Blood Tribute awaits judgment` : pending ? `Black Market: ${pending} petition awaiting judgment` : 'Black Market private channel');
+      }
     },
     open() {
       if (!document.getElementById('black-market-overlay')) {
