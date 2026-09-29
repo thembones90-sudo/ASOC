@@ -440,6 +440,45 @@
       top:auto;
       bottom:calc(100% + 5px);
     }
+    .theme-select-menu {
+      scrollbar-width:auto;
+      scrollbar-color:#8f9aa5 #0a0d11;
+      padding-right:8px;
+    }
+    .theme-select-menu::-webkit-scrollbar {
+      width:14px;
+    }
+    .theme-select-menu::-webkit-scrollbar-track {
+      background:#0a0d11;
+      border-left:1px solid #313841;
+      border-radius:0 6px 6px 0;
+    }
+    .theme-select-menu::-webkit-scrollbar-thumb {
+      background:linear-gradient(180deg,#aeb8c2,#68737e);
+      border:3px solid #0a0d11;
+      border-radius:8px;
+      min-height:42px;
+    }
+    .theme-select-menu::-webkit-scrollbar-thumb:hover {
+      background:linear-gradient(180deg,#d2d8de,#808b96);
+    }
+    .theme-select-menu::after {
+      content:"SCROLL FOR MORE THEMES ↓";
+      position:sticky;
+      bottom:-1px;
+      display:block;
+      grid-column:1/-1;
+      margin:2px -2px -2px;
+      padding:5px 8px;
+      border-top:1px solid #414a54;
+      background:linear-gradient(180deg,rgba(17,22,28,.88),#080a0d);
+      color:#aab3bd;
+      font:800 .42rem var(--font-machine);
+      letter-spacing:.7px;
+      text-align:center;
+      pointer-events:none;
+    }
+
     .theme-select-menu[hidden] { display:none; }
 
     .theme-option {
@@ -825,7 +864,7 @@
        fits the layer AFTER the HUD band is deducted -- which is by
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
-       --hud-band is measured and set by js/player.js?v=20260922-media-lightbox-hardfix-1"";
+       --hud-band is measured and set by js/player.js?v=20260929-theme-scroll-1"";
 position:absolute;
       left:5px;
       width:5px;
@@ -9993,7 +10032,7 @@ position:absolute;
     });
   })();
   </script>
-  <script src="js/themes.js?v=20260929-whiteout-1"></script>
+  <script src="js/themes.js?v=20260929-theme-scroll-1"></script>
   <script src="js/dom-patch.js?v=20260925-gm-control-pass-1"></script>
   <script src="js/skeleton.js?v=20260927-sb-stable-2"></script>
   <script src="js/board-celebrations.js?v=20260928-board-coronation-1"></script>
