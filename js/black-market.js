@@ -31,6 +31,7 @@
         button.innerHTML = '<span>BLACK MARKET</span><small>PRIVATE CHANNEL</small>';
         document.body.appendChild(button);
       }
+      if (!isGM) button.hidden = false;
       button.addEventListener('click', () => {
         button.classList.add('bm-opening');
         setTimeout(() => button.classList.remove('bm-opening'), 420);
