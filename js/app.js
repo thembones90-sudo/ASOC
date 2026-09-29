@@ -1214,7 +1214,7 @@ const App = {
       .sort((a, b) => b.length - a.length);
 
     const regexSpecials = '^$.*+?()[]{}|' + String.fromCharCode(92);
-    const escaped = ['all', ...names].map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
+    const escaped = ['all', 'SHADOW BROKER', ...names].map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
     const pattern = new RegExp('@(' + escaped.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
     const targets = container.querySelectorAll('.gm-chat-message-text, .shadow-broker-text');
 
