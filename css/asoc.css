@@ -19845,23 +19845,25 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
   .class-warning-banner-text { text-shadow:none; }
 }
 
-.game-card.game-list-row {
+.forge-library > .game-list-row {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) 130px 180px minmax(245px, auto);
   align-items: center;
   gap: 16px;
   min-height: 64px;
   padding: 10px 14px;
-  border-width: 0 0 1px;
+  border: 0;
+  border-bottom: 1px solid var(--panel-border);
   border-radius: 0;
   background: rgba(18, 20, 26, 0.72);
+  box-sizing: border-box;
 }
 
-.game-card.game-list-row:nth-child(odd) {
+.forge-library > .game-list-row:nth-child(odd) {
   background: rgba(24, 26, 34, 0.72);
 }
 
-.game-card.game-list-row:hover {
+.forge-library > .game-list-row:hover {
   position: relative;
   z-index: 2;
   background: rgba(33, 35, 45, 0.92);
