@@ -20872,3 +20872,36 @@ html.asoc-mobile #game-screen:not(#m-guard):not(#m-guard-2) #asoc-view-toggle-ga
   .quests-overlay .quests-console > header h2,
   .quests-overlay .quests-console .quest-issue:hover { animation: none !important; }
 }
+
+/* SHADOW BROKER TRANSMISSIONS must never melt into a purple chat background:
+   a solid void panel, a crisp violet edge with glow, and a blood-red
+   signal line on the avatar side. Applies to the GM and player chats. */
+body .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission,
+body .gm-module-chat .gm-shadow-broker-media-entry > .shadow-broker-transmission,
+body .battle-comms-lobby .chat-broker-entry .shadow-broker-transmission,
+body #game-screen .shadow-broker-transmission.shadow-broker-broadcast {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
+    linear-gradient(135deg, #140c1e 0%, #07050b 70%) !important;
+  border: 1px solid rgba(190, 140, 255, .75) !important;
+  border-right: 3px solid #e0334a !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, .85),
+    0 8px 24px rgba(0, 0, 0, .65),
+    0 0 18px rgba(155, 93, 224, .45) !important;
+  backdrop-filter: none !important;
+}
+body .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission .shadow-broker-name,
+body .battle-comms-lobby .chat-broker-entry .shadow-broker-transmission .shadow-broker-name {
+  color: #ff5a6e !important;
+  text-shadow: 0 0 8px rgba(224, 51, 74, .55) !important;
+}
+body .gm-module-chat .gm-shadow-broker-entry > .shadow-broker-transmission .shadow-broker-text,
+body .battle-comms-lobby .chat-broker-entry .shadow-broker-transmission .shadow-broker-text {
+  color: #f6f0ff !important;
+}
+/* A transmission that mentions you still reads as urgent. */
+body .battle-comms-lobby .chat-broker-entry.chat-mentions-me .shadow-broker-transmission {
+  border-color: #ff5a6e !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .85), 0 8px 24px rgba(0, 0, 0, .65), 0 0 22px rgba(224, 51, 74, .55) !important;
+}
