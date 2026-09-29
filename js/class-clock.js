@@ -1,14 +1,9 @@
 // ASOC CLASS CLOCK
-// Local clock telemetry for the Shadow Broker console. Class warnings fire
+// Shared local clock telemetry for Shadow Broker and Little Hero surfaces. Class warnings fire
 // once, one minute before each half-hour start from 08:00 through 16:00.
 (() => {
-  const node = document.getElementById('gm-atomic-clock');
-  if (!node) return;
-
-  const hoursNode = node.querySelector('[data-clock-hours]');
-  const minutesNode = node.querySelector('[data-clock-minutes]');
-  const secondsNode = node.querySelector('[data-clock-seconds]');
-  const timeNode = node.querySelector('time');
+  const nodes = [...document.querySelectorAll('[data-class-clock]')];
+  if (!nodes.length) return;
   const ALERT_STORAGE_KEY = 'asoc_class_clock_last_alert';
   let tickTimer = 0;
   let shakeTimer = 0;
@@ -43,14 +38,14 @@
 
     const upcoming = nextClassStart(now);
     const label = upcoming ? `${pad(upcoming.getHours())}:${pad(upcoming.getMinutes())}` : 'CLASS';
-    node.classList.remove('is-warning');
+    nodes.forEach(node => node.classList.remove('is-warning'));
     document.documentElement.classList.remove('class-clock-nudge');
-    void node.offsetWidth;
-    node.classList.add('is-warning');
+    void nodes[0].offsetWidth;
+    nodes.forEach(node => node.classList.add('is-warning'));
     document.documentElement.classList.add('class-clock-nudge');
     clearTimeout(shakeTimer);
     shakeTimer = window.setTimeout(() => {
-      node.classList.remove('is-warning');
+      nodes.forEach(node => node.classList.remove('is-warning'));
       document.documentElement.classList.remove('class-clock-nudge');
     }, 1250);
 
@@ -58,7 +53,7 @@
     window.AsocAlerts?.signal?.({
       popup: {
         title: `CLASS IN ONE MINUTE // ${label}`,
-        body: 'Shadow Broker, prepare for the next lesson.',
+        body: document.getElementById('player-atomic-clock') ? 'Little Hero, prepare for the next lesson.' : 'Shadow Broker, prepare for the next lesson.',
         tag: `class-clock-${key}`
       }
     });
@@ -69,11 +64,13 @@
     const hours = pad(now.getHours());
     const minutes = pad(now.getMinutes());
     const seconds = pad(now.getSeconds());
-    hoursNode.textContent = hours;
-    minutesNode.textContent = minutes;
-    secondsNode.textContent = seconds;
-    timeNode.dateTime = `${hours}:${minutes}:${seconds}`;
-    node.setAttribute('aria-label', `Current time ${hours}:${minutes}:${seconds}`);
+    nodes.forEach(node => {
+      node.querySelector('[data-clock-hours]').textContent = hours;
+      node.querySelector('[data-clock-minutes]').textContent = minutes;
+      node.querySelector('[data-clock-seconds]').textContent = seconds;
+      node.querySelector('time').dateTime = `${hours}:${minutes}:${seconds}`;
+      node.setAttribute('aria-label', `Current time ${hours}:${minutes}:${seconds}`);
+    });
 
     if (isWarningMinute(now)) classNudge(now);
     clearTimeout(tickTimer);
