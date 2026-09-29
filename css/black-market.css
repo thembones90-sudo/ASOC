@@ -119,7 +119,7 @@ body:has(#black-market-gm-button) #black-market-gm-button.black-market-command-b
   border: 1px solid rgba(128, 52, 105, .72) !important;
   background-image:
     linear-gradient(rgba(4,3,7,.12), rgba(4,3,7,.12)),
-    url('../assets/black-market-void.webp') !important;
+    url('../assets/black-market-void.svg') !important;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
