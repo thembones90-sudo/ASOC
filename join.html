@@ -7578,6 +7578,69 @@ position:absolute;
       overflow:visible !important;
     }
 
+    /* PLAYER ATOMIC CLOCK // the same clock-only telemetry used by the GM. */
+    #game-screen.room-mode-casual .detainee-status-label {
+      display:grid !important;
+      grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) !important;
+      align-items:center !important;
+    }
+    #game-screen.room-mode-casual .detainee-status-label > span:first-child { justify-self:start; }
+    #game-screen.room-mode-casual .detainee-status-label > .casual-online-count { justify-self:end; }
+    .player-atomic-clock {
+      grid-column:2;
+      justify-self:center;
+      display:grid;
+      place-items:center;
+      min-width:166px;
+      padding:5px 16px;
+      border:1px solid rgba(126,94,157,.5);
+      clip-path:polygon(7px 0,calc(100% - 7px) 0,100% 7px,100% calc(100% - 7px),calc(100% - 7px) 100%,7px 100%,0 calc(100% - 7px),0 7px);
+      background:linear-gradient(180deg,rgba(25,20,33,.96),rgba(9,11,16,.98));
+      box-shadow:inset 0 0 16px rgba(132,76,181,.08),0 0 12px rgba(96,50,139,.12);
+      pointer-events:none;
+    }
+    .player-atomic-clock time {
+      display:flex;
+      align-items:center;
+      color:#edeaf1;
+      font:900 1rem/1 var(--font-mono,monospace);
+      letter-spacing:.1em;
+      text-shadow:0 0 10px rgba(203,166,234,.28);
+    }
+    .player-atomic-clock time i { color:#8e62b4; font-style:normal; animation:class-clock-colon 1s steps(1,end) infinite; }
+    .player-atomic-clock.is-warning {
+      border-color:#e6b958;
+      background:linear-gradient(180deg,rgba(54,37,15,.98),rgba(18,14,10,.99));
+      box-shadow:inset 0 0 22px rgba(239,181,61,.16),0 0 24px rgba(239,181,61,.32);
+      animation:class-clock-warning 1.2s ease-out both;
+    }
+
+    /* PLAYER CHAT FLOW // search is a real row, never an overlay. */
+    #game-screen .battle-comms-lobby .chat-search-strip {
+      position:relative !important;
+      inset:auto !important;
+      z-index:6 !important;
+      flex:0 0 auto !important;
+      width:100% !important;
+      margin:0 0 7px !important;
+      box-sizing:border-box !important;
+      background:#090c10 !important;
+      box-shadow:0 5px 10px rgba(0,0,0,.2) !important;
+    }
+    #game-screen .battle-comms-lobby #chat-messages {
+      position:relative !important;
+      z-index:1 !important;
+      padding-top:12px !important;
+      scroll-padding-top:12px;
+    }
+    @media (max-width:760px) {
+      :where(html:not(.asoc-mobile)) .player-atomic-clock { min-width:126px; padding-inline:8px; }
+      :where(html:not(.asoc-mobile)) .player-atomic-clock time { font-size:.78rem; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      .player-atomic-clock time i,.player-atomic-clock.is-warning { animation:none!important; }
+    }
+
     /* Keep the social-room bottom anchoring when the transcript is short.
        Once content exceeds the viewport the auto margin naturally resolves
        to zero and the container scrolls instead of compressing messages. */
@@ -9176,6 +9239,9 @@ position:absolute;
     <section class="detainee-status-module">
       <div class="detainee-status-label">
         <span>LITTLE HERO STATUS</span>
+        <div id="player-atomic-clock" class="player-atomic-clock" data-class-clock role="timer" aria-live="off" aria-label="Current time">
+          <time datetime="00:00:00"><b data-clock-hours>00</b><i>:</i><b data-clock-minutes>00</b><i>:</i><b data-clock-seconds>00</b></time>
+        </div>
         <span id="casual-online-count" class="casual-online-count" aria-label="Players online">
           <i class="casual-online-dot" aria-hidden="true"></i><b>0</b><span>ONLINE</span>
         </span>
@@ -9861,6 +9927,7 @@ position:absolute;
   <script src="js/stale-guard.js?v=20260929-mobile-build-1"></script>
   <script src="js/megabonk.js?v=20260928-searchlight-1"></script>
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
+  <script src="js/class-clock.js?v=20260929-class-clock-2"></script>
   <script src="js/voice-messages.js?v=20260929-voice-1"></script>
   <script src="js/player.js?v=20260929-resume-1"></script>
   <script src="js/player-quests.js?v=20260929-voice-1"></script>
