@@ -462,21 +462,29 @@
     .theme-select-menu::-webkit-scrollbar-thumb:hover {
       background:linear-gradient(180deg,#d2d8de,#808b96);
     }
-    .theme-select-menu::after {
-      content:"SCROLL FOR MORE THEMES ↓";
+    .theme-select-scroll-control {
       position:sticky;
       bottom:-1px;
+      z-index:4;
       display:block;
       grid-column:1/-1;
-      margin:2px -2px -2px;
-      padding:5px 8px;
-      border-top:1px solid #414a54;
-      background:linear-gradient(180deg,rgba(17,22,28,.88),#080a0d);
-      color:#aab3bd;
-      font:800 .42rem var(--font-machine);
-      letter-spacing:.7px;
+      width:100%;
+      margin:2px 0 0;
+      padding:7px 8px;
+      border:1px solid #56616d;
+      border-radius:4px;
+      background:linear-gradient(180deg,#20262d,#0d1116);
+      color:#d6dde4;
+      font:900 .44rem var(--font-machine);
+      letter-spacing:.8px;
       text-align:center;
-      pointer-events:none;
+      cursor:pointer;
+      box-shadow:0 -8px 18px rgba(0,0,0,.32);
+    }
+    .theme-select-scroll-control:hover {
+      border-color:#8d99a5;
+      background:linear-gradient(180deg,#2b333c,#12171d);
+      color:#ffffff;
     }
 
     .theme-select-menu[hidden] { display:none; }
@@ -864,7 +872,7 @@
        fits the layer AFTER the HUD band is deducted -- which is by
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
-       --hud-band is measured and set by js/player.js?v=20260929-theme-scroll-1"";
+       --hud-band is measured and set by js/player.js?v=20260929-theme-scroll-2"";
 position:absolute;
       left:5px;
       width:5px;
@@ -9247,6 +9255,7 @@ position:absolute;
                   </span>
                   <span class="theme-option-state">SELECT</span>
                 </button>
+                <button type="button" class="theme-select-scroll-control" id="theme-select-scroll-control">SCROLL DOWN ↓</button>
               </div>
             </div>
 
