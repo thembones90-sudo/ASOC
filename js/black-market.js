@@ -28,9 +28,8 @@
   // (~2.93MB) under the server's MAX_TRIBUTE_DATA_LENGTH of 3,000,000 and well
   // under the 5MB WebSocket payload ceiling, so a legal file is never rejected
   // on arrival for size.
-  const TRIBUTE_MAX_BYTES = 2200000;
+  const TRIBUTE_MAX_BYTES = 20 * 1024 * 1024;
   const TRIBUTE_MIME = ['image/png', 'image/jpeg', 'image/webp'];
-  const TRIBUTE_DATA_URL = /^data:image\/(?:png|jpeg|webp);base64,/;
 
   const ui = {
     pacts: [],
@@ -322,7 +321,7 @@
       }, 45000);
     },
 
-    onTributePicked(input) {
+    async onTributePicked(input) {
       const pactId = this._tributePactId;
       const file = input.files && input.files[0];
       if (file) this._tributeSelectionReceived = true;
@@ -332,63 +331,64 @@
         window.removeEventListener('focus', this._tributeFocusRecovery);
         this._tributeFocusRecovery = null;
       }
-      // Dismissed with nothing chosen: not an error, just release and wait.
       if (!file) {
         input.value = '';
         return this.releaseTribute();
       }
-      // accept= on the input is only a filter hint; the picker can still hand
-      // back anything, so the type is checked for real.
       if (!TRIBUTE_MIME.includes(String(file.type || '').toLowerCase())) {
+        input.value = '';
         this.releaseTribute();
         return this.toast('THE VAULT ACCEPTS ONLY PNG, JPEG OR WEBP');
       }
       if (file.size > TRIBUTE_MAX_BYTES) {
+        input.value = '';
         this.releaseTribute();
-        return this.toast('THE OFFERING EXCEEDS THE VAULT LIMIT');
+        return this.toast('THE OFFERING EXCEEDS THE 20 MB VAULT LIMIT');
       }
-      const reader = new FileReader();
-      // A read that never completes is precisely the "OFFER flashes, nothing
-      // happens" symptom, so every failure path reports instead of vanishing.
-      reader.onerror = () => {
-        input.value = '';
-        this.releaseTribute();
-        this.toast('THE IMAGE COULD NOT BE READ');
-      };
-      reader.onabort = () => {
-        input.value = '';
-        this.releaseTribute();
-        this.toast('THE READING WAS INTERRUPTED');
-      };
-      reader.onload = () => {
-        input.value = '';
-        const imageData = String(reader.result || '');
-        if (!TRIBUTE_DATA_URL.test(imageData)) {
-          this.releaseTribute();
-          return this.toast('THE OFFERING IS INVALID');
+
+      if (this._tributeButton && this._tributeButton.isConnected) {
+        this._tributeButton.textContent = 'SEALING THE OFFERING…';
+      }
+
+      try {
+        const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
+        if (!token) throw new Error('THE RELIQUARY HAS LOST YOUR IDENTITY');
+
+        const response = await fetch('/api/black-market/tribute-image?pactId=' + encodeURIComponent(pactId), {
+          method: 'POST',
+          headers: {
+            'Content-Type': file.type,
+            'x-player-token': token
+          },
+          body: file
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.imageUrl) {
+          throw new Error(payload.error || 'THE OFFERING COULD NOT BE STORED');
         }
-        let sent = false;
-        try {
-          sent = this.send({ type:'blackMarket:tributeSubmit', pactId, imageData, consent:true }) === true;
-        } catch (error) {
-          sent = false;
-        }
-        if (!sent) {
-          this.releaseTribute();
-          return this.toast('THE RELIQUARY HAS LOST THE LINK');
-        }
-        // The pact leaves APPROVED_PENDING_TRIBUTE the moment the server
-        // accepts it, so the refreshed state re-renders the ledger without an
-        // OFFER button; the lock is dropped rather than released.
+
+        const sent = this.send({
+          type:'blackMarket:tributeSubmit',
+          pactId,
+          imageUrl:payload.imageUrl,
+          consent:true
+        }) === true;
+        if (!sent) throw new Error('THE RELIQUARY HAS LOST THE LINK');
+
         this._tributeBusy = false;
         this._tributePactId = null;
         this._tributeSelectionReceived = false;
         this._tributePickerCycle += 1;
         this._tributeButton = null;
         this.toast('THE OFFERING HAS BEEN SEALED');
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        this.releaseTribute();
+        this.toast(error?.message || 'THE OFFERING COULD NOT BE SEALED');
+      } finally {
+        input.value = '';
+      }
     },
+
     toast(message) {
       let node = document.getElementById('black-market-toast');
       if (!node) {
