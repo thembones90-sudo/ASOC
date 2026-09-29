@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="css/asoc.css?v=20260929-mobile-shell-1">
   <link rel="stylesheet" href="css/quest-icon-system.css?v=20260928-skynet-quest-icons-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
-  <link rel="stylesheet" href="css/black-market.css?v=20260929-black-market-1">
+  <link rel="stylesheet" href="css/black-market.css?v=20260929-player-access-1">
   <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-2">
   <link rel="stylesheet" href="css/megabonk.css?v=20260928-searchlight-1">
   <link rel="stylesheet" href="css/direct-messages.css?v=20260928-chat-rail-layout-1">
@@ -9264,6 +9264,9 @@ position:absolute;
           <svg class="hero-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v9M6.3 5.7a8 8 0 1 0 11.4 0"/></svg>
           <span>DISCONNECT</span>
         </button>
+        <button type="button" id="black-market-player-button" class="black-market-entry black-market-player-control hero-utility-btn" hidden aria-label="Open private Black Market channel">
+          <span>BLACK MARKET</span><small>PRIVATE CHANNEL</small>
+        </button>
         <div class="master-access-wrap player-master-access-wrap" id="player-master-access-wrap" hidden>
           <button type="button" id="player-master-access-control" class="hero-utility-btn player-master-access-control" aria-haspopup="true" aria-expanded="false">
             <span>MASTER ACCESS</span>
@@ -9930,6 +9933,7 @@ position:absolute;
   <script src="js/class-clock.js?v=20260929-class-clock-2"></script>
   <script src="js/voice-messages.js?v=20260929-voice-1"></script>
   <script src="js/player.js?v=20260929-resume-1"></script>
+  <script src="js/black-market.js?v=20260929-player-access-1"></script>
   <script src="js/player-quests.js?v=20260929-voice-1"></script>
   <script src="js/threefold.js?v=20260925-kaladont-1"></script>
   <script src="js/kaladont-ui.js?v=20260928-kaladont-chat-timer-1"></script>
