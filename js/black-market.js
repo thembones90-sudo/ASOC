@@ -142,8 +142,27 @@
           const reason = prompt('WHY IS THE OFFERING DENIED?') || '';
           return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:false, reason });
         }
-        const terms = ['accept','waive','counter','deny'].includes(act) ? (prompt('TERMS OF THE PACT // OPTIONAL EXCEPT COUNTEROFFER') || '') : '';
-        this.send({ type:'blackMarket:gmDecision', pactId, action:act, terms, tributeRequired:true });
+        if (act === 'accept') {
+          btn.disabled = true;
+          return this.send({ type:'blackMarket:gmDecision', pactId, action:'accept', terms:'', tributeRequired:true });
+        }
+        if (act === 'waive') {
+          btn.disabled = true;
+          return this.send({ type:'blackMarket:gmDecision', pactId, action:'waive', terms:'', tributeRequired:false });
+        }
+        if (act === 'counter') {
+          const terms = prompt('REWRITE THE TERMS OF THE PACT');
+          if (!terms?.trim()) return;
+          btn.disabled = true;
+          return this.send({ type:'blackMarket:gmDecision', pactId, action:'counter', terms:terms.trim(), tributeRequired:true });
+        }
+        if (act === 'deny') {
+          const terms = prompt('REASON FOR DENIAL // OPTIONAL') || '';
+          btn.disabled = true;
+          return this.send({ type:'blackMarket:gmDecision', pactId, action:'deny', terms, tributeRequired:false });
+        }
+        btn.disabled = true;
+        this.send({ type:'blackMarket:gmDecision', pactId, action:act, terms:'', tributeRequired:false });
       }));
     },
     offerTribute(pactId) {
