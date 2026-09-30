@@ -191,6 +191,28 @@ const ControlSurfaces = {
       footerButton.textContent = 'BACKDOOR';
       footerButton.classList.add('maintenance-toggle-btn');
     }
+
+    // Keep the GM command deck as one deliberate 3x3 grid. The wrappers remain in
+    // the DOM for existing logic/selectors, but display:contents lets their buttons
+    // participate directly in the existing Battle Controls grid.
+    const battleControlsGrid = document.querySelector('#battle-controls-panel .battle-controls-grid');
+    const utilityRow = document.querySelector('#battle-controls-panel .battle-controls-utility-row');
+    const systemDock = document.getElementById('gm-system-dock');
+    if (battleControlsGrid && utilityRow && systemDock) {
+      utilityRow.style.display = 'contents';
+      systemDock.style.display = 'contents';
+      battleControlsGrid.appendChild(utilityRow);
+      battleControlsGrid.appendChild(systemDock);
+      battleControlsGrid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
+      battleControlsGrid.style.gap = '12px';
+      Array.from(battleControlsGrid.children).forEach(node => {
+        if (node instanceof HTMLElement && node.style.display !== 'contents') {
+          node.style.width = '100%';
+          node.style.margin = '0';
+        }
+      });
+    }
+
     maintenance.addEventListener('click', event => {
       const button = event.target.closest('button');
       if (!button || button.classList.contains('gm-backdoor-return')) return;
