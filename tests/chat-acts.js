@@ -131,7 +131,13 @@ async function run() {
     assert.match(appSrc, /case 'error':[\s\S]*this\.showGMCommandError\(message\.message\)/, 'GM server failures use the in-app error path');
     assert.doesNotMatch(appSrc.match(/case 'error':[\s\S]*?break;/)?.[0] || '', /alert\(/, 'GM server failures never open a native Electron alert');
     assert.match(appSrc, /composer\?\.focus\(\{ preventScroll: true \}\)/, 'GM error path restores composer focus');
-    assert.match(joinSrc, /player\.js\?v=20260930-broker-preview-1/, 'targeted-act, HUD, contracts, roster avatars and Broker link previews are cache-busted');
+    assert.match(joinSrc, /player\.js\?v=20260930-chat-act-fx-1/, 'targeted-act visuals and player chat are cache-busted');
+    assert.match(playerSrc, /chat-fart-fx/, 'player cards mount toxic fart-cloud particles');
+    assert.match(playerSrc, /chat-spit-fx/, 'player cards mount dark-blue spit particles');
+    assert.match(appSrc, /chat-fart-fx/, 'GM cards mount toxic fart-cloud particles');
+    assert.match(appSrc, /chat-spit-fx/, 'GM cards mount dark-blue spit particles');
+    assert.match(cssSrc, /@keyframes chat-fart-cloud/, 'toxic fart shroud animation exists');
+    assert.match(cssSrc, /@keyframes chat-spit-impact/, 'dark-blue spit impact animation exists');
     assert.doesNotMatch(playerSrc, /msg\.imageUrl \? 'IMAGE TRANSMISSION'/, 'player image-only Broker posts have no redundant transmission plaque');
     assert.doesNotMatch(appSrc, /msg\.imageUrl \? 'IMAGE TRANSMISSION'/, 'GM image-only Broker posts have no redundant transmission plaque');
     assert.match(joinSrc, /PLAYER STATUS HEADER FINAL GUARD/, 'player HUD has a final cascade guard against inflated utility controls');

@@ -17363,12 +17363,128 @@ button.gm-chat-gif-link:focus-visible {
 .chat-system-detail { color:#9aa3ad; font-size:.64rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-top:2px; }
 .chat-system-ok { color:#5ee08a; }
 .chat-system-ko { color:#ff7b72; }
-.chat-system-spit { --sys-accent:#b477ff; }
+.chat-system-spit { --sys-accent:#245f9d; }
 .chat-system-spit .chat-system-body { font-style:italic; }
-.chat-system-fart { --sys-accent:#9acd32; }
+.chat-system-fart { --sys-accent:#7fbe25; }
 .chat-system-fart .chat-system-body { font-style:italic; }
 .chat-system-hiss { --sys-accent:#78d89a; }
 .chat-system-hiss .chat-system-body { font-style:italic; letter-spacing:.025em; }
+
+/* Targeted-act impact animations. These live inside the system card so they
+   work identically in the player web app and the Shadow Broker desktop feed. */
+.chat-system-spit,
+.chat-system-fart { position:relative; isolation:isolate; }
+.chat-act-fx { position:absolute; inset:0; z-index:2; overflow:visible; pointer-events:none; }
+.chat-system-spit > :not(.chat-act-fx),
+.chat-system-fart > :not(.chat-act-fx) { position:relative; z-index:3; }
+
+/* /fart: a short toxic shroud rolls outward, followed by buoyant gas bubbles. */
+.chat-fart-fx::before,
+.chat-fart-fx::after {
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:42%; height:110%;
+  border-radius:50%;
+  opacity:0;
+  background:
+    radial-gradient(circle at 28% 58%,rgba(189,255,61,.64) 0 13%,rgba(92,171,30,.34) 29%,transparent 61%),
+    radial-gradient(circle at 62% 38%,rgba(146,224,45,.58) 0 18%,rgba(55,115,21,.28) 38%,transparent 66%),
+    radial-gradient(circle at 76% 72%,rgba(113,196,30,.48) 0 15%,transparent 58%);
+  filter:blur(5px) saturate(1.25);
+  animation:chat-fart-cloud 1.55s cubic-bezier(.18,.7,.22,1) both;
+}
+.chat-fart-fx::after { animation-delay:.12s; transform:translate(-50%,-50%) scale(.62) rotate(180deg); }
+.chat-fart-fx i {
+  position:absolute;
+  left:calc(18% + var(--fart-x,0%)); bottom:16%;
+  width:var(--fart-size,12px); height:var(--fart-size,12px);
+  border:2px solid rgba(178,255,75,.72);
+  border-radius:50%;
+  background:radial-gradient(circle at 32% 26%,rgba(233,255,191,.62),rgba(111,195,31,.24) 45%,rgba(25,73,15,.2) 70%);
+  box-shadow:0 0 9px rgba(116,220,28,.68),inset 0 0 5px rgba(205,255,114,.4);
+  opacity:0;
+  animation:chat-fart-bubble 1.55s ease-out var(--fart-delay,0s) both;
+}
+.chat-fart-fx i:nth-child(1){--fart-x:2%;--fart-size:9px;--fart-delay:.05s}
+.chat-fart-fx i:nth-child(2){--fart-x:15%;--fart-size:15px;--fart-delay:.12s}
+.chat-fart-fx i:nth-child(3){--fart-x:30%;--fart-size:7px;--fart-delay:.22s}
+.chat-fart-fx i:nth-child(4){--fart-x:47%;--fart-size:12px;--fart-delay:.08s}
+.chat-fart-fx i:nth-child(5){--fart-x:63%;--fart-size:8px;--fart-delay:.27s}
+.chat-fart-fx i:nth-child(6){--fart-x:75%;--fart-size:14px;--fart-delay:.17s}
+
+/* /spit: dark cobalt impact smear with a wet central splat and thrown drops. */
+.chat-spit-fx::before {
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:88px; height:54px;
+  border-radius:48% 38% 53% 42%;
+  opacity:0;
+  background:
+    radial-gradient(ellipse at 45% 48%,rgba(44,114,181,.96) 0 19%,rgba(18,69,125,.94) 38%,rgba(4,25,60,.92) 65%,transparent 69%),
+    linear-gradient(96deg,transparent 5%,rgba(21,73,134,.82) 28%,rgba(4,26,65,.9) 74%,transparent 96%);
+  filter:drop-shadow(0 2px 2px rgba(0,8,28,.9)) drop-shadow(0 0 7px rgba(30,94,170,.55));
+  animation:chat-spit-impact 1.2s cubic-bezier(.12,.78,.18,1) both;
+}
+.chat-spit-fx::after {
+  content:"";
+  position:absolute;
+  left:38%; top:56%;
+  width:29%; height:5px;
+  border-radius:100%;
+  background:linear-gradient(90deg,transparent,rgba(29,93,166,.8),rgba(3,25,64,.92),transparent);
+  opacity:0;
+  transform:rotate(-7deg);
+  animation:chat-spit-smear 1.35s ease-out both;
+}
+.chat-spit-fx i {
+  position:absolute;
+  left:50%; top:50%;
+  width:var(--spit-w,8px); height:var(--spit-h,8px);
+  border-radius:62% 38% 58% 42%;
+  background:radial-gradient(circle at 35% 28%,#4c9bd5 0 10%,#174f93 38%,#041b48 78%);
+  box-shadow:0 1px 3px rgba(0,7,25,.9);
+  opacity:0;
+  animation:chat-spit-drop 1.05s cubic-bezier(.15,.72,.2,1) var(--spit-delay,0s) both;
+}
+.chat-spit-fx i:nth-child(1){--spit-x:-74px;--spit-y:-28px;--spit-w:10px;--spit-h:7px}
+.chat-spit-fx i:nth-child(2){--spit-x:70px;--spit-y:-23px;--spit-w:7px;--spit-h:12px;--spit-delay:.03s}
+.chat-spit-fx i:nth-child(3){--spit-x:-56px;--spit-y:31px;--spit-w:6px;--spit-h:9px;--spit-delay:.06s}
+.chat-spit-fx i:nth-child(4){--spit-x:58px;--spit-y:32px;--spit-w:12px;--spit-h:6px;--spit-delay:.04s}
+.chat-spit-fx i:nth-child(5){--spit-x:14px;--spit-y:-39px;--spit-w:6px;--spit-h:6px;--spit-delay:.09s}
+
+@keyframes chat-fart-cloud {
+  0% { opacity:0; transform:translate(-50%,-35%) scale(.22); }
+  24% { opacity:.92; }
+  100% { opacity:0; transform:translate(-50%,-76%) scale(1.8); }
+}
+@keyframes chat-fart-bubble {
+  0% { opacity:0; transform:translate(0,4px) scale(.3); }
+  22% { opacity:.95; }
+  100% { opacity:0; transform:translate(var(--fart-drift,12px),-76px) scale(1.25); }
+}
+@keyframes chat-spit-impact {
+  0% { opacity:0; transform:translate(-50%,-50%) scale(.08) rotate(-9deg); }
+  18% { opacity:1; transform:translate(-50%,-50%) scale(1.18) rotate(2deg); }
+  32% { transform:translate(-50%,-50%) scale(.96) rotate(0); }
+  76% { opacity:.9; }
+  100% { opacity:0; transform:translate(-50%,-47%) scale(1.03); }
+}
+@keyframes chat-spit-smear {
+  0%,14% { opacity:0; transform:rotate(-7deg) scaleX(.12); }
+  28% { opacity:.9; transform:rotate(-7deg) scaleX(1); }
+  100% { opacity:0; transform:translateY(8px) rotate(-7deg) scaleX(1.08); }
+}
+@keyframes chat-spit-drop {
+  0% { opacity:0; transform:translate(-50%,-50%) scale(.2); }
+  24% { opacity:1; }
+  100% { opacity:0; transform:translate(calc(-50% + var(--spit-x)),calc(-50% + var(--spit-y))) scale(.85); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .chat-fart-fx::before,.chat-fart-fx::after,.chat-fart-fx i,
+  .chat-spit-fx::before,.chat-spit-fx::after,.chat-spit-fx i { animation-duration:.01ms !important; }
+}
 
 /* Image-only Shadow Broker posts: the image is the complete message. */
 .gm-shadow-broker-entry > .chat-image-link.broker-image-only {

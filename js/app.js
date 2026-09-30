@@ -5611,8 +5611,14 @@ const App = {
     window.ShadowCosmetics?.maybePlayFx(msg);
     const { label, body, detail } = render();
     const lane = msg.playerId == null ? ' chat-system-own' : ' chat-system-other';
+    const actFx = msg.messageType === 'fart'
+      ? '<span class="chat-act-fx chat-fart-fx" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>'
+      : msg.messageType === 'spit'
+        ? '<span class="chat-act-fx chat-spit-fx" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>'
+        : '';
     return `
       <div class="chat-system-card chat-system-${esc(msg.messageType)}${lane}${window.ShadowCosmetics?.cardClass(msg) || ''}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
+        ${actFx}
         <div class="chat-system-label">${esc(label)}</div>
         <div class="chat-system-body">${body}</div>
         ${detail ? `<div class="chat-system-detail">${detail}</div>` : ''}
