@@ -1742,7 +1742,7 @@ const App = {
 
       if (e.key === 'Enter') {
         e.preventDefault();
-        shadowBrokerForm?.requestSubmit();
+        this.sendShadowBrokerBroadcast();
         return;
       }
 
@@ -5858,7 +5858,6 @@ const App = {
   cancelGMChatEdit() {
     this._editingBroadcast = null;
     this.setGMComposerText('', 0);
-    window.ChatLinks?.clearComposerPreview?.('gm');
     this.setGMComposerPlaceholder('Transmit to players...');
     this.getGMComposerElement()?.focus();
     const label = document.querySelector('#shadow-broker-form .shadow-broker-form-label');
@@ -6282,7 +6281,6 @@ const App = {
     }
 
     this.setGMComposerText('', 0);
-    window.ChatLinks?.clearComposerPreview?.('gm');
     // Keep focus in the composer so Enter can fire the next transmission
     // immediately. There is deliberately no character counter or GM-side
     // transmission length cap.
