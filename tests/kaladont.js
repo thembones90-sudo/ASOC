@@ -36,11 +36,11 @@ function startGame(names, seed = 7, now = 1000) {
   return s;
 }
 
-// Plays the current turn to acceptance (all living vote accept).
+// Plays the current turn to acceptance (all eligible voters accept).
 function acceptWord(s, word, now) {
   const by = s.turn.playerId;
   assert.equal(K.submit(s, by, word, s.turn.seq, now).outcome, 'tribunal');
-  K.living(s).forEach(id => K.vote(s, id, 'accept', s.tribunal.seq, now));
+  K.living(s).filter(id => id !== by).forEach(id => K.vote(s, id, 'accept', s.tribunal.seq, now));
   assert.equal(s.phase, 'verdict');
   K.tick(s, s.verdictUntil);
   return by;
@@ -84,6 +84,8 @@ function checkEngine() {
   const first = acceptWord(s, 'Kuća', now);
   assert.equal(first, order[0]);
   assert.equal(s.prefix, 'ĆA', 'prefix = last two letters, case-insensitive');
+  assert.equal(K.lastTwo('BULJA'), 'LJA', 'Serbian LJ remains one-letter ending plus A');
+  assert.equal(K.lastTwo('DONJA'), 'NJA', 'Serbian NJ remains one-letter ending plus A');
   assert.deepEqual(s.history.map(h => h.word), ['KUĆA']);
   assert.equal(s.turn.playerId, order[1]);
   assert.deepEqual(s.order, order, 'order preserved across turns');
@@ -98,7 +100,7 @@ function checkEngine() {
   // 14. missing votes become ACCEPT at the window's end; 17. 1 reject vs 3 accept
   K.tick(s, s.tribunal.deadline + 1);
   assert.equal(s.result.kind, 'accepted');
-  assert.equal(s.result.votes.defaulted.length, 3, 'silent voters counted as ACCEPT');
+  assert.equal(s.result.votes.defaulted.length, 2, 'silent eligible voters counted as ACCEPT');
   assert.equal(s.prefix, 'AO');
   K.tick(s, s.verdictUntil);
 
@@ -106,7 +108,7 @@ function checkEngine() {
   const third = s.turn.playerId;
   const historyBefore = s.history.length;
   K.submit(s, third, 'aorta', s.turn.seq, now);
-  K.living(s).forEach((id, i) => K.vote(s, id, i < 3 ? 'reject' : 'accept', s.tribunal.seq, now));
+  K.living(s).filter(id => id !== third).forEach(id => K.vote(s, id, 'reject', s.tribunal.seq, now));
   assert.equal(s.result.kind, 'rejected');
   assert.equal(s.players[third].alive, false);
   assert.equal(s.players[third].reason, 'WORD REJECTED');
@@ -120,9 +122,9 @@ function checkEngine() {
   const fourth = s.turn.playerId;
   K.submit(s, fourth, 'aoki', s.turn.seq, now);
   assert.equal(K.vote(s, third, 'accept', s.tribunal.seq, now).ok, false, 'spectators cannot vote');
-  // 17. tie = ACCEPT (3 living: 1 accept, 1 reject, 1 silent -> 2-1 accept; force a true tie below)
-  K.vote(s, K.living(s)[0], 'reject', s.tribunal.seq, now);
-  K.vote(s, K.living(s)[1], 'accept', s.tribunal.seq, now);
+  // One eligible voter rejects; submitter is not permitted to vote.
+  const eligible = K.living(s).filter(id => id !== fourth);
+  K.vote(s, eligible[0], 'reject', s.tribunal.seq, now);
   K.tick(s, s.tribunal.deadline + 1);
   assert.equal(s.result.kind, 'accepted');
   K.tick(s, s.verdictUntil);
@@ -135,13 +137,13 @@ function checkEngine() {
   assert.equal(s.prefix, prefixBefore);
   assert.equal(s.tribunal, null);
 
-  // True tie: 2 living, one accept + one reject.
+  // With two living players, only the opponent votes.
   s = startGame(['a', 'b']);
   const t1 = s.turn.playerId;
   K.submit(s, t1, 'mama', s.turn.seq, now);
-  K.vote(s, 'a', 'accept', s.tribunal.seq, now);
-  K.vote(s, 'b', 'reject', s.tribunal.seq, now);
-  assert.equal(s.result.kind, 'accepted', 'a tie accepts');
+  assert.equal(K.vote(s, t1, 'accept', s.tribunal.seq, now).error, 'YOU CANNOT VOTE FOR YOUR OWN WORD');
+  K.vote(s, s.order.find(id => id !== t1), 'accept', s.tribunal.seq, now);
+  assert.equal(s.result.kind, 'accepted');
 
   // 8. wrong prefix, 9. duplicate word -> immediate elimination, no tribunal
   s = startGame(['a', 'b', 'c']);
@@ -182,11 +184,10 @@ function checkEngine() {
   assert.equal(K.vote(s, p, 'accept', s.tribunal.seq, s.tribunal.deadline + 1).ok, false, 'late vote refused');
   assert.equal(K.vote(s, p, 'maybe', s.tribunal.seq, now).ok, false);
 
-  // 21. KALADONT: auto-accepted, no tribunal, kills the next living player
+  // 21. KALADONT: auto-accepted, no tribunal, kills the previous word's player
   s = startGame(['a', 'b', 'c'], 3);
-  acceptWord(s, 'luka', now); // prefix KA
+  const victim = acceptWord(s, 'luka', now); // prefix KA
   const killer = s.turn.playerId;
-  const victim = s.order[(s.order.indexOf(killer) + 1) % 3];
   const out = K.submit(s, killer, 'kaladont', s.turn.seq, now);
   assert.equal(out.outcome, 'kaladont');
   assert.equal(s.tribunal, null, 'no tribunal for KALADONT');
@@ -195,7 +196,7 @@ function checkEngine() {
   assert.equal(s.history.at(-1).word, 'KALADONT');
   assert.equal(s.prefix, '', 'the chain restarts after NT');
   K.tick(s, s.verdictUntil);
-  assert.notEqual(s.turn.playerId, victim, 'the killed player is skipped');
+  assert.equal(s.turn.playerId, killer, 'the killer opens the new chain');
   // KALADONT without the prefix is just a wrong prefix
   s = startGame(['a', 'b', 'c'], 3);
   acceptWord(s, 'voda', now);
@@ -203,10 +204,12 @@ function checkEngine() {
 
   // 22. KALADONT can end the match; 20. last active player wins
   s = startGame(['a', 'b'], 5);
+  const victim2 = acceptWord(s, 'luka', now);
   const opener = s.turn.playerId;
   K.submit(s, opener, 'kaladont', s.turn.seq, now);
   assert.equal(s.phase, 'ended');
   assert.equal(s.winnerId, opener);
+  assert.equal(s.players[victim2].alive, false);
   assert.equal(s.players[opener].place, 1);
   assert.equal(s.turn, null, 'timers stop at the end');
   assert.equal(K.tick(s, now + 5000).changed, false);
@@ -228,6 +231,15 @@ function checkEngine() {
   assert.equal(restored.tribunal.votes.a, 'reject', 'votes survive a restart');
   assert.equal(restored.tribunal.deadline, now + 999999 + K.VOTE_MS, 'nobody is executed for downtime');
   assert.equal(K.normalizeState({ phase: 'bogus' }), null);
+
+  // A late player requests admission; only an explicit approval adds them.
+  s = startGame(['a', 'b', 'c']);
+  assert.equal(K.requestAdmission(s, hero('late'), now).ok, true);
+  assert.equal(K.view(s, 'late', now).you.admissionRequested, true);
+  assert.equal(K.view(s, '__GM__', now).admissionRequests[0].id, 'late');
+  assert.equal(K.resolveAdmission(s, 'late', true, now).ok, true);
+  assert.equal(s.players.late.alive, true);
+  assert.equal(s.order.at(-1), 'late');
 }
 
 // ---------------------------------------------------------------------------
@@ -374,15 +386,20 @@ async function runServer() {
     // start -> fixed order, first turn
     ana.send({ type: 'kaladont:start' });
     const started = await gm.waitKal(k => k?.phase === 'turn', 'game starts');
-    const order = started.order.map(p => p.id);
+    let order = started.order.map(p => p.id);
     assert.equal(order.length, 3);
     const byId = { [ana.playerId]: ana, [bo.playerId]: bo, [cy.playerId]: cy };
     const first = byId[started.turn.playerId];
     mark = cy.mark();
     const lateJoiner = await connect('Dee');
-    lateJoiner.send({ type: 'kaladont:join' });
-    await sleep(200);
-    assert.match(lateJoiner.errorsSince(0).join(' '), /JOINING IS CLOSED/);
+    lateJoiner.send({ type: 'kaladont:requestAdmission' });
+    const requested = await gm.waitKal(k => k?.admissionRequests?.some(r => r.id === lateJoiner.playerId), 'late admission requested');
+    assert.equal(requested.admissionRequests[0].name, 'Dee');
+    gm.send({ type: 'kaladont:admit', playerId: lateJoiner.playerId });
+    const admitted = await gm.waitKal(k => k?.order?.some(p => p.id === lateJoiner.playerId), 'late player admitted');
+    byId[lateJoiner.playerId] = lateJoiner;
+    order = admitted.order.map(p => p.id);
+    assert.equal(order.at(-1), lateJoiner.playerId);
 
     // submit -> tribunal; vote -> verdict -> next turn
     first.send({ type: 'kaladont:submit', word: 'voda', turnSeq: started.turn.seq });
@@ -393,22 +410,23 @@ async function runServer() {
     first.send({ type: 'kaladont:submit', word: 'vodi', turnSeq: started.turn.seq });
     await sleep(150);
     assert.ok(first.errorsSince(mark).length, 'double submit refused');
-    ana.send({ type: 'kaladont:vote', choice: 'accept', tribunalSeq: tribunal.tribunal.seq });
-    bo.send({ type: 'kaladont:vote', choice: 'accept', tribunalSeq: tribunal.tribunal.seq });
+    const eligibleClients = order.filter(id => id !== first.playerId).map(id => byId[id]);
+    eligibleClients[0].send({ type: 'kaladont:vote', choice: 'accept', tribunalSeq: tribunal.tribunal.seq });
+    eligibleClients[1].send({ type: 'kaladont:vote', choice: 'accept', tribunalSeq: tribunal.tribunal.seq });
     await gm.waitKal(k => k?.tribunal?.voted === 2, 'two votes counted');
     assert.equal(JSON.stringify(gm.kal).includes('"accept"'), false, 'votes stay secret while open');
-    mark = ana.mark();
-    ana.send({ type: 'kaladont:vote', choice: 'reject', tribunalSeq: tribunal.tribunal.seq });
+    mark = eligibleClients[0].mark();
+    eligibleClients[0].send({ type: 'kaladont:vote', choice: 'reject', tribunalSeq: tribunal.tribunal.seq });
     await sleep(150);
-    assert.match(ana.errorsSince(mark).join(' '), /ALREADY VOTED/);
-    cy.send({ type: 'kaladont:vote', choice: 'reject', tribunalSeq: tribunal.tribunal.seq });
+    assert.match(eligibleClients[0].errorsSince(mark).join(' '), /ALREADY VOTED/);
+    eligibleClients[2].send({ type: 'kaladont:vote', choice: 'reject', tribunalSeq: tribunal.tribunal.seq });
     const verdict = await gm.waitKal(k => k?.phase === 'verdict', 'verdict');
     assert.equal(verdict.result.kind, 'accepted');
     assert.equal(verdict.result.votes.accept.length, 2);
-    assert.equal(verdict.result.votes.reject[0].name, 'Cy', 'votes revealed after the verdict');
+    assert.equal(verdict.result.votes.reject.length, 1, 'votes revealed after the verdict');
     const second = await gm.waitKal(k => k?.phase === 'turn' && k.turn.playerId !== first.playerId, 'next turn');
     assert.equal(second.prefix, 'DA');
-    assert.equal(second.turn.playerId, order[(order.indexOf(first.playerId) + 1) % 3], 'fixed order advances');
+    assert.equal(second.turn.playerId, order[(order.indexOf(first.playerId) + 1) % order.length], 'fixed order advances');
 
     // Chat cards: lobby, start, but never individual votes.
     await sleep(200);

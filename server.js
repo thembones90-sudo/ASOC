@@ -5107,6 +5107,14 @@ function handleKaladont(ws, message) {
     case 'kaladont:join':
       result = kaladont.join(state, actor);
       break;
+    case 'kaladont:requestAdmission':
+      result = kaladont.requestAdmission(state, actor, now);
+      break;
+    case 'kaladont:admit':
+    case 'kaladont:denyAdmission':
+      if (ws !== room.hostConnection) return fail('ONLY THE SHADOW BROKER MAY RULE ON ADMISSION');
+      result = kaladont.resolveAdmission(state, message.playerId, type === 'kaladont:admit', now);
+      break;
     case 'kaladont:leave':
       result = kaladont.leave(state, actor.id);
       break;
@@ -11239,6 +11247,9 @@ wss.on('connection', (ws, req) => {
         }
         case 'kaladont:create':
         case 'kaladont:join':
+        case 'kaladont:requestAdmission':
+        case 'kaladont:admit':
+        case 'kaladont:denyAdmission':
         case 'kaladont:leave':
         case 'kaladont:cancel':
         case 'kaladont:start':

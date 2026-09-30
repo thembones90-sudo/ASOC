@@ -200,26 +200,31 @@ async function runServer() {
     const byId = { [ana.playerId]: ana, [bo.playerId]: bo };
     const first = byId[turn.turn.playerId];
     const other = first === ana ? bo : ana;
-    first.send({ type: 'kaladont:submit', word: 'kaladont', turnSeq: turn.turn.seq }); // KALADONT kills the only rival
-    const ended = await first.waitKal(k => k?.phase === 'ended' && k.reward, 'win settled');
-    assert.equal(ended.winnerId, first.playerId);
+    first.send({ type: 'kaladont:submit', word: 'luka', turnSeq: turn.turn.seq });
+    const tribunal = await gm.waitKal(k => k?.phase === 'tribunal', 'opening tribunal');
+    other.send({ type: 'kaladont:vote', choice: 'accept', tribunalSeq: tribunal.tribunal.seq });
+    const next = await gm.waitKal(k => k?.phase === 'turn' && k.turn.playerId === other.playerId, 'second turn');
+    other.send({ type: 'kaladont:submit', word: 'kaladont', turnSeq: next.turn.seq }); // kills the previous word's player
+    const ended = await other.waitKal(k => k?.phase === 'ended' && k.reward, 'win settled');
+    assert.equal(ended.winnerId, other.playerId);
     assert.equal(ended.reward.amount, 1);
     assert.equal(ended.reward.balance, 2, 'the winner sees the match award plus the completed daily contract');
-    assert.equal(other.kal.reward?.balance ?? null, null, 'others do not see the winner balance');
+    assert.equal(first.kal.reward?.balance ?? null, null, 'others do not see the winner balance');
     await sleep(300);
     // The winner earns +1 for victory and +1 for actively playing the valid LAST WORD.
-    assert.equal(coins(gm, first.playerId), 2, 'winner receives the match award and daily reward');
-    assert.equal(coins(gm, other.playerId), 0, 'a player eliminated before submitting a valid word earns nothing');
+    assert.equal(coins(gm, other.playerId), 2, 'winner receives the match award and daily reward');
+    assert.equal(coins(gm, first.playerId), 1, 'the previous-word player receives the daily participation reward');
     assert.equal(coins(gm, cy.playerId), 0, 'a spectator receives nothing');
     const lastChat = [...gm.msgs].reverse().find(m => m.type === 'chat:update').messages.map(m => m.text);
     assert.ok(lastChat.some(t => /WINS KALADONT \+1 SHADOW COIN/.test(t || '')), 'the winner line announces the coin');
 
     // 12. the client cannot set its balance (join payload / unknown message)
-    first.send({ type: 'player:setShadowCoins', value: 9999 });
-    first.close();
+    const winnerClient = other;
+    winnerClient.send({ type: 'player:setShadowCoins', value: 9999 });
+    winnerClient.close();
     await sleep(250);
     // 10. + 7. reconnect with a fresh login, 9. under a new display name
-    const again = await connect(first.name, `${first.name} Renamed`, { shadowCoins: 9999 });
+    const again = await connect(winnerClient.name, `${winnerClient.name} Renamed`, { shadowCoins: 9999 });
     await sleep(250);
     assert.equal(coins(gm, again.playerId), 2, 'reconnect / login / rename / forged fields preserve the earned balance');
     // 11. the same finished match never pays again (the clock keeps ticking over it)
@@ -242,7 +247,7 @@ async function runServer() {
     clients.push(gm2);
     gm2.send({ type: 'host:recover', gmToken: await gmLogin() });
     await gm2.waitFor(m => m.type === 'host:recovered', 'host after restart');
-    const back = await connect(first.name);
+    const back = await connect(winnerClient.name);
     await sleep(900);
     assert.equal(coins(gm2, winnerId), 2, 'restart preserves both rewards and never re-runs an administrative grant for a later account');
     const persisted = JSON.parse(fs.readFileSync(path.join(DATA, 'players.json'), 'utf8'));

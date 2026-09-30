@@ -37,7 +37,7 @@
           <div class="threefold-head">
             <div><b>KALADONT</b><small>WORD CHAIN // LAST ONE STANDING</small></div>
             <div class="kal-head-actions">
-              <button type="button" data-kaladont-action="chat" class="kal-chat-toggle" aria-label="Open chat">CHAT</button>
+              <button type="button" data-kaladont-action="chat" class="kal-chat-toggle" aria-label="Open chat">OPEN CHAT</button>
               <button type="button" data-kaladont-action="close" aria-label="Close">×</button>
             </div>
           </div>
@@ -49,7 +49,7 @@
       restore.id = 'kaladont-restore';
       restore.className = 'kaladont-restore';
       restore.dataset.kaladontAction = 'game';
-      restore.textContent = 'KALADONT';
+      restore.textContent = 'RETURN TO KALADONT';
       restore.hidden = true;
       document.getElementById('chat-panel')?.appendChild(restore);
     },
@@ -164,6 +164,7 @@
       if (action === 'join') return this.send({ type: 'kaladont:join' });
       if (action === 'leave') return this.send({ type: 'kaladont:leave' });
       if (action === 'start') return this.send({ type: 'kaladont:start' });
+      if (action === 'request-admission') return this.send({ type: 'kaladont:requestAdmission' });
       if (action === 'cancel') {
         if (confirm('CANCEL THIS KALADONT LOBBY?')) this.send({ type: 'kaladont:cancel' });
         return;

@@ -63,6 +63,11 @@
       if (kal === 'join') { App.send({type:'kaladont:join'}); return; }
       if (kal === 'leave') { App.send({type:'kaladont:leave'}); return; }
       if (kal === 'start') { App.send({type:'kaladont:start'}); return; }
+      if (kal === 'admit' || kal === 'deny-admission') {
+        const playerId=e.target.closest('[data-player-id]')?.dataset.playerId;
+        if(playerId)App.send({type:kal==='admit'?'kaladont:admit':'kaladont:denyAdmission',playerId});
+        return;
+      }
       if (kal === 'cancel' || kal === 'gm-cancel') { if (confirm('END THIS KALADONT GAME FOR EVERYONE?')) App.send({type:'kaladont:cancel'}); return; }
       if (kal === 'vote-accept' || kal === 'vote-reject') {
         const seq=Number(e.target.closest('[data-tribunal-seq]')?.dataset.tribunalSeq);
