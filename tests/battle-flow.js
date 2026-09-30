@@ -184,6 +184,39 @@ async function run() {
     assert.match(c4Css, /c4-layer-flicker 3s/, 'C4 overlay flickers for three seconds');
     assert.ok(fs.existsSync(path.join(ROOT, 'assets', 'ui', 'c4-column-gimmick.png')), 'C4 image asset exists');
 
+    // B3 FIELD follows the same exact-token battle contract, then fractures
+    // the Baki B3 tribute image into two independently kicked-out halves.
+    let b3GmMark = gm.mark();
+    let b3PlayerMark = players[1].mark();
+    players[0].send({ type: 'chat:guess', text: 'b3' });
+    const b3PlayerAlert = await players[1].waitFor((m, i) => i >= b3PlayerMark && m.type === 'b3:alert', 'player B3 alert');
+    await gm.waitFor((m, i) => i >= b3GmMark && m.type === 'b3:alert', 'GM B3 alert');
+    assert.equal(b3PlayerAlert.durationMs, 3000);
+    await settle(420);
+
+    b3PlayerMark = players[1].mark();
+    gm.send({ type: 'gm:broadcast', text: 'b 3' });
+    await players[1].waitFor((m, i) => i >= b3PlayerMark && m.type === 'b3:alert', 'Broker B 3 alert');
+
+    const b3ChatCount = gm.chat.length;
+    b3PlayerMark = players[1].mark();
+    gm.send({ type: 'gm:broadcast', text: '/b3' });
+    const manualB3 = await players[1].waitFor((m, i) => i >= b3PlayerMark && m.type === 'b3:alert', 'Broker manual /b3 alert');
+    assert.equal(manualB3.manual, true);
+    assert.equal(gm.chat.length, b3ChatCount, 'manual /b3 remains ephemeral');
+
+    b3GmMark = gm.mark();
+    players[0].send({ type: 'chat:guess', text: 'ab3' });
+    await settle(500);
+    assert.equal(gm.msgs.slice(b3GmMark).some(m => m.type === 'b3:alert'), false, 'B3 embedded in longer text does not trigger');
+
+    const b3Client = fs.readFileSync(path.join(ROOT, 'js', 'b3-alert.js'), 'utf8');
+    const b3Css = fs.readFileSync(path.join(ROOT, 'css', 'b3-alert.css'), 'utf8');
+    assert.match(b3Client, /baki-b3-gimmick\.png/, 'B3 overlay renders the supplied image');
+    assert.match(b3Css, /b3-layer-sequence 3s/, 'B3 overlay lasts three seconds');
+    assert.match(b3Css, /b3-kick-left[\s\S]*b3-kick-right/, 'B3 overlay splits and kicks both image halves away');
+    assert.ok(fs.existsSync(path.join(ROOT, 'assets', 'ui', 'baki-b3-gimmick.png')), 'B3 image asset exists');
+
     // 2. A FINAL misjudged CORRECT and corrected to WRONG fully reopens the board.
     const winsBefore = await gamesWon();
     const misclick = await guess(players[3], 'FINAL MISCLICK');

@@ -1515,6 +1515,10 @@ const PlayerApp = {
         window.C4Alert?.onMessage(message);
         break;
 
+      case 'b3:alert':
+        window.B3Alert?.onMessage(message);
+        break;
+
       case 'shadowRealm:banish':
         window.ShadowRealm?.onMessage(message, this.playerId);
         break;

@@ -6053,6 +6053,7 @@ const CHAT_SLASH_COMMANDS = [
 const GM_CHAT_SLASH_COMMANDS = [
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
   { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
+  { name: '/b3', help: '/b3 -- manually trigger the three-second Baki B3 battle tribute' },
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
   { name: '/womf', help: 'WOMF charge, failed columns and wheel status' },
   { name: '/timer', help: '/timer A1 -- warn Column A has 1 minute left (A-D, 1 or 2 minutes)' },
@@ -6515,6 +6516,15 @@ function dispatchGmSlashCommand(room, ws, text) {
     return { success: true, broadcast: false };
   }
 
+  if (/^\/b3\b/i.test(raw)) {
+    if (!/^\/b3\s*$/i.test(raw)) return { success: false, error: 'B3 INVALID // USE /b3' };
+    if (room.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) {
+      return { success: false, error: 'B3 REQUIRES A LIVE BATTLE' };
+    }
+    broadcastToRoom(room, { type: 'b3:alert', messageId: null, timestamp: Date.now(), durationMs: 3000, manual: true });
+    return { success: true, broadcast: false };
+  }
+
   if (/^\/recount\b/i.test(raw)) {
     if (!/^\/recount\s*$/i.test(raw)) return { success: false, error: 'RECOUNT INVALID // USE /recount' };
     // Eligibility errors go straight to the host from inside; no chat message.
@@ -6641,6 +6651,15 @@ function triggerC4Alert(room, text, messageId) {
   if (room?.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) return false;
   if (!/^c\s?4$/i.test(String(text || '').trim())) return false;
   broadcastToRoom(room, { type: 'c4:alert', messageId: messageId || null, timestamp: Date.now(), durationMs: 3000 });
+  return true;
+}
+
+// B3 FIELD EASTER EGG -- exact live-battle chat token only. Presentation-only;
+// the Baki tribute is never persisted or replayed after a reconnect.
+function triggerB3Alert(room, text, messageId) {
+  if (room?.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) return false;
+  if (!/^b\s?3$/i.test(String(text || '').trim())) return false;
+  broadcastToRoom(room, { type: 'b3:alert', messageId: messageId || null, timestamp: Date.now(), durationMs: 3000 });
   return true;
 }
 
@@ -8830,6 +8849,7 @@ function handleChatGuess(ws, message) {
       && result.message?.id;
     broadcastChatUpdate(room, singleMessageOnly ? [result.message.id] : null);
     if (dispatch === null) triggerC4Alert(room, result.message?.text, result.message?.id);
+    if (dispatch === null) triggerB3Alert(room, result.message?.text, result.message?.id);
     if (result.tributeTriggered || nudge === 'tribute') broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
     if (nudge === 'nudge') {
       broadcastToRoom(room, {
@@ -9076,6 +9096,7 @@ function handleGmBroadcast(ws, message) {
     persistActiveRooms();
     broadcastChatUpdate(room);
     triggerC4Alert(room, result.message?.text, result.message?.id);
+    triggerB3Alert(room, result.message?.text, result.message?.id);
 
     // @all is a live host-only attention command. The chat message itself is
     // persistent; the shake is deliberately ephemeral and never replays when
