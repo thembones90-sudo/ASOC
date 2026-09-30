@@ -10061,6 +10061,29 @@ function handleApiRequest(req, res) {
     }, BLACK_MARKET_TRIBUTE_MAX_BYTES);
   }
 
+  // COMPOSER LINK PREVIEW -- authenticated, read-only unfurl used while a
+  // player or the Shadow Broker is still composing a message. It deliberately
+  // shares the posted-message preview service, including its cache, redirect
+  // checks, private-address refusal, byte cap and timeout.
+  if (method === 'POST' && url.pathname === '/api/chat/link-preview') {
+    const room = rooms.get(MASTER_ROOM_CODE);
+    if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
+    const actor = getChatImageActor(req, room);
+    if (!actor) return sendJson(res, 401, { error: 'Chat preview authentication required' });
+    return readJsonBody(req, async (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid link preview request' });
+      const urlToPreview = linkPreviewService.extractFirstUrl(String(body?.url || ''));
+      if (!urlToPreview) return sendJson(res, 400, { error: 'A public HTTP or HTTPS link is required' });
+      try {
+        const preview = sanitizeChatLinkPreview(await linkPreviewService.unfurl(urlToPreview));
+        if (!preview) return sendJson(res, 422, { error: 'This link cannot be previewed' });
+        return sendJson(res, 200, { ok: true, preview });
+      } catch (_) {
+        return sendJson(res, 422, { error: 'This link cannot be previewed' });
+      }
+    });
+  }
+
   if (method === 'POST' && url.pathname === '/api/chat/image-url') {
     const room = rooms.get(MASTER_ROOM_CODE);
     if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });

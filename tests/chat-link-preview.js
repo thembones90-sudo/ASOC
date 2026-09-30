@@ -13,6 +13,9 @@ const { createLinkPreviewService, extractMetadata } = require('../link-preview')
 
 const ROOT = path.resolve(__dirname, '..');
 const CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'chat-links.js'), 'utf8');
+const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+assert.match(SERVER, /url\.pathname === '\/api\/chat\/link-preview'/, 'the authenticated pre-send preview endpoint is mounted');
+assert.match(SERVER, /linkPreviewService\.unfurl\(urlToPreview\)/, 'composer previews reuse the hardened server unfurler');
 
 // =========================================================== host-side unfurl
 
@@ -278,8 +281,43 @@ assert.equal(service.extractFirstUrl('http://[::1]/x and https://example.com/ok'
     ].join(''));
     assert.equal(none, '', 'a bare address with no metadata renders no empty card');
 
+    // ---- pre-send composer preview
+    await page2.evaluate(() => {
+      document.body.innerHTML = '<form id="chat-form"><div class="chat-composer-shell"><input id="chat-input"></div></form>';
+      window.fetch = async () => {
+        return ({
+        ok:true,
+        json:async () => ({ preview:{
+          url:'https://www.youtube.com/watch?v=test',
+          title:'ASOC Transmission',
+          description:'Preview before sending',
+          siteName:'YouTube',
+          image:'https://i.ytimg.com/vi/test/hqdefault.jpg'
+        } })
+      }); };
+      window.ChatLinks.bindComposerPreviews();
+      const input = document.getElementById('chat-input');
+      input.value = 'watch https://www.youtube.com/watch?v=test';
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    await page2.waitForFunction(() => document.querySelector('.chat-compose-link-preview .chat-link-preview-title')?.textContent === 'ASOC Transmission');
+    assert.equal(await page2.locator('.chat-compose-link-preview .chat-link-preview-image').count(), 1, 'typing a link renders its image preview before sending');
+    assert.equal(await page2.locator('.chat-compose-link-preview .chat-link-preview-title').textContent(), 'ASOC Transmission');
+    await page2.fill('#chat-input', 'plain text');
+    assert.equal(await page2.locator('.chat-compose-link-preview:not([hidden])').count(), 0, 'removing the URL removes the composer preview');
+
+    await page2.evaluate(() => {
+      document.body.innerHTML = '<form id="shadow-broker-form"><div class="gm-composer-shell"><div id="shadow-broker-composer" contenteditable="true"></div></div><input id="shadow-broker-input"></form>';
+      window.ChatLinks.bindComposerPreviews();
+      const composer = document.getElementById('shadow-broker-composer');
+      composer.textContent = 'https://www.youtube.com/watch?v=broker';
+      composer.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    await page2.waitForFunction(() => !document.querySelector('#shadow-broker-form .chat-compose-link-preview')?.hidden);
+    assert.equal(await page2.locator('#shadow-broker-form .chat-link-preview-title').textContent(), 'ASOC Transmission', 'the GM rich-text composer receives the same pre-send preview');
+
     await page2.close();
-    console.log('PASS chat links: addresses are linkified safely (escaped, rel-hardened, punctuation preserved, javascript:/data: refused), the GM text decorator still composes, og/title metadata unfurls with a capped and escaped card, and the private-address guard refuses before any socket opens');
+    console.log('PASS chat links: addresses are linkified safely, posted cards unfurl through the guarded server path, and typing a URL renders/removes its preview before send');
   } finally {
     await browser.close();
   }

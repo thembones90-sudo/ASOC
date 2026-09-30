@@ -139,6 +139,116 @@
     return previewsHTML(message.linkPreviews || message.linkPreview);
   }
 
+  const composerPreviewCache = new Map();
+
+  function firstUrl(text) {
+    return split(text).find(segment => segment.type === 'url')?.value || '';
+  }
+
+  function previewHeaders(isGM) {
+    const stored = (storageName, key) => {
+      try { return window[storageName]?.getItem(key) || ''; } catch (_) { return ''; }
+    };
+    if (isGM) {
+      const token = window.GameData?.gmToken || stored('sessionStorage', 'asoc_gm_token');
+      return token ? { 'x-gm-token': token } : {};
+    }
+    const token = stored('sessionStorage', 'asoc_player_auth_token') || stored('localStorage', 'asoc_player_auth_token');
+    return token ? { 'x-player-token': token } : {};
+  }
+
+  function attachComposerPreview({ form, input, getText, isGM }) {
+    if (!form || !input || form.dataset.linkPreviewBound === '1') return null;
+    form.dataset.linkPreviewBound = '1';
+    const shell = form.querySelector(isGM ? '.gm-composer-shell' : '.chat-composer-shell') || input;
+    const tray = document.createElement('div');
+    tray.className = 'chat-compose-link-preview';
+    tray.hidden = true;
+    tray.setAttribute('aria-live', 'polite');
+    form.insertBefore(tray, shell);
+
+    let timer = null;
+    let generation = 0;
+    let controller = null;
+    let currentUrl = '';
+
+    const hide = () => {
+      generation += 1;
+      clearTimeout(timer);
+      timer = null;
+      controller?.abort();
+      controller = null;
+      currentUrl = '';
+      tray.hidden = true;
+      tray.replaceChildren();
+    };
+
+    const render = (url, preview) => {
+      if (url !== currentUrl) return;
+      tray.innerHTML = previewHTML(preview);
+      tray.hidden = !tray.firstElementChild;
+    };
+
+    const request = async (url, expectedGeneration) => {
+      const cached = composerPreviewCache.get(url);
+      if (cached) return render(url, cached);
+      controller?.abort();
+      controller = new AbortController();
+      try {
+        const response = await fetch('/api/chat/link-preview', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', ...previewHeaders(isGM) },
+          body: JSON.stringify({ url }),
+          signal: controller.signal
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (expectedGeneration !== generation || url !== currentUrl) return;
+        if (!response.ok || !payload.preview) return hide();
+        composerPreviewCache.set(url, payload.preview);
+        render(url, payload.preview);
+      } catch (error) {
+        if (error?.name !== 'AbortError' && expectedGeneration === generation) hide();
+      }
+    };
+
+    const update = () => {
+      const url = firstUrl(getText());
+      if (!url) return hide();
+      if (url === currentUrl && (!tray.hidden || timer)) return;
+      currentUrl = url;
+      generation += 1;
+      const expectedGeneration = generation;
+      clearTimeout(timer);
+      tray.innerHTML = '<div class="chat-compose-link-loading"><span></span>READING LINK…</div>';
+      tray.hidden = false;
+      timer = setTimeout(() => {
+        timer = null;
+        request(url, expectedGeneration);
+      }, 550);
+    };
+
+    input.addEventListener('input', update);
+    input.addEventListener('paste', () => setTimeout(update, 0));
+    form.addEventListener('submit', () => setTimeout(hide, 0));
+    return { update, hide, tray };
+  }
+
+  function bindComposerPreviews() {
+    attachComposerPreview({
+      form: document.getElementById('shadow-broker-form'),
+      input: document.getElementById('shadow-broker-composer'),
+      getText: () => document.getElementById('shadow-broker-composer')?.textContent || document.getElementById('shadow-broker-input')?.value || '',
+      isGM: true
+    });
+    const playerInput = document.getElementById('chat-input');
+    attachComposerPreview({
+      form: document.getElementById('chat-form'),
+      input: playerInput,
+      getText: () => playerInput?.value || '',
+      isGM: false
+    });
+  }
+
   window.ChatLinks = {
     split,
     textHTML,
@@ -148,6 +258,12 @@
     messageHTML,
     safeHttpUrl,
     isUrlSegment,
-    esc
+    esc,
+    firstUrl,
+    attachComposerPreview,
+    bindComposerPreviews
   };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindComposerPreviews, { once:true });
+  else bindComposerPreviews();
 })();

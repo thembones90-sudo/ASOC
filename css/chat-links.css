@@ -98,6 +98,50 @@
   letter-spacing: .2em;
 }
 
+/* PRE-SEND PREVIEW -- lives inside either composer form, above its input. */
+.chat-compose-link-preview {
+  flex: 1 0 100%;
+  width: 100%;
+  padding: 0 0 9px;
+}
+.chat-compose-link-preview[hidden] { display: none !important; }
+.chat-compose-link-preview .chat-link-preview {
+  margin: 0;
+  max-width: min(560px, 100%);
+  border-color: #3d3150;
+  border-left-color: #a65be0;
+  background: linear-gradient(180deg, rgba(28,20,38,.98), rgba(10,9,15,.98));
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+.chat-compose-link-preview .chat-link-preview::before {
+  content: "LINK PREVIEW";
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.chat-compose-link-loading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: fit-content;
+  padding: 8px 11px;
+  border: 1px solid #30273d;
+  background: #0c0b10;
+  color: #9f8caf;
+  font: 800 9px/1 var(--font-machine, ui-monospace, monospace);
+  letter-spacing: .18em;
+}
+.chat-compose-link-loading span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #bd69ef;
+  box-shadow: 0 0 9px #9e4bd1;
+  animation: chat-link-loading 1s ease-in-out infinite alternate;
+}
+@keyframes chat-link-loading { to { opacity: .3; transform: scale(.7); } }
+
 @media (max-width: 620px) {
   .chat-link-preview {
     max-width: 100%;
