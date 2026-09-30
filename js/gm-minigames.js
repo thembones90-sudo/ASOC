@@ -17,6 +17,7 @@
       });
       document.getElementById('gm-chat-tab')?.addEventListener('click', e => {
         e.stopPropagation();
+        window.GMDirectMessages?.setOpen?.(false);
         this.toggleLibrary(false);
         this.close();
       });

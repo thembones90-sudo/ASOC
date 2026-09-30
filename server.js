@@ -8441,7 +8441,7 @@ function handleGmDirectMessages(ws, message) {
     if (message.type === 'gm:privateList') return sendToWs(ws, { type: 'gm:privateList', conversations: dmStore.listFor(GM_DM_ID), locked: dmLocked(room) });
     if (message.type === 'gm:privateOpen') {
       const other = dmIdentityFor(message.playerId);
-      if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:dmError', message:'No such Little Hero' });
+      if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:privateError', message:'No such Little Hero' });
       const convo = dmStore.conversationFor(GM_DM_ID, other.id);
       if (convo) dmStore.markRead(convo.id, GM_DM_ID);
       const thread = convo ? dmThreadPayload(dmStore.conversationFor(GM_DM_ID, other.id), GM_DM_ID) : { id:null, other:{ id:other.id, name:other.name, online:other.online }, messages:[], otherReadAt:0, blocked:false, blockedYou:dmStore.isBlocked(other.id, GM_DM_ID) };
@@ -8452,7 +8452,7 @@ function handleGmDirectMessages(ws, message) {
     if (message.type === 'gm:privateSend') {
       if (dmLocked(room)) return sendToWs(ws, { type:'gm:privateError', message:'SILENCE // THE MATCH IS LIVE.' });
       const other = dmIdentityFor(message.toId);
-      if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:dmError', message:'No such Little Hero' });
+      if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:privateError', message:'No such Little Hero' });
       const text = sanitizeText(String(message.text || '')).slice(0, dmStore.MAX_TEXT + 1);
       const result = dmStore.send(me, other, text, Date.now());
       if (!result.ok) return sendToWs(ws, { type:'gm:privateError', message:result.error });
