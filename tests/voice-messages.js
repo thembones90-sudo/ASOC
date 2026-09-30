@@ -55,6 +55,11 @@ function raw(method, path, headers, body) {
     assert.equal(await page.locator('.voice-recorder').count(), 0, 'recorder closes after sending');
     const src = await page.locator('.chat-voice').first().getAttribute('data-voice-src');
     const seconds = Number(await page.locator('.chat-voice').first().getAttribute('data-voice-seconds'));
+    const voiceCard = page.locator('.chat-message.voice-message .chat-message-main').first();
+    assert.equal(await voiceCard.count(), 1, 'voice post uses its dedicated compact card');
+    const voiceBox = await voiceCard.boundingBox();
+    assert.ok(voiceBox && voiceBox.width <= 365, `voice card stays narrow (got ${voiceBox?.width})`);
+    assert.ok(voiceBox && voiceBox.height <= 100, `voice card has no dead vertical space (got ${voiceBox?.height})`);
     assert.match(src, /^\/uploads\/chat\/[a-f0-9]{32}\.(webm|ogg|m4a)$/);
     assert.ok(seconds >= 2 && seconds <= 3, `recorded length is about 2 s (got ${seconds})`);
 

@@ -20787,6 +20787,87 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 .voice-recorder button:disabled { opacity: .5; cursor: default; }
 .chat-voice-btn svg, .gm-voice-btn svg { display: block; margin: auto; }
 
+/* VOICE MESSAGE CARD // short audio is a compact transmission, not an empty
+   text bubble. This class is assigned only to messageType=voice. */
+#game-screen .battle-comms-lobby .chat-message.voice-message .chat-message-main {
+  position:relative !important;
+  justify-self:start !important;
+  width:min(94%,360px) !important;
+  min-width:min(270px,94%) !important;
+  max-width:min(94%,360px) !important;
+  padding:7px 9px 7px !important;
+}
+#game-screen .battle-comms-lobby .chat-message.voice-message .chat-message-header {
+  min-height:15px !important;
+  margin:0 !important;
+  padding-right:58px !important;
+}
+#game-screen .battle-comms-lobby .chat-message.voice-message .chat-message-line {
+  position:absolute !important;
+  top:9px !important;
+  right:10px !important;
+  display:block !important;
+  width:auto !important;
+  min-width:0 !important;
+}
+#game-screen .battle-comms-lobby .chat-message.voice-message .chat-message-text {
+  display:none !important;
+}
+#game-screen .battle-comms-lobby .chat-message.voice-message .chat-voice {
+  width:100% !important;
+  max-width:none !important;
+  margin:6px 0 0 !important;
+  padding:5px 9px 5px 5px !important;
+  gap:9px !important;
+}
+#game-screen .battle-comms-lobby .chat-message.voice-message .chat-voice-track,
+.gm-module-chat .gm-flow-message.voice-message .chat-voice-track {
+  height:8px !important;
+  border-radius:2px !important;
+  background:repeating-linear-gradient(90deg,rgba(190,140,255,.28) 0 2px,transparent 2px 5px) !important;
+}
+#game-screen .battle-comms-lobby .chat-message.voice-message .chat-reactions {
+  margin-top:4px !important;
+}
+
+.gm-module-chat .gm-flow-message.voice-message .gm-chat-message-main {
+  position:relative !important;
+  width:min(96%,360px) !important;
+  min-width:270px !important;
+  max-width:min(96%,360px) !important;
+  padding:7px 9px !important;
+}
+.gm-module-chat .gm-flow-message.voice-message .gm-chat-flow-header {
+  min-height:15px !important;
+  margin:0 !important;
+  padding-right:58px !important;
+}
+.gm-module-chat .gm-flow-message.voice-message .gm-chat-message-line {
+  position:absolute !important;
+  top:9px !important;
+  right:10px !important;
+  display:block !important;
+  width:auto !important;
+}
+.gm-module-chat .gm-flow-message.voice-message .gm-chat-message-text { display:none !important; }
+.gm-module-chat .gm-flow-message.voice-message .chat-voice {
+  width:100% !important;
+  max-width:none !important;
+  margin:6px 0 0 !important;
+}
+.gm-module-chat .gm-flow-message.voice-message .gm-chat-reactions { margin-top:4px !important; }
+
+@media (max-width:480px) {
+  #game-screen .battle-comms-lobby .chat-message.voice-message .chat-message-main {
+    width:min(96%,330px) !important;
+    min-width:min(230px,96%) !important;
+  }
+  .gm-module-chat .gm-flow-message.voice-message .gm-chat-message-main {
+    width:min(96%,330px) !important;
+    min-width:min(230px,96%) !important;
+  }
+}
+
 /* GM COMMANDS // SHADOW BROKER: digital glitch void nightmare.
    QUESTS, SOUNDS, BIĆE ASOC, RESET BOARD and MASTER ACCESS share one void
    frame (clipped corners, scanlines, chromatic split text) and keep their own
