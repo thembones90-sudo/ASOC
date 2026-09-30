@@ -6051,6 +6051,7 @@ const CHAT_SLASH_COMMANDS = [
 ];
 
 const GM_CHAT_SLASH_COMMANDS = [
+  { name: '/warsong', help: '/warsong -- six-second room-wide Horde battle banner' },
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
   { name: '/womf', help: 'WOMF charge, failed columns and wheel status' },
   { name: '/timer', help: '/timer A1 -- warn Column A has 1 minute left (A-D, 1 or 2 minutes)' },
@@ -6497,6 +6498,12 @@ function dispatchGmSlashCommand(room, ws, text) {
   const raw = String(text || '').trim();
   if (!raw.startsWith('/')) return null;
   const author = { id: null, name: 'SHADOW BROKER' };
+
+  if (/^\/warsong\b/i.test(raw)) {
+    if (!/^\/warsong\s*$/i.test(raw)) return { success: false, error: 'WARSONG INVALID // USE /warsong' };
+    broadcastToRoom(room, { type: 'warsong:alert', timestamp: Date.now(), durationMs: 6000 });
+    return { success: true, broadcast: false };
+  }
 
   if (/^\/recount\b/i.test(raw)) {
     if (!/^\/recount\s*$/i.test(raw)) return { success: false, error: 'RECOUNT INVALID // USE /recount' };

@@ -199,6 +199,36 @@ async function run() {
     const brokerNod = await waitFor(victim, m => m.messageType === 'nod' && m.nod?.actorId === null, 'Broker nod');
     assert.equal(brokerNod.text, 'SHADOW BROKER nods at Victim.');
 
+    // /warsong is GM-only and ephemeral: every live surface receives the
+    // six-second alert, while the literal command never enters chat history.
+    const warsongVictimMark = victim.msgs.length;
+    const warsongGmMark = gm.msgs.length;
+    const chatBeforeWarsong = victim.chat.length;
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/warsong' }));
+    const waitMessage = async (client, from, predicate, label) => {
+      const started = Date.now();
+      while (Date.now() - started < 5000) {
+        const found = client.msgs.slice(from).find(predicate);
+        if (found) return found;
+        await sleep(25);
+      }
+      throw new Error(`timed out waiting for ${label}`);
+    };
+    const warsong = await waitMessage(victim, warsongVictimMark, m => m.type === 'warsong:alert', 'player warsong alert');
+    assert.equal(warsong.durationMs, 6000);
+    await waitMessage(gm, warsongGmMark, m => m.type === 'warsong:alert', 'GM warsong alert');
+    assert.equal(victim.chat.length, chatBeforeWarsong, 'warsong creates no chat message');
+
+    const warsongClient = fs.readFileSync(path.join(ROOT, 'js', 'warsong.js'), 'utf8');
+    const warsongCss = fs.readFileSync(path.join(ROOT, 'css', 'warsong.css'), 'utf8');
+    const indexSrc = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    assert.match(warsongClient, /PALI WARSONG, JUSUFE/, 'warsong renders the required caption');
+    assert.match(warsongClient, /warsong-horde-banner\.png/, 'warsong renders the supplied banner');
+    assert.match(warsongCss, /warsong-blood-flicker/, 'warsong blood-red flicker is styled');
+    assert.match(indexSrc, /warsong\.js\?v=20260930-warsong-1/, 'GM warsong client is cache-busted');
+    assert.match(joinSrc, /warsong\.js\?v=20260930-warsong-1/, 'player warsong client is cache-busted');
+    assert.ok(fs.existsSync(path.join(ROOT, 'assets', 'ui', 'warsong-horde-banner.png')), 'warsong banner asset exists');
+
     // /commands advertises /fart.
     await say('/commands');
     const commands = await waitFor(farter, m => m.messageType === 'commands', '/commands card');
@@ -274,7 +304,7 @@ async function run() {
     gm.chat = [];
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/commands' }));
     const gmCommands = await waitFor(gm, m => m.messageType === 'commands' && m.playerId == null, 'GM /commands');
-    ['/flip', '/dice', '/choose', '/order', '/stats', '/all', '/grovel', '/slap'].forEach(name =>
+    ['/warsong', '/flip', '/dice', '/choose', '/order', '/stats', '/all', '/grovel', '/slap'].forEach(name =>
       assert.ok(gmCommands.commands.commands.some(entry => entry.name === name), `GM /commands lists ${name}`));
 
     assert.equal(serverErrors.trim(), '', 'no server errors');

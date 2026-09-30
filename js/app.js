@@ -82,6 +82,7 @@ const App = {
   bloodTribute: { status: 'idle' },
   bloodTributes: [],
   gmSlashCommands: [
+    { name: 'warsong', insert: '/warsong', icon: '⚑', label: 'WARSONG', description: 'Six-second room-wide Horde battle banner' },
     { name: 'roll', insert: '/roll ', icon: '◆', label: 'ROLL', description: 'Authoritative Shadow Broker roll // minimum 2' },
     { name: 'recount', insert: '/recount', icon: '◈', label: 'RECOUNT', description: 'Show the RECOUNT // game over + aftermath required' },
     { name: 'womf', insert: '/womf', icon: '⚠', label: 'WOMF STATUS', description: 'WOMF charge, failed columns and wheel status' },
@@ -2687,6 +2688,10 @@ const App = {
 
       case 'megabonk:progress':
         window.Megabonk?.onMessage(message);
+        break;
+
+      case 'warsong:alert':
+        window.WarsongAlert?.onMessage(message);
         break;
 
       case 'shadowRealm:banish':

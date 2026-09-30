@@ -1507,6 +1507,10 @@ const PlayerApp = {
         window.Megabonk?.onMessage(message);
         break;
 
+      case 'warsong:alert':
+        window.WarsongAlert?.onMessage(message);
+        break;
+
       case 'shadowRealm:banish':
         window.ShadowRealm?.onMessage(message, this.playerId);
         break;
