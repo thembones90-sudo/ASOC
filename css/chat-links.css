@@ -105,6 +105,12 @@
   padding: 0 0 9px;
 }
 .chat-compose-link-preview[hidden] { display: none !important; }
+.chat-compose-link-preview--gm {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0 0 8px;
+}
 .chat-compose-link-preview .chat-link-preview {
   margin: 0;
   max-width: min(560px, 100%);
@@ -112,6 +118,9 @@
   border-left-color: #a65be0;
   background: linear-gradient(180deg, rgba(28,20,38,.98), rgba(10,9,15,.98));
   box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+.chat-compose-link-preview--gm .chat-link-preview {
+  max-width: 100%;
 }
 .chat-compose-link-preview .chat-link-preview::before {
   content: "LINK PREVIEW";

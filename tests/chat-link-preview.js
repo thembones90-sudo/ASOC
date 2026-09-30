@@ -129,6 +129,10 @@ const minimal = service.minimalPreview('https://example.com/');
 assert.ok(minimal, 'minimalPreview returns a card');
 assert.equal(minimal.title, 'example.com');
 assert.equal(minimal.url, 'https://example.com/');
+const youtubeFallback = service.minimalPreview('https://www.youtube.com/watch?v=HWDHQr1EBO4&list=RDHWDHQr1EBO4');
+assert.equal(youtubeFallback.siteName, 'YouTube', 'YouTube gets a provider-aware fallback when metadata fetching is blocked');
+assert.equal(youtubeFallback.title, 'YouTube video');
+assert.equal(youtubeFallback.image, 'https://i.ytimg.com/vi/HWDHQr1EBO4/hqdefault.jpg', 'YouTube fallback derives a safe public thumbnail from the video id');
 
 // Lengths are capped so a hostile <title> cannot flood the room log.
 const huge = extractMetadata(
@@ -315,14 +319,15 @@ assert.equal(service.extractFirstUrl('http://[::1]/x and https://example.com/ok'
     assert.equal(await page2.locator('.chat-compose-link-preview:not([hidden])').count(), 0, 'removing the URL removes the composer preview');
 
     await page2.evaluate(() => {
-      document.body.innerHTML = '<form id="shadow-broker-form"><div class="gm-composer-shell"><div id="shadow-broker-composer" contenteditable="true"></div></div><input id="shadow-broker-input"></form>';
+      document.body.innerHTML = '<div id="gm-broker-bar"><form id="shadow-broker-form"><span>SHADOW BROKER</span><div class="gm-composer-shell"><div id="shadow-broker-composer" contenteditable="true"></div></div><input id="shadow-broker-input"></form></div>';
       window.ChatLinks.bindComposerPreviews();
       const composer = document.getElementById('shadow-broker-composer');
       composer.textContent = 'https://www.youtube.com/watch?v=broker';
       composer.dispatchEvent(new Event('input', { bubbles:true }));
     });
-    await page2.waitForFunction(() => !document.querySelector('#shadow-broker-form .chat-compose-link-preview')?.hidden);
-    assert.equal(await page2.locator('#shadow-broker-form .chat-link-preview-title').textContent(), 'ASOC Transmission', 'the GM rich-text composer receives the same pre-send preview');
+    await page2.waitForFunction(() => !document.querySelector('#gm-broker-bar > .chat-compose-link-preview')?.hidden);
+    assert.equal(await page2.locator('#gm-broker-bar > .chat-compose-link-preview .chat-link-preview-title').textContent(), 'ASOC Transmission', 'the GM rich-text composer receives the same pre-send preview');
+    assert.equal(await page2.locator('#shadow-broker-form .chat-compose-link-preview').count(), 0, 'the GM preview is outside the flex form and cannot shrink the composer');
 
     await page2.close();
     console.log('PASS chat links: addresses are linkified safely, posted cards unfurl through the guarded server path, and typing a URL renders/removes its preview before send');

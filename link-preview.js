@@ -392,12 +392,23 @@ function createLinkPreviewService(options = {}) {
       const url = normalizeUrl(rawUrl);
       if (isRefusedTarget(url)) return null;
       const host = url.hostname;
+      const youtubeId = (() => {
+        const cleanHost = host.toLowerCase().replace(/^www\./, '');
+        if (cleanHost === 'youtu.be') return url.pathname.split('/').filter(Boolean)[0] || '';
+        if (cleanHost === 'youtube.com' || cleanHost === 'm.youtube.com') {
+          if (url.pathname === '/watch') return url.searchParams.get('v') || '';
+          const parts = url.pathname.split('/').filter(Boolean);
+          if (['shorts', 'embed', 'live'].includes(parts[0])) return parts[1] || '';
+        }
+        return '';
+      })();
+      const safeYoutubeId = /^[A-Za-z0-9_-]{6,20}$/.test(youtubeId) ? youtubeId : '';
       return {
         url: url.toString(),
-        title: truncate(host, MAX_TITLE),
-        description: '',
-        image: null,
-        siteName: host,
+        title: safeYoutubeId ? 'YouTube video' : truncate(host, MAX_TITLE),
+        description: safeYoutubeId ? 'Open this video on YouTube.' : '',
+        image: safeYoutubeId ? `https://i.ytimg.com/vi/${safeYoutubeId}/hqdefault.jpg` : null,
+        siteName: safeYoutubeId ? 'YouTube' : host,
         fetchedAt: Date.now()
       };
     } catch (_) {

@@ -165,7 +165,16 @@
     tray.className = 'chat-compose-link-preview';
     tray.hidden = true;
     tray.setAttribute('aria-live', 'polite');
-    form.insertBefore(tray, shell);
+    // The GM form is a single non-wrapping label + composer row. Putting a
+    // 100%-basis preview inside it makes flexbox preserve the preview by
+    // crushing the actual input. Mount the tray as a sibling above that row;
+    // the player form already wraps its auxiliary rows and stays in-place.
+    if (isGM && form.parentElement) {
+      tray.classList.add('chat-compose-link-preview--gm');
+      form.parentElement.insertBefore(tray, form);
+    } else {
+      form.insertBefore(tray, shell);
+    }
 
     let timer = null;
     let generation = 0;
