@@ -9,7 +9,7 @@ const assert = require('assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const { createLinkPreviewService, extractMetadata } = require('../link-preview');
+const { createLinkPreviewService, extractMetadata, extractYoutubeOEmbedMetadata } = require('../link-preview');
 
 const ROOT = path.resolve(__dirname, '..');
 const CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'chat-links.js'), 'utf8');
@@ -133,6 +133,14 @@ const youtubeFallback = service.minimalPreview('https://www.youtube.com/watch?v=
 assert.equal(youtubeFallback.siteName, 'YouTube', 'YouTube gets a provider-aware fallback when metadata fetching is blocked');
 assert.equal(youtubeFallback.title, 'YouTube video');
 assert.equal(youtubeFallback.image, 'https://i.ytimg.com/vi/HWDHQr1EBO4/hqdefault.jpg', 'YouTube fallback derives a safe public thumbnail from the video id');
+const youtubeRich = extractYoutubeOEmbedMetadata({
+  title: 'Man in the Box',
+  author_name: 'Alice In Chains',
+  thumbnail_url: 'https://i.ytimg.com/vi/HWDHQr1EBO4/hqdefault.jpg'
+}, 'https://www.youtube.com/watch?v=HWDHQr1EBO4');
+assert.equal(youtubeRich.title, 'Man in the Box', 'YouTube oEmbed title becomes the visible card title');
+assert.equal(youtubeRich.description, 'Video by Alice In Chains', 'YouTube channel is preserved as useful context');
+assert.equal(youtubeRich.siteName, 'YouTube · Alice In Chains');
 
 // Lengths are capped so a hostile <title> cannot flood the room log.
 const huge = extractMetadata(
@@ -328,6 +336,11 @@ assert.equal(service.extractFirstUrl('http://[::1]/x and https://example.com/ok'
     await page2.waitForFunction(() => !document.querySelector('#gm-broker-bar > .chat-compose-link-preview')?.hidden);
     assert.equal(await page2.locator('#gm-broker-bar > .chat-compose-link-preview .chat-link-preview-title').textContent(), 'ASOC Transmission', 'the GM rich-text composer receives the same pre-send preview');
     assert.equal(await page2.locator('#shadow-broker-form .chat-compose-link-preview').count(), 0, 'the GM preview is outside the flex form and cannot shrink the composer');
+    await page2.locator('#shadow-broker-form').evaluate(form => {
+      form.addEventListener('submit', event => event.preventDefault(), { once:true });
+      form.requestSubmit();
+    });
+    assert.equal(await page2.locator('#gm-broker-bar > .chat-compose-link-preview:not([hidden])').count(), 0, 'sending immediately restores the GM composer to its default state');
 
     await page2.close();
     console.log('PASS chat links: addresses are linkified safely, posted cards unfurl through the guarded server path, and typing a URL renders/removes its preview before send');
