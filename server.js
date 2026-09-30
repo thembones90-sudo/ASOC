@@ -6591,6 +6591,11 @@ function addShadowBrokerMessage(room, text, options = {}) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   }
 
+  // Shadow Broker broadcasts use a separate creation path from player chat.
+  // Keep their link behaviour identical: post the text immediately, then
+  // deliver the hardened server-side preview to the GM and every player.
+  primeChatLinkPreview(room, message);
+
   return { success: true, message };
 }
 

@@ -4,9 +4,9 @@
    "this opens something". */
 
 .chat-link {
-  color: #2f7de1;
+  color: #72b7ff;
   text-decoration: underline;
-  text-decoration-color: rgba(47, 125, 225, .55);
+  text-decoration-color: rgba(114, 183, 255, .68);
   text-underline-offset: 2px;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -15,8 +15,8 @@
 }
 .chat-link:hover,
 .chat-link:focus-visible {
-  color: #1a5fc7;
-  text-decoration-color: #1a5fc7;
+  color: #b3d9ff;
+  text-decoration-color: #b3d9ff;
   outline: none;
 }
 
@@ -93,7 +93,7 @@
 
 .chat-link-preview-open {
   margin-top: 2px;
-  color: #2f7de1;
+  color: #72b7ff;
   font: 800 9px/1.2 var(--font-machine, ui-monospace, monospace);
   letter-spacing: .2em;
 }

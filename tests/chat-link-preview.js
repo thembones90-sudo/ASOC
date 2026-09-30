@@ -16,6 +16,14 @@ const CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'chat-links.js'), 'utf8');
 const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 assert.match(SERVER, /url\.pathname === '\/api\/chat\/link-preview'/, 'the authenticated pre-send preview endpoint is mounted');
 assert.match(SERVER, /linkPreviewService\.unfurl\(urlToPreview\)/, 'composer previews reuse the hardened server unfurler');
+const brokerCreation = SERVER.split('function addShadowBrokerMessage')[1].split('\nfunction broadcastToRoom')[0];
+assert.match(brokerCreation, /primeChatLinkPreview\(room, message\)/, 'Shadow Broker broadcasts enter the posted-message preview pipeline');
+const GM_CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'app.js'), 'utf8');
+const PLAYER_CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'player.js'), 'utf8');
+const gmBrokerBranch = GM_CLIENT.split("if (msg.source === 'shadowBroker')")[1].split("const time = new Date")[0];
+const playerBrokerBranch = PLAYER_CLIENT.split("if (msg.source === 'shadowBroker')")[1].split("const time = new Date")[0];
+assert.match(gmBrokerBranch, /ChatLinks\?\.messageHTML\(msg\)/, 'GM renders preview cards on Shadow Broker broadcasts');
+assert.match(playerBrokerBranch, /ChatLinks\?\.messageHTML\(msg\)/, 'players render preview cards on Shadow Broker broadcasts');
 
 // =========================================================== host-side unfurl
 
