@@ -17481,9 +17481,92 @@ button.gm-chat-gif-link:focus-visible {
   24% { opacity:1; }
   100% { opacity:0; transform:translate(calc(-50% + var(--spit-x)),calc(-50% + var(--spit-y))) scale(.85); }
 }
+
+/* Full-screen command impacts. Chat cards are frequently rebuilt by the GM
+   feed, so the visible effect lives at document level and survives repainting. */
+.chat-act-screen-fx {
+  position:fixed;
+  inset:0;
+  z-index:2147483000;
+  overflow:hidden;
+  pointer-events:none;
+  isolation:isolate;
+}
+.chat-act-screen-fx .chat-act-screen-core,
+.chat-act-screen-fx i { position:absolute; display:block; opacity:0; }
+
+.chat-act-screen-fx.is-fart {
+  background:radial-gradient(ellipse at 50% 72%,rgba(80,146,20,.12),transparent 53%);
+  animation:chat-fart-screen-wash 2.05s ease-out both;
+}
+.chat-act-screen-fx.is-fart .chat-act-screen-core {
+  left:50%; bottom:8%; width:min(58vw,760px); height:min(37vw,470px);
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 24% 63%,rgba(189,255,72,.7) 0 7%,rgba(75,145,22,.48) 17%,transparent 35%),
+    radial-gradient(circle at 48% 42%,rgba(141,224,45,.68) 0 10%,rgba(46,111,19,.42) 26%,transparent 45%),
+    radial-gradient(circle at 72% 61%,rgba(171,241,58,.63) 0 8%,rgba(57,130,20,.4) 23%,transparent 42%);
+  filter:blur(15px) saturate(1.35);
+  animation:chat-fart-screen-cloud 2.05s cubic-bezier(.17,.7,.2,1) both;
+}
+.chat-act-screen-fx.is-fart i {
+  left:calc(13% + (var(--n) * 5.4%)); bottom:7%;
+  width:22px; height:22px;
+  border:2px solid rgba(194,255,92,.78); border-radius:50%;
+  background:radial-gradient(circle at 30% 24%,rgba(236,255,202,.72),rgba(103,190,30,.26) 48%,rgba(24,72,12,.12) 72%);
+  box-shadow:0 0 14px rgba(116,222,30,.78),inset 0 0 7px rgba(218,255,146,.45);
+  animation:chat-fart-screen-bubble 1.9s ease-out calc(var(--n) * 45ms) both;
+}
+.chat-act-screen-fx.is-fart i:nth-of-type(1){--n:1}.chat-act-screen-fx.is-fart i:nth-of-type(2){--n:2}
+.chat-act-screen-fx.is-fart i:nth-of-type(3){--n:3}.chat-act-screen-fx.is-fart i:nth-of-type(4){--n:4}
+.chat-act-screen-fx.is-fart i:nth-of-type(5){--n:5}.chat-act-screen-fx.is-fart i:nth-of-type(6){--n:6}
+.chat-act-screen-fx.is-fart i:nth-of-type(7){--n:7}.chat-act-screen-fx.is-fart i:nth-of-type(8){--n:8}
+.chat-act-screen-fx.is-fart i:nth-of-type(9){--n:9}.chat-act-screen-fx.is-fart i:nth-of-type(10){--n:10}
+.chat-act-screen-fx.is-fart i:nth-of-type(11){--n:11}.chat-act-screen-fx.is-fart i:nth-of-type(12){--n:12}
+.chat-act-screen-fx.is-fart i:nth-of-type(13){--n:13}.chat-act-screen-fx.is-fart i:nth-of-type(14){--n:14}
+
+.chat-act-screen-fx.is-spit .chat-act-screen-core {
+  left:50%; top:48%; width:min(38vw,520px); aspect-ratio:1.75;
+  border-radius:47% 53% 42% 58%;
+  background:radial-gradient(ellipse at 48% 46%,#3c8dcc 0 8%,#15538f 25%,#062957 53%,rgba(2,14,39,.9) 68%,transparent 72%);
+  filter:drop-shadow(0 6px 4px rgba(0,5,20,.9)) drop-shadow(0 0 18px rgba(25,91,162,.62));
+  animation:chat-spit-screen-impact 1.55s cubic-bezier(.12,.78,.18,1) both;
+}
+.chat-act-screen-fx.is-spit i {
+  left:50%; top:48%; width:15px; height:22px;
+  border-radius:60% 40% 65% 35%;
+  background:radial-gradient(circle at 32% 24%,#5cabe0,#164f91 42%,#031a45 80%);
+  box-shadow:0 2px 5px rgba(0,5,22,.9);
+  animation:chat-spit-screen-drop 1.35s cubic-bezier(.14,.74,.2,1) calc(var(--n) * 18ms) both;
+}
+.chat-act-screen-fx.is-spit i:nth-of-type(1){--n:1;--sx:-34vw;--sy:-21vh}.chat-act-screen-fx.is-spit i:nth-of-type(2){--n:2;--sx:31vw;--sy:-17vh}
+.chat-act-screen-fx.is-spit i:nth-of-type(3){--n:3;--sx:-27vw;--sy:25vh}.chat-act-screen-fx.is-spit i:nth-of-type(4){--n:4;--sx:29vw;--sy:23vh}
+.chat-act-screen-fx.is-spit i:nth-of-type(5){--n:5;--sx:-12vw;--sy:-29vh}.chat-act-screen-fx.is-spit i:nth-of-type(6){--n:6;--sx:10vw;--sy:31vh}
+.chat-act-screen-fx.is-spit i:nth-of-type(7){--n:7;--sx:-39vw;--sy:4vh}.chat-act-screen-fx.is-spit i:nth-of-type(8){--n:8;--sx:38vw;--sy:-2vh}
+.chat-act-screen-fx.is-spit i:nth-of-type(9){--n:9;--sx:-19vw;--sy:33vh}.chat-act-screen-fx.is-spit i:nth-of-type(10){--n:10;--sx:21vw;--sy:-31vh}
+
+@keyframes chat-fart-screen-wash { 0%,100%{opacity:0} 18%,62%{opacity:1} }
+@keyframes chat-fart-screen-cloud {
+  0%{opacity:0;transform:translate(-50%,35%) scale(.3)} 22%{opacity:.94}
+  100%{opacity:0;transform:translate(-50%,-52%) scale(1.65)}
+}
+@keyframes chat-fart-screen-bubble {
+  0%{opacity:0;transform:translateY(12px) scale(.25)} 18%{opacity:.95}
+  100%{opacity:0;transform:translate(calc((var(--n) - 7) * 5px),-62vh) scale(1.35)}
+}
+@keyframes chat-spit-screen-impact {
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.04) rotate(-11deg)}
+  17%{opacity:.96;transform:translate(-50%,-50%) scale(1.16) rotate(2deg)}
+  32%{transform:translate(-50%,-50%) scale(.96)} 76%{opacity:.88} 100%{opacity:0;transform:translate(-50%,-47%) scale(1.03)}
+}
+@keyframes chat-spit-screen-drop {
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.15)} 19%{opacity:1}
+  100%{opacity:0;transform:translate(calc(-50% + var(--sx)),calc(-50% + var(--sy))) rotate(28deg) scale(.85)}
+}
 @media (prefers-reduced-motion:reduce) {
   .chat-fart-fx::before,.chat-fart-fx::after,.chat-fart-fx i,
-  .chat-spit-fx::before,.chat-spit-fx::after,.chat-spit-fx i { animation-duration:.01ms !important; }
+  .chat-spit-fx::before,.chat-spit-fx::after,.chat-spit-fx i,
+  .chat-act-screen-fx,.chat-act-screen-fx .chat-act-screen-core,.chat-act-screen-fx i { animation-duration:.01ms !important; }
 }
 
 /* Image-only Shadow Broker posts: the image is the complete message. */

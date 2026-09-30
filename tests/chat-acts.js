@@ -131,11 +131,11 @@ async function run() {
     assert.match(appSrc, /case 'error':[\s\S]*this\.showGMCommandError\(message\.message\)/, 'GM server failures use the in-app error path');
     assert.doesNotMatch(appSrc.match(/case 'error':[\s\S]*?break;/)?.[0] || '', /alert\(/, 'GM server failures never open a native Electron alert');
     assert.match(appSrc, /composer\?\.focus\(\{ preventScroll: true \}\)/, 'GM error path restores composer focus');
-    assert.match(joinSrc, /player\.js\?v=20260930-chat-act-fx-1/, 'targeted-act visuals and player chat are cache-busted');
-    assert.match(playerSrc, /chat-fart-fx/, 'player cards mount toxic fart-cloud particles');
-    assert.match(playerSrc, /chat-spit-fx/, 'player cards mount dark-blue spit particles');
-    assert.match(appSrc, /chat-fart-fx/, 'GM cards mount toxic fart-cloud particles');
-    assert.match(appSrc, /chat-spit-fx/, 'GM cards mount dark-blue spit particles');
+    assert.match(joinSrc, /player\.js\?v=20260930-chat-act-screen-fx-1/, 'screen-level targeted-act visuals are cache-busted');
+    assert.match(playerSrc, /playChatActScreenFx/, 'player feed launches screen-level chat-act impacts');
+    assert.match(appSrc, /playChatActScreenFx/, 'GM feed launches screen-level chat-act impacts');
+    assert.match(cssSrc, /\.chat-act-screen-fx\.is-fart/, 'toxic fart-cloud screen effect is styled');
+    assert.match(cssSrc, /\.chat-act-screen-fx\.is-spit/, 'dark-blue spit screen effect is styled');
     assert.match(cssSrc, /@keyframes chat-fart-cloud/, 'toxic fart shroud animation exists');
     assert.match(cssSrc, /@keyframes chat-spit-impact/, 'dark-blue spit impact animation exists');
     assert.doesNotMatch(playerSrc, /msg\.imageUrl \? 'IMAGE TRANSMISSION'/, 'player image-only Broker posts have no redundant transmission plaque');

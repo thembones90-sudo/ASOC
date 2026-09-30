@@ -4872,6 +4872,25 @@ const PlayerApp = {
     return `SHADOW BROKER CHECKS ON ${targetName}. STILL THERE?`;
   },
 
+  playChatActScreenFx(msg) {
+    const type = String(msg?.messageType || '');
+    if (type !== 'fart' && type !== 'spit') return;
+    const sentAt = Number(msg?.timestamp) || 0;
+    if (!sentAt || Math.abs(Date.now() - sentAt) > 8000) return;
+    const key = String(msg?.id || `${type}:${sentAt}`);
+    this._playedChatActFx ||= new Set();
+    if (this._playedChatActFx.has(key)) return;
+    this._playedChatActFx.add(key);
+    if (this._playedChatActFx.size > 100) this._playedChatActFx.delete(this._playedChatActFx.values().next().value);
+
+    const layer = document.createElement('div');
+    layer.className = `chat-act-screen-fx is-${type}`;
+    layer.setAttribute('aria-hidden', 'true');
+    layer.innerHTML = '<span class="chat-act-screen-core"></span>' + '<i></i>'.repeat(type === 'fart' ? 14 : 10);
+    document.body.appendChild(layer);
+    window.setTimeout(() => layer.remove(), type === 'fart' ? 2200 : 1700);
+  },
+
   createSystemChatCardHTML(msg) {
     const esc = (value) => this.escapeHtml(String(value == null ? '' : value));
     const actor = esc(msg.playerName || 'SHADOW BROKER');
@@ -4938,17 +4957,12 @@ const PlayerApp = {
     };
     const render = typeMap[msg.messageType];
     if (!render) return '';
+    this.playChatActScreenFx(msg);
     window.ShadowCosmetics?.maybePlayFx(msg);
     const { label, body, detail } = render();
     const lane = String(msg.playerId || '') === String(this.playerId || '') ? ' chat-system-own' : (msg.playerId ? ' chat-system-other' : ' chat-system-room');
-    const actFx = msg.messageType === 'fart'
-      ? '<span class="chat-act-fx chat-fart-fx" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>'
-      : msg.messageType === 'spit'
-        ? '<span class="chat-act-fx chat-spit-fx" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>'
-        : '';
     return `
       <div class="chat-system-card chat-system-${esc(msg.messageType)}${lane}${window.ShadowCosmetics?.cardClass(msg) || ''}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
-        ${actFx}
         <div class="chat-system-label">${esc(label)}</div>
         <div class="chat-system-body">${body}</div>
         ${detail ? `<div class="chat-system-detail">${detail}</div>` : ''}
