@@ -73,14 +73,23 @@ async function run() {
     for (let i = 0; i < 60; i++) { try { if ((await api('/health')).status === 200) break; } catch {} await sleep(150); }
     const gmToken = (await api('/api/auth/gm/login', { password: 'acts-pass' })).data.token;
     const tokens = [];
-    for (const name of ['Farter', 'Victim']) {
+    for (const name of ['Farter', 'Victim', 'Sleeper']) {
       tokens.push((await api('/api/auth/player/register', { email: `${name.toLowerCase()}@acts.test`, password: 'acts-password', name })).data.token);
     }
     const gm = await connect(ws => ws.send(JSON.stringify({ type: 'host:recover', gmToken })));
     const farter = await connect(ws => ws.send(JSON.stringify({ type: 'room:join', authToken: tokens[0], roomCode: 'MASTER', name: 'Farter' })));
     const victim = await connect(ws => ws.send(JSON.stringify({ type: 'room:join', authToken: tokens[1], roomCode: 'MASTER', name: 'Victim' })));
-    clients.push(gm, farter, victim);
+    const sleeper = await connect(ws => ws.send(JSON.stringify({ type: 'room:join', authToken: tokens[2], roomCode: 'MASTER', name: 'Sleeper' })));
+    clients.push(gm, farter, victim, sleeper);
     const say = async (text, extra = {}) => { farter.ws.send(JSON.stringify({ type: 'chat:guess', text, ...extra })); await sleep(420); };
+
+    // Persistent roster identities remain under GM authority even while their
+    // socket is temporarily offline. Player acts and ALL still use live peers.
+    sleeper.ws.close();
+    await sleep(250);
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart Sleeper' }));
+    const offlineBrokerAct = await waitFor(gm, m => m.messageType === 'fart' && m.fart?.targetId === sleeper.playerId, 'Broker fart on offline roster identity');
+    assert.equal(offlineBrokerAct.text, 'SHADOW BROKER farts on Sleeper.');
 
     // /fart by typed name: server-authoritative card, same contract as /spit.
     await say('/fart Victim');
@@ -167,7 +176,7 @@ async function run() {
 
     // The Broker farts too, but never at itself.
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart @Victim' }));
-    const brokerAct = await waitFor(victim, m => m.messageType === 'fart' && m.fart?.actorId === null, 'Broker fart');
+    const brokerAct = await waitFor(victim, m => m.messageType === 'fart' && m.fart?.actorId === null && m.fart?.targetId === victim.playerId, 'Broker fart');
     assert.equal(brokerAct.text, 'SHADOW BROKER farts on Victim.');
 
     const brokerSingleId = brokerAct.id;

@@ -6146,9 +6146,15 @@ const ALL_ONLINE_TARGET_ID = '__ALL_ONLINE__';
 // `allowBroker` (player /spit and /fart) also accepts the Shadow Broker, by
 // picker id or by typing Shadow Broker / Broker / GM -- a real player with
 // that exact name still wins. `verbLabel` only shapes the error text.
-function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel, { allowBroker = false, allowAll = false } = {}) {
-  const connected = Array.from(room.players.values())
-    .filter(player => player.connected !== false && String(player.name || '').trim());
+function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel, { allowBroker = false, allowAll = false, includeDisconnected = false } = {}) {
+  const roster = Array.from(room.players.values())
+    .filter(player => String(player.name || '').trim());
+  const connected = roster.filter(player => player.connected !== false);
+  // The Shadow Broker controls the persistent room roster, not merely the
+  // sockets alive at this instant. A temporarily disconnected identity can
+  // therefore still be named by a GM act; player-authored acts remain limited
+  // to live peers, and ALL continues to mean connected players only.
+  const namedCandidates = includeDisconnected ? roster : connected;
   const selfId = actorId === null || actorId === undefined ? '' : String(actorId);
   const allTarget = () => {
     const targetIds = connected.map(player => String(player.id)).filter(id => id !== selfId);
@@ -6159,8 +6165,8 @@ function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel,
   if (typeof targetPlayerId === 'string' && targetPlayerId) {
     if (allowAll && targetPlayerId === ALL_ONLINE_TARGET_ID) return allTarget();
     if (allowBroker && targetPlayerId === SHADOW_BROKER_TARGET_ID) return { target: SHADOW_BROKER_TARGET };
-    const target = connected.find(player => String(player.id) === targetPlayerId);
-    if (!target) return { error: `${verbLabel} TARGET MUST BE A CONNECTED PLAYER` };
+    const target = namedCandidates.find(player => String(player.id) === targetPlayerId);
+    if (!target) return { error: `${verbLabel} TARGET MUST BE A ${includeDisconnected ? 'KNOWN' : 'CONNECTED'} PLAYER` };
     if (String(target.id) === selfId) return { error: `${verbLabel} TARGET MUST BE ANOTHER PLAYER` };
     return { target };
   }
@@ -6170,10 +6176,10 @@ function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel,
   const needle = String(rawTarget || '').trim().replace(/^@+\s*/, '').trim().toLocaleLowerCase();
   if (!needle) return { error: `${verbLabel} TARGET REQUIRED // PICK A PLAYER FROM THE LIST` };
   if (allowAll && (needle === 'all' || needle === 'all online' || needle === 'everyone')) return allTarget();
-  const exact = connected.find(player => String(player.name).toLocaleLowerCase() === needle && String(player.id) !== selfId);
+  const exact = namedCandidates.find(player => String(player.name).toLocaleLowerCase() === needle && String(player.id) !== selfId);
   if (exact) return { target: exact };
   if (allowBroker && SHADOW_BROKER_TARGET_NAMES.has(needle)) return { target: SHADOW_BROKER_TARGET };
-  const target = connected.find(player => String(player.name).toLocaleLowerCase().includes(needle) && String(player.id) !== selfId);
+  const target = namedCandidates.find(player => String(player.name).toLocaleLowerCase().includes(needle) && String(player.id) !== selfId);
   if (!target) return { error: `${verbLabel} TARGET NOT FOUND // PICK A PLAYER FROM THE LIST` };
   return { target };
 }
@@ -6280,7 +6286,11 @@ function handleActCommand(room, author, raw, targetPlayerId, act) {
   const match = raw.match(new RegExp(`^\\/${act}(?:\\s+@?(.*))?\\s*$`, 'i'));
   if (!match) return { success: false, error: `${label} INVALID // USE /${act}` };
   const actorIsBroker = author.id === null || author.id === undefined;
-  const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', label, { allowBroker: !actorIsBroker, allowAll: true });
+  const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', label, {
+    allowBroker: !actorIsBroker,
+    allowAll: true,
+    includeDisconnected: actorIsBroker
+  });
   if (resolved.error) return { success: false, error: resolved.error };
   const target = resolved.target;
   return buildChatCommandMessage(room, author, act, act,
