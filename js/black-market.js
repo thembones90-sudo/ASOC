@@ -24,11 +24,11 @@
     BROKEN: 'THE PACT IS BROKEN'
   };
 
-  // Tribute image limits. The 2.2MB file cap is what keeps the base64 data URL
-  // (~2.93MB) under the server's MAX_TRIBUTE_DATA_LENGTH of 3,000,000 and well
-  // under the 5MB WebSocket payload ceiling, so a legal file is never rejected
-  // on arrival for size.
-  const TRIBUTE_MAX_BYTES = 20 * 1024 * 1024;
+  // Keep the encoded payload below the server's 3,000,000-character tribute
+  // guard and the WebSocket's 5 MB frame ceiling. One socket owns both the
+  // player's identity and the pact transition, so there is no HTTP-upload /
+  // WebSocket-claim race between file storage and submission.
+  const TRIBUTE_MAX_BYTES = 2200000;
   const TRIBUTE_MIME = ['image/png', 'image/jpeg', 'image/webp'];
 
   const ui = {
@@ -65,6 +65,10 @@
       host[method] = message => {
         if (message?.type === 'blackMarket:state' || message?.type === 'blackMarket:gmState') {
           this.pacts = Array.isArray(message.pacts) ? message.pacts : [];
+          if (!isGM && this._tributeAwaitingPactId) {
+            const submitted = this.pacts.find(p => p.id === this._tributeAwaitingPactId && p.state === 'TRIBUTE_SUBMITTED');
+            if (submitted) this.confirmTributeSubmission();
+          }
           if (isGM) {
             const entry = document.getElementById('black-market-gm-button');
             const hasPending = this.pacts.some(p => ['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state));
@@ -79,6 +83,11 @@
           return;
         }
         if (message?.type === 'blackMarket:error') {
+          if (this._tributeAwaitingPactId || this._tributeBusy) {
+            this.releaseTribute();
+            if (document.getElementById('black-market-overlay')) this.render();
+            this.send({ type: 'blackMarket:sync' });
+          }
           this.toast(message.message || 'THE PACT REJECTS YOUR HAND');
           return;
         }
@@ -154,6 +163,7 @@
         return '';
       }
       if (p.state === 'COUNTEROFFERED') return '<div class="bm-actions"><button data-act="accept-counter">ACCEPT REWRITTEN TERMS</button></div>';
+      if (p.id === this._tributeAwaitingPactId) return '<div class="bm-actions"><button type="button" disabled>SEALING THE OFFERING…</button></div>';
       if (['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(p.state)) return '<div class="bm-actions"><button data-act="offer-tribute">OFFER BLOOD TRIBUTE</button></div>';
       return '';
     },
@@ -207,6 +217,8 @@
     _tributeFocusRecovery: null,
     _tributeSelectionReceived: false,
     _tributePickerCycle: 0,
+    _tributeAwaitingPactId: null,
+    _tributeAckTimer: null,
 
     tributeInput() {
       if (this._tributeInput) return this._tributeInput;
@@ -239,6 +251,9 @@
       this._tributePactId = null;
       this._tributeSelectionReceived = false;
       this._tributePickerCycle += 1;
+      this._tributeAwaitingPactId = null;
+      clearTimeout(this._tributeAckTimer);
+      this._tributeAckTimer = null;
       clearTimeout(this._tributePickerTimer);
       this._tributePickerTimer = null;
       if (this._tributeFocusRecovery) {
@@ -251,6 +266,18 @@
         btn.disabled = false;
         btn.textContent = 'OFFER BLOOD TRIBUTE';
       }
+    },
+
+    confirmTributeSubmission() {
+      clearTimeout(this._tributeAckTimer);
+      this._tributeAckTimer = null;
+      this._tributeBusy = false;
+      this._tributePactId = null;
+      this._tributeAwaitingPactId = null;
+      this._tributeSelectionReceived = false;
+      this._tributePickerCycle += 1;
+      this._tributeButton = null;
+      this.toast('THE OFFERING HAS BEEN SEALED');
     },
 
     offerTribute(pactId, button) {
@@ -344,50 +371,47 @@
       if (file.size > TRIBUTE_MAX_BYTES) {
         input.value = '';
         this.releaseTribute();
-        return this.toast('THE OFFERING EXCEEDS THE 20 MB VAULT LIMIT');
+        return this.toast('THE OFFERING EXCEEDS THE 2.2 MB VAULT LIMIT');
       }
 
       if (this._tributeButton && this._tributeButton.isConnected) {
         this._tributeButton.textContent = 'SEALING THE OFFERING…';
       }
 
-      try {
-        const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
-        if (!token) throw new Error('THE RELIQUARY HAS LOST YOUR IDENTITY');
-
-        const response = await fetch('/api/black-market/tribute-image?pactId=' + encodeURIComponent(pactId), {
-          method: 'POST',
-          headers: {
-            'Content-Type': file.type,
-            'x-player-token': token
-          },
-          body: file
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok || !payload.imageUrl) {
-          throw new Error(payload.error || 'THE OFFERING COULD NOT BE STORED');
-        }
-
-        const sent = this.send({
-          type:'blackMarket:tributeSubmit',
-          pactId,
-          imageUrl:payload.imageUrl,
-          consent:true
-        }) === true;
-        if (!sent) throw new Error('THE RELIQUARY HAS LOST THE LINK');
-
-        this._tributeBusy = false;
-        this._tributePactId = null;
-        this._tributeSelectionReceived = false;
-        this._tributePickerCycle += 1;
-        this._tributeButton = null;
-        this.toast('THE OFFERING HAS BEEN SEALED');
-      } catch (error) {
-        this.releaseTribute();
-        this.toast(error?.message || 'THE OFFERING COULD NOT BE SEALED');
-      } finally {
+      const reader = new FileReader();
+      reader.onerror = () => {
         input.value = '';
-      }
+        this.releaseTribute();
+        this.toast('THE IMAGE COULD NOT BE READ');
+      };
+      reader.onabort = () => {
+        input.value = '';
+        this.releaseTribute();
+        this.toast('THE READING WAS INTERRUPTED');
+      };
+      reader.onload = () => {
+        input.value = '';
+        const imageData = String(reader.result || '');
+        if (!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(imageData)) {
+          this.releaseTribute();
+          return this.toast('THE OFFERING IS INVALID');
+        }
+        const sent = this.send({ type:'blackMarket:tributeSubmit', pactId, imageData, consent:true }) === true;
+        if (!sent) {
+          this.releaseTribute();
+          return this.toast('THE RELIQUARY HAS LOST THE LINK');
+        }
+        this._tributeAwaitingPactId = pactId;
+        clearTimeout(this._tributeAckTimer);
+        this._tributeAckTimer = setTimeout(() => {
+          if (this._tributeAwaitingPactId !== pactId) return;
+          this.releaseTribute();
+          if (document.getElementById('black-market-overlay')) this.render();
+          this.toast('THE RELIQUARY DID NOT CONFIRM THE OFFERING');
+          this.send({ type:'blackMarket:sync' });
+        }, 12000);
+      };
+      reader.readAsDataURL(file);
     },
 
     toast(message) {

@@ -47,14 +47,23 @@ const PNG_1x1 = Buffer.from(
 );
 
 // Boots a page with the real market script and a recording PlayerApp stub.
-async function bootPage(browser, { sendResult = true, fileReaderOverride = null } = {}) {
+async function bootPage(browser, { sendResult = true, fileReaderOverride = null, autoAck = true } = {}) {
   const page = await browser.newPage();
-  await page.setContent('<!doctype html><html><body><button id="black-market-player-button" class="black-market-entry"></button><div id="black-market-body"></div></body></html>');
+  await page.setContent('<!doctype html><html><body><button id="black-market-player-button" class="black-market-entry"></button></body></html>');
   await page.addScriptTag({ content: `
     window.__sent = [];
     window.__sendResult = ${sendResult === true ? 'true' : sendResult === false ? 'false' : sendResult};
     window.PlayerApp = {
-      send(message) { window.__sent.push(message); return window.__sendResult; },
+      send(message) {
+        window.__sent.push(message);
+        if (${autoAck ? 'true' : 'false'} && window.__sendResult === true && message.type === 'blackMarket:tributeSubmit') {
+          setTimeout(() => window.PlayerApp.handleMessage({
+            type:'blackMarket:state',
+            pacts:[{ id:message.pactId, state:'TRIBUTE_SUBMITTED' }]
+          }), 10);
+        }
+        return window.__sendResult;
+      },
       handleMessage() {}
     };
     ${fileReaderOverride || ''}
@@ -84,6 +93,7 @@ async function offer(page, pactId, file) {
     // ---------------------------------------------------- the happy path
     let page = await bootPage(browser);
     await page.evaluate(() => {
+      window.BlackMarket.open();
       const btn = document.createElement('button');
       btn.setAttribute('data-act', 'offer-tribute');
       document.getElementById('black-market-body').appendChild(btn);
@@ -102,13 +112,54 @@ async function offer(page, pactId, file) {
 
     await chooser.setFiles({ name: 'tribute.png', mimeType: 'image/png', buffer: PNG_1x1 });
     await page.waitForFunction(() => window.__sent.some(m => m.type === 'blackMarket:tributeSubmit'));
+    await page.waitForFunction(() => document.getElementById('black-market-toast')?.textContent === 'THE OFFERING HAS BEEN SEALED');
 
     const [sent] = await tributes(page);
     assert.equal(sent.pactId, 'pact-1', 'the pact id travels with the submission');
     assert.equal(sent.consent, true, 'consent is acknowledged on the wire');
     assert.match(sent.imageData, /^data:image\/png;base64,[A-Za-z0-9+/=]+$/, 'the image arrives as a valid server-accepted data URL');
     assert.equal(await toastText(page), 'THE OFFERING HAS BEEN SEALED', 'the player is told the offering was sealed');
+    assert.equal(await page.locator('[data-act="offer-tribute"]').count(), 0, 'the OFFER action disappears after the confirmed TRIBUTE_SUBMITTED state');
     assert.equal(await page.evaluate(() => document.querySelectorAll('input#bm-tribute-input').length), 1, 'the file input is reused, not leaked per click');
+    await page.close();
+
+    // A pre-submit/stale snapshot can arrive while the server acknowledgment
+    // is in flight. It must not resurrect an active OFFER control.
+    page = await bootPage(browser, { autoAck:false });
+    await page.evaluate(() => {
+      window.PlayerApp.handleMessage({ type:'blackMarket:state', pacts:[{
+        id:'pact-stale', state:'APPROVED_PENDING_TRIBUTE', category:'CUSTOM', title:'PACT', request:'REQUEST'
+      }] });
+      window.BlackMarket.open();
+    });
+    await offer(page, 'pact-stale', { name:'tribute.png', mimeType:'image/png', buffer:PNG_1x1 });
+    await page.waitForFunction(() => window.__sent.some(m => m.type === 'blackMarket:tributeSubmit'));
+    await page.evaluate(() => window.PlayerApp.handleMessage({ type:'blackMarket:state', pacts:[{
+      id:'pact-stale', state:'APPROVED_PENDING_TRIBUTE', category:'CUSTOM', title:'PACT', request:'REQUEST'
+    }] }));
+    assert.equal(await page.locator('[data-act="offer-tribute"]').count(), 0, 'a stale pending-tribute snapshot cannot restore OFFER during acknowledgment');
+    assert.equal(await page.getByRole('button', { name:'SEALING THE OFFERING…' }).count(), 1, 'the pending transaction remains visibly locked');
+    await page.evaluate(() => window.PlayerApp.handleMessage({ type:'blackMarket:state', pacts:[{
+      id:'pact-stale', state:'TRIBUTE_SUBMITTED', category:'CUSTOM', title:'PACT', request:'REQUEST'
+    }] }));
+    assert.equal(await page.locator('[data-act="offer-tribute"]').count(), 0, 'the confirmed submitted state permanently removes OFFER');
+    await page.close();
+
+    // GM projection: the accepted socket state must render the actual image
+    // with both judgment controls, not merely update a badge.
+    page = await browser.newPage();
+    await page.setContent('<!doctype html><html><body><button id="black-market-gm-button"></button></body></html>');
+    await page.addScriptTag({ content:'window.App={send(){return true;},handleServerMessage(){}};' });
+    await page.addScriptTag({ content:SOURCE });
+    await page.evaluate(imageData => {
+      window.App.handleServerMessage({ type:'blackMarket:gmState', pacts:[{
+        id:'pact-gm', playerName:'ANA', state:'TRIBUTE_SUBMITTED', category:'CUSTOM', title:'PACT', request:'REQUEST', tributeImageData:imageData
+      }] });
+      window.BlackMarket.open();
+    }, 'data:image/png;base64,' + PNG_1x1.toString('base64'));
+    assert.equal(await page.locator('.bm-tribute-preview').count(), 1, 'the GM sees the actual submitted image');
+    assert.equal(await page.getByRole('button', { name:'ACCEPT BLOOD TRIBUTE' }).count(), 1, 'the GM receives the ACCEPT control');
+    assert.equal(await page.getByRole('button', { name:'REJECT BLOOD TRIBUTE' }).count(), 1, 'the GM receives the REJECT control');
     await page.close();
 
     // ------------------------------------------- the socket is dead
@@ -129,7 +180,7 @@ async function offer(page, pactId, file) {
     // ------------------------------------------------------ too large
     page = await bootPage(browser);
     await offer(page, 'pact-4', { name: 'big.png', mimeType: 'image/png', buffer: Buffer.alloc(2200001) });
-    await page.waitForFunction(() => document.getElementById('black-market-toast')?.textContent === 'THE OFFERING EXCEEDS THE VAULT LIMIT');
+    await page.waitForFunction(() => document.getElementById('black-market-toast')?.textContent === 'THE OFFERING EXCEEDS THE 2.2 MB VAULT LIMIT');
     assert.equal((await tributes(page)).length, 0, 'an oversized image is never submitted');
     await page.close();
 
