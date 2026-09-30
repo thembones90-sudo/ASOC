@@ -215,7 +215,7 @@ async function run() {
       throw new Error(`timed out waiting for ${label}`);
     };
     const warsong = await waitMessage(victim, warsongVictimMark, m => m.type === 'warsong:alert', 'player warsong alert');
-    assert.equal(warsong.durationMs, 6000);
+    assert.equal(warsong.durationMs, 9000);
     await waitMessage(gm, warsongGmMark, m => m.type === 'warsong:alert', 'GM warsong alert');
     assert.equal(victim.chat.length, chatBeforeWarsong, 'warsong creates no chat message');
 
@@ -224,7 +224,8 @@ async function run() {
     const indexSrc = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
     assert.match(warsongClient, /PALI WARSONG, JUSUFE/, 'warsong renders the required caption');
     assert.match(warsongClient, /warsong-horde-banner\.png/, 'warsong renders the supplied banner');
-    assert.match(warsongCss, /warsong-blood-flicker/, 'warsong blood-red flicker is styled');
+    assert.match(warsongCss, /warsong-blood-rise/, 'warsong has a cinematic crimson buildup');
+    assert.match(warsongCss, /warsong-screen-impact/, 'warsong has a screen impact shake');
     assert.match(indexSrc, /warsong\.js\?v=20260930-warsong-1/, 'GM warsong client is cache-busted');
     assert.match(joinSrc, /warsong\.js\?v=20260930-warsong-1/, 'player warsong client is cache-busted');
     assert.ok(fs.existsSync(path.join(ROOT, 'assets', 'ui', 'warsong-horde-banner.png')), 'warsong banner asset exists');

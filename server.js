@@ -6051,7 +6051,7 @@ const CHAT_SLASH_COMMANDS = [
 ];
 
 const GM_CHAT_SLASH_COMMANDS = [
-  { name: '/warsong', help: '/warsong -- six-second room-wide Horde battle banner' },
+  { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
   { name: '/womf', help: 'WOMF charge, failed columns and wheel status' },
   { name: '/timer', help: '/timer A1 -- warn Column A has 1 minute left (A-D, 1 or 2 minutes)' },
@@ -6501,7 +6501,7 @@ function dispatchGmSlashCommand(room, ws, text) {
 
   if (/^\/warsong\b/i.test(raw)) {
     if (!/^\/warsong\s*$/i.test(raw)) return { success: false, error: 'WARSONG INVALID // USE /warsong' };
-    broadcastToRoom(room, { type: 'warsong:alert', timestamp: Date.now(), durationMs: 6000 });
+    broadcastToRoom(room, { type: 'warsong:alert', timestamp: Date.now(), durationMs: 9000 });
     return { success: true, broadcast: false };
   }
 

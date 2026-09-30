@@ -2,7 +2,7 @@
 // reconnecting clients never replay it and no chat history entry is created.
 (function () {
   'use strict';
-  const DURATION_MS = 6000;
+  const DURATION_MS = 9000;
   let timer = 0;
 
   function clear() {
