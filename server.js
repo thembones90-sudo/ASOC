@@ -6624,6 +6624,16 @@ function addShadowBrokerMessage(room, text, options = {}) {
   return { success: true, message };
 }
 
+// C4 COLUMN EASTER EGG -- only a complete "c4" / "c 4" transmission during
+// a live, unresolved battle detonates it. It is presentation-only and is not
+// persisted, so reconnecting players never replay an old explosion.
+function triggerC4Alert(room, text, messageId) {
+  if (room?.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) return false;
+  if (!/^c\s?4$/i.test(String(text || '').trim())) return false;
+  broadcastToRoom(room, { type: 'c4:alert', messageId: messageId || null, timestamp: Date.now(), durationMs: 3000 });
+  return true;
+}
+
 function broadcastToRoom(room, message, excludeWs = null) {
   const data = JSON.stringify(message);
   room.players.forEach((player, ws) => {
@@ -8809,6 +8819,7 @@ function handleChatGuess(ws, message) {
       && nudge !== 'tribute'
       && result.message?.id;
     broadcastChatUpdate(room, singleMessageOnly ? [result.message.id] : null);
+    if (dispatch === null) triggerC4Alert(room, result.message?.text, result.message?.id);
     if (result.tributeTriggered || nudge === 'tribute') broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
     if (nudge === 'nudge') {
       broadcastToRoom(room, {
@@ -9054,6 +9065,7 @@ function handleGmBroadcast(ws, message) {
   if (result.success) {
     persistActiveRooms();
     broadcastChatUpdate(room);
+    triggerC4Alert(room, result.message?.text, result.message?.id);
 
     // @all is a live host-only attention command. The chat message itself is
     // persistent; the shake is deliberately ephemeral and never replays when

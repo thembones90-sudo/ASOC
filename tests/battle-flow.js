@@ -151,6 +151,32 @@ async function run() {
     assert.equal(gm.state.roomMode, 'BATTLE');
     players[4] = await joinPlayer(4);
 
+    // C4 COLUMN is a live-battle-only, ephemeral chat easter egg. Both exact
+    // spellings detonate on every connected surface; longer text does not.
+    let c4GmMark = gm.mark();
+    let c4PlayerMark = players[1].mark();
+    players[0].send({ type: 'chat:guess', text: 'c4' });
+    const c4PlayerAlert = await players[1].waitFor((m, i) => i >= c4PlayerMark && m.type === 'c4:alert', 'player C4 alert');
+    const c4GmAlert = await gm.waitFor((m, i) => i >= c4GmMark && m.type === 'c4:alert', 'GM C4 alert');
+    assert.equal(c4PlayerAlert.durationMs, 3000);
+    assert.equal(c4GmAlert.durationMs, 3000);
+    await settle(420);
+
+    c4PlayerMark = players[1].mark();
+    gm.send({ type: 'gm:broadcast', text: 'c 4' });
+    await players[1].waitFor((m, i) => i >= c4PlayerMark && m.type === 'c4:alert', 'Broker C 4 alert');
+
+    c4GmMark = gm.mark();
+    players[0].send({ type: 'chat:guess', text: 'abc4' });
+    await settle(500);
+    assert.equal(gm.msgs.slice(c4GmMark).some(m => m.type === 'c4:alert'), false, 'C4 embedded in longer text does not detonate');
+
+    const c4Client = fs.readFileSync(path.join(ROOT, 'js', 'c4-alert.js'), 'utf8');
+    const c4Css = fs.readFileSync(path.join(ROOT, 'css', 'c4-alert.css'), 'utf8');
+    assert.match(c4Client, /c4-column-gimmick\.png/, 'C4 overlay renders the supplied image');
+    assert.match(c4Css, /c4-layer-flicker 3s/, 'C4 overlay flickers for three seconds');
+    assert.ok(fs.existsSync(path.join(ROOT, 'assets', 'ui', 'c4-column-gimmick.png')), 'C4 image asset exists');
+
     // 2. A FINAL misjudged CORRECT and corrected to WRONG fully reopens the board.
     const winsBefore = await gamesWon();
     const misclick = await guess(players[3], 'FINAL MISCLICK');

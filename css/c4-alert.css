@@ -1,0 +1,59 @@
+/* C4 COLUMN // three-second room-wide battle-chat detonation gag. */
+.c4-alert-layer {
+  position:fixed;
+  inset:0;
+  z-index:2147483190;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  pointer-events:none;
+  opacity:0;
+  isolation:isolate;
+  background:rgba(1,8,3,.9);
+}
+.c4-alert-layer.is-live {
+  animation:c4-layer-flicker 3s steps(1,end) both;
+}
+.c4-alert-layer img {
+  display:block;
+  width:min(82vw,760px);
+  max-height:82vh;
+  object-fit:contain;
+  border:2px solid rgba(118,255,66,.72);
+  box-shadow:0 0 0 8px rgba(1,12,4,.82),0 0 42px rgba(75,255,26,.55),0 20px 50px #000;
+  animation:c4-image-flicker 3s steps(2,end) both;
+}
+.c4-alert-static {
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background:
+    radial-gradient(circle at 50% 50%,rgba(126,255,35,.24),transparent 42%),
+    repeating-linear-gradient(0deg,rgba(125,255,73,.08) 0 1px,transparent 1px 5px),
+    linear-gradient(135deg,#010802,#102b08 48%,#010602);
+  animation:c4-static-pulse .12s steps(2,end) infinite;
+}
+@keyframes c4-layer-flicker {
+  0%{opacity:0} 4%{opacity:1} 9%{opacity:.2} 13%{opacity:1}
+  26%{opacity:.62} 31%{opacity:1} 48%{opacity:.72} 53%{opacity:1}
+  82%{opacity:1} 88%{opacity:.35} 92%{opacity:1} 100%{opacity:0}
+}
+@keyframes c4-image-flicker {
+  0%{opacity:0;transform:scale(.82) rotate(-1deg);filter:contrast(1.5) saturate(1.4)}
+  8%{opacity:1;transform:scale(1.035) rotate(.4deg)}
+  14%{opacity:.34;transform:scale(.99) rotate(-.25deg)}
+  22%,78%{opacity:1;transform:scale(1);filter:contrast(1.14) saturate(1.18)}
+  84%{opacity:.42;transform:scale(1.015)}
+  91%{opacity:1;transform:scale(1)}
+  100%{opacity:0;transform:scale(.96);filter:contrast(1.35) saturate(.8)}
+}
+@keyframes c4-static-pulse {
+  0%{opacity:.62;transform:translate(0,0)}
+  50%{opacity:1;transform:translate(-2px,1px)}
+  100%{opacity:.72;transform:translate(2px,-1px)}
+}
+@media (prefers-reduced-motion:reduce) {
+  .c4-alert-layer.is-live{animation:c4-layer-flicker 3s linear both}
+  .c4-alert-layer img{animation:none}
+  .c4-alert-static{animation:none}
+}

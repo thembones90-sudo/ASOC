@@ -1511,6 +1511,10 @@ const PlayerApp = {
         window.WarsongAlert?.onMessage(message);
         break;
 
+      case 'c4:alert':
+        window.C4Alert?.onMessage(message);
+        break;
+
       case 'shadowRealm:banish':
         window.ShadowRealm?.onMessage(message, this.playerId);
         break;

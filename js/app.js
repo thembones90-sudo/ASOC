@@ -2694,6 +2694,10 @@ const App = {
         window.WarsongAlert?.onMessage(message);
         break;
 
+      case 'c4:alert':
+        window.C4Alert?.onMessage(message);
+        break;
+
       case 'shadowRealm:banish':
         this.shadowRealmActive ||= {};
         this.shadowRealmActive[String(message.playerId)] = { until:Date.now()+Number(message.remainingMs||0), playerName:message.playerName };
