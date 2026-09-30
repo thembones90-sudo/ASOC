@@ -6052,6 +6052,7 @@ const CHAT_SLASH_COMMANDS = [
 
 const GM_CHAT_SLASH_COMMANDS = [
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
+  { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
   { name: '/womf', help: 'WOMF charge, failed columns and wheel status' },
   { name: '/timer', help: '/timer A1 -- warn Column A has 1 minute left (A-D, 1 or 2 minutes)' },
@@ -6502,6 +6503,15 @@ function dispatchGmSlashCommand(room, ws, text) {
   if (/^\/warsong\b/i.test(raw)) {
     if (!/^\/warsong\s*$/i.test(raw)) return { success: false, error: 'WARSONG INVALID // USE /warsong' };
     broadcastToRoom(room, { type: 'warsong:alert', timestamp: Date.now(), durationMs: 9000 });
+    return { success: true, broadcast: false };
+  }
+
+  if (/^\/c4\b/i.test(raw)) {
+    if (!/^\/c4\s*$/i.test(raw)) return { success: false, error: 'C4 INVALID // USE /c4' };
+    if (room.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) {
+      return { success: false, error: 'C4 REQUIRES A LIVE BATTLE' };
+    }
+    broadcastToRoom(room, { type: 'c4:alert', messageId: null, timestamp: Date.now(), durationMs: 3000, manual: true });
     return { success: true, broadcast: false };
   }
 

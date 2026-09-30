@@ -166,6 +166,13 @@ async function run() {
     gm.send({ type: 'gm:broadcast', text: 'c 4' });
     await players[1].waitFor((m, i) => i >= c4PlayerMark && m.type === 'c4:alert', 'Broker C 4 alert');
 
+    const c4ChatCount = gm.chat.length;
+    c4PlayerMark = players[1].mark();
+    gm.send({ type: 'gm:broadcast', text: '/c4' });
+    const manualC4 = await players[1].waitFor((m, i) => i >= c4PlayerMark && m.type === 'c4:alert', 'Broker manual /c4 alert');
+    assert.equal(manualC4.manual, true);
+    assert.equal(gm.chat.length, c4ChatCount, 'manual /c4 remains ephemeral');
+
     c4GmMark = gm.mark();
     players[0].send({ type: 'chat:guess', text: 'abc4' });
     await settle(500);

@@ -305,7 +305,7 @@ async function run() {
     gm.chat = [];
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/commands' }));
     const gmCommands = await waitFor(gm, m => m.messageType === 'commands' && m.playerId == null, 'GM /commands');
-    ['/warsong', '/flip', '/dice', '/choose', '/order', '/stats', '/all', '/grovel', '/slap'].forEach(name =>
+    ['/warsong', '/c4', '/flip', '/dice', '/choose', '/order', '/stats', '/all', '/grovel', '/slap'].forEach(name =>
       assert.ok(gmCommands.commands.commands.some(entry => entry.name === name), `GM /commands lists ${name}`));
 
     assert.equal(serverErrors.trim(), '', 'no server errors');

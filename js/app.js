@@ -83,6 +83,7 @@ const App = {
   bloodTributes: [],
   gmSlashCommands: [
     { name: 'warsong', insert: '/warsong', icon: '⚑', label: 'WARSONG', description: 'Six-second room-wide Horde battle banner' },
+    { name: 'c4', insert: '/c4', icon: '▣', label: 'C4 COLUMN', description: 'Manually trigger the three-second C4 battle alert' },
     { name: 'roll', insert: '/roll ', icon: '◆', label: 'ROLL', description: 'Authoritative Shadow Broker roll // minimum 2' },
     { name: 'recount', insert: '/recount', icon: '◈', label: 'RECOUNT', description: 'Show the RECOUNT // game over + aftermath required' },
     { name: 'womf', insert: '/womf', icon: '⚠', label: 'WOMF STATUS', description: 'WOMF charge, failed columns and wheel status' },
