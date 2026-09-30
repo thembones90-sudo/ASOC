@@ -9,7 +9,7 @@ const assert = require('assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const { createLinkPreviewService, extractMetadata } = require('../link-preview');
+const { createLinkPreviewService, extractMetadata, extractYoutubeOEmbedMetadata } = require('../link-preview');
 
 const ROOT = path.resolve(__dirname, '..');
 const CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'chat-links.js'), 'utf8');
@@ -133,6 +133,14 @@ const youtubeFallback = service.minimalPreview('https://www.youtube.com/watch?v=
 assert.equal(youtubeFallback.siteName, 'YouTube', 'YouTube gets a provider-aware fallback when metadata fetching is blocked');
 assert.equal(youtubeFallback.title, 'YouTube video');
 assert.equal(youtubeFallback.image, 'https://i.ytimg.com/vi/HWDHQr1EBO4/hqdefault.jpg', 'YouTube fallback derives a safe public thumbnail from the video id');
+const youtubeMetadata = extractYoutubeOEmbedMetadata({
+  title: 'Alice In Chains - Man in the Box',
+  author_name: 'AliceInChainsVEVO',
+  thumbnail_url: 'https://i.ytimg.com/vi/HWDHQr1EBO4/hqdefault.jpg'
+}, 'https://www.youtube.com/watch?v=HWDHQr1EBO4');
+assert.equal(youtubeMetadata.title, 'Alice In Chains - Man in the Box');
+assert.equal(youtubeMetadata.siteName, 'YouTube · AliceInChainsVEVO');
+assert.equal(youtubeMetadata.description, 'Video by AliceInChainsVEVO');
 
 // Lengths are capped so a hostile <title> cannot flood the room log.
 const huge = extractMetadata(
@@ -328,6 +336,8 @@ assert.equal(service.extractFirstUrl('http://[::1]/x and https://example.com/ok'
     await page2.waitForFunction(() => !document.querySelector('#gm-broker-bar > .chat-compose-link-preview')?.hidden);
     assert.equal(await page2.locator('#gm-broker-bar > .chat-compose-link-preview .chat-link-preview-title').textContent(), 'ASOC Transmission', 'the GM rich-text composer receives the same pre-send preview');
     assert.equal(await page2.locator('#shadow-broker-form .chat-compose-link-preview').count(), 0, 'the GM preview is outside the flex form and cannot shrink the composer');
+    await page2.evaluate(() => document.getElementById('shadow-broker-form').dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })));
+    assert.equal(await page2.locator('#gm-broker-bar > .chat-compose-link-preview:not([hidden])').count(), 0, 'sending immediately clears the GM composer preview');
 
     await page2.close();
     console.log('PASS chat links: addresses are linkified safely, posted cards unfurl through the guarded server path, and typing a URL renders/removes its preview before send');

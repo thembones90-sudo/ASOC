@@ -140,6 +140,7 @@
   }
 
   const composerPreviewCache = new Map();
+  const composerPreviewControllers = new Map();
 
   function firstUrl(text) {
     return split(text).find(segment => segment.type === 'url')?.value || '';
@@ -238,8 +239,10 @@
 
     input.addEventListener('input', update);
     input.addEventListener('paste', () => setTimeout(update, 0));
-    form.addEventListener('submit', () => setTimeout(hide, 0));
-    return { update, hide, tray };
+    form.addEventListener('submit', hide);
+    const controllerApi = { update, hide, tray };
+    composerPreviewControllers.set(isGM ? 'gm' : 'player', controllerApi);
+    return controllerApi;
   }
 
   function bindComposerPreviews() {
@@ -270,6 +273,7 @@
     esc,
     firstUrl,
     attachComposerPreview,
+    clearComposerPreview: role => composerPreviewControllers.get(role === true || role === 'gm' ? 'gm' : 'player')?.hide(),
     bindComposerPreviews
   };
 

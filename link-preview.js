@@ -43,6 +43,7 @@ const MAX_LINKS_PER_MESSAGE = 4;
 // punctuation around it or reach into an attribute we build later.
 const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/gi;
 const ALLOWED_CONTENT_TYPES = new Set(['text/html', 'application/xhtml+xml']);
+const JSON_CONTENT_TYPES = new Set(['application/json', 'text/json']);
 
 const ENTITIES = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'", '#x27': "'"
@@ -168,6 +169,22 @@ function extractMetadata(html, pageUrl) {
   };
 }
 
+function extractYoutubeOEmbedMetadata(payload, pageUrl) {
+  if (!payload || typeof payload !== 'object') return null;
+  const url = safeWebUrl(pageUrl);
+  const title = truncate(payload.title || '', MAX_TITLE);
+  if (!url || !title) return null;
+  const author = truncate(payload.author_name || '', 80);
+  return {
+    url,
+    title,
+    description: author ? `Video by ${author}` : '',
+    image: safeWebUrl(payload.thumbnail_url || '') || null,
+    siteName: author ? `YouTube · ${author}` : 'YouTube',
+    fetchedAt: Date.now()
+  };
+}
+
 function createLinkPreviewService(options = {}) {
   const isBlockedAddress = typeof options.isBlockedAddress === 'function'
     ? options.isBlockedAddress
@@ -283,7 +300,7 @@ function createLinkPreviewService(options = {}) {
     return { ...records[0], servername: cleanHost };
   }
 
-  function fetchDocument(rawUrl, redirectCount = 0) {
+  function fetchDocument(rawUrl, redirectCount = 0, requestOptions = {}) {
     if (redirectCount > MAX_REDIRECTS) return Promise.reject(new Error('Link redirected too many times'));
     let target;
     try {
@@ -311,7 +328,7 @@ function createLinkPreviewService(options = {}) {
         rejectUnauthorized: true,
         headers: {
           Host: target.host,
-          Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1',
+          Accept: requestOptions.accept || 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1',
           'User-Agent': 'ASOC-Link-Preview/1.0',
           'Accept-Language': 'en',
           Connection: 'close'
@@ -331,7 +348,7 @@ function createLinkPreviewService(options = {}) {
           }
           // Re-validated from the top: normalizeUrl + resolvePublicAddress run
           // again for the new host.
-          fetchDocument(redirected, redirectCount + 1).then(resolve, reject);
+          fetchDocument(redirected, redirectCount + 1, requestOptions).then(resolve, reject);
           return;
         }
         if (status !== 200) {
@@ -340,7 +357,8 @@ function createLinkPreviewService(options = {}) {
           return;
         }
         const contentType = String(response.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
-        if (contentType && !ALLOWED_CONTENT_TYPES.has(contentType)) {
+        const allowedTypes = requestOptions.allowedContentTypes || ALLOWED_CONTENT_TYPES;
+        if (contentType && !allowedTypes.has(contentType)) {
           response.resume();
           fail(new Error('Link is not a web page'));
           return;
@@ -376,6 +394,41 @@ function createLinkPreviewService(options = {}) {
     }));
   }
 
+  function youtubeVideoId(rawUrl) {
+    try {
+      const url = normalizeUrl(rawUrl);
+      const host = url.hostname.toLowerCase().replace(/^www\./, '');
+      let id = '';
+      if (host === 'youtu.be') id = url.pathname.split('/').filter(Boolean)[0] || '';
+      if (host === 'youtube.com' || host === 'm.youtube.com') {
+        if (url.pathname === '/watch') id = url.searchParams.get('v') || '';
+        else {
+          const parts = url.pathname.split('/').filter(Boolean);
+          if (['shorts', 'embed', 'live'].includes(parts[0])) id = parts[1] || '';
+        }
+      }
+      return /^[A-Za-z0-9_-]{6,20}$/.test(id) ? id : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function fetchYoutubeOEmbed(rawUrl) {
+    if (!youtubeVideoId(rawUrl)) return Promise.reject(new Error('Not a YouTube video'));
+    const original = normalizeUrl(rawUrl).toString();
+    const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(original)}&format=json`;
+    return fetchDocument(endpoint, 0, {
+      allowedContentTypes: JSON_CONTENT_TYPES,
+      accept: 'application/json'
+    }).then(({ html }) => {
+      let payload;
+      try { payload = JSON.parse(html); } catch (_) { throw new Error('YouTube returned invalid metadata'); }
+      const preview = extractYoutubeOEmbedMetadata(payload, original);
+      if (!preview) throw new Error('YouTube metadata was incomplete');
+      return preview;
+    });
+  }
+
   function readCache(key) {
     if (!key) return null;
     const hit = cache.get(key);
@@ -392,17 +445,7 @@ function createLinkPreviewService(options = {}) {
       const url = normalizeUrl(rawUrl);
       if (isRefusedTarget(url)) return null;
       const host = url.hostname;
-      const youtubeId = (() => {
-        const cleanHost = host.toLowerCase().replace(/^www\./, '');
-        if (cleanHost === 'youtu.be') return url.pathname.split('/').filter(Boolean)[0] || '';
-        if (cleanHost === 'youtube.com' || cleanHost === 'm.youtube.com') {
-          if (url.pathname === '/watch') return url.searchParams.get('v') || '';
-          const parts = url.pathname.split('/').filter(Boolean);
-          if (['shorts', 'embed', 'live'].includes(parts[0])) return parts[1] || '';
-        }
-        return '';
-      })();
-      const safeYoutubeId = /^[A-Za-z0-9_-]{6,20}$/.test(youtubeId) ? youtubeId : '';
+      const safeYoutubeId = youtubeVideoId(url.toString());
       return {
         url: url.toString(),
         title: safeYoutubeId ? 'YouTube video' : truncate(host, MAX_TITLE),
@@ -433,9 +476,12 @@ function createLinkPreviewService(options = {}) {
     if (inflight.has(key)) return null;
     if (inflight.size >= maxInflight) return null;
 
-    const task = fetchDocument(key)
-      .then(({ html, finalUrl }) => {
-        const preview = extractMetadata(html, finalUrl) || minimalPreview(finalUrl);
+    const fetchPreview = youtubeVideoId(key)
+      ? fetchYoutubeOEmbed(key).catch(() => fetchDocument(key).then(({ html, finalUrl }) => extractMetadata(html, finalUrl)))
+      : fetchDocument(key).then(({ html, finalUrl }) => extractMetadata(html, finalUrl));
+    const task = fetchPreview
+      .then(result => {
+        const preview = result || minimalPreview(key);
         if (preview && preview.image && literalHostIsPrivate(safeHost(preview.image))) preview.image = null;
         if (preview) {
           cache.set(key, { at: now(), preview });
@@ -510,6 +556,7 @@ function createLinkPreviewService(options = {}) {
 module.exports = {
   createLinkPreviewService,
   extractMetadata,
+  extractYoutubeOEmbedMetadata,
   safeWebUrl,
   URL_PATTERN
 };
