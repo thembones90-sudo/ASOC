@@ -21443,9 +21443,30 @@ html[data-asoc-light] #game-screen .detainee-status-module {
 html[data-asoc-light] #game-screen #chat-panel {
   background: #1B2229 !important;                                              /* #D8DFE6 message well */
 }
-html[data-asoc-light] #game-screen #chat-form {
-  background: #171E24 !important;                                              /* #DCE3E9 composer tray */
-  border-top: 1px solid #5D6A77 !important;
+html[data-asoc-light] #game-screen #chat-form { background: transparent !important; }
+html[data-asoc-light] #game-screen #chat-form .chat-composer-shell {
+  background: #000 !important;                                                 /* #FFFFFF composer pill */
+  border: 1px solid #505C68 !important;                                        /* #9AA6B2 */
+  box-shadow: 0 2px 10px rgba(255,255,255,.10) !important;
+}
+/* Fields and chips: white fills with a defined slate edge, never grey-on-grey. */
+html[data-asoc-light] #game-screen :is([placeholder*="SEARCH" i], .hero-stat) {
+  background: #020304 !important;                                              /* #FBFCFD */
+  border: 1px solid #434E59 !important;                                        /* #A9B4BF */
+  box-shadow: 0 1px 2px rgba(255,255,255,.08) !important;
+}
+html[data-asoc-light] #game-screen .hero-stat-label { color: #8E9BA8 !important; }   /* #5B6875 */
+html[data-asoc-light] #game-screen .hero-stat b { color: #D6DEE7 !important; }       /* #1B232C */
+html[data-asoc-light] #game-screen .chat-header {
+  background: #080B0E !important;                                              /* #F2F5F8 */
+  border-bottom: 1px solid #434E59 !important;
+}
+html[data-asoc-light] #game-screen .casual-network-name { color: #D6DEE7 !important; }  /* #1B232C */
+/* Battle HUD cards: white plates with an edge and lift. */
+html[data-asoc-light] #game-screen :is(.timer-tracker, .womf-tracker) {
+  background: #020304 !important;
+  border: 1px solid #505C68 !important;
+  box-shadow: 0 6px 18px rgba(255,255,255,.12) !important;
 }
 html[data-asoc-light] #game-screen .chat-message .chat-message-main {
   box-shadow: 0 1px 2px rgba(255,255,255,.14), 0 4px 12px rgba(255,255,255,.07) !important;
