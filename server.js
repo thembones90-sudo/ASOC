@@ -22,6 +22,7 @@ const matchStore = require('./match-store');
 const recountEngine = require('./recount-engine');
 const iksArena = require('./iks-arena-store');
 const kaladont = require('./kaladont');
+const rage = require('./rage');
 const classSchedule = require('./class-schedule');
 const unstableConcoction = require('./unstable-concoction');
 const questEngine = require('./quest-engine');
@@ -427,6 +428,7 @@ function serializeRoomForRecovery(room) {
     ritual: normalizeRitualState(room.ritual),
     unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
     kaladont: room.kaladont || null,
+    rage: room.rage || null,
     // Private recovery data only. Network clients receive rouletteViewFor().
     rouletteCarnage: room.rouletteCarnage || null,
     shadowRealm: room.shadowRealm || {},
@@ -560,6 +562,7 @@ function restoreActiveRooms() {
         // KALADONT survives a restart; the phase in flight gets a fresh window
         // so nobody is eliminated for time lost to the outage.
         kaladont: kaladont.resumeAfterRestart(kaladont.normalizeState(saved.kaladont), Date.now()),
+        rage: rage.resumeAfterRestart(rage.normalizeState(saved.rage), Date.now()),
         rouletteCarnage: rouletteCarnage.normalizeState(saved.rouletteCarnage),
         shadowRealm: saved.shadowRealm && typeof saved.shadowRealm === 'object' ? saved.shadowRealm : {},
         shadowRealmHistory: Array.isArray(saved.shadowRealmHistory) ? saved.shadowRealmHistory.slice(-100) : [],
@@ -1215,6 +1218,7 @@ function createRoom(gameId, hostWs) {
     unstableConcoction: unstableConcoction.normalizeState(),
     // KALADONT (Casual word-chain elimination game) -- see kaladont.js.
     kaladont: null,
+    rage: null,
     rouletteCarnage: null,
     shadowRealm: {},
     shadowRealmHistory: [],
@@ -2873,7 +2877,7 @@ function declareGameLost(room, source = 'timer') {
 
 // KALADONT clock (250ms): only rooms with a Kaladont state do any work.
 setInterval(() => runtimeAction(() => {
-  rooms.forEach(room => { if (room.kaladont) tickKaladont(room); });
+  rooms.forEach(room => { if (room.kaladont) tickKaladont(room); if (room.rage) tickRage(room); });
   tickIksGauntlet();
 }), 250);
 
@@ -5308,6 +5312,147 @@ function kaladontDisconnect(room, playerId) {
   const out = kaladont.lobbyDisconnect(state, playerId, kaladontOnlineIds(room));
   if (out.closed) return kaladontClose(room, out.announce[0]);
   kaladontCommit(room, out.announce);
+}
+
+// ---------------------------------------------------------------------
+// THY SHALL NOT RAGE -- Casual-only "Ne ljuti se čoveče". rage.js owns the
+// rules; this layer owns identity (same as Kaladont: the Shadow Broker plays
+// as __GM__), the Shadow Coin stakes, persistence and the clock.
+// Stakes: joining a FOR COINS lobby is agreeing to its stake. START holds
+// every Little Hero's stake (receipt rage:<id>:stake:<pid>); the winner takes
+// the pot once (rage:<id>:pot). The Shadow Broker never pays a stake; if the
+// Broker wins, the pot goes to the House. A game the Broker ends is refunded.
+// ---------------------------------------------------------------------
+function rageStateFor(room, viewerId) {
+  return room.rage ? rage.view(room.rage, viewerId, Date.now(), kaladontOnlineIds(room)) : null;
+}
+function sendRageState(room, ws) {
+  if (!room || ws?.readyState !== 1) return;
+  const viewer = ws === room.hostConnection ? '__GM__' : ws.playerId;
+  sendToWs(ws, { type: 'rage:state', state: rageStateFor(room, viewer) });
+}
+function broadcastRage(room) {
+  room.players.forEach((player, socket) => sendRageState(room, socket));
+  if (room.hostConnection) sendRageState(room, room.hostConnection);
+}
+const ragePays = id => String(id) !== '__GM__';
+function rageRefund(room, s) {
+  Object.entries(s.paid || {}).forEach(([id, amount]) => {
+    const name = s.players?.[id]?.name || s.members.find(m => m.id === id)?.name || 'LITTLE HERO';
+    const result = playerStore.awardShadowCoins({ id, name }, amount, `rage:${s.id}:refund:${id}`, { reason: 'THY SHALL NOT RAGE refund' });
+    if (!result.ok) console.error('[rage] refund failed:', result.error);
+  });
+  s.paid = {};
+  s.pot = 0;
+  broadcastPlayersUpdate(room);
+}
+function rageSettle(room, announce) {
+  const s = room.rage;
+  if (!s || s.phase !== 'ended' || !s.winnerId || s.reward) return;
+  if (!s.pot) { s.reward = { amount: 0 }; return; }
+  if (!ragePays(s.winnerId)) {
+    s.reward = { amount: s.pot, house: true };
+    announce.push(`THY SHALL NOT RAGE // THE HOUSE TAKES THE POT: ${s.pot} SHADOW COIN${s.pot === 1 ? '' : 'S'}.`);
+    return;
+  }
+  const winner = s.players[s.winnerId];
+  const result = playerStore.awardShadowCoins({ id: s.winnerId, name: winner.name }, s.pot, `rage:${s.id}:pot`, { reason: 'THY SHALL NOT RAGE pot' });
+  if (!result.ok) { console.error('[rage] pot award failed:', result.error); return; }
+  s.reward = { amount: s.pot, balance: result.balance };
+  announce.push(`THY SHALL NOT RAGE // ${winner.name} TAKES THE POT: +${s.pot} SHADOW COIN${s.pot === 1 ? '' : 'S'}.`);
+  broadcastPlayersUpdate(room);
+}
+function rageCommit(room, announce = []) {
+  rageSettle(room, announce);
+  if (announce.length) iksAnnounce(room, announce);
+  persistActiveRooms();
+  broadcastRage(room);
+}
+function rageClose(room, line, { refund = false } = {}) {
+  if (refund && room.rage && room.rage.phase !== 'ended') rageRefund(room, room.rage);
+  room.rage = null;
+  rageCommit(room, line ? [line] : []);
+}
+function rageBalance(actor) { return playerStore.getShadowCoins({ id: actor.id, name: actor.name }); }
+function handleRage(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return;
+  const fail = error => sendToWs(ws, { type: 'error', code: 'RAGE', message: error });
+  const type = message.type;
+  if (ws === room.hostConnection && type === 'rage:cancel' && room.rage && room.rage.phase !== 'ended') {
+    return rageClose(room, 'THY SHALL NOT RAGE // THE SHADOW BROKER OVERTURNED THE BOARD. STAKES RETURNED.', { refund: true });
+  }
+  const actor = kaladontActor(room, ws);
+  if (!actor) return fail('A CONNECTED LITTLE HERO IDENTITY IS REQUIRED');
+  if (type === 'rage:sync') return sendRageState(room, ws);
+  if (room.roomMode !== ROOM_MODES.CASUAL) return fail('THY SHALL NOT RAGE IS AVAILABLE ONLY IN AMUSEMENT PARK');
+  const s = room.rage;
+  const now = Date.now();
+  let result;
+  switch (type) {
+    case 'rage:create': {
+      if (s && s.phase !== 'ended') return fail(s.phase === 'lobby' ? 'A LOBBY IS ALREADY OPEN // JOIN IT' : 'A GAME IS ALREADY RUNNING');
+      const stake = Math.max(0, Math.min(rage.MAX_STAKE, Math.floor(Number(message.stake) || 0)));
+      if (stake && ragePays(actor.id) && rageBalance(actor) < stake) return fail(`YOU NEED ${stake} SHADOW COINS FOR THAT STAKE`);
+      room.rage = rage.createLobby(actor, { stake }, now);
+      return rageCommit(room, [`THY SHALL NOT RAGE // ${actor.name} OPENED A TABLE ${stake ? `FOR ${stake} SHADOW COIN${stake === 1 ? '' : 'S'} A HEAD` : 'FOR FUN'}. JOIN FROM THE ARCADE.`]);
+    }
+    case 'rage:join':
+      if (s?.stake && ragePays(actor.id) && rageBalance(actor) < s.stake) return fail(`THIS TABLE COSTS ${s.stake} SHADOW COINS. YOU HAVE ${rageBalance(actor)}.`);
+      result = rage.join(s, actor);
+      break;
+    case 'rage:leave':
+      result = rage.leave(s, actor.id);
+      if (result.closed) return rageClose(room, `THY SHALL NOT RAGE // THE TABLE CLOSED.`);
+      break;
+    case 'rage:cancel':
+      if (!s || s.phase !== 'lobby') return fail('ONLY AN OPEN LOBBY CAN BE CANCELLED');
+      if (s.ownerId !== actor.id) return fail('ONLY THE LOBBY CREATOR CAN CANCEL IT');
+      return rageClose(room, `THY SHALL NOT RAGE // ${actor.name} CANCELLED THE TABLE.`);
+    case 'rage:start': {
+      result = rage.start(s, actor.id, kaladontOnlineIds(room), now);
+      if (!result.ok) return fail(result.error);
+      if (s.stake) {
+        const payers = result.seated.filter(ragePays);
+        const short = payers.map(id => s.players[id]).find(p => rageBalance(p) < s.stake);
+        if (short) { s.phase = 'lobby'; return fail(`${short.name} CANNOT COVER THE ${s.stake} COIN STAKE`); }
+        for (const id of payers) {
+          const p = s.players[id];
+          const paid = playerStore.spendShadowCoins({ id, name: p.name }, s.stake, `rage:${s.id}:stake:${id}`, { reason: 'THY SHALL NOT RAGE stake' });
+          if (!paid.ok) { rageRefund(room, s); s.phase = 'lobby'; return fail(`${p.name}: ${paid.error}`); }
+          s.paid[id] = s.stake;
+          s.pot += s.stake;
+        }
+        broadcastPlayersUpdate(room);
+      }
+      return rageCommit(room, rage.begin(s, now));
+    }
+    case 'rage:color':
+      result = rage.pickColor(s, actor.id, String(message.color || ''));
+      break;
+    case 'rage:roll':
+      result = rage.roll(s, actor.id, message.turnSeq, now);
+      break;
+    case 'rage:move':
+      result = rage.move(s, actor.id, message.piece, message.turnSeq, now);
+      break;
+    default:
+      return fail('UNKNOWN ACTION');
+  }
+  if (!result.ok) return fail(result.error);
+  if (result.already) return sendRageState(room, ws);
+  rageCommit(room, result.announce || []);
+}
+function tickRage(room, now = Date.now()) {
+  const s = room.rage;
+  if (!s) return;
+  if (room.roomMode !== ROOM_MODES.CASUAL && s.phase !== 'ended') {
+    return rageClose(room, 'THY SHALL NOT RAGE // CLOSED FOR BATTLE. STAKES RETURNED.', { refund: true });
+  }
+  if (s.phase === 'ended' && s.winnerId && !s.reward) return rageCommit(room, []);
+  const out = rage.tick(s, now, kaladontOnlineIds(room));
+  if (out.expired) return rageClose(room, null, { refund: s.phase !== 'ended' });
+  if (out.changed) rageCommit(room, out.announce || []);
 }
 
 // ---------------------------------------------------------------------
@@ -7824,6 +7969,7 @@ function handlePlayerJoin(ws, message) {
   // KALADONT rehydration: a (re)joining Little Hero resumes as player or
   // spectator exactly where the match stands; others learn of an open lobby.
   if (room.kaladont) broadcastKaladont(room);
+  if (room.rage) broadcastRage(room);
   // Always sent, active or not: the overlay's own visibility is CSS-driven
   // off roomMode alone (see #game-screen.room-mode-battle-armed), so a
   // joining player must never be left in an undefined ritual state -- an
@@ -10144,6 +10290,7 @@ function handleClose(ws) {
       persistActiveRooms();
       broadcastPlayersUpdate(room);
       if (room.kaladont) broadcastKaladont(room);
+      if (room.rage) broadcastRage(room);
       console.log(`[ROOM ${ws.roomCode}] Player left: ${ws.playerName}`);
     }
   }
@@ -11541,6 +11688,18 @@ wss.on('connection', (ws, req) => {
         case 'kaladont:vote':
         case 'kaladont:sync': {
           handleKaladont(ws, message);
+          break;
+        }
+        case 'rage:create':
+        case 'rage:join':
+        case 'rage:leave':
+        case 'rage:cancel':
+        case 'rage:start':
+        case 'rage:color':
+        case 'rage:roll':
+        case 'rage:move':
+        case 'rage:sync': {
+          handleRage(ws, message);
           break;
         }
         case 'rouletteCarnage:sync':
