@@ -94,13 +94,30 @@
         if (event.target === overlay) close(null);
       });
       input.addEventListener('input', updateCount);
+      // Desktop GM surfaces install several document-level keyboard handlers.
+      // A modal text field owns printable/editing keys completely; letting those
+      // keystrokes bubble into board/chat shortcuts can cancel the browser's
+      // native edit operation in the Electron shell.
+      ['keydown', 'keypress', 'keyup', 'beforeinput'].forEach(type => {
+        input.addEventListener(type, event => {
+          if (type === 'keydown' && event.key === 'Escape') return;
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+        });
+      });
+      input.addEventListener('pointerdown', event => event.stopPropagation());
+      input.addEventListener('click', event => { event.stopPropagation(); input.focus(); });
       document.addEventListener('keydown', onKeydown, true);
 
       active = { cancel: () => close(null) };
       document.body.appendChild(overlay);
       updateCount();
-      input.focus();
-      input.select();
+      requestAnimationFrame(() => {
+        input.disabled = false;
+        input.readOnly = false;
+        input.focus({ preventScroll: true });
+        input.select();
+      });
     });
   }
 

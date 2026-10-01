@@ -1336,6 +1336,9 @@ const PlayerApp = {
 
   handleMessage(message) {
     switch (message.type) {
+      case 'column:dangerExpired':
+        window.ColumnDanger?.explode?.(message.column);
+        break;
       case 'protocol:hello':
         this.send({
           type: 'protocol:hello',
@@ -1377,6 +1380,7 @@ const PlayerApp = {
         break;
 
       case 'state:public': {
+        window.BrokerTransmog?.setProfile?.(message.brokerProfile);
         const previousState = this.lastPublicState;
         const roomMode = message.roomMode || (message.armed === true ? 'BATTLE_ARMED' : 'CASUAL');
         const battleVisible = roomMode !== 'CASUAL';
@@ -1724,6 +1728,9 @@ const PlayerApp = {
 
       case 'leaderboard:allTime':
         this.renderAllTimeLeaderboard(message.players || []);
+        break;
+      case 'recount:ledger':
+        window.RecountLedger?.render(message.matches || []);
         break;
 
       case 'tribute:accepted': {
@@ -2441,6 +2448,7 @@ const PlayerApp = {
     this.bindChatForm();
     this.bindLinkWatch();
     this.bindLeaderboardToggle();
+    this.bindRecountLedger();
     Recount.mountPill();
   },
 
@@ -4909,6 +4917,24 @@ const PlayerApp = {
     const targetName = this.escapeHtml(String(afk.targetName || '???'));
     if (viewerId && String(afk.targetId || '') === viewerId) return 'SHADOW BROKER CHECKS ON YOU. STILL THERE?';
     return `SHADOW BROKER CHECKS ON ${targetName}. STILL THERE?`;
+  },
+
+  bindRecountLedger() {
+    const button = document.getElementById('player-scoreboard-btn');
+    const overlay = document.getElementById('player-scoreboard-overlay');
+    const close = document.getElementById('player-scoreboard-close');
+    const ledger = document.getElementById('player-recount-ledger');
+    if (!button || !overlay || !ledger || button._bound) return;
+    button._bound = true;
+    window.RecountLedger?.mount(ledger, payload => this.send(payload));
+    const dismiss = () => { overlay.hidden = true; };
+    button.addEventListener('click', () => {
+      overlay.hidden = false;
+      window.RecountLedger?.refresh?.();
+    });
+    close?.addEventListener('click', dismiss);
+    overlay.addEventListener('click', event => { if (event.target === overlay) dismiss(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !overlay.hidden) dismiss(); });
   },
 
   playChatActScreenFx(msg) {

@@ -118,6 +118,12 @@ const WS_HEARTBEAT_MS = 30000;
 const WS_HANDSHAKE_TIMEOUT_MS = Math.max(100, Number(process.env.ASOC_WS_HANDSHAKE_TIMEOUT_MS) || 10000);
 const COLUMN_REVEAL_DELAY_MS = Math.max(100, Number(process.env.ASOC_COLUMN_REVEAL_DELAY_MS) || 5000);
 const PROTOCOL_VERSION = 1;
+const DEFAULT_BROKER_PROFILE = Object.freeze({ avatarData:'assets/ui/shadow-broker.png', frameColor:'#9b5de0', avatarEffect:'none', messageEffect:'none' });
+function normalizeBrokerProfile(input) {
+  const avatar = String(input?.avatarData || DEFAULT_BROKER_PROFILE.avatarData);
+  const allowedAvatar = /^(data:image\/(?:png|jpeg|webp);base64,|\/|assets\/)/i.test(avatar) && avatar.length <= 2100000 ? avatar : DEFAULT_BROKER_PROFILE.avatarData;
+  return { avatarData:allowedAvatar, frameColor:/^#[0-9a-f]{6}$/i.test(String(input?.frameColor||''))?String(input.frameColor):DEFAULT_BROKER_PROFILE.frameColor, avatarEffect:['none','pulse','eclipse','glitch','inferno','frost','crown'].includes(input?.avatarEffect)?input.avatarEffect:'none', messageEffect:['none','void','blood','royal','static'].includes(input?.messageEffect)?input.messageEffect:'none' };
+}
 // The client build currently being served (the ?v= of player.js / app.js in
 // join.html / index.html), read once at startup. Announced on every
 // connection so a page opened before a deploy can tell it is stale
@@ -430,6 +436,7 @@ function serializeRoomForRecovery(room) {
     timer: room.timer,
     pendingReveals: room.pendingReveals || {},
     solutionCountdowns: room.solutionCountdowns || {},
+    columnDangerExpired: room.columnDangerExpired || {},
     hintClaims: room.hintClaims || {},
     commandReceipts: room.commandReceipts || [],
     quests: questEngine.normalizeState(room.quests),
@@ -561,6 +568,7 @@ function restoreActiveRooms() {
         timer: saved.timer || null,
         pendingReveals: saved.pendingReveals || {},
         solutionCountdowns: saved.solutionCountdowns || {},
+        columnDangerExpired: saved.columnDangerExpired || {},
         hintClaims: saved.hintClaims || {},
         commandReceipts: Array.isArray(saved.commandReceipts) ? saved.commandReceipts.slice(-2048) : [],
         quests: questEngine.normalizeState(saved.quests),
@@ -1019,6 +1027,7 @@ function resetMasterGameSession(room, gameData) {
   room.boardId = generateBoardId();
   room.pendingReveals = {};
   room.solutionCountdowns = {};
+  room.columnDangerExpired = {};
   room.hintClaims = {};
   room.sessionState = {
     cells: {}, finalSolution: false, finalOutcome: null, gameWon: false,
@@ -1144,6 +1153,7 @@ function createRoom(gameId, hostWs) {
       messages: [],
       solvedTargets: {}
     },
+    brokerProfile: { ...DEFAULT_BROKER_PROFILE },
     // SESSION-scoped scoring state. This whole object survives NEXT GAME
     // (gm:switchGame) -- only the per-board fields inside it (activeStreak,
     // boardFinalized) get reset there and on resetBoard. It is never
@@ -1223,6 +1233,7 @@ function createRoom(gameId, hostWs) {
     // Per-solution grace countdowns (A-D/FINAL). Each entry is a persisted
     // deadline so reconnects/restarts keep the same visible clock.
     solutionCountdowns: {},
+    columnDangerExpired: {},
     // One HINT request token per physical clue slot (A1-D4), shared by the room.
     hintClaims: {},
     // Recent UUID command receipts survive reconnect/restart, making GM board
@@ -1309,6 +1320,7 @@ function getPublicState(room) {
     title: game.title,
     theme: game.theme,
     difficulty: game.difficulty,
+    brokerProfile: normalizeBrokerProfile(room.brokerProfile),
     revision: room.revision,
     background: room.currentBackground,
     cells: publicCells,
@@ -2450,6 +2462,24 @@ function clearSolutionCountdown(room, target) {
   return true;
 }
 
+function syncAutomaticColumnCountdown(room, column) {
+  if (!['A','B','C','D'].includes(column) || room.roomMode !== ROOM_MODES.BATTLE || isMatchResolved(room)) return false;
+  room.solutionCountdowns ||= {};
+  room.columnDangerExpired ||= {};
+  const allOpen = [1,2,3,4].every(row => room.sessionState.cells[column + row] === true);
+  const resolved = !!room.chat?.solvedTargets?.[column] || !!room.sessionState.cellOutcomes?.[column + '5'];
+  if (!allOpen || resolved) {
+    if (room.solutionCountdowns[column]?.automatic) delete room.solutionCountdowns[column];
+    if (!allOpen) delete room.columnDangerExpired[column];
+    return false;
+  }
+  if (room.solutionCountdowns[column] || room.columnDangerExpired[column]) return false;
+  const entry = { target:column, seconds:120, deadline:Date.now()+120000, boardId:room.boardId, token:crypto.randomUUID(), automatic:true };
+  room.solutionCountdowns[column] = entry;
+  armSolutionCountdown(room, entry);
+  return true;
+}
+
 function armSolutionCountdown(room, entry) {
   const delay = Math.max(0, Number(entry.deadline || 0) - Date.now());
   // Captured now: pausing replaces entry.token on this same object, which is
@@ -2464,6 +2494,16 @@ function armSolutionCountdown(room, entry) {
     if (!isBattleSurface(live) || isMatchResolved(live)) {
       persistActiveRooms();
       broadcastToRoom(live, { type: 'state:public', ...getPublicState(live) });
+      return;
+    }
+
+    if (entry.automatic && ['A', 'B', 'C', 'D'].includes(entry.target)) {
+      live.columnDangerExpired ||= {};
+      live.columnDangerExpired[entry.target] = Date.now();
+      live.revision++;
+      persistActiveRooms();
+      broadcastToRoom(live, { type: 'state:public', ...getPublicState(live) });
+      broadcastToRoom(live, { type: 'column:dangerExpired', column: entry.target, timestamp: Date.now() });
       return;
     }
 
@@ -3194,6 +3234,27 @@ function archiveCompletedMatch(room, fields) {
   return record;
 }
 
+function recountLedgerRows(limit = 30) {
+  const safeLimit = Math.max(1, Math.min(100, Number(limit) || 30));
+  return matchStore.listMatches()
+    .filter(match => match && match.resultsShownAt && match.recount)
+    .sort((a, b) => (b.resultsShownAt || b.completedAt || 0) - (a.resultsShownAt || a.completedAt || 0))
+    .slice(0, safeLimit)
+    .map(match => ({
+      matchId: String(match.matchId || ''),
+      title: String(match.title || match.recount?.title || 'UNTITLED OPERATION').slice(0, 120),
+      completedAt: Number(match.resultsShownAt || match.completedAt || 0),
+      outcome: match.recount?.outcome === 'LOST' ? 'LOST' : (match.recount?.gameWon ? 'WON' : 'COMPLETE'),
+      scoreboard: (Array.isArray(match.recount?.scoreboard) ? match.recount.scoreboard : []).slice(0, 50).map(row => ({
+        rank: Number(row.rank) || 0,
+        name: String(row.name || 'UNKNOWN').slice(0, 80),
+        points: Number(row.points) || 0,
+        solves: Number(row.solves) || 0,
+        accuracy: row.accuracy === null || row.accuracy === undefined ? null : Number(row.accuracy)
+      }))
+    }));
+}
+
 function ensureSessionPlayerEntry(room, playerId, playerName) {
   if (!room.scoring.players[playerId]) {
     room.scoring.players[playerId] = { name: playerName, sessionScore: 0 };
@@ -3554,11 +3615,13 @@ function applyCommand(room, command, payload) {
           assignClueOrder(room, col, row);
           changed = true;
         }
+        if (row >= 1 && row <= 4) syncAutomaticColumnCountdown(room, col);
       } else {
         if (room.sessionState.cells[key] === true) {
           room.sessionState.cells[key] = false;
           changed = true;
         }
+        if (row >= 1 && row <= 4) syncAutomaticColumnCountdown(room, col);
         // A manual hide is the GM correcting/undoing -- it clears any WOMF
         // "failed" outcome tag on that cell, same as hideFinal already does
         // for finalOutcome. If it's re-revealed later it comes back as a
@@ -3646,6 +3709,7 @@ function applyCommand(room, command, payload) {
         delete room.sessionState.cellOutcomes[key];
         changed = true;
       }
+      if (row >= 1 && row <= 4) syncAutomaticColumnCountdown(room, col);
       break;
     }
     case 'revealColumn': {
@@ -3675,6 +3739,8 @@ function applyCommand(room, command, payload) {
           changed = true;
         }
       }
+      if (room.solutionCountdowns?.[column]?.automatic) delete room.solutionCountdowns[column];
+      if (room.columnDangerExpired) delete room.columnDangerExpired[column];
       break;
     }
     case 'revealAll': {
@@ -3759,6 +3825,7 @@ function applyCommand(room, command, payload) {
       room.boardId = generateBoardId();
       room.pendingReveals = {};
       room.solutionCountdowns = {};
+      room.columnDangerExpired = {};
       room.hintClaims = {};
       startMatchLedger(room); // new board id => new match ledger
       room.scoring.activeStreak = null;
@@ -9522,6 +9589,7 @@ function handleSwitchGame(ws, message) {
   // on the previous board blocked that row on the new one, and a running
   // solution countdown lingered on the new board forever.
   room.solutionCountdowns = {};
+  room.columnDangerExpired = {};
   room.hintClaims = {};
   startMatchLedger(room); // new board id => new match ledger
   room.scoring.activeStreak = null;
@@ -11235,6 +11303,17 @@ wss.on('connection', (ws, req) => {
           handleHostCommand(ws, message);
           break;
         }
+        case 'gm:brokerProfile': {
+          const room = rooms.get(ws.roomCode);
+          if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) {
+            sendToWs(ws, { type:'error', message:'ONLY THE SHADOW BROKER MAY ALTER THE TRANSMOG' });
+            break;
+          }
+          room.brokerProfile = normalizeBrokerProfile(message.profile);
+          persistActiveRooms();
+          broadcastToRoom(room, { type:'state:public', ...getPublicState(room) });
+          break;
+        }
         case 'gm:questCreate': handleQuestCreate(ws, message); break;
         case 'player:questAccept': handlePlayerQuest(ws, message, 'accept'); break;
         case 'player:questDecline': handlePlayerQuest(ws, message, 'decline'); break;
@@ -11645,6 +11724,14 @@ wss.on('connection', (ws, req) => {
         }
         case 'leaderboard:getAllTime': {
           sendToWs(ws, { type: 'leaderboard:allTime', players: playerStore.getAllTimeLeaderboard(50) });
+          break;
+        }
+        case 'recount:ledgerGet': {
+          if (!ws.roomCode) {
+            sendToWs(ws, { type: 'error', message: 'Join a room before requesting the scoreboard' });
+            break;
+          }
+          sendToWs(ws, { type: 'recount:ledger', matches: recountLedgerRows(message.limit) });
           break;
         }
         case 'gm:setRoomMode': {

@@ -177,15 +177,23 @@
         const fd = new FormData(e.currentTarget);
         this.send({ type:'blackMarket:petition', title:fd.get('title'), category:fd.get('category'), request:fd.get('request') });
       });
-      body.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', () => {
+      body.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', async () => {
         const pactId = btn.closest('[data-pact]')?.dataset.pact;
         const act = btn.dataset.act;
         if (act === 'accept-counter') return this.send({ type:'blackMarket:acceptCounter', pactId });
         if (act === 'offer-tribute') return this.offerTribute(pactId, btn);
         if (act === 'tribute-accept') return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:true });
         if (act === 'tribute-reject') {
-          const reason = prompt('WHY IS THE OFFERING DENIED?') || '';
-          return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:false, reason });
+          const reason = await window.AsocDialog.prompt({
+            title:'DENY BLOOD TRIBUTE',
+            message:'Tell the Little Hero why. They will see this reason.',
+            placeholder:'e.g. Not bloody enough. Try again.',
+            maxLength:200,
+            required:true,
+            confirmLabel:'DENY'
+          });
+          if (!reason?.trim()) return;
+          return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:false, reason:reason.trim() });
         }
         if (act === 'accept') {
           btn.disabled = true;
@@ -196,13 +204,13 @@
           return this.send({ type:'blackMarket:gmDecision', pactId, action:'waive', terms:'', tributeRequired:false });
         }
         if (act === 'counter') {
-          const terms = prompt('REWRITE THE TERMS OF THE PACT');
+          const terms = await window.AsocDialog.prompt({ title:'REWRITE THE TERMS OF THE PACT', required:true, confirmLabel:'COUNTER' });
           if (!terms?.trim()) return;
           btn.disabled = true;
           return this.send({ type:'blackMarket:gmDecision', pactId, action:'counter', terms:terms.trim(), tributeRequired:true });
         }
         if (act === 'deny') {
-          const terms = prompt('REASON FOR DENIAL // OPTIONAL') || '';
+          const terms = await window.AsocDialog.prompt({ title:'REASON FOR DENIAL', message:'Optional.', confirmLabel:'DENY' }) || '';
           btn.disabled = true;
           return this.send({ type:'blackMarket:gmDecision', pactId, action:'deny', terms, tributeRequired:false });
         }
