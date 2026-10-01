@@ -21894,3 +21894,8 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
 #gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-main > :empty { display: none !important; }
 #gm-panel #gm-chat-messages .gm-shadow-broker-entry.gm-broker-image-bare { flex-wrap: wrap !important; row-gap: 4px !important; }
 #gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-chat-reactions { flex: 0 0 100%; display: flex; justify-content: flex-end; margin: 0 52px 0 0 !important; }
+/* Broker image/GIF: avatar level with the TOP of the picture, on its right. */
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry.gm-broker-image-bare { align-items: flex-start !important; }
+#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-rail { align-self: flex-start !important; }
+#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare { align-items: flex-start !important; }
+#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare > .chat-avatar-rail { align-self: flex-start !important; }
