@@ -123,8 +123,12 @@
       if (!document.getElementById('black-market-overlay')) {
         const overlay = document.createElement('div');
         overlay.id = 'black-market-overlay';
-        overlay.className = 'black-market-overlay';
-        overlay.innerHTML = '<div class="black-market-void"></div><section class="black-market-room" role="dialog" aria-modal="true"><header><div><small>PRIVATE CHANNEL // SHADOW BROKER</small><h2>BLACK MARKET</h2></div><button type="button" data-bm-close>×</button></header><div id="black-market-body"></div></section>';
+        overlay.className = 'black-market-overlay' + (isGM ? ' is-gm-shrine' : '');
+        // The Shadow Broker's side is a blood shrine: rune bands, corner
+        // sigils, a turning seal behind the title and blood along the rim.
+        const shrine = isGM ? '<i class="bm-drips" aria-hidden="true"></i><i class="bm-corner tl" aria-hidden="true"></i><i class="bm-corner tr" aria-hidden="true"></i><i class="bm-corner bl" aria-hidden="true"></i><i class="bm-corner br" aria-hidden="true"></i><i class="bm-sigil" aria-hidden="true"></i>' : '';
+        const runes = isGM ? '<div class="bm-runeband" aria-hidden="true"></div>' : '';
+        overlay.innerHTML = '<div class="black-market-void"></div><section class="black-market-room" role="dialog" aria-modal="true">' + shrine + '<header><div><small>' + (isGM ? 'SANCTUM OF DEBTS // SHADOW BROKER' : 'PRIVATE CHANNEL // SHADOW BROKER') + '</small><h2>BLACK MARKET</h2></div><button type="button" data-bm-close>×</button></header>' + runes + '<div id="black-market-body"></div>' + runes + '</section>';
         overlay.querySelector('[data-bm-close]').addEventListener('click', () => overlay.remove());
         overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
         document.body.appendChild(overlay);
@@ -147,7 +151,7 @@
     renderGm() {
       const pending = this.pacts.filter(p => ['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state));
       const rest = this.pacts.filter(p => !['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state));
-      return '<div class="bm-intro"><b>SEALED PETITIONS</b><p>Each chamber terminates here. Nothing below is broadcast to the room.</p></div><h3>AWAITING JUDGMENT</h3><div class="bm-ledger">' + (pending.map(p => this.card(p, true)).join('') || '<p class="bm-empty">THE MARKET SLEEPS.</p>') + '</div><h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + (rest.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO DEBTS RECORDED.</p>') + '</div>';
+      return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>SEALED PETITIONS</b><p>Each chamber terminates here. Nothing below is broadcast to the room.</p></div><h3>AWAITING JUDGMENT</h3><div class="bm-ledger">' + (pending.map(p => this.card(p, true)).join('') || '<p class="bm-empty">THE MARKET SLEEPS.</p>') + '</div><h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + (rest.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO DEBTS RECORDED.</p>') + '</div>';
     },
     card(p, gm) {
       const tributeSource = p.tributeImageUrl || p.tributeImageData || '';
