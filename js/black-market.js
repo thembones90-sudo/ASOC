@@ -123,12 +123,12 @@
       if (!document.getElementById('black-market-overlay')) {
         const overlay = document.createElement('div');
         overlay.id = 'black-market-overlay';
-        overlay.className = 'black-market-overlay' + (isGM ? ' is-gm-shrine' : '');
-        // The Shadow Broker's side is a blood shrine: rune bands, corner
+        overlay.className = 'black-market-overlay is-sanctum';
+        // Both sides of the market are a blood sanctum: rune bands, corner
         // sigils, a turning seal behind the title and blood along the rim.
-        const shrine = isGM ? '<i class="bm-drips" aria-hidden="true"></i><i class="bm-corner tl" aria-hidden="true"></i><i class="bm-corner tr" aria-hidden="true"></i><i class="bm-corner bl" aria-hidden="true"></i><i class="bm-corner br" aria-hidden="true"></i><i class="bm-sigil" aria-hidden="true"></i>' : '';
-        const runes = isGM ? '<div class="bm-runeband" aria-hidden="true"></div>' : '';
-        overlay.innerHTML = '<div class="black-market-void"></div><section class="black-market-room" role="dialog" aria-modal="true">' + shrine + '<header><div><small>' + (isGM ? 'SANCTUM OF DEBTS // SHADOW BROKER' : 'PRIVATE CHANNEL // SHADOW BROKER') + '</small><h2>BLACK MARKET</h2></div><button type="button" data-bm-close>×</button></header>' + runes + '<div id="black-market-body"></div>' + runes + '</section>';
+        const shrine = '<i class="bm-drips" aria-hidden="true"></i><i class="bm-corner tl" aria-hidden="true"></i><i class="bm-corner tr" aria-hidden="true"></i><i class="bm-corner bl" aria-hidden="true"></i><i class="bm-corner br" aria-hidden="true"></i><i class="bm-sigil" aria-hidden="true"></i>';
+        const runes = '<div class="bm-runeband" aria-hidden="true"></div>';
+        overlay.innerHTML = '<div class="black-market-void"></div><section class="black-market-room" role="dialog" aria-modal="true">' + shrine + '<header><div><small>' + (isGM ? 'SANCTUM OF DEBTS // SHADOW BROKER' : 'CHAMBER OF PETITIONS // SHADOW BROKER') + '</small><h2>BLACK MARKET</h2></div><button type="button" data-bm-close>×</button></header>' + runes + '<div id="black-market-body"></div>' + runes + '</section>';
         overlay.querySelector('[data-bm-close]').addEventListener('click', () => overlay.remove());
         overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
         document.body.appendChild(overlay);
@@ -146,7 +146,7 @@
       const active = this.pacts.find(p => !['FULFILLED','DENIED','BROKEN'].includes(p.state));
       const ledger = this.pacts.map(p => this.card(p, false)).join('') || '<p class="bm-empty">NO PACTS HAVE BEEN WRITTEN.</p>';
       const petition = active ? '' : '<form id="bm-petition" class="bm-petition"><label>TITLE<input name="title" maxlength="120" placeholder="Name the favor"></label><label>CATEGORY<select name="category"><option>DESIGN</option><option>WRITING</option><option>TECH</option><option>RESEARCH</option><option>CUSTOM</option></select></label><label>YOUR PETITION<textarea name="request" maxlength="1200" required placeholder="State what you ask of the Shadow Broker."></textarea></label><button type="submit">BIND THE REQUEST</button></form>';
-      return '<div class="bm-intro"><b>PETITION THE BROKER</b><p>This chamber belongs to you alone. No other Little Hero sees what is written here.</p></div>' + petition + '<h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + ledger + '</div>';
+      return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>PETITION THE BROKER</b><p>This chamber belongs to you alone. No other Little Hero sees what is written here.</p></div>' + petition + '<h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + ledger + '</div>';
     },
     renderGm() {
       const pending = this.pacts.filter(p => ['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state));
