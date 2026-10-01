@@ -21511,3 +21511,55 @@ html[data-asoc-light] #game-screen .chat-message .chat-message-main {
 /* Light mode: the broker bubble's tail flipped to a white wedge over the
    avatar; the avatar already anchors the bubble, so drop the tail. */
 html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission::after { display: none !important; }
+
+/* GM CONSOLE ON A PHONE.
+   The casual layout pinned #app-layout to one screen with overflow hidden,
+   which clipped the Battle Comms composer (and the newest messages) below
+   the fold, and the root's overscroll containment disabled pull-to-refresh.
+   On phones the page scrolls as a normal document again, and the chat panel
+   is exactly one screen tall, so scrolling to it shows the latest messages
+   and the composer together. */
+@media (max-width: 760px) {
+  :where(html:not(.asoc-mobile)),
+  :where(html:not(.asoc-mobile)) body {
+    overscroll-behavior-y: auto !important;
+  }
+  :where(html:not(.asoc-mobile)) body:has(#gm-panel) {
+    overflow-y: visible !important;
+  }
+  :where(html:not(.asoc-mobile)) body:has(#gm-panel):not(.asoc-never) #app-layout {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  :where(html:not(.asoc-mobile)) body.room-mode-casual:has(#gm-panel) #gm-panel {
+    height: calc(100svh - 12px) !important;
+    min-height: 420px !important;
+    max-height: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+  :where(html:not(.asoc-mobile)) body.room-mode-casual:has(#gm-panel) #gm-panel > .gm-content,
+  :where(html:not(.asoc-mobile)) body.room-mode-casual:has(#gm-panel) #gm-panel #gm-battle-control,
+  :where(html:not(.asoc-mobile)) body.room-mode-casual:has(#gm-panel) #gm-panel .gm-module-chat,
+  :where(html:not(.asoc-mobile)) body.room-mode-casual:has(#gm-panel) #gm-panel .gm-chat-panel {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  :where(html:not(.asoc-mobile)) body.room-mode-casual:has(#gm-panel) #gm-chat-messages {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  :where(html:not(.asoc-mobile)) body.room-mode-casual:has(#gm-panel) #gm-broker-bar {
+    position: relative !important;
+    flex: 0 0 auto !important;
+    padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+  }
+}
