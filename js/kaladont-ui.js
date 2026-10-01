@@ -63,7 +63,7 @@
         <div class="kal-kicker">LOBBY // ${esc(state.ownerName)}</div>
         <div class="kal-count"><b>${state.members.length}</b> JOINED${online !== state.members.length ? ` · ${online} ONLINE` : ''}</div>
         <ul class="kal-members">${rows}</ul>
-        <p class="kal-rules">Turn clocks tighten by round: 40s → 35s → 30s → 30s → 25s → 20s thereafter. Each word starts with the required Serbian ending; LJ/NJ stay intact. Everyone except the submitter votes: silence counts as ACCEPT, ties ACCEPT. <b>KALADONT</b> eliminates the previous player, then its author opens a fresh chain. Last one standing wins.</p>
+        <p class="kal-rules">Turn clocks tighten by round: 40s → 35s → 30s → 30s → 25s → 20s thereafter. Each word starts with the required Serbian ending; LJ/NJ stay intact. Everyone except the submitter votes: silence counts as ACCEPT, ties ACCEPT. <b>KALADONT</b>, or any accepted word ending in <b>NT</b> or <b>LM</b> (no word starts with them), eliminates the previous player, then its author opens a fresh chain. Last one standing wins.</p>
         <div class="kal-actions">${actions}</div>
         ${!opts.spectator && you.owner && online < 2 ? '<div class="kal-hint">WAITING FOR AT LEAST 2 ONLINE PLAYERS</div>' : ''}
       </div>`;
@@ -112,7 +112,7 @@
       : r.kind === 'kaladont' ? 'KALADONT'
       : 'ELIMINATED';
     const line = r.kind === 'accepted' ? `${esc(r.playerName)} survives. Next prefix: <b>${esc(state.prefix)}</b>`
-      : r.kind === 'kaladont' ? `${esc(r.playerName)} plays KALADONT${r.killedName ? ` and kills <b>${esc(r.killedName)}</b>` : ''}. The chain restarts.`
+      : r.kind === 'kaladont' ? `${esc(r.playerName)} plays ${r.word && r.word !== 'KALADONT' ? `<b>${esc(r.word)}</b> (dead end ${esc(/LM$/.test(r.word) ? 'LM' : 'NT')})` : 'KALADONT'}${r.killedName ? ` and kills <b>${esc(r.killedName)}</b>` : ''}. The chain restarts.`
       : `${esc(r.playerName)} ${esc(REASON_TEXT[r.reason] || 'is out')}${r.word ? ` ("${esc(r.word)}")` : ''}.`;
     const votes = r.votes
       ? `<div class="kal-breakdown">
@@ -183,7 +183,22 @@
     });
   }
 
-  const KaladontUI = { render, tickClocks, esc };
+  // Compact live summary for the "back to chat" dock: who is up, the prefix
+  // and the clock, so chat can be read and used without losing the game.
+  function dockHTML(state, opts = {}) {
+    const back = `<em>${esc(opts.action || 'RETURN')}</em>`;
+    if (!state) return `<b>KALADONT</b>${back}`;
+    if (state.phase === 'lobby') return `<b>KALADONT</b><span>LOBBY · ${state.members.length} JOINED</span>${back}`;
+    if (state.phase === 'ended') return `<b>KALADONT</b><span>RESULT</span>${back}`;
+    if (state.phase === 'tribunal') return `<b>KALADONT</b><span>TRIBUNAL VOTE</span>${state.tribunal?.deadline ? clock(state.tribunal.deadline, skewOf(state), 0) : ''}${back}`;
+    if (state.turn) {
+      const mine = opts.viewerId && state.turn.playerId === opts.viewerId;
+      return `<b>KALADONT</b><span class="${mine ? 'is-you' : ''}">${mine ? 'YOUR TURN' : esc(state.turn.playerName)}</span>${state.prefix ? `<strong>${esc(state.prefix)}</strong>` : ''}${clock(state.turn.deadline, skewOf(state), 0)}${back}`;
+    }
+    return `<b>KALADONT</b><span>LIVE</span>${back}`;
+  }
+
+  const KaladontUI = { render, tickClocks, esc, dockHTML };
   if (typeof window !== 'undefined') window.KaladontUI = KaladontUI;
   if (typeof module !== 'undefined' && module.exports) module.exports = KaladontUI;
 })();

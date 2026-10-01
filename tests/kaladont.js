@@ -202,6 +202,38 @@ function checkEngine() {
   acceptWord(s, 'voda', now);
   assert.equal(K.submit(s, s.turn.playerId, 'kaladont', s.turn.seq, now).reason, 'INVALID PREFIX');
 
+  // 21b. NT KILL: any accepted word ending in NT acts like KALADONT, after
+  // the tribunal (KALADONT itself skips it).
+  s = startGame(['a', 'b', 'c'], 3);
+  const ntVictim = acceptWord(s, 'luka', now); // prefix KA
+  const ntKiller = s.turn.playerId;
+  assert.equal(K.submit(s, ntKiller, 'kamant', s.turn.seq, now).outcome, 'tribunal', 'an NT word still faces the tribunal');
+  K.living(s).filter(id => id !== ntKiller).forEach(id => K.vote(s, id, 'accept', s.tribunal.seq, now));
+  assert.equal(s.players[ntVictim].alive, false, 'the previous word\'s author dies');
+  assert.equal(s.players[ntVictim].reason, 'KALADONT KILL');
+  assert.equal(s.result.kind, 'kaladont');
+  assert.equal(s.prefix, '', 'the chain restarts after NT');
+  K.tick(s, s.verdictUntil);
+  assert.equal(s.turn.playerId, ntKiller, 'the NT player opens the new chain');
+  // LM is a dead end too (NAPALM).
+  s = startGame(['a', 'b', 'c'], 3);
+  acceptWord(s, 'voda', now); // prefix DA
+  const lmVictim = acceptWord(s, 'dana', now); // prefix NA
+  const lmKiller = s.turn.playerId;
+  K.submit(s, lmKiller, 'napalm', s.turn.seq, now);
+  K.living(s).filter(id => id !== lmKiller).forEach(id => K.vote(s, id, 'accept', s.tribunal.seq, now));
+  assert.equal(s.players[lmVictim].alive, false, 'NAPALM kills the previous word\'s author');
+  assert.equal(s.result.kind, 'kaladont');
+  assert.equal(s.prefix, '');
+  // A REJECTED NT word kills only its submitter, as any rejected word does.
+  s = startGame(['a', 'b', 'c'], 3);
+  const ntSurvivor = acceptWord(s, 'luka', now);
+  const ntLiar = s.turn.playerId;
+  K.submit(s, ntLiar, 'kafnt', s.turn.seq, now);
+  K.living(s).filter(id => id !== ntLiar).forEach(id => K.vote(s, id, 'reject', s.tribunal.seq, now));
+  assert.equal(s.players[ntLiar].alive, false);
+  assert.equal(s.players[ntSurvivor].alive, true, 'a rejected NT word kills nobody else');
+
   // 22. KALADONT can end the match; 20. last active player wins
   s = startGame(['a', 'b'], 5);
   const victim2 = acceptWord(s, 'luka', now);
