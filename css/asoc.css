@@ -20861,11 +20861,11 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 .gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-reactions { margin:3px 5px 0 !important; }
 
 @media (max-width:480px) {
-  #game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-main {
+  :where(html:not(.asoc-mobile)) #game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-main {
     width:min(100%,290px) !important;
     min-width:min(220px,100%) !important;
   }
-  .gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-message-main {
+  :where(html:not(.asoc-mobile)) .gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-message-main {
     width:min(100%,290px) !important;
     min-width:min(220px,100%) !important;
   }

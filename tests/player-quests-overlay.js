@@ -26,6 +26,8 @@ const document = {
   body: { appendChild(el) { if (el.id) byId.set(el.id, el); } },
   createElement: () => fakeElement(),
   getElementById: id => byId.get(id) || null,
+  // No hero stat row in this stub: quest cards fall back to <body>.
+  querySelector: () => null,
   addEventListener() {}
 };
 const sent = [];

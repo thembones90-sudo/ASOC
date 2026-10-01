@@ -22,7 +22,7 @@ assert.match(js, /class-clock-nudge/);
 assert.match(js, /Math\.max\(50, 1000 - \(Date\.now\(\) % 1000\) \+ 8\)/);
 assert.match(css, /@keyframes class-clock-screen-nudge/);
 assert.match(css, /prefers-reduced-motion:reduce[\s\S]*class-clock-nudge/);
-assert.match(css, /grid-template-columns:max-content max-content minmax\(180px,1fr\) max-content/);
-assert.match(css, /\.gm-atomic-clock \{[\s\S]*grid-column:3;[\s\S]*justify-self:center/);
+assert.match(css, /grid-template-columns:minmax\(102px,max-content\) minmax\(92px,max-content\) minmax\(124px,max-content\) minmax\(150px,1fr\) max-content/);
+assert.match(css, /\.gm-atomic-clock \{[\s\S]*grid-column:4;[\s\S]*justify-self:center/);
 
 console.log('PASS class clock: HH:MM:SS telemetry and one-minute half-hour school warnings');
