@@ -1381,6 +1381,9 @@ const PlayerApp = {
 
       case 'state:public': {
         window.BrokerTransmog?.setProfile?.(message.brokerProfile);
+        // Deferred so the board has painted the new state before the seal,
+        // chains and strip are positioned over it.
+        setTimeout(() => window.FinalDebt?.update(message), 0);
         const previousState = this.lastPublicState;
         const roomMode = message.roomMode || (message.armed === true ? 'BATTLE_ARMED' : 'CASUAL');
         const battleVisible = roomMode !== 'CASUAL';
@@ -1681,6 +1684,8 @@ const PlayerApp = {
         break;
 
       case 'board:solveCelebration':
+        // A Final that leaves columns owed plays THE FINAL HAS FALLEN instead.
+        if ((message.kind === 'final' || message.target === 'FINAL') && message.debtOwed?.length) break;
         window.BoardCelebrations?.show?.(message, document.getElementById('public-board'));
         break;
 
@@ -1699,7 +1704,7 @@ const PlayerApp = {
       }
 
       case 'score:finalReveal':
-        this.showFinalReveal(message);
+        if (!message.debtOwed?.length) this.showFinalReveal(message);
         this.addBattleEvent('FINAL PHASE ENGAGED');
         document.getElementById('game-screen')?.classList.add('phase-final');
         break;

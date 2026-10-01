@@ -1336,6 +1336,10 @@ function getPublicState(room) {
     // into the completed state from this; the live sequence is client-side and
     // plays only on the false->true transition.
     gameWon: room.sessionState.gameWon === true,
+    // THE FINAL HAS FALLEN: the Final was correctly solved while columns are
+    // still open. Clients show the seal / owed chains / debt strip from this;
+    // it clears on GAME WON / LOST and when the Final verdict is reversed.
+    finalDebt: publicFinalDebt(room),
     matchResult: publicMatchResult(room),
     // The match is over only when ALL FIVE fields (A-D + FINAL) are resolved,
     // solved or failed (see match-ledger.js). Distinct from gameWon: the Final
@@ -3142,6 +3146,25 @@ function countRevealedClueCells(room) {
   return count;
 }
 
+// Columns still OWED after the Final fell: open (not solved, failed or
+// revealed). Paid = solved after the Final. Null when there is no debt story
+// (no correct Final, the match is decided, or nothing was ever owed).
+function publicFinalDebt(room) {
+  try {
+    if (room.sessionState.gameWon === true || room.sessionState.matchResult) return null;
+    const fields = currentMatchFields(room);
+    const final = fields.FINAL;
+    if (!final || final.status !== 'solved') return null;
+    const cols = ['A', 'B', 'C', 'D'];
+    const owed = cols.filter(c => fields[c]?.status === 'open');
+    const paid = cols.filter(c => fields[c]?.status === 'solved' && Number(fields[c].at) > Number(final.at));
+    if (!owed.length && !paid.length) return null;
+    return { by: final.playerName || '', at: final.at ?? null, owed, paid };
+  } catch {
+    return null;
+  }
+}
+
 // The five fields' current status (solved / failed / revealed / open), derived
 // from the authoritative sources. Shared by the completion check and by SHOW
 // RESULTS, which rebuilds the archive record from the live ledger.
@@ -4101,6 +4124,11 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
             points: result.event ? result.event.points : 0,
             playerName: message.playerName
           };
+          const debt = publicFinalDebt(room);
+          if (debt && debt.owed.length) {
+            const many = debt.owed.length > 1;
+            addShadowBrokerMessage(room, `THE FINAL HAS FALLEN // SEALED BY ${message.playerName}. BUT THE DEBT IS NOT PAID: COLUMN${many ? 'S' : ''} ${debt.owed.join(', ')} ${many ? 'ARE' : 'IS'} STILL OWED.`, { editableByHost: false });
+          }
           finalOutcome = {
             outcome: 'success',
             correctSolution: room.gameData.finalSolution || '',
@@ -9492,7 +9520,10 @@ function handleJudgeGuess(ws, message) {
       broadcastToRoom(room, { type: 'score:streak', activeStreak: room.scoring.activeStreak });
     }
     if (result.celebration) {
-      broadcastToRoom(room, { type: 'board:solveCelebration', ...result.celebration });
+      // A Final that leaves columns OWED gets THE FINAL HAS FALLEN instead of
+      // the usual coronation / SOLUTION CONFIRMED (clients read debtOwed).
+      const owedAtSolve = publicFinalDebt(room)?.owed || [];
+      broadcastToRoom(room, { type: 'board:solveCelebration', ...result.celebration, debtOwed: owedAtSolve });
     }
     if (
       verdict === 'correct' &&
@@ -9502,7 +9533,7 @@ function handleJudgeGuess(ws, message) {
       scheduleSolvedColumnReveal(room, messageId, target);
     }
     if (result.finalOutcome) {
-      broadcastToRoom(room, { type: 'score:finalReveal', ...result.finalOutcome });
+      broadcastToRoom(room, { type: 'score:finalReveal', ...result.finalOutcome, debtOwed: publicFinalDebt(room)?.owed || [] });
     }
     if (result.scoreWarning) {
       sendToWs(ws, { type: 'score:warning', message: result.scoreWarning });

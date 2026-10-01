@@ -1,0 +1,230 @@
+/* THE FINAL HAS FALLEN // the Final is solved, columns are still owed.
+   Blood-red, gold and rune-edged, matching the Black Market sanctum. The
+   GAME WON gold victory stays reserved for the Shadow Broker's call. */
+
+/* ---------- Lasting state ---------- */
+#fd-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+html[data-fd-owe-a] #board-layer [data-label^="A"],
+html[data-fd-owe-b] #board-layer [data-label^="B"],
+html[data-fd-owe-c] #board-layer [data-label^="C"],
+html[data-fd-owe-d] #board-layer [data-label^="D"] {
+  outline: 2px solid rgba(255, 42, 74, .55);
+  outline-offset: -2px;
+  animation: fd-owe-pulse 3s ease-in-out infinite;
+}
+@keyframes fd-owe-pulse {
+  0%, 100% { outline-color: rgba(255, 42, 74, .35); }
+  50% { outline-color: rgba(255, 42, 74, .95); }
+}
+html[data-fd-active] #board-layer [data-label="FINAL"] {
+  outline: 2px solid #f0c45a;
+  outline-offset: -2px;
+  box-shadow: 0 0 22px rgba(240, 196, 90, .35);
+}
+
+.fd-seal {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 46% 54% 50% 50% / 52% 48% 54% 46%;
+  background:
+    url('../assets/ui/bm-sigil.svg') no-repeat center / 74%,
+    radial-gradient(circle at 36% 30%, #e0213f, #8f0a22 52%, #4d0410 100%);
+  box-shadow: 0 0 0 3px rgba(77, 4, 16, .65), 0 6px 14px rgba(0, 0, 0, .6), inset 0 -4px 8px rgba(0, 0, 0, .45), inset 0 3px 6px rgba(255, 140, 150, .25);
+  transform: rotate(-10deg);
+}
+.fd-seal b {
+  position: absolute;
+  bottom: -10px;
+  padding: 2px 6px;
+  border: 1px solid #f0c45a;
+  border-radius: 3px;
+  background: #1a0d05;
+  color: #f0c45a;
+  font: 900 9px/1 var(--font-machine, monospace);
+  letter-spacing: .18em;
+  transform: rotate(10deg);
+}
+.fd-seal.is-slam {
+  z-index: 9400;
+  width: 68px;
+  height: 68px;
+  animation: fd-slam .55s cubic-bezier(.2, 1.6, .4, 1) both, fd-seal-fade .5s ease 1.05s forwards;
+}
+@keyframes fd-slam {
+  0% { transform: translateY(-160px) scale(2.6) rotate(-30deg); opacity: 0; }
+  60% { transform: translateY(0) scale(.92) rotate(-8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-10deg); }
+}
+@keyframes fd-seal-fade { to { opacity: 0; transform: scale(.7) rotate(-10deg); } }
+.fd-shudder { animation: fd-shudder .45s ease; }
+@keyframes fd-shudder {
+  0%, 100% { transform: none; }
+  20% { transform: translate(-3px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  60% { transform: translate(-2px, 1px); }
+  80% { transform: translate(1px, -1px); }
+}
+
+.fd-lock {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #ff2a4a;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, #b3112b, #3a0610);
+  box-shadow: 0 0 12px rgba(255, 42, 74, .55), inset 0 -3px 6px rgba(0, 0, 0, .5);
+  color: #fff;
+  animation: fd-lock-in .5s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.fd-lock::before, .fd-lock::after {
+  content: "";
+  position: absolute;
+  width: 54px;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, #8b1028 0 6px, #ff4864 6px 8px);
+  opacity: .85;
+  z-index: -1;
+}
+.fd-lock::before { transform: rotate(35deg); }
+.fd-lock::after { transform: rotate(-35deg); }
+.fd-lock b { font: 900 13px/1 var(--font-system, sans-serif); }
+.fd-lock small { position: absolute; bottom: -13px; color: #ff8095; font: 800 8px/1 var(--font-machine, monospace); letter-spacing: .16em; text-shadow: 0 0 6px #000; }
+@keyframes fd-lock-in { from { transform: scale(2) rotate(-25deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.fd-strip {
+  position: fixed;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  transform: translateX(-50%);
+  border: 1px solid #8b1028;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(40, 5, 12, .96), rgba(14, 3, 6, .96));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .55), 0 0 16px rgba(255, 42, 74, .22);
+  color: #ffd0d8;
+  font: 800 11px/1 var(--font-machine, monospace);
+  letter-spacing: .2em;
+  white-space: nowrap;
+}
+.fd-strip em {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font: 900 11px/1 var(--font-system, sans-serif);
+  font-style: normal;
+  letter-spacing: 0;
+}
+.fd-strip em.is-owed { background: #b3112b; color: #fff; box-shadow: 0 0 8px rgba(255, 42, 74, .6); }
+.fd-strip em.is-paid { background: #f0c45a; color: #1a0d05; }
+.fd-strip.is-paid { border-color: #f0c45a; color: #fff3d0; box-shadow: 0 6px 18px rgba(0, 0, 0, .55), 0 0 22px rgba(240, 196, 90, .4); }
+
+/* DEBT PAID: the chains shatter. */
+.fd-paid {
+  position: fixed;
+  z-index: 9400;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.fd-paid b {
+  display: block;
+  padding: 6px 12px;
+  border: 2px solid #f0c45a;
+  border-radius: 4px;
+  background: rgba(26, 13, 5, .9);
+  color: #f0c45a;
+  font: 900 14px/1 var(--font-machine, monospace);
+  letter-spacing: .22em;
+  animation: fd-paid-stamp 1.4s ease forwards;
+}
+.fd-paid s {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 4px;
+  background: #ff2a4a;
+  text-decoration: none;
+  animation: fd-shard 1s ease-out forwards;
+}
+.fd-paid s:nth-of-type(1) { --dx: -70px; --dy: -40px; --r: 120deg; }
+.fd-paid s:nth-of-type(2) { --dx: 60px; --dy: -50px; --r: -80deg; }
+.fd-paid s:nth-of-type(3) { --dx: -50px; --dy: 50px; --r: 200deg; }
+.fd-paid s:nth-of-type(4) { --dx: 70px; --dy: 40px; --r: -160deg; }
+.fd-paid s:nth-of-type(5) { --dx: 0; --dy: -70px; --r: 90deg; }
+.fd-paid s:nth-of-type(6) { --dx: -80px; --dy: 5px; --r: 40deg; }
+.fd-paid s:nth-of-type(7) { --dx: 85px; --dy: -5px; --r: -40deg; }
+@keyframes fd-shard { to { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; } }
+@keyframes fd-paid-stamp {
+  0% { transform: scale(2.2); opacity: 0; }
+  25% { transform: scale(1); opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+
+/* ---------- The ceremony ---------- */
+#fd-banner { position: fixed; inset: 0; z-index: 9300; display: grid; place-items: center; pointer-events: none; }
+#fd-banner .fd-veil { position: absolute; inset: 0; background: radial-gradient(60% 50% at 50% 50%, rgba(20, 2, 6, .55), rgba(0, 0, 0, .72)); animation: fd-fade-in .3s ease both; }
+#fd-banner .fd-card {
+  position: relative;
+  min-width: min(720px, 92vw);
+  padding: 14px 0;
+  text-align: center;
+  animation: fd-rise .6s cubic-bezier(.2, .8, .2, 1) .9s both;
+}
+#fd-banner .fd-runes {
+  height: 26px;
+  margin: 0 auto;
+  width: min(640px, 86vw);
+  border-block: 1px solid rgba(255, 42, 74, .35);
+  background: url('../assets/ui/bm-runes.svg') repeat-x 0 center / auto 22px;
+  filter: drop-shadow(0 0 4px rgba(255, 42, 74, .8));
+  animation: fd-runes-flow 12s linear infinite;
+}
+@keyframes fd-runes-flow { to { background-position: 464px center; } }
+#fd-banner .fd-line { display: grid; gap: 8px; justify-items: center; padding: 18px 0 16px; }
+#fd-banner .fd-line b {
+  color: #f6e3e6;
+  font: 900 clamp(26px, 4vw, 46px)/1 var(--font-tech, var(--font-system, sans-serif));
+  letter-spacing: .26em;
+  text-shadow: 0 0 2px #fff, 0 0 22px rgba(255, 30, 60, .7), 0 3px 0 #5a0012;
+}
+#fd-banner .fd-line small { color: #ffb3c0; font: 700 14px/1 var(--font-machine, monospace); letter-spacing: .24em; text-transform: uppercase; }
+#fd-banner .fd-line-1 { animation: fd-line-out .4s ease 1.7s forwards; }
+#fd-banner .fd-line-2 { position: absolute; left: 0; right: 0; top: 40px; opacity: 0; animation: fd-bleed .7s ease 1.8s forwards; }
+#fd-banner .fd-line-2 b { color: #ff3355; }
+#fd-banner .fd-tokens { display: flex; gap: 12px; justify-content: center; }
+#fd-banner .fd-tokens em {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 46% 54% 50% 50% / 52% 48% 54% 46%;
+  background: radial-gradient(circle at 36% 30%, #e0213f, #8f0a22 55%, #4d0410);
+  box-shadow: 0 0 16px rgba(255, 42, 74, .7), inset 0 -3px 6px rgba(0, 0, 0, .45);
+  color: #fff;
+  font: 900 18px/1 var(--font-system, sans-serif);
+  font-style: normal;
+  opacity: 0;
+  animation: fd-token .45s cubic-bezier(.2, 1.5, .4, 1) both;
+}
+#fd-banner.is-leaving { animation: fd-fade-out .5s ease forwards; }
+@keyframes fd-fade-in { from { opacity: 0; } }
+@keyframes fd-fade-out { to { opacity: 0; } }
+@keyframes fd-rise { from { opacity: 0; transform: translateY(24px) scale(.96); } }
+@keyframes fd-line-out { to { opacity: 0; transform: translateY(-12px); } }
+@keyframes fd-bleed { from { opacity: 0; clip-path: inset(0 0 100% 0); filter: blur(2px); } to { opacity: 1; clip-path: inset(0 0 0 0); filter: none; } }
+@keyframes fd-token { from { opacity: 0; transform: scale(2.4) rotate(-30deg); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  #fd-banner *, .fd-seal, .fd-lock, .fd-paid *, .fd-shudder,
+  html[data-fd-owe-a] #board-layer [data-label^="A"], html[data-fd-owe-b] #board-layer [data-label^="B"],
+  html[data-fd-owe-c] #board-layer [data-label^="C"], html[data-fd-owe-d] #board-layer [data-label^="D"] { animation-duration: .01s !important; animation-iteration-count: 1 !important; }
+}
