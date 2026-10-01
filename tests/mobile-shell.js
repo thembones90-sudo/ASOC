@@ -136,6 +136,23 @@ const layout = page => page.evaluate(() => {
     assert.ok(l.chat.y >= l.board.y + l.board.h - 2, 'chat is below the board');
     assert.ok(l.scrollW <= l.vw + 1, 'no sideways scroll in landscape');
 
+    // Pull to refresh: the shell pins the page, so it provides its own.
+    // A long pull from the header arms it; a pull on a chat that is not at
+    // its top does nothing.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await H.sleep(300);
+    const pull = (sel, dy) => page.evaluate(({ sel, dy }) => {
+      const el = document.querySelector(sel); const r = el.getBoundingClientRect(); const x = r.left + 30, y = r.top + 10;
+      const t = cy => new Touch({ identifier: 1, target: el, clientX: x, clientY: cy });
+      el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t(y)], changedTouches: [t(y)] }));
+      for (let i = 1; i <= 10; i++) el.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, touches: [t(y + dy * i / 10)], changedTouches: [t(y + dy * i / 10)] }));
+      const armed = document.getElementById('m-pull-refresh')?.classList.contains('is-armed') || false;
+      el.dispatchEvent(new TouchEvent('touchcancel', { bubbles: true, touches: [], changedTouches: [t(y + dy)] }));
+      return armed;
+    }, { sel, dy });
+    assert.equal(await pull('#little-hero-hud', 220), true, 'a long pull from the header arms pull-to-refresh');
+    assert.equal(await pull('#little-hero-hud', 50), false, 'a short pull does not');
+
     // Back to desktop from inside the shell.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('#asoc-view-toggle-game').click();
@@ -144,7 +161,7 @@ const layout = page => page.evaluate(() => {
 
     assert.deepEqual(page.pageErrors, [], 'no page errors');
     assert.equal(server.errors().trim(), '', `no server errors, got: ${server.errors().slice(0, 600)}`);
-    console.log('PASS mobile shell: opt-in only, remembered, CHAT/PEOPLE/PROFILE tabs (room list, MESSAGE opens a DM, profile actions, mini-games sheet, unread badge), CASUAL chat-first layout (no board, 16px input, no sideways scroll), upright battle banner with live chat, sideways battle board-on-top with chat below, DESKTOP VERSION switches back');
+    console.log('PASS mobile shell: opt-in only, remembered, CHAT/PEOPLE/PROFILE tabs (room list, MESSAGE opens a DM, profile actions, mini-games sheet, unread badge), CASUAL chat-first layout (no board, 16px input, no sideways scroll), upright battle banner with live chat, sideways battle board-on-top with chat below, pull-to-refresh, DESKTOP VERSION switches back');
   } finally {
     if (browser) await browser.close();
     await server.stop();
