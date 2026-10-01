@@ -9172,11 +9172,11 @@ position:absolute;
     }
 
 
-    /* WHITEOUT 09 // DARK ARCTIC MACHINERY.
-       Not a light mode. Hierarchy: dark ASOC frame -> medium-dark arctic steel
-       chamber -> darker recessed frost-gunmetal chat field -> pale frosted
-       Whiteout-owned bubbles -> tiny cyan instrumentation. White lives only in
-       frost, seams, edge highlights and the player's own bubbles. */
+    /* WHITEOUT 09 // ARCTIC GUNMETAL.
+       Hierarchy: dark ASOC frame -> pale metallic chamber -> frosted Whiteout
+       messages. The shell, rails and status slab stay gunmetal-dark so Whiteout
+       still belongs to the console; only the centre comms chamber is steel and
+       frost gray. No pure white, no haze, no pastel. */
     #game-screen[data-player-theme="whiteout"] {
       background:
         url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20520%20300'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23C9D6DD'%20stroke-width%3D'1'%3E%3Cpath%20opacity%3D'.085'%20d%3D'M16%20244%20L86%20244%20L120%20210%20L196%20210%20L230%20176%20L300%20176%20L336%20140%20L406%20140%20L444%20102%20L508%20102'%2F%3E%3Cpath%20opacity%3D'.055'%20d%3D'M58%20284%20L112%20230%20L164%20230%20L204%20190%20L252%20190%20L292%20150%20L340%20150'%2F%3E%3Cpath%20opacity%3D'.04'%20d%3D'M252%20292%20L252%20246%20L288%20214%20L288%20168%20L328%20132%20L372%20132%20L406%2098'%2F%3E%3Cpath%20opacity%3D'.03'%20d%3D'M20%2068%20L72%2068%20L104%2036%20L168%2036%20L200%204%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23D6E0E6'%3E%3Ccircle%20opacity%3D'.16'%20cx%3D'86'%20cy%3D'244'%20r%3D'1.6'%2F%3E%3Ccircle%20opacity%3D'.12'%20cx%3D'120'%20cy%3D'210'%20r%3D'1.9'%2F%3E%3Ccircle%20opacity%3D'.10'%20cx%3D'230'%20cy%3D'176'%20r%3D'1.8'%2F%3E%3Ccircle%20opacity%3D'.085'%20cx%3D'336'%20cy%3D'140'%20r%3D'1.7'%2F%3E%3Ccircle%20opacity%3D'.07'%20cx%3D'444'%20cy%3D'102'%20r%3D'1.7'%2F%3E%3Ccircle%20opacity%3D'.10'%20cx%3D'104'%20cy%3D'36'%20r%3D'1.6'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%239FD4E7'%3E%3Ccircle%20opacity%3D'.40'%20cx%3D'508'%20cy%3D'102'%20r%3D'2.1'%2F%3E%3Ccircle%20opacity%3D'.20'%20cx%3D'406'%20cy%3D'98'%20r%3D'1.7'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 2vw top 8vh / min(520px,38vw) auto no-repeat,
@@ -9186,70 +9186,48 @@ position:absolute;
         linear-gradient(180deg,rgba(224,233,238,.020),transparent 8%),
         linear-gradient(145deg,#151c22 0%,#0b1015 48%,#05080b 100%);
     }
-    /* ARCTIC STEEL CHAMBER. Medium-dark machined steel (#6F7C84 -> #53616A):
-       vertical panel seams, a brushed diagonal grain, a cold frost highlight
-       along the top lip and a dark machined underside. White lives only in the
-       edge highlights; the chamber itself is metal, never a pale page. */
+    /* Pale metallic chamber. Brushed steel, not milk glass. */
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby {
       background:
-        linear-gradient(180deg,rgba(214,224,229,.20) 0,rgba(214,224,229,0) 3px),
-        linear-gradient(90deg,rgba(23,32,39,.38) 0 1px,rgba(214,224,229,.07) 1px 2px,transparent 2px) 0 0 / 220px 100%,
-        repeating-linear-gradient(118deg,rgba(231,236,239,.018) 0 1px,transparent 1px 4px),
-        linear-gradient(90deg,rgba(23,32,39,.30) 0%,transparent 9%,transparent 91%,rgba(23,32,39,.30) 100%),
-        linear-gradient(180deg,rgba(23,32,39,0) 70%,rgba(23,32,39,.30) 100%),
-        linear-gradient(160deg,#6f7c84 0%,#64717a 46%,#53616a 100%);
-      border-left-color:#3a464e;
+        linear-gradient(90deg,rgba(62,80,93,.10) 0 1px,transparent 1px 100%),
+        repeating-linear-gradient(0deg,rgba(58,78,92,.055) 0 1px,transparent 1px 22px),
+        linear-gradient(90deg,rgba(255,255,255,.34),transparent 18%,rgba(58,78,92,.06) 62%,rgba(58,78,92,.12)),
+        linear-gradient(145deg,#cbd4da 0%,#c2cbd1 46%,#b6c1c8 100%);
+      border-left-color:#8e9ea8;
       box-shadow:
-        inset 0 1px rgba(231,236,239,.26),
-        inset 1px 0 rgba(214,224,229,.16),
-        inset -1px 0 rgba(0,0,0,.42),
-        inset 0 -14px 26px rgba(15,22,28,.32);
+        inset 11px 0 24px rgba(58,78,92,.24),
+        inset 1px 0 rgba(236,244,248,.55),
+        inset -1px 0 rgba(62,82,95,.30);
     }
-    /* RECESSED FROST-GUNMETAL CHAT FIELD (#4C5962 -> #36434C): sunk into the
-       chamber with a deep inner shadow, a single frost lip on the top edge,
-       faint horizontal plate seams, rime speckle and a quiet ice vignette, so
-       the empty field still reads as machined and intentional. */
+    /* Inner chat surface: one distinctly darker frost-gray layer so it never
+       merges into the chamber behind it. */
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby #chat-panel {
-      border-color:#2c373f;
+      border-color:#8e9ea8;
       background:
-        radial-gradient(1px 1px at 18% 22%,rgba(214,224,229,.30),transparent 60%),
-        radial-gradient(1px 1px at 64% 38%,rgba(214,224,229,.22),transparent 60%),
-        radial-gradient(1px 1px at 82% 71%,rgba(191,217,228,.24),transparent 60%),
-        radial-gradient(1px 1px at 37% 83%,rgba(214,224,229,.18),transparent 60%),
-        radial-gradient(1.5px 1.5px at 91% 14%,rgba(159,212,231,.32),transparent 60%),
-        radial-gradient(120% 70% at 50% -10%,rgba(191,217,228,.07),transparent 55%),
-        repeating-linear-gradient(0deg,rgba(15,22,28,.16) 0 1px,rgba(214,224,229,.025) 1px 2px,transparent 2px 96px),
-        repeating-linear-gradient(118deg,rgba(231,236,239,.012) 0 1px,transparent 1px 5px),
-        linear-gradient(180deg,#4c5962 0%,#43505a 48%,#36434c 100%);
-      color:#e7ecef;
+        repeating-linear-gradient(0deg,rgba(52,72,86,.05) 0 1px,transparent 1px 18px),
+        linear-gradient(90deg,rgba(52,72,86,.055) 0 1px,transparent 1px 68px),
+        linear-gradient(180deg,#c4ced4 0%,#bcc6cd 54%,#b3bfc6 100%);
+      color:#172027;
       box-shadow:
-        inset 0 1px rgba(214,224,229,.20),
-        inset 0 10px 22px rgba(10,15,20,.42),
-        inset 0 -8px 18px rgba(10,15,20,.30),
-        inset 6px 0 14px rgba(10,15,20,.26),
-        inset -6px 0 14px rgba(10,15,20,.26),
-        0 1px rgba(214,224,229,.10);
+        inset 0 1px rgba(240,246,249,.62),
+        inset 0 0 0 1px rgba(255,255,255,.16),
+        inset 0 0 30px rgba(60,80,94,.16),
+        0 12px 30px rgba(46,60,71,.26);
     }
-    /* Instrumentation: two cold rails down the field edges and one small cyan
-       status tick at the top-left corner. Restrained, never a glow strip. */
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby #chat-panel::after {
       background:
-        linear-gradient(180deg,rgba(191,217,228,.18),rgba(191,217,228,0) 70%) left 8px top / 1px 100% no-repeat,
-        linear-gradient(180deg,rgba(191,217,228,.18),rgba(191,217,228,0) 70%) right 8px top / 1px 100% no-repeat,
-        linear-gradient(90deg,rgba(159,212,231,.85),rgba(159,212,231,.85)) left 8px top 10px / 14px 1px no-repeat,
-        linear-gradient(90deg,rgba(159,212,231,.55),rgba(159,212,231,.55)) left 8px top 14px / 6px 1px no-repeat,
-        linear-gradient(90deg,rgba(159,212,231,.85),rgba(159,212,231,.85)) right 8px top 10px / 14px 1px no-repeat;
+        linear-gradient(180deg,rgba(86,106,120,.42),rgba(86,106,120,0)) left 8px top / 1px 100% no-repeat,
+        linear-gradient(180deg,rgba(86,106,120,.42),rgba(86,106,120,0)) right 8px top / 1px 100% no-repeat,
+        linear-gradient(180deg,rgba(159,212,231,.34),rgba(159,212,231,0)) left 8px top / 1px 30px no-repeat;
     }
-    /* Amusement Park watermark: a frozen ghost, barely there on the dark field. */
+    /* Amusement Park watermark stays a whisper behind the transcript. */
     #game-screen[data-player-theme="whiteout"][data-room-mode="CASUAL"] .battle-comms-lobby #chat-panel::before,
     #game-screen[data-player-theme="whiteout"].room-mode-casual .battle-comms-lobby #chat-panel::before {
       background:
-        url('/assets/ui/abusement-park-2026.webp') center 50% / 42% auto no-repeat;
-      /* screen: the image's own dark backdrop drops out, so no gray box
-         shows on the steel field -- only a faint frozen ghost of the crest. */
-      mix-blend-mode:screen;
-      opacity:.024;
-      filter:grayscale(1) brightness(.9) contrast(1.1) blur(2.4px);
+        url('/assets/ui/abusement-park-2026.webp') center 50% / 42% auto no-repeat,
+        repeating-linear-gradient(0deg,rgba(46,66,80,.02) 0 1px,transparent 1px 5px);
+      opacity:.03;
+      filter:grayscale(.7) saturate(.2) brightness(.5) blur(2.4px);
       transform:scale(1.01);
     }
     /* The status slab is ASOC instrumentation, so it stays dark gunmetal with a
@@ -9274,20 +9252,19 @@ position:absolute;
     }
     /* Message hover must not smear near-white across a foreign dark bubble. */
     #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message:hover {
-      background:linear-gradient(90deg,rgba(191,217,228,.06),rgba(191,217,228,0) 78%) !important;
+      background:linear-gradient(90deg,rgba(86,104,118,.14),rgba(86,104,118,0) 78%) !important;
     }
     /* WHITEOUT-OWNED MESSAGES // scoped to the message owner, never to the
        viewer's theme, so a Whiteout player's frosted bubble stays readable in
        every other transcript. Every other theme's bubbles and the Shadow Broker
        purple/black transmissions are left exactly as they were. */
     #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-main {
-      border-color:#b7c4cc !important;
-      background:linear-gradient(135deg,#e7ecef 0%,#dfe6ea 58%,#d6e0e5 100%) !important;
+      border-color:#9aa9b3 !important;
+      background:linear-gradient(135deg,#eef2f4 0%,#e6ebee 58%,#d9e2e7 100%) !important;
       box-shadow:
-        inset 0 1px rgba(255,255,255,.85),
-        inset 0 -1px rgba(74,92,105,.24),
-        0 2px 10px rgba(10,15,20,.38),
-        0 0 14px rgba(159,212,231,.16) !important;
+        inset 0 1px rgba(255,255,255,.86),
+        inset 0 -1px rgba(74,92,105,.20),
+        0 2px 8px rgba(56,72,84,.16) !important;
     }
     #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-main::after {
       content:"";
@@ -10319,7 +10296,7 @@ position:absolute;
     });
   })();
   </script>
-  <script src="js/themes.js?v=20261001-whiteout-machinery-1"></script>
+  <script src="js/themes.js?v=20260929-whiteout-arctic-1"></script>
   <script src="js/dom-patch.js?v=20260925-gm-control-pass-1"></script>
   <script src="js/skeleton.js?v=20260927-sb-stable-2"></script>
   <script src="js/board-celebrations.js?v=20260928-board-coronation-1"></script>
