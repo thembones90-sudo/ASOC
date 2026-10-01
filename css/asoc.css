@@ -21701,3 +21701,70 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
 .player-scoreboard-shell { position:relative; width:min(920px,100%); max-height:90vh; overflow:auto; margin:0 auto; padding:54px 24px 24px; border:1px solid rgba(202,134,255,.5); background:linear-gradient(145deg,#120b18,#090c12); box-shadow:0 24px 80px #000; }
 .player-scoreboard-close { position:absolute; top:12px; right:15px; width:34px; height:34px; border:1px solid rgba(207,151,255,.4); background:#17101e; color:#e8d7ef; font-size:23px; cursor:pointer; }
 @media (max-width:700px) { :where(html:not(.asoc-mobile)) .player-scoreboard-overlay { padding:2vh 10px; } :where(html:not(.asoc-mobile)) .player-scoreboard-shell { padding:50px 12px 16px; } }
+
+/* SHADOW BROKER MIRROR // structured markup (Skeleton broadcast):
+   .shadow-broker-mirror-message > .shadow-broker-transmission + .shadow-broker-avatar-rail
+   Bubble then avatar, right-aligned: the exact reflection of a Little Hero
+   row. The rail is real layout now, so the older "portrait pinned outside the
+   plaque" offsets are switched off. */
+.shadow-broker-mirror-message {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.shadow-broker-mirror-message > .shadow-broker-transmission { flex: 0 1 auto; min-width: 0; margin: 0 !important; }
+.shadow-broker-mirror-message > .shadow-broker-avatar-rail { flex: 0 0 44px; width: 44px; display: flex; justify-content: center; }
+.shadow-broker-mirror-message > .shadow-broker-avatar-rail .shadow-broker-avatar {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  position: static !important;
+  inset: auto !important;
+  right: auto !important;
+  top: auto !important;
+  width: 44px !important;
+  height: 44px !important;
+  flex: none !important;
+  margin: 0 !important;
+}
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry:has(> .shadow-broker-mirror-message) { padding-right: 0 !important; }
+#gm-panel #gm-chat-messages .shadow-broker-mirror-message > .shadow-broker-avatar-rail .shadow-broker-avatar { flex: 0 0 44px !important; width: 44px !important; height: 44px !important; }
+/* Little Hero chat: 32px avatar, 6px gap, like the hero rows. */
+#game-screen .battle-comms-lobby .shadow-broker-mirror-message { gap: 6px; }
+#game-screen .battle-comms-lobby .shadow-broker-mirror-message > .shadow-broker-avatar-rail { flex-basis: 32px; width: 32px; }
+#game-screen#game-screen .battle-comms-lobby .shadow-broker-mirror-message > .shadow-broker-avatar-rail .shadow-broker-avatar { flex: 0 0 32px !important; width: 32px !important; height: 32px !important; min-width: 32px !important; max-width: 32px !important; min-height: 32px !important; max-height: 32px !important; box-sizing: border-box !important; }
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry:has(> .shadow-broker-mirror-message) { padding-right: 0 !important; }
+#game-screen#game-screen .battle-comms-lobby .shadow-broker-mirror-message > .shadow-broker-avatar-rail .shadow-broker-avatar {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  position: static !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  margin: 0 !important;
+}
+/* Little Hero chat: the plaque inside the mirror row keeps the rounded shape,
+   one-line OVERRIDE stamp and right-aligned body. */
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message > .shadow-broker-transmission {
+  position: relative !important;
+  clip-path: none !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  min-width: 176px !important;
+  min-height: 38px !important;
+  padding: 15px 9px 6px !important;
+  overflow: visible !important;
+  border-radius: 8px 8px 3px 8px !important;
+}
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message > .shadow-broker-transmission::before { white-space: nowrap !important; }
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message > .shadow-broker-transmission::after { display: none !important; }
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message .shadow-broker-body { flex: 1 1 auto !important; align-items: flex-end !important; text-align: right !important; }
