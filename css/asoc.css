@@ -21830,3 +21830,67 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
   object-fit: contain;
 }
 #game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare .broker-media-caption { margin: 0 0 6px; }
+
+/* SHADOW BROKER image / GIF on the Broker console: the bare picture,
+   right-aligned, avatar to its RIGHT -- no capsule, no header, no padding. */
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry.gm-broker-image-bare {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: flex-end !important;
+  align-items: flex-end !important;
+  gap: 8px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-main {
+  flex: 0 1 auto;
+  max-width: min(460px, 72%);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-rail {
+  flex: 0 0 44px;
+  width: 44px;
+  display: flex;
+  justify-content: center;
+}
+#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-rail .shadow-broker-avatar {
+  position: static !important;
+  flex: 0 0 44px !important;
+  width: 44px !important;
+  height: 44px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+#gm-panel #gm-chat-messages .gm-broker-image-bare :is(.chat-image-link.broker-image-only, .gm-chat-gif-link) {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+#gm-panel #gm-chat-messages .gm-broker-image-bare :is(.chat-image-attachment, .gm-chat-gif-attachment) {
+  display: block;
+  max-width: 100%;
+  max-height: 380px;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: none !important;
+  border-radius: 12px;
+  object-fit: contain;
+}
+#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-main > :empty { display: none !important; }
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry.gm-broker-image-bare { flex-wrap: wrap !important; row-gap: 4px !important; }
+#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-chat-reactions { flex: 0 0 100%; display: flex; justify-content: flex-end; margin: 0 52px 0 0 !important; }
