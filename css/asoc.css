@@ -20787,84 +20787,87 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 .voice-recorder button:disabled { opacity: .5; cursor: default; }
 .chat-voice-btn svg, .gm-voice-btn svg { display: block; margin: auto; }
 
-/* VOICE MESSAGE CARD // short audio is a compact transmission, not an empty
-   text bubble. This class is assigned only to messageType=voice. */
-#game-screen .battle-comms-lobby .chat-message.voice-message .chat-message-main {
+/* VOICE MESSAGE CAPSULE // the purple player is the entire message. The generic
+   text-message shell, header and reply chrome are deliberately removed. */
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-main {
   position:relative !important;
   justify-self:start !important;
-  width:min(94%,360px) !important;
-  min-width:min(270px,94%) !important;
-  max-width:min(94%,360px) !important;
-  padding:7px 9px 7px !important;
+  width:min(100%,320px) !important;
+  min-width:min(250px,100%) !important;
+  max-width:320px !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:999px !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  overflow:visible !important;
 }
-#game-screen .battle-comms-lobby .chat-message.voice-message .chat-message-header {
-  min-height:15px !important;
-  margin:0 !important;
-  padding-right:58px !important;
-}
-#game-screen .battle-comms-lobby .chat-message.voice-message .chat-message-line {
-  position:absolute !important;
-  top:9px !important;
-  right:10px !important;
-  display:block !important;
-  width:auto !important;
-  min-width:0 !important;
-}
-#game-screen .battle-comms-lobby .chat-message.voice-message .chat-message-text {
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-main::before,
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-header,
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-line,
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-reply-btn {
   display:none !important;
 }
-#game-screen .battle-comms-lobby .chat-message.voice-message .chat-voice {
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-voice {
   width:100% !important;
   max-width:none !important;
-  margin:6px 0 0 !important;
-  padding:5px 9px 5px 5px !important;
-  gap:9px !important;
+  min-height:44px !important;
+  margin:0 !important;
+  padding:5px 10px 5px 5px !important;
+  gap:10px !important;
+  border-color:rgba(176,112,235,.62) !important;
+  background:
+    linear-gradient(180deg,rgba(42,22,58,.98),rgba(15,9,23,.99)) !important;
+  box-shadow:inset 0 1px rgba(235,207,255,.08),0 3px 10px rgba(0,0,0,.30) !important;
 }
-#game-screen .battle-comms-lobby .chat-message.voice-message .chat-voice-track,
-.gm-module-chat .gm-flow-message.voice-message .chat-voice-track {
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-voice-track,
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .chat-voice-track {
   height:8px !important;
   border-radius:2px !important;
   background:repeating-linear-gradient(90deg,rgba(190,140,255,.28) 0 2px,transparent 2px 5px) !important;
 }
-#game-screen .battle-comms-lobby .chat-message.voice-message .chat-reactions {
-  margin-top:4px !important;
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-reactions {
+  margin:3px 5px 0 !important;
 }
 
-.gm-module-chat .gm-flow-message.voice-message .gm-chat-message-main {
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-message-main {
   position:relative !important;
-  width:min(96%,360px) !important;
-  min-width:270px !important;
-  max-width:min(96%,360px) !important;
-  padding:7px 9px !important;
+  width:min(100%,320px) !important;
+  min-width:min(250px,100%) !important;
+  max-width:320px !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:999px !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  overflow:visible !important;
 }
-.gm-module-chat .gm-flow-message.voice-message .gm-chat-flow-header {
-  min-height:15px !important;
-  margin:0 !important;
-  padding-right:58px !important;
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-message-main::before,
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-flow-header,
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-message-line {
+  display:none !important;
 }
-.gm-module-chat .gm-flow-message.voice-message .gm-chat-message-line {
-  position:absolute !important;
-  top:9px !important;
-  right:10px !important;
-  display:block !important;
-  width:auto !important;
-}
-.gm-module-chat .gm-flow-message.voice-message .gm-chat-message-text { display:none !important; }
-.gm-module-chat .gm-flow-message.voice-message .chat-voice {
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .chat-voice {
   width:100% !important;
   max-width:none !important;
-  margin:6px 0 0 !important;
+  min-height:44px !important;
+  margin:0 !important;
+  padding:5px 10px 5px 5px !important;
+  gap:10px !important;
+  border-color:rgba(176,112,235,.62) !important;
+  background:linear-gradient(180deg,rgba(42,22,58,.98),rgba(15,9,23,.99)) !important;
+  box-shadow:inset 0 1px rgba(235,207,255,.08),0 3px 10px rgba(0,0,0,.30) !important;
 }
-.gm-module-chat .gm-flow-message.voice-message .gm-chat-reactions { margin-top:4px !important; }
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-reactions { margin:3px 5px 0 !important; }
 
 @media (max-width:480px) {
-  #game-screen .battle-comms-lobby .chat-message.voice-message .chat-message-main {
-    width:min(96%,330px) !important;
-    min-width:min(230px,96%) !important;
+  #game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-main {
+    width:min(100%,290px) !important;
+    min-width:min(220px,100%) !important;
   }
-  .gm-module-chat .gm-flow-message.voice-message .gm-chat-message-main {
-    width:min(96%,330px) !important;
-    min-width:min(230px,96%) !important;
+  .gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-message-main {
+    width:min(100%,290px) !important;
+    min-width:min(220px,100%) !important;
   }
 }
 
