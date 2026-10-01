@@ -5182,16 +5182,15 @@ const PlayerApp = {
         : '';
       if (msg.imageUrl) {
         return `
-          <div class="chat-message broker-media-message broker-image-message${msg.messageType === 'sticker' ? ' sticker-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" data-theme-id="gunmetal" style="--little-hero-accent:#9B5DE0;" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
-            <div class="chat-avatar-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>
+          <div class="chat-message broker-media-message broker-image-message broker-image-bare${msg.messageType === 'sticker' ? ' sticker-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" data-theme-id="gunmetal" style="--little-hero-accent:#9B5DE0;" title="SHADOW BROKER · ${this.escapeHtml(time)}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
             <div class="chat-message-main">
               ${manualBadge}${replyContextHtml}
-              <div class="chat-message-header"><span class="chat-player-name">SHADOW BROKER</span><span class="chat-time">${time}</span></div>
               ${messageText ? `<div class="broker-media-caption">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div>` : ''}
               ${msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>`}
               ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
               ${this.createReactionBarHTML(msg)}
             </div>
+            <div class="chat-avatar-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>
           </div>
         `;
       }
