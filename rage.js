@@ -40,6 +40,18 @@ const PHASES = new Set(['lobby', 'roll', 'move', 'ended']);
 // Figurine colours. Each lobby member owns one; no two members share.
 const COLORS = Object.freeze(['blood', 'void', 'venom', 'gold', 'frost', 'rose', 'ember', 'spectre', 'abyss', 'bone']);
 
+// Table nicknames: each seated player draws a different one at START and
+// plays as "<name> the <nickname>" for that game.
+const NICKNAMES = Object.freeze([
+  'THE WOKE', 'THE TETKA', 'THE GLGL VENDOR',
+  'THE SORE LOSER', 'THE RAGE QUITTER', 'THE YARD DWELLER',
+  'THE DICE WHISPERER', 'THE BALKAN UNCLE'
+]);
+function drawNicknames(count) {
+  const pool = NICKNAMES.slice();
+  for (let i = pool.length - 1; i > 0; i -= 1) { const j = crypto.randomInt(0, i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return pool.slice(0, count);
+}
 const newId = () => 'rage-' + crypto.randomBytes(6).toString('hex');
 const rollDie = () => crypto.randomInt(1, 7);
 
@@ -127,8 +139,9 @@ function start(s, actorId, onlineIds, now = Date.now()) {
   if (picking.length) return { ok: false, error: `WAITING FOR ${picking.map(m => m.name).join(', ')} TO COMMIT A COLOUR` };
   const seats = SEATS_BY_COUNT[seated.length];
   s.players = {};
+  const nicknames = drawNicknames(seated.length);
   s.order = seated.map((m, i) => {
-    s.players[m.id] = { id: m.id, name: m.name, color: COLORS.includes(m.color) ? m.color : COLORS[i], seat: seats[i], pieces: Array(PIECES).fill(-1), out: false, finishedAt: 0 };
+    s.players[m.id] = { id: m.id, name: `${m.name} ${nicknames[i].toLowerCase()}`, baseName: m.name, nickname: nicknames[i], color: COLORS.includes(m.color) ? m.color : COLORS[i], seat: seats[i], pieces: Array(PIECES).fill(-1), out: false, finishedAt: 0 };
     return m.id;
   });
   s.members = seated;
@@ -342,7 +355,7 @@ function view(s, viewerId, now = Date.now(), onlineIds = new Set()) {
     members: s.members.map(m => ({ ...m, online: onlineIds.has(m.id) })),
     players: s.order.map(id => {
       const p = s.players[id];
-      return { id, name: p.name, color: p.color || COLORS[p.seat], seat: p.seat, pieces: p.pieces.slice(), out: p.out, online: onlineIds.has(id) };
+      return { id, name: p.name, baseName: p.baseName || p.name, nickname: p.nickname || null, color: p.color || COLORS[p.seat], seat: p.seat, pieces: p.pieces.slice(), out: p.out, online: onlineIds.has(id) };
     }),
     turnId: turn?.id || null,
     turnName: turn?.name || null,
@@ -381,6 +394,6 @@ function resumeAfterRestart(s, now = Date.now()) {
 
 module.exports = {
   ROLL_MS, MOVE_MS, MAX_PLAYERS, MAX_STAKE, TRACK, HOME_FIRST, HOME_LAST,
-  COLORS, createLobby, pickColor, isOpenLobby, isLive, join, leave, start, begin, roll, move, forfeit, tick, view,
+  COLORS, NICKNAMES, createLobby, pickColor, isOpenLobby, isLive, join, leave, start, begin, roll, move, forfeit, tick, view,
   legalMoves, absSquare, normalizeState, resumeAfterRestart
 };

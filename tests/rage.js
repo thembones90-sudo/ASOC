@@ -63,7 +63,7 @@ function engine() {
   assert.deepEqual(s.options.map(o => [o.piece, o.to, !!o.capture]), [[1, 8, true]]);
   assert.equal(R.move(s, 'a', 0, s.turnSeq, 0).error, 'YOU MUST CAPTURE');
   const eaten = R.move(s, 'a', 1, s.turnSeq, 0);
-  assert.match(eaten.announce[0], /A SENT B BACK TO THE YARD/);
+  assert.match(eaten.announce[0], /A the .+ SENT B the .+ BACK TO THE YARD/);
   assert.equal(s.players.b.pieces[0], -1);
 
   // Never onto your own piece; home needs an exact roll.
@@ -129,6 +129,15 @@ function engine() {
   R.begin(s, 0);
   assert.equal(R.view(s, 'a').players.find(p => p.id === 'b').color, 'bone');
   assert.match(R.pickColor(s, 'b', 'gold').error, /IN THE LOBBY/);
+
+  // Nicknames: a different one per player, shown as "<name> the <nickname>".
+  s = game(['a', 'b', 'c', 'd']);
+  const nicks = s.order.map(id => s.players[id].nickname);
+  assert.equal(new Set(nicks).size, 4, 'no two players share a nickname');
+  nicks.forEach(n => assert.ok(R.NICKNAMES.includes(n)));
+  assert.equal(s.players.a.name, `A ${s.players.a.nickname.toLowerCase()}`);
+  assert.match(s.players.a.name, /^A the [a-z ]+$/);
+  assert.equal(R.view(s, 'b').players[0].baseName, 'A');
 
   // Hidden options: only the player on turn sees what can move.
   s = game();
@@ -323,7 +332,7 @@ async function runServer() {
     await ana.act({ type: 'rage:start' }, 'start 2');
     st = await bo.act({ type: 'rage:leave' }, 'forfeit');
     assert.equal(st.state.phase, 'ended');
-    assert.equal(st.state.winnerName, 'Ana');
+    assert.match(st.state.winnerName, /^Ana the /);
     await sleep(300);
     assert.equal(await ana.balance(), 12);
     assert.equal(await bo.balance(), 1);
@@ -358,6 +367,11 @@ async function runServer() {
     // Battle closes the table.
     gm.send({ type: 'gm:setRoomMode', mode: 'BATTLE' });
     await ana.next(m => m.type === 'rage:state' && m.state === null, 'closed for battle');
+    // Nicknames are game-only: the real names in the roster never change.
+    gm.send({ type: 'gm:setRoomMode', mode: 'CASUAL' });
+    await sleep(300);
+    const roster = (await (async () => { const from = ana.mark(); ana.send({ type: 'rage:sync' }); await sleep(300); return ana.msgs.slice(from).concat(ana.msgs).reverse().find(m => m.type === 'players:update'); })())?.players || [];
+    roster.forEach(p => assert.doesNotMatch(String(p.name), / the /, `roster name changed: ${p.name}`));
     assert.equal(server.errors.trim(), '');
     console.log('PASS rage server');
   } finally {
