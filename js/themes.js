@@ -179,21 +179,23 @@ const ASOCThemes = {
       id: 'whiteout',
       code: '09',
       name: 'WHITEOUT',
-      subtitle: 'STERILE SIGNAL // ARCTIC CIRCUITS',
-      color: '#D6E0E5',
-      shellTop: '#6F7C84',
-      shellBottom: '#53616A',
-      railTop: '#4C5962',
-      railBottom: '#36434C',
-      statusTop: '#1A2128',
-      statusBottom: '#0B1015',
-      messageTop: '#E7ECEF',
-      messageBottom: '#D6E0E5',
-      bannerAccent: '#9FD4E7',
-      bannerGlow: 'rgba(159,212,231,.28)',
-      borderAccent: '#98A8B2',
-      ambientStrength: 'rgba(180,216,230,.10)',
-      ambient: 'rgba(180,216,230,.15)'
+      subtitle: 'LIGHT MODE // ARCTIC SIGNAL',
+      // The dark console values: html[data-asoc-light] inverts the whole page,
+      // so these become Whiteout's light surfaces (css/asoc.css).
+      color: '#343A42',
+      shellTop: '#11161C',
+      shellBottom: '#07090C',
+      railTop: '#151A20',
+      railBottom: '#080A0D',
+      statusTop: '#171C22',
+      statusBottom: '#0A0D11',
+      messageTop: '#151A20',
+      messageBottom: '#0C0F13',
+      bannerAccent: '#2B6E8A',
+      bannerGlow: 'rgba(43,110,138,.24)',
+      borderAccent: '#687481',
+      ambientStrength: 'rgba(126,139,151,.055)',
+      ambient: 'rgba(126,139,151,.07)'
     }
   },
 
@@ -205,6 +207,9 @@ const ASOCThemes = {
     if (!element) return;
     const theme = this.get(id);
     element.dataset.playerTheme = theme.id;
+    // WHITEOUT is ASOC's light mode: flag the whole page so every surface,
+    // including overlays and rails outside the game screen, renders light.
+    if (element.id === 'game-screen') document.documentElement.toggleAttribute('data-asoc-light', theme.id === 'whiteout');
     element.style.setProperty('--player-theme', theme.color);
     element.style.setProperty('--theme-shell-top', theme.shellTop);
     element.style.setProperty('--theme-shell-bottom', theme.shellBottom);

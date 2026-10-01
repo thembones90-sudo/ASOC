@@ -21396,3 +21396,29 @@ body.room-mode-casual #battle-controls-panel > #gm-system-dock {
   top: auto !important;
   bottom: calc(100% + 6px) !important;
 }
+
+/* WHITEOUT // ASOC LIGHT MODE.
+   Every other theme is dark; Whiteout is the polar opposite, the way a
+   Windows light theme mirrors the dark one. Rather than hand-maintaining a
+   light twin of every dark rule, the page is tonally inverted (dark <-> light)
+   with hue preserved, so each element automatically gets its light version:
+   panels, rails, chips, bubbles, inputs, overlays. Real imagery -- photos,
+   avatars, uploaded media and video -- is inverted back so it keeps its true
+   colours; the board itself goes light like every other surface. Set by ASOCThemes.applyToScreen (js/themes.js). */
+html[data-asoc-light] {
+  filter: invert(1) hue-rotate(180deg);
+  background: #000;
+}
+html[data-asoc-light] :is(img, video, canvas, picture, iframe, svg image),
+html[data-asoc-light] .chat-media-lightbox,
+html[data-asoc-light] [data-asoc-keep-color] {
+  filter: invert(1) hue-rotate(180deg);
+}
+/* Never invert twice: imagery inside an already re-inverted block. */
+html[data-asoc-light] .chat-media-lightbox :is(img, video, canvas, picture, iframe) {
+  filter: none;
+}
+/* Colour emoji are glyphs, not images: keep them true-coloured in light mode. */
+html[data-asoc-light] :is(.chat-emoji-toggle, .gm-emoji-toggle, .chat-reaction-emoji, .chat-emoji-option, .chat-input-emoji-picker, .chat-floating-emoji-picker, .commander-inline-emoji) {
+  filter: invert(1) hue-rotate(180deg);
+}
