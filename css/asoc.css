@@ -21563,3 +21563,45 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
     padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
   }
 }
+
+/* SHADOW BROKER MIRROR -- equilibrium with the Little Hero rows.
+   Little Heroes read [avatar] gap [bubble] from the left edge; the Shadow
+   Broker is the exact reflection, [bubble] gap [avatar] at the right edge.
+   The portrait sits in its own rail OUTSIDE the plaque, at the same size and
+   gap as a Little Hero avatar (GM console: 44px + 8px; Little Hero chat:
+   32px + 6px), instead of being squeezed inside the bubble. */
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry {
+  box-sizing: border-box !important;
+  padding-right: 52px !important;
+}
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry > .shadow-broker-transmission {
+  position: relative !important;
+  overflow: visible !important;
+}
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry > .shadow-broker-transmission .shadow-broker-avatar {
+  position: absolute !important;
+  top: 0 !important;
+  right: -52px !important;
+  width: 44px !important;
+  height: 44px !important;
+  flex: none !important;
+  margin: 0 !important;
+}
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry {
+  padding-right: 38px !important;
+}
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission .shadow-broker-avatar {
+  right: -38px !important;
+  width: 32px !important;
+  height: 32px !important;
+  flex: none !important;
+}
+/* The little pointer now lives in the 6px gap and stops at the avatar. */
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission::after {
+  right: -6px !important;
+  width: 6px !important;
+}
+/* Short transmissions: keep the OVERRIDE stamp on one line. */
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast { min-width: 176px !important; }
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast::before { white-space: nowrap !important; }
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast .shadow-broker-body { flex: 1 1 auto !important; align-items: flex-end !important; text-align: right !important; }
