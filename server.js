@@ -5338,7 +5338,7 @@ function broadcastRage(room) {
 const ragePays = id => String(id) !== '__GM__';
 function rageRefund(room, s) {
   Object.entries(s.paid || {}).forEach(([id, amount]) => {
-    const name = s.players?.[id]?.name || s.members.find(m => m.id === id)?.name || 'LITTLE HERO';
+    const name = s.players?.[id]?.baseName || s.members.find(m => m.id === id)?.name || 'LITTLE HERO';
     const result = playerStore.awardShadowCoins({ id, name }, amount, `rage:${s.id}:refund:${id}`, { reason: 'THY SHALL NOT RAGE refund' });
     if (!result.ok) console.error('[rage] refund failed:', result.error);
   });
@@ -5356,7 +5356,7 @@ function rageSettle(room, announce) {
     return;
   }
   const winner = s.players[s.winnerId];
-  const result = playerStore.awardShadowCoins({ id: s.winnerId, name: winner.name }, s.pot, `rage:${s.id}:pot`, { reason: 'THY SHALL NOT RAGE pot' });
+  const result = playerStore.awardShadowCoins({ id: s.winnerId, name: winner.baseName || winner.name }, s.pot, `rage:${s.id}:pot`, { reason: 'THY SHALL NOT RAGE pot' });
   if (!result.ok) { console.error('[rage] pot award failed:', result.error); return; }
   s.reward = { amount: s.pot, balance: result.balance };
   announce.push(`THY SHALL NOT RAGE // ${winner.name} TAKES THE POT: +${s.pot} SHADOW COIN${s.pot === 1 ? '' : 'S'}.`);
@@ -5414,11 +5414,11 @@ function handleRage(ws, message) {
       if (!result.ok) return fail(result.error);
       if (s.stake) {
         const payers = result.seated.filter(ragePays);
-        const short = payers.map(id => s.players[id]).find(p => rageBalance(p) < s.stake);
+        const short = payers.map(id => s.players[id]).find(p => rageBalance({ id: p.id, name: p.baseName || p.name }) < s.stake);
         if (short) { s.phase = 'lobby'; return fail(`${short.name} CANNOT COVER THE ${s.stake} COIN STAKE`); }
         for (const id of payers) {
           const p = s.players[id];
-          const paid = playerStore.spendShadowCoins({ id, name: p.name }, s.stake, `rage:${s.id}:stake:${id}`, { reason: 'THY SHALL NOT RAGE stake' });
+          const paid = playerStore.spendShadowCoins({ id, name: p.baseName || p.name }, s.stake, `rage:${s.id}:stake:${id}`, { reason: 'THY SHALL NOT RAGE stake' });
           if (!paid.ok) { rageRefund(room, s); s.phase = 'lobby'; return fail(`${p.name}: ${paid.error}`); }
           s.paid[id] = s.stake;
           s.pot += s.stake;
