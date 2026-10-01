@@ -21422,3 +21422,32 @@ html[data-asoc-light] .chat-media-lightbox :is(img, video, canvas, picture, ifra
 html[data-asoc-light] :is(.chat-emoji-toggle, .gm-emoji-toggle, .chat-reaction-emoji, .chat-emoji-option, .chat-input-emoji-picker, .chat-floating-emoji-picker, .commander-inline-emoji) {
   filter: invert(1) hue-rotate(180deg);
 }
+
+/* Light-mode surfaces. Colours below are written pre-inversion (the page
+   filter flips them), so each is annotated with what it renders as. White
+   shadows render as dark shadows. The point is depth, not glare: a cool slate
+   backdrop, off-white cards with crisp edges, and a recessed message well. */
+html[data-asoc-light] body { background: #2B343D !important; }                 /* #C5CED7 slate */
+html[data-asoc-light] #game-screen {
+  background: linear-gradient(180deg, #2B343D, #404C58) !important;            /* #C5CED7 -> #AAB6C2 */
+}
+html[data-asoc-light] #game-screen :is(#battle-comms-lobby, #dmx-rail) {
+  background: #0A0E11 !important;                                              /* #EEF2F5 card */
+  border: 1px solid #5D6A77 !important;                                        /* #8C99A6 edge */
+  box-shadow: 0 10px 28px rgba(255,255,255,.16), 0 1px 3px rgba(255,255,255,.14) !important;
+}
+html[data-asoc-light] #game-screen .detainee-status-module {
+  background: #050709 !important;                                              /* #F7F9FB header band */
+  border-bottom: 1px solid #5D6A77 !important;
+}
+html[data-asoc-light] #game-screen #chat-panel {
+  background: #1B2229 !important;                                              /* #D8DFE6 message well */
+}
+html[data-asoc-light] #game-screen #chat-form {
+  background: #171E24 !important;                                              /* #DCE3E9 composer tray */
+  border-top: 1px solid #5D6A77 !important;
+}
+html[data-asoc-light] #game-screen .chat-message .chat-message-main {
+  box-shadow: 0 1px 2px rgba(255,255,255,.14), 0 4px 12px rgba(255,255,255,.07) !important;
+}
+
