@@ -52,6 +52,8 @@
         else this.spinConcoction();
         return;
       }
+      if (e.target.closest('[data-gm-kaladont-chat]')) return this.kaladontToChat();
+      if (e.target.closest('#gm-kaladont-dock')) return this.kaladontFromChat();
       if (e.target.closest('[data-gm-minigame-close]')) { this.withdraw(); return this.close(); }
       const opponent = e.target.closest('[data-gm-opponent]');
       if (opponent) { if(opponent.disabled)return; this.chooserOpen=false; App.send({type:'threefold:challenge',opponentId:opponent.dataset.gmOpponent}); this.lastOpponentId=opponent.dataset.gmOpponent; this.status('CHALLENGE SENT','Waiting for the Little Hero.'); return; }
@@ -75,7 +77,7 @@
         App.send({type:'kaladont:vote',choice:kal==='vote-accept'?'accept':'reject',tribunalSeq:seq});
         return;
       }
-      if (kal === 'close') { this.kaladontOpen=false; return this.close(); }
+      if (kal === 'close') { this.kaladontOpen=false; this.kaladontChat=false; this.renderKaladontDock(); return this.close(); }
       const iks = e.target.closest('[data-gm-iks]')?.dataset.gmIks;
       if (iks === 'set-max') {
         const value = Number(document.getElementById('gm-iks-max')?.value);
@@ -126,14 +128,46 @@
     },
     openKaladont() {
       this.kaladontOpen=true;
+      this.kaladontChat=false;
       this.chooserOpen=false;
       this.title('KALADONT');
       this.renderKaladont();
       this.show();
       App.send({type:'kaladont:sync'});
-      if(!this._kalClock)this._kalClock=setInterval(()=>window.KaladontUI?.tickClocks(document.getElementById('gm-minigames-content')),250);
+      if(!this._kalClock)this._kalClock=setInterval(()=>{window.KaladontUI?.tickClocks(document.getElementById('gm-minigames-content'));window.KaladontUI?.tickClocks(document.getElementById('gm-kaladont-dock'));},250);
+    },
+    // OPEN CHAT: the arcade window steps aside so Battle Comms can be read
+    // and used; a live dock above the composer keeps the turn, prefix and
+    // clock in view, and one click brings the game back.
+    kaladontToChat() {
+      this.kaladontChat=true;
+      document.getElementById('gm-minigames-panel').hidden=true;
+      this.renderKaladontDock();
+      document.getElementById('shadow-broker-composer')?.focus();
+    },
+    kaladontFromChat() {
+      this.kaladontChat=false;
+      this.renderKaladontDock();
+      this.openKaladont();
+    },
+    renderKaladontDock() {
+      let dock=document.getElementById('gm-kaladont-dock');
+      const show=this.kaladontChat&&this.kaladontOpen&&(App.roomMode==='CASUAL'||document.body.classList.contains('room-mode-casual'));
+      if(!dock){
+        if(!show)return;
+        dock=document.createElement('button');
+        dock.type='button';
+        dock.id='gm-kaladont-dock';
+        dock.className='gm-kaladont-dock';
+        document.querySelector('.gm-module-chat .gm-chat-panel')?.appendChild(dock);
+      }
+      dock.hidden=!show;
+      if(show){dock.innerHTML=window.KaladontUI?.dockHTML?KaladontUI.dockHTML(this.kaladont,{viewerId:'__GM__',action:'RETURN TO GAME'}):'KALADONT';window.KaladontUI?.tickClocks(dock);}
     },
     renderKaladont() {
+      const chatToggle=document.querySelector('[data-gm-kaladont-chat]');
+      if(chatToggle)chatToggle.hidden=!(this.kaladontOpen&&document.getElementById('gm-minigames-title')?.textContent==='KALADONT');
+      this.renderKaladontDock();
       // Only repaint while the panel is showing KALADONT (IKS OKS shares it).
       if(!this.kaladontOpen||document.getElementById('gm-minigames-title')?.textContent!=='KALADONT')return;
       document.getElementById('gm-minigames-content').innerHTML=window.KaladontUI?KaladontUI.render(this.kaladont,{viewerId:'__GM__',spectator:false,canCancel:true}):'';
@@ -157,11 +191,13 @@
     renderConcoctionStatus(){const el=document.getElementById('gm-concoction-status');if(!el)return;const n=Math.max(0,Number(this.concoction.cooldownUntil)-Date.now());el.textContent=this.concoction.spinning?'REACTING':n?`${Math.ceil(n/3600000)}H`:'READY';},
     leaveCasual(){
       this.toggleLibrary(false);
+      this.kaladontChat=false;
       this.close();
       this.kaladontOpen=false;
+      this.renderKaladontDock();
       this.chooserOpen=false;
     },
-    status(a,b){this.title('IKS OKS');this.content(`<div class="gm-arcade-status"><b>${a}</b><span>${b}</span></div>`);this.show();}, title(t){document.getElementById('gm-minigames-title').textContent=t;},content(h){document.getElementById('gm-minigames-content').innerHTML=h;},show(){if(App.roomMode!=='CASUAL'&&!document.body.classList.contains('room-mode-casual')){this.close();return;}this.toggleLibrary(false);document.getElementById('gm-minigames-panel').hidden=false;},close(){this.chooserOpen=false;document.getElementById('gm-minigames-panel').hidden=true;},withdraw(){if(this.challenge&&this.challenge.challengerId===GM_ID&&!this.game){App.send({type:'threefold:cancel',challengeId:this.challenge.id});this.challenge=null;}},esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    status(a,b){this.title('IKS OKS');this.content(`<div class="gm-arcade-status"><b>${a}</b><span>${b}</span></div>`);this.show();}, title(t){document.getElementById('gm-minigames-title').textContent=t;const kc=document.querySelector('[data-gm-kaladont-chat]');if(kc)kc.hidden=t!=='KALADONT';},content(h){document.getElementById('gm-minigames-content').innerHTML=h;},show(){if(App.roomMode!=='CASUAL'&&!document.body.classList.contains('room-mode-casual')){this.close();return;}this.toggleLibrary(false);document.getElementById('gm-minigames-panel').hidden=false;},close(){this.chooserOpen=false;document.getElementById('gm-minigames-panel').hidden=true;if(!this.kaladontChat){this.kaladontOpen=false;this.renderKaladontDock();}},withdraw(){if(this.challenge&&this.challenge.challengerId===GM_ID&&!this.game){App.send({type:'threefold:cancel',challengeId:this.challenge.id});this.challenge=null;}},esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   };
   window.GMMinigames=Arcade;
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>Arcade.init(),{once:true});

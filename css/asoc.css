@@ -21563,3 +21563,110 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
     padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
   }
 }
+
+/* SHADOW BROKER MIRROR -- equilibrium with the Little Hero rows.
+   Little Heroes read [avatar] gap [bubble] from the left edge; the Shadow
+   Broker is the exact reflection, [bubble] gap [avatar] at the right edge.
+   The portrait sits in its own rail OUTSIDE the plaque, at the same size and
+   gap as a Little Hero avatar (GM console: 44px + 8px; Little Hero chat:
+   32px + 6px), instead of being squeezed inside the bubble. */
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry {
+  box-sizing: border-box !important;
+  padding-right: 52px !important;
+}
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry > .shadow-broker-transmission {
+  position: relative !important;
+  overflow: visible !important;
+}
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry > .shadow-broker-transmission .shadow-broker-avatar {
+  position: absolute !important;
+  top: 0 !important;
+  right: -52px !important;
+  width: 44px !important;
+  height: 44px !important;
+  flex: none !important;
+  margin: 0 !important;
+}
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry {
+  padding-right: 38px !important;
+}
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission .shadow-broker-avatar {
+  right: -38px !important;
+  width: 32px !important;
+  height: 32px !important;
+  flex: none !important;
+}
+/* The little pointer now lives in the 6px gap and stops at the avatar. */
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission::after {
+  right: -6px !important;
+  width: 6px !important;
+}
+/* Short transmissions: keep the OVERRIDE stamp on one line. */
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast { min-width: 176px !important; }
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast::before { white-space: nowrap !important; }
+#game-screen#game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-broadcast .shadow-broker-body { flex: 1 1 auto !important; align-items: flex-end !important; text-align: right !important; }
+
+/* KALADONT // BACK TO CHAT. The game steps aside so Battle Comms can be read
+   and used; a live dock above the composer keeps the current player, the
+   required prefix and the clock in view. Click it to return to the game.
+   Shared by the Shadow Broker arcade and the Little Hero panel. */
+#gm-minigames-panel .gm-kal-chat-toggle {
+  margin-left: auto;
+  margin-right: 8px;
+  padding: 7px 12px;
+  border: 1px solid rgba(196, 134, 239, .55);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(45, 25, 58, .98), rgba(19, 12, 25, .98));
+  color: #ead8f8;
+  font: 900 10px/1 var(--font-machine);
+  letter-spacing: .14em;
+  cursor: pointer;
+}
+#gm-minigames-panel .gm-kal-chat-toggle[hidden] { display: none; }
+#gm-minigames-panel .gm-kal-chat-toggle:hover { border-color: #c486ef; color: #fff; }
+.gm-module-chat .gm-chat-panel { position: relative; }
+.gm-kaladont-dock {
+  position: absolute;
+  right: 18px;
+  bottom: 132px;
+  z-index: 40;
+}
+.gm-kaladont-dock[hidden] { display: none !important; }
+:is(.gm-kaladont-dock, #game-screen .kaladont-restore.kaladont-dock) {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 6px 0 14px;
+  border: 1px solid rgba(196, 134, 239, .62);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(45, 25, 58, .98), rgba(19, 12, 25, .98));
+  color: #ead8f8;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .5), 0 0 16px rgba(155, 93, 224, .24);
+  font: 800 11px/1 var(--font-machine);
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+:is(.gm-kaladont-dock, #game-screen .kaladont-restore.kaladont-dock) b { color: #c486ef; letter-spacing: .2em; }
+:is(.gm-kaladont-dock, #game-screen .kaladont-restore.kaladont-dock) span { color: #fff; font-family: var(--font-system); font-weight: 700; letter-spacing: .02em; font-size: 12.5px; }
+:is(.gm-kaladont-dock, #game-screen .kaladont-restore.kaladont-dock) span.is-you { color: #8ff0c2; }
+:is(.gm-kaladont-dock, #game-screen .kaladont-restore.kaladont-dock) strong {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 210, 90, .14);
+  color: #ffd25a;
+  font: 900 13px/1 var(--font-system);
+  letter-spacing: .08em;
+}
+:is(.gm-kaladont-dock, #game-screen .kaladont-restore.kaladont-dock) .kal-clock { min-width: 28px; color: #e8dcff; font-weight: 900; }
+:is(.gm-kaladont-dock, #game-screen .kaladont-restore.kaladont-dock) .kal-clock.is-urgent { color: #ff5a6e; }
+:is(.gm-kaladont-dock, #game-screen .kaladont-restore.kaladont-dock) em {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(155, 93, 224, .3);
+  color: #fff;
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: .14em;
+}
+:is(.gm-kaladont-dock, #game-screen .kaladont-restore.kaladont-dock):hover { border-color: #c486ef; box-shadow: 0 10px 26px rgba(0, 0, 0, .5), 0 0 22px rgba(196, 134, 239, .36); }

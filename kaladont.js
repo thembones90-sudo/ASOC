@@ -24,6 +24,10 @@
 // - KALADONT: the exact word KALADONT that satisfies the prefix is accepted
 //   without a tribunal and kills the player who submitted the previous word.
 //   Its submitter then opens a fresh chain (no required prefix).
+// - DEAD-END KILL: any other word ending in NT or LM (no Serbian word starts
+//   with either, e.g. NAPALM) goes to the tribunal like any word;
+//   once ACCEPTED it acts exactly like KALADONT (kills the previous word's
+//   author, its submitter opens a fresh chain).
 // - Timeout eliminates the current player. Eliminated players spectate.
 // - Last living player wins.
 const crypto = require('crypto');
@@ -63,6 +67,15 @@ const REASONS = Object.freeze({
 // \p{L}; no transliteration (the app has no normalization strategy for it).
 function normalizeWord(raw) {
   return String(raw ?? '').normalize('NFC').trim().toLocaleUpperCase('sr');
+}
+
+// Dead-end endings: no Serbian word starts with NT or LM, so an accepted word
+// ending in one (KALADONT, NAPALM...) is a KALADONT kill. KALADONT itself
+// skips the tribunal; every other dead-end word must be accepted first.
+const DEAD_ENDS = ['NT', 'LM'];
+function deadEnd(word) {
+  const w = String(word || '');
+  return DEAD_ENDS.find(end => w.endsWith(end)) || null;
 }
 
 function lastTwo(word) {
@@ -402,6 +415,22 @@ function resolveTribunal(state, now, announce) {
     }
   });
   const votes = { accept, reject, defaulted };
+  if (accept.length >= reject.length && deadEnd(t.word)) {
+    // An accepted dead-end word (NT, LM) is a KALADONT: nothing can follow, so
+    // it kills the player whose word opened the way to it, and its author
+    // opens a fresh chain.
+    const previous = state.history[state.history.length - 1] || null;
+    state.history.push({ word: t.word, by: t.by, at: now });
+    const victimId = previous && previous.by !== t.by && state.players[previous.by]?.alive ? previous.by : null;
+    const victimIndex = victimId ? state.order.indexOf(victimId) : -1;
+    const killed = victimId ? eliminate(state, victimId, REASONS.KALADONT, null, now) : null;
+    state.prefix = '';
+    state.result = { kind: 'kaladont', playerId: t.by, word: t.word, reason: null, killedId: killed ? victimId : null, votes };
+    announce.push(`KALADONT // ${nameOf(state, t.by)} PLAYS ${t.word} (${deadEnd(t.word)})${killed ? ` AND KILLS ${killed.name}` : ''}.`);
+    state.tribunal = { ...t, closed: true };
+    afterResolution(state, victimIndex >= 0 ? victimIndex : t.index, now, announce);
+    return;
+  }
   if (accept.length >= reject.length) {
     state.history.push({ word: t.word, by: t.by, at: now });
     state.prefix = lastTwo(t.word);

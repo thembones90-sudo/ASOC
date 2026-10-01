@@ -23,7 +23,7 @@
       });
       document.addEventListener('click', event => this.handleClick(event));
       document.addEventListener('submit', event => this.handleSubmit(event));
-      setInterval(() => window.KaladontUI?.tickClocks(document.getElementById('kaladont-panel')), 250);
+      setInterval(() => { window.KaladontUI?.tickClocks(document.getElementById('kaladont-panel')); window.KaladontUI?.tickClocks(document.getElementById('kaladont-restore')); }, 250);
     },
 
     installPanel() {
@@ -79,6 +79,7 @@
       this.chatMode = true;
       const restore = document.getElementById('kaladont-restore');
       if (restore) restore.hidden = false;
+      this.renderRestore();
       document.getElementById('chat-input')?.focus();
     },
 
@@ -146,6 +147,17 @@
       if (state?.you?.playing && phaseKey !== this.lastPhaseKey && previous?.phase === 'lobby' && state.phase === 'turn') this.show();
       this.lastPhaseKey = phaseKey;
       this.render();
+      this.renderRestore();
+    },
+
+    // The RETURN button doubles as a live dock while chat is open: whose
+    // turn, the prefix and the clock stay visible above the composer.
+    renderRestore() {
+      const restore = document.getElementById('kaladont-restore');
+      if (!restore || !window.KaladontUI?.dockHTML) return;
+      restore.innerHTML = KaladontUI.dockHTML(this.state, { viewerId: String(PlayerApp.playerId || ''), action: 'RETURN' });
+      restore.classList.add('kaladont-dock');
+      KaladontUI.tickClocks(restore);
     },
 
     send(message) {
