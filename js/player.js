@@ -5077,7 +5077,7 @@ const PlayerApp = {
         ? `<video class="chat-gif-attachment" autoplay loop muted playsinline preload="metadata" poster="${preview}"><source src="${this.escapeHtml(msg.gif.mp4Url)}" type="video/mp4"></video>`
         : `<img class="chat-gif-attachment" src="${gifUrl}" alt="${title}">`;
       return `
-        <div class="chat-message chat-gif-message ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+        <div class="chat-message chat-gif-message ${isBrokerGif ? 'broker-media-message' : ''} ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           <div class="chat-avatar-rail">${avatar}</div>
           <div class="chat-message-main">
             <div class="chat-message-header"><span class="chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="chat-time">${time}</span></div>
@@ -5132,6 +5132,7 @@ const PlayerApp = {
     // not tied to any player's guess. Entirely separate markup from the
     // guess-bubble path below; no verdict, no target, no "own" styling.
     if (msg.source === 'shadowBroker') {
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const replyMatch = typeof msg.text === 'string'
         ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
         : null;
@@ -5139,6 +5140,21 @@ const PlayerApp = {
       const replyContextHtml = replyMatch
         ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
+      if (msg.imageUrl) {
+        return `
+          <div class="chat-message broker-media-message broker-image-message" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" data-theme-id="gunmetal" style="--little-hero-accent:#9B5DE0;" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+            <div class="chat-avatar-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>
+            <div class="chat-message-main">
+              ${manualBadge}${replyContextHtml}
+              <div class="chat-message-header"><span class="chat-player-name">SHADOW BROKER</span><span class="chat-time">${time}</span></div>
+              ${messageText ? `<div class="broker-media-caption">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div>` : ''}
+              <button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>
+              ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
+              ${this.createReactionBarHTML(msg)}
+            </div>
+          </div>
+        `;
+      }
       return `
         <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
