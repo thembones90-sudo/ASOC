@@ -43,7 +43,8 @@ const COLORS = Object.freeze(['blood', 'void', 'venom', 'gold', 'frost', 'rose',
 // Table nicknames: each seated player draws a different one at START and
 // plays as "<name> the <nickname>" for that game.
 const NICKNAMES = Object.freeze([
-  'THE WOKE', 'THE TETKA', 'THE GLGL VENDOR',
+  'THE GEH', 'THE DISABLED', 'THE PAINTER ADMIRER', 'THE WOKE',
+  'THE JEW', 'THE CIGAN', 'THE TETKA', 'THE GLGL VENDOR',
   'THE SORE LOSER', 'THE RAGE QUITTER', 'THE YARD DWELLER',
   'THE DICE WHISPERER', 'THE BALKAN UNCLE'
 ]);
