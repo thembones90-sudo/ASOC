@@ -8390,6 +8390,58 @@ position:absolute;
       margin:2px 2px 0 auto !important;
     }
 
+    /* SHADOW BROKER MIRROR LANE
+       Little Heroes read avatar -> bubble. Broker broadcasts are the exact
+       reflection: bubble <- avatar. The portrait is taken out of the plaque's
+       flow and anchored in its own right-hand rail. */
+    #game-screen .battle-comms-lobby .chat-broker-entry {
+      box-sizing:border-box !important;
+      padding-right:43px !important;
+    }
+    #game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission {
+      position:relative !important;
+      flex-direction:row !important;
+      width:fit-content !important;
+      max-width:100% !important;
+      min-height:38px !important;
+      margin:0 !important;
+      padding:6px 9px !important;
+      gap:0 !important;
+      overflow:visible !important;
+      border-radius:8px 8px 3px 8px !important;
+    }
+    #game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission::after {
+      content:"";
+      position:absolute;
+      top:12px;
+      right:-7px;
+      width:8px;
+      height:12px;
+      clip-path:polygon(0 0,0 100%,100% 50%);
+      background:#100b17;
+      filter:drop-shadow(1px 0 rgba(155,93,224,.54));
+      pointer-events:none;
+    }
+    #game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-avatar {
+      position:absolute !important;
+      top:0 !important;
+      right:-43px !important;
+      width:36px !important;
+      height:36px !important;
+      flex:0 0 36px !important;
+      margin:0 !important;
+      border:2px solid rgba(155,93,224,.66) !important;
+      box-shadow:0 0 0 2px rgba(6,7,11,.90),0 0 12px rgba(155,93,224,.24) !important;
+    }
+    #game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-body {
+      align-items:flex-end !important;
+      text-align:right !important;
+    }
+    #game-screen .battle-comms-lobby .chat-broker-entry > .chat-reactions,
+    #game-screen .battle-comms-lobby .chat-broker-entry > .chat-edited-marker {
+      margin-right:0 !important;
+    }
+
     #game-screen .chat-image-link {
       margin-top:4px !important;
     }
