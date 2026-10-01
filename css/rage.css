@@ -147,6 +147,38 @@ button.rage-term:hover { border-color: #ff4a5c; box-shadow: 0 0 24px rgba(255, 4
 .rage-face i { color: #fff; font: 800 18px var(--font-machine, monospace); font-style: normal; }
 .rage-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
+/* Figurine colour picker */
+.rage-picker { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 12px; background: rgba(255, 255, 255, .02); }
+.rage-picker > b { color: #ff7d8b; font-size: 11px; letter-spacing: .24em; }
+.rage-swatches { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; }
+.rage-swatch {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 8px 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #a8939c;
+  font: 800 8.5px var(--font-machine, monospace);
+  letter-spacing: .1em;
+  cursor: pointer;
+}
+.rage-swatch span {
+  width: 34px;
+  height: 34px;
+  border-radius: 50% 50% 46% 46%;
+  background: radial-gradient(circle at 34% 28%, color-mix(in srgb, var(--seat) 30%, #fff) 0 12%, var(--seat) 38%, color-mix(in srgb, var(--seat) 55%, #000) 100%);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .7), 0 0 10px color-mix(in srgb, var(--seat) 45%, transparent);
+  transition: transform .14s;
+}
+.rage-swatch small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
+.rage-swatch:hover:not(:disabled) span { transform: translateY(-2px) scale(1.08); }
+.rage-swatch.is-mine { border-color: var(--seat); background: color-mix(in srgb, var(--seat) 14%, transparent); color: #fff; }
+.rage-swatch.is-mine span { outline: 2px solid #fff; outline-offset: 2px; }
+.rage-swatch.is-taken { cursor: not-allowed; opacity: .38; }
+.rage-swatch.is-taken span { filter: grayscale(.4); }
+
 /* ---------- Game ---------- */
 .rage-game { display: grid; grid-template-columns: minmax(0, auto) minmax(250px, 1fr); gap: 20px; align-items: start; }
 .rage-board-wrap { width: min(640px, calc(100vh - 150px)); max-width: 100%; }

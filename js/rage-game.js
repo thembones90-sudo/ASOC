@@ -9,8 +9,14 @@
   const GM_ID = '__GM__';
   const TRACK = 40;
   const HOME_FIRST = 40;
-  const SEAT_COLORS = ['#e0303f', '#9b5de0', '#5fd23a', '#ffb43d'];
-  const SEAT_NAMES = ['BLOOD', 'VOID', 'VENOM', 'EMBER'];
+  // The ten figurine colours (ids match rage.js COLORS).
+  const COLORS = {
+    blood: ['#e0303f', 'BLOOD'], void: ['#9b5de0', 'VOID'], venom: ['#5fd23a', 'VENOM'], gold: ['#ffd23a', 'GOLD'],
+    frost: ['#3fc8ff', 'FROST'], rose: ['#ff5fb8', 'ROSE'], ember: ['#ff8a1f', 'EMBER'], spectre: ['#22d6b8', 'SPECTRE'],
+    abyss: ['#3d5cff', 'ABYSS'], bone: ['#e8e1d4', 'BONE']
+  };
+  const EMPTY_SEAT = '#4a4148';
+  const hexOf = c => COLORS[c]?.[0] || EMPTY_SEAT;
   // 11x11 cross board. PATH[i] is track square i; seat s starts on s*10.
   const PATH = [[0,4],[1,4],[2,4],[3,4],[4,4],[4,3],[4,2],[4,1],[4,0],[5,0],[6,0],[6,1],[6,2],[6,3],[6,4],[7,4],[8,4],[9,4],[10,4],[10,5],[10,6],[9,6],[8,6],[7,6],[6,6],[6,7],[6,8],[6,9],[6,10],[5,10],[4,10],[4,9],[4,8],[4,7],[4,6],[3,6],[2,6],[1,6],[0,6],[0,5]];
   const HOMES = [[[1,5],[2,5],[3,5],[4,5]], [[5,1],[5,2],[5,3],[5,4]], [[9,5],[8,5],[7,5],[6,5]], [[5,9],[5,8],[5,7],[5,6]]];
@@ -224,7 +230,7 @@
       const seats = Array.from({ length: 4 }, (_, i) => {
         const m = s.members[i];
         if (!m) return `<li class="is-empty"><span class="rage-face"><i>+</i></span><b>OPEN SEAT</b></li>`;
-        return `<li style="--seat:${SEAT_COLORS[i]}"><span class="rage-face">${this.face(m.id, m.name)}</span><b>${esc(m.name)}</b>${m.id === s.ownerId ? '<small>HOST</small>' : ''}${m.online ? '' : '<small class="is-off">OFFLINE</small>'}</li>`;
+        return `<li style="--seat:${hexOf(m.color)}"><span class="rage-face">${this.face(m.id, m.name)}</span><b>${esc(m.name)}</b>${m.id === s.ownerId ? '<small>HOST</small>' : ''}${m.online ? '' : '<small class="is-off">OFFLINE</small>'}</li>`;
       }).join('');
       const terms = s.stake ? `FOR COINS · STAKE <em>${s.stake} SC</em> A HEAD` : 'FOR FUN · NO COINS';
       const online = s.members.filter(m => m.online).length;
@@ -237,9 +243,22 @@
         <div class="rage-lobby">
           <div class="rage-lobby-terms ${s.stake ? 'is-coins' : ''}"><small>${esc(s.ownerName)}'S TABLE</small><b>${terms}</b>${s.stake ? '<span>Joining is agreeing. Stakes are taken when the game starts and returned if it is called off.</span>' : ''}</div>
           <ul class="rage-seats">${seats}</ul>
+          ${you.member ? this.pickerHTML(s) : ''}
           <div class="rage-actions">${actions}</div>
           ${you.owner ? '<p class="rage-note">Only players online when you press START take a seat.</p>' : ''}
         </div>`;
+    },
+
+    // Ten figurine colours; one per player, a taken one shows its holder.
+    pickerHTML(s) {
+      const mine = s.members.find(m => m.id === viewerId())?.color;
+      const swatches = (s.colors || Object.keys(COLORS)).map(c => {
+        const holder = s.members.find(m => m.color === c);
+        const taken = holder && holder.id !== viewerId();
+        const [hex, name] = COLORS[c] || [EMPTY_SEAT, c];
+        return `<button type="button" class="rage-swatch${c === mine ? ' is-mine' : ''}${taken ? ' is-taken' : ''}" data-rage="color" data-color="${esc(c)}" style="--seat:${hex}" aria-pressed="${c === mine}" ${taken ? 'disabled' : ''} title="${esc(name)}${taken ? ` · ${esc(holder.name)}` : ''}"><span></span><small>${taken ? esc(String(holder.name).slice(0, 8)) : esc(name)}</small></button>`;
+      }).join('');
+      return `<div class="rage-picker"><b>YOUR FIGURINE</b><div class="rage-swatches">${swatches}</div></div>`;
     },
 
     gameShell(s) {
@@ -253,12 +272,12 @@
           if (track.has(k)) {
             const i = track.get(k);
             cls = 'rage-sq';
-            if (i % 10 === 0) { cls += ' is-start'; style = `--seat:${SEAT_COLORS[i / 10]}`; }
+            if (i % 10 === 0) { cls += ' is-start'; style = `--seat:${this.seatHex(s, i / 10)}`; }
           } else {
             const home = HOMES.findIndex(h => h.some(c => c.join(',') === k));
             const yard = YARDS.findIndex(h => h.some(c => c.join(',') === k));
-            if (home !== -1) { cls = 'rage-sq is-home'; style = `--seat:${SEAT_COLORS[home]}`; }
-            else if (yard !== -1) { cls = 'rage-sq is-yard'; style = `--seat:${SEAT_COLORS[yard]}`; }
+            if (home !== -1) { cls = 'rage-sq is-home'; style = `--seat:${this.seatHex(s, home)}`; }
+            else if (yard !== -1) { cls = 'rage-sq is-yard'; style = `--seat:${this.seatHex(s, yard)}`; }
           }
           if (cls) cells.push(`<i class="${cls}" style="grid-column:${x + 1};grid-row:${y + 1};${style}"></i>`);
         }
@@ -267,7 +286,7 @@
       const corners = [[0.5, 0.5], [9.5, 0.5], [9.5, 9.5], [0.5, 9.5]];
       const faces = s.players.map(p => {
         const [x, y] = corners[p.seat];
-        return `<span class="rage-corner" data-seat="${p.seat}" style="left:${pct(x)};top:${pct(y)};--seat:${SEAT_COLORS[p.seat]}">${this.face(p.id, p.name)}</span>`;
+        return `<span class="rage-corner" data-seat="${p.seat}" style="left:${pct(x)};top:${pct(y)};--seat:${hexOf(p.color)}">${this.face(p.id, p.name)}</span>`;
       }).join('');
       return `
         <div class="rage-game">
@@ -300,7 +319,9 @@
     },
 
     nameOf(id) { return this.state?.players.find(p => p.id === id)?.name || 'SOMEONE'; },
-    seatOf(id) { return this.state?.players.find(p => p.id === id)?.seat ?? 0; },
+    colorOf(id) { return hexOf(this.state?.players.find(p => p.id === id)?.color); },
+    // An empty seat's yard and home lane stay neutral grey.
+    seatHex(s, seat) { return hexOf(s.players.find(p => p.seat === seat)?.color); },
 
     patchGame(s) {
       const you = s.you || {};
@@ -310,11 +331,11 @@
       const turnEl = document.getElementById('rage-turn');
       if (turnEl) {
         let line;
-        if (s.phase === 'ended') line = `<b class="is-win" style="--seat:${SEAT_COLORS[this.seatOf(s.winnerId)]}">${s.winnerId === viewerId() ? 'YOU WIN' : `${esc(s.winnerName)} WINS`}</b><small>${s.reward?.amount ? (s.reward.house ? `THE HOUSE TAKES ${s.reward.amount} SC` : `POT PAID: +${s.reward.amount} SC`) : 'ALL FOUR HOME'}</small>`;
+        if (s.phase === 'ended') line = `<b class="is-win" style="--seat:${this.colorOf(s.winnerId)}">${s.winnerId === viewerId() ? 'YOU WIN' : `${esc(s.winnerName)} WINS`}</b><small>${s.reward?.amount ? (s.reward.house ? `THE HOUSE TAKES ${s.reward.amount} SC` : `POT PAID: +${s.reward.amount} SC`) : 'ALL FOUR HOME'}</small>`;
         else if (you.yourTurn) line = `<b class="is-you">${s.phase === 'roll' ? 'YOUR ROLL' : s.mustCapture ? 'YOU MUST EAT' : 'PICK A PIECE'}</b><small>${s.phase === 'roll' && s.tries > 1 ? `${s.tries} TRIES FOR A 6` : s.phase === 'roll' && s.roll === 6 ? 'SIX! ROLL AGAIN' : s.phase === 'move' ? `YOU ROLLED ${s.roll}` : 'THROW THE DIE'}</small>`;
-        else line = `<b style="--seat:${SEAT_COLORS[this.seatOf(s.turnId)]}">${esc(s.turnName)}</b><small>${s.phase === 'roll' ? 'IS ROLLING' : `ROLLED ${s.roll} · CHOOSING`}</small>`;
+        else line = `<b style="--seat:${this.colorOf(s.turnId)}">${esc(s.turnName)}</b><small>${s.phase === 'roll' ? 'IS ROLLING' : `ROLLED ${s.roll} · CHOOSING`}</small>`;
         turnEl.innerHTML = `${line}${live ? `<span class="rage-clock" data-deadline="${s.deadline}"></span>` : ''}`;
-        turnEl.style.setProperty('--seat', SEAT_COLORS[this.seatOf(s.turnId || s.winnerId)]);
+        turnEl.style.setProperty('--seat', this.colorOf(s.turnId || s.winnerId));
       }
       const rollBox = document.getElementById('rage-roll-box');
       if (rollBox) {
@@ -326,7 +347,7 @@
         list.innerHTML = s.players.map(p => {
           const home = p.pieces.filter(x => x >= HOME_FIRST).length;
           const yard = p.pieces.filter(x => x < 0).length;
-          return `<li class="${p.id === s.turnId ? 'is-turn' : ''}${p.out ? ' is-out' : ''}" style="--seat:${SEAT_COLORS[p.seat]}"><span class="rage-face">${this.face(p.id, p.name)}</span><b>${esc(p.name)}${p.id === viewerId() ? ' <em>YOU</em>' : ''}</b><small>${p.out ? 'FORFEITED' : `${home}/4 HOME · ${yard} IN YARD`}${p.online ? '' : ' · OFFLINE'}</small></li>`;
+          return `<li class="${p.id === s.turnId ? 'is-turn' : ''}${p.out ? ' is-out' : ''}" style="--seat:${hexOf(p.color)}"><span class="rage-face">${this.face(p.id, p.name)}</span><b>${esc(p.name)}${p.id === viewerId() ? ' <em>YOU</em>' : ''}</b><small>${p.out ? 'FORFEITED' : `${home}/4 HOME · ${yard} IN YARD`}${p.online ? '' : ' · OFFLINE'}</small></li>`;
         }).join('');
       }
       const pot = document.getElementById('rage-pot');
@@ -347,7 +368,7 @@
       const log = document.getElementById('rage-log');
       if (!log) return;
       const lines = s.events.filter(e => e.kind !== 'move').slice(-5).reverse().map(e => {
-        const c = SEAT_COLORS[this.seatOf(e.by)];
+        const c = this.colorOf(e.by);
         if (e.kind === 'roll') return `<p><i style="background:${c}"></i>${esc(this.nameOf(e.by))} rolled <b>${e.value}</b></p>`;
         if (e.kind === 'capture') return `<p class="is-capture"><i style="background:${c}"></i>${esc(this.nameOf(e.by))} sent <b>${esc(this.nameOf(e.victim))}</b> back</p>`;
         if (e.kind === 'win') return `<p class="is-win"><i style="background:${c}"></i>${esc(this.nameOf(e.by))} brought all four home</p>`;
@@ -376,7 +397,7 @@
             el.type = 'button';
             el.className = 'rage-piece';
             el.dataset.key = key;
-            el.style.setProperty('--seat', SEAT_COLORS[p.seat]);
+            el.style.setProperty('--seat', hexOf(p.color));
             el.innerHTML = '<span></span>';
             layer.appendChild(el);
             this.place(el, cellOf(p.seat, prog, i));
@@ -417,7 +438,7 @@
         const me = s.players.find(p => p.id === viewerId());
         targets.innerHTML = me ? (s.options || []).map(o => {
           const [x, y] = cellOf(me.seat, o.to, o.piece);
-          return `<i class="${o.capture ? 'is-capture' : ''}" data-target-piece="${o.piece}" style="left:${pct(x)};top:${pct(y)};--seat:${SEAT_COLORS[me.seat]}"></i>`;
+          return `<i class="${o.capture ? 'is-capture' : ''}" data-target-piece="${o.piece}" style="left:${pct(x)};top:${pct(y)};--seat:${hexOf(me.color)}"></i>`;
         }).join('') : '';
       }
       const rolls = newEvents.filter(e => e.kind === 'roll');
@@ -465,7 +486,7 @@
     winFlash(s) {
       const el = document.getElementById('rage-flash');
       if (!el) return;
-      el.innerHTML = `<div class="rage-sent is-win" style="--seat:${SEAT_COLORS[this.seatOf(s.winnerId)]}"><b>${s.winnerId === viewerId() ? 'YOU WIN' : esc(s.winnerName)}</b><small>${s.winnerId === viewerId() ? 'ALL FOUR HOME' : 'BROUGHT ALL FOUR HOME'}</small></div>`;
+      el.innerHTML = `<div class="rage-sent is-win" style="--seat:${this.colorOf(s.winnerId)}"><b>${s.winnerId === viewerId() ? 'YOU WIN' : esc(s.winnerName)}</b><small>${s.winnerId === viewerId() ? 'ALL FOUR HOME' : 'BROUGHT ALL FOUR HOME'}</small></div>`;
       el.classList.remove('is-on');
       void el.offsetWidth;
       el.classList.add('is-on', 'is-long');
@@ -511,6 +532,7 @@
         if (stake < 1 || stake > 50) return alert('STAKE MUST BE 1–50 SHADOW COINS');
         return this.send({ type: 'rage:create', stake });
       }
+      if (a === 'color') return this.send({ type: 'rage:color', color: btn.dataset.color });
       if (a === 'join') return this.send({ type: 'rage:join' });
       if (a === 'leave') return this.send({ type: 'rage:leave' });
       if (a === 'start') return this.send({ type: 'rage:start' });

@@ -37,6 +37,9 @@ const HOME_LAST = 43;
 const MAX_STAKE = 50;
 const SEATS_BY_COUNT = { 2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3] };
 const PHASES = new Set(['lobby', 'roll', 'move', 'ended']);
+// Figurine colours. Each lobby member owns one; no two members share.
+const COLORS = Object.freeze(['blood', 'void', 'venom', 'gold', 'frost', 'rose', 'ember', 'spectre', 'abyss', 'bone']);
+const freeColor = s => COLORS.find(c => !s.members.some(m => m.color === c)) || COLORS[0];
 
 const newId = () => 'rage-' + crypto.randomBytes(6).toString('hex');
 const rollDie = () => crypto.randomInt(1, 7);
@@ -52,7 +55,7 @@ function createLobby(actor, { stake = 0 } = {}, now = Date.now()) {
     ownerId: String(actor.id),
     ownerName: cleanName(actor.name),
     stake: amount,
-    members: [{ id: String(actor.id), name: cleanName(actor.name) }],
+    members: [{ id: String(actor.id), name: cleanName(actor.name), color: COLORS[0] }],
     players: {},
     order: [],
     turnIndex: 0,
@@ -79,7 +82,7 @@ function join(s, actor) {
   const id = String(actor.id);
   if (s.members.some(m => m.id === id)) return { ok: true, already: true };
   if (s.members.length >= MAX_PLAYERS) return { ok: false, error: 'THE TABLE IS FULL (4)' };
-  s.members.push({ id, name: cleanName(actor.name) });
+  s.members.push({ id, name: cleanName(actor.name), color: freeColor(s) });
   return { ok: true, announce: [] };
 }
 
@@ -100,6 +103,20 @@ function leave(s, id) {
   return { ok: true, already: true };
 }
 
+// A lobby member picks their figurine colour; a colour another member holds
+// is refused.
+function pickColor(s, id, color) {
+  if (!isOpenLobby(s)) return { ok: false, error: 'COLOURS ARE PICKED IN THE LOBBY' };
+  const member = s.members.find(m => m.id === String(id));
+  if (!member) return { ok: false, error: 'JOIN THE TABLE FIRST' };
+  if (!COLORS.includes(color)) return { ok: false, error: 'UNKNOWN COLOUR' };
+  if (member.color === color) return { ok: true, already: true };
+  const holder = s.members.find(m => m.color === color);
+  if (holder) return { ok: false, error: `${holder.name} ALREADY HOLDS THAT COLOUR` };
+  member.color = color;
+  return { ok: true, announce: [] };
+}
+
 // The owner may only start once everyone it would seat is still here.
 function start(s, actorId, onlineIds, now = Date.now()) {
   if (!isOpenLobby(s)) return { ok: false, error: 'NO OPEN LOBBY' };
@@ -109,7 +126,7 @@ function start(s, actorId, onlineIds, now = Date.now()) {
   const seats = SEATS_BY_COUNT[seated.length];
   s.players = {};
   s.order = seated.map((m, i) => {
-    s.players[m.id] = { id: m.id, name: m.name, seat: seats[i], pieces: Array(PIECES).fill(-1), out: false, finishedAt: 0 };
+    s.players[m.id] = { id: m.id, name: m.name, color: COLORS.includes(m.color) ? m.color : COLORS[i], seat: seats[i], pieces: Array(PIECES).fill(-1), out: false, finishedAt: 0 };
     return m.id;
   });
   s.members = seated;
@@ -318,11 +335,12 @@ function view(s, viewerId, now = Date.now(), onlineIds = new Set()) {
     ownerId: s.ownerId,
     ownerName: s.ownerName,
     stake: s.stake,
+    colors: COLORS.slice(),
     pot: s.pot,
     members: s.members.map(m => ({ ...m, online: onlineIds.has(m.id) })),
     players: s.order.map(id => {
       const p = s.players[id];
-      return { id, name: p.name, seat: p.seat, pieces: p.pieces.slice(), out: p.out, online: onlineIds.has(id) };
+      return { id, name: p.name, color: p.color || COLORS[p.seat], seat: p.seat, pieces: p.pieces.slice(), out: p.out, online: onlineIds.has(id) };
     }),
     turnId: turn?.id || null,
     turnName: turn?.name || null,
@@ -361,6 +379,6 @@ function resumeAfterRestart(s, now = Date.now()) {
 
 module.exports = {
   ROLL_MS, MOVE_MS, MAX_PLAYERS, MAX_STAKE, TRACK, HOME_FIRST, HOME_LAST,
-  createLobby, isOpenLobby, isLive, join, leave, start, begin, roll, move, forfeit, tick, view,
+  COLORS, createLobby, pickColor, isOpenLobby, isLive, join, leave, start, begin, roll, move, forfeit, tick, view,
   legalMoves, absSquare, normalizeState, resumeAfterRestart
 };

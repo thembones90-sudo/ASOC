@@ -111,6 +111,20 @@ function engine() {
   assert.equal(s.ownerId, 'b');
   assert.equal(s.stake, 3);
 
+  // Figurine colours: 10 to pick from, never shared, carried into the game.
+  assert.equal(R.COLORS.length, 10);
+  s = R.createLobby({ id: 'a', name: 'A' }, {}, 0);
+  R.join(s, { id: 'b', name: 'B' });
+  assert.notEqual(s.members[0].color, s.members[1].color, 'joiners get a free colour');
+  assert.match(R.pickColor(s, 'b', s.members[0].color).error, /ALREADY HOLDS/);
+  assert.equal(R.pickColor(s, 'b', 'bogus').error, 'UNKNOWN COLOUR');
+  assert.equal(R.pickColor(s, 'c', 'gold').error, 'JOIN THE TABLE FIRST');
+  assert.equal(R.pickColor(s, 'b', 'bone').ok, true);
+  R.start(s, 'a', new Set(['a', 'b']), 0);
+  R.begin(s, 0);
+  assert.equal(R.view(s, 'a').players.find(p => p.id === 'b').color, 'bone');
+  assert.match(R.pickColor(s, 'b', 'gold').error, /IN THE LOBBY/);
+
   // Hidden options: only the player on turn sees what can move.
   s = game();
   s.players.a.pieces = [0, -1, -1, -1];
@@ -267,6 +281,10 @@ async function runServer() {
     // Stake 3: Bo + the Broker join; START holds the stakes (Broker plays free).
     await ana.act({ type: 'rage:create', stake: 3 }, 'create 3');
     await bo.act({ type: 'rage:join' }, 'bo join');
+    st = await bo.act({ type: 'rage:color', color: 'spectre' }, 'bo colour');
+    assert.equal(st.state.members.find(m => m.name === 'Bo').color, 'spectre');
+    err = await ana.act({ type: 'rage:color', color: 'spectre' }, 'ana steals colour');
+    assert.match(err.message, /Bo ALREADY HOLDS/);
     st = await gm.act({ type: 'rage:join' }, 'gm join');
     assert.equal(st.state.members.length, 3);
     err = await bo.act({ type: 'rage:start' }, 'bo start');

@@ -5427,6 +5427,9 @@ function handleRage(ws, message) {
       }
       return rageCommit(room, rage.begin(s, now));
     }
+    case 'rage:color':
+      result = rage.pickColor(s, actor.id, String(message.color || ''));
+      break;
     case 'rage:roll':
       result = rage.roll(s, actor.id, message.turnSeq, now);
       break;
@@ -11692,6 +11695,7 @@ wss.on('connection', (ws, req) => {
         case 'rage:leave':
         case 'rage:cancel':
         case 'rage:start':
+        case 'rage:color':
         case 'rage:roll':
         case 'rage:move':
         case 'rage:sync': {
