@@ -2,7 +2,13 @@
   'use strict';
 
   const isGM = !!window.App;
-  const host = isGM ? window.App : window.Player;
+  // The player global is window.PlayerApp (see js/player.js). This module reached
+  // for window.Player, which has never existed in this codebase, so on the
+  // player side `host` was undefined and the module returned before install():
+  // the BLACK MARKET entry button rendered (it is static markup in join.html)
+  // but nothing was ever wired to it, and every offer-tribute path was dead
+  // code. That is why the submission looked like a no-op from the outside.
+  const host = isGM ? window.App : window.PlayerApp;
   if (!host) return;
 
   const STATE_LABEL = {
@@ -18,9 +24,20 @@
     BROKEN: 'THE PACT IS BROKEN'
   };
 
+  // Keep the encoded payload below the server's 3,000,000-character tribute
+  // guard and the WebSocket's 5 MB frame ceiling. One socket owns both the
+  // player's identity and the pact transition, so there is no HTTP-upload /
+  // WebSocket-claim race between file storage and submission.
+  const TRIBUTE_MAX_BYTES = 2200000;
+  const TRIBUTE_MIME = ['image/png', 'image/jpeg', 'image/webp'];
+
   const ui = {
     pacts: [],
-    send(payload) { host.send?.(payload); },
+    // Returns the underlying send() result. PlayerApp.send answers true when the
+    // frame left and false when the socket is down; the old wrapper threw that
+    // answer away, so a submission into a dead socket was indistinguishable
+    // from a successful one.
+    send(payload) { return host.send?.(payload); },
     install() {
       let button = document.getElementById(isGM ? 'black-market-gm-button' : 'black-market-player-button');
       if (!button) {
@@ -31,29 +48,46 @@
         button.innerHTML = '<span>BLACK MARKET</span><small>PRIVATE CHANNEL</small>';
         document.body.appendChild(button);
       }
+      if (!isGM) button.hidden = false;
       button.addEventListener('click', () => {
-        if (isGM) {
-          button.classList.add('bm-opening');
-          setTimeout(() => button.classList.remove('bm-opening'), 420);
-          setTimeout(() => this.open(), 145);
-        } else {
-          this.open();
-        }
+        button.classList.add('bm-opening');
+        setTimeout(() => button.classList.remove('bm-opening'), 420);
+        setTimeout(() => this.open(), 145);
       });
       this.wrapMessages();
       setTimeout(() => this.send({ type: 'blackMarket:sync' }), 500);
     },
     wrapMessages() {
-      if (!host.handleMessage || host._blackMarketWrapped) return;
-      const original = host.handleMessage.bind(host);
-      host.handleMessage = message => {
+      if (host._blackMarketWrapped) return;
+      const method = isGM ? 'handleServerMessage' : 'handleMessage';
+      if (typeof host[method] !== 'function') return;
+      const original = host[method].bind(host);
+      host[method] = message => {
         if (message?.type === 'blackMarket:state' || message?.type === 'blackMarket:gmState') {
           this.pacts = Array.isArray(message.pacts) ? message.pacts : [];
+          if (!isGM && this._tributeAwaitingPactId) {
+            const submitted = this.pacts.find(p => p.id === this._tributeAwaitingPactId && p.state === 'TRIBUTE_SUBMITTED');
+            if (submitted) this.confirmTributeSubmission();
+          }
+          if (isGM) {
+            const entry = document.getElementById('black-market-gm-button');
+            const hasPending = this.pacts.some(p => ['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state));
+            if (entry) entry.classList.toggle('bm-has-pending', hasPending);
+          }
+          if (!isGM) {
+            const entry = document.getElementById('black-market-player-button');
+            if (entry) entry.hidden = false;
+          }
           if (document.getElementById('black-market-overlay')) this.render();
           this.updateBadge();
           return;
         }
         if (message?.type === 'blackMarket:error') {
+          if (this._tributeAwaitingPactId || this._tributeBusy) {
+            this.releaseTribute();
+            if (document.getElementById('black-market-overlay')) this.render();
+            this.send({ type: 'blackMarket:sync' });
+          }
           this.toast(message.message || 'THE PACT REJECTS YOUR HAND');
           return;
         }
@@ -68,14 +102,22 @@
       host._blackMarketWrapped = true;
     },
     updateBadge() {
-      const btn = document.querySelector('.black-market-entry');
+      const btn = document.getElementById(isGM ? 'black-market-gm-button' : 'black-market-player-button');
       if (!btn) return;
-      const pending = this.pacts.filter(p => isGM
+      const actionable = this.pacts.filter(p => isGM
         ? ['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state)
         : ['COUNTEROFFERED','APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(p.state)
-      ).length;
+      );
+      const pending = actionable.length;
       btn.classList.toggle('has-pending', pending > 0);
+      if (isGM) btn.classList.toggle('bm-has-pending', pending > 0);
       btn.dataset.pending = pending || '';
+      if (isGM) {
+        const subtitle = btn.querySelector('small');
+        const bloodAwaits = actionable.some(p => p.state === 'TRIBUTE_SUBMITTED');
+        if (subtitle) subtitle.textContent = bloodAwaits ? 'BLOOD TRIBUTE AWAITS' : pending ? 'PETITION AWAITS' : 'PRIVATE CHANNEL';
+        btn.setAttribute('aria-label', bloodAwaits ? `Black Market: ${pending} pending, Blood Tribute awaits judgment` : pending ? `Black Market: ${pending} petition awaiting judgment` : 'Black Market private channel');
+      }
     },
     open() {
       if (!document.getElementById('black-market-overlay')) {
@@ -108,8 +150,9 @@
       return '<div class="bm-intro"><b>SEALED PETITIONS</b><p>Each chamber terminates here. Nothing below is broadcast to the room.</p></div><h3>AWAITING JUDGMENT</h3><div class="bm-ledger">' + (pending.map(p => this.card(p, true)).join('') || '<p class="bm-empty">THE MARKET SLEEPS.</p>') + '</div><h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + (rest.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO DEBTS RECORDED.</p>') + '</div>';
     },
     card(p, gm) {
-      const image = gm && p.state === 'TRIBUTE_SUBMITTED' && p.tributeImageData ? '<img class="bm-tribute-preview" src="' + p.tributeImageData + '" alt="Private Blood Tribute">' : '';
-      return '<article class="bm-pact" data-pact="' + this.esc(p.id) + '"><div class="bm-pact-head"><div><small>' + this.esc(p.category) + (gm ? ' // ' + this.esc(p.playerName) : '') + '</small><b>' + this.esc(p.title) + '</b></div><span>' + this.esc(STATE_LABEL[p.state] || p.state) + '</span></div><p>' + this.esc(p.request) + '</p>' + (p.terms ? '<blockquote>' + this.esc(p.terms) + '</blockquote>' : '') + (p.rejectionReason ? '<em>' + this.esc(p.rejectionReason) + '</em>' : '') + image + this.actions(p, gm) + '</article>';
+      const tributeSource = p.tributeImageUrl || p.tributeImageData || '';
+      const image = gm && p.state === 'TRIBUTE_SUBMITTED' && tributeSource ? '<img class="bm-tribute-preview" src="' + this.esc(tributeSource) + '" alt="Private Blood Tribute">' : '';
+      return '<article class="bm-pact is-' + this.esc(String(p.state || '').toLowerCase()) + '" data-state="' + this.esc(p.state) + '" data-pact="' + this.esc(p.id) + '"><div class="bm-pact-head"><div><small>' + this.esc(p.category) + (gm ? ' // ' + this.esc(p.playerName) : '') + '</small><b>' + this.esc(p.title) + '</b></div><span>' + this.esc(STATE_LABEL[p.state] || p.state) + '</span></div><p>' + this.esc(p.request) + '</p>' + (p.terms ? '<blockquote>' + this.esc(p.terms) + '</blockquote>' : '') + (p.rejectionReason ? '<em>' + this.esc(p.rejectionReason) + '</em>' : '') + image + this.actions(p, gm) + '</article>';
     },
     actions(p, gm) {
       if (gm) {
@@ -120,6 +163,7 @@
         return '';
       }
       if (p.state === 'COUNTEROFFERED') return '<div class="bm-actions"><button data-act="accept-counter">ACCEPT REWRITTEN TERMS</button></div>';
+      if (p.id === this._tributeAwaitingPactId) return '<div class="bm-actions"><button type="button" disabled>SEALING THE OFFERING…</button></div>';
       if (['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(p.state)) return '<div class="bm-actions"><button data-act="offer-tribute">OFFER BLOOD TRIBUTE</button></div>';
       return '';
     },
@@ -133,31 +177,243 @@
         const pactId = btn.closest('[data-pact]')?.dataset.pact;
         const act = btn.dataset.act;
         if (act === 'accept-counter') return this.send({ type:'blackMarket:acceptCounter', pactId });
-        if (act === 'offer-tribute') return this.offerTribute(pactId);
+        if (act === 'offer-tribute') return this.offerTribute(pactId, btn);
         if (act === 'tribute-accept') return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:true });
         if (act === 'tribute-reject') {
           const reason = prompt('WHY IS THE OFFERING DENIED?') || '';
           return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:false, reason });
         }
-        const terms = ['accept','waive','counter','deny'].includes(act) ? (prompt('TERMS OF THE PACT // OPTIONAL EXCEPT COUNTEROFFER') || '') : '';
-        this.send({ type:'blackMarket:gmDecision', pactId, action:act, terms, tributeRequired:true });
+        if (act === 'accept') {
+          btn.disabled = true;
+          return this.send({ type:'blackMarket:gmDecision', pactId, action:'accept', terms:'', tributeRequired:true });
+        }
+        if (act === 'waive') {
+          btn.disabled = true;
+          return this.send({ type:'blackMarket:gmDecision', pactId, action:'waive', terms:'', tributeRequired:false });
+        }
+        if (act === 'counter') {
+          const terms = prompt('REWRITE THE TERMS OF THE PACT');
+          if (!terms?.trim()) return;
+          btn.disabled = true;
+          return this.send({ type:'blackMarket:gmDecision', pactId, action:'counter', terms:terms.trim(), tributeRequired:true });
+        }
+        if (act === 'deny') {
+          const terms = prompt('REASON FOR DENIAL // OPTIONAL') || '';
+          btn.disabled = true;
+          return this.send({ type:'blackMarket:gmDecision', pactId, action:'deny', terms, tributeRequired:false });
+        }
+        btn.disabled = true;
+        this.send({ type:'blackMarket:gmDecision', pactId, action:act, terms:'', tributeRequired:false });
       }));
     },
-    offerTribute(pactId) {
+    // One hidden file input, mounted once and reused. A fresh input per click
+    // leaked a node on every attempt, and a detached input is exactly the kind
+    // of thing the desktop shell will refuse to open a picker for.
+    _tributeInput: null,
+    _tributePactId: null,
+    _tributeBusy: false,
+    _tributeButton: null,
+    _tributePickerTimer: null,
+    _tributeFocusRecovery: null,
+    _tributeSelectionReceived: false,
+    _tributePickerCycle: 0,
+    _tributeAwaitingPactId: null,
+    _tributeAckTimer: null,
+
+    tributeInput() {
+      if (this._tributeInput) return this._tributeInput;
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'image/png,image/jpeg,image/webp';
-      input.onchange = () => {
-        const file = input.files?.[0];
-        if (!file || file.size > 2200000) return this.toast('THE OFFERING EXCEEDS THE VAULT LIMIT');
-        const consent = confirm('PRIVATE SUBMISSION NOTICE\n\nVisible only to you and the Shadow Broker. If accepted, it will be consigned to the Reliquary. If rejected, it will not enter the Reliquary.\n\nConfirm you are 18+ and consent to this storage rule.');
-        if (!consent) return;
-        const reader = new FileReader();
-        reader.onload = () => this.send({ type:'blackMarket:tributeSubmit', pactId, imageData:reader.result, consent:true });
-        reader.readAsDataURL(file);
-      };
-      input.click();
+      input.accept = TRIBUTE_MIME.join(',');
+      input.id = 'bm-tribute-input';
+      input.setAttribute('aria-hidden', 'true');
+      input.tabIndex = -1;
+      input.style.position = 'fixed';
+      input.style.left = '-10000px';
+      input.style.top = '0';
+      input.style.width = '1px';
+      input.style.height = '1px';
+      input.style.opacity = '0';
+      input.style.pointerEvents = 'none';
+      input.addEventListener('change', () => this.onTributePicked(input));
+      // Fired when the picker is dismissed without a choice. Without this a
+      // cancelled dialog would strand the pending lock on the button forever.
+      input.addEventListener('cancel', () => this.releaseTribute());
+      document.body.appendChild(input);
+      this._tributeInput = input;
+      return input;
     },
+
+    // The button may already be detached if the market re-rendered underneath
+    // us, so only touch it while it is still in the document.
+    releaseTribute() {
+      this._tributeBusy = false;
+      this._tributePactId = null;
+      this._tributeSelectionReceived = false;
+      this._tributePickerCycle += 1;
+      this._tributeAwaitingPactId = null;
+      clearTimeout(this._tributeAckTimer);
+      this._tributeAckTimer = null;
+      clearTimeout(this._tributePickerTimer);
+      this._tributePickerTimer = null;
+      if (this._tributeFocusRecovery) {
+        window.removeEventListener('focus', this._tributeFocusRecovery);
+        this._tributeFocusRecovery = null;
+      }
+      const btn = this._tributeButton;
+      this._tributeButton = null;
+      if (btn && btn.isConnected) {
+        btn.disabled = false;
+        btn.textContent = 'OFFER BLOOD TRIBUTE';
+      }
+    },
+
+    confirmTributeSubmission() {
+      clearTimeout(this._tributeAckTimer);
+      this._tributeAckTimer = null;
+      this._tributeBusy = false;
+      this._tributePactId = null;
+      this._tributeAwaitingPactId = null;
+      this._tributeSelectionReceived = false;
+      this._tributePickerCycle += 1;
+      this._tributeButton = null;
+      this.toast('THE OFFERING HAS BEEN SEALED');
+    },
+
+    offerTribute(pactId, button) {
+      if (this._tributeBusy || document.getElementById('bm-tribute-consent')) return;
+      this.showTributeConsent(pactId, button);
+    },
+
+    showTributeConsent(pactId, button) {
+      document.getElementById('bm-tribute-consent')?.remove();
+      const veil = document.createElement('div');
+      veil.id = 'bm-tribute-consent';
+      veil.className = 'bm-tribute-consent';
+      veil.innerHTML = `
+        <section class="bm-tribute-consent-card" role="dialog" aria-modal="true" aria-labelledby="bm-tribute-consent-title">
+          <small>PRIVATE CHANNEL // BLOOD TRIBUTE</small>
+          <h3 id="bm-tribute-consent-title">THE RELIQUARY REQUIRES CONSENT</h3>
+          <p>Your offering is visible only to you and the Shadow Broker. If accepted, it will be consigned to the Reliquary. If rejected, it will not enter the Reliquary.</p>
+          <p class="bm-tribute-consent-age">By proceeding, you confirm you are 18+ and consent to this storage rule.</p>
+          <div class="bm-tribute-consent-actions">
+            <button type="button" data-bm-consent-open>I CONSENT // OPEN THE VAULT</button>
+            <button type="button" data-bm-consent-cancel>WITHDRAW</button>
+          </div>
+        </section>`;
+      const close = () => veil.remove();
+      veil.querySelector('[data-bm-consent-cancel]')?.addEventListener('click', close);
+      veil.addEventListener('click', e => { if (e.target === veil) close(); });
+      veil.querySelector('[data-bm-consent-open]')?.addEventListener('click', () => {
+        close();
+        this._tributePactId = pactId;
+        this._tributeBusy = true;
+        this._tributeSelectionReceived = false;
+        this._tributePickerCycle += 1;
+        this._tributeButton = button || null;
+        if (button && button.isConnected) {
+          button.disabled = true;
+          button.textContent = 'THE VAULT IS WAITING…';
+        }
+        const input = this.tributeInput();
+        input.value = '';
+        this.armTributePickerRecovery(input);
+        input.click();
+      });
+      document.body.appendChild(veil);
+    },
+
+    armTributePickerRecovery(input) {
+      clearTimeout(this._tributePickerTimer);
+      if (this._tributeFocusRecovery) {
+        window.removeEventListener('focus', this._tributeFocusRecovery);
+        this._tributeFocusRecovery = null;
+      }
+      const cycle = this._tributePickerCycle;
+      const started = Date.now();
+      this._tributeFocusRecovery = () => {
+        setTimeout(() => {
+          if (!this._tributeBusy) return;
+          if (cycle !== this._tributePickerCycle) return;
+          if (this._tributeSelectionReceived) return;
+          const hasFile = !!(input.files && input.files.length);
+          if (!hasFile && Date.now() - started > 250) this.releaseTribute();
+        }, 500);
+      };
+      window.addEventListener('focus', this._tributeFocusRecovery, { once:true });
+      this._tributePickerTimer = setTimeout(() => {
+        if (!this._tributeBusy) return;
+        if (cycle !== this._tributePickerCycle) return;
+        if (this._tributeSelectionReceived) return;
+        if (!(input.files && input.files.length)) this.releaseTribute();
+      }, 45000);
+    },
+
+    async onTributePicked(input) {
+      const pactId = this._tributePactId;
+      const file = input.files && input.files[0];
+      if (file) this._tributeSelectionReceived = true;
+      clearTimeout(this._tributePickerTimer);
+      this._tributePickerTimer = null;
+      if (this._tributeFocusRecovery) {
+        window.removeEventListener('focus', this._tributeFocusRecovery);
+        this._tributeFocusRecovery = null;
+      }
+      if (!file) {
+        input.value = '';
+        return this.releaseTribute();
+      }
+      if (!TRIBUTE_MIME.includes(String(file.type || '').toLowerCase())) {
+        input.value = '';
+        this.releaseTribute();
+        return this.toast('THE VAULT ACCEPTS ONLY PNG, JPEG OR WEBP');
+      }
+      if (file.size > TRIBUTE_MAX_BYTES) {
+        input.value = '';
+        this.releaseTribute();
+        return this.toast('THE OFFERING EXCEEDS THE 2.2 MB VAULT LIMIT');
+      }
+
+      if (this._tributeButton && this._tributeButton.isConnected) {
+        this._tributeButton.textContent = 'SEALING THE OFFERING…';
+      }
+
+      const reader = new FileReader();
+      reader.onerror = () => {
+        input.value = '';
+        this.releaseTribute();
+        this.toast('THE IMAGE COULD NOT BE READ');
+      };
+      reader.onabort = () => {
+        input.value = '';
+        this.releaseTribute();
+        this.toast('THE READING WAS INTERRUPTED');
+      };
+      reader.onload = () => {
+        input.value = '';
+        const imageData = String(reader.result || '');
+        if (!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(imageData)) {
+          this.releaseTribute();
+          return this.toast('THE OFFERING IS INVALID');
+        }
+        const sent = this.send({ type:'blackMarket:tributeSubmit', pactId, imageData, consent:true }) === true;
+        if (!sent) {
+          this.releaseTribute();
+          return this.toast('THE RELIQUARY HAS LOST THE LINK');
+        }
+        this._tributeAwaitingPactId = pactId;
+        clearTimeout(this._tributeAckTimer);
+        this._tributeAckTimer = setTimeout(() => {
+          if (this._tributeAwaitingPactId !== pactId) return;
+          this.releaseTribute();
+          if (document.getElementById('black-market-overlay')) this.render();
+          this.toast('THE RELIQUARY DID NOT CONFIRM THE OFFERING');
+          this.send({ type:'blackMarket:sync' });
+        }, 12000);
+      };
+      reader.readAsDataURL(file);
+    },
+
     toast(message) {
       let node = document.getElementById('black-market-toast');
       if (!node) {

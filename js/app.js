@@ -82,6 +82,9 @@ const App = {
   bloodTribute: { status: 'idle' },
   bloodTributes: [],
   gmSlashCommands: [
+    { name: 'warsong', insert: '/warsong', icon: '⚑', label: 'WARSONG', description: 'Six-second room-wide Horde battle banner' },
+    { name: 'c4', insert: '/c4', icon: '▣', label: 'C4 COLUMN', description: 'Manually trigger the three-second C4 battle alert' },
+    { name: 'b3', insert: '/b3', icon: '◩', label: 'BAKI B3', description: 'Manually trigger the purple-black B3 battle tribute' },
     { name: 'roll', insert: '/roll ', icon: '◆', label: 'ROLL', description: 'Authoritative Shadow Broker roll // minimum 2' },
     { name: 'recount', insert: '/recount', icon: '◈', label: 'RECOUNT', description: 'Show the RECOUNT // game over + aftermath required' },
     { name: 'womf', insert: '/womf', icon: '⚠', label: 'WOMF STATUS', description: 'WOMF charge, failed columns and wheel status' },
@@ -1214,7 +1217,7 @@ const App = {
       .sort((a, b) => b.length - a.length);
 
     const regexSpecials = '^$.*+?()[]{}|' + String.fromCharCode(92);
-    const escaped = ['all', ...names].map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
+    const escaped = ['all', 'SHADOW BROKER', ...names].map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
     const pattern = new RegExp('@(' + escaped.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
     const targets = container.querySelectorAll('.gm-chat-message-text, .shadow-broker-text');
 
@@ -1384,6 +1387,7 @@ const App = {
     let gmGifMode = 'trending';
     let gmGifLoading = false;
     let gmGifSearchTimer = null;
+    let gmGifRequestCycle = 0;
 
     const setGMGifStatus = (text, danger = false) => {
       if (!gmGifStatus) return;
@@ -1415,6 +1419,20 @@ const App = {
       });
     };
 
+    const resetGMGifPicker = () => {
+      clearTimeout(gmGifSearchTimer);
+      gmGifRequestCycle += 1;
+      if (gmGifSearchInput) gmGifSearchInput.value = '';
+      gmGifResults = [];
+      gmGifOffset = 0;
+      gmGifMode = 'trending';
+      gmGifLoading = false;
+      renderGMGifResults();
+      if (gmGifMoreButton) gmGifMoreButton.hidden = true;
+      gmGifMoreButton?.removeAttribute('disabled');
+      setGMGifStatus('TRENDING // STANDBY');
+    };
+
     const loadGMGifPage = async ({ append = false } = {}) => {
       if (!gmGifPicker || gmGifLoading) return;
       const query = String(gmGifSearchInput?.value || '').trim();
@@ -1425,6 +1443,7 @@ const App = {
       gmGifMode = query.length >= 2 ? 'search' : 'trending';
       if (!append) gmGifOffset = 0;
       gmGifLoading = true;
+      const requestCycle = gmGifRequestCycle;
       gmGifMoreButton?.setAttribute('disabled', 'disabled');
       setGMGifStatus(gmGifMode === 'search' ? 'SEARCHING // ' + query.toUpperCase() : 'TRENDING // ACQUIRING');
       try {
@@ -1435,6 +1454,7 @@ const App = {
           headers: { 'x-gm-token': token }
         });
         const payload = await response.json().catch(() => ({}));
+        if (requestCycle !== gmGifRequestCycle) return;
         if (!response.ok) {
           if (payload.code === 'GIF_LIMIT_REACHED') {
             setGMGifStatus('FUCK OFF, LIMIT REACHED', true);
@@ -1452,10 +1472,13 @@ const App = {
         if (gmGifQuota && payload.quota) gmGifQuota.textContent = 'GIF API // ' + payload.quota.globalUsed + ' / ' + payload.quota.globalLimit;
         setGMGifStatus(gmGifMode === 'search' ? 'RESULTS // ' + gmGifResults.length : 'TRENDING // ' + gmGifResults.length);
       } catch (error) {
+        if (requestCycle !== gmGifRequestCycle) return;
         setGMGifStatus(error.message || 'GIF NETWORK // OFFLINE', true);
       } finally {
-        gmGifLoading = false;
-        gmGifMoreButton?.removeAttribute('disabled');
+        if (requestCycle === gmGifRequestCycle) {
+          gmGifLoading = false;
+          gmGifMoreButton?.removeAttribute('disabled');
+        }
       }
     };
 
@@ -1489,6 +1512,7 @@ const App = {
       if (!gif || !this.ws || this.ws.readyState !== 1) return;
       this.send({ type: 'chat:gif', gif });
       closeGMGifPicker();
+      resetGMGifPicker();
     });
 
     gmGifSearchInput?.addEventListener('input', () => {
@@ -1742,7 +1766,7 @@ const App = {
 
       if (e.key === 'Enter') {
         e.preventDefault();
-        this.sendShadowBrokerBroadcast();
+        shadowBrokerForm?.requestSubmit();
         return;
       }
 
@@ -1840,12 +1864,21 @@ const App = {
       const deleteButton = gmContextMenu.querySelector('[data-gm-chat-action="delete"]');
       if (deleteButton) deleteButton.hidden = !this.gmMessageDeletable(messageId);
       const chatMessage = this.chatMessages.find(item => item.id === messageId);
+      const shadowCoinButton = gmContextMenu.querySelector('[data-gm-chat-action="shadow-coin"]');
+      if (shadowCoinButton) shadowCoinButton.hidden = !chatMessage?.playerId || String(chatMessage.playerId) === '__GM__' || String(chatMessage.playerId).startsWith('__TEST__');
       const tributeButton = gmContextMenu.querySelector('[data-gm-chat-action="tribute"]');
       const cancelTributeButton = gmContextMenu.querySelector('[data-gm-chat-action="tribute-cancel"]');
       if (tributeButton) tributeButton.hidden = !chatMessage?.imageUrl || !!chatMessage?.bloodTribute;
       if (cancelTributeButton) cancelTributeButton.hidden = !chatMessage?.bloodTribute?.active;
-    { const realmButton = document.getElementById('gm-chat-context-menu')?.querySelector('[data-gm-chat-action="shadow-realm"]');
-      if (realmButton) realmButton.hidden = !this.canSendToShadowRealm(chatMessage); }
+      // The original menu exposed one `shadow-realm` action. Sentences now
+      // have presets plus a custom duration, so update every banish action;
+      // otherwise the legacy selector leaves the entire feature hidden.
+      const realmAllowed = this.canSendToShadowRealm(chatMessage);
+      gmContextMenu.querySelectorAll('[data-gm-chat-action^="shadow-realm-"]:not([data-gm-chat-action="shadow-realm-release"])')
+        .forEach(button => { button.hidden = !realmAllowed; });
+      const realmActive = chatMessage?.playerId && Number(this.shadowRealmActive?.[String(chatMessage.playerId)]?.until) > Date.now();
+      const realmRelease = gmContextMenu.querySelector('[data-gm-chat-action="shadow-realm-release"]');
+      if (realmRelease) realmRelease.hidden = !realmActive;
       gmContextMenu.hidden = false;
       if (gmReactionPicker) gmReactionPicker.hidden = true;
       if (gmEmojiPicker) gmEmojiPicker.hidden = true;
@@ -1993,6 +2026,23 @@ const App = {
           return;
         }
         this.send({ type: 'chat:delete', messageId });
+        return;
+      }
+      if (action === 'shadow-coin') {
+        const chatMessage = this.chatMessages.find(item => item.id === messageId);
+        if (!chatMessage?.playerId) return;
+        const value = await window.AsocDialog?.prompt?.({
+          title:'SHADOW COIN',
+          message:`Adjust ${chatMessage.playerName || 'this Little Hero'}'s Shadow Coins. Use a positive number to add or a negative number to subtract.`,
+          placeholder:'+5 or -2.5',
+          confirmLabel:'APPLY'
+        });
+        if (value == null) return;
+        const amount = Number(String(value).replace(',', '.').trim());
+        if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 100000) {
+          return window.AsocDialog?.alert?.('Enter a non-zero amount between -100000 and 100000.');
+        }
+        this.send({ type:'gm:shadowCoinAdjust', playerId:chatMessage.playerId, playerName:chatMessage.playerName || '', amount });
         return;
       }
       if (action === 'tribute') { this.openBloodTributeConfirmation(messageId); return; }
@@ -2663,6 +2713,18 @@ const App = {
         window.Megabonk?.onMessage(message);
         break;
 
+      case 'warsong:alert':
+        window.WarsongAlert?.onMessage(message);
+        break;
+
+      case 'c4:alert':
+        window.C4Alert?.onMessage(message);
+        break;
+
+      case 'b3:alert':
+        window.B3Alert?.onMessage(message);
+        break;
+
       case 'shadowRealm:banish':
         this.shadowRealmActive ||= {};
         this.shadowRealmActive[String(message.playerId)] = { until:Date.now()+Number(message.remainingMs||0), playerName:message.playerName };
@@ -2791,6 +2853,10 @@ const App = {
 
       case 'gm:switchGame:ack':
         console.log('[GM] Game switched:', message.gameId);
+        break;
+
+      case 'gm:shadowCoinAdjusted':
+        window.AsocDialog?.alert?.(`${message.playerName || 'LITTLE HERO'} // ${Number(message.delta) >= 0 ? '+' : ''}${message.delta} SC // BALANCE ${message.balance} SC`);
         break;
 
       case 'players:update':
@@ -2923,6 +2989,12 @@ const App = {
 
       case 'tribute:unavailable':
         alert(`BLOOD TRIBUTE UNAVAILABLE // ${message.playerName || 'UNKNOWN'} is not linked to a player identity.`);
+        break;
+
+      // Authoritative, server-scheduled: reaches the GM view even if this tab
+      // was backgrounded and missed its own local clock tick.
+      case 'class:warning':
+        window.AsocClassClock?.warn(message);
         break;
 
       case 'chat:update': {
@@ -5506,6 +5578,25 @@ const App = {
     return `SHADOW BROKER CHECKS ON ${this.escapeHtml(String(afk.targetName || '???'))}. STILL THERE?`;
   },
 
+  playChatActScreenFx(msg) {
+    const type = String(msg?.messageType || '');
+    if (type !== 'fart' && type !== 'spit') return;
+    const sentAt = Number(msg?.timestamp) || 0;
+    if (!sentAt || Math.abs(Date.now() - sentAt) > 8000) return;
+    const key = String(msg?.id || `${type}:${sentAt}`);
+    this._playedChatActFx ||= new Set();
+    if (this._playedChatActFx.has(key)) return;
+    this._playedChatActFx.add(key);
+    if (this._playedChatActFx.size > 100) this._playedChatActFx.delete(this._playedChatActFx.values().next().value);
+
+    const layer = document.createElement('div');
+    layer.className = `chat-act-screen-fx is-${type}`;
+    layer.setAttribute('aria-hidden', 'true');
+    layer.innerHTML = '<span class="chat-act-screen-core"></span>' + '<i></i>'.repeat(type === 'fart' ? 14 : 10);
+    document.body.appendChild(layer);
+    window.setTimeout(() => layer.remove(), type === 'fart' ? 2200 : 1700);
+  },
+
   createGMSystemChatCardHTML(msg) {
     const esc = (value) => this.escapeHtml(String(value == null ? '' : value));
     const actor = esc(msg.playerName || 'SHADOW BROKER');
@@ -5572,6 +5663,7 @@ const App = {
     };
     const render = typeMap[msg.messageType];
     if (!render) return '';
+    this.playChatActScreenFx(msg);
     window.ShadowCosmetics?.maybePlayFx(msg);
     const { label, body, detail } = render();
     const lane = msg.playerId == null ? ' chat-system-own' : ' chat-system-other';
@@ -5731,7 +5823,7 @@ const App = {
         <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
           ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}
-          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}
+          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
           ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
           ${this.createGMReactionSummaryHTML(msg)}
         </div>
@@ -5778,13 +5870,13 @@ const App = {
     }
 
     return `
-      <div class="gm-chat-message gm-flow-message ${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.messageClass(msg) || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+      <div class="gm-chat-message gm-flow-message ${msg.messageType === 'voice' ? 'voice-message ' : ''}${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.messageClass(msg) || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
         <div class="gm-chat-avatar-rail">${this.littleHeroAvatarHTML(identity, true)}</div>
         <div class="gm-chat-bubble-cluster">
           <div class="gm-chat-message-main">${manualBadge}${window.ShadowCosmetics?.celebrationHTML(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.markHTML(msg) || ''}
             <div class="gm-chat-flow-header"><span class="gm-chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
             ${replyContextHtml}
-            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}
+            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${window.ChatLinks ? window.ChatLinks.textHTML(messageText, text => this.gmSolutionHighlightHTML(text)) : this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
             ${verdictMetaHtml}${preparedHintHtml}
             ${verdictResponseHtml}
             ${this.createGMReactionSummaryHTML(msg)}
@@ -5822,6 +5914,7 @@ const App = {
   cancelGMChatEdit() {
     this._editingBroadcast = null;
     this.setGMComposerText('', 0);
+    window.ChatLinks?.clearComposerPreview?.('gm');
     this.setGMComposerPlaceholder('Transmit to players...');
     this.getGMComposerElement()?.focus();
     const label = document.querySelector('#shadow-broker-form .shadow-broker-form-label');
@@ -6245,6 +6338,7 @@ const App = {
     }
 
     this.setGMComposerText('', 0);
+    window.ChatLinks?.clearComposerPreview?.('gm');
     // Keep focus in the composer so Enter can fire the next transmission
     // immediately. There is deliberately no character counter or GM-side
     // transmission length cap.

@@ -54,3 +54,7 @@ desktop/dist/
 # Direct messages between Little Heroes -- private runtime data, never source.
 direct-messages.json
 direct-messages.json.*
+
+# Test scratch: per-suite data dirs, avatars and browser profiles. Lives beside
+# the repo on purpose so a test run never writes to the system drive.
+/.scratch/

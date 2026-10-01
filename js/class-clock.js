@@ -2,6 +2,57 @@
 // Shared local clock telemetry for Shadow Broker and Little Hero surfaces. Class warnings fire
 // once, one minute before each half-hour start from 08:00 through 16:00.
 (() => {
+  // HOW LONG THE FULL-SCREEN BANNER LIVES, in ms. The CSS animation is authored
+  // to the same duration so the disperse finishes exactly as the node is torn
+  // out of the DOM; the timer is the authority, not animationend, because a
+  // user with prefers-reduced-motion has no animation to end.
+  const BANNER_MS = 5000;
+  const FALLBACK_MESSAGE = "DON'T BE LATE FOR THE CLASS, LITTLE HERO";
+  let bannerTimer = 0;
+
+  // The banner is driven by the server, not by the local clock below, so a tab
+  // that was backgrounded or asleep still gets the alert. Recreating the node on
+  // every call restarts the animation cleanly if a second class lands while the
+  // first banner is still on screen.
+  function showClassWarning(payload = {}) {
+    const text = String(payload.message || FALLBACK_MESSAGE);
+    const label = String(payload.label || '').trim();
+
+    clearTimeout(bannerTimer);
+    document.getElementById('class-warning-banner')?.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'class-warning-banner';
+    banner.className = 'class-warning-banner';
+    // role=alert: this is a one-minute deadline, it should interrupt whatever a
+    // screen reader is currently saying. It is removed 5s later so it does not
+    // linger in the accessibility tree.
+    banner.setAttribute('role', 'alert');
+    banner.setAttribute('aria-live', 'assertive');
+
+    const headline = document.createElement('p');
+    headline.className = 'class-warning-banner-text';
+    headline.textContent = text;
+    banner.appendChild(headline);
+
+    if (label) {
+      const stamp = document.createElement('p');
+      stamp.className = 'class-warning-banner-label';
+      stamp.textContent = `CLASS BEGINS ${label}`;
+      banner.appendChild(stamp);
+    }
+
+    document.body.appendChild(banner);
+    bannerTimer = window.setTimeout(() => {
+      banner.remove();
+      bannerTimer = 0;
+    }, BANNER_MS);
+  }
+
+  // Published before the clock's own early return: a surface may want the
+  // banner without carrying a clock chip.
+  window.AsocClassClock = { warn: showClassWarning };
+
   const nodes = [...document.querySelectorAll('[data-class-clock]')];
   if (!nodes.length) return;
   const ALERT_STORAGE_KEY = 'asoc_class_clock_last_alert';

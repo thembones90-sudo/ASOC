@@ -29,6 +29,7 @@ function normalizePact(raw) {
     state,
     tributeRequired: raw?.tributeRequired === true,
     tributeImageData: state === 'TRIBUTE_SUBMITTED' ? String(raw?.tributeImageData || '') : '',
+    tributeImageUrl: state === 'TRIBUTE_SUBMITTED' ? cleanText(raw?.tributeImageUrl, 240) : '',
     tributeId: cleanText(raw?.tributeId, 120) || null,
     rejectionReason: cleanText(raw?.rejectionReason, NOTE_LIMIT),
     createdAt: Number(raw?.createdAt) || Date.now(),
@@ -64,7 +65,10 @@ function publicPact(pact, host = false) {
     tributeId: pact.tributeId, rejectionReason: pact.rejectionReason,
     createdAt: pact.createdAt, updatedAt: pact.updatedAt, fulfilledAt: pact.fulfilledAt
   };
-  if (host && pact.state === 'TRIBUTE_SUBMITTED') copy.tributeImageData = pact.tributeImageData;
+  if (host && pact.state === 'TRIBUTE_SUBMITTED') {
+    copy.tributeImageData = pact.tributeImageData;
+    copy.tributeImageUrl = pact.tributeImageUrl;
+  }
   return copy;
 }
 
@@ -130,6 +134,7 @@ function gmDecision(state, raw) {
     pact.terms = cleanText(raw?.terms, NOTE_LIMIT);
     pact.state = 'DENIED';
     pact.tributeImageData = '';
+    pact.tributeImageUrl = '';
   } else if (action === 'progress') {
     pact.state = 'IN_PROGRESS';
   } else if (action === 'fulfill') {
@@ -138,6 +143,7 @@ function gmDecision(state, raw) {
   } else if (action === 'break') {
     pact.state = 'BROKEN';
     pact.tributeImageData = '';
+    pact.tributeImageUrl = '';
   } else {
     return { error: 'UNKNOWN PACT ACTION' };
   }
@@ -155,14 +161,17 @@ function acceptCounter(state, playerId, pactId) {
   return { pact };
 }
 
-function submitTribute(state, playerId, pactId, imageData, consent) {
+function submitTribute(state, playerId, pactId, imageRef, consent) {
   const pact = findPact(state, pactId);
   if (!pact || pact.playerId !== String(playerId)) return { error: 'PACT NOT FOUND' };
   if (pact.state !== 'APPROVED_PENDING_TRIBUTE' && pact.state !== 'TRIBUTE_REJECTED') {
     return { error: 'BLOOD IS NOT OWED FOR THIS PACT' };
   }
   if (consent !== true) return { error: 'TRIBUTE TERMS MUST BE ACKNOWLEDGED' };
-  pact.tributeImageData = String(imageData || '');
+  const value = String(imageRef || '');
+  pact.tributeImageData = value.startsWith('data:image/') ? value : '';
+  pact.tributeImageUrl = /^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(value) ? value : '';
+  if (!pact.tributeImageData && !pact.tributeImageUrl) return { error: 'THE OFFERING IS INVALID' };
   pact.rejectionReason = '';
   pact.state = 'TRIBUTE_SUBMITTED';
   pact.updatedAt = Date.now();
@@ -175,9 +184,11 @@ function judgeTribute(state, pactId, accepted, reason, tributeId) {
   if (accepted) {
     pact.tributeId = tributeId;
     pact.tributeImageData = '';
+    pact.tributeImageUrl = '';
     pact.state = 'OWED';
   } else {
     pact.tributeImageData = '';
+    pact.tributeImageUrl = '';
     pact.rejectionReason = cleanText(reason, NOTE_LIMIT);
     pact.state = 'TRIBUTE_REJECTED';
   }

@@ -189,13 +189,17 @@ const Forge = {
       list = list.filter(g =>
         (g.title || '').toLowerCase().includes(term) ||
         (g.theme || '').toLowerCase().includes(term) ||
-        (g.finalSolution || '').toLowerCase().includes(term)
+        (g.finalSolution || '').toLowerCase().includes(term) ||
+        Object.values(g.columnSolutions || {}).some(value => String(value || '').toLowerCase().includes(term))
       );
     }
 
     switch (this.sortBy) {
       case 'oldest':
-        list.sort((a, b) => String(a.created).localeCompare(String(b.created)));
+        list.sort((a, b) => {
+          if (a.isSample !== b.isSample) return a.isSample ? 1 : -1;
+          return String(a.modified || a.created || '').localeCompare(String(b.modified || b.created || ''));
+        });
         break;
       case 'title':
         list.sort((a, b) => String(a.title).localeCompare(String(b.title)));
@@ -205,7 +209,11 @@ const Forge = {
         break;
       case 'newest':
       default:
-        list.sort((a, b) => String(b.modified || b.created || '').localeCompare(String(a.modified || a.created || '')));
+        list.sort((a, b) => {
+          // The bundled sample is reference material, not part of the game chronology.
+          if (a.isSample !== b.isSample) return a.isSample ? 1 : -1;
+          return String(b.modified || b.created || '').localeCompare(String(a.modified || a.created || ''));
+        });
         break;
     }
 
@@ -281,13 +289,17 @@ const Forge = {
         : (rawDate || '—');
       const modifiedFull = validDate ? parsedDate.toLocaleString() : modified;
       return `
-        <div class="game-card game-list-row">
+        <div class="game-list-row">
           <div class="game-card-top game-list-identity">
             <div class="game-card-title-wrap">
               <span class="game-card-title">${this.escapeHtml(g.title)}</span>
               ${isSample ? '<span class="game-card-sample">SAMPLE</span>' : ''}
             </div>
             <div class="game-card-theme">${g.theme ? this.escapeHtml(g.theme) : '—'}</div>
+            <div class="game-list-solutions" aria-label="Column answers and final solution">
+              ${['A','B','C','D'].map(key => `<span><b>${key}</b> ${this.escapeHtml(g.columnSolutions?.[key] || '—')}</span>`).join('')}
+              <span class="game-list-final"><b>FINAL</b> ${this.escapeHtml(g.finalSolution || '—')}</span>
+            </div>
           </div>
           <div class="game-list-difficulty">
             <span class="difficulty-badge diff-${g.difficulty.toLowerCase()}">${g.difficulty}</span>

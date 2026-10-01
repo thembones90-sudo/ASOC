@@ -41,10 +41,8 @@ function idleGauntlet() {
   return { status: 'idle', id: null, startedAt: null, joinDeadline: 0, gamesPlayed: 0, fighters: [], declined: [], victors: [], endedReason: null };
 }
 
-// barsEnabled: the Broker can switch the health rings off between games so
-// every Little Hero shows their usual avatar. It survives resets.
-function freshState(maxHealth = MAX_HEALTH, barsEnabled = true) {
-  return { format: FORMAT, version: VERSION, maxHealth, barsEnabled: barsEnabled !== false, health: {}, names: {}, gauntlet: idleGauntlet() };
+function freshState(maxHealth = MAX_HEALTH, healthVisible = true) {
+  return { format: FORMAT, version: VERSION, maxHealth, healthVisible, health: {}, names: {}, gauntlet: idleGauntlet() };
 }
 
 function validMax(value) {
@@ -55,6 +53,17 @@ function validMax(value) {
 // The Broker's chosen number of health bars (1..10).
 function maxHealth() {
   return validMax(load().maxHealth) || MAX_HEALTH;
+}
+
+function healthVisible() {
+  return load().healthVisible !== false;
+}
+
+// Presentation only. Health and gauntlet state continue untouched while hidden.
+function setHealthVisible(value) {
+  load().healthVisible = value !== false;
+  save();
+  return { ok: true, healthVisible: load().healthVisible };
 }
 
 function clamp(hp) {
@@ -71,7 +80,7 @@ function load() {
         // Clamp against the file's own maximum: clamp() would re-enter load().
         const fileMax = validMax(parsed.maxHealth) || MAX_HEALTH;
         state = {
-          ...freshState(fileMax, parsed.barsEnabled !== false),
+          ...freshState(fileMax, parsed.healthVisible !== false),
           health: Object.fromEntries(Object.entries(parsed.health || {}).filter(([, hp]) => Number.isFinite(hp)).map(([id, hp]) => [id, Math.max(0, Math.min(fileMax, Math.round(hp)))])),
           names: parsed.names && typeof parsed.names === 'object' ? parsed.names : {},
           gauntlet: {
@@ -181,7 +190,7 @@ function tick(now = Date.now()) {
 
 // Restores everyone to full; the HEALTH BARS setting survives.
 function reset() {
-  state = freshState(maxHealth(), barsEnabled());
+  state = freshState(maxHealth(), healthVisible());
   save();
 }
 
@@ -192,22 +201,9 @@ function setMaxHealth(value) {
   if (!n) return { ok: false, error: `HEALTH BARS MUST BE ${MIN_HEALTH}-${MAX_HEALTH}` };
   const status = load().gauntlet.status;
   if (status === 'open' || status === 'running') return { ok: false, error: 'FINISH OR RESET THE GAUNTLET BEFORE CHANGING HEALTH BARS' };
-  state = freshState(n, barsEnabled());
+  state = freshState(n, healthVisible());
   save();
   return { ok: true, maxHealth: n };
-}
-
-function barsEnabled() {
-  return load().barsEnabled !== false;
-}
-
-// HEALTH BARS ON/OFF: purely cosmetic. Health is never reset or refilled by
-// it and keeps moving while hidden; allowed at any time.
-function setBarsEnabled(enabled) {
-  const s = load();
-  s.barsEnabled = enabled !== false;
-  save();
-  return { ok: true, barsEnabled: s.barsEnabled };
 }
 
 // A finished IKS OKS game. x / o: { id, name, isBroker }. winnerId null = draw.
@@ -265,7 +261,7 @@ function publicState() {
     gamesPlayed: g.gamesPlayed,
     gamesTotal: GAUNTLET_GAMES,
     maxHealth: maxHealth(),
-    barsEnabled: barsEnabled(),
+    healthVisible: healthVisible(),
     fighters: g.fighters.length,
     standing: g.fighters.filter(id => healthOf(id) > 0).length,
     victors: g.victors.map(v => ({ id: v.id, name: v.name })),
@@ -282,4 +278,4 @@ function publicState() {
 // Tests only.
 function _forget() { state = null; }
 
-module.exports = { MAX_HEALTH, MIN_HEALTH, GAUNTLET_GAMES, maxHealth, setMaxHealth, barsEnabled, setBarsEnabled, healthOf, isFighter, isEliminated, standingOf, start, join, decline, tick, reset, recordGame, publicState, _forget, JOIN_MS };
+module.exports = { MAX_HEALTH, MIN_HEALTH, GAUNTLET_GAMES, maxHealth, setMaxHealth, healthVisible, setHealthVisible, healthOf, isFighter, isEliminated, standingOf, start, join, decline, tick, reset, recordGame, publicState, _forget, JOIN_MS };

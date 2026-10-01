@@ -1,0 +1,116 @@
+/* WARSONG // Horde war ritual: 2.6s crimson warning, impact, then six-second hold. */
+.warsong-alert-layer {
+  position:fixed;
+  inset:0;
+  z-index:2147483200;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  pointer-events:none;
+  opacity:0;
+  isolation:isolate;
+  background:rgba(20,0,0,0);
+}
+.warsong-alert-layer.is-live {
+  animation:warsong-layer-ritual 9s linear both;
+}
+.warsong-blood-field {
+  position:absolute;
+  inset:-8%;
+  z-index:-1;
+  background:
+    radial-gradient(circle at 50% 42%,rgba(255,44,22,.54),transparent 34%),
+    radial-gradient(ellipse at 50% 120%,rgba(184,0,0,.68),transparent 62%),
+    repeating-linear-gradient(0deg,rgba(255,0,0,.045) 0 2px,transparent 2px 7px),
+    linear-gradient(135deg,#160000,#650000 48%,#190000);
+  opacity:0;
+  filter:saturate(1.35) contrast(1.08);
+  animation:
+    warsong-blood-rise 2.6s cubic-bezier(.22,.72,.18,1) forwards,
+    warsong-blood-flicker .24s steps(2,end) 2.6s infinite;
+}
+.warsong-standard {
+  width:min(88vw,780px);
+  max-height:94vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(10px,2vh,22px);
+  transform:scale(.58) translateY(10vh);
+  opacity:0;
+  animation:warsong-standard-impact .72s cubic-bezier(.12,.82,.18,1.08) 2.58s forwards;
+}
+html.warsong-alert-active body {
+  transform-origin:50% 50%;
+  animation:warsong-screen-impact 9s linear both;
+}
+@keyframes warsong-blood-rise {
+  0%{opacity:0;transform:scale(1.08);filter:saturate(.7) contrast(1)}
+  36%{opacity:.18;transform:scale(1.06);filter:saturate(.9) contrast(1.02)}
+  72%{opacity:.48;transform:scale(1.035);filter:saturate(1.15) contrast(1.05)}
+  92%{opacity:.76;transform:scale(1.015);filter:saturate(1.3) contrast(1.07)}
+  100%{opacity:1;transform:scale(1);filter:saturate(1.42) contrast(1.1)}
+}
+.warsong-standard img {
+  display:block;
+  width:auto;
+  max-width:min(82vw,690px);
+  max-height:min(73vh,760px);
+  object-fit:contain;
+  filter:drop-shadow(0 14px 12px rgba(0,0,0,.9)) drop-shadow(0 0 30px rgba(255,20,0,.48));
+}
+.warsong-standard strong {
+  display:block;
+  max-width:94vw;
+  padding:.18em .48em .12em;
+  color:#ffe0b0;
+  font-family:Impact,"Arial Black",var(--font-machine),sans-serif;
+  font-size:clamp(2rem,6.5vw,5.6rem);
+  font-weight:950;
+  line-height:.94;
+  letter-spacing:.055em;
+  text-align:center;
+  text-transform:uppercase;
+  -webkit-text-stroke:clamp(1px,.08em,5px) #2a0000;
+  text-shadow:0 4px 0 #620000,0 8px 12px #000,0 0 24px rgba(255,42,16,.9);
+  transform:skew(-3deg);
+}
+@keyframes warsong-blood-flicker {
+  0%{opacity:.62;transform:translate(0,0) scale(1.01)}
+  25%{opacity:1;transform:translate(-.25%,.15%) scale(1.02)}
+  50%{opacity:.73;transform:translate(.2%,-.12%) scale(1.015)}
+  75%{opacity:.94;transform:translate(-.1%,-.2%) scale(1.025)}
+  100%{opacity:.68;transform:translate(.18%,.12%) scale(1.01)}
+}
+@keyframes warsong-standard-impact {
+  0%{opacity:0;transform:scale(.58) translateY(10vh)}
+  28%{opacity:1;transform:scale(1.12) translateY(-1.8vh)}
+  58%{opacity:1;transform:scale(.97) translateY(.5vh)}
+  100%{opacity:1;transform:scale(1) translateY(0)}
+}
+@keyframes warsong-layer-ritual {
+  0%{opacity:0;background:rgba(20,0,0,0)}
+  6%{opacity:1;background:rgba(20,0,0,.06)}
+  28%{opacity:1;background:rgba(37,0,0,.82)}
+  30%,92%{opacity:1;background:#250000}
+  100%{opacity:0}
+}
+@keyframes warsong-screen-impact {
+  0%,28.5%{transform:translate3d(0,0,0)}
+  29%{transform:translate3d(-10px,5px,0) rotate(-.22deg)}
+  29.7%{transform:translate3d(9px,-5px,0) rotate(.2deg)}
+  30.4%{transform:translate3d(-7px,-3px,0) rotate(-.14deg)}
+  31.1%{transform:translate3d(6px,3px,0) rotate(.11deg)}
+  31.8%{transform:translate3d(-3px,1px,0)}
+  32.5%,43%{transform:translate3d(0,0,0)}
+  43.4%{transform:translate3d(-3px,1px,0)}
+  43.8%{transform:translate3d(3px,-1px,0)}
+  44.3%,100%{transform:translate3d(0,0,0)}
+}
+@media (prefers-reduced-motion:reduce) {
+  .warsong-alert-layer.is-live { animation:warsong-layer-ritual 9s linear both; }
+  .warsong-blood-field { animation:warsong-blood-rise 2.6s ease-out forwards; }
+  .warsong-standard { animation:warsong-standard-impact .01s linear 2.6s forwards; }
+  html.warsong-alert-active body { animation:none; }
+}

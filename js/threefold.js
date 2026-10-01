@@ -75,7 +75,7 @@
         : players.length
           ? '<div class="threefold-kicker">SELECT OPPONENT</div><div class="threefold-opponents">' +
             this.brokerOption() +
-            players.map(p => `<button type="button" class="threefold-opponent${p.iksEliminated ? ' is-eliminated' : ''}" data-threefold-opponent="${this.escape(p.id)}" ${p.iksEliminated ? 'disabled' : ''}>${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D · ${Number(p.iksHealth ?? 10)}/${Number(p.iksMaxHealth ?? 10)} HP</small></span><i>${p.iksEliminated ? 'FALLEN' : 'CHALLENGE'}</i></button>`).join('') +
+            players.map(p => `<button type="button" class="threefold-opponent${p.iksEliminated ? ' is-eliminated' : ''}" data-threefold-opponent="${this.escape(p.id)}" ${p.iksEliminated ? 'disabled' : ''}>${this.avatar(p)}<span><b>${this.escape(p.name)}</b><small>${Number(p.threefoldWins)||0}W · ${Number(p.threefoldLosses)||0}L · ${Number(p.threefoldDraws)||0}D${p.iksHealthVisible===false?'':` · ${Number(p.iksHealth ?? 10)}/${Number(p.iksMaxHealth ?? 10)} HP`}</small></span><i>${p.iksEliminated ? 'FALLEN' : 'CHALLENGE'}</i></button>`).join('') +
             '</div>'
           : '<div class="threefold-kicker">SELECT OPPONENT</div><div class="threefold-opponents">' + this.brokerOption() + '</div>');
       this.show();

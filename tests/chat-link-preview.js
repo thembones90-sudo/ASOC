@@ -1,0 +1,350 @@
+// CHAT LINKS -- clickable addresses and unfurled previews.
+//
+// Two halves, because there are two halves: link-preview.js is the host-side
+// unfurler (pure extraction plus the guards that make an open metadata fetcher
+// safe), and js/chat-links.js is the renderer. The renderer half runs in a real
+// Chromium because the whole risk there is what actually lands in the DOM, and
+// a fake DOM cannot tell you whether an <img onerror> was neutralised.
+const assert = require('assert/strict');
+const fs = require('fs');
+const path = require('path');
+const { chromium } = require('playwright');
+const { createLinkPreviewService, extractMetadata, extractYoutubeOEmbedMetadata } = require('../link-preview');
+
+const ROOT = path.resolve(__dirname, '..');
+const CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'chat-links.js'), 'utf8');
+const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+assert.match(SERVER, /url\.pathname === '\/api\/chat\/link-preview'/, 'the authenticated pre-send preview endpoint is mounted');
+assert.match(SERVER, /linkPreviewService\.unfurl\(urlToPreview\)/, 'composer previews reuse the hardened server unfurler');
+const brokerCreation = SERVER.split('function addShadowBrokerMessage')[1].split('\nfunction broadcastToRoom')[0];
+assert.match(brokerCreation, /primeChatLinkPreview\(room, message\)/, 'Shadow Broker broadcasts enter the posted-message preview pipeline');
+const GM_CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'app.js'), 'utf8');
+const PLAYER_CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'player.js'), 'utf8');
+const gmBrokerBranch = GM_CLIENT.split("if (msg.source === 'shadowBroker')")[1].split("const time = new Date")[0];
+const playerBrokerBranch = PLAYER_CLIENT.split("if (msg.source === 'shadowBroker')")[1].split("const time = new Date")[0];
+assert.match(gmBrokerBranch, /ChatLinks\?\.messageHTML\(msg\)/, 'GM renders preview cards on Shadow Broker broadcasts');
+assert.match(playerBrokerBranch, /ChatLinks\?\.messageHTML\(msg\)/, 'players render preview cards on Shadow Broker broadcasts');
+
+// =========================================================== host-side unfurl
+
+// --- address extraction ----------------------------------------------------
+
+// The predicate the server injects in production answers "blocked" for the
+// private and reserved ranges. The test stands in a real one for it, because
+// an allow-everything stub would make every private-address assertion below
+// meaningless.
+const blocksPrivate = address => {
+  const value = String(address || '');
+  return value === '::1'
+    || value.startsWith('127.')
+    || value.startsWith('10.')
+    || value.startsWith('192.168.')
+    || value.startsWith('169.254.')
+    || value.startsWith('172.16.');
+};
+const service = createLinkPreviewService({ isBlockedAddress: blocksPrivate });
+
+assert.equal(service.extractFirstUrl('look at https://example.com/page?a=1 now'), 'https://example.com/page?a=1');
+assert.equal(service.extractFirstUrl('no link here at all'), null);
+assert.equal(service.extractFirstUrl(''), null);
+
+// Sentence punctuation belongs to the sentence, not the address.
+assert.equal(service.extractFirstUrl('see https://example.com/page.'), 'https://example.com/page');
+assert.equal(service.extractFirstUrl('see https://example.com/page, then'), 'https://example.com/page');
+assert.equal(service.extractFirstUrl('https://example.com/a(b)'), 'https://example.com/a(b)');
+// A paren INSIDE the address is kept; only an unbalanced trailing one is cut.
+assert.equal(service.extractFirstUrl('https://example.com/a)b'), 'https://example.com/a)b');
+assert.equal(service.extractFirstUrl('(https://example.com/a)'), 'https://example.com/a');
+
+// Schemes a chat client must never turn into a link.
+assert.equal(service.extractFirstUrl('javascript:alert(1)'), null);
+assert.equal(service.extractFirstUrl('data:text/html,<script>alert(1)</script>'), null);
+assert.equal(service.extractFirstUrl('ftp://example.com/file'), null);
+assert.equal(service.extractFirstUrl('https://user:pass@example.com/'), null);
+assert.equal(service.extractFirstUrl('https://example.com:8443/'), null);
+assert.equal(service.extractFirstUrl('http://localhost:3000/admin'), null);
+assert.equal(service.extractFirstUrl('http://127.0.0.1:80/'), null);
+assert.equal(service.extractFirstUrl('https://box.local/thing'), null);
+
+// A refused first address must not hide a valid second one.
+assert.equal(
+  service.extractFirstUrl('http://127.0.0.1:80/x and https://example.com/ok'),
+  'https://example.com/ok'
+);
+assert.equal(
+  service.extractFirstUrl('http://169.254.169.254/latest/meta-data/ and https://example.com/ok'),
+  'https://example.com/ok',
+  'the cloud metadata address is refused before it is ever queued'
+);
+assert.equal(service.extractFirstUrl('http://10.0.0.5/internal'), null);
+
+// --- metadata extraction ---------------------------------------------------
+
+const page = extractMetadata(`<!doctype html><html><head>
+  <title>  Plain &amp; Simple &mdash; Example  </title>
+  <meta property="og:site_name" content="Example News">
+  <meta property="og:title" content="The Headline &quot;quoted&quot;">
+  <meta property="og:description" content="A summary of the page.">
+  <meta property="og:image" content="/media/cover.png">
+</head><body>ignored</body></html>`, 'https://example.com/story/1');
+assert.ok(page, 'a page with metadata unfurls');
+assert.equal(page.title, 'The Headline "quoted"');
+assert.equal(page.description, 'A summary of the page.');
+assert.equal(page.siteName, 'Example News');
+assert.equal(page.image, 'https://example.com/media/cover.png', 'a relative og:image resolves against the page URL');
+assert.equal(page.url, 'https://example.com/story/1');
+
+// <title> is the fallback when Open Graph is absent.
+const plain = extractMetadata('<html><head><title>Only A Title</title></head></html>', 'https://example.com/');
+assert.equal(plain.title, 'Only A Title');
+assert.equal(plain.siteName, 'example.com', 'the site name falls back to the hostname');
+assert.equal(plain.image, null);
+
+// A hostile og:image never survives. The card still appears, but carries no
+// picture, and the hostname stands in when there is nothing else to show.
+const hostile = extractMetadata(
+  '<html><head><meta property="og:image" content="javascript:alert(1)"></head><body>x</body></html>',
+  'https://example.com/'
+);
+assert.ok(hostile, 'a page whose only metadata is a hostile image still unfurls to a hostname card');
+assert.equal(hostile.image, null, 'a javascript: og:image is dropped');
+assert.equal(hostile.title, 'example.com', 'the hostname is shown when there is no other title');
+const dataUrl = extractMetadata(
+  '<html><head><title>Real Story</title><meta property="og:image" content="data:image/png;base64,AAAA"></head><body>x</body></html>',
+  'https://example.com/'
+);
+assert.equal(dataUrl.image, null, 'a data: og:image is dropped');
+
+// A valid link with no metadata still unfurls to a hostname card.
+const noMeta = extractMetadata('<html><body><p>hello</p></body></html>', 'https://example.com/');
+assert.ok(noMeta, 'a page with no metadata still unfurls to a hostname card');
+assert.equal(noMeta.title, 'example.com', 'the hostname is shown when there is no other metadata');
+
+// An empty fetch result lets the caller fall back to minimalPreview.
+assert.equal(extractMetadata('', 'https://example.com/'), null, 'an empty fetch result yields no metadata');
+
+// Every valid link gets at least a hostname card from the service, even if the
+// fetch fails completely.
+const minimal = service.minimalPreview('https://example.com/');
+assert.ok(minimal, 'minimalPreview returns a card');
+assert.equal(minimal.title, 'example.com');
+assert.equal(minimal.url, 'https://example.com/');
+const youtubeFallback = service.minimalPreview('https://www.youtube.com/watch?v=HWDHQr1EBO4&list=RDHWDHQr1EBO4');
+assert.equal(youtubeFallback.siteName, 'YouTube', 'YouTube gets a provider-aware fallback when metadata fetching is blocked');
+assert.equal(youtubeFallback.title, 'YouTube video');
+assert.equal(youtubeFallback.image, 'https://i.ytimg.com/vi/HWDHQr1EBO4/hqdefault.jpg', 'YouTube fallback derives a safe public thumbnail from the video id');
+const youtubeMetadata = extractYoutubeOEmbedMetadata({
+  title: 'Alice In Chains - Man in the Box',
+  author_name: 'AliceInChainsVEVO',
+  thumbnail_url: 'https://i.ytimg.com/vi/HWDHQr1EBO4/hqdefault.jpg'
+}, 'https://www.youtube.com/watch?v=HWDHQr1EBO4');
+assert.equal(youtubeMetadata.title, 'Alice In Chains - Man in the Box');
+assert.equal(youtubeMetadata.siteName, 'YouTube · AliceInChainsVEVO');
+assert.equal(youtubeMetadata.description, 'Video by AliceInChainsVEVO');
+
+// Lengths are capped so a hostile <title> cannot flood the room log.
+const huge = extractMetadata(
+  `<html><head><meta property="og:title" content="${'T'.repeat(5000)}"></head></html>`,
+  'https://example.com/'
+);
+assert.ok(huge.title.length <= 200, 'the title is capped');
+const hugeDesc = extractMetadata(
+  `<html><head><meta property="og:description" content="${'D'.repeat(5000)}"></head></html>`,
+  'https://example.com/'
+);
+assert.ok(hugeDesc.description.length <= 400, 'the description is capped');
+
+// --- the private-address guard actually gates the socket ------------------
+
+// A predicate that blocks the loopback stands in for the real
+// private/reserved range check the server injects. If the guard were not wired
+// into the request path, this resolve would succeed and the promise below
+// would resolve instead of rejecting. The port is 80 on purpose: a
+// non-standard port is refused by an earlier gate and would never reach the
+// address check this test is about.
+let addressGuardCalled = false;
+const guarded = createLinkPreviewService({
+  isBlockedAddress: address => {
+    addressGuardCalled = true;
+    return String(address) === '127.0.0.1';
+  }
+});
+assert.equal(guarded.normalizeUrl('http://127.0.0.1/').hostname, '127.0.0.1');
+assert.equal(service.extractFirstUrl('http://[::1]/x'), null, 'an IPv6 loopback literal is refused before any fetch');
+assert.equal(service.extractFirstUrl('http://[::1]/x and https://example.com/ok'), 'https://example.com/ok');
+
+(async () => {
+  // Blocked host: refused, and nothing was fetched.
+  const blockedResult = await guarded.unfurl('http://127.0.0.1/never');
+  assert.equal(blockedResult, null, 'a private literal address is refused, not fetched');
+  assert.equal(addressGuardCalled, true, 'the injected predicate was consulted');
+
+  // A link that cannot be parsed never becomes a fetch at all.
+  assert.equal(await service.unfurl('not a url'), null);
+  assert.equal(await service.unfurl('javascript:alert(1)'), null);
+
+  // ======================================================= client rendering
+  const browser = await chromium.launch();
+  try {
+    const page2 = await browser.newPage();
+    await page2.setContent('<!doctype html><html><body><div id="out"></div></body></html>');
+    await page2.addScriptTag({ content: CLIENT });
+
+    const render = (text, decorate) => page2.evaluate(
+      ([value, useDecorator]) => {
+        const decorateFn = useDecorator
+          ? segment => `<em class="decorated">${segment.toUpperCase()}</em>`
+          : undefined;
+        document.getElementById('out').innerHTML = window.ChatLinks.textHTML(value, decorateFn);
+        const links = [...document.querySelectorAll('#out a.chat-link')].map(a => ({
+          href: a.getAttribute('href'),
+          target: a.getAttribute('target'),
+          rel: a.getAttribute('rel'),
+          label: a.textContent
+        }));
+        return { html: document.getElementById('out').innerHTML, links, text: document.getElementById('out').textContent };
+      },
+      [text, Boolean(decorate)]
+    );
+
+    // ---- a plain address becomes a real, safely-opened link
+    let out = await render('look at https://example.com/page now');
+    assert.equal(out.links.length, 1, 'one address, one link');
+    assert.equal(out.links[0].href, 'https://example.com/page');
+    assert.equal(out.links[0].target, '_blank');
+    assert.match(out.links[0].rel, /noopener/, 'a new tab cannot reach back via window.opener');
+    assert.match(out.links[0].rel, /noreferrer/);
+    assert.match(out.links[0].rel, /nofollow/);
+    assert.equal(out.text, 'look at https://example.com/page now', 'surrounding words are preserved');
+
+    // ---- punctuation is not swallowed
+    out = await render('see https://example.com/page.');
+    assert.equal(out.links[0].href, 'https://example.com/page', 'the trailing period is not part of the href');
+    assert.equal(out.text, 'see https://example.com/page.', 'the period is still shown');
+
+    // ---- several addresses
+    out = await render('https://a.example/1 and https://b.example/2');
+    assert.equal(out.links.length, 2, 'every address in the line is linked');
+
+    // ---- hostile text cannot become markup
+    out = await render('<img src=x onerror="window.__pwned=1"> https://example.com/ <script>window.__pwned=1</script>');
+    assert.equal(out.links.length, 1, 'the real address is still linked');
+    assert.equal(await page2.evaluate(() => document.querySelectorAll('#out img').length), 0, 'no img element was injected');
+    assert.equal(await page2.evaluate(() => document.querySelectorAll('#out script').length), 0, 'no script element was injected');
+    assert.equal(await page2.evaluate(() => window.__pwned), undefined, 'nothing executed');
+
+    // ---- a dangerous scheme is never turned into an anchor
+    out = await render('javascript:alert(1)');
+    assert.equal(out.links.length, 0, 'javascript: is not linkified');
+    assert.equal(out.text, 'javascript:alert(1)', 'it is still shown as plain text');
+
+    // ---- quotes in an address cannot break out of the href attribute
+    out = await render('https://example.com/?a="onmouseover=alert(1)"');
+    const escaped = await page2.evaluate(() => document.getElementById('out').innerHTML);
+    assert.ok(!/href="https:\/\/example\.com\/\?a="onmouseover/.test(escaped), 'the quote is escaped inside the attribute');
+
+    // ---- the host's own text renderer is still used for plain segments
+    out = await render('shout https://example.com/', true);
+    assert.match(out.html, /<em class="decorated">SHOUT <\/em>/, 'the host decorator is applied to text segments');
+    assert.match(out.html, /<a class="chat-link"/, 'the address bypasses the decorator');
+    assert.equal(out.links.length, 1);
+
+    // ---- the preview card
+    const card = await page2.evaluate(() => {
+      document.getElementById('out').innerHTML = window.ChatLinks.previewHTML({
+        url: 'https://example.com/story',
+        title: 'Headline <script>window.__pwned=1</script>',
+        description: 'Summary & "quoted"',
+        siteName: 'Example News',
+        image: 'https://example.com/cover.png'
+      });
+      const anchor = document.querySelector('#out a.chat-link-preview');
+      return {
+        href: anchor?.getAttribute('href'),
+        rel: anchor?.getAttribute('rel'),
+        target: anchor?.getAttribute('target'),
+        site: anchor?.querySelector('.chat-link-preview-site')?.textContent,
+        title: anchor?.querySelector('.chat-link-preview-title')?.textContent,
+        description: anchor?.querySelector('.chat-link-preview-description')?.textContent,
+        image: anchor?.querySelector('img')?.getAttribute('src'),
+        scripts: document.querySelectorAll('#out script').length,
+        pwned: window.__pwned
+      };
+    });
+    assert.equal(card.href, 'https://example.com/story');
+    assert.equal(card.target, '_blank');
+    assert.match(card.rel, /noopener/);
+    assert.equal(card.site, 'Example News');
+    assert.equal(card.title, 'Headline <script>window.__pwned=1</script>', 'the title is shown as text, not markup');
+    assert.equal(card.description, 'Summary & "quoted"');
+    assert.equal(card.image, 'https://example.com/cover.png');
+    assert.equal(card.scripts, 0, 'the card cannot inject a script');
+    assert.equal(card.pwned, undefined, 'nothing executed');
+
+    // A hostile image URL in a stored card is dropped rather than fetched.
+    const hostileCard = await page2.evaluate(() => {
+      document.getElementById('out').innerHTML = window.ChatLinks.previewHTML({
+        url: 'https://example.com/story',
+        title: 'x',
+        image: 'javascript:alert(1)'
+      });
+      return document.querySelectorAll('#out img').length;
+    });
+    assert.equal(hostileCard, 0, 'a javascript: preview image is not rendered');
+
+    // No preview on the message means no card markup at all.
+    const none = await page2.evaluate(() => [
+      window.ChatLinks.previewHTML(undefined),
+      window.ChatLinks.previewHTML(null),
+      window.ChatLinks.previewHTML({}),
+      window.ChatLinks.previewHTML({ url: 'https://example.com/' })
+    ].join(''));
+    assert.equal(none, '', 'a bare address with no metadata renders no empty card');
+
+    // ---- pre-send composer preview
+    await page2.evaluate(() => {
+      document.body.innerHTML = '<form id="chat-form"><div class="chat-composer-shell"><input id="chat-input"></div></form>';
+      window.fetch = async () => {
+        return ({
+        ok:true,
+        json:async () => ({ preview:{
+          url:'https://www.youtube.com/watch?v=test',
+          title:'ASOC Transmission',
+          description:'Preview before sending',
+          siteName:'YouTube',
+          image:'https://i.ytimg.com/vi/test/hqdefault.jpg'
+        } })
+      }); };
+      window.ChatLinks.bindComposerPreviews();
+      const input = document.getElementById('chat-input');
+      input.value = 'watch https://www.youtube.com/watch?v=test';
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    await page2.waitForFunction(() => document.querySelector('.chat-compose-link-preview .chat-link-preview-title')?.textContent === 'ASOC Transmission');
+    assert.equal(await page2.locator('.chat-compose-link-preview .chat-link-preview-image').count(), 1, 'typing a link renders its image preview before sending');
+    assert.equal(await page2.locator('.chat-compose-link-preview .chat-link-preview-title').textContent(), 'ASOC Transmission');
+    await page2.fill('#chat-input', 'plain text');
+    assert.equal(await page2.locator('.chat-compose-link-preview:not([hidden])').count(), 0, 'removing the URL removes the composer preview');
+
+    await page2.evaluate(() => {
+      document.body.innerHTML = '<div id="gm-broker-bar"><form id="shadow-broker-form"><span>SHADOW BROKER</span><div class="gm-composer-shell"><div id="shadow-broker-composer" contenteditable="true"></div></div><input id="shadow-broker-input"></form></div>';
+      window.ChatLinks.bindComposerPreviews();
+      const composer = document.getElementById('shadow-broker-composer');
+      composer.textContent = 'https://www.youtube.com/watch?v=broker';
+      composer.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    await page2.waitForFunction(() => !document.querySelector('#gm-broker-bar > .chat-compose-link-preview')?.hidden);
+    assert.equal(await page2.locator('#gm-broker-bar > .chat-compose-link-preview .chat-link-preview-title').textContent(), 'ASOC Transmission', 'the GM rich-text composer receives the same pre-send preview');
+    assert.equal(await page2.locator('#shadow-broker-form .chat-compose-link-preview').count(), 0, 'the GM preview is outside the flex form and cannot shrink the composer');
+    await page2.evaluate(() => document.getElementById('shadow-broker-form').dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })));
+    assert.equal(await page2.locator('#gm-broker-bar > .chat-compose-link-preview:not([hidden])').count(), 0, 'sending immediately clears the GM composer preview');
+
+    await page2.close();
+    console.log('PASS chat links: addresses are linkified safely, posted cards unfurl through the guarded server path, and typing a URL renders/removes its preview before send');
+  } finally {
+    await browser.close();
+  }
+})().catch(error => {
+  console.error(error);
+  process.exit(1);
+});

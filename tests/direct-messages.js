@@ -17,10 +17,19 @@ const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'asoc-dm-'));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const dmCss = fs.readFileSync(path.join(ROOT, 'css', 'direct-messages.css'), 'utf8');
+const gmDmCss = fs.readFileSync(path.join(ROOT, 'css', 'gm-direct-messages.css'), 'utf8');
+const gmDmClient = fs.readFileSync(path.join(ROOT, 'js', 'gm-direct-messages.js'), 'utf8');
+const gmMinigamesClient = fs.readFileSync(path.join(ROOT, 'js', 'gm-minigames.js'), 'utf8');
+const indexHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const joinHtml = fs.readFileSync(path.join(ROOT, 'join.html'), 'utf8');
 assert.match(dmCss, /min-width:761px[\s\S]*max-width:1380px[\s\S]*player-battle-layout[\s\S]*width:calc\(100% - 92px\)/, 'compact desktop reserves a lane for the fixed social rail');
 assert.match(dmCss, /margin-left:92px !important/, 'casual chat starts to the right of the rail');
 assert.match(joinHtml, /direct-messages\.css\?v=20260928-chat-rail-layout-1/, 'rail layout fix is cache-busted');
+assert.match(gmDmCss, /#gm-panel[\s\S]*\.gm-chat-panel\.gm-dm-open[\s\S]*:not\(#gm-dm-console\)[\s\S]*display:none !important/, 'GM private view exclusively hides the public Battle Comms surface');
+assert.match(gmDmCss, /> #gm-dm-console[\s\S]*display:flex !important/, 'GM private view exposes its direct-message console');
+assert.match(gmMinigamesClient, /gm-chat-tab'[\s\S]*GMDirectMessages\?\.setOpen\?\.\(false\)/, 'Battle Comms explicitly closes Private Channels');
+assert.match(gmDmClient, /gm:privateList/, 'GM private tab requests its direct-message list');
+assert.match(indexHtml, /gm-direct-messages\.css\?v=20260930-private-channels-1/, 'GM private-channel view fix is cache-busted');
 
 function api(urlPath, body, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -179,6 +188,17 @@ function checkHiddenFromPublic() {
     ana.send({ type: 'dm:send', toId: bo.playerId, text: 'after battle' });
     await bo.next(m => m.type === 'dm:message' && m.message.text === 'after battle', 'reopened', from);
 
+    // The GM Private Channels tab is a real Shadow Broker <-> player DM path,
+    // independent from public Battle Comms.
+    const gmPrivateList = await gm.ask({ type: 'gm:privateList' }, ['gm:privateList'], 'GM private list');
+    assert.ok(Array.isArray(gmPrivateList.conversations));
+    const gmPrivateThread = await gm.ask({ type: 'gm:privateOpen', playerId: ana.playerId }, ['gm:privateThread'], 'GM opens Ana private channel');
+    assert.equal(gmPrivateThread.thread.other.id, ana.playerId);
+    from = ana.mark();
+    gm.send({ type: 'gm:privateSend', toId: ana.playerId, text: 'Broker private test' });
+    await ana.next(m => m.type === 'dm:message' && m.message.text === 'Broker private test' && m.other.id === '__GM__', 'player receives private Broker message', from);
+    await gm.next(m => m.type === 'gm:privateMessage' && m.message.text === 'Broker private test', 'GM receives private echo');
+
     // 7. Offline delivery: Bo leaves, Ana writes, Bo returns to an unread count.
     bo.close();
     await sleep(300);
@@ -198,7 +218,8 @@ function checkHiddenFromPublic() {
     assert.equal(await ana.none(m => m.type === 'gm:dmOverview', from), true, 'players never get the overview');
     const before = (await bo.ask({ type: 'dm:list' }, ['dm:list'], 'bo list before')).conversations[0].unread;
     const overview = (await gm.ask({ type: 'gm:dmOverview' }, ['gm:dmOverview'], 'overview')).data;
-    assert.equal(overview.conversations.length, 1);
+    assert.ok(overview.conversations.length >= 2, 'oversight sees player and Broker-private conversations');
+    assert.ok(overview.conversations.some(c => c.id === conversationId), 'player conversation remains visible to oversight');
     assert.equal(overview.reports.length, 1);
     assert.equal(overview.reports[0].reason, 'test report');
     const full = (await gm.ask({ type: 'gm:dmThread', conversationId }, ['gm:dmThread'], 'full thread')).conversation;

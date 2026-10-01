@@ -4053,8 +4053,20 @@ body.gm-layout-locked .gm-module-height-splitter {
   padding: 10px 20px;
   border-bottom: 1px solid var(--panel-border);
   background: #0c0e14;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
+}
+
+.forge-toolbar-row .forge-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 220px;
+}
+
+.forge-toolbar-row .forge-select {
+  flex: 0 0 180px;
+  width: 180px;
+  cursor: pointer;
 }
 
 .forge-input,
@@ -4154,7 +4166,7 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 .game-card-title {
-  font-size: 0.95rem;
+  font-size: 1.14rem;
   font-weight: 600;
   color: var(--text-primary);
   text-transform: uppercase;
@@ -4174,7 +4186,7 @@ body.gm-layout-locked .gm-module-height-splitter {
 }
 
 .game-card-theme {
-  font-size: 0.72rem;
+  font-size: 0.864rem;
   color: var(--text-dim);
 }
 
@@ -4208,7 +4220,7 @@ body.gm-layout-locked .gm-module-height-splitter {
 
 .difficulty-badge {
   display: inline-block;
-  font-size: 0.55rem;
+  font-size: 0.66rem;
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 3px;
@@ -17335,18 +17347,227 @@ button.gm-chat-gif-link:focus-visible {
   margin-left:auto !important;
   margin-right:auto !important;
 }
+/* Social emote/action cards are room events, not speaker bubbles.
+   Keep them centered regardless of who triggered them. */
+.chat-system-card.chat-system-emote,
+.chat-system-card.chat-system-spit,
+.chat-system-card.chat-system-fart,
+.chat-system-card.chat-system-hiss,
+.chat-system-card.chat-system-nod {
+  margin-left:auto !important;
+  margin-right:auto !important;
+}
 .chat-system-label { color:var(--sys-accent); font-size:.6rem; font-weight:900; letter-spacing:.22em; text-transform:uppercase; }
 .chat-system-body { color:#e8ebee; font-size:.78rem; font-weight:700; letter-spacing:.02em; line-height:1.35; }
 .chat-system-body b { color:var(--sys-accent); font-weight:950; }
 .chat-system-detail { color:#9aa3ad; font-size:.64rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-top:2px; }
 .chat-system-ok { color:#5ee08a; }
 .chat-system-ko { color:#ff7b72; }
-.chat-system-spit { --sys-accent:#b477ff; }
+.chat-system-spit { --sys-accent:#245f9d; }
 .chat-system-spit .chat-system-body { font-style:italic; }
-.chat-system-fart { --sys-accent:#9acd32; }
+.chat-system-fart { --sys-accent:#7fbe25; }
 .chat-system-fart .chat-system-body { font-style:italic; }
 .chat-system-hiss { --sys-accent:#78d89a; }
 .chat-system-hiss .chat-system-body { font-style:italic; letter-spacing:.025em; }
+
+/* Targeted-act impact animations. These live inside the system card so they
+   work identically in the player web app and the Shadow Broker desktop feed. */
+.chat-system-spit,
+.chat-system-fart { position:relative; isolation:isolate; }
+.chat-act-fx { position:absolute; inset:0; z-index:2; overflow:visible; pointer-events:none; }
+.chat-system-spit > :not(.chat-act-fx),
+.chat-system-fart > :not(.chat-act-fx) { position:relative; z-index:3; }
+
+/* /fart: a short toxic shroud rolls outward, followed by buoyant gas bubbles. */
+.chat-fart-fx::before,
+.chat-fart-fx::after {
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:42%; height:110%;
+  border-radius:50%;
+  opacity:0;
+  background:
+    radial-gradient(circle at 28% 58%,rgba(189,255,61,.64) 0 13%,rgba(92,171,30,.34) 29%,transparent 61%),
+    radial-gradient(circle at 62% 38%,rgba(146,224,45,.58) 0 18%,rgba(55,115,21,.28) 38%,transparent 66%),
+    radial-gradient(circle at 76% 72%,rgba(113,196,30,.48) 0 15%,transparent 58%);
+  filter:blur(5px) saturate(1.25);
+  animation:chat-fart-cloud 1.55s cubic-bezier(.18,.7,.22,1) both;
+}
+.chat-fart-fx::after { animation-delay:.12s; transform:translate(-50%,-50%) scale(.62) rotate(180deg); }
+.chat-fart-fx i {
+  position:absolute;
+  left:calc(18% + var(--fart-x,0%)); bottom:16%;
+  width:var(--fart-size,12px); height:var(--fart-size,12px);
+  border:2px solid rgba(178,255,75,.72);
+  border-radius:50%;
+  background:radial-gradient(circle at 32% 26%,rgba(233,255,191,.62),rgba(111,195,31,.24) 45%,rgba(25,73,15,.2) 70%);
+  box-shadow:0 0 9px rgba(116,220,28,.68),inset 0 0 5px rgba(205,255,114,.4);
+  opacity:0;
+  animation:chat-fart-bubble 1.55s ease-out var(--fart-delay,0s) both;
+}
+.chat-fart-fx i:nth-child(1){--fart-x:2%;--fart-size:9px;--fart-delay:.05s}
+.chat-fart-fx i:nth-child(2){--fart-x:15%;--fart-size:15px;--fart-delay:.12s}
+.chat-fart-fx i:nth-child(3){--fart-x:30%;--fart-size:7px;--fart-delay:.22s}
+.chat-fart-fx i:nth-child(4){--fart-x:47%;--fart-size:12px;--fart-delay:.08s}
+.chat-fart-fx i:nth-child(5){--fart-x:63%;--fart-size:8px;--fart-delay:.27s}
+.chat-fart-fx i:nth-child(6){--fart-x:75%;--fart-size:14px;--fart-delay:.17s}
+
+/* /spit: dark cobalt impact smear with a wet central splat and thrown drops. */
+.chat-spit-fx::before {
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:88px; height:54px;
+  border-radius:48% 38% 53% 42%;
+  opacity:0;
+  background:
+    radial-gradient(ellipse at 45% 48%,rgba(44,114,181,.96) 0 19%,rgba(18,69,125,.94) 38%,rgba(4,25,60,.92) 65%,transparent 69%),
+    linear-gradient(96deg,transparent 5%,rgba(21,73,134,.82) 28%,rgba(4,26,65,.9) 74%,transparent 96%);
+  filter:drop-shadow(0 2px 2px rgba(0,8,28,.9)) drop-shadow(0 0 7px rgba(30,94,170,.55));
+  animation:chat-spit-impact 1.2s cubic-bezier(.12,.78,.18,1) both;
+}
+.chat-spit-fx::after {
+  content:"";
+  position:absolute;
+  left:38%; top:56%;
+  width:29%; height:5px;
+  border-radius:100%;
+  background:linear-gradient(90deg,transparent,rgba(29,93,166,.8),rgba(3,25,64,.92),transparent);
+  opacity:0;
+  transform:rotate(-7deg);
+  animation:chat-spit-smear 1.35s ease-out both;
+}
+.chat-spit-fx i {
+  position:absolute;
+  left:50%; top:50%;
+  width:var(--spit-w,8px); height:var(--spit-h,8px);
+  border-radius:62% 38% 58% 42%;
+  background:radial-gradient(circle at 35% 28%,#4c9bd5 0 10%,#174f93 38%,#041b48 78%);
+  box-shadow:0 1px 3px rgba(0,7,25,.9);
+  opacity:0;
+  animation:chat-spit-drop 1.05s cubic-bezier(.15,.72,.2,1) var(--spit-delay,0s) both;
+}
+.chat-spit-fx i:nth-child(1){--spit-x:-74px;--spit-y:-28px;--spit-w:10px;--spit-h:7px}
+.chat-spit-fx i:nth-child(2){--spit-x:70px;--spit-y:-23px;--spit-w:7px;--spit-h:12px;--spit-delay:.03s}
+.chat-spit-fx i:nth-child(3){--spit-x:-56px;--spit-y:31px;--spit-w:6px;--spit-h:9px;--spit-delay:.06s}
+.chat-spit-fx i:nth-child(4){--spit-x:58px;--spit-y:32px;--spit-w:12px;--spit-h:6px;--spit-delay:.04s}
+.chat-spit-fx i:nth-child(5){--spit-x:14px;--spit-y:-39px;--spit-w:6px;--spit-h:6px;--spit-delay:.09s}
+
+@keyframes chat-fart-cloud {
+  0% { opacity:0; transform:translate(-50%,-35%) scale(.22); }
+  24% { opacity:.92; }
+  100% { opacity:0; transform:translate(-50%,-76%) scale(1.8); }
+}
+@keyframes chat-fart-bubble {
+  0% { opacity:0; transform:translate(0,4px) scale(.3); }
+  22% { opacity:.95; }
+  100% { opacity:0; transform:translate(var(--fart-drift,12px),-76px) scale(1.25); }
+}
+@keyframes chat-spit-impact {
+  0% { opacity:0; transform:translate(-50%,-50%) scale(.08) rotate(-9deg); }
+  18% { opacity:1; transform:translate(-50%,-50%) scale(1.18) rotate(2deg); }
+  32% { transform:translate(-50%,-50%) scale(.96) rotate(0); }
+  76% { opacity:.9; }
+  100% { opacity:0; transform:translate(-50%,-47%) scale(1.03); }
+}
+@keyframes chat-spit-smear {
+  0%,14% { opacity:0; transform:rotate(-7deg) scaleX(.12); }
+  28% { opacity:.9; transform:rotate(-7deg) scaleX(1); }
+  100% { opacity:0; transform:translateY(8px) rotate(-7deg) scaleX(1.08); }
+}
+@keyframes chat-spit-drop {
+  0% { opacity:0; transform:translate(-50%,-50%) scale(.2); }
+  24% { opacity:1; }
+  100% { opacity:0; transform:translate(calc(-50% + var(--spit-x)),calc(-50% + var(--spit-y))) scale(.85); }
+}
+
+/* Full-screen command impacts. Chat cards are frequently rebuilt by the GM
+   feed, so the visible effect lives at document level and survives repainting. */
+.chat-act-screen-fx {
+  position:fixed;
+  inset:0;
+  z-index:2147483000;
+  overflow:hidden;
+  pointer-events:none;
+  isolation:isolate;
+}
+.chat-act-screen-fx .chat-act-screen-core,
+.chat-act-screen-fx i { position:absolute; display:block; opacity:0; }
+
+.chat-act-screen-fx.is-fart {
+  background:radial-gradient(ellipse at 50% 72%,rgba(80,146,20,.12),transparent 53%);
+  animation:chat-fart-screen-wash 2.05s ease-out both;
+}
+.chat-act-screen-fx.is-fart .chat-act-screen-core {
+  left:50%; bottom:8%; width:min(58vw,760px); height:min(37vw,470px);
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 24% 63%,rgba(189,255,72,.7) 0 7%,rgba(75,145,22,.48) 17%,transparent 35%),
+    radial-gradient(circle at 48% 42%,rgba(141,224,45,.68) 0 10%,rgba(46,111,19,.42) 26%,transparent 45%),
+    radial-gradient(circle at 72% 61%,rgba(171,241,58,.63) 0 8%,rgba(57,130,20,.4) 23%,transparent 42%);
+  filter:blur(15px) saturate(1.35);
+  animation:chat-fart-screen-cloud 2.05s cubic-bezier(.17,.7,.2,1) both;
+}
+.chat-act-screen-fx.is-fart i {
+  left:calc(13% + (var(--n) * 5.4%)); bottom:7%;
+  width:22px; height:22px;
+  border:2px solid rgba(194,255,92,.78); border-radius:50%;
+  background:radial-gradient(circle at 30% 24%,rgba(236,255,202,.72),rgba(103,190,30,.26) 48%,rgba(24,72,12,.12) 72%);
+  box-shadow:0 0 14px rgba(116,222,30,.78),inset 0 0 7px rgba(218,255,146,.45);
+  animation:chat-fart-screen-bubble 1.9s ease-out calc(var(--n) * 45ms) both;
+}
+.chat-act-screen-fx.is-fart i:nth-of-type(1){--n:1}.chat-act-screen-fx.is-fart i:nth-of-type(2){--n:2}
+.chat-act-screen-fx.is-fart i:nth-of-type(3){--n:3}.chat-act-screen-fx.is-fart i:nth-of-type(4){--n:4}
+.chat-act-screen-fx.is-fart i:nth-of-type(5){--n:5}.chat-act-screen-fx.is-fart i:nth-of-type(6){--n:6}
+.chat-act-screen-fx.is-fart i:nth-of-type(7){--n:7}.chat-act-screen-fx.is-fart i:nth-of-type(8){--n:8}
+.chat-act-screen-fx.is-fart i:nth-of-type(9){--n:9}.chat-act-screen-fx.is-fart i:nth-of-type(10){--n:10}
+.chat-act-screen-fx.is-fart i:nth-of-type(11){--n:11}.chat-act-screen-fx.is-fart i:nth-of-type(12){--n:12}
+.chat-act-screen-fx.is-fart i:nth-of-type(13){--n:13}.chat-act-screen-fx.is-fart i:nth-of-type(14){--n:14}
+
+.chat-act-screen-fx.is-spit .chat-act-screen-core {
+  left:50%; top:48%; width:min(38vw,520px); aspect-ratio:1.75;
+  border-radius:47% 53% 42% 58%;
+  background:radial-gradient(ellipse at 48% 46%,#3c8dcc 0 8%,#15538f 25%,#062957 53%,rgba(2,14,39,.9) 68%,transparent 72%);
+  filter:drop-shadow(0 6px 4px rgba(0,5,20,.9)) drop-shadow(0 0 18px rgba(25,91,162,.62));
+  animation:chat-spit-screen-impact 1.55s cubic-bezier(.12,.78,.18,1) both;
+}
+.chat-act-screen-fx.is-spit i {
+  left:50%; top:48%; width:15px; height:22px;
+  border-radius:60% 40% 65% 35%;
+  background:radial-gradient(circle at 32% 24%,#5cabe0,#164f91 42%,#031a45 80%);
+  box-shadow:0 2px 5px rgba(0,5,22,.9);
+  animation:chat-spit-screen-drop 1.35s cubic-bezier(.14,.74,.2,1) calc(var(--n) * 18ms) both;
+}
+.chat-act-screen-fx.is-spit i:nth-of-type(1){--n:1;--sx:-34vw;--sy:-21vh}.chat-act-screen-fx.is-spit i:nth-of-type(2){--n:2;--sx:31vw;--sy:-17vh}
+.chat-act-screen-fx.is-spit i:nth-of-type(3){--n:3;--sx:-27vw;--sy:25vh}.chat-act-screen-fx.is-spit i:nth-of-type(4){--n:4;--sx:29vw;--sy:23vh}
+.chat-act-screen-fx.is-spit i:nth-of-type(5){--n:5;--sx:-12vw;--sy:-29vh}.chat-act-screen-fx.is-spit i:nth-of-type(6){--n:6;--sx:10vw;--sy:31vh}
+.chat-act-screen-fx.is-spit i:nth-of-type(7){--n:7;--sx:-39vw;--sy:4vh}.chat-act-screen-fx.is-spit i:nth-of-type(8){--n:8;--sx:38vw;--sy:-2vh}
+.chat-act-screen-fx.is-spit i:nth-of-type(9){--n:9;--sx:-19vw;--sy:33vh}.chat-act-screen-fx.is-spit i:nth-of-type(10){--n:10;--sx:21vw;--sy:-31vh}
+
+@keyframes chat-fart-screen-wash { 0%,100%{opacity:0} 18%,62%{opacity:1} }
+@keyframes chat-fart-screen-cloud {
+  0%{opacity:0;transform:translate(-50%,35%) scale(.3)} 22%{opacity:.94}
+  100%{opacity:0;transform:translate(-50%,-52%) scale(1.65)}
+}
+@keyframes chat-fart-screen-bubble {
+  0%{opacity:0;transform:translateY(12px) scale(.25)} 18%{opacity:.95}
+  100%{opacity:0;transform:translate(calc((var(--n) - 7) * 5px),-62vh) scale(1.35)}
+}
+@keyframes chat-spit-screen-impact {
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.04) rotate(-11deg)}
+  17%{opacity:.96;transform:translate(-50%,-50%) scale(1.16) rotate(2deg)}
+  32%{transform:translate(-50%,-50%) scale(.96)} 76%{opacity:.88} 100%{opacity:0;transform:translate(-50%,-47%) scale(1.03)}
+}
+@keyframes chat-spit-screen-drop {
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.15)} 19%{opacity:1}
+  100%{opacity:0;transform:translate(calc(-50% + var(--sx)),calc(-50% + var(--sy))) rotate(28deg) scale(.85)}
+}
+@media (prefers-reduced-motion:reduce) {
+  .chat-fart-fx::before,.chat-fart-fx::after,.chat-fart-fx i,
+  .chat-spit-fx::before,.chat-spit-fx::after,.chat-spit-fx i,
+  .chat-act-screen-fx,.chat-act-screen-fx .chat-act-screen-core,.chat-act-screen-fx i { animation-duration:.01ms !important; }
+}
 
 /* Image-only Shadow Broker posts: the image is the complete message. */
 .gm-shadow-broker-entry > .chat-image-link.broker-image-only {
@@ -19715,19 +19936,68 @@ body.room-mode-casual #battle-controls-panel > .battle-flow-row { display: none 
 /* ATOMIC CLASS CLOCK // central Shadow Broker schedule telemetry. */
 body.room-mode-casual .gm-module-chat .gm-chat-header {
   display:grid !important;
-  grid-template-columns:max-content max-content minmax(180px,1fr) max-content;
+  grid-template-columns:minmax(102px,max-content) minmax(92px,max-content) minmax(124px,max-content) minmax(150px,1fr) max-content;
+  grid-template-rows:38px;
+  align-items:stretch !important;
+  column-gap:0;
   justify-content:stretch !important;
+  min-height:46px !important;
+  padding:4px 8px !important;
 }
 body.room-mode-casual .gm-module-chat .gm-chat-tab { grid-column:1; }
-body.room-mode-casual .gm-module-chat .gm-minigames-toggle { grid-column:2; }
+body.room-mode-casual .gm-module-chat #gm-minigames-toggle { grid-column:2; }
+body.room-mode-casual .gm-module-chat #gm-dm-toggle { grid-column:3; }
+body.room-mode-casual .gm-module-chat :is(.gm-chat-tab,#gm-minigames-toggle,#gm-dm-toggle) {
+  grid-row:1;
+  align-self:stretch !important;
+  justify-self:stretch !important;
+  display:grid !important;
+  place-items:center;
+  min-width:0;
+  height:38px;
+  margin:0 !important;
+  padding:0 13px !important;
+  border:1px solid rgba(139,87,177,.42) !important;
+  border-right-width:0 !important;
+  background:
+    linear-gradient(180deg,rgba(91,48,119,.2),rgba(20,16,27,.94)),
+    repeating-linear-gradient(90deg,transparent 0 13px,rgba(194,132,236,.025) 13px 14px) !important;
+  color:#bba8ca !important;
+  font:900 .54rem/1 var(--font-machine) !important;
+  letter-spacing:.13em !important;
+  white-space:nowrap;
+  text-align:center;
+  text-shadow:0 0 8px rgba(187,101,241,.14);
+  box-shadow:inset 0 1px rgba(255,255,255,.035),inset 0 -1px rgba(0,0,0,.55) !important;
+  clip-path:none;
+}
+body.room-mode-casual .gm-module-chat .gm-chat-tab {
+  border-radius:7px 0 0 7px !important;
+}
+body.room-mode-casual .gm-module-chat #gm-dm-toggle {
+  border-right-width:1px !important;
+  border-radius:0 7px 7px 0 !important;
+}
+body.room-mode-casual .gm-module-chat :is(.gm-chat-tab,#gm-minigames-toggle,#gm-dm-toggle):is(:hover,.is-active,[aria-selected="true"]) {
+  position:relative;
+  z-index:2;
+  color:#f3ddff !important;
+  border-color:rgba(190,91,244,.78) !important;
+  background:
+    linear-gradient(180deg,rgba(139,54,184,.68),rgba(66,26,91,.7)),
+    repeating-linear-gradient(90deg,transparent 0 13px,rgba(255,255,255,.035) 13px 14px) !important;
+  box-shadow:inset 0 -3px #c05cff,inset 0 1px rgba(255,255,255,.09),0 0 16px rgba(159,66,214,.2) !important;
+}
 body.room-mode-casual .gm-module-chat .gm-chat-presence-wrap {
-  grid-column:4;
+  grid-column:5;
+  grid-row:1;
   margin-left:0 !important;
 }
 .gm-atomic-clock {
   position:relative;
   z-index:4;
-  grid-column:3;
+  grid-column:4;
+  grid-row:1;
   justify-self:center;
   align-self:center;
   display:grid;
@@ -19741,6 +20011,17 @@ body.room-mode-casual .gm-module-chat .gm-chat-presence-wrap {
   background:linear-gradient(180deg,rgba(25,20,33,.96),rgba(9,11,16,.98));
   box-shadow:inset 0 0 18px rgba(132,76,181,.08),0 0 14px rgba(96,50,139,.12);
   pointer-events:none;
+}
+@media (max-width:1450px) {
+  body.room-mode-casual .gm-module-chat .gm-chat-header {
+    grid-template-columns:minmax(88px,1fr) minmax(82px,1fr) minmax(112px,1.2fr) minmax(126px,1fr) max-content;
+  }
+  body.room-mode-casual .gm-module-chat :is(.gm-chat-tab,#gm-minigames-toggle,#gm-dm-toggle) {
+    padding-inline:8px !important;
+    font-size:.49rem !important;
+    letter-spacing:.095em !important;
+  }
+  body.room-mode-casual .gm-module-chat .gm-atomic-clock { min-width:126px; padding-inline:10px; }
 }
 body:not(.room-mode-casual) .gm-atomic-clock { display:none; }
 .gm-atomic-clock time {
@@ -19776,19 +20057,72 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
   .gm-atomic-clock time i,.gm-atomic-clock.is-warning,html.class-clock-nudge body { animation:none!important; }
 }
 
-.game-card.game-list-row {
-  min-height: 64px;
-  padding: 10px 14px;
-  border-width: 0 0 1px;
-  border-radius: 0;
-  background: rgba(18, 20, 26, 0.72);
+/* CLASS WARNING BANNER // "don't be late", server-scheduled, 5 seconds.
+   Sits above every layer the app uses (the previous ceiling was 2147483000) and
+   never takes pointer events, so a board or a puzzle underneath stays usable
+   while it is up. Authored to exactly 5s to match BANNER_MS in class-clock.js. */
+.class-warning-banner {
+  position:fixed;
+  inset:0;
+  z-index:2147483100;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(8px,1.4vw,18px);
+  padding:clamp(18px,4vw,40px);
+  text-align:center;
+  pointer-events:none;
+  background:radial-gradient(circle at 50% 44%,rgba(239,181,61,.17),rgba(9,6,4,.74) 56%,rgba(6,4,3,.92));
+  animation:class-warning-banner-life 5s cubic-bezier(.22,.61,.36,1) both;
+}
+.class-warning-banner-text {
+  margin:0;
+  max-width:22ch;
+  font:900 clamp(1.35rem,5.4vw,3.3rem)/1.08 var(--font-mono,monospace);
+  letter-spacing:.055em;
+  color:#ffdc95;
+  text-shadow:0 0 22px rgba(239,181,61,.6),0 0 60px rgba(239,181,61,.28),0 2px 0 rgba(0,0,0,.65);
+}
+.class-warning-banner-label {
+  margin:0;
+  font:800 clamp(.72rem,1.7vw,1rem)/1 var(--font-mono,monospace);
+  letter-spacing:.32em;
+  color:rgba(239,181,61,.78);
+}
+/* 0-9% slam in, 9-78% hold, 78-100% disperse. The node is removed by a timer at
+   the same 5000ms, so the last frame and the teardown agree. */
+@keyframes class-warning-banner-life {
+  0%   { opacity:0; transform:scale(1.16); filter:blur(7px); }
+  9%   { opacity:1; transform:scale(1); filter:blur(0); }
+  78%  { opacity:1; transform:scale(1); filter:blur(0); }
+  100% { opacity:0; transform:scale(.965); filter:blur(3px); }
+}
+@keyframes class-warning-banner-fade { 0% { opacity:0; } 8% { opacity:1; } 84% { opacity:1; } 100% { opacity:0; } }
+@media (prefers-reduced-motion:reduce) {
+  .class-warning-banner { animation:class-warning-banner-fade 5s linear both; }
+  .class-warning-banner-text { text-shadow:none; }
 }
 
-.game-card.game-list-row:nth-child(odd) {
+.forge-library > .game-list-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 130px 180px minmax(245px, auto);
+  align-items: center;
+  gap: 16px;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--panel-border);
+  border-radius: 0;
+  background: rgba(18, 20, 26, 0.72);
+  box-sizing: border-box;
+}
+
+.forge-library > .game-list-row:nth-child(odd) {
   background: rgba(24, 26, 34, 0.72);
 }
 
-.game-card.game-list-row:hover {
+.forge-library > .game-list-row:hover {
   position: relative;
   z-index: 2;
   background: rgba(33, 35, 45, 0.92);
@@ -19815,9 +20149,50 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
   margin-top: 4px;
 }
 
+.game-list-solutions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 8px;
+  min-width: 0;
+  color: #a9afbb;
+  font-size: 0.696rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.game-list-solutions span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid rgba(110, 118, 136, 0.28);
+  border-radius: 3px;
+  background: rgba(11, 13, 18, 0.5);
+  white-space: nowrap;
+}
+
+.game-list-solutions b {
+  color: #7f8796;
+  font-size: 0.624rem;
+  letter-spacing: 0.08em;
+}
+
+.game-list-solutions .game-list-final {
+  border-color: rgba(212, 168, 67, 0.42);
+  color: #e2d4a6;
+  background: rgba(92, 69, 19, 0.12);
+}
+
+.game-list-solutions .game-list-final b {
+  color: var(--accent-gold);
+}
+
 .game-list-date {
   color: var(--text-dim);
-  font-size: 0.68rem;
+  font-size: 0.816rem;
   font-weight: 700;
   letter-spacing: 0.35px;
   text-transform: uppercase;
@@ -19831,8 +20206,9 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 
 .game-list-actions .forge-btn,
 .game-list-more > summary {
-  min-height: 34px;
-  padding: 7px 12px;
+  min-height: 41px;
+  padding: 8px 14px;
+  font-size: 0.84rem;
   white-space: nowrap;
 }
 
@@ -20410,6 +20786,90 @@ html.class-clock-nudge body { animation:class-clock-screen-nudge .58s cubic-bezi
 .voice-recorder .voice-recorder-send:hover { filter: brightness(1.1); }
 .voice-recorder button:disabled { opacity: .5; cursor: default; }
 .chat-voice-btn svg, .gm-voice-btn svg { display: block; margin: auto; }
+
+/* VOICE MESSAGE CAPSULE // the purple player is the entire message. The generic
+   text-message shell, header and reply chrome are deliberately removed. */
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-main {
+  position:relative !important;
+  justify-self:start !important;
+  width:min(100%,320px) !important;
+  min-width:min(250px,100%) !important;
+  max-width:320px !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:999px !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  overflow:visible !important;
+}
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-main::before,
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-header,
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-line,
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-reply-btn {
+  display:none !important;
+}
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-voice {
+  width:100% !important;
+  max-width:none !important;
+  min-height:44px !important;
+  margin:0 !important;
+  padding:5px 10px 5px 5px !important;
+  gap:10px !important;
+  border-color:rgba(176,112,235,.62) !important;
+  background:
+    linear-gradient(180deg,rgba(42,22,58,.98),rgba(15,9,23,.99)) !important;
+  box-shadow:inset 0 1px rgba(235,207,255,.08),0 3px 10px rgba(0,0,0,.30) !important;
+}
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-voice-track,
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .chat-voice-track {
+  height:8px !important;
+  border-radius:2px !important;
+  background:repeating-linear-gradient(90deg,rgba(190,140,255,.28) 0 2px,transparent 2px 5px) !important;
+}
+#game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-reactions {
+  margin:3px 5px 0 !important;
+}
+
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-message-main {
+  position:relative !important;
+  width:min(100%,320px) !important;
+  min-width:min(250px,100%) !important;
+  max-width:320px !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:999px !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  overflow:visible !important;
+}
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-message-main::before,
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-flow-header,
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-message-line {
+  display:none !important;
+}
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .chat-voice {
+  width:100% !important;
+  max-width:none !important;
+  min-height:44px !important;
+  margin:0 !important;
+  padding:5px 10px 5px 5px !important;
+  gap:10px !important;
+  border-color:rgba(176,112,235,.62) !important;
+  background:linear-gradient(180deg,rgba(42,22,58,.98),rgba(15,9,23,.99)) !important;
+  box-shadow:inset 0 1px rgba(235,207,255,.08),0 3px 10px rgba(0,0,0,.30) !important;
+}
+.gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-reactions { margin:3px 5px 0 !important; }
+
+@media (max-width:480px) {
+  #game-screen .battle-comms-lobby #chat-messages .chat-message.voice-message .chat-message-main {
+    width:min(100%,290px) !important;
+    min-width:min(220px,100%) !important;
+  }
+  .gm-module-chat #gm-chat-messages .gm-flow-message.voice-message .gm-chat-message-main {
+    width:min(100%,290px) !important;
+    min-width:min(220px,100%) !important;
+  }
+}
 
 /* GM COMMANDS // SHADOW BROKER: digital glitch void nightmare.
    QUESTS, SOUNDS, BIĆE ASOC, RESET BOARD and MASTER ACCESS share one void

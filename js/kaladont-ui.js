@@ -63,7 +63,7 @@
         <div class="kal-kicker">LOBBY // ${esc(state.ownerName)}</div>
         <div class="kal-count"><b>${state.members.length}</b> JOINED${online !== state.members.length ? ` · ${online} ONLINE` : ''}</div>
         <ul class="kal-members">${rows}</ul>
-        <p class="kal-rules">Turn clocks tighten by round: 40s → 35s → 30s → 30s → 25s → 20s thereafter. Each word must start with the last two letters of the last accepted word. Every living player votes on it: silence counts as ACCEPT, ties ACCEPT, a REJECT majority eliminates. <b>KALADONT</b> kills the next player. Last one standing wins.</p>
+        <p class="kal-rules">Turn clocks tighten by round: 40s → 35s → 30s → 30s → 25s → 20s thereafter. Each word starts with the required Serbian ending; LJ/NJ stay intact. Everyone except the submitter votes: silence counts as ACCEPT, ties ACCEPT. <b>KALADONT</b> eliminates the previous player, then its author opens a fresh chain. Last one standing wins.</p>
         <div class="kal-actions">${actions}</div>
         ${!opts.spectator && you.owner && online < 2 ? '<div class="kal-hint">WAITING FOR AT LEAST 2 ONLINE PLAYERS</div>' : ''}
       </div>`;
@@ -91,7 +91,7 @@
   function tribunalView(state, opts) {
     const t = state.tribunal;
     const skew = skewOf(state);
-    const canVote = !opts.spectator && state.you?.alive && !t.youVoted && !t.closed;
+    const canVote = !opts.spectator && t.youMayVote && !t.youVoted && !t.closed;
     return `
       <div class="kal-tribunal">
         <div class="kal-kicker">TRIBUNAL // ${esc(t.byName)} SUBMITS</div>
@@ -99,7 +99,7 @@
         <div class="kal-tally"><b>${t.voted} / ${t.voters}</b> VOTED · ${clock(t.deadline, skew, 15)}</div>
         ${canVote
           ? `<div class="kal-vote" data-tribunal-seq="${t.seq}"><button type="button" data-kaladont-action="vote-accept" class="is-accept">ACCEPT</button><button type="button" data-kaladont-action="vote-reject" class="is-reject">REJECT</button></div>`
-          : `<div class="kal-hint">${t.youVoted ? `YOU VOTED ${esc(t.youVoted.toUpperCase())} // VOTES STAY SECRET UNTIL THE VERDICT` : state.you?.alive ? '' : 'SPECTATORS DO NOT VOTE'}</div>`}
+          : `<div class="kal-hint">${t.yourWord ? 'YOUR WORD // YOU DO NOT VOTE' : t.youVoted ? `YOU VOTED ${esc(t.youVoted.toUpperCase())} // VOTES STAY SECRET UNTIL THE VERDICT` : t.youMayVote ? '' : state.you?.alive ? 'JOINED AFTER THIS TRIBUNAL // VOTING NEXT WORD' : 'SPECTATORS DO NOT VOTE'}</div>`}
         <div class="kal-hint">SILENCE COUNTS AS ACCEPT · A TIE ACCEPTS</div>
       </div>`;
   }
@@ -143,6 +143,17 @@
       </div>`;
   }
 
+  function admissionControls(state, opts) {
+    if (opts.canCancel && state.phase !== 'ended') {
+      const requests = Array.isArray(state.admissionRequests) ? state.admissionRequests : [];
+      if (!requests.length) return '<div class="kal-admission is-empty">NO ADMISSION REQUESTS</div>';
+      return `<div class="kal-admission"><div class="kal-kicker">ADMISSION REQUESTS</div>${requests.map(r => `<div class="kal-admission-row"><b>${esc(r.name)}</b><span><button type="button" data-kaladont-action="admit" data-player-id="${esc(r.id)}">ADMIT</button><button type="button" class="is-danger" data-kaladont-action="deny-admission" data-player-id="${esc(r.id)}">DENY</button></span></div>`).join('')}</div>`;
+    }
+    if (state.you?.admissionRequested) return '<div class="kal-admission"><button type="button" disabled>ADMISSION REQUESTED</button></div>';
+    if (state.you?.canRequestAdmission) return '<div class="kal-admission"><button type="button" data-kaladont-action="request-admission">ASK FOR ADMITTANCE</button></div>';
+    return '';
+  }
+
   // opts: { viewerId, spectator, canCancel }
   function render(state, opts = {}) {
     if (!state) {
@@ -159,7 +170,7 @@
       : endedView(state, opts);
     const gmEnd = opts.canCancel && state.phase !== 'ended'
       ? '<div class="kal-actions"><button type="button" data-kaladont-action="gm-cancel" class="is-danger">END GAME</button></div>' : '';
-    return `<div class="kal-game is-${esc(state.phase)}">${orderStrip(state)}${body}${state.phase === 'ended' ? '' : history(state)}${gmEnd}</div>`;
+    return `<div class="kal-game is-${esc(state.phase)}">${orderStrip(state)}${admissionControls(state, opts)}${body}${state.phase === 'ended' ? '' : history(state)}${gmEnd}</div>`;
   }
 
   // Repaints every countdown in `root` once; hosts call it on an interval.

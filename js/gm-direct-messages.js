@@ -1,6 +1,6 @@
 // SHADOW BROKER DIRECT MESSAGES // compact GM console for Amusement Park.
 (function () {
-  const state = { list: [], thread: null, error: '', notice: '' };
+  const state = { list: [], thread: null, error: '', notice: '', open: false };
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   const time = t => new Date(Number(t) || 0).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
   const send = m => window.App?.send?.(m);
@@ -50,7 +50,7 @@
   function render() {
     const el = root();
     if (!el) return;
-    el.hidden = false;
+    el.hidden = !state.open;
     const unread = state.list.reduce((n,c) => n + Number(c.unread || 0), 0);
     el.innerHTML = '<header><span>PRIVATE CHANNELS</span>' + (unread ? '<b>' + unread + '</b>' : '') + '<small>SHADOW BROKER // DIRECT</small></header>' +
       (state.error ? '<div class="gm-dm-flash error">' + esc(state.error) + '</div>' : state.notice ? '<div class="gm-dm-flash">' + esc(state.notice) + '</div>' : '') +
@@ -73,7 +73,30 @@
 
   function sync() {
     render();
-    if (window.App?.roomCode && window.App?.ws?.readyState === 1) send({ type:'gm:privateList' });
+    if (state.open && window.App?.roomCode && window.App?.ws?.readyState === 1) send({ type:'gm:privateList' });
+  }
+
+  function setOpen(open) {
+    const panel = document.querySelector('.gm-module-chat .gm-chat-panel');
+    const toggle = document.getElementById('gm-dm-toggle');
+    const chatTab = document.getElementById('gm-chat-tab');
+    const next = open === true && (window.App?.roomMode === 'CASUAL' || document.body.classList.contains('room-mode-casual'));
+    state.open = next;
+    panel?.classList.toggle('gm-dm-open', next);
+    toggle?.classList.toggle('is-active', next);
+    toggle?.setAttribute('aria-expanded', String(next));
+    toggle?.setAttribute('aria-selected', String(next));
+    if (next) {
+      window.GMMinigames?.toggleLibrary?.(false);
+      window.GMMinigames?.close?.();
+      chatTab?.classList.remove('is-active');
+      chatTab?.setAttribute('aria-selected', 'false');
+      if (window.App?.roomCode && window.App?.ws?.readyState === 1) send({ type:'gm:privateList' });
+    } else {
+      chatTab?.classList.add('is-active');
+      chatTab?.setAttribute('aria-selected', 'true');
+    }
+    render();
   }
   function onMessage(m) {
     if (m.type === 'gm:privateList') {
@@ -105,6 +128,15 @@
     }
   }
   document.addEventListener('click', e => {
+    if (e.target.closest?.('#gm-dm-toggle')) {
+      e.preventDefault();
+      e.stopPropagation();
+      return setOpen(!state.open);
+    }
+    if (e.target.closest?.('#gm-chat-tab') && state.open) {
+      state.thread = null;
+      return setOpen(false);
+    }
     const person = e.target.closest?.('[data-gm-dm-player]');
     if (person) return open(person.dataset.gmDmPlayer);
     if (e.target.closest?.('[data-gm-dm-back]')) return back();
@@ -123,6 +155,6 @@
     if (e.key === 'Escape' && state.thread) { e.preventDefault(); back(); }
   });
 
-  window.GMDirectMessages = { sync, render, onMessage, open, back };
+  window.GMDirectMessages = { sync, render, onMessage, open, back, setOpen };
   document.addEventListener('DOMContentLoaded', render);
 })();

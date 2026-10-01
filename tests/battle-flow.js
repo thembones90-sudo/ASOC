@@ -151,6 +151,72 @@ async function run() {
     assert.equal(gm.state.roomMode, 'BATTLE');
     players[4] = await joinPlayer(4);
 
+    // C4 COLUMN is a live-battle-only, ephemeral chat easter egg. Both exact
+    // spellings detonate on every connected surface; longer text does not.
+    let c4GmMark = gm.mark();
+    let c4PlayerMark = players[1].mark();
+    players[0].send({ type: 'chat:guess', text: 'c4' });
+    const c4PlayerAlert = await players[1].waitFor((m, i) => i >= c4PlayerMark && m.type === 'c4:alert', 'player C4 alert');
+    const c4GmAlert = await gm.waitFor((m, i) => i >= c4GmMark && m.type === 'c4:alert', 'GM C4 alert');
+    assert.equal(c4PlayerAlert.durationMs, 3000);
+    assert.equal(c4GmAlert.durationMs, 3000);
+    await settle(420);
+
+    c4PlayerMark = players[1].mark();
+    gm.send({ type: 'gm:broadcast', text: 'c 4' });
+    await players[1].waitFor((m, i) => i >= c4PlayerMark && m.type === 'c4:alert', 'Broker C 4 alert');
+
+    const c4ChatCount = gm.chat.length;
+    c4PlayerMark = players[1].mark();
+    gm.send({ type: 'gm:broadcast', text: '/c4' });
+    const manualC4 = await players[1].waitFor((m, i) => i >= c4PlayerMark && m.type === 'c4:alert', 'Broker manual /c4 alert');
+    assert.equal(manualC4.manual, true);
+    assert.equal(gm.chat.length, c4ChatCount, 'manual /c4 remains ephemeral');
+
+    c4GmMark = gm.mark();
+    players[0].send({ type: 'chat:guess', text: 'abc4' });
+    await settle(500);
+    assert.equal(gm.msgs.slice(c4GmMark).some(m => m.type === 'c4:alert'), false, 'C4 embedded in longer text does not detonate');
+
+    const c4Client = fs.readFileSync(path.join(ROOT, 'js', 'c4-alert.js'), 'utf8');
+    const c4Css = fs.readFileSync(path.join(ROOT, 'css', 'c4-alert.css'), 'utf8');
+    assert.match(c4Client, /c4-column-gimmick\.png/, 'C4 overlay renders the supplied image');
+    assert.match(c4Css, /c4-layer-flicker 3s/, 'C4 overlay flickers for three seconds');
+    assert.ok(fs.existsSync(path.join(ROOT, 'assets', 'ui', 'c4-column-gimmick.png')), 'C4 image asset exists');
+
+    // B3 FIELD follows the same exact-token battle contract, then fractures
+    // the Baki B3 tribute image into two independently kicked-out halves.
+    let b3GmMark = gm.mark();
+    let b3PlayerMark = players[1].mark();
+    players[0].send({ type: 'chat:guess', text: 'b3' });
+    const b3PlayerAlert = await players[1].waitFor((m, i) => i >= b3PlayerMark && m.type === 'b3:alert', 'player B3 alert');
+    await gm.waitFor((m, i) => i >= b3GmMark && m.type === 'b3:alert', 'GM B3 alert');
+    assert.equal(b3PlayerAlert.durationMs, 3000);
+    await settle(420);
+
+    b3PlayerMark = players[1].mark();
+    gm.send({ type: 'gm:broadcast', text: 'b 3' });
+    await players[1].waitFor((m, i) => i >= b3PlayerMark && m.type === 'b3:alert', 'Broker B 3 alert');
+
+    const b3ChatCount = gm.chat.length;
+    b3PlayerMark = players[1].mark();
+    gm.send({ type: 'gm:broadcast', text: '/b3' });
+    const manualB3 = await players[1].waitFor((m, i) => i >= b3PlayerMark && m.type === 'b3:alert', 'Broker manual /b3 alert');
+    assert.equal(manualB3.manual, true);
+    assert.equal(gm.chat.length, b3ChatCount, 'manual /b3 remains ephemeral');
+
+    b3GmMark = gm.mark();
+    players[0].send({ type: 'chat:guess', text: 'ab3' });
+    await settle(500);
+    assert.equal(gm.msgs.slice(b3GmMark).some(m => m.type === 'b3:alert'), false, 'B3 embedded in longer text does not trigger');
+
+    const b3Client = fs.readFileSync(path.join(ROOT, 'js', 'b3-alert.js'), 'utf8');
+    const b3Css = fs.readFileSync(path.join(ROOT, 'css', 'b3-alert.css'), 'utf8');
+    assert.match(b3Client, /baki-b3-gimmick\.png/, 'B3 overlay renders the supplied image');
+    assert.match(b3Css, /b3-layer-sequence 3s/, 'B3 overlay lasts three seconds');
+    assert.match(b3Css, /b3-kick-left[\s\S]*b3-kick-right/, 'B3 overlay splits and kicks both image halves away');
+    assert.ok(fs.existsSync(path.join(ROOT, 'assets', 'ui', 'baki-b3-gimmick.png')), 'B3 image asset exists');
+
     // 2. A FINAL misjudged CORRECT and corrected to WRONG fully reopens the board.
     const winsBefore = await gamesWon();
     const misclick = await guess(players[3], 'FINAL MISCLICK');

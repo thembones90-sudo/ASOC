@@ -42,13 +42,13 @@
 }
 @keyframes bm-void { 0%,94%,100%{filter:none} 95%{filter:contrast(1.7) hue-rotate(12deg);transform:translateX(1px)} 96%{transform:translateX(-2px)} }
 .black-market-room {
-  position:relative; width:min(980px,96vw); max-height:90vh; overflow:auto;
-  border:1px solid #383941; border-left:4px solid #6f2033;
+  position:relative; width:min(1120px,96vw); max-height:92vh; overflow:auto;
+  border:1px solid #51404d; border-left:5px solid #a42d4a;
   background:
     linear-gradient(90deg, transparent 0 98%, rgba(123,28,55,.08)),
     repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 5px),
     linear-gradient(145deg,#1a1c20,#09090d 52%,#050508);
-  color:#d7d6db; box-shadow:0 34px 100px #000, inset 0 0 70px rgba(0,0,0,.65);
+  color:#e4e0e6; box-shadow:0 34px 100px #000, 0 0 44px rgba(105,18,61,.18), inset 0 0 70px rgba(0,0,0,.65);
 }
 .black-market-room::before {
   content:""; position:absolute; inset:0; pointer-events:none;
@@ -57,44 +57,48 @@
 .black-market-room header {
   position:sticky; top:0; z-index:2;
   display:flex; justify-content:space-between; align-items:center;
-  padding:22px 26px 18px; border-bottom:1px solid #292a30;
+  padding:28px 34px 24px; border-bottom:1px solid #402b38;
   background:rgba(10,10,14,.96); backdrop-filter:blur(8px);
 }
-.black-market-room header small { color:#76536d; letter-spacing:.28em; font-size:9px; }
-.black-market-room h2 { margin:5px 0 0; color:#ece9ee; font-size:24px; letter-spacing:.28em; }
-.black-market-room header button { border:1px solid #4c3038; background:#100d11; color:#a98f98; width:36px; height:36px; font-size:22px; cursor:pointer; }
-#black-market-body { padding:24px 26px 34px; }
-.bm-intro { padding:16px 18px; border:1px solid #302c35; background:#0b0b0f; }
-.bm-intro b { color:#c65c74; letter-spacing:.22em; }
-.bm-intro p { margin:7px 0 0; color:#8f8992; }
-.black-market-room h3 { margin:26px 0 10px; color:#8e8392; font-size:11px; letter-spacing:.28em; }
+.black-market-room header small { color:#b47696; letter-spacing:.28em; font-size:11px; }
+.black-market-room h2 { margin:7px 0 0; color:#fff9ff; font-size:30px; letter-spacing:.3em; text-shadow:0 0 20px rgba(204,76,132,.2); }
+.black-market-room header button { border:1px solid #69404d; background:#160d13; color:#d0aeb9; width:44px; height:44px; font-size:27px; cursor:pointer; transition:.18s ease; }
+.black-market-room header button:hover { border-color:#c44967; color:#fff; background:#35121e; box-shadow:0 0 18px rgba(211,43,85,.25); }
+#black-market-body { padding:30px 34px 42px; }
+.bm-intro { position:relative; padding:22px 24px; border:1px solid #493541; background:linear-gradient(105deg,rgba(38,13,24,.72),#0b0b0f 48%); box-shadow:inset 4px 0 0 #a93453; }
+.bm-intro::after { content:"PRIVATE // ENCRYPTED"; position:absolute; right:22px; top:20px; color:#5e4856; font:800 9px var(--font-machine,monospace); letter-spacing:.2em; }
+.bm-intro b { color:#f06f91; font-size:20px; letter-spacing:.22em; text-shadow:0 0 14px rgba(224,55,102,.22); }
+.bm-intro p { margin:10px 0 0; color:#bbb1bb; font-size:18px; line-height:1.5; }
+.black-market-room h3 { display:flex; align-items:center; gap:12px; margin:32px 0 13px; color:#b9a9b8; font-size:13px; letter-spacing:.3em; }
+.black-market-room h3::after { content:""; flex:1; height:1px; background:linear-gradient(90deg,#48313e,transparent); }
 .bm-petition { display:grid; grid-template-columns:1fr 190px; gap:12px; margin-top:16px; }
-.bm-petition label { display:grid; gap:6px; color:#7f7684; font-size:9px; letter-spacing:.18em; }
+.bm-petition label { display:grid; gap:8px; color:#a898a8; font-size:11px; letter-spacing:.18em; }
 .bm-petition label:last-of-type { grid-column:1/-1; }
 .bm-petition input,.bm-petition select,.bm-petition textarea {
   width:100%; box-sizing:border-box; border:1px solid #34323a; background:#08090c; color:#ddd9e0;
-  padding:10px 11px; font:600 12px var(--font-machine,ui-monospace,monospace); outline:none;
+  padding:13px 14px; font:600 15px var(--font-machine,ui-monospace,monospace); outline:none;
 }
 .bm-petition textarea { min-height:110px; resize:vertical; }
 .bm-petition input:focus,.bm-petition select:focus,.bm-petition textarea:focus { border-color:#743147; }
 .bm-petition>button { grid-column:1/-1; justify-self:end; }
-.bm-ledger { display:grid; gap:12px; }
-.bm-pact { padding:16px; border:1px solid #2e2e35; background:#0b0c10; box-shadow:inset 3px 0 0 #3a2029; }
+.bm-ledger { display:grid; gap:16px; }
+.bm-pact { position:relative; padding:22px; border:1px solid #403541; background:linear-gradient(110deg,#121016,#090a0e 70%); box-shadow:inset 4px 0 0 #713044,0 12px 26px rgba(0,0,0,.22); }
+.bm-pact::after { content:""; position:absolute; right:0; bottom:0; width:42px; height:42px; border-right:1px solid #6f3447; border-bottom:1px solid #6f3447; opacity:.48; pointer-events:none; }
 .bm-pact-head { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; }
-.bm-pact-head small { display:block; color:#755b69; font-size:9px; letter-spacing:.18em; }
-.bm-pact-head b { display:block; margin-top:5px; color:#ddd9de; font-size:14px; letter-spacing:.1em; }
-.bm-pact-head span { max-width:44%; color:#b74e65; font-size:9px; letter-spacing:.15em; text-align:right; }
-.bm-pact p { margin:13px 0 0; color:#aaa4ad; line-height:1.55; white-space:pre-wrap; }
-.bm-pact blockquote { margin:12px 0 0; padding:10px 12px; border-left:2px solid #68425a; background:#09080c; color:#c1b6c2; }
-.bm-pact em { display:block; margin-top:10px; color:#9f5665; font-style:normal; font-size:11px; }
+.bm-pact-head small { display:block; color:#a87991; font-size:11px; letter-spacing:.2em; }
+.bm-pact-head b { display:block; margin-top:7px; color:#f0eaf0; font-size:18px; letter-spacing:.1em; }
+.bm-pact-head span { max-width:44%; padding:5px 8px; border:1px solid rgba(205,67,99,.28); color:#ed6685; background:rgba(111,19,43,.14); font-size:11px; line-height:1.4; letter-spacing:.16em; text-align:right; }
+.bm-pact p { margin:17px 0 0; color:#cbc2cc; font-size:18px; line-height:1.6; white-space:pre-wrap; }
+.bm-pact blockquote { margin:16px 0 0; padding:13px 15px; border-left:3px solid #8c4968; background:#0d090f; color:#d5c8d5; font-size:16px; line-height:1.55; }
+.bm-pact em { display:block; margin-top:13px; color:#d07588; font-style:normal; font-size:13px; }
 .bm-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
 .bm-actions button,.bm-petition>button {
-  border:1px solid #55313d; background:#151016; color:#c9b7bf; padding:9px 12px;
-  font:800 10px var(--font-machine,ui-monospace,monospace); letter-spacing:.14em; cursor:pointer;
+  border:1px solid #704052; background:linear-gradient(180deg,#21131a,#120d12); color:#e1cad3; padding:12px 16px;
+  font:800 12px var(--font-machine,ui-monospace,monospace); letter-spacing:.14em; cursor:pointer;
 }
 .bm-actions button:hover,.bm-petition>button:hover { border-color:#9a3a54; color:#fff; }
 .bm-tribute-preview { display:block; max-width:min(420px,100%); max-height:360px; object-fit:contain; margin:14px auto 0; border:1px solid #4c2531; background:#020203; }
-.bm-empty { padding:18px; border:1px dashed #2e2c32; color:#625d66; text-align:center; letter-spacing:.18em; font-size:10px; }
+.bm-empty { padding:24px; border:1px dashed #463640; color:#8e808c; text-align:center; letter-spacing:.2em; font-size:12px; }
 .black-market-toast { position:fixed; left:50%; bottom:84px; z-index:9500; transform:translate(-50%,18px); opacity:0; padding:10px 14px; border:1px solid #6e273b; background:#0c090d; color:#d7b8c1; font:800 11px var(--font-machine,monospace); letter-spacing:.14em; transition:.18s; pointer-events:none; }
 .black-market-toast.show { opacity:1; transform:translate(-50%,0); }
 @media(max-width:700px){
@@ -253,4 +257,232 @@ body:has(#black-market-gm-button) #black-market-gm-button.black-market-command-b
 }
 #black-market-gm-button.black-market-command-btn::before {
   z-index:1;
+}
+
+
+/* PLAYER BLACK MARKET ACCESS // Little Hero -> private Shadow Broker channel */
+#black-market-player-button.black-market-player-control{
+  position:relative!important;right:auto!important;bottom:auto!important;z-index:auto!important;
+  flex:0 0 auto!important;width:132px!important;min-width:132px!important;height:34px!important;min-height:34px!important;
+  padding:4px 10px 3px!important;margin:0!important;overflow:hidden;isolation:isolate;
+  border:1px solid rgba(119,48,104,.78)!important;border-radius:4px!important;
+  background-color:#050407!important;
+  background-image:linear-gradient(180deg,rgba(4,3,7,.03),rgba(4,3,7,.16)),url('../assets/black-market-void.svg?v=20260929-player-access-1')!important;
+  background-size:100% 100%!important;background-position:center!important;background-repeat:no-repeat!important;
+  box-shadow:inset 0 0 12px rgba(104,35,112,.14),0 0 10px rgba(0,0,0,.28)!important;
+  color:#eee9f1!important;text-align:center;line-height:1;
+}
+#black-market-player-button.black-market-player-control>span{
+  position:relative;z-index:3;display:block;font:900 8px/1 var(--font-machine,ui-monospace,monospace)!important;
+  letter-spacing:.13em!important;color:#f1e8f2!important;text-shadow:0 0 6px rgba(143,62,153,.45);
+}
+#black-market-player-button.black-market-player-control>small{
+  position:relative;z-index:3;display:block;margin-top:3px;
+  font:700 5px/1 var(--font-machine,ui-monospace,monospace)!important;letter-spacing:.12em!important;color:#a68da7!important;
+}
+#black-market-player-button.black-market-player-control::before{
+  content:"";position:absolute;inset:-18% -8%;z-index:1;pointer-events:none;
+  background:radial-gradient(circle at 24% 48%,rgba(126,52,155,.22),transparent 24%),radial-gradient(circle at 76% 54%,rgba(111,25,62,.22),transparent 24%);
+  opacity:.18;transform:scaleX(.93);animation:bmPlayerReliquaryIdle 5.2s ease-in-out infinite;
+}
+#black-market-player-button.black-market-player-control:hover,
+#black-market-player-button.black-market-player-control:focus-visible{
+  border-color:rgba(165,72,142,.95)!important;
+  box-shadow:inset 0 0 16px rgba(125,45,133,.24),0 0 14px rgba(101,31,89,.28)!important;outline:none!important;
+}
+#black-market-player-button.black-market-player-control:hover::before,
+#black-market-player-button.black-market-player-control:focus-visible::before{
+  opacity:.62;animation:bmPlayerVeinsAwake .72s ease-out both,bmMicroGlitch 3.6s steps(1,end) infinite .8s;
+}
+#black-market-player-button.black-market-player-control.bm-opening{animation:bmPlayerSealOpen .42s cubic-bezier(.2,.8,.2,1) both;}
+#black-market-player-button.black-market-player-control.has-pending::after{
+  top:2px;right:3px;min-width:13px;height:13px;line-height:13px;font-size:7px;z-index:5;
+}
+@keyframes bmPlayerReliquaryIdle{0%,100%{opacity:.12;transform:scaleX(.93)}48%{opacity:.25;transform:scaleX(.99)}52%{opacity:.30;transform:scaleX(1)}}
+@keyframes bmPlayerVeinsAwake{from{opacity:.18;transform:scaleX(.94);filter:brightness(.9)}to{opacity:.66;transform:scaleX(1.04);filter:brightness(1.35)}}
+@keyframes bmPlayerSealOpen{0%{transform:scale(1);filter:brightness(1)}34%{transform:scale(.975,.93);filter:brightness(1.2)}58%{transform:scale(1.012,.98);filter:brightness(1.65) saturate(1.25)}100%{transform:scale(1);filter:brightness(1)}}
+@media(max-width:760px){#black-market-player-button.black-market-player-control{flex:1 1 112px!important;width:auto!important;min-width:112px!important}}
+
+
+/* PLAYER BLACK MARKET CHAMBER HARDENING
+   Stable viewport: state sync may rerender contents, never the room itself. */
+body:has(#black-market-player-button) #black-market-overlay.black-market-overlay{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100vh!important;
+  height:100dvh!important;
+  min-width:100vw!important;
+  min-height:100vh!important;
+  min-height:100dvh!important;
+  box-sizing:border-box!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:24px!important;
+  margin:0!important;
+  overflow:hidden!important;
+  z-index:20000!important;
+  background:rgba(1,1,4,.94)!important;
+  backdrop-filter:blur(10px) saturate(.72)!important;
+  transform:none!important;
+  contain:none!important;
+}
+body:has(#black-market-player-button) #black-market-overlay .black-market-void{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:100%!important;
+  pointer-events:none!important;
+}
+body:has(#black-market-player-button) #black-market-overlay .black-market-room{
+  position:relative!important;
+  inset:auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  width:min(980px,calc(100vw - 48px))!important;
+  height:min(720px,calc(100dvh - 48px))!important;
+  min-height:min(560px,calc(100dvh - 48px))!important;
+  max-height:calc(100dvh - 48px)!important;
+  margin:0!important;
+  overflow:hidden!important;
+  transform:none!important;
+  box-sizing:border-box!important;
+}
+body:has(#black-market-player-button) #black-market-overlay .black-market-room>header{
+  flex:0 0 auto!important;
+  position:relative!important;
+  top:auto!important;
+}
+body:has(#black-market-player-button) #black-market-overlay #black-market-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  box-sizing:border-box!important;
+  scrollbar-gutter:stable!important;
+}
+body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
+  align-content:start!important;
+}
+@media(max-height:640px){
+  body:has(#black-market-player-button) #black-market-overlay.black-market-overlay{padding:12px!important}
+  body:has(#black-market-player-button) #black-market-overlay .black-market-room{
+    width:min(980px,calc(100vw - 24px))!important;
+    height:calc(100dvh - 24px)!important;
+    min-height:0!important;
+    max-height:calc(100dvh - 24px)!important;
+  }
+}
+
+
+/* GM BLACK MARKET PENDING PETITION ALERT */
+#black-market-gm-button.bm-has-pending{
+  border-color:#ff354f!important;
+  box-shadow:
+    inset 0 0 18px rgba(255,20,45,.30),
+    0 0 10px rgba(255,25,50,.45),
+    0 0 22px rgba(255,20,45,.28)!important;
+  animation:bmPendingRedGlow 1.15s ease-in-out infinite!important;
+}
+#black-market-gm-button.bm-has-pending::before{
+  opacity:.78!important;
+  background:
+    radial-gradient(circle at 50% 50%,rgba(255,30,55,.24),transparent 34%),
+    radial-gradient(circle at 18% 50%,rgba(160,18,42,.20),transparent 28%),
+    radial-gradient(circle at 82% 50%,rgba(160,18,42,.20),transparent 28%)!important;
+}
+#black-market-gm-button.bm-has-pending span,
+#black-market-gm-button.bm-has-pending small{
+  color:#ffd8de!important;
+  text-shadow:0 0 6px rgba(255,34,58,.75),0 0 12px rgba(255,34,58,.45)!important;
+}
+@keyframes bmPendingRedGlow{
+  0%,100%{
+    filter:brightness(1);
+    box-shadow:inset 0 0 14px rgba(255,20,45,.22),0 0 8px rgba(255,25,50,.35),0 0 18px rgba(255,20,45,.20);
+  }
+  50%{
+    filter:brightness(1.18) saturate(1.18);
+    box-shadow:inset 0 0 24px rgba(255,20,45,.42),0 0 16px rgba(255,25,50,.70),0 0 32px rgba(255,20,45,.38);
+  }
+}
+
+
+/* BLACK MARKET TRIBUTE CONSENT CHAMBER */
+.bm-tribute-consent{
+  position:fixed!important;
+  inset:0!important;
+  z-index:26000!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:24px!important;
+  background:rgba(2,2,5,.82)!important;
+  backdrop-filter:blur(8px) saturate(.75)!important;
+}
+.bm-tribute-consent-card{
+  width:min(560px,calc(100vw - 48px));
+  padding:28px 30px 26px;
+  border:1px solid rgba(139,45,70,.72);
+  border-left:4px solid #a92f4c;
+  background:
+    linear-gradient(180deg,rgba(23,8,15,.96),rgba(7,7,10,.98)),
+    url('../assets/black-market-void.svg?v=20260929-tribute-consent-1') center/100% 100% no-repeat;
+  box-shadow:0 0 36px rgba(132,25,54,.24),inset 0 0 28px rgba(100,25,62,.12);
+  color:#e8e2e8;
+}
+.bm-tribute-consent-card>small{
+  display:block;
+  margin-bottom:10px;
+  color:#9f758f;
+  font:800 10px/1.2 var(--font-machine,ui-monospace,monospace);
+  letter-spacing:.18em;
+}
+.bm-tribute-consent-card h3{
+  margin:0 0 18px;
+  color:#ef6f88;
+  font:900 19px/1.15 var(--font-machine,ui-monospace,monospace);
+  letter-spacing:.11em;
+}
+.bm-tribute-consent-card p{
+  margin:0 0 13px;
+  color:#c9c0c8;
+  font:700 14px/1.5 var(--font-display,system-ui,sans-serif);
+}
+.bm-tribute-consent-card .bm-tribute-consent-age{
+  color:#a998a5;
+  font-size:12px;
+}
+.bm-tribute-consent-actions{
+  display:flex;
+  gap:10px;
+  margin-top:22px;
+  flex-wrap:wrap;
+}
+.bm-tribute-consent-actions button{
+  min-height:42px;
+  padding:0 16px;
+  border:1px solid rgba(143,50,76,.75);
+  background:#120a0f;
+  color:#f0dfe4;
+  font:900 11px/1 var(--font-machine,ui-monospace,monospace);
+  letter-spacing:.10em;
+  cursor:pointer;
+}
+.bm-tribute-consent-actions button[data-bm-consent-open]{
+  background:linear-gradient(180deg,#3a101c,#17080d);
+  border-color:#c43c5d;
+  box-shadow:0 0 14px rgba(197,50,83,.18);
+}
+.bm-tribute-consent-actions button:hover,
+.bm-tribute-consent-actions button:focus-visible{
+  outline:none;
+  filter:brightness(1.18);
+  box-shadow:0 0 18px rgba(208,55,87,.28);
+}
+@media(max-width:620px){
+  .bm-tribute-consent{padding:14px!important}
+  .bm-tribute-consent-card{width:calc(100vw - 28px);padding:22px 20px}
+  .bm-tribute-consent-actions{flex-direction:column}
+  .bm-tribute-consent-actions button{width:100%}
 }

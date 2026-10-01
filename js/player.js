@@ -285,6 +285,7 @@ const PlayerApp = {
     let gifQuery = '';
     let gifLoading = false;
     let gifSearchTimer = null;
+    let gifRequestCycle = 0;
 
     const setGifStatus = (text, danger = false) => {
       if (!gifStatus) return;
@@ -316,6 +317,21 @@ const PlayerApp = {
       });
     };
 
+    const resetGifPicker = () => {
+      clearTimeout(gifSearchTimer);
+      gifRequestCycle += 1;
+      if (gifSearchInput) gifSearchInput.value = '';
+      gifResults = [];
+      gifOffset = 0;
+      gifMode = 'trending';
+      gifQuery = '';
+      gifLoading = false;
+      renderGifResults();
+      if (gifMoreButton) gifMoreButton.hidden = true;
+      gifMoreButton?.removeAttribute('disabled');
+      setGifStatus('TRENDING // STANDBY');
+    };
+
     const loadGifPage = async ({ append = false } = {}) => {
       if (!gifPicker || gifLoading) return;
       const query = String(gifSearchInput?.value || '').trim();
@@ -327,6 +343,7 @@ const PlayerApp = {
       gifQuery = query;
       if (!append) gifOffset = 0;
       gifLoading = true;
+      const requestCycle = gifRequestCycle;
       gifMoreButton?.setAttribute('disabled', 'disabled');
       setGifStatus(gifMode === 'search' ? 'SEARCHING // ' + query.toUpperCase() : 'TRENDING // ACQUIRING');
       try {
@@ -337,6 +354,7 @@ const PlayerApp = {
           headers: { 'x-player-token': token }
         });
         const payload = await response.json().catch(() => ({}));
+        if (requestCycle !== gifRequestCycle) return;
         if (!response.ok) {
           if (payload.code === 'GIF_LIMIT_REACHED') {
             setGifStatus('FUCK OFF, LIMIT REACHED', true);
@@ -357,10 +375,13 @@ const PlayerApp = {
             : 'TRENDING // ' + gifResults.length
         );
       } catch (error) {
+        if (requestCycle !== gifRequestCycle) return;
         setGifStatus(error.message || 'GIF NETWORK // OFFLINE', true);
       } finally {
-        gifLoading = false;
-        gifMoreButton?.removeAttribute('disabled');
+        if (requestCycle === gifRequestCycle) {
+          gifLoading = false;
+          gifMoreButton?.removeAttribute('disabled');
+        }
       }
     };
 
@@ -392,8 +413,9 @@ const PlayerApp = {
       if (!resultButton) return;
       const gif = gifResults[Number(resultButton.dataset.gifIndex)];
       if (!gif || !this.ws || this.ws.readyState !== 1) return;
-      this.send({ type: 'chat:gif', gif });
+      if (!this.send({ type: 'chat:gif', gif })) return;
       closeGifPicker();
+      resetGifPicker();
     });
 
     gifSearchInput?.addEventListener('input', () => {
@@ -887,6 +909,20 @@ const PlayerApp = {
         closeThemeMenu();
       });
     });
+
+    const themeScrollControl = document.getElementById('theme-select-scroll-control');
+    themeScrollControl?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!themeMenu) return;
+      themeMenu.scrollBy({ top: Math.max(120, themeMenu.clientHeight * 0.72), behavior:'smooth' });
+    });
+
+    themeMenu?.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      themeMenu.scrollTop += e.deltaY;
+    }, { passive:false });
 
     document.addEventListener('click', (e) => {
       if (themeSelect && !themeSelect.contains(e.target)) closeThemeMenu();
@@ -1442,6 +1478,11 @@ const PlayerApp = {
         this.onLinkPong(message);
         break;
 
+      // Authoritative, server-scheduled: arrives even if this tab was asleep.
+      case 'class:warning':
+        window.AsocClassClock?.warn(message);
+        break;
+
       case 'chat:update': {
         this._chatSeq = Number(message.seq) || 0;
         this.applyChatMessages(message.messages || [], message.solvedTargets || {});
@@ -1486,6 +1527,18 @@ const PlayerApp = {
       case 'megabonk:alert':
       case 'megabonk:cleared':
         window.Megabonk?.onMessage(message);
+        break;
+
+      case 'warsong:alert':
+        window.WarsongAlert?.onMessage(message);
+        break;
+
+      case 'c4:alert':
+        window.C4Alert?.onMessage(message);
+        break;
+
+      case 'b3:alert':
+        window.B3Alert?.onMessage(message);
         break;
 
       case 'shadowRealm:banish':
@@ -3184,7 +3237,7 @@ const PlayerApp = {
     const everyone = context?.spit && (!needle || 'all'.startsWith(needle) || 'all online'.includes(needle))
       ? [{ id: '__ALL_ONLINE__', name: 'ALL', displayName: 'ALL ONLINE', connected: true, isAll: true }]
       : [];
-    const broker = context?.spit && (!needle || 'shadow broker'.includes(needle))
+    const broker = (!needle || 'shadow broker'.includes(needle))
       ? [{ id: '__SHADOW_BROKER__', name: 'SHADOW BROKER', connected: true, isBroker: true }]
       : [];
     return everyone.concat(broker, (this.currentPlayers || [])
@@ -3381,7 +3434,7 @@ const PlayerApp = {
       .sort((a, b) => b.length - a.length);
 
     const regexSpecials = '^$.*+?()[]{}|' + String.fromCharCode(92);
-    const escaped = ['all', ...names].map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
+    const escaped = ['all', 'SHADOW BROKER', ...names].map(name => [...name].map(char => regexSpecials.includes(char) ? String.fromCharCode(92) + char : char).join(''));
     const pattern = new RegExp('@(' + escaped.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
     const me = String(this.playerName || '').trim().toLocaleLowerCase();
     const targets = container.querySelectorAll('.chat-message-text, .shadow-broker-text');
@@ -4853,6 +4906,25 @@ const PlayerApp = {
     return `SHADOW BROKER CHECKS ON ${targetName}. STILL THERE?`;
   },
 
+  playChatActScreenFx(msg) {
+    const type = String(msg?.messageType || '');
+    if (type !== 'fart' && type !== 'spit') return;
+    const sentAt = Number(msg?.timestamp) || 0;
+    if (!sentAt || Math.abs(Date.now() - sentAt) > 8000) return;
+    const key = String(msg?.id || `${type}:${sentAt}`);
+    this._playedChatActFx ||= new Set();
+    if (this._playedChatActFx.has(key)) return;
+    this._playedChatActFx.add(key);
+    if (this._playedChatActFx.size > 100) this._playedChatActFx.delete(this._playedChatActFx.values().next().value);
+
+    const layer = document.createElement('div');
+    layer.className = `chat-act-screen-fx is-${type}`;
+    layer.setAttribute('aria-hidden', 'true');
+    layer.innerHTML = '<span class="chat-act-screen-core"></span>' + '<i></i>'.repeat(type === 'fart' ? 14 : 10);
+    document.body.appendChild(layer);
+    window.setTimeout(() => layer.remove(), type === 'fart' ? 2200 : 1700);
+  },
+
   createSystemChatCardHTML(msg) {
     const esc = (value) => this.escapeHtml(String(value == null ? '' : value));
     const actor = esc(msg.playerName || 'SHADOW BROKER');
@@ -4919,6 +4991,7 @@ const PlayerApp = {
     };
     const render = typeMap[msg.messageType];
     if (!render) return '';
+    this.playChatActScreenFx(msg);
     window.ShadowCosmetics?.maybePlayFx(msg);
     const { label, body, detail } = render();
     const lane = String(msg.playerId || '') === String(this.playerId || '') ? ' chat-system-own' : (msg.playerId ? ' chat-system-other' : ' chat-system-room');
@@ -5004,7 +5077,7 @@ const PlayerApp = {
         ? `<video class="chat-gif-attachment" autoplay loop muted playsinline preload="metadata" poster="${preview}"><source src="${this.escapeHtml(msg.gif.mp4Url)}" type="video/mp4"></video>`
         : `<img class="chat-gif-attachment" src="${gifUrl}" alt="${title}">`;
       return `
-        <div class="chat-message chat-gif-message ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+        <div class="chat-message chat-gif-message ${isBrokerGif ? 'broker-media-message' : ''} ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           <div class="chat-avatar-rail">${avatar}</div>
           <div class="chat-message-main">
             <div class="chat-message-header"><span class="chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName || 'LITTLE HERO')}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}<span class="chat-time">${time}</span></div>
@@ -5059,6 +5132,7 @@ const PlayerApp = {
     // not tied to any player's guess. Entirely separate markup from the
     // guess-bubble path below; no verdict, no target, no "own" styling.
     if (msg.source === 'shadowBroker') {
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const replyMatch = typeof msg.text === 'string'
         ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
         : null;
@@ -5066,11 +5140,26 @@ const PlayerApp = {
       const replyContextHtml = replyMatch
         ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
+      if (msg.imageUrl) {
+        return `
+          <div class="chat-message broker-media-message broker-image-message" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" data-theme-id="gunmetal" style="--little-hero-accent:#9B5DE0;" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+            <div class="chat-avatar-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>
+            <div class="chat-message-main">
+              ${manualBadge}${replyContextHtml}
+              <div class="chat-message-header"><span class="chat-player-name">SHADOW BROKER</span><span class="chat-time">${time}</span></div>
+              ${messageText ? `<div class="broker-media-caption">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div>` : ''}
+              <button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>
+              ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
+              ${this.createReactionBarHTML(msg)}
+            </div>
+          </div>
+        `;
+      }
       return `
         <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
           ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}
-          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}
+          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
           ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
           ${this.createReactionBarHTML(msg)}
         </div>
@@ -5114,13 +5203,13 @@ const PlayerApp = {
     }
 
     return `
-      <div class="chat-message ${manualTribute ? 'active-blood-tribute' : ''} ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.messageClass(msg) || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+      <div class="chat-message ${msg.messageType === 'voice' ? 'voice-message ' : ''}${manualTribute ? 'active-blood-tribute' : ''} ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.messageClass(msg) || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
         <div class="chat-avatar-rail">${this.littleHeroAvatarHTML(identity)}</div>
         <div class="chat-message-main">${manualBadge}${window.ShadowCosmetics?.celebrationHTML(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.markHTML(msg) || ''}
           <div class="chat-message-header"><span class="chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
           <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">&#8617;</button>
           ${replyContextHtml}
-          <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}
+          <div class="chat-message-line"><div class="chat-message-text">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
           ${verdictMetaHtml}
           ${verdictResponseHtml}
           ${this.createReactionBarHTML(msg)}

@@ -10,12 +10,16 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260929-mobile-shell-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20261001-voice-capsule-1">
   <link rel="stylesheet" href="css/quest-icon-system.css?v=20260928-skynet-quest-icons-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
-  <link rel="stylesheet" href="css/black-market.css?v=20260929-black-market-1">
+  <link rel="stylesheet" href="css/black-market.css?v=20260929-tribute-consent-2">
+  <link rel="stylesheet" href="css/chat-links.css?v=20260930-preview-layout-1">
   <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-2">
   <link rel="stylesheet" href="css/megabonk.css?v=20260928-searchlight-1">
+  <link rel="stylesheet" href="css/warsong.css?v=20260930-warsong-1">
+  <link rel="stylesheet" href="css/c4-alert.css?v=20260930-c4-1">
+  <link rel="stylesheet" href="css/b3-alert.css?v=20260930-b3-1">
   <link rel="stylesheet" href="css/direct-messages.css?v=20260928-chat-rail-layout-1">
   <style>
     #join-screen {
@@ -304,6 +308,17 @@
       background:linear-gradient(180deg,#25101e,#10080e);
       box-shadow:inset 2px 0 #b8293e, inset 0 -2px #7d2bb8;
     }
+    .theme-select[data-theme-id="whiteout"] .theme-select-toggle {
+      border-color:#aab7bf;
+      background:
+        linear-gradient(135deg,rgba(255,255,255,.82),rgba(217,229,236,.72)),
+        linear-gradient(180deg,#f8fafb,#dce4e9);
+      color:#182027;
+      box-shadow:inset 2px 0 #f7fbfd,inset 0 1px #ffffff,inset 0 -1px rgba(90,109,122,.22);
+    }
+    .theme-select[data-theme-id="whiteout"] .theme-select-copy strong { color:#182027; }
+    .theme-select[data-theme-id="whiteout"] .theme-select-copy small,
+    .theme-select[data-theme-id="whiteout"] .theme-select-arrow { color:#5e6c76; }
 
     .theme-select-preview,
     .theme-option-preview {
@@ -367,6 +382,12 @@
     .theme-option-preview.revan i:nth-child(2) { background:#b8293e; }
     .theme-select-preview.revan i:nth-child(3),
     .theme-option-preview.revan i:nth-child(3) { background:#7d2bb8; }
+    .theme-select-preview.whiteout i:nth-child(1),
+    .theme-option-preview.whiteout i:nth-child(1) { background:#ffffff; }
+    .theme-select-preview.whiteout i:nth-child(2),
+    .theme-option-preview.whiteout i:nth-child(2) { background:#d8e0e5; }
+    .theme-select-preview.whiteout i:nth-child(3),
+    .theme-option-preview.whiteout i:nth-child(3) { background:#a9d9ea; }
 
     .theme-select-copy,
     .theme-option-copy { min-width:0; }
@@ -423,6 +444,53 @@
       top:auto;
       bottom:calc(100% + 5px);
     }
+    .theme-select-menu {
+      scrollbar-width:auto;
+      scrollbar-color:#8f9aa5 #0a0d11;
+      padding-right:8px;
+    }
+    .theme-select-menu::-webkit-scrollbar {
+      width:14px;
+    }
+    .theme-select-menu::-webkit-scrollbar-track {
+      background:#0a0d11;
+      border-left:1px solid #313841;
+      border-radius:0 6px 6px 0;
+    }
+    .theme-select-menu::-webkit-scrollbar-thumb {
+      background:linear-gradient(180deg,#aeb8c2,#68737e);
+      border:3px solid #0a0d11;
+      border-radius:8px;
+      min-height:42px;
+    }
+    .theme-select-menu::-webkit-scrollbar-thumb:hover {
+      background:linear-gradient(180deg,#d2d8de,#808b96);
+    }
+    .theme-select-scroll-control {
+      position:sticky;
+      bottom:-1px;
+      z-index:4;
+      display:block;
+      grid-column:1/-1;
+      width:100%;
+      margin:2px 0 0;
+      padding:7px 8px;
+      border:1px solid #56616d;
+      border-radius:4px;
+      background:linear-gradient(180deg,#20262d,#0d1116);
+      color:#d6dde4;
+      font:900 .44rem var(--font-machine);
+      letter-spacing:.8px;
+      text-align:center;
+      cursor:pointer;
+      box-shadow:0 -8px 18px rgba(0,0,0,.32);
+    }
+    .theme-select-scroll-control:hover {
+      border-color:#8d99a5;
+      background:linear-gradient(180deg,#2b333c,#12171d);
+      color:#ffffff;
+    }
+
     .theme-select-menu[hidden] { display:none; }
 
     .theme-option {
@@ -497,6 +565,14 @@
       box-shadow:inset 2px 0 #b8293e, inset 0 -2px #7d2bb8;
       background:linear-gradient(180deg,#25101e,#10080e);
     }
+    .theme-option[data-theme-id="whiteout"].selected {
+      border-color:#b7c3cb;
+      box-shadow:inset 2px 0 #f7fbfd,inset 0 1px #ffffff;
+      background:linear-gradient(180deg,#f8fafb,#dce4e9);
+      color:#182027;
+    }
+    .theme-option[data-theme-id="whiteout"].selected .theme-option-copy strong { color:#182027; }
+    .theme-option[data-theme-id="whiteout"].selected .theme-option-copy small { color:#66747e; }
 
     .theme-option-state {
       color:#87919c;
@@ -511,6 +587,7 @@
     .theme-option[data-theme-id="our-theme"].selected .theme-option-state { color:#f2d978; }
     .theme-option[data-theme-id="undead"].selected .theme-option-state { color:#d7f2a8; }
     .theme-option[data-theme-id="revan"].selected .theme-option-state { color:#f08ac2; }
+    .theme-option[data-theme-id="whiteout"].selected .theme-option-state { color:#33434e; }
 
     .little-hero-chaos-note {
       margin-top: 8px;
@@ -799,7 +876,7 @@
        fits the layer AFTER the HUD band is deducted -- which is by
        construction exactly the .public-board-ratio rect, so left/right
        edges always land on the board's own edges at every desktop width.
-       --hud-band is measured and set by js/player.js?v=20260922-media-lightbox-hardfix-1"";
+       --hud-band is measured and set by js/player.js?v=20260929-theme-scroll-2"";
 position:absolute;
       left:5px;
       width:5px;
@@ -7137,6 +7214,134 @@ position:absolute;
       margin:0 !important;
     }
 
+    /* SHADOW BROKER MEDIA CAPSULE V2
+       The portrait is a separate identity rail on the right. The media and its
+       compact identity header live in their own armored capsule and never share
+       or overlap the avatar's column. */
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message {
+      display:grid !important;
+      grid-template-columns:minmax(0,min(430px,calc(100% - 52px))) 46px !important;
+      justify-content:end !important;
+      align-items:start !important;
+      column-gap:8px !important;
+      width:100% !important;
+      margin:7px 0 !important;
+      padding:0 3px 4px 44px !important;
+      background:transparent !important;
+      box-shadow:none !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message > .chat-avatar-rail {
+      grid-column:2 !important;
+      grid-row:1 !important;
+      display:flex !important;
+      width:46px !important;
+      min-width:46px !important;
+      max-width:46px !important;
+      padding-top:4px !important;
+      justify-content:center !important;
+      overflow:visible !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message > .chat-avatar-rail .shadow-broker-avatar {
+      width:40px !important;
+      height:40px !important;
+      flex:0 0 40px !important;
+      margin:0 !important;
+      border:2px solid rgba(155,93,224,.62) !important;
+      box-shadow:0 0 0 2px rgba(5,7,10,.88),0 0 13px rgba(155,93,224,.24) !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message > .chat-message-main {
+      grid-column:1 !important;
+      grid-row:1 !important;
+      position:relative !important;
+      justify-self:end !important;
+      width:fit-content !important;
+      min-width:0 !important;
+      max-width:100% !important;
+      padding:5px !important;
+      border:1px solid rgba(155,93,224,.38) !important;
+      border-radius:11px 11px 4px 11px !important;
+      background:linear-gradient(145deg,rgba(25,14,33,.98),rgba(8,8,13,.98)) !important;
+      box-shadow:inset 0 1px rgba(231,220,255,.07),0 4px 14px rgba(0,0,0,.38) !important;
+      overflow:visible !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message > .chat-message-main::before {
+      display:block !important;
+      left:auto !important;
+      right:-7px !important;
+      top:14px !important;
+      width:7px !important;
+      height:11px !important;
+      transform:scaleX(-1) !important;
+      background:#120d19 !important;
+      filter:drop-shadow(-1px 0 rgba(155,93,224,.40)) !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message .chat-message-header {
+      position:static !important;
+      display:flex !important;
+      justify-content:flex-end !important;
+      align-items:baseline !important;
+      gap:7px !important;
+      min-height:0 !important;
+      margin:0 2px 5px !important;
+      padding:0 !important;
+      border-radius:0 !important;
+      background:transparent !important;
+      backdrop-filter:none !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message .chat-player-name {
+      color:#d5a7ff !important;
+      font-size:.57rem !important;
+      letter-spacing:.055em !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message .chat-time {
+      color:#87909b !important;
+      font-size:.43rem !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message .chat-gif-link,
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message > .chat-message-main > .chat-image-link {
+      display:block !important;
+      width:fit-content !important;
+      max-width:100% !important;
+      margin:0 !important;
+      padding:0 !important;
+      overflow:hidden !important;
+      line-height:0 !important;
+      border:1px solid rgba(207,175,235,.28) !important;
+      border-radius:7px !important;
+      background:#050609 !important;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.025) !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message :is(.chat-gif-attachment,.chat-image-attachment) {
+      display:block !important;
+      width:auto !important;
+      height:auto !important;
+      max-width:min(410px,100%) !important;
+      max-height:340px !important;
+      margin:0 !important;
+      border:0 !important;
+      border-radius:6px !important;
+      object-fit:contain !important;
+      background:#050609 !important;
+      box-shadow:none !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message .chat-gif-provider-mark {
+      right:9px !important;
+      bottom:8px !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message .chat-reactions {
+      left:9px !important;
+      bottom:8px !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message.broker-media-message .broker-media-caption {
+      max-width:400px;
+      margin:0 3px 6px;
+      color:#e7e9ed;
+      font-size:.80rem;
+      line-height:1.3;
+      text-align:right;
+      overflow-wrap:anywhere;
+    }
+
   
 
     /* PLAYER BOARD GAP REMOVAL V1 */
@@ -8185,6 +8390,58 @@ position:absolute;
       margin:2px 2px 0 auto !important;
     }
 
+    /* SHADOW BROKER MIRROR LANE
+       Little Heroes read avatar -> bubble. Broker broadcasts are the exact
+       reflection: bubble <- avatar. The portrait is taken out of the plaque's
+       flow and anchored in its own right-hand rail. */
+    #game-screen .battle-comms-lobby .chat-broker-entry {
+      box-sizing:border-box !important;
+      padding-right:43px !important;
+    }
+    #game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission {
+      position:relative !important;
+      flex-direction:row !important;
+      width:fit-content !important;
+      max-width:100% !important;
+      min-height:38px !important;
+      margin:0 !important;
+      padding:6px 9px !important;
+      gap:0 !important;
+      overflow:visible !important;
+      border-radius:8px 8px 3px 8px !important;
+    }
+    #game-screen .battle-comms-lobby .chat-broker-entry > .shadow-broker-transmission::after {
+      content:"";
+      position:absolute;
+      top:12px;
+      right:-7px;
+      width:8px;
+      height:12px;
+      clip-path:polygon(0 0,0 100%,100% 50%);
+      background:#100b17;
+      filter:drop-shadow(1px 0 rgba(155,93,224,.54));
+      pointer-events:none;
+    }
+    #game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-avatar {
+      position:absolute !important;
+      top:0 !important;
+      right:-43px !important;
+      width:36px !important;
+      height:36px !important;
+      flex:0 0 36px !important;
+      margin:0 !important;
+      border:2px solid rgba(155,93,224,.66) !important;
+      box-shadow:0 0 0 2px rgba(6,7,11,.90),0 0 12px rgba(155,93,224,.24) !important;
+    }
+    #game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-body {
+      align-items:flex-end !important;
+      text-align:right !important;
+    }
+    #game-screen .battle-comms-lobby .chat-broker-entry > .chat-reactions,
+    #game-screen .battle-comms-lobby .chat-broker-entry > .chat-edited-marker {
+      margin-right:0 !important;
+    }
+
     #game-screen .chat-image-link {
       margin-top:4px !important;
     }
@@ -8914,6 +9171,130 @@ position:absolute;
       }
     }
 
+
+    /* WHITEOUT 09 // ARCTIC GUNMETAL.
+       Hierarchy: dark ASOC frame -> pale metallic chamber -> frosted Whiteout
+       messages. The shell, rails and status slab stay gunmetal-dark so Whiteout
+       still belongs to the console; only the centre comms chamber is steel and
+       frost gray. No pure white, no haze, no pastel. */
+    #game-screen[data-player-theme="whiteout"] {
+      background:
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20520%20300'%3E%3Cg%20fill%3D'none'%20stroke%3D'%23C9D6DD'%20stroke-width%3D'1'%3E%3Cpath%20opacity%3D'.085'%20d%3D'M16%20244%20L86%20244%20L120%20210%20L196%20210%20L230%20176%20L300%20176%20L336%20140%20L406%20140%20L444%20102%20L508%20102'%2F%3E%3Cpath%20opacity%3D'.055'%20d%3D'M58%20284%20L112%20230%20L164%20230%20L204%20190%20L252%20190%20L292%20150%20L340%20150'%2F%3E%3Cpath%20opacity%3D'.04'%20d%3D'M252%20292%20L252%20246%20L288%20214%20L288%20168%20L328%20132%20L372%20132%20L406%2098'%2F%3E%3Cpath%20opacity%3D'.03'%20d%3D'M20%2068%20L72%2068%20L104%2036%20L168%2036%20L200%204%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23D6E0E6'%3E%3Ccircle%20opacity%3D'.16'%20cx%3D'86'%20cy%3D'244'%20r%3D'1.6'%2F%3E%3Ccircle%20opacity%3D'.12'%20cx%3D'120'%20cy%3D'210'%20r%3D'1.9'%2F%3E%3Ccircle%20opacity%3D'.10'%20cx%3D'230'%20cy%3D'176'%20r%3D'1.8'%2F%3E%3Ccircle%20opacity%3D'.085'%20cx%3D'336'%20cy%3D'140'%20r%3D'1.7'%2F%3E%3Ccircle%20opacity%3D'.07'%20cx%3D'444'%20cy%3D'102'%20r%3D'1.7'%2F%3E%3Ccircle%20opacity%3D'.10'%20cx%3D'104'%20cy%3D'36'%20r%3D'1.6'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%239FD4E7'%3E%3Ccircle%20opacity%3D'.40'%20cx%3D'508'%20cy%3D'102'%20r%3D'2.1'%2F%3E%3Ccircle%20opacity%3D'.20'%20cx%3D'406'%20cy%3D'98'%20r%3D'1.7'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 2vw top 8vh / min(520px,38vw) auto no-repeat,
+        radial-gradient(circle at 90% 12%,rgba(159,212,231,.13) 0 2px,rgba(159,212,231,.04) 4px 52px,transparent 132px),
+        repeating-linear-gradient(114deg,rgba(200,214,222,.022) 0 1px,transparent 1px 5px),
+        linear-gradient(115deg,rgba(0,0,0,.16) 0%,rgba(159,212,231,.020) 32%,rgba(206,219,227,.040) 47%,rgba(0,0,0,.12) 100%),
+        linear-gradient(180deg,rgba(224,233,238,.020),transparent 8%),
+        linear-gradient(145deg,#151c22 0%,#0b1015 48%,#05080b 100%);
+    }
+    /* Pale metallic chamber. Brushed steel, not milk glass. */
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby {
+      background:
+        linear-gradient(90deg,rgba(62,80,93,.10) 0 1px,transparent 1px 100%),
+        repeating-linear-gradient(0deg,rgba(58,78,92,.055) 0 1px,transparent 1px 22px),
+        linear-gradient(90deg,rgba(255,255,255,.34),transparent 18%,rgba(58,78,92,.06) 62%,rgba(58,78,92,.12)),
+        linear-gradient(145deg,#cbd4da 0%,#c2cbd1 46%,#b6c1c8 100%);
+      border-left-color:#8e9ea8;
+      box-shadow:
+        inset 11px 0 24px rgba(58,78,92,.24),
+        inset 1px 0 rgba(236,244,248,.55),
+        inset -1px 0 rgba(62,82,95,.30);
+    }
+    /* Inner chat surface: one distinctly darker frost-gray layer so it never
+       merges into the chamber behind it. */
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby #chat-panel {
+      border-color:#8e9ea8;
+      background:
+        repeating-linear-gradient(0deg,rgba(52,72,86,.05) 0 1px,transparent 1px 18px),
+        linear-gradient(90deg,rgba(52,72,86,.055) 0 1px,transparent 1px 68px),
+        linear-gradient(180deg,#c4ced4 0%,#bcc6cd 54%,#b3bfc6 100%);
+      color:#172027;
+      box-shadow:
+        inset 0 1px rgba(240,246,249,.62),
+        inset 0 0 0 1px rgba(255,255,255,.16),
+        inset 0 0 30px rgba(60,80,94,.16),
+        0 12px 30px rgba(46,60,71,.26);
+    }
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby #chat-panel::after {
+      background:
+        linear-gradient(180deg,rgba(86,106,120,.42),rgba(86,106,120,0)) left 8px top / 1px 100% no-repeat,
+        linear-gradient(180deg,rgba(86,106,120,.42),rgba(86,106,120,0)) right 8px top / 1px 100% no-repeat,
+        linear-gradient(180deg,rgba(159,212,231,.34),rgba(159,212,231,0)) left 8px top / 1px 30px no-repeat;
+    }
+    /* Amusement Park watermark stays a whisper behind the transcript. */
+    #game-screen[data-player-theme="whiteout"][data-room-mode="CASUAL"] .battle-comms-lobby #chat-panel::before,
+    #game-screen[data-player-theme="whiteout"].room-mode-casual .battle-comms-lobby #chat-panel::before {
+      background:
+        url('/assets/ui/abusement-park-2026.webp') center 50% / 42% auto no-repeat,
+        repeating-linear-gradient(0deg,rgba(46,66,80,.02) 0 1px,transparent 1px 5px);
+      opacity:.03;
+      filter:grayscale(.7) saturate(.2) brightness(.5) blur(2.4px);
+      transform:scale(1.01);
+    }
+    /* The status slab is ASOC instrumentation, so it stays dark gunmetal with a
+       single cyan lamp. Pale here destroyed the gold label, clock and stat HUD. */
+    #game-screen[data-player-theme="whiteout"] .detainee-status-module {
+      border-color:#7d8d98;
+      background:
+        linear-gradient(112deg,rgba(0,0,0,.20) 0%,rgba(159,176,187,.05) 26%,rgba(226,238,244,.11) 44%,rgba(117,134,145,.04) 58%,rgba(0,0,0,.18) 100%),
+        repeating-linear-gradient(114deg,rgba(200,214,222,.020) 0 1px,transparent 1px 5px),
+        radial-gradient(circle at 88% 16%,rgba(159,212,231,.16) 0 2px,transparent 38px),
+        linear-gradient(180deg,#1a2128,#0b1015 84%);
+      box-shadow:inset 0 1px rgba(225,233,239,.12),inset 0 -3px 10px rgba(0,0,0,.80);
+      color:#dce4ea;
+    }
+    #game-screen[data-player-theme="whiteout"] .detainee-status-label {
+      background:
+        linear-gradient(90deg,rgba(224,230,236,.05),transparent 46%),
+        linear-gradient(180deg,#232b33,#10151a);
+      color:#e2e8ed;
+      border-bottom-color:#6d7d88;
+      box-shadow:inset 0 1px rgba(229,234,239,.08),inset 0 -1px rgba(0,0,0,.66);
+    }
+    /* Message hover must not smear near-white across a foreign dark bubble. */
+    #game-screen[data-player-theme="whiteout"] .battle-comms-lobby .chat-message:hover {
+      background:linear-gradient(90deg,rgba(86,104,118,.14),rgba(86,104,118,0) 78%) !important;
+    }
+    /* WHITEOUT-OWNED MESSAGES // scoped to the message owner, never to the
+       viewer's theme, so a Whiteout player's frosted bubble stays readable in
+       every other transcript. Every other theme's bubbles and the Shadow Broker
+       purple/black transmissions are left exactly as they were. */
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-main {
+      border-color:#9aa9b3 !important;
+      background:linear-gradient(135deg,#eef2f4 0%,#e6ebee 58%,#d9e2e7 100%) !important;
+      box-shadow:
+        inset 0 1px rgba(255,255,255,.86),
+        inset 0 -1px rgba(74,92,105,.20),
+        0 2px 8px rgba(56,72,84,.16) !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-main::after {
+      content:"";
+      position:absolute;
+      right:5px;
+      bottom:4px;
+      width:44px;
+      height:14px;
+      pointer-events:none;
+      background:linear-gradient(90deg,transparent,rgba(159,212,231,.30),transparent);
+      opacity:.55;
+    }
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-main:hover,
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-main:focus-within {
+      border-color:#84949f !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-message-text,
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-player-name {
+      color:#1c2830 !important;
+      text-shadow:none !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-player-name {
+      color:#2f4a5a !important;
+    }
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-time,
+    #game-screen .battle-comms-lobby .chat-message[data-theme-id="whiteout"] .chat-edited-marker {
+      color:#4c5c68 !important;
+      text-shadow:none !important;
+    }
+
 </style>
   <link rel="stylesheet" href="css/roulette-carnage.css?v=20260929-roulette-carnage-1">
   <!-- MOBILE VERSION shell: loaded last; every rule is scoped to html.asoc-mobile. -->
@@ -9121,6 +9502,15 @@ position:absolute;
                   </span>
                   <span class="theme-option-state">SELECT</span>
                 </button>
+                <button type="button" class="theme-option" data-theme-id="whiteout" role="option" aria-selected="false">
+                  <span class="theme-option-preview whiteout" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="theme-option-copy">
+                    <strong>WHITEOUT</strong>
+                    <small>09 // STERILE SIGNAL // ARCTIC CIRCUITS</small>
+                  </span>
+                  <span class="theme-option-state">SELECT</span>
+                </button>
+                <button type="button" class="theme-select-scroll-control" id="theme-select-scroll-control">SCROLL DOWN ↓</button>
               </div>
             </div>
 
@@ -9263,6 +9653,9 @@ position:absolute;
         <button type="button" id="player-logout-control" class="player-logout-control hero-utility-btn hero-utility-disconnect" hidden aria-label="Disconnect Little Hero identity">
           <svg class="hero-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v9M6.3 5.7a8 8 0 1 0 11.4 0"/></svg>
           <span>DISCONNECT</span>
+        </button>
+        <button type="button" id="black-market-player-button" class="black-market-entry black-market-player-control hero-utility-btn" hidden aria-label="Open private Black Market channel">
+          <span>BLACK MARKET</span><small>PRIVATE CHANNEL</small>
         </button>
         <div class="master-access-wrap player-master-access-wrap" id="player-master-access-wrap" hidden>
           <button type="button" id="player-master-access-control" class="hero-utility-btn player-master-access-control" aria-haspopup="true" aria-expanded="false">
@@ -9903,7 +10296,7 @@ position:absolute;
     });
   })();
   </script>
-  <script src="js/themes.js"></script>
+  <script src="js/themes.js?v=20260929-whiteout-arctic-1"></script>
   <script src="js/dom-patch.js?v=20260925-gm-control-pass-1"></script>
   <script src="js/skeleton.js?v=20260927-sb-stable-2"></script>
   <script src="js/board-celebrations.js?v=20260928-board-coronation-1"></script>
@@ -9915,25 +10308,30 @@ position:absolute;
   <script src="js/game-data.js?v=20260927-creator-export-1"></script>
   <script src="js/board.js?v=20260927-creator-preview-2"></script>
   <script src="js/commander-emojis.js"></script>
-  <script src="js/iks-ring.js?v=20261001-bars-cosmetic-1"></script>
+  <script src="js/iks-ring.js?v=20260925-health-bars-1"></script>
   <script src="js/iks-board.js?v=20260925-iks-board-2"></script>
   <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
   <script src="js/asoc-alerts.js?v=20260929-voice-1"></script>
   <script src="js/chat-media-preview.js?v=20260928-save-as-3"></script>
+  <script src="js/chat-links.js?v=20260930-preview-final-1"></script>
   <script src="js/read-receipts.js?v=20260926-seen-dedupe-1"></script>
   <script src="js/shadow-cosmetics.js?v=20260926-dm-1"></script>
   <script src="js/shadow-market-ui.js?v=20260926-shadow-market-hardening-1"></script>
   <script src="js/direct-messages.js?v=20260929-avatars-1"></script>
   <script src="js/stale-guard.js?v=20260929-mobile-build-1"></script>
   <script src="js/megabonk.js?v=20260928-searchlight-1"></script>
+  <script src="js/warsong.js?v=20260930-warsong-1"></script>
+  <script src="js/c4-alert.js?v=20260930-c4-1"></script>
+  <script src="js/b3-alert.js?v=20260930-b3-1"></script>
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
   <script src="js/class-clock.js?v=20260929-class-clock-2"></script>
   <script src="js/voice-messages.js?v=20260929-voice-1"></script>
-  <script src="js/player.js?v=20260929-resume-1"></script>
-  <script src="js/player-quests.js?v=20260929-voice-1"></script>
+  <script src="js/player.js?v=20261001-broker-media-capsule-1"></script>
+  <script src="js/black-market.js?v=20260930-tribute-state-flow-1"></script>
+  <script src="js/player-quests.js?v=20260929-black-market-ledger-1"></script>
   <script src="js/threefold.js?v=20260925-kaladont-1"></script>
-  <script src="js/kaladont-ui.js?v=20260928-kaladont-chat-timer-1"></script>
-  <script src="js/kaladont-client.js?v=20260928-kaladont-chat-timer-1"></script>
+  <script src="js/kaladont-ui.js?v=20260930-kaladont-rules-1"></script>
+  <script src="js/kaladont-client.js?v=20260930-kaladont-rules-1"></script>
   <script src="js/unstable-concoction.js?v=20260927-calm-1"></script>
 </body>
 </html>

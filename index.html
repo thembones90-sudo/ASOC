@@ -10,15 +10,19 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20260929-mobile-shell-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20261001-voice-capsule-1">
   <link rel="stylesheet" href="css/quest-icon-system.css?v=20260928-skynet-quest-icons-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
-  <link rel="stylesheet" href="css/black-market.css?v=20260929-void-reliquary-3">
+  <link rel="stylesheet" href="css/black-market.css?v=20260929-tribute-consent-2">
+  <link rel="stylesheet" href="css/chat-links.css?v=20260930-preview-layout-1">
   <link rel="stylesheet" href="css/shadow-realm.css?v=20260926-shadow-realm-2">
   <link rel="stylesheet" href="css/megabonk.css?v=20260928-searchlight-1">
+  <link rel="stylesheet" href="css/warsong.css?v=20260930-warsong-1">
+  <link rel="stylesheet" href="css/c4-alert.css?v=20260930-c4-1">
+  <link rel="stylesheet" href="css/b3-alert.css?v=20260930-b3-1">
   <link rel="stylesheet" href="css/backdoor-console.css?v=20260927-forge-stack-1">
   <link rel="stylesheet" href="css/forge-creator.css?v=20260927-creator-2">
-  <link rel="stylesheet" href="css/gm-direct-messages.css?v=20260926-gm-dm-1">
+  <link rel="stylesheet" href="css/gm-direct-messages.css?v=20260930-private-channels-1">
   <link rel="stylesheet" href="css/roulette-carnage.css?v=20260929-roulette-carnage-1">
 </head>
 <body>
@@ -67,7 +71,6 @@
              the Final's points are still withheld (state.finalResultsPending). -->
         <button class="gm-global-btn final-panel-reopen-btn" id="final-panel-reopen-btn" type="button" style="display: none;" title="Reopen the Final Solution panel // results not yet shown">END GAME</button>
         <button class="gm-global-btn recount-btn" id="recount-btn" type="button">SHOW RESULTS</button>
-        <section id="gm-dm-console" class="gm-dm-console" aria-label="Shadow Broker private channels" hidden></section>
         <div class="battle-controls-utility-row">
           <button class="toolbar-btn quests-utility-btn" id="quests-btn" type="button">QUESTS</button>
           <button class="toolbar-btn" id="library-btn-footer" style="width:100%;margin:0;">GAME LIBRARY</button>
@@ -100,6 +103,7 @@
             <div class="gm-chat-header">
               <button type="button" id="gm-chat-tab" class="gm-chat-title gm-chat-tab is-active" aria-selected="true">BATTLE COMMS</button>
               <button type="button" id="gm-minigames-toggle" class="gm-minigames-toggle" aria-expanded="false" aria-selected="false">MINI GAMES</button>
+              <button type="button" id="gm-dm-toggle" class="gm-minigames-toggle gm-dm-toggle" aria-expanded="false" aria-selected="false">PRIVATE CHANNELS</button>
               <div id="gm-atomic-clock" class="gm-atomic-clock" data-class-clock role="timer" aria-live="off" aria-label="Current time">
                 <time datetime="00:00:00"><b data-clock-hours>00</b><i>:</i><b data-clock-minutes>00</b><i>:</i><b data-clock-seconds>00</b></time>
               </div>
@@ -109,6 +113,7 @@
               </div>
               <span class="gm-chat-solved" id="gm-chat-solved-count" hidden></span>
             </div>
+            <section id="gm-dm-console" class="gm-dm-console" aria-label="Shadow Broker private channels" hidden></section>
             <div id="gm-minigames-menu" class="gm-minigames-menu" hidden>
               <div><b>AMUSEMENT ARCADE</b><small>SHADOW BROKER // CASUAL MODE</small></div>
               <button type="button" data-gm-minigame="threefold"><img class="gm-minigame-art iks-oks-art" src="assets/ui/iks-oks-icon.webp?v=20260925-minigame-icons-1" alt=""><span class="minigame-copy"><b class="minigame-title">IKS OKS</b><small class="minigame-desc">Challenge an online Little Hero to a duel</small></span><i class="minigame-status">PLAY</i></button>
@@ -126,6 +131,7 @@
             <button type="button" data-gm-chat-action="reply" role="menuitem"><span>&#8617;</span> REPLY</button>
             <button type="button" data-gm-chat-action="edit" role="menuitem" hidden><span>&#9998;</span> EDIT MESSAGE</button>
             <button type="button" data-gm-chat-action="react" role="menuitem"><span>&#9786;</span> REACT</button>
+            <button type="button" data-gm-chat-action="shadow-coin" role="menuitem" hidden><span>◈</span> SHADOW COIN</button>
             <button type="button" data-gm-chat-action="delete" role="menuitem" hidden><span>&#128465;</span> DELETE MESSAGE</button>
             <button type="button" data-gm-chat-action="tribute" role="menuitem" hidden><span>&#9760;</span> MARK FOR BLOOD TRIBUTE</button>
             <button type="button" data-gm-chat-action="tribute-cancel" role="menuitem" hidden><span>&#10005;</span> CANCEL BLOOD TRIBUTE</button>
@@ -336,7 +342,7 @@
     });
   </script>
   <script src="js/audio.js?v=20260929-voice-1"></script>
-  <script src="js/themes.js"></script>
+  <script src="js/themes.js?v=20260929-whiteout-1"></script>
   <script src="js/skeleton.js?v=20260927-sb-stable-2"></script>
   <script src="js/board-celebrations.js?v=20260928-board-coronation-1"></script>
   <script src="js/recount.js?v=20260927-calm-1"></script>
@@ -349,25 +355,29 @@
   <script src="js/board.js?v=20260927-creator-preview-2"></script>
   <script src="js/backdoor.js?v=20260926-scoring-v2-1"></script>
   <script src="js/commander-emojis.js"></script>
-  <script src="js/iks-ring.js?v=20261001-bars-cosmetic-1"></script>
+  <script src="js/iks-ring.js?v=20260925-health-bars-1"></script>
   <script src="js/iks-board.js?v=20260925-iks-board-2"></script>
   <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
   <script src="js/asoc-alerts.js?v=20260929-voice-1"></script>
   <script src="js/chat-media-preview.js?v=20260928-save-as-3"></script>
-  <script src="js/kaladont-ui.js?v=20260928-kaladont-chat-timer-1"></script>
+  <script src="js/chat-links.js?v=20260930-preview-final-1"></script>
+  <script src="js/kaladont-ui.js?v=20260930-kaladont-rules-1"></script>
   <script src="js/roulette-carnage-ui.js?v=20260929-roulette-carnage-1"></script>
-  <script src="js/gm-minigames.js?v=20260929-iks-bars-toggle-1"></script>
-  <script src="js/gm-direct-messages.js?v=20260929-avatars-1"></script>
+  <script src="js/gm-minigames.js?v=20260930-private-channels-1"></script>
+  <script src="js/gm-direct-messages.js?v=20260930-private-channels-1"></script>
   <script src="js/read-receipts.js?v=20260926-seen-dedupe-1"></script>
   <script src="js/shadow-cosmetics.js?v=20260926-dm-1"></script>
   <script src="js/stale-guard.js?v=20260929-mobile-build-1"></script>
   <script src="js/megabonk.js?v=20260928-searchlight-1"></script>
+  <script src="js/warsong.js?v=20260930-warsong-1"></script>
+  <script src="js/c4-alert.js?v=20260930-c4-1"></script>
+  <script src="js/b3-alert.js?v=20260930-b3-1"></script>
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
   <script src="js/class-clock.js?v=20260929-class-clock-1"></script>
   <script src="js/voice-messages.js?v=20260929-voice-1"></script>
-  <script src="js/app.js?v=20260929-voice-1"></script>
+  <script src="js/app.js?v=20260930-gif-picker-reset-1"></script>
   <script src="js/gm-quests.js?v=20260929-quest-duration-1"></script>
-  <script src="js/black-market.js?v=20260929-void-reliquary-3"></script>
-  <script src="js/forge.js?v=20260928-creator-uppercase-1"></script>
+  <script src="js/black-market.js?v=20260930-tribute-state-flow-1"></script>
+  <script src="js/forge.js?v=20260929-library-answers-1"></script>
 </body>
 </html>

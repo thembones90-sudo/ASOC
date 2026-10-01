@@ -21,11 +21,13 @@ const matchStore = require('./match-store');
 const recountEngine = require('./recount-engine');
 const iksArena = require('./iks-arena-store');
 const kaladont = require('./kaladont');
+const classSchedule = require('./class-schedule');
 const unstableConcoction = require('./unstable-concoction');
 const questEngine = require('./quest-engine');
 const dailyContracts = require('./daily-contracts');
 const rouletteCarnage = require('./roulette-carnage');
 const { createChatUploadGuard } = require('./chat-upload-guard');
+const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
 
@@ -33,6 +35,7 @@ const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_WS_PAYLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
+const BLACK_MARKET_TRIBUTE_MAX_BYTES = 20 * 1024 * 1024;
 // Voice messages: up to 60 s. Opus at typical recorder bitrates is ~0.5 MB a
 // minute and AAC (Safari) ~1 MB, so 2 MB is a generous hard ceiling.
 const MAX_CHAT_VOICE_BYTES = 2 * 1024 * 1024;
@@ -200,7 +203,8 @@ const LITTLE_HERO_THEMES = Object.freeze({
   'disco-inferno': '#F06A2A',
   'our-theme': '#B92522',
   undead: '#7FBF3F',
-  revan: '#A8328A'
+  revan: '#A8328A',
+  whiteout: '#F2F5F7'
 });
 
 const mimeTypes = {
@@ -245,6 +249,12 @@ assertDataDirectoryWritable(ASOC_DATA_DIR);
 const CHAT_UPLOAD_DIR = path.join(ASOC_DATA_DIR, 'chat-uploads');
 fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
 const chatUploadGuard = createChatUploadGuard({ dir: CHAT_UPLOAD_DIR });
+const blackMarketUploadClaims = new Map();
+// Link previews unfurl on the host, never in a reader's browser: the same
+// private-address predicate the chat image importer uses is injected in, so
+// the two can never drift apart on what counts as unreachable. Declared here
+// because isBlockedRemoteAddress() is a hoisted function declaration.
+const linkPreviewService = createLinkPreviewService({ isBlockedAddress: isBlockedRemoteAddress });
 // Same conservative orphan sweep for avatar files (budget/throttle unused).
 const avatarFileGuard = createChatUploadGuard({ dir: avatarStore.AVATAR_DIR });
 const ACTIVE_ROOMS_FILE = process.env.ASOC_SESSION_FILE
@@ -1418,7 +1428,9 @@ function getBloodTributeVaultState(room) {
       playerId: t.senderPlayerId || t.playerId || null,
       playerName: t.senderName || t.playerName || 'LITTLE HERO',
       senderAvatar: t.senderAvatar || '',
-      imageData: getTributeImageData(t),
+      imageData: t.source === 'blackMarket' && /^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(String(t.imageUrlOrStoragePath || ''))
+        ? t.imageUrlOrStoragePath
+        : getTributeImageData(t),
       originalMessageTimestamp: Number(t.originalMessageTimestamp || t.submittedAt) || null,
       submittedAt: Number(t.markedAt || t.submittedAt) || null,
       publicUntil: Number(t.expiresAt || t.publicUntil) || null,
@@ -1916,9 +1928,25 @@ function handleBlackMarket(ws, message) {
     if (message.type === 'blackMarket:petition') result = blackMarket.createPetition(state, { id: ws.playerId, name: player.name }, message);
     else if (message.type === 'blackMarket:acceptCounter') result = blackMarket.acceptCounter(state, ws.playerId, message.pactId);
     else if (message.type === 'blackMarket:tributeSubmit') {
-      const imageData = sanitizeTributeImageData(message.imageData);
-      if (!imageData) return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING IS INVALID' });
-      result = blackMarket.submitTribute(state, ws.playerId, message.pactId, imageData, message.consent === true);
+      let imageRef = '';
+      const imageUrl = String(message.imageUrl || '');
+      if (/^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(imageUrl)) {
+        const claim = blackMarketUploadClaims.get(imageUrl);
+        if (!claim || String(claim.playerId) !== String(ws.playerId) || String(claim.pactId) !== String(message.pactId)) {
+          return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING IS INVALID' });
+        }
+        const filename = path.basename(imageUrl);
+        if (!fs.existsSync(path.join(CHAT_UPLOAD_DIR, filename))) {
+          blackMarketUploadClaims.delete(imageUrl);
+          return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING WAS LOST' });
+        }
+        imageRef = imageUrl;
+      } else {
+        imageRef = sanitizeTributeImageData(message.imageData) || '';
+      }
+      if (!imageRef) return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING IS INVALID' });
+      result = blackMarket.submitTribute(state, ws.playerId, message.pactId, imageRef, message.consent === true);
+      if (!result?.error && imageUrl) blackMarketUploadClaims.delete(imageUrl);
     } else return;
     if (result?.error) return sendToWs(ws, { type: 'blackMarket:error', message: result.error });
     persistActiveRooms();
@@ -1946,6 +1974,7 @@ function handleBlackMarket(ws, message) {
       originalMessageTimestamp: Date.now(),
       sessionId: room.boardId || 'CASUAL',
       imageData: pact.tributeImageData,
+      imageUrlOrStoragePath: pact.tributeImageUrl || '',
       viewedByGM: true,
       reliquary: true,
       source: 'blackMarket',
@@ -5078,6 +5107,14 @@ function handleKaladont(ws, message) {
     case 'kaladont:join':
       result = kaladont.join(state, actor);
       break;
+    case 'kaladont:requestAdmission':
+      result = kaladont.requestAdmission(state, actor, now);
+      break;
+    case 'kaladont:admit':
+    case 'kaladont:denyAdmission':
+      if (ws !== room.hostConnection) return fail('ONLY THE SHADOW BROKER MAY RULE ON ADMISSION');
+      result = kaladont.resolveAdmission(state, message.playerId, type === 'kaladont:admit', now);
+      break;
     case 'kaladont:leave':
       result = kaladont.leave(state, actor.id);
       break;
@@ -5308,12 +5345,10 @@ function handleIksMaxHealth(ws, message) {
   broadcastPlayersUpdate(room);
 }
 
-function handleIksHealthBars(ws, message) {
+function handleIksHealthVisibility(ws, message) {
   const room = hostRoomFor(ws);
-  if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can switch IKS OKS health bars' });
-  const result = iksArena.setBarsEnabled(message.enabled !== false);
-  if (!result.ok) return sendToWs(ws, { type:'error', message: result.error });
-  iksAnnounce(room, [result.barsEnabled ? 'IKS OKS // HEALTH BARS ARE BACK. THE ARENA REMEMBERS EVERY WOUND.' : 'IKS OKS // HEALTH BARS HIDDEN. WEAR YOUR TRUE FACES, LITTLE HEROES.']);
+  if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can toggle IKS OKS health bars' });
+  iksArena.setHealthVisible(message.visible !== false);
   broadcastPlayersUpdate(room);
 }
 
@@ -5718,6 +5753,25 @@ function persistChatImage(room, actor, buffer, contentType, caption) {
   return { imageUrl, messageId: message.id };
 }
 
+function persistBlackMarketTributeUpload(actor, buffer, contentType, pactId) {
+  const extByType = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+  const ext = extByType[contentType];
+  if (!ext) throw new Error('Unsupported image type');
+  const capacity = chatUploadGuard.checkCapacity(buffer.length);
+  if (!capacity.ok) throw Object.assign(new Error(capacity.error), { code: 'UPLOAD_CAPACITY' });
+  const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
+  const filePath = path.join(CHAT_UPLOAD_DIR, filename);
+  fs.writeFileSync(filePath, buffer, { flag: 'wx', mode: 0o600 });
+  chatUploadGuard.recordStored(actor.uploadSlot, buffer.length);
+  const imageUrl = '/uploads/chat/' + filename;
+  blackMarketUploadClaims.set(imageUrl, {
+    playerId: String(actor.playerId),
+    pactId: String(pactId),
+    createdAt: Date.now()
+  });
+  return { imageUrl };
+}
+
 function readChatImageBody(req, cb, limit = MAX_CHAT_IMAGE_BYTES) {
   const chunks = [];
   let size = 0;
@@ -5853,6 +5907,52 @@ function addRollMessage(room, playerId, playerName, range, options = {}) {
   return { success: true, message, tributeTriggered };
 }
 
+// LINK PREVIEW -- unfurls every address in a posted line.
+//
+// Chat never waits on a stranger's web server. The message is stored and
+// broadcast immediately with whatever is already cached (usually nothing), and
+// when each fetch finishes the room gets a single-message chat:delta carrying
+// the updated card(s). A failed or refused fetch still produces a minimal card
+// showing the hostname, so a link in Battle Comms is never without a preview.
+function primeChatLinkPreview(room, message) {
+  if (!message || typeof message.text !== 'string') return;
+  const urls = linkPreviewService.extractAllUrls(message.text);
+  if (!urls.length) return;
+
+  message.linkPreviews = [];
+  const { immediate, pending } = linkPreviewService.primeAll(urls, preview => {
+    // The message may have been deleted, or aged out of the history window,
+    // while the fetch was in flight. A preview for a message nobody can see is
+    // dropped rather than resurrected onto a different object.
+    if (!room?.chat?.messages?.includes(message)) return;
+    upsertLinkPreview(message, preview);
+    message.linkPreviewAt = Date.now();
+    persistActiveRooms();
+    broadcastChatUpdate(room, [message.id]);
+  });
+  for (const preview of immediate) upsertLinkPreview(message, preview);
+  if (immediate.length) {
+    message.linkPreviewAt = Date.now();
+    // The initial broadcast already goes out for the text; including any
+    // immediately-cached previews keeps the first render from flickering.
+  }
+
+  Promise.allSettled(pending).then(() => {
+    if (!room?.chat?.messages?.includes(message)) return;
+    if (!message.linkPreviews?.length) return;
+    persistActiveRooms();
+    broadcastChatUpdate(room, [message.id]);
+  }).catch(() => {});
+}
+
+function upsertLinkPreview(message, preview) {
+  if (!message || !preview || typeof preview !== 'object' || !preview.url) return;
+  message.linkPreviews = Array.isArray(message.linkPreviews) ? message.linkPreviews : [];
+  const existing = message.linkPreviews.findIndex(p => p.url === preview.url);
+  if (existing >= 0) message.linkPreviews[existing] = preview;
+  else message.linkPreviews.push(preview);
+}
+
 function addChatMessage(room, playerId, playerName, text) {
   const sanitized = sanitizeText(text);
   if (!sanitized) return { success: false, error: 'Empty message' };
@@ -5886,6 +5986,11 @@ function addChatMessage(room, playerId, playerName, text) {
   if (room.chat.messages.length > CHAT_HISTORY_LIMIT) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   }
+
+  // Fires and forgets: the address is linkified in every client immediately,
+  // and the unfurled card arrives as a follow-up update if one is ever going
+  // to. Never awaited, never able to fail a post.
+  primeChatLinkPreview(room, message);
 
   // MATCH LEDGER is battle telemetry, not social telemetry.
   if (room.roomMode === ROOM_MODES.BATTLE && !room.sessionState.matchResult) {
@@ -5946,6 +6051,9 @@ const CHAT_SLASH_COMMANDS = [
 ];
 
 const GM_CHAT_SLASH_COMMANDS = [
+  { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
+  { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
+  { name: '/b3', help: '/b3 -- manually trigger the three-second Baki B3 battle tribute' },
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
   { name: '/womf', help: 'WOMF charge, failed columns and wheel status' },
   { name: '/timer', help: '/timer A1 -- warn Column A has 1 minute left (A-D, 1 or 2 minutes)' },
@@ -6041,9 +6149,15 @@ const ALL_ONLINE_TARGET_ID = '__ALL_ONLINE__';
 // `allowBroker` (player /spit and /fart) also accepts the Shadow Broker, by
 // picker id or by typing Shadow Broker / Broker / GM -- a real player with
 // that exact name still wins. `verbLabel` only shapes the error text.
-function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel, { allowBroker = false, allowAll = false } = {}) {
-  const connected = Array.from(room.players.values())
-    .filter(player => player.connected !== false && String(player.name || '').trim());
+function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel, { allowBroker = false, allowAll = false, includeDisconnected = false } = {}) {
+  const roster = Array.from(room.players.values())
+    .filter(player => String(player.name || '').trim());
+  const connected = roster.filter(player => player.connected !== false);
+  // The Shadow Broker controls the persistent room roster, not merely the
+  // sockets alive at this instant. A temporarily disconnected identity can
+  // therefore still be named by a GM act; player-authored acts remain limited
+  // to live peers, and ALL continues to mean connected players only.
+  const namedCandidates = includeDisconnected ? roster : connected;
   const selfId = actorId === null || actorId === undefined ? '' : String(actorId);
   const allTarget = () => {
     const targetIds = connected.map(player => String(player.id)).filter(id => id !== selfId);
@@ -6054,8 +6168,8 @@ function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel,
   if (typeof targetPlayerId === 'string' && targetPlayerId) {
     if (allowAll && targetPlayerId === ALL_ONLINE_TARGET_ID) return allTarget();
     if (allowBroker && targetPlayerId === SHADOW_BROKER_TARGET_ID) return { target: SHADOW_BROKER_TARGET };
-    const target = connected.find(player => String(player.id) === targetPlayerId);
-    if (!target) return { error: `${verbLabel} TARGET MUST BE A CONNECTED PLAYER` };
+    const target = namedCandidates.find(player => String(player.id) === targetPlayerId);
+    if (!target) return { error: `${verbLabel} TARGET MUST BE A ${includeDisconnected ? 'KNOWN' : 'CONNECTED'} PLAYER` };
     if (String(target.id) === selfId) return { error: `${verbLabel} TARGET MUST BE ANOTHER PLAYER` };
     return { target };
   }
@@ -6065,10 +6179,10 @@ function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel,
   const needle = String(rawTarget || '').trim().replace(/^@+\s*/, '').trim().toLocaleLowerCase();
   if (!needle) return { error: `${verbLabel} TARGET REQUIRED // PICK A PLAYER FROM THE LIST` };
   if (allowAll && (needle === 'all' || needle === 'all online' || needle === 'everyone')) return allTarget();
-  const exact = connected.find(player => String(player.name).toLocaleLowerCase() === needle && String(player.id) !== selfId);
+  const exact = namedCandidates.find(player => String(player.name).toLocaleLowerCase() === needle && String(player.id) !== selfId);
   if (exact) return { target: exact };
   if (allowBroker && SHADOW_BROKER_TARGET_NAMES.has(needle)) return { target: SHADOW_BROKER_TARGET };
-  const target = connected.find(player => String(player.name).toLocaleLowerCase().includes(needle) && String(player.id) !== selfId);
+  const target = namedCandidates.find(player => String(player.name).toLocaleLowerCase().includes(needle) && String(player.id) !== selfId);
   if (!target) return { error: `${verbLabel} TARGET NOT FOUND // PICK A PLAYER FROM THE LIST` };
   return { target };
 }
@@ -6175,7 +6289,11 @@ function handleActCommand(room, author, raw, targetPlayerId, act) {
   const match = raw.match(new RegExp(`^\\/${act}(?:\\s+@?(.*))?\\s*$`, 'i'));
   if (!match) return { success: false, error: `${label} INVALID // USE /${act}` };
   const actorIsBroker = author.id === null || author.id === undefined;
-  const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', label, { allowBroker: !actorIsBroker, allowAll: true });
+  const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', label, {
+    allowBroker: !actorIsBroker,
+    allowAll: true,
+    includeDisconnected: actorIsBroker
+  });
   if (resolved.error) return { success: false, error: resolved.error };
   const target = resolved.target;
   return buildChatCommandMessage(room, author, act, act,
@@ -6383,6 +6501,30 @@ function dispatchGmSlashCommand(room, ws, text) {
   if (!raw.startsWith('/')) return null;
   const author = { id: null, name: 'SHADOW BROKER' };
 
+  if (/^\/warsong\b/i.test(raw)) {
+    if (!/^\/warsong\s*$/i.test(raw)) return { success: false, error: 'WARSONG INVALID // USE /warsong' };
+    broadcastToRoom(room, { type: 'warsong:alert', timestamp: Date.now(), durationMs: 9000 });
+    return { success: true, broadcast: false };
+  }
+
+  if (/^\/c4\b/i.test(raw)) {
+    if (!/^\/c4\s*$/i.test(raw)) return { success: false, error: 'C4 INVALID // USE /c4' };
+    if (room.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) {
+      return { success: false, error: 'C4 REQUIRES A LIVE BATTLE' };
+    }
+    broadcastToRoom(room, { type: 'c4:alert', messageId: null, timestamp: Date.now(), durationMs: 3000, manual: true });
+    return { success: true, broadcast: false };
+  }
+
+  if (/^\/b3\b/i.test(raw)) {
+    if (!/^\/b3\s*$/i.test(raw)) return { success: false, error: 'B3 INVALID // USE /b3' };
+    if (room.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) {
+      return { success: false, error: 'B3 REQUIRES A LIVE BATTLE' };
+    }
+    broadcastToRoom(room, { type: 'b3:alert', messageId: null, timestamp: Date.now(), durationMs: 3000, manual: true });
+    return { success: true, broadcast: false };
+  }
+
   if (/^\/recount\b/i.test(raw)) {
     if (!/^\/recount\s*$/i.test(raw)) return { success: false, error: 'RECOUNT INVALID // USE /recount' };
     // Eligibility errors go straight to the host from inside; no chat message.
@@ -6494,7 +6636,31 @@ function addShadowBrokerMessage(room, text, options = {}) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   }
 
+  // Shadow Broker broadcasts use a separate creation path from player chat.
+  // Keep their link behaviour identical: post the text immediately, then
+  // deliver the hardened server-side preview to the GM and every player.
+  primeChatLinkPreview(room, message);
+
   return { success: true, message };
+}
+
+// C4 COLUMN EASTER EGG -- only a complete "c4" / "c 4" transmission during
+// a live, unresolved battle detonates it. It is presentation-only and is not
+// persisted, so reconnecting players never replay an old explosion.
+function triggerC4Alert(room, text, messageId) {
+  if (room?.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) return false;
+  if (!/^c\s?4$/i.test(String(text || '').trim())) return false;
+  broadcastToRoom(room, { type: 'c4:alert', messageId: messageId || null, timestamp: Date.now(), durationMs: 3000 });
+  return true;
+}
+
+// B3 FIELD EASTER EGG -- exact live-battle chat token only. Presentation-only;
+// the Baki tribute is never persisted or replayed after a reconnect.
+function triggerB3Alert(room, text, messageId) {
+  if (room?.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) return false;
+  if (!/^b\s?3$/i.test(String(text || '').trim())) return false;
+  broadcastToRoom(room, { type: 'b3:alert', messageId: messageId || null, timestamp: Date.now(), durationMs: 3000 });
+  return true;
 }
 
 function broadcastToRoom(room, message, excludeWs = null) {
@@ -6514,6 +6680,39 @@ function sendToWs(ws, message) {
     ws.send(JSON.stringify(message));
   }
 }
+
+// CLASS WARNING // server-driven so it reaches EVERYONE.
+// The client-side class clock is a per-tab render loop, and a tab that was
+// backgrounded, throttled or asleep simply misses the minute it was supposed to
+// warn in -- which is exactly when a "do not be late" banner matters most. The
+// authoritative schedule lives on the server and is pushed to every room, so a
+// client only has to be connected to receive it.
+let lastAnnouncedClassKey = '';
+
+function announceClassWarning() {
+  const warning = classSchedule.classWarningFor(new Date());
+  // Deduped on the CLASS, not on the current minute: a 1s tick sees the same
+  // due warning for a whole 60s, and a server that restarts mid-window should
+  // announce once more rather than stay silent for that class.
+  if (!warning || warning.key === lastAnnouncedClassKey) return;
+  lastAnnouncedClassKey = warning.key;
+  const payload = JSON.stringify({
+    type: 'class:warning',
+    label: warning.label,
+    classKey: warning.key,
+    startAt: warning.startAt,
+    message: "DON'T BE LATE FOR THE CLASS, LITTLE HERO"
+  });
+  for (const room of rooms.values()) {
+    room.players.forEach((player, ws) => {
+      if (ws.readyState === 1) ws.send(payload);
+    });
+    if (room.hostConnection && room.hostConnection.readyState === 1) {
+      room.hostConnection.send(payload);
+    }
+  }
+}
+setInterval(() => announceClassWarning(), 1000).unref();
 
 // SHADOW CONTRACTS // private, per-viewer projection. Quest details never
 // travel through state:public, so unrelated clients cannot inspect them.
@@ -7051,6 +7250,8 @@ function createChatSerializer(room) {
       voiceSeconds: m.messageType === 'voice' ? Math.min(MAX_CHAT_VOICE_SECONDS, Math.max(1, Number(m.voiceSeconds) || 1)) : undefined,
       imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
       messageType: m.messageType || null,
+      linkPreview: sanitizeChatLinkPreview(m.linkPreview),
+      linkPreviews: sanitizeChatLinkPreviews(m.linkPreviews),
       ...sanitizeChatCommandMeta(m),
       gif: m.messageType === 'gifRemote' && m.gif ? {
         provider: m.gif.provider === 'giphy' ? 'giphy' : undefined,
@@ -7556,11 +7757,9 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
 // IKS OKS health for avatar rings; Master Mirror test personas have none.
 function iksArenaFields(player) {
   if (!player || player.isTestPersona === true || isMasterTestPlayerId(player.id)) return {};
-  // Every Little Hero carries live health. The Broker's HEALTH BARS switch is
-  // purely cosmetic: while hidden, health still moves and still counts (a
-  // fallen hero stays fallen); clients just draw the usual avatar.
+  // Every Little Hero wears the ring: health is always live (iks-arena-store).
   const standing = iksArena.standingOf(player.id);
-  return { iksHealth: standing.health, iksMaxHealth: standing.maxHealth, iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: standing.fighter, iksBarsHidden: !iksArena.barsEnabled() || undefined };
+  return { iksHealth: standing.health, iksMaxHealth: standing.maxHealth, iksHealthVisible: iksArena.healthVisible(), iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: standing.fighter };
 }
 
 function sendPlayersUpdateTo(room, ws) {
@@ -8102,6 +8301,49 @@ function dmLocked(room) {
   return room.roomMode === ROOM_MODES.BATTLE || room.roomMode === ROOM_MODES.BATTLE_ARMED;
 }
 
+// The unfurled card as it leaves the server. Every field is re-derived here
+// rather than trusted from the stored object: the room file is writable state
+// and a preview is a set of URLs and strings a client will place into the DOM.
+// The image is scheme-checked (and private hosts dropped) so a stored card can
+// never make a reader's browser reach for an intranet address.
+function sanitizeChatLinkPreview(raw) {
+  try {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const url = linkPreviewService.normalizeUrl(String(raw.url || '').trim());
+    const text = (value, max) => {
+      const clean = sanitizeText(String(value || '')).replace(/\s+/g, ' ').trim();
+      return clean ? clean.slice(0, max) : '';
+    };
+    let image = '';
+    if (raw.image) {
+      try {
+        const parsed = linkPreviewService.normalizeUrl(String(raw.image).trim());
+        const host = parsed.hostname.toLowerCase();
+        const literal = net.isIP(host);
+        if (!literal || !isBlockedRemoteAddress(host)) image = parsed.toString();
+      } catch (_) {
+        image = '';
+      }
+    }
+    return {
+      url: url.toString(),
+      title: text(raw.title, 200),
+      description: text(raw.description, 400),
+      siteName: text(raw.siteName, 80),
+      image: image || null,
+      fetchedAt: Number(raw.fetchedAt) || Date.now()
+    };
+  } catch (_) {
+    return undefined;
+  }
+}
+
+function sanitizeChatLinkPreviews(rawArray) {
+  if (!Array.isArray(rawArray)) return undefined;
+  const out = rawArray.map(sanitizeChatLinkPreview).filter(Boolean);
+  return out.length ? out : undefined;
+}
+
 function socketsForPlayer(playerId) {
   const id = String(playerId || '');
   const out = [];
@@ -8245,7 +8487,7 @@ function handleGmDirectMessages(ws, message) {
     if (message.type === 'gm:privateList') return sendToWs(ws, { type: 'gm:privateList', conversations: dmStore.listFor(GM_DM_ID), locked: dmLocked(room) });
     if (message.type === 'gm:privateOpen') {
       const other = dmIdentityFor(message.playerId);
-      if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:dmError', message:'No such Little Hero' });
+      if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:privateError', message:'No such Little Hero' });
       const convo = dmStore.conversationFor(GM_DM_ID, other.id);
       if (convo) dmStore.markRead(convo.id, GM_DM_ID);
       const thread = convo ? dmThreadPayload(dmStore.conversationFor(GM_DM_ID, other.id), GM_DM_ID) : { id:null, other:{ id:other.id, name:other.name, online:other.online }, messages:[], otherReadAt:0, blocked:false, blockedYou:dmStore.isBlocked(other.id, GM_DM_ID) };
@@ -8256,7 +8498,7 @@ function handleGmDirectMessages(ws, message) {
     if (message.type === 'gm:privateSend') {
       if (dmLocked(room)) return sendToWs(ws, { type:'gm:privateError', message:'SILENCE // THE MATCH IS LIVE.' });
       const other = dmIdentityFor(message.toId);
-      if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:dmError', message:'No such Little Hero' });
+      if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:privateError', message:'No such Little Hero' });
       const text = sanitizeText(String(message.text || '')).slice(0, dmStore.MAX_TEXT + 1);
       const result = dmStore.send(me, other, text, Date.now());
       if (!result.ok) return sendToWs(ws, { type:'gm:privateError', message:result.error });
@@ -8275,6 +8517,47 @@ function handleGmDirectMessages(ws, message) {
     console.error('[gm-dm] failed:', error.message);
     sendToWs(ws, { type:'gm:privateError', message:'PRIVATE CHANNEL FAILED' });
   }
+}
+
+function handleGmShadowCoinAdjust(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker may alter Shadow Coins' });
+
+  const playerId = String(message?.playerId || '');
+  const requestedName = String(message?.playerName || '').slice(0, 80);
+  const amount = Number(message?.amount);
+  if (!playerId || playerId === '__GM__' || isMasterTestPlayerId(playerId)) {
+    return sendToWs(ws, { type:'error', message:'That identity has no Shadow Coin account' });
+  }
+  if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 100000) {
+    return sendToWs(ws, { type:'error', message:'Invalid Shadow Coin adjustment' });
+  }
+
+  let liveName = '';
+  room.players.forEach(player => {
+    if (String(player?.id) === playerId) liveName = String(player?.name || '');
+  });
+  const account = coinAccount(playerId, liveName || requestedName || 'LITTLE HERO');
+  if (!account) return sendToWs(ws, { type:'error', message:'Shadow Coin account not found' });
+
+  const receipt = `gm-adjust:${Date.now()}:${crypto.randomBytes(6).toString('hex')}`;
+  const normalized = Math.round(amount * 10) / 10;
+  const result = normalized > 0
+    ? playerStore.awardShadowCoins(account, normalized, receipt, { reason:'Shadow Broker manual adjustment' })
+    : playerStore.deductShadowCoins(account, -normalized, receipt, { reason:'Shadow Broker manual adjustment' });
+
+  if (!result?.ok) return sendToWs(ws, { type:'error', message:result?.error || 'Shadow Coin adjustment failed' });
+
+  const applied = normalized > 0 ? normalized : -Number(result.deducted || 0);
+  persistActiveRooms();
+  broadcastPlayersUpdate(room);
+  sendToWs(ws, {
+    type:'gm:shadowCoinAdjusted',
+    playerId,
+    playerName:account.name,
+    delta:applied,
+    balance:result.balance
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -8565,6 +8848,8 @@ function handleChatGuess(ws, message) {
       && nudge !== 'tribute'
       && result.message?.id;
     broadcastChatUpdate(room, singleMessageOnly ? [result.message.id] : null);
+    if (dispatch === null) triggerC4Alert(room, result.message?.text, result.message?.id);
+    if (dispatch === null) triggerB3Alert(room, result.message?.text, result.message?.id);
     if (result.tributeTriggered || nudge === 'tribute') broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
     if (nudge === 'nudge') {
       broadcastToRoom(room, {
@@ -8810,6 +9095,8 @@ function handleGmBroadcast(ws, message) {
   if (result.success) {
     persistActiveRooms();
     broadcastChatUpdate(room);
+    triggerC4Alert(room, result.message?.text, result.message?.id);
+    triggerB3Alert(room, result.message?.text, result.message?.id);
 
     // @all is a live host-only attention command. The chat message itself is
     // persistent; the shake is deliberately ephemeral and never replays when
@@ -9797,6 +10084,77 @@ function handleApiRequest(req, res) {
       if (!res.headersSent) sendJson(res, 500, { ok: false, code: 'GIF_INTERNAL_ERROR', message: 'GIF NETWORK // INTERNAL ERROR' });
     });
     return;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/black-market/tribute-image') {
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    if (!['image/png','image/jpeg','image/webp'].includes(contentType)) {
+      return sendJson(res, 415, { error: 'Only PNG, JPEG and WEBP images are allowed' });
+    }
+
+    const room = rooms.get(MASTER_ROOM_CODE);
+    if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
+    const actor = getChatImageActor(req, room);
+    if (!actor || actor.role !== 'player') return sendJson(res, 401, { error: 'Black Market upload authentication required' });
+
+    const pactId = String(url.searchParams.get('pactId') || '');
+    const state = room.blackMarket = blackMarket.normalizeState(room.blackMarket);
+    const pact = blackMarket.findPact(state, pactId);
+    if (!pact || String(pact.playerId) !== String(actor.playerId)) return sendJson(res, 404, { error: 'Pact not found' });
+    if (!['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(pact.state)) {
+      return sendJson(res, 409, { error: 'Blood is not owed for this pact' });
+    }
+
+    const actorKey = 'black-market:' + actor.playerId;
+    const verdict = chatUploadGuard.checkActor(actorKey, Date.now(), {
+      maxCount: 4,
+      minGapMs: 1000,
+      maxBytes: 40 * 1024 * 1024
+    });
+    if (!verdict.ok) {
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil(verdict.retryAfterMs / 1000))));
+      return sendJson(res, 429, { error: verdict.error, code: 'UPLOAD_THROTTLED' });
+    }
+    const capacity = chatUploadGuard.checkCapacity(BLACK_MARKET_TRIBUTE_MAX_BYTES);
+    if (!capacity.ok) return sendJson(res, 507, { error: capacity.error, code: 'UPLOAD_CAPACITY' });
+    actor.uploadSlot = chatUploadGuard.reserve(actorKey);
+
+    return readChatImageBody(req, (err, body) => {
+      if (err) return sendJson(res, err.code === 'TOO_LARGE' ? 413 : 400, { error: err.code === 'TOO_LARGE' ? 'Image exceeds 20 MB limit' : 'Image upload failed' });
+      if (!body || body.length === 0) return sendJson(res, 400, { error: 'Empty image upload' });
+      if (!validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Image file signature does not match its declared type' });
+      try {
+        const stored = persistBlackMarketTributeUpload(actor, body, contentType, pactId);
+        return sendJson(res, 201, { ok: true, ...stored });
+      } catch (writeError) {
+        console.error('[black-market-tribute] upload failed', writeError);
+        const status = uploadFailureStatus(writeError);
+        return sendJson(res, status, { error: status === 507 ? writeError.message : 'Tribute image could not be stored', code: status === 507 ? 'UPLOAD_CAPACITY' : undefined });
+      }
+    }, BLACK_MARKET_TRIBUTE_MAX_BYTES);
+  }
+
+  // COMPOSER LINK PREVIEW -- authenticated, read-only unfurl used while a
+  // player or the Shadow Broker is still composing a message. It deliberately
+  // shares the posted-message preview service, including its cache, redirect
+  // checks, private-address refusal, byte cap and timeout.
+  if (method === 'POST' && url.pathname === '/api/chat/link-preview') {
+    const room = rooms.get(MASTER_ROOM_CODE);
+    if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
+    const actor = getChatImageActor(req, room);
+    if (!actor) return sendJson(res, 401, { error: 'Chat preview authentication required' });
+    return readJsonBody(req, async (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid link preview request' });
+      const urlToPreview = linkPreviewService.extractFirstUrl(String(body?.url || ''));
+      if (!urlToPreview) return sendJson(res, 400, { error: 'A public HTTP or HTTPS link is required' });
+      try {
+        const preview = sanitizeChatLinkPreview(await linkPreviewService.unfurl(urlToPreview));
+        if (!preview) return sendJson(res, 422, { error: 'This link cannot be previewed' });
+        return sendJson(res, 200, { ok: true, preview });
+      } catch (_) {
+        return sendJson(res, 422, { error: 'This link cannot be previewed' });
+      }
+    });
   }
 
   if (method === 'POST' && url.pathname === '/api/chat/image-url') {
@@ -10838,6 +11196,10 @@ wss.on('connection', (ws, req) => {
           handleMegabonkAck(ws, message);
           break;
         }
+        case 'gm:shadowCoinAdjust': {
+          handleGmShadowCoinAdjust(ws, message);
+          break;
+        }
         case 'gm:shadowRealm': {
           handleGmShadowRealm(ws, message);
           break;
@@ -10939,12 +11301,15 @@ wss.on('connection', (ws, req) => {
           handleIksMaxHealth(ws, message);
           break;
         }
-        case 'gm:iksHealthBars': {
-          handleIksHealthBars(ws, message);
+        case 'gm:iksHealthVisibility': {
+          handleIksHealthVisibility(ws, message);
           break;
         }
         case 'kaladont:create':
         case 'kaladont:join':
+        case 'kaladont:requestAdmission':
+        case 'kaladont:admit':
+        case 'kaladont:denyAdmission':
         case 'kaladont:leave':
         case 'kaladont:cancel':
         case 'kaladont:start':

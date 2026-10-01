@@ -17,13 +17,13 @@
 //   required prefix (last two letters of the last ACCEPTED word; none on an
 //   opening turn), and no repeat of an accepted word. A structural failure
 //   eliminates the submitter at once (no tribunal); the chain is unchanged.
-// - A structurally valid word goes to the TRIBUNAL: every living player,
-//   submitter included, votes ACCEPT / REJECT once within VOTE_MS. Votes are
+// - A structurally valid word goes to the TRIBUNAL: every other living player
+//   votes ACCEPT / REJECT once within VOTE_MS. The submitter cannot vote. Votes are
 //   secret until the verdict. Missing votes count as ACCEPT (silence cannot
 //   execute anyone); ties ACCEPT. REJECT majority eliminates the submitter.
 // - KALADONT: the exact word KALADONT that satisfies the prefix is accepted
-//   without a tribunal and kills the next living player (NT is terminal).
-//   The survivor after that opens a fresh chain (no required prefix).
+//   without a tribunal and kills the player who submitted the previous word.
+//   Its submitter then opens a fresh chain (no required prefix).
 // - Timeout eliminates the current player. Eliminated players spectate.
 // - Last living player wins.
 const crypto = require('crypto');
@@ -66,7 +66,12 @@ function normalizeWord(raw) {
 }
 
 function lastTwo(word) {
-  return [...word].slice(-2).join('');
+  const letters = [...word];
+  const lastThree = letters.slice(-3).join('');
+  // Serbian Latin LJ and NJ are single letters. In words such as BULJA and
+  // DONJA the playable ending is therefore LJA/NJA, never JA.
+  if (lastThree === 'LJA' || lastThree === 'NJA') return lastThree;
+  return letters.slice(-2).join('');
 }
 
 function startsWithPrefix(word, prefix) {
@@ -96,6 +101,7 @@ function createLobby(owner, now) {
     eliminations: [],
     winnerId: null,
     endedAt: 0,
+    admissionRequests: [],
     round: 1,
     seq: 0
   };
@@ -111,7 +117,10 @@ function normalizeState(raw) {
     order: Array.isArray(raw.order) ? raw.order.map(String) : [],
     players: raw.players && typeof raw.players === 'object' ? raw.players : {},
     history: Array.isArray(raw.history) ? raw.history : [],
-    eliminations: Array.isArray(raw.eliminations) ? raw.eliminations : []
+    eliminations: Array.isArray(raw.eliminations) ? raw.eliminations : [],
+    admissionRequests: Array.isArray(raw.admissionRequests)
+      ? raw.admissionRequests.filter(r => r && r.id).map(r => ({ id: String(r.id), name: cleanName(r.name), requestedAt: Number(r.requestedAt) || 0 }))
+      : []
   };
 }
 
@@ -156,6 +165,35 @@ function join(state, player) {
   state.members.push({ id, name: cleanName(player.name) });
   state.seq++;
   return { ok: true, announce: [] };
+}
+
+function requestAdmission(state, player, now) {
+  if (!isActive(state)) return { ok: false, error: 'NO ACTIVE KALADONT GAME ACCEPTS ADMISSION REQUESTS' };
+  const id = String(player.id);
+  if (state.players[id]) return { ok: false, error: 'YOU ARE ALREADY IN THIS KALADONT GAME' };
+  if (state.order.length >= MAX_PLAYERS) return { ok: false, error: `KALADONT IS FULL (${MAX_PLAYERS})` };
+  if (state.admissionRequests.some(r => r.id === id)) return { ok: true, already: true, announce: [] };
+  state.admissionRequests.push({ id, name: cleanName(player.name), requestedAt: now });
+  state.seq++;
+  return { ok: true, announce: [] };
+}
+
+function resolveAdmission(state, playerId, accept, now) {
+  if (!isActive(state)) return { ok: false, error: 'NO ACTIVE KALADONT GAME ACCEPTS ADMISSIONS' };
+  const id = String(playerId);
+  const request = state.admissionRequests.find(r => r.id === id);
+  if (!request) return { ok: false, error: 'ADMISSION REQUEST NOT FOUND' };
+  state.admissionRequests = state.admissionRequests.filter(r => r.id !== id);
+  if (!accept) {
+    state.seq++;
+    return { ok: true, announce: [] };
+  }
+  if (state.order.length >= MAX_PLAYERS) return { ok: false, error: `KALADONT IS FULL (${MAX_PLAYERS})` };
+  state.members.push({ id, name: request.name });
+  state.order.push(id);
+  state.players[id] = { name: request.name, alive: true, reason: null, word: null, place: null, admittedAt: now };
+  state.seq++;
+  return { ok: true, announce: [`KALADONT // ${request.name} WAS ADMITTED TO THE RUNNING GAME.`] };
 }
 
 function leave(state, playerId) {
@@ -311,21 +349,23 @@ function submit(state, actorId, rawWord, turnSeq, now) {
 
   if (word === SPECIAL) {
     const index = state.turn.index;
+    const previous = state.history[state.history.length - 1] || null;
     state.history.push({ word, by: id, at: now });
-    const victimIndex = nextLivingIndex(state, index);
-    const victimId = victimIndex >= 0 && state.order[victimIndex] !== id ? state.order[victimIndex] : null;
+    const victimId = previous && previous.by !== id && state.players[previous.by]?.alive ? previous.by : null;
+    const victimIndex = victimId ? state.order.indexOf(victimId) : -1;
     const killed = victimId ? eliminate(state, victimId, REASONS.KALADONT, null, now) : null;
     state.prefix = ''; // NT is terminal: the next survivor opens a fresh chain
     state.result = { kind: 'kaladont', playerId: id, word, reason: null, killedId: killed ? victimId : null, votes: null };
     announce.push(`KALADONT // ${nameOf(state, id)} PLAYS KALADONT${killed ? ` AND KILLS ${killed.name}` : ''}.`);
-    // The killed player's slot is skipped: resume after them.
+    // Resume immediately after the killed previous player: that is the
+    // KALADONT submitter, who opens the fresh chain.
     afterResolution(state, victimIndex >= 0 ? victimIndex : index, now, announce);
     return { ok: true, outcome: 'kaladont', announce };
   }
 
   state.phase = 'tribunal';
   state.seq++;
-  state.tribunal = { seq: state.seq, word, by: id, index: state.turn.index, deadline: now + VOTE_MS, votes: {} };
+  state.tribunal = { seq: state.seq, word, by: id, index: state.turn.index, deadline: now + VOTE_MS, votes: {}, voterIds: living(state).filter(pid => pid !== id) };
   return { ok: true, outcome: 'tribunal', announce };
 }
 
@@ -333,6 +373,9 @@ function vote(state, actorId, choice, tribunalSeq, now) {
   if (!state || state.phase !== 'tribunal' || !state.tribunal) return { ok: false, error: 'NO TRIBUNAL IS OPEN' };
   const id = String(actorId);
   if (!state.players[id]?.alive) return { ok: false, error: 'ONLY LIVING PLAYERS VOTE' };
+  if (id === state.tribunal.by) return { ok: false, error: 'YOU CANNOT VOTE FOR YOUR OWN WORD' };
+  const eligible = Array.isArray(state.tribunal.voterIds) ? state.tribunal.voterIds : living(state).filter(pid => pid !== state.tribunal.by);
+  if (!eligible.includes(id)) return { ok: false, error: 'YOU WERE NOT ELIGIBLE FOR THIS TRIBUNAL' };
   if (tribunalSeq !== undefined && tribunalSeq !== null && Number(tribunalSeq) !== state.tribunal.seq) return { ok: false, error: 'THAT TRIBUNAL IS CLOSED' };
   if (now > state.tribunal.deadline) return { ok: false, error: 'VOTING IS CLOSED' };
   if (choice !== 'accept' && choice !== 'reject') return { ok: false, error: 'VOTE ACCEPT OR REJECT' };
@@ -340,13 +383,13 @@ function vote(state, actorId, choice, tribunalSeq, now) {
   state.tribunal.votes[id] = choice;
   state.seq++;
   const announce = [];
-  if (living(state).every(pid => state.tribunal.votes[pid])) resolveTribunal(state, now, announce);
+  if (eligible.every(pid => state.tribunal.votes[pid])) resolveTribunal(state, now, announce);
   return { ok: true, announce };
 }
 
 function resolveTribunal(state, now, announce) {
   const t = state.tribunal;
-  const voters = living(state);
+  const voters = Array.isArray(t.voterIds) ? t.voterIds.filter(pid => state.players[pid]?.alive) : living(state).filter(pid => pid !== t.by);
   const accept = [];
   const reject = [];
   const defaulted = [];
@@ -408,8 +451,10 @@ function view(state, viewerId, now, onlineIds = null) {
     deadline: t.deadline,
     closed: !!t.closed,
     voted: Object.keys(t.votes).length,
-    voters: living(state).length,
-    youVoted: t.votes[me] || null
+    voters: (Array.isArray(t.voterIds) ? t.voterIds : living(state).filter(pid => pid !== t.by)).filter(pid => state.players[pid]?.alive).length,
+    youVoted: t.votes[me] || null,
+    yourWord: t.by === me,
+    youMayVote: (Array.isArray(t.voterIds) ? t.voterIds : living(state).filter(pid => pid !== t.by)).includes(me) && !!state.players[me]?.alive
   } : null;
   const votes = state.result?.votes
     ? {
@@ -442,6 +487,7 @@ function view(state, viewerId, now, onlineIds = null) {
     result: state.result ? { ...state.result, playerName: nameOf(state, state.result.playerId), killedName: state.result.killedId ? nameOf(state, state.result.killedId) : null, votes } : null,
     verdictUntil: state.verdictUntil,
     eliminations: state.eliminations.map(e => ({ ...e })),
+    admissionRequests: me === '__GM__' ? state.admissionRequests.map(r => ({ ...r })) : [],
     winnerId: state.winnerId,
     winnerName: state.winnerId ? nameOf(state, state.winnerId) : null,
     // Set by the server layer when the win pays out (Shadow Coins); only the
@@ -455,7 +501,9 @@ function view(state, viewerId, now, onlineIds = null) {
       member: state.members.some(m => m.id === me),
       owner: state.ownerId === me,
       alive: !!state.players[me]?.alive,
-      playing: !!state.players[me]
+      playing: !!state.players[me],
+      admissionRequested: state.admissionRequests.some(r => r.id === me),
+      canRequestAdmission: isActive(state) && !state.players[me] && !state.admissionRequests.some(r => r.id === me) && state.order.length < MAX_PLAYERS
     }
   };
 }
@@ -463,6 +511,6 @@ function view(state, viewerId, now, onlineIds = null) {
 module.exports = {
   TURN_MS, ROUND_TURN_MS, LATE_ROUND_TURN_MS, turnMsForRound, VOTE_MS, VERDICT_MS, MAX_WORD, MAX_PLAYERS, SPECIAL, REASONS,
   normalizeWord, lastTwo, createLobby, normalizeState, resumeAfterRestart,
-  join, leave, lobbyDisconnect, start, submit, vote, tick, view,
+  join, requestAdmission, resolveAdmission, leave, lobbyDisconnect, start, submit, vote, tick, view,
   isActive, isOpenLobby, living
 };
