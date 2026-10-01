@@ -150,8 +150,10 @@
     },
     renderGm() {
       const pending = this.pacts.filter(p => ['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state));
-      const rest = this.pacts.filter(p => !['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state));
-      return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>SEALED PETITIONS</b><p>Each chamber terminates here. Nothing below is broadcast to the room.</p></div><h3>AWAITING JUDGMENT</h3><div class="bm-ledger">' + (pending.map(p => this.card(p, true)).join('') || '<p class="bm-empty">THE MARKET SLEEPS.</p>') + '</div><h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + (rest.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO DEBTS RECORDED.</p>') + '</div>';
+      // Finished pacts (fulfilled, denied, broken) leave the Shadow Broker's
+      // ledger the moment they are judged: only open debts remain.
+      const rest = this.pacts.filter(p => !['SUBMITTED','TRIBUTE_SUBMITTED','FULFILLED','DENIED','BROKEN'].includes(p.state));
+      return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>SEALED PETITIONS</b><p>Each chamber terminates here. Nothing below is broadcast to the room.</p></div><h3>AWAITING JUDGMENT</h3><div class="bm-ledger">' + (pending.map(p => this.card(p, true)).join('') || '<p class="bm-empty">THE MARKET SLEEPS.</p>') + '</div><h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + (rest.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO OPEN DEBTS.</p>') + '</div>';
     },
     card(p, gm) {
       const tributeSource = p.tributeImageUrl || p.tributeImageData || '';
