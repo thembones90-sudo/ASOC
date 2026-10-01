@@ -20,6 +20,15 @@
   cursor: pointer;
 }
 .chat-message.own .chat-sticker { margin-left: auto; }
+/* Shadow Broker console: same bubble-less sticker in the GM feed. */
+#gm-chat-messages .sticker-message .gm-chat-message-main,
+#gm-chat-messages .sticker-message.chat-message .chat-message-main {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+#gm-chat-messages .sticker-message .gm-chat-message-text:empty { display: none; }
+#gm-chat-messages .chat-sticker { width: 150px; height: 150px; }
 .chat-sticker img {
   width: 100%;
   height: 100%;
@@ -32,13 +41,9 @@
 .chat-sticker:focus-visible { outline: 2px solid #9b5de0; outline-offset: 4px; border-radius: 12px; }
 
 /* ---------- Tray (opens above the composer) ---------- */
-.chat-composer-shell { position: relative; }
 .stk-tray {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(100% + 10px);
-  z-index: 60;
+  position: fixed;
+  z-index: 7000;
   max-height: min(420px, 60vh);
   display: flex;
   flex-direction: column;

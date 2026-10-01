@@ -4407,6 +4407,7 @@ function handleChatRemoteGif(ws, message) {
 }
 
 const MAX_STICKER_BYTES = 1024 * 1024;
+const GM_STICKER_LIBRARY = '__GM__';
 const STICKER_PACK_DIR = path.join(__dirname, 'assets', 'stickers');
 let stickerPackCache = null;
 function stickerPack() {
@@ -4438,7 +4439,7 @@ function handleChatSticker(ws, message) {
   const stickerUrl = String(message.url || '');
   const allowed = stickerStore.isPackUrl(stickerUrl)
     ? stickerPack().includes(stickerUrl)
-    : actor.role === 'player' && stickerStore.has(actor.id, stickerUrl) && stickerExists(stickerUrl);
+    : stickerStore.has(actor.role === 'gm' ? GM_STICKER_LIBRARY : actor.id, stickerUrl) && stickerExists(stickerUrl);
   if (!allowed) return sendToWs(ws, { type: 'error', message: 'Sticker not available' });
   if (actor.role === 'player') {
     const now = Date.now();
@@ -10240,9 +10241,11 @@ function handleApiRequest(req, res) {
     const room = rooms.get(MASTER_ROOM_CODE);
     if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
     const actor = getChatImageActor(req, room);
-    if (!actor || actor.role !== 'player') return sendJson(res, 401, { error: 'Sticker authentication required' });
+    if (!actor) return sendJson(res, 401, { error: 'Sticker authentication required' });
+    // The Shadow Broker keeps a library of their own.
+    const libraryId = actor.role === 'gm' ? GM_STICKER_LIBRARY : actor.playerId;
     if (method === 'GET' && url.pathname === '/api/stickers') {
-      return sendJson(res, 200, { pack: stickerPack(), mine: stickerStore.list(actor.playerId), max: stickerStore.MAX_PER_PLAYER });
+      return sendJson(res, 200, { pack: stickerPack(), mine: stickerStore.list(libraryId), max: stickerStore.MAX_PER_PLAYER });
     }
     if (method === 'POST' && url.pathname === '/api/stickers/save') {
       return readJsonBody(req, (err, body) => {
@@ -10250,21 +10253,21 @@ function handleApiRequest(req, res) {
         const stickerUrl = String(body?.url || '');
         if (!stickerExists(stickerUrl)) return sendJson(res, 404, { error: 'Sticker not found' });
         try {
-          const result = stickerStore.add(actor.playerId, stickerUrl);
+          const result = stickerStore.add(libraryId, stickerUrl);
           return sendJson(res, result.ok ? 200 : 409, result);
         } catch { return sendJson(res, 500, { error: 'Sticker could not be saved' }); }
       });
     }
     if (method === 'DELETE' && url.pathname.startsWith('/api/stickers/item/')) {
       try {
-        const result = stickerStore.remove(actor.playerId, decodeURIComponent(url.pathname.slice('/api/stickers/item/'.length)));
+        const result = stickerStore.remove(libraryId, decodeURIComponent(url.pathname.slice('/api/stickers/item/'.length)));
         return sendJson(res, result.ok ? 200 : 404, result);
       } catch { return sendJson(res, 500, { error: 'Sticker could not be removed' }); }
     }
     if (method === 'POST' && url.pathname === '/api/stickers') {
       const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
       if (contentType !== 'image/png' && contentType !== 'image/webp') return sendJson(res, 415, { error: 'Stickers are PNG or WEBP' });
-      if (shadowRealmRefusal(room, actor.playerId)) return sendJson(res, 423, { error: shadowRealmRefusal(room, actor.playerId), code: 'SHADOW_REALM' });
+      if (actor.role !== 'gm' && shadowRealmRefusal(room, actor.playerId)) return sendJson(res, 423, { error: shadowRealmRefusal(room, actor.playerId), code: 'SHADOW_REALM' });
       if (!admitChatUpload(res, actor)) return;
       return readChatImageBody(req, (err, body) => {
         if (err) return sendJson(res, err.code === 'TOO_LARGE' ? 413 : 400, { error: err.code === 'TOO_LARGE' ? 'Sticker exceeds 1 MB' : 'Sticker upload failed' });
@@ -10276,7 +10279,7 @@ function handleApiRequest(req, res) {
           const filename = crypto.randomBytes(16).toString('hex') + (contentType === 'image/png' ? '.png' : '.webp');
           fs.writeFileSync(path.join(CHAT_UPLOAD_DIR, filename), body, { flag: 'wx', mode: 0o600 });
           chatUploadGuard.recordStored(actor.uploadSlot, body.length);
-          const result = stickerStore.add(actor.playerId, '/uploads/chat/' + filename);
+          const result = stickerStore.add(libraryId, '/uploads/chat/' + filename);
           return sendJson(res, result.ok ? 201 : 409, result);
         } catch (writeError) {
           console.error('[stickers] upload failed', writeError);

@@ -59,6 +59,8 @@ function fingerprint({ props, geometry }) {
   const out = { elements: {}, geometry: {} };
   for (const el of document.body.querySelectorAll('*')) {
     if (el.closest('script,style,svg,template')) continue;
+    // Wall-clock UI (the class-schedule warning) comes and goes with the time of day.
+    if (el.closest('#class-warning-banner')) continue;
     const cs = getComputedStyle(el);
     if (cs.display === 'none') continue;
     const key = pathOf(el);

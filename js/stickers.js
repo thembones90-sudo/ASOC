@@ -17,11 +17,22 @@
   const state = { pack: [], mine: [], max: 120, loaded: false, tab: 'mine', tray: null, maker: null };
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const token = () => sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
-  const toast = (text) => { if (window.PlayerApp?.setChatDeliveryState) window.PlayerApp.setChatDeliveryState(String(text).toUpperCase(), 'queued', 3600); else console.warn(text); };
+  // Works on both pages: the Little Hero chat (PlayerApp) and the Shadow
+  // Broker console (App, index.html), which keeps its own sticker library.
+  const isGM = () => !window.PlayerApp && !!window.App;
+  const authHeaders = () => isGM()
+    ? { 'x-gm-token': window.GameData?.gmToken || sessionStorage.getItem('asoc_gm_token') || '' }
+    : { 'x-player-token': sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '' };
+  const app = () => (isGM() ? window.App : window.PlayerApp);
+  const toast = (text) => {
+    const message = String(text).toUpperCase();
+    if (isGM() && window.App?.setGMDeliveryState) window.App.setGMDeliveryState(message, 'queued', 3600);
+    else if (window.PlayerApp?.setChatDeliveryState) window.PlayerApp.setChatDeliveryState(message, 'queued', 3600);
+    else console.warn(text);
+  };
 
   async function api(path, options = {}) {
-    const res = await fetch(path, { ...options, headers: { 'x-player-token': token(), ...(options.headers || {}) } });
+    const res = await fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
     const body = await res.json().catch(() => ({}));
     if (!res.ok || body.ok === false) throw new Error(body.error || 'Sticker request failed');
     return body;
@@ -37,8 +48,9 @@
   }
 
   function send(url) {
-    if (!window.PlayerApp?.ws || window.PlayerApp.ws.readyState !== WebSocket.OPEN) return toast('Chat is not connected.');
-    window.PlayerApp.send({ type: 'chat:sticker', url });
+    const target = app();
+    if (!target?.ws || target.ws.readyState !== WebSocket.OPEN) return toast('Chat is not connected.');
+    target.send({ type: 'chat:sticker', url });
     close();
   }
 
@@ -46,11 +58,11 @@
   function trayHTML() {
     const mine = state.mine.map(s => `
       <div class="stk-cell" data-stk-url="${esc(s.url)}">
-        <button type="button" class="stk-pick" data-stk-send="${esc(s.url)}" title="Send"><img src="${esc(s.url)}" alt="Sticker" loading="lazy"></button>
+        <button type="button" class="stk-pick" data-stk-send="${esc(s.url)}" title="Send"><img src="${esc(s.url)}" alt="Sticker"></button>
         <button type="button" class="stk-remove" data-stk-remove="${esc(s.id)}" title="Remove from my stickers" aria-label="Remove sticker">×</button>
       </div>`).join('');
     const pack = state.pack.map(url => `
-      <div class="stk-cell"><button type="button" class="stk-pick" data-stk-send="${esc(url)}" title="Send"><img src="${esc(url)}" alt="Sticker" loading="lazy"></button></div>`).join('');
+      <div class="stk-cell"><button type="button" class="stk-pick" data-stk-send="${esc(url)}" title="Send"><img src="${esc(url)}" alt="Sticker"></button></div>`).join('');
     const create = '<div class="stk-cell"><button type="button" class="stk-create" data-stk-create title="Make a sticker"><b>+</b><small>CREATE</small></button></div>';
     return `
       <div class="stk-tray-head">
@@ -68,12 +80,20 @@
 
   async function open() {
     close();
-    const anchor = document.querySelector('#chat-form .chat-composer-shell') || document.getElementById('chat-form');
+    const anchor = isGM()
+      ? document.querySelector('#shadow-broker-form .gm-composer-shell') || document.getElementById('shadow-broker-form')
+      : document.querySelector('#chat-form .chat-composer-shell') || document.getElementById('chat-form');
     if (!anchor) return;
     const tray = document.createElement('div');
     tray.className = 'stk-tray';
     tray.innerHTML = '<div class="stk-loading">LOADING STICKERS…</div>';
-    anchor.appendChild(tray);
+    // Fixed to the viewport just above the composer, so no ancestor's
+    // overflow or positioning can clip it.
+    const r = anchor.getBoundingClientRect();
+    tray.style.left = Math.max(8, r.left) + 'px';
+    tray.style.width = Math.min(r.width, window.innerWidth - 16) + 'px';
+    tray.style.bottom = Math.max(8, window.innerHeight - r.top + 10) + 'px';
+    document.body.appendChild(tray);
     state.tray = tray;
     tray.addEventListener('click', onTrayClick);
     setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
@@ -108,8 +128,7 @@
 
   // ---------- Chat rendering ----------
   function messageHTML(msg) {
-    const own = String(msg.playerId || '') === String(window.PlayerApp?.playerId || window.PlayerApp?.authPlayerId || '');
-    return `<button type="button" class="chat-sticker" data-stk-msg="${esc(msg.imageUrl)}" data-stk-own="${own ? '1' : ''}" aria-label="Sticker"><img src="${esc(msg.imageUrl)}" alt="Sticker" loading="lazy" draggable="false"></button>`;
+    return `<button type="button" class="chat-sticker" data-stk-msg="${esc(msg.imageUrl)}" aria-label="Sticker"><img src="${esc(msg.imageUrl)}" alt="Sticker" loading="lazy" draggable="false"></button>`;
   }
 
   // Tapping someone's sticker offers ADD TO MY STICKERS (WhatsApp style).
