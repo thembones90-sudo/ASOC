@@ -1604,6 +1604,11 @@ const App = {
         openGMGifPicker();
         return;
       }
+      if (action === 'sticker') {
+        closeGMAttachmentMenu();
+        window.AsocStickers?.open();
+        return;
+      }
       if (action === 'poll') openGMPollComposer();
       if (action === 'voice') {
         closeGMAttachmentMenu();
@@ -5820,10 +5825,10 @@ const App = {
         ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
       return `
-        <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+        <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'sticker' ? ' sticker-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
           ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}
-          ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
+          ${msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : (msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : '')}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
           ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
           ${this.createGMReactionSummaryHTML(msg)}
         </div>
@@ -5870,13 +5875,13 @@ const App = {
     }
 
     return `
-      <div class="gm-chat-message gm-flow-message ${msg.messageType === 'voice' ? 'voice-message ' : ''}${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.messageClass(msg) || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+      <div class="gm-chat-message gm-flow-message ${msg.messageType === 'voice' ? 'voice-message ' : ''}${msg.messageType === 'sticker' ? 'sticker-message ' : ''}${manualTribute ? 'active-blood-tribute' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${hasVerdict ? 'has-verdict' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.messageClass(msg) || ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${themeStyle}--little-hero-accent:${frameColor}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
         <div class="gm-chat-avatar-rail">${this.littleHeroAvatarHTML(identity, true)}</div>
         <div class="gm-chat-bubble-cluster">
           <div class="gm-chat-message-main">${manualBadge}${window.ShadowCosmetics?.celebrationHTML(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.markHTML(msg) || ''}
             <div class="gm-chat-flow-header"><span class="gm-chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
             ${replyContextHtml}
-            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${window.ChatLinks ? window.ChatLinks.textHTML(messageText, text => this.gmSolutionHighlightHTML(text)) : this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
+            <div class="gm-chat-message-line"><div class="gm-chat-message-text">${window.ChatLinks ? window.ChatLinks.textHTML(messageText, text => this.gmSolutionHighlightHTML(text)) : this.gmSolutionHighlightHTML(messageText)}</div><span class="gm-chat-time">${time}</span>${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}</div>${msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : (msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : '')}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
             ${verdictMetaHtml}${preparedHintHtml}
             ${verdictResponseHtml}
             ${this.createGMReactionSummaryHTML(msg)}
