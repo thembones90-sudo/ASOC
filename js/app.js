@@ -2699,6 +2699,9 @@ const App = {
       }
     }
     switch (message.type) {
+      case 'column:dangerExpired':
+        window.ColumnDanger?.explode?.(message.column);
+        break;
       case 'protocol:hello':
         this.send({
           type: 'protocol:hello',
@@ -2819,6 +2822,7 @@ const App = {
         break;
 
       case 'state:public':
+        window.BrokerTransmog?.setProfile?.(message.brokerProfile);
         this.finalValue = message.finalValue || null;
         this.applyServerState(message);
         this.updateSolvedCount();
@@ -2972,6 +2976,9 @@ const App = {
 
       case 'leaderboard:allTime':
         this.renderAllTimeLeaderboard(message.players || []);
+        break;
+      case 'recount:ledger':
+        window.RecountLedger?.render(message.matches || []);
         break;
 
       case 'tribute:vault':
@@ -5747,14 +5754,14 @@ const App = {
       if (isBrokerGif) {
         return `
           <div class="gm-shadow-broker-entry gm-shadow-broker-media-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
-            <div class="shadow-broker-transmission shadow-broker-broadcast">
-              <img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">
+            <div class="shadow-broker-transmission shadow-broker-broadcast gm-broker-media-capsule">
               <div class="shadow-broker-body">
                 <div class="gm-shadow-broker-media-head"><span class="shadow-broker-name">SHADOW BROKER</span><span class="gm-chat-time">${time}</span></div>
                 <button type="button" class="gm-chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>
                 <div class="gm-chat-gif-provider-mark">GIPHY</div>
               </div>
             </div>
+            <div class="gm-chat-avatar-rail gm-broker-avatar-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>
             ${this.createGMReactionSummaryHTML(msg)}
           </div>
         `;
@@ -5817,6 +5824,7 @@ const App = {
     }
 
     if (msg.source === 'shadowBroker') {
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const replyMatch = typeof msg.text === 'string'
         ? msg.text.match(/^↳ @([^:]{1,40}?)(?: \/\/ ([^:]{1,30}))?:\s*([\s\S]*)$/)
         : null;
@@ -5824,6 +5832,22 @@ const App = {
       const replyContextHtml = replyMatch
         ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
+      if (msg.imageUrl) {
+        return `
+          <div class="gm-shadow-broker-entry gm-shadow-broker-media-entry gm-shadow-broker-image-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+            <div class="shadow-broker-transmission shadow-broker-broadcast gm-broker-media-capsule">
+              <div class="shadow-broker-body">
+                <div class="gm-shadow-broker-media-head"><span class="shadow-broker-name">SHADOW BROKER</span><span class="gm-chat-time">${time}</span></div>
+                ${manualBadge}${replyContextHtml}
+                ${messageText ? `<div class="broker-media-caption">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div>` : ''}
+                <button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>
+                ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
+              </div>
+            </div>
+            <div class="gm-chat-avatar-rail gm-broker-avatar-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>
+            ${this.createGMReactionSummaryHTML(msg)}
+          </div>`;
+      }
       return `
         <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'sticker' ? ' sticker-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}

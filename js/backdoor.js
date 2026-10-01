@@ -115,6 +115,19 @@ const ControlSurfaces = {
     realmAudit.innerHTML = '<div class="gm-backdoor-log-head"><strong>SHADOW REALM LEDGER</strong><span>SENTENCES // RELEASES // RETURNS</span></div><div id="gm-shadow-realm-history" class="gm-shadow-realm-history"><p>NO SENTENCES RECORDED</p></div>';
     maintenance.appendChild(realmAudit);
 
+    const records = makeModule('RECOUNT // RESULTS LEDGER', maintenance);
+    records.id = 'records-section';
+    records.classList.add('gm-records-section');
+    const recountLedger = document.createElement('div');
+    recountLedger.id = 'gm-recount-ledger';
+    recountLedger.className = 'recount-ledger recount-ledger-gm';
+    records.appendChild(recountLedger);
+    window.RecountLedger?.mount(recountLedger, payload => this.app?.send?.(payload));
+    const allTimeButton = document.getElementById('alltime-toggle-btn');
+    const allTimePanel = document.getElementById('alltime-leaderboard');
+    if (allTimeButton) records.appendChild(allTimeButton);
+    if (allTimePanel) records.appendChild(allTimePanel);
+
     const advanced = document.createElement('details');
     advanced.className = 'gm-advanced-maintenance';
     advanced.innerHTML = '<summary><span>⚠ SEALED SYSTEMS // DANGEROUS OPERATIONS</span><small>RECOVERY · WOMF · PLAYERS · RECORDS · VAULT</small></summary><div class="gm-advanced-maintenance-body"></div>';
@@ -169,14 +182,6 @@ const ControlSurfaces = {
       multiplayer.classList.add('maintenance-module');
       advancedBody.appendChild(multiplayer);
     }
-    const records = makeModule('Records', advancedBody);
-    records.id = 'records-section';
-    records.style.display = 'none';
-    const allTimeButton = document.getElementById('alltime-toggle-btn');
-    const allTimePanel = document.getElementById('alltime-leaderboard');
-    if (allTimeButton) records.appendChild(allTimeButton);
-    if (allTimePanel) records.appendChild(allTimePanel);
-
     if (global) {
       const nema = document.getElementById('nema-asoc-btn');
       Array.from(global.querySelectorAll('.gm-global-controls')).forEach(group => {
@@ -192,26 +197,9 @@ const ControlSurfaces = {
       footerButton.classList.add('maintenance-toggle-btn');
     }
 
-    // Keep the GM command deck as one deliberate 3x3 grid. The wrappers remain in
-    // the DOM for existing logic/selectors, but display:contents lets their buttons
-    // participate directly in the existing Battle Controls grid.
-    const battleControlsGrid = document.querySelector('#battle-controls-panel .battle-controls-grid');
-    const utilityRow = document.querySelector('#battle-controls-panel .battle-controls-utility-row');
-    const systemDock = document.getElementById('gm-system-dock');
-    if (battleControlsGrid && utilityRow && systemDock) {
-      utilityRow.style.display = 'contents';
-      systemDock.style.display = 'contents';
-      battleControlsGrid.appendChild(utilityRow);
-      battleControlsGrid.appendChild(systemDock);
-      battleControlsGrid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
-      battleControlsGrid.style.gap = '12px';
-      Array.from(battleControlsGrid.children).forEach(node => {
-        if (node instanceof HTMLElement && node.style.display !== 'contents') {
-          node.style.width = '100%';
-          node.style.margin = '0';
-        }
-      });
-    }
+    // Utility and system controls intentionally remain direct children of the
+    // battle panel. AMUSE pins those two docks to the bottom of the command rail;
+    // moving them into the primary grid makes the direct-child layout rules miss.
 
     maintenance.addEventListener('click', event => {
       const button = event.target.closest('button');
@@ -255,6 +243,7 @@ const ControlSurfaces = {
       this.updateSessionSummary();
       this.recordEvent('BACKDOOR // ACCESS GRANTED');
       this.app?.send?.({ type:'gm:shadowRealmHistory' });
+      window.RecountLedger?.refresh?.();
     }
     const scroll = document.querySelector('.gm-content');
     if (scroll) scroll.scrollTop = 0;

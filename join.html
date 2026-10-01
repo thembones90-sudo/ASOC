@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20261001-voice-capsule-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20261001-recount-ledger-1">
   <link rel="stylesheet" href="css/quest-icon-system.css?v=20260928-skynet-quest-icons-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20260926-shadow-market-hardening-1">
   <link rel="stylesheet" href="css/black-market.css?v=20260929-tribute-consent-2">
@@ -9573,6 +9573,12 @@ position:absolute;
       <button type="button" id="player-alltime-toggle-btn" class="player-alltime-toggle-btn">ALL-TIME</button>
     </div>
     <div id="player-alltime-panel" class="player-alltime-panel" style="display: none;"></div>
+    <div id="player-scoreboard-overlay" class="player-scoreboard-overlay" hidden>
+      <section class="player-scoreboard-shell" role="dialog" aria-modal="true" aria-label="Scoreboard">
+        <button type="button" id="player-scoreboard-close" class="player-scoreboard-close" aria-label="Close scoreboard">×</button>
+        <div id="player-recount-ledger" class="recount-ledger recount-ledger-player"></div>
+      </section>
+    </div>
 
     <div id="little-hero-hud" class="little-hero-hud">
       <div class="hero-hud-identity-block">
@@ -9584,6 +9590,7 @@ position:absolute;
         <button type="button" id="black-market-player-button" class="black-market-entry black-market-player-control hero-utility-btn" hidden aria-label="Open private Black Market channel">
           <span>BLACK MARKET</span><small>PRIVATE CHANNEL</small>
         </button>
+        <button type="button" id="player-scoreboard-btn" class="hero-utility-btn player-scoreboard-btn">SCOREBOARD</button>
         <div class="master-access-wrap player-master-access-wrap" id="player-master-access-wrap" hidden>
           <button type="button" id="player-master-access-control" class="hero-utility-btn player-master-access-control" aria-haspopup="true" aria-expanded="false">
             <span>MASTER ACCESS</span>
@@ -10232,6 +10239,8 @@ position:absolute;
   <script src="js/skeleton.js?v=20260927-sb-stable-2"></script>
   <script src="js/board-celebrations.js?v=20260928-board-coronation-1"></script>
   <script src="js/recount.js?v=20260927-calm-1"></script>
+  <script src="js/recount-ledger.js?v=20261001-ledger-1"></script>
+  <script src="js/column-danger.js?v=20261001-column-danger-1"></script>
   <script src="js/womf.js?v=20260927-calm-1"></script>
   <script src="js/wheel.js?v=20260922-womf-rebuild-1"></script>
   <script src="js/ritual.js?v=20260926-tribute-reason-1"></script>
@@ -10241,7 +10250,7 @@ position:absolute;
   <script src="js/commander-emojis.js"></script>
   <script src="js/iks-ring.js?v=20260925-health-bars-1"></script>
   <script src="js/iks-board.js?v=20260925-iks-board-2"></script>
-  <script src="js/asoc-dialog.js?v=20260924-desktop-1"></script>
+  <script src="js/asoc-dialog.js?v=20261001-input-focus-1"></script>
   <script src="js/asoc-alerts.js?v=20260929-voice-1"></script>
   <script src="js/chat-media-preview.js?v=20260928-save-as-3"></script>
   <script src="js/chat-links.js?v=20260930-preview-final-1"></script>
@@ -10258,8 +10267,8 @@ position:absolute;
   <script src="js/shadow-realm.js?v=20260927-shadow-realm-5"></script>
   <script src="js/class-clock.js?v=20260929-class-clock-2"></script>
   <script src="js/voice-messages.js?v=20260929-voice-1"></script>
-  <script src="js/player.js?v=20261001-stickers-1"></script>
-  <script src="js/black-market.js?v=20260930-tribute-state-flow-1"></script>
+  <script src="js/player.js?v=20261001-recount-ledger-1"></script>
+  <script src="js/black-market.js?v=20261001-rejection-input-1"></script>
   <script src="js/player-quests.js?v=20260929-black-market-ledger-1"></script>
   <script src="js/threefold.js?v=20260925-kaladont-1"></script>
   <script src="js/kaladont-ui.js?v=20261001-kaladont-dock-1"></script>
