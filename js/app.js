@@ -2392,6 +2392,7 @@ const App = {
       this._victoryLive = false;
     }
     if (this.gameWon || this._victoryLive) return;
+    if (window.FinalDebt && !window.FinalDebt.confirmGameWon()) return;
     if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
       this.send({ type: 'gm:gameWon' });
       return;
@@ -2825,6 +2826,7 @@ const App = {
         window.BrokerTransmog?.setProfile?.(message.brokerProfile);
         this.finalValue = message.finalValue || null;
         this.applyServerState(message);
+        setTimeout(() => window.FinalDebt?.update(message), 0);
         this.updateSolvedCount();
         break;
 
@@ -2925,6 +2927,8 @@ const App = {
         break;
 
       case 'board:solveCelebration':
+        // A Final that leaves columns owed plays THE FINAL HAS FALLEN instead.
+        if ((message.kind === 'final' || message.target === 'FINAL') && message.debtOwed?.length) break;
         window.BoardCelebrations?.show?.(message, document.getElementById('asoc-board'));
         break;
 

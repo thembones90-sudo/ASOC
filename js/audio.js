@@ -171,6 +171,21 @@ const AsocAudio = (() => {
     metallicClick(0.95, 0.12);
   }
 
+  // THE FINAL HAS FALLEN: two heartbeats, then the wax seal slams down.
+  function debtSealed() {
+    [0, 0.26].forEach(t => tone({ frequency: 58, endFrequency: 40, start: t, duration: 0.22, gain: 0.2, type: 'sine' }));
+    tone({ frequency: 92, endFrequency: 46, start: 0.62, duration: 0.5, gain: 0.26, type: 'sine' });
+    noise({ start: 0.62, duration: 0.18, gain: 0.09, type: 'lowpass', frequency: 420, q: 0.7 });
+    tone({ frequency: 196, endFrequency: 185, start: 1.3, duration: 1.1, gain: 0.05, type: 'sawtooth', filter: { type: 'lowpass', frequency: 700, q: 1.4 } });
+  }
+
+  // An owed column is paid: chains shatter.
+  function debtPaid() {
+    noise({ duration: 0.22, gain: 0.08, type: 'highpass', frequency: 2400, q: 0.9 });
+    [1180, 1560, 990].forEach((f, i) => tone({ frequency: f, endFrequency: f * 0.7, start: 0.03 + i * 0.05, duration: 0.16, gain: 0.04, type: 'triangle' }));
+    metallicClick(0.2, 0.1);
+  }
+
   function womfIncrease(charge = 1) {
     const c = Math.max(1, Math.min(9, Number(charge) || 1));
     const severity = c / 10;
@@ -374,6 +389,8 @@ const AsocAudio = (() => {
     hintRequest,
     columnSolved,
     finalSolved,
+    debtSealed,
+    debtPaid,
     womfIncrease,
     womfCritical,
     borrowedTime,
