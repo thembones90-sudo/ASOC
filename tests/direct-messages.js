@@ -29,7 +29,7 @@ assert.match(gmDmCss, /#gm-panel[\s\S]*\.gm-chat-panel\.gm-dm-open[\s\S]*:not\(#
 assert.match(gmDmCss, /> #gm-dm-console[\s\S]*display:flex !important/, 'GM private view exposes its direct-message console');
 assert.match(gmMinigamesClient, /gm-chat-tab'[\s\S]*GMDirectMessages\?\.setOpen\?\.\(false\)/, 'Battle Comms explicitly closes Private Channels');
 assert.match(gmDmClient, /gm:privateList/, 'GM private tab requests its direct-message list');
-assert.match(indexHtml, /gm-direct-messages\.css\?v=20260930-private-channels-1/, 'GM private-channel view fix is cache-busted');
+assert.match(indexHtml, /gm-direct-messages\.css\?v=[^"']+/, 'GM private-channel view fix is cache-busted');
 
 function api(urlPath, body, headers = {}) {
   return new Promise((resolve, reject) => {

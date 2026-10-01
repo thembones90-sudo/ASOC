@@ -45,11 +45,14 @@
     }).join('') || '<div class="gm-dm-empty thread">NO MESSAGES YET</div>';
     return '<div class="gm-dm-thread-head"><button type="button" data-gm-dm-back aria-label="Back">‹</button>' + avatar(player) + '<div><b>' + esc(player.name || 'Little Hero') + '</b><small>PRIVATE CHANNEL</small></div></div>' +
       '<div class="gm-dm-messages" id="gm-dm-messages">' + msgs + '</div>' +
-      '<form class="gm-dm-compose" data-gm-dm-compose><textarea rows="2" maxlength="500" placeholder="Message ' + esc(player.name || 'Little Hero') + '..."></textarea><button type="submit">SEND</button></form>';
+      '<form class="gm-dm-compose" data-gm-dm-compose><div class="gm-dm-compose-shell"><textarea rows="1" maxlength="500" placeholder="Message ' + esc(player.name || 'Little Hero') + '..."></textarea><button type="submit">SEND</button></div></form>';
   }
   function render() {
     const el = root();
     if (!el) return;
+    // Re-rendering must never eat a half-typed message.
+    const draftBox = el.querySelector('.gm-dm-compose textarea');
+    const draft = draftBox ? { value: draftBox.value, focused: document.activeElement === draftBox, start: draftBox.selectionStart, end: draftBox.selectionEnd, thread: state.thread?.other?.id } : null;
     el.hidden = !state.open;
     const unread = state.list.reduce((n,c) => n + Number(c.unread || 0), 0);
     el.innerHTML = '<header><span>PRIVATE CHANNELS</span>' + (unread ? '<b>' + unread + '</b>' : '') + '<small>SHADOW BROKER // DIRECT</small></header>' +
@@ -57,6 +60,11 @@
       (state.thread ? threadHTML() : '<div class="gm-dm-roster">' + rosterHTML() + '</div>');
     const box = document.getElementById('gm-dm-messages');
     if (box) box.scrollTop = box.scrollHeight;
+    const nextBox = el.querySelector('.gm-dm-compose textarea');
+    if (draft && nextBox && draft.thread === state.thread?.other?.id) {
+      nextBox.value = draft.value;
+      if (draft.focused) { nextBox.focus(); try { nextBox.setSelectionRange(draft.start, draft.end); } catch {} }
+    }
   }
 
   function open(playerId) {
@@ -152,6 +160,12 @@
     if (input) input.value = '';
   });
   document.addEventListener('keydown', e => {
+    // Enter sends, Shift+Enter breaks the line -- same as Battle Comms.
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.closest?.('.gm-dm-compose textarea')) {
+      e.preventDefault();
+      e.target.closest('form').requestSubmit();
+      return;
+    }
     if (e.key === 'Escape' && state.thread) { e.preventDefault(); back(); }
   });
 
