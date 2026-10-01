@@ -179,6 +179,17 @@ button.rage-term:hover { border-color: #ff4a5c; box-shadow: 0 0 24px rgba(255, 4
 .rage-swatch.is-taken { cursor: not-allowed; opacity: .38; }
 .rage-swatch.is-taken span { filter: grayscale(.4); }
 
+.rage-picker-state { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; color: #a8939c; font-size: 11px; font-weight: 800; letter-spacing: .18em; }
+.rage-picker-state em { font-style: normal; }
+.rage-picker-state button { padding: 9px 18px; border: 1px solid #ff4a5c; border-radius: 9px; background: linear-gradient(180deg, #b3182c, #6d0c19); color: #fff; font: 800 11px var(--font-machine, monospace); letter-spacing: .2em; cursor: pointer; }
+.rage-picker-state button:disabled { opacity: .4; cursor: not-allowed; }
+.rage-picker-state.is-locked { justify-content: flex-start; gap: 8px; color: #8ff0c2; }
+.rage-picker.is-committed .rage-swatch:disabled:not(.is-taken) { opacity: .5; cursor: default; }
+.rage-swatch.is-locked span::after { content: "✓"; display: grid; place-items: center; height: 100%; color: #111; font: 900 16px var(--font-system, system-ui); }
+.rage-seats li.is-picking { border-style: dashed; }
+.rage-seats small.rage-seat-color { color: var(--seat); font-weight: 800; }
+.rage-seats li.is-picking small.rage-seat-color { color: #8c7580; }
+
 /* ---------- Game ---------- */
 .rage-game { display: grid; grid-template-columns: minmax(0, auto) minmax(250px, 1fr); gap: 20px; align-items: start; }
 .rage-board-wrap { width: min(640px, calc(100vh - 150px)); max-width: 100%; }

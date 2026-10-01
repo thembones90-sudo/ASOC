@@ -145,7 +145,7 @@
       this.invite(state);
       // Seated players are pulled in when the game starts.
       if (state?.you?.playing && prev?.phase === 'lobby' && state.phase !== 'lobby' && !this.open) this.show();
-      if (!state || state.id !== prev?.id) { this.seen = null; this.positions = {}; }
+      if (!state || state.id !== prev?.id) { this.seen = null; this.positions = {}; this.colorDraft = null; }
       if (!casual()) this.leaveCasual();
       this.render(false);
       this.renderDock();
@@ -230,13 +230,15 @@
       const seats = Array.from({ length: 4 }, (_, i) => {
         const m = s.members[i];
         if (!m) return `<li class="is-empty"><span class="rage-face"><i>+</i></span><b>OPEN SEAT</b></li>`;
-        return `<li style="--seat:${hexOf(m.color)}"><span class="rage-face">${this.face(m.id, m.name)}</span><b>${esc(m.name)}</b>${m.id === s.ownerId ? '<small>HOST</small>' : ''}${m.online ? '' : '<small class="is-off">OFFLINE</small>'}</li>`;
+        return `<li class="${m.color ? '' : 'is-picking'}" style="--seat:${hexOf(m.color)}"><span class="rage-face">${this.face(m.id, m.name)}</span><b>${esc(m.name)}</b><small class="rage-seat-color">${m.color ? esc(COLORS[m.color]?.[1] || '') : 'PICKING COLOUR…'}</small>${m.id === s.ownerId ? '<small>HOST</small>' : ''}${m.online ? '' : '<small class="is-off">OFFLINE</small>'}</li>`;
       }).join('');
       const terms = s.stake ? `FOR COINS · STAKE <em>${s.stake} SC</em> A HEAD` : 'FOR FUN · NO COINS';
       const online = s.members.filter(m => m.online).length;
+      const picking = s.members.filter(m => m.online && !m.color).length;
+      const blocked = online < 2 ? ' (NEED 2)' : picking ? ` (${picking} PICKING)` : '';
       let actions = '';
       if (!you.member) actions += `<button type="button" class="is-primary" data-rage="join" ${s.members.length >= 4 ? 'disabled' : ''}>${s.stake ? `AGREE & JOIN · ${s.stake} SC` : 'JOIN TABLE'}</button>`;
-      if (you.owner) actions += `<button type="button" class="is-primary" data-rage="start" ${online < 2 ? 'disabled' : ''}>START${online < 2 ? ' (NEED 2)' : ''}</button><button type="button" data-rage="cancel">CANCEL TABLE</button>`;
+      if (you.owner) actions += `<button type="button" class="is-primary" data-rage="start" ${blocked ? 'disabled' : ''}>START${blocked}</button><button type="button" data-rage="cancel">CANCEL TABLE</button>`;
       else if (you.member) actions += `<button type="button" data-rage="leave">LEAVE</button>`;
       if (isGM() && !you.owner) actions += `<button type="button" data-rage="gm-cancel">CLOSE TABLE</button>`;
       return `
@@ -249,16 +251,23 @@
         </div>`;
     },
 
-    // Ten figurine colours; one per player, a taken one shows its holder.
+    // Ten figurine colours. Selecting is private until COMMIT; a committed
+    // colour is locked to its owner and greyed out for everyone else.
     pickerHTML(s) {
-      const mine = s.members.find(m => m.id === viewerId())?.color;
+      const committed = s.members.find(m => m.id === viewerId())?.color || null;
+      const holderOf = c => s.members.find(m => m.color === c && m.id !== viewerId());
+      if (this.colorDraft && holderOf(this.colorDraft)) this.colorDraft = null;
+      const shown = committed || this.colorDraft;
       const swatches = (s.colors || Object.keys(COLORS)).map(c => {
-        const holder = s.members.find(m => m.color === c);
-        const taken = holder && holder.id !== viewerId();
+        const holder = holderOf(c);
         const [hex, name] = COLORS[c] || [EMPTY_SEAT, c];
-        return `<button type="button" class="rage-swatch${c === mine ? ' is-mine' : ''}${taken ? ' is-taken' : ''}" data-rage="color" data-color="${esc(c)}" style="--seat:${hex}" aria-pressed="${c === mine}" ${taken ? 'disabled' : ''} title="${esc(name)}${taken ? ` · ${esc(holder.name)}` : ''}"><span></span><small>${taken ? esc(String(holder.name).slice(0, 8)) : esc(name)}</small></button>`;
+        const off = !!holder || (committed && c !== committed);
+        return `<button type="button" class="rage-swatch${c === shown ? ' is-mine' : ''}${holder ? ' is-taken' : ''}${committed && c === committed ? ' is-locked' : ''}" data-rage="color" data-color="${esc(c)}" style="--seat:${hex}" aria-pressed="${c === shown}" ${off ? 'disabled' : ''} title="${esc(name)}${holder ? ` · TAKEN BY ${esc(holder.name)}` : ''}"><span></span><small>${holder ? esc(String(holder.name).slice(0, 8)) : esc(name)}</small></button>`;
       }).join('');
-      return `<div class="rage-picker"><b>YOUR FIGURINE</b><div class="rage-swatches">${swatches}</div></div>`;
+      const foot = committed
+        ? `<p class="rage-picker-state is-locked">LOCKED IN: <em style="color:${hexOf(committed)}">${esc(COLORS[committed]?.[1] || '')}</em></p>`
+        : `<div class="rage-picker-state"><span>${this.colorDraft ? `SELECTED: <em style="color:${hexOf(this.colorDraft)}">${esc(COLORS[this.colorDraft]?.[1] || '')}</em>` : 'SELECT A COLOUR, THEN COMMIT'}</span><button type="button" class="is-primary" data-rage="commit-color" ${this.colorDraft ? '' : 'disabled'}>COMMIT</button></div>`;
+      return `<div class="rage-picker${committed ? ' is-committed' : ''}"><b>YOUR FIGURINE</b><div class="rage-swatches">${swatches}</div>${foot}</div>`;
     },
 
     gameShell(s) {
@@ -532,7 +541,8 @@
         if (stake < 1 || stake > 50) return alert('STAKE MUST BE 1–50 SHADOW COINS');
         return this.send({ type: 'rage:create', stake });
       }
-      if (a === 'color') return this.send({ type: 'rage:color', color: btn.dataset.color });
+      if (a === 'color') { this.colorDraft = btn.dataset.color; return this.render(false); }
+      if (a === 'commit-color') { if (!this.colorDraft) return; btn.disabled = true; return this.send({ type: 'rage:color', color: this.colorDraft }); }
       if (a === 'join') return this.send({ type: 'rage:join' });
       if (a === 'leave') return this.send({ type: 'rage:leave' });
       if (a === 'start') return this.send({ type: 'rage:start' });

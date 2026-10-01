@@ -39,7 +39,6 @@ const SEATS_BY_COUNT = { 2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3] };
 const PHASES = new Set(['lobby', 'roll', 'move', 'ended']);
 // Figurine colours. Each lobby member owns one; no two members share.
 const COLORS = Object.freeze(['blood', 'void', 'venom', 'gold', 'frost', 'rose', 'ember', 'spectre', 'abyss', 'bone']);
-const freeColor = s => COLORS.find(c => !s.members.some(m => m.color === c)) || COLORS[0];
 
 const newId = () => 'rage-' + crypto.randomBytes(6).toString('hex');
 const rollDie = () => crypto.randomInt(1, 7);
@@ -55,7 +54,7 @@ function createLobby(actor, { stake = 0 } = {}, now = Date.now()) {
     ownerId: String(actor.id),
     ownerName: cleanName(actor.name),
     stake: amount,
-    members: [{ id: String(actor.id), name: cleanName(actor.name), color: COLORS[0] }],
+    members: [{ id: String(actor.id), name: cleanName(actor.name), color: null }],
     players: {},
     order: [],
     turnIndex: 0,
@@ -82,7 +81,7 @@ function join(s, actor) {
   const id = String(actor.id);
   if (s.members.some(m => m.id === id)) return { ok: true, already: true };
   if (s.members.length >= MAX_PLAYERS) return { ok: false, error: 'THE TABLE IS FULL (4)' };
-  s.members.push({ id, name: cleanName(actor.name), color: freeColor(s) });
+  s.members.push({ id, name: cleanName(actor.name), color: null });
   return { ok: true, announce: [] };
 }
 
@@ -103,14 +102,15 @@ function leave(s, id) {
   return { ok: true, already: true };
 }
 
-// A lobby member picks their figurine colour; a colour another member holds
-// is refused.
+// Nobody gets a colour automatically. A lobby member COMMITS a colour once:
+// it is then theirs for this table and unavailable to everyone else.
 function pickColor(s, id, color) {
   if (!isOpenLobby(s)) return { ok: false, error: 'COLOURS ARE PICKED IN THE LOBBY' };
   const member = s.members.find(m => m.id === String(id));
   if (!member) return { ok: false, error: 'JOIN THE TABLE FIRST' };
   if (!COLORS.includes(color)) return { ok: false, error: 'UNKNOWN COLOUR' };
   if (member.color === color) return { ok: true, already: true };
+  if (member.color) return { ok: false, error: 'YOUR COLOUR IS ALREADY COMMITTED' };
   const holder = s.members.find(m => m.color === color);
   if (holder) return { ok: false, error: `${holder.name} ALREADY HOLDS THAT COLOUR` };
   member.color = color;
@@ -123,6 +123,8 @@ function start(s, actorId, onlineIds, now = Date.now()) {
   if (s.ownerId !== String(actorId)) return { ok: false, error: 'ONLY THE LOBBY CREATOR CAN START' };
   const seated = s.members.filter(m => onlineIds.has(m.id));
   if (seated.length < 2) return { ok: false, error: 'NEEDS AT LEAST 2 PLAYERS ONLINE' };
+  const picking = seated.filter(m => !COLORS.includes(m.color));
+  if (picking.length) return { ok: false, error: `WAITING FOR ${picking.map(m => m.name).join(', ')} TO COMMIT A COLOUR` };
   const seats = SEATS_BY_COUNT[seated.length];
   s.players = {};
   s.order = seated.map((m, i) => {

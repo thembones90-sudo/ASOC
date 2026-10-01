@@ -21,6 +21,7 @@ const dice = (...values) => () => { assert.ok(values.length, 'ran out of scripte
 function game(names = ['a', 'b']) {
   const s = R.createLobby({ id: names[0], name: names[0].toUpperCase() }, {}, 0);
   names.slice(1).forEach(n => assert.equal(R.join(s, { id: n, name: n.toUpperCase() }).ok, true));
+  names.forEach((n, i) => assert.equal(R.pickColor(s, n, R.COLORS[i]).ok, true));
   assert.equal(R.start(s, names[0], new Set(names), 0).ok, true);
   R.begin(s, 0);
   return s;
@@ -115,8 +116,12 @@ function engine() {
   assert.equal(R.COLORS.length, 10);
   s = R.createLobby({ id: 'a', name: 'A' }, {}, 0);
   R.join(s, { id: 'b', name: 'B' });
-  assert.notEqual(s.members[0].color, s.members[1].color, 'joiners get a free colour');
-  assert.match(R.pickColor(s, 'b', s.members[0].color).error, /ALREADY HOLDS/);
+  assert.equal(s.members[0].color, null, 'no automatic colour');
+  assert.equal(s.members[1].color, null, 'no automatic colour');
+  assert.match(R.start(s, 'a', new Set(['a', 'b']), 0).error, /WAITING FOR A, B TO COMMIT/);
+  assert.equal(R.pickColor(s, 'a', 'blood').ok, true);
+  assert.match(R.pickColor(s, 'a', 'void').error, /ALREADY COMMITTED/);
+  assert.match(R.pickColor(s, 'b', 'blood').error, /ALREADY HOLDS/);
   assert.equal(R.pickColor(s, 'b', 'bogus').error, 'UNKNOWN COLOUR');
   assert.equal(R.pickColor(s, 'c', 'gold').error, 'JOIN THE TABLE FIRST');
   assert.equal(R.pickColor(s, 'b', 'bone').ok, true);
@@ -289,6 +294,10 @@ async function runServer() {
     assert.equal(st.state.members.length, 3);
     err = await bo.act({ type: 'rage:start' }, 'bo start');
     assert.match(err.message, /ONLY THE LOBBY CREATOR/);
+    err = await ana.act({ type: 'rage:start' }, 'start before colours');
+    assert.match(err.message, /TO COMMIT A COLOUR/);
+    await ana.act({ type: 'rage:color', color: 'blood' }, 'ana colour');
+    await gm.act({ type: 'rage:color', color: 'gold' }, 'gm colour');
     st = await ana.act({ type: 'rage:start' }, 'start');
     assert.equal(st.state.phase, 'roll');
     assert.equal(st.state.pot, 6);
@@ -309,6 +318,8 @@ async function runServer() {
     // Stake 2: Bo forfeits, Ana takes the 4-coin pot.
     await ana.act({ type: 'rage:create', stake: 2 }, 'create 2');
     await bo.act({ type: 'rage:join' }, 'bo join 2');
+    await ana.act({ type: 'rage:color', color: 'blood' }, 'c1');
+    await bo.act({ type: 'rage:color', color: 'void' }, 'c2');
     await ana.act({ type: 'rage:start' }, 'start 2');
     st = await bo.act({ type: 'rage:leave' }, 'forfeit');
     assert.equal(st.state.phase, 'ended');
@@ -322,6 +333,8 @@ async function runServer() {
     // The Broker wins a coin table: THE HOUSE TAKES THE POT.
     await bo.act({ type: 'rage:create', stake: 1 }, 'create 1');
     await gm.act({ type: 'rage:join' }, 'gm join 1');
+    await bo.act({ type: 'rage:color', color: 'frost' }, 'c3');
+    await gm.act({ type: 'rage:color', color: 'bone' }, 'c4');
     await bo.act({ type: 'rage:start' }, 'start 1');
     st = await bo.act({ type: 'rage:leave' }, 'bo forfeits to gm');
     assert.equal(st.state.winnerId, '__GM__');
@@ -333,6 +346,8 @@ async function runServer() {
     // FOR FUN with the Broker: the Broker rolls on its own turn; no coins move.
     await gm.act({ type: 'rage:create', stake: 0 }, 'gm fun');
     await ana.act({ type: 'rage:join' }, 'ana fun join');
+    await gm.act({ type: 'rage:color', color: 'rose' }, 'c5');
+    await ana.act({ type: 'rage:color', color: 'venom' }, 'c6');
     st = await gm.act({ type: 'rage:start' }, 'gm start');
     assert.equal(st.state.pot, 0);
     assert.equal(st.state.turnId, '__GM__');
