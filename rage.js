@@ -44,9 +44,7 @@ const COLORS = Object.freeze(['blood', 'void', 'venom', 'gold', 'frost', 'rose',
 // plays as "<name> the <nickname>" for that game.
 const NICKNAMES = Object.freeze([
   'THE GEH', 'THE DISABLED', 'THE PAINTER ADMIRER', 'THE WOKE',
-  'THE JEW', 'THE CIGAN', 'THE TETKA', 'THE GLGL VENDOR',
-  'THE SORE LOSER', 'THE RAGE QUITTER', 'THE YARD DWELLER',
-  'THE DICE WHISPERER', 'THE BALKAN UNCLE'
+  'THE JEW', 'THE CIGAN', 'THE TETKA', 'THE GLGL VENDOR'
 ]);
 function drawNicknames(count) {
   const pool = NICKNAMES.slice();
