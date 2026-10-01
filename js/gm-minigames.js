@@ -86,7 +86,7 @@
       const players=(App.currentPlayers||[]).filter(p=>p.connected!==false);
       this.chooserOpen=true;
       this.title('IKS OKS');
-      this.content(this.gauntletBar() + (players.length ? `<div class="gm-arcade-kicker">SELECT OPPONENT</div><div class="gm-arcade-opponents">${players.map(p=>`<button data-gm-opponent="${this.esc(p.id)}" ${p.iksEliminated?'disabled':''}><span>${this.face(p)}</span><b>${this.esc(p.name)}${p.iksHealth==null?'':` <small>${Number(p.iksHealth)}/${Number(p.iksMaxHealth ?? 10)}</small>`}</b><i>${p.iksEliminated?'FALLEN':'CHALLENGE'}</i></button>`).join('')}</div>`:'<div class="gm-arcade-status">NO LITTLE HEROES ONLINE</div>'));
+      this.content(this.gauntletBar() + (players.length ? `<div class="gm-arcade-kicker">SELECT OPPONENT</div><div class="gm-arcade-opponents">${players.map(p=>`<button data-gm-opponent="${this.esc(p.id)}" ${p.iksEliminated?'disabled':''}><span>${this.face(p)}</span><b>${this.esc(p.name)}${p.iksHealth==null||p.iksBarsHidden?'':` <small>${Number(p.iksHealth)}/${Number(p.iksMaxHealth ?? 10)}</small>`}</b><i>${p.iksEliminated?'FALLEN':'CHALLENGE'}</i></button>`).join('')}</div>`:'<div class="gm-arcade-status">NO LITTLE HEROES ONLINE</div>'));
       this.show();
     },
     face(p) { const img=p?.avatarData?`<img src="${this.esc(p.avatarData)}" alt="">`:'◆'; return window.IksRing?IksRing.wrap(p,img):img; },
@@ -102,7 +102,7 @@
       const locked=a.status==='open'||a.status==='running';
       const picker=`<label class="gm-iks-max" title="${locked?'Locked while a gauntlet is underway':'Number of health bars per Little Hero'}"><span>HEALTH BARS</span><select id="gm-iks-max" ${locked?'disabled':''}>${Array.from({length:10},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===max?'selected':''}>${n}</option>`).join('')}</select><button type="button" data-gm-iks="set-max" ${locked?'disabled':''}>SET</button></label>`;
       const barsOn=a.barsEnabled!==false;
-      const barsToggle=`<button type="button" class="gm-iks-bars-toggle ${barsOn?'is-on':'is-off'}" data-gm-iks="${barsOn?'bars-off':'bars-on'}" ${locked?'disabled':''} title="${barsOn?'Hide every health ring: usual avatars':'Show health rings again'}">${barsOn?'DISABLE HEALTH BARS':'ENABLE HEALTH BARS'}</button>`;
+      const barsToggle=`<button type="button" class="gm-iks-bars-toggle ${barsOn?'is-on':'is-off'}" data-gm-iks="${barsOn?'bars-off':'bars-on'}" title="${barsOn?'Hide every health ring (cosmetic: health keeps counting)':'Show health rings again'}">${barsOn?'DISABLE HEALTH BARS':'ENABLE HEALTH BARS'}</button>`;
       const buttons=(a.status==='idle'||a.status==='ended'?'<button type="button" data-gm-iks="start">START GAUNTLET</button>':'')+'<button type="button" class="is-reset" data-gm-iks="reset">RESET HEALTH</button>'+picker+barsToggle;
       return `<div class="gm-iks-gauntlet is-${this.esc(a.status)}"><div><b>IKS OKS GAUNTLET</b><span>${line}</span></div><div class="gm-iks-actions">${buttons}</div></div>`;
     },

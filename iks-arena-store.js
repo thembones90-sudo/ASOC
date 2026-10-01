@@ -201,11 +201,10 @@ function barsEnabled() {
   return load().barsEnabled !== false;
 }
 
-// HEALTH BARS ON/OFF. Off hides every ring and health (usual avatars); it is
-// refused while a gauntlet is open or running. Health values are kept.
+// HEALTH BARS ON/OFF: purely cosmetic. Health is never reset or refilled by
+// it and keeps moving while hidden; allowed at any time.
 function setBarsEnabled(enabled) {
   const s = load();
-  if (s.gauntlet.status === 'open' || s.gauntlet.status === 'running') return { ok: false, error: 'FINISH OR RESET THE GAUNTLET BEFORE HIDING HEALTH BARS' };
   s.barsEnabled = enabled !== false;
   save();
   return { ok: true, barsEnabled: s.barsEnabled };

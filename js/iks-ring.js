@@ -7,6 +7,8 @@
   const MAX = 10;
 
   function standing(entity) {
+    // The Broker hid the bars (cosmetic): draw the usual avatar.
+    if (entity?.iksBarsHidden) return null;
     const hp = Number(entity?.iksHealth);
     if (!Number.isFinite(hp)) return null;
     const max = Math.max(1, Math.min(MAX, Math.round(Number(entity.iksMaxHealth) || MAX)));

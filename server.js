@@ -7556,11 +7556,11 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
 // IKS OKS health for avatar rings; Master Mirror test personas have none.
 function iksArenaFields(player) {
   if (!player || player.isTestPersona === true || isMasterTestPlayerId(player.id)) return {};
-  // Every Little Hero wears the ring while health bars are on; the Broker can
-  // switch them off between games so everyone shows their usual avatar.
-  if (!iksArena.barsEnabled()) return {};
+  // Every Little Hero carries live health. The Broker's HEALTH BARS switch is
+  // purely cosmetic: while hidden, health still moves and still counts (a
+  // fallen hero stays fallen); clients just draw the usual avatar.
   const standing = iksArena.standingOf(player.id);
-  return { iksHealth: standing.health, iksMaxHealth: standing.maxHealth, iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: standing.fighter };
+  return { iksHealth: standing.health, iksMaxHealth: standing.maxHealth, iksEliminated: standing.eliminated, iksChampion: standing.victor, iksFighter: standing.fighter, iksBarsHidden: !iksArena.barsEnabled() || undefined };
 }
 
 function sendPlayersUpdateTo(room, ws) {
