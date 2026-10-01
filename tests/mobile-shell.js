@@ -50,7 +50,7 @@ const layout = page => page.evaluate(() => {
 
     // The stale-page build covers the mobile shell, so a mobile-only release
     // refreshes pages left open on phones.
-    assert.match(await page.evaluate(() => window.StaleGuard.pageBuild('player')), /\+.*mobile/, 'player build includes the mobile shell version');
+    assert.match(await page.evaluate(() => window.StaleGuard.pageBuild('player')), new RegExp('\\+' + (await page.evaluate(() => document.querySelector('script[src*="js/mobile-shell.js"]').getAttribute('src').match(/v=([^&]+)/)[1])) + '$'), 'player build includes the mobile shell version');
 
     // Off by default, even on a phone -- only offered.
     let l = await layout(page);

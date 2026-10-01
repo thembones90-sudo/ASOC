@@ -152,12 +152,12 @@
 @keyframes chat-link-loading { to { opacity: .3; transform: scale(.7); } }
 
 @media (max-width: 620px) {
-  .chat-link-preview {
+  :where(html:not(.asoc-mobile)) .chat-link-preview {
     max-width: 100%;
     gap: 9px;
     padding: 8px 9px;
   }
-  .chat-link-preview-image {
+  :where(html:not(.asoc-mobile)) .chat-link-preview-image {
     width: 64px;
     height: 64px;
   }

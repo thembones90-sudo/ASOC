@@ -21,9 +21,10 @@ assert.match(brokerCreation, /primeChatLinkPreview\(room, message\)/, 'Shadow Br
 const GM_CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'app.js'), 'utf8');
 const PLAYER_CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'player.js'), 'utf8');
 const gmBrokerBranch = GM_CLIENT.split("if (msg.source === 'shadowBroker')")[1].split("const time = new Date")[0];
-const playerBrokerBranch = PLAYER_CLIENT.split("if (msg.source === 'shadowBroker')")[1].split("const time = new Date")[0];
 assert.match(gmBrokerBranch, /ChatLinks\?\.messageHTML\(msg\)/, 'GM renders preview cards on Shadow Broker broadcasts');
-assert.match(playerBrokerBranch, /ChatLinks\?\.messageHTML\(msg\)/, 'players render preview cards on Shadow Broker broadcasts');
+// The Broker transmission render line (the one carrying broker-image-only);
+// an earlier shadowBroker branch exists for the external-avatar mirror.
+assert.match(PLAYER_CLIENT, /broker-image-only[^\n]*ChatLinks\?\.messageHTML\(msg\)/, 'players render preview cards on Shadow Broker broadcasts');
 
 // =========================================================== host-side unfurl
 

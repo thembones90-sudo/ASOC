@@ -140,7 +140,7 @@ async function run() {
     assert.match(appSrc, /case 'error':[\s\S]*this\.showGMCommandError\(message\.message\)/, 'GM server failures use the in-app error path');
     assert.doesNotMatch(appSrc.match(/case 'error':[\s\S]*?break;/)?.[0] || '', /alert\(/, 'GM server failures never open a native Electron alert');
     assert.match(appSrc, /composer\?\.focus\(\{ preventScroll: true \}\)/, 'GM error path restores composer focus');
-    assert.match(joinSrc, /player\.js\?v=20260930-chat-act-screen-fx-1/, 'screen-level targeted-act visuals are cache-busted');
+    assert.match(joinSrc, /player\.js\?v=[^\"']+/, 'screen-level targeted-act visuals are cache-busted');
     assert.match(playerSrc, /playChatActScreenFx/, 'player feed launches screen-level chat-act impacts');
     assert.match(appSrc, /playChatActScreenFx/, 'GM feed launches screen-level chat-act impacts');
     assert.match(cssSrc, /\.chat-act-screen-fx\.is-fart/, 'toxic fart-cloud screen effect is styled');
@@ -226,8 +226,8 @@ async function run() {
     assert.match(warsongClient, /warsong-horde-banner\.png/, 'warsong renders the supplied banner');
     assert.match(warsongCss, /warsong-blood-rise/, 'warsong has a cinematic crimson buildup');
     assert.match(warsongCss, /warsong-screen-impact/, 'warsong has a screen impact shake');
-    assert.match(indexSrc, /warsong\.js\?v=20260930-warsong-1/, 'GM warsong client is cache-busted');
-    assert.match(joinSrc, /warsong\.js\?v=20260930-warsong-1/, 'player warsong client is cache-busted');
+    assert.match(indexSrc, /warsong\.js\?v=[^\"']+/, 'GM warsong client is cache-busted');
+    assert.match(joinSrc, /warsong\.js\?v=[^\"']+/, 'player warsong client is cache-busted');
     assert.ok(fs.existsSync(path.join(ROOT, 'assets', 'ui', 'warsong-horde-banner.png')), 'warsong banner asset exists');
 
     // /commands advertises /fart.
