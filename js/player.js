@@ -285,6 +285,7 @@ const PlayerApp = {
     let gifQuery = '';
     let gifLoading = false;
     let gifSearchTimer = null;
+    let gifRequestCycle = 0;
 
     const setGifStatus = (text, danger = false) => {
       if (!gifStatus) return;
@@ -316,6 +317,21 @@ const PlayerApp = {
       });
     };
 
+    const resetGifPicker = () => {
+      clearTimeout(gifSearchTimer);
+      gifRequestCycle += 1;
+      if (gifSearchInput) gifSearchInput.value = '';
+      gifResults = [];
+      gifOffset = 0;
+      gifMode = 'trending';
+      gifQuery = '';
+      gifLoading = false;
+      renderGifResults();
+      if (gifMoreButton) gifMoreButton.hidden = true;
+      gifMoreButton?.removeAttribute('disabled');
+      setGifStatus('TRENDING // STANDBY');
+    };
+
     const loadGifPage = async ({ append = false } = {}) => {
       if (!gifPicker || gifLoading) return;
       const query = String(gifSearchInput?.value || '').trim();
@@ -327,6 +343,7 @@ const PlayerApp = {
       gifQuery = query;
       if (!append) gifOffset = 0;
       gifLoading = true;
+      const requestCycle = gifRequestCycle;
       gifMoreButton?.setAttribute('disabled', 'disabled');
       setGifStatus(gifMode === 'search' ? 'SEARCHING // ' + query.toUpperCase() : 'TRENDING // ACQUIRING');
       try {
@@ -337,6 +354,7 @@ const PlayerApp = {
           headers: { 'x-player-token': token }
         });
         const payload = await response.json().catch(() => ({}));
+        if (requestCycle !== gifRequestCycle) return;
         if (!response.ok) {
           if (payload.code === 'GIF_LIMIT_REACHED') {
             setGifStatus('FUCK OFF, LIMIT REACHED', true);
@@ -357,10 +375,13 @@ const PlayerApp = {
             : 'TRENDING // ' + gifResults.length
         );
       } catch (error) {
+        if (requestCycle !== gifRequestCycle) return;
         setGifStatus(error.message || 'GIF NETWORK // OFFLINE', true);
       } finally {
-        gifLoading = false;
-        gifMoreButton?.removeAttribute('disabled');
+        if (requestCycle === gifRequestCycle) {
+          gifLoading = false;
+          gifMoreButton?.removeAttribute('disabled');
+        }
       }
     };
 
@@ -392,8 +413,9 @@ const PlayerApp = {
       if (!resultButton) return;
       const gif = gifResults[Number(resultButton.dataset.gifIndex)];
       if (!gif || !this.ws || this.ws.readyState !== 1) return;
-      this.send({ type: 'chat:gif', gif });
+      if (!this.send({ type: 'chat:gif', gif })) return;
       closeGifPicker();
+      resetGifPicker();
     });
 
     gifSearchInput?.addEventListener('input', () => {

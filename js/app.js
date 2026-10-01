@@ -1387,6 +1387,7 @@ const App = {
     let gmGifMode = 'trending';
     let gmGifLoading = false;
     let gmGifSearchTimer = null;
+    let gmGifRequestCycle = 0;
 
     const setGMGifStatus = (text, danger = false) => {
       if (!gmGifStatus) return;
@@ -1418,6 +1419,20 @@ const App = {
       });
     };
 
+    const resetGMGifPicker = () => {
+      clearTimeout(gmGifSearchTimer);
+      gmGifRequestCycle += 1;
+      if (gmGifSearchInput) gmGifSearchInput.value = '';
+      gmGifResults = [];
+      gmGifOffset = 0;
+      gmGifMode = 'trending';
+      gmGifLoading = false;
+      renderGMGifResults();
+      if (gmGifMoreButton) gmGifMoreButton.hidden = true;
+      gmGifMoreButton?.removeAttribute('disabled');
+      setGMGifStatus('TRENDING // STANDBY');
+    };
+
     const loadGMGifPage = async ({ append = false } = {}) => {
       if (!gmGifPicker || gmGifLoading) return;
       const query = String(gmGifSearchInput?.value || '').trim();
@@ -1428,6 +1443,7 @@ const App = {
       gmGifMode = query.length >= 2 ? 'search' : 'trending';
       if (!append) gmGifOffset = 0;
       gmGifLoading = true;
+      const requestCycle = gmGifRequestCycle;
       gmGifMoreButton?.setAttribute('disabled', 'disabled');
       setGMGifStatus(gmGifMode === 'search' ? 'SEARCHING // ' + query.toUpperCase() : 'TRENDING // ACQUIRING');
       try {
@@ -1438,6 +1454,7 @@ const App = {
           headers: { 'x-gm-token': token }
         });
         const payload = await response.json().catch(() => ({}));
+        if (requestCycle !== gmGifRequestCycle) return;
         if (!response.ok) {
           if (payload.code === 'GIF_LIMIT_REACHED') {
             setGMGifStatus('FUCK OFF, LIMIT REACHED', true);
@@ -1455,10 +1472,13 @@ const App = {
         if (gmGifQuota && payload.quota) gmGifQuota.textContent = 'GIF API // ' + payload.quota.globalUsed + ' / ' + payload.quota.globalLimit;
         setGMGifStatus(gmGifMode === 'search' ? 'RESULTS // ' + gmGifResults.length : 'TRENDING // ' + gmGifResults.length);
       } catch (error) {
+        if (requestCycle !== gmGifRequestCycle) return;
         setGMGifStatus(error.message || 'GIF NETWORK // OFFLINE', true);
       } finally {
-        gmGifLoading = false;
-        gmGifMoreButton?.removeAttribute('disabled');
+        if (requestCycle === gmGifRequestCycle) {
+          gmGifLoading = false;
+          gmGifMoreButton?.removeAttribute('disabled');
+        }
       }
     };
 
@@ -1492,6 +1512,7 @@ const App = {
       if (!gif || !this.ws || this.ws.readyState !== 1) return;
       this.send({ type: 'chat:gif', gif });
       closeGMGifPicker();
+      resetGMGifPicker();
     });
 
     gmGifSearchInput?.addEventListener('input', () => {
