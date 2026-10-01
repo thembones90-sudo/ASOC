@@ -1,0 +1,84 @@
+/* ATTACHMENT ICONS -- PHOTOS / GIF / VOICE / POLL / STICKERS in the + menu.
+   One drawn SVG per action on a tinted, glassy tile; the same set on the
+   Little Hero chat (#chat-attachment-menu) and the Shadow Broker console
+   (#gm-attachment-menu). Two ids keep these ahead of the older per-page
+   icon rules. */
+:is(#game-screen #chat-attachment-menu, #gm-broker-bar #gm-attachment-menu) .asoc-att-icon.asoc-att-icon {
+  --att: #9b5de0;
+  position: relative !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  flex: 0 0 auto;
+  width: 38px !important;
+  height: 38px !important;
+  border: 1px solid color-mix(in srgb, var(--att) 46%, transparent) !important;
+  border-radius: 11px !important;
+  background:
+    radial-gradient(120% 90% at 30% 15%, color-mix(in srgb, var(--att) 34%, transparent), transparent 62%),
+    linear-gradient(160deg, color-mix(in srgb, var(--att) 22%, #1a1f27), #0c0f14 88%) !important;
+  color: var(--att) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .10),
+    inset 0 -8px 14px rgba(0, 0, 0, .35),
+    0 0 0 1px rgba(0, 0, 0, .45),
+    0 4px 12px color-mix(in srgb, var(--att) 16%, transparent) !important;
+  overflow: hidden;
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+/* Glass sheen across the top of every tile. */
+:is(#game-screen #chat-attachment-menu, #gm-broker-bar #gm-attachment-menu) .asoc-att-icon.asoc-att-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 52% 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .10), transparent);
+  pointer-events: none;
+}
+:is(#game-screen #chat-attachment-menu, #gm-broker-bar #gm-attachment-menu) .asoc-att-icon.asoc-att-icon svg {
+  position: relative;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--att) 55%, transparent));
+  transition: transform .16s ease;
+}
+
+/* One colour per action. */
+:is(#game-screen #chat-attachment-menu, #gm-broker-bar #gm-attachment-menu) .asoc-att-icon.asoc-att-photos { --att: #3fc8ff; }
+:is(#game-screen #chat-attachment-menu, #gm-broker-bar #gm-attachment-menu) .asoc-att-icon.asoc-att-gif { --att: #e45cff; }
+:is(#game-screen #chat-attachment-menu, #gm-broker-bar #gm-attachment-menu) .asoc-att-icon.asoc-att-voice { --att: #ff4f70; }
+:is(#game-screen #chat-attachment-menu, #gm-broker-bar #gm-attachment-menu) .asoc-att-icon.asoc-att-poll { --att: #ffc63d; }
+:is(#game-screen #chat-attachment-menu, #gm-broker-bar #gm-attachment-menu) .asoc-att-icon.asoc-att-sticker { --att: #7dff6a; }
+
+/* Hover / keyboard focus: the tile lights up and the icon lifts. */
+:is(#game-screen #chat-attachment-menu .chat-attachment-option, #gm-broker-bar #gm-attachment-menu .gm-attachment-option):is(:hover, :focus-visible) .asoc-att-icon.asoc-att-icon {
+  border-color: color-mix(in srgb, var(--att) 80%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .14),
+    inset 0 -8px 14px rgba(0, 0, 0, .30),
+    0 0 0 1px rgba(0, 0, 0, .45),
+    0 0 18px color-mix(in srgb, var(--att) 42%, transparent) !important;
+  transform: translateY(-1px);
+}
+:is(#game-screen #chat-attachment-menu .chat-attachment-option, #gm-broker-bar #gm-attachment-menu .gm-attachment-option):is(:hover, :focus-visible) .asoc-att-icon.asoc-att-icon svg {
+  transform: scale(1.08);
+}
+/* The small title next to each icon picks up the same accent on hover. */
+:is(#game-screen #chat-attachment-menu .chat-attachment-option, #gm-broker-bar #gm-attachment-menu .gm-attachment-option):is(:hover, :focus-visible) :is(.chat-attachment-option-copy, .gm-attachment-option-copy) b {
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(#game-screen #chat-attachment-menu, #gm-broker-bar #gm-attachment-menu) .asoc-att-icon.asoc-att-icon,
+  :is(#game-screen #chat-attachment-menu, #gm-broker-bar #gm-attachment-menu) .asoc-att-icon.asoc-att-icon svg { transition: none; transform: none !important; }
+}
+
+/* POLL used to sit in a permanently lit box, so it read as stuck on hover.
+   At rest it now looks like every other row; it still lights up on hover. */
+#game-screen #chat-attachment-menu .chat-attachment-option[data-chat-attachment="poll"]:not(:hover):not(:focus-visible),
+#gm-broker-bar #gm-attachment-menu .gm-attachment-option[data-gm-attachment="poll"]:not(:hover):not(:focus-visible) {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+#game-screen #chat-attachment-menu .chat-attachment-option[data-chat-attachment="poll"]::after,
+#gm-broker-bar #gm-attachment-menu .gm-attachment-option[data-gm-attachment="poll"]::after { display: none !important; }
