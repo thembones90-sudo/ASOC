@@ -486,3 +486,248 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
   :where(html:not(.asoc-mobile)) .bm-tribute-consent-actions{flex-direction:column}
   :where(html:not(.asoc-mobile)) .bm-tribute-consent-actions button{width:100%}
 }
+
+/* =========================================================
+   BLACK MARKET // BLOOD SANCTUM (Shadow Broker and Little Hero sides)
+   The Shadow Broker's side of the market is a desecrated shrine: crimson
+   double frame with sigil corners, blood running from the rim, Elder
+   Futhark rune bands, a slowly turning seal behind the title, wax-sealed
+   petitions and rune-flanked chapter marks. Scoped to .is-sanctum.
+   ========================================================= */
+.is-sanctum .black-market-void {
+  background:
+    radial-gradient(60% 50% at 50% 38%, rgba(150, 8, 32, .30), transparent 70%),
+    radial-gradient(120% 80% at 50% 120%, rgba(90, 0, 18, .55), transparent 60%),
+    #050204 !important;
+}
+.is-sanctum .black-market-room {
+  position: relative;
+  border: 1px solid #7a0d22 !important;
+  outline: 1px solid rgba(255, 42, 74, .22);
+  outline-offset: 6px;
+  background:
+    radial-gradient(70% 45% at 50% 0%, rgba(120, 6, 26, .35), transparent 70%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .012) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #120509, #070305 60%, #0b0306) !important;
+  box-shadow:
+    0 0 0 1px #1a0207,
+    0 0 60px rgba(170, 10, 40, .28),
+    inset 0 0 80px rgba(120, 0, 24, .35) !important;
+  overflow: hidden;
+}
+.is-sanctum .black-market-room::before { display: none !important; }
+
+/* Blood running from the top rim. */
+.is-sanctum .bm-drips {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 54px;
+  z-index: 3;
+  background: url('../assets/ui/bm-drips.svg') repeat-x 0 0 / 600px 54px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6));
+  pointer-events: none;
+}
+/* Sigil corners. */
+.is-sanctum .bm-corner {
+  position: absolute;
+  z-index: 4;
+  width: 78px;
+  height: 78px;
+  background: url('../assets/ui/bm-corner.svg') no-repeat center / contain;
+  filter: drop-shadow(0 0 6px rgba(255, 42, 74, .55));
+  pointer-events: none;
+}
+.is-sanctum .bm-corner.tl { top: 8px; left: 8px; }
+.is-sanctum .bm-corner.tr { top: 8px; right: 8px; transform: scaleX(-1); }
+.is-sanctum .bm-corner.bl { bottom: 8px; left: 8px; transform: scaleY(-1); }
+.is-sanctum .bm-corner.br { bottom: 8px; right: 8px; transform: scale(-1, -1); }
+/* The seal turning behind the title. */
+.is-sanctum .bm-sigil {
+  position: absolute;
+  z-index: 0;
+  top: -150px;
+  right: 6%;
+  width: 420px;
+  height: 420px;
+  background: url('../assets/ui/bm-sigil.svg') no-repeat center / contain;
+  opacity: .16;
+  filter: drop-shadow(0 0 14px rgba(255, 42, 74, .8));
+  animation: bm-sigil-turn 90s linear infinite;
+  pointer-events: none;
+}
+@keyframes bm-sigil-turn { to { transform: rotate(360deg); } }
+
+/* Header: a title that bleeds. */
+.is-sanctum .black-market-room > header {
+  position: relative;
+  z-index: 2;
+  padding-top: 64px !important;
+  border-bottom: 0 !important;
+  background: transparent !important;
+}
+.is-sanctum .black-market-room header small { color: #ff5470 !important; letter-spacing: .42em !important; text-shadow: 0 0 10px rgba(255, 42, 74, .5); }
+.is-sanctum .black-market-room h2 {
+  color: #f6e3e6 !important;
+  font-size: 40px !important;
+  letter-spacing: .38em !important;
+  text-shadow: 0 0 2px #fff, 0 0 18px rgba(255, 30, 60, .55), 0 3px 0 #5a0012, 0 6px 18px rgba(0, 0, 0, .8) !important;
+}
+.is-sanctum .black-market-room header button {
+  position: relative;
+  z-index: 5;
+  border-color: #8b1028 !important;
+  border-radius: 50% !important;
+  background: radial-gradient(circle at 50% 35%, #3a0610, #120206) !important;
+  color: #ff8095 !important;
+  box-shadow: 0 0 0 4px rgba(139, 16, 40, .18), 0 0 18px rgba(255, 30, 60, .25) !important;
+}
+.is-sanctum .black-market-room header button:hover { color: #fff !important; box-shadow: 0 0 0 4px rgba(255, 42, 74, .28), 0 0 26px rgba(255, 30, 60, .5) !important; }
+
+/* Rune bands above and below the body. */
+.is-sanctum .bm-runeband {
+  position: relative;
+  z-index: 2;
+  height: 30px;
+  margin: 0 34px;
+  border-block: 1px solid rgba(255, 42, 74, .28);
+  background: url('../assets/ui/bm-runes.svg') repeat-x 0 center / auto 26px;
+  filter: drop-shadow(0 0 4px rgba(255, 42, 74, .7));
+  opacity: .85;
+  animation: bm-rune-flow 40s linear infinite;
+}
+.is-sanctum .bm-runeband:last-child { margin-bottom: 26px; animation-direction: reverse; }
+@keyframes bm-rune-flow { to { background-position: 464px center; } }
+.is-sanctum #black-market-body { position: relative; z-index: 2; }
+
+/* SEALED PETITIONS: an altar plaque under a wax seal. */
+.is-sanctum .bm-intro {
+  padding: 26px 28px 26px 112px !important;
+  border: 1px solid #6e0c20 !important;
+  background:
+    linear-gradient(100deg, rgba(110, 6, 26, .45), rgba(16, 4, 8, .9) 55%),
+    repeating-linear-gradient(90deg, rgba(255, 42, 74, .04) 0 1px, transparent 1px 22px) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .6), inset 0 0 40px rgba(120, 0, 24, .4), 0 10px 30px rgba(0, 0, 0, .5) !important;
+}
+.is-sanctum .bm-intro::after { content: "SEALED // IN BLOOD" !important; color: #a3243c !important; }
+.is-sanctum .bm-wax {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  width: 70px;
+  height: 70px;
+  transform: translateY(-50%) rotate(-8deg);
+  border-radius: 46% 54% 50% 50% / 52% 48% 54% 46%;
+  background:
+    url('../assets/ui/bm-sigil.svg') no-repeat center / 76%,
+    radial-gradient(circle at 36% 30%, #e0213f, #8f0a22 52%, #4d0410 100%);
+  box-shadow: 0 0 0 3px rgba(77, 4, 16, .65), 0 6px 14px rgba(0, 0, 0, .6), inset 0 -4px 8px rgba(0, 0, 0, .45), inset 0 3px 6px rgba(255, 140, 150, .25);
+  filter: saturate(1.1);
+}
+.is-sanctum .bm-intro b { color: #ff4864 !important; font-size: 24px !important; letter-spacing: .3em !important; text-shadow: 0 0 16px rgba(255, 30, 60, .55) !important; }
+.is-sanctum .bm-intro p { color: #d9c3c8 !important; }
+
+/* Chapter marks: rune, title, a bleeding rule, rune. */
+.is-sanctum .black-market-room h3 {
+  color: #f0d6db !important;
+  letter-spacing: .4em !important;
+  text-shadow: 0 0 10px rgba(255, 42, 74, .35);
+}
+.is-sanctum .black-market-room h3::before {
+  content: "";
+  flex: 0 0 18px;
+  height: 26px;
+  background: url('../assets/ui/bm-runes.svg') no-repeat -6px center / auto 26px;
+  filter: drop-shadow(0 0 4px rgba(255, 42, 74, .8));
+}
+.is-sanctum .black-market-room h3::after {
+  height: 2px !important;
+  background:
+    radial-gradient(circle, #ff2a4a 0 3px, transparent 3.5px) right center / 10px 10px no-repeat,
+    linear-gradient(90deg, #b3112b, rgba(179, 17, 43, .15) 85%, transparent) !important;
+  box-shadow: 0 0 8px rgba(255, 42, 74, .45);
+}
+
+/* Empty states: a dormant seal. */
+.is-sanctum .bm-empty {
+  position: relative;
+  padding: 34px 24px 30px !important;
+  border: 1px solid rgba(139, 16, 40, .5) !important;
+  border-style: double !important;
+  border-width: 3px !important;
+  background:
+    url('../assets/ui/bm-sigil.svg') no-repeat center / 120px,
+    radial-gradient(50% 120% at 50% 50%, rgba(110, 6, 26, .28), transparent 70%) !important;
+  color: #e3a7b2 !important;
+  letter-spacing: .36em !important;
+  text-shadow: 0 0 10px rgba(255, 42, 74, .55), 0 0 2px #000;
+  animation: bm-candle 4.5s ease-in-out infinite;
+}
+@keyframes bm-candle { 0%, 100% { background-size: 120px, 100% 100%; filter: brightness(1); } 50% { background-size: 124px, 100% 100%; filter: brightness(1.18); } }
+
+/* Pacts: blood-rimmed tablets. */
+.is-sanctum .bm-pact {
+  border: 1px solid #5e0a1c !important;
+  background:
+    radial-gradient(70% 120% at 0% 0%, rgba(120, 6, 26, .28), transparent 60%),
+    linear-gradient(110deg, #140609, #080406 70%) !important;
+  box-shadow: inset 4px 0 0 #b3112b, inset 0 0 0 1px rgba(0, 0, 0, .6), 0 14px 30px rgba(0, 0, 0, .45) !important;
+}
+.is-sanctum .bm-pact::after {
+  width: 54px !important;
+  height: 54px !important;
+  border: 0 !important;
+  background: url('../assets/ui/bm-corner.svg') no-repeat center / contain;
+  transform: scale(-1, -1);
+  opacity: .55 !important;
+}
+.is-sanctum .bm-pact-head span { border-color: #8b1028 !important; background: radial-gradient(circle at 30% 30%, rgba(224, 33, 63, .35), rgba(77, 4, 16, .6)) !important; color: #ffd0d8 !important; }
+.is-sanctum .bm-actions button {
+  border-color: #8b1028 !important;
+  background: linear-gradient(180deg, #3a0610, #170206) !important;
+  color: #ffc2cc !important;
+  letter-spacing: .18em;
+}
+.is-sanctum .bm-actions button:hover { border-color: #ff2a4a !important; color: #fff !important; box-shadow: 0 0 16px rgba(255, 42, 74, .35); }
+
+@media (prefers-reduced-motion: reduce) {
+  .is-sanctum .bm-sigil, .is-sanctum .bm-runeband, .is-sanctum .bm-empty { animation: none; }
+}
+/* Bottom band clears the corner sigils; empty-state seal sits under a veil. */
+.is-sanctum .bm-runeband:last-child { margin: 0 96px 34px; }
+.is-sanctum .bm-empty {
+  background:
+    radial-gradient(40% 60% at 50% 50%, rgba(8, 2, 4, .78), rgba(8, 2, 4, .35) 70%, transparent),
+    url('../assets/ui/bm-sigil.svg') no-repeat center / 120px,
+    radial-gradient(50% 120% at 50% 50%, rgba(110, 6, 26, .28), transparent 70%) !important;
+}
+@keyframes bm-candle { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.2); } }
+
+/* Little Hero side: the room is a flex column with a scrolling body, so the
+   bands keep their height; the petition form is written in blood too. */
+.is-sanctum .bm-runeband { flex: 0 0 auto; }
+.is-sanctum .bm-drips, .is-sanctum .bm-corner, .is-sanctum .bm-sigil { flex: none; }
+.is-sanctum .bm-petition label { color: #e3a7b2 !important; letter-spacing: .24em !important; }
+.is-sanctum .bm-petition :is(input, select, textarea) {
+  border: 1px solid #5e0a1c !important;
+  background: linear-gradient(180deg, rgba(30, 4, 10, .85), rgba(10, 3, 6, .95)) !important;
+  color: #f6e3e6 !important;
+  box-shadow: inset 0 0 18px rgba(120, 0, 24, .3) !important;
+}
+.is-sanctum .bm-petition :is(input, select, textarea):focus {
+  outline: none;
+  border-color: #ff2a4a !important;
+  box-shadow: inset 0 0 18px rgba(120, 0, 24, .3), 0 0 0 3px rgba(255, 42, 74, .16) !important;
+}
+.is-sanctum .bm-petition :is(input, textarea)::placeholder { color: #8c5560; }
+.is-sanctum .bm-petition > button {
+  padding: 12px 22px !important;
+  border: 1px solid #ff2a4a !important;
+  background: radial-gradient(circle at 50% 30%, #b3112b, #4d0410) !important;
+  color: #fff !important;
+  letter-spacing: .26em !important;
+  text-shadow: 0 0 8px rgba(255, 120, 140, .6);
+  box-shadow: 0 0 22px rgba(255, 30, 60, .3), inset 0 -3px 8px rgba(0, 0, 0, .4) !important;
+}
+.is-sanctum .bm-petition > button:hover { box-shadow: 0 0 30px rgba(255, 30, 60, .5), inset 0 -3px 8px rgba(0, 0, 0, .4) !important; }
