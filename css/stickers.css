@@ -1,0 +1,233 @@
+/* STICKERS -- tray, sticker maker and bubble-less stickers in chat. */
+
+/* ---------- Sticker in a chat message: no bubble, just the sticker ---------- */
+#game-screen#game-screen .battle-comms-lobby .chat-message.sticker-message .chat-message-main {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+#game-screen#game-screen .battle-comms-lobby .chat-message.sticker-message .chat-message-main::before,
+#game-screen#game-screen .battle-comms-lobby .chat-message.sticker-message .chat-message-main::after { display: none !important; }
+#game-screen#game-screen .battle-comms-lobby .chat-message.sticker-message .chat-message-text:empty { display: none; }
+.chat-sticker {
+  display: block;
+  width: 168px;
+  height: 168px;
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.chat-message.own .chat-sticker { margin-left: auto; }
+.chat-sticker img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .35));
+  transition: transform .14s ease;
+  user-select: none;
+}
+.chat-sticker:hover img { transform: scale(1.04) rotate(-1.5deg); }
+.chat-sticker:focus-visible { outline: 2px solid #9b5de0; outline-offset: 4px; border-radius: 12px; }
+
+/* ---------- Tray (opens above the composer) ---------- */
+.chat-composer-shell { position: relative; }
+.stk-tray {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 60;
+  max-height: min(420px, 60vh);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(155, 93, 224, .55);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #15111d, #0b0a10);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .55);
+  overflow: hidden;
+  font-family: var(--font-machine, monospace);
+}
+.stk-tray-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(155, 93, 224, .25);
+}
+.stk-tabs { display: flex; gap: 6px; }
+.stk-tabs button,
+.stk-close {
+  padding: 7px 12px;
+  border: 1px solid rgba(155, 93, 224, .3);
+  border-radius: 8px;
+  background: transparent;
+  color: #b9a6d6;
+  font: 800 11px var(--font-machine, monospace);
+  letter-spacing: .14em;
+  cursor: pointer;
+}
+.stk-tabs button small { opacity: .6; margin-left: 4px; letter-spacing: .04em; }
+.stk-tabs button[aria-selected="true"] { background: rgba(155, 93, 224, .22); color: #f1e8ff; border-color: #9b5de0; }
+.stk-close { padding: 4px 10px; font-size: 16px; letter-spacing: 0; }
+.stk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  padding: 10px;
+  overflow-y: auto;
+}
+.stk-cell { position: relative; aspect-ratio: 1; }
+.stk-pick,
+.stk-create {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .03);
+  cursor: pointer;
+}
+.stk-pick:hover { border-color: rgba(155, 93, 224, .6); background: rgba(155, 93, 224, .12); }
+.stk-pick img { width: 100%; height: 100%; object-fit: contain; }
+.stk-create {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px dashed rgba(155, 93, 224, .6);
+  color: #d9c8f5;
+}
+.stk-create b { font-size: 30px; line-height: 1; }
+.stk-create small { font: 800 10px var(--font-machine, monospace); letter-spacing: .16em; }
+.stk-create:hover { background: rgba(155, 93, 224, .16); }
+.stk-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(10, 8, 14, .85);
+  color: #ffb3c0;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s;
+}
+.stk-cell:hover .stk-remove,
+.stk-remove:focus-visible { opacity: 1; }
+.stk-empty,
+.stk-loading { margin: 0; padding: 4px 14px 14px; color: #9d90b3; font: 600 12px var(--font-machine, monospace); letter-spacing: .06em; }
+.stk-loading { padding: 18px 14px; }
+
+/* ---------- Save someone's sticker ---------- */
+.stk-save-pop {
+  position: fixed;
+  z-index: 9000;
+  padding: 4px;
+  border: 1px solid #9b5de0;
+  border-radius: 10px;
+  background: #15111d;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .5);
+  font: 800 11px var(--font-machine, monospace);
+  letter-spacing: .12em;
+  color: #e8dcff;
+}
+.stk-save-pop button { padding: 7px 10px; border: 0; border-radius: 7px; background: rgba(155, 93, 224, .25); color: inherit; font: inherit; letter-spacing: inherit; cursor: pointer; }
+.stk-save-pop button:hover { background: rgba(155, 93, 224, .45); }
+.stk-save-pop span { display: block; padding: 7px 10px; }
+
+/* ---------- Sticker maker ---------- */
+.stk-maker {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(4, 3, 8, .72);
+  backdrop-filter: blur(3px);
+}
+.stk-maker-card {
+  width: min(860px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  border: 1px solid rgba(155, 93, 224, .6);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #16111f, #0b0910);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+  color: #e8dcff;
+  font-family: var(--font-machine, monospace);
+}
+.stk-maker-head { display: flex; align-items: baseline; gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(155, 93, 224, .25); }
+.stk-maker-head b { font-size: 15px; letter-spacing: .24em; }
+.stk-maker-head small { color: #9d90b3; font-size: 10px; letter-spacing: .2em; }
+.stk-maker-head button { margin-left: auto; border: 0; background: none; color: #cbb8ea; font-size: 22px; cursor: pointer; }
+.stk-maker-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 20px; padding: 18px; }
+.stk-stage { max-width: 420px; width: 100%; justify-self: center; }
+.stk-stage {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  /* Checkerboard shows what will be transparent. */
+  background: repeating-conic-gradient(#2a2433 0% 25%, #1d1825 0% 50%) 0 0 / 28px 28px;
+}
+.stk-stage canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.stk-stage canvas:active { cursor: grabbing; }
+.stk-drop {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px dashed rgba(155, 93, 224, .6);
+  border-radius: 12px;
+  background: rgba(10, 8, 14, .55);
+  cursor: pointer;
+  text-align: center;
+}
+.stk-drop b { font-size: 14px; letter-spacing: .2em; }
+.stk-drop small { color: #9d90b3; font-size: 11px; letter-spacing: .08em; }
+.stk-maker.has-image .stk-drop { display: none; }
+.stk-controls { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.stk-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: 12px; font-size: 11px; font-weight: 800; letter-spacing: .16em; color: #b9a6d6; }
+.stk-row[hidden] { display: none; }
+.stk-row input[type="range"] { width: 100%; accent-color: #9b5de0; }
+.stk-row input[type="text"] {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid rgba(155, 93, 224, .35);
+  border-radius: 8px;
+  background: #0b0910;
+  color: #f1e8ff;
+  font: 600 14px system-ui, sans-serif;
+  letter-spacing: .02em;
+}
+.stk-check { grid-template-columns: auto minmax(0, 1fr); justify-content: start; }
+.stk-check input { width: 16px; height: 16px; accent-color: #9b5de0; }
+.stk-check small { color: #7f7394; letter-spacing: .06em; font-weight: 600; }
+.stk-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.stk-seg button,
+.stk-actions button {
+  padding: 8px 12px;
+  border: 1px solid rgba(155, 93, 224, .35);
+  border-radius: 8px;
+  background: transparent;
+  color: #cbb8ea;
+  font: 800 11px var(--font-machine, monospace);
+  letter-spacing: .14em;
+  cursor: pointer;
+}
+.stk-seg button[aria-pressed="true"] { background: rgba(155, 93, 224, .25); border-color: #9b5de0; color: #fff; }
+.stk-hint { margin: 0; color: #7f7394; font-size: 11px; letter-spacing: .06em; }
+.stk-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
+.stk-actions .stk-primary { margin-left: auto; background: #9b5de0; border-color: #9b5de0; color: #fff; }
+.stk-actions button:disabled { opacity: .5; cursor: progress; }

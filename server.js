@@ -13,6 +13,7 @@ const playerStore = require('./player-store');
 const shadowMarket = require('./shadow-market');
 const blackMarket = require('./black-market');
 const dmStore = require('./dm-store');
+const stickerStore = require('./sticker-store');
 const authStore = require('./auth-store');
 const emailService = require('./email-service');
 const scoring = require('./scoring-constants');
@@ -4401,6 +4402,56 @@ function handleChatRemoteGif(ws, message) {
       : { role: 'player', playerId: actor.id, playerName: actor.name },
     gif
   );
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+}
+
+const MAX_STICKER_BYTES = 1024 * 1024;
+const STICKER_PACK_DIR = path.join(__dirname, 'assets', 'stickers');
+let stickerPackCache = null;
+function stickerPack() {
+  if (!stickerPackCache) {
+    try {
+      stickerPackCache = fs.readdirSync(STICKER_PACK_DIR)
+        .map(name => '/assets/stickers/' + name)
+        .filter(stickerUrl => stickerStore.isPackUrl(stickerUrl))
+        .sort();
+    } catch { stickerPackCache = []; }
+  }
+  return stickerPackCache;
+}
+function stickerExists(stickerUrl) {
+  if (!stickerStore.validUrl(stickerUrl)) return false;
+  if (stickerStore.isPackUrl(stickerUrl)) return stickerPack().includes(stickerUrl);
+  try { return fs.statSync(path.join(CHAT_UPLOAD_DIR, path.basename(stickerUrl))).isFile(); } catch { return false; }
+}
+
+// A sticker goes out as a bubble-less image message. A Little Hero can send a
+// pack sticker or one from their own library; nothing else.
+function handleChatSticker(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
+  const actor = pollActorForSocket(room, ws);
+  if (!actor) return sendToWs(ws, { type: 'error', message: 'Sticker authentication required' });
+  const silenced = !ws.isHost && shadowRealmRefusal(room, ws.playerId);
+  if (silenced) return sendToWs(ws, { type: 'error', code: 'SHADOW_REALM', message: silenced });
+  const stickerUrl = String(message.url || '');
+  const allowed = stickerStore.isPackUrl(stickerUrl)
+    ? stickerPack().includes(stickerUrl)
+    : actor.role === 'player' && stickerStore.has(actor.id, stickerUrl) && stickerExists(stickerUrl);
+  if (!allowed) return sendToWs(ws, { type: 'error', message: 'Sticker not available' });
+  if (actor.role === 'player') {
+    const now = Date.now();
+    const cooldown = playerCooldown(room, ws);
+    if (!cooldown) return;
+    if (cooldown.chatAt && now - cooldown.chatAt < PLAYER_CHAT_MIN_INTERVAL_MS) {
+      return sendToWs(ws, { type: 'error', message: 'Battle Comms cooling down' });
+    }
+    cooldown.chatAt = now;
+  }
+  const entry = appendChatImageMessage(room, actor.role === 'gm' ? { role: 'gm' } : { role: 'player', playerId: actor.id, playerName: actor.name }, stickerUrl, '');
+  entry.messageType = 'sticker';
+  entry.source = actor.role === 'gm' ? 'shadowBroker' : 'chatSticker';
   persistActiveRooms();
   broadcastChatUpdate(room);
 }
@@ -10181,6 +10232,62 @@ function handleApiRequest(req, res) {
     });
   }
 
+  // STICKERS. GET lists the ASOC pack and the caller's library; POST with an
+  // image body creates a sticker (512 px PNG/WEBP made by the client-side
+  // sticker maker) and saves it to the library; POST /save adds an existing
+  // sticker (someone else's, or a pack one); DELETE removes one.
+  if (url.pathname === '/api/stickers' || url.pathname === '/api/stickers/save' || url.pathname.startsWith('/api/stickers/item/')) {
+    const room = rooms.get(MASTER_ROOM_CODE);
+    if (!room) return sendJson(res, 409, { error: 'Master Room is unavailable' });
+    const actor = getChatImageActor(req, room);
+    if (!actor || actor.role !== 'player') return sendJson(res, 401, { error: 'Sticker authentication required' });
+    if (method === 'GET' && url.pathname === '/api/stickers') {
+      return sendJson(res, 200, { pack: stickerPack(), mine: stickerStore.list(actor.playerId), max: stickerStore.MAX_PER_PLAYER });
+    }
+    if (method === 'POST' && url.pathname === '/api/stickers/save') {
+      return readJsonBody(req, (err, body) => {
+        if (err) return sendJson(res, 400, { error: 'Invalid request' });
+        const stickerUrl = String(body?.url || '');
+        if (!stickerExists(stickerUrl)) return sendJson(res, 404, { error: 'Sticker not found' });
+        try {
+          const result = stickerStore.add(actor.playerId, stickerUrl);
+          return sendJson(res, result.ok ? 200 : 409, result);
+        } catch { return sendJson(res, 500, { error: 'Sticker could not be saved' }); }
+      });
+    }
+    if (method === 'DELETE' && url.pathname.startsWith('/api/stickers/item/')) {
+      try {
+        const result = stickerStore.remove(actor.playerId, decodeURIComponent(url.pathname.slice('/api/stickers/item/'.length)));
+        return sendJson(res, result.ok ? 200 : 404, result);
+      } catch { return sendJson(res, 500, { error: 'Sticker could not be removed' }); }
+    }
+    if (method === 'POST' && url.pathname === '/api/stickers') {
+      const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+      if (contentType !== 'image/png' && contentType !== 'image/webp') return sendJson(res, 415, { error: 'Stickers are PNG or WEBP' });
+      if (shadowRealmRefusal(room, actor.playerId)) return sendJson(res, 423, { error: shadowRealmRefusal(room, actor.playerId), code: 'SHADOW_REALM' });
+      if (!admitChatUpload(res, actor)) return;
+      return readChatImageBody(req, (err, body) => {
+        if (err) return sendJson(res, err.code === 'TOO_LARGE' ? 413 : 400, { error: err.code === 'TOO_LARGE' ? 'Sticker exceeds 1 MB' : 'Sticker upload failed' });
+        if (!body || body.length === 0) return sendJson(res, 400, { error: 'Empty sticker' });
+        if (!validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Sticker file signature does not match its type' });
+        try {
+          const capacity = chatUploadGuard.checkCapacity(body.length);
+          if (!capacity.ok) throw Object.assign(new Error(capacity.error), { code: 'UPLOAD_CAPACITY' });
+          const filename = crypto.randomBytes(16).toString('hex') + (contentType === 'image/png' ? '.png' : '.webp');
+          fs.writeFileSync(path.join(CHAT_UPLOAD_DIR, filename), body, { flag: 'wx', mode: 0o600 });
+          chatUploadGuard.recordStored(actor.uploadSlot, body.length);
+          const result = stickerStore.add(actor.playerId, '/uploads/chat/' + filename);
+          return sendJson(res, result.ok ? 201 : 409, result);
+        } catch (writeError) {
+          console.error('[stickers] upload failed', writeError);
+          const status = uploadFailureStatus(writeError);
+          return sendJson(res, status, { error: status === 507 ? writeError.message : 'Sticker could not be stored' });
+        }
+      }, MAX_STICKER_BYTES);
+    }
+    return sendJson(res, 405, { error: 'Method not allowed' });
+  }
+
   if (method === 'POST' && url.pathname === '/api/chat/image') {
     const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
     const extByType = {
@@ -11263,6 +11370,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'chat:gif': {
           handleChatRemoteGif(ws, message);
+          break;
+        }
+        case 'chat:sticker': {
+          handleChatSticker(ws, message);
           break;
         }
         case 'chat:image-url': {
