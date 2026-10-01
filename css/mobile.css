@@ -543,3 +543,40 @@ html.asoc-mobile.m-games-open .m-games-close {
 /* An idle card (no quest on offer / no ledger yet) is [hidden]: keep it so. */
 html.asoc-mobile .player-quest-hud[hidden],
 html.asoc-mobile .m-quest-slot .player-quest-hud[hidden] { display: none !important; }
+
+/* Pull to refresh (js/mobile-shell.js): a tab that drops from the top edge
+   while you pull, turns green when letting go will reload. */
+html.asoc-mobile #m-pull-refresh {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid rgba(155, 93, 224, .55);
+  border-radius: 999px;
+  background: rgba(16, 12, 22, .94);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .5);
+  color: #d9c8f5;
+  font: 800 11px var(--font-machine, monospace);
+  letter-spacing: .16em;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% + var(--m-pull, 0px)));
+  transition: opacity .12s ease;
+}
+html.asoc-mobile #m-pull-refresh.is-pulling { opacity: 1; transition: none; }
+html.asoc-mobile #m-pull-refresh i {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  transform: rotate(calc(var(--m-pull, 0px) * 4deg / 1px));
+}
+html.asoc-mobile #m-pull-refresh.is-armed { border-color: #37d997; color: #8ff0c2; }
+html.asoc-mobile #m-pull-refresh.is-refreshing { opacity: 1; }
+html.asoc-mobile #m-pull-refresh.is-refreshing i { animation: m-pull-spin .7s linear infinite; }
+@keyframes m-pull-spin { to { transform: rotate(360deg); } }

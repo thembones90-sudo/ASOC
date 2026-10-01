@@ -38,7 +38,7 @@
     enabled = !!next;
     try { localStorage.setItem(KEY, enabled ? '1' : '0'); } catch {}
     html.classList.toggle('asoc-mobile', enabled);
-    if (enabled) { mountRotatePrompt(); mountTabs(); }
+    if (enabled) { mountRotatePrompt(); mountTabs(); mountPullToRefresh(); }
     else { closeGames(); if (doc.getElementById('m-tabs')) setTab('chat'); }
     placeQuestHuds();
     syncButtons();
@@ -348,8 +348,71 @@
     if (tab === 'profile' || force) renderProfile(force);
   }
 
+  // PULL TO REFRESH. The shell pins the page to the visible screen (so the
+  // keyboard cannot shove the layout around), which also switches off the
+  // browser's own pull-to-refresh. This is the app-style replacement: at the
+  // top of whatever you are touching (chat scrolled to its first message,
+  // or the header), drag down past THRESHOLD and let go to reload.
+  const PULL_THRESHOLD = 64; // px of (damped) pull needed to arm a reload
+  function scrollerAbove(node) {
+    for (let el = node; el && el !== doc.body; el = el.parentElement) {
+      if (el.scrollHeight > el.clientHeight + 1) {
+        const oy = root.getComputedStyle(el).overflowY;
+        if (oy === 'auto' || oy === 'scroll') return el;
+      }
+    }
+    return null;
+  }
+  function mountPullToRefresh() {
+    if (doc.getElementById('m-pull-refresh')) return;
+    const tab = doc.createElement('div');
+    tab.id = 'm-pull-refresh';
+    tab.setAttribute('aria-hidden', 'true');
+    tab.innerHTML = '<i></i><span>PULL TO REFRESH</span>';
+    doc.body.appendChild(tab);
+    const label = tab.querySelector('span');
+    let startY = null, startX = 0, pull = 0, armed = false;
+    const reset = () => {
+      startY = null; pull = 0; armed = false;
+      tab.classList.remove('is-pulling', 'is-armed');
+      tab.style.removeProperty('--m-pull');
+    };
+    doc.addEventListener('touchstart', event => {
+      if (!enabled || event.touches.length !== 1) return reset();
+      const target = event.target;
+      if (target.closest?.('input, textarea, [contenteditable="true"], .stk-maker, .stk-tray, .dmx-overlay, [role="dialog"]')) return reset();
+      const scroller = scrollerAbove(target);
+      if (scroller && scroller.scrollTop > 0) return reset();
+      startY = event.touches[0].clientY;
+      startX = event.touches[0].clientX;
+    }, { passive: true });
+    doc.addEventListener('touchmove', event => {
+      if (startY === null) return;
+      const dy = event.touches[0].clientY - startY;
+      const dx = Math.abs(event.touches[0].clientX - startX);
+      if (dy <= 0 || dx > dy) { if (pull) reset(); return; }
+      pull = Math.min(140, dy * 0.55);
+      armed = pull >= PULL_THRESHOLD;
+      tab.style.setProperty('--m-pull', pull + 'px');
+      tab.classList.add('is-pulling');
+      tab.classList.toggle('is-armed', armed);
+      label.textContent = armed ? 'RELEASE TO REFRESH' : 'PULL TO REFRESH';
+    }, { passive: true });
+    doc.addEventListener('touchend', () => {
+      if (armed) {
+        label.textContent = 'REFRESHING…';
+        tab.classList.add('is-refreshing');
+        root.setTimeout(() => root.location.reload(), 120);
+        return;
+      }
+      reset();
+    }, { passive: true });
+    doc.addEventListener('touchcancel', reset, { passive: true });
+  }
+
   function start() {
     mountButtons();
+    if (enabled) mountPullToRefresh();
     if (enabled) { mountRotatePrompt(); mountTabs(); }
     setInterval(() => refreshTabs(false), 1200);
     // Quest cards are created on <body> by js/player-quests.js: move them into
@@ -373,5 +436,5 @@
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', start);
   else start();
 
-  root.MobileShell = { isEnabled: () => enabled, set, looksLikePhone };
+  root.MobileShell = { isEnabled: () => enabled, set, looksLikePhone, PULL_THRESHOLD };
 })(window);
