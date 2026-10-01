@@ -209,7 +209,16 @@ const ASOCThemes = {
     element.dataset.playerTheme = theme.id;
     // WHITEOUT is ASOC's light mode: flag the whole page so every surface,
     // including overlays and rails outside the game screen, renders light.
-    if (element.id === 'game-screen') document.documentElement.toggleAttribute('data-asoc-light', theme.id === 'whiteout');
+    if (element.id === 'game-screen') {
+      const light = theme.id === 'whiteout';
+      document.documentElement.toggleAttribute('data-asoc-light', light);
+      // Window / title-bar tint follows light mode instead of staying dark purple.
+      const tint = document.querySelector('meta[name="theme-color"]');
+      if (tint) {
+        if (!tint.dataset.dark) tint.dataset.dark = tint.content;
+        tint.content = light ? '#C5CED7' : tint.dataset.dark;
+      }
+    }
     element.style.setProperty('--player-theme', theme.color);
     element.style.setProperty('--theme-shell-top', theme.shellTop);
     element.style.setProperty('--theme-shell-bottom', theme.shellBottom);
