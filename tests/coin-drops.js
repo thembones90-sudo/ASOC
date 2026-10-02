@@ -31,7 +31,7 @@ class Client {
 }
 
 (async () => {
-  const server = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'cd-pass', ASOC_EMAIL_VERIFICATION: '0', ASOC_COIN_DROPS: '0' }, stdio: ['ignore', 'ignore', 'pipe'] });
+  const server = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'cd-pass', ASOC_EMAIL_VERIFICATION: '0', ASOC_COIN_DROPS: '0', ASOC_TEST_COIN_ROLLS: '80,20,50,50' }, stdio: ['ignore', 'ignore', 'pipe'] });
   let errors = ''; server.stderr.on('data', c => { errors += c; });
   const clients = [];
   try {
@@ -79,9 +79,10 @@ class Client {
     sissy.send({ type: 'coinDrop:claim', id: seenA.drop.id });
     assert.equal((await sissy.next(m => m.type === 'coinDrop:result', 'too fast', from[0])).reason, 'TOO FAST');
     await sleep(250);
-    // Both click; exactly one wins.
+    // One clicks, the other half a second too late: first click wins outright.
     from = [sissy.mark(), cigan.mark()];
     cigan.send({ type: 'coinDrop:claim', id: seenA.drop.id });
+    await sleep(650);
     sissy.send({ type: 'coinDrop:claim', id: seenA.drop.id });
     const rc = await cigan.next(m => m.type === 'coinDrop:result', 'Cigan result', from[1]);
     const rs = await sissy.next(m => m.type === 'coinDrop:result', 'Sissy result', from[0]);
@@ -93,8 +94,47 @@ class Client {
     const told = await sissy.next(m => m.type === 'coinDrop:claimed', 'everyone told', from[0]);
     assert.equal(told.playerName, 'Cigan');
     assert.equal(told.amount, rc.amount);
-    await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /CIGAN SNATCHED AN? EPIC SHADOW COIN|Cigan SNATCHED A EPIC/i.test(x.text)), 'chat line');
+    await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /Cigan SNATCHED AN EPIC SHADOW COIN/.test(x.text)), 'chat line');
     assert.equal(rc.balance, rc.amount, 'coins land in the balance');
+
+    // 2b. Same moment: a public ROLL-OFF. Scripted dice 80 / 20 -> first roller wins.
+    const rollOff = async (tier, expectSplit) => {
+      const f = [sissy.mark(), cigan.mark(), gm.mark()];
+      gm.send({ type: 'gm:broadcast', text: `/coindrop ${tier}` });
+      const sp = await sissy.next(m => m.type === 'coinDrop:spawn', 'spawn', f[0]);
+      await sleep(250);
+      sissy.send({ type: 'coinDrop:claim', id: sp.drop.id });
+      cigan.send({ type: 'coinDrop:claim', id: sp.drop.id });
+      const start = await gm.next(m => m.type === 'coinRoll:start', 'roll-off starts (GM watches too)', f[2]);
+      await sissy.next(m => m.type === 'coinDrop:contested', 'coin contested', f[0]);
+      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /ROLL-OFF! .* GRABBED THE SAME/.test(x.text)), 'chat nudge', f[2]);
+      const order = start.roll.contenders.map(c => c.name);
+      assert.deepEqual(order.slice().sort(), ['Cigan', 'Sissy']);
+      assert.equal(start.roll.turnId, start.roll.contenders[0].id);
+      const byName = { Sissy: sissy, Cigan: cigan };
+      const firstC = byName[order[0]], secondC = byName[order[1]];
+      // Out of turn: refused.
+      const e0 = secondC.mark();
+      secondC.send({ type: 'coinRoll:cast', id: start.roll.id });
+      assert.equal((await secondC.next(m => m.type === 'coinRoll:error', 'not your turn', e0)).message, 'NOT YOUR TURN');
+      firstC.send({ type: 'coinRoll:cast', id: start.roll.id });
+      await gm.next(m => m.type === 'coinRoll:rolled' && m.name === order[0], 'first roll', f[2]);
+      await gm.next(m => m.type === 'coinRoll:turn' && m.roll.turnId === start.roll.contenders[1].id, 'second turn', f[2]);
+      secondC.send({ type: 'coinRoll:cast', id: start.roll.id });
+      const res = await gm.next(m => m.type === 'coinRoll:result', 'result', f[2], 9000);
+      assert.equal(res.split, expectSplit);
+      const total = Math.round(res.winners.reduce((s, w) => s + w.amount, 0) * 10) / 10;
+      assert.equal(total, res.amount, 'the whole coin is paid out, no more');
+      return { res, order };
+    };
+    const r1 = await rollOff('rare', false);
+    assert.equal(r1.res.winners.length, 1);
+    assert.equal(r1.res.winners[0].name, r1.order[0], 'roll 80 beats 20');
+    // Dice 50 / 50: a tie splits the coin.
+    const r2 = await rollOff('uncommon', true);
+    assert.equal(r2.res.winners.length, 2, 'both share a tied coin');
+    assert.ok(Math.abs(r2.res.winners[0].amount - r2.res.winners[1].amount) <= 0.1 + 1e-9, 'split in half');
+    await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /A TIE! THE UNCOMMON COIN IS SPLIT/.test(x.text)), 'tie announced');
 
     // 3. Nobody clicks: it is gone, and a late click gets nothing.
     from = [sissy.mark()];
@@ -109,7 +149,7 @@ class Client {
     gm.send({ type: 'gm:broadcast', text: '/coindrop' });
     const g = await gm.next(m => m.type === 'coinDrop:spawn', 'gm sees', gm.mark() - 1, 6000).catch(() => null);
     if (g) { await sleep(200); const m0 = gm.mark(); gm.send({ type: 'coinDrop:claim', id: g.drop.id }); assert.equal((await gm.next(m => m.type === 'coinDrop:result', 'gm refused', m0)).ok, false); }
-    console.log('PASS coin drops');
+    console.log('PASS coin drops: schedule, tiers, first click, ROLL-OFF, tie split');
   } finally {
     clients.forEach(c => c.close());
     server.kill('SIGTERM');

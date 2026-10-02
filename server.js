@@ -7318,7 +7318,7 @@ function saveCoinDrops() {
 }
 function broadcastAllRooms(message) { rooms.forEach(room => broadcastToRoom(room, message)); }
 function spawnCoinDrop(kind = 'normal', { manual = false } = {}) {
-  if (activeCoinDrop && !activeCoinDrop.settled) return null;
+  if ((activeCoinDrop && !activeCoinDrop.settled) || activeCoinRoll) return null;
   const rolled = coinDrops.roll(kind);
   const now = Date.now();
   const drop = {
@@ -7337,7 +7337,7 @@ function spawnCoinDrop(kind = 'normal', { manual = false } = {}) {
   // The amount stays secret until someone catches it; the colour tells the tier.
   broadcastAllRooms({ type: 'coinDrop:spawn', drop: { id: drop.id, tier: drop.tier, label: drop.label, x: drop.x, y: drop.y, durationMs: coinDrops.VISIBLE_MS } });
   setTimeout(() => {
-    if (activeCoinDrop !== drop || drop.claimedBy) return;
+    if (activeCoinDrop !== drop || drop.claimedBy || drop.claimants?.length) return;
     drop.settled = true;
     broadcastAllRooms({ type: 'coinDrop:gone', id: drop.id });
     coinDropState.history.push({ id: drop.id, tier: drop.tier, amount: drop.amount, at: drop.spawnedAt, claimedBy: null, manual });
@@ -7353,43 +7353,140 @@ function coinDropTick() {
     if (coinDrops.plan(coinDropState, now)) saveCoinDrops();
     const next = coinDrops.due(coinDropState, now);
     if (!next) return;
-    if (activeCoinDrop && !activeCoinDrop.settled) return;
+    if ((activeCoinDrop && !activeCoinDrop.settled) || activeCoinRoll) return;
     next.done = true;
     saveCoinDrops();
     spawnCoinDrop(next.kind);
   } catch (error) { console.error('[coin-drops] tick failed:', error.message); }
 }
 if (process.env.ASOC_COIN_DROPS !== '0') setInterval(coinDropTick, 5000).unref?.();
+// Claims within COIN_CONTEST_MS of the first one count as "the same moment":
+// those Little Heroes settle it with a public ROLL-OFF (1-100, server-random
+// order, highest roll takes the coin, a tie at the top splits it).
+const COIN_CONTEST_MS = 500;
+const COIN_ROLL_TURN_MS = 12000;
+let activeCoinRoll = null;
+// ASOC_TEST_COIN_ROLLS="80,20,50,50" scripts the dice, in order (tests only).
+const scriptedCoinRolls = String(process.env.ASOC_TEST_COIN_ROLLS || '').split(',').map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 100);
+function coinIdentity(room, ws) {
+  const player = room?.players.get(ws);
+  if (!room || !player || ws === room.hostConnection || player.isTestPersona === true || isMasterTestPlayerId(player.id) || String(player.id) !== String(ws.playerId)) return null;
+  return { id: String(player.id), name: player.name, room };
+}
+function awardCoinShare(drop, who, amount, note = '') {
+  const award = playerStore.awardShadowCoins({ id: who.id, name: who.name }, amount, `coindrop:${drop.id}:${who.id}`, { reason: `${drop.label} coin drop${note}` });
+  if (!award.ok) console.error('[coin-drops] award failed:', award.error);
+  return award;
+}
+function finishCoinDrop(drop, winners, extra = {}) {
+  drop.settled = true;
+  coinDropState.history.push({ id: drop.id, tier: drop.tier, amount: drop.amount, at: drop.spawnedAt, claimedBy: winners.map(w => ({ id: w.id, name: w.name, amount: w.amount })), claimedAt: Date.now(), manual: drop.manual, ...extra });
+  coinDropState.history = coinDropState.history.slice(-coinDrops.HISTORY_LIMIT);
+  saveCoinDrops();
+  rooms.forEach(room => broadcastPlayersUpdate(room));
+}
+function coinChat(text) {
+  rooms.forEach(r => { addShadowBrokerMessage(r, text, { editableByHost: false }); broadcastChatUpdate(r); });
+}
+const aTier = label => `${/^[AEIOU]/.test(label) ? 'AN' : 'A'} ${label}`;
+
+function settleCoinClaims(drop) {
+  const claimants = drop.claimants;
+  if (claimants.length === 1) {
+    const who = claimants[0];
+    const award = awardCoinShare(drop, who, drop.amount);
+    if (!award.ok) { drop.claimants = []; drop.claimedBy = null; return sendToWs(who.ws, { type: 'coinDrop:result', id: drop.id, ok: false, reason: 'TRY AGAIN' }); }
+    drop.claimedBy = { id: who.id, name: who.name };
+    sendToWs(who.ws, { type: 'coinDrop:result', id: drop.id, ok: true, amount: drop.amount, tier: drop.tier, balance: award.balance });
+    broadcastAllRooms({ type: 'coinDrop:claimed', id: drop.id, tier: drop.tier, label: drop.label, amount: drop.amount, playerId: who.id, playerName: who.name });
+    coinChat(`🪙 ${who.name} SNATCHED ${aTier(drop.label)} SHADOW COIN // +${drop.amount} SC`);
+    return finishCoinDrop(drop, [{ ...who, amount: drop.amount }]);
+  }
+  startCoinRoll(drop, claimants);
+}
+
+function coinRollPublic(roll) {
+  return {
+    id: roll.id, dropId: roll.drop.id, tier: roll.drop.tier, label: roll.drop.label, amount: roll.drop.amount,
+    contenders: roll.order.map(id => { const c = roll.contenders.get(id); return { id, name: c.name, avatar: c.avatar, roll: c.roll, auto: c.auto === true }; }),
+    turnId: roll.order[roll.turn] || null, turnEndsAt: roll.turnEndsAt
+  };
+}
+function startCoinRoll(drop, claimants) {
+  const order = claimants.map(c => c.id);
+  for (let i = order.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [order[i], order[j]] = [order[j], order[i]]; }
+  const roll = { id: 'roll-' + crypto.randomBytes(5).toString('hex'), drop, order, turn: 0, turnEndsAt: 0, timer: null, contenders: new Map() };
+  claimants.forEach(c => roll.contenders.set(c.id, { name: c.name, avatar: liveAvatarFor(c.room, c.id) || '', roll: null }));
+  activeCoinRoll = roll;
+  drop.claimedBy = { id: 'rolloff', name: 'ROLL-OFF' };
+  broadcastAllRooms({ type: 'coinDrop:contested', id: drop.id, names: claimants.map(c => c.name) });
+  const names = claimants.map(c => c.name);
+  coinChat(`⚔️ ROLL-OFF! ${names.slice(0, -1).join(', ')} AND ${names[names.length - 1]} GRABBED THE SAME ${drop.label} SHADOW COIN. HIGHEST ROLL TAKES IT.`);
+  nextCoinRollTurn(roll, true);
+}
+function nextCoinRollTurn(roll, first = false) {
+  clearTimeout(roll.timer);
+  if (!first) roll.turn++;
+  if (roll.turn >= roll.order.length) return finishCoinRoll(roll);
+  roll.turnEndsAt = Date.now() + COIN_ROLL_TURN_MS;
+  broadcastAllRooms({ type: first ? 'coinRoll:start' : 'coinRoll:turn', roll: coinRollPublic(roll) });
+  const turnId = roll.order[roll.turn];
+  roll.timer = setTimeout(() => castCoinRoll(roll, turnId, true), COIN_ROLL_TURN_MS);
+}
+function castCoinRoll(roll, playerId, auto = false) {
+  if (activeCoinRoll !== roll || roll.order[roll.turn] !== playerId) return false;
+  const c = roll.contenders.get(playerId);
+  if (!c || c.roll !== null) return false;
+  c.roll = scriptedCoinRolls.length ? scriptedCoinRolls.shift() : crypto.randomInt(1, 101);
+  c.auto = auto;
+  broadcastAllRooms({ type: 'coinRoll:rolled', id: roll.id, playerId, name: c.name, value: c.roll, auto, roll: coinRollPublic(roll) });
+  setTimeout(() => nextCoinRollTurn(roll), 1600);
+  return true;
+}
+function finishCoinRoll(roll) {
+  clearTimeout(roll.timer);
+  const drop = roll.drop;
+  const all = roll.order.map(id => ({ id, ...roll.contenders.get(id) }));
+  const top = Math.max(...all.map(c => c.roll));
+  const winners = all.filter(c => c.roll === top);
+  // Split in tenths of a coin; any leftover tenth goes to the first roller.
+  const units = Math.round(drop.amount * 10);
+  const each = Math.floor(units / winners.length);
+  const paid = winners.map((w, i) => ({ id: w.id, name: w.name, amount: (each + (i === 0 ? units - each * winners.length : 0)) / 10 }));
+  paid.forEach(w => { if (w.amount > 0) awardCoinShare(drop, w, w.amount, winners.length > 1 ? ' (split)' : ' (roll-off)'); });
+  activeCoinRoll = null;
+  broadcastAllRooms({ type: 'coinRoll:result', id: roll.id, roll: coinRollPublic(roll), winners: paid, split: winners.length > 1, tier: drop.tier, label: drop.label, amount: drop.amount });
+  const rolls = all.map(c => `${c.name} ${c.roll}`).join(' VS ');
+  coinChat(winners.length > 1
+    ? `🎲 ROLL-OFF // ${rolls} // A TIE! THE ${drop.label} COIN IS SPLIT: ${paid.map(w => `${w.name} +${w.amount} SC`).join(', ')}`
+    : `🎲 ROLL-OFF // ${rolls} // ${paid[0].name} TAKES THE ${drop.label} SHADOW COIN // +${paid[0].amount} SC`);
+  finishCoinDrop(drop, paid, { rollOff: all.map(c => ({ id: c.id, name: c.name, roll: c.roll })) });
+}
+function handleCoinRollCast(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  const who = coinIdentity(room, ws);
+  const roll = activeCoinRoll;
+  if (!who || !roll || roll.id !== String(message.id || '')) return sendToWs(ws, { type: 'coinRoll:error', message: 'NO ROLL AWAITS YOU' });
+  if (!castCoinRoll(roll, who.id)) sendToWs(ws, { type: 'coinRoll:error', message: 'NOT YOUR TURN' });
+}
+
 function handleCoinDropClaim(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   const reply = (ok, extra) => sendToWs(ws, { type: 'coinDrop:result', id: String(message.id || ''), ok, ...extra });
-  const player = room?.players.get(ws);
-  if (!room || !player || ws === room.hostConnection || player.isTestPersona === true || isMasterTestPlayerId(player.id) || String(player.id) !== String(ws.playerId)) return reply(false, { reason: 'NOT A LITTLE HERO' });
+  const who = coinIdentity(room, ws);
+  if (!who) return reply(false, { reason: 'NOT A LITTLE HERO' });
   const drop = activeCoinDrop;
   const now = Date.now();
   if (!drop || drop.id !== String(message.id || '')) return reply(false, { reason: 'GONE' });
-  if (drop.claimedBy) return reply(false, { reason: 'SNATCHED', by: drop.claimedBy.name });
+  if (drop.claimedBy) return reply(false, drop.claimedBy.id === 'rolloff' ? { reason: 'ROLL-OFF' } : { reason: 'SNATCHED', by: drop.claimedBy.name });
   if (now - drop.spawnedAt < coinDrops.MIN_REACTION_MS) return reply(false, { reason: 'TOO FAST' });
-  if (now > drop.expiresAt + coinDrops.CLAIM_GRACE_MS) return reply(false, { reason: 'GONE' });
-  // Claimed synchronously: the first message the server processes wins.
-  drop.claimedBy = { id: String(player.id), name: player.name };
-  const award = playerStore.awardShadowCoins({ id: String(player.id), name: player.name }, drop.amount, `coindrop:${drop.id}`, { reason: `${drop.label} coin drop` });
-  if (!award.ok) {
-    drop.claimedBy = null;
-    console.error('[coin-drops] award failed:', award.error);
-    return reply(false, { reason: 'TRY AGAIN' });
-  }
-  drop.settled = true;
-  reply(true, { amount: drop.amount, tier: drop.tier, balance: award.balance });
-  broadcastAllRooms({ type: 'coinDrop:claimed', id: drop.id, tier: drop.tier, label: drop.label, amount: drop.amount, playerId: String(player.id), playerName: player.name });
-  coinDropState.history.push({ id: drop.id, tier: drop.tier, amount: drop.amount, at: drop.spawnedAt, claimedBy: drop.claimedBy, claimedAt: now, manual: drop.manual });
-  coinDropState.history = coinDropState.history.slice(-coinDrops.HISTORY_LIMIT);
-  saveCoinDrops();
-  rooms.forEach(r => {
-    addShadowBrokerMessage(r, `🪙 ${player.name} SNATCHED ${/^[AEIOU]/.test(drop.label) ? 'AN' : 'A'} ${drop.label} SHADOW COIN // +${drop.amount} SC`, { editableByHost: false });
-    broadcastChatUpdate(r);
-  });
-  broadcastPlayersUpdate(room);
+  drop.claimants = drop.claimants || [];
+  if (drop.claimants.some(c => c.id === who.id)) return;
+  const first = drop.claimants[0];
+  if (first && now - first.at > COIN_CONTEST_MS) return reply(false, { reason: 'SNATCHED', by: first.name });
+  if (!first && now > drop.expiresAt + coinDrops.CLAIM_GRACE_MS) return reply(false, { reason: 'GONE' });
+  drop.claimants.push({ ...who, ws, at: now });
+  if (!first) setTimeout(() => settleCoinClaims(drop), COIN_CONTEST_MS);
 }
 
 function handleHeroRole(ws, message) {
@@ -12119,6 +12216,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'coinDrop:claim': {
           handleCoinDropClaim(ws, message);
+          break;
+        }
+        case 'coinRoll:cast': {
+          handleCoinRollCast(ws, message);
           break;
         }
         case 'gm:heroRoles':
