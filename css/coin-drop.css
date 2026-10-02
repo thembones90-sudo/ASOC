@@ -47,6 +47,7 @@
 .coin-roll .cr-hero.is-winner { border-color: var(--cd-color); box-shadow: 0 0 26px color-mix(in srgb, var(--cd-color) 60%, transparent); transform: scale(1.05); }
 .coin-roll .cr-hero.is-loser { opacity: .45; filter: grayscale(.6); }
 .coin-roll .cr-prize { color: var(--cd-color); font: 900 18px var(--font-machine, monospace); font-style: normal; text-shadow: 0 0 10px var(--cd-color); }
+.coin-roll .cr-taunt { margin: 12px auto 0; max-width: 440px; color: #ff9b9b; font: 700 12px/1.5 var(--font-machine, monospace); letter-spacing: .06em; animation: cr-in .3s ease-out; }
 .coin-roll .cr-foot { min-height: 54px; margin-top: 14px; display: grid; justify-items: center; gap: 8px; }
 .coin-roll .cr-foot p { margin: 0; color: #d8c7ef; font: 800 13px var(--font-machine, monospace); letter-spacing: .14em; }
 .coin-roll .cr-verdict { color: var(--cd-color) !important; font-size: 16px !important; }
