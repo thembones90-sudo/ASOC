@@ -171,6 +171,21 @@ class Client {
       assert.equal(res.winners.length, 0, 'nobody is paid');
     }
 
+    // 2e. JEW HANSEN: catching 10 coins unearths the relic.
+    {
+      const f = gm.mark();
+      for (let i = 0; i < 10; i++) {
+        const m0 = sissy.mark();
+        gm.send({ type: 'gm:broadcast', text: '/coindrop poor' });
+        const sp = await sissy.next(m => m.type === 'coinDrop:spawn', 'spawn', m0);
+        await sleep(200);
+        sissy.send({ type: 'coinDrop:claim', id: sp.drop.id });
+        await sissy.next(m => m.type === 'coinDrop:result' && m.id === sp.drop.id && m.ok, 'caught', m0);
+        await sleep(150);
+      }
+      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /RELIC UNEARTHED \/\/ Sissy -- JEW HANSEN/.test(x.text)), 'JEW HANSEN unearthed', f, 8000);
+    }
+
     // 3. Nobody clicks: it is gone, and a late click gets nothing.
     from = [sissy.mark()];
     gm.send({ type: 'gm:broadcast', text: '/coindrop legendary' });
@@ -184,7 +199,7 @@ class Client {
     gm.send({ type: 'gm:broadcast', text: '/coindrop' });
     const g = await gm.next(m => m.type === 'coinDrop:spawn', 'gm sees', gm.mark() - 1, 6000).catch(() => null);
     if (g) { await sleep(200); const m0 = gm.mark(); gm.send({ type: 'coinDrop:claim', id: g.drop.id }); assert.equal((await gm.next(m => m.type === 'coinDrop:result', 'gm refused', m0)).ok, false); }
-    console.log('PASS coin drops: schedule, tiers, first click, ROLL-OFF, tie split, idle forfeits');
+    console.log('PASS coin drops: schedule, tiers, first click, ROLL-OFF, tie split, idle forfeits, JEW HANSEN relic');
   } finally {
     clients.forEach(c => c.close());
     server.kill('SIGTERM');

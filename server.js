@@ -7380,6 +7380,11 @@ function awardCoinShare(drop, who, amount, note = '') {
 }
 function finishCoinDrop(drop, winners, extra = {}) {
   drop.settled = true;
+  // JEW HANSEN relic: 10 coins caught (a roll-off win or split counts).
+  winners.forEach(w => {
+    const room = [...rooms.values()].find(r => [...r.players.values()].some(p => String(p.id) === String(w.id))) || rooms.values().next().value;
+    try { bumpRelicCounter(room, { id: String(w.id), name: w.name }, 'relic-hoarder', `coindrop:${drop.id}:${w.id}`); } catch (error) { console.error('[relics] coin check failed:', error.message); }
+  });
   coinDropState.history.push({ id: drop.id, tier: drop.tier, amount: drop.amount, at: drop.spawnedAt, claimedBy: winners.map(w => ({ id: w.id, name: w.name, amount: w.amount })), claimedAt: Date.now(), manual: drop.manual, ...extra });
   coinDropState.history = coinDropState.history.slice(-coinDrops.HISTORY_LIMIT);
   saveCoinDrops();
@@ -7436,7 +7441,19 @@ function nextCoinRollTurn(roll, first = false) {
 }
 // The Shadow Broker's verdict on a Little Hero who froze with a coin on the line.
 const COIN_IDLE_TAUNTS = Object.freeze([
-  '{name}, ARE YOU CLINICALLY BLIND?'
+  '{name}, ARE YOU CLINICALLY BLIND?',
+  '{name} STARED AT THE ROLL BUTTON LIKE IT OWED THEM MONEY. IT DID NOT. FORFEIT.',
+  '{name} WAS GIVEN ONE JOB: CLICK. {name} CHOSE MEDITATION.',
+  'SOMEONE CHECK ON {name}. EITHER ASLEEP OR SPIRITUALLY ABSENT. EITHER WAY: FORFEIT.',
+  '{name} GRABBED THE COIN AND THEN FORGOT HOW HANDS WORK.',
+  'THE DICE WAITED 12 SECONDS FOR {name}. THE DICE HAVE MORE PATIENCE THAN {name} HAS REFLEXES.',
+  '{name} WENT AFK MID-DUEL. THE HOUSE CONFISCATES THEIR DIGNITY AND THEIR SHARE.',
+  'BREAKING: {name} LOSES A ROLL-OFF WITHOUT ROLLING. A TRUE PIONEER OF FAILURE.',
+  '{name} TREATED THE ROLL-OFF LIKE A GROUP PROJECT. NOBODY IS SURPRISED.',
+  'THE SHADOW BROKER HAS SEEN STATUES WITH FASTER REACTION TIMES THAN {name}.',
+  '{name} REACHED FOR THE COIN, THEN REACHED FOR A SNACK. GUESS WHICH ONE PAID OFF.',
+  'IDLE HANDS ARE THE DEVIL\'S WORKSHOP. {name}\'S ARE JUST UNEMPLOYED.',
+  '{name} FORFEITS. THE BUTTON WAS RIGHT THERE. IT GLOWED. IT PULSED. IT BEGGED.'
 ]);
 const coinIdleTaunt = name => COIN_IDLE_TAUNTS[crypto.randomInt(COIN_IDLE_TAUNTS.length)].replaceAll('{name}', String(name || 'SOMEONE').toUpperCase());
 
