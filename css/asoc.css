@@ -21896,3 +21896,49 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
 #blood-vault-viewer { overflow: hidden; }
 #blood-vault-viewer img { touch-action: none; user-select: none; transition: transform .06s linear; will-change: transform; }
 .blood-vault-zoom { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 7px 14px; border: 1px solid rgba(213, 160, 164, .35); border-radius: 999px; background: rgba(12, 6, 8, .78); color: #e7c4c7; font: 700 11px var(--font-machine, monospace); letter-spacing: .14em; white-space: nowrap; pointer-events: none; }
+
+/* BATTLE CONTROLS // the Shadow Broker's 3x3 command deck (restored from
+   "Align GM battle controls into 3x3 grid"), desktop battle modes only.
+   Wrapper rows stay in the DOM for existing logic but flatten into one
+   3-column grid; every control has a fixed slot. Controls added later
+   (TRANSMOG, ROLES) live in a 4th row so they never shift the deck:
+     AMUSE|ABUSE   NEMA ASOC   BIĆE ASOC
+     BLACK MARKET  QUESTS      BACKDOOR
+     RESET BOARD   SOUNDS ON   MASTER ACCESS
+     TRANSMOG      ROLES ON                                              */
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel {
+  display:grid !important;
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:7px 10px !important;
+  align-items:stretch !important;
+}
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > :is(.battle-controls-grid,.battle-controls-utility-row,.gm-system-dock) {
+  display:contents !important;
+}
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > :is(.battle-controls-header,.battle-flow-row,#final-panel-reopen-btn,#recount-btn) {
+  grid-column:1 / -1 !important;
+}
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel :is(.battle-controls-host-slot,#nema-asoc-btn,#bice-asoc-btn,#black-market-gm-button,#quests-btn,#library-btn-footer,#reset-board-btn,#sound-toggle-btn,.master-access-wrap,#broker-transmog-btn,#hero-roles-toggle) {
+  width:100% !important;
+  min-width:0 !important;
+  margin:0 !important;
+  box-sizing:border-box !important;
+}
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel :is(#black-market-gm-button,#quests-btn,#library-btn-footer,#reset-board-btn,#sound-toggle-btn,.master-access-wrap,#broker-transmog-btn,#hero-roles-toggle) {
+  height:auto !important;
+  min-height:42px !important;
+}
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .master-access-wrap .master-access-btn { height:100% !important; min-height:42px !important; width:100% !important; margin:0 !important; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .battle-controls-header { order:0; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .battle-controls-host-slot { order:1; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #nema-asoc-btn { order:2; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #bice-asoc-btn { order:3; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > :is(.battle-flow-row,#final-panel-reopen-btn,#recount-btn) { order:4; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #black-market-gm-button { order:5; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #quests-btn { order:6; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #library-btn-footer { order:7; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #reset-board-btn { order:8; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #sound-toggle-btn { order:9; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .master-access-wrap { order:10; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #broker-transmog-btn { order:11; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #hero-roles-toggle { order:12; }
