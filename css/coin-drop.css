@@ -40,9 +40,10 @@
 .coin-roll .cr-hero > b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 14px var(--font-human, system-ui); }
 .coin-roll .cr-hero > b small { color: #9d8cb5; font-size: 10px; }
 .coin-roll .cr-die { min-width: 64px; padding: 6px 10px; border-radius: 8px; background: #0b0811; border: 1px solid rgba(255, 255, 255, .12); color: #fff; font: 900 26px var(--font-machine, monospace); }
+.coin-roll .cr-die.is-idle { color: #ff5b5b; font-size: 18px; letter-spacing: .14em; }
 .coin-roll .cr-die.is-rolling { color: var(--cd-color); }
 .coin-roll .cr-die.is-set { animation: cr-thud .35s ease-out; }
-.coin-roll .cr-auto { color: #9d8cb5; font: 700 9px var(--font-machine, monospace); letter-spacing: .14em; }
+.coin-roll .cr-auto { color: #ff7b7b; font: 700 9px var(--font-machine, monospace); letter-spacing: .14em; }
 .coin-roll .cr-hero.is-winner { border-color: var(--cd-color); box-shadow: 0 0 26px color-mix(in srgb, var(--cd-color) 60%, transparent); transform: scale(1.05); }
 .coin-roll .cr-hero.is-loser { opacity: .45; filter: grayscale(.6); }
 .coin-roll .cr-prize { color: var(--cd-color); font: 900 18px var(--font-machine, monospace); font-style: normal; text-shadow: 0 0 10px var(--cd-color); }

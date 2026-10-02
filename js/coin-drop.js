@@ -117,8 +117,8 @@
           <div class="cr-hero${c.id === roll.turnId && phase !== 'result' ? ' is-turn' : ''}" data-hero="${esc(c.id)}">
             <div class="cr-avatar">${avatarHTML(c)}</div>
             <b>${esc(c.name)}${c.id === meId() ? ' <small>(YOU)</small>' : ''}</b>
-            <div class="cr-die">${c.roll == null ? '—' : esc(c.roll)}</div>
-            ${c.auto ? '<small class="cr-auto">AUTO-ROLLED</small>' : ''}
+            <div class="cr-die${c.forfeit ? ' is-idle' : ''}">${c.forfeit ? 'IDLE' : c.roll == null ? '—' : esc(c.roll)}</div>
+            ${c.forfeit ? '<small class="cr-auto">FORFEIT // TOO SLOW</small>' : ''}
           </div>`).join('')}</div>
         <footer class="cr-foot">${phase === 'result' ? '' : turn
           ? (mine ? `<button type="button" class="cr-roll-btn" data-roll>🎲 ROLL!</button>` : `<p>${esc(turn.name)} IS ROLLING…</p>`)
@@ -146,7 +146,7 @@
       card.classList.add(w ? 'is-winner' : 'is-loser');
       if (w) card.insertAdjacentHTML('beforeend', `<em class="cr-prize">+${esc(w.amount)} SC</em>`);
     });
-    duel.el.querySelector('.cr-foot').innerHTML = `<p class="cr-verdict">${m.split ? `A TIE! THE COIN IS SPLIT` : `${esc(m.winners[0].name)} TAKES IT`}</p>`;
+    duel.el.querySelector('.cr-foot').innerHTML = `<p class="cr-verdict">${m.lost ? 'NOBODY ROLLED // THE COIN IS LOST' : m.split ? 'A TIE! THE COIN IS SPLIT' : `${esc(m.winners[0].name)} TAKES IT`}</p>`;
     chime(m.split ? 'epic' : 'legendary');
     const id = duel.id;
     setTimeout(() => { if (duel?.id === id) closeDuel(); }, 6000);
@@ -156,7 +156,7 @@
   function onMessage(m) {
     if (m.type === 'coinRoll:start') { flickerChat(); chime('epic'); return renderDuel(m.roll, 'turn'); }
     if (m.type === 'coinRoll:turn') return renderDuel(m.roll, 'turn');
-    if (m.type === 'coinRoll:rolled') { if (!duel || duel.id !== m.id) renderDuel(m.roll, 'turn'); const btn = duel.el.querySelector('[data-roll]'); if (btn) btn.disabled = true; return animateDie(m.playerId, m.value); }
+    if (m.type === 'coinRoll:rolled') { if (!duel || duel.id !== m.id || m.forfeit) renderDuel(m.roll, 'turn'); const btn = duel.el.querySelector('[data-roll]'); if (btn) btn.disabled = true; return m.forfeit ? undefined : animateDie(m.playerId, m.value); }
     if (m.type === 'coinRoll:result') return showResult(m);
     if (m.type === 'coinRoll:error') return;
     if (m.type === 'coinDrop:spawn') { if (isGM()) return; return spawn(m.drop); }

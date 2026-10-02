@@ -31,7 +31,7 @@ class Client {
 }
 
 (async () => {
-  const server = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'cd-pass', ASOC_EMAIL_VERIFICATION: '0', ASOC_COIN_DROPS: '0', ASOC_TEST_COIN_ROLLS: '80,20,50,50' }, stdio: ['ignore', 'ignore', 'pipe'] });
+  const server = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'cd-pass', ASOC_EMAIL_VERIFICATION: '0', ASOC_COIN_DROPS: '0', ASOC_TEST_COIN_ROLLS: '80,20,50,50,5', ASOC_COIN_ROLL_TURN_MS: '2500' }, stdio: ['ignore', 'ignore', 'pipe'] });
   let errors = ''; server.stderr.on('data', c => { errors += c; });
   const clients = [];
   try {
@@ -136,6 +136,39 @@ class Client {
     assert.ok(Math.abs(r2.res.winners[0].amount - r2.res.winners[1].amount) <= 0.1 + 1e-9, 'split in half');
     await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /A TIE! THE UNCOMMON COIN IS SPLIT/.test(x.text)), 'tie announced');
 
+    // 2c. Idle is punished: the first roller sits still -> FORFEIT; the other wins even with a 5.
+    {
+      const f = [sissy.mark(), cigan.mark(), gm.mark()];
+      gm.send({ type: 'gm:broadcast', text: '/coindrop common' });
+      const sp = await sissy.next(m => m.type === 'coinDrop:spawn', 'spawn', f[0]);
+      await sleep(250);
+      sissy.send({ type: 'coinDrop:claim', id: sp.drop.id });
+      cigan.send({ type: 'coinDrop:claim', id: sp.drop.id });
+      const start = await gm.next(m => m.type === 'coinRoll:start', 'roll-off', f[2]);
+      const [idle, active] = start.roll.contenders;
+      const idleOut = await gm.next(m => m.type === 'coinRoll:rolled' && m.forfeit === true, 'idle forfeits', f[2], 6000);
+      assert.equal(idleOut.playerId, idle.id);
+      await gm.next(m => m.type === 'coinRoll:turn' && m.roll.turnId === active.id, 'other turn', f[2]);
+      ({ Sissy: sissy, Cigan: cigan })[active.name].send({ type: 'coinRoll:cast', id: start.roll.id });
+      const res = await gm.next(m => m.type === 'coinRoll:result', 'result', f[2], 9000);
+      assert.equal(res.winners.length, 1);
+      assert.equal(res.winners[0].id, active.id, 'the idle player loses automatically');
+      assert.equal(res.roll.contenders.find(c => c.id === active.id).roll, 5);
+      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text.includes('IDLE (FORFEIT)')), 'forfeit announced');
+    }
+    // 2d. Everyone idles: the coin is lost.
+    {
+      const f = [sissy.mark(), gm.mark()];
+      gm.send({ type: 'gm:broadcast', text: '/coindrop poor' });
+      const sp = await sissy.next(m => m.type === 'coinDrop:spawn', 'spawn', f[0]);
+      await sleep(250);
+      sissy.send({ type: 'coinDrop:claim', id: sp.drop.id });
+      cigan.send({ type: 'coinDrop:claim', id: sp.drop.id });
+      const res = await gm.next(m => m.type === 'coinRoll:result', 'all idle', f[1], 12000);
+      assert.equal(res.lost, true);
+      assert.equal(res.winners.length, 0, 'nobody is paid');
+    }
+
     // 3. Nobody clicks: it is gone, and a late click gets nothing.
     from = [sissy.mark()];
     gm.send({ type: 'gm:broadcast', text: '/coindrop legendary' });
@@ -149,7 +182,7 @@ class Client {
     gm.send({ type: 'gm:broadcast', text: '/coindrop' });
     const g = await gm.next(m => m.type === 'coinDrop:spawn', 'gm sees', gm.mark() - 1, 6000).catch(() => null);
     if (g) { await sleep(200); const m0 = gm.mark(); gm.send({ type: 'coinDrop:claim', id: g.drop.id }); assert.equal((await gm.next(m => m.type === 'coinDrop:result', 'gm refused', m0)).ok, false); }
-    console.log('PASS coin drops: schedule, tiers, first click, ROLL-OFF, tie split');
+    console.log('PASS coin drops: schedule, tiers, first click, ROLL-OFF, tie split, idle forfeits');
   } finally {
     clients.forEach(c => c.close());
     server.kill('SIGTERM');
