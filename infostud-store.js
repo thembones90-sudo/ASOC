@@ -188,6 +188,16 @@ function create(dataDir, { maxFileBytes, maxTotalBytes }) {
       return result;
     },
 
+    // Wipe everything: every file and folder.
+    purge() {
+      const files = all().filter(i => i.kind === 'file');
+      const count = all().length;
+      index.items = [];
+      save();
+      files.forEach(f => fs.rm(fileOf(f), { force: true }, () => {}));
+      return count;
+    },
+
     remove(id) {
       const item = get(id);
       if (!item) return false;
