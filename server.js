@@ -7380,7 +7380,7 @@ function awardCoinShare(drop, who, amount, note = '') {
 }
 function finishCoinDrop(drop, winners, extra = {}) {
   drop.settled = true;
-  // JEW HANSEN relic: 10 coins caught (a roll-off win or split counts).
+  // THE HOARDER relic: 10 coins caught (a roll-off win or split counts).
   winners.forEach(w => {
     const room = [...rooms.values()].find(r => [...r.players.values()].some(p => String(p.id) === String(w.id))) || rooms.values().next().value;
     try { bumpRelicCounter(room, { id: String(w.id), name: w.name }, 'relic-hoarder', `coindrop:${drop.id}:${w.id}`); } catch (error) { console.error('[relics] coin check failed:', error.message); }
