@@ -318,6 +318,11 @@ function assertDataDirectoryWritable(dataDir) {
 }
 assertDataDirectoryWritable(ASOC_DATA_DIR);
 const CHAT_UPLOAD_DIR = path.join(ASOC_DATA_DIR, 'chat-uploads');
+// INFOSTUD: the Shadow Broker's hidden personal picture/video storage.
+const infostud = require('./infostud-store').create(ASOC_DATA_DIR, {
+  maxFileBytes: Number(process.env.ASOC_INFOSTUD_MAX_FILE_BYTES) || 200 * 1024 * 1024,
+  maxTotalBytes: Number(process.env.ASOC_INFOSTUD_MAX_TOTAL_BYTES) || 3 * 1024 * 1024 * 1024
+});
 fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
 const chatUploadGuard = createChatUploadGuard({ dir: CHAT_UPLOAD_DIR });
 const blackMarketUploadClaims = new Map();
@@ -6490,6 +6495,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
   { name: '/love', help: '/love [Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
   { name: '/drug', help: '/drug @Name -- SHADOW MARKET relic: inject someone with... something' },
+  { name: '/hug', help: '/hug [@Name] -- hug someone (or everyone), with a sweet animation' },
   { name: '/fireworks', help: '/fireworks [message] -- light up every screen with a fireworks show' },
   { name: '/commands', help: '/commands -- this list' }
 ];
@@ -6504,6 +6510,7 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/timer', help: '/timer A1 -- warn Column A has 1 minute left (A-D, 1 or 2 minutes)' },
   { name: '/vote', help: '/vote <question> -- instant YES/NO poll' },
   { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
+  { name: '/hug', help: '/hug [@Name] -- the Broker hugs someone (or everyone)' },
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
   { name: '/award', help: '/award @Name drug -- grant a Shadow Market relic command (e.g. /drug)' },
   { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' },
@@ -6793,6 +6800,9 @@ const CHAT_EMOTES = Object.freeze({
   rupture:  { label: 'RUPTURE',   premium: true, actor: 'You crack reality open.', other: '{A} cracks reality open.' },
   vanish:   { label: 'VANISH',    premium: true, actor: 'You vanish in a curl of smoke.', other: '{A} vanishes in a curl of smoke.' },
   // Target is optional: /love spreads love, /love Name sends it to someone.
+  // Free for everyone, with a room-wide animation (fx). Aim it or hug all.
+  hug:      { label: 'HUG',       fx: true, optionalTarget: true, actor: 'You hug everyone. Group hug!', other: '{A} hugs everyone. Group hug!',
+              aimed: { actor: 'You hug {T} tight.', target: '{A} hugs you tight. ♥', other: '{A} hugs {T} tight.' } },
   // Relic command (granted via /award, never sold): {X} is a random substance.
   drug:     { label: 'DRUG',      premium: true, targeted: true, actor: 'You inject {T} with {X}.', target: '{A} injected you with {X}.', other: '{A} injects {T} with {X}.' },
   love:     { label: 'LOVE',      premium: true, optionalTarget: true, actor: 'You spread love across the room.', other: '{A} spreads love across the room.',
@@ -6871,7 +6881,7 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
       targetId: target ? String(target.id) : null,
       targetName: target ? target.name : null,
       ...(target?.all ? { targetIds: target.targetIds } : {}),
-      ...(def.premium ? { fx: name } : {}),
+      ...(def.premium || def.fx ? { fx: name } : {}),
       lines
     }
   });
@@ -7003,6 +7013,9 @@ function dispatchGmSlashCommand(room, ws, text) {
     broadcastToRoom(room, { type: 'warsong:alert', timestamp: Date.now(), durationMs: 9000 });
     return { success: true, broadcast: false };
   }
+
+  // /infostud is handled on the console itself; never let it reach the chat.
+  if (/^\/infostud\b/i.test(raw)) return { success: true, broadcast: false };
 
   if (/^\/fireworks\b/i.test(raw)) {
     const fireworks = parseFireworks(raw);
@@ -7756,7 +7769,7 @@ function sanitizeChatCommandMeta(m) {
       targetIds: Array.isArray(emote.targetIds)
         ? Array.from(new Set(emote.targetIds.map(id => String(id).slice(0, 64)).filter(Boolean))).slice(0, 60)
         : undefined,
-      ...(CHAT_EMOTES[emote.act].premium ? { fx: emote.act } : {}),
+      ...(CHAT_EMOTES[emote.act].premium || CHAT_EMOTES[emote.act].fx ? { fx: emote.act } : {}),
       lines: { actor: line(emote.lines?.actor), target: line(emote.lines?.target), other: line(emote.lines?.other) }
     };
   } else if (m.messageType === 'afk' && m.afk && typeof m.afk === 'object') {
@@ -10674,6 +10687,30 @@ function handleApiRequest(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const parts = url.pathname.split('/').filter(Boolean);
   const method = req.method;
+
+  // INFOSTUD -- hidden. Anything without a valid Shadow Broker token gets a
+  // plain 404, as if the route did not exist.
+  if (parts[0] === 'api' && parts[1] === 'infostud') {
+    if (!isGmAuthorized(req)) return sendJson(res, 404, { error: 'Not Found' });
+    res.setHeader('Cache-Control', 'no-store');
+    if (parts.length === 2 && method === 'GET') return sendJson(res, 200, { items: infostud.list(), usage: infostud.usage() });
+    if (parts.length === 2 && method === 'POST') {
+      let name = '';
+      try { name = decodeURIComponent(String(req.headers['x-file-name'] || '')); } catch {}
+      return infostud.receive(req, { type: req.headers['content-type'], name }, (error, item) => {
+        if (error) return sendJson(res, error.status || 500, { error: error.message });
+        sendJson(res, 200, { item, usage: infostud.usage() });
+      });
+    }
+    const item = parts.length === 3 ? infostud.get(parts[2]) : null;
+    if (!item) return sendJson(res, 404, { error: 'Not Found' });
+    if (method === 'DELETE') { infostud.remove(item.id); return sendJson(res, 200, { ok: true, usage: infostud.usage() }); }
+    if (method === 'GET') {
+      res.writeHead(200, { 'Content-Type': item.type, 'Content-Length': item.size, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+      return fs.createReadStream(infostud.pathOf(item)).on('error', () => res.destroy()).pipe(res);
+    }
+    return sendJson(res, 404, { error: 'Not Found' });
+  }
 
   if (url.pathname === '/api/build' && method === 'GET') {
     res.setHeader('Cache-Control', 'no-store, max-age=0');

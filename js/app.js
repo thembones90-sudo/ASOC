@@ -108,6 +108,7 @@ const App = {
     { name: 'rupture', insert: '/rupture', icon: '✶', label: 'RUPTURE', description: '/rupture -- crack reality open' },
     { name: 'vanish', insert: '/vanish', icon: '☁', label: 'VANISH', description: '/vanish -- disappear in smoke' },
     { name: 'love', insert: '/love ', icon: '♥', label: 'LOVE', description: '/love [@Name] -- hearts over the chat' },
+    { name: 'hug', insert: '/hug ', icon: '🤗', label: 'HUG', description: '/hug [@Name] -- a warm hug for one or everyone' },
     { name: 'drug', insert: '/drug ', icon: '💉', label: 'DRUG', description: '/drug @Name -- inject someone with... something' },
     { name: 'award', insert: '/award ', icon: '✦', label: 'AWARD', description: '/award @Name drug -- grant a relic command' },
     { name: 'grovel', insert: '/grovel', icon: '⛓', label: 'GROVEL', description: '/grovel -- demand groveling' },
@@ -6423,6 +6424,13 @@ const App = {
     const state = this.syncGMComposerModel();
     const text = state.text.trim();
     if (!text) return;
+
+    // INFOSTUD: the Shadow Broker's hidden storage. Never sent anywhere.
+    if (/^\/infostud\s*$/i.test(text)) {
+      this.setGMComposerText('', 0);
+      window.Infostud?.open();
+      return;
+    }
 
     const reliquaryCommand = text.match(/^\/reliquary(?:\s+(.+))?$/i);
     const bareCode = /^\d{6}$/.test(text) ? text : '';
