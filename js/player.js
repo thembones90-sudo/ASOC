@@ -1380,7 +1380,7 @@ const PlayerApp = {
         break;
 
       case 'state:public': {
-        window.BrokerTransmog?.setProfile?.(message.brokerProfile);
+        window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         // Deferred so the board has painted the new state before the seal,
         // chains and strip are positioned over it.
         setTimeout(() => window.FinalDebt?.update(message), 0);

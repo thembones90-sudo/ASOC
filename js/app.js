@@ -2823,7 +2823,7 @@ const App = {
         break;
 
       case 'state:public':
-        window.BrokerTransmog?.setProfile?.(message.brokerProfile);
+        window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         this.finalValue = message.finalValue || null;
         this.applyServerState(message);
         setTimeout(() => window.FinalDebt?.update(message), 0);
@@ -3087,6 +3087,7 @@ const App = {
 
       case 'error':
         console.error('[GM] Server error:', message.message);
+        if (message.code === 'TRANSMOG') window.BrokerTransmog?.onError?.(message.message);
         if (message.cmdId !== undefined) this.pendingCommands.delete(message.cmdId);
         // Clear unconditionally: whatever failed, we're not waiting on a
         // room:create response anymore, so don't leave HOST ROOM

@@ -119,11 +119,48 @@ const WS_HEARTBEAT_MS = 30000;
 const WS_HANDSHAKE_TIMEOUT_MS = Math.max(100, Number(process.env.ASOC_WS_HANDSHAKE_TIMEOUT_MS) || 10000);
 const COLUMN_REVEAL_DELAY_MS = Math.max(100, Number(process.env.ASOC_COLUMN_REVEAL_DELAY_MS) || 5000);
 const PROTOCOL_VERSION = 1;
-const DEFAULT_BROKER_PROFILE = Object.freeze({ avatarData:'assets/ui/shadow-broker.png', frameColor:'#9b5de0', avatarEffect:'none', messageEffect:'none' });
+// SHADOW BROKER TRANSMOG -- appearance only. The catalog (shared with both
+// pages) resolves a set id into the painted brokerProfile; CUSTOM keeps the
+// Broker's own forge settings. Nothing here may touch game logic.
+const transmogCatalog = require('./js/broker-transmog-catalog');
+const DEFAULT_BROKER_PROFILE = Object.freeze(transmogCatalog.resolveProfile(transmogCatalog.DEFAULT_ID));
+const LEGACY_DEFAULT_AVATAR = 'assets/ui/shadow-broker.png';
 function normalizeBrokerProfile(input) {
-  const avatar = String(input?.avatarData || DEFAULT_BROKER_PROFILE.avatarData);
-  const allowedAvatar = /^(data:image\/(?:png|jpeg|webp);base64,|\/|assets\/)/i.test(avatar) && avatar.length <= 2100000 ? avatar : DEFAULT_BROKER_PROFILE.avatarData;
-  return { avatarData:allowedAvatar, frameColor:/^#[0-9a-f]{6}$/i.test(String(input?.frameColor||''))?String(input.frameColor):DEFAULT_BROKER_PROFILE.frameColor, avatarEffect:['none','pulse','eclipse','glitch','inferno','frost','crown'].includes(input?.avatarEffect)?input.avatarEffect:'none', messageEffect:['none','void','blood','royal','static'].includes(input?.messageEffect)?input.messageEffect:'none' };
+  const id = input?.transmogId;
+  if (id && id !== transmogCatalog.CUSTOM_ID && transmogCatalog.get(id)) return transmogCatalog.resolveProfile(id);
+  if (id === transmogCatalog.CUSTOM_ID) return transmogCatalog.cleanProfile({ ...input, transmogId: transmogCatalog.CUSTOM_ID });
+  // Pre-wardrobe profiles carried no id: untouched ones are DEFAULT, anything
+  // the Broker had changed becomes CUSTOM.
+  if (!input || typeof input !== 'object') return { ...DEFAULT_BROKER_PROFILE };
+  const untouched = (!input.avatarData || input.avatarData === LEGACY_DEFAULT_AVATAR) && (!input.avatarEffect || input.avatarEffect === 'none') && (!input.messageEffect || input.messageEffect === 'none') && (!input.frameColor || /^#9b5de0$/i.test(input.frameColor));
+  return untouched ? { ...DEFAULT_BROKER_PROFILE } : transmogCatalog.cleanProfile({ ...input, transmogId: transmogCatalog.CUSTOM_ID });
+}
+// A CUSTOM upload can be ~2 MB of data URL; it is served once from
+// /api/broker-avatar instead of riding along in every state:public.
+function publicBrokerProfile(room) {
+  const profile = normalizeBrokerProfile(room.brokerProfile);
+  if (/^data:image\//.test(profile.avatarData)) profile.avatarData = `/api/broker-avatar?room=${encodeURIComponent(room.code)}&v=${Number(room.brokerTransmogSeq) || 0}`;
+  return profile;
+}
+// Appearance ownership (future unlocks: achievements, market, events...).
+// 'default' sets are always owned; granted ids live in broker-wardrobe.json.
+const BROKER_WARDROBE_FILE = path.join(process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_DIR) : __dirname, 'broker-wardrobe.json');
+let brokerWardrobeCache = null;
+function brokerWardrobeOwned() {
+  if (!brokerWardrobeCache) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(BROKER_WARDROBE_FILE, 'utf8'));
+      brokerWardrobeCache = new Set((Array.isArray(parsed?.owned) ? parsed.owned : []).map(String).filter(id => transmogCatalog.get(id)));
+    } catch { brokerWardrobeCache = new Set(); }
+  }
+  return brokerWardrobeCache;
+}
+function grantBrokerAppearance(id) {
+  if (!transmogCatalog.get(id)) return false;
+  const owned = brokerWardrobeOwned();
+  owned.add(String(id));
+  try { durableIO.writeJson(BROKER_WARDROBE_FILE, { owned: [...owned] }); } catch (error) { console.error('[transmog] wardrobe save failed:', error.message); }
+  return true;
 }
 // The client build currently being served (the ?v= of player.js / app.js in
 // join.html / index.html), read once at startup. Announced on every
@@ -427,6 +464,8 @@ function serializeRoomForRecovery(room) {
     megabonks: Array.isArray(room.megabonks) ? room.megabonks : [],
     ritual: normalizeRitualState(room.ritual),
     unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
+    brokerProfile: normalizeBrokerProfile(room.brokerProfile),
+    brokerTransmogSeq: Number(room.brokerTransmogSeq) || 0,
     kaladont: room.kaladont || null,
     rage: room.rage || null,
     // Private recovery data only. Network clients receive rouletteViewFor().
@@ -559,6 +598,9 @@ function restoreActiveRooms() {
           .map(normalizeMegabonk).filter(Boolean).slice(-8), // MEGABONK_MAX_EVENTS
         ritual: normalizeRitualState(saved.ritual),
         unstableConcoction: unstableConcoction.normalizeState(saved.unstableConcoction),
+        // TRANSMOG survives a restart: set ids re-resolve from the catalog.
+        brokerProfile: normalizeBrokerProfile(saved.brokerProfile),
+        brokerTransmogSeq: Number(saved.brokerTransmogSeq) || 0,
         // KALADONT survives a restart; the phase in flight gets a fresh window
         // so nobody is eliminated for time lost to the outage.
         kaladont: kaladont.resumeAfterRestart(kaladont.normalizeState(saved.kaladont), Date.now()),
@@ -1157,6 +1199,7 @@ function createRoom(gameId, hostWs) {
       solvedTargets: {}
     },
     brokerProfile: { ...DEFAULT_BROKER_PROFILE },
+    brokerTransmogSeq: 0,
     // SESSION-scoped scoring state. This whole object survives NEXT GAME
     // (gm:switchGame) -- only the per-board fields inside it (activeStreak,
     // boardFinalized) get reset there and on resetBoard. It is never
@@ -1324,7 +1367,10 @@ function getPublicState(room) {
     title: game.title,
     theme: game.theme,
     difficulty: game.difficulty,
-    brokerProfile: normalizeBrokerProfile(room.brokerProfile),
+    brokerProfile: publicBrokerProfile(room),
+    brokerTransmogId: normalizeBrokerProfile(room.brokerProfile).transmogId,
+    brokerTransmogSeq: Number(room.brokerTransmogSeq) || 0,
+    brokerWardrobe: { owned: [...brokerWardrobeOwned()] },
     revision: room.revision,
     background: room.currentBackground,
     cells: publicCells,
@@ -6955,6 +7001,30 @@ function triggerB3Alert(room, text, messageId) {
   return true;
 }
 
+// TRANSMOG equip. gm:brokerTransmog { transmogId } equips a catalog set;
+// gm:brokerProfile { profile } equips the Broker's CUSTOM forge look.
+// GM-only; preview never reaches the server.
+function handleBrokerTransmog(ws, message) {
+  const room = rooms.get(ws.roomCode);
+  if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) {
+    return sendToWs(ws, { type: 'error', code: 'TRANSMOG', message: 'ONLY THE SHADOW BROKER MAY ALTER THE TRANSMOG' });
+  }
+  let next;
+  if (message.type === 'gm:brokerTransmog') {
+    const id = String(message.transmogId || '');
+    const set = transmogCatalog.get(id);
+    if (!set) return sendToWs(ws, { type: 'error', code: 'TRANSMOG', message: 'UNKNOWN APPEARANCE' });
+    if (!transmogCatalog.isUnlocked(id, brokerWardrobeOwned())) return sendToWs(ws, { type: 'error', code: 'TRANSMOG', message: `${set.name} IS LOCKED // ${set.unlock.hint || 'NOT YET EARNED'}` });
+    next = transmogCatalog.resolveProfile(id);
+  } else {
+    next = transmogCatalog.cleanProfile({ ...(message.profile || {}), transmogId: transmogCatalog.CUSTOM_ID });
+  }
+  room.brokerProfile = next;
+  room.brokerTransmogSeq = (Number(room.brokerTransmogSeq) || 0) + 1;
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+}
+
 function broadcastToRoom(room, message, excludeWs = null) {
   const data = JSON.stringify(message);
   room.players.forEach((player, ws) => {
@@ -11274,6 +11344,14 @@ const server = http.createServer((req, res) => {
       res.end(req.method === 'HEAD' ? undefined : content);
     });
   }
+  if ((req.method === 'GET' || req.method === 'HEAD') && urlPath === '/api/broker-avatar') {
+    const room = rooms.get(String(new URL(req.url, 'http://x').searchParams.get('room') || '').toUpperCase());
+    const match = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(String(room?.brokerProfile?.avatarData || ''));
+    if (!match) return sendJson(res, 404, { error: 'Not Found' });
+    const content = Buffer.from(match[2], 'base64');
+    res.writeHead(200, { 'Content-Type': match[1], 'Content-Length': content.length, 'Cache-Control': 'public, max-age=31536000, immutable' });
+    return res.end(req.method === 'HEAD' ? undefined : content);
+  }
   if ((req.method === 'GET' || req.method === 'HEAD') && urlPath.startsWith('/uploads/chat/')) {
     if (serveChatUpload(req, res, urlPath)) return;
   }
@@ -11481,15 +11559,9 @@ wss.on('connection', (ws, req) => {
           handleHostCommand(ws, message);
           break;
         }
-        case 'gm:brokerProfile': {
-          const room = rooms.get(ws.roomCode);
-          if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) {
-            sendToWs(ws, { type:'error', message:'ONLY THE SHADOW BROKER MAY ALTER THE TRANSMOG' });
-            break;
-          }
-          room.brokerProfile = normalizeBrokerProfile(message.profile);
-          persistActiveRooms();
-          broadcastToRoom(room, { type:'state:public', ...getPublicState(room) });
+        case 'gm:brokerProfile':
+        case 'gm:brokerTransmog': {
+          handleBrokerTransmog(ws, message);
           break;
         }
         case 'gm:questCreate': handleQuestCreate(ws, message); break;
