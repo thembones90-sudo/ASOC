@@ -823,9 +823,9 @@ body.smk-open { overflow: hidden; }
 .hug-glow { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(255, 140, 190, .38), rgba(255, 190, 120, .12) 40%, transparent 70%); animation: hug-glow 3.1s ease-out forwards; }
 .hug-pair { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -62%); display: flex; align-items: center; gap: 0; }
 .hug-hearts { position: absolute; inset: 0; }
-.hug-blob { display: grid; place-items: center; width: min(22vw, 150px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffd1e6, #ff7eb6 55%, #e84d8a); box-shadow: 0 0 30px rgba(255, 110, 170, .7); }
+.hug-blob { --hug-c: #ff7eb6; display: grid; place-items: center; width: min(22vw, 150px); aspect-ratio: 1; border-radius: 50%; overflow: hidden; border: 5px solid var(--hug-c); background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--hug-c) 35%, #fff), var(--hug-c) 60%, color-mix(in srgb, var(--hug-c) 70%, #000)); box-shadow: 0 0 26px var(--hug-c), 0 0 60px color-mix(in srgb, var(--hug-c) 55%, transparent); }
+.hug-blob img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .hug-blob b { color: #fff; font: 900 clamp(1.8rem, 6vw, 3.6rem)/1 var(--font-human, system-ui); text-shadow: 0 2px 8px rgba(160, 20, 70, .5); }
-.hug-right { background: radial-gradient(circle at 35% 30%, #ffe8c9, #ffb36b 55%, #f07f3c); box-shadow: 0 0 30px rgba(255, 170, 90, .7); }
 .hug-left { animation: hug-in-left 1.4s cubic-bezier(.3, .9, .3, 1.2) forwards, hug-squeeze .5s ease-in-out .95s 2; }
 .hug-right { animation: hug-in-right 1.4s cubic-bezier(.3, .9, .3, 1.2) forwards, hug-squeeze .5s ease-in-out .95s 2; }
 .hug-hearts > i { position: absolute; top: 52%; color: #ff6fae; font-style: normal; opacity: 0; text-shadow: 0 0 10px rgba(255, 110, 170, .8); animation: hug-heart 1.8s ease-out forwards; }
