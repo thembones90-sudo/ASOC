@@ -1679,7 +1679,10 @@ function normalizeRitualState(saved) {
         : null
     },
     fulfilled: source.fulfilled === true,
-    fulfilledBy: source.fulfilledBy === 'VOTES' || source.fulfilledBy === 'BLOOD_TRIBUTE' ? source.fulfilledBy : null
+    fulfilledBy: source.fulfilledBy === 'VOTES' || source.fulfilledBy === 'BLOOD_TRIBUTE' ? source.fulfilledBy : null,
+    // LOCK IN: the Shadow Broker primed a fulfilled ritual; Little Heroes now
+    // choose their class and the battle waits for the manual START GAME.
+    lockedIn: source.lockedIn === true
   };
 }
 
@@ -1688,8 +1691,6 @@ function normalizeRitualState(saved) {
 // user that each of those re-summons a fresh ritual, not just the first.
 function startRitual(room) {
   room.ritual = normalizeRitualState({ active: true });
-  // A fresh board: every HERO ROLE ability is ready again (picks stay).
-  heroRoles.resetGame(ensureHeroRoles(room));
 }
 
 // Called on successful battle start, ritual cancel, and any return to
@@ -1711,6 +1712,8 @@ function recomputeRitualFulfillment(room) {
   }
   ritual.fulfilled = ritual.joinedPlayerIds.length >= ritual.requiredVotes;
   ritual.fulfilledBy = ritual.fulfilled ? 'VOTES' : null;
+  // Dropping below 5/5 un-primes the game.
+  if (!ritual.fulfilled) ritual.lockedIn = false;
 }
 
 function isRitualFulfilled(room) {
@@ -1736,7 +1739,8 @@ function getRitualSafeState(room) {
     joinedCount: ritual.joinedPlayerIds.length,
     tribute: { status: ritual.tribute.status },
     fulfilled: ritual.fulfilled,
-    fulfilledBy: ritual.fulfilledBy
+    fulfilledBy: ritual.fulfilledBy,
+    lockedIn: ritual.lockedIn === true
   };
 }
 
@@ -1857,6 +1861,20 @@ function handleRitualTributeReject(ws, message) {
     rejection: { playerId: String(offered.submittedBy || ''), playerName: offered.submittedByName || '', reason, at: Date.now() }
   };
   recomputeRitualFulfillment(room);
+  broadcastRitualState(room);
+}
+
+// LOCK IN: once the ritual is fulfilled the Shadow Broker primes the game.
+// Little Heroes are prompted to choose their class; START GAME stays manual.
+function handleRitualLockIn(ws) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  if (!room.ritual?.active || room.roomMode !== ROOM_MODES.BATTLE_ARMED) return sendToWs(ws, { type: 'error', message: 'No Summon Ritual is currently active' });
+  if (!isRitualFulfilled(room)) return sendToWs(ws, { type: 'error', message: 'THE SUMMON RITUAL IS NOT YET FULFILLED' });
+  if (room.ritual.lockedIn) return;
+  room.ritual.lockedIn = true;
+  if (room.heroRoles?.enabled !== false) iksAnnounce(room, ['LOCKED IN // THE GAME IS PRIMED. LITTLE HEROES, CHOOSE YOUR CLASS: DPS, TANK OR HEAL.']);
+  else iksAnnounce(room, ['LOCKED IN // THE GAME IS PRIMED. AWAITING THE SHADOW BROKER.']);
   broadcastRitualState(room);
 }
 
@@ -7034,9 +7052,8 @@ function triggerB3Alert(room, text, messageId) {
 }
 
 // ---------------------------------------------------------------------
-// HERO ROLES -- DPS / TANK / HEAL. hero-roles.js owns the rules; this layer
-// resolves identity, the board context and the announcements. Every effect
-// that touches clues, WOMF or ability availability is decided here.
+// HERO ROLES -- DPS / TANK / HEAL. Decorative: a pick and a badge, nothing
+// else (hero-roles.js). Picks lock while the battle is live.
 // ---------------------------------------------------------------------
 function ensureHeroRoles(room) {
   if (!room.heroRoles) room.heroRoles = heroRoles.createState();
@@ -7046,25 +7063,6 @@ function heroRolesLive(room) { return room.roomMode === ROOM_MODES.BATTLE; }
 function heroRolesView(room) {
   const live = heroRolesLive(room);
   return heroRoles.view(ensureHeroRoles(room), { locked: live, live });
-}
-function heroName(room, playerId) {
-  for (const player of room.players.values()) if (String(player.id) === String(playerId)) return player.name || 'LITTLE HERO';
-  return 'A LITTLE HERO';
-}
-function heroRolesBlocked(room) {
-  if (isMatchResolved(room)) return 'THE MATCH IS DECIDED';
-  if (Object.keys(room.solutionCountdowns || {}).length) return 'A SOLUTION IS BEING CONFIRMED';
-  if (room.scoring?.pendingResults) return 'THE FINAL IS BEING CONFIRMED';
-  return null;
-}
-// The clue the Shadow Broker's NEXT reveal in this column would show (clues
-// are assigned in reveal order). Rows 1-4 only: never a 5, never the FINAL.
-function nextColumnClue(room, column) {
-  const order = room.sessionState?.clueOrder?.[column] || [];
-  const revealed = [1, 2, 3, 4].filter(row => room.sessionState?.cells?.[`${column}${row}`] === true).length;
-  if (revealed >= 4 || order.length >= 4) return null;
-  const clue = room.gameData?.columns?.[column]?.clues?.[order.length];
-  return clue == null || clue === '' ? null : String(clue);
 }
 function heroRolesCommit(room, lines = []) {
   persistActiveRooms();
@@ -7082,34 +7080,12 @@ function handleHeroRole(ws, message) {
     heroRoles.setEnabled(state, message.enabled !== false);
     return heroRolesCommit(room, [`HERO ROLES // ${state.enabled ? 'ONLINE. CHOOSE DPS, TANK OR HEAL.' : 'OFFLINE FOR THIS SESSION.'}`]);
   }
+  if (message.type !== 'heroRole:pick') return fail('UNKNOWN ROLE ACTION');
   const player = room.players.get(ws);
   if (!player || ws === room.hostConnection || player.isTestPersona === true || String(player.id) !== String(ws.playerId)) return fail('A CONNECTED LITTLE HERO IDENTITY IS REQUIRED');
-  const id = String(player.id);
-  const name = player.name || 'LITTLE HERO';
-  const now = Date.now();
-  const ctx = { live: heroRolesLive(room), blocked: heroRolesBlocked(room), now };
-  let result;
-  switch (message.type) {
-    case 'heroRole:pick':
-      result = heroRoles.pick(state, id, String(message.role || ''), { locked: heroRolesLive(room) });
-      if (!result.ok) return fail(result.error);
-      return result.already ? undefined : heroRolesCommit(room);
-    case 'heroRole:burst':
-      result = heroRoles.burst(state, id, String(message.column || ''), { ...ctx, nextClue: col => nextColumnClue(room, col) });
-      if (!result.ok) return fail(result.error);
-      broadcastToRoom(room, { type: 'heroRole:burst', column: result.column, clue: result.clue, by: id, byName: name, until: result.until, serverNow: now });
-      return heroRolesCommit(room, [`BURST // ${name} TORE COLUMN ${result.column} OPEN. THE NEXT CLUE IS VISIBLE FOR ${Math.round(heroRoles.BURST_MS / 1000)} SECONDS.`]);
-    case 'heroRole:lastStand':
-      result = heroRoles.lastStand(state, id, String(message.column || ''), { ...ctx, columnOpen: col => !isColumnSolvedGreen(room, col) && !room.womf?.failedColumns?.[col] });
-      if (!result.ok) return fail(result.error);
-      return heroRolesCommit(room, [`LAST STAND // ${name} PLANTED A SHIELD ON COLUMN ${result.column}.`]);
-    case 'heroRole:resurrect':
-      result = heroRoles.resurrect(state, id, String(message.targetId || ''), ctx);
-      if (!result.ok) return fail(result.error);
-      return heroRolesCommit(room, [`RESURRECTION // ${name} RESTORED ${heroName(room, result.target)}'S ${heroRoles.ROLES[result.targetRole].abilityName}.`]);
-    default:
-      return fail('UNKNOWN ROLE ACTION');
-  }
+  const result = heroRoles.pick(state, String(player.id), String(message.role || ''), { locked: heroRolesLive(room) });
+  if (!result.ok) return fail(result.error);
+  if (!result.already) heroRolesCommit(room);
 }
 
 // TRANSMOG equip. gm:brokerTransmog { transmogId } equips a catalog set;
@@ -10091,10 +10067,7 @@ function handleFailColumn(ws, message) {
   const alreadyFailedThisBoard = !!room.womf.failedColumns[column];
   if (!alreadyFailedThisBoard) {
     room.womf.failedColumns[column] = true;
-    // TANK LAST STAND absorbs this column's +1 WOMF once.
-    const tankId = heroRoles.absorbFail(ensureHeroRoles(room), column);
-    if (tankId) iksAnnounce(room, [`LAST STAND // ${heroName(room, tankId)} HELD COLUMN ${column}. THE FAILURE COSTS NO WOMF.`]);
-    else addWomfCharge(room, 1);
+    addWomfCharge(room, 1);
   }
   // MATCH LEDGER: a declared failure resolves the field (idempotent on
   // re-declaration), which may complete the match.
@@ -11672,10 +11645,7 @@ wss.on('connection', (ws, req) => {
           break;
         }
         case 'gm:heroRoles':
-        case 'heroRole:pick':
-        case 'heroRole:burst':
-        case 'heroRole:lastStand':
-        case 'heroRole:resurrect': {
+        case 'heroRole:pick': {
           handleHeroRole(ws, message);
           break;
         }
@@ -11952,6 +11922,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'ritual:reset': {
           handleRitualReset(ws);
+          break;
+        }
+        case 'ritual:lockIn': {
+          handleRitualLockIn(ws);
           break;
         }
         case 'ritual:cancel': {

@@ -25,6 +25,13 @@ const Ritual = {
     return !!(state && state.active && !state.fulfilled);
   },
 
+  // A fulfilled ritual waits for the Shadow Broker's LOCK IN (Little Heroes
+  // then choose their class) before START GAME is offered.
+  needsLockIn() {
+    const state = this._lastState;
+    return !!(state && state.active && state.fulfilled && !state.lockedIn);
+  },
+
   escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => (
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
@@ -141,7 +148,9 @@ const Ritual = {
 
     const statusEl = el.querySelector('.ritual-status');
     if (statusEl) {
-      if (byBlood) {
+      if (fulfilled && state?.lockedIn) {
+        statusEl.innerHTML = 'LOCKED IN.<br>THE GAME IS PRIMED.<br>AWAIT THE SHADOW BROKER\'S START.';
+      } else if (byBlood) {
         statusEl.innerHTML = 'THE RELIQUARY HAS ACCEPTED THE OFFERING.<br>THE RITUAL IS FULFILLED.<br>AWAIT THE SHADOW BROKER.';
       } else if (fulfilled) {
         statusEl.innerHTML = 'THE CIRCLE IS COMPLETE.<br>THE REQUIREMENT HAS BEEN FULFILLED.<br>AWAIT THE SHADOW BROKER.';

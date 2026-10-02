@@ -2893,9 +2893,6 @@ const App = {
       case 'kaladont:state':
         window.GMMinigames?.onKaladont?.(message.state || null);
         break;
-      case 'heroRole:burst':
-        window.HeroRoles?.onBurst?.(message);
-        break;
       case 'rage:state':
         window.RageGame?.onState?.(message.state || null);
         break;
@@ -4037,6 +4034,7 @@ const App = {
     Timer.update('timer-tracker-gm', state, true, {
       onStart: () => this.startTimer(),
       onLaunch: () => this.announceTimerLaunch(),
+      onLockIn: () => { if (this.mode === 'multiplayer' && this.roomMode === 'BATTLE_ARMED') this.send({ type: 'ritual:lockIn' }); },
       onPause: () => this.pauseTimer(),
       onResume: () => this.resumeTimer(),
       onAdjust: (deltaMs) => this.adjustTimer(deltaMs)
