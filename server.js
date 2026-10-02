@@ -123,6 +123,7 @@ const PROTOCOL_VERSION = 1;
 // pages) resolves a set id into the painted brokerProfile; CUSTOM keeps the
 // Broker's own forge settings. Nothing here may touch game logic.
 const transmogCatalog = require('./js/broker-transmog-catalog');
+const heroRoles = require('./hero-roles');
 const DEFAULT_BROKER_PROFILE = Object.freeze(transmogCatalog.resolveProfile(transmogCatalog.DEFAULT_ID));
 const LEGACY_DEFAULT_AVATAR = 'assets/ui/shadow-broker.png';
 function normalizeBrokerProfile(input) {
@@ -466,6 +467,7 @@ function serializeRoomForRecovery(room) {
     unstableConcoction: unstableConcoction.normalizeState(room.unstableConcoction),
     brokerProfile: normalizeBrokerProfile(room.brokerProfile),
     brokerTransmogSeq: Number(room.brokerTransmogSeq) || 0,
+    heroRoles: heroRoles.normalizeState(room.heroRoles),
     kaladont: room.kaladont || null,
     rage: room.rage || null,
     // Private recovery data only. Network clients receive rouletteViewFor().
@@ -601,6 +603,7 @@ function restoreActiveRooms() {
         // TRANSMOG survives a restart: set ids re-resolve from the catalog.
         brokerProfile: normalizeBrokerProfile(saved.brokerProfile),
         brokerTransmogSeq: Number(saved.brokerTransmogSeq) || 0,
+        heroRoles: heroRoles.normalizeState(saved.heroRoles),
         // KALADONT survives a restart; the phase in flight gets a fresh window
         // so nobody is eliminated for time lost to the outage.
         kaladont: kaladont.resumeAfterRestart(kaladont.normalizeState(saved.kaladont), Date.now()),
@@ -1200,6 +1203,8 @@ function createRoom(gameId, hostWs) {
     },
     brokerProfile: { ...DEFAULT_BROKER_PROFILE },
     brokerTransmogSeq: 0,
+    // HERO ROLES (DPS / TANK / HEAL) -- see hero-roles.js.
+    heroRoles: heroRoles.createState(),
     // SESSION-scoped scoring state. This whole object survives NEXT GAME
     // (gm:switchGame) -- only the per-board fields inside it (activeStreak,
     // boardFinalized) get reset there and on resetBoard. It is never
@@ -1371,6 +1376,7 @@ function getPublicState(room) {
     brokerTransmogId: normalizeBrokerProfile(room.brokerProfile).transmogId,
     brokerTransmogSeq: Number(room.brokerTransmogSeq) || 0,
     brokerWardrobe: { owned: [...brokerWardrobeOwned()] },
+    heroRoles: heroRolesView(room),
     revision: room.revision,
     background: room.currentBackground,
     cells: publicCells,
@@ -1658,6 +1664,8 @@ function normalizeRitualState(saved) {
 // user that each of those re-summons a fresh ritual, not just the first.
 function startRitual(room) {
   room.ritual = normalizeRitualState({ active: true });
+  // A fresh board: every HERO ROLE ability is ready again (picks stay).
+  heroRoles.resetGame(ensureHeroRoles(room));
 }
 
 // Called on successful battle start, ritual cancel, and any return to
@@ -7001,6 +7009,85 @@ function triggerB3Alert(room, text, messageId) {
   return true;
 }
 
+// ---------------------------------------------------------------------
+// HERO ROLES -- DPS / TANK / HEAL. hero-roles.js owns the rules; this layer
+// resolves identity, the board context and the announcements. Every effect
+// that touches clues, WOMF or ability availability is decided here.
+// ---------------------------------------------------------------------
+function ensureHeroRoles(room) {
+  if (!room.heroRoles) room.heroRoles = heroRoles.createState();
+  return room.heroRoles;
+}
+function heroRolesLive(room) { return room.roomMode === ROOM_MODES.BATTLE; }
+function heroRolesView(room) {
+  const live = heroRolesLive(room);
+  return heroRoles.view(ensureHeroRoles(room), { locked: live, live });
+}
+function heroName(room, playerId) {
+  for (const player of room.players.values()) if (String(player.id) === String(playerId)) return player.name || 'LITTLE HERO';
+  return 'A LITTLE HERO';
+}
+function heroRolesBlocked(room) {
+  if (isMatchResolved(room)) return 'THE MATCH IS DECIDED';
+  if (Object.keys(room.solutionCountdowns || {}).length) return 'A SOLUTION IS BEING CONFIRMED';
+  if (room.scoring?.pendingResults) return 'THE FINAL IS BEING CONFIRMED';
+  return null;
+}
+// The clue the Shadow Broker's NEXT reveal in this column would show (clues
+// are assigned in reveal order). Rows 1-4 only: never a 5, never the FINAL.
+function nextColumnClue(room, column) {
+  const order = room.sessionState?.clueOrder?.[column] || [];
+  const revealed = [1, 2, 3, 4].filter(row => room.sessionState?.cells?.[`${column}${row}`] === true).length;
+  if (revealed >= 4 || order.length >= 4) return null;
+  const clue = room.gameData?.columns?.[column]?.clues?.[order.length];
+  return clue == null || clue === '' ? null : String(clue);
+}
+function heroRolesCommit(room, lines = []) {
+  persistActiveRooms();
+  if (lines.length) iksAnnounce(room, lines);
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastPlayersUpdate(room);
+}
+function handleHeroRole(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return;
+  const fail = error => sendToWs(ws, { type: 'error', code: 'HERO_ROLE', message: error });
+  const state = ensureHeroRoles(room);
+  if (message.type === 'gm:heroRoles') {
+    if (ws !== room.hostConnection || ws.gmAuthenticated !== true) return fail('ONLY THE SHADOW BROKER MAY SWITCH ROLES');
+    heroRoles.setEnabled(state, message.enabled !== false);
+    return heroRolesCommit(room, [`HERO ROLES // ${state.enabled ? 'ONLINE. CHOOSE DPS, TANK OR HEAL.' : 'OFFLINE FOR THIS SESSION.'}`]);
+  }
+  const player = room.players.get(ws);
+  if (!player || ws === room.hostConnection || player.isTestPersona === true || String(player.id) !== String(ws.playerId)) return fail('A CONNECTED LITTLE HERO IDENTITY IS REQUIRED');
+  const id = String(player.id);
+  const name = player.name || 'LITTLE HERO';
+  const now = Date.now();
+  const ctx = { live: heroRolesLive(room), blocked: heroRolesBlocked(room), now };
+  let result;
+  switch (message.type) {
+    case 'heroRole:pick':
+      result = heroRoles.pick(state, id, String(message.role || ''), { locked: heroRolesLive(room) });
+      if (!result.ok) return fail(result.error);
+      return result.already ? undefined : heroRolesCommit(room);
+    case 'heroRole:burst':
+      result = heroRoles.burst(state, id, String(message.column || ''), { ...ctx, nextClue: col => nextColumnClue(room, col) });
+      if (!result.ok) return fail(result.error);
+      broadcastToRoom(room, { type: 'heroRole:burst', column: result.column, clue: result.clue, by: id, byName: name, until: result.until, serverNow: now });
+      return heroRolesCommit(room, [`BURST // ${name} TORE COLUMN ${result.column} OPEN. THE NEXT CLUE IS VISIBLE FOR ${Math.round(heroRoles.BURST_MS / 1000)} SECONDS.`]);
+    case 'heroRole:lastStand':
+      result = heroRoles.lastStand(state, id, String(message.column || ''), { ...ctx, columnOpen: col => !isColumnSolvedGreen(room, col) && !room.womf?.failedColumns?.[col] });
+      if (!result.ok) return fail(result.error);
+      return heroRolesCommit(room, [`LAST STAND // ${name} PLANTED A SHIELD ON COLUMN ${result.column}.`]);
+    case 'heroRole:resurrect':
+      result = heroRoles.resurrect(state, id, String(message.targetId || ''), ctx);
+      if (!result.ok) return fail(result.error);
+      return heroRolesCommit(room, [`RESURRECTION // ${name} RESTORED ${heroName(room, result.target)}'S ${heroRoles.ROLES[result.targetRole].abilityName}.`]);
+    default:
+      return fail('UNKNOWN ROLE ACTION');
+  }
+}
+
 // TRANSMOG equip. gm:brokerTransmog { transmogId } equips a catalog set;
 // gm:brokerProfile { profile } equips the Broker's CUSTOM forge look.
 // GM-only; preview never reaches the server.
@@ -8111,6 +8198,7 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       shadowCoins: Math.max(0, Math.round(Number.isInteger(profile.shadowCoinUnits) ? profile.shadowCoinUnits : (Number(profile.shadowCoins) || 0) * 10)) / 10,
       // Equipped cosmetics only (shadow-market.js); purely visual.
       cosmetics: shadowMarket.publicCosmetics(profile),
+      heroRole: room.heroRoles?.enabled === false ? null : (room.heroRoles?.picks?.[String(player.id)] || null),
       ...iksArenaFields(player)
     });
   });
@@ -9974,7 +10062,10 @@ function handleFailColumn(ws, message) {
   const alreadyFailedThisBoard = !!room.womf.failedColumns[column];
   if (!alreadyFailedThisBoard) {
     room.womf.failedColumns[column] = true;
-    addWomfCharge(room, 1);
+    // TANK LAST STAND absorbs this column's +1 WOMF once.
+    const tankId = heroRoles.absorbFail(ensureHeroRoles(room), column);
+    if (tankId) iksAnnounce(room, [`LAST STAND // ${heroName(room, tankId)} HELD COLUMN ${column}. THE FAILURE COSTS NO WOMF.`]);
+    else addWomfCharge(room, 1);
   }
   // MATCH LEDGER: a declared failure resolves the field (idempotent on
   // re-declaration), which may complete the match.
@@ -11557,6 +11648,14 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:command': {
           handleHostCommand(ws, message);
+          break;
+        }
+        case 'gm:heroRoles':
+        case 'heroRole:pick':
+        case 'heroRole:burst':
+        case 'heroRole:lastStand':
+        case 'heroRole:resurrect': {
+          handleHeroRole(ws, message);
           break;
         }
         case 'gm:brokerProfile':
