@@ -12,7 +12,7 @@ const crypto = require('crypto');
 
 const MAX_NAME = 180;
 // Panini-style sticker tiers, lowest to highest.
-const RATINGS = Object.freeze(['bronze', 'silver', 'gold', 'platinum']);
+const RATINGS = Object.freeze(['bronze', 'silver', 'gold', 'platinum', 'iconic']);
 
 function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 * 1024 * 1024, remote = null }) {
   const dir = path.join(dataDir, 'infostud');
