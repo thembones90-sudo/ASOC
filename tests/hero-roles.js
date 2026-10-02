@@ -1,9 +1,7 @@
-// HERO ROLES (DPS / TANK / HEAL) regressions: the pure rules (hero-roles.js)
-// and a real server battle: picks lock when the battle goes live, BURST shows
-// the room a column's next clue (never a 5), LAST STAND absorbs a FAIL's WOMF
-// once, RESURRECTION restores a teammate (never itself, never another
-// RESURRECTION), the team charge cap, the GM session switch, Little Heroes
-// cannot switch roles off, and a new board resets every ability.
+// HERO ROLES (DPS / TANK / HEAL) regressions. Roles are decorative: picks
+// lock when the battle goes live, a FAIL always costs WOMF (no ability can
+// absorb it), the old ability messages are refused, the GM session switch
+// works, Little Heroes cannot switch roles off, picks survive a new board.
 const assert = require('assert/strict');
 const fs = require('fs');
 const os = require('os');
@@ -17,53 +15,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const R = require('../hero-roles');
 
 function engine() {
-  const live = { live: true, blocked: null, now: 1000 };
   const s = R.createState();
   assert.equal(R.pick(s, 'a', 'dps', { locked: false }).ok, true);
+  assert.equal(R.pick(s, 'a', 'dps', { locked: false }).already, true);
   assert.match(R.pick(s, 'a', 'tank', { locked: true }).error, /LOCKED/);
   assert.match(R.pick(s, 'a', 'mage', { locked: false }).error, /UNKNOWN ROLE/);
-  ['b', 'c'].forEach(id => R.pick(s, id, 'dps', { locked: false }));
   R.pick(s, 't', 'tank', { locked: false });
-  R.pick(s, 'h', 'heal', { locked: false });
-  R.pick(s, 'h2', 'heal', { locked: false });
-  const clue = () => 'clue';
-  // Not live / blocked / wrong role.
-  assert.match(R.burst(s, 'a', 'A', { ...live, live: false, nextClue: clue }).error, /BATTLE STARTS/);
-  assert.match(R.burst(s, 'a', 'A', { ...live, blocked: 'THE MATCH IS DECIDED', nextClue: clue }).error, /DECIDED/);
-  assert.match(R.burst(s, 't', 'A', { ...live, nextClue: clue }).error, /ONLY A DPS/);
-  assert.match(R.burst(s, 'a', 'A', { ...live, nextClue: () => null }).error, /NO CLOSED CLUES/);
-  // Team cap: 3 DPS, only 2 BURSTs.
-  assert.equal(R.burst(s, 'a', 'A', { ...live, nextClue: clue }).ok, true);
-  assert.match(R.burst(s, 'a', 'B', { ...live, nextClue: clue }).error, /ALREADY USED/);
-  assert.equal(R.burst(s, 'b', 'B', { ...live, nextClue: clue }).ok, true);
-  assert.match(R.burst(s, 'c', 'C', { ...live, nextClue: clue }).error, /2\/2/);
-  // Last stand: spent when placed; absorbs once.
-  assert.match(R.lastStand(s, 't', 'A', { ...live, columnOpen: () => false }).error, /DECIDED/);
-  assert.equal(R.lastStand(s, 't', 'B', { ...live, columnOpen: () => true }).ok, true);
-  assert.equal(R.absorbFail(s, 'A'), null);
-  assert.equal(R.absorbFail(s, 'B'), 't');
-  assert.equal(R.absorbFail(s, 'B'), null, 'absorbs only once');
-  // Resurrection rules.
-  assert.match(R.resurrect(s, 'h', 'h', live).error, /YOURSELF/);
-  assert.match(R.resurrect(s, 'h', 'c', live).error, /STILL READY/);
-  assert.equal(R.resurrect(s, 'h', 'a', live).ok, true);
-  assert.equal(s.used.a, undefined);
-  assert.equal(s.roleUses.dps, 1, 'a restored ability frees a team charge');
-  assert.match(R.resurrect(s, 'h2', 'h', live).error, /ANOTHER RESURRECTION/);
-  assert.equal(R.burst(s, 'c', 'C', { ...live, nextClue: clue }).ok, true, 'the freed charge is usable');
-  // New board.
-  R.resetGame(s);
-  assert.deepEqual(s.used, {});
-  assert.deepEqual(s.marks, {});
-  assert.equal(s.picks.a, 'dps', 'picks survive a new board');
-  // Off switch.
   R.setEnabled(s, false);
   assert.match(R.pick(s, 'a', 'heal', { locked: false }).error, /OFF/);
-  assert.match(R.burst(s, 'a', 'A', { ...live, nextClue: clue }).error, /OFF/);
-  // Persistence round-trip.
-  const back = R.normalizeState(JSON.parse(JSON.stringify(s)));
-  assert.equal(back.enabled, false);
-  assert.equal(back.picks.t, 'tank');
+  // Persistence round-trip; old ability state from earlier saves is dropped.
+  const back = R.normalizeState({ ...JSON.parse(JSON.stringify(s)), used: { a: true }, marks: { A: 't' }, roleUses: { dps: 2 } });
+  assert.deepEqual(back, { enabled: false, picks: { a: 'dps', t: 'tank' } });
+  assert.deepEqual(Object.keys(R.view(back, { locked: true, live: true })).sort(), ['enabled', 'live', 'locked', 'picks']);
   console.log('PASS hero roles engine');
 }
 
@@ -85,7 +48,7 @@ class Client {
   close() { try { this.ws.close(); } catch {} }
 }
 async function serverSuite() {
-  const server = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'roles-pass', ASOC_EMAIL_VERIFICATION: '0', ASOC_BURST_MS: '1500' }, stdio: ['ignore', 'ignore', 'pipe'] });
+  const server = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'roles-pass', ASOC_EMAIL_VERIFICATION: '0' }, stdio: ['ignore', 'ignore', 'pipe'] });
   let errors = ''; server.stderr.on('data', c => { errors += c; });
   const clients = [];
   try {
@@ -103,6 +66,7 @@ async function serverSuite() {
       heroes[n] = c;
     }
     const { Dps1, Dps2, Tank, Heal, Fifth } = heroes;
+    let from;
     gm.send({ type: 'gm:setRoomMode', mode: 'BATTLE' });
     await Dps1.next(m => m.type === 'state:public' && m.roomMode === 'BATTLE_ARMED', 'armed');
     // Picks before the battle; Little Heroes cannot switch the system.
@@ -112,55 +76,44 @@ async function serverSuite() {
     }
     let err = await Dps1.act({ type: 'gm:heroRoles', enabled: false }, 'hero toggle');
     assert.match(err.message, /ONLY THE SHADOW BROKER/);
-    err = await Dps1.act({ type: 'heroRole:burst', column: 'A' }, 'early burst');
-    assert.match(err.message, /BATTLE STARTS/);
     const roster = (await Dps1.next(m => m.type === 'players:update' && m.players.some(p => String(p.id) === Tank.playerId && p.heroRole), 'roster')).players;
     assert.equal(roster.find(p => String(p.id) === Tank.playerId).heroRole, 'tank');
     // Start the battle.
     Object.values(heroes).forEach(c => c.send({ type: 'ritual:join' }));
-    await sleep(500);
+    await Fifth.next(m => m.type === 'ritual:update' && m.ritual.fulfilled && !m.ritual.lockedIn, '5/5');
+    // LOCK IN: Shadow Broker only; primes the game and prompts the class pick.
+    Dps1.send({ type: 'ritual:lockIn' });
+    await Dps1.next(m => m.type === 'error' && m.code === 'FORBIDDEN', 'hero cannot lock in');
+    from = Fifth.mark(); gm.send({ type: 'ritual:lockIn' });
+    await Fifth.next(m => m.type === 'ritual:update' && m.ritual.lockedIn === true, 'locked in', from);
+    // RESET RITUAL un-primes it; a refilled ritual can be locked in again.
+    from = Fifth.mark(); gm.send({ type: 'ritual:reset' });
+    await Fifth.next(m => m.type === 'ritual:update' && m.ritual.lockedIn === false && m.ritual.joinedCount === 0, 'reset', from);
+    Object.values(heroes).forEach(c => c.send({ type: 'ritual:join' }));
+    await Fifth.next(m => m.type === 'ritual:update' && m.ritual.fulfilled, 'refilled', from);
+    gm.send({ type: 'ritual:lockIn' });
+    await Fifth.next(m => m.type === 'ritual:update' && m.ritual.lockedIn === true, 'locked in again', from);
     gm.send({ type: 'gm:timerLaunchCountdown' }); await sleep(300); gm.send({ type: 'gm:timerStart' });
     await Dps1.next(m => m.type === 'state:public' && m.roomMode === 'BATTLE', 'battle live', 0, 15000);
     err = await Dps1.act({ type: 'heroRole:pick', role: 'heal' }, 'locked pick');
     assert.match(err.message, /LOCKED/);
-    // BURST: everyone sees column A's next clue, a rows-1..4 clue.
-    let from = Fifth.mark();
-    let st = await Dps1.act({ type: 'heroRole:burst', column: 'A' }, 'burst');
-    const burst = await Fifth.next(m => m.type === 'heroRole:burst', 'burst seen', from);
-    assert.equal(burst.column, 'A');
-    assert.ok(burst.clue && burst.clue.length > 0);
-    const gameData = fs.readdirSync(path.join(ROOT, 'games')).filter(f => f.endsWith('.json')).map(f => JSON.parse(fs.readFileSync(path.join(ROOT, 'games', f), 'utf8'))).find(g => g.id === Dps1.state.gameId);
-    assert.equal(burst.clue, gameData.columns.A.clues[0], 'BURST shows the clue the next reveal would show');
-    assert.notEqual(burst.clue, gameData.columns.A.solution);
-    assert.equal(st.cells.A1.revealed, false, 'BURST never opens a cell');
-    await Dps2.act({ type: 'heroRole:burst', column: 'B' }, 'burst 2');
-    err = await Fifth.act({ type: 'heroRole:burst', column: 'C' }, 'burst 3');
-    assert.match(err.message, /2\/2/);
-    // LAST STAND absorbs the FAIL's WOMF once.
+    // Decorative: the old abilities are gone and a FAIL always costs WOMF.
+    from = Fifth.mark();
+    Dps1.send({ type: 'heroRole:burst', column: 'A' });
+    Tank.send({ type: 'heroRole:lastStand', column: 'C' });
+    await sleep(400);
+    assert.ok(!Fifth.msgs.slice(from).some(m => m.type === 'heroRole:burst'), 'no BURST reaches the room');
     const womfBefore = Tank.state.womf.charge;
-    await Tank.act({ type: 'heroRole:lastStand', column: 'C' }, 'last stand');
     from = Tank.mark(); gm.send({ type: 'gm:failColumn', column: 'C' });
-    st = await Tank.next(m => m.type === 'state:public' && m.cells.C5?.revealed, 'C failed', from);
-    assert.equal(st.womf.charge, womfBefore, 'LAST STAND absorbed the WOMF');
-    from = Tank.mark(); gm.send({ type: 'gm:failColumn', column: 'D' });
-    st = await Tank.next(m => m.type === 'state:public' && m.cells.D5?.revealed, 'D failed', from);
-    assert.equal(st.womf.charge, womfBefore + 1, 'an unshielded FAIL still costs WOMF');
-    // RESURRECTION.
-    err = await Heal.act({ type: 'heroRole:resurrect', targetId: Heal.playerId }, 'self');
-    assert.match(err.message, /YOURSELF/);
-    st = await Heal.act({ type: 'heroRole:resurrect', targetId: Dps1.playerId }, 'resurrect');
-    assert.equal(st.heroRoles.used[Dps1.playerId], undefined);
-    st = await Dps1.act({ type: 'heroRole:burst', column: 'B' }, 'burst again');
-    assert.ok(st.heroRoles.used[Dps1.playerId]);
+    let st = await Tank.next(m => m.type === 'state:public' && m.cells.C5?.revealed, 'C failed', from);
+    assert.equal(st.womf.charge, womfBefore + 1, 'a FAIL costs WOMF whatever the roles');
     // GM switch.
     st = await gm.act({ type: 'gm:heroRoles', enabled: false }, 'gm off');
     assert.equal(st.heroRoles.enabled, false);
-    err = await Fifth.act({ type: 'heroRole:burst', column: 'A' }, 'off burst');
-    assert.match(err.message, /OFF/);
-    await gm.act({ type: 'gm:heroRoles', enabled: true }, 'gm on');
-    // RESET BOARD: a fresh ritual, every ability ready again.
+    st = await gm.act({ type: 'gm:heroRoles', enabled: true }, 'gm on');
+    // RESET BOARD: picks survive a new board.
     from = Dps1.mark(); gm.send({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: 1 });
-    st = await Dps1.next(m => m.type === 'state:public' && m.heroRoles && Object.keys(m.heroRoles.used).length === 0, 'reset', from, 10000);
+    st = await Dps1.next(m => m.type === 'state:public' && m.heroRoles && m.roomMode !== 'BATTLE', 'reset', from, 10000);
     assert.equal(st.heroRoles.picks[Tank.playerId], 'tank', 'picks survive a new board');
     assert.equal(errors.trim(), '');
     console.log('PASS hero roles server');

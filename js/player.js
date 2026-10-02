@@ -1604,6 +1604,7 @@ const PlayerApp = {
 
       case 'ritual:update':
         this.updateRitualUI(message.ritual);
+        window.HeroRoles?.onRitual?.(message.ritual);
         break;
 
       case 'battle:launchCountdown':
@@ -1663,9 +1664,6 @@ const PlayerApp = {
         window.Kaladont?.onState?.(message.state || null);
         break;
 
-      case 'heroRole:burst':
-        window.HeroRoles?.onBurst?.(message);
-        break;
 
       case 'rage:state':
         window.RageGame?.onState?.(message.state || null);

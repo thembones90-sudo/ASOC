@@ -211,6 +211,7 @@ const Timer = {
         // only once the countdown completes. See runStartCountdown().
         controls.querySelector('.timer-start-btn').onclick = () => {
           const h = current();
+          if (window.Ritual?.needsLockIn?.()) { h.onLockIn?.(); return; }
           if (!h.onStart) return;
           if (h.onLaunch) h.onLaunch();
           this.runStartCountdown(containerId, h.onStart);
@@ -227,8 +228,11 @@ const Timer = {
       const startBtn = controls.querySelector('.timer-start-btn');
       show(startBtn, phase === 'ready' && !launching);
       if (startBtn.disabled !== ritualLocked) startBtn.disabled = ritualLocked;
-      const startLabel = ritualLocked ? 'START GAME // RITUAL LOCKED' : 'START GAME';
+      const needsLockIn = !ritualLocked && !!window.Ritual?.needsLockIn?.();
+      const startLabel = ritualLocked ? 'START GAME // RITUAL LOCKED' : needsLockIn ? 'LOCK IN' : 'START GAME';
       if (startBtn.textContent !== startLabel) startBtn.textContent = startLabel;
+      startBtn.classList.toggle('is-lock-in', needsLockIn);
+      startBtn.title = needsLockIn ? 'Prime the game: Little Heroes choose their class, then START GAME is yours.' : '';
       show(controls.querySelector('.timer-pause-btn'), phase === 'running' || phase === 'borrowed');
       show(controls.querySelector('.timer-resume-btn'), phase === 'paused' || phase === 'borrowed_paused');
       show(controls.querySelector('.timer-adjust-group'), adjustable);
