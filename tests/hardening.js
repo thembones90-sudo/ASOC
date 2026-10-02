@@ -333,13 +333,26 @@ function testSessionStoreRecovery() {
     await startBattle(host.ws);
 
     await delay(400);
-    await guess(p1.ws, host.ws, 'COOLDOWN ONE');
-    p1.ws.close();
-    await once(p1.ws, 'close');
-    const p1b = await joinPlayer(one.token, 'SPOOFED AGAIN');
-    const cooling = wait(p1b.ws, m => m.type === 'error' && /cooling down/i.test(m.message || ''), 'identity cooldown');
-    p1b.ws.send(JSON.stringify({ type: 'chat:guess', text: 'COOLDOWN TWO' }));
-    await cooling;
+    // The chat cooldown belongs to the identity, not the socket: reconnecting
+    // (a new socket supersedes the old one) cannot skip it. A slow runner can
+    // spend longer than the cooldown on the reconnect itself, which proves
+    // nothing either way, so such an attempt is retried; a second guess that
+    // gets through INSIDE the window is a real failure.
+    let current = p1;
+    let p1b = null;
+    for (let attempt = 0; ; attempt++) {
+      const t0 = Date.now();
+      current.ws.send(JSON.stringify({ type: 'chat:guess', text: `COOLDOWN ONE ${attempt}` }));
+      p1b = await joinPlayer(one.token, 'SPOOFED AGAIN');
+      const joinedIn = Date.now() - t0;
+      const refusal = wait(p1b.ws, m => m.type === 'error' && /cooling down/i.test(m.message || ''), 'identity cooldown', 1200);
+      p1b.ws.send(JSON.stringify({ type: 'chat:guess', text: `COOLDOWN TWO ${attempt}` }));
+      const refused = await refusal.then(() => true, () => false);
+      if (refused) break;
+      if (joinedIn < 250 || attempt >= 3) throw new Error(`Timed out waiting for identity cooldown (reconnect took ${joinedIn} ms)`);
+      await delay(400);
+      current = p1b;
+    }
 
     const idle = await openWs(false);
     await Promise.race([
