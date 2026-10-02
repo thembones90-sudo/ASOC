@@ -148,6 +148,8 @@ class Client {
       const [idle, active] = start.roll.contenders;
       const idleOut = await gm.next(m => m.type === 'coinRoll:rolled' && m.forfeit === true, 'idle forfeits', f[2], 6000);
       assert.equal(idleOut.playerId, idle.id);
+      assert.ok(idleOut.taunt && idleOut.taunt.includes(idle.name.toUpperCase()), 'the idle player is mocked by name');
+      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text === `💤 ${idleOut.taunt}`), 'taunt in chat', f[2]);
       await gm.next(m => m.type === 'coinRoll:turn' && m.roll.turnId === active.id, 'other turn', f[2]);
       ({ Sissy: sissy, Cigan: cigan })[active.name].send({ type: 'coinRoll:cast', id: start.roll.id });
       const res = await gm.next(m => m.type === 'coinRoll:result', 'result', f[2], 9000);

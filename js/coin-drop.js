@@ -120,6 +120,7 @@
             <div class="cr-die${c.forfeit ? ' is-idle' : ''}">${c.forfeit ? 'IDLE' : c.roll == null ? '—' : esc(c.roll)}</div>
             ${c.forfeit ? '<small class="cr-auto">FORFEIT // TOO SLOW</small>' : ''}
           </div>`).join('')}</div>
+        ${roll.contenders.filter(c => c.taunt).map(c => `<p class="cr-taunt">💤 ${esc(c.taunt)}</p>`).join('')}
         <footer class="cr-foot">${phase === 'result' ? '' : turn
           ? (mine ? `<button type="button" class="cr-roll-btn" data-roll>🎲 ROLL!</button>` : `<p>${esc(turn.name)} IS ROLLING…</p>`)
           : ''}${phase === 'result' ? '' : '<div class="cr-timer"><i></i></div>'}</footer>

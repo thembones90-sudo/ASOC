@@ -7408,7 +7408,7 @@ function settleCoinClaims(drop) {
 function coinRollPublic(roll) {
   return {
     id: roll.id, dropId: roll.drop.id, tier: roll.drop.tier, label: roll.drop.label, amount: roll.drop.amount,
-    contenders: roll.order.map(id => { const c = roll.contenders.get(id); return { id, name: c.name, avatar: c.avatar, roll: c.roll, forfeit: c.forfeit === true }; }),
+    contenders: roll.order.map(id => { const c = roll.contenders.get(id); return { id, name: c.name, avatar: c.avatar, roll: c.roll, forfeit: c.forfeit === true, taunt: c.taunt || '' }; }),
     turnId: roll.order[roll.turn] || null, turnEndsAt: roll.turnEndsAt
   };
 }
@@ -7434,12 +7434,31 @@ function nextCoinRollTurn(roll, first = false) {
   // Idle is punished: no roll in time = automatic loss.
   roll.timer = setTimeout(() => forfeitCoinRoll(roll, turnId), COIN_ROLL_TURN_MS);
 }
+// The Shadow Broker's verdict on a Little Hero who froze with a coin on the line.
+const COIN_IDLE_TAUNTS = Object.freeze([
+  '{name} STARED AT THE ROLL BUTTON LIKE IT OWED THEM MONEY. IT DID NOT. FORFEIT.',
+  '{name} WAS GIVEN ONE JOB: CLICK. {name} CHOSE MEDITATION.',
+  'SOMEONE CHECK ON {name}. EITHER ASLEEP OR SPIRITUALLY ABSENT. EITHER WAY: FORFEIT.',
+  '{name} GRABBED THE COIN AND THEN FORGOT HOW HANDS WORK.',
+  'THE DICE WAITED 12 SECONDS FOR {name}. THE DICE HAVE MORE PATIENCE THAN {name} HAS REFLEXES.',
+  '{name} WENT AFK MID-DUEL. THE HOUSE CONFISCATES THEIR DIGNITY AND THEIR SHARE.',
+  'BREAKING: {name} LOSES A ROLL-OFF WITHOUT ROLLING. A TRUE PIONEER OF FAILURE.',
+  '{name} TREATED THE ROLL-OFF LIKE A GROUP PROJECT. NOBODY IS SURPRISED.',
+  'THE SHADOW BROKER HAS SEEN STATUES WITH FASTER REACTION TIMES THAN {name}.',
+  '{name} REACHED FOR THE COIN, THEN REACHED FOR A SNACK. GUESS WHICH ONE PAID OFF.',
+  'IDLE HANDS ARE THE DEVIL\'S WORKSHOP. {name}\'S ARE JUST UNEMPLOYED.',
+  '{name} FORFEITS. THE BUTTON WAS RIGHT THERE. IT GLOWED. IT PULSED. IT BEGGED.'
+]);
+const coinIdleTaunt = name => COIN_IDLE_TAUNTS[crypto.randomInt(COIN_IDLE_TAUNTS.length)].replaceAll('{name}', String(name || 'SOMEONE').toUpperCase());
+
 function forfeitCoinRoll(roll, playerId) {
   if (activeCoinRoll !== roll || roll.order[roll.turn] !== playerId) return;
   const c = roll.contenders.get(playerId);
   if (!c || c.roll !== null || c.forfeit) return;
   c.forfeit = true;
-  broadcastAllRooms({ type: 'coinRoll:rolled', id: roll.id, playerId, name: c.name, value: null, forfeit: true, roll: coinRollPublic(roll) });
+  c.taunt = coinIdleTaunt(c.name);
+  coinChat(`💤 ${c.taunt}`);
+  broadcastAllRooms({ type: 'coinRoll:rolled', id: roll.id, playerId, name: c.name, value: null, forfeit: true, taunt: c.taunt, roll: coinRollPublic(roll) });
   setTimeout(() => nextCoinRollTurn(roll), 1200);
 }
 function castCoinRoll(roll, playerId) {
