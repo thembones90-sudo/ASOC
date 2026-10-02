@@ -1381,6 +1381,7 @@ const PlayerApp = {
 
       case 'state:public': {
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
+        window.HeroRoles?.onState?.(message);
         // Deferred so the board has painted the new state before the seal,
         // chains and strip are positioned over it.
         setTimeout(() => window.FinalDebt?.update(message), 0);
@@ -1572,6 +1573,7 @@ const PlayerApp = {
         break;
 
       case 'players:update': {
+        window.HeroRoles?.onPlayers?.(message.players);
         this.hydrateRosterAvatars(message.players);
         this.updatePlayerLeaderboard(message.players);
         this.iksArena = message.iksArena || null;
@@ -1659,6 +1661,10 @@ const PlayerApp = {
 
       case 'kaladont:state':
         window.Kaladont?.onState?.(message.state || null);
+        break;
+
+      case 'heroRole:burst':
+        window.HeroRoles?.onBurst?.(message);
         break;
 
       case 'rage:state':
@@ -1771,6 +1777,7 @@ const PlayerApp = {
       }
 
       case 'error':
+        if (message.code === 'HERO_ROLE') { window.HeroRoles?.onError?.(message.message); break; }
         this.showError(message.message);
         window.Threefold?.onError?.(message);
         window.UnstableConcoction?.onError?.();

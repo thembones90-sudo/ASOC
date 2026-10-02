@@ -2824,6 +2824,7 @@ const App = {
 
       case 'state:public':
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
+        window.HeroRoles?.onState?.(message);
         this.finalValue = message.finalValue || null;
         this.applyServerState(message);
         setTimeout(() => window.FinalDebt?.update(message), 0);
@@ -2871,6 +2872,7 @@ const App = {
         break;
 
       case 'players:update':
+        window.HeroRoles?.onPlayers?.(message.players);
         this.hydrateRosterAvatars(message.players);
         this.iksArena = message.iksArena || null;
         this.updatePlayerList(message.players);
@@ -2890,6 +2892,9 @@ const App = {
 
       case 'kaladont:state':
         window.GMMinigames?.onKaladont?.(message.state || null);
+        break;
+      case 'heroRole:burst':
+        window.HeroRoles?.onBurst?.(message);
         break;
       case 'rage:state':
         window.RageGame?.onState?.(message.state || null);
@@ -3088,6 +3093,7 @@ const App = {
       case 'error':
         console.error('[GM] Server error:', message.message);
         if (message.code === 'TRANSMOG') window.BrokerTransmog?.onError?.(message.message);
+        if (message.code === 'HERO_ROLE') window.HeroRoles?.onError?.(message.message);
         if (message.cmdId !== undefined) this.pendingCommands.delete(message.cmdId);
         // Clear unconditionally: whatever failed, we're not waiting on a
         // room:create response anymore, so don't leave HOST ROOM

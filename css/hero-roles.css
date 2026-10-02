@@ -1,0 +1,150 @@
+/* HERO ROLES -- DPS / TANK / HEAL (js/hero-roles.js): the role panel on the
+   battlefield, the BURST card, TANK shields on column solutions, role sigils
+   beside names and the Shadow Broker's session switch. Desktop first. */
+.hero-role-dock {
+  --hr: #9b5de0;
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 60;
+  width: 296px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--hr) 45%, rgba(255, 255, 255, .08));
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(20, 14, 26, .96), rgba(8, 6, 11, .97));
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .55), 0 0 20px color-mix(in srgb, var(--hr) 18%, transparent);
+  color: #ece4f4;
+  font-family: var(--font-machine, monospace);
+}
+.hero-role-dock[hidden] { display: none !important; }
+.hero-role-dock[data-role="dps"] { --hr: #ff4a5c; }
+.hero-role-dock[data-role="tank"] { --hr: #5aa9ff; }
+.hero-role-dock[data-role="heal"] { --hr: #62f0a0; }
+.hero-role-dock header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.hero-role-dock header b { font-size: 12px; letter-spacing: .24em; }
+.hero-role-dock header small { color: #8d8198; font-size: 9px; letter-spacing: .16em; }
+.hero-role-dock header > i { width: 22px; height: 22px; color: var(--hr); display: inline-grid; }
+.hero-role-dock header.role-dps, .hero-role-dock header.role-tank, .hero-role-dock header.role-heal { flex-wrap: wrap; }
+.hero-role-dock header .hr-status { margin-left: auto; padding: 3px 9px; border-radius: 999px; font-style: normal; font-size: 9.5px; font-weight: 900; letter-spacing: .18em; }
+.hr-status.is-ready { color: #0a0f0c; background: var(--hr); box-shadow: 0 0 12px color-mix(in srgb, var(--hr) 60%, transparent); }
+.hr-status.is-spent { color: #a59aae; border: 1px solid rgba(255, 255, 255, .18); }
+.hero-role-dock svg { width: 100%; height: 100%; display: block; }
+.role-dps { --hr: #ff4a5c; }
+.role-tank { --hr: #5aa9ff; }
+.role-heal { --hr: #62f0a0; }
+
+.hr-picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.hr-pick {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 10px 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--hr) 35%, rgba(255, 255, 255, .06));
+  border-radius: 10px;
+  background: radial-gradient(90% 70% at 50% 0%, color-mix(in srgb, var(--hr) 16%, transparent), rgba(10, 8, 14, .9));
+  color: #ece4f4;
+  font: inherit;
+  cursor: pointer;
+  transition: transform .12s, border-color .12s, box-shadow .12s;
+}
+.hr-pick:hover { transform: translateY(-1px); border-color: var(--hr); }
+.hr-pick.is-picked { border-color: var(--hr); box-shadow: 0 0 0 1px var(--hr), 0 0 18px color-mix(in srgb, var(--hr) 35%, transparent); }
+.hr-pick > i { width: 26px; height: 26px; color: var(--hr); display: inline-grid; }
+.hr-pick b { font-size: 12px; letter-spacing: .2em; }
+.hr-pick small { color: var(--hr); font-size: 8.5px; letter-spacing: .12em; }
+.hr-pick span { color: #9d90ab; font: 500 10px/1.3 var(--font-system, system-ui); text-align: center; }
+
+.hr-use {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid var(--hr);
+  border-radius: 10px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hr) 38%, #120c18), color-mix(in srgb, var(--hr) 14%, #07060a));
+  color: #fff;
+  font: 900 12px var(--font-machine, monospace);
+  letter-spacing: .22em;
+  cursor: pointer;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--hr) 30%, transparent);
+}
+.hr-use:disabled { opacity: .45; cursor: default; box-shadow: none; }
+.hr-targets { display: flex; gap: 6px; }
+.hr-targets button {
+  flex: 1;
+  padding: 10px 0;
+  border: 1px solid var(--hr, #9b5de0);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .04);
+  color: #fff;
+  font: 900 14px var(--font-machine, monospace);
+  cursor: pointer;
+}
+.hr-targets button:hover:not(:disabled) { background: color-mix(in srgb, var(--hr, #9b5de0) 25%, transparent); }
+.hr-targets button:disabled { opacity: .35; cursor: not-allowed; }
+.hr-targets button.is-cancel { flex: 0 0 38px; border-color: rgba(255, 255, 255, .2); color: #b8acc4; }
+.hr-targets.is-heroes { flex-direction: column; }
+.hr-targets.is-heroes button { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font: 700 12px var(--font-system, system-ui); text-align: left; }
+.hr-targets.is-heroes button i { width: 16px; height: 16px; color: var(--hr); display: inline-grid; }
+.hr-team { display: flex; gap: 6px; margin-top: 10px; }
+.hr-team-role { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 5px 0; border-radius: 8px; background: rgba(255, 255, 255, .03); color: #ddd2ea; font-size: 11px; font-weight: 800; }
+.hr-team-role i { width: 13px; height: 13px; color: var(--hr); display: inline-grid; }
+.hr-team-role small { color: #8d8198; font-size: 9px; }
+.hr-note { margin: 8px 0 0; color: #ffb3c0; font-size: 10px; letter-spacing: .1em; }
+
+/* BURST: the next clue of a column, shown to the whole room for a moment. */
+.hero-burst { position: absolute; inset: 0; z-index: 80; display: grid; place-items: center; pointer-events: none; }
+.hero-burst-card {
+  width: min(460px, 86%);
+  padding: 16px 18px 14px;
+  border: 1px solid #ff4a5c;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(40, 6, 12, .96), rgba(10, 4, 6, .97));
+  box-shadow: 0 0 50px rgba(255, 40, 60, .35), 0 20px 50px rgba(0, 0, 0, .6);
+  color: #fff;
+  text-align: center;
+  font-family: var(--font-machine, monospace);
+  animation: hero-burst-in .35s cubic-bezier(.2, .9, .3, 1.3);
+}
+.hero-burst-card header { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.hero-burst-card header i { width: 20px; height: 20px; color: #ff4a5c; display: inline-grid; }
+.hero-burst-card header svg { width: 100%; height: 100%; }
+.hero-burst-card header b { font-size: 13px; letter-spacing: .26em; color: #ff8a97; }
+.hero-burst-card header small { flex-basis: 100%; color: #b49aa2; font-size: 9.5px; letter-spacing: .18em; }
+.hero-burst-clue { margin: 14px 0 12px; font: 800 26px/1.25 var(--font-system, system-ui); letter-spacing: .02em; overflow-wrap: anywhere; }
+.hero-burst-clue img { max-width: 100%; max-height: 220px; border-radius: 10px; }
+.hero-burst-bar { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.hero-burst-bar span { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ff2a48, #ff8a3d); transition: width .2s linear; }
+.hero-burst-foot { display: block; margin-top: 8px; color: #9d8a92; font-size: 9.5px; letter-spacing: .14em; }
+@keyframes hero-burst-in { from { opacity: 0; transform: scale(.85); } }
+
+/* TANK LAST STAND: a shield on the column's solution cell. */
+[data-label][data-hero-shield] { position: relative; }
+[data-label][data-hero-shield]::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 30px;
+  height: 34px;
+  z-index: 5;
+  pointer-events: none;
+  background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28'%3E%3Cpath d='M12 1l10 4v8c0 6.5-4.3 11.8-10 14C6.3 24.8 2 19.5 2 13V5z' fill='%235aa9ff' stroke='%23071526' stroke-width='1.5'/%3E%3Cpath d='M12 5v18' stroke='%23071526' stroke-width='1.6' opacity='.5'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 8px rgba(90, 169, 255, .8));
+  animation: hero-shield 2.4s ease-in-out infinite;
+}
+@keyframes hero-shield { 50% { filter: drop-shadow(0 0 14px rgba(90, 169, 255, 1)); } }
+
+/* Role sigil beside a hero's name. */
+.hero-role-sigil { display: inline-grid; place-items: center; width: 14px; height: 14px; margin-left: 5px; vertical-align: -2px; color: var(--hr); font-style: normal; }
+.hero-role-sigil svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--hr) 55%, transparent)); }
+
+/* Shadow Broker session switch. */
+.battle-controls-utility-row .hero-roles-toggle { border-color: rgba(98, 240, 160, .45) !important; color: #c9f5dc !important; letter-spacing: .18em; }
+.battle-controls-utility-row .hero-roles-toggle.is-off { border-color: rgba(255, 255, 255, .15) !important; color: #8d8198 !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-burst-card, [data-label][data-hero-shield]::after { animation: none !important; }
+}
+
+/* On the summon ritual screen: centred under the ritual, above its veil. */
+.hero-role-dock.in-ritual { left: 50%; bottom: 28px; width: min(460px, 92vw); transform: translateX(-50%); z-index: 5; }
+.hero-role-dock.in-ritual .hr-pick span { font-size: 11px; }
