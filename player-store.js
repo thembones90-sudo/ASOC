@@ -83,7 +83,8 @@ function blankProfile(displayName) {
     // of the events that bumped them, so a replay never counts twice.
     relicProgress: {},
     relicReceipts: [],
-    dailyContracts: null
+    dailyContracts: null,
+    sibicarRound: null
   };
 }
 
@@ -206,6 +207,7 @@ function validateAndNormalizePlayers(raw) {
     profile.relicProgress = normalizeRelicProgress(candidate.relicProgress);
     profile.relicReceipts = Array.isArray(candidate.relicReceipts) ? candidate.relicReceipts.filter(r => typeof r === 'string').slice(-500) : [];
     profile.dailyContracts = candidate.dailyContracts && typeof candidate.dailyContracts === 'object' ? candidate.dailyContracts : null;
+    profile.sibicarRound = candidate.sibicarRound && typeof candidate.sibicarRound === 'object' ? candidate.sibicarRound : null;
     // Older profiles stored whole coins only; derive tenths from them once.
     const units = candidate.shadowCoinUnits === undefined
       ? Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT)
@@ -634,6 +636,55 @@ function settleRouletteSpin(identity, wager, receiptId, resolve) {
   return { ok: true, balance: profile.shadowCoins, net: (net < 0 ? -1 : 1) * unitsToCoins(Math.abs(net)), outcome };
 }
 
+// ŠIBICAR keeps escrow and the round record in the same atomic profile write.
+function createSibicarRound(identity, round) {
+  if (!round || round.status !== 'ACTIVE' || String(round.playerId) !== String(identity?.id)) return { ok: false, error: 'Invalid ŠIBICAR round' };
+  const players = loadPlayers(), profile = coinProfile(players, identity), current = profile.sibicarRound;
+  if (current?.status === 'ACTIVE') return { ok: false, error: 'AN ACTIVE ŠIBICAR ROUND ALREADY EXISTS.', round: current, balance: profile.shadowCoins };
+  const wagerUnits = round.mode === 'WAGER' ? coinUnits(round.wager) : 0;
+  if (round.mode === 'WAGER' && !wagerUnits) return { ok: false, error: 'Invalid wager' };
+  if (wagerUnits && profile.shadowCoinUnits < wagerUnits) return { ok: false, error: 'NOT ENOUGH SHADOW COINS.', balance: profile.shadowCoins };
+  const receiptId = `sibicar:${round.id}:wager`;
+  if (wagerUnits) {
+    if (profile.shadowCoinReceipts.includes(receiptId)) return { ok: false, error: 'ŠIBICAR WAGER ALREADY RECORDED.' };
+    profile.shadowCoinUnits -= wagerUnits; profile.shadowCoins = unitsToCoins(profile.shadowCoinUnits); profile.shadowCoinReceipts.push(receiptId);
+    profile.shadowCoinLedger.push({ id: receiptId, at: nowISO(), delta: -unitsToCoins(wagerUnits), balance: profile.shadowCoins, kind: 'sibicar_wager', reason: `ŠIBICAR WAGER // ${round.id}`, detail: { roundId: round.id, wager: round.wager } });
+  }
+  profile.sibicarRound = JSON.parse(JSON.stringify(round));
+  if (profile.shadowCoinReceipts.length > COIN_RECEIPT_LIMIT) profile.shadowCoinReceipts.splice(0, profile.shadowCoinReceipts.length - COIN_RECEIPT_LIMIT);
+  if (profile.shadowCoinLedger.length > COIN_LEDGER_LIMIT) profile.shadowCoinLedger.splice(0, profile.shadowCoinLedger.length - COIN_LEDGER_LIMIT);
+  if (!savePlayersAtomic(players)) return { ok: false, error: COIN_STORAGE_ERROR };
+  return { ok: true, round: profile.sibicarRound, balance: profile.shadowCoins };
+}
+
+function getSibicarRound(identity) {
+  const players = loadPlayers(), key = identity && typeof identity === 'object' ? normalizeNameKey(identity) : null;
+  return key && players[key]?.sibicarRound ? JSON.parse(JSON.stringify(players[key].sibicarRound)) : null;
+}
+
+function settleSibicarRound(identity, roundId, selectedPosition) {
+  const players = loadPlayers(), profile = coinProfile(players, identity), round = profile.sibicarRound;
+  if (!round || String(round.id) !== String(roundId)) return { ok: false, error: 'ŠIBICAR ROUND NOT FOUND.' };
+  if (String(round.playerId) !== String(identity?.id)) return { ok: false, error: 'THIS ROUND BELONGS TO ANOTHER PLAYER.' };
+  if (round.status !== 'ACTIVE') return { ok: true, duplicate: true, round: JSON.parse(JSON.stringify(round)), balance: profile.shadowCoins };
+  const position = Number(selectedPosition);
+  if (!Number.isInteger(position) || position < 0 || position > 2) return { ok: false, error: 'CHOOSE ONE OF THE THREE HEADS.' };
+  const correct = position === Number(round.finalPosition);
+  round.selectedPosition = position; round.result = correct ? 'CORRECT' : 'WRONG'; round.status = correct ? 'WON' : 'LOST';
+  round.payout = correct && round.mode === 'WAGER' ? Number(round.wager) * 2 : 0; round.settledAt = Date.now();
+  if (round.payout > 0) {
+    const payoutUnits = coinUnits(round.payout), receiptId = `sibicar:${round.id}:win`;
+    if (!profile.shadowCoinReceipts.includes(receiptId)) {
+      profile.shadowCoinUnits += payoutUnits; profile.shadowCoins = unitsToCoins(profile.shadowCoinUnits); profile.shadowCoinReceipts.push(receiptId);
+      profile.shadowCoinLedger.push({ id: receiptId, at: nowISO(), delta: unitsToCoins(payoutUnits), balance: profile.shadowCoins, kind: 'sibicar_win', reason: `ŠIBICAR WIN // ${round.id}`, detail: { roundId: round.id, wager: round.wager, payout: round.payout } });
+    }
+  }
+  if (profile.shadowCoinReceipts.length > COIN_RECEIPT_LIMIT) profile.shadowCoinReceipts.splice(0, profile.shadowCoinReceipts.length - COIN_RECEIPT_LIMIT);
+  if (profile.shadowCoinLedger.length > COIN_LEDGER_LIMIT) profile.shadowCoinLedger.splice(0, profile.shadowCoinLedger.length - COIN_LEDGER_LIMIT);
+  if (!savePlayersAtomic(players)) return { ok: false, error: COIN_STORAGE_ERROR };
+  return { ok: true, duplicate: false, correct, round: JSON.parse(JSON.stringify(round)), balance: profile.shadowCoins };
+}
+
 function adjustProfile(displayName, { pointsDelta = 0, statDeltas = {} } = {}) {
   const key = normalizeNameKey(displayName);
   const players = loadPlayers();
@@ -861,6 +912,9 @@ module.exports = {
   bumpRelicProgress,
   setShowcase,
   settleRouletteSpin,
+  createSibicarRound,
+  getSibicarRound,
+  settleSibicarRound,
   maybeRecordBestStreak,
   maybeRecordEarliestFinal,
   recordBoardFinalization,

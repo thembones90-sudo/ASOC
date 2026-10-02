@@ -28,6 +28,7 @@ const unstableConcoction = require('./unstable-concoction');
 const questEngine = require('./quest-engine');
 const dailyContracts = require('./daily-contracts');
 const rouletteCarnage = require('./roulette-carnage');
+const sibicar = require('./sibicar');
 const { createChatUploadGuard } = require('./chat-upload-guard');
 const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
@@ -5668,6 +5669,59 @@ function handleRouletteCarnage(ws,message){
     round.wagers.push({id,playerId:actor.id,playerName:actor.name,...bet,placedAt:Date.now()});return rouletteCommit(room,{players:true});
   }
   rouletteError(ws,'UNKNOWN ROULETTE CARNAGE ACTION');
+}
+
+// ---------------------------------------------------------------------
+// ŠIBICAR -- private single-player shell game. The profile store owns both
+// escrow and settlement, so reconnects restore the exact authoritative round.
+// ---------------------------------------------------------------------
+function sibicarActor(room, ws) {
+  if (!room || ws === room.hostConnection || !ws.playerId) return null;
+  const player = room.players.get(ws);
+  return player && player.connected !== false ? { id: String(player.id), name: player.name || 'LITTLE HERO' } : null;
+}
+function sibicarError(ws, message) { sendToWs(ws, { type: 'sibicar:error', message }); }
+function sibicarResultView(round, balance) {
+  return { roundId: round.id, correct: round.result === 'CORRECT', selectedPosition: round.selectedPosition, actualPosition: round.finalPosition, mode: round.mode, wager: round.wager, payout: round.payout, balance, status: round.status, settledAt: round.settledAt };
+}
+function handleSibicar(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return sibicarError(ws, 'MASTER ROOM LINK REQUIRED.');
+  const actor = sibicarActor(room, ws);
+  if (!actor) return sibicarError(ws, 'A CONNECTED LITTLE HERO IDENTITY IS REQUIRED.');
+  const identity = { id: actor.id, name: actor.name };
+  const type = String(message.type || '');
+  if (type === 'player:sibicarSync') {
+    const round = playerStore.getSibicarRound(identity);
+    if (!round) return sendToWs(ws, { type: 'sibicar:idle', balance: playerStore.getShadowCoins(identity) });
+    if (round.status === sibicar.STATUSES.ACTIVE) return sendToWs(ws, { type: 'sibicar:round', round: sibicar.publicRound(round), balance: playerStore.getShadowCoins(identity), restored: true });
+    return sendToWs(ws, { type: 'sibicar:result', result: sibicarResultView(round, playerStore.getShadowCoins(identity)), restored: true });
+  }
+  if (room.roomMode !== ROOM_MODES.CASUAL) return sibicarError(ws, 'ŠIBICAR IS AVAILABLE ONLY IN AMUSEMENT PARK.');
+  if (type === 'player:sibicarStart') {
+    const checked = sibicar.validateStart(message);
+    if (!checked.ok) return sibicarError(ws, checked.error);
+    const made = sibicar.createRound({ id: 'sib-' + crypto.randomBytes(12).toString('hex'), playerId: actor.id, roomCode: room.code, mode: checked.mode, wager: checked.wager });
+    if (!made.ok) return sibicarError(ws, made.error);
+    const stored = playerStore.createSibicarRound(identity, made.round);
+    if (!stored.ok) {
+      if (stored.round?.status === sibicar.STATUSES.ACTIVE) return sendToWs(ws, { type: 'sibicar:round', round: sibicar.publicRound(stored.round), balance: stored.balance, restored: true });
+      return sibicarError(ws, stored.error);
+    }
+    sendToWs(ws, { type: 'sibicar:round', round: sibicar.publicRound(stored.round), balance: stored.balance, restored: false });
+    if (checked.mode === sibicar.MODES.WAGER) broadcastPlayersUpdate(room);
+    return;
+  }
+  if (type === 'player:sibicarPick') {
+    const pick = sibicar.validatePick(message.position);
+    if (!pick.ok) return sibicarError(ws, pick.error);
+    const settled = playerStore.settleSibicarRound(identity, String(message.roundId || ''), pick.position);
+    if (!settled.ok) return sibicarError(ws, settled.error);
+    sendToWs(ws, { type: 'sibicar:result', result: sibicarResultView(settled.round, settled.balance), duplicate: settled.duplicate === true });
+    if (settled.round.mode === sibicar.MODES.WAGER) broadcastPlayersUpdate(room);
+    return;
+  }
+  sibicarError(ws, 'UNKNOWN ŠIBICAR ACTION.');
 }
 
 function hostRoomFor(ws) {
@@ -11874,6 +11928,12 @@ wss.on('connection', (ws, req) => {
         case 'gm:rouletteCarnage:abort':
         case 'gm:rouletteCarnage:closeTable': {
           handleRouletteCarnage(ws, message);
+          break;
+        }
+        case 'player:sibicarSync':
+        case 'player:sibicarStart':
+        case 'player:sibicarPick': {
+          handleSibicar(ws, message);
           break;
         }
         case 'iks:join': {

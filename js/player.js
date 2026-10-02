@@ -1671,6 +1671,10 @@ const PlayerApp = {
 
       case 'rouletteCarnage:state': window.RouletteCarnageUI?.onState?.(message.state); break;
       case 'rouletteCarnage:error': window.RouletteCarnageUI?.onError?.(message.message); break;
+      case 'sibicar:round': window.SibicarUI?.onRound?.(message.round, message.restored === true, message.balance); break;
+      case 'sibicar:result': window.SibicarUI?.onResult?.(message.result); break;
+      case 'sibicar:idle': if (window.SibicarUI) { window.SibicarUI.balance = Number(message.balance || 0); window.SibicarUI.render?.(); } break;
+      case 'sibicar:error': window.SibicarUI?.onError?.(message.message); break;
 
       case 'unstableConcoction:started':
         window.UnstableConcoction?.onStarted?.(message);
