@@ -17,7 +17,7 @@
   const isGM = () => !!window.App && !window.PlayerApp;
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const AVATAR_SEL = 'img.shadow-broker-avatar, img[src*="shadow-broker.png"], img[data-broker-avatar]';
-  const MESSAGE_SEL = '.gm-shadow-broker-entry, .chat-broker-entry, .broker-media-message, .shadow-broker-transmission';
+  const MESSAGE_SEL = '.gm-shadow-broker-entry, .chat-broker-entry, .broker-media-message, .broker-bare, .shadow-broker-transmission';
   const VAULT_SEL = '#broker-transmog-overlay, .btm-entrance';
   const RARITY = { common: 'COMMON', rare: 'RARE', epic: 'EPIC', legendary: 'LEGENDARY', mythic: 'MYTHIC' };
 

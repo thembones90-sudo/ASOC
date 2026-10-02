@@ -337,6 +337,22 @@ const Skeleton = (() => {
   // glitchKey: the markup stays byte-identical across renders (so keyed
   // patching keeps the node); applyGlitchIn() adds the one-shot glitch class
   // to freshly inserted transmissions whose key has not been seen yet.
+  // Shared Shadow Broker MEDIA markup (image, GIF, sticker) -- the ONE layout
+  // both pages use: the bare picture, right-aligned, the Broker's avatar on
+  // its right (level with the top), reactions on their own row underneath.
+  // Each page passes its own wrapper classes/attributes (click and context-
+  // menu hooks differ) and its own media/reaction markup; the structure and
+  // the Broker identity live here, so the two views cannot drift apart again.
+  // Styled by .broker-bare in css/asoc.css.
+  function shadowBrokerMediaHTML({ id = '', time = '', classes = '', attrs = '', media = '', caption = '', extras = '', reactions = '' } = {}) {
+    const safeId = escapeHtmlText(String(id)).replace(/"/g, '&quot;');
+    const safeTime = escapeHtmlText(String(time)).replace(/"/g, '&quot;');
+    return `<div class="broker-bare ${classes}" data-message-id="${safeId}" data-player-name="SHADOW BROKER" title="SHADOW BROKER · ${safeTime}" ${attrs}>`
+      + `<div class="broker-bare-main">${caption}${media}${extras}</div>`
+      + '<div class="broker-bare-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>'
+      + `${reactions}</div>`;
+  }
+
   function shadowBrokerTransmissionHTML(text, { glitchIn = false, glitchKey = '', variant = 'broadcast', verdict = null } = {}) {
     const variantClass = variant === 'verdict-response' ? 'shadow-broker-verdict-response' : 'shadow-broker-broadcast';
     const verdictClass = verdict ? ` sb-${verdict}` : '';
@@ -1181,6 +1197,7 @@ const Skeleton = (() => {
     BROKER_LINE_HOLD_PER_CHAR_MS,
     BROKER_LINE_FADE_MS,
     shadowBrokerTransmissionHTML,
+    shadowBrokerMediaHTML,
     // A transmission rebuilt within its first second (e.g. the verdict's
     // local render followed by the server's) keeps its glitch-in instead of
     // having it cut off.

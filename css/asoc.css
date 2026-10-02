@@ -21769,14 +21769,18 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
 #game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message > .shadow-broker-transmission::after { display: none !important; }
 #game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message .shadow-broker-body { flex: 1 1 auto !important; align-items: flex-end !important; text-align: right !important; }
 
-/* SHADOW BROKER image on the Little Hero chat: just the picture, no bubble,
-   no header; the Broker's avatar sits to its RIGHT (mirror of the heroes). */
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare {
+/* SHADOW BROKER MEDIA (image / GIF / sticker) -- one layout for both pages,
+   rendered by Skeleton.shadowBrokerMediaHTML: the bare picture right-aligned,
+   the Broker's avatar on its right level with the TOP, reactions on their own
+   row underneath. No bubble, no header. */
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare {
+  --broker-bare-avatar: 32px;
   display: flex !important;
   flex-direction: row !important;
+  flex-wrap: wrap !important;
   justify-content: flex-end !important;
-  align-items: flex-end !important;
-  gap: 8px !important;
+  align-items: flex-start !important;
+  gap: 4px 8px !important;
   width: 100% !important;
   margin-left: auto !important;
   padding: 0 !important;
@@ -21784,103 +21788,61 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
   border: 0 !important;
   box-shadow: none !important;
 }
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare > .chat-message-main {
-  order: 0 !important;
+#gm-panel#gm-panel #gm-chat-messages .broker-bare { --broker-bare-avatar: 44px; }
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare::before,
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare::after { display: none !important; }
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare > .broker-bare-main {
   flex: 0 1 auto !important;
-  max-width: min(420px, 72%) !important;
+  max-width: min(440px, 72%) !important;
   min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 6px !important;
   margin: 0 !important;
   padding: 0 !important;
-  background: transparent !important;
+  background: none !important;
   border: 0 !important;
   box-shadow: none !important;
   text-align: right;
 }
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare > .chat-message-main::before,
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare > .chat-message-main::after { display: none !important; }
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare > .chat-avatar-rail {
-  order: 1 !important;
-  flex: 0 0 32px !important;
-  width: 32px !important;
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare > .broker-bare-main > :empty { display: none !important; }
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare > .broker-bare-rail {
+  flex: 0 0 var(--broker-bare-avatar) !important;
+  width: var(--broker-bare-avatar) !important;
+  display: flex !important;
+  justify-content: center !important;
   margin: 0 !important;
   padding: 0 !important;
 }
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare > .chat-avatar-rail .shadow-broker-avatar {
-  width: 32px !important;
-  height: 32px !important;
-  flex: 0 0 32px !important;
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare > .broker-bare-rail .shadow-broker-avatar {
+  position: static !important;
+  flex: 0 0 var(--broker-bare-avatar) !important;
+  width: var(--broker-bare-avatar) !important;
+  height: var(--broker-bare-avatar) !important;
+  margin: 0 !important;
   box-sizing: border-box !important;
 }
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare .chat-image-link.broker-image-only {
-  display: block;
-  margin: 0 0 0 auto;
-  padding: 0;
-  border: 0;
-  background: none;
+/* Reactions (both pages' reaction rows) sit on their own line under the picture. */
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare > :not(.broker-bare-main):not(.broker-bare-rail) {
+  flex: 0 0 100% !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  margin: 0 calc(var(--broker-bare-avatar) + 8px) 0 0 !important;
 }
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare .chat-image-attachment {
-  display: block;
-  max-width: 100%;
-  max-height: 360px;
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare > :not(.broker-bare-main):not(.broker-bare-rail):empty { display: none !important; }
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare :is(.chat-image-link.broker-image-only, .chat-gif-link, .gm-chat-gif-link) {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
   border: 0 !important;
   outline: 0 !important;
-  box-shadow: none !important;
+  border-radius: 12px !important;
   background: none !important;
-  border-radius: 12px;
-  object-fit: contain;
-}
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare .broker-media-caption { margin: 0 0 6px; }
-
-/* SHADOW BROKER image / GIF on the Broker console: the bare picture,
-   right-aligned, avatar to its RIGHT -- no capsule, no header, no padding. */
-#gm-panel #gm-chat-messages .gm-shadow-broker-entry.gm-broker-image-bare {
-  display: flex !important;
-  flex-direction: row !important;
-  justify-content: flex-end !important;
-  align-items: flex-end !important;
-  gap: 8px !important;
-  width: 100% !important;
-  margin-left: auto !important;
-  padding: 0 !important;
-  background: transparent !important;
-  border: 0 !important;
   box-shadow: none !important;
+  overflow: hidden;
 }
-#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-main {
-  flex: 0 1 auto;
-  max-width: min(460px, 72%);
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  padding: 0;
-  background: none;
-  border: 0;
-}
-#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-rail {
-  flex: 0 0 44px;
-  width: 44px;
-  display: flex;
-  justify-content: center;
-}
-#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-rail .shadow-broker-avatar {
-  position: static !important;
-  flex: 0 0 44px !important;
-  width: 44px !important;
-  height: 44px !important;
-  margin: 0 !important;
-  box-sizing: border-box !important;
-}
-#gm-panel #gm-chat-messages .gm-broker-image-bare :is(.chat-image-link.broker-image-only, .gm-chat-gif-link) {
-  display: block;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  box-shadow: none;
-}
-#gm-panel #gm-chat-messages .gm-broker-image-bare :is(.chat-image-attachment, .gm-chat-gif-attachment) {
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare :is(.chat-image-attachment, .chat-gif-attachment, .gm-chat-gif-attachment) {
   display: block;
   max-width: 100%;
   max-height: 380px;
@@ -21891,11 +21853,4 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
   border-radius: 12px;
   object-fit: contain;
 }
-#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-main > :empty { display: none !important; }
-#gm-panel #gm-chat-messages .gm-shadow-broker-entry.gm-broker-image-bare { flex-wrap: wrap !important; row-gap: 4px !important; }
-#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-chat-reactions { flex: 0 0 100%; display: flex; justify-content: flex-end; margin: 0 52px 0 0 !important; }
-/* Broker image/GIF: avatar level with the TOP of the picture, on its right. */
-#gm-panel #gm-chat-messages .gm-shadow-broker-entry.gm-broker-image-bare { align-items: flex-start !important; }
-#gm-panel #gm-chat-messages .gm-broker-image-bare > .gm-broker-bare-rail { align-self: flex-start !important; }
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare { align-items: flex-start !important; }
-#game-screen#game-screen .battle-comms-lobby .chat-message.broker-image-bare > .chat-avatar-rail { align-self: flex-start !important; }
+:is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare .broker-media-caption { margin: 0; }
