@@ -14,11 +14,12 @@ const MESSAGES = [
 ];
 
 async function check(page, scope, label) {
-  await page.waitForTimeout(800);
+  await page.waitForFunction(scope => [...document.querySelectorAll(`${scope} .broker-bare img`)].every(img => img.complete), scope, { timeout: 8000 });
+  await page.waitForTimeout(300);
   const results = await page.evaluate(({ ids, scope }) => ids.map(id => {
     const el = document.querySelector(`${scope} [data-message-id="${id}"]`);
     if (!el) return { id, missing: true };
-    const media = el.querySelector('.broker-bare-main img, .broker-bare-main video');
+    const media = el.querySelector('.broker-bare-main');
     const avatar = el.querySelector('.broker-bare-rail .shadow-broker-avatar');
     const m = media.getBoundingClientRect(), a = avatar.getBoundingClientRect();
     const main = getComputedStyle(el.querySelector('.broker-bare-main'));
