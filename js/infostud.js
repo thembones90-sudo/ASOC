@@ -38,7 +38,19 @@
     anchor: null,
     clipboard: null,       // { mode: 'cut' | 'copy', ids: [] }
     urls: new Map(),
-    sort: (() => { try { return JSON.parse(localStorage.getItem('asoc_infostud_sort')) || { key: 'name', dir: 1 }; } catch { return { key: 'name', dir: 1 }; } })(),
+    // Every folder remembers its own sort (like Windows). A folder never sorted
+    // explicitly uses its nearest sorted parent, then the old global default.
+    sorts: (() => { try { return JSON.parse(localStorage.getItem('asoc_infostud_sorts')) || {}; } catch { return {}; } })(),
+    defaultSort: (() => { try { return JSON.parse(localStorage.getItem('asoc_infostud_sort')) || { key: 'name', dir: 1 }; } catch { return { key: 'name', dir: 1 }; } })(),
+    get sort() {
+      const seen = new Set();
+      for (let id = this.cwd || null; ; id = this.get(id)?.parentId || null) {
+        const own = this.sorts[id || 'root'];
+        if (own) return own;
+        if (!id || seen.has(id)) return this.defaultSort;
+        seen.add(id);
+      }
+    },
 
     // ------------------------------------------------------------- open --
     async open() {
@@ -226,8 +238,8 @@
       });
     },
     setSort(key, dir) {
-      this.sort = { key: SORTS[key] ? key : 'name', dir: dir === -1 ? -1 : 1 };
-      try { localStorage.setItem('asoc_infostud_sort', JSON.stringify(this.sort)); } catch {}
+      this.sorts[this.cwd || 'root'] = { key: SORTS[key] ? key : 'name', dir: dir === -1 ? -1 : 1 };
+      try { localStorage.setItem('asoc_infostud_sorts', JSON.stringify(this.sorts)); } catch {}
       this.$('.ifs-sort-key').value = this.sort.key;
       this.render();
     },
