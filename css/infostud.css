@@ -89,7 +89,11 @@
 .ifs-card.is-rated.is-selected { outline: 3px solid #c486ef; outline-offset: 2px; }
 .ifs-card.tier-silver { --t1: #9aa3ad; --t2: #f1f4f7; --t3: #6c747d; }
 .ifs-card.tier-gold { --t1: #c99318; --t2: #ffe58a; --t3: #8a5f05; }
-.ifs-card.tier-platinum { --t1: #8fb7c9; --t2: #f4fbff; --t3: #5d8496; }
+.ifs-card.tier-platinum { --t1: #8fb7c9; --t2: #f4fbff; --t3: #2a2340; }
+/* PLATINUM: iridescent holo-foil frame + dark ribbon, unmistakable next to flat SILVER. */
+.ifs-card.is-rated.tier-platinum { background: linear-gradient(125deg, #ff9ad5, #b59bff 18%, #7fe3ff 34%, #a6ffcb 50%, #fff3a1 66%, #ff9ad5 82%, #b59bff); background-size: 300% 300%; animation: ifs-foil 6s linear infinite; box-shadow: 0 0 0 1px rgba(255, 255, 255, .6) inset, 0 0 16px rgba(160, 140, 255, .55), 0 6px 18px rgba(0, 0, 0, .55); }
+.ifs-card.tier-platinum .ifs-ribbon { background: linear-gradient(180deg, #2c2445, #120e1d); color: transparent; background-clip: padding-box; box-shadow: 0 0 0 1px rgba(200, 180, 255, .7), 0 2px 8px rgba(120, 90, 255, .6); }
+.ifs-card.tier-platinum .ifs-ribbon::before { content: "PLATINUM"; position: absolute; inset: 3px 9px 3px 10px; background: linear-gradient(90deg, #ff9ad5, #7fe3ff, #a6ffcb, #fff3a1); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .ifs-ribbon { position: absolute; z-index: 2; top: 12px; right: -4px; padding: 3px 9px 3px 10px; border-radius: 3px 0 0 3px; background: linear-gradient(180deg, var(--t2), var(--t1)); color: #1b1108; font: 900 9.5px var(--font-machine, monospace); letter-spacing: .14em; font-style: normal; box-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
 .ifs-ribbon::after { content: ""; position: absolute; right: 0; bottom: -4px; border-top: 4px solid var(--t3); border-right: 4px solid transparent; }
 .ifs-holo { display: none; }
@@ -97,9 +101,10 @@
   background: linear-gradient(115deg, transparent 20%, rgba(255, 120, 220, .55) 32%, rgba(120, 220, 255, .55) 42%, rgba(160, 255, 170, .5) 52%, rgba(255, 240, 140, .5) 62%, transparent 75%);
   background-size: 250% 250%; animation: ifs-holo 3.2s linear infinite; }
 .ifs-card.tier-gold .ifs-thumb::after { content: ""; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 40%, rgba(255, 255, 255, .35) 50%, transparent 60%); background-size: 300% 100%; animation: ifs-shine 3.6s ease-in-out infinite; pointer-events: none; }
+@keyframes ifs-foil { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
 @keyframes ifs-holo { from { background-position: 0% 0%; } to { background-position: 250% 250%; } }
 @keyframes ifs-shine { 0%, 60% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
-@media (prefers-reduced-motion: reduce) { .ifs-holo, .ifs-card.tier-gold .ifs-thumb::after { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .ifs-holo, .ifs-card.tier-gold .ifs-thumb::after, .ifs-card.is-rated.tier-platinum { animation: none !important; } }
 .ifs-v-stage .ifs-notepad { width: min(1100px, 94vw); height: 82vh; box-sizing: border-box; resize: none; padding: 18px 22px; border: 1px solid rgba(155, 93, 224, .35); border-radius: 10px; outline: none; background: #0e0b14; color: #ece2fa; font: 15px/1.6 Consolas, 'Cascadia Mono', 'Courier New', monospace; tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ifs-v-stage .ifs-notepad:focus { border-color: rgba(185, 130, 255, .7); }
 .ifs-btn.is-save.is-dirty { background: #7b3fd0; color: #fff; }
