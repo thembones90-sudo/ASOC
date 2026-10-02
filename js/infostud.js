@@ -24,8 +24,8 @@
   const ext = name => { const d = name.lastIndexOf('.'); return d > 0 ? name.slice(d + 1).toUpperCase().slice(0, 4) : 'FILE'; };
   const SORTS = { name: 'NAME', created: 'DATE UPLOADED', modified: 'DATE MODIFIED', rating: 'RATING' };
   // Panini-style sticker tiers, lowest to highest.
-  const TIERS = ['bronze', 'silver', 'gold', 'platinum'];
-  const TIER_LABEL = { bronze: 'BRONZE', silver: 'SILVER', gold: 'GOLD', platinum: 'PLATINUM' };
+  const TIERS = ['bronze', 'silver', 'gold', 'platinum', 'iconic'];
+  const TIER_LABEL = { bronze: 'BRONZE', silver: 'SILVER', gold: 'GOLD', platinum: 'PLATINUM', iconic: '♛ ICONIC' };
   const ask = async (title, value) => {
     if (window.AsocDialog?.prompt) return window.AsocDialog.prompt({ title, message: '', defaultValue: value, value, maxLength: 180, required: true, confirmLabel: 'OK' });
     return prompt(title, value || '');
@@ -249,7 +249,7 @@
       grid.innerHTML = list.length ? list.map(i => {
         const meta = i.kind === 'folder' ? `${this.kids(i.id).length} ITEMS` : size(i.size);
         return `<button type="button" draggable="true" class="ifs-card${i.kind === 'folder' ? ' is-folder' : ''}${this.selected.has(i.id) ? ' is-selected' : ''}${cut.has(i.id) ? ' is-cut' : ''}${i.rating ? ` is-rated tier-${esc(i.rating)}` : ''}" data-id="${esc(i.id)}" title="${esc(i.name)}">
-          ${i.rating ? `<em class="ifs-ribbon">${TIER_LABEL[i.rating]}</em><span class="ifs-holo"></span>` : ''}
+          ${i.rating ? `<em class="ifs-ribbon">${TIER_LABEL[i.rating]}</em><span class="ifs-holo"></span>${i.rating === 'iconic' ? '<span class="ifs-embers"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>' : ''}` : ''}
           <span class="ifs-thumb">${i.kind === 'folder' ? '<i class="ifs-folder-ico"></i>' : isImage(i) ? '<i class="ifs-file-ico" data-ext="IMG"></i>' : isVideo(i) ? '<i class="ifs-file-ico is-video">▶</i>' : `<i class="ifs-file-ico" data-ext="${esc(ext(i.name))}"></i>`}</span>
           <b>${esc(i.name)}</b><small>${esc(when(i[dateKey]))} · ${esc(meta)}</small>
         </button>`;
@@ -358,7 +358,7 @@
         case 'sort-created': return this.setSort('created', this.sort.dir);
         case 'sort-modified': return this.setSort('modified', this.sort.dir);
         case 'sort-rating': return this.setSort('rating', this.sort.dir);
-        case 'rate-bronze': case 'rate-silver': case 'rate-gold': case 'rate-platinum': case 'rate-none':
+        case 'rate-bronze': case 'rate-silver': case 'rate-gold': case 'rate-platinum': case 'rate-iconic': case 'rate-none':
           return this.rate(sel, act.slice(5) === 'none' ? null : act.slice(5));
       }
     },
@@ -376,7 +376,7 @@
         null,
         ['rename', 'Rename', 'F2', !one], ['delete', 'Delete', 'Del'],
         null,
-        ['rate-platinum', '◆ Rate Platinum', '4'], ['rate-gold', '● Rate Gold', '3'], ['rate-silver', '● Rate Silver', '2'], ['rate-bronze', '● Rate Bronze', '1'], ['rate-none', 'Remove rating', '0', !sel.some(id => this.get(id)?.rating)],
+        ['rate-iconic', '★ Rate Iconic', '5'], ['rate-platinum', '◆ Rate Platinum', '4'], ['rate-gold', '● Rate Gold', '3'], ['rate-silver', '● Rate Silver', '2'], ['rate-bronze', '● Rate Bronze', '1'], ['rate-none', 'Remove rating', '0', !sel.some(id => this.get(id)?.rating)],
         null,
         ['props', 'Properties', 'Alt+Enter']
       ] : [
@@ -417,7 +417,7 @@
         Delete: 'delete', F2: 'rename', Enter: e.altKey ? 'props' : 'open', Backspace: 'up', F5: 'refresh'
       };
       let act = map[e.key];
-      if (!ctrl && !e.altKey && /^[0-4]$/.test(e.key) && this.selected.size) act = 'rate-' + (['none', ...TIERS][Number(e.key)]);
+      if (!ctrl && !e.altKey && /^[0-5]$/.test(e.key) && this.selected.size) act = 'rate-' + (['none', ...TIERS][Number(e.key)]);
       if (ctrl && !e.shiftKey) act = { a: 'selectall', x: 'cut', c: 'copy', v: 'paste' }[e.key.toLowerCase()] || act;
       if (ctrl && e.shiftKey && e.key.toLowerCase() === 'n') act = 'newfolder';
       if (!act) return;
