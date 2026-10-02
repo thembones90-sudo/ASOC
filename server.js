@@ -306,6 +306,15 @@ try {
 } catch (error) {
   throw new Error(`ASOC durable data directory cannot be created (${ASOC_DATA_DIR}): ${error.message}`);
 }
+// Emergency switch: ASOC_INFOSTUD_PURGE_ON_BOOT=1 empties the hidden
+// INFOSTUD storage before anything else touches the disk -- the way back
+// from a volume filled to 100% (ENOSPC crash loop). Remove the variable after.
+if (process.env.ASOC_INFOSTUD_PURGE_ON_BOOT === '1') {
+  try {
+    fs.rmSync(path.join(ASOC_DATA_DIR, 'infostud'), { recursive: true, force: true });
+    console.warn('[infostud] PURGED ON BOOT (ASOC_INFOSTUD_PURGE_ON_BOOT=1) -- remove the variable now');
+  } catch (error) { console.error('[infostud] purge on boot failed:', error.message); }
+}
 function assertDataDirectoryWritable(dataDir) {
   const probe = path.join(dataDir, `.asoc-write-probe-${process.pid}-${Date.now()}`);
   try {
@@ -321,7 +330,8 @@ const CHAT_UPLOAD_DIR = path.join(ASOC_DATA_DIR, 'chat-uploads');
 // INFOSTUD: the Shadow Broker's hidden personal picture/video storage.
 const infostud = require('./infostud-store').create(ASOC_DATA_DIR, {
   maxFileBytes: Number(process.env.ASOC_INFOSTUD_MAX_FILE_BYTES) || 200 * 1024 * 1024,
-  maxTotalBytes: Number(process.env.ASOC_INFOSTUD_MAX_TOTAL_BYTES) || 3 * 1024 * 1024 * 1024
+  maxTotalBytes: Number(process.env.ASOC_INFOSTUD_MAX_TOTAL_BYTES) || 3 * 1024 * 1024 * 1024,
+  diskReserveBytes: Number(process.env.ASOC_INFOSTUD_DISK_RESERVE_BYTES) || 512 * 1024 * 1024,
 });
 fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
 const chatUploadGuard = createChatUploadGuard({ dir: CHAT_UPLOAD_DIR });
