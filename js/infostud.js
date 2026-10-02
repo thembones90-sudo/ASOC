@@ -11,9 +11,16 @@
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const size = n => (n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B');
   const when = ms => new Date(ms).toLocaleString([], { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-  const isImage = i => i.kind === 'file' && /^image\//.test(i.type) && !/heic|heif/.test(i.type);
-  const isVideo = i => i.kind === 'file' && /^video\//.test(i.type);
+  const nameExt = i => { const d = i.name.lastIndexOf('.'); return d > 0 ? i.name.slice(d + 1).toLowerCase() : ''; };
+  const isImage = i => i.kind === 'file' && ((/^image\//.test(i.type) && !/heic|heif|svg/.test(i.type)) || ['gif', 'jpg', 'jpeg', 'png', 'webp', 'avif', 'bmp'].includes(nameExt(i)));
+  const isVideo = i => i.kind === 'file' && (/^video\//.test(i.type) || ['mp4', 'webm', 'mov', 'm4v', 'mkv', 'ogv'].includes(nameExt(i)));
   const isPdf = i => i.kind === 'file' && i.type === 'application/pdf';
+  // Opened in the built-in notepad instead of downloaded.
+  const TEXT_EXT = new Set(['txt', 'md', 'log', 'csv', 'tsv', 'json', 'xml', 'ini', 'cfg', 'conf', 'yml', 'yaml', 'srt', 'vtt', 'nfo', 'html', 'htm', 'css', 'js', 'ts', 'py', 'sh', 'bat', 'ps1', 'sql', 'lua', 'rtf']);
+  const extOf = name => { const d = name.lastIndexOf('.'); return d > 0 ? name.slice(d + 1).toLowerCase() : ''; };
+  const isText = i => i.kind === 'file' && (/^text\//.test(i.type) || /json|xml|javascript|yaml|x-subrip|x-sh/.test(i.type) || TEXT_EXT.has(extOf(i.name)));
+  // No extension at all (e.g. "notes"): try the notepad if it is small.
+  const maybeText = i => i.kind === 'file' && !extOf(i.name) && i.size <= 2 * 1024 * 1024;
   const ext = name => { const d = name.lastIndexOf('.'); return d > 0 ? name.slice(d + 1).toUpperCase().slice(0, 4) : 'FILE'; };
   const SORTS = { name: 'NAME', created: 'DATE UPLOADED', modified: 'DATE MODIFIED', rating: 'RATING' };
   // Panini-style sticker tiers, lowest to highest.
@@ -88,7 +95,7 @@
         <div class="ifs-viewer" hidden>
           <button type="button" class="ifs-v-close" aria-label="Close">×</button>
           <div class="ifs-v-stage"></div>
-          <div class="ifs-v-bar"><span class="ifs-v-name"></span><button type="button" class="ifs-btn" data-v="download">DOWNLOAD</button><button type="button" class="ifs-btn is-danger" data-v="delete">DELETE</button></div>
+          <div class="ifs-v-bar"><span class="ifs-v-name"></span><button type="button" class="ifs-btn is-save" data-v="save" hidden>SAVE</button><button type="button" class="ifs-btn" data-v="download">DOWNLOAD</button><button type="button" class="ifs-btn is-danger" data-v="delete">DELETE</button></div>
         </div>`;
       document.body.appendChild(el);
       this.root = el;
@@ -114,6 +121,16 @@
         const card = e.target.closest('[data-id]');
         if (!card) { if (!e.ctrlKey && !e.shiftKey) this.select([]); return; }
         this.clickSelect(card.dataset.id, e);
+      });
+      grid.addEventListener('mouseover', e => {
+        const v = e.target.closest?.('.ifs-thumb.is-video')?.querySelector('video');
+        if (v && v.paused) v.play().catch(() => {});
+      });
+      grid.addEventListener('mouseout', e => {
+        const slot = e.target.closest?.('.ifs-thumb.is-video');
+        if (!slot || slot.contains(e.relatedTarget)) return;
+        const v = slot.querySelector('video');
+        if (v) { v.pause(); try { v.currentTime = 0.5; } catch {} }
       });
       grid.addEventListener('dblclick', e => { const card = e.target.closest('[data-id]'); if (card) this.openItem(card.dataset.id); });
       grid.addEventListener('contextmenu', e => {
@@ -159,8 +176,9 @@
       this.$('.ifs-v-close').addEventListener('click', () => this.closeViewer());
       this.$('.ifs-v-bar').addEventListener('click', e => {
         const v = e.target.closest('[data-v]')?.dataset.v;
+        if (v === 'save') this.saveText();
         if (v === 'download') this.download([this.viewing]);
-        if (v === 'delete') this.remove([this.viewing]).then(ok => ok && this.closeViewer());
+        if (v === 'delete') this.remove([this.viewing]).then(ok => ok && this.closeViewer(true));
       });
       const stage = this.$('.ifs-v-stage');
       stage.addEventListener('wheel', e => {
@@ -237,19 +255,43 @@
         </button>`;
       }).join('') : '<p class="ifs-empty">THIS FOLDER IS EMPTY // DROP FILES OR FOLDERS HERE</p>';
       this.$('.ifs-count').textContent = `${list.length} ITEM${list.length === 1 ? '' : 'S'}${this.selected.size ? ` // ${this.selected.size} SELECTED` : ''}`;
-      this.loadThumbs(list.filter(isImage));
+      this.loadThumbs(list.filter(i => isImage(i) || isVideo(i)));
     },
-    async loadThumbs(images) {
-      const queue = images.slice();
-      const worker = async () => {
-        while (queue.length) {
-          const item = queue.shift();
-          const slot = this.root.querySelector(`[data-id="${CSS.escape(item.id)}"] .ifs-thumb`);
-          if (!slot) continue;
-          try { slot.innerHTML = `<img src="${await this.blobUrl(item)}" alt="" draggable="false">`; } catch {}
-        }
-      };
-      await Promise.all([worker(), worker(), worker(), worker()]);
+    // Pictures, GIFs and videos preview in their cards, loaded only when the
+    // card scrolls into view. Videos show a frame and play muted on hover.
+    loadThumbs(items) {
+      this.thumbObserver?.disconnect();
+      const byId = new Map(items.map(i => [i.id, i]));
+      this.thumbObserver = new IntersectionObserver(entries => entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        this.thumbObserver.unobserve(entry.target);
+        const item = byId.get(entry.target.closest('[data-id]')?.dataset.id);
+        if (item) this.fillThumb(entry.target, item);
+      }), { root: this.$('.ifs-grid'), rootMargin: '300px' });
+      items.forEach(item => {
+        const slot = this.root.querySelector(`[data-id="${CSS.escape(item.id)}"] .ifs-thumb`);
+        if (slot) this.thumbObserver.observe(slot);
+      });
+    },
+    async fillThumb(slot, item) {
+      try {
+        const url = await this.link(item);
+        if (isVideo(item)) {
+          slot.innerHTML = `<video src="${esc(url)}#t=0.5" muted loop playsinline preload="metadata" draggable="false"></video><i class="ifs-play">▶</i>`;
+          slot.classList.add('is-video');
+        } else slot.innerHTML = `<img src="${esc(url)}" alt="" draggable="false" decoding="async">`;
+      } catch {}
+    },
+    // Signed, expiring media URL (cached for 5 h; the server allows 6 h).
+    async link(item) {
+      this.links = this.links || new Map();
+      const hit = this.links.get(item.id);
+      if (hit && hit.until > Date.now()) return hit.url;
+      const res = await api('/' + encodeURIComponent(item.id) + '/link');
+      if (!res.ok) throw new Error('link failed');
+      const { url } = await res.json();
+      this.links.set(item.id, { url, until: Date.now() + 5 * 3600 * 1000 });
+      return url;
     },
     async blobUrl(item) {
       if (this.urls.has(item.id)) return this.urls.get(item.id);
@@ -289,6 +331,7 @@
       if (!item) return;
       if (item.kind === 'folder') return this.go(item.id);
       if (isImage(item) || isVideo(item) || isPdf(item)) return this.view(item.id);
+      if (isText(item) || maybeText(item)) return this.editText(item.id);
       this.download([item.id]);
     },
     action(act) {
@@ -297,6 +340,7 @@
         case 'up': return this.cwd && this.go(this.get(this.cwd)?.parentId || null);
         case 'sortdir': return this.setSort(this.sort.key, -this.sort.dir);
         case 'newfolder': return this.newFolder();
+        case 'newtext': return this.newText();
         case 'upfiles': return this.$('.ifs-in-files').click();
         case 'upfolder': return this.$('.ifs-in-folder').click();
         case 'open': return sel[0] && this.openItem(sel[0]);
@@ -338,7 +382,7 @@
       ] : [
         ['sort-name', `Sort by name${this.sort.key === 'name' ? '  ✓' : ''}`], ['sort-created', `Sort by date uploaded${this.sort.key === 'created' ? '  ✓' : ''}`], ['sort-modified', `Sort by date modified${this.sort.key === 'modified' ? '  ✓' : ''}`], ['sort-rating', `Sort by rating${this.sort.key === 'rating' ? '  ✓' : ''}`],
         null,
-        ['newfolder', 'New folder', 'Ctrl+Shift+N'], ['paste', 'Paste', 'Ctrl+V', !canPaste],
+        ['newfolder', 'New folder', 'Ctrl+Shift+N'], ['newtext', 'New text document'], ['paste', 'Paste', 'Ctrl+V', !canPaste],
         null,
         ['upfiles', 'Upload files…'], ['upfolder', 'Upload folder…'],
         null,
@@ -390,6 +434,18 @@
       this.items.push(item);
       this.render();
       this.select([item.id]);
+    },
+    async newText() {
+      const name = await ask('NEW TEXT DOCUMENT', 'New Text Document.txt');
+      if (!name) return;
+      const res = await api('', { method: 'POST', headers: { 'content-type': 'text/plain', 'x-file-name': encodeURIComponent(name), ...(this.cwd ? { 'x-parent-id': this.cwd } : {}) }, body: '' });
+      if (!res.ok) return this.status((await res.json().catch(() => ({}))).error || 'COULD NOT CREATE FILE', true);
+      const data = await res.json();
+      this.items.push(data.item);
+      this.usage(data.usage);
+      this.render();
+      this.select([data.item.id]);
+      this.editText(data.item.id);
     },
     async rename(id) {
       const item = this.get(id);
@@ -546,7 +602,8 @@
       for (const name of parts) {
         key += '/' + name;
         if (cache.has(key)) { parent = cache.get(key); continue; }
-        const res = await json('/folder', 'POST', { name, parentId: parent });
+        const res = await this.resilient(name, () => json('/folder', 'POST', { name, parentId: parent }));
+        if (!res) throw new Error('SERVER UNREACHABLE');
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'FOLDER FAILED');
         const { item } = await res.json();
         this.items.push(item);
@@ -555,8 +612,37 @@
       }
       return parent;
     },
+    // Busy = uploading or unsaved notepad text; app.js holds patch reloads.
+    busy() { return this.uploading > 0 || !!this.textDirty; },
+    idle() { if (!this.busy()) window.dispatchEvent(new Event('infostud:idle')); },
+    // A deploy restarts the server mid-upload: wait until it answers again
+    // (up to ~15 min), then the caller retries the same file.
+    async waitForServer() {
+      for (let i = 0; i < 300; i++) {
+        try { if ((await fetch('/health', { cache: 'no-store' })).ok) return true; } catch {}
+        await new Promise(r => setTimeout(r, 3000));
+      }
+      return false;
+    },
+    async resilient(label, fn) {
+      for (let attempt = 0; ; attempt++) {
+        let res;
+        try { res = await fn(); } catch { res = null; }
+        const restarting = !res || res.status === 502 || res.status === 503 || res.status === 504;
+        if (!restarting || attempt >= 6) return res;
+        this.status(`SERVER RESTARTING (NEW PATCH) // WILL RESUME: ${label}`);
+        if (!(await this.waitForServer())) return res;
+        if (!res) await this.refresh().catch(() => {});
+      }
+    },
+
     async uploadList(list, baseId) {
       if (!list.length) return;
+      this.uploading = (this.uploading || 0) + 1;
+      try { await this.uploadListInner(list, baseId); }
+      finally { this.uploading--; this.idle(); }
+    },
+    async uploadListInner(list, baseId) {
       const cache = new Map();
       const files = list.filter(x => x.file);
       let done = 0, failed = 0;
@@ -570,7 +656,8 @@
           const parts = rel.split('/');
           parts.pop();
           const parentId = await this.ensureFolder(baseId, parts, cache);
-          const res = await api('', { method: 'POST', headers: { 'content-type': file.type || 'application/octet-stream', 'x-file-name': encodeURIComponent(file.name), 'x-parent-id': parentId || '', 'x-last-modified': String(file.lastModified || '') }, body: file });
+          const res = await this.resilient(rel, () => api('', { method: 'POST', headers: { 'content-type': file.type || 'application/octet-stream', 'x-file-name': encodeURIComponent(file.name), 'x-parent-id': parentId || '', 'x-last-modified': String(file.lastModified || '') }, body: file }));
+          if (!res) throw new Error('SERVER UNREACHABLE');
           if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'UPLOAD FAILED');
           const data = await res.json();
           this.items.push(data.item);
@@ -594,18 +681,96 @@
       const stage = viewer.querySelector('.ifs-v-stage');
       stage.innerHTML = '<p class="ifs-loading">LOADING…</p>';
       viewer.querySelector('.ifs-v-name').textContent = item.name;
+      viewer.querySelector('[data-v="save"]').hidden = true;
       viewer.hidden = false;
       try {
-        const url = await this.blobUrl(item);
-        stage.innerHTML = isVideo(item) ? `<video src="${url}" controls autoplay playsinline></video>`
-          : isPdf(item) ? `<iframe src="${url}" title="${esc(item.name)}"></iframe>`
-          : `<img src="${url}" alt="" draggable="false">`;
+        // Videos and pictures stream from a signed link (instant start, seeking);
+        // PDFs keep the blob so the browser's PDF viewer is not sandboxed.
+        const url = isPdf(item) ? await this.blobUrl(item) : await this.link(item);
+        if (this.viewing !== id) return;
+        stage.innerHTML = isVideo(item) ? `<video src="${esc(url)}" controls autoplay playsinline></video>`
+          : isPdf(item) ? `<iframe src="${esc(url)}" title="${esc(item.name)}"></iframe>`
+          : `<img src="${esc(url)}" alt="" draggable="false">`;
         this.zoom = { s: 1, x: 0, y: 0 };
         this.applyZoom();
       } catch { stage.innerHTML = '<p class="ifs-loading">COULD NOT LOAD THIS FILE</p>'; }
     },
+    // ---------------------------------------------------------- notepad --
+    async editText(id) {
+      const item = this.get(id);
+      if (!item) return;
+      this.viewing = id;
+      this.textDirty = false;
+      const viewer = this.$('.ifs-viewer');
+      const stage = viewer.querySelector('.ifs-v-stage');
+      stage.innerHTML = '<p class="ifs-loading">LOADING…</p>';
+      viewer.querySelector('.ifs-v-name').textContent = item.name;
+      viewer.hidden = false;
+      let text;
+      try {
+        const res = await api('/' + encodeURIComponent(item.id));
+        if (!res.ok) throw new Error('load failed');
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        // Binary after all (an extension-less image, say): download it instead.
+        if (bytes.length > 5 * 1024 * 1024 || bytes.subarray(0, 8192).includes(0)) { this.closeViewer(true); return this.download([item.id]); }
+        try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+        catch { text = new TextDecoder('windows-1250').decode(bytes); }
+        text = text.replace(/^\uFEFF/, '');
+      } catch { stage.innerHTML = '<p class="ifs-loading">COULD NOT LOAD THIS FILE</p>'; return; }
+      if (this.viewing !== id) return;
+      stage.innerHTML = '<textarea class="ifs-notepad" spellcheck="false" wrap="soft"></textarea>';
+      const area = stage.querySelector('textarea');
+      area.value = text;
+      viewer.querySelector('[data-v="save"]').hidden = false;
+      area.addEventListener('input', () => this.markText(true));
+      area.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); this.saveText(); }
+        if (e.key === 'Tab') { e.preventDefault(); area.setRangeText('\t', area.selectionStart, area.selectionEnd, 'end'); this.markText(true); }
+      });
+      area.focus();
+      area.setSelectionRange(0, 0);
+    },
+    markText(dirty) {
+      this.textDirty = dirty;
+      const item = this.get(this.viewing);
+      this.$('.ifs-v-name').textContent = (dirty ? '● ' : '') + (item?.name || '');
+      this.$('[data-v="save"]').classList.toggle('is-dirty', dirty);
+      if (!dirty) this.idle();
+    },
+    async saveText() {
+      const area = this.root?.querySelector('.ifs-notepad');
+      const id = this.viewing;
+      if (!area || !id || this.textSaving) return;
+      this.textSaving = true;
+      const value = area.value;
+      try {
+        const res = await this.resilient('save', () => api('/' + encodeURIComponent(id), { method: 'PUT', headers: { 'content-type': 'text/plain; charset=utf-8' }, body: value }));
+        if (!res) throw new Error('unreachable');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return this.status(data.error || 'COULD NOT SAVE', true);
+        const item = this.get(id);
+        if (item) Object.assign(item, data.item);
+        if (this.urls.has(id)) { URL.revokeObjectURL(this.urls.get(id)); this.urls.delete(id); }
+        this.usage(data.usage);
+        if (area.value === value) this.markText(false);
+        this.render();
+        this.status('SAVED');
+      } catch { this.status('COULD NOT SAVE', true); }
+      finally { this.textSaving = false; }
+    },
     applyZoom() { const img = this.root?.querySelector('.ifs-v-stage img'); if (img) img.style.transform = `translate(${this.zoom.x}px, ${this.zoom.y}px) scale(${this.zoom.s})`; },
-    closeViewer() { const v = this.root?.querySelector('.ifs-viewer'); if (!v) return; v.querySelector('.ifs-v-stage').innerHTML = ''; v.hidden = true; this.viewing = null; }
+    closeViewer(force) {
+      const v = this.root?.querySelector('.ifs-viewer');
+      if (!v) return;
+      if (!force && this.textDirty && !window.confirm('Close without saving your changes?')) return;
+      this.textDirty = false;
+      v.querySelector('.ifs-v-stage').innerHTML = '';
+      v.querySelector('[data-v="save"]').hidden = true;
+      v.querySelector('[data-v="save"]').classList.remove('is-dirty');
+      v.hidden = true;
+      this.viewing = null;
+      this.idle();
+    }
   };
 
   window.Infostud = F;
