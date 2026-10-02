@@ -147,10 +147,16 @@
         this.unread += count;
         bridge.attention(this.unread);
       }
-      if (popup) bridge.notify({ title: truncate(popup.title, 64), body: truncate(popup.body || ''), tag: popup.tag || '', silent: this.soundMuted() });
+      // Ring once: the first popup while you are away makes a sound, every
+      // later one arrives silently until you come back to the window.
+      if (popup) {
+        bridge.notify({ title: truncate(popup.title, 64), body: truncate(popup.body || ''), tag: popup.tag || '', silent: this.soundMuted() || !!this.rang });
+        this.rang = true;
+      }
     },
 
     clear() {
+      this.rang = false;
       if (!this.unread) return;
       this.unread = 0;
       this.bridge()?.attention(0);
@@ -160,6 +166,7 @@
     // fresh page has nothing unread, so wipe whatever an earlier load left.
     resetBadge() {
       this.unread = 0;
+      this.rang = false;
       this.bridge()?.attention(0);
     },
 

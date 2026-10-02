@@ -14,7 +14,7 @@ globalThis.document = { visibilityState: 'hidden', hasFocus: () => false };
 const alerts = require('../js/asoc-alerts.js');
 assert.deepEqual(calls, [], 'requiring the helpers in Node sends nothing');
 const notifications = () => calls.filter(([kind]) => kind === 'notify').map(([, payload]) => payload);
-const reset = () => { calls.length = 0; alerts.unread = 0; };
+const reset = () => { calls.length = 0; alerts.unread = 0; alerts.rang = false; };
 
 // Mentions: full names with spaces, case-insensitive, whole-name only.
 assert.equal(alerts.mentionsName('hey @Test Subject look', 'TEST SUBJECT'), true);
@@ -155,6 +155,20 @@ alerts.threefold(tf, 'me');
 alerts.threefold(tf, 'me');
 assert.equal(notifications().length, 1, 'a re-sent IKS OKS state does not repeat the alert');
 assert.ok(!calls.some(([kind]) => kind === 'attention'));
+
+// Ring once: while away, only the first popup makes a sound; coming back
+// (clear) re-arms it.
+reset();
+alerts.clear();
+calls.length = 0;
+alerts.playerChat([{ id: 60, playerId: 'p2', playerName: 'Zed', text: '@Hero42 one' }], { selfId: 'me', selfName: 'Hero42' });
+alerts.playerChat([{ id: 61, playerId: 'p2', playerName: 'Zed', text: '@Hero42 two' }], { selfId: 'me', selfName: 'Hero42' });
+alerts.playerChat([{ id: 62, playerId: 'p2', playerName: 'Zed', text: '@Hero42 three' }], { selfId: 'me', selfName: 'Hero42' });
+assert.deepEqual(notifications().map(n => n.silent), [false, true, true], 'only the first popup rings while away');
+alerts.clear();
+calls.length = 0;
+alerts.playerChat([{ id: 63, playerId: 'p2', playerName: 'Zed', text: '@Hero42 back' }], { selfId: 'me', selfName: 'Hero42' });
+assert.equal(notifications()[0].silent, false, 'coming back re-arms the ring');
 
 // resetBadge() wipes a stale count from an earlier page load.
 reset();

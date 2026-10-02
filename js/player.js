@@ -4681,6 +4681,7 @@ const PlayerApp = {
       const newestHeld = this.chatMessages.reduce((max, m) => Math.max(max, Number(m.timestamp) || 0), -Infinity);
       const newMessages = incoming.filter(m => !previousIds.has(m.id) && Number(m.timestamp) >= newestHeld);
       window.AsocAlerts?.playerChat(newMessages, { selfId: this.playerId, selfName: this.playerName });
+      window.AsocMentions?.note(newMessages);
       followLatest = followLatest || newMessages.some(m =>
         String(m.playerId || '') === String(this.playerId || '')
       );
