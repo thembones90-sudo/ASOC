@@ -335,7 +335,7 @@ async function run() {
     assert.equal(gm.state.timer.phase, 'stopped');
     mark = gm.mark();
     gm.send({ type: 'gm:failFinal' });
-    await settle();
+    await gm.waitFor((m, i) => i >= mark && (m.type === 'error' || (m.type === 'state:public' && m.matchResult?.outcome === 'LOST')), 'GAME LOST');
     assert.deepEqual(gm.errorsSince(mark), [], 'GAME LOST remains available after a GM reveal');
     assert.equal(gm.state.matchResult?.outcome, 'LOST');
 
@@ -344,8 +344,9 @@ async function run() {
     await launchBattle();
     for (const column of ['A', 'B', 'C', 'D']) gm.send({ type: 'gm:failColumn', column });
     await settle();
+    mark = gm.mark();
     gm.send({ type: 'gm:failFinal' });
-    await settle();
+    await gm.waitFor((m, i) => i >= mark && m.type === 'state:public' && m.matchResult?.outcome === 'LOST', 'GAME LOST after failed columns');
     assert.equal(gm.state.matchResult?.outcome, 'LOST');
     assert.equal(gm.state.womf.charge, 10, 'failed columns + FINAL RED charge WOMF to 10');
     gm.send({ type: 'gm:wheelOpen', segments: [] });
