@@ -21854,3 +21854,40 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
   object-fit: contain;
 }
 :is(#game-screen#game-screen .battle-comms-lobby, #gm-panel#gm-panel #gm-chat-messages) .broker-bare .broker-media-caption { margin: 0; }
+
+/* SHADOW BROKER rows on the GM console: the whole row spans the chat and
+   hugs the right edge -- bubble, then the avatar at its top-right; the seen
+   chip sits under the bubble on the right. */
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry:has(> .shadow-broker-mirror-message) {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+}
+#gm-panel #gm-chat-messages .gm-shadow-broker-entry > .shadow-broker-mirror-message { width: auto !important; max-width: 100% !important; align-items: flex-start !important; }
+
+/* GM console on a phone: the header wraps (tabs, then clock + ONLINE), nothing
+   may push the page sideways, and chat scrolling stays inside the chat. */
+@media (max-width: 760px) {
+  html:where(:not(.asoc-mobile)), :where(html:not(.asoc-mobile)) body { overflow-x: hidden; }
+  :where(html:not(.asoc-mobile)) #gm-panel, :where(html:not(.asoc-mobile)) #gm-panel .gm-chat-panel { max-width: 100vw; overflow-x: hidden; }
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-chat-header { flex-wrap: wrap !important; row-gap: 6px; column-gap: 6px; }
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-chat-header .gm-chat-presence-wrap { margin-left: auto; }
+  :where(html:not(.asoc-mobile)) #gm-panel .gm-chat-header .gm-atomic-clock { flex: 0 0 auto; }
+  :where(html:not(.asoc-mobile)) #gm-panel #gm-chat-messages { overflow-x: hidden !important; overscroll-behavior: contain; touch-action: pan-y; }
+  :where(html:not(.asoc-mobile)) #gm-panel #gm-chat-messages > * { max-width: 100%; box-sizing: border-box; }
+}
+@media (max-width: 760px) {
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-module-chat .gm-chat-header {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-rows: 38px 34px !important;
+    row-gap: 6px !important;
+  }
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-module-chat :is(.gm-chat-tab, #gm-minigames-toggle, #gm-dm-toggle) { min-width: 0 !important; padding-inline: 4px !important; font-size: .5rem !important; }
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-module-chat .gm-atomic-clock { grid-row: 2 !important; grid-column: 1 / span 2 !important; min-width: 0 !important; }
+  :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-module-chat .gm-chat-presence-wrap { grid-row: 2 !important; grid-column: 3 !important; justify-self: end; }
+}
