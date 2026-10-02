@@ -91,15 +91,15 @@
 .ifs-card.tier-gold { --t1: #c99318; --t2: #ffe58a; --t3: #8a5f05; }
 .ifs-card.tier-platinum { --t1: #8fb7c9; --t2: #f4fbff; --t3: #2a2340; }
 /* PLATINUM: iridescent holo-foil frame + dark ribbon, unmistakable next to flat SILVER. */
-.ifs-card.is-rated.tier-platinum { background: linear-gradient(125deg, #ff9ad5, #b59bff 18%, #7fe3ff 34%, #a6ffcb 50%, #fff3a1 66%, #ff9ad5 82%, #b59bff); background-size: 300% 300%; animation: ifs-foil 6s linear infinite; box-shadow: 0 0 0 1px rgba(255, 255, 255, .6) inset, 0 0 16px rgba(160, 140, 255, .55), 0 6px 18px rgba(0, 0, 0, .55); }
+.ifs-card.is-rated.tier-platinum { background: linear-gradient(125deg, #ff9ad5, #b59bff 18%, #7fe3ff 34%, #a6ffcb 50%, #fff3a1 66%, #ff9ad5 82%, #b59bff); background-size: 160% 160%; background-position: 30% 40%; box-shadow: 0 0 0 1px rgba(255, 255, 255, .6) inset, 0 0 16px rgba(160, 140, 255, .55), 0 6px 18px rgba(0, 0, 0, .55); }
 .ifs-card.tier-platinum .ifs-ribbon { background: linear-gradient(180deg, #2c2445, #120e1d); color: transparent; background-clip: padding-box; box-shadow: 0 0 0 1px rgba(200, 180, 255, .7), 0 2px 8px rgba(120, 90, 255, .6); }
 .ifs-card.tier-platinum .ifs-ribbon::before { content: "PLATINUM"; position: absolute; inset: 3px 9px 3px 10px; background: linear-gradient(90deg, #ff9ad5, #7fe3ff, #a6ffcb, #fff3a1); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .ifs-ribbon { position: absolute; z-index: 2; top: 12px; right: -4px; padding: 3px 9px 3px 10px; border-radius: 3px 0 0 3px; background: linear-gradient(180deg, var(--t2), var(--t1)); color: #1b1108; font: 900 9.5px var(--font-machine, monospace); letter-spacing: .14em; font-style: normal; box-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
 .ifs-ribbon::after { content: ""; position: absolute; right: 0; bottom: -4px; border-top: 4px solid var(--t3); border-right: 4px solid transparent; }
 .ifs-holo { display: none; }
-.ifs-card.tier-platinum .ifs-holo { display: block; position: absolute; inset: 0; z-index: 1; border-radius: 10px; pointer-events: none; mix-blend-mode: color-dodge; opacity: .55;
+.ifs-card.tier-platinum .ifs-holo { display: block; position: absolute; inset: 0; z-index: 1; border-radius: 10px; pointer-events: none; mix-blend-mode: color-dodge;
   background: linear-gradient(115deg, transparent 20%, rgba(255, 120, 220, .55) 32%, rgba(120, 220, 255, .55) 42%, rgba(160, 255, 170, .5) 52%, rgba(255, 240, 140, .5) 62%, transparent 75%);
-  background-size: 250% 250%; animation: ifs-holo 3.2s linear infinite; }
+  background-size: 250% 250%; background-position: 60% 60%; opacity: .3; }
 .ifs-card.tier-gold .ifs-thumb::after { content: ""; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 40%, rgba(255, 255, 255, .35) 50%, transparent 60%); background-size: 300% 100%; animation: ifs-shine 3.6s ease-in-out infinite; pointer-events: none; }
 /* ICONIC: obsidian card, a crimson fuse burning around the edge, a slow
    blood-red heartbeat glow, shadow vignette and embers rising on hover. */
@@ -127,8 +127,6 @@
 @keyframes ifs-iconic-beat { 0%, 100% { box-shadow: inset 0 0 0 1px rgba(201, 162, 74, .55), 0 0 14px rgba(196, 16, 43, .35), 0 8px 22px rgba(0, 0, 0, .7); } 50% { box-shadow: inset 0 0 0 1px rgba(201, 162, 74, .7), 0 0 30px rgba(255, 42, 61, .7), 0 8px 22px rgba(0, 0, 0, .7); } }
 @keyframes ifs-ember { 0% { transform: translate(0, 0) scale(1); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(var(--dx, 6px), -150px) scale(.3); opacity: 0; } }
 .ifs-embers i:nth-child(odd) { --dx: -8px; }
-@keyframes ifs-foil { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
-@keyframes ifs-holo { from { background-position: 0% 0%; } to { background-position: 250% 250%; } }
 @keyframes ifs-shine { 0%, 60% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
 @media (prefers-reduced-motion: reduce) { .ifs-holo, .ifs-card.tier-gold .ifs-thumb::after, .ifs-card.is-rated.tier-platinum, .ifs-card.is-rated.tier-iconic, .ifs-card.is-rated.tier-iconic::before, .ifs-embers i { animation: none !important; } }
 .ifs-v-stage .ifs-notepad { width: min(1100px, 94vw); height: 82vh; box-sizing: border-box; resize: none; padding: 18px 22px; border: 1px solid rgba(155, 93, 224, .35); border-radius: 10px; outline: none; background: #0e0b14; color: #ece2fa; font: 15px/1.6 Consolas, 'Cascadia Mono', 'Courier New', monospace; tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; }
