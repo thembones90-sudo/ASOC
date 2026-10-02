@@ -1,0 +1,26 @@
+/* COIN DROP -- Warcraft-tier Shadow Coin that flashes onto the board. */
+.coin-drop { position: fixed; z-index: 11900; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 4px; padding: 6px; border: 0; background: none; cursor: pointer; animation: cd-life var(--cd-life, 5s) linear forwards; -webkit-tap-highlight-color: transparent; }
+.coin-drop .cd-coin { position: relative; width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #fff8d6 0 8%, color-mix(in srgb, var(--cd-color) 55%, #f3c24a) 22%, color-mix(in srgb, var(--cd-color) 40%, #a8741c) 62%, color-mix(in srgb, var(--cd-color) 30%, #4a3008) 100%); box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--cd-color) 70%, #fff3b0), inset 0 -6px 10px rgba(0, 0, 0, .35), 0 0 18px color-mix(in srgb, var(--cd-color) 80%, transparent), 0 0 42px color-mix(in srgb, var(--cd-color) 45%, transparent); animation: cd-pop .28s cubic-bezier(.2, 1.6, .4, 1) both, cd-spin 1.6s linear .28s infinite; }
+.coin-drop .cd-face { font: 900 19px/1 var(--font-machine, monospace); letter-spacing: .02em; color: rgba(40, 24, 2, .78); text-shadow: 0 1px 0 rgba(255, 255, 255, .55); }
+.coin-drop .cd-tier { padding: 2px 7px; border-radius: 4px; background: rgba(6, 4, 10, .78); color: var(--cd-color); font: 900 10px var(--font-machine, monospace); letter-spacing: .18em; text-shadow: 0 0 6px color-mix(in srgb, var(--cd-color) 70%, transparent); }
+.coin-drop:hover .cd-coin { filter: brightness(1.15); }
+.coin-drop.tier-poor .cd-coin { filter: saturate(.25); }
+.coin-drop.tier-legendary .cd-coin { width: 86px; height: 86px; }
+.coin-drop.tier-legendary .cd-face { font-size: 26px; }
+.coin-drop .cd-rays { position: absolute; left: 50%; top: 49px; width: 190px; height: 190px; margin: -95px 0 0 -95px; border-radius: 50%; pointer-events: none; background: repeating-conic-gradient(from 0deg, rgba(255, 128, 0, .55) 0 7deg, transparent 7deg 22deg); -webkit-mask: radial-gradient(circle, #000 25%, transparent 70%); mask: radial-gradient(circle, #000 25%, transparent 70%); animation: cd-rays 4s linear infinite; }
+.coin-drop .cd-tag { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 3px 9px; border-radius: 5px; background: rgba(6, 4, 10, .88); color: #f1e6ff; font: 900 11px var(--font-machine, monospace); letter-spacing: .12em; }
+.coin-drop .cd-tag.is-amount { color: var(--cd-color); font-size: 18px; text-shadow: 0 0 10px var(--cd-color); animation: cd-rise 1.6s ease-out forwards; }
+.coin-drop.is-pending { pointer-events: none; }
+.coin-drop.is-won, .coin-drop.is-snatched { animation: none; }
+.coin-drop.is-won .cd-coin { animation: cd-catch .6s ease-in forwards; }
+.coin-drop.is-snatched .cd-coin { animation: cd-snatch .5s ease-in forwards; }
+.coin-drop.is-gone { animation: cd-fade .35s ease-in forwards; }
+@keyframes cd-pop { from { transform: scale(0) rotate(-40deg); } to { transform: scale(1) rotate(0); } }
+@keyframes cd-spin { 0% { transform: rotateY(0); } 100% { transform: rotateY(360deg); } }
+@keyframes cd-life { 0%, 70% { opacity: 1; scale: 1; } 100% { opacity: .15; scale: .55; } }
+@keyframes cd-rays { to { transform: rotate(360deg); } }
+@keyframes cd-catch { to { transform: translateY(-60px) scale(.2); opacity: 0; } }
+@keyframes cd-snatch { to { transform: scale(0) rotate(90deg); opacity: 0; } }
+@keyframes cd-fade { to { opacity: 0; scale: .4; } }
+@keyframes cd-rise { from { transform: translate(-50%, 6px); opacity: 0; } 20% { opacity: 1; } to { transform: translate(-50%, -22px); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .coin-drop .cd-coin, .coin-drop .cd-rays { animation: none !important; } }

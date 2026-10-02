@@ -125,6 +125,7 @@ const PROTOCOL_VERSION = 1;
 // Broker's own forge settings. Nothing here may touch game logic.
 const transmogCatalog = require('./js/broker-transmog-catalog');
 const heroRoles = require('./hero-roles');
+const coinDrops = require('./coin-drops');
 const DEFAULT_BROKER_PROFILE = Object.freeze(transmogCatalog.resolveProfile(transmogCatalog.DEFAULT_ID));
 const LEGACY_DEFAULT_AVATAR = 'assets/ui/shadow-broker.png';
 function normalizeBrokerProfile(input) {
@@ -7092,6 +7093,15 @@ function dispatchGmSlashCommand(room, ws, text) {
     return { success: true, broadcast: false };
   }
 
+  // /coindrop [poor|common|uncommon|rare|epic|legendary] -- drop one now.
+  if (/^\/coindrop\b/i.test(raw)) {
+    const kind = (raw.split(/\s+/)[1] || 'normal').toLowerCase();
+    if (kind !== 'normal' && kind !== 'legendary' && !coinDrops.TIERS.some(t => t.id === kind)) return { success: false, error: 'COINDROP INVALID // USE /coindrop [poor|common|uncommon|rare|epic|legendary]' };
+    const drop = spawnCoinDrop(kind, { manual: true });
+    if (!drop) return { success: false, error: 'A COIN IS ALREADY ON THE BOARD' };
+    return { success: true, broadcast: false };
+  }
+
   // /infostud is handled on the console itself; never let it reach the chat.
   if (/^\/infostud\b/i.test(raw)) return { success: true, broadcast: false };
 
@@ -7294,6 +7304,94 @@ function heroRolesCommit(room, lines = []) {
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastPlayersUpdate(room);
 }
+// COIN DROPS -- see coin-drops.js. One live coin at a time, shown to every
+// Little Hero in every room; the first valid click wins it.
+const COIN_DROPS_FILE = path.join(ASOC_DATA_DIR, 'coin-drops.json');
+let coinDropState = (() => { try { return coinDrops.normalize(JSON.parse(fs.readFileSync(COIN_DROPS_FILE, 'utf8'))); } catch { return coinDrops.blankState(); } })();
+let activeCoinDrop = null;
+function saveCoinDrops() {
+  try {
+    const tmp = `${COIN_DROPS_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(coinDropState));
+    fs.renameSync(tmp, COIN_DROPS_FILE);
+  } catch (error) { console.error('[coin-drops] save failed:', error.message); }
+}
+function broadcastAllRooms(message) { rooms.forEach(room => broadcastToRoom(room, message)); }
+function spawnCoinDrop(kind = 'normal', { manual = false } = {}) {
+  if (activeCoinDrop && !activeCoinDrop.settled) return null;
+  const rolled = coinDrops.roll(kind);
+  const now = Date.now();
+  const drop = {
+    id: 'coin-' + crypto.randomBytes(6).toString('hex'),
+    ...rolled,
+    // Where it appears: a share of the board (client maps it onto the board).
+    x: Math.round((0.08 + Math.random() * 0.84) * 1000) / 1000,
+    y: Math.round((0.1 + Math.random() * 0.8) * 1000) / 1000,
+    spawnedAt: now,
+    expiresAt: now + coinDrops.VISIBLE_MS,
+    claimedBy: null,
+    settled: false,
+    manual
+  };
+  activeCoinDrop = drop;
+  // The amount stays secret until someone catches it; the colour tells the tier.
+  broadcastAllRooms({ type: 'coinDrop:spawn', drop: { id: drop.id, tier: drop.tier, label: drop.label, x: drop.x, y: drop.y, durationMs: coinDrops.VISIBLE_MS } });
+  setTimeout(() => {
+    if (activeCoinDrop !== drop || drop.claimedBy) return;
+    drop.settled = true;
+    broadcastAllRooms({ type: 'coinDrop:gone', id: drop.id });
+    coinDropState.history.push({ id: drop.id, tier: drop.tier, amount: drop.amount, at: drop.spawnedAt, claimedBy: null, manual });
+    coinDropState.history = coinDropState.history.slice(-coinDrops.HISTORY_LIMIT);
+    saveCoinDrops();
+  }, coinDrops.VISIBLE_MS + coinDrops.CLAIM_GRACE_MS + 50);
+  console.log(`[coin-drops] ${drop.label} coin (${drop.amount} SC)${manual ? ' // manual' : ''}`);
+  return drop;
+}
+function coinDropTick() {
+  try {
+    const now = Date.now();
+    if (coinDrops.plan(coinDropState, now)) saveCoinDrops();
+    const next = coinDrops.due(coinDropState, now);
+    if (!next) return;
+    if (activeCoinDrop && !activeCoinDrop.settled) return;
+    next.done = true;
+    saveCoinDrops();
+    spawnCoinDrop(next.kind);
+  } catch (error) { console.error('[coin-drops] tick failed:', error.message); }
+}
+if (process.env.ASOC_COIN_DROPS !== '0') setInterval(coinDropTick, 5000).unref?.();
+function handleCoinDropClaim(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  const reply = (ok, extra) => sendToWs(ws, { type: 'coinDrop:result', id: String(message.id || ''), ok, ...extra });
+  const player = room?.players.get(ws);
+  if (!room || !player || ws === room.hostConnection || player.isTestPersona === true || isMasterTestPlayerId(player.id) || String(player.id) !== String(ws.playerId)) return reply(false, { reason: 'NOT A LITTLE HERO' });
+  const drop = activeCoinDrop;
+  const now = Date.now();
+  if (!drop || drop.id !== String(message.id || '')) return reply(false, { reason: 'GONE' });
+  if (drop.claimedBy) return reply(false, { reason: 'SNATCHED', by: drop.claimedBy.name });
+  if (now - drop.spawnedAt < coinDrops.MIN_REACTION_MS) return reply(false, { reason: 'TOO FAST' });
+  if (now > drop.expiresAt + coinDrops.CLAIM_GRACE_MS) return reply(false, { reason: 'GONE' });
+  // Claimed synchronously: the first message the server processes wins.
+  drop.claimedBy = { id: String(player.id), name: player.name };
+  const award = playerStore.awardShadowCoins({ id: String(player.id), name: player.name }, drop.amount, `coindrop:${drop.id}`, { reason: `${drop.label} coin drop` });
+  if (!award.ok) {
+    drop.claimedBy = null;
+    console.error('[coin-drops] award failed:', award.error);
+    return reply(false, { reason: 'TRY AGAIN' });
+  }
+  drop.settled = true;
+  reply(true, { amount: drop.amount, tier: drop.tier, balance: award.balance });
+  broadcastAllRooms({ type: 'coinDrop:claimed', id: drop.id, tier: drop.tier, label: drop.label, amount: drop.amount, playerId: String(player.id), playerName: player.name });
+  coinDropState.history.push({ id: drop.id, tier: drop.tier, amount: drop.amount, at: drop.spawnedAt, claimedBy: drop.claimedBy, claimedAt: now, manual: drop.manual });
+  coinDropState.history = coinDropState.history.slice(-coinDrops.HISTORY_LIMIT);
+  saveCoinDrops();
+  rooms.forEach(r => {
+    addShadowBrokerMessage(r, `🪙 ${player.name} SNATCHED ${/^[AEIOU]/.test(drop.label) ? 'AN' : 'A'} ${drop.label} SHADOW COIN // +${drop.amount} SC`, { editableByHost: false });
+    broadcastChatUpdate(r);
+  });
+  broadcastPlayersUpdate(room);
+}
+
 function handleHeroRole(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) return;
@@ -12017,6 +12115,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:command': {
           handleHostCommand(ws, message);
+          break;
+        }
+        case 'coinDrop:claim': {
+          handleCoinDropClaim(ws, message);
           break;
         }
         case 'gm:heroRoles':

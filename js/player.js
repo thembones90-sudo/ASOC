@@ -1547,6 +1547,13 @@ const PlayerApp = {
         window.WarsongAlert?.onMessage(message);
         break;
 
+      case 'coinDrop:spawn':
+      case 'coinDrop:claimed':
+      case 'coinDrop:gone':
+      case 'coinDrop:result':
+        window.CoinDrop?.onMessage?.(message);
+        break;
+
       case 'c4:alert':
         window.C4Alert?.onMessage(message);
         break;
