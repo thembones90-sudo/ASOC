@@ -454,4 +454,4 @@ button.rage-term:hover .rage-term-cta { background: linear-gradient(180deg, #d01
 .rage-term label { gap: 12px; font-size: 13px; letter-spacing: .18em; }
 .rage-term input { width: 84px; height: 42px; font-size: 18px; border-radius: 10px; }
 .rage-note { margin-top: 2px; padding: 12px 16px; border: 1px dashed rgba(200, 40, 60, .3); border-radius: 10px; color: #b39ea8; font: 500 14px/1.45 var(--font-human, 'Segoe UI', system-ui, sans-serif); text-align: center; letter-spacing: 0; }
-@media (max-width: 760px) { .rage-terms { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { :where(html:not(.asoc-mobile)) .rage-terms { grid-template-columns: 1fr; } }
