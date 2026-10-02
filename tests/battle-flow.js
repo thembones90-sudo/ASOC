@@ -107,9 +107,7 @@ async function launchBattle() {
   gm.send({ type: 'gm:timerLaunchCountdown' });
   await settle(200);
   gm.send({ type: 'gm:timerStart' });
-  await settle();
-  assert.equal(gm.state.roomMode, 'BATTLE');
-  assert.equal(gm.state.timer.phase, 'running');
+  await until(s => s.roomMode === 'BATTLE' && s.timer.phase === 'running', 'battle running');
 }
 
 async function nextGame() {
@@ -158,7 +156,7 @@ async function run() {
     await settle();
 
     gm.send({ type: 'gm:setRoomMode', mode: 'BATTLE' });
-    await settle();
+    await until(s => s.roomMode === 'BATTLE_ARMED' && gm.ritual?.active, 'ABUSE arms the room');
     assert.equal(gm.state.roomMode, 'BATTLE_ARMED', 'ABUSE arms the room');
     assert.equal(gm.ritual?.active, true, 'ABUSE opens the Summon Ritual');
 
@@ -170,7 +168,7 @@ async function run() {
     await gm.waitFor(m => m.type === 'ritual:gmUpdate' && m.ritual?.joinedCount === 4, 'vote dropped to 4/5');
     let mark = gm.mark();
     gm.send({ type: 'gm:timerStart' });
-    await settle();
+    await until(s => s.roomMode === 'BATTLE' || gm.errorsSince(mark).length, 'launch result');
     assert.deepEqual(gm.errorsSince(mark), [], 'launch accepted at 5/5 still starts after a voter drops');
     assert.equal(gm.state.roomMode, 'BATTLE');
     players[4] = await joinPlayer(4);
@@ -245,15 +243,12 @@ async function run() {
     const winsBefore = await gamesWon();
     const misclick = await guess(players[3], 'FINAL MISCLICK');
     gm.send({ type: 'gm:judgeGuess', messageId: misclick.id, verdict: 'correct', target: 'FINAL', reveal: true });
-    await settle();
-    assert.equal(gm.state.finalSolution.revealed, true);
-    assert.equal(gm.state.timer.phase, 'stopped', 'a solved FINAL stops the clock');
+    await until(s => s.finalSolution.revealed === true && s.timer.phase === 'stopped', 'a solved FINAL stops the clock');
     const winsCredited = await gamesWon();
     assert.equal(winsCredited['Flow Hero 1'], (winsBefore['Flow Hero 1'] || 0) + 1, 'FINAL GREEN credits a lifetime win');
     gm.send({ type: 'gm:judgeGuess', messageId: misclick.id, verdict: 'wrong' });
-    await settle();
-    assert.equal(gm.state.finalSolution.revealed, false, 'undo re-hides the Final answer');
-    assert.equal(gm.state.timer.phase, 'running', 'undo resumes the clock');
+    await until(s => s.finalSolution.revealed === false, 'undo re-hides the Final answer');
+    await until(s => s.timer.phase === 'running', 'undo resumes the clock');
     assert.deepEqual(await gamesWon(), winsBefore, 'undo reverses the lifetime win');
     mark = gm.mark();
     gm.send({ type: 'gm:solutionCountdown', target: 'FINAL', seconds: 60 });
@@ -320,19 +315,16 @@ async function run() {
 
     // 5. REVEAL ALL mid-battle stops the clock, HIDE resumes it, GAME LOST stays available.
     command('revealAll');
-    await settle();
-    assert.equal(gm.state.timer.phase, 'stopped', 'REVEAL ALL mid-battle stops the clock');
+    await until(s => s.timer.phase === 'stopped', 'REVEAL ALL mid-battle stops the clock');
     command('hideFinal');
-    await settle();
-    assert.equal(gm.state.timer.phase, 'running', 'hiding a GM-revealed Final resumes play');
+    await until(s => s.timer.phase === 'running', 'hiding a GM-revealed Final resumes play');
     // Across a full timer tick: A5-D5 are only visible through the GM's
     // administrative REVEAL ALL, which is not gameplay, so no Borrowed Time.
     await sleep(1300);
     assert.equal(gm.state.timer.phase, 'running', 'an administrative REVEAL ALL never manufactures Borrowed Time');
     assert.ok(!gm.chat.some(m => /ALL COLUMNS OPEN/.test(m.text || '')), 'no ALL COLUMNS OPEN announcement from a GM reveal');
     command('revealFinal');
-    await settle();
-    assert.equal(gm.state.timer.phase, 'stopped');
+    await until(s => s.timer.phase === 'stopped', 'REVEAL FINAL stops the clock');
     mark = gm.mark();
     gm.send({ type: 'gm:failFinal' });
     await gm.waitFor((m, i) => i >= mark && (m.type === 'error' || (m.type === 'state:public' && m.matchResult?.outcome === 'LOST')), 'GAME LOST');
@@ -346,7 +338,7 @@ async function run() {
     await settle();
     mark = gm.mark();
     gm.send({ type: 'gm:failFinal' });
-    await gm.waitFor((m, i) => i >= mark && m.type === 'state:public' && m.matchResult?.outcome === 'LOST', 'GAME LOST after failed columns');
+    await until(s => s.matchResult?.outcome === 'LOST' && s.womf.charge === 10, 'GAME LOST with WOMF charged');
     assert.equal(gm.state.matchResult?.outcome, 'LOST');
     assert.equal(gm.state.womf.charge, 10, 'failed columns + FINAL RED charge WOMF to 10');
     gm.send({ type: 'gm:wheelOpen', segments: [] });
@@ -356,11 +348,10 @@ async function run() {
     gm.send({ type: 'gm:finishGame' });
     await settle();
     gm.send({ type: 'gm:showRecount' });
-    await settle();
-    assert.equal(gm.state.roomMode, 'RECOUNT');
+    await until(s => s.roomMode === 'RECOUNT', 'RECOUNT');
     mark = gm.mark();
     gm.send({ type: 'gm:wheelClose' });
-    await settle();
+    await until(s => s.wheel.open === false || gm.errorsSince(mark).length, 'the Wheel closes');
     assert.deepEqual(gm.errorsSince(mark), [], 'the Wheel is dismissible during RECOUNT');
     assert.equal(gm.state.wheel.open, false, 'the Wheel leaves every screen');
     assert.equal(gm.state.bloodTribute?.status, 'required', 'the Blood Tribute is demanded');
