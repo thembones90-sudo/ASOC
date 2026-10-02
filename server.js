@@ -309,10 +309,15 @@ try {
 // Emergency switch: ASOC_INFOSTUD_PURGE_ON_BOOT=1 empties the hidden
 // INFOSTUD storage before anything else touches the disk -- the way back
 // from a volume filled to 100% (ENOSPC crash loop). Remove the variable after.
-if (process.env.ASOC_INFOSTUD_PURGE_ON_BOOT === '1') {
+// It also fires on its own when the volume boots almost full (< 64 MB free),
+// so a disk filled by uploads can never crash-loop the site again.
+let bootDiskFree = Infinity;
+try { const st = fs.statfsSync(ASOC_DATA_DIR); bootDiskFree = Number(st.bavail) * Number(st.bsize); } catch {}
+console.log(`[boot] data dir ${ASOC_DATA_DIR} free: ${Number.isFinite(bootDiskFree) ? Math.round(bootDiskFree / 1048576) + ' MB' : 'unknown'}`);
+if (process.env.ASOC_INFOSTUD_PURGE_ON_BOOT === '1' || bootDiskFree < 64 * 1024 * 1024) {
   try {
     fs.rmSync(path.join(ASOC_DATA_DIR, 'infostud'), { recursive: true, force: true });
-    console.warn('[infostud] PURGED ON BOOT (ASOC_INFOSTUD_PURGE_ON_BOOT=1) -- remove the variable now');
+    console.warn('[infostud] PURGED ON BOOT (disk full or ASOC_INFOSTUD_PURGE_ON_BOOT=1)');
   } catch (error) { console.error('[infostud] purge on boot failed:', error.message); }
 }
 function assertDataDirectoryWritable(dataDir) {
