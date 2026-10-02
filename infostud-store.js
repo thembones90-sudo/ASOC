@@ -2,7 +2,9 @@
 // INFOSTUD -- the Shadow Broker's hidden personal file storage: any file
 // type, nested folders, rename / move / copy / delete, folder ZIP download.
 // Files live in <data>/infostud/<id>.bin (v1 uploads keep <id>.<ext>) with a
-// small index.json describing the tree. Never served statically: every read
+// small index.json describing the tree -- or, when an R2 client is passed,
+// in the R2 bucket (files/<id> + index.json), off the game volume entirely;
+// the local index.json is then only a cache. Never served statically: every read
 // goes through the GM-authenticated /api/infostud routes in server.js.
 const fs = require('fs');
 const path = require('path');
@@ -12,13 +14,14 @@ const MAX_NAME = 180;
 // Panini-style sticker tiers, lowest to highest.
 const RATINGS = Object.freeze(['bronze', 'silver', 'gold', 'platinum']);
 
-function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 * 1024 * 1024 }) {
+function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 * 1024 * 1024, remote = null }) {
   const dir = path.join(dataDir, 'infostud');
   const indexFile = path.join(dir, 'index.json');
   fs.mkdirSync(dir, { recursive: true });
   // Real free space on the data volume, minus a reserve the game itself
   // needs (save files, chat uploads). Infostud never eats into the reserve.
   const diskRoom = () => {
+    if (remote) return Infinity;
     try {
       if (typeof fs.statfsSync !== 'function') return Infinity;
       const st = fs.statfsSync(dir);
@@ -46,10 +49,32 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
     index.items = (Array.isArray(index.items) ? index.items : []).map(migrate);
     return index;
   };
+  // With R2 the bucket copy of the index is the truth; writes are coalesced
+  // so a burst of changes uploads only the latest tree.
+  let remoteDirty = false;
+  let remoteFlush = null;
+  const flushRemote = () => {
+    if (remoteFlush) return remoteFlush;
+    remoteFlush = (async () => {
+      while (remoteDirty) {
+        remoteDirty = false;
+        try { await remote.putBuffer('index.json', Buffer.from(JSON.stringify(index)), 'application/json'); }
+        catch (error) { console.error('[infostud] R2 index write failed:', error.message); }
+      }
+      remoteFlush = null;
+    })();
+    return remoteFlush;
+  };
   const save = () => {
-    const tmp = indexFile + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(index));
-    fs.renameSync(tmp, indexFile);
+    try {
+      const tmp = indexFile + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(index));
+      fs.renameSync(tmp, indexFile);
+    } catch (error) {
+      if (!remote) throw error;
+      console.error('[infostud] local index cache write failed:', error.message);
+    }
+    if (remote) { remoteDirty = true; flushRemote(); }
   };
   const all = () => load().items;
   const get = id => all().find(item => item.id === String(id)) || null;
@@ -62,6 +87,11 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
   };
   const totalBytes = () => all().reduce((sum, item) => sum + (item.kind === 'file' ? item.size : 0), 0);
   const fileOf = item => path.join(dir, item.ext ? `${item.id}.${item.ext}` : `${item.id}.bin`);
+  const keyOf = item => `files/${item.id}`;
+  const dropBlob = item => {
+    if (remote) remote.remove(keyOf(item)).catch(error => console.error('[infostud] R2 delete failed:', error.message));
+    else fs.rm(fileOf(item), { force: true }, () => {});
+  };
   const newId = () => crypto.randomBytes(12).toString('hex');
   const err = (message, status) => Object.assign(new Error(message), { status });
 
@@ -88,6 +118,25 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
   };
 
   return {
+    storage: remote ? 'r2' : 'disk',
+    // Loads the tree from R2 (when used) before the first request.
+    async init() {
+      if (!remote) return;
+      const buf = await remote.getBuffer('index.json');
+      if (buf) {
+        index = null;
+        try { index = JSON.parse(buf.toString('utf8')); } catch { index = { items: [] }; }
+        index.items = (Array.isArray(index.items) ? index.items : []).map(migrate);
+        try { fs.writeFileSync(indexFile, JSON.stringify(index)); } catch {}
+      } else {
+        // Fresh bucket: files that only exist on the local disk cannot follow.
+        index = { items: [] };
+        save();
+      }
+    },
+    flush() { return remote ? (remoteFlush || Promise.resolve()) : Promise.resolve(); },
+    // Readable stream of a file's bytes.
+    async open(item) { return remote ? remote.get(keyOf(item)) : fs.createReadStream(fileOf(item)); },
     list() { return all().slice(); },
     usage() {
       const used = totalBytes();
@@ -124,6 +173,24 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
         type: /^[\w.+-]+\/[\w.+-]+$/.test(String(type || '')) ? String(type).toLowerCase() : 'application/octet-stream',
         ext: null, size: 0, createdAt: now, modifiedAt: Number.isFinite(modified) && modified > 0 && modified <= now + 60000 ? modified : now
       };
+      const commit = size => {
+        item.size = size;
+        item.name = uniqueName(pid, item.name);
+        all().push(item);
+        touch(pid);
+        save();
+        cb(null, item);
+      };
+      if (remote) {
+        // R2 needs the length up front; browsers always send it for a file.
+        if (!declared) { req.resume(); return cb(err('LENGTH REQUIRED', 411)); }
+        remote.put(keyOf(item), req, declared, item.type).then(() => commit(declared), error => {
+          req.resume();
+          remote.remove(keyOf(item)).catch(() => {});
+          cb(error.status ? error : err('UPLOAD FAILED', 502));
+        });
+        return;
+      }
       const target = fileOf(item);
       const out = fs.createWriteStream(target, { flags: 'wx' });
       let size = 0;
@@ -145,12 +212,7 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
       out.on('error', fail);
       out.on('finish', () => {
         if (failed) return;
-        item.size = size;
-        item.name = uniqueName(pid, item.name);
-        all().push(item);
-        touch(pid);
-        save();
-        cb(null, item);
+        commit(size);
       });
       req.pipe(out);
     },
@@ -180,7 +242,7 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
     },
 
     // Copy a file or a whole folder tree into parentId.
-    copy(id, { parentId }) {
+    async copy(id, { parentId }) {
       const source = get(id);
       if (!source) throw err('NOT FOUND', 404);
       const pid = checkParent(parentId);
@@ -188,14 +250,24 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
       const bytes = source.kind === 'file' ? source.size : descendants(source.id).reduce((s, d) => s + (d.kind === 'file' ? d.size : 0), 0);
       if (bytes > Math.min(maxTotalBytes - totalBytes(), diskRoom())) throw err('INFOSTUD IS FULL', 507);
       const now = Date.now();
-      const clone = (src, intoId, rename) => {
+      // Blobs are copied first; the tree only changes once they all exist.
+      const added = [];
+      const clone = async (src, intoId, rename) => {
         const copy = { ...src, id: newId(), parentId: intoId, ext: null, createdAt: now, name: rename ? uniqueName(intoId, src.name) : src.name };
-        if (src.kind === 'file') fs.copyFileSync(fileOf(src), fileOf(copy));
-        all().push(copy);
-        if (src.kind === 'folder') children(src.id).forEach(child => clone(child, copy.id, false));
+        if (src.kind === 'file') {
+          if (remote) await remote.copy(keyOf(src), keyOf(copy));
+          else fs.copyFileSync(fileOf(src), fileOf(copy));
+        }
+        added.push(copy);
+        if (src.kind === 'folder') for (const child of children(src.id)) await clone(child, copy.id, false);
         return copy;
       };
-      const result = clone(source, pid, true);
+      let result;
+      try { result = await clone(source, pid, true); } catch (error) {
+        added.filter(a => a.kind === 'file').forEach(dropBlob);
+        throw error.status ? error : err('COPY FAILED', 502);
+      }
+      all().push(...added);
       touch(pid);
       save();
       return result;
@@ -207,7 +279,7 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
       const count = all().length;
       index.items = [];
       save();
-      files.forEach(f => fs.rm(fileOf(f), { force: true }, () => {}));
+      files.forEach(dropBlob);
       return count;
     },
 
@@ -219,7 +291,7 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
       index.items = all().filter(i => !ids.has(i.id));
       touch(item.parentId);
       save();
-      doomed.filter(d => d.kind === 'file').forEach(d => fs.rm(fileOf(d), { force: true }, () => {}));
+      doomed.filter(d => d.kind === 'file').forEach(dropBlob);
       return true;
     },
 
@@ -250,7 +322,7 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
         let crc = 0, size = 0;
         if (!entry.dir) {
           crc = ~0 >>> 0;
-          for await (const chunk of fs.createReadStream(fileOf(entry.item))) {
+          for await (const chunk of await this.open(entry.item)) {
             crc = crc32(chunk, crc);
             size += chunk.length;
             await write(chunk);
