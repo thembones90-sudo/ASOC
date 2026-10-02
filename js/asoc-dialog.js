@@ -17,7 +17,9 @@
       maxLength = 0,
       required = false,
       confirmLabel = 'CONFIRM',
-      validate = null
+      validate = null,
+      selectEnd = null,   // select only [0, selectEnd) -- e.g. a file name without its extension
+      confirmOnly = false // yes/no question, no text field (resolves true / null)
     } = options;
 
     return new Promise(resolve => {
@@ -48,6 +50,7 @@
       overlay.querySelector('.asoc-dialog-confirm').textContent = confirmLabel;
       messageEl.textContent = message;
       messageEl.hidden = !message;
+      if (confirmOnly) { input.hidden = true; countEl.hidden = true; }
       input.value = String(value ?? '');
       input.placeholder = placeholder;
       if (maxLength > 0) input.maxLength = maxLength;
@@ -68,6 +71,13 @@
       };
 
       const onKeydown = event => {
+        // Enter answers a yes/no question even if a page hotkey would eat it.
+        if (confirmOnly && event.key === 'Enter' && !event.target?.classList?.contains('asoc-dialog-cancel')) {
+          event.preventDefault();
+          event.stopPropagation();
+          close(true);
+          return;
+        }
         if (event.key === 'Escape') {
           event.preventDefault();
           event.stopPropagation();
@@ -77,6 +87,7 @@
 
       form.addEventListener('submit', event => {
         event.preventDefault();
+        if (confirmOnly) return close(true);
         const clean = input.value.trim();
         let error = '';
         if (required && !clean) error = 'A value is required.';
@@ -115,11 +126,20 @@
       requestAnimationFrame(() => {
         input.disabled = false;
         input.readOnly = false;
+        if (confirmOnly) { overlay.querySelector('.asoc-dialog-confirm').focus({ preventScroll: true }); return; }
         input.focus({ preventScroll: true });
-        input.select();
+        if (Number.isInteger(selectEnd) && selectEnd > 0) input.setSelectionRange(0, selectEnd);
+        else input.select();
       });
     });
   }
 
-  window.AsocDialog = { prompt };
+  // In-page replacement for window.confirm(). A native confirm() in the
+  // Electron desktop app leaves text fields unable to take typing until the
+  // window is refocused, so GM surfaces use this instead. Resolves true/false.
+  function confirm(options = {}) {
+    return prompt({ title: 'ARE YOU SURE?', confirmLabel: 'OK', ...options, confirmOnly: true }).then(result => result === true);
+  }
+
+  window.AsocDialog = { prompt, confirm };
 })();
