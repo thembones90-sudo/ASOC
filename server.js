@@ -745,6 +745,8 @@ function restoreActiveRooms() {
       console.log(`[recovery] Restored room ${room.code} (game: ${room.gameId})`);
     }
 
+    // Tributes received before the Reliquary copy existed catch up now.
+    setImmediate(() => rooms.forEach(room => mirrorTributesToInfostud(room)));
     return restored;
   } catch (error) {
     console.error('[recovery] Failed to restore active rooms:', error.message);
@@ -1678,7 +1680,48 @@ function handleReliquaryAccess(ws, payload) {
   if (granted) sendTributeVaultToHost(room);
 }
 
+// Every Blood Tribute image (chat-marked, ritual, Wheel, Black Market) is
+// also copied into the INFOSTUD root folder "Reliquary" (created if absent).
+// tribute.infostudId marks it as copied, so each lands there exactly once
+// and deleting it from INFOSTUD or purging the vault never brings it back.
+const tributeMirrorPending = new Set();
+function tributeImageBytes(tribute) {
+  const data = /^data:(image\/[\w.+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(tribute?.imageData || ''));
+  if (data) return { type: data[1], buffer: Buffer.from(data[2], 'base64') };
+  const file = /^\/uploads\/chat\/([a-f0-9]{32}\.(png|jpg|webp|gif))$/i.exec(String(tribute?.imageUrlOrStoragePath || ''));
+  if (!file) return null;
+  try {
+    return { type: mimeTypes['.' + file[2].toLowerCase()] || 'application/octet-stream', buffer: fs.readFileSync(path.join(CHAT_UPLOAD_DIR, file[1])) };
+  } catch { return null; }
+}
+function reliquaryFolderId() {
+  const existing = infostud.list().find(item => item.kind === 'folder' && !item.parentId && item.name.trim().toLowerCase() === 'reliquary');
+  return (existing || infostud.createFolder({ name: 'Reliquary', parentId: null })).id;
+}
+function mirrorTributesToInfostud(room) {
+  for (const tribute of Array.isArray(room?.bloodTributes) ? room.bloodTributes : []) {
+    if (!tribute?.id || tribute.infostudId || tributeMirrorPending.has(tribute.id)) continue;
+    const image = tributeImageBytes(tribute);
+    if (!image || !image.buffer.length) continue;
+    tributeMirrorPending.add(tribute.id);
+    const at = Number(tribute.originalMessageTimestamp || tribute.submittedAt || tribute.markedAt) || Date.now();
+    let stamp;
+    try {
+      const f = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: process.env.ASOC_TIMEZONE || 'Europe/Belgrade', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(at)).map(x => [x.type, x.value]));
+      stamp = `${f.year}-${f.month}-${f.day} ${f.hour}-${f.minute}`;
+    } catch { stamp = new Date(at).toISOString().slice(0, 16).replace('T', ' ').replace(':', '-'); }
+    const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }[image.type] || 'img';
+    const who = tribute.senderName || tribute.playerName || 'LITTLE HERO';
+    infostudInit()
+      .then(() => infostud.addBuffer({ name: `${who} - ${stamp} - ${tribute.source || 'chat'}.${ext}`, type: image.type, parentId: reliquaryFolderId(), buffer: image.buffer, modifiedAt: at }))
+      .then(item => { tribute.infostudId = item.id; persistActiveRooms(); })
+      .catch(error => console.error('[infostud] Reliquary copy failed:', error.message))
+      .finally(() => tributeMirrorPending.delete(tribute.id));
+  }
+}
+
 function sendTributeVaultToHost(room) {
+  mirrorTributesToInfostud(room);
   if (!room?.hostConnection || Number(room.hostConnection.reliquaryUnlockedUntil) <= Date.now()) return;
   sendToWs(room.hostConnection, { type: 'tribute:vault', ...getBloodTributeVaultState(room) });
 }
