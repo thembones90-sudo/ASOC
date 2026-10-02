@@ -10696,6 +10696,11 @@ function handleApiRequest(req, res) {
     const fail = error => sendJson(res, error.status || 500, { error: error.message || 'FAILED' });
     // GET /api/infostud -> the whole tree (flat list with parentId).
     if (parts.length === 2 && method === 'GET') return sendJson(res, 200, { items: infostud.list(), usage: infostud.usage() });
+    // DELETE /api/infostud with x-confirm: PURGE -> wipe everything.
+    if (parts.length === 2 && method === 'DELETE') {
+      if (req.headers['x-confirm'] !== 'PURGE') return sendJson(res, 400, { error: 'CONFIRMATION REQUIRED' });
+      return sendJson(res, 200, { removed: infostud.purge(), usage: infostud.usage() });
+    }
     // POST /api/infostud -> upload one file (raw body) into x-parent-id.
     if (parts.length === 2 && method === 'POST') {
       let name = '';

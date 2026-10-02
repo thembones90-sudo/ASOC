@@ -75,6 +75,7 @@
             <button type="button" class="ifs-btn" data-act="newfolder">+ NEW FOLDER</button>
             <button type="button" class="ifs-btn" data-act="upfiles">UPLOAD FILES</button>
             <button type="button" class="ifs-btn" data-act="upfolder">UPLOAD FOLDER</button>
+            <button type="button" class="ifs-btn is-danger" data-act="purge" title="Delete everything in Infostud">PURGE</button>
             <input type="file" class="ifs-in-files" multiple hidden>
             <input type="file" class="ifs-in-folder" webkitdirectory directory multiple hidden>
           </nav>
@@ -308,6 +309,7 @@
         case 'props': return this.properties(sel.length ? sel : null);
         case 'selectall': return this.select(this.visible.slice());
         case 'refresh': return this.refresh();
+        case 'purge': return this.purge();
         case 'sort-name': return this.setSort('name', this.sort.dir);
         case 'sort-created': return this.setSort('created', this.sort.dir);
         case 'sort-modified': return this.setSort('modified', this.sort.dir);
@@ -452,6 +454,24 @@
       this.select([]);
       this.render();
       return true;
+    },
+    async purge() {
+      const files = this.items.filter(i => i.kind === 'file').length;
+      const folders = this.items.length - files;
+      if (!this.items.length) return this.status('INFOSTUD IS ALREADY EMPTY');
+      const typed = await ask(`PURGE EVERYTHING? ${files} files and ${folders} folders will be gone for good. Type PURGE to confirm.`, '');
+      if (String(typed || '').trim().toUpperCase() !== 'PURGE') return this.status('PURGE CANCELLED');
+      const res = await api('', { method: 'DELETE', headers: { 'x-confirm': 'PURGE' } }).catch(() => null);
+      if (!res || !res.ok) return this.status('PURGE FAILED', true);
+      this.usage((await res.json()).usage);
+      for (const url of this.urls.values()) URL.revokeObjectURL(url);
+      this.urls.clear();
+      this.items = [];
+      this.clipboard = null;
+      this.cwd = null;
+      this.select([]);
+      this.render();
+      this.status('INFOSTUD PURGED');
     },
     async download(ids) {
       for (const id of ids) {
