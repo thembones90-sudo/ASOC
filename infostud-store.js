@@ -217,6 +217,25 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
       req.pipe(out);
     },
 
+    // Store an in-memory file (server-side copies, e.g. Blood Tributes).
+    async addBuffer({ name, type, parentId, buffer, modifiedAt }) {
+      const pid = checkParent(parentId);
+      if (buffer.length > Math.min(maxTotalBytes - totalBytes(), diskRoom())) throw err('INFOSTUD IS FULL', 507);
+      const now = Date.now();
+      const item = {
+        id: newId(), kind: 'file', name: cleanName(name) || 'file', parentId: pid,
+        type: /^[\w.+-]+\/[\w.+-]+$/.test(String(type || '')) ? String(type).toLowerCase() : 'application/octet-stream',
+        ext: null, size: buffer.length, createdAt: now, modifiedAt: Number(modifiedAt) > 0 && Number(modifiedAt) <= now ? Number(modifiedAt) : now
+      };
+      if (remote) await remote.putBuffer(keyOf(item), buffer, item.type);
+      else fs.writeFileSync(fileOf(item), buffer, { flag: 'wx' });
+      item.name = uniqueName(pid, item.name);
+      all().push(item);
+      touch(pid);
+      save();
+      return item;
+    },
+
     // Rename and/or move and/or rate. Moving a folder into itself or a
     // descendant is refused. A rating alone does not count as a modification.
     update(id, { name, parentId, rating }) {
