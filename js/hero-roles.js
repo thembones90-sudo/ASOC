@@ -139,8 +139,9 @@
         btn.id = 'hero-roles-toggle';
         btn.className = 'toolbar-btn hero-roles-toggle';
         btn.dataset.hr = 'gm-toggle';
-        const transmog = document.getElementById('broker-transmog-btn');
-        row.insertBefore(btn, transmog ? transmog.nextSibling : row.children[1] || null);
+        // Appended LAST: the Shadow Broker's own order (QUESTS, TRANSMOG,
+        // BACKDOOR) must never shift. Anything new goes after it.
+        row.appendChild(btn);
       }
       const on = this.state ? this.state.enabled !== false : true;
       btn.textContent = `ROLES ${on ? 'ON' : 'OFF'}`;
