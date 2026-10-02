@@ -20,9 +20,9 @@ assert.match(css, /\.shadow-fx-layer[\s\S]*z-index:\s*7900/, 'theatrical FX stay
 assert.match(css, /\.shadow-fx-layer[\s\S]*pointer-events:\s*none/, 'theatrical FX cannot block controls');
 assert.match(css, /\.smk-overlay[\s\S]*z-index:\s*8000/, 'market stays above cosmetic FX');
 assert.match(css, /\.dsr-overlay[\s\S]*z-index:\s*8600/, 'dossier stays above cosmetic FX');
-assert.match(join, /shadow-market\.css\?v=20260926-shadow-market-hardening-1/, 'player CSS cache key updated');
+assert.match(join, /shadow-market\.css\?v=20261002-drug-2/, 'player CSS cache key updated');
 assert.match(join, /shadow-market-ui\.js\?v=20260926-shadow-market-hardening-1/, 'player market cache key updated');
-assert.match(index, /shadow-market\.css\?v=20260926-shadow-market-hardening-1/, 'GM cosmetic CSS cache key updated');
+assert.match(index, /shadow-market\.css\?v=20261002-drug-2/, 'GM cosmetic CSS cache key updated');
 
 const womf = market.getItem('title-womf-survivor');
 assert.equal(market.requirementMet(womf, { relicProgress: {} }), false);
