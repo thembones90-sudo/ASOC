@@ -63,7 +63,21 @@ class Client {
 let gm;
 const players = [];
 const tokens = [];
-const settle = (ms = 350) => sleep(ms);
+// Waits at least `ms`, then until the GM socket has been quiet for 250 ms
+// (max 5 s): on slow CI runners a fixed sleep can return before the server's
+// reply has arrived.
+async function settle(ms = 350) {
+  await sleep(ms);
+  const started = Date.now();
+  let count = gm ? gm.msgs.length : 0;
+  let quietSince = Date.now();
+  while (Date.now() - started < 5000) {
+    await sleep(50);
+    const now = gm ? gm.msgs.length : 0;
+    if (now !== count) { count = now; quietSince = Date.now(); }
+    else if (Date.now() - quietSince >= 250) return;
+  }
+}
 // Waits for the GM's state to satisfy `test` (CI machines are slower than a
 // fixed sleep assumes).
 async function until(test, label, timeout = 6000) {
