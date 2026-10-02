@@ -333,11 +333,28 @@ function assertDataDirectoryWritable(dataDir) {
 assertDataDirectoryWritable(ASOC_DATA_DIR);
 const CHAT_UPLOAD_DIR = path.join(ASOC_DATA_DIR, 'chat-uploads');
 // INFOSTUD: the Shadow Broker's hidden personal picture/video storage.
+// With ASOC_R2_* set, INFOSTUD lives in a Cloudflare R2 bucket (capped at
+// R2's 10 GB free tier) and can never fill the game volume again.
+const infostudRemote = require('./r2-client').fromEnv();
 const infostud = require('./infostud-store').create(ASOC_DATA_DIR, {
-  maxFileBytes: Number(process.env.ASOC_INFOSTUD_MAX_FILE_BYTES) || 200 * 1024 * 1024,
-  maxTotalBytes: Number(process.env.ASOC_INFOSTUD_MAX_TOTAL_BYTES) || 3 * 1024 * 1024 * 1024,
+  maxFileBytes: Number(process.env.ASOC_INFOSTUD_MAX_FILE_BYTES) || (infostudRemote ? 2 * 1024 * 1024 * 1024 : 200 * 1024 * 1024),
+  maxTotalBytes: Number(process.env.ASOC_INFOSTUD_MAX_TOTAL_BYTES) || (infostudRemote ? 10 * 1000 * 1000 * 1000 : 3 * 1024 * 1024 * 1024),
   diskReserveBytes: Number(process.env.ASOC_INFOSTUD_DISK_RESERVE_BYTES) || 512 * 1024 * 1024,
+  remote: infostudRemote
 });
+// Requests wait for the R2 index; a failed load is retried on the next request.
+let infostudReady = null;
+const infostudInit = () => {
+  if (!infostudReady) {
+    infostudReady = infostud.init().then(() => console.log(`[infostud] storage: ${infostud.storage}`), error => {
+      console.error('[infostud] R2 load failed:', error.message);
+      infostudReady = null;
+      throw error;
+    });
+  }
+  return infostudReady;
+};
+infostudInit().catch(() => {});
 fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
 const chatUploadGuard = createChatUploadGuard({ dir: CHAT_UPLOAD_DIR });
 const blackMarketUploadClaims = new Map();
@@ -10698,6 +10715,71 @@ function redirectPlayerVerification(res, state) {
   res.end();
 }
 
+// INFOSTUD routes (GM-authenticated, see handleApiRequest).
+function handleInfostudRequest(req, res, parts, method) {
+  const fail = error => sendJson(res, error.status || 500, { error: error.message || 'FAILED' });
+
+  // GET /api/infostud -> the whole tree (flat list with parentId).
+  if (parts.length === 2 && method === 'GET') return sendJson(res, 200, { items: infostud.list(), usage: infostud.usage() });
+  // DELETE /api/infostud with x-confirm: PURGE -> wipe everything.
+  if (parts.length === 2 && method === 'DELETE') {
+    if (req.headers['x-confirm'] !== 'PURGE') return sendJson(res, 400, { error: 'CONFIRMATION REQUIRED' });
+    return sendJson(res, 200, { removed: infostud.purge(), usage: infostud.usage() });
+  }
+  // POST /api/infostud -> upload one file (raw body) into x-parent-id.
+  if (parts.length === 2 && method === 'POST') {
+    let name = '';
+    try { name = decodeURIComponent(String(req.headers['x-file-name'] || '')); } catch {}
+    return infostud.receive(req, { type: req.headers['content-type'], name, parentId: req.headers['x-parent-id'] || null, lastModified: req.headers['x-last-modified'] }, (error, item) => {
+      if (error) return fail(error);
+      sendJson(res, 200, { item, usage: infostud.usage() });
+    });
+  }
+  // POST /api/infostud/folder {name, parentId}
+  if (parts.length === 3 && parts[2] === 'folder' && method === 'POST') {
+    return readJsonBody(req, (error, body) => {
+      if (error) return sendJson(res, 400, { error: 'BAD REQUEST' });
+      try { sendJson(res, 200, { item: infostud.createFolder({ name: body?.name, parentId: body?.parentId || null }) }); } catch (e) { fail(e); }
+    });
+  }
+  const item = parts.length >= 3 ? infostud.get(parts[2]) : null;
+  if (!item) return sendJson(res, 404, { error: 'Not Found' });
+  // PATCH /api/infostud/:id {name?, parentId?} -> rename / move
+  if (parts.length === 3 && method === 'PATCH') {
+    return readJsonBody(req, (error, body) => {
+      if (error) return sendJson(res, 400, { error: 'BAD REQUEST' });
+      try {
+        const patch = {};
+        if (typeof body?.name === 'string') patch.name = body.name;
+        if (body && Object.prototype.hasOwnProperty.call(body, 'parentId')) patch.parentId = body.parentId || null;
+        if (body && Object.prototype.hasOwnProperty.call(body, 'rating')) patch.rating = body.rating || null;
+        sendJson(res, 200, { item: infostud.update(item.id, patch) });
+      } catch (e) { fail(e); }
+    });
+  }
+  // POST /api/infostud/:id/copy {parentId}
+  if (parts.length === 4 && parts[3] === 'copy' && method === 'POST') {
+    return readJsonBody(req, (error, body) => {
+      if (error) return sendJson(res, 400, { error: 'BAD REQUEST' });
+      infostud.copy(item.id, { parentId: body?.parentId || null })
+        .then(copy => sendJson(res, 200, { item: copy, items: infostud.list(), usage: infostud.usage() }), fail);
+    });
+  }
+  if (parts.length === 3 && method === 'DELETE') { infostud.remove(item.id); return sendJson(res, 200, { ok: true, usage: infostud.usage() }); }
+  if (parts.length === 3 && method === 'GET') {
+    if (item.kind === 'folder') {
+      res.writeHead(200, { 'Content-Type': 'application/zip', 'X-Content-Type-Options': 'nosniff' });
+      infostud.zipFolder(item, res).catch(() => res.destroy());
+      return;
+    }
+    return infostud.open(item).then(stream => {
+      res.writeHead(200, { 'Content-Type': item.type, 'Content-Length': item.size, 'X-Content-Type-Options': 'nosniff' });
+      stream.on('error', () => res.destroy()).pipe(res);
+    }, fail);
+  }
+  return sendJson(res, 404, { error: 'Not Found' });
+}
+
 function handleApiRequest(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const parts = url.pathname.split('/').filter(Boolean);
@@ -10708,63 +10790,15 @@ function handleApiRequest(req, res) {
   if (parts[0] === 'api' && parts[1] === 'infostud') {
     if (!isGmAuthorized(req)) return sendJson(res, 404, { error: 'Not Found' });
     res.setHeader('Cache-Control', 'no-store');
-    const fail = error => sendJson(res, error.status || 500, { error: error.message || 'FAILED' });
-    // GET /api/infostud -> the whole tree (flat list with parentId).
-    if (parts.length === 2 && method === 'GET') return sendJson(res, 200, { items: infostud.list(), usage: infostud.usage() });
-    // DELETE /api/infostud with x-confirm: PURGE -> wipe everything.
-    if (parts.length === 2 && method === 'DELETE') {
-      if (req.headers['x-confirm'] !== 'PURGE') return sendJson(res, 400, { error: 'CONFIRMATION REQUIRED' });
-      return sendJson(res, 200, { removed: infostud.purge(), usage: infostud.usage() });
-    }
-    // POST /api/infostud -> upload one file (raw body) into x-parent-id.
-    if (parts.length === 2 && method === 'POST') {
-      let name = '';
-      try { name = decodeURIComponent(String(req.headers['x-file-name'] || '')); } catch {}
-      return infostud.receive(req, { type: req.headers['content-type'], name, parentId: req.headers['x-parent-id'] || null, lastModified: req.headers['x-last-modified'] }, (error, item) => {
-        if (error) return fail(error);
-        sendJson(res, 200, { item, usage: infostud.usage() });
+    if (infostud.storage === 'r2') {
+      req.pause();
+      infostudInit().then(() => { handleInfostudRequest(req, res, parts, method); req.resume(); }, () => {
+        req.resume();
+        sendJson(res, 503, { error: 'INFOSTUD STORAGE UNREACHABLE' });
       });
+      return;
     }
-    // POST /api/infostud/folder {name, parentId}
-    if (parts.length === 3 && parts[2] === 'folder' && method === 'POST') {
-      return readJsonBody(req, (error, body) => {
-        if (error) return sendJson(res, 400, { error: 'BAD REQUEST' });
-        try { sendJson(res, 200, { item: infostud.createFolder({ name: body?.name, parentId: body?.parentId || null }) }); } catch (e) { fail(e); }
-      });
-    }
-    const item = parts.length >= 3 ? infostud.get(parts[2]) : null;
-    if (!item) return sendJson(res, 404, { error: 'Not Found' });
-    // PATCH /api/infostud/:id {name?, parentId?} -> rename / move
-    if (parts.length === 3 && method === 'PATCH') {
-      return readJsonBody(req, (error, body) => {
-        if (error) return sendJson(res, 400, { error: 'BAD REQUEST' });
-        try {
-          const patch = {};
-          if (typeof body?.name === 'string') patch.name = body.name;
-          if (body && Object.prototype.hasOwnProperty.call(body, 'parentId')) patch.parentId = body.parentId || null;
-          if (body && Object.prototype.hasOwnProperty.call(body, 'rating')) patch.rating = body.rating || null;
-          sendJson(res, 200, { item: infostud.update(item.id, patch) });
-        } catch (e) { fail(e); }
-      });
-    }
-    // POST /api/infostud/:id/copy {parentId}
-    if (parts.length === 4 && parts[3] === 'copy' && method === 'POST') {
-      return readJsonBody(req, (error, body) => {
-        if (error) return sendJson(res, 400, { error: 'BAD REQUEST' });
-        try { sendJson(res, 200, { item: infostud.copy(item.id, { parentId: body?.parentId || null }), items: infostud.list(), usage: infostud.usage() }); } catch (e) { fail(e); }
-      });
-    }
-    if (parts.length === 3 && method === 'DELETE') { infostud.remove(item.id); return sendJson(res, 200, { ok: true, usage: infostud.usage() }); }
-    if (parts.length === 3 && method === 'GET') {
-      if (item.kind === 'folder') {
-        res.writeHead(200, { 'Content-Type': 'application/zip', 'X-Content-Type-Options': 'nosniff' });
-        infostud.zipFolder(item, res).catch(() => res.destroy());
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': item.type, 'Content-Length': item.size, 'X-Content-Type-Options': 'nosniff' });
-      return fs.createReadStream(infostud.pathOf(item)).on('error', () => res.destroy()).pipe(res);
-    }
-    return sendJson(res, 404, { error: 'Not Found' });
+    return handleInfostudRequest(req, res, parts, method);
   }
 
   if (url.pathname === '/api/build' && method === 'GET') {
