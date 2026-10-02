@@ -105,7 +105,7 @@ const CATALOG = Object.freeze([
   { id: 'relic-fastest-hand', kind: 'relic', name: 'FASTEST HAND', relic: true, asset: 'assets/shop/relic-fastest-hand.png', earn: { label: 'Make the first solve in 10 matches', counter: 'firstSolves', min: 10 }, desc: 'First blood, ten times over.' },
   { id: 'relic-last-second-heretic', kind: 'relic', name: 'LAST-SECOND HERETIC', relic: true, asset: 'assets/shop/relic-last-second-heretic.png', earn: { label: 'Solve no column, then take the Final' }, desc: 'Silent all match. Then the only answer that mattered.' },
   { id: 'relic-word-killer', kind: 'relic', name: 'WORD KILLER', relic: true, asset: 'assets/shop/relic-word-killer.png', earn: { label: 'Win KALADONT with the word KALADONT' }, desc: 'Ended it with the word itself.' },
-  { id: 'relic-hoarder', kind: 'relic', name: 'THE HOARDER', relic: true, asset: 'assets/shop/relic-hoarder.png', earn: { label: 'Catch 10 Shadow Coin drops', counter: 'coinCatches', min: 10 }, desc: 'Ten coins snatched off the board. Not one of them shared.' }
+  { id: 'relic-hoarder', kind: 'relic', name: 'THE JEW', relic: true, asset: 'assets/shop/relic-hoarder.png', earn: { label: 'Catch 10 Shadow Coin drops', counter: 'coinCatches', min: 10 }, desc: 'Ten coins snatched off the board. Not one of them shared.' }
 ]);
 
 const BY_ID = new Map(CATALOG.map(item => [item.id, item]));
