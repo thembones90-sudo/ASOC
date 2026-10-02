@@ -205,15 +205,19 @@
           <div class="rage-rules">
             <b>THE LAW OF THE TABLE</b>
             <ul>
-              <li>2–4 players · 4 pieces each · first to bring all four home wins.</li>
-              <li>A <em>6</em> leaves the yard. With nothing on the board you get <em>3 tries</em> for it.</li>
-              <li>Every <em>6</em> rolls again.</li>
-              <li>Eating is a <em>must</em>: if you can send someone back, you have to.</li>
-              <li>Home squares need an exact roll. Too slow and the House moves for you.</li>
+              <li><i aria-hidden="true">♟</i><span><em>2–4 players</em>, 4 pieces each. First to bring all four home wins.</span></li>
+              <li><i aria-hidden="true">⚅</i><span>A <em>6</em> leaves the yard. With nothing on the board you get <em>3 tries</em> for it.</span></li>
+              <li><i aria-hidden="true">↻</i><span>Every <em>6</em> rolls again.</span></li>
+              <li><i aria-hidden="true">☠</i><span>Eating is a <em>must</em>: if you can send someone back, you have to.</span></li>
+              <li><i aria-hidden="true">⌂</i><span>Home squares need an <em>exact roll</em>. Too slow and the House moves for you.</span></li>
             </ul>
           </div>
           <div class="rage-terms">
-            <button type="button" class="rage-term" data-rage="create-fun"><b>FOR FUN</b><small>No coins. Only pride.</small></button>
+            <button type="button" class="rage-term is-fun" data-rage="create-fun">
+              <b>FOR FUN</b>
+              <small>No coins. Only pride.</small>
+              <span class="rage-term-cta">OPEN FUN TABLE</span>
+            </button>
             <div class="rage-term is-coins">
               <b>FOR COINS</b>
               <small>Everyone who joins agrees to the stake. Winner takes the pot.</small>
