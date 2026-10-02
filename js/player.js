@@ -1551,6 +1551,12 @@ const PlayerApp = {
       case 'coinDrop:claimed':
       case 'coinDrop:gone':
       case 'coinDrop:result':
+      case 'coinDrop:contested':
+      case 'coinRoll:start':
+      case 'coinRoll:turn':
+      case 'coinRoll:rolled':
+      case 'coinRoll:result':
+      case 'coinRoll:error':
         window.CoinDrop?.onMessage?.(message);
         break;
 

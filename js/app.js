@@ -2740,6 +2740,17 @@ const App = {
         window.Megabonk?.onMessage(message);
         break;
 
+      case 'coinDrop:spawn':
+      case 'coinDrop:claimed':
+      case 'coinDrop:gone':
+      case 'coinDrop:contested':
+      case 'coinRoll:start':
+      case 'coinRoll:turn':
+      case 'coinRoll:rolled':
+      case 'coinRoll:result':
+        window.CoinDrop?.onMessage?.(message);
+        break;
+
       case 'warsong:alert':
         window.WarsongAlert?.onMessage(message);
         break;

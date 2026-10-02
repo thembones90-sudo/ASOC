@@ -23,4 +23,41 @@
 @keyframes cd-snatch { to { transform: scale(0) rotate(90deg); opacity: 0; } }
 @keyframes cd-fade { to { opacity: 0; scale: .4; } }
 @keyframes cd-rise { from { transform: translate(-50%, 6px); opacity: 0; } 20% { opacity: 1; } to { transform: translate(-50%, -22px); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .coin-drop .cd-coin, .coin-drop .cd-rays { animation: none !important; } }
+
+/* ROLL-OFF duel */
+.coin-roll { position: fixed; inset: 0; z-index: 11950; display: grid; place-items: center; padding: 16px; background: rgba(3, 2, 6, .62); backdrop-filter: blur(3px); animation: cr-in .25s ease-out; }
+.coin-roll .cr-card { position: relative; width: min(560px, 100%); padding: 18px 20px 16px; border: 1px solid color-mix(in srgb, var(--cd-color) 60%, transparent); border-radius: 14px; background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--cd-color) 16%, #120d1a), #08060c 70%); box-shadow: 0 0 40px color-mix(in srgb, var(--cd-color) 35%, transparent), 0 20px 60px rgba(0, 0, 0, .7); text-align: center; color: #efe6fa; }
+.coin-roll header { display: grid; gap: 3px; margin-bottom: 14px; }
+.coin-roll header small { color: #d8c7ef; font: 900 11px var(--font-machine, monospace); letter-spacing: .3em; }
+.coin-roll header b { color: var(--cd-color); font: 900 22px var(--font-human, system-ui); letter-spacing: .06em; text-shadow: 0 0 14px color-mix(in srgb, var(--cd-color) 60%, transparent); }
+.coin-roll header em { color: #bfb0d4; font: 700 12px var(--font-machine, monospace); font-style: normal; letter-spacing: .14em; }
+.coin-roll .cr-duel { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.coin-roll .cr-vs { color: #8f7fa3; font: 900 16px var(--font-machine, monospace); font-style: normal; }
+.coin-roll .cr-hero { position: relative; display: grid; justify-items: center; gap: 6px; width: 150px; padding: 12px 8px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 12px; background: rgba(255, 255, 255, .03); transition: transform .25s, opacity .25s, box-shadow .25s; }
+.coin-roll .cr-hero.is-turn { border-color: var(--cd-color); box-shadow: 0 0 18px color-mix(in srgb, var(--cd-color) 45%, transparent); transform: translateY(-3px); }
+.coin-roll .cr-avatar { width: 72px; height: 72px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #1b1427; border: 2px solid color-mix(in srgb, var(--cd-color) 60%, #3a2d4d); color: #fff; font: 900 28px var(--font-human, system-ui); }
+.coin-roll .cr-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.coin-roll .cr-hero > b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 14px var(--font-human, system-ui); }
+.coin-roll .cr-hero > b small { color: #9d8cb5; font-size: 10px; }
+.coin-roll .cr-die { min-width: 64px; padding: 6px 10px; border-radius: 8px; background: #0b0811; border: 1px solid rgba(255, 255, 255, .12); color: #fff; font: 900 26px var(--font-machine, monospace); }
+.coin-roll .cr-die.is-rolling { color: var(--cd-color); }
+.coin-roll .cr-die.is-set { animation: cr-thud .35s ease-out; }
+.coin-roll .cr-auto { color: #9d8cb5; font: 700 9px var(--font-machine, monospace); letter-spacing: .14em; }
+.coin-roll .cr-hero.is-winner { border-color: var(--cd-color); box-shadow: 0 0 26px color-mix(in srgb, var(--cd-color) 60%, transparent); transform: scale(1.05); }
+.coin-roll .cr-hero.is-loser { opacity: .45; filter: grayscale(.6); }
+.coin-roll .cr-prize { color: var(--cd-color); font: 900 18px var(--font-machine, monospace); font-style: normal; text-shadow: 0 0 10px var(--cd-color); }
+.coin-roll .cr-foot { min-height: 54px; margin-top: 14px; display: grid; justify-items: center; gap: 8px; }
+.coin-roll .cr-foot p { margin: 0; color: #d8c7ef; font: 800 13px var(--font-machine, monospace); letter-spacing: .14em; }
+.coin-roll .cr-verdict { color: var(--cd-color) !important; font-size: 16px !important; }
+.coin-roll .cr-roll-btn { padding: 10px 34px; border: 1px solid var(--cd-color); border-radius: 10px; background: color-mix(in srgb, var(--cd-color) 22%, #140e1d); color: #fff; font: 900 18px var(--font-machine, monospace); letter-spacing: .14em; cursor: pointer; animation: cr-pulse 1s ease-in-out infinite; }
+.coin-roll .cr-roll-btn:disabled { opacity: .5; animation: none; cursor: default; }
+.coin-roll .cr-timer { width: 70%; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.coin-roll .cr-timer i { display: block; height: 100%; background: var(--cd-color); transform-origin: left; animation: cr-timer 12s linear forwards; }
+.coin-roll .cr-close { position: absolute; top: 6px; right: 10px; border: 0; background: none; color: #9d8cb5; font-size: 22px; cursor: pointer; }
+.coin-roll-flicker { animation: cr-flicker 1.5s steps(2, end); }
+@keyframes cr-in { from { opacity: 0; } }
+@keyframes cr-thud { 0% { transform: scale(1.5); } 100% { transform: scale(1); } }
+@keyframes cr-pulse { 50% { box-shadow: 0 0 22px color-mix(in srgb, var(--cd-color) 70%, transparent); } }
+@keyframes cr-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes cr-flicker { 0%, 20%, 40%, 60%, 80% { filter: brightness(1.8) hue-rotate(20deg); } 10%, 30%, 50%, 70%, 100% { filter: none; } }
+@media (prefers-reduced-motion: reduce) { .coin-drop .cd-coin, .coin-drop .cd-rays, .coin-roll-flicker, .coin-roll .cr-roll-btn { animation: none !important; } }
