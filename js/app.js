@@ -3970,6 +3970,59 @@ const App = {
     if (this.mode === 'multiplayer' && this.roomCode) this.send({ type: 'gm:reliquaryLock' });
   },
 
+  // Reliquary viewer: mouse wheel zooms (25%-800%) around the pointer, drag
+  // pans, double-click resets. Each opened image starts at 100%.
+  applyVaultZoom(image) {
+    const z = this._vaultZoom || { scale: 1, x: 0, y: 0 };
+    image.style.transform = `translate(${z.x}px, ${z.y}px) scale(${z.scale})`;
+    image.style.cursor = z.scale !== 1 ? 'grab' : 'zoom-in';
+    const badge = image.parentElement?.querySelector('.blood-vault-zoom');
+    if (badge) badge.textContent = `${Math.round(z.scale * 100)}%  ·  SCROLL TO ZOOM  ·  DRAG TO MOVE  ·  DOUBLE-CLICK TO RESET`;
+  },
+
+  bindVaultViewerZoom(viewer, image) {
+    if (viewer.dataset.zoomBound === '1') return;
+    viewer.dataset.zoomBound = '1';
+    const badge = document.createElement('div');
+    badge.className = 'blood-vault-zoom';
+    viewer.appendChild(badge);
+    image.draggable = false;
+    image.style.transformOrigin = '0 0';
+    viewer.addEventListener('wheel', e => {
+      if (viewer.hidden) return;
+      e.preventDefault();
+      const z = this._vaultZoom || (this._vaultZoom = { scale: 1, x: 0, y: 0 });
+      const next = Math.min(8, Math.max(.25, z.scale * Math.exp(-e.deltaY * 0.0015)));
+      // Keep the point under the cursor fixed while zooming.
+      const rect = image.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / z.scale;
+      const py = (e.clientY - rect.top) / z.scale;
+      z.x += px * (z.scale - next);
+      z.y += py * (z.scale - next);
+      z.scale = next;
+      this.applyVaultZoom(image);
+    }, { passive: false });
+    let drag = null;
+    image.addEventListener('pointerdown', e => {
+      const z = this._vaultZoom;
+      if (!z) return;
+      drag = { x: e.clientX - z.x, y: e.clientY - z.y };
+      image.setPointerCapture?.(e.pointerId);
+      image.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+    image.addEventListener('pointermove', e => {
+      if (!drag) return;
+      this._vaultZoom.x = e.clientX - drag.x;
+      this._vaultZoom.y = e.clientY - drag.y;
+      this.applyVaultZoom(image);
+    });
+    const end = () => { if (drag) { drag = null; this.applyVaultZoom(image); } };
+    image.addEventListener('pointerup', end);
+    image.addEventListener('pointercancel', end);
+    image.addEventListener('dblclick', () => { this._vaultZoom = { scale: 1, x: 0, y: 0 }; this.applyVaultZoom(image); });
+  },
+
   openBloodTributeImage(tribute) {
     if (!tribute?.imageData) return;
     const viewer = document.getElementById('blood-vault-viewer');
@@ -3977,6 +4030,9 @@ const App = {
     if (!viewer || !image) return;
     image.src = tribute.imageData;
     image.alt = `Blood Tribute from ${tribute.playerName || 'Little Hero'}`;
+    this.bindVaultViewerZoom(viewer, image);
+    this._vaultZoom = { scale: 1, x: 0, y: 0 };
+    this.applyVaultZoom(image);
     viewer.hidden = false;
   },
 

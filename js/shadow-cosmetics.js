@@ -125,6 +125,7 @@
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     if (fx === 'love') { setTimeout(loveBurst, 0); return; }
     if (fx === 'drug') { setTimeout(drugHeartbeat, 0); return; }
+    if (fx === 'freeze') { setTimeout(flashFreeze, 0); return; }
     setTimeout(() => screenLayer('shadow-fx-' + fx, String(msg.emote.label || fx).toUpperCase()), 0);
   }
 
@@ -143,6 +144,72 @@
       '<b class="drug-hb-title">INJECTED</b>';
     document.body.appendChild(layer);
     setTimeout(() => layer.remove(), 3500);
+  }
+
+  // /freeze -- FLASH FREEZE: frost creeps in from every edge, a crack shoots
+  // across with a sharp sound, FROZEN sits in the ice with drifting snow, then
+  // the ice shatters into falling shards and the screen clears. ~3s.
+  function flashFreeze() {
+    const layer = document.createElement('div');
+    layer.className = 'flash-freeze';
+    layer.setAttribute('aria-hidden', 'true');
+    let snow = '';
+    for (let i = 0; i < 34; i++) {
+      snow += '<i style="left:' + (Math.random() * 100).toFixed(1) + '%;' +
+        'width:' + (3 + Math.random() * 5).toFixed(1) + 'px;' +
+        'animation-duration:' + (2.2 + Math.random() * 1.6).toFixed(2) + 's;' +
+        'animation-delay:' + (Math.random() * .8).toFixed(2) + 's;' +
+        '--drift:' + ((Math.random() - .5) * 80).toFixed(0) + 'px"></i>';
+    }
+    // Shards: a 4x4 grid whose inner corners are jittered but SHARED by the
+    // neighbouring pieces, so the sheet is seamless until it shatters.
+    const P = [];
+    for (let r = 0; r <= 4; r++) {
+      P[r] = [];
+      for (let c = 0; c <= 4; c++) {
+        const edge = r === 0 || r === 4 || c === 0 || c === 4;
+        P[r][c] = [c * 25 + (edge ? 0 : (Math.random() - .5) * 12), r * 25 + (edge ? 0 : (Math.random() - .5) * 12)];
+      }
+    }
+    const pt = ([x, y]) => x.toFixed(1) + '% ' + y.toFixed(1) + '%';
+    let shards = '';
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+      shards += '<i style="clip-path:polygon(' + [P[r][c], P[r][c + 1], P[r + 1][c + 1], P[r + 1][c]].map(pt).join(',') + ');' +
+        '--fall:' + (40 + Math.random() * 60).toFixed(0) + 'vh;--spin:' + ((Math.random() - .5) * 70).toFixed(0) + 'deg;--slide:' + ((Math.random() - .5) * 30).toFixed(0) + 'vw;' +
+        '--shatter-delay:' + (1.55 + Math.random() * .2).toFixed(2) + 's"></i>';
+    }
+    layer.innerHTML =
+      '<span class="ff-sheet"></span><span class="ff-ice">' + shards + '</span>' +
+      '<svg class="ff-crack" viewBox="0 0 1000 600" preserveAspectRatio="none"><polyline points="0,220 140,260 230,200 330,300 420,250 500,330 590,280 700,360 790,300 880,380 1000,340"/><polyline points="420,250 450,140 520,90"/><polyline points="590,280 620,420 560,520"/><polyline points="790,300 850,190"/></svg>' +
+      '<span class="ff-snow">' + snow + '</span>' +
+      '<b class="ff-title">FROZEN</b>';
+    document.body.appendChild(layer);
+    setTimeout(iceCrack, 520);
+    setTimeout(() => iceCrack(true), 1580);
+    setTimeout(() => layer.remove(), 3300);
+  }
+
+  // A short synthesized crack (or the bigger shatter), silent under MUTE SOUNDS.
+  let fxAudio = null;
+  function iceCrack(shatter) {
+    try {
+      if (localStorage.getItem('asoc_audio_enabled') === '0') return;
+      fxAudio ||= new (window.AudioContext || window.webkitAudioContext)();
+      const t = fxAudio.currentTime;
+      const len = shatter ? .7 : .18;
+      const buffer = fxAudio.createBuffer(1, Math.floor(fxAudio.sampleRate * len), fxAudio.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, shatter ? 2.5 : 6);
+      const src = fxAudio.createBufferSource();
+      src.buffer = buffer;
+      const hp = fxAudio.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = shatter ? 1800 : 2600;
+      const gain = fxAudio.createGain();
+      gain.gain.value = shatter ? .32 : .4;
+      src.connect(hp).connect(gain).connect(fxAudio.destination);
+      src.start(t);
+    } catch {}
   }
 
   // /love -- colourful hearts drift up over the chat log (or the whole
