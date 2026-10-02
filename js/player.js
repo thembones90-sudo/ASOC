@@ -5123,6 +5123,17 @@ const PlayerApp = {
       const media = msg.gif.mp4Url
         ? `<video class="chat-gif-attachment" autoplay loop muted playsinline preload="metadata" poster="${preview}"><source src="${this.escapeHtml(msg.gif.mp4Url)}" type="video/mp4"></video>`
         : `<img class="chat-gif-attachment" src="${gifUrl}" alt="${title}">`;
+      if (isBrokerGif) {
+        return Skeleton.shadowBrokerMediaHTML({
+          id: msg.id,
+          time,
+          classes: 'chat-message chat-gif-message broker-media-message',
+          attrs: 'data-editable="false" data-theme-id="gunmetal" style="--little-hero-accent:#9B5DE0;" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)"',
+          media: `<button type="button" class="chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>`,
+          extras: '<div class="chat-gif-provider-mark">GIPHY</div>',
+          reactions: this.createReactionBarHTML(msg)
+        });
+      }
       return `
         <div class="chat-message chat-gif-message ${isBrokerGif ? 'broker-media-message' : ''} ${isOwn ? 'own' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'LITTLE HERO')}" data-editable="false" data-theme-id="${themeId}" style="${style}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           <div class="chat-avatar-rail">${avatar}</div>
@@ -5188,18 +5199,16 @@ const PlayerApp = {
         ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
       if (msg.imageUrl) {
-        return `
-          <div class="chat-message broker-media-message broker-image-message broker-image-bare${msg.messageType === 'sticker' ? ' sticker-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" data-theme-id="gunmetal" style="--little-hero-accent:#9B5DE0;" title="SHADOW BROKER · ${this.escapeHtml(time)}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
-            <div class="chat-message-main">
-              ${manualBadge}${replyContextHtml}
-              ${messageText ? `<div class="broker-media-caption">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div>` : ''}
-              ${msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>`}
-              ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
-              ${this.createReactionBarHTML(msg)}
-            </div>
-            <div class="chat-avatar-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>
-          </div>
-        `;
+        return Skeleton.shadowBrokerMediaHTML({
+          id: msg.id,
+          time,
+          classes: `chat-message broker-media-message broker-image-message${msg.messageType === 'sticker' ? ' sticker-message' : ''}`,
+          attrs: 'data-editable="false" data-theme-id="gunmetal" style="--little-hero-accent:#9B5DE0;" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)"',
+          caption: `${manualBadge}${replyContextHtml}${messageText ? `<div class="broker-media-caption">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div>` : ''}`,
+          media: msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>`,
+          extras: msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : '',
+          reactions: this.createReactionBarHTML(msg)
+        });
       }
       return `
         <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">

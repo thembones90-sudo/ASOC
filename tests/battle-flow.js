@@ -63,7 +63,31 @@ class Client {
 let gm;
 const players = [];
 const tokens = [];
-const settle = (ms = 350) => sleep(ms);
+// Waits at least `ms`, then until the GM socket has been quiet for 250 ms
+// (max 5 s): on slow CI runners a fixed sleep can return before the server's
+// reply has arrived.
+async function settle(ms = 350) {
+  await sleep(ms);
+  const started = Date.now();
+  let count = gm ? gm.msgs.length : 0;
+  let quietSince = Date.now();
+  while (Date.now() - started < 5000) {
+    await sleep(50);
+    const now = gm ? gm.msgs.length : 0;
+    if (now !== count) { count = now; quietSince = Date.now(); }
+    else if (Date.now() - quietSince >= 250) return;
+  }
+}
+// Waits for the GM's state to satisfy `test` (CI machines are slower than a
+// fixed sleep assumes).
+async function until(test, label, timeout = 6000) {
+  const started = Date.now();
+  while (Date.now() - started < timeout) {
+    try { if (test(gm.state)) return gm.state; } catch {}
+    await sleep(40);
+  }
+  throw new Error(`timed out waiting for ${label}`);
+}
 const command = (name, payload = {}) => gm.send({ type: 'gm:command', command: name, payload, cmdId: `flow-${name}-${Math.random()}` });
 
 async function joinPlayer(index) {
@@ -83,9 +107,7 @@ async function launchBattle() {
   gm.send({ type: 'gm:timerLaunchCountdown' });
   await settle(200);
   gm.send({ type: 'gm:timerStart' });
-  await settle();
-  assert.equal(gm.state.roomMode, 'BATTLE');
-  assert.equal(gm.state.timer.phase, 'running');
+  await until(s => s.roomMode === 'BATTLE' && s.timer.phase === 'running', 'battle running');
 }
 
 async function nextGame() {
@@ -134,7 +156,7 @@ async function run() {
     await settle();
 
     gm.send({ type: 'gm:setRoomMode', mode: 'BATTLE' });
-    await settle();
+    await until(s => s.roomMode === 'BATTLE_ARMED' && gm.ritual?.active, 'ABUSE arms the room');
     assert.equal(gm.state.roomMode, 'BATTLE_ARMED', 'ABUSE arms the room');
     assert.equal(gm.ritual?.active, true, 'ABUSE opens the Summon Ritual');
 
@@ -146,7 +168,7 @@ async function run() {
     await gm.waitFor(m => m.type === 'ritual:gmUpdate' && m.ritual?.joinedCount === 4, 'vote dropped to 4/5');
     let mark = gm.mark();
     gm.send({ type: 'gm:timerStart' });
-    await settle();
+    await until(s => s.roomMode === 'BATTLE' || gm.errorsSince(mark).length, 'launch result');
     assert.deepEqual(gm.errorsSince(mark), [], 'launch accepted at 5/5 still starts after a voter drops');
     assert.equal(gm.state.roomMode, 'BATTLE');
     players[4] = await joinPlayer(4);
@@ -221,15 +243,12 @@ async function run() {
     const winsBefore = await gamesWon();
     const misclick = await guess(players[3], 'FINAL MISCLICK');
     gm.send({ type: 'gm:judgeGuess', messageId: misclick.id, verdict: 'correct', target: 'FINAL', reveal: true });
-    await settle();
-    assert.equal(gm.state.finalSolution.revealed, true);
-    assert.equal(gm.state.timer.phase, 'stopped', 'a solved FINAL stops the clock');
+    await until(s => s.finalSolution.revealed === true && s.timer.phase === 'stopped', 'a solved FINAL stops the clock');
     const winsCredited = await gamesWon();
     assert.equal(winsCredited['Flow Hero 1'], (winsBefore['Flow Hero 1'] || 0) + 1, 'FINAL GREEN credits a lifetime win');
     gm.send({ type: 'gm:judgeGuess', messageId: misclick.id, verdict: 'wrong' });
-    await settle();
-    assert.equal(gm.state.finalSolution.revealed, false, 'undo re-hides the Final answer');
-    assert.equal(gm.state.timer.phase, 'running', 'undo resumes the clock');
+    await until(s => s.finalSolution.revealed === false, 'undo re-hides the Final answer');
+    await until(s => s.timer.phase === 'running', 'undo resumes the clock');
     assert.deepEqual(await gamesWon(), winsBefore, 'undo reverses the lifetime win');
     mark = gm.mark();
     gm.send({ type: 'gm:solutionCountdown', target: 'FINAL', seconds: 60 });
@@ -238,20 +257,20 @@ async function run() {
 
     // 3. Solution countdowns freeze with the clock and re-arm on resume.
     gm.send({ type: 'gm:solutionCountdown', target: 'D', seconds: 60 });
-    await settle();
+    await until(s => s.solutionCountdowns.D, 'countdown D');
     gm.send({ type: 'gm:timerPause' });
-    await settle();
+    await until(s => s.solutionCountdowns.D.paused === true, 'countdown D paused');
     const frozen = gm.state.solutionCountdowns.D;
     assert.equal(frozen.paused, true, 'pause freezes a running countdown');
     assert.equal(frozen.deadline, null);
     assert.ok(frozen.remainingMs > 55000 && frozen.remainingMs <= 60000);
     await sleep(1200);
     gm.send({ type: 'gm:solutionCountdown', target: 'C', seconds: 60 });
-    await settle();
+    await until(s => s.solutionCountdowns.C, 'countdown C');
     assert.equal(gm.state.solutionCountdowns.C.paused, true, 'a countdown started while paused starts frozen');
     assert.equal(gm.state.solutionCountdowns.D.remainingMs, frozen.remainingMs, 'frozen time does not drain');
     gm.send({ type: 'gm:timerResume' });
-    await settle();
+    await until(s => s.solutionCountdowns.D && s.solutionCountdowns.D.paused !== true, 'countdown D resumed');
     const resumed = gm.state.solutionCountdowns.D;
     assert.ok(Number.isFinite(resumed.deadline) && !resumed.paused, 'resume re-arms with a real deadline');
     assert.ok(Math.abs((resumed.deadline - Date.now()) - frozen.remainingMs) < 2000, 'resume continues from the frozen remaining time');
@@ -296,22 +315,19 @@ async function run() {
 
     // 5. REVEAL ALL mid-battle stops the clock, HIDE resumes it, GAME LOST stays available.
     command('revealAll');
-    await settle();
-    assert.equal(gm.state.timer.phase, 'stopped', 'REVEAL ALL mid-battle stops the clock');
+    await until(s => s.timer.phase === 'stopped', 'REVEAL ALL mid-battle stops the clock');
     command('hideFinal');
-    await settle();
-    assert.equal(gm.state.timer.phase, 'running', 'hiding a GM-revealed Final resumes play');
+    await until(s => s.timer.phase === 'running', 'hiding a GM-revealed Final resumes play');
     // Across a full timer tick: A5-D5 are only visible through the GM's
     // administrative REVEAL ALL, which is not gameplay, so no Borrowed Time.
     await sleep(1300);
     assert.equal(gm.state.timer.phase, 'running', 'an administrative REVEAL ALL never manufactures Borrowed Time');
     assert.ok(!gm.chat.some(m => /ALL COLUMNS OPEN/.test(m.text || '')), 'no ALL COLUMNS OPEN announcement from a GM reveal');
     command('revealFinal');
-    await settle();
-    assert.equal(gm.state.timer.phase, 'stopped');
+    await until(s => s.timer.phase === 'stopped', 'REVEAL FINAL stops the clock');
     mark = gm.mark();
     gm.send({ type: 'gm:failFinal' });
-    await settle();
+    await gm.waitFor((m, i) => i >= mark && (m.type === 'error' || (m.type === 'state:public' && m.matchResult?.outcome === 'LOST')), 'GAME LOST');
     assert.deepEqual(gm.errorsSince(mark), [], 'GAME LOST remains available after a GM reveal');
     assert.equal(gm.state.matchResult?.outcome, 'LOST');
 
@@ -320,8 +336,9 @@ async function run() {
     await launchBattle();
     for (const column of ['A', 'B', 'C', 'D']) gm.send({ type: 'gm:failColumn', column });
     await settle();
+    mark = gm.mark();
     gm.send({ type: 'gm:failFinal' });
-    await settle();
+    await until(s => s.matchResult?.outcome === 'LOST' && s.womf.charge === 10, 'GAME LOST with WOMF charged');
     assert.equal(gm.state.matchResult?.outcome, 'LOST');
     assert.equal(gm.state.womf.charge, 10, 'failed columns + FINAL RED charge WOMF to 10');
     gm.send({ type: 'gm:wheelOpen', segments: [] });
@@ -331,11 +348,10 @@ async function run() {
     gm.send({ type: 'gm:finishGame' });
     await settle();
     gm.send({ type: 'gm:showRecount' });
-    await settle();
-    assert.equal(gm.state.roomMode, 'RECOUNT');
+    await until(s => s.roomMode === 'RECOUNT', 'RECOUNT');
     mark = gm.mark();
     gm.send({ type: 'gm:wheelClose' });
-    await settle();
+    await until(s => s.wheel.open === false || gm.errorsSince(mark).length, 'the Wheel closes');
     assert.deepEqual(gm.errorsSince(mark), [], 'the Wheel is dismissible during RECOUNT');
     assert.equal(gm.state.wheel.open, false, 'the Wheel leaves every screen');
     assert.equal(gm.state.bloodTribute?.status, 'required', 'the Blood Tribute is demanded');

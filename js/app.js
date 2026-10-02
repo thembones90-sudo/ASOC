@@ -5766,16 +5766,15 @@ const App = {
         : `<img class="gm-chat-gif-attachment" src="${gifUrl}" alt="${title}">`;
 
       if (isBrokerGif) {
-        return `
-          <div class="gm-shadow-broker-entry gm-shadow-broker-media-entry gm-broker-image-bare" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" title="SHADOW BROKER · ${this.escapeHtml(time)}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
-            <div class="gm-broker-bare-main">
-              <button type="button" class="gm-chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>
-              <div class="gm-chat-gif-provider-mark">GIPHY</div>
-            </div>
-            <div class="gm-broker-bare-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>
-            ${this.createGMReactionSummaryHTML(msg)}
-          </div>
-        `;
+        return Skeleton.shadowBrokerMediaHTML({
+          id: msg.id,
+          time,
+          classes: 'gm-shadow-broker-entry gm-shadow-broker-media-entry',
+          attrs: 'data-editable="false" oncontextmenu="return App.openGMMessageActionMenu(event,this)"',
+          media: `<button type="button" class="gm-chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>`,
+          extras: '<div class="gm-chat-gif-provider-mark">GIPHY</div>',
+          reactions: this.createGMReactionSummaryHTML(msg)
+        });
       }
 
       const avatar = this.littleHeroAvatarHTML(identity, true);
@@ -5844,17 +5843,16 @@ const App = {
         ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
       if (msg.imageUrl) {
-        return `
-          <div class="gm-shadow-broker-entry gm-shadow-broker-media-entry gm-shadow-broker-image-entry gm-broker-image-bare${msg.messageType === 'sticker' ? ' sticker-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" title="SHADOW BROKER · ${this.escapeHtml(time)}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
-            <div class="gm-broker-bare-main">
-              ${manualBadge}${replyContextHtml}
-              ${messageText ? `<div class="broker-media-caption">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div>` : ''}
-              ${msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>`}
-              ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
-            </div>
-            <div class="gm-broker-bare-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>
-            ${this.createGMReactionSummaryHTML(msg)}
-          </div>`;
+        return Skeleton.shadowBrokerMediaHTML({
+          id: msg.id,
+          time,
+          classes: `gm-shadow-broker-entry gm-shadow-broker-media-entry gm-shadow-broker-image-entry${msg.messageType === 'sticker' ? ' sticker-message' : ''}`,
+          attrs: `data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)"`,
+          caption: `${manualBadge}${replyContextHtml}${messageText ? `<div class="broker-media-caption">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div>` : ''}`,
+          media: msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>`,
+          extras: msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : '',
+          reactions: this.createGMReactionSummaryHTML(msg)
+        });
       }
       return `
         <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'sticker' ? ' sticker-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">

@@ -136,12 +136,36 @@ function normalizeBrokerProfile(input) {
   const untouched = (!input.avatarData || input.avatarData === LEGACY_DEFAULT_AVATAR) && (!input.avatarEffect || input.avatarEffect === 'none') && (!input.messageEffect || input.messageEffect === 'none') && (!input.frameColor || /^#9b5de0$/i.test(input.frameColor));
   return untouched ? { ...DEFAULT_BROKER_PROFILE } : transmogCatalog.cleanProfile({ ...input, transmogId: transmogCatalog.CUSTOM_ID });
 }
-// A CUSTOM upload can be ~2 MB of data URL; it is served once from
-// /api/broker-avatar instead of riding along in every state:public.
 function publicBrokerProfile(room) {
-  const profile = normalizeBrokerProfile(room.brokerProfile);
-  if (/^data:image\//.test(profile.avatarData)) profile.avatarData = `/api/broker-avatar?room=${encodeURIComponent(room.code)}&v=${Number(room.brokerTransmogSeq) || 0}`;
-  return profile;
+  return normalizeBrokerProfile(room.brokerProfile);
+}
+// A CUSTOM avatar upload is stored as a file beside the chat images (and
+// referenced by path), never as a data URL inside the room: the room file is
+// rewritten on every change and must stay small. Returns the /uploads/chat/
+// path, or null if the data is not an acceptable image or storage is full.
+const BROKER_AVATAR_MAX_BYTES = 1.5 * 1024 * 1024;
+function storeBrokerAvatar(dataUrl) {
+  const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ''));
+  if (!match) return null;
+  const buffer = Buffer.from(match[2], 'base64');
+  if (!buffer.length || buffer.length > BROKER_AVATAR_MAX_BYTES) return null;
+  if (!chatUploadGuard.checkCapacity(buffer.length).ok) return null;
+  const filename = crypto.randomBytes(16).toString('hex') + '.' + { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[match[1]];
+  try {
+    fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
+    fs.writeFileSync(path.join(CHAT_UPLOAD_DIR, filename), buffer, { flag: 'wx', mode: 0o600 });
+  } catch (error) {
+    console.error('[transmog] custom avatar store failed:', error.message);
+    return null;
+  }
+  chatUploadGuard.recordStored(null, buffer.length);
+  return '/uploads/chat/' + filename;
+}
+// Rooms saved before avatars became files: move an embedded upload out.
+function migrateBrokerAvatar(profile) {
+  if (!/^data:image\//.test(String(profile?.avatarData || ''))) return profile;
+  const stored = storeBrokerAvatar(profile.avatarData);
+  return stored ? { ...profile, avatarData: stored } : { ...profile, avatarData: DEFAULT_BROKER_PROFILE.avatarData };
 }
 // Appearance ownership (future unlocks: achievements, market, events...).
 // 'default' sets are always owned; granted ids live in broker-wardrobe.json.
@@ -601,7 +625,7 @@ function restoreActiveRooms() {
         ritual: normalizeRitualState(saved.ritual),
         unstableConcoction: unstableConcoction.normalizeState(saved.unstableConcoction),
         // TRANSMOG survives a restart: set ids re-resolve from the catalog.
-        brokerProfile: normalizeBrokerProfile(saved.brokerProfile),
+        brokerProfile: migrateBrokerAvatar(normalizeBrokerProfile(saved.brokerProfile)),
         brokerTransmogSeq: Number(saved.brokerTransmogSeq) || 0,
         heroRoles: heroRoles.normalizeState(saved.heroRoles),
         // KALADONT survives a restart; the phase in flight gets a fresh window
@@ -7105,6 +7129,11 @@ function handleBrokerTransmog(ws, message) {
     next = transmogCatalog.resolveProfile(id);
   } else {
     next = transmogCatalog.cleanProfile({ ...(message.profile || {}), transmogId: transmogCatalog.CUSTOM_ID });
+    if (/^data:image\//.test(next.avatarData)) {
+      const stored = storeBrokerAvatar(next.avatarData);
+      if (!stored) return sendToWs(ws, { type: 'error', code: 'TRANSMOG', message: 'CUSTOM AVATAR REJECTED // PNG, JPEG OR WEBP UNDER 1.5 MB, AND STORAGE MUST HAVE ROOM' });
+      next.avatarData = stored;
+    }
   }
   room.brokerProfile = next;
   room.brokerTransmogSeq = (Number(room.brokerTransmogSeq) || 0) + 1;
@@ -11434,14 +11463,6 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': target.contentType, 'Content-Length': content.length, 'Cache-Control': 'public, max-age=31536000, immutable' });
       res.end(req.method === 'HEAD' ? undefined : content);
     });
-  }
-  if ((req.method === 'GET' || req.method === 'HEAD') && urlPath === '/api/broker-avatar') {
-    const room = rooms.get(String(new URL(req.url, 'http://x').searchParams.get('room') || '').toUpperCase());
-    const match = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(String(room?.brokerProfile?.avatarData || ''));
-    if (!match) return sendJson(res, 404, { error: 'Not Found' });
-    const content = Buffer.from(match[2], 'base64');
-    res.writeHead(200, { 'Content-Type': match[1], 'Content-Length': content.length, 'Cache-Control': 'public, max-age=31536000, immutable' });
-    return res.end(req.method === 'HEAD' ? undefined : content);
   }
   if ((req.method === 'GET' || req.method === 'HEAD') && urlPath.startsWith('/uploads/chat/')) {
     if (serveChatUpload(req, res, urlPath)) return;

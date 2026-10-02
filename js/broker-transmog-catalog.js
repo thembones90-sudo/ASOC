@@ -18,7 +18,7 @@
 
   // Every effect a set (or the CUSTOM forge) may use. Values are CSS hooks:
   // [data-broker-effect], [data-broker-message-effect], html[data-broker-aura].
-  const AVATAR_EFFECTS = Object.freeze(['none', 'pulse', 'eclipse', 'glitch', 'inferno', 'frost', 'crown', 'warsong', 'omen', 'bloodfang', 'fel']);
+  const AVATAR_EFFECTS = Object.freeze(['none', 'signal', 'void', 'heartbeat', 'pulse', 'eclipse', 'glitch', 'inferno', 'frost', 'crown', 'warsong', 'omen', 'bloodfang', 'fel']);
   const MESSAGE_EFFECTS = Object.freeze(['none', 'void', 'blood', 'royal', 'static', 'frost', 'warsong', 'omen', 'bloodfang', 'fel']);
   const AURAS = Object.freeze(['none', 'void', 'blood', 'frost', 'warsong', 'royal', 'static', 'omen', 'bloodfang', 'fel']);
   const ENTRANCES = Object.freeze(['none', 'fade', 'shatter', 'slam', 'glitch', 'rise', 'strike', 'fel']);
@@ -31,27 +31,29 @@
   const DEFAULT_ID = 'default-broker';
   const CUSTOM_ID = 'custom';
 
-  const art = folder => ({ avatar: `assets/transmog/${folder}/avatar.webp`, thumb: `assets/transmog/${folder}/thumb.webp` });
+  // Bump ART_VERSION whenever set art is replaced so browsers fetch it fresh.
+  const ART_VERSION = '2';
+  const art = folder => ({ avatar: `assets/transmog/${folder}/avatar.webp?v=${ART_VERSION}`, thumb: `assets/transmog/${folder}/thumb.webp?v=${ART_VERSION}` });
 
   const SETS = Object.freeze([
     {
       id: 'default-broker', name: 'DEFAULT BROKER', tagline: 'The standard mechanical Shadow Broker.',
       category: 'origin', rarity: 'common', unlock: { method: 'default' }, ...art('default'),
-      frameColor: '#9b5de0', accent: '#c486ef', avatarEffect: 'none', messageEffect: 'none', aura: 'none',
+      frameColor: '#9b5de0', accent: '#c486ef', avatarEffect: 'signal', messageEffect: 'none', aura: 'none',
       entrance: 'fade', sound: 'hum', systemStyle: 'standard',
       sample: 'TRANSMISSION RECEIVED. CARRY ON, LITTLE HEROES.'
     },
     {
       id: 'void-broker', name: 'VOID BROKER', tagline: 'Dark matter in a mechanical shell.',
       category: 'elemental', rarity: 'rare', unlock: { method: 'default' }, ...art('void'),
-      frameColor: '#7a2cff', accent: '#b98bff', avatarEffect: 'pulse', messageEffect: 'void', aura: 'void',
+      frameColor: '#7a2cff', accent: '#b98bff', avatarEffect: 'void', messageEffect: 'void', aura: 'void',
       entrance: 'rise', sound: 'drone', systemStyle: 'void',
       sample: 'THE VOID HEARD YOUR GUESS. THE VOID IS UNIMPRESSED.'
     },
     {
       id: 'blood-broker', name: 'BLOOD BROKER', tagline: 'Crimson circuitry, warm to the touch.',
       category: 'elemental', rarity: 'rare', unlock: { method: 'default' }, ...art('blood'),
-      frameColor: '#e0182f', accent: '#ff6b7d', avatarEffect: 'inferno', messageEffect: 'blood', aura: 'blood',
+      frameColor: '#e0182f', accent: '#ff6b7d', avatarEffect: 'heartbeat', messageEffect: 'blood', aura: 'blood',
       entrance: 'slam', sound: 'toll', systemStyle: 'blood',
       sample: 'BLOOD SIGNAL CONFIRMED. SOMEONE WILL PAY FOR THAT ANSWER.'
     },

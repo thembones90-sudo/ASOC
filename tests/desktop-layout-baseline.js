@@ -66,6 +66,9 @@ function fingerprint({ props, geometry }) {
     const key = pathOf(el);
     const entry = {};
     for (const prop of props) entry[prop] = cs.getPropertyValue(prop);
+    // The ritual pentagon is centred with margin:auto; its used margin depends
+    // on the machine's fonts (CI vs local) while the pentagon itself does not move.
+    if (el.classList.contains('ritual-pentagon')) { entry['margin-left'] = 'auto'; entry['margin-right'] = 'auto'; }
     out.elements[key] = entry;
   }
   for (const selector of geometry) {
