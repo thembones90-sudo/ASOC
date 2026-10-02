@@ -322,12 +322,17 @@ const App = {
         const buildId = String((await response.json())?.buildId || '');
         if (!buildId) return;
         const previous = sessionStorage.getItem(storageKey);
+        // A new patch never reloads over an INFOSTUD upload or unsaved
+        // notepad text: it waits (the build id stays unrecorded) and reloads
+        // once the work is done.
+        if (previous && previous !== buildId && window.Infostud?.busy?.()) return;
         sessionStorage.setItem(storageKey, buildId);
         if (previous && previous !== buildId) location.reload();
       } catch {}
     };
     check();
     this._deploymentWatcherTimer = setInterval(check, 30000);
+    window.addEventListener('infostud:idle', check);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') check();
     });

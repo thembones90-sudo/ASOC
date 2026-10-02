@@ -136,7 +136,11 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
     },
     flush() { return remote ? (remoteFlush || Promise.resolve()) : Promise.resolve(); },
     // Readable stream of a file's bytes.
-    async open(item) { return remote ? remote.get(keyOf(item)) : fs.createReadStream(fileOf(item)); },
+    // range: optional { start, end } (inclusive) for video seeking.
+    async open(item, range) {
+      if (remote) return remote.get(keyOf(item), range ? `bytes=${range.start}-${range.end}` : undefined);
+      return fs.createReadStream(fileOf(item), range ? { start: range.start, end: range.end } : undefined);
+    },
     list() { return all().slice(); },
     usage() {
       const used = totalBytes();
@@ -183,7 +187,7 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
       };
       if (remote) {
         // R2 needs the length up front; browsers always send it for a file.
-        if (!declared) { req.resume(); return cb(err('LENGTH REQUIRED', 411)); }
+        if (req.headers['content-length'] === undefined) { req.resume(); return cb(err('LENGTH REQUIRED', 411)); }
         remote.put(keyOf(item), req, declared, item.type).then(() => commit(declared), error => {
           req.resume();
           remote.remove(keyOf(item)).catch(() => {});
@@ -213,6 +217,53 @@ function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 *
       out.on('finish', () => {
         if (failed) return;
         commit(size);
+      });
+      req.pipe(out);
+    },
+
+    // Overwrite a file's contents (the notepad's SAVE). Streams like receive.
+    replace(id, req, cb) {
+      const item = get(id);
+      if (!item || item.kind !== 'file') { req.resume(); return cb(err('NOT FOUND', 404)); }
+      const room = Math.min(maxTotalBytes - (totalBytes() - item.size), diskRoom() + item.size);
+      const declared = Number(req.headers['content-length']) || 0;
+      if (declared > maxFileBytes) { req.resume(); return cb(err('FILE TOO LARGE', 413)); }
+      if (declared > room) { req.resume(); return cb(err('INFOSTUD IS FULL', 507)); }
+      const done = size => {
+        item.size = size;
+        item.modifiedAt = Date.now();
+        save();
+        cb(null, item);
+      };
+      if (remote) {
+        if (req.headers['content-length'] === undefined) { req.resume(); return cb(err('LENGTH REQUIRED', 411)); }
+        remote.put(keyOf(item), req, declared, item.type).then(() => done(declared), error => { req.resume(); cb(error.status ? error : err('SAVE FAILED', 502)); });
+        return;
+      }
+      const target = fileOf(item);
+      const tmp = `${target}.${newId()}.tmp`;
+      const out = fs.createWriteStream(tmp, { flags: 'wx' });
+      let size = 0;
+      let failed = null;
+      const fail = error => {
+        if (failed) return;
+        failed = error;
+        req.unpipe?.(out);
+        out.destroy();
+        fs.rm(tmp, { force: true }, () => cb(error));
+        req.resume();
+      };
+      req.on('data', chunk => {
+        size += chunk.length;
+        if (size > maxFileBytes) fail(err('FILE TOO LARGE', 413));
+        else if (size > room) fail(err('INFOSTUD IS FULL', 507));
+      });
+      req.on('error', fail);
+      out.on('error', fail);
+      out.on('finish', () => {
+        if (failed) return;
+        try { fs.renameSync(tmp, target); } catch (error) { return fail(error); }
+        done(size);
       });
       req.pipe(out);
     },

@@ -28,7 +28,9 @@
 .ifs-card.is-cut { opacity: .45; }
 .ifs-card.is-drop { outline: 2px dashed #c486ef; }
 .ifs-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: #0d0a12; }
-.ifs-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ifs-thumb img, .ifs-thumb video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.ifs-thumb .ifs-play { position: absolute; right: 8px; bottom: 8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: rgba(13, 10, 18, .72); color: #fff; font: normal 11px/1 system-ui; padding-left: 2px; box-sizing: border-box; pointer-events: none; transition: opacity .15s; }
+.ifs-card:hover .ifs-thumb.is-video .ifs-play { opacity: 0; }
 .ifs-folder-ico { width: 64%; aspect-ratio: 1.25; border-radius: 4px 8px 8px 8px; background: linear-gradient(180deg, #f6c453, #d99a1f); box-shadow: inset 0 -6px 0 rgba(0, 0, 0, .12); position: relative; }
 .ifs-folder-ico::before { content: ""; position: absolute; left: 0; top: -12%; width: 42%; height: 16%; border-radius: 4px 6px 0 0; background: #e2a92e; }
 .ifs-file-ico { position: relative; width: 52%; aspect-ratio: .78; border-radius: 4px 14px 4px 4px; background: linear-gradient(180deg, #e9e2f4, #b9aecd); display: grid; place-items: end center; font-style: normal; }
@@ -98,3 +100,6 @@
 @keyframes ifs-holo { from { background-position: 0% 0%; } to { background-position: 250% 250%; } }
 @keyframes ifs-shine { 0%, 60% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
 @media (prefers-reduced-motion: reduce) { .ifs-holo, .ifs-card.tier-gold .ifs-thumb::after { animation: none !important; } }
+.ifs-v-stage .ifs-notepad { width: min(1100px, 94vw); height: 82vh; box-sizing: border-box; resize: none; padding: 18px 22px; border: 1px solid rgba(155, 93, 224, .35); border-radius: 10px; outline: none; background: #0e0b14; color: #ece2fa; font: 15px/1.6 Consolas, 'Cascadia Mono', 'Courier New', monospace; tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ifs-v-stage .ifs-notepad:focus { border-color: rgba(185, 130, 255, .7); }
+.ifs-btn.is-save.is-dirty { background: #7b3fd0; color: #fff; }

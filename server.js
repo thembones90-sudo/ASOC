@@ -10761,6 +10761,54 @@ function redirectPlayerVerification(res, state) {
   res.end();
 }
 
+const INFOSTUD_LINK_SECRET = crypto.randomBytes(32);
+const INFOSTUD_LINK_MS = 6 * 60 * 60 * 1000;
+const infostudLinkSig = (id, exp) => crypto.createHmac('sha256', INFOSTUD_LINK_SECRET).update(`${id}.${exp}`).digest('base64url');
+function infostudLink(id) {
+  const exp = Date.now() + INFOSTUD_LINK_MS;
+  return `/api/infostud/${encodeURIComponent(id)}/raw?exp=${exp}&sig=${infostudLinkSig(id, exp)}`;
+}
+function serveInfostudRaw(req, res, id, params) {
+  const exp = Number(params.get('exp'));
+  const sig = Buffer.from(String(params.get('sig') || ''));
+  const expected = Buffer.from(infostudLinkSig(id, exp));
+  const item = infostud.get(id);
+  if (!(exp > Date.now()) || sig.length !== expected.length || !crypto.timingSafeEqual(sig, expected) || !item || item.kind !== 'file') {
+    return sendJson(res, 404, { error: 'Not Found' });
+  }
+  // Only media renders inline; anything else is a sandboxed download, so a
+  // stored .html/.svg can never run script on this origin.
+  // Files uploaded without a usable type still preview by their extension.
+  const byExt = { gif: 'image/gif', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp', mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', mkv: 'video/x-matroska', ogv: 'video/ogg', mp3: 'audio/mpeg', pdf: 'application/pdf' };
+  const type = /^application\/octet-stream$/.test(item.type) ? (byExt[path.extname(item.name).slice(1).toLowerCase()] || item.type) : item.type;
+  const inline = /^(image\/(?!svg)|video\/|audio\/)/.test(type) || type === 'application/pdf';
+  const headers = {
+    'Content-Type': inline ? type : 'application/octet-stream',
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'private, max-age=3600',
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "sandbox; default-src 'none'; img-src 'self'; media-src 'self'",
+    ...(inline ? {} : { 'Content-Disposition': 'attachment' })
+  };
+  let range = null;
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''));
+  if (m && item.size > 0 && (m[1] || m[2])) {
+    let start = m[1] ? Number(m[1]) : Math.max(0, item.size - Number(m[2]));
+    let end = m[1] && m[2] ? Math.min(Number(m[2]), item.size - 1) : item.size - 1;
+    if (start > end || start >= item.size) {
+      res.writeHead(416, { 'Content-Range': `bytes */${item.size}` });
+      return res.end();
+    }
+    range = { start, end };
+  }
+  infostud.open(item, range).then(stream => {
+    if (range) res.writeHead(206, { ...headers, 'Content-Length': range.end - range.start + 1, 'Content-Range': `bytes ${range.start}-${range.end}/${item.size}` });
+    else res.writeHead(200, { ...headers, 'Content-Length': item.size });
+    stream.on('error', () => res.destroy()).pipe(res);
+    res.on('close', () => stream.destroy?.());
+  }, () => sendJson(res, 502, { error: 'UNAVAILABLE' }));
+}
+
 // INFOSTUD routes (GM-authenticated, see handleApiRequest).
 function handleInfostudRequest(req, res, parts, method) {
   const fail = error => sendJson(res, error.status || 500, { error: error.message || 'FAILED' });
@@ -10790,6 +10838,8 @@ function handleInfostudRequest(req, res, parts, method) {
   }
   const item = parts.length >= 3 ? infostud.get(parts[2]) : null;
   if (!item) return sendJson(res, 404, { error: 'Not Found' });
+  // GET /api/infostud/:id/link -> a signed media URL for <video>/<img>
+  if (parts.length === 4 && parts[3] === 'link' && method === 'GET' && item.kind === 'file') return sendJson(res, 200, { url: infostudLink(item.id) });
   // PATCH /api/infostud/:id {name?, parentId?} -> rename / move
   if (parts.length === 3 && method === 'PATCH') {
     return readJsonBody(req, (error, body) => {
@@ -10809,6 +10859,13 @@ function handleInfostudRequest(req, res, parts, method) {
       if (error) return sendJson(res, 400, { error: 'BAD REQUEST' });
       infostud.copy(item.id, { parentId: body?.parentId || null })
         .then(copy => sendJson(res, 200, { item: copy, items: infostud.list(), usage: infostud.usage() }), fail);
+    });
+  }
+  // PUT /api/infostud/:id (raw body) -> overwrite a file (notepad save)
+  if (parts.length === 3 && method === 'PUT') {
+    return infostud.replace(item.id, req, (error, saved) => {
+      if (error) return fail(error);
+      sendJson(res, 200, { item: saved, usage: infostud.usage() });
     });
   }
   if (parts.length === 3 && method === 'DELETE') { infostud.remove(item.id); return sendJson(res, 200, { ok: true, usage: infostud.usage() }); }
@@ -10833,6 +10890,11 @@ function handleApiRequest(req, res) {
 
   // INFOSTUD -- hidden. Anything without a valid Shadow Broker token gets a
   // plain 404, as if the route did not exist.
+  // Signed, expiring media links (for <video>/<img> tags, which cannot send
+  // the GM header). Anything unsigned or expired is a plain 404.
+  if (parts[0] === 'api' && parts[1] === 'infostud' && parts.length === 4 && parts[3] === 'raw' && method === 'GET') {
+    return infostudInit().then(() => serveInfostudRaw(req, res, parts[2], url.searchParams), () => sendJson(res, 404, { error: 'Not Found' }));
+  }
   if (parts[0] === 'api' && parts[1] === 'infostud') {
     if (!isGmAuthorized(req)) return sendJson(res, 404, { error: 'Not Found' });
     res.setHeader('Cache-Control', 'no-store');
