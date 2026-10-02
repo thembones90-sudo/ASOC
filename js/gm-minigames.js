@@ -50,6 +50,7 @@
         else if (launch.dataset.gmMinigame === 'kaladont') this.openKaladont();
         else if (launch.dataset.gmMinigame === 'rage') window.RageGame?.show?.();
         else if (launch.dataset.gmMinigame === 'rouletteCarnage') window.RouletteCarnageUI?.open?.('gm');
+        else if (launch.dataset.gmMinigame === 'sibicar') App.openPlayerMirror?.();
         else this.spinConcoction();
         return;
       }
