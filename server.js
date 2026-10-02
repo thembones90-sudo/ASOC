@@ -7364,7 +7364,7 @@ if (process.env.ASOC_COIN_DROPS !== '0') setInterval(coinDropTick, 5000).unref?.
 // those Little Heroes settle it with a public ROLL-OFF (1-100, server-random
 // order, highest roll takes the coin, a tie at the top splits it).
 const COIN_CONTEST_MS = 500;
-const COIN_ROLL_TURN_MS = 12000;
+const COIN_ROLL_TURN_MS = Number(process.env.ASOC_COIN_ROLL_TURN_MS) || 12000; // idle past this = forfeit
 let activeCoinRoll = null;
 // ASOC_TEST_COIN_ROLLS="80,20,50,50" scripts the dice, in order (tests only).
 const scriptedCoinRolls = String(process.env.ASOC_TEST_COIN_ROLLS || '').split(',').map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 100);
@@ -7408,7 +7408,7 @@ function settleCoinClaims(drop) {
 function coinRollPublic(roll) {
   return {
     id: roll.id, dropId: roll.drop.id, tier: roll.drop.tier, label: roll.drop.label, amount: roll.drop.amount,
-    contenders: roll.order.map(id => { const c = roll.contenders.get(id); return { id, name: c.name, avatar: c.avatar, roll: c.roll, auto: c.auto === true }; }),
+    contenders: roll.order.map(id => { const c = roll.contenders.get(id); return { id, name: c.name, avatar: c.avatar, roll: c.roll, forfeit: c.forfeit === true }; }),
     turnId: roll.order[roll.turn] || null, turnEndsAt: roll.turnEndsAt
   };
 }
@@ -7431,15 +7431,23 @@ function nextCoinRollTurn(roll, first = false) {
   roll.turnEndsAt = Date.now() + COIN_ROLL_TURN_MS;
   broadcastAllRooms({ type: first ? 'coinRoll:start' : 'coinRoll:turn', roll: coinRollPublic(roll) });
   const turnId = roll.order[roll.turn];
-  roll.timer = setTimeout(() => castCoinRoll(roll, turnId, true), COIN_ROLL_TURN_MS);
+  // Idle is punished: no roll in time = automatic loss.
+  roll.timer = setTimeout(() => forfeitCoinRoll(roll, turnId), COIN_ROLL_TURN_MS);
 }
-function castCoinRoll(roll, playerId, auto = false) {
+function forfeitCoinRoll(roll, playerId) {
+  if (activeCoinRoll !== roll || roll.order[roll.turn] !== playerId) return;
+  const c = roll.contenders.get(playerId);
+  if (!c || c.roll !== null || c.forfeit) return;
+  c.forfeit = true;
+  broadcastAllRooms({ type: 'coinRoll:rolled', id: roll.id, playerId, name: c.name, value: null, forfeit: true, roll: coinRollPublic(roll) });
+  setTimeout(() => nextCoinRollTurn(roll), 1200);
+}
+function castCoinRoll(roll, playerId) {
   if (activeCoinRoll !== roll || roll.order[roll.turn] !== playerId) return false;
   const c = roll.contenders.get(playerId);
   if (!c || c.roll !== null) return false;
   c.roll = scriptedCoinRolls.length ? scriptedCoinRolls.shift() : crypto.randomInt(1, 101);
-  c.auto = auto;
-  broadcastAllRooms({ type: 'coinRoll:rolled', id: roll.id, playerId, name: c.name, value: c.roll, auto, roll: coinRollPublic(roll) });
+  broadcastAllRooms({ type: 'coinRoll:rolled', id: roll.id, playerId, name: c.name, value: c.roll, roll: coinRollPublic(roll) });
   setTimeout(() => nextCoinRollTurn(roll), 1600);
   return true;
 }
@@ -7447,8 +7455,16 @@ function finishCoinRoll(roll) {
   clearTimeout(roll.timer);
   const drop = roll.drop;
   const all = roll.order.map(id => ({ id, ...roll.contenders.get(id) }));
-  const top = Math.max(...all.map(c => c.roll));
-  const winners = all.filter(c => c.roll === top);
+  const rolled = all.filter(c => !c.forfeit && Number.isInteger(c.roll));
+  const top = Math.max(...rolled.map(c => c.roll));
+  const winners = rolled.filter(c => c.roll === top);
+  if (!winners.length) {
+    // Everyone idled: nobody deserves it.
+    activeCoinRoll = null;
+    broadcastAllRooms({ type: 'coinRoll:result', id: roll.id, roll: coinRollPublic(roll), winners: [], split: false, lost: true, tier: drop.tier, label: drop.label, amount: drop.amount });
+    coinChat(`🎲 ROLL-OFF // ${all.map(c => c.name).join(' AND ')} ALL SAT IDLE // THE ${drop.label} SHADOW COIN IS LOST`);
+    return finishCoinDrop(drop, [], { rollOff: all.map(c => ({ id: c.id, name: c.name, roll: null, forfeit: true })) });
+  }
   // Split in tenths of a coin; any leftover tenth goes to the first roller.
   const units = Math.round(drop.amount * 10);
   const each = Math.floor(units / winners.length);
@@ -7456,11 +7472,11 @@ function finishCoinRoll(roll) {
   paid.forEach(w => { if (w.amount > 0) awardCoinShare(drop, w, w.amount, winners.length > 1 ? ' (split)' : ' (roll-off)'); });
   activeCoinRoll = null;
   broadcastAllRooms({ type: 'coinRoll:result', id: roll.id, roll: coinRollPublic(roll), winners: paid, split: winners.length > 1, tier: drop.tier, label: drop.label, amount: drop.amount });
-  const rolls = all.map(c => `${c.name} ${c.roll}`).join(' VS ');
+  const rolls = all.map(c => `${c.name} ${c.forfeit ? 'IDLE (FORFEIT)' : c.roll}`).join(' VS ');
   coinChat(winners.length > 1
     ? `🎲 ROLL-OFF // ${rolls} // A TIE! THE ${drop.label} COIN IS SPLIT: ${paid.map(w => `${w.name} +${w.amount} SC`).join(', ')}`
     : `🎲 ROLL-OFF // ${rolls} // ${paid[0].name} TAKES THE ${drop.label} SHADOW COIN // +${paid[0].amount} SC`);
-  finishCoinDrop(drop, paid, { rollOff: all.map(c => ({ id: c.id, name: c.name, roll: c.roll })) });
+  finishCoinDrop(drop, paid, { rollOff: all.map(c => ({ id: c.id, name: c.name, roll: c.roll, forfeit: c.forfeit === true })) });
 }
 function handleCoinRollCast(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
