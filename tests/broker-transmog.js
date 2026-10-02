@@ -294,7 +294,7 @@ async function browserSuite() {
     // 3/4/5. Equip Illidan: both pages repaint, existing messages included.
     await g.click('[data-btm-set="illidan-broker"]');
     await g.click('#btm-equip');
-    await p.waitForFunction(() => document.documentElement.dataset.brokerSet === 'illidan-broker', null, { timeout: 5000 });
+    for (const page of [p, g]) await page.waitForFunction(() => document.documentElement.dataset.brokerSet === 'illidan-broker', null, { timeout: 5000 });
     for (const page of [p, g]) {
       const l = await look(page);
       assert.equal(l.aura, 'fel');
@@ -314,7 +314,7 @@ async function browserSuite() {
     await g.click('#broker-transmog-btn');
     await g.click('[data-btm-set="bloodfang-broker"]');
     await g.click('#btm-equip');
-    await p.waitForFunction(() => document.documentElement.dataset.brokerSet === 'bloodfang-broker', null, { timeout: 5000 });
+    for (const page of [p, g]) await page.waitForFunction(() => document.documentElement.dataset.brokerSet === 'bloodfang-broker', null, { timeout: 5000 });
     for (const page of [p, g]) {
       const l = await look(page);
       assert.deepEqual(l.effects, ['bloodfang']);

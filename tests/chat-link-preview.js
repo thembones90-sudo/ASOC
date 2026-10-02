@@ -20,7 +20,8 @@ const brokerCreation = SERVER.split('function addShadowBrokerMessage')[1].split(
 assert.match(brokerCreation, /primeChatLinkPreview\(room, message\)/, 'Shadow Broker broadcasts enter the posted-message preview pipeline');
 const GM_CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'app.js'), 'utf8');
 const PLAYER_CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'player.js'), 'utf8');
-const gmBrokerBranch = GM_CLIENT.split("if (msg.source === 'shadowBroker')")[1].split("const time = new Date")[0];
+// The whole Broker branch, up to the guess-bubble path that follows it.
+const gmBrokerBranch = GM_CLIENT.split("if (msg.source === 'shadowBroker')")[1].split('_gmWrongVerdictSeenAt')[0];
 assert.match(gmBrokerBranch, /ChatLinks\?\.messageHTML\(msg\)/, 'GM renders preview cards on Shadow Broker broadcasts');
 // The Broker transmission render line (the one carrying broker-image-only);
 // an earlier shadowBroker branch exists for the external-avatar mirror.
