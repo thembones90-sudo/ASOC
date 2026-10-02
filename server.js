@@ -8435,6 +8435,20 @@ function handlePlayersList(ws) {
   else if(ws.playerId){const player=room.players.get(ws);sendDailyState(ws,dailyIdentity(ws.playerId,player?.name));}
 }
 
+// ONE SHADOW BROKER, ANY DEVICE: the newest authenticated GM login takes
+// control. The device that had it is told so and released; it does not
+// auto-reconnect (that would start a tug of war) but offers TAKE CONTROL.
+function supersedeHost(room, ws) {
+  const old = room.hostConnection;
+  if (!old || old === ws || old.readyState !== 1) return;
+  room.hostConnection = null;
+  old.isHost = false;
+  sendToWs(old, { type: 'host:superseded', message: 'SHADOW BROKER CONTROL MOVED TO ANOTHER DEVICE' });
+  // A beat after the notice so it is flushed before the close frame.
+  setTimeout(() => { try { old.close(4002, 'Shadow Broker control moved to another device'); } catch {} }, 250);
+  console.log(`[ROOM ${room.code}] Shadow Broker control moved to a new device`);
+}
+
 function handleHostReconnect(ws, message) {
   const { hostToken } = message;
   const room = rooms.get(MASTER_ROOM_CODE);
@@ -8444,15 +8458,11 @@ function handleHostReconnect(ws, message) {
     return;
   }
 
-  if (room.hostToken !== hostToken) {
-    sendToWs(ws, { type: 'error', code: 'reconnect_invalid_token', message: 'Invalid host token' });
-    return;
-  }
+  // The GM login was already verified; a stale browser host token (another
+  // device took over since) just means: take control with a fresh one.
+  if (room.hostToken !== hostToken) return handleHostRecover(ws);
 
-  if (room.hostConnection && room.hostConnection.readyState === 1) {
-    sendToWs(ws, { type: 'error', code: 'reconnect_host_already_connected', message: 'Host already connected' });
-    return;
-  }
+  supersedeHost(room, ws);
 
   room.hostConnection = ws;
   ws.roomCode = MASTER_ROOM_CODE;
@@ -8499,14 +8509,12 @@ function handleHostRecover(ws) {
     return;
   }
 
-  if (room.hostConnection && room.hostConnection.readyState === 1) {
-    sendToWs(ws, { type: 'error', code: 'recover_host_already_connected', message: 'Shadow Broker is already connected' });
-    return;
-  }
+  supersedeHost(room, ws);
 
   const hostToken = generateHostToken();
   room.hostConnection = ws;
   room.hostToken = hostToken;
+  if (room.hostReconnectTimer) clearTimeout(room.hostReconnectTimer);
   room.hostReconnectTimer = null;
   ws.roomCode = MASTER_ROOM_CODE;
   ws.isHost = true;

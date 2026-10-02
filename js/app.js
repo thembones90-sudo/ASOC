@@ -2321,8 +2321,15 @@ const App = {
       }
     };
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (event) => {
       console.log('[GM] WebSocket closed');
+      if (event?.code === 4002 && !this._superseded) {
+        this._superseded = true;
+        this.showSupersededOverlay();
+      }
+      // Another device took the Shadow Broker's seat: no auto-reconnect (that
+      // would steal it straight back); TAKE CONTROL is the user's call.
+      if (this._superseded) return;
       document.querySelector('.gm-module-chat .gm-chat-panel')?.classList.add('is-reconnecting');
       this.setGMDeliveryState('RECONNECTING', 'queued');
       this.handleDisconnect();
@@ -2823,6 +2830,12 @@ const App = {
         localStorage.setItem('asoc_master_host_token', this.hostToken);
         this.updateMultiplayerUI();
         this.resendPendingCommands();
+        break;
+
+      case 'host:superseded':
+        this._superseded = true;
+        clearTimeout(this.reconnectTimer);
+        this.showSupersededOverlay(message.message);
         break;
 
       case 'host:recovery-none':
@@ -4481,6 +4494,26 @@ const App = {
   handleDisconnect() {
     this.reconnectAttempts = 0;
     this.attemptReconnect();
+  },
+
+  showSupersededOverlay(text) {
+    let el = document.getElementById('gm-superseded');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'gm-superseded';
+      el.className = 'gm-superseded';
+      el.setAttribute('role', 'alertdialog');
+      el.innerHTML = '<div class="gm-superseded-card"><img src="assets/ui/shadow-broker.png" alt=""><b>CONTROL MOVED</b><p></p><button type="button">TAKE CONTROL HERE</button></div>';
+      el.querySelector('button').addEventListener('click', () => {
+        this._superseded = false;
+        el.hidden = true;
+        this.reconnectAttempts = 0;
+        this.connectWebSocket();
+      });
+      document.body.appendChild(el);
+    }
+    el.querySelector('p').textContent = `${text || 'SHADOW BROKER CONTROL MOVED TO ANOTHER DEVICE'}. This screen is paused.`;
+    el.hidden = false;
   },
 
   attemptReconnect() {
