@@ -222,7 +222,24 @@
     hugUntil = Date.now() + 2600;
     const a = String(emote?.actorName || 'Someone');
     const t = String(emote?.targetName || 'everyone');
-    const initial = name => escape(name.trim().slice(0, 1).toUpperCase() || '?');
+    // Real profile pictures and frame colours: the roster for Little Heroes,
+    // the equipped TRANSMOG for the Shadow Broker.
+    const roster = (window.PlayerApp || window.App)?.currentPlayers || [];
+    const person = (id, name) => {
+      const isBroker = id === null || id === undefined || id === '' || String(id) === '__SHADOW_BROKER__' || String(id) === '__GM__';
+      if (isBroker) {
+        const p = window.BrokerTransmog?.getProfile?.() || {};
+        return { src: p.avatarData || 'assets/ui/shadow-broker.png', color: p.frameColor || '#9b5de0', name };
+      }
+      const hero = roster.find(entry => String(entry?.id) === String(id)) || {};
+      const raw = typeof hero.avatarData === 'string' ? hero.avatarData : '';
+      const src = raw.startsWith('data:image/') || raw.startsWith('/avatars/') || raw.startsWith('assets/') ? raw : '';
+      return { src, color: /^#[0-9a-f]{6}$/i.test(hero.frameColor || '') ? hero.frameColor : '#ff7eb6', name };
+    };
+    const blob = (who, side) => '<span class="hug-blob hug-' + side + '" style="--hug-c:' + who.color + '">' +
+      (who.src ? '<img src="' + escape(who.src) + '" alt="">' : '<b>' + escape(who.name.trim().slice(0, 1).toUpperCase() || '?') + '</b>') + '</span>';
+    const actor = person(emote?.actorId, a);
+    const target = emote?.targetId && !emote?.targetIds ? person(emote.targetId, t) : { src: '', color: '#ffd36a', name: 'ALL' };
     const layer = document.createElement('div');
     layer.className = 'hug-burst';
     layer.setAttribute('aria-hidden', 'true');
@@ -235,7 +252,7 @@
     }
     layer.innerHTML =
       '<span class="hug-glow"></span>' +
-      '<span class="hug-pair"><span class="hug-blob hug-left"><b>' + initial(a) + '</b></span><span class="hug-blob hug-right"><b>' + initial(t) + '</b></span></span>' +
+      '<span class="hug-pair">' + blob(actor, 'left') + blob(target, 'right') + '</span>' +
       '<span class="hug-hearts">' + hearts + '</span>' +
       '<b class="hug-caption">' + escape(a) + ' <span>🤗</span> ' + escape(t) + '</b>';
     document.body.appendChild(layer);
