@@ -26,10 +26,12 @@
   // Panini-style sticker tiers, lowest to highest.
   const TIERS = ['bronze', 'silver', 'gold', 'platinum', 'iconic'];
   const TIER_LABEL = { bronze: 'BRONZE', silver: 'SILVER', gold: 'GOLD', platinum: 'PLATINUM', iconic: '♛ ICONIC' };
-  const ask = async (title, value) => {
-    if (window.AsocDialog?.prompt) return window.AsocDialog.prompt({ title, message: '', defaultValue: value, value, maxLength: 180, required: true, confirmLabel: 'OK' });
+  const ask = async (title, value, selectEnd) => {
+    if (window.AsocDialog?.prompt) return window.AsocDialog.prompt({ title, message: '', defaultValue: value, value, maxLength: 180, required: true, confirmLabel: 'OK', selectEnd });
     return prompt(title, value || '');
   };
+  // Never the native confirm(): in the desktop app it breaks typing afterwards.
+  const sure = async (title, message, confirmLabel = 'OK') => (window.AsocDialog?.confirm ? window.AsocDialog.confirm({ title, message, confirmLabel }) : confirm(message || title));
 
   const F = {
     items: [],
@@ -462,8 +464,14 @@
     async rename(id) {
       const item = this.get(id);
       if (!item) return;
-      const name = await ask('RENAME', item.name);
-      if (!name || name === item.name) return;
+      // Windows-style: only the name part is selected, and the extension stays
+      // unless a new one is typed explicitly.
+      const dot = item.kind === 'file' ? item.name.lastIndexOf('.') : -1;
+      const extension = dot > 0 ? item.name.slice(dot) : '';
+      let name = await ask('RENAME', item.name, extension ? dot : null);
+      if (!name) return;
+      if (extension && !/\.[A-Za-z0-9]{1,8}$/.test(name)) name += extension;
+      if (name === item.name) return;
       const res = await json('/' + encodeURIComponent(id), 'PATCH', { name });
       if (!res.ok) return this.status((await res.json().catch(() => ({}))).error || 'RENAME FAILED', true);
       Object.assign(item, (await res.json()).item);
@@ -510,7 +518,7 @@
       const items = ids.map(id => this.get(id)).filter(Boolean);
       if (!items.length) return false;
       const what = items.length === 1 ? `"${items[0].name}"${items[0].kind === 'folder' ? ' and everything inside it' : ''}` : `these ${items.length} items`;
-      if (!confirm(`Delete ${what} for good?`)) return false;
+      if (!(await sure('DELETE', `Delete ${what} for good?`, 'DELETE'))) return false;
       for (const item of items) {
         const res = await api('/' + encodeURIComponent(item.id), { method: 'DELETE' }).catch(() => null);
         if (!res || !res.ok) { this.status(`${item.name} // DELETE FAILED`, true); continue; }
@@ -774,7 +782,10 @@
     closeViewer(force) {
       const v = this.root?.querySelector('.ifs-viewer');
       if (!v) return;
-      if (!force && this.textDirty && !window.confirm('Close without saving your changes?')) return;
+      if (!force && this.textDirty) {
+        sure('UNSAVED CHANGES', 'Close without saving your changes?', 'DISCARD').then(ok => ok && this.closeViewer(true));
+        return;
+      }
       this.textDirty = false;
       v.querySelector('.ifs-v-stage').innerHTML = '';
       v.querySelector('[data-v="save"]').hidden = true;
