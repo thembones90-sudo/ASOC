@@ -1,0 +1,58 @@
+/* CHAT MENTIONS (js/chat-mentions.js): @Name tags read and click like tags;
+   clicking one filters the chat to every mention of that name. */
+:is(#chat-messages, #gm-chat-messages) .chat-mention {
+  display: inline-block;
+  margin: 0 1px;
+  padding: 0 7px 1px;
+  border: 1px solid rgba(196, 134, 239, .45);
+  border-radius: 999px;
+  background: rgba(125, 72, 166, .28);
+  color: #ead4fb;
+  font-weight: 800;
+  line-height: 1.45;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, box-shadow .12s;
+}
+:is(#chat-messages, #gm-chat-messages) .chat-mention:hover {
+  background: rgba(155, 93, 224, .5);
+  border-color: #c486ef;
+  box-shadow: 0 0 10px rgba(196, 134, 239, .45);
+  color: #fff;
+}
+:is(#chat-messages, #gm-chat-messages) .chat-mention.mention-me {
+  border-color: #ffd36a;
+  background: linear-gradient(180deg, rgba(240, 180, 50, .42), rgba(160, 100, 10, .38));
+  color: #fff6dc;
+  text-shadow: 0 0 8px rgba(255, 211, 106, .55);
+}
+:is(#chat-messages, #gm-chat-messages) .chat-mention.mention-all {
+  border-color: rgba(255, 90, 110, .55);
+  background: rgba(200, 30, 50, .28);
+  color: #ffd6dc;
+}
+/* A message that mentions you gets a gold edge so it stands out. */
+:is(#chat-messages, #gm-chat-messages) .chat-mentions-me {
+  box-shadow: inset 3px 0 0 #ffd36a !important;
+}
+
+/* The "@ N MENTIONS" pill beside SEARCH TRANSMISSIONS. */
+.chat-search-strip { display: flex; align-items: center; gap: 8px; }
+.chat-search-strip > input { flex: 1 1 auto; min-width: 0; }
+.chat-mentions-pill {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: 1px solid #ffd36a;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e0a52a, #8a5c0a);
+  color: #1b1004;
+  font: 900 11px var(--font-machine, monospace);
+  letter-spacing: .14em;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(240, 180, 50, .4);
+  animation: chat-mentions-pulse 1.8s ease-in-out infinite;
+}
+.chat-mentions-pill[hidden] { display: none !important; }
+@keyframes chat-mentions-pulse { 50% { box-shadow: 0 0 24px rgba(240, 180, 50, .75); } }
+:is(#chat-search, #gm-chat-search).is-mention-filter { border-color: #ffd36a !important; box-shadow: 0 0 0 1px rgba(255, 211, 106, .35); }
+@media (prefers-reduced-motion: reduce) { .chat-mentions-pill { animation: none; } }

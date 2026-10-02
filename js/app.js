@@ -1238,7 +1238,9 @@ const App = {
           if (match.index > last) fragment.appendChild(document.createTextNode(value.slice(last, match.index)));
           const span = document.createElement('span');
           const mentionAll = String(match[1] || '').toLocaleLowerCase() === 'all';
-          span.className = 'chat-mention' + (mentionAll ? ' mention-all' : '');
+          const mentionMe = String(match[1] || '').toLocaleLowerCase() === 'shadow broker';
+          span.className = 'chat-mention' + (mentionAll ? ' mention-all' : '') + (mentionMe ? ' mention-me' : '');
+          if (mentionMe) target.closest('.chat-message, .gm-chat-message, [data-message-id]')?.classList.add('chat-mentions-me');
           span.textContent = match[0];
           fragment.appendChild(span);
           last = match.index + match[0].length;
@@ -5015,6 +5017,7 @@ const App = {
       const newestHeld = this.chatMessages.reduce((max, m) => Math.max(max, Number(m.timestamp) || 0), -Infinity);
       const newMessages = incoming.filter(m => !previousIds.has(m.id) && Number(m.timestamp) >= newestHeld);
       window.AsocAlerts?.gmChat(newMessages);
+      window.AsocMentions?.note(newMessages);
       // A player's HINT request gets its own prominent alert, not just a line
       // in the transcript. Lives here (not in the switch) so it fires for a
       // delta exactly as it did for a full snapshot.
