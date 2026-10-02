@@ -12,10 +12,19 @@ const MAX_NAME = 180;
 // Panini-style sticker tiers, lowest to highest.
 const RATINGS = Object.freeze(['bronze', 'silver', 'gold', 'platinum']);
 
-function create(dataDir, { maxFileBytes, maxTotalBytes }) {
+function create(dataDir, { maxFileBytes, maxTotalBytes, diskReserveBytes = 512 * 1024 * 1024 }) {
   const dir = path.join(dataDir, 'infostud');
   const indexFile = path.join(dir, 'index.json');
   fs.mkdirSync(dir, { recursive: true });
+  // Real free space on the data volume, minus a reserve the game itself
+  // needs (save files, chat uploads). Infostud never eats into the reserve.
+  const diskRoom = () => {
+    try {
+      if (typeof fs.statfsSync !== 'function') return Infinity;
+      const st = fs.statfsSync(dir);
+      return Number(st.bavail) * Number(st.bsize) - diskReserveBytes;
+    } catch { return Infinity; }
+  };
   let index = null;
 
   // v1 items were flat files {id, ext, type, name, size, at}.
@@ -80,7 +89,11 @@ function create(dataDir, { maxFileBytes, maxTotalBytes }) {
 
   return {
     list() { return all().slice(); },
-    usage() { return { used: totalBytes(), max: maxTotalBytes, maxFile: maxFileBytes }; },
+    usage() {
+      const used = totalBytes();
+      const room = Math.max(0, Math.min(maxTotalBytes - used, diskRoom()));
+      return { used, max: used + room, maxFile: Math.min(maxFileBytes, room) };
+    },
     get,
     pathOf(item) { return fileOf(item); },
     displayPath: pathOfItem,
@@ -100,7 +113,7 @@ function create(dataDir, { maxFileBytes, maxTotalBytes }) {
     receive(req, { type, name, parentId, lastModified }, cb) {
       let pid;
       try { pid = checkParent(parentId); } catch (e) { req.resume(); return cb(e); }
-      const room = maxTotalBytes - totalBytes();
+      const room = Math.min(maxTotalBytes - totalBytes(), diskRoom());
       const declared = Number(req.headers['content-length']) || 0;
       if (declared > maxFileBytes) { req.resume(); return cb(err('FILE TOO LARGE', 413)); }
       if (declared > room) { req.resume(); return cb(err('INFOSTUD IS FULL', 507)); }
@@ -173,7 +186,7 @@ function create(dataDir, { maxFileBytes, maxTotalBytes }) {
       const pid = checkParent(parentId);
       if (source.kind === 'folder' && (pid === source.id || descendants(source.id).some(d => d.id === pid))) throw err('A FOLDER CANNOT GO INSIDE ITSELF', 400);
       const bytes = source.kind === 'file' ? source.size : descendants(source.id).reduce((s, d) => s + (d.kind === 'file' ? d.size : 0), 0);
-      if (bytes > maxTotalBytes - totalBytes()) throw err('INFOSTUD IS FULL', 507);
+      if (bytes > Math.min(maxTotalBytes - totalBytes(), diskRoom())) throw err('INFOSTUD IS FULL', 507);
       const now = Date.now();
       const clone = (src, intoId, rename) => {
         const copy = { ...src, id: newId(), parentId: intoId, ext: null, createdAt: now, name: rename ? uniqueName(intoId, src.name) : src.name };
