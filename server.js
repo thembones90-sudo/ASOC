@@ -5756,7 +5756,9 @@ function handleRouletteCarnage(ws,message){
 // escrow and settlement, so reconnects restore the exact authoritative round.
 // ---------------------------------------------------------------------
 function sibicarActor(room, ws) {
-  if (!room || ws === room.hostConnection || !ws.playerId) return null;
+  if (!room) return null;
+  if (ws === room.hostConnection && ws.isHost === true) return { id: '__GM__', name: 'SHADOW BROKER', isHost: true };
+  if (!ws.playerId) return null;
   const player = room.players.get(ws);
   return player && player.connected !== false ? { id: String(player.id), name: player.name || 'LITTLE HERO' } : null;
 }
@@ -5781,6 +5783,7 @@ function handleSibicar(ws, message) {
   if (type === 'player:sibicarStart') {
     const checked = sibicar.validateStart(message);
     if (!checked.ok) return sibicarError(ws, checked.error);
+    if (actor.isHost && checked.mode === sibicar.MODES.WAGER) return sibicarError(ws, 'THE SHADOW BROKER PLAYS FOR PRIDE. THE HOUSE DOES NOT WAGER.');
     const made = sibicar.createRound({ id: 'sib-' + crypto.randomBytes(12).toString('hex'), playerId: actor.id, roomCode: room.code, mode: checked.mode, wager: checked.wager });
     if (!made.ok) return sibicarError(ws, made.error);
     const stored = playerStore.createSibicarRound(identity, made.round);

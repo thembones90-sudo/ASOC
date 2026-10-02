@@ -33,6 +33,7 @@
   <link rel="stylesheet" href="css/forge-creator.css?v=20260927-creator-2">
   <link rel="stylesheet" href="css/gm-direct-messages.css?v=20261001-readable-1">
   <link rel="stylesheet" href="css/roulette-carnage.css?v=20260929-roulette-carnage-1">
+  <link rel="stylesheet" href="css/sibicar.css?v=20261002-sibicar-gm-2">
 </head>
 <body>
   <div id="loading-overlay" class="loading-overlay">
@@ -130,7 +131,7 @@
               <button type="button" data-gm-minigame="kaladont"><img class="gm-minigame-art kaladont-art" src="assets/ui/kaladont-icon.webp?v=20260925-minigame-icons-1" alt=""><span class="minigame-copy"><b class="minigame-title">KALADONT</b><small class="minigame-desc">WE PLAY IN SERBIAN, PITCHKA WAM MATHERINA.</small></span><i id="gm-kaladont-status" class="minigame-status">IDLE</i></button>
               <button type="button" data-gm-minigame="rouletteCarnage" class="roulette-carnage-card"><span class="gm-minigame-art rc-mini-icon" aria-hidden="true"><img src="assets/ui/roulette-carnage-icon.png?v=20260929-roulette-icon-1" alt=""></span><span class="minigame-copy"><b class="minigame-title">ROULETTE CARNAGE</b><small class="minigame-desc">A multiplayer Shadow Coin table. The House does not gamble. The House watches you do it badly.</small></span><i id="gm-roulette-carnage-status" class="minigame-status">CLOSED</i></button>
               <button type="button" data-gm-minigame="rage"><img class="gm-minigame-art rage-art" src="assets/ui/rage-icon.svg?v=20261001-rage-colors-2" alt=""><span class="minigame-copy"><b class="minigame-title">THY SHALL NOT RAGE</b><small class="minigame-desc">Roll the dice, lose your dignity, blame probability.</small></span><i id="gm-rage-status" class="minigame-status">IDLE</i></button>
-              <button type="button" data-gm-minigame="sibicar"><img class="gm-minigame-art sibicar-art" src="assets/minigames/sibicar/brain.png?v=20261002-sibicar-gm-1" alt=""><span class="minigame-copy"><b class="minigame-title">ŠIBICAR</b><small class="minigame-desc">Three heads. One brain. Single-player Shadow Coin hustle.</small></span><i class="minigame-status">PLAYER MIRROR</i></button>
+              <button type="button" data-gm-minigame="sibicar"><img class="gm-minigame-art sibicar-art" src="assets/minigames/sibicar/brain.png?v=20261002-sibicar-gm-2" alt=""><span class="minigame-copy"><b class="minigame-title">ŠIBICAR</b><small class="minigame-desc">Three heads. One brain. The Shadow Broker plays for pride.</small></span><i class="minigame-status">PLAY</i></button>
             </div>
             <div id="gm-minigames-panel" class="gm-minigames-panel" hidden><div class="gm-minigames-shell"><header><div><b id="gm-minigames-title">IKS OKS</b><small>SHADOW BROKER ARCADE</small></div><button type="button" class="gm-kal-chat-toggle" data-gm-kaladont-chat hidden>OPEN CHAT</button><button type="button" data-gm-minigame-close>×</button></header><div id="gm-minigames-content"></div></div></div>
             <div class="chat-search-strip gm-chat-search-strip"><input id="gm-chat-search" type="search" placeholder="SEARCH TRANSMISSIONS" autocomplete="off" oninput="App._gmChatSearch=this.value;App.renderGMChat()"><button type="button" id="gm-deny-all-btn" class="gm-deny-all-btn" hidden disabled title="Mark every unjudged attempt WRONG">DENY ALL</button></div>
@@ -387,7 +388,8 @@
   <script src="js/infostud.js?v=20261002-infostud-3"></script>
   <script src="js/chat-mentions.js?v=20261002-mentions-1"></script>
   <script src="js/roulette-carnage-ui.js?v=20260929-roulette-carnage-1"></script>
-  <script src="js/gm-minigames.js?v=20261002-sibicar-gm-1"></script>
+  <script src="js/sibicar-ui.js?v=20261002-sibicar-gm-2"></script>
+  <script src="js/gm-minigames.js?v=20261002-sibicar-gm-2"></script>
   <script src="js/gm-direct-messages.js?v=20261001-readable-1"></script>
   <script src="js/read-receipts.js?v=20260926-seen-dedupe-1"></script>
   <script src="js/shadow-cosmetics.js?v=20261002-hug-2"></script>

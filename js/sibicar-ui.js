@@ -17,7 +17,10 @@
       overlay.innerHTML = '<section class="sibicar-shell"><header><div><small>ASOC STREET COGNITION AUDIT</small><h2>ŠIBICAR</h2><p>THREE HEADS. ONE BRAIN. AN UNLIKELY ARRANGEMENT.</p></div><button type="button" data-sibicar-close aria-label="Close">×</button></header><div class="sibicar-body" data-sibicar-body></div></section>';
       document.body.appendChild(overlay); return overlay;
     },
-    send(type, payload = {}) { return window.PlayerApp?.send?.({ type, ...payload }); },
+    send(type, payload = {}) {
+      if (window.PlayerApp?.send) return window.PlayerApp.send({ type, ...payload });
+      return window.App?.send?.({ type, ...payload });
+    },
     open() { this.ensure().hidden = false; this.state = 'MODE_SELECT'; this.render(); this.send('player:sibicarSync'); },
     close() { if (['INTRO_REVEAL', 'SHUFFLING', 'RESOLVING'].includes(this.state)) return; this.ensure().hidden = true; },
     click(event) {
@@ -52,7 +55,10 @@
     heads() { return `<div class="sibicar-stage" data-state="${this.state}">${[0,1,2].map(id => `<button type="button" class="sibicar-head" data-sibicar-head="${id}" style="--slot:${this.slots[id]}" ${this.state === 'AWAITING_PICK' ? '' : 'disabled'}><span class="sibicar-brain"><img src="assets/minigames/sibicar/brain.png" alt="Cartoon brain"></span><span class="sibicar-face"><img src="assets/minigames/sibicar/head.png" alt="Cartoon head ${id + 1}"></span><span class="sibicar-cap"></span><i>${id + 1}</i></button>`).join('')}</div>`; },
     render() {
       const body = this.ensure().querySelector('[data-sibicar-body]'); if (!body) return;
-      if (this.state === 'MODE_SELECT' || this.state === 'IDLE') { body.innerHTML = `<div class="sibicar-mode"><div class="sibicar-mark"><img src="assets/minigames/sibicar/brain.png" alt=""></div><h3>WHERE IS THE BRAIN?</h3><p>Choose honest humiliation or financially irresponsible humiliation.</p><div><button data-sibicar-mode="FUN"><b>FUN MODE</b><small>NO WAGER // SAME SHUFFLE</small></button><button data-sibicar-mode="WAGER"><b>SHADOW COIN MODE</b><small>WIN RETURNS x2 TOTAL</small></button></div><span>BALANCE // ${this.balance} SC</span></div>`; return; }
+      if (this.state === 'MODE_SELECT' || this.state === 'IDLE') {
+        const gm = !!window.App && !window.PlayerApp;
+        body.innerHTML = `<div class="sibicar-mode"><div class="sibicar-mark"><img src="assets/minigames/sibicar/brain.png" alt=""></div><h3>WHERE IS THE BRAIN?</h3><p>${gm ? 'The Shadow Broker plays for pride. The House does not wager.' : 'Choose honest humiliation or financially irresponsible humiliation.'}</p><div><button data-sibicar-mode="FUN"><b>FUN MODE</b><small>NO WAGER // SAME SHUFFLE</small></button>${gm ? '<button disabled><b>HOUSE RULE</b><small>SHADOW BROKER DOES NOT WAGER</small></button>' : '<button data-sibicar-mode="WAGER"><b>SHADOW COIN MODE</b><small>WIN RETURNS x2 TOTAL</small></button>'}</div><span>${gm ? 'SHADOW BROKER // DIRECT PLAY' : `BALANCE // ${this.balance} SC`}</span></div>`; return;
+      }
       if (this.state === 'WAGER_SELECT' && !this.round) { body.innerHTML = `<div class="sibicar-wagers"><small>SHADOW COIN ESCROW</small><h3>CHOOSE YOUR BAD DECISION</h3><p>Stake is removed when the round begins. Correct pick returns twice the stake.</p><div>${[25,50,100,250].map(value => `<button data-sibicar-wager="${value}" ${value > this.balance ? 'disabled' : ''}>${value}<small>SC</small></button>`).join('')}</div><b>AVAILABLE // ${this.balance} SC</b></div>`; return; }
       const modeLine = this.round?.mode === 'WAGER' ? `WAGER LOCKED // ${this.round.wager} SC` : 'FUN MODE // NO SHADOW COINS AT RISK';
       const instruction = this.state === 'INTRO_REVEAL' ? 'THE BRAIN PRESENTS ITSELF.' : this.state === 'SHUFFLING' ? 'WATCH CAREFULLY. THIS MAY BE YOUR LAST THOUGHT.' : this.state === 'AWAITING_PICK' ? 'CHOOSE A HEAD.' : 'THE SKULLS ARE OPENING.';

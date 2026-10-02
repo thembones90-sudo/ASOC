@@ -1,7 +1,8 @@
 const assert=require('assert'),fs=require('fs');
 const index=fs.readFileSync('index.html','utf8'),app=fs.readFileSync('js/app.js','utf8'),server=fs.readFileSync('server.js','utf8'),ui=fs.readFileSync('js/gm-minigames.js','utf8'),css=fs.readFileSync('css/asoc.css','utf8');
 assert.match(index,/id="gm-chat-tab"/);assert.match(index,/id="gm-minigames-toggle"/);assert.match(index,/data-gm-minigame="threefold"/);assert.match(index,/data-gm-minigame="concoction"/);
-assert.match(index,/data-gm-minigame="sibicar"/);assert.match(index,/assets\/minigames\/sibicar\/brain\.png/);assert.match(ui,/gmMinigame === 'sibicar'\) App\.openPlayerMirror/);
+assert.match(index,/data-gm-minigame="sibicar"/);assert.match(index,/assets\/minigames\/sibicar\/brain\.png/);assert.match(index,/js\/sibicar-ui\.js/);assert.match(ui,/gmMinigame === 'sibicar'\) window\.SibicarUI\?\.open/);
+assert.match(server,/id: '__GM__', name: 'SHADOW BROKER', isHost: true/);assert.match(app,/case 'sibicar:result'/);
 assert.match(server,/playerId\) === '__GM__'/);assert.match(server,/function threefoldActor/);assert.match(server,/name:'SHADOW BROKER'/);assert.match(server,/spin\.playerId !== '__GM__'/);
 assert.match(server,/const challengerIsX = crypto\.randomInt\(0, 2\) === 0/);assert.match(server,/turnId:xPlayer\.id/);assert.doesNotMatch(server,/turnId:challenge\.challengerId/);
 assert.match(app,/GMMinigames\?\.onState/);assert.match(app,/GMMinigames\?\.onConcoctionResolved/);assert.match(ui,/type:'threefold:move'/);assert.match(ui,/type:'unstableConcoction:spin'/);assert.match(css,/body\.room-mode-casual \.gm-minigames-toggle/);
