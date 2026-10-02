@@ -56,3 +56,12 @@
 @keyframes chat-mentions-pulse { 50% { box-shadow: 0 0 24px rgba(240, 180, 50, .75); } }
 :is(#chat-search, #gm-chat-search).is-mention-filter { border-color: #ffd36a !important; box-shadow: 0 0 0 1px rgba(255, 211, 106, .35); }
 @media (prefers-reduced-motion: reduce) { .chat-mentions-pill { animation: none; } }
+
+/* Shadow Broker control moved to another device (js/app.js). */
+.gm-superseded { position: fixed; inset: 0; z-index: 9500; display: grid; place-items: center; padding: 16px; background: rgba(4, 2, 8, .86); backdrop-filter: blur(5px); }
+.gm-superseded[hidden] { display: none !important; }
+.gm-superseded-card { display: grid; justify-items: center; gap: 12px; max-width: 420px; padding: 28px 30px; border: 1px solid rgba(196, 134, 239, .55); border-radius: 18px; background: linear-gradient(180deg, #1a0f24, #0a070e); box-shadow: 0 0 60px rgba(155, 93, 224, .35); text-align: center; color: #ece4f4; }
+.gm-superseded-card img { width: 72px; height: 72px; border-radius: 50%; border: 2px solid #9b5de0; box-shadow: 0 0 24px rgba(155, 93, 224, .6); }
+.gm-superseded-card b { font: 900 18px var(--font-machine, monospace); letter-spacing: .28em; color: #c486ef; }
+.gm-superseded-card p { margin: 0; font: 500 15px/1.45 var(--font-human, 'Segoe UI', system-ui, sans-serif); color: #cbbcd8; }
+.gm-superseded-card button { margin-top: 6px; padding: 13px 22px; border: 1px solid #c486ef; border-radius: 11px; background: linear-gradient(180deg, #7a3fc0, #3d1a66); color: #fff; font: 900 13px var(--font-machine, monospace); letter-spacing: .2em; cursor: pointer; }
