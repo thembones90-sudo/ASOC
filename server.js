@@ -6489,11 +6489,13 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/rupture', help: '/rupture -- SHADOW MARKET unlock: crack reality open' },
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
   { name: '/love', help: '/love [Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
+  { name: '/fireworks', help: '/fireworks [message] -- light up every screen with a fireworks show' },
   { name: '/commands', help: '/commands -- this list' }
 ];
 
 const GM_CHAT_SLASH_COMMANDS = [
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
+  { name: '/fireworks', help: '/fireworks [message] -- light up every screen with a fireworks show' },
   { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
   { name: '/b3', help: '/b3 -- manually trigger the three-second Baki B3 battle tribute' },
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
@@ -6893,6 +6895,34 @@ function handleAfkCommand(room, raw, targetPlayerId) {
 
 // Returns null for non-commands (call through to addChatMessage as plain
 // speech), otherwise the command result the caller must honor.
+// /fireworks [message] -- a room-wide fireworks show for everyone, from any
+// Little Hero or the Shadow Broker. Presentation only: one chat line saying
+// who lit it, plus an ephemeral fireworks:launch every screen plays from the
+// same seed. A room-wide cooldown keeps the sky readable; Little Heroes also
+// get a personal one so one person cannot run the show all day.
+const FIREWORKS_ROOM_COOLDOWN_MS = 8000;
+const FIREWORKS_PLAYER_COOLDOWN_MS = 45000;
+function parseFireworks(raw) {
+  const match = String(raw || '').trim().match(/^\/fireworks(?:\s+([\s\S]*))?$/i);
+  if (!match) return null;
+  return { text: sanitizeText(String(match[1] || '').trim()).slice(0, 80) };
+}
+function fireworksRefusal(room, actorKey, isGm, now = Date.now()) {
+  room.fireworks ||= { lastAt: 0, byActor: {} };
+  if (now - (room.fireworks.lastAt || 0) < FIREWORKS_ROOM_COOLDOWN_MS) return 'THE SKY IS STILL SMOKING // TRY AGAIN IN A FEW SECONDS';
+  if (!isGm && now - (room.fireworks.byActor[actorKey] || 0) < FIREWORKS_PLAYER_COOLDOWN_MS) {
+    const wait = Math.ceil((FIREWORKS_PLAYER_COOLDOWN_MS - (now - room.fireworks.byActor[actorKey])) / 1000);
+    return `YOUR FIREWORKS ARE RELOADING // ${wait}s`;
+  }
+  return null;
+}
+function launchFireworks(room, actorKey, byName, text, now = Date.now()) {
+  room.fireworks ||= { lastAt: 0, byActor: {} };
+  room.fireworks.lastAt = now;
+  room.fireworks.byActor[actorKey] = now;
+  broadcastToRoom(room, { type: 'fireworks:launch', byName: String(byName || 'SOMEONE').slice(0, 40), text, seed: crypto.randomBytes(4).readUInt32BE(0), timestamp: now });
+}
+
 function dispatchPlayerSlashCommand(room, ws, text, message) {
   const raw = String(text || '').trim();
   if (!raw.startsWith('/')) return null;
@@ -6910,6 +6940,20 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   if (/^\/order\b/i.test(raw)) return handleOrderCommand(room, author, raw);
   if (/^\/stats\b/i.test(raw)) return handleStatsCommand(room, author, raw);
   if (/^\/commands\b/i.test(raw)) return handleCommandsCommand(room, author, raw, CHAT_SLASH_COMMANDS);
+  if (/^\/fireworks\b/i.test(raw)) {
+    const fireworks = parseFireworks(raw);
+    if (!fireworks) return { success: false, error: 'FIREWORKS INVALID // USE /fireworks [message]' };
+    const refusal = fireworksRefusal(room, String(ws.playerId), false);
+    if (refusal) return { success: false, error: refusal };
+    const posted = addChatMessage(room, ws.playerId, ws.playerName, `🎆 ${fireworks.text || 'FIREWORKS!'}`);
+    if (!posted.success) return posted;
+    // A command, never a guess: not adjudicable, not scored.
+    posted.message.source = 'fireworks';
+    posted.message.boardId = null;
+    delete posted.message.scoreContext;
+    launchFireworks(room, String(ws.playerId), ws.playerName, fireworks.text);
+    return posted;
+  }
   const act = raw.match(CHAT_ACT_PATTERN);
   if (act) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
@@ -6947,6 +6991,17 @@ function dispatchGmSlashCommand(room, ws, text) {
     if (!/^\/warsong\s*$/i.test(raw)) return { success: false, error: 'WARSONG INVALID // USE /warsong' };
     broadcastToRoom(room, { type: 'warsong:alert', timestamp: Date.now(), durationMs: 9000 });
     return { success: true, broadcast: false };
+  }
+
+  if (/^\/fireworks\b/i.test(raw)) {
+    const fireworks = parseFireworks(raw);
+    if (!fireworks) return { success: false, error: 'FIREWORKS INVALID // USE /fireworks [message]' };
+    const refusal = fireworksRefusal(room, '__GM__', true);
+    if (refusal) return { success: false, error: refusal };
+    const posted = addShadowBrokerMessage(room, `🎆 ${fireworks.text || 'FIREWORKS!'}`, { editableByHost: true });
+    if (!posted.success) return posted;
+    launchFireworks(room, '__GM__', 'SHADOW BROKER', fireworks.text);
+    return { success: true, broadcast: true };
   }
 
   if (/^\/c4\b/i.test(raw)) {
