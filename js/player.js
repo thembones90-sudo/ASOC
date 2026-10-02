@@ -105,6 +105,7 @@ const PlayerApp = {
     { name: 'choose', insert: '/choose ', syntax: '/choose A | B | C', description: 'Choose one option randomly' },
     { name: 'order', insert: '/order', syntax: '/order', description: 'Shuffle connected-player turn order' },
     { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
+    { name: 'fireworks', insert: '/fireworks ', syntax: '/fireworks [message]', description: 'Light up every screen with a fireworks show' },
     { name: 'spit', insert: '/spit ', syntax: '/spit Name | all', description: 'Spit on one target or everyone online' },
     { name: 'fart', insert: '/fart ', syntax: '/fart Name | all', description: 'Fart on one target or everyone online' },
     { name: 'hiss', insert: '/hiss ', syntax: '/hiss Name | all', description: 'Hiss at one target or everyone online' },
@@ -1548,6 +1549,10 @@ const PlayerApp = {
 
       case 'c4:alert':
         window.C4Alert?.onMessage(message);
+        break;
+
+      case 'fireworks:launch':
+        window.AsocFireworks?.launch(message);
         break;
 
       case 'b3:alert':
