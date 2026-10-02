@@ -10693,20 +10693,55 @@ function handleApiRequest(req, res) {
   if (parts[0] === 'api' && parts[1] === 'infostud') {
     if (!isGmAuthorized(req)) return sendJson(res, 404, { error: 'Not Found' });
     res.setHeader('Cache-Control', 'no-store');
+    const fail = error => sendJson(res, error.status || 500, { error: error.message || 'FAILED' });
+    // GET /api/infostud -> the whole tree (flat list with parentId).
     if (parts.length === 2 && method === 'GET') return sendJson(res, 200, { items: infostud.list(), usage: infostud.usage() });
+    // POST /api/infostud -> upload one file (raw body) into x-parent-id.
     if (parts.length === 2 && method === 'POST') {
       let name = '';
       try { name = decodeURIComponent(String(req.headers['x-file-name'] || '')); } catch {}
-      return infostud.receive(req, { type: req.headers['content-type'], name }, (error, item) => {
-        if (error) return sendJson(res, error.status || 500, { error: error.message });
+      return infostud.receive(req, { type: req.headers['content-type'], name, parentId: req.headers['x-parent-id'] || null, lastModified: req.headers['x-last-modified'] }, (error, item) => {
+        if (error) return fail(error);
         sendJson(res, 200, { item, usage: infostud.usage() });
       });
     }
-    const item = parts.length === 3 ? infostud.get(parts[2]) : null;
+    // POST /api/infostud/folder {name, parentId}
+    if (parts.length === 3 && parts[2] === 'folder' && method === 'POST') {
+      return readJsonBody(req, (error, body) => {
+        if (error) return sendJson(res, 400, { error: 'BAD REQUEST' });
+        try { sendJson(res, 200, { item: infostud.createFolder({ name: body?.name, parentId: body?.parentId || null }) }); } catch (e) { fail(e); }
+      });
+    }
+    const item = parts.length >= 3 ? infostud.get(parts[2]) : null;
     if (!item) return sendJson(res, 404, { error: 'Not Found' });
-    if (method === 'DELETE') { infostud.remove(item.id); return sendJson(res, 200, { ok: true, usage: infostud.usage() }); }
-    if (method === 'GET') {
-      res.writeHead(200, { 'Content-Type': item.type, 'Content-Length': item.size, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+    // PATCH /api/infostud/:id {name?, parentId?} -> rename / move
+    if (parts.length === 3 && method === 'PATCH') {
+      return readJsonBody(req, (error, body) => {
+        if (error) return sendJson(res, 400, { error: 'BAD REQUEST' });
+        try {
+          const patch = {};
+          if (typeof body?.name === 'string') patch.name = body.name;
+          if (body && Object.prototype.hasOwnProperty.call(body, 'parentId')) patch.parentId = body.parentId || null;
+          if (body && Object.prototype.hasOwnProperty.call(body, 'rating')) patch.rating = body.rating || null;
+          sendJson(res, 200, { item: infostud.update(item.id, patch) });
+        } catch (e) { fail(e); }
+      });
+    }
+    // POST /api/infostud/:id/copy {parentId}
+    if (parts.length === 4 && parts[3] === 'copy' && method === 'POST') {
+      return readJsonBody(req, (error, body) => {
+        if (error) return sendJson(res, 400, { error: 'BAD REQUEST' });
+        try { sendJson(res, 200, { item: infostud.copy(item.id, { parentId: body?.parentId || null }), items: infostud.list(), usage: infostud.usage() }); } catch (e) { fail(e); }
+      });
+    }
+    if (parts.length === 3 && method === 'DELETE') { infostud.remove(item.id); return sendJson(res, 200, { ok: true, usage: infostud.usage() }); }
+    if (parts.length === 3 && method === 'GET') {
+      if (item.kind === 'folder') {
+        res.writeHead(200, { 'Content-Type': 'application/zip', 'X-Content-Type-Options': 'nosniff' });
+        infostud.zipFolder(item, res).catch(() => res.destroy());
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': item.type, 'Content-Length': item.size, 'X-Content-Type-Options': 'nosniff' });
       return fs.createReadStream(infostud.pathOf(item)).on('error', () => res.destroy()).pipe(res);
     }
     return sendJson(res, 404, { error: 'Not Found' });

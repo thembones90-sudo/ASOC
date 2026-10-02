@@ -1,34 +1,100 @@
-/* INFOSTUD -- hidden Shadow Broker storage (js/infostud.js). */
+/* INFOSTUD -- hidden Shadow Broker file manager (js/infostud.js). */
 .ifs-overlay { position: fixed; inset: 0; z-index: 12100; display: grid; place-items: center; padding: 16px; background: rgba(4, 3, 8, .86); backdrop-filter: blur(6px); }
 .ifs-overlay[hidden] { display: none !important; }
-.ifs-overlay.is-drag .ifs-window { border-color: #c486ef; box-shadow: 0 0 0 2px rgba(196, 134, 239, .5), 0 30px 90px rgba(0, 0, 0, .7); }
-.ifs-window { width: min(1100px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border: 1px solid rgba(155, 93, 224, .45); border-radius: 16px; background: linear-gradient(180deg, #140d1c, #08060b); box-shadow: 0 30px 90px rgba(0, 0, 0, .7); overflow: hidden; color: #ece4f4; }
-.ifs-window header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid rgba(155, 93, 224, .25); }
-.ifs-window header > div { flex: 1; min-width: 0; }
-.ifs-window header b { display: block; font: 900 20px var(--font-machine, monospace); letter-spacing: .32em; color: #c486ef; }
-.ifs-window header small { display: block; margin-top: 4px; color: #8f7fa3; font: 700 10.5px var(--font-machine, monospace); letter-spacing: .16em; }
-.ifs-upload, .ifs-close, .ifs-v-bar button, .ifs-v-bar a { padding: 10px 16px; border: 1px solid #9b5de0; border-radius: 10px; background: linear-gradient(180deg, #5b2b94, #2c1450); color: #fff; font: 900 12px var(--font-machine, monospace); letter-spacing: .18em; cursor: pointer; text-decoration: none; }
-.ifs-close { padding: 6px 13px; font-size: 20px; letter-spacing: 0; background: rgba(255, 255, 255, .04); }
-.ifs-status { margin: 0; padding: 9px 20px; background: rgba(155, 93, 224, .12); color: #d9c4f2; font: 700 11px var(--font-machine, monospace); letter-spacing: .12em; }
+.ifs-window { width: min(1240px, 100%); height: min(860px, calc(100vh - 32px)); display: flex; flex-direction: column; border: 1px solid rgba(155, 93, 224, .45); border-radius: 16px; background: linear-gradient(180deg, #140d1c, #08060b); box-shadow: 0 30px 90px rgba(0, 0, 0, .7); overflow: hidden; color: #ece4f4; }
+.ifs-window.is-drop { border-color: #c486ef; box-shadow: 0 0 0 2px rgba(196, 134, 239, .5), 0 30px 90px rgba(0, 0, 0, .7); }
+.ifs-window > header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid rgba(155, 93, 224, .25); }
+.ifs-title { flex: 1; min-width: 0; }
+.ifs-title b { display: block; font: 900 20px var(--font-machine, monospace); letter-spacing: .32em; color: #c486ef; }
+.ifs-title small { display: block; margin-top: 4px; color: #8f7fa3; font: 700 10.5px var(--font-machine, monospace); letter-spacing: .16em; }
+.ifs-close { padding: 6px 13px; border: 1px solid rgba(155, 93, 224, .5); border-radius: 10px; background: rgba(255, 255, 255, .04); color: #fff; font-size: 20px; cursor: pointer; }
+.ifs-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid rgba(155, 93, 224, .18); background: rgba(255, 255, 255, .02); }
+.ifs-btn { padding: 8px 12px; border: 1px solid rgba(155, 93, 224, .55); border-radius: 9px; background: linear-gradient(180deg, #3d1f63, #22113a); color: #fff; font: 800 11px var(--font-machine, monospace); letter-spacing: .12em; cursor: pointer; white-space: nowrap; }
+.ifs-btn:hover:not(:disabled) { border-color: #c486ef; }
+.ifs-btn:disabled { opacity: .35; cursor: default; }
+.ifs-btn.is-danger { border-color: #ff4a5c; background: linear-gradient(180deg, #8e1426, #4a0812); }
+.ifs-crumbs { flex: 1; min-width: 160px; display: flex; align-items: center; gap: 4px; overflow: hidden; padding: 6px 10px; border: 1px solid rgba(155, 93, 224, .25); border-radius: 9px; background: #0b0810; }
+.ifs-crumbs button { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border: 0; border-radius: 6px; background: none; color: #e2d3f3; font: 600 13px var(--font-human, system-ui); cursor: pointer; }
+.ifs-crumbs button:hover, .ifs-crumbs button.is-drop { background: rgba(155, 93, 224, .25); }
+.ifs-crumbs span { color: #6f6280; }
+.ifs-sort { display: flex; align-items: center; gap: 6px; color: #8f7fa3; font: 800 10.5px var(--font-machine, monospace); letter-spacing: .14em; }
+.ifs-sort select { padding: 7px 8px; border: 1px solid rgba(155, 93, 224, .45); border-radius: 8px; background: #0b0810; color: #fff; font: 700 11px var(--font-machine, monospace); }
+.ifs-status { margin: 0; padding: 8px 20px; background: rgba(155, 93, 224, .12); color: #d9c4f2; font: 700 11px var(--font-machine, monospace); letter-spacing: .1em; }
 .ifs-status.is-error { background: rgba(200, 40, 60, .16); color: #ffb3c0; }
-.ifs-grid { flex: 1; min-height: 200px; overflow: auto; padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-content: start; }
-.ifs-card { display: grid; gap: 6px; padding: 8px; border: 1px solid rgba(155, 93, 224, .25); border-radius: 12px; background: rgba(255, 255, 255, .03); color: inherit; text-align: left; cursor: pointer; font: inherit; }
-.ifs-card:hover { border-color: #c486ef; }
-.ifs-thumb { aspect-ratio: 1; border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: #0d0a12; }
+.ifs-grid { flex: 1; min-height: 0; overflow: auto; padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; align-content: start; outline: none; }
+.ifs-card { position: relative; display: grid; gap: 6px; padding: 8px; border: 1px solid transparent; border-radius: 12px; background: rgba(255, 255, 255, .025); color: inherit; text-align: left; cursor: default; font: inherit; user-select: none; }
+.ifs-card:hover { background: rgba(155, 93, 224, .12); }
+.ifs-card.is-selected { border-color: #9b5de0; background: rgba(155, 93, 224, .24); }
+.ifs-card.is-cut { opacity: .45; }
+.ifs-card.is-drop { outline: 2px dashed #c486ef; }
+.ifs-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: #0d0a12; }
 .ifs-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.ifs-thumb i { color: #c486ef; font-size: 34px; font-style: normal; }
+.ifs-folder-ico { width: 64%; aspect-ratio: 1.25; border-radius: 4px 8px 8px 8px; background: linear-gradient(180deg, #f6c453, #d99a1f); box-shadow: inset 0 -6px 0 rgba(0, 0, 0, .12); position: relative; }
+.ifs-folder-ico::before { content: ""; position: absolute; left: 0; top: -12%; width: 42%; height: 16%; border-radius: 4px 6px 0 0; background: #e2a92e; }
+.ifs-file-ico { position: relative; width: 52%; aspect-ratio: .78; border-radius: 4px 14px 4px 4px; background: linear-gradient(180deg, #e9e2f4, #b9aecd); display: grid; place-items: end center; font-style: normal; }
+.ifs-file-ico::after { content: attr(data-ext); margin-bottom: 14%; padding: 2px 6px; border-radius: 4px; background: #5b2b94; color: #fff; font: 900 10px var(--font-machine, monospace); letter-spacing: .06em; }
+.ifs-file-ico.is-video { place-items: center; color: #5b2b94; font-size: 28px; }
+.ifs-file-ico.is-video::after { content: none; }
 .ifs-card b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px var(--font-human, system-ui); }
 .ifs-card small { color: #8f7fa3; font: 600 11px var(--font-human, system-ui); }
-.ifs-empty, .ifs-drop { margin: 0; color: #6f6280; font: 700 11px var(--font-machine, monospace); letter-spacing: .2em; text-align: center; }
-.ifs-empty { grid-column: 1 / -1; padding: 40px 0; }
-.ifs-drop { padding: 10px; border-top: 1px dashed rgba(155, 93, 224, .25); }
-.ifs-viewer { position: fixed; inset: 0; z-index: 12110; display: grid; grid-template-rows: 1fr auto; background: rgba(2, 1, 4, .94); }
+.ifs-empty { grid-column: 1 / -1; padding: 60px 0; margin: 0; color: #6f6280; font: 700 11px var(--font-machine, monospace); letter-spacing: .2em; text-align: center; }
+.ifs-foot { display: flex; justify-content: space-between; gap: 12px; padding: 8px 18px; border-top: 1px solid rgba(155, 93, 224, .18); color: #6f6280; font: 700 10px var(--font-machine, monospace); letter-spacing: .14em; }
+
+/* Right-click menu, Windows-style. */
+.ifs-menu { position: fixed; z-index: 12130; min-width: 230px; padding: 5px; border: 1px solid rgba(155, 93, 224, .5); border-radius: 10px; background: #150e1d; box-shadow: 0 14px 40px rgba(0, 0, 0, .6); }
+.ifs-menu[hidden] { display: none !important; }
+.ifs-menu button { width: 100%; display: flex; justify-content: space-between; gap: 18px; padding: 8px 12px; border: 0; border-radius: 6px; background: none; color: #ece4f4; font: 500 13px var(--font-human, system-ui); text-align: left; cursor: pointer; }
+.ifs-menu button:hover:not(:disabled) { background: rgba(155, 93, 224, .3); }
+.ifs-menu button:disabled { color: #5e5369; cursor: default; }
+.ifs-menu kbd { color: #8f7fa3; font: 500 11px var(--font-human, system-ui); }
+.ifs-menu hr { margin: 4px 6px; border: 0; border-top: 1px solid rgba(155, 93, 224, .25); }
+.ifs-menu [data-menu="rate-platinum"] span { color: #d8f3ff; }
+.ifs-menu [data-menu="rate-gold"] span { color: #ffd36a; }
+.ifs-menu [data-menu="rate-silver"] span { color: #d7dce4; }
+.ifs-menu [data-menu="rate-bronze"] span { color: #e3a06b; }
+
+/* Properties. */
+.ifs-props { position: fixed; inset: 0; z-index: 12125; display: grid; place-items: center; background: rgba(0, 0, 0, .4); }
+.ifs-props[hidden] { display: none !important; }
+.ifs-props-card { width: min(440px, 92vw); border: 1px solid rgba(155, 93, 224, .5); border-radius: 14px; background: #150e1d; box-shadow: 0 20px 60px rgba(0, 0, 0, .6); overflow: hidden; }
+.ifs-props-card header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(155, 93, 224, .25); }
+.ifs-props-card header b { color: #c486ef; font: 900 13px var(--font-machine, monospace); letter-spacing: .24em; }
+.ifs-props-card header button { border: 0; background: none; color: #d9c4f2; font-size: 22px; cursor: pointer; }
+.ifs-props-card dl { display: grid; grid-template-columns: 110px 1fr; gap: 8px 12px; margin: 0; padding: 16px; font: 500 13px var(--font-human, system-ui); }
+.ifs-props-card dt { color: #8f7fa3; }
+.ifs-props-card dd { margin: 0; overflow-wrap: anywhere; }
+
+/* Viewer. */
+.ifs-viewer { position: fixed; inset: 0; z-index: 12140; display: grid; grid-template-rows: 1fr auto; background: rgba(2, 1, 4, .94); }
 .ifs-viewer[hidden] { display: none !important; }
 .ifs-v-stage { position: relative; overflow: hidden; display: grid; place-items: center; }
 .ifs-v-stage img { max-width: 92vw; max-height: 82vh; transform-origin: 0 0; cursor: grab; user-select: none; touch-action: none; }
 .ifs-v-stage video { max-width: 92vw; max-height: 82vh; }
+.ifs-v-stage iframe { width: 92vw; height: 82vh; border: 0; background: #fff; }
 .ifs-loading { color: #8f7fa3; font: 700 12px var(--font-machine, monospace); letter-spacing: .2em; }
 .ifs-v-close { position: fixed; top: 14px; right: 20px; z-index: 2; border: 0; background: none; color: #d9c4f2; font-size: 30px; cursor: pointer; }
 .ifs-v-bar { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid rgba(155, 93, 224, .25); }
 .ifs-v-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d9c4f2; font: 600 14px var(--font-human, system-ui); }
-.ifs-v-bar .ifs-v-delete { border-color: #ff4a5c; background: linear-gradient(180deg, #8e1426, #4a0812); }
+
+/* ---------- PANINI STICKER RATINGS ----------
+   A rated item becomes a collectible sticker: a thick metallic frame in the
+   tier colour, a white sticker border inside it, a tier ribbon in the
+   corner, and a holographic sheen for PLATINUM. */
+.ifs-card.is-rated { --t1: #b06a35; --t2: #f0b07a; --t3: #7a4520; padding: 7px; border: 0; border-radius: 10px; background: linear-gradient(135deg, var(--t2), var(--t1) 40%, var(--t3) 60%, var(--t2) 85%, var(--t1)); box-shadow: 0 6px 18px rgba(0, 0, 0, .55), inset 0 0 0 1px rgba(255, 255, 255, .35); }
+.ifs-card.is-rated .ifs-thumb { border: 4px solid #f8f4ec; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25); }
+.ifs-card.is-rated b, .ifs-card.is-rated small { padding: 0 3px; color: #1b1108; text-shadow: 0 1px 0 rgba(255, 255, 255, .45); }
+.ifs-card.is-rated small { color: rgba(27, 17, 8, .78); }
+.ifs-card.is-rated.is-selected { outline: 3px solid #c486ef; outline-offset: 2px; }
+.ifs-card.tier-silver { --t1: #9aa3ad; --t2: #f1f4f7; --t3: #6c747d; }
+.ifs-card.tier-gold { --t1: #c99318; --t2: #ffe58a; --t3: #8a5f05; }
+.ifs-card.tier-platinum { --t1: #8fb7c9; --t2: #f4fbff; --t3: #5d8496; }
+.ifs-ribbon { position: absolute; z-index: 2; top: 12px; right: -4px; padding: 3px 9px 3px 10px; border-radius: 3px 0 0 3px; background: linear-gradient(180deg, var(--t2), var(--t1)); color: #1b1108; font: 900 9.5px var(--font-machine, monospace); letter-spacing: .14em; font-style: normal; box-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
+.ifs-ribbon::after { content: ""; position: absolute; right: 0; bottom: -4px; border-top: 4px solid var(--t3); border-right: 4px solid transparent; }
+.ifs-holo { display: none; }
+.ifs-card.tier-platinum .ifs-holo { display: block; position: absolute; inset: 0; z-index: 1; border-radius: 10px; pointer-events: none; mix-blend-mode: color-dodge; opacity: .55;
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 120, 220, .55) 32%, rgba(120, 220, 255, .55) 42%, rgba(160, 255, 170, .5) 52%, rgba(255, 240, 140, .5) 62%, transparent 75%);
+  background-size: 250% 250%; animation: ifs-holo 3.2s linear infinite; }
+.ifs-card.tier-gold .ifs-thumb::after { content: ""; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 40%, rgba(255, 255, 255, .35) 50%, transparent 60%); background-size: 300% 100%; animation: ifs-shine 3.6s ease-in-out infinite; pointer-events: none; }
+@keyframes ifs-holo { from { background-position: 0% 0%; } to { background-position: 250% 250%; } }
+@keyframes ifs-shine { 0%, 60% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
+@media (prefers-reduced-motion: reduce) { .ifs-holo, .ifs-card.tier-gold .ifs-thumb::after { animation: none !important; } }
