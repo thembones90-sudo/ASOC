@@ -81,7 +81,7 @@
     el.setAttribute('role', 'status');
     el.style.setProperty('--set-frame', p.frameColor);
     el.style.setProperty('--set-accent', p.accent);
-    el.innerHTML = `<div class="btm-entrance-card"><img src="${esc(p.avatarData)}" alt="" data-broker-effect="${esc(p.avatarEffect)}" data-broker-aura="${esc(p.aura)}"><div><small>THE SHADOW BROKER HAS CHANGED</small><b>${esc(set ? set.name : 'CUSTOM IDENTITY')}</b></div></div>`;
+    el.innerHTML = `<div class="btm-entrance-card"><span class="btm-fx-host" data-fx="${esc(p.avatarEffect)}"><i class="btm-fx btm-fx-back"></i><img src="${esc(p.avatarData)}" alt="" data-broker-effect="${esc(p.avatarEffect)}" data-broker-aura="${esc(p.aura)}"><i class="btm-fx btm-fx-front"></i></span><div><small>THE SHADOW BROKER HAS CHANGED</small><b>${esc(set ? set.name : 'CUSTOM IDENTITY')}</b></div></div>`;
     document.body.appendChild(el);
     sting(p.sound);
     setTimeout(() => el.classList.add('is-leaving'), 2100);
@@ -206,7 +206,7 @@
     const isPreview = previewId === set.id;
     const locked = !unlocked(set.id);
     return `<button type="button" class="btm-tile rarity-${esc(set.rarity)}${locked ? ' is-locked' : ''}${isLive ? ' is-equipped' : ''}" data-btm-set="${esc(set.id)}" aria-pressed="${isPreview}" style="--set-frame:${esc(set.frameColor)};--set-accent:${esc(set.accent)}">
-      <span class="btm-thumb"><img src="${esc(set.thumb)}" alt="" loading="lazy"></span>
+      <span class="btm-thumb btm-fx-host" data-fx="${esc(set.avatarEffect)}"><i class="btm-fx btm-fx-back"></i><img src="${esc(set.thumb)}" alt="" loading="lazy" data-broker-effect="${esc(set.avatarEffect)}"><i class="btm-fx btm-fx-front"></i></span>
       <b>${esc(set.name)}</b>
       <small>${locked ? 'LOCKED' : esc(RARITY[set.rarity] || set.rarity.toUpperCase())}</small>
       ${isLive ? '<i class="btm-badge is-equipped" title="Equipped">✓</i>' : ''}${locked ? '<i class="btm-badge is-locked" title="Locked">🔒</i>' : ''}
@@ -241,7 +241,7 @@
     stage.dataset.aura = p.aura;
     stage.innerHTML = `
       <div class="btm-stage-glow" data-aura="${esc(p.aura)}"></div>
-      <div class="btm-stage-avatar"><img class="btm-avatar" src="${esc(p.avatarData)}" alt="" data-broker-effect="${esc(p.avatarEffect)}" data-broker-aura="${esc(p.aura)}"></div>
+      <div class="btm-stage-avatar"><span class="btm-fx-host" data-fx="${esc(p.avatarEffect)}"><i class="btm-fx btm-fx-back"></i><img class="btm-avatar" src="${esc(p.avatarData)}" alt="" data-broker-effect="${esc(p.avatarEffect)}" data-broker-aura="${esc(p.aura)}"><i class="btm-fx btm-fx-front"></i></span></div>
       <div class="btm-stage-meta">
         <span class="btm-rarity">${custom ? 'CUSTOM // IDENTITY FORGE' : `${esc(RARITY[set.rarity] || '')} · ${esc(set.category.toUpperCase())}`}</span>
         <h2>${custom ? 'CUSTOM IDENTITY' : esc(set.name)}</h2>
