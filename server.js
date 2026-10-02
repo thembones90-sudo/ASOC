@@ -7014,7 +7014,7 @@ function handleBrokerTransmog(ws, message) {
     const id = String(message.transmogId || '');
     const set = transmogCatalog.get(id);
     if (!set) return sendToWs(ws, { type: 'error', code: 'TRANSMOG', message: 'UNKNOWN APPEARANCE' });
-    if (!transmogCatalog.isUnlocked(id, brokerWardrobeOwned())) return sendToWs(ws, { type: 'error', code: 'TRANSMOG', message: `${set.name} IS LOCKED // ${set.unlock.hint || 'NOT YET EARNED'}` });
+    // The Shadow Broker has no limits: every set is open to the GM.
     next = transmogCatalog.resolveProfile(id);
   } else {
     next = transmogCatalog.cleanProfile({ ...(message.profile || {}), transmogId: transmogCatalog.CUSTOM_ID });

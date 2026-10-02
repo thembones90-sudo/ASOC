@@ -24,9 +24,8 @@
   const ENTRANCES = Object.freeze(['none', 'fade', 'shatter', 'slam', 'glitch', 'rise', 'strike', 'fel']);
   const SOUNDS = Object.freeze(['none', 'hum', 'drone', 'chime', 'horn', 'fanfare', 'static', 'toll', 'blade', 'fel']);
 
-  // How an appearance becomes available. 'default' sets are always owned; the
-  // others are owned once granted (manual, achievement, market, event,
-  // seasonal, secret) -- see server.js brokerWardrobe.
+  // Unlock metadata, kept for future player-facing collections. The Shadow
+  // Broker has no limits: every set is always open to the GM.
   const UNLOCK_METHODS = Object.freeze(['default', 'manual', 'achievement', 'market', 'event', 'seasonal', 'secret']);
 
   const DEFAULT_ID = 'default-broker';
@@ -104,15 +103,6 @@
       frameColor: '#3ee01f', accent: '#b6ff7a', avatarEffect: 'fel', messageEffect: 'fel', aura: 'fel',
       entrance: 'fel', sound: 'fel', systemStyle: 'fel',
       sample: 'YOU ARE NOT PREPARED. NONE OF YOU EVER ARE.'
-    },
-    {
-      // Sealed preview of the unlock system: listed, never equippable until
-      // granted. Its visuals are the default Broker on purpose.
-      id: 'sealed-broker', name: 'THE SEALED ONE', tagline: 'An identity the Broker has not yet earned.',
-      category: 'secret', rarity: 'mythic', unlock: { method: 'secret', hint: 'UNLOCK CONDITION UNKNOWN' }, ...art('default'),
-      frameColor: '#4a4148', accent: '#8a7f88', avatarEffect: 'eclipse', messageEffect: 'none', aura: 'none',
-      entrance: 'fade', sound: 'none', systemStyle: 'standard',
-      sample: '???'
     }
   ].map(set => Object.freeze(set)));
 
