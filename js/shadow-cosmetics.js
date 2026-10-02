@@ -5,7 +5,7 @@
 // read-only player DOSSIER. The server sends only sanitized ids.
 (function () {
   const SAFE_ID = /^[a-z0-9-]{1,48}$/;
-  const FX = new Set(['smite', 'freeze', 'glitch', 'omen', 'rupture', 'vanish', 'love']);
+  const FX = new Set(['smite', 'freeze', 'glitch', 'omen', 'rupture', 'vanish', 'love', 'drug']);
   const LOVE_COLORS = ['#ff5fa2', '#ff3b6b', '#ff8fc8', '#c77dff', '#ffd166', '#5ee6ff', '#7dff9b', '#ff9f5a'];
   const SIGILS = { 'sigil-eye': '◉', 'sigil-skull': '☠', 'sigil-crown': '♛', 'sigil-dagger': '†', 'sigil-coin': '' };
   const BOOT_AT = Date.now();

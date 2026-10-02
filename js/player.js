@@ -138,7 +138,7 @@ const PlayerApp = {
   // Commands that take a player target: the target picker opens as soon as
   // the verb is complete and filters the online roster while a name is typed.
   // Legacy @Name input remains accepted by the server, but the UI never adds it.
-  targetedChatActs: ['spit', 'fart', 'hiss', 'nod', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass', 'smite', 'freeze', 'glitch'],
+  targetedChatActs: ['spit', 'fart', 'hiss', 'nod', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass', 'smite', 'freeze', 'glitch', 'drug'],
   targetedChatActPattern(suffix) {
     return new RegExp(`^\\s*\\/(?:${this.targetedChatActs.join('|')})${suffix}`, 'i');
   },

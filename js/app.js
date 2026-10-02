@@ -108,6 +108,8 @@ const App = {
     { name: 'rupture', insert: '/rupture', icon: '✶', label: 'RUPTURE', description: '/rupture -- crack reality open' },
     { name: 'vanish', insert: '/vanish', icon: '☁', label: 'VANISH', description: '/vanish -- disappear in smoke' },
     { name: 'love', insert: '/love ', icon: '♥', label: 'LOVE', description: '/love [@Name] -- hearts over the chat' },
+    { name: 'drug', insert: '/drug ', icon: '💉', label: 'DRUG', description: '/drug @Name -- inject someone with... something' },
+    { name: 'award', insert: '/award ', icon: '✦', label: 'AWARD', description: '/award @Name drug -- grant a relic command' },
     { name: 'grovel', insert: '/grovel', icon: '⛓', label: 'GROVEL', description: '/grovel -- demand groveling' },
     { name: 'spit', insert: '/spit ', icon: '➤', label: 'SPIT', description: '/spit Name | all -- one target or everyone' },
     { name: 'fart', insert: '/fart ', icon: '☁', label: 'FART', description: '/fart Name | all -- one target or everyone' },

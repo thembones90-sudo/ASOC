@@ -6489,6 +6489,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/rupture', help: '/rupture -- SHADOW MARKET unlock: crack reality open' },
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
   { name: '/love', help: '/love [Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
+  { name: '/drug', help: '/drug @Name -- SHADOW MARKET relic: inject someone with... something' },
   { name: '/fireworks', help: '/fireworks [message] -- light up every screen with a fireworks show' },
   { name: '/commands', help: '/commands -- this list' }
 ];
@@ -6504,6 +6505,7 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/vote', help: '/vote <question> -- instant YES/NO poll' },
   { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
+  { name: '/award', help: '/award @Name drug -- grant a Shadow Market relic command (e.g. /drug)' },
   { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' },
   { name: '/dice', help: '/dice 2d6 -- roll N dice with M faces, optional +K' },
   { name: '/flip', help: '/flip [heads|tails] -- coin flip' },
@@ -6791,9 +6793,20 @@ const CHAT_EMOTES = Object.freeze({
   rupture:  { label: 'RUPTURE',   premium: true, actor: 'You crack reality open.', other: '{A} cracks reality open.' },
   vanish:   { label: 'VANISH',    premium: true, actor: 'You vanish in a curl of smoke.', other: '{A} vanishes in a curl of smoke.' },
   // Target is optional: /love spreads love, /love Name sends it to someone.
+  // Relic command (granted via /award, never sold): {X} is a random substance.
+  drug:     { label: 'DRUG',      premium: true, targeted: true, actor: 'You inject {T} with {X}.', target: '{A} injected you with {X}.', other: '{A} injects {T} with {X}.' },
   love:     { label: 'LOVE',      premium: true, optionalTarget: true, actor: 'You spread love across the room.', other: '{A} spreads love across the room.',
               aimed: { actor: 'You send love to {T}.', target: '{A} sends you love.', other: '{A} sends love to {T}.' } }
 });
+// /drug: what the needle held. Picked at random per injection.
+const DRUG_SUBSTANCES = Object.freeze([
+  'liquid courage', 'pure Shadow Broker spite', 'expired energy drink', 'three espressos and a bad idea',
+  'concentrated WOMF', 'something glowing green', 'grandma\'s rakija', 'a suspicious blue serum',
+  'distilled overconfidence', 'the wrong answer, intravenously', 'unlicensed vitamins', 'pure chaos',
+  'a truth serum (it did not work)', 'questionable mushroom tea', 'the last brain cell of the Final',
+  'Monday', 'a microdose of the Wheel of Misfortune', 'fermented regret', 'something the Broker found on the floor',
+  'premium placebo'
+]);
 // Visual-spam guard for premium commands, per Little Hero.
 const PREMIUM_EMOTE_COOLDOWN_MS = 20000;
 const CHAT_EMOTE_PATTERN = new RegExp(`^\\/(${Object.keys(CHAT_EMOTES).join('|')})\\b`, 'i');
@@ -6847,7 +6860,8 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
     if (resolved.error) return { success: false, error: resolved.error };
     target = resolved.target;
   }
-  const fill = template => template.replace(/\{A\}/g, author.name).replace(/\{T\}/g, target ? target.name : '');
+  const substance = name === 'drug' ? DRUG_SUBSTANCES[crypto.randomInt(DRUG_SUBSTANCES.length)] : '';
+  const fill = template => template.replace(/\{A\}/g, author.name).replace(/\{T\}/g, target ? target.name : '').replace(/\{X\}/g, substance);
   const voice = target && def.aimed ? def.aimed : actorIsBroker && def.broker ? def.broker : def;
   const lines = { actor: fill(voice.actor), other: fill(voice.other) };
   if (target) lines.target = fill(voice.target);
@@ -7079,6 +7093,19 @@ function dispatchGmSlashCommand(room, ws, text) {
   if (/^\/intercept\s*$/i.test(raw)) {
     sendToWs(ws, { type: 'gm:module', name: 'intercept' });
     return { success: true, broadcast: false };
+  }
+  if (/^\/award\b/i.test(raw)) {
+    const match = raw.match(/^\/award\s+@?(.+?)\s+\/?([a-z-]+)\s*$/i);
+    if (!match) return { success: false, error: 'AWARD INVALID // USE /award @Name drug' };
+    const key = match[2].toLowerCase();
+    const item = shadowMarket.COMMAND_ITEMS.get(key) || shadowMarket.getItem(key) || shadowMarket.getItem(`cmd-${key}`);
+    if (!item?.relic) return { success: false, error: `AWARD // ${key.toUpperCase()} IS NOT A GRANTABLE RELIC` };
+    const resolved = resolveNamedTarget(room, null, '', match[1], 'AWARD');
+    if (resolved.error) return { success: false, error: resolved.error };
+    const account = coinAccount(resolved.target.id, resolved.target.name);
+    if (!account) return { success: false, error: 'AWARD // TEST PERSONAS HAVE NO DOSSIER' };
+    if (!awardRelic(room, account, item.id)) return { success: false, error: `AWARD // ${resolved.target.name} ALREADY HOLDS ${item.name}` };
+    return { success: true, broadcast: true };
   }
   if (/^\/relic\b/i.test(raw)) {
     const match = raw.match(/^\/relic\s+@?(.+?)\s*$/i);

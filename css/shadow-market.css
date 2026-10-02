@@ -743,3 +743,17 @@ body.smk-open { overflow: hidden; }
 }
 .chat-system-card.shadow-fx-card-love { border-color: rgba(255, 111, 177, .65) !important; box-shadow: 0 0 16px rgba(255, 95, 162, .3); }
 .chat-system-card.shadow-fx-card-love .chat-system-label { color: #ff9fd0 !important; }
+
+/* /drug (relic command): a short psychedelic wobble -- hue spin, swirl, blur. */
+.shadow-fx-drug > i {
+  background:
+    radial-gradient(circle at 30% 40%, rgba(80, 255, 160, .35), transparent 45%),
+    radial-gradient(circle at 70% 60%, rgba(255, 80, 230, .35), transparent 45%),
+    conic-gradient(from 0deg, rgba(255, 60, 120, .25), rgba(255, 220, 60, .25), rgba(60, 255, 160, .25), rgba(60, 140, 255, .25), rgba(200, 60, 255, .25), rgba(255, 60, 120, .25));
+  filter: blur(18px) hue-rotate(0deg);
+  animation: shadow-fx-trip 1.9s ease-in-out forwards;
+}
+.shadow-fx-drug > b { color: #7dffb9; text-shadow: 0 0 22px #ff5ce1, 0 0 40px #5cffb0; animation: shadow-fx-woozy 1.9s ease-in-out forwards; }
+@keyframes shadow-fx-trip { 0% { transform: scale(1) rotate(0deg); filter: blur(18px) hue-rotate(0deg); } 100% { transform: scale(1.25) rotate(40deg); filter: blur(24px) hue-rotate(320deg); } }
+@keyframes shadow-fx-woozy { 0%, 100% { transform: rotate(0deg) skewX(0deg); } 25% { transform: rotate(-4deg) skewX(8deg) scale(1.05); } 50% { transform: rotate(3deg) skewX(-10deg) scale(.96); } 75% { transform: rotate(-2deg) skewX(6deg) scale(1.03); } }
+.chat-system-card.shadow-fx-card-drug { border-color: rgba(125, 255, 185, .6) !important; box-shadow: 0 0 16px rgba(255, 92, 225, .3); }
