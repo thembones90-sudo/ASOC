@@ -188,7 +188,8 @@
   }
 
   const previewProfile = () => (previewId === C.CUSTOM_ID ? C.cleanProfile({ ...customDraft, transmogId: C.CUSTOM_ID }) : C.resolveProfile(previewId));
-  const unlocked = id => id === C.CUSTOM_ID || C.isUnlocked(id, owned);
+  // The Shadow Broker has no limits: every set is open in the vault.
+  const unlocked = () => true;
 
   function renderVault() {
     const el = ensureVault();

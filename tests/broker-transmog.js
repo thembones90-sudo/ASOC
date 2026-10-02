@@ -61,10 +61,8 @@ function catalog() {
   assert.equal(dirty.avatarData, C.resolveProfile('default-broker').avatarData);
   assert.equal(dirty.frameColor, '#9b5de0');
   assert.deepEqual([dirty.avatarEffect, dirty.messageEffect, dirty.aura, dirty.sound], ['none', 'none', 'none', 'none']);
-  // Ownership.
-  assert.equal(C.isUnlocked('default-broker', []), true);
-  assert.equal(C.isUnlocked('sealed-broker', []), false);
-  assert.equal(C.isUnlocked('sealed-broker', ['sealed-broker']), true);
+  // Every set is open (the Shadow Broker has no limits).
+  C.SETS.forEach(set => assert.equal(C.isUnlocked(set.id, []), true, `${set.id} is open`));
   assert.equal(C.isUnlocked('nope', ['nope']), false);
   console.log('PASS transmog catalog');
 }
@@ -184,11 +182,8 @@ async function serverSuite() {
     // 10. Unknown id: refused, appearance unchanged.
     st = await equip(gm, ana, { type: 'gm:brokerTransmog', transmogId: 'not-a-set' });
     assert.match(st.error, /UNKNOWN APPEARANCE/);
-    // 11. Locked set: refused.
-    st = await equip(gm, ana, { type: 'gm:brokerTransmog', transmogId: 'sealed-broker' });
-    assert.match(st.error, /LOCKED/);
     await sleep(200);
-    assert.equal(ana.state.brokerTransmogId, 'illidan-broker');
+    assert.equal(ana.state.brokerTransmogId, 'illidan-broker', 'a refused equip changes nothing');
 
     // 13. CUSTOM still works; the uploaded image is served, not broadcast.
     const png = fs.readFileSync(path.join(ROOT, 'assets/transmog/void/thumb.webp')).toString('base64');
@@ -220,16 +215,14 @@ async function serverSuite() {
     // appearance becomes equippable.
     clients.forEach(c => c.close()); clients.length = 0;
     await stop(server);
-    fs.writeFileSync(path.join(DATA, 'broker-wardrobe.json'), JSON.stringify({ owned: ['sealed-broker'] }));
     server = spawnServer();
     await healthy();
     const gm2 = await gmOpen();
     const ana2 = await hero('Ana');
     assert.equal(ana2.state.brokerTransmogId, 'illidan-broker', 'TRANSMOG survives a restart');
     assert.equal(ana2.state.brokerTransmogSeq, seq);
-    assert.ok(ana2.state.brokerWardrobe.owned.includes('sealed-broker'));
-    st = await equip(gm2, ana2, { type: 'gm:brokerTransmog', transmogId: 'sealed-broker' });
-    assert.equal(st.brokerTransmogId, 'sealed-broker', 'a granted appearance can be equipped');
+    st = await equip(gm2, ana2, { type: 'gm:brokerTransmog', transmogId: 'omen-broker' });
+    assert.equal(st.brokerTransmogId, 'omen-broker', 'equips work after a restart');
     assert.equal(server.errors.trim(), '');
     console.log('PASS transmog server');
   } finally {
@@ -286,10 +279,9 @@ async function browserSuite() {
     await g.keyboard.press('Escape');
     assert.equal(await g.isVisible('#broker-transmog-overlay'), false);
     assert.equal((await look(g)).set, 'default-broker');
-    // A locked tile cannot be equipped.
+    // Nothing in the vault is locked.
     await g.click('#broker-transmog-btn');
-    await g.click('[data-btm-set="sealed-broker"]');
-    assert.equal(await g.isDisabled('#btm-equip'), true);
+    assert.equal(await g.$$eval('.btm-tile.is-locked', n => n.length), 0);
 
     // 3/4/5. Equip Illidan: both pages repaint, existing messages included.
     await g.click('[data-btm-set="illidan-broker"]');
