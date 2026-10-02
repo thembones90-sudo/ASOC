@@ -124,7 +124,25 @@
     if (Date.now() - Number(msg.timestamp || 0) > 8000) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     if (fx === 'love') { setTimeout(loveBurst, 0); return; }
+    if (fx === 'drug') { setTimeout(drugHeartbeat, 0); return; }
     setTimeout(() => screenLayer('shadow-fx-' + fx, String(msg.emote.label || fx).toUpperCase()), 0);
+  }
+
+  // /drug -- a toxic-green heartbeat: a glowing heart thumps lub-dub three
+  // times with a shockwave per beat, the screen edge pulses green and an ECG
+  // trace sweeps across. Non-interactive, ~3.4s.
+  function drugHeartbeat() {
+    const layer = document.createElement('div');
+    layer.className = 'drug-heartbeat';
+    layer.setAttribute('aria-hidden', 'true');
+    layer.innerHTML =
+      '<span class="drug-hb-vignette"></span>' +
+      '<svg class="drug-hb-ecg" viewBox="0 0 1000 200" preserveAspectRatio="none"><polyline points="0,100 180,100 210,100 230,60 250,140 270,100 300,100 330,100 350,20 370,190 390,100 430,100 600,100 630,100 650,60 670,140 690,100 720,100 750,100 770,20 790,190 810,100 850,100 1000,100"/></svg>' +
+      '<span class="drug-hb-heart"><i class="drug-hb-ring"></i><i class="drug-hb-ring"></i><i class="drug-hb-ring"></i>' +
+      '<svg viewBox="0 0 24 22"><path d="M12 21.4l-1.5-1.3C5.2 15.3 2 12.4 2 8.6 2 5.5 4.4 3 7.5 3c1.7 0 3.4.8 4.5 2.1C13.1 3.8 14.8 3 16.5 3 19.6 3 22 5.5 22 8.6c0 3.8-3.2 6.7-8.5 11.5L12 21.4z"/></svg></span>' +
+      '<b class="drug-hb-title">INJECTED</b>';
+    document.body.appendChild(layer);
+    setTimeout(() => layer.remove(), 3500);
   }
 
   // /love -- colourful hearts drift up over the chat log (or the whole
