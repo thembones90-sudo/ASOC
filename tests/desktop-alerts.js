@@ -12,6 +12,7 @@ globalThis.sessionStorage = { getItem: key => (key === 'asoc_master_persona' ? p
 globalThis.document = { visibilityState: 'hidden', hasFocus: () => false };
 
 const alerts = require('../js/asoc-alerts.js');
+assert.deepEqual(calls, [], 'requiring the helpers in Node sends nothing');
 const notifications = () => calls.filter(([kind]) => kind === 'notify').map(([, payload]) => payload);
 const reset = () => { calls.length = 0; alerts.unread = 0; };
 
@@ -145,6 +146,20 @@ assert.deepEqual(calls, [], 'the wheel landing on someone else does not alert');
 reset();
 alerts.battleStarting();
 assert.equal(notifications()[0].title, 'BATTLE STARTING');
+assert.ok(!calls.some(([kind]) => kind === 'attention'), 'events with nothing to read in chat never leave a badge number');
+
+// IKS OKS: "your move" once per move, even when the same state is re-sent.
+reset();
+const tf = { type: 'threefold:state', game: { id: 'g1', board: ['X', '', '', '', '', '', '', '', ''], turnId: 'me', xName: 'Zed', oName: 'Hero42', xId: 'p2', complete: false } };
+alerts.threefold(tf, 'me');
+alerts.threefold(tf, 'me');
+assert.equal(notifications().length, 1, 'a re-sent IKS OKS state does not repeat the alert');
+assert.ok(!calls.some(([kind]) => kind === 'attention'));
+
+// resetBadge() wipes a stale count from an earlier page load.
+reset();
+alerts.resetBadge();
+assert.deepEqual(calls, [['attention', 0]]);
 
 // Shadow Broker: guesses awaiting a verdict win the popup; plain chat only
 // flashes; players joining alert after the first roster baseline.
@@ -168,6 +183,7 @@ alerts.gmPlayers([{ id: 'p2', name: 'Zed' }]);
 assert.deepEqual(calls, [], 'the first roster is a baseline');
 alerts.gmPlayers([{ id: 'p2', name: 'Zed' }, { id: 'p3', name: 'Amy' }, { id: 'p4', name: 'Off', connected: false }]);
 assert.equal(notifications()[0].title, 'Amy joined');
+assert.ok(!calls.some(([kind]) => kind === 'attention'), 'a join is a popup, not an unread count');
 reset();
 alerts.gmPlayers([{ id: 'p2', name: 'Zed' }, { id: 'p3', name: 'Amy' }, { id: '__MASTER_TEST__:abc', name: 'TEST SUBJECT' }]);
 alerts.gmChat([{ id: 14, playerId: '__MASTER_TEST__:abc', playerName: 'TEST SUBJECT', text: '@broker testing', adjudicable: true }]);
@@ -186,7 +202,7 @@ persona = null;
 
 // clear() resets the badge; no bridge means a silent no-op.
 reset();
-alerts.battleStarting();
+alerts.playerChat([{ id: 50, playerId: 'p2', playerName: 'Zed', text: 'hi' }], { selfId: 'me', selfName: 'Hero42' });
 alerts.clear();
 assert.deepEqual(calls.at(-1), ['attention', 0]);
 delete globalThis.asocDesktop;

@@ -317,7 +317,14 @@ function createTray() {
 function wireWindow(win) {
   const contents = win.webContents;
   const contentsId = contents.id;
-  win.on('focus', () => win.flashFrame(false));
+  // Looking at the window or reloading its page settles the badge: a stale
+  // count must never outlive the page that set it.
+  win.on('focus', () => setAttention(win, contentsId, 0));
+  contents.on('did-start-navigation', (details, _url, isInPlace, isMainFrame) => {
+    const mainFrame = details?.isMainFrame ?? isMainFrame;
+    const sameDocument = details?.isSameDocument ?? isInPlace;
+    if (mainFrame && !sameDocument && !win.isDestroyed()) setAttention(win, contentsId, 0);
+  });
   contents.on('destroyed', () => { unreadByContents.delete(contentsId); refreshTray(); });
 
   contents.setWindowOpenHandler(({ url }) => {

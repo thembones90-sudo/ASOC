@@ -55,6 +55,13 @@
     if (!casual) { rail.innerHTML = ''; return; }
     const conversations = new Map((state.list || []).map(c => [String(c.other.id), c]));
     const people = candidates();
+    // Unread threads with heroes who are not in the room still count in the
+    // PRIVATE total, so they must be reachable from the rail too.
+    const listed = new Set(people.map(p => p.id));
+    (state.list || []).forEach(c => {
+      const id = String(c.other.id);
+      if (Number(c.unread) > 0 && !c.blocked && !listed.has(id)) people.push({ id, name: c.other.name || 'Little Hero', online: false, avatarData: '', frameColor: '#37d997' });
+    });
     rail.innerHTML = `<div class="dmx-rail-head"><span>PRIVATE</span>${state.unread ? `<b>${state.unread}</b>` : ''}</div>
       <div class="dmx-rail-people">${people.map(p => {
         const c = conversations.get(String(p.id));
