@@ -31,7 +31,9 @@
   const DEFAULT_ID = 'default-broker';
   const CUSTOM_ID = 'custom';
 
-  const art = folder => ({ avatar: `assets/transmog/${folder}/avatar.webp`, thumb: `assets/transmog/${folder}/thumb.webp` });
+  // Bump ART_VERSION whenever set art is replaced so browsers fetch it fresh.
+  const ART_VERSION = '2';
+  const art = folder => ({ avatar: `assets/transmog/${folder}/avatar.webp?v=${ART_VERSION}`, thumb: `assets/transmog/${folder}/thumb.webp?v=${ART_VERSION}` });
 
   const SETS = Object.freeze([
     {

@@ -34,7 +34,7 @@ function catalog() {
     assert.ok(C.ENTRANCES.includes(set.entrance), `${set.id} entrance`);
     assert.ok(C.SOUNDS.includes(set.sound), `${set.id} sound`);
     assert.match(set.frameColor, /^#[0-9a-f]{6}$/i);
-    [set.avatar, set.thumb].forEach(file => assert.ok(fs.existsSync(path.join(ROOT, file)), `${set.id} asset ${file}`));
+    [set.avatar, set.thumb].forEach(file => assert.ok(fs.existsSync(path.join(ROOT, file.split('?')[0])), `${set.id} asset ${file}`));
     // A set never borrows another first-collection set's identity wholesale.
     REQUIRED.filter(id => id !== set.id).forEach(other => {
       const o = C.get(other);
@@ -169,7 +169,7 @@ async function serverSuite() {
     let st = await equip(gm, ana, { type: 'gm:brokerTransmog', transmogId: 'bloodfang-broker' });
     assert.equal(st.brokerTransmogId, 'bloodfang-broker');
     assert.equal(st.brokerProfile.messageEffect, 'bloodfang');
-    assert.equal(st.brokerProfile.avatarData, 'assets/transmog/bloodfang/avatar.webp');
+    assert.match(st.brokerProfile.avatarData, /^assets\/transmog\/bloodfang\/avatar\.webp(\?v=\w+)?$/);
     // 17. No game logic moved.
     assert.equal(gameView(st), before, 'Bloodfang changed nothing but appearance');
 
@@ -291,7 +291,8 @@ async function browserSuite() {
       const l = await look(page);
       assert.equal(l.aura, 'fel');
       assert.deepEqual(l.effects, ['fel'], 'existing Broker messages repainted');
-      assert.deepEqual(l.avatars, ['assets/transmog/illidan/avatar.webp']);
+      assert.equal(l.avatars.length, 1);
+      assert.match(l.avatars[0], /^assets\/transmog\/illidan\/avatar\.webp/);
       assert.deepEqual(l.avatarFx, ['fel']);
     }
     assert.ok(await p.$('.btm-entrance'), 'players see the entrance');
