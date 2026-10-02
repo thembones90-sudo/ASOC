@@ -6800,12 +6800,9 @@ const CHAT_EMOTES = Object.freeze({
 });
 // /drug: what the needle held. Picked at random per injection.
 const DRUG_SUBSTANCES = Object.freeze([
-  'liquid courage', 'pure Shadow Broker spite', 'expired energy drink', 'three espressos and a bad idea',
-  'concentrated WOMF', 'something glowing green', 'grandma\'s rakija', 'a suspicious blue serum',
-  'distilled overconfidence', 'the wrong answer, intravenously', 'unlicensed vitamins', 'pure chaos',
-  'a truth serum (it did not work)', 'questionable mushroom tea', 'the last brain cell of the Final',
-  'Monday', 'a microdose of the Wheel of Misfortune', 'fermented regret', 'something the Broker found on the floor',
-  'premium placebo'
+  'liquid courage', 'pure Shadow Broker spite', 'concentrated WOMF', 'something glowing green',
+  "grandma's rakija", 'three espressos and a bad idea', 'a truth serum (it did not work)',
+  'distilled overconfidence', 'a microdose of the Wheel of Misfortune', 'premium placebo'
 ]);
 // Visual-spam guard for premium commands, per Little Hero.
 const PREMIUM_EMOTE_COOLDOWN_MS = 20000;
