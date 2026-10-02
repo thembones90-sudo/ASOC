@@ -777,3 +777,43 @@ body.smk-open { overflow: hidden; }
 @keyframes drug-hb-vignette { 0%, 100% { opacity: .35; } 12% { opacity: 1; } 32% { opacity: .8; } }
 @keyframes drug-hb-trace { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .drug-heartbeat * { animation-duration: .01s !important; animation-iteration-count: 1 !important; } }
+
+/* /freeze FLASH FREEZE (js/shadow-cosmetics.js flashFreeze). Cheap layers
+   only: gradients, one shadow, transforms -- starts instantly without a GPU. */
+.flash-freeze { position: fixed; inset: 0; z-index: 7900; pointer-events: none; overflow: hidden; animation: ff-life 3.2s linear forwards; }
+.ff-ice { position: absolute; inset: 0; }
+.ff-sheet, .ff-ice > i {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at center, rgba(150, 210, 255, .12) 18%, rgba(190, 235, 255, .5) 55%, rgba(240, 252, 255, .92) 100%),
+    repeating-linear-gradient(62deg, rgba(255, 255, 255, .12) 0 2px, transparent 2px 11px),
+    repeating-linear-gradient(-28deg, rgba(160, 220, 255, .06) 0 1px, transparent 1px 14px);
+  opacity: 0;
+}
+/* One seamless sheet while frozen; the shards take over the instant it breaks. */
+.ff-sheet { animation: ff-creep .55s ease-out forwards, ff-hide 0s linear 1.55s forwards; }
+.ff-ice > i { animation: ff-shatter .95s cubic-bezier(.5, 0, .9, .6) var(--shatter-delay, 1.6s) forwards; }
+@keyframes ff-hide { to { opacity: 0; } }
+.ff-crack { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ff-crack polyline { fill: none; stroke: #f4fcff; stroke-width: 2.5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 4px #8fdcff); stroke-dasharray: 1600; stroke-dashoffset: 1600; animation: ff-crack .28s ease-out .5s forwards, ff-fade .3s ease-out 1.55s forwards; }
+.ff-snow > i { position: absolute; top: -12px; aspect-ratio: 1; border-radius: 50%; background: #fff; opacity: .85; animation: ff-snow linear infinite; }
+.ff-title {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(1.25);
+  font: 900 clamp(2.2rem, 8vw, 6rem)/1 var(--font-machine, ui-monospace, monospace);
+  letter-spacing: .3em; padding-left: .3em;
+  color: #e9f9ff; text-shadow: 0 0 18px #6fd2ff;
+  -webkit-text-stroke: 1px rgba(120, 200, 255, .8);
+  opacity: 0;
+  animation: ff-title-in .35s ease-out .55s forwards, ff-title-out .45s ease-in 1.6s forwards;
+}
+@keyframes ff-life { 0%, 92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes ff-creep { from { opacity: 0; transform: scale(1.12); } to { opacity: 1; transform: scale(1); } }
+@keyframes ff-shatter { 0% { transform: translate(0, 0) rotate(0deg); opacity: 1; } 100% { transform: translate(var(--slide), var(--fall)) rotate(var(--spin)); opacity: 0; } }
+@keyframes ff-crack { to { stroke-dashoffset: 0; } }
+@keyframes ff-fade { to { opacity: 0; } }
+@keyframes ff-snow { to { transform: translate(var(--drift), 105vh); } }
+@keyframes ff-title-in { to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes ff-title-out { to { opacity: 0; transform: translate(-50%, 30%) scale(.92) rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .flash-freeze * { animation-duration: .01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; } }
+/* The chat card: icy blue with frosted corners. */
+.chat-system-card.shadow-fx-card-freeze { background: linear-gradient(135deg, rgba(200, 240, 255, .16), transparent 30%, transparent 70%, rgba(200, 240, 255, .16)), rgba(14, 30, 44, .82) !important; }

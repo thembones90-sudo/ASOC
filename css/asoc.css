@@ -21891,3 +21891,8 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
   :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-module-chat .gm-atomic-clock { grid-row: 2 !important; grid-column: 1 / span 2 !important; min-width: 0 !important; }
   :where(html:not(.asoc-mobile)) body.room-mode-casual #gm-panel .gm-module-chat .gm-chat-presence-wrap { grid-row: 2 !important; grid-column: 3 !important; justify-self: end; }
 }
+
+/* Reliquary viewer zoom (App.bindVaultViewerZoom). */
+#blood-vault-viewer { overflow: hidden; }
+#blood-vault-viewer img { touch-action: none; user-select: none; transition: transform .06s linear; will-change: transform; }
+.blood-vault-zoom { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 7px 14px; border: 1px solid rgba(213, 160, 164, .35); border-radius: 999px; background: rgba(12, 6, 8, .78); color: #e7c4c7; font: 700 11px var(--font-machine, monospace); letter-spacing: .14em; white-space: nowrap; pointer-events: none; }
