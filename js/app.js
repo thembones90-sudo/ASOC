@@ -4936,7 +4936,16 @@ const App = {
   mergeChatDelta(changed) {
     if (!changed.length) return this.chatMessages;
     const byId = new Map(this.chatMessages.map(m => [String(m.id), m]));
-    for (const message of changed) byId.set(String(message.id), message);
+    // A change to a message older than everything loaded here (someone
+    // reading or reacting deep in history) belongs to scrollback this client
+    // never fetched: adding it would plant a stray line in history and count
+    // it as new. Paging fetches it when the user scrolls that far.
+    const oldestLoaded = this.chatMessages.length ? Number(this.chatMessages[0].timestamp) || 0 : -Infinity;
+    for (const message of changed) {
+      const id = String(message.id);
+      if (!byId.has(id) && Number(message.timestamp) < oldestLoaded) continue;
+      byId.set(id, message);
+    }
     const merged = Array.from(byId.values());
     // Tombstones keep their slot, so timestamp ordering stays stable and a
     // deleted message still occupies its position in the log.
@@ -4996,7 +5005,10 @@ const App = {
     // entire chat history replay as a fresh Broker transmission on
     // their own Public View the instant the reconnect completes.
     if (this._chatEverInitialized) {
-      const newMessages = incoming.filter(m => !previousIds.has(m.id));
+      // New = not held before AND not older than the newest line held: an
+      // old message re-sent for a read receipt or reaction is not news.
+      const newestHeld = this.chatMessages.reduce((max, m) => Math.max(max, Number(m.timestamp) || 0), -Infinity);
+      const newMessages = incoming.filter(m => !previousIds.has(m.id) && Number(m.timestamp) >= newestHeld);
       window.AsocAlerts?.gmChat(newMessages);
       // A player's HINT request gets its own prominent alert, not just a line
       // in the transcript. Lives here (not in the switch) so it fires for a

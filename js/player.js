@@ -4593,7 +4593,16 @@ const PlayerApp = {
   mergeChatDelta(changed) {
     if (!changed.length) return this.chatMessages;
     const byId = new Map(this.chatMessages.map(m => [String(m.id), m]));
-    for (const message of changed) byId.set(String(message.id), message);
+    // A change to a message older than everything loaded here (someone
+    // reading or reacting deep in history) belongs to scrollback this client
+    // never fetched: adding it would plant a stray line in history and count
+    // it as new. Paging fetches it when the user scrolls that far.
+    const oldestLoaded = this.chatMessages.length ? Number(this.chatMessages[0].timestamp) || 0 : -Infinity;
+    for (const message of changed) {
+      const id = String(message.id);
+      if (!byId.has(id) && Number(message.timestamp) < oldestLoaded) continue;
+      byId.set(id, message);
+    }
     const merged = Array.from(byId.values());
     // Tombstones keep their slot: the timestamp ordering below is stable, and a
     // deleted message still has to occupy its position in the log.
@@ -4662,7 +4671,10 @@ const PlayerApp = {
     // player joining mid-game would see the room's entire chat history
     // replay as a fresh transmission the moment they connect.
     if (this._chatEverInitialized) {
-      const newMessages = incoming.filter(m => !previousIds.has(m.id));
+      // New = not held before AND not older than the newest line held: an
+      // old message re-sent for a read receipt or reaction is not news.
+      const newestHeld = this.chatMessages.reduce((max, m) => Math.max(max, Number(m.timestamp) || 0), -Infinity);
+      const newMessages = incoming.filter(m => !previousIds.has(m.id) && Number(m.timestamp) >= newestHeld);
       window.AsocAlerts?.playerChat(newMessages, { selfId: this.playerId, selfName: this.playerName });
       followLatest = followLatest || newMessages.some(m =>
         String(m.playerId || '') === String(this.playerId || '')

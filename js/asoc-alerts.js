@@ -2,10 +2,12 @@
 //
 // Decides which chat/game events deserve the user's attention while the ASOC
 // Engine desktop window is in the background, and hands them to the desktop
-// shell (desktop/preload.js exposes window.asocDesktop). Every event flashes
-// the taskbar button and bumps the unread badge; only the important ones
-// (mentions, replies, battle start/end, the Wheel choosing you, guesses
-// awaiting a verdict, players joining) also raise a Windows notification.
+// shell (desktop/preload.js exposes window.asocDesktop). Only chat messages
+// bump the unread badge, so its number always matches something the user can
+// scroll to; the important events (mentions, replies, battle start/end, the
+// Wheel choosing you, guesses awaiting a verdict, players joining, class
+// reminders, IKS OKS turns) raise a Windows notification. Every page load
+// resets the badge, so a refresh never leaves a stale count behind.
 //
 // In a normal browser window.asocDesktop is absent and this is a no-op.
 // The pure helpers are exported for tests/desktop-alerts.js.
@@ -135,18 +137,28 @@
       return !!doc && doc.visibilityState === 'visible' && doc.hasFocus();
     },
 
-    // count: how many events to add to the badge.
-    // popup: { title, body, tag } to also raise a Windows notification.
-    signal({ count = 1, popup = null } = {}) {
+    // count: how many chat messages to add to the badge (0 for events that
+    // leave nothing in chat to find). popup: { title, body, tag } to also
+    // raise a Windows notification.
+    signal({ count = 0, popup = null } = {}) {
       const bridge = this.bridge();
-      if (!bridge || count <= 0 || this.suppressed() || this.windowActive()) return;
-      this.unread += count;
-      bridge.attention(this.unread);
+      if (!bridge || (count <= 0 && !popup) || this.suppressed() || this.windowActive()) return;
+      if (count > 0) {
+        this.unread += count;
+        bridge.attention(this.unread);
+      }
       if (popup) bridge.notify({ title: truncate(popup.title, 64), body: truncate(popup.body || ''), tag: popup.tag || '', silent: this.soundMuted() });
     },
 
     clear() {
       if (!this.unread) return;
+      this.unread = 0;
+      this.bridge()?.attention(0);
+    },
+
+    // The desktop shell remembers the last count across page reloads; a
+    // fresh page has nothing unread, so wipe whatever an earlier load left.
+    resetBadge() {
       this.unread = 0;
       this.bridge()?.attention(0);
     },
@@ -275,6 +287,10 @@
       if (message?.type === 'threefold:state') {
         const g = message.game || {};
         if (g.complete || String(g.turnId) !== self) return;
+        // Once per move: re-sent states (reconnects, refreshes) never repeat it.
+        const turnKey = `${g.id}:${(g.board || []).filter(Boolean).length}`;
+        if (this._threefoldTurn === turnKey) return;
+        this._threefoldTurn = turnKey;
         const opponent = String(g.xId) === self ? g.oName : g.xName;
         this.signal({ popup: { title: `Your move in IKS OKS`, body: `${opponent || 'Your opponent'} is waiting.`, tag: 'iks-oks' } });
       }
@@ -290,7 +306,6 @@
       const joined = [...online].filter(([id]) => !prev.has(id)).map(([, name]) => name);
       if (!joined.length) return;
       this.signal({
-        count: joined.length,
         popup: {
           title: joined.length === 1 ? `${joined[0]} joined` : `${joined.length} Little Heroes joined`,
           body: joined.length === 1 ? 'A Little Hero entered the Master Room.' : joined.join(', '),
@@ -306,6 +321,7 @@
   }
 
   root.AsocAlerts = api;
+  api.resetBadge();
   const clearIfActive = () => { if (api.windowActive()) api.clear(); };
   root.addEventListener('focus', clearIfActive);
   root.document.addEventListener('visibilitychange', clearIfActive);
