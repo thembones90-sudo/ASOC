@@ -189,11 +189,13 @@ async function serverSuite() {
     const png = fs.readFileSync(path.join(ROOT, 'assets/transmog/void/thumb.webp')).toString('base64');
     st = await equip(gm, ana, { type: 'gm:brokerProfile', profile: { avatarData: `data:image/webp;base64,${png}`, frameColor: '#123456', avatarEffect: 'glitch', messageEffect: 'static', aura: 'static' } });
     assert.equal(st.brokerTransmogId, 'custom');
-    assert.match(st.brokerProfile.avatarData, /^\/api\/broker-avatar\?room=MASTER&v=\d+$/);
+    assert.match(st.brokerProfile.avatarData, /^\/uploads\/chat\/[a-f0-9]{32}\.webp$/, 'the upload is stored as a file');
     assert.ok(st._bytes < png.length, 'state:public does not carry the uploaded image');
     const img = await api(st.brokerProfile.avatarData);
     assert.equal(img.status, 200);
-    assert.equal(img.headers['content-type'], 'image/webp');
+    assert.match(String(img.headers['content-type']), /image\/webp/);
+    const roomsFile = fs.readFileSync(path.join(DATA, 'active-rooms.json'), 'utf8');
+    assert.ok(!roomsFile.includes(png.slice(0, 200)), 'the room file does not embed the image');
     assert.equal(img.bytes, Buffer.from(png, 'base64').length);
 
     // 12. DEFAULT always works; 18. switching never moves game state.

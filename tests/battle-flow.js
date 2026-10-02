@@ -64,6 +64,16 @@ let gm;
 const players = [];
 const tokens = [];
 const settle = (ms = 350) => sleep(ms);
+// Waits for the GM's state to satisfy `test` (CI machines are slower than a
+// fixed sleep assumes).
+async function until(test, label, timeout = 6000) {
+  const started = Date.now();
+  while (Date.now() - started < timeout) {
+    try { if (test(gm.state)) return gm.state; } catch {}
+    await sleep(40);
+  }
+  throw new Error(`timed out waiting for ${label}`);
+}
 const command = (name, payload = {}) => gm.send({ type: 'gm:command', command: name, payload, cmdId: `flow-${name}-${Math.random()}` });
 
 async function joinPlayer(index) {
@@ -238,20 +248,20 @@ async function run() {
 
     // 3. Solution countdowns freeze with the clock and re-arm on resume.
     gm.send({ type: 'gm:solutionCountdown', target: 'D', seconds: 60 });
-    await settle();
+    await until(s => s.solutionCountdowns.D, 'countdown D');
     gm.send({ type: 'gm:timerPause' });
-    await settle();
+    await until(s => s.solutionCountdowns.D.paused === true, 'countdown D paused');
     const frozen = gm.state.solutionCountdowns.D;
     assert.equal(frozen.paused, true, 'pause freezes a running countdown');
     assert.equal(frozen.deadline, null);
     assert.ok(frozen.remainingMs > 55000 && frozen.remainingMs <= 60000);
     await sleep(1200);
     gm.send({ type: 'gm:solutionCountdown', target: 'C', seconds: 60 });
-    await settle();
+    await until(s => s.solutionCountdowns.C, 'countdown C');
     assert.equal(gm.state.solutionCountdowns.C.paused, true, 'a countdown started while paused starts frozen');
     assert.equal(gm.state.solutionCountdowns.D.remainingMs, frozen.remainingMs, 'frozen time does not drain');
     gm.send({ type: 'gm:timerResume' });
-    await settle();
+    await until(s => s.solutionCountdowns.D && s.solutionCountdowns.D.paused !== true, 'countdown D resumed');
     const resumed = gm.state.solutionCountdowns.D;
     assert.ok(Number.isFinite(resumed.deadline) && !resumed.paused, 'resume re-arms with a real deadline');
     assert.ok(Math.abs((resumed.deadline - Date.now()) - frozen.remainingMs) < 2000, 'resume continues from the frozen remaining time');
