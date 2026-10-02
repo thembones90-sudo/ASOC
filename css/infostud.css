@@ -1,0 +1,34 @@
+/* INFOSTUD -- hidden Shadow Broker storage (js/infostud.js). */
+.ifs-overlay { position: fixed; inset: 0; z-index: 12100; display: grid; place-items: center; padding: 16px; background: rgba(4, 3, 8, .86); backdrop-filter: blur(6px); }
+.ifs-overlay[hidden] { display: none !important; }
+.ifs-overlay.is-drag .ifs-window { border-color: #c486ef; box-shadow: 0 0 0 2px rgba(196, 134, 239, .5), 0 30px 90px rgba(0, 0, 0, .7); }
+.ifs-window { width: min(1100px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border: 1px solid rgba(155, 93, 224, .45); border-radius: 16px; background: linear-gradient(180deg, #140d1c, #08060b); box-shadow: 0 30px 90px rgba(0, 0, 0, .7); overflow: hidden; color: #ece4f4; }
+.ifs-window header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid rgba(155, 93, 224, .25); }
+.ifs-window header > div { flex: 1; min-width: 0; }
+.ifs-window header b { display: block; font: 900 20px var(--font-machine, monospace); letter-spacing: .32em; color: #c486ef; }
+.ifs-window header small { display: block; margin-top: 4px; color: #8f7fa3; font: 700 10.5px var(--font-machine, monospace); letter-spacing: .16em; }
+.ifs-upload, .ifs-close, .ifs-v-bar button, .ifs-v-bar a { padding: 10px 16px; border: 1px solid #9b5de0; border-radius: 10px; background: linear-gradient(180deg, #5b2b94, #2c1450); color: #fff; font: 900 12px var(--font-machine, monospace); letter-spacing: .18em; cursor: pointer; text-decoration: none; }
+.ifs-close { padding: 6px 13px; font-size: 20px; letter-spacing: 0; background: rgba(255, 255, 255, .04); }
+.ifs-status { margin: 0; padding: 9px 20px; background: rgba(155, 93, 224, .12); color: #d9c4f2; font: 700 11px var(--font-machine, monospace); letter-spacing: .12em; }
+.ifs-status.is-error { background: rgba(200, 40, 60, .16); color: #ffb3c0; }
+.ifs-grid { flex: 1; min-height: 200px; overflow: auto; padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-content: start; }
+.ifs-card { display: grid; gap: 6px; padding: 8px; border: 1px solid rgba(155, 93, 224, .25); border-radius: 12px; background: rgba(255, 255, 255, .03); color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.ifs-card:hover { border-color: #c486ef; }
+.ifs-thumb { aspect-ratio: 1; border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: #0d0a12; }
+.ifs-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ifs-thumb i { color: #c486ef; font-size: 34px; font-style: normal; }
+.ifs-card b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px var(--font-human, system-ui); }
+.ifs-card small { color: #8f7fa3; font: 600 11px var(--font-human, system-ui); }
+.ifs-empty, .ifs-drop { margin: 0; color: #6f6280; font: 700 11px var(--font-machine, monospace); letter-spacing: .2em; text-align: center; }
+.ifs-empty { grid-column: 1 / -1; padding: 40px 0; }
+.ifs-drop { padding: 10px; border-top: 1px dashed rgba(155, 93, 224, .25); }
+.ifs-viewer { position: fixed; inset: 0; z-index: 12110; display: grid; grid-template-rows: 1fr auto; background: rgba(2, 1, 4, .94); }
+.ifs-viewer[hidden] { display: none !important; }
+.ifs-v-stage { position: relative; overflow: hidden; display: grid; place-items: center; }
+.ifs-v-stage img { max-width: 92vw; max-height: 82vh; transform-origin: 0 0; cursor: grab; user-select: none; touch-action: none; }
+.ifs-v-stage video { max-width: 92vw; max-height: 82vh; }
+.ifs-loading { color: #8f7fa3; font: 700 12px var(--font-machine, monospace); letter-spacing: .2em; }
+.ifs-v-close { position: fixed; top: 14px; right: 20px; z-index: 2; border: 0; background: none; color: #d9c4f2; font-size: 30px; cursor: pointer; }
+.ifs-v-bar { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid rgba(155, 93, 224, .25); }
+.ifs-v-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d9c4f2; font: 600 14px var(--font-human, system-ui); }
+.ifs-v-bar .ifs-v-delete { border-color: #ff4a5c; background: linear-gradient(180deg, #8e1426, #4a0812); }

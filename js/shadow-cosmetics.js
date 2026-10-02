@@ -5,7 +5,7 @@
 // read-only player DOSSIER. The server sends only sanitized ids.
 (function () {
   const SAFE_ID = /^[a-z0-9-]{1,48}$/;
-  const FX = new Set(['smite', 'freeze', 'glitch', 'omen', 'rupture', 'vanish', 'love', 'drug']);
+  const FX = new Set(['smite', 'freeze', 'glitch', 'omen', 'rupture', 'vanish', 'love', 'drug', 'hug']);
   const LOVE_COLORS = ['#ff5fa2', '#ff3b6b', '#ff8fc8', '#c77dff', '#ffd166', '#5ee6ff', '#7dff9b', '#ff9f5a'];
   const SIGILS = { 'sigil-eye': '◉', 'sigil-skull': '☠', 'sigil-crown': '♛', 'sigil-dagger': '†', 'sigil-coin': '' };
   const BOOT_AT = Date.now();
@@ -126,6 +126,7 @@
     if (fx === 'love') { setTimeout(loveBurst, 0); return; }
     if (fx === 'drug') { setTimeout(drugHeartbeat, 0); return; }
     if (fx === 'freeze') { setTimeout(flashFreeze, 0); return; }
+    if (fx === 'hug') { setTimeout(() => hugBurst(msg.emote), 0); return; }
     setTimeout(() => screenLayer('shadow-fx-' + fx, String(msg.emote.label || fx).toUpperCase()), 0);
   }
 
@@ -210,6 +211,35 @@
       src.connect(hp).connect(gain).connect(fxAudio.destination);
       src.start(t);
     } catch {}
+  }
+
+  // /hug -- two glowing name bubbles drift together and squeeze into a hug,
+  // hearts float up over a warm glow. ~3s. A second hug while one plays is
+  // folded in (no stacking).
+  let hugUntil = 0;
+  function hugBurst(emote) {
+    if (Date.now() < hugUntil) return;
+    hugUntil = Date.now() + 2600;
+    const a = String(emote?.actorName || 'Someone');
+    const t = String(emote?.targetName || 'everyone');
+    const initial = name => escape(name.trim().slice(0, 1).toUpperCase() || '?');
+    const layer = document.createElement('div');
+    layer.className = 'hug-burst';
+    layer.setAttribute('aria-hidden', 'true');
+    let hearts = '';
+    for (let i = 0; i < 14; i++) {
+      hearts += '<i style="left:' + (35 + Math.random() * 30).toFixed(1) + '%;' +
+        'font-size:' + (16 + Math.random() * 20).toFixed(0) + 'px;' +
+        '--sway:' + ((Math.random() - .5) * 120).toFixed(0) + 'px;' +
+        'animation-delay:' + (.75 + Math.random() * .9).toFixed(2) + 's">♥</i>';
+    }
+    layer.innerHTML =
+      '<span class="hug-glow"></span>' +
+      '<span class="hug-pair"><span class="hug-blob hug-left"><b>' + initial(a) + '</b></span><span class="hug-blob hug-right"><b>' + initial(t) + '</b></span></span>' +
+      '<span class="hug-hearts">' + hearts + '</span>' +
+      '<b class="hug-caption">' + escape(a) + ' <span>🤗</span> ' + escape(t) + '</b>';
+    document.body.appendChild(layer);
+    setTimeout(() => layer.remove(), 3200);
   }
 
   // /love -- colourful hearts drift up over the chat log (or the whole
