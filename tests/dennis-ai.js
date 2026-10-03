@@ -30,6 +30,18 @@ assert.ok(observed.pendingReply.dueAt >= nine + 2 * 60_000);
 assert.equal(dennis.tick(observed, observed.pendingReply.dueAt - 1, zero).message, null, 'late reply cannot fire early');
 assert.equal(dennis.tick(observed, observed.pendingReply.dueAt, zero).message, 'Huh?');
 
+const retaliationQueuedAt = nine + 5000;
+const retaliating = dennis.scheduleRetaliation(restored, {
+  kind: 'emote', command: 'ass', targetId: 'hero-1', targetName: 'Farter'
+}, retaliationQueuedAt, zero);
+assert.equal(retaliating.pendingRetaliations.length, 1);
+assert.equal(retaliating.pendingRetaliations[0].dueAt, retaliationQueuedAt + dennis.RETALIATION_MIN_MS);
+const retaliationRestored = JSON.parse(JSON.stringify(retaliating));
+assert.equal(dennis.tick(retaliationRestored, retaliationQueuedAt + dennis.RETALIATION_MIN_MS - 1, zero).retaliations.length, 0);
+const retaliationDue = dennis.tick(retaliationRestored, retaliationQueuedAt + dennis.RETALIATION_MIN_MS, zero);
+assert.deepEqual(retaliationDue.retaliations.map(entry => [entry.kind, entry.command, entry.targetId]), [['emote', 'ass', 'hero-1']]);
+assert.equal(retaliationDue.state.pendingRetaliations.length, 0, 'a retaliation is delivered exactly once');
+
 const tomorrowNine = dennis.localMinuteTimestamp('2026-10-04', 9, 0);
 const tomorrow = dennis.normalizeState(restored, tomorrowNine - 1, zero);
 assert.equal(tomorrow.greetedAt, null, 'new local day must gate all chatter behind a new greeting');
@@ -59,5 +71,10 @@ assert.match(server, /source:\s*'dennisAI'/);
 assert.match(server, /boardId:\s*null/);
 assert.match(server, /dennisAI\.observe/);
 assert.match(server, /dennisAI\.tick/);
+assert.match(server, /scheduleDennisCommandRetaliation/);
+assert.match(server, /handleActCommand\(room, author, raw, retaliation\.targetId/);
+assert.match(server, /handleEmoteCommand\(room, author, raw, retaliation\.targetId/);
+assert.match(server, /DENNIS_GROUND_SPIT_PATTERN/);
+assert.match(server, /targetId:\s*DENNIS_GROUND_TARGET\.id/);
 
 console.log('PASS Dennis AI: black synthetic profile, exact authored voice, delayed replies and restart-safe Belgrade greeting gate');

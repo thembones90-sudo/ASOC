@@ -9,6 +9,8 @@ const DENNIS_FRAME = '#000000';
 const DENNIS_TIME_ZONE = 'Europe/Belgrade';
 const MORNING_GREETING = 'Dobro jutro, ko se nije probudio, spasio se';
 const MAX_MESSAGES_PER_DAY = 12;
+const RETALIATION_MIN_MS = 10 * 60_000;
+const RETALIATION_MAX_MS = 20 * 60_000;
 
 // Keep these strings literal: this is the character's authored voice. The
 // rejected dehumanizing line is intentionally not part of the pool.
@@ -90,13 +92,37 @@ function freshDay(dateKey, random) {
     nextAmbientAt: null,
     pendingReply: null,
     messagesToday: 0,
-    recentMessages: []
+    recentMessages: [],
+    pendingRetaliations: []
   };
+}
+
+function normalizeRetaliations(value) {
+  return (Array.isArray(value) ? value : [])
+    .filter(entry => entry && Number.isFinite(Number(entry.dueAt)) && ['act', 'emote'].includes(entry.kind)
+      && /^[a-z-]{2,30}$/.test(String(entry.command || '')) && String(entry.targetId || ''))
+    .map(entry => ({
+      id: String(entry.id || '').slice(0, 80),
+      dueAt: Number(entry.dueAt),
+      queuedAt: Number(entry.queuedAt) || Number(entry.dueAt) - RETALIATION_MIN_MS,
+      kind: entry.kind,
+      command: String(entry.command).slice(0, 30),
+      targetId: String(entry.targetId).slice(0, 64),
+      targetName: String(entry.targetName || 'TARGET').slice(0, 40)
+    }))
+    .slice(-50);
 }
 
 function normalizeState(input, now = Date.now(), random = Math.random) {
   const today = dateKeyAt(now);
-  if (!input || typeof input !== 'object' || input.dateKey !== today) return freshDay(today, random);
+  if (!input || typeof input !== 'object') return freshDay(today, random);
+  if (input.dateKey !== today) {
+    const state = freshDay(today, random);
+    // A command close to midnight is still answered, but the daily greeting
+    // gate means it waits until Dennis has delivered his first line that day.
+    state.pendingRetaliations = normalizeRetaliations(input.pendingRetaliations);
+    return state;
+  }
   return {
     enabled: input.enabled !== false,
     dateKey: today,
@@ -109,8 +135,29 @@ function normalizeState(input, now = Date.now(), random = Math.random) {
     messagesToday: Math.max(0, Math.min(MAX_MESSAGES_PER_DAY, Number(input.messagesToday) || 0)),
     recentMessages: Array.isArray(input.recentMessages)
       ? input.recentMessages.filter(line => RANDOM_MESSAGES.includes(line)).slice(-5)
-      : []
+      : [],
+    pendingRetaliations: normalizeRetaliations(input.pendingRetaliations)
   };
+}
+
+function scheduleRetaliation(input, retaliation, now = Date.now(), random = Math.random) {
+  const state = normalizeState(input, now, random);
+  const kind = retaliation?.kind;
+  const command = String(retaliation?.command || '').toLowerCase();
+  const targetId = String(retaliation?.targetId || '');
+  if (!['act', 'emote'].includes(kind) || !/^[a-z-]{2,30}$/.test(command) || !targetId) return state;
+  const dueAt = now + randomMs(RETALIATION_MIN_MS, RETALIATION_MAX_MS + 1, random);
+  state.pendingRetaliations.push({
+    id: `dennis-retaliation-${now.toString(36)}-${Math.floor(randomUnit(random) * 0xffffff).toString(36)}`,
+    queuedAt: now,
+    dueAt,
+    kind,
+    command,
+    targetId: targetId.slice(0, 64),
+    targetName: String(retaliation.targetName || 'TARGET').slice(0, 40)
+  });
+  state.pendingRetaliations = state.pendingRetaliations.slice(-50);
+  return state;
 }
 
 function chooseMessage(state, random = Math.random) {
@@ -131,34 +178,39 @@ function scheduleAmbient(state, now, random) {
 
 function tick(input, now = Date.now(), random = Math.random) {
   const state = normalizeState(input, now, random);
-  if (!state.enabled) return { state, message: null };
+  if (!state.enabled) return { state, message: null, retaliations: [] };
 
   // This branch always runs before replies/ambient chatter. It is therefore
   // impossible for Dennis to speak on a new local day before his greeting.
   if (!state.greetedAt) {
-    if (now < state.greetingAt) return { state, message: null };
+    if (now < state.greetingAt) return { state, message: null, retaliations: [] };
     state.greetedAt = now;
     remember(state, MORNING_GREETING);
     scheduleAmbient(state, now, random);
-    return { state, message: MORNING_GREETING };
+    return { state, message: MORNING_GREETING, retaliations: [] };
   }
 
-  if (state.messagesToday >= MAX_MESSAGES_PER_DAY) return { state, message: null };
+  const retaliations = state.pendingRetaliations.filter(entry => entry.dueAt <= now);
+  if (retaliations.length) {
+    const dueIds = new Set(retaliations.map(entry => entry.id));
+    state.pendingRetaliations = state.pendingRetaliations.filter(entry => !dueIds.has(entry.id));
+  }
+  if (state.messagesToday >= MAX_MESSAGES_PER_DAY) return { state, message: null, retaliations };
   if (state.pendingReply && now >= state.pendingReply.dueAt) {
     const text = state.pendingReply.text;
     state.pendingReply = null;
     remember(state, text);
     scheduleAmbient(state, now, random);
-    return { state, message: text };
+    return { state, message: text, retaliations };
   }
   if (!state.nextAmbientAt) scheduleAmbient(state, now, random);
   if (now >= state.nextAmbientAt) {
     const text = chooseMessage(state, random);
     remember(state, text);
     scheduleAmbient(state, now, random);
-    return { state, message: text };
+    return { state, message: text, retaliations };
   }
-  return { state, message: null };
+  return { state, message: null, retaliations };
 }
 
 function observe(input, chatText, now = Date.now(), random = Math.random) {
@@ -203,9 +255,12 @@ module.exports = {
   MORNING_GREETING,
   RANDOM_MESSAGES,
   MAX_MESSAGES_PER_DAY,
+  RETALIATION_MIN_MS,
+  RETALIATION_MAX_MS,
   dateKeyAt,
   localMinuteTimestamp,
   normalizeState,
+  scheduleRetaliation,
   tick,
   observe,
   publicProfile

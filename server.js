@@ -6566,11 +6566,21 @@ function tickDennisAI() {
     const before = JSON.stringify(room.dennisAI || null);
     const result = dennisAI.tick(room.dennisAI, Date.now());
     room.dennisAI = result.state;
+    const changedIds = [];
     if (result.message) {
       const message = addDennisMessage(room, result.message);
-      if (message) broadcastChatUpdate(room, [message.id]);
+      if (message) changedIds.push(message.id);
     }
-    if (result.message || before !== JSON.stringify(room.dennisAI)) dirty = true;
+    for (const retaliation of result.retaliations || []) {
+      const author = { id: dennisAI.DENNIS_ID, name: dennisAI.DENNIS_NAME };
+      const raw = `/${retaliation.command} ${retaliation.targetName}`;
+      const commandResult = retaliation.kind === 'act'
+        ? handleActCommand(room, author, raw, retaliation.targetId, retaliation.command)
+        : handleEmoteCommand(room, author, raw, retaliation.targetId, retaliation.command);
+      if (commandResult?.success && commandResult.message?.id) changedIds.push(commandResult.message.id);
+    }
+    if (changedIds.length) broadcastChatUpdate(room, changedIds);
+    if (changedIds.length || before !== JSON.stringify(room.dennisAI)) dirty = true;
   });
   if (dirty) persistActiveRooms();
 }
@@ -6733,8 +6743,10 @@ const ALL_ONLINE_TARGET_ID = '__ALL_ONLINE__';
 // picker id or by typing Shadow Broker / Broker / GM -- a real player with
 // that exact name still wins. `verbLabel` only shapes the error text.
 function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel, { allowBroker = false, allowAll = false, includeDisconnected = false } = {}) {
-  const roster = Array.from(room.players.values())
-    .filter(player => String(player.name || '').trim());
+  const roster = [
+    ...Array.from(room.players.values()).filter(player => String(player.name || '').trim()),
+    dennisAI.publicProfile()
+  ];
   const connected = roster.filter(player => player.connected !== false);
   // The Shadow Broker controls the persistent room roster, not merely the
   // sockets alive at this instant. A temporarily disconnected identity can
@@ -6866,20 +6878,51 @@ const CHAT_ACTS = Object.freeze({
   nod: { label: 'NOD', verb: 'nods at' }
 });
 const CHAT_ACT_PATTERN = /^\/(spit|fart|hiss|nod)\b/i;
+const DENNIS_GROUND_TARGET = Object.freeze({ id: '__GROUND__', name: 'THE GROUND' });
+const DENNIS_GROUND_SPIT_PATTERN = /(^|[^\p{L}])(?:cigan|cigani|cigane|cigansko|ciganska|ciganski|ciganske|ganci|ciganovo)(?=$|[^\p{L}])/iu;
+
+function maybeDennisGroundSpit(room, text) {
+  if (!DENNIS_GROUND_SPIT_PATTERN.test(String(text || ''))) return null;
+  const author = { id: dennisAI.DENNIS_ID, name: dennisAI.DENNIS_NAME };
+  const result = buildChatCommandMessage(room, author, 'spit', 'spit',
+    `${dennisAI.DENNIS_NAME} spits on the ground.`,
+    { spit: {
+      actorId: dennisAI.DENNIS_ID,
+      actorName: dennisAI.DENNIS_NAME,
+      targetId: DENNIS_GROUND_TARGET.id,
+      targetName: DENNIS_GROUND_TARGET.name
+    } });
+  return result.success ? result.message : null;
+}
+
+function scheduleDennisCommandRetaliation(room, author, target, kind, command) {
+  if (!room || !author || String(author.id || '') === dennisAI.DENNIS_ID || !target) return;
+  const hitDennis = String(target.id) === dennisAI.DENNIS_ID
+    || (target.all === true && Array.isArray(target.targetIds) && target.targetIds.map(String).includes(dennisAI.DENNIS_ID));
+  if (!hitDennis) return;
+  const actorIsBroker = author.id === null || author.id === undefined;
+  room.dennisAI = dennisAI.scheduleRetaliation(room.dennisAI, {
+    kind,
+    command,
+    targetId: actorIsBroker ? SHADOW_BROKER_TARGET_ID : String(author.id),
+    targetName: actorIsBroker ? SHADOW_BROKER_TARGET.name : author.name
+  });
+}
 
 function handleActCommand(room, author, raw, targetPlayerId, act) {
   const { label, verb } = CHAT_ACTS[act];
   const match = raw.match(new RegExp(`^\\/${act}(?:\\s+@?(.*))?\\s*$`, 'i'));
   if (!match) return { success: false, error: `${label} INVALID // USE /${act}` };
   const actorIsBroker = author.id === null || author.id === undefined;
+  const actorIsDennis = String(author.id || '') === dennisAI.DENNIS_ID;
   const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', label, {
     allowBroker: !actorIsBroker,
     allowAll: true,
-    includeDisconnected: actorIsBroker
+    includeDisconnected: actorIsBroker || actorIsDennis
   });
   if (resolved.error) return { success: false, error: resolved.error };
   const target = resolved.target;
-  return buildChatCommandMessage(room, author, act, act,
+  const result = buildChatCommandMessage(room, author, act, act,
     `${author.name} ${verb} ${target.name}.`,
     { [act]: {
       actorId: author.id ?? null,
@@ -6888,6 +6931,8 @@ function handleActCommand(room, author, raw, targetPlayerId, act) {
       targetName: target.name,
       ...(target.all ? { targetIds: target.targetIds } : {})
     } });
+  if (result.success) scheduleDennisCommandRetaliation(room, author, target, 'act', act);
+  return result;
 }
 
 // WORLD OF WARCRAFT EMOTES. Same idea as /spit and /fart, but the server
@@ -6977,8 +7022,9 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
   const match = raw.match(new RegExp(`^\\/${name}(?:\\s+@?(.*))?\\s*$`, 'i'));
   if (!match) return { success: false, error: `${def.label} INVALID // USE /${name}` };
   const actorIsBroker = author.id === null || author.id === undefined;
+  const actorIsDennis = String(author.id || '') === dennisAI.DENNIS_ID;
   if (def.playerOnly && actorIsBroker) return { success: false, error: 'THE SHADOW BROKER GROVELS BEFORE NO ONE' };
-  if (def.premium && !actorIsBroker) {
+  if (def.premium && !actorIsBroker && !actorIsDennis) {
     const account = coinAccount(author.id, author.name);
     const item = shadowMarket.COMMAND_ITEMS.get(name);
     if (account && (!item || !playerStore.ownsCosmetic(account, item.id))) {
@@ -6993,7 +7039,7 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
   let target = null;
   const aimed = def.optionalTarget && (String(match[1] || '').trim() || targetPlayerId);
   if (def.targeted || aimed) {
-    const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', def.label, { allowBroker: !actorIsBroker, allowAll: true });
+    const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', def.label, { allowBroker: !actorIsBroker, allowAll: true, includeDisconnected: actorIsBroker || actorIsDennis });
     if (resolved.error) return { success: false, error: resolved.error };
     target = resolved.target;
   }
@@ -7015,7 +7061,8 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
       lines
     }
   });
-  if (!result.success || actorIsBroker || target?.id !== SHADOW_BROKER_TARGET_ID) return result;
+  if (result.success) scheduleDennisCommandRetaliation(room, author, target, 'emote', name);
+  if (!result.success || actorIsBroker || actorIsDennis || target?.id !== SHADOW_BROKER_TARGET_ID) return result;
   if (name === 'threaten') {
     addShadowBrokerMessage(room, SKYNET_THREAT_REPLIES[crypto.randomInt(SKYNET_THREAT_REPLIES.length)], { editableByHost: false });
   }
@@ -9821,6 +9868,7 @@ function handleChatGuess(ws, message) {
   if (result.success) {
     cooldown.chatAt = now;
     if (dispatch === null) room.dennisAI = dennisAI.observe(room.dennisAI, result.message.text, now);
+    const dennisGroundSpit = dispatch === null ? maybeDennisGroundSpit(room, result.message.text) : null;
     const nudge = dispatch === null && containsAllMention(result.message.text)
       ? applyPlayerNudge(room, ws, result.message)
       : null;
@@ -9834,6 +9882,7 @@ function handleChatGuess(ws, message) {
     const singleMessageOnly = dispatch === null
       && !result.tributeTriggered
       && nudge !== 'tribute'
+      && !dennisGroundSpit
       && result.message?.id;
     broadcastChatUpdate(room, singleMessageOnly ? [result.message.id] : null);
     if (dispatch === null) triggerC4Alert(room, result.message?.text, result.message?.id);
@@ -10081,6 +10130,7 @@ function handleGmBroadcast(ws, message) {
 
   const result = addShadowBrokerMessage(room, text, { editableByHost: true });
   if (result.success) {
+    maybeDennisGroundSpit(room, result.message?.text);
     persistActiveRooms();
     broadcastChatUpdate(room);
     triggerC4Alert(room, result.message?.text, result.message?.id);

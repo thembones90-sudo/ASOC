@@ -15,6 +15,7 @@ const PORT = Number(process.env.ASOC_CHAT_ACTS_TEST_PORT) || 18790;
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'asoc-chat-acts-'));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const BROKER = '__SHADOW_BROKER__';
+const DENNIS = '__DENNIS_AI__';
 
 function api(urlPath, body) {
   return new Promise((resolve, reject) => {
@@ -100,6 +101,26 @@ async function run() {
     assert.equal(typed.playerId, farter.playerId, 'the fart is credited to the sender (DELIVERED ack)');
     assert.deepEqual(typed.fart, { actorId: farter.playerId, actorName: 'Farter', targetId: victim.playerId, targetName: 'Victim' });
 
+    // Dennis is a synthetic social identity but participates in the complete
+    // targeted-command surface. His delayed mirror response is unit-tested in
+    // dennis-ai.js so this live test only proves name/id resolution.
+    await say('/fart Dennis AI', { targetPlayerId: DENNIS });
+    const dennisFart = await waitFor(farter, m => m.messageType === 'fart' && m.fart?.targetId === DENNIS, 'fart on Dennis');
+    assert.equal(dennisFart.text, 'Farter farts on Dennis AI.');
+
+    await say('ovo je cigan test');
+    const groundSpit = await waitFor(farter, m => m.messageType === 'spit' && m.spit?.actorId === DENNIS && m.spit?.targetId === '__GROUND__', 'Dennis ground spit trigger');
+    assert.equal(groundSpit.text, 'Dennis AI spits on the ground.');
+    let groundSpitId = groundSpit.id;
+    for (const trigger of ['cigani', 'cigane', 'cigansko', 'ciganska', 'ciganski', 'ciganske', 'ganci', 'ciganovo']) {
+      await say(`trigger ${trigger}`);
+      const nextSpit = await waitFor(farter, m => m.id !== groundSpitId && m.messageType === 'spit' && m.spit?.actorId === DENNIS && m.spit?.targetId === '__GROUND__', `Dennis ground spit for ${trigger}`);
+      groundSpitId = nextSpit.id;
+    }
+    const groundSpitsBeforeNonMatch = farter.chat.filter(m => m.spit?.actorId === DENNIS && m.spit?.targetId === '__GROUND__').length;
+    await say('ciganima is not on the trigger list');
+    assert.equal(farter.chat.filter(m => m.spit?.actorId === DENNIS && m.spit?.targetId === '__GROUND__').length, groundSpitsBeforeNonMatch, 'unlisted inflections do not trigger the easter egg');
+
     await say('/hiss Victim');
     const hiss = await waitFor(victim, m => m.messageType === 'hiss' && m.hiss?.targetId === victim.playerId, 'typed hiss');
     assert.equal(hiss.text, 'Farter hisses at Victim.');
@@ -122,7 +143,7 @@ async function run() {
     await say('/fart all');
     const allFart = await waitFor(victim, m => m.messageType === 'fart' && m.fart?.targetId === '__ALL_ONLINE__', 'fart all');
     assert.equal(allFart.text, 'Farter farts on everyone.');
-    assert.deepEqual(allFart.fart.targetIds, [victim.playerId]);
+    assert.deepEqual(allFart.fart.targetIds, [victim.playerId, DENNIS]);
 
     // Compatibility with an installed desktop build that still inserts @.
     const firstAllId = allFart.id;
@@ -178,6 +199,13 @@ async function run() {
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart @Victim' }));
     const brokerAct = await waitFor(victim, m => m.messageType === 'fart' && m.fart?.actorId === null && m.fart?.targetId === victim.playerId, 'Broker fart');
     assert.equal(brokerAct.text, 'SHADOW BROKER farts on Victim.');
+
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/spit Dennis AI' }));
+    const brokerDennisAct = await waitFor(gm, m => m.messageType === 'spit' && m.spit?.actorId === null && m.spit?.targetId === DENNIS, 'Broker spit on Dennis');
+    assert.equal(brokerDennisAct.text, 'SHADOW BROKER spits on Dennis AI.');
+
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: 'CIGAN' }));
+    await waitFor(gm, m => m.messageType === 'spit' && m.spit?.actorId === DENNIS && m.spit?.targetId === '__GROUND__' && m.id !== groundSpitId, 'GM ground spit trigger');
 
     const brokerSingleId = brokerAct.id;
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart all' }));
@@ -247,6 +275,9 @@ async function run() {
     await say('/ass @Victim');
     const kick = await waitFor(victim, m => m.messageType === 'emote' && m.emote?.act === 'ass', 'ass kick');
     assert.equal(kick.emote.lines.target, 'Farter kicks you in the ass.');
+    await say('/ass Dennis AI', { targetPlayerId: DENNIS });
+    const dennisKick = await waitFor(farter, m => m.messageType === 'emote' && m.emote?.act === 'ass' && m.emote?.targetId === DENNIS, 'ass kick Dennis');
+    assert.equal(dennisKick.emote.lines.other, 'Farter kicks Dennis AI in the ass.');
     mark = farter.msgs.length;
     await say('/poke');
     assert.match(await lastError(farter, mark), /POKE TARGET REQUIRED/);
