@@ -21942,3 +21942,26 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .master-access-wrap { order:10; }
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #broker-transmog-btn { order:11; }
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #hero-roles-toggle { order:12; }
+/* DENNIS AI // synthetic player signal. The black frame and near-black
+   message surface keep him distinct without turning him into a system card. */
+.dennis-ai-message .little-hero-avatar {
+  --lh-frame: #000;
+  background: #000;
+  box-shadow: 0 0 0 2px #000, 0 0 16px rgba(100, 116, 139, .28);
+}
+.dennis-ai-message .gm-chat-message-main,
+.dennis-ai-message .chat-message-main {
+  --theme-bg: rgba(2, 3, 5, .94);
+  --theme-border: #222831;
+  --theme-text: #c7cbd2;
+}
+.dennis-ai-message .gm-chat-player-name::after,
+.dennis-ai-message .chat-player-name::after {
+  content: 'SYNTHETIC';
+  display: inline-block;
+  margin-left: .55rem;
+  color: #7e8794;
+  font: 700 .58rem/1 var(--font-mono, monospace);
+  letter-spacing: .16em;
+  vertical-align: middle;
+}

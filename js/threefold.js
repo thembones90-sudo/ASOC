@@ -66,7 +66,7 @@
     openChooser() {
       if (PlayerApp.roomMode !== 'CASUAL') return;
       this._chooserOpen = true;
-      const players = (PlayerApp.currentPlayers || []).filter(p => p.connected !== false && p.id !== PlayerApp.playerId);
+      const players = (PlayerApp.currentPlayers || []).filter(p => p.connected !== false && !p.isSynthetic && p.id !== PlayerApp.playerId);
       const content = document.getElementById('threefold-content');
       if (!content) return;
       const me = (PlayerApp.currentPlayers || []).find(p => p.id === PlayerApp.playerId) || {};

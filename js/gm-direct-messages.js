@@ -21,7 +21,7 @@
     return state.list.find(c => String(c.other?.id) === String(id));
   }
   function rosterHTML() {
-    const players = [...(window.App?.currentPlayers || [])].sort((a,b) => {
+    const players = [...(window.App?.currentPlayers || [])].filter(p => !p.isSynthetic).sort((a,b) => {
       if (!!a.connected !== !!b.connected) return a.connected ? -1 : 1;
       return String(a.name || '').localeCompare(String(b.name || ''));
     });

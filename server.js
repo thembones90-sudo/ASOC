@@ -29,6 +29,7 @@ const questEngine = require('./quest-engine');
 const dailyContracts = require('./daily-contracts');
 const rouletteCarnage = require('./roulette-carnage');
 const sibicar = require('./sibicar');
+const dennisAI = require('./dennis-ai');
 const { createChatUploadGuard } = require('./chat-upload-guard');
 const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
@@ -546,6 +547,7 @@ function serializeRoomForRecovery(room) {
     hintClaims: room.hintClaims || {},
     commandReceipts: room.commandReceipts || [],
     quests: questEngine.normalizeState(room.quests),
+    dennisAI: dennisAI.normalizeState(room.dennisAI),
     players
   };
 }
@@ -554,6 +556,7 @@ function serializeRoomForRecovery(room) {
 // from the live roster record, falling back to the stored profile.
 function liveAvatarFor(room, playerId) {
   if (!playerId) return '';
+  if (String(playerId) === dennisAI.DENNIS_ID) return dennisAI.DENNIS_AVATAR;
   for (const player of room?.players?.values?.() || []) {
     if (String(player.id) === String(playerId) && player.avatarData) return player.avatarData;
   }
@@ -683,6 +686,7 @@ function restoreActiveRooms() {
         hintClaims: saved.hintClaims || {},
         commandReceipts: Array.isArray(saved.commandReceipts) ? saved.commandReceipts.slice(-2048) : [],
         quests: questEngine.normalizeState(saved.quests),
+        dennisAI: dennisAI.normalizeState(saved.dennisAI),
         // Per-board match ledger (RECOUNT data capture). Only trusted when it
         // belongs to the restored board; an older snapshot without one just
         // starts a fresh ledger for the current board.
@@ -1357,6 +1361,10 @@ function createRoom(gameId, hostWs) {
     // commands safely idempotent when an ACK was lost in transit.
     commandReceipts: [],
     quests: questEngine.normalizeState(null),
+    // DENNIS AI is a synthetic social identity, never a room player. Its
+    // schedule is persisted separately so restarts cannot duplicate or skip
+    // the required first message of the Belgrade day.
+    dennisAI: dennisAI.normalizeState(null),
     // MATCH LEDGER -- per-board data capture for the post-game RECOUNT (see
     // match-ledger.js). Replaced with a fresh ledger whenever a new board id
     // is minted (RESET BOARD / NEXT GAME).
@@ -6526,6 +6534,49 @@ function addChatMessage(room, playerId, playerName, text) {
   return { success: true, message };
 }
 
+function addDennisMessage(room, text) {
+  const sanitized = sanitizeText(text);
+  if (!sanitized) return null;
+  const message = {
+    id: generateMessageId(),
+    playerId: dennisAI.DENNIS_ID,
+    playerName: dennisAI.DENNIS_NAME,
+    frameColor: dennisAI.DENNIS_FRAME,
+    themeId: 'gunmetal',
+    themeColor: '#000000',
+    text: sanitized,
+    timestamp: Date.now(),
+    boardId: null,
+    verdict: null,
+    target: null,
+    verdictResponse: null,
+    reactions: {},
+    source: 'dennisAI',
+    editableByHost: false
+  };
+  attachChatReceipts(room, message);
+  room.chat.messages.push(message);
+  if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
+  return message;
+}
+
+function tickDennisAI() {
+  let dirty = false;
+  rooms.forEach(room => {
+    const before = JSON.stringify(room.dennisAI || null);
+    const result = dennisAI.tick(room.dennisAI, Date.now());
+    room.dennisAI = result.state;
+    if (result.message) {
+      const message = addDennisMessage(room, result.message);
+      if (message) broadcastChatUpdate(room, [message.id]);
+    }
+    if (result.message || before !== JSON.stringify(room.dennisAI)) dirty = true;
+  });
+  if (dirty) persistActiveRooms();
+}
+
+setInterval(() => runtimeAction(() => tickDennisAI()), 15 * 1000).unref();
+
 // SLASH COMMANDS -- parsed SERVER-SIDE before adjudication with the same
 // contract as /roll: a command can never become a guess, always carries a
 // non-null `source` (adjudicable stays false), and unknown "/..." text simply
@@ -8667,6 +8718,9 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       ...iksArenaFields(player)
     });
   });
+  const dennis = dennisAI.publicProfile();
+  dennis.avatarHash = 'dennis-ai-v2';
+  players.push(dennis);
   return players;
 }
 
@@ -9573,6 +9627,15 @@ function handleShadowDossier(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || (!ws.playerId && ws !== room.hostConnection)) return sendToWs(ws, { type: 'shadow:error', message: 'Dossiers require a room' });
   const targetId = String(message?.playerId || '');
+  if (targetId === dennisAI.DENNIS_ID) {
+    const profile = dennisAI.publicProfile();
+    const dossier = shadowMarket.dossierFor({ name: dennisAI.DENNIS_NAME }, { online: true });
+    dossier.name = dennisAI.DENNIS_NAME;
+    dossier.avatar = { id: '', name: dennisAI.DENNIS_NAME, avatarData: profile.avatarData, frameColor: dennisAI.DENNIS_FRAME };
+    dossier.synthetic = true;
+    dossier.since = 'SYSTEM IDENTITY';
+    return sendToWs(ws, { type: 'shadow:dossierResult', playerId: targetId, dossier });
+  }
   let target = null;
   let online = false;
   room.players.forEach((player, socket) => {
@@ -9757,6 +9820,7 @@ function handleChatGuess(ws, message) {
   }
   if (result.success) {
     cooldown.chatAt = now;
+    if (dispatch === null) room.dennisAI = dennisAI.observe(room.dennisAI, result.message.text, now);
     const nudge = dispatch === null && containsAllMention(result.message.text)
       ? applyPlayerNudge(room, ws, result.message)
       : null;

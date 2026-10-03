@@ -94,7 +94,7 @@
     },
     openChooser() {
       if (App.roomMode !== 'CASUAL') return;
-      const players=(App.currentPlayers||[]).filter(p=>p.connected!==false);
+      const players=(App.currentPlayers||[]).filter(p=>p.connected!==false&&!p.isSynthetic);
       this.chooserOpen=true;
       this.title('IKS OKS');
       this.content(this.gauntletBar() + (players.length ? `<div class="gm-arcade-kicker">SELECT OPPONENT</div><div class="gm-arcade-opponents">${players.map(p=>`<button data-gm-opponent="${this.esc(p.id)}" ${p.iksEliminated?'disabled':''}><span>${this.face(p)}</span><b>${this.esc(p.name)}${p.iksHealthVisible===false?'':` <small>${Number(p.iksHealth ?? 10)}/${Number(p.iksMaxHealth ?? 10)}</small>`}</b><i>${p.iksEliminated?'FALLEN':'CHALLENGE'}</i></button>`).join('')}</div>`:'<div class="gm-arcade-status">NO LITTLE HEROES ONLINE</div>'));
