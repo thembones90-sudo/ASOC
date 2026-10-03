@@ -145,7 +145,7 @@
   // (DirectMessages.open, the HUD chips, the rename flow, the mini-games
   // menu), so there is still one client, one socket, one state.
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const AVATAR_OK = /^(\/avatars\/[a-f0-9]{32}\.(png|jpg|webp)|data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)$/;
+  const AVATAR_OK = /^(\/avatars\/[a-f0-9]{32}\.(png|jpg|webp)|\/assets\/profiles\/dennis-ai\.png\?v=[a-f0-9]+|data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)$/;
   let tab = 'chat';
   let seenChatCount = 0;
   let peopleSig = '';

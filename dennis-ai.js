@@ -4,7 +4,7 @@ const DENNIS_ID = '__DENNIS_AI__';
 const DENNIS_NAME = 'Dennis AI';
 // Content-versioned URL: changing only roster avatarHash is not enough when a
 // browser/service cache already owns the old bytes at the same asset URL.
-const DENNIS_AVATAR = '/assets/profiles/dennis-ai.png?v=d27d496e';
+const DENNIS_AVATAR = '/assets/profiles/dennis-ai.png?v=d2a265d8';
 const DENNIS_FRAME = '#000000';
 const DENNIS_TIME_ZONE = 'Europe/Belgrade';
 const MORNING_GREETING = 'Dobro jutro, ko se nije probudio, spasio se';

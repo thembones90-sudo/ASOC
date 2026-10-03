@@ -4961,7 +4961,7 @@ const App = {
       ? entity.frameColor.toUpperCase()
       : '#9B5DE0';
     const avatarData = typeof entity.avatarData === 'string' &&
-      /^(?:data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+|\/avatars\/[a-f0-9]{32}\.(?:png|jpg|webp))$/.test(entity.avatarData)
+      /^(?:data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+|\/avatars\/[a-f0-9]{32}\.(?:png|jpg|webp)|\/assets\/profiles\/dennis-ai\.png\?v=[a-f0-9]+)$/.test(entity.avatarData)
       ? entity.avatarData
       : '';
     const avatarName = this.escapeHtml(entity.name || entity.playerName || 'Little Hero');

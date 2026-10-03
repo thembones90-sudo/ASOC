@@ -8766,7 +8766,7 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
     });
   });
   const dennis = dennisAI.publicProfile();
-  dennis.avatarHash = 'dennis-ai-v3';
+  dennis.avatarHash = 'dennis-ai-v4';
   players.push(dennis);
   return players;
 }

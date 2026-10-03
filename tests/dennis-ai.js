@@ -65,6 +65,15 @@ const profile = dennis.publicProfile();
 assert.equal(profile.id, '__DENNIS_AI__');
 assert.equal(profile.frameColor, '#000000');
 assert.equal(profile.isSynthetic, true);
+assert.equal(profile.avatarData, '/assets/profiles/dennis-ai.png?v=d2a265d8');
+const avatarPath = path.join(__dirname, '..', 'assets', 'profiles', 'dennis-ai.png');
+const avatarHash = require('crypto').createHash('sha256').update(fs.readFileSync(avatarPath)).digest('hex');
+assert.equal(avatarHash, 'd2a265d8d3fb29a4c3179c78eb9cb46406927d69d2ada5b3dd304441fe6ea165');
+
+for (const clientFile of ['app.js', 'player.js', 'mobile-shell.js']) {
+  const client = fs.readFileSync(path.join(__dirname, '..', 'js', clientFile), 'utf8');
+  assert.match(client, /assets\\\/profiles\\\/dennis-ai/, `${clientFile} must allow Dennis's bundled avatar URL`);
+}
 
 const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 assert.match(server, /source:\s*'dennisAI'/);
