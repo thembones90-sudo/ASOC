@@ -5,7 +5,7 @@
 // read-only player DOSSIER. The server sends only sanitized ids.
 (function () {
   const SAFE_ID = /^[a-z0-9-]{1,48}$/;
-  const FX = new Set(['smite', 'freeze', 'glitch', 'omen', 'rupture', 'vanish', 'love', 'drug', 'hug']);
+  const FX = new Set(['smite', 'freeze', 'glitch', 'omen', 'rupture', 'vanish', 'love', 'drug', 'hug', 'avada']);
   const LOVE_COLORS = ['#ff5fa2', '#ff3b6b', '#ff8fc8', '#c77dff', '#ffd166', '#5ee6ff', '#7dff9b', '#ff9f5a'];
   const SIGILS = { 'sigil-eye': '◉', 'sigil-skull': '☠', 'sigil-crown': '♛', 'sigil-dagger': '†', 'sigil-coin': '' };
   const BOOT_AT = Date.now();
@@ -122,6 +122,7 @@
     if (!FX.has(fx) || !msg.id || played.has(msg.id)) return;
     played.add(msg.id);
     if (Date.now() - Number(msg.timestamp || 0) > 8000) return;
+    if (fx === 'avada') { window.Avada?.fromEmote?.(msg.emote.avada); setTimeout(() => window.Avada?.cast?.(msg.emote), 0); return; }
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     if (fx === 'love') { setTimeout(loveBurst, 0); return; }
     if (fx === 'drug') { setTimeout(drugHeartbeat, 0); return; }

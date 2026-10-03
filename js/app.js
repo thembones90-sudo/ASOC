@@ -2864,6 +2864,7 @@ const App = {
       case 'state:public':
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         window.HeroRoles?.onState?.(message);
+        window.Avada?.setState?.(message.avada);
         this.finalValue = message.finalValue || null;
         this.applyServerState(message);
         setTimeout(() => window.FinalDebt?.update(message), 0);

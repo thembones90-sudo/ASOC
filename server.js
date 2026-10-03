@@ -1439,6 +1439,7 @@ function getPublicState(room) {
 
   return {
     roomCode: room.code,
+    avada: avadaPublic(room),
     roomMode: normalizeRoomMode(room.roomMode, room.armed === true),
     armed: room.armed === true,
     gameId: game.id,
@@ -6633,6 +6634,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/omen', help: '/omen -- SHADOW MARKET unlock: a bad sign for the room' },
   { name: '/rupture', help: '/rupture -- SHADOW MARKET unlock: crack reality open' },
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
+  { name: '/avada', help: '/avada @Name -- SHADOW MARKET unlock: the killing curse (5% it rebounds)' },
   { name: '/love', help: '/love [Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
   { name: '/drug', help: '/drug @Name -- SHADOW MARKET relic: inject someone with... something' },
   { name: '/hug', help: '/hug [@Name] -- hug someone (or everyone), with a sweet animation' },
@@ -6974,6 +6976,12 @@ const CHAT_EMOTES = Object.freeze({
   omen:     { label: 'OMEN',      premium: true, actor: 'You announce an omen. Something is coming.', other: '{A} announces an omen. Something is coming.' },
   rupture:  { label: 'RUPTURE',   premium: true, actor: 'You crack reality open.', other: '{A} cracks reality open.' },
   vanish:   { label: 'VANISH',    premium: true, actor: 'You vanish in a curl of smoke.', other: '{A} vanishes in a curl of smoke.' },
+  // The killing curse: one target, never 'all'. 5% (or always, at the Shadow
+  // Broker) it rebounds. Cosmetic: the dead are grey ghosts for 60 s, the one
+  // who lived wears a scar for an hour (room.avada, in the public state).
+  avada:    { label: 'AVADA KEDAVRA', premium: true, targeted: true, noAll: true,
+              actor: 'You cast AVADA KEDAVRA on {T}.', target: '{A} cast AVADA KEDAVRA on you. You are dead.', other: '{A} casts AVADA KEDAVRA on {T}. {T} is no more.',
+              rebound: { actor: 'You cast AVADA KEDAVRA on {T}... IT REBOUNDS. You are dead.', target: '{A} cast AVADA KEDAVRA on you... IT REBOUNDED. You are THE ONE WHO LIVED.', other: '{A} casts AVADA KEDAVRA on {T}... IT REBOUNDS! {A} is no more. {T} is THE ONE WHO LIVED.' } },
   // Target is optional: /love spreads love, /love Name sends it to someone.
   // Free for everyone, with a room-wide animation (fx). Aim it or hug all.
   hug:      { label: 'HUG',       fx: true, optionalTarget: true, actor: 'You hug everyone. Group hug!', other: '{A} hugs everyone. Group hug!',
@@ -6991,6 +6999,18 @@ const DRUG_SUBSTANCES = Object.freeze([
 ]);
 // Visual-spam guard for premium commands, per Little Hero.
 const PREMIUM_EMOTE_COOLDOWN_MS = 20000;
+const AVADA_COOLDOWN_MS = 10 * 60 * 1000;
+const AVADA_DEAD_MS = 60 * 1000;
+const AVADA_SCAR_MS = 60 * 60 * 1000;
+const AVADA_REBOUND_PERCENT = 5;
+// Dead / scarred Little Heroes still within their window (ids -> until).
+function avadaPublic(room, now = Date.now()) {
+  const state = room.avada || (room.avada = { dead: {}, scarred: {} });
+  for (const bucket of ['dead', 'scarred']) {
+    for (const [id, entry] of Object.entries(state[bucket] || {})) if (!(Number(entry?.until) > now)) delete state[bucket][id];
+  }
+  return { dead: { ...state.dead }, scarred: { ...state.scarred } };
+}
 const CHAT_EMOTE_PATTERN = new RegExp(`^\\/(${Object.keys(CHAT_EMOTES).join('|')})\\b`, 'i');
 
 // Threatening the Shadow Broker earns a reply from its enforcer.
@@ -7031,21 +7051,40 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
       return { success: false, error: `/${name.toUpperCase()} IS LOCKED // UNLOCK IT IN THE SHADOW MARKET` };
     }
     room.premiumEmoteAt ||= {};
-    const last = room.premiumEmoteAt[String(author.id)] || 0;
-    const wait = PREMIUM_EMOTE_COOLDOWN_MS - (Date.now() - last);
-    if (wait > 0) return { success: false, error: `${def.label} RECHARGING // ${Math.ceil(wait / 1000)}s` };
-    room.premiumEmoteAt[String(author.id)] = Date.now();
+    const cooldownKey = name === 'avada' ? `avada:${author.id}` : String(author.id);
+    const last = room.premiumEmoteAt[cooldownKey] || 0;
+    const wait = (name === 'avada' ? AVADA_COOLDOWN_MS : PREMIUM_EMOTE_COOLDOWN_MS) - (Date.now() - last);
+    if (wait > 0) return { success: false, error: `${def.label} RECHARGING // ${wait > 90000 ? `${Math.ceil(wait / 60000)} MIN` : `${Math.ceil(wait / 1000)}s`}` };
+    room.premiumEmoteAt[cooldownKey] = Date.now();
   }
   let target = null;
   const aimed = def.optionalTarget && (String(match[1] || '').trim() || targetPlayerId);
   if (def.targeted || aimed) {
-    const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', def.label, { allowBroker: !actorIsBroker, allowAll: true, includeDisconnected: actorIsBroker || actorIsDennis });
-    if (resolved.error) return { success: false, error: resolved.error };
+    const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', def.label, { allowBroker: !actorIsBroker, allowAll: !def.noAll, includeDisconnected: actorIsBroker || actorIsDennis });
+    if (resolved.error) {
+      if (name === 'avada' && !actorIsBroker) delete room.premiumEmoteAt?.[`avada:${author.id}`];
+      return { success: false, error: resolved.error };
+    }
     target = resolved.target;
+  }
+  // AVADA KEDAVRA: who dies, who lives. The Shadow Broker never dies and
+  // never misfires; aimed at the Broker it always rebounds.
+  let avada = null;
+  if (name === 'avada' && target) {
+    const atBroker = target.id === SHADOW_BROKER_TARGET_ID;
+    const forced = process.env.ASOC_TEST_AVADA_REBOUND;
+    const rebound = !actorIsBroker && (atBroker || (forced ? forced === '1' : crypto.randomInt(100) < AVADA_REBOUND_PERCENT));
+    const now = Date.now();
+    const state = room.avada || (room.avada = { dead: {}, scarred: {} });
+    avadaPublic(room, now);
+    const dead = rebound ? { id: String(author.id), name: author.name } : { id: String(target.id), name: target.name };
+    if (dead.id !== SHADOW_BROKER_TARGET_ID && dead.id !== 'null' && dead.id !== 'undefined') state.dead[dead.id] = { name: dead.name, until: now + AVADA_DEAD_MS };
+    if (rebound) state.scarred[String(target.id)] = { name: target.name, until: now + AVADA_SCAR_MS };
+    avada = { rebound, deadId: dead.id, deadName: dead.name, deadUntil: now + AVADA_DEAD_MS, livedId: rebound ? String(target.id) : null, livedName: rebound ? target.name : null, livedUntil: rebound ? now + AVADA_SCAR_MS : null, atBroker };
   }
   const substance = name === 'drug' ? DRUG_SUBSTANCES[crypto.randomInt(DRUG_SUBSTANCES.length)] : '';
   const fill = template => template.replace(/\{A\}/g, author.name).replace(/\{T\}/g, target ? target.name : '').replace(/\{X\}/g, substance);
-  const voice = target && def.aimed ? def.aimed : actorIsBroker && def.broker ? def.broker : def;
+  const voice = avada?.rebound ? def.rebound : target && def.aimed ? def.aimed : actorIsBroker && def.broker ? def.broker : def;
   const lines = { actor: fill(voice.actor), other: fill(voice.other) };
   if (target) lines.target = fill(voice.target);
   const result = buildChatCommandMessage(room, author, 'emote', 'emote', lines.other, {
@@ -7058,9 +7097,11 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
       targetName: target ? target.name : null,
       ...(target?.all ? { targetIds: target.targetIds } : {}),
       ...(def.premium || def.fx ? { fx: name } : {}),
+      ...(avada ? { avada } : {}),
       lines
     }
   });
+  if (avada && result.success) broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   if (result.success) scheduleDennisCommandRetaliation(room, author, target, 'emote', name);
   if (!result.success || actorIsBroker || actorIsDennis || target?.id !== SHADOW_BROKER_TARGET_ID) return result;
   if (name === 'threaten') {
@@ -8182,6 +8223,16 @@ function sanitizeChatCommandMeta(m) {
         ? Array.from(new Set(emote.targetIds.map(id => String(id).slice(0, 64)).filter(Boolean))).slice(0, 60)
         : undefined,
       ...(CHAT_EMOTES[emote.act].premium || CHAT_EMOTES[emote.act].fx ? { fx: emote.act } : {}),
+      ...(emote.act === 'avada' && emote.avada && typeof emote.avada === 'object' ? { avada: {
+        rebound: emote.avada.rebound === true,
+        atBroker: emote.avada.atBroker === true,
+        deadId: String(emote.avada.deadId || '').slice(0, 64),
+        deadName: sanitizeText(String(emote.avada.deadName || '')).slice(0, 40),
+        deadUntil: Number(emote.avada.deadUntil) || 0,
+        livedId: emote.avada.livedId ? String(emote.avada.livedId).slice(0, 64) : null,
+        livedName: emote.avada.livedName ? sanitizeText(String(emote.avada.livedName)).slice(0, 40) : null,
+        livedUntil: Number(emote.avada.livedUntil) || null
+      } } : {}),
       lines: { actor: line(emote.lines?.actor), target: line(emote.lines?.target), other: line(emote.lines?.other) }
     };
   } else if (m.messageType === 'afk' && m.afk && typeof m.afk === 'object') {

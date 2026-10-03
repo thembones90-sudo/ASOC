@@ -1,0 +1,88 @@
+/* /avada -- AVADA KEDAVRA (js/avada.js). Timeline, normal cast (4.2 s):
+   0.0 dark  0.15 caster  0.25 incantation  0.85 bolt  1.0 impact flash +
+   shockwave + shake  1.6 tombstone rises  3.8 fade. Rebound (5.2 s): the
+   bolt recoils at 1.75, second flash 1.95, IT REBOUNDS!, grave at 2.5,
+   THE ONE WHO LIVED at 3.0. */
+.avada-cast { position: fixed; inset: 0; z-index: 12060; pointer-events: none; overflow: hidden; --av: #39ff7a; --av-hot: #d4ffe2; animation: av-out .4s ease-in 3.8s forwards; }
+.avada-cast.is-rebound { animation-delay: 4.8s; }
+.av-dark { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 45%, rgba(4, 18, 9, .82), rgba(0, 0, 0, .95)); opacity: 0; animation: av-fade-in .35s ease-out forwards; }
+
+.av-caster { position: absolute; left: 3.2vw; top: 4vh; display: grid; justify-items: center; gap: 6px; opacity: 0; animation: av-pop .35s cubic-bezier(.2, 1.4, .4, 1) .15s forwards; }
+.av-caster small { color: #b9ffd0; font: 900 12px var(--font-machine, monospace); letter-spacing: .2em; text-shadow: 0 0 8px var(--av); }
+.av-portrait { position: relative; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #0d1a12; color: #d6ffe4; font: 900 30px var(--font-human, system-ui); }
+.av-portrait img { width: 100%; height: 100%; object-fit: cover; }
+.av-portrait.is-caster { width: 88px; height: 88px; border: 2px solid var(--av); box-shadow: 0 0 22px var(--av), 0 0 60px rgba(57, 255, 122, .35); }
+
+.av-victim { position: absolute; left: 50%; top: 50vh; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 8px; opacity: 0; animation: av-pop-c .4s cubic-bezier(.2, 1.4, .4, 1) .3s forwards, av-victim-out .5s ease-in 1.5s forwards; }
+.avada-cast.is-rebound .av-victim { animation: av-pop-c .4s cubic-bezier(.2, 1.4, .4, 1) .3s forwards, av-victim-out .5s ease-in 2.45s forwards; }
+.av-victim small { color: #e6fff0; font: 900 14px var(--font-machine, monospace); letter-spacing: .2em; text-shadow: 0 0 8px #000; }
+.av-portrait.is-victim { width: 132px; height: 132px; border: 3px solid #cfe9d6; box-shadow: 0 0 0 6px rgba(0, 0, 0, .5), 0 12px 40px rgba(0, 0, 0, .7); animation: av-struck .45s ease-out 1.0s forwards; }
+.av-portrait.is-victim::after { content: "☠"; position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, .4); color: #eafff1; font-size: 64px; text-shadow: 0 0 16px var(--av); opacity: 0; animation: av-fade-in .25s ease-out 1.1s forwards; }
+.avada-cast.is-rebound .av-portrait.is-victim { animation: av-shield .9s ease-out 1.0s forwards; }
+.avada-cast.is-rebound .av-portrait.is-victim::after { content: "⚡"; color: #ffd36a; background: rgba(40, 28, 0, .35); text-shadow: 0 0 18px #ffb800; animation-delay: 1.95s; }
+.avada-cast.is-rebound .av-portrait.is-caster { animation: av-struck .45s ease-out 1.95s forwards; }
+.av-words { position: absolute; left: 50%; top: 17vh; transform: translateX(-50%); display: flex; gap: .5em; white-space: nowrap; color: var(--av-hot); font: 900 clamp(34px, 6.4vw, 92px)/1 var(--font-human, Georgia, serif); letter-spacing: .1em; font-style: italic; text-shadow: 0 0 10px var(--av), 0 0 34px var(--av), 0 0 80px rgba(57, 255, 122, .6); }
+.av-words em { font-style: inherit; opacity: 0; filter: blur(14px); animation: av-word .45s ease-out .25s forwards; }
+.av-words em + em { animation-delay: .5s; }
+.avada-cast:not(.is-rebound) .av-words { animation: av-out .3s ease-in 2.2s forwards; }
+.avada-cast.is-rebound .av-words { animation: av-out .3s ease-in 1.7s forwards; }
+
+.av-bolts { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.av-bolts polyline { fill: none; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+.av-bolt-glow { stroke: var(--av); stroke-width: 30; filter: url(#av-blur); opacity: .9; }
+.av-bolt-core { stroke: #f0fff4; stroke-width: 7; }
+.av-strike { opacity: 0; animation: av-strike .9s linear .85s forwards; }
+.av-strike polyline { animation: av-draw .17s ease-in .85s forwards; }
+.av-strike-2 { animation-delay: .9s; }
+.av-strike-2 polyline { animation-delay: .9s; stroke-width: 3; }
+.av-strike-2 .av-bolt-glow { stroke-width: 12; }
+.av-back { opacity: 0; animation: av-strike .9s linear 1.75s forwards; }
+.av-back polyline { animation: av-draw .17s ease-in 1.75s forwards; }
+
+.av-ring { position: absolute; left: var(--hx); top: var(--hy); width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 4px solid var(--av-hot); box-shadow: 0 0 30px var(--av), inset 0 0 20px var(--av); opacity: 0; animation: av-ring .8s ease-out 1.0s forwards; }
+.av-ring-2 { animation-delay: 1.12s; border-width: 2px; }
+.av-flash { position: absolute; inset: 0; background: radial-gradient(circle at var(--hx) var(--hy), #f4fff7 0%, var(--av) 22%, rgba(20, 160, 70, .85) 55%, rgba(0, 60, 25, .6) 100%); mix-blend-mode: screen; opacity: 0; animation: av-flash .75s ease-out 1.0s forwards; }
+.avada-cast.is-rebound .av-flash { animation: av-flash2 1.5s ease-out 1.0s forwards; }
+
+.av-rebound { position: absolute; left: 50%; top: 42vh; transform: translate(-50%, -50%) scale(.6); color: #fff; font: 900 clamp(30px, 5vw, 72px) var(--font-human, system-ui); letter-spacing: .12em; text-shadow: 0 0 12px #ff3b3b, 0 0 40px #ff3b3b; opacity: 0; animation: av-slam .35s cubic-bezier(.2, 1.6, .4, 1) 1.85s forwards, av-out .3s ease-in 2.5s forwards; }
+
+.av-grave { position: absolute; left: 50%; bottom: 0; transform: translate(-50%, 110%); display: grid; justify-items: center; animation: av-rise .75s cubic-bezier(.2, .9, .3, 1.08) 1.6s forwards; }
+.avada-cast.is-rebound .av-grave { animation-delay: 2.5s; }
+.av-portrait.is-dead { width: 110px; height: 110px; margin-bottom: -18px; z-index: 1; border: 3px solid #6b7a70; filter: grayscale(1) brightness(.7) contrast(1.1); box-shadow: 0 0 30px rgba(57, 255, 122, .35); }
+.av-portrait.is-dead::after { content: "☠"; position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, .35); color: #e9fff0; font-size: 54px; text-shadow: 0 0 14px var(--av); }
+.av-stone { width: min(330px, 80vw); padding: 30px 18px 34px; border-radius: 120px 120px 6px 6px; background: linear-gradient(180deg, #7b847f, #4e5652 70%, #3a403d); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .25), inset 0 -10px 24px rgba(0, 0, 0, .45), 0 0 40px rgba(57, 255, 122, .25); display: grid; justify-items: center; gap: 4px; color: #1d2320; text-align: center; }
+.av-stone small { font: 900 13px Georgia, serif; letter-spacing: .4em; opacity: .7; }
+.av-stone b { font: 800 14px Georgia, serif; letter-spacing: .3em; }
+.av-stone strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 900 30px Georgia, serif; letter-spacing: .06em; color: #0f1411; text-shadow: 0 1px 0 rgba(255, 255, 255, .3); }
+.av-stone em { font: italic 700 11px Georgia, serif; letter-spacing: .12em; opacity: .75; }
+
+.av-lived { position: absolute; left: 50%; top: 30vh; transform: translateX(-50%); padding: 8px 18px; border: 1px solid #ffd36a; border-radius: 8px; background: rgba(20, 14, 2, .85); color: #ffe39a; font: 900 clamp(14px, 2vw, 22px) var(--font-machine, monospace); letter-spacing: .14em; white-space: nowrap; text-shadow: 0 0 10px #ffb800; opacity: 0; animation: av-pop-x .4s cubic-bezier(.2, 1.4, .4, 1) 3.0s forwards; }
+
+html.avada-shake body { animation: av-shake .5s linear .98s 1; }
+html.avada-shake:has(.avada-cast.is-rebound) body { animation: av-shake .5s linear .98s 1, av-shake .45s linear 1.93s 1; }
+
+@keyframes av-fade-in { to { opacity: 1; } }
+@keyframes av-out { to { opacity: 0; } }
+@keyframes av-pop-c { from { opacity: 0; transform: translate(-50%, -50%) scale(.4); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes av-victim-out { to { opacity: 0; transform: translate(-50%, -20%) scale(.7); } }
+@keyframes av-struck { 0% { filter: none; } 20% { filter: brightness(3) saturate(0); transform: scale(1.12); } 100% { filter: grayscale(1) brightness(.55); transform: scale(1); border-color: #55605a; } }
+@keyframes av-shield { 0% { box-shadow: 0 0 0 6px rgba(0,0,0,.5); } 25% { box-shadow: 0 0 0 10px #39ff7a, 0 0 60px #39ff7a; transform: scale(1.1); } 100% { box-shadow: 0 0 0 6px #ffd36a, 0 0 40px #ffb800; border-color: #ffd36a; transform: scale(1); } }
+@keyframes av-pop-x { from { opacity: 0; transform: translateX(-50%) scale(.5); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+@keyframes av-pop { from { opacity: 0; transform: scale(.5); } to { opacity: 1; transform: scale(1); } }
+@keyframes av-word { to { opacity: 1; filter: blur(0); } }
+@keyframes av-draw { to { stroke-dashoffset: 0; } }
+@keyframes av-strike { 0% { opacity: 1; } 18% { opacity: .35; } 26% { opacity: 1; } 40% { opacity: .5; } 52% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes av-ring { 0% { opacity: 1; transform: scale(.4); } 100% { opacity: 0; transform: scale(9); } }
+@keyframes av-flash { 0% { opacity: 0; } 12% { opacity: .95; } 100% { opacity: 0; } }
+@keyframes av-flash2 { 0% { opacity: 0; } 6% { opacity: .95; } 45% { opacity: 0; } 63% { opacity: .95; } 100% { opacity: 0; } }
+@keyframes av-slam { to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes av-rise { to { transform: translate(-50%, 0); } }
+@keyframes av-shake { 0%, 100% { transform: none; } 15% { transform: translate(-9px, 4px); } 30% { transform: translate(8px, -5px); } 45% { transform: translate(-6px, -3px); } 60% { transform: translate(5px, 4px); } 80% { transform: translate(-2px, 1px); } }
+
+/* Lingering: the dead are grey ghosts for 60 s, the survivor scarred for 1 h. */
+.avada-dead-name { text-decoration: line-through; text-decoration-thickness: 2px; opacity: .55; }
+.avada-dead-name::after { content: " 👻"; text-decoration: none; display: inline-block; }
+.avada-dead-msg :is(.chat-avatar-rail, .little-hero-avatar, .gm-chat-avatar) { filter: grayscale(1) brightness(.6); }
+.avada-scar-name::after { content: " ⚡"; color: #ffd36a; text-shadow: 0 0 6px #ffb800; }
+
+@media (prefers-reduced-motion: reduce) { .avada-cast *, html.avada-shake body { animation-duration: .01s !important; animation-delay: 0s !important; } }

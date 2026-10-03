@@ -1383,6 +1383,7 @@ const PlayerApp = {
       case 'state:public': {
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         window.HeroRoles?.onState?.(message);
+        window.Avada?.setState?.(message.avada);
         // Deferred so the board has painted the new state before the seal,
         // chains and strip are positioned over it.
         setTimeout(() => window.FinalDebt?.update(message), 0);

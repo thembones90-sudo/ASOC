@@ -171,7 +171,7 @@ class Client {
       assert.equal(res.winners.length, 0, 'nobody is paid');
     }
 
-    // 2e. THE HOARDER: catching 10 coins unearths the relic.
+    // 2e. Catching 10 coins unearths the relic.
     {
       const f = gm.mark();
       for (let i = 0; i < 10; i++) {
@@ -183,7 +183,7 @@ class Client {
         await sissy.next(m => m.type === 'coinDrop:result' && m.id === sp.drop.id && m.ok, 'caught', m0);
         await sleep(150);
       }
-      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /RELIC UNEARTHED \/\/ Sissy -- THE HOARDER/.test(x.text)), 'relic unearthed', f, 8000);
+      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text === `RELIC UNEARTHED // Sissy -- ${require('../shadow-market').getItem('relic-hoarder').name}`), 'relic unearthed', f, 8000);
     }
 
     // 3. Nobody clicks: it is gone, and a late click gets nothing.
