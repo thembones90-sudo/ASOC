@@ -1,7 +1,7 @@
 'use strict';
 
 const DENNIS_ID = '__DENNIS_AI__';
-const DENNIS_NAME = 'Dennis AI';
+const DENNIS_NAME = 'Dennis';
 // Content-versioned URL: changing only roster avatarHash is not enough when a
 // browser/service cache already owns the old bytes at the same asset URL.
 const DENNIS_AVATAR = '/assets/profiles/dennis-ai.png?v=d2a265d8';
@@ -11,6 +11,110 @@ const MORNING_GREETING = 'Dobro jutro, ko se nije probudio, spasio se';
 const MAX_MESSAGES_PER_DAY = 12;
 const RETALIATION_MIN_MS = 10 * 60_000;
 const RETALIATION_MAX_MS = 20 * 60_000;
+const SPEAKING_START_MINUTE = 9 * 60;
+const SPEAKING_END_MINUTE = 16 * 60;
+const ANNOUNCER_MODES = Object.freeze(['off', 'announcer', 'advice']);
+const ANNOUNCEMENT_GLOBAL_COOLDOWN_MS = 25_000;
+const ANNOUNCEMENT_EVENT_COOLDOWN_MS = 60_000;
+
+const GAME_ANNOUNCEMENTS = Object.freeze({
+  open: Object.freeze({
+    announcer: [
+      'Kapije za {{game}} su otvorene. Uđite dobrovoljno, da vas kasnije ne vučemo.',
+      '{{game}} doziva nove žrtve. Ovo je poslednji trenutak da se pravite da niste videli.',
+      'Zbor je sazvan. {{game}} čeka svoje junake, ili ono što danas imamo umesto njih.',
+      'Otvara se {{game}}. Nada ulazi prva, dostojanstvo obično ne izađe.'
+    ],
+    advice: [
+      'Kapije za {{game}} su otvorene. Pročitajte pravila pre ulaska; tragedija je bolja kada bar znate zašto gubite.',
+      '{{game}} prima igrače. Uđite sada i proverite pravila, jer panika tokom partije retko izgleda herojski.'
+    ]
+  }),
+  start: Object.freeze({
+    announcer: [
+      'Neka zazvone poslednja zvona. {{game}} je počeo, a razum je prvi napustio bojno polje.',
+      '{{game}} počinje. Sudbina vas posmatra i već deluje razočarano.',
+      'Pečat je slomljen. {{game}} je počeo. Od ovog trenutka svaka greška postaje istorijska sramota.',
+      'Bubnjevi odzvanjaju. {{game}} kreće, mada sam lično navijao za otkazivanje.'
+    ],
+    advice: [
+      '{{game}} je počeo. Pratite redosled i svoj potez; propast je neizbežna, ali ne mora biti administrativna.',
+      'Bitka počinje. Gledajte stanje igre, ne poruke od pre pet minuta. Haos ne mora baš potpuno da pobedi.'
+    ]
+  }),
+  turn: Object.freeze({
+    announcer: [
+      'Svetla pozornice padaju na tebe. Sledeći potez je tvoj. Huh? Da, baš tvoj.',
+      'Sudbina je izabrala sledećeg igrača. Iskreno, nije imala mnogo materijala.',
+      'Tvoj je potez. Hiljade zamišljenih gledalaca ćute, uglavnom iz neprijatnosti.',
+      'Došao je trenutak odluke. Verovatno ćeš ga potrošiti gledajući gde treba da klikneš.'
+    ],
+    advice: [
+      'Tvoj je potez. Proveri zahtev pre slanja; tragedija je podnošljivija kada nije izazvana pogrešnim dugmetom.',
+      'Sada igraj. Pročitaj trenutno stanje i pošalji tačno ono što se traži. Znam, surovi uslovi.'
+    ]
+  }),
+  vote: Object.freeze({
+    announcer: [
+      'Veće je sazvano. Glasanje je otvoreno, a demokratija ponovo stoji na ivici ponora.',
+      'Podignite glasove. Istina će biti odlučena većinom, što nikada nije zabrinjavajuće.',
+      'Sud sada pripada vama. Glasajte mudro, ili bar dovoljno ubedljivo da sakrijete da pogađate.',
+      'Otvara se glasanje. Pravda je skinula povez da bi mogla da ode kući.'
+    ],
+    advice: [
+      'Veće glasa. Ne možete suditi sopstvenom potezu; pogledajte autora pre nego što osudite pogrešnu osobu.',
+      'Glasanje je otvoreno. Pročitajte potez, proverite pravilo, pa tek onda donesite katastrofalnu odluku.'
+    ]
+  }),
+  timer: Object.freeze({
+    announcer: [
+      'Peščani sat krvari poslednja zrna. Vreme curi, a ja bih već odustao.',
+      'Poslednji trenuci marširaju prema vama. Sat radi. Vi, koliko vidim, manje.',
+      'Odbrojavanje je počelo. Svaka sekunda umire hrabrije od prethodne.',
+      'Vreme nestaje. Uskoro će ostati samo tišina i objašnjenje kako ste skoro stigli.'
+    ],
+    advice: [
+      'Ostalo je malo vremena. Pošaljite potez pre isteka; sistem još nije naučio da nagrađuje dobre namere.',
+      'Sat je pri kraju. Zaključajte odluku sada, pre nego što je vreme pretvori u još jednu tužnu anegdotu.'
+    ]
+  }),
+  elimination: Object.freeze({
+    announcer: [
+      'Jedno ime je izbrisano iz hronike. Eliminacija potvrđena. Sistem, nažalost, radi.',
+      'Još jedan junak je pao. Nova runda nastavlja bez njega, kao i život bez ikakvog objašnjenja.',
+      'Bojno polje je tiše za jednog igrača. Ne bih to nazvao napretkom, ali broj je manji.',
+      'Sudbina je uzela svoj danak. Neko je eliminisan, ostali su samo privremeno pošteđeni.'
+    ],
+    advice: [
+      'Igrač je eliminisan. Proverite novi redosled pre nastavka; mrtvi više ne dobijaju potez, osim u lošim nastavcima.',
+      'Jedan igrač ispada. Nova runda kreće bez njega, zato pratite ko je sada prvi na potezu.'
+    ]
+  }),
+  result: Object.freeze({
+    announcer: [
+      'Bitka je završena. Rezultat je uklesan u kamen, a žalbe možete poslati u prazninu.',
+      '{{game}} je završen. Preživeli neka slave, poraženi neka tvrde da je bilo namešteno.',
+      'Spustite zastave. {{game}} je gotov i istorija će velikodušno prećutati većinu detalja.',
+      'Pobeda je proglašena. Negde svira trijumfalna muzika. Ja je, srećom, ne čujem.'
+    ],
+    advice: [
+      '{{game}} je završen. Proverite konačan rezultat pre nove partije; sećanje poraženih brzo postaje kreativno.',
+      'Kraj je potvrđen. Pogledajte rezultat i nagrade sada, pre nego što svi razviju sopstvenu verziju istorije.'
+    ]
+  }),
+  update: Object.freeze({
+    announcer: [
+      '{{game}} se nastavlja. Mašina sudbine melje dalje, uglavnom praznog hoda.',
+      'Nova stranica hronike je otvorena. {{game}} traje, a ja još obrađujem prethodnu katastrofu.',
+      'Igra se nastavlja. Heroji napreduju, mada je pravac predmet rasprave.',
+      '{{game}} odbija da se završi. Poštujem tu vrstu besmislene upornosti.'
+    ],
+    advice: [
+      'Pratite trenutno stanje igre, ne poruke od pre pet minuta. Prošlost je dovoljno beskorisna i bez vaše pomoći.',
+      '{{game}} se nastavlja. Proverite redosled, cilj i tajmer; intuicija vas je već dovoljno koštala.'
+    ]
+  })
+});
 
 // Keep these strings literal: this is the character's authored voice. The
 // rejected dehumanizing line is intentionally not part of the pool.
@@ -34,7 +138,37 @@ const RANDOM_MESSAGES = Object.freeze([
   'Dokle ovo sranje',
   'Najgori dan ikad',
   'IMA LI OVAJ DAN KRAJA',
-  'Svi treba da pocrkaju'
+  'Svi treba da pocrkaju',
+  'Je l\' neko rekao KOTOR?',
+  'Samo još jedan stari RPG pa se vraćam u stvarnost',
+  'Čekaj, o čemu pričamo?',
+  'Kasnim samo mentalno',
+  'Nisam video poruku, gledao sam u prazno',
+  'Može li danas da se preskoči?',
+  'Instalirao bih opet nešto iz 2003.',
+  'Meni treba quicksave za život',
+  'Koji je danas dan?',
+  'Čekaj, je l\' ovo bilo pitanje za mene?',
+  'Odgovoriću čim shvatim šta se dešava',
+  'Samo da završim ovaj quest od pre dvadeset godina',
+  'Nemam energije ni za loading screen',
+  'Sve je side quest, a ja sam promašio main story',
+  'Možda sutra budem funkcionalan',
+  'Danas sam NPC bez dijaloga',
+  'Ne znam gde sam pošao',
+  'Je l\' može autosave pre smene?',
+  'Ponovo sam zaboravio šta sam hteo',
+  'Stvarnost ima loš game design',
+  'Ovo bi se rešilo da imam lightsaber',
+  'Bio sam tu, samo nisam bio prisutan',
+  'Čuo sam vas tek deset minuta kasnije',
+  'Mogu li da rerollujem ovaj dan?',
+  'Huh? Ko je šta rekao?',
+  'Pokrenuo sam igru i zaboravio zašto',
+  'Realnost opet nema patch notes',
+  'Samo da nađem save od juče',
+  'Mislim da mi je mozak na cooldownu',
+  'Ovaj razgovor mi se još učitava'
 ]);
 
 const belgradeFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -55,6 +189,12 @@ function partsAt(timestamp) {
 function dateKeyAt(timestamp) {
   const p = partsAt(timestamp);
   return `${p.year}-${p.month}-${p.day}`;
+}
+
+function isSpeakingTime(timestamp = Date.now()) {
+  const p = partsAt(timestamp);
+  const minute = Number(p.hour) * 60 + Number(p.minute);
+  return minute >= SPEAKING_START_MINUTE && minute < SPEAKING_END_MINUTE;
 }
 
 // Intl exposes the authoritative timezone rules but not a local-time parser.
@@ -93,7 +233,11 @@ function freshDay(dateKey, random) {
     pendingReply: null,
     messagesToday: 0,
     recentMessages: [],
-    pendingRetaliations: []
+    pendingRetaliations: [],
+    announcerMode: 'advice',
+    announcementQueue: [],
+    announcementCooldowns: {},
+    lastAnnouncementAt: null
   };
 }
 
@@ -121,6 +265,7 @@ function normalizeState(input, now = Date.now(), random = Math.random) {
     // A command close to midnight is still answered, but the daily greeting
     // gate means it waits until Dennis has delivered his first line that day.
     state.pendingRetaliations = normalizeRetaliations(input.pendingRetaliations);
+    state.announcerMode = ANNOUNCER_MODES.includes(input.announcerMode) ? input.announcerMode : 'advice';
     return state;
   }
   return {
@@ -136,8 +281,43 @@ function normalizeState(input, now = Date.now(), random = Math.random) {
     recentMessages: Array.isArray(input.recentMessages)
       ? input.recentMessages.filter(line => RANDOM_MESSAGES.includes(line)).slice(-5)
       : [],
-    pendingRetaliations: normalizeRetaliations(input.pendingRetaliations)
+    pendingRetaliations: normalizeRetaliations(input.pendingRetaliations),
+    announcerMode: ANNOUNCER_MODES.includes(input.announcerMode) ? input.announcerMode : 'advice',
+    announcementQueue: (Array.isArray(input.announcementQueue) ? input.announcementQueue : [])
+      .filter(entry => entry && typeof entry.text === 'string' && Number.isFinite(Number(entry.queuedAt)))
+      .map(entry => ({ event: String(entry.event || 'update').slice(0, 24), text: entry.text.slice(0, 240), queuedAt: Number(entry.queuedAt) }))
+      .slice(-6),
+    announcementCooldowns: input.announcementCooldowns && typeof input.announcementCooldowns === 'object'
+      ? Object.fromEntries(Object.entries(input.announcementCooldowns).filter(([key, value]) => /^[a-z-]{2,24}$/.test(key) && Number.isFinite(Number(value))).map(([key, value]) => [key, Number(value)]))
+      : {},
+    lastAnnouncementAt: Number.isFinite(Number(input.lastAnnouncementAt)) ? Number(input.lastAnnouncementAt) : null
   };
+}
+
+function setAnnouncerMode(input, mode, now = Date.now(), random = Math.random) {
+  const state = normalizeState(input, now, random);
+  state.announcerMode = ANNOUNCER_MODES.includes(mode) ? mode : state.announcerMode;
+  if (state.announcerMode === 'off') state.announcementQueue = [];
+  return state;
+}
+
+function queueGameAnnouncement(input, event, details = {}, now = Date.now(), random = Math.random) {
+  const state = normalizeState(input, now, random);
+  const kind = GAME_ANNOUNCEMENTS[event] ? event : 'update';
+  if (state.announcerMode === 'off' || !isSpeakingTime(now)) return state;
+  if (now - Number(state.lastAnnouncementAt || 0) < ANNOUNCEMENT_GLOBAL_COOLDOWN_MS) return state;
+  if (now - Number(state.announcementCooldowns[kind] || 0) < ANNOUNCEMENT_EVENT_COOLDOWN_MS) return state;
+  if (state.announcementQueue.some(entry => entry.event === kind)) return state;
+  const definition = GAME_ANNOUNCEMENTS[kind];
+  const pool = state.announcerMode === 'advice'
+    ? [...definition.announcer, ...definition.advice]
+    : definition.announcer;
+  const game = String(details.game || 'Igra').slice(0, 48);
+  const text = pool[Math.floor(randomUnit(random) * pool.length)].replaceAll('{{game}}', game);
+  state.announcementQueue.push({ event: kind, text, queuedAt: now });
+  state.announcementQueue = state.announcementQueue.slice(-6);
+  state.announcementCooldowns[kind] = now;
+  return state;
 }
 
 function scheduleRetaliation(input, retaliation, now = Date.now(), random = Math.random) {
@@ -179,6 +359,9 @@ function scheduleAmbient(state, now, random) {
 function tick(input, now = Date.now(), random = Math.random) {
   const state = normalizeState(input, now, random);
   if (!state.enabled) return { state, message: null, retaliations: [] };
+  // Dennis is a daytime presence. Due replies and retaliations remain queued
+  // while he is offline and resume in the next Belgrade speaking window.
+  if (!isSpeakingTime(now)) return { state, message: null, retaliations: [] };
 
   // This branch always runs before replies/ambient chatter. It is therefore
   // impossible for Dennis to speak on a new local day before his greeting.
@@ -188,6 +371,14 @@ function tick(input, now = Date.now(), random = Math.random) {
     remember(state, MORNING_GREETING);
     scheduleAmbient(state, now, random);
     return { state, message: MORNING_GREETING, retaliations: [] };
+  }
+
+  if (state.announcementQueue.length && state.messagesToday < MAX_MESSAGES_PER_DAY) {
+    const announcement = state.announcementQueue.shift();
+    state.lastAnnouncementAt = now;
+    remember(state, announcement.text);
+    scheduleAmbient(state, now, random);
+    return { state, message: announcement.text, retaliations: [] };
   }
 
   const retaliations = state.pendingRetaliations.filter(entry => entry.dueAt <= now);
@@ -215,7 +406,7 @@ function tick(input, now = Date.now(), random = Math.random) {
 
 function observe(input, chatText, now = Date.now(), random = Math.random) {
   const state = normalizeState(input, now, random);
-  if (!state.enabled || !state.greetedAt || state.pendingReply || state.messagesToday >= MAX_MESSAGES_PER_DAY) return state;
+  if (!state.enabled || !isSpeakingTime(now) || !state.greetedAt || state.pendingReply || state.messagesToday >= MAX_MESSAGES_PER_DAY) return state;
   const text = String(chatText || '');
   const direct = /\bdennis\b/i.test(text);
   if (!direct && randomUnit(random) >= 0.04) return state;
@@ -257,10 +448,16 @@ module.exports = {
   MAX_MESSAGES_PER_DAY,
   RETALIATION_MIN_MS,
   RETALIATION_MAX_MS,
+  SPEAKING_START_MINUTE,
+  SPEAKING_END_MINUTE,
+  ANNOUNCER_MODES,
   dateKeyAt,
+  isSpeakingTime,
   localMinuteTimestamp,
   normalizeState,
   scheduleRetaliation,
+  setAnnouncerMode,
+  queueGameAnnouncement,
   tick,
   observe,
   publicProfile

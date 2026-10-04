@@ -5313,6 +5313,18 @@ function threefoldLockout(...sides) {
 function iksAnnounce(room, lines) {
   if (!room || !lines.length) return;
   lines.forEach(text => addShadowBrokerMessage(room, text, { editableByHost: false }));
+  const joined = lines.join(' ');
+  const game = /KALADONT/i.test(joined) ? 'Kaladont'
+    : /THY SHALL NOT RAGE/i.test(joined) ? 'Thy Shall Not Rage'
+      : 'IKS OKS';
+  const event = /LOBBY|SECONDS TO JOIN|ENTERS THE GAUNTLET/i.test(joined) ? 'open'
+    : /BEGINS|PRIMED|START/i.test(joined) ? 'start'
+      : /VOT/i.test(joined) ? 'vote'
+        : /FALLEN|ELIMINAT|\bOUT\b|KILLS/i.test(joined) ? 'elimination'
+          : /WINS|VICTOR|CHAMPION|SHARE THE CROWN/i.test(joined) ? 'result'
+            : /MINUTE|SECONDS? REMAINING|TIME/i.test(joined) ? 'timer'
+              : 'update';
+  room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, event, { game });
   broadcastChatUpdate(room);
 }
 
@@ -5703,6 +5715,7 @@ function finalizeRouletteCarnage(room){
       addShadowBrokerMessage(room,'ZERO HAS ANSWERED // EVERY ACTIVE GAMBLER HELD A WINNING ZERO WAGER // THE TABLE ESCAPES CARNAGE.',{editableByHost:false});broadcastChatUpdate(room);
     }
   }else round.phase='RESULT';
+  room.dennisAI=dennisAI.queueGameAnnouncement(room.dennisAI,'result',{game:'Roulette Carnage'});
   rouletteCommit(room,{players:true,publicState:round.winningNumber===0});
 }
 function scheduleRouletteCarnage(room){
@@ -5720,13 +5733,14 @@ function handleRouletteCarnage(ws,message){
     if(action==='openTable'){
       if(table?.open)return rouletteError(ws,'THE ROULETTE TABLE IS ALREADY OPEN');
       room.rouletteCarnage=rouletteCarnage.createTable('rct-'+crypto.randomBytes(6).toString('hex'),'rcr-'+crypto.randomBytes(8).toString('hex'),rouletteCarnage.MINIMUM_BET);
+      room.dennisAI=dennisAI.queueGameAnnouncement(room.dennisAI,'open',{game:'Roulette Carnage'});
       return rouletteCommit(room);
     }
     if(!table?.open)return rouletteError(ws,'OPEN THE TABLE FIRST');
     if(action==='openBetting'){
       if(['SPINNING','LOCKED'].includes(round.phase))return rouletteError(ws,'THE CURRENT ROUND IS NOT FINISHED');
       if(['RESULT','CARNAGE','ABORTED'].includes(round.phase)){const joined={...round.joined};table.history.push({id:round.id,result:round.winningNumber,settledAt:round.settledAt,carnage:round.carnage});table.history=table.history.slice(-20);table.round=rouletteCarnage.newRound('rcr-'+crypto.randomBytes(8).toString('hex'));table.round.joined=joined;}
-      table.round.phase='BETTING_OPEN';return rouletteCommit(room);
+      table.round.phase='BETTING_OPEN';room.dennisAI=dennisAI.queueGameAnnouncement(room.dennisAI,'start',{game:'Roulette Carnage'});return rouletteCommit(room);
     }
     if(action==='lockBets'){
       if(round.phase!=='BETTING_OPEN')return rouletteError(ws,'BETTING IS NOT OPEN');
@@ -5998,6 +6012,7 @@ function resolveUnstableConcoction(roomCode, spinToken) {
   }
 
   addUnstableConcoctionChatEvent(room, spin, 'resolved');
+  room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'result', { game: 'Unstable Concoction' });
   state.pendingSpin = null;
   persistActiveRooms();
   broadcastChatUpdate(room);
@@ -6040,6 +6055,7 @@ function handleUnstableConcoctionSpin(ws) {
 
   // Lock, target, and hidden result are durable before acceptance is sent.
   addUnstableConcoctionChatEvent(room, started.pendingSpin, 'activated');
+  room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'start', { game: 'Unstable Concoction' });
   persistActiveRooms();
   broadcastChatUpdate(room);
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -6653,6 +6669,7 @@ const CHAT_SLASH_COMMANDS = [
 // adding a player command can no longer leave the Shadow Broker's /commands
 // list stale or imply that the GM lacks that capability.
 const GM_ONLY_SLASH_COMMANDS = [
+  { name: '/dennis', help: '/dennis off|announcer|advice -- control Dennis game commentary' },
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
   { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
   { name: '/b3', help: '/b3 -- manually trigger the three-second Baki B3 battle tribute' },
@@ -7204,6 +7221,16 @@ function dispatchGmSlashCommand(room, ws, text) {
   const raw = String(text || '').trim();
   if (!raw.startsWith('/')) return null;
   const author = { id: null, name: 'SHADOW BROKER' };
+
+  if (/^\/dennis\b/i.test(raw)) {
+    const match = raw.match(/^\/dennis\s+(off|announcer|advice)\s*$/i);
+    if (!match) return { success: false, error: 'DENNIS INVALID // USE /dennis off|announcer|advice' };
+    const mode = match[1].toLowerCase();
+    room.dennisAI = dennisAI.setAnnouncerMode(room.dennisAI, mode);
+    persistActiveRooms();
+    const result = addShadowBrokerMessage(room, `DENNIS // ${mode.toUpperCase()}`, { editableByHost: false });
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
 
   if (/^\/warsong\b/i.test(raw)) {
     if (!/^\/warsong\s*$/i.test(raw)) return { success: false, error: 'WARSONG INVALID // USE /warsong' };
@@ -8241,6 +8268,13 @@ function createChatSerializer(room) {
   const now = Date.now();
   const tributeById = new Map((room.bloodTributes || []).map(t => [t.id, t]));
   return m => {
+    // Chat history is persisted, so older Dennis entries may still carry the
+    // retired "Dennis AI" display name. Canonicalize at the wire boundary so
+    // existing history and newly produced messages render identically without
+    // destructively rewriting the room archive.
+    const playerName = String(m.playerId || '') === dennisAI.DENNIS_ID || m.source === 'dennisAI'
+      ? dennisAI.DENNIS_NAME
+      : m.playerName;
     const tribute = m.source === 'bloodTribute' ? tributeById.get(m.tributeId) : null;
     const manualState = m.bloodTribute && typeof m.bloodTribute === 'object' ? m.bloodTribute : null;
     const manualExpiresAt = Number(manualState?.expiresAt) || 0;
@@ -8254,7 +8288,7 @@ function createChatSerializer(room) {
       return {
         id: m.id,
         playerId: m.playerId,
-        playerName: m.playerName,
+        playerName,
         deleted: true,
         deletedAt: Number(m.deletedAt) || null,
         timestamp: m.timestamp,
@@ -8266,7 +8300,7 @@ function createChatSerializer(room) {
     return {
       id: m.id,
       playerId: m.playerId,
-      playerName: m.playerName,
+      playerName,
       text: m.text,
       timestamp: m.timestamp,
       editedAt: Number(m.editedAt) || null,
@@ -9710,7 +9744,6 @@ function handleShadowDossier(ws, message) {
     dossier.name = dennisAI.DENNIS_NAME;
     dossier.avatar = { id: '', name: dennisAI.DENNIS_NAME, avatarData: profile.avatarData, frameColor: dennisAI.DENNIS_FRAME };
     dossier.synthetic = true;
-    dossier.since = 'SYSTEM IDENTITY';
     return sendToWs(ws, { type: 'shadow:dossierResult', playerId: targetId, dossier });
   }
   let target = null;

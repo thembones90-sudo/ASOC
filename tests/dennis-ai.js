@@ -8,6 +8,7 @@ const dennis = require('../dennis-ai');
 const zero = () => 0;
 const day = '2026-10-03';
 const nine = dennis.localMinuteTimestamp(day, 9, 0);
+const sixteen = dennis.localMinuteTimestamp(day, 16, 0);
 
 let state = dennis.normalizeState(null, nine - 60_000, zero);
 assert.equal(state.dateKey, day);
@@ -23,6 +24,9 @@ assert.equal(result.state.messagesToday, 1);
 const restored = dennis.normalizeState(JSON.parse(JSON.stringify(result.state)), nine + 1000, zero);
 assert.equal(restored.greetedAt, nine, 'restart must not duplicate the greeting');
 assert.equal(dennis.tick(restored, nine + 2000, zero).message, null);
+assert.equal(dennis.isSpeakingTime(nine), true);
+assert.equal(dennis.isSpeakingTime(sixteen - 1), true);
+assert.equal(dennis.isSpeakingTime(sixteen), false);
 
 const observed = dennis.observe(restored, 'Dennis, are you there?', nine + 3000, zero);
 assert.equal(observed.pendingReply.text, 'Huh?');
@@ -42,13 +46,38 @@ const retaliationDue = dennis.tick(retaliationRestored, retaliationQueuedAt + de
 assert.deepEqual(retaliationDue.retaliations.map(entry => [entry.kind, entry.command, entry.targetId]), [['emote', 'ass', 'hero-1']]);
 assert.equal(retaliationDue.state.pendingRetaliations.length, 0, 'a retaliation is delivered exactly once');
 
+const lateRetaliation = dennis.scheduleRetaliation(restored, {
+  kind: 'emote', command: 'spit', targetId: 'hero-2', targetName: 'Late Hero'
+}, sixteen - 5 * 60_000, zero);
+const afterHours = dennis.tick(lateRetaliation, sixteen + 5 * 60_000, zero);
+assert.equal(afterHours.message, null, 'Dennis cannot chat after 16:00 Belgrade time');
+assert.equal(afterHours.retaliations.length, 0, 'Dennis cannot retaliate after 16:00 Belgrade time');
+assert.equal(afterHours.state.pendingRetaliations.length, 1, 'after-hours retaliation remains queued');
+assert.equal(dennis.observe(restored, 'Dennis?', sixteen, zero).pendingReply, null, 'after-hours chat cannot schedule a reply');
+
+let announcer = dennis.setAnnouncerMode(restored, 'announcer', nine + 30_000, zero);
+announcer = dennis.queueGameAnnouncement(announcer, 'start', { game: 'Kaladont' }, nine + 60_000, zero);
+assert.equal(announcer.announcementQueue.length, 1);
+assert.match(announcer.announcementQueue[0].text, /Kaladont/);
+const announced = dennis.tick(announcer, nine + 60_001, zero);
+assert.equal(announced.message, 'Neka zazvone poslednja zvona. Kaladont je počeo, a razum je prvi napustio bojno polje.');
+assert.equal(announced.state.announcementQueue.length, 0);
+
+let disabledAnnouncer = dennis.setAnnouncerMode(restored, 'off', nine + 70_000, zero);
+disabledAnnouncer = dennis.queueGameAnnouncement(disabledAnnouncer, 'vote', { game: 'Kaladont' }, nine + 80_000, zero);
+assert.equal(disabledAnnouncer.announcementQueue.length, 0, 'OFF mode must suppress game commentary');
+
+let nightAnnouncer = dennis.setAnnouncerMode(restored, 'advice', sixteen, zero);
+nightAnnouncer = dennis.queueGameAnnouncement(nightAnnouncer, 'result', { game: 'IKS OKS' }, sixteen, zero);
+assert.equal(nightAnnouncer.announcementQueue.length, 0, 'game events outside working hours must not leak into chat');
+
 const tomorrowNine = dennis.localMinuteTimestamp('2026-10-04', 9, 0);
 const tomorrow = dennis.normalizeState(restored, tomorrowNine - 1, zero);
 assert.equal(tomorrow.greetedAt, null, 'new local day must gate all chatter behind a new greeting');
 assert.equal(dennis.tick(tomorrow, tomorrowNine - 1, zero).message, null);
 assert.equal(dennis.tick(tomorrow, tomorrowNine, zero).message, dennis.MORNING_GREETING);
 
-assert.deepEqual(dennis.RANDOM_MESSAGES, [
+const requiredMessages = [
   'xD', 'Mmmm gotičarke', 'Ne treba mi nova grafička', 'Huh?',
   'Ja ne mogu ovaj posao više', 'Neka me neko ubije', 'Ja ne mogu ponovo ovu decu',
   'OPET HELLO BEDA AAAAAAAAAAA', 'Vreme je da igram KOTOR opet',
@@ -58,11 +87,15 @@ assert.deepEqual(dennis.RANDOM_MESSAGES, [
   'Trebao bih nešto da promenim u životu', 'Ne mogu ništa da promenim',
   'Mrzim sve', 'Jebem ti dan', 'Dokle ovo sranje', 'Najgori dan ikad',
   'IMA LI OVAJ DAN KRAJA', 'Svi treba da pocrkaju'
-]);
+];
+for (const line of requiredMessages) assert.ok(dennis.RANDOM_MESSAGES.includes(line), `missing authored line: ${line}`);
+assert.ok(dennis.RANDOM_MESSAGES.length >= 50, 'the expanded pool must resist repetition');
+assert.equal(new Set(dennis.RANDOM_MESSAGES).size, dennis.RANDOM_MESSAGES.length, 'the message pool must not contain duplicates');
 assert.ok(!dennis.RANDOM_MESSAGES.some(line => /cigani/i.test(line)));
 
 const profile = dennis.publicProfile();
 assert.equal(profile.id, '__DENNIS_AI__');
+assert.equal(profile.name, 'Dennis');
 assert.equal(profile.frameColor, '#000000');
 assert.equal(profile.isSynthetic, true);
 assert.equal(profile.avatarData, '/assets/profiles/dennis-ai.png?v=d2a265d8');
@@ -85,5 +118,14 @@ assert.match(server, /handleActCommand\(room, author, raw, retaliation\.targetId
 assert.match(server, /handleEmoteCommand\(room, author, raw, retaliation\.targetId/);
 assert.match(server, /DENNIS_GROUND_SPIT_PATTERN/);
 assert.match(server, /targetId:\s*DENNIS_GROUND_TARGET\.id/);
+assert.match(server, /\/dennis off\|announcer\|advice/);
+assert.match(server, /dennisAI\.queueGameAnnouncement/);
+assert.match(server, /String\(m\.playerId \|\| ''\) === dennisAI\.DENNIS_ID \|\| m\.source === 'dennisAI'/,
+  'the chat wire serializer must rename persisted Dennis AI history');
 
-console.log('PASS Dennis AI: black synthetic profile, exact authored voice, delayed replies and restart-safe Belgrade greeting gate');
+const gmHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const playerHtml = fs.readFileSync(path.join(__dirname, '..', 'join.html'), 'utf8');
+assert.match(gmHtml, /asoc\.css\?v=20261004-dennis-name-1/);
+assert.match(playerHtml, /asoc\.css\?v=20261004-dennis-name-1/);
+
+console.log('PASS Dennis: clean profile label, expanded voice, 09:00-16:00 Belgrade window, delayed replies and restart-safe greeting gate');

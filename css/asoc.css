@@ -21955,13 +21955,3 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
   --theme-border: #222831;
   --theme-text: #c7cbd2;
 }
-.dennis-ai-message .gm-chat-player-name::after,
-.dennis-ai-message .chat-player-name::after {
-  content: 'SYNTHETIC';
-  display: inline-block;
-  margin-left: .55rem;
-  color: #7e8794;
-  font: 700 .58rem/1 var(--font-mono, monospace);
-  letter-spacing: .16em;
-  vertical-align: middle;
-}

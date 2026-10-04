@@ -104,13 +104,13 @@ async function run() {
     // Dennis is a synthetic social identity but participates in the complete
     // targeted-command surface. His delayed mirror response is unit-tested in
     // dennis-ai.js so this live test only proves name/id resolution.
-    await say('/fart Dennis AI', { targetPlayerId: DENNIS });
+    await say('/fart Dennis', { targetPlayerId: DENNIS });
     const dennisFart = await waitFor(farter, m => m.messageType === 'fart' && m.fart?.targetId === DENNIS, 'fart on Dennis');
-    assert.equal(dennisFart.text, 'Farter farts on Dennis AI.');
+    assert.equal(dennisFart.text, 'Farter farts on Dennis.');
 
     await say('ovo je cigan test');
     const groundSpit = await waitFor(farter, m => m.messageType === 'spit' && m.spit?.actorId === DENNIS && m.spit?.targetId === '__GROUND__', 'Dennis ground spit trigger');
-    assert.equal(groundSpit.text, 'Dennis AI spits on the ground.');
+    assert.equal(groundSpit.text, 'Dennis spits on the ground.');
     let groundSpitId = groundSpit.id;
     for (const trigger of ['cigani', 'cigane', 'cigansko', 'ciganska', 'ciganski', 'ciganske', 'ganci', 'ciganovo']) {
       await say(`trigger ${trigger}`);
@@ -200,9 +200,9 @@ async function run() {
     const brokerAct = await waitFor(victim, m => m.messageType === 'fart' && m.fart?.actorId === null && m.fart?.targetId === victim.playerId, 'Broker fart');
     assert.equal(brokerAct.text, 'SHADOW BROKER farts on Victim.');
 
-    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/spit Dennis AI' }));
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/spit Dennis' }));
     const brokerDennisAct = await waitFor(gm, m => m.messageType === 'spit' && m.spit?.actorId === null && m.spit?.targetId === DENNIS, 'Broker spit on Dennis');
-    assert.equal(brokerDennisAct.text, 'SHADOW BROKER spits on Dennis AI.');
+    assert.equal(brokerDennisAct.text, 'SHADOW BROKER spits on Dennis.');
 
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: 'CIGAN' }));
     await waitFor(gm, m => m.messageType === 'spit' && m.spit?.actorId === DENNIS && m.spit?.targetId === '__GROUND__' && m.id !== groundSpitId, 'GM ground spit trigger');
@@ -275,9 +275,9 @@ async function run() {
     await say('/ass @Victim');
     const kick = await waitFor(victim, m => m.messageType === 'emote' && m.emote?.act === 'ass', 'ass kick');
     assert.equal(kick.emote.lines.target, 'Farter kicks you in the ass.');
-    await say('/ass Dennis AI', { targetPlayerId: DENNIS });
+    await say('/ass Dennis', { targetPlayerId: DENNIS });
     const dennisKick = await waitFor(farter, m => m.messageType === 'emote' && m.emote?.act === 'ass' && m.emote?.targetId === DENNIS, 'ass kick Dennis');
-    assert.equal(dennisKick.emote.lines.other, 'Farter kicks Dennis AI in the ass.');
+    assert.equal(dennisKick.emote.lines.other, 'Farter kicks Dennis in the ass.');
     mark = farter.msgs.length;
     await say('/poke');
     assert.match(await lastError(farter, mark), /POKE TARGET REQUIRED/);
@@ -329,6 +329,8 @@ async function run() {
     await brokerSays('/choose red | blue', m => m.messageType === 'choose', 'Broker /choose');
     await brokerSays('/order', m => m.messageType === 'order', 'Broker /order');
     await brokerSays('/stats', m => m.messageType === 'stats', 'Broker /stats');
+    const dennisMode = await brokerSays('/dennis announcer', m => m.source === 'shadowBroker' && m.text === 'DENNIS // ANNOUNCER', 'Broker /dennis');
+    assert.equal(dennisMode.text, 'DENNIS // ANNOUNCER');
     const shakeMark = victim.msgs.length;
     await brokerSays('/all wake up', m => m.source === 'shadowBroker' && m.text === '@all wake up', 'Broker /all');
     await sleep(200);
@@ -336,7 +338,7 @@ async function run() {
     gm.chat = [];
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/commands' }));
     const gmCommands = await waitFor(gm, m => m.messageType === 'commands' && m.playerId == null, 'GM /commands');
-    ['/warsong', '/c4', '/b3', '/flip', '/dice', '/choose', '/order', '/stats', '/all', '/grovel', '/slap'].forEach(name =>
+    ['/dennis', '/warsong', '/c4', '/b3', '/flip', '/dice', '/choose', '/order', '/stats', '/all', '/grovel', '/slap'].forEach(name =>
       assert.ok(gmCommands.commands.commands.some(entry => entry.name === name), `GM /commands lists ${name}`));
 
     assert.equal(serverErrors.trim(), '', 'no server errors');
