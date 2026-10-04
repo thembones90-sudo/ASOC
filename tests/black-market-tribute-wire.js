@@ -144,11 +144,15 @@ async function run() {
     // 6. The real submission: pact -> TRIBUTE_SUBMITTED on both sides at once.
     mark = player.mark();
     gmMark = gm.mark();
-    player.send({ type: 'blackMarket:tributeSubmit', pactId, imageData: PNG_DATA_URL, consent: true });
+    const requestId = 'bm-wire-submit-0001';
+    player.send({ type: 'blackMarket:tributeSubmit', pactId, imageData: PNG_DATA_URL, consent: true, requestId });
     const playerSees = await player.next(m => m.type === 'blackMarket:state' && pactOf(m, pactId)?.state === 'TRIBUTE_SUBMITTED', 'player sees the sealed offering', mark);
     const gmSees = await gm.next(m => m.type === 'blackMarket:gmState' && pactOf(m, pactId)?.state === 'TRIBUTE_SUBMITTED', 'GM sees the sealed offering', gmMark);
     assert.equal(pactOf(playerSees, pactId).state, 'TRIBUTE_SUBMITTED', 'the pact advances to TRIBUTE_SUBMITTED');
     assert.equal(pactOf(gmSees, pactId).state, 'TRIBUTE_SUBMITTED', 'the GM is told immediately, not on next poll');
+    const persisted = await player.next(m => m.type === 'blackMarket:ack' && m.requestId === requestId, 'persisted transaction acknowledgement', mark);
+    assert.equal(persisted.persisted, true);
+    assert.equal(persisted.state, 'TRIBUTE_SUBMITTED');
     // The image is withheld from the player copy and delivered only to the GM.
     assert.notEqual(pactOf(playerSees, pactId).tributeImageData, PNG_DATA_URL, 'the player copy does not echo the image back');
     assert.equal(pactOf(gmSees, pactId).tributeImageData, PNG_DATA_URL, 'the GM can inspect the submitted offering');

@@ -74,7 +74,8 @@ function publicPact(pact, host = false) {
 
 function playerView(state, playerId) {
   const bucket = ensurePlayer(state, playerId);
-  return { pacts: (bucket?.pacts || []).map(p => publicPact(p, false)).reverse() };
+  const pacts = (bucket?.pacts || []).map(p => publicPact(p, false)).reverse();
+  return { revision: pacts.reduce((max, pact) => Math.max(max, Number(pact.updatedAt) || 0), 0), pacts };
 }
 
 function gmView(state) {
@@ -82,7 +83,7 @@ function gmView(state) {
     .flatMap(bucket => bucket.pacts || [])
     .map(p => publicPact(p, true))
     .sort((a, b) => b.updatedAt - a.updatedAt);
-  return { pacts };
+  return { revision: pacts.reduce((max, pact) => Math.max(max, Number(pact.updatedAt) || 0), 0), pacts };
 }
 
 function createPetition(state, player, raw) {

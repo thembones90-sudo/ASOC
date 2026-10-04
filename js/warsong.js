@@ -12,10 +12,15 @@
     document.documentElement.classList.remove('warsong-alert-active');
   }
 
-  function play() {
+  function play(coordinated = false) {
+    if (!coordinated && window.AsocRuntime?.effects) {
+      window.AsocRuntime.effects.enqueue('warsong', DURATION_MS, () => play(true));
+      return;
+    }
     clear();
     const layer = document.createElement('div');
     layer.id = 'warsong-alert-layer';
+    layer.dataset.asocEffectLayer = 'warsong';
     layer.className = 'warsong-alert-layer';
     layer.setAttribute('role', 'alert');
     layer.setAttribute('aria-live', 'assertive');

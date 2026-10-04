@@ -1262,6 +1262,7 @@ const PlayerApp = {
       // Ignore callbacks from a socket that has already been superseded locally.
       if (this.ws !== socket) return;
       console.log('[PLAYER] WebSocket connected');
+      window.AsocRuntime?.socket?.('PLAYER CONNECTED');
       this._victoryBaselined = false;
       this._columnCascadeBaselined = false;
       this._columnCascadeStarts = {};
@@ -1285,6 +1286,7 @@ const PlayerApp = {
       if (this.ws !== socket) return;
       this.ws = null;
       console.log('[PLAYER] WebSocket closed', event.code, event.reason || '');
+      window.AsocRuntime?.socket?.('PLAYER CLOSED', `${event.code || 0} ${event.reason || ''}`);
       this.setChatDeliveryState('RECONNECTING', 'queued');
 
       // 4001 is the server's deliberate "newer login won" close. Reconnecting
@@ -1324,6 +1326,7 @@ const PlayerApp = {
     socket.onerror = (err) => {
       if (this.ws !== socket) return;
       console.error('[PLAYER] WebSocket error:', err);
+      window.AsocRuntime?.socket?.('PLAYER ERROR', err?.message || 'WebSocket error');
     };
   },
 
@@ -1381,6 +1384,7 @@ const PlayerApp = {
         break;
 
       case 'state:public': {
+        if (!window.AsocRuntime?.acceptRevision?.('player-public', message.revision) && window.AsocRuntime) break;
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         window.HeroRoles?.onState?.(message);
         window.Avada?.setState?.(message.avada);
@@ -1799,6 +1803,7 @@ const PlayerApp = {
 
       case 'error':
         if (message.code === 'HERO_ROLE') { window.HeroRoles?.onError?.(message.message); break; }
+        window.AsocRuntime?.record?.('server-rejection', message.message || 'COMMAND REJECTED', message.code || 'PLAYER');
         this.showError(message.message);
         window.Threefold?.onError?.(message);
         window.UnstableConcoction?.onError?.();

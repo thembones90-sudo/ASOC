@@ -42,6 +42,10 @@ jobs:
             node --check "$f" || exit 1
           done
 
+      - name: Enforce focused changes with regression coverage
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-change-scope.js "${{ github.event.pull_request.base.sha }}"
+
       # Runs every tests/*.js file and reports all failures (scripts/run-all-tests.js).
       - name: Run the complete test suite
         run: npm test

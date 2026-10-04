@@ -80,10 +80,14 @@
   }
 
   // ------------------------------------------------------------ the curse
-  function cast(emote) {
+  function cast(emote, coordinated = false) {
     const a = emote?.avada;
     if (!a || Date.now() < castUntil) return;
     const rebound = a.rebound === true;
+    if (!coordinated && window.AsocRuntime?.effects) {
+      window.AsocRuntime.effects.enqueue('avada', rebound ? 5200 : 4200, () => cast(emote, true));
+      return;
+    }
     castUntil = Date.now() + (rebound ? 5200 : 4200);
     const caster = person(emote.actorId, emote.actorName);
     const target = person(emote.targetId, emote.targetName);
@@ -91,6 +95,7 @@
     const W = innerWidth, H = innerHeight;
     const layer = document.createElement('div');
     layer.className = `avada-cast${rebound ? ' is-rebound' : ''}`;
+    layer.dataset.asocEffectLayer = 'avada';
     layer.setAttribute('aria-hidden', 'true');
     layer.innerHTML = `
       <span class="av-dark"></span>

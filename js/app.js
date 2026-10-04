@@ -2311,6 +2311,7 @@ const App = {
 
     this.ws.onopen = () => {
       console.log('[GM] WebSocket connected');
+      window.AsocRuntime?.socket?.('GM CONNECTED');
       document.querySelector('.gm-module-chat .gm-chat-panel')?.classList.remove('is-reconnecting');
       this.reconnectAttempts = 0;
       this._victoryBaselined = false;
@@ -2331,6 +2332,7 @@ const App = {
 
     this.ws.onclose = (event) => {
       console.log('[GM] WebSocket closed');
+      window.AsocRuntime?.socket?.('GM CLOSED', `${event?.code || 0} ${event?.reason || ''}`);
       if (event?.code === 4002 && !this._superseded) {
         this._superseded = true;
         this.showSupersededOverlay();
@@ -2345,6 +2347,7 @@ const App = {
 
     this.ws.onerror = (err) => {
       console.error('[GM] WebSocket error:', err);
+      window.AsocRuntime?.socket?.('GM ERROR', err?.message || 'WebSocket error');
     };
   },
 
@@ -2862,6 +2865,7 @@ const App = {
         break;
 
       case 'state:public':
+        if (!window.AsocRuntime?.acceptRevision?.('gm-public', message.revision) && window.AsocRuntime) break;
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         window.HeroRoles?.onState?.(message);
         window.Avada?.setState?.(message.avada);
@@ -3133,6 +3137,7 @@ const App = {
 
       case 'error':
         console.error('[GM] Server error:', message.message);
+        window.AsocRuntime?.record?.('server-rejection', message.message || 'COMMAND REJECTED', message.code || 'GM');
         if (message.code === 'TRANSMOG') window.BrokerTransmog?.onError?.(message.message);
         if (message.code === 'HERO_ROLE') window.HeroRoles?.onError?.(message.message);
         if (message.cmdId !== undefined) this.pendingCommands.delete(message.cmdId);
@@ -3177,6 +3182,7 @@ const App = {
   },
 
   applyServerState(state) {
+    this.revision = Number(state.revision) || 0;
     const nextRoomMode = state.roomMode || (state.armed === true ? 'BATTLE_ARMED' : 'CASUAL');
     const battleVisible = nextRoomMode !== 'CASUAL';
     const wasBattleVisible = this.roomMode !== 'CASUAL';
@@ -4259,6 +4265,7 @@ const App = {
   // leave the app without a visible cursor after dismissal.
   showGMCommandError(message) {
     const text = String(message || 'COMMAND REJECTED');
+    window.AsocRuntime?.record?.('command-rejected', text, 'GM');
     this.showScoreWarning(`COMMAND REJECTED // ${text}`);
     this.setGMDeliveryState('COMMAND REJECTED', 'error', 4200);
     const composer = this.getGMComposerElement();

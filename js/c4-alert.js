@@ -11,10 +11,15 @@
     document.documentElement.classList.remove('c4-alert-active');
   }
 
-  function play() {
+  function play(coordinated = false) {
+    if (!coordinated && window.AsocRuntime?.effects) {
+      window.AsocRuntime.effects.enqueue('c4', DURATION_MS, () => play(true));
+      return;
+    }
     clear();
     const layer = document.createElement('div');
     layer.id = 'c4-alert-layer';
+    layer.dataset.asocEffectLayer = 'c4';
     layer.className = 'c4-alert-layer';
     layer.setAttribute('role', 'img');
     layer.setAttribute('aria-label', 'C4 column explosive alert');

@@ -15,7 +15,7 @@
 .gm-backdoor-header span { color:#596872; font:800 .78rem var(--font-machine); letter-spacing:.14em; }
 .gm-backdoor-return { min-width:170px; min-height:40px; border:1px solid #9d7b27; background:linear-gradient(180deg,#332b17,#16130c); color:#f0cb63; font:900 .88rem var(--font-machine); letter-spacing:.11em; cursor:pointer; }
 .gm-backdoor-return:hover { border-color:#e5bb45; color:#fff2bd; box-shadow:0 0 14px rgba(213,169,53,.14); }
-.gm-backdoor-telemetry { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:10px 0; border:1px solid #29383f; background:#0b1014; }
+.gm-backdoor-telemetry { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); margin:10px 0; border:1px solid #29383f; background:#0b1014; }
 .gm-backdoor-telemetry > span { display:grid; gap:3px; min-width:0; padding:7px 10px; border-right:1px solid #26343a; }
 .gm-backdoor-telemetry > span:last-child { border-right:0; }
 .gm-backdoor-telemetry small { color:#52636b; font:800 .72rem var(--font-machine); letter-spacing:.14em; }
@@ -53,6 +53,18 @@
 .gm-backdoor-log-entries div:last-child { border-bottom:0; }
 .gm-backdoor-log-entries time { color:#53636b; font:700 .76rem var(--font-mono); }
 .gm-backdoor-log-entries span { color:#8e9ba1; font:700 .8rem var(--font-machine); letter-spacing:.065em; }
+.gm-runtime-diagnostics { margin:9px 0; border:1px solid #2d3f48; background:#080c0f; }
+.gm-runtime-diagnostics-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border-bottom:1px solid #26343a; }
+.gm-runtime-diagnostics-summary span { display:grid; gap:3px; padding:8px 10px; border-right:1px solid #26343a; }
+.gm-runtime-diagnostics-summary span:last-child { border-right:0; }
+.gm-runtime-diagnostics-summary small { color:#52636b; font:800 .66rem var(--font-machine); letter-spacing:.12em; }
+.gm-runtime-diagnostics-summary b { color:#9fc0c4; font:900 .8rem var(--font-machine); letter-spacing:.08em; }
+.gm-runtime-diagnostics-events { max-height:180px; overflow:auto; padding:5px 10px; }
+.gm-runtime-diagnostics-events div { display:grid; grid-template-columns:72px 110px minmax(0,1fr); gap:8px; padding:5px 0; border-bottom:1px solid rgba(48,61,68,.42); font:700 .72rem var(--font-machine); }
+.gm-runtime-diagnostics-events time,.gm-runtime-diagnostics-events b { color:#60747d; }
+.gm-runtime-diagnostics-events span { color:#9aa7ac; overflow-wrap:anywhere; }
+.gm-runtime-diagnostics-events p { color:#59666c; font:800 .7rem var(--font-machine); letter-spacing:.1em; }
+.gm-safe-mode-btn.active { border-color:#d9a927 !important; color:#ffe399 !important; box-shadow:inset 0 0 20px rgba(217,169,39,.1); }
 .gm-shadow-realm-audit { margin:9px 0; border:1px solid #393144; background:linear-gradient(180deg,#0e0b12,#08090c); }
 .gm-shadow-realm-history { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:7px; max-height:260px; overflow:auto; padding:10px; }
 .gm-shadow-realm-history>p { grid-column:1/-1; color:#615a68; font:800 .7rem var(--font-machine); letter-spacing:.12em; }
@@ -89,6 +101,9 @@ body.room-mode-casual #gm-panel.maintenance-open .gm-content { overflow-y:auto !
   .gm-backdoor-telemetry > span:nth-child(2) { border-right:0; }
   .gm-backdoor-telemetry > span:nth-child(-n+2) { border-bottom:1px solid #26343a; }
 }
+
+html.asoc-safe-mode *, html.asoc-safe-mode *::before, html.asoc-safe-mode *::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+html.asoc-safe-mode :is(#warsong-alert-layer,#c4-alert-layer,#b3-alert-layer,.avada-cast,.shadow-fx-layer,.drug-heartbeat,.flash-freeze,.hug-burst) { display:none !important; }
 @media (max-width:620px) {
   .gm-backdoor-header { align-items:stretch; flex-direction:column; }
   .gm-backdoor-return { width:100%; }

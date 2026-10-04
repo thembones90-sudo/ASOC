@@ -48,7 +48,7 @@ const ControlSurfaces = {
 
     const telemetry = document.createElement('div');
     telemetry.className = 'gm-backdoor-telemetry';
-    telemetry.innerHTML = '<span><small>ROOM</small><b id="backdoor-room">LOCAL</b></span><span><small>HEROES</small><b id="backdoor-heroes">0</b></span><span><small>GAME STATE</small><b id="backdoor-state">STANDBY</b></span><span><small>LAYOUT</small><b id="backdoor-layout">UNLOCKED</b></span>';
+    telemetry.innerHTML = '<span><small>ROOM</small><b id="backdoor-room">LOCAL</b></span><span><small>HEROES</small><b id="backdoor-heroes">0</b></span><span><small>GAME STATE</small><b id="backdoor-state">STANDBY</b></span><span><small>REVISION</small><b id="backdoor-revision">0</b></span><span><small>LINK</small><b id="backdoor-link">OFFLINE</b></span><span><small>BUILD</small><b id="backdoor-build">UNKNOWN</b></span>';
     maintenance.appendChild(telemetry);
 
     const primaryGrid = document.createElement('div');
@@ -110,6 +110,12 @@ const ControlSurfaces = {
     log.innerHTML = '<div class="gm-backdoor-log-head"><strong>SYSTEM EVENT LOG</strong><span>LIVE // LOCAL AUDIT</span></div><div id="gm-backdoor-log-entries" class="gm-backdoor-log-entries"></div>';
     maintenance.appendChild(log);
 
+    const diagnostics = document.createElement('section');
+    diagnostics.className = 'gm-runtime-diagnostics';
+    diagnostics.innerHTML = '<div class="gm-backdoor-log-head"><strong>RUNTIME DIAGNOSTICS</strong><span>SOCKET · ERRORS · STALE STATE · EFFECT QUEUE</span></div><div class="gm-runtime-diagnostics-summary" id="gm-runtime-diagnostics-summary"></div><div class="gm-runtime-diagnostics-events" id="gm-runtime-diagnostics-events"><p>NO RUNTIME FAULTS RECORDED</p></div>';
+    maintenance.appendChild(diagnostics);
+    window.addEventListener('asoc:diagnostic', () => this.refreshDiagnostics());
+
     const realmAudit = document.createElement('section');
     realmAudit.className = 'gm-shadow-realm-audit';
     realmAudit.innerHTML = '<div class="gm-backdoor-log-head"><strong>SHADOW REALM LEDGER</strong><span>SENTENCES // RELEASES // RETURNS</span></div><div id="gm-shadow-realm-history" class="gm-shadow-realm-history"><p>NO SENTENCES RECORDED</p></div>';
@@ -146,6 +152,17 @@ const ControlSurfaces = {
       this.app?.resetGMPanelLayout?.();
     });
     recovery.appendChild(layoutReset);
+
+    const safeMode = document.createElement('button');
+    safeMode.type = 'button';
+    safeMode.id = 'gm-safe-mode-btn';
+    safeMode.className = 'gm-global-btn gm-safe-mode-btn';
+    safeMode.addEventListener('click', () => {
+      const enabled = window.AsocRuntime?.setSafeMode?.(!window.AsocRuntime?.safeMode?.());
+      if (enabled) window.AsocRuntime?.effects?.clear?.();
+      this.refreshDiagnostics();
+    });
+    recovery.appendChild(safeMode);
 
     // RESET SCOREBOARD: wipes every Battle score and record, keeps Shadow Coins.
     const scoreboardReset = document.createElement('button');
@@ -213,6 +230,8 @@ const ControlSurfaces = {
     });
     this.recordEvent('OPERATOR CONSOLE // READY');
     this.updateSessionSummary();
+    this.refreshBuildIdentity();
+    this.refreshDiagnostics();
   },
 
   recordEvent(message) {
@@ -244,12 +263,40 @@ const ControlSurfaces = {
       this.recordEvent('BACKDOOR // ACCESS GRANTED');
       this.app?.send?.({ type:'gm:shadowRealmHistory' });
       window.RecountLedger?.refresh?.();
+      this.refreshBuildIdentity();
+      this.refreshDiagnostics();
     }
     const scroll = document.querySelector('.gm-content');
     if (scroll) scroll.scrollTop = 0;
   },
 
   toggle() { this.setOpen(!!document.getElementById('gm-maintenance')?.hidden); },
+
+  async refreshBuildIdentity() {
+    const node = document.getElementById('backdoor-build');
+    if (!node) return;
+    try {
+      const response = await fetch(`/api/build?t=${Date.now()}`, { cache: 'no-store' });
+      const build = response.ok ? await response.json() : null;
+      node.textContent = String(build?.buildId || 'UNKNOWN').slice(0, 12).toUpperCase();
+      node.title = build ? `${build.buildId || ''} // ${build.startedAt || ''}` : '';
+    } catch (_) { node.textContent = 'UNREACHABLE'; }
+  },
+
+  refreshDiagnostics() {
+    const snapshot = window.AsocRuntime?.snapshot?.() || { events: [], queuedEffects: [] };
+    const summary = document.getElementById('gm-runtime-diagnostics-summary');
+    const events = document.getElementById('gm-runtime-diagnostics-events');
+    const safeButton = document.getElementById('gm-safe-mode-btn');
+    if (safeButton) {
+      safeButton.textContent = snapshot.safeMode ? 'DISABLE SAFE MODE' : 'ENABLE SAFE MODE';
+      safeButton.classList.toggle('active', !!snapshot.safeMode);
+    }
+    if (summary) summary.innerHTML = `<span><small>SAFE MODE</small><b>${snapshot.safeMode ? 'ON' : 'OFF'}</b></span><span><small>ACTIVE EFFECT</small><b>${this.escape(snapshot.activeEffect?.name || 'NONE')}</b></span><span><small>QUEUED</small><b>${snapshot.queuedEffects?.length || 0}</b></span><span><small>NETWORK</small><b>${snapshot.online ? 'ONLINE' : 'OFFLINE'}</b></span>`;
+    if (events) events.innerHTML = snapshot.events?.length
+      ? snapshot.events.slice(0, 20).map(entry => `<div><time>${new Date(entry.at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' })}</time><b>${this.escape(entry.kind)}</b><span>${this.escape(entry.message)}${entry.detail ? ` // ${this.escape(entry.detail)}` : ''}</span></div>`).join('')
+      : '<p>NO RUNTIME FAULTS RECORDED</p>';
+  },
 
   updateShadowRealmHistory(entries = [], now = Date.now()) {
     const node = document.getElementById('gm-shadow-realm-history');
@@ -277,6 +324,8 @@ const ControlSurfaces = {
       'backdoor-room': multiplayer ? 'MASTER ROOM' : 'LOCAL',
       'backdoor-heroes': String(players.length),
       'backdoor-state': roomMode,
+      'backdoor-revision': String(Number(app.state?.revision ?? app.revision ?? 0) || 0),
+      'backdoor-link': app.ws?.readyState === 1 ? 'STABLE' : 'OFFLINE',
       'backdoor-layout': layoutLocked ? 'LOCKED' : 'UNLOCKED'
     };
     Object.entries(values).forEach(([id, value]) => {

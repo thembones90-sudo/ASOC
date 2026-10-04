@@ -109,6 +109,7 @@
   function screenLayer(className, label) {
     const layer = document.createElement('div');
     layer.className = 'shadow-fx-layer ' + className;
+    layer.dataset.asocEffectLayer = className;
     layer.setAttribute('aria-hidden', 'true');
     layer.innerHTML = '<i></i><b>' + escape(label) + '</b>';
     document.body.appendChild(layer);
@@ -124,11 +125,14 @@
     if (Date.now() - Number(msg.timestamp || 0) > 8000) return;
     if (fx === 'avada') { window.Avada?.fromEmote?.(msg.emote.avada); setTimeout(() => window.Avada?.cast?.(msg.emote), 0); return; }
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    if (fx === 'love') { setTimeout(loveBurst, 0); return; }
-    if (fx === 'drug') { setTimeout(drugHeartbeat, 0); return; }
-    if (fx === 'freeze') { setTimeout(flashFreeze, 0); return; }
-    if (fx === 'hug') { setTimeout(() => hugBurst(msg.emote), 0); return; }
-    setTimeout(() => screenLayer('shadow-fx-' + fx, String(msg.emote.label || fx).toUpperCase()), 0);
+    const play = fx === 'love' ? loveBurst
+      : fx === 'drug' ? drugHeartbeat
+      : fx === 'freeze' ? flashFreeze
+      : fx === 'hug' ? () => hugBurst(msg.emote)
+      : () => screenLayer('shadow-fx-' + fx, String(msg.emote.label || fx).toUpperCase());
+    const duration = fx === 'drug' ? 3600 : fx === 'freeze' ? 3200 : 2100;
+    if (window.AsocRuntime?.effects) window.AsocRuntime.effects.enqueue(`command:${fx}`, duration, play);
+    else setTimeout(play, 0);
   }
 
   // /drug -- a toxic-green heartbeat: a glowing heart thumps lub-dub three

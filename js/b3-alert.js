@@ -11,10 +11,15 @@
     document.documentElement.classList.remove('b3-alert-active');
   }
 
-  function play() {
+  function play(coordinated = false) {
+    if (!coordinated && window.AsocRuntime?.effects) {
+      window.AsocRuntime.effects.enqueue('b3', DURATION_MS, () => play(true));
+      return;
+    }
     clear();
     const layer = document.createElement('div');
     layer.id = 'b3-alert-layer';
+    layer.dataset.asocEffectLayer = 'b3';
     layer.className = 'b3-alert-layer';
     layer.setAttribute('role', 'img');
     layer.setAttribute('aria-label', 'Baki B3 battle alert');

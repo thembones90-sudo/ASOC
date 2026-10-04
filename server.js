@@ -217,6 +217,7 @@ const DEPLOY_BUILD_ID = String(
   || process.env.GIT_COMMIT
   || `local-${fs.statSync(__filename).mtimeMs}`
 );
+const DEPLOY_STARTED_AT = new Date().toISOString();
 const EMAIL_VERIFICATION_REQUIRED = process.env.ASOC_EMAIL_VERIFICATION !== '0';
 
 // Administrative Shadow Coin grants are NOT run at startup. The 2026-09-28
@@ -2123,6 +2124,8 @@ function handleBlackMarket(ws, message) {
   const room = blackMarketRoom(ws);
   if (!room) return;
   const isHost = ws === room.hostConnection;
+  const requestId = /^[a-z0-9-]{8,80}$/i.test(String(message.requestId || '')) ? String(message.requestId) : '';
+  const blackMarketError = text => sendToWs(ws, { type: 'blackMarket:error', message: text, ...(requestId ? { requestId } : {}) });
   const state = room.blackMarket = blackMarket.normalizeState(room.blackMarket);
   if (message.type === 'blackMarket:sync') {
     if (isHost) sendBlackMarketGm(room);
@@ -2141,32 +2144,34 @@ function handleBlackMarket(ws, message) {
       if (/^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(imageUrl)) {
         const claim = blackMarketUploadClaims.get(imageUrl);
         if (!claim || String(claim.playerId) !== String(ws.playerId) || String(claim.pactId) !== String(message.pactId)) {
-          return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING IS INVALID' });
+          return blackMarketError('THE OFFERING IS INVALID');
         }
         const filename = path.basename(imageUrl);
         if (!fs.existsSync(path.join(CHAT_UPLOAD_DIR, filename))) {
           blackMarketUploadClaims.delete(imageUrl);
-          return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING WAS LOST' });
+          return blackMarketError('THE OFFERING WAS LOST');
         }
         imageRef = imageUrl;
       } else {
         imageRef = sanitizeTributeImageData(message.imageData) || '';
       }
-      if (!imageRef) return sendToWs(ws, { type: 'blackMarket:error', message: 'THE OFFERING IS INVALID' });
+      if (!imageRef) return blackMarketError('THE OFFERING IS INVALID');
       result = blackMarket.submitTribute(state, ws.playerId, message.pactId, imageRef, message.consent === true);
       if (!result?.error && imageUrl) blackMarketUploadClaims.delete(imageUrl);
     } else return;
-    if (result?.error) return sendToWs(ws, { type: 'blackMarket:error', message: result.error });
+    if (result?.error) return blackMarketError(result.error);
     persistActiveRooms();
     syncBlackMarket(room, ws.playerId);
+    if (requestId) sendToWs(ws, { type: 'blackMarket:ack', requestId, action: message.type, pactId: result?.pact?.id || null, state: result?.pact?.state || null, persisted: true });
     return;
   }
   if (!['blackMarket:gmDecision', 'blackMarket:tributeJudge'].includes(message.type)) return;
   if (message.type === 'blackMarket:gmDecision') {
     const result = blackMarket.gmDecision(state, message);
-    if (result?.error) return sendToWs(ws, { type: 'blackMarket:error', message: result.error });
+    if (result?.error) return blackMarketError(result.error);
     persistActiveRooms();
     syncBlackMarket(room, result.pact.playerId);
+    if (requestId) sendToWs(ws, { type: 'blackMarket:ack', requestId, action: message.type, pactId: result.pact.id, state: result.pact.state, persisted: true });
     return;
   }
   const pact = blackMarket.findPact(state, message.pactId);
@@ -2195,6 +2200,7 @@ function handleBlackMarket(ws, message) {
   }
   persistActiveRooms();
   syncBlackMarket(room, pact.playerId);
+  if (requestId) sendToWs(ws, { type: 'blackMarket:ack', requestId, action: message.type, pactId: pact.id, state: pact.state, persisted: true });
 }
 
 function handleBloodTributeVaultClear(ws) {
@@ -6642,9 +6648,12 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/commands', help: '/commands -- this list' }
 ];
 
-const GM_CHAT_SLASH_COMMANDS = [
+// The GM command directory inherits the complete player directory and adds
+// authority-only commands. This is deliberately composed instead of copied:
+// adding a player command can no longer leave the Shadow Broker's /commands
+// list stale or imply that the GM lacks that capability.
+const GM_ONLY_SLASH_COMMANDS = [
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
-  { name: '/fireworks', help: '/fireworks [message] -- light up every screen with a fireworks show' },
   { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
   { name: '/b3', help: '/b3 -- manually trigger the three-second Baki B3 battle tribute' },
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
@@ -6655,41 +6664,11 @@ const GM_CHAT_SLASH_COMMANDS = [
   { name: '/hug', help: '/hug [@Name] -- the Broker hugs someone (or everyone)' },
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
   { name: '/award', help: '/award @Name drug -- grant a Shadow Market relic command (e.g. /drug)' },
-  { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' },
-  { name: '/dice', help: '/dice 2d6 -- roll N dice with M faces, optional +K' },
-  { name: '/flip', help: '/flip [heads|tails] -- coin flip' },
-  { name: '/choose', help: '/choose A | B | C -- pick one option at random' },
-  { name: '/order', help: '/order -- shuffled turn order of connected players' },
-  { name: '/stats', help: '/stats -- the Broker consults the book' },
-  { name: '/all', help: '/all [message] -- shake every screen' },
-  { name: '/grovel', help: '/grovel -- demand groveling' },
-  { name: '/spit', help: '/spit @Name -- the Broker spits too' },
-  { name: '/fart', help: '/fart @Name -- the Broker farts too' },
-  { name: '/hiss', help: '/hiss Name|all -- the Broker hisses at one target or everyone' },
-  { name: '/nod', help: '/nod @Name -- acknowledge a Little Hero' },
-  { name: '/slap', help: '/slap @Name -- the Broker emotes too' },
-  { name: '/moon', help: '/moon @Name -- the Broker emotes too' },
-  { name: '/chicken', help: '/chicken @Name -- the Broker emotes too' },
-  { name: '/violin', help: '/violin @Name -- the Broker emotes too' },
-  { name: '/golfclap', help: '/golfclap @Name -- the Broker emotes too' },
-  { name: '/pity', help: '/pity @Name -- the Broker emotes too' },
-  { name: '/mock', help: '/mock @Name -- the Broker emotes too' },
-  { name: '/poke', help: '/poke @Name -- the Broker emotes too' },
-  { name: '/bonk', help: '/bonk @Name -- the Broker emotes too' },
-  { name: '/taunt', help: '/taunt @Name -- the Broker emotes too' },
-  { name: '/threaten', help: '/threaten @Name -- the Broker emotes too' },
-  { name: '/lick', help: '/lick @Name -- the Broker emotes too' },
-  { name: '/train', help: '/train @Name -- the Broker emotes too' },
-  { name: '/ass', help: '/ass @Name -- the Broker kicks ass too' },
-  { name: '/facepalm', help: '/facepalm -- the Broker emotes too' },
-  { name: '/cower', help: '/cower -- the Broker emotes too' },
-  { name: '/flee', help: '/flee -- the Broker emotes too' },
-  { name: '/cackle', help: '/cackle -- the Broker emotes too' },
-  { name: '/rofl', help: '/rofl -- the Broker emotes too' },
-  { name: '/burp', help: '/burp -- the Broker emotes too' },
-  { name: '/oom', help: '/oom -- the Broker emotes too' },
-  { name: '/commands', help: 'This list' }
+  { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' }
 ];
+const GM_CHAT_SLASH_COMMANDS = Array.from(new Map(
+  [...CHAT_SLASH_COMMANDS, ...GM_ONLY_SLASH_COMMANDS].map(command => [command.name, command])
+).values());
 
 function pushChatMessage(room, message) {
   attachChatReceipts(room, message);
@@ -11312,7 +11291,7 @@ function handleApiRequest(req, res) {
 
   if (url.pathname === '/api/build' && method === 'GET') {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
-    return sendJson(res, 200, { buildId: DEPLOY_BUILD_ID });
+    return sendJson(res, 200, { buildId: DEPLOY_BUILD_ID, startedAt: DEPLOY_STARTED_AT, protocolVersion: 1 });
   }
 
   if (method === 'GET' && (url.pathname === '/api/gif/search' || url.pathname === '/api/gif/trending')) {

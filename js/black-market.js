@@ -64,6 +64,7 @@
       const original = host[method].bind(host);
       host[method] = message => {
         if (message?.type === 'blackMarket:state' || message?.type === 'blackMarket:gmState') {
+          if (!window.AsocRuntime?.acceptRevision?.(isGM ? 'black-market-gm' : 'black-market-player', message.revision) && window.AsocRuntime) return;
           this.pacts = Array.isArray(message.pacts) ? message.pacts : [];
           if (!isGM && this._tributeAwaitingPactId) {
             const submitted = this.pacts.find(p => p.id === this._tributeAwaitingPactId && p.state === 'TRIBUTE_SUBMITTED');
@@ -83,12 +84,18 @@
           return;
         }
         if (message?.type === 'blackMarket:error') {
+          window.AsocRuntime?.record?.('transaction-rejected', message.message || 'BLACK MARKET ERROR', message.requestId || 'black-market');
           if (this._tributeAwaitingPactId || this._tributeBusy) {
             this.releaseTribute();
             if (document.getElementById('black-market-overlay')) this.render();
             this.send({ type: 'blackMarket:sync' });
           }
           this.toast(message.message || 'THE PACT REJECTS YOUR HAND');
+          return;
+        }
+        if (message?.type === 'blackMarket:ack') {
+          window.AsocRuntime?.record?.('transaction-persisted', message.action || 'BLACK MARKET', `${message.pactId || ''} ${message.state || ''}`);
+          if (message.action === 'blackMarket:tributeSubmit' && message.pactId === this._tributeAwaitingPactId && message.state === 'TRIBUTE_SUBMITTED') this.confirmTributeSubmission();
           return;
         }
         const result = original(message);
@@ -410,7 +417,8 @@
           this.releaseTribute();
           return this.toast('THE OFFERING IS INVALID');
         }
-        const sent = this.send({ type:'blackMarket:tributeSubmit', pactId, imageData, consent:true }) === true;
+        const requestId = `bm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+        const sent = this.send({ type:'blackMarket:tributeSubmit', pactId, imageData, consent:true, requestId }) === true;
         if (!sent) {
           this.releaseTribute();
           return this.toast('THE RELIQUARY HAS LOST THE LINK');

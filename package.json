@@ -10,6 +10,8 @@
     "test:creator": "node tests/forge-creator.js && node tests/forge-xlsx-export.js",
     "test:quests": "node tests/quests.js && node tests/daily-contracts.js && node tests/quest-visuals.js && node tests/board-celebrations.js",
     "test:roulette-carnage": "node tests/roulette-carnage.js && node tests/roulette-carnage-server.js",
+    "test:reinforcement": "node tests/reinforcement.js && node tests/black-market-tribute.js && node tests/black-market-tribute-wire.js && node tests/chat-acts.js && node tests/hardening.js",
+    "verify:scope": "node scripts/check-change-scope.js",
     "test": "node scripts/run-all-tests.js"
   },
   "dependencies": {
