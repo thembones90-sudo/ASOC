@@ -55,6 +55,13 @@
     const draft = draftBox ? { value: draftBox.value, focused: document.activeElement === draftBox, start: draftBox.selectionStart, end: draftBox.selectionEnd, thread: state.thread?.other?.id } : null;
     el.hidden = !state.open;
     const unread = state.list.reduce((n,c) => n + Number(c.unread || 0), 0);
+    const toggle = document.getElementById('gm-dm-toggle');
+    const alerting = unread > 0 && !state.open;
+    if (toggle) {
+      toggle.classList.toggle('has-unread', alerting);
+      toggle.dataset.unread = unread ? String(unread) : '';
+      toggle.setAttribute('aria-label', unread ? `Private channels, ${unread} unread message${unread === 1 ? '' : 's'}` : 'Private channels');
+    }
     el.innerHTML = '<header><span>PRIVATE CHANNELS</span>' + (unread ? '<b>' + unread + '</b>' : '') + '<small>SHADOW BROKER // DIRECT</small></header>' +
       (state.error ? '<div class="gm-dm-flash error">' + esc(state.error) + '</div>' : state.notice ? '<div class="gm-dm-flash">' + esc(state.notice) + '</div>' : '') +
       (state.thread ? threadHTML() : '<div class="gm-dm-roster">' + rosterHTML() + '</div>');

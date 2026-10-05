@@ -1,5 +1,36 @@
 /* SHADOW BROKER PRIVATE CHANNELS // first-class tab inside GM chat */
 .gm-dm-console{display:none}
+/* New private transmission alert: pulse only while the tab is closed and unread DMs exist. */
+.gm-dm-toggle.has-unread{
+  position:relative;
+  z-index:1;
+  color:#fff3ff !important;
+  border-color:#d95cff !important;
+  animation:gmDmUnreadFlash 1.05s ease-in-out infinite;
+}
+.gm-dm-toggle.has-unread::after{
+  content:attr(data-unread);
+  position:absolute;
+  top:5px;
+  right:7px;
+  min-width:16px;
+  height:16px;
+  padding:0 4px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,255,255,.55);
+  border-radius:9px;
+  background:#c62d72;
+  box-shadow:0 0 10px rgba(233,63,172,.85);
+  color:#fff;
+  font:900 10px/1 var(--font-machine,ui-monospace,monospace);
+  letter-spacing:0;
+}
+@keyframes gmDmUnreadFlash{
+  0%,100%{background:linear-gradient(180deg,rgba(79,31,104,.96),rgba(42,18,59,.98));box-shadow:inset 0 0 0 1px rgba(201,100,255,.35),0 0 6px rgba(196,65,255,.22)}
+  50%{background:linear-gradient(180deg,rgba(180,46,130,.98),rgba(91,25,91,.98));box-shadow:inset 0 0 0 1px rgba(255,184,247,.78),0 0 18px rgba(236,75,210,.9),0 0 34px rgba(150,58,255,.45)}
+}
+@media (prefers-reduced-motion:reduce){.gm-dm-toggle.has-unread{animation:none;box-shadow:0 0 14px rgba(236,75,210,.72)}}
 /* The main ASOC sheet has late ID-scoped layout rules for the public feed.
    Match that specificity here so PRIVATE CHANNELS is an exclusive view, not
    a header placed above Battle Comms. */
