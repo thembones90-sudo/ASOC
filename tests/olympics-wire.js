@@ -36,11 +36,17 @@ assert.match(ui, /ENTER AS SHADOW BROKER/, 'GM lobby exposes a real tournament e
 assert.match(ui, /DISMISSED_KEY = 'asoc_olympics_dismissed_id'/, 'Olympics dismissal is persisted per browser tab');
 assert.match(ui, /state\.dismissedId === tournamentId/, 'incoming state respects a dismissed tournament instead of force-opening it');
 assert.match(ui, /safeStorage\.set\(DISMISSED_KEY, ''\)/, 'manual reopen can clear the dismissal lock');
+assert.match(ui, /if \(!isCasualMode\(\)\) \{ state\.open = false; ensure\(\)\.hidden = true; return; \}/, 'Battle Mode suppresses the Olympics overlay');
+assert.match(ui, /state\.data\?\.joined && state\.data\.status === 'running'/, 'only a live joined tournament auto-opens');
+assert.doesNotMatch(ui, /\['running', 'complete'\]\.includes/, 'completed Olympics archives do not resurrect on state sync');
 assert.match(ui, /a\.id !== viewer[\s\S]*supportButton\(a\)/, 'active competitors can visibly support the opponent');
 assert.match(server, /awardShadowCoins\(account, 5, `olympics:\$\{room\.olympics\.id\}:champion`/, 'Little Hero champion earns exactly 5 Shadow Coin with an idempotent tournament receipt');
 assert.match(server, /const account = coinAccount\(event\.playerId, champion\)/, 'GM champion payout is excluded by the shared coinAccount guard');
 
 assert.match(gm, /data-open-olympics/, 'GM arcade exposes Olympics');
 assert.match(player, /data-open-olympics/, 'player arcade exposes Olympics');
+for (const [surface, html] of [['GM', gm], ['player', player]]) {
+  assert.match(html, /js\/olympics-ui\.js\?v=20261005-olympics-2/, `${surface} loads the Battle Mode overlay fix`);
+}
 
 console.log('PASS Olympics wire authority, private projections, recovery, controls and both arcade entry points');

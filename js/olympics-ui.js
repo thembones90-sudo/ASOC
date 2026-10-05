@@ -10,6 +10,7 @@
   const state = { data: null, championId: null, open: false, error: '', invitedId: safeStorage.get(INVITED_KEY), dismissedId: safeStorage.get(DISMISSED_KEY), lastReveal: '' };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   const app = () => window.App || window.PlayerApp;
+  const isCasualMode = () => String(app()?.roomMode || '').toUpperCase() === 'CASUAL';
   const isGm = () => !!window.App && !window.PlayerApp;
   const me = () => isGm() ? '__GM__' : String(window.PlayerApp?.playerId || '');
   const send = payload => app()?.send?.(payload);
@@ -32,6 +33,7 @@
     ensure().hidden = true;
   }
   function open() {
+    if (!isCasualMode()) { state.open = false; ensure().hidden = true; return; }
     state.open = true;
     if (state.data?.id && state.dismissedId === String(state.data.id)) { state.dismissedId = ''; safeStorage.set(DISMISSED_KEY, ''); }
     render();
@@ -162,12 +164,13 @@
     const hadTournament = !!state.data;
     state.data = message.state || null; state.championId = message.championId || state.data?.championId || null; state.error = ''; updateCards();
     if (hadTournament && !state.data) { state.invitedId = ''; state.dismissedId = ''; safeStorage.set(INVITED_KEY, ''); safeStorage.set(DISMISSED_KEY, ''); return close(); }
+    if (!isCasualMode()) { state.open = false; ensure().hidden = true; return; }
     const tournamentId = String(state.data?.id || '');
     const dismissed = tournamentId && state.dismissedId === tournamentId;
     if (!isGm() && state.data?.status === 'lobby' && !state.data.joined && state.invitedId !== tournamentId && !dismissed) {
       state.invitedId = tournamentId; safeStorage.set(INVITED_KEY, tournamentId); state.open = true;
     }
-    if (!dismissed && state.data?.joined && ['running', 'complete'].includes(state.data.status)) state.open = true;
+    if (!dismissed && state.data?.joined && state.data.status === 'running') state.open = true;
     if (state.open) render();
   }
   document.addEventListener('click', event => {

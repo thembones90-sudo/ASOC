@@ -74,6 +74,20 @@
     setTimeout(() => decorateRoster(document), 60500);
   }
 
+  function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+  }
+
+  function avatarFor(playerId, name, broker = false) {
+    if (broker) return '<img src="assets/ui/shadow-broker.png" alt="">';
+    const entry = Array.from(document.querySelectorAll('[data-player-id]'))
+      .find(node => String(node.dataset.playerId || '') === String(playerId || ''));
+    const image = entry?.querySelector('img');
+    const source = image?.currentSrc || image?.src || '';
+    if (source) return `<img src="${escapeHtml(source)}" alt="">`;
+    return `<span>${escapeHtml(String(name || '?').trim().slice(0, 2).toUpperCase())}</span>`;
+  }
+
   function onMessage(message, viewerId) {
     if (!message || message.type !== 'backstab:strike') return;
     clearExisting();
@@ -102,10 +116,21 @@
     const detail = failed
       ? `${message.actorName || 'Someone'} tried to backstab ${message.intendedTargetName || 'someone'} and stabbed themselves instead.`
       : `${message.actorName || 'Someone'} backstabbed ${message.victimName || 'someone'}.`;
+    const actorAvatar = avatarFor(message.actorId, message.actorName, !message.actorId);
+    const victimAvatar = avatarFor(message.victimId, message.victimName, false);
 
     layer.innerHTML = `
       <div class="backstab-vignette" aria-hidden="true"></div>
       <div class="backstab-stage" aria-hidden="true">
+        <div class="backstab-character backstab-victim">
+          <div class="backstab-avatar">${victimAvatar}</div>
+          <b>${escapeHtml(message.victimName || 'TARGET')}</b>
+        </div>
+        <div class="backstab-character backstab-attacker">
+          <div class="backstab-avatar">${actorAvatar}</div>
+          <i class="backstab-arm"></i>
+          <b>${escapeHtml(message.actorName || 'ATTACKER')}</b>
+        </div>
         <div class="backstab-dagger">
           <div class="backstab-blade"></div>
           <div class="backstab-guard"></div>
