@@ -51,6 +51,7 @@
         else if (launch.dataset.gmMinigame === 'rage') window.RageGame?.show?.();
         else if (launch.dataset.gmMinigame === 'rouletteCarnage') window.RouletteCarnageUI?.open?.('gm');
         else if (launch.dataset.gmMinigame === 'sibicar') window.SibicarUI?.open?.();
+        else if (launch.dataset.gmMinigame === 'olympics') window.OlympicsUI?.open?.();
         else this.spinConcoction();
         return;
       }

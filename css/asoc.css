@@ -21955,3 +21955,31 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
   --theme-border: #222831;
   --theme-text: #c7cbd2;
 }
+
+/* ROCK / PAPER / SCISSORS OLYMPICS // persistent champion identity. */
+.oly-mini-art {
+  display: grid;
+  place-items: center;
+  font-size: clamp(25px, 3vw, 42px);
+  letter-spacing: -.18em;
+  filter: grayscale(.2) drop-shadow(0 0 10px rgba(190, 55, 75, .35));
+}
+.olympic-champion-avatar {
+  box-shadow: 0 0 0 2px #d5ad58, 0 0 18px rgba(213, 173, 88, .65) !important;
+}
+.olympic-champion-marker {
+  position: absolute;
+  right: -8px;
+  top: -10px;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #f3ce71;
+  border-radius: 50%;
+  background: #211607;
+  color: #ffd66c;
+  font: normal 12px/1 sans-serif;
+  filter: drop-shadow(0 2px 4px #000);
+}

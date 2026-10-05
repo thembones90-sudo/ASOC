@@ -30,6 +30,7 @@ const dailyContracts = require('./daily-contracts');
 const rouletteCarnage = require('./roulette-carnage');
 const sibicar = require('./sibicar');
 const dennisAI = require('./dennis-ai');
+const olympics = require('./olympics');
 const { createChatUploadGuard } = require('./chat-upload-guard');
 const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
@@ -549,6 +550,10 @@ function serializeRoomForRecovery(room) {
     commandReceipts: room.commandReceipts || [],
     quests: questEngine.normalizeState(room.quests),
     dennisAI: dennisAI.normalizeState(room.dennisAI),
+    // RPS OLYMPICS is isolated from board/session state. Private selections
+    // are persisted here but are projected through olympics.view() only.
+    olympics: olympics.normalizeState(room.olympics),
+    olympicsChampionId: room.olympicsChampionId || null,
     players
   };
 }
@@ -688,6 +693,8 @@ function restoreActiveRooms() {
         commandReceipts: Array.isArray(saved.commandReceipts) ? saved.commandReceipts.slice(-2048) : [],
         quests: questEngine.normalizeState(saved.quests),
         dennisAI: dennisAI.normalizeState(saved.dennisAI),
+        olympics: olympics.resumeAfterRestart(saved.olympics, Date.now()),
+        olympicsChampionId: saved.olympicsChampionId || saved.olympics?.championId || null,
         // Per-board match ledger (RECOUNT data capture). Only trusted when it
         // belongs to the restored board; an older snapshot without one just
         // starts a fresh ledger for the current board.
@@ -1366,6 +1373,9 @@ function createRoom(gameId, hostWs) {
     // schedule is persisted separately so restarts cannot duplicate or skip
     // the required first message of the Belgrade day.
     dennisAI: dennisAI.normalizeState(null),
+    // ROCK PAPER SCISSORS OLYMPICS -- independent side-event state.
+    olympics: null,
+    olympicsChampionId: null,
     // MATCH LEDGER -- per-board data capture for the post-game RECOUNT (see
     // match-ledger.js). Replaced with a fresh ledger whenever a new board id
     // is minted (RESET BOARD / NEXT GAME).
@@ -5349,6 +5359,131 @@ function applyThreefoldArena(room, game) {
 }
 
 // ---------------------------------------------------------------------
+// ROCK PAPER SCISSORS OLYMPICS -- isolated, server-authoritative side event.
+// olympics.js owns the bracket and private hands. This layer owns socket
+// identity, personalized projections, persistence and major chat ceremony.
+// ---------------------------------------------------------------------
+function olympicsActor(room, ws) {
+  if (!room || !ws) return null;
+  if (ws === room.hostConnection && ws.isHost === true) return { id: '__GM__', name: 'SHADOW BROKER', isGm: true, connected: true };
+  const player = room.players.get(ws);
+  if (!player || !ws.playerId || String(player.id) !== String(ws.playerId)) return null;
+  return { ...player, id: String(player.id), isGm: false, connected: ws.readyState === 1 && player.connected !== false };
+}
+
+function sendOlympicsState(room, ws) {
+  if (!room || ws?.readyState !== 1) return;
+  const actor = olympicsActor(room, ws);
+  const viewerId = actor?.id || '';
+  sendToWs(ws, { type: 'olympics:state', state: olympics.view(room.olympics, viewerId, actor?.isGm === true), championId: room.olympicsChampionId || null });
+}
+
+function broadcastOlympics(room) {
+  room.players.forEach((_player, socket) => sendOlympicsState(room, socket));
+  sendOlympicsState(room, room.hostConnection);
+}
+
+function olympicsName(state, playerId) {
+  return state?.participants?.[String(playerId)]?.name || 'LITTLE HERO';
+}
+
+function olympicsAnnounce(room, text) {
+  const result = addShadowBrokerMessage(room, text, { editableByHost: false });
+  if (result.success) broadcastChatUpdate(room, [result.message.id]);
+}
+
+function handleOlympicsEvents(room, events = []) {
+  for (const event of events) {
+    if (event.type === 'started') {
+      olympicsAnnounce(room, '🏆 THE OLYMPICS HAVE BEGUN. Intellect has failed you. Resort to your hands.');
+      room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'start', { game: 'Rock Paper Scissors Olympics' });
+    } else if (event.type === 'match-start' && event.final) {
+      const match = olympics.currentMatch(room.olympics);
+      olympicsAnnounce(room, `🔥 THE GRAND FINAL HAS BEGUN: ${olympicsName(room.olympics, match?.playerAId)} VS ${olympicsName(room.olympics, match?.playerBId)}.`);
+    } else if (event.type === 'match-complete') {
+      const winner = olympicsName(room.olympics, event.winnerId), loser = olympicsName(room.olympics, event.loserId);
+      olympicsAnnounce(room, `⚔ ${winner} DEFEATED ${loser} ${Number(event.score?.[event.winnerId]) || 0}–${Number(event.score?.[event.loserId]) || 0}. ☠ ${loser} HAS BEEN ELIMINATED.`);
+      room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'elimination', { game: 'Rock Paper Scissors Olympics' });
+    } else if (event.type === 'champion') {
+      const champion = olympicsName(room.olympics, event.playerId);
+      room.olympicsChampionId = String(event.playerId);
+      olympicsAnnounce(room, `👑 ${champion} IS THE LORD OF THE THREE HANDS.`);
+      room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'result', { game: 'Rock Paper Scissors Olympics' });
+      broadcastPlayersUpdate(room);
+    }
+  }
+}
+
+function olympicsCommit(room, events = []) {
+  handleOlympicsEvents(room, events);
+  persistActiveRooms();
+  broadcastOlympics(room);
+}
+
+function olympicsError(ws, message) { sendToWs(ws, { type: 'olympics:error', message }); }
+
+function handleOlympics(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return olympicsError(ws, 'MASTER ROOM LINK REQUIRED');
+  const actor = olympicsActor(room, ws), type = String(message?.type || '');
+  if (!actor) return olympicsError(ws, 'A CONNECTED IDENTITY IS REQUIRED');
+  if (type === 'olympics:sync') return sendOlympicsState(room, ws);
+  if (room.roomMode !== ROOM_MODES.CASUAL) return olympicsError(ws, 'OLYMPICS ARE AVAILABLE ONLY IN AMUSEMENT PARK');
+
+  if (type.startsWith('gm:olympics:')) {
+    if (!actor.isGm) return olympicsError(ws, 'ONLY THE SHADOW BROKER MAY COMMAND THE OLYMPICS');
+    const action = type.slice('gm:olympics:'.length);
+    if (action === 'create') {
+      if (room.olympics && !['complete', 'cancelled'].includes(room.olympics.status)) return olympicsError(ws, 'AN OLYMPICS EVENT IS ALREADY ACTIVE');
+      room.olympics = olympics.createLobby(`olympics-${crypto.randomBytes(8).toString('hex')}`);
+      olympicsAnnounce(room, '🏆 THE OLYMPICS HAVE BEEN DECLARED. ENTER VOLUNTARILY. REGRET IS AUTOMATIC.');
+      room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'open', { game: 'Rock Paper Scissors Olympics' });
+      return olympicsCommit(room);
+    }
+    if (!room.olympics) return olympicsError(ws, 'NO OLYMPICS EVENT EXISTS');
+    let result;
+    if (action === 'begin') result = olympics.begin(room.olympics);
+    else if (action === 'pause') result = olympics.pause(room.olympics);
+    else if (action === 'resume') result = olympics.resume(room.olympics);
+    else if (action === 'restartThrow') result = olympics.restartThrow(room.olympics);
+    else if (action === 'restartMatch') result = olympics.restartMatch(room.olympics);
+    else if (action === 'forfeit') result = olympics.forfeit(room.olympics, message.playerId);
+    else if (action === 'cancel') {
+      olympicsAnnounce(room, 'THE OLYMPICS HAVE BEEN CANCELLED BY DECREE OF THE SHADOW BROKER.');
+      room.olympics = null;
+      return olympicsCommit(room);
+    } else return olympicsError(ws, 'UNKNOWN OLYMPICS COMMAND');
+    if (!result?.ok) return olympicsError(ws, result?.error || 'OLYMPICS COMMAND REJECTED');
+    room.olympics = result.state;
+    return olympicsCommit(room, result.events || []);
+  }
+
+  if (!room.olympics) return olympicsError(ws, 'NO OLYMPICS EVENT EXISTS');
+  if (actor.isGm) return olympicsError(ws, 'THE SHADOW BROKER COMMANDS THE OLYMPICS BUT DOES NOT COMPETE');
+  let result;
+  if (type === 'olympics:join') result = olympics.join(room.olympics, actor);
+  else if (type === 'olympics:leave') result = olympics.leave(room.olympics, actor.id);
+  else if (type === 'olympics:select') result = olympics.select(room.olympics, actor.id, message);
+  else if (type === 'olympics:support') result = olympics.support(room.olympics, actor.id, message.playerId);
+  else return olympicsError(ws, 'UNKNOWN OLYMPICS ACTION');
+  if (!result?.ok) return olympicsError(ws, result?.error || 'OLYMPICS ACTION REJECTED');
+  room.olympics = result.state;
+  olympicsCommit(room, result.events || []);
+}
+
+function tickOlympics() {
+  for (const room of rooms.values()) {
+    if (!room.olympics || room.olympics.status !== 'running') continue;
+    const result = olympics.tick(room.olympics, Date.now());
+    if (!result.changed) continue;
+    room.olympics = result.state;
+    olympicsCommit(room, result.events || []);
+  }
+}
+
+setInterval(() => runtimeAction(() => tickOlympics()), 250).unref();
+
+// ---------------------------------------------------------------------
 // KALADONT -- Casual-only multiplayer word-chain elimination. kaladont.js owns
 // the rules; this layer owns identity, sockets, persistence and the clock.
 // Identity always comes from the socket (ws.playerId), never the message.
@@ -6669,6 +6804,7 @@ const CHAT_SLASH_COMMANDS = [
 // adding a player command can no longer leave the Shadow Broker's /commands
 // list stale or imply that the GM lacks that capability.
 const GM_ONLY_SLASH_COMMANDS = [
+  { name: '/olympics', help: '/olympics -- declare the Rock Paper Scissors Olympics lobby' },
   { name: '/dennis', help: '/dennis off|announcer|advice -- control Dennis game commentary' },
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
   { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
@@ -7221,6 +7357,17 @@ function dispatchGmSlashCommand(room, ws, text) {
   const raw = String(text || '').trim();
   if (!raw.startsWith('/')) return null;
   const author = { id: null, name: 'SHADOW BROKER' };
+
+  if (/^\/olympics\b/i.test(raw)) {
+    if (!/^\/olympics\s*$/i.test(raw)) return { success: false, error: 'OLYMPICS INVALID // USE /olympics' };
+    if (room.roomMode !== ROOM_MODES.CASUAL) return { success: false, error: 'OLYMPICS REQUIRE AMUSEMENT PARK MODE' };
+    if (room.olympics && !['complete', 'cancelled'].includes(room.olympics.status)) return { success: false, error: 'AN OLYMPICS EVENT IS ALREADY ACTIVE' };
+    room.olympics = olympics.createLobby(`olympics-${crypto.randomBytes(8).toString('hex')}`);
+    olympicsAnnounce(room, '🏆 THE OLYMPICS HAVE BEEN DECLARED. ENTER VOLUNTARILY. REGRET IS AUTOMATIC.');
+    room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'open', { game: 'Rock Paper Scissors Olympics' });
+    olympicsCommit(room);
+    return { success: true, broadcast: false };
+  }
 
   if (/^\/dennis\b/i.test(raw)) {
     const match = raw.match(/^\/dennis\s+(off|announcer|advice)\s*$/i);
@@ -8711,6 +8858,9 @@ function handlePlayerJoin(ws, message) {
     joinedAt: Date.now(),
     lastSeenAt: Date.now()
   });
+  if (room.olympics?.participants?.[String(playerId)]) {
+    room.olympics = olympics.setConnected(room.olympics, playerId, true, Date.now()).state;
+  }
   // Master test personas exercise the live session but never enter durable
   // participation history. Real Little Heroes keep the normal ledger path.
   if (!auth.isMasterTest) {
@@ -8754,6 +8904,7 @@ function handlePlayerJoin(ws, message) {
   // spectator exactly where the match stands; others learn of an open lobby.
   if (room.kaladont) broadcastKaladont(room);
   if (room.rage) broadcastRage(room);
+  if (room.olympics) broadcastOlympics(room);
   // Always sent, active or not: the overlay's own visibility is CSS-driven
   // off roomMode alone (see #game-screen.room-mode-battle-armed), so a
   // joining player must never be left in an undefined ritual state -- an
@@ -8826,6 +8977,7 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       // Equipped cosmetics only (shadow-market.js); purely visual.
       cosmetics: shadowMarket.publicCosmetics(profile),
       heroRole: room.heroRoles?.enabled === false ? null : (room.heroRoles?.picks?.[String(player.id)] || null),
+      olympicChampion: String(room.olympicsChampionId || '') === String(player.id),
       ...iksArenaFields(player)
     });
   });
@@ -9011,6 +9163,7 @@ function handleHostReconnect(ws, message) {
 
   broadcastPlayersUpdate(room);
   sendKaladontState(room, ws);
+  sendOlympicsState(room, ws);
   sendQuestState(room, ws);
   sendRouletteState(room, ws);
   sendGmDailies(room);
@@ -9047,6 +9200,7 @@ function handleHostRecover(ws) {
   sendRitualDetailToHost(room);
   broadcastPlayersUpdate(room);
   sendKaladontState(room, ws);
+  sendOlympicsState(room, ws);
   sendQuestState(room, ws);
   sendRouletteState(room, ws);
   sendGmDailies(room);
@@ -11095,10 +11249,14 @@ function handleClose(ws) {
         }
       }
       if (player) kaladontDisconnect(room, player.id);
+      if (player && room.olympics?.participants?.[String(player.id)]) {
+        room.olympics = olympics.setConnected(room.olympics, player.id, false, Date.now()).state;
+      }
       persistActiveRooms();
       broadcastPlayersUpdate(room);
       if (room.kaladont) broadcastKaladont(room);
       if (room.rage) broadcastRage(room);
+      if (room.olympics) broadcastOlympics(room);
       console.log(`[ROOM ${ws.roomCode}] Player left: ${ws.playerName}`);
     }
   }
@@ -12632,6 +12790,22 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:iksHealthVisibility': {
           handleIksHealthVisibility(ws, message);
+          break;
+        }
+        case 'olympics:sync':
+        case 'olympics:join':
+        case 'olympics:leave':
+        case 'olympics:select':
+        case 'olympics:support':
+        case 'gm:olympics:create':
+        case 'gm:olympics:begin':
+        case 'gm:olympics:pause':
+        case 'gm:olympics:resume':
+        case 'gm:olympics:restartThrow':
+        case 'gm:olympics:restartMatch':
+        case 'gm:olympics:forfeit':
+        case 'gm:olympics:cancel': {
+          handleOlympics(ws, message);
           break;
         }
         case 'kaladont:create':

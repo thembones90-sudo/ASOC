@@ -1686,6 +1686,8 @@ const PlayerApp = {
       case 'kaladont:state':
         window.Kaladont?.onState?.(message.state || null);
         break;
+      case 'olympics:state':
+      case 'olympics:error': window.OlympicsUI?.onMessage?.(message); break;
 
 
       case 'rage:state':
@@ -5384,8 +5386,8 @@ const PlayerApp = {
     // IKS OKS GAUNTLET health ring (js/iks-ring.js) for joined fighters.
     const ring = window.IksRing ? html => IksRing.wrap(entity, html) : html => html;
     return ring(`
-      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${auraActive ? ' final-solver-aura' : ''}${avatarData ? ' avatar-preview-trigger' : ''}${window.ShadowCosmetics?.avatarClass(entity, this.currentPlayers) || ''}" style="--lh-frame:${frameColor};--lh-aura:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
-        ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}${window.ShadowCosmetics?.avatarLayer(entity, this.currentPlayers) || ''}
+      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${auraActive ? ' final-solver-aura' : ''}${entity.olympicChampion ? ' olympic-champion-avatar' : ''}${avatarData ? ' avatar-preview-trigger' : ''}${window.ShadowCosmetics?.avatarClass(entity, this.currentPlayers) || ''}" style="--lh-frame:${frameColor};--lh-aura:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
+        ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}${window.ShadowCosmetics?.avatarLayer(entity, this.currentPlayers) || ''}${entity.olympicChampion ? '<i class="olympic-champion-marker" title="Olympic Champion" aria-label="Olympic Champion">🏆</i>' : ''}
       </span>
     `);
   },
