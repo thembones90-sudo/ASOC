@@ -47,6 +47,8 @@ assert.match(css, /\.backstab-chat-flag[\s\S]*#00966e[\s\S]*#d62612/, 'the Bulga
 const lines = server.match(/const BACKSTAB_SUCCESS_LINES = Object\.freeze\(\[([\s\S]*?)\]\);/)?.[1] || '';
 assert.equal((lines.match(/^\s+'.*'[,.]?$/gm) || []).length, 10, 'the event has exactly ten random success lines');
 assert.match(server, /result\.message\.source = 'shadowBroker'/, 'GM strikes use the Broker identity pipeline');
+assert.match(server, /hiddenGrant = item\.id === 'cmd-backstab'[\s\S]*awardRelic\(room, account, item\.id, \{ announce: !hiddenGrant \}\)/,
+  'awarding backstab remains hidden instead of publishing a relic notification');
 assert.match(player, /backstab-chat-message[\s\S]*BackstabEffect\?\.flagHTML/, 'player chat renders the Broker event flag');
 assert.match(app, /backstab-chat-message[\s\S]*BackstabEffect\?\.flagHTML/, 'GM chat renders the Broker event flag');
 for (const [surface, html] of [['GM', index], ['player', join]]) {

@@ -7665,8 +7665,9 @@ function dispatchGmSlashCommand(room, ws, text) {
     if (resolved.error) return { success: false, error: resolved.error };
     const account = coinAccount(resolved.target.id, resolved.target.name);
     if (!account) return { success: false, error: 'AWARD // TEST PERSONAS HAVE NO DOSSIER' };
-    if (!awardRelic(room, account, item.id)) return { success: false, error: `AWARD // ${resolved.target.name} ALREADY HOLDS ${item.name}` };
-    return { success: true, broadcast: true };
+    const hiddenGrant = item.id === 'cmd-backstab';
+    if (!awardRelic(room, account, item.id, { announce: !hiddenGrant })) return { success: false, error: `AWARD // ${resolved.target.name} ALREADY HOLDS ${item.name}` };
+    return { success: true, broadcast: !hiddenGrant };
   }
   if (/^\/relic\b/i.test(raw)) {
     const match = raw.match(/^\/relic\s+@?(.+?)\s*$/i);
@@ -10084,15 +10085,17 @@ function handleShadowDossier(ws, message) {
   sendToWs(ws, { type: 'shadow:dossierResult', playerId: targetId, dossier });
 }
 
-// RELICS -- earned only. Grants are idempotent; a first grant is announced
-// by the Shadow Broker and shows up on the next players:update.
-function awardRelic(room, account, relicId) {
+// RELICS -- earned only. Grants are idempotent and always reach players:update;
+// callers may suppress the public announcement for hidden mechanics.
+function awardRelic(room, account, relicId, { announce = true } = {}) {
   const item = shadowMarket.getItem(relicId);
   if (!room || !account || !item?.relic) return false;
   const result = playerStore.grantRelic(account, relicId);
   if (!result.ok || result.duplicate) return false;
-  addShadowBrokerMessage(room, `RELIC UNEARTHED // ${account.name} -- ${String(item.name).toUpperCase()}`, { editableByHost: false });
-  broadcastChatUpdate(room);
+  if (announce) {
+    addShadowBrokerMessage(room, `RELIC UNEARTHED // ${account.name} -- ${String(item.name).toUpperCase()}`, { editableByHost: false });
+    broadcastChatUpdate(room);
+  }
   broadcastPlayersUpdate(room);
   console.log(`[relics] ${account.name} earned ${item.name}`);
   return true;
