@@ -5259,7 +5259,7 @@ const PlayerApp = {
         : null;
       const messageText = replyMatch ? replyMatch[3] : msg.text;
       const replyContextHtml = replyMatch
-        ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
+        ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${window.ChatLinks?.emphasisHTML?.(replyMatch[2]) || this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
       if (msg.imageUrl) {
         return Skeleton.shadowBrokerMediaHTML({
@@ -5297,7 +5297,7 @@ const PlayerApp = {
       : null;
     const messageText = replyMatch ? replyMatch[3] : msg.text;
     const replyContextHtml = replyMatch
-      ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
+      ? `<div class="chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${window.ChatLinks?.emphasisHTML?.(replyMatch[2]) || this.escapeHtml(replyMatch[2])}` : ''}</div>`
       : '';
     const verdictMetaHtml = msg.verdict === 'correct'
       ? `<div class="chat-machine-verdict accepted">ACCEPTED // ${this.escapeHtml(this.getTargetLabel(msg.target || 'LOCKED'))}</div>`

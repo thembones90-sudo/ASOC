@@ -6001,7 +6001,7 @@ const App = {
         : null;
       const messageText = replyMatch ? replyMatch[3] : msg.text;
       const replyContextHtml = replyMatch
-        ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
+        ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${window.ChatLinks?.emphasisHTML?.(replyMatch[2]) || this.escapeHtml(replyMatch[2])}` : ''}</div>`
         : '';
       if (msg.imageUrl) {
         return Skeleton.shadowBrokerMediaHTML({
@@ -6043,7 +6043,7 @@ const App = {
       : null;
     const messageText = replyMatch ? replyMatch[3] : msg.text;
     const replyContextHtml = replyMatch
-      ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${this.escapeHtml(replyMatch[2])}` : ''}</div>`
+      ? `<div class="gm-chat-reply-context">↳ ${this.escapeHtml(replyMatch[1])}${replyMatch[2] ? ` // ${window.ChatLinks?.emphasisHTML?.(replyMatch[2]) || this.escapeHtml(replyMatch[2])}` : ''}</div>`
       : '';
 
     // A player's HINT REQUEST shows the GM the hint prepared for that field

@@ -20,6 +20,8 @@ const brokerCreation = SERVER.split('function addShadowBrokerMessage')[1].split(
 assert.match(brokerCreation, /primeChatLinkPreview\(room, message\)/, 'Shadow Broker broadcasts enter the posted-message preview pipeline');
 const GM_CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'app.js'), 'utf8');
 const PLAYER_CLIENT = fs.readFileSync(path.join(ROOT, 'js', 'player.js'), 'utf8');
+assert.match(GM_CLIENT, /gm-chat-reply-context[^\n]*ChatLinks\?\.emphasisHTML/, 'GM reply excerpts retain yelled emphasis');
+assert.match(PLAYER_CLIENT, /chat-reply-context[^\n]*ChatLinks\?\.emphasisHTML/, 'player reply excerpts retain yelled emphasis');
 // The whole Broker branch, up to the guess-bubble path that follows it.
 const gmBrokerBranch = GM_CLIENT.split("if (msg.source === 'shadowBroker')")[1].split('_gmWrongVerdictSeenAt')[0];
 assert.match(gmBrokerBranch, /ChatLinks\?\.messageHTML\(msg\)/, 'GM renders preview cards on Shadow Broker broadcasts');
