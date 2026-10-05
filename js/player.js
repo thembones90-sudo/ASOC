@@ -5005,6 +5005,7 @@ const PlayerApp = {
   },
 
   playChatActScreenFx(msg) {
+    window.AssKick?.play(msg);
     const type = String(msg?.messageType || '');
     if (type !== 'fart' && type !== 'spit') return;
     const sentAt = Number(msg?.timestamp) || 0;
