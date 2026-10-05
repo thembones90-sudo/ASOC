@@ -13529,12 +13529,14 @@ body.room-mode-recount .gm-module-chat .gm-online-dropdown {
   display:none !important;
 }
 .gm-module-chat .gm-gif-message .gm-chat-flow-header {
-  position:absolute !important;
-  top:5px !important;
-  left:6px !important;
+  position:relative !important;
+  top:auto !important;
+  left:auto !important;
   z-index:4 !important;
   min-height:0 !important;
-  margin:0 !important;
+  width:100% !important;
+  box-sizing:border-box !important;
+  margin:0 0 4px !important;
   padding:3px 5px !important;
   border-radius:5px !important;
   background:rgba(7,9,13,.76) !important;

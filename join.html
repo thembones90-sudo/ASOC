@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/ui/apple-touch-icon.png?v=20260924-eye-1">
   <link rel="manifest" href="/site.webmanifest?v=20260924-eye-1">
   <meta name="theme-color" content="#16091f">
-  <link rel="stylesheet" href="css/asoc.css?v=20261004-dennis-name-1">
+  <link rel="stylesheet" href="css/asoc.css?v=20261005-gif-header-1">
   <link rel="stylesheet" href="css/quest-icon-system.css?v=20260928-skynet-quest-icons-1">
   <link rel="stylesheet" href="css/shadow-market.css?v=20261002-hug-2">
   <link rel="stylesheet" href="css/avada.css?v=20261003-avada-3">
@@ -7154,7 +7154,7 @@ position:absolute;
       box-shadow:0 3px 10px rgba(0,0,0,.30) !important;
     }
 
-    /* GIF-only messages: no empty shell; keep controls/branding as overlays. */
+    /* GIF-only messages: sender identity stays above; controls/branding may overlay. */
     #game-screen .battle-comms-lobby .chat-gif-message .chat-message-main {
       position:relative !important;
       width:fit-content !important;
@@ -7171,19 +7171,21 @@ position:absolute;
       display:none !important;
     }
     #game-screen .battle-comms-lobby .chat-gif-message .chat-message-header {
-      position:absolute !important;
-      top:5px !important;
-      left:6px !important;
+      position:relative !important;
+      top:auto !important;
+      left:auto !important;
       z-index:4 !important;
       min-height:0 !important;
-      margin:0 !important;
+      width:100% !important;
+      box-sizing:border-box !important;
+      margin:0 0 4px !important;
       padding:3px 5px !important;
       border-radius:5px !important;
       background:rgba(7,9,13,.76) !important;
       backdrop-filter:blur(3px);
     }
     #game-screen .battle-comms-lobby .chat-gif-message .chat-reply-btn {
-      top:5px !important;
+      top:3px !important;
       right:5px !important;
       z-index:5 !important;
     }
