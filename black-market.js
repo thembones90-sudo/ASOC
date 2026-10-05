@@ -113,6 +113,24 @@ function findPact(state, pactId) {
   return null;
 }
 
+function createGmTributeDebt(state, player, raw) {
+  const bucket = ensurePlayer(state, player?.id);
+  if (!bucket) return { error: 'LITTLE HERO NOT FOUND' };
+  const reason = cleanText(raw?.reason, REQUEST_LIMIT);
+  const pact = normalizePact({
+    playerId: String(player.id),
+    playerName: player.name,
+    title: 'BLOOD TRIBUTE REQUIRED',
+    category: 'CUSTOM',
+    request: reason || 'A debt has been called by the Shadow Broker.',
+    terms: 'Payment is due to the Reliquary.',
+    state: 'APPROVED_PENDING_TRIBUTE',
+    tributeRequired: true
+  });
+  bucket.pacts.push(pact);
+  return { pact };
+}
+
 function gmDecision(state, raw) {
   const pact = findPact(state, raw?.pactId);
   if (!pact) return { error: 'PACT NOT FOUND' };
@@ -202,6 +220,7 @@ module.exports = {
   playerView,
   gmView,
   createPetition,
+  createGmTributeDebt,
   gmDecision,
   acceptCounter,
   submitTribute,

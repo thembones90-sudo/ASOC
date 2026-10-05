@@ -2206,7 +2206,23 @@ function handleBlackMarket(ws, message) {
     if (requestId) sendToWs(ws, { type: 'blackMarket:ack', requestId, action: message.type, pactId: result?.pact?.id || null, state: result?.pact?.state || null, persisted: true });
     return;
   }
-  if (!['blackMarket:gmDecision', 'blackMarket:tributeJudge'].includes(message.type)) return;
+  if (!['blackMarket:gmDemandTribute', 'blackMarket:gmDecision', 'blackMarket:tributeJudge'].includes(message.type)) return;
+  if (message.type === 'blackMarket:gmDemandTribute') {
+    const playerId = String(message.playerId || '');
+    const player = Array.from(room.players.values()).find(item => String(item?.id) === playerId);
+    if (!player) return blackMarketError('LITTLE HERO NOT FOUND');
+    const result = blackMarket.createGmTributeDebt(state, { id: player.id, name: player.name }, message);
+    if (result?.error) return blackMarketError(result.error);
+    persistActiveRooms();
+    syncBlackMarket(room, result.pact.playerId);
+    for (const [socket, rosterPlayer] of room.players.entries()) {
+      if (socket?.readyState === 1 && String(rosterPlayer?.id) === String(result.pact.playerId)) {
+        sendToWs(socket, { type: 'blackMarket:tributeDemanded', pact: blackMarket.playerView(state, result.pact.playerId).pacts.find(p => p.id === result.pact.id) || null });
+      }
+    }
+    if (requestId) sendToWs(ws, { type: 'blackMarket:ack', requestId, action: message.type, pactId: result.pact.id, state: result.pact.state, persisted: true });
+    return;
+  }
   if (message.type === 'blackMarket:gmDecision') {
     const result = blackMarket.gmDecision(state, message);
     if (result?.error) return blackMarketError(result.error);

@@ -752,3 +752,22 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
 .is-sanctum #black-market-body::-webkit-scrollbar { width: 10px; }
 .is-sanctum #black-market-body::-webkit-scrollbar-track { background: #12050a; }
 .is-sanctum #black-market-body::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #b3112b, #5e0a1c); border: 2px solid #12050a; border-radius: 6px; }
+
+
+/* GM DEBT CALLER + LITTLE HERO BLOOD TRIBUTE DEMAND */
+.bm-demand-tribute{display:grid;grid-template-columns:minmax(180px,.7fr) minmax(280px,1.3fr) auto;gap:10px;align-items:end;padding:18px;border:1px solid #6e0c20;background:linear-gradient(105deg,rgba(80,4,18,.28),rgba(8,3,5,.9));box-shadow:inset 4px 0 0 #b3112b}
+.bm-demand-tribute label{display:grid;gap:7px;color:#d69aa6;font:800 10px var(--font-machine,monospace);letter-spacing:.18em}
+.bm-demand-tribute :is(select,input){min-height:42px;border:1px solid #5e0a1c;background:#090305;color:#f6e3e6;padding:0 12px;font:700 13px var(--font-machine,monospace);outline:none}
+.bm-demand-tribute :is(select,input):focus{border-color:#ff2a4a;box-shadow:0 0 0 3px rgba(255,42,74,.12)}
+.bm-demand-tribute button{min-height:42px;padding:0 18px;border:1px solid #ff2a4a;background:linear-gradient(180deg,#8b1028,#32040d);color:#fff;font:900 11px var(--font-machine,monospace);letter-spacing:.12em;cursor:pointer;box-shadow:0 0 18px rgba(255,30,60,.2)}
+.bm-demand-tribute button:hover{filter:brightness(1.2);box-shadow:0 0 24px rgba(255,30,60,.38)}
+.bm-demand-tribute button:disabled{opacity:.4;cursor:not-allowed}
+.bm-demand-notice{position:fixed;inset:0;z-index:30000;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 45%,rgba(115,0,22,.38),rgba(0,0,0,.94) 62%);backdrop-filter:blur(7px)}
+.bm-demand-notice-card{width:min(620px,calc(100vw - 48px));padding:42px 38px 36px;text-align:center;border:1px solid #b3112b;outline:1px solid rgba(255,42,74,.25);outline-offset:6px;background:radial-gradient(circle at 50% 0%,rgba(130,8,30,.34),transparent 45%),linear-gradient(180deg,#160509,#070305);box-shadow:0 0 70px rgba(255,20,45,.28),inset 0 0 55px rgba(100,0,20,.35)}
+.bm-demand-notice-card small{display:block;color:#ff5470;font:800 10px var(--font-machine,monospace);letter-spacing:.3em}
+.bm-demand-notice-card h2{margin:18px 0 16px;color:#fff0f2;font:900 34px var(--font-machine,monospace);letter-spacing:.16em;text-shadow:0 0 2px #fff,0 0 24px rgba(255,30,60,.7)}
+.bm-demand-notice-card p{margin:0 auto 18px;max-width:500px;color:#d9c3c8;font:700 16px/1.55 var(--font-display,system-ui,sans-serif)}
+.bm-demand-notice-card b{display:block;margin:0 0 26px;color:#ff738a;font:900 12px var(--font-machine,monospace);letter-spacing:.22em}
+.bm-demand-notice-card button{min-height:46px;padding:0 22px;border:1px solid #ff2a4a;background:linear-gradient(180deg,#8b1028,#32040d);color:#fff;font:900 11px var(--font-machine,monospace);letter-spacing:.16em;cursor:pointer;box-shadow:0 0 22px rgba(255,30,60,.3)}
+.bm-demand-notice-card button:hover{filter:brightness(1.22);box-shadow:0 0 32px rgba(255,30,60,.5)}
+@media(max-width:760px){.bm-demand-tribute{grid-template-columns:1fr}.bm-demand-tribute button{width:100%}.bm-demand-notice-card{padding:32px 22px}.bm-demand-notice-card h2{font-size:25px}}

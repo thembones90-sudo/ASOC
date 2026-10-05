@@ -14,7 +14,7 @@
   const STATE_LABEL = {
     SUBMITTED: 'THE BROKER WEIGHS YOUR OFFERING',
     COUNTEROFFERED: 'THE TERMS HAVE BEEN REWRITTEN',
-    APPROVED_PENDING_TRIBUTE: 'BLOOD IS OWED',
+    APPROVED_PENDING_TRIBUTE: 'BLOOD TRIBUTE REQUIRED',
     TRIBUTE_SUBMITTED: 'THE OFFERING AWAITS JUDGMENT',
     TRIBUTE_REJECTED: 'THE OFFERING WAS DENIED',
     OWED: 'A DEBT IS RECORDED',
@@ -80,6 +80,11 @@
           }
           if (document.getElementById('black-market-overlay')) this.render();
           this.updateBadge();
+          return;
+        }
+        if (!isGM && message?.type === 'blackMarket:tributeDemanded') {
+          this.showDemandNotice(message.pact || null);
+          this.send({ type: 'blackMarket:sync' });
           return;
         }
         if (message?.type === 'blackMarket:error') {
@@ -159,7 +164,10 @@
       // Finished pacts (fulfilled, denied, broken) leave the Shadow Broker's
       // ledger the moment they are judged: only open debts remain.
       const rest = this.pacts.filter(p => !['SUBMITTED','TRIBUTE_SUBMITTED','FULFILLED','DENIED','BROKEN'].includes(p.state));
-      return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>SEALED PETITIONS</b><p>Each chamber terminates here. Nothing below is broadcast to the room.</p></div><h3>AWAITING JUDGMENT</h3><div class="bm-ledger">' + (pending.map(p => this.card(p, true)).join('') || '<p class="bm-empty">THE MARKET SLEEPS.</p>') + '</div><h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + (rest.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO OPEN DEBTS.</p>') + '</div>';
+      const online = (host.currentPlayers || []).filter(player => player?.connected === true);
+      const playerOptions = online.map(player => '<option value="' + this.esc(player.id) + '">' + this.esc(player.name || 'LITTLE HERO') + '</option>').join('');
+      const collector = '<form id="bm-demand-tribute" class="bm-demand-tribute"><label>DEBTOR<select name="playerId" required>' + (playerOptions || '<option value="">NO LITTLE HEROES ONLINE</option>') + '</select></label><label>CAUSE OF DEBT<input name="reason" maxlength="1200" placeholder="Lost wager, broken pact, failed challenge?"></label><button type="submit"' + (playerOptions ? '' : ' disabled') + '>BLOOD TRIBUTE REQUIRED</button></form>';
+      return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>SEALED PETITIONS</b><p>Each chamber terminates here. Nothing below is broadcast to the room.</p></div><h3>CALL A DEBT</h3>' + collector + '<h3>AWAITING JUDGMENT</h3><div class="bm-ledger">' + (pending.map(p => this.card(p, true)).join('') || '<p class="bm-empty">THE MARKET SLEEPS.</p>') + '</div><h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + (rest.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO OPEN DEBTS.</p>') + '</div>';
     },
     card(p, gm) {
       const tributeSource = p.tributeImageUrl || p.tributeImageData || '';
@@ -180,6 +188,16 @@
       return '';
     },
     bindActions(body) {
+      body.querySelector('#bm-demand-tribute')?.addEventListener('submit', e => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        const playerId = String(fd.get('playerId') || '');
+        const reason = String(fd.get('reason') || '').trim();
+        if (!playerId) return this.toast('NO LITTLE HERO SELECTED');
+        const requestId = `bm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+        this.send({ type:'blackMarket:gmDemandTribute', playerId, reason, requestId });
+        this.toast('THE DEBT HAS BEEN CALLED');
+      });
       body.querySelector('#bm-petition')?.addEventListener('submit', e => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
@@ -226,6 +244,17 @@
         this.send({ type:'blackMarket:gmDecision', pactId, action:act, terms:'', tributeRequired:false });
       }));
     },
+    showDemandNotice(pact) {
+      document.getElementById('bm-demand-notice')?.remove();
+      const veil = document.createElement('div');
+      veil.id = 'bm-demand-notice';
+      veil.className = 'bm-demand-notice';
+      const reason = this.esc(pact?.request || 'The Shadow Broker has called your debt.');
+      veil.innerHTML = '<section class="bm-demand-notice-card" role="alertdialog" aria-modal="true"><small>BLACK MARKET // DEBT CALLED</small><h2>BLOOD TRIBUTE REQUIRED</h2><p>' + reason + '</p><b>YOUR ACCOUNT HAS COME DUE.</b><button type="button" data-bm-pay-debt>ENTER THE BLACK MARKET</button></section>';
+      veil.querySelector('[data-bm-pay-debt]')?.addEventListener('click', () => { veil.remove(); this.open(); });
+      document.body.appendChild(veil);
+    },
+
     // One hidden file input, mounted once and reused. A fresh input per click
     // leaked a node on every attempt, and a detached input is exactly the kind
     // of thing the desktop shell will refuse to open a picker for.
