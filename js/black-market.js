@@ -24,11 +24,10 @@
     BROKEN: 'THE PACT IS BROKEN'
   };
 
-  // Keep the encoded payload below the server's 3,000,000-character tribute
-  // guard and the WebSocket's 5 MB frame ceiling. One socket owns both the
-  // player's identity and the pact transition, so there is no HTTP-upload /
-  // WebSocket-claim race between file storage and submission.
-  const TRIBUTE_MAX_BYTES = 2200000;
+  // Tribute bytes travel through the authenticated binary upload route. The
+  // socket only carries the resulting short, single-use claim URL, avoiding
+  // base64 inflation and the WebSocket frame ceiling entirely.
+  const TRIBUTE_MAX_BYTES = 20 * 1024 * 1024;
   const TRIBUTE_MIME = ['image/png', 'image/jpeg', 'image/webp'];
 
   const ui = {
@@ -392,33 +391,28 @@
       if (file.size > TRIBUTE_MAX_BYTES) {
         input.value = '';
         this.releaseTribute();
-        return this.toast('THE OFFERING EXCEEDS THE 2.2 MB VAULT LIMIT');
+        return this.toast('THE OFFERING EXCEEDS THE 20 MB VAULT LIMIT');
       }
 
       if (this._tributeButton && this._tributeButton.isConnected) {
         this._tributeButton.textContent = 'SEALING THE OFFERING…';
       }
 
-      const reader = new FileReader();
-      reader.onerror = () => {
+      try {
+        const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
+        if (!token) throw new Error('LITTLE HERO AUTHENTICATION REQUIRED');
+        const response = await fetch('/api/black-market/tribute-image?pactId=' + encodeURIComponent(pactId), {
+          method: 'POST',
+          headers: { 'Content-Type': String(file.type || '').toLowerCase(), 'x-player-token': token },
+          body: file
+        });
+        const payload = await response.json().catch(() => ({}));
         input.value = '';
-        this.releaseTribute();
-        this.toast('THE IMAGE COULD NOT BE READ');
-      };
-      reader.onabort = () => {
-        input.value = '';
-        this.releaseTribute();
-        this.toast('THE READING WAS INTERRUPTED');
-      };
-      reader.onload = () => {
-        input.value = '';
-        const imageData = String(reader.result || '');
-        if (!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(imageData)) {
-          this.releaseTribute();
-          return this.toast('THE OFFERING IS INVALID');
+        if (!response.ok || !/^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(String(payload.imageUrl || ''))) {
+          throw new Error(payload.error || 'THE OFFERING COULD NOT ENTER THE VAULT');
         }
         const requestId = `bm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
-        const sent = this.send({ type:'blackMarket:tributeSubmit', pactId, imageData, consent:true, requestId }) === true;
+        const sent = this.send({ type:'blackMarket:tributeSubmit', pactId, imageUrl:payload.imageUrl, consent:true, requestId }) === true;
         if (!sent) {
           this.releaseTribute();
           return this.toast('THE RELIQUARY HAS LOST THE LINK');
@@ -432,8 +426,11 @@
           this.toast('THE RELIQUARY DID NOT CONFIRM THE OFFERING');
           this.send({ type:'blackMarket:sync' });
         }, 12000);
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        input.value = '';
+        this.releaseTribute();
+        this.toast(String(error?.message || 'THE OFFERING COULD NOT ENTER THE VAULT').toUpperCase());
+      }
     },
 
     toast(message) {

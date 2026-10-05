@@ -1,6 +1,6 @@
 // BLACK MARKET PLAYER TRIBUTE // end-to-end submission path.
 //
-// This drives a real Chromium so the file input, FileReader and the blocking
+// This drives a real Chromium so the file input, binary upload and the blocking
 // consent dialog are the genuine browser implementations, not stubs. That
 // matters here: the whole bug lived in the seam between the native picker
 // closing and the WebSocket frame going out, and a fake DOM cannot see that
@@ -47,12 +47,19 @@ const PNG_1x1 = Buffer.from(
 );
 
 // Boots a page with the real market script and a recording PlayerApp stub.
-async function bootPage(browser, { sendResult = true, fileReaderOverride = null, autoAck = true } = {}) {
+async function bootPage(browser, { sendResult = true, uploadOk = true, uploadError = 'UPLOAD FAILED', autoAck = true } = {}) {
   const page = await browser.newPage();
   await page.setContent('<!doctype html><html><body><button id="black-market-player-button" class="black-market-entry"></button></body></html>');
   await page.addScriptTag({ content: `
     window.__sent = [];
+    window.__uploads = [];
     window.__sendResult = ${sendResult === true ? 'true' : sendResult === false ? 'false' : sendResult};
+    Object.defineProperty(window, 'sessionStorage', { value:{ getItem:key => key === 'asoc_player_auth_token' ? 'test-player-token' : null, setItem(){}, removeItem(){} }, configurable:true });
+    Object.defineProperty(window, 'localStorage', { value:{ getItem(){ return null; }, setItem(){}, removeItem(){} }, configurable:true });
+    window.fetch = async (url, options) => {
+      window.__uploads.push({ url:String(url), type:options?.headers?.['Content-Type'], token:options?.headers?.['x-player-token'], size:options?.body?.size });
+      return { ok:${uploadOk ? 'true' : 'false'}, json:async () => (${uploadOk ? "({ imageUrl:'/uploads/chat/0123456789abcdef0123456789abcdef.png' })" : `({ error:${JSON.stringify(uploadError)} })`}) };
+    };
     window.PlayerApp = {
       send(message) {
         window.__sent.push(message);
@@ -66,7 +73,6 @@ async function bootPage(browser, { sendResult = true, fileReaderOverride = null,
       },
       handleMessage() {}
     };
-    ${fileReaderOverride || ''}
   `});
   await page.addScriptTag({ content: SOURCE });
   return page;
@@ -117,7 +123,11 @@ async function offer(page, pactId, file) {
     const [sent] = await tributes(page);
     assert.equal(sent.pactId, 'pact-1', 'the pact id travels with the submission');
     assert.equal(sent.consent, true, 'consent is acknowledged on the wire');
-    assert.match(sent.imageData, /^data:image\/png;base64,[A-Za-z0-9+/=]+$/, 'the image arrives as a valid server-accepted data URL');
+    assert.equal(sent.imageUrl, '/uploads/chat/0123456789abcdef0123456789abcdef.png', 'the socket carries the authenticated upload claim, not base64 image bytes');
+    assert.equal(sent.imageData, undefined, 'large image bytes never enter the WebSocket frame');
+    const [upload] = await page.evaluate(() => window.__uploads);
+    assert.equal(upload.url, '/api/black-market/tribute-image?pactId=pact-1', 'the binary upload is bound to the pact');
+    assert.equal(upload.token, 'test-player-token', 'the upload is authenticated as the signed-in player');
     assert.equal(await toastText(page), 'THE OFFERING HAS BEEN SEALED', 'the player is told the offering was sealed');
     assert.equal(await page.locator('[data-act="offer-tribute"]').count(), 0, 'the OFFER action disappears after the confirmed TRIBUTE_SUBMITTED state');
     assert.equal(await page.evaluate(() => document.querySelectorAll('input#bm-tribute-input').length), 1, 'the file input is reused, not leaked per click');
@@ -179,21 +189,17 @@ async function offer(page, pactId, file) {
 
     // ------------------------------------------------------ too large
     page = await bootPage(browser);
-    await offer(page, 'pact-4', { name: 'big.png', mimeType: 'image/png', buffer: Buffer.alloc(2200001) });
-    await page.waitForFunction(() => document.getElementById('black-market-toast')?.textContent === 'THE OFFERING EXCEEDS THE 2.2 MB VAULT LIMIT');
+    await offer(page, 'pact-4', { name: 'big.png', mimeType: 'image/png', buffer: Buffer.alloc(20 * 1024 * 1024 + 1) });
+    await page.waitForFunction(() => document.getElementById('black-market-toast')?.textContent === 'THE OFFERING EXCEEDS THE 20 MB VAULT LIMIT');
     assert.equal((await tributes(page)).length, 0, 'an oversized image is never submitted');
     await page.close();
 
-    // ----------------------------------------------- the reader dies
-    page = await bootPage(browser, { fileReaderOverride: `
-      window.FileReader = class {
-        readAsDataURL() { setTimeout(() => this.onerror && this.onerror(new Error('boom')), 0); }
-      };
-    ` });
+    // ---------------------------------------------- the upload is refused
+    page = await bootPage(browser, { uploadOk:false, uploadError:'VAULT STORAGE OFFLINE' });
     await offer(page, 'pact-6', { name: 'tribute.png', mimeType: 'image/png', buffer: PNG_1x1 });
-    await page.waitForFunction(() => document.getElementById('black-market-toast')?.textContent === 'THE IMAGE COULD NOT BE READ');
-    assert.equal((await tributes(page)).length, 0, 'a failed read reports instead of vanishing');
-    assert.equal(await page.evaluate(() => window.BlackMarket._tributeBusy), false, 'the pending lock is released after a failed read');
+    await page.waitForFunction(() => document.getElementById('black-market-toast')?.textContent === 'VAULT STORAGE OFFLINE');
+    assert.equal((await tributes(page)).length, 0, 'a failed upload reports instead of vanishing');
+    assert.equal(await page.evaluate(() => window.BlackMarket._tributeBusy), false, 'the pending lock is released after a failed upload');
     await page.close();
 
     // ------------------------- the picker dismissed without a choice
@@ -224,7 +230,7 @@ async function offer(page, pactId, file) {
     assert.equal(await page.evaluate(() => !!document.getElementById('bm-tribute-consent')), false, 'the consent chamber is dismissed on withdraw');
     await page.close();
 
-    console.log('PASS black market tribute: player module binds to PlayerApp, the in-page consent chamber precedes the picker, MIME/size/read failures are reported, a dead socket surfaces as THE RELIQUARY HAS LOST THE LINK, success confirms THE OFFERING HAS BEEN SEALED');
+    console.log('PASS black market tribute: consent precedes the picker, authenticated binary upload avoids WebSocket image frames, MIME/size/upload failures surface, and success confirms THE OFFERING HAS BEEN SEALED');
   } finally {
     await browser.close();
   }
