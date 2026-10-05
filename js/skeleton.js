@@ -357,7 +357,9 @@ const Skeleton = (() => {
     const variantClass = variant === 'verdict-response' ? 'shadow-broker-verdict-response' : 'shadow-broker-broadcast';
     const verdictClass = verdict ? ` sb-${verdict}` : '';
     const keyAttr = glitchKey ? ` data-sb-glitch-key="${escapeHtmlText(String(glitchKey)).replace(/"/g, '&quot;')}"` : '';
-    const body = `<div class="shadow-broker-body"><span class="shadow-broker-name">SHADOW BROKER</span><span class="shadow-broker-text">${window.CommanderEmojis?.renderText?.(text, 'commander-inline-emoji') || escapeHtmlText(text)}</span></div>`;
+    const decorate = value => window.CommanderEmojis?.renderText?.(value, 'commander-inline-emoji') || escapeHtmlText(value);
+    const renderedText = window.ChatLinks?.emphasisHTML?.(text, decorate) || decorate(text);
+    const body = `<div class="shadow-broker-body"><span class="shadow-broker-name">SHADOW BROKER</span><span class="shadow-broker-text">${renderedText}</span></div>`;
     if (variant === 'broadcast') {
       return `<div class="shadow-broker-mirror-message"><div class="shadow-broker-transmission ${variantClass}${verdictClass} ${glitchIn ? 'sb-glitch-in' : ''}"${keyAttr}>${body}</div><div class="shadow-broker-avatar-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div></div>`;
     }

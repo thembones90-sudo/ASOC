@@ -90,14 +90,30 @@
     return `<a class="chat-link" href="${esc(segment.value)}" target="_blank" rel="noopener noreferrer nofollow external" title="${esc(segment.label || segment.value)}">${esc(segment.label || segment.value)}</a>`;
   }
 
+  // Single asterisks are an in-character shout marker. Keep this deliberately
+  // smaller than Markdown: paired *text* only, no nesting and no raw HTML.
+  function emphasisHTML(text, decorateText) {
+    const source = String(text == null ? '' : text);
+    const decorate = typeof decorateText === 'function' ? decorateText : value => esc(value);
+    const pattern = /(^|[^*])\*([^*\r\n]+)\*(?!\*)/g;
+    let html = '';
+    let cursor = 0;
+    let match;
+    while ((match = pattern.exec(source)) !== null) {
+      html += decorate(source.slice(cursor, match.index) + match[1]);
+      html += `<strong class="chat-yell">${decorate(match[2].toUpperCase())}</strong>`;
+      cursor = pattern.lastIndex;
+    }
+    return html + decorate(source.slice(cursor));
+  }
+
   /* Renders a chat line with every address clickable.
    * `decorateText` is the escape/render function the host already uses for
    * plain text (the GM console passes its solution highlighter), so links
    * compose with the existing highlighting instead of replacing it. */
   function textHTML(text, decorateText) {
-    const decorate = typeof decorateText === 'function' ? decorateText : value => esc(value);
     return split(text)
-      .map(segment => (segment.type === 'url' ? urlHTML(segment) : decorate(segment.value)))
+      .map(segment => (segment.type === 'url' ? urlHTML(segment) : emphasisHTML(segment.value, decorateText)))
       .join('');
   }
 
@@ -264,6 +280,7 @@
   window.ChatLinks = {
     split,
     textHTML,
+    emphasisHTML,
     urlHTML,
     previewHTML,
     previewsHTML,

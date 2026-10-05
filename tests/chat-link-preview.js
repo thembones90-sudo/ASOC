@@ -219,6 +219,16 @@ assert.equal(service.extractFirstUrl('http://[::1]/x and https://example.com/ok'
     assert.match(out.links[0].rel, /nofollow/);
     assert.equal(out.text, 'look at https://example.com/page now', 'surrounding words are preserved');
 
+    // ---- paired asterisks are an escaped, uppercase visual shout
+    out = await render('well *this is loud* now');
+    assert.equal(out.text, 'well THIS IS LOUD now', 'shouted text is uppercased and delimiters disappear');
+    assert.match(out.html, /<strong class="chat-yell">THIS IS LOUD<\/strong>/, 'shouted text receives the shared emphasis class');
+    out = await render('literal **double stars** stay');
+    assert.equal(out.text, 'literal **double stars** stay', 'double-star syntax is not consumed');
+    out = await render('*<img src=x onerror=window.__yellPwned=1>*');
+    assert.equal(await page2.evaluate(() => document.querySelectorAll('#out img').length), 0, 'shouted text remains HTML-escaped');
+    assert.equal(await page2.evaluate(() => window.__yellPwned), undefined, 'shouted markup cannot execute');
+
     // ---- punctuation is not swallowed
     out = await render('see https://example.com/page.');
     assert.equal(out.links[0].href, 'https://example.com/page', 'the trailing period is not part of the href');

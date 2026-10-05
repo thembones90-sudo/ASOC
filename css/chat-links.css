@@ -3,6 +3,16 @@
    Battle Comms panel aesthetic. The card is a link, so hover has to read as
    "this opens something". */
 
+.chat-yell {
+  display: inline;
+  color: inherit;
+  font-size: 1.12em;
+  font-weight: 1000;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px currentColor;
+}
+
 .chat-link {
   color: #72b7ff;
   text-decoration: underline;
