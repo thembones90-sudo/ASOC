@@ -1571,6 +1571,10 @@ const PlayerApp = {
         window.BackstabEffect?.onMessage(message, this.playerId);
         break;
 
+      case 'fistbump:impact':
+        window.FistbumpEffect?.onMessage(message);
+        break;
+
       case 'c4:alert':
         window.C4Alert?.onMessage(message);
         break;
@@ -2964,6 +2968,7 @@ const PlayerApp = {
       `;
       }).join('');
       window.BackstabEffect?.decorateRoster?.(list);
+      window.FistbumpEffect?.decorateRoster?.(list);
     }
     const meIndex = ranked.findIndex(p => p.id === this.playerId);
     const me = meIndex >= 0 ? ranked[meIndex] : null;

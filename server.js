@@ -6824,6 +6824,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
   { name: '/avada', help: '/avada @Name -- the killing curse (5% it rebounds; 10 min recharge)' },
   { name: '/backstab', help: '/backstab @Name -- spend 15 SC to betray a player (10% chance you stab yourself; 60 min recharge)' },
+  { name: '/fistbump', help: '/fistbump @Name -- bro code confirmed (free; 5 min recharge)' },
   { name: '/love', help: '/love [Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
   { name: '/drug', help: '/drug @Name -- SHADOW MARKET relic: inject someone with... something' },
   { name: '/hug', help: '/hug [@Name] -- hug someone (or everyone), with a sweet animation' },
@@ -7399,6 +7400,56 @@ function handleBackstabCommand(room, author, raw, targetPlayerId) {
   return result;
 }
 
+
+const FISTBUMP_COOLDOWN_MS = 5 * 60 * 1000;
+
+function handleFistbumpCommand(room, author, raw, targetPlayerId) {
+  const match = raw.match(/^\/fistbump(?:\s+@?(.*?))?\s*$/i);
+  if (!match) return { success: false, error: 'FISTBUMP INVALID // USE /fistbump @Name' };
+  const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', 'FISTBUMP');
+  if (resolved.error) return { success: false, error: resolved.error };
+
+  const now = Date.now();
+  room.fistbumpCooldowns ||= {};
+  const actorKey = String(author.id);
+  const lastAt = Number(room.fistbumpCooldowns[actorKey]) || 0;
+  const remaining = FISTBUMP_COOLDOWN_MS - (now - lastAt);
+  if (remaining > 0) {
+    const secs = Math.ceil(remaining / 1000);
+    const mins = Math.ceil(secs / 60);
+    return { success: false, error: `FISTBUMP RECHARGING // ${mins} MINUTE${mins === 1 ? '' : 'S'} REMAIN` };
+  }
+
+  const target = resolved.target;
+  const legendary = crypto.randomInt(0, 100) < 5;
+  const text = legendary
+    ? `${author.name} and ${target.name} achieved a LEGENDARY DAP. 🤜🤛`
+    : `${author.name} fist-bumped ${target.name}. 🤜🤛`;
+  const result = buildChatCommandMessage(room, author, 'fistbump', 'fistbump', text, {
+    fistbump: {
+      actorId: String(author.id),
+      actorName: author.name,
+      actorAvatarData: liveAvatarFor(room, author.id),
+      targetId: String(target.id),
+      targetName: target.name,
+      targetAvatarData: liveAvatarFor(room, target.id),
+      legendary,
+      cooldownMs: FISTBUMP_COOLDOWN_MS,
+      markMs: 30000
+    }
+  });
+  if (!result.success) return result;
+  room.fistbumpCooldowns[actorKey] = now;
+  persistActiveRooms();
+  broadcastToRoom(room, {
+    type: 'fistbump:impact',
+    ...result.message.fistbump,
+    timestamp: now,
+    durationMs: legendary ? 2400 : 1900
+  });
+  return result;
+}
+
 const FIREWORKS_ROOM_COOLDOWN_MS = 8000;
 const FIREWORKS_PLAYER_COOLDOWN_MS = 45000;
 function parseFireworks(raw) {
@@ -7442,6 +7493,10 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   if (/^\/backstab\b/i.test(raw)) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
     return handleBackstabCommand(room, author, raw, targetPlayerId);
+  }
+  if (/^\/fistbump\b/i.test(raw)) {
+    const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
+    return handleFistbumpCommand(room, author, raw, targetPlayerId);
   }
   if (/^\/fireworks\b/i.test(raw)) {
     const fireworks = parseFireworks(raw);

@@ -2762,6 +2762,10 @@ const App = {
         window.BackstabEffect?.onMessage(message, null);
         break;
 
+      case 'fistbump:impact':
+        window.FistbumpEffect?.onMessage(message);
+        break;
+
       case 'c4:alert':
         window.C4Alert?.onMessage(message);
         break;
