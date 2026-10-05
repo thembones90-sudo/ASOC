@@ -68,7 +68,7 @@
     if (message.type === 'goat:awarded') {
       const layer = makeLayer({ event: 'awarded' });
       layer.querySelector('.goat-event-title').textContent = 'THE GOAT HAS BEEN CHOSEN';
-      layer.querySelector('.goat-event-subtitle').textContent = `${message.holderName || 'UNKNOWN'} // ${Number(message.charges) || 3} CHARGES`;
+      layer.querySelector('.goat-event-subtitle').textContent = `${message.holderName || 'UNKNOWN'} // UNLIMITED ACCESS`;
       requestAnimationFrame(() => layer.classList.add('is-live'));
       timer = setTimeout(clear, 3200);
       return;

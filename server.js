@@ -659,8 +659,8 @@ function restoreActiveRooms() {
         },
         womf: saved.womf || { charge: 0, failedColumns: {} },
         goat: saved.goat && typeof saved.goat === 'object'
-          ? { holderId: String(saved.goat.holderId || ''), holderName: String(saved.goat.holderName || ''), charges: Math.max(0, Math.min(3, Number(saved.goat.charges) || 0)) }
-          : { holderId: '', holderName: '', charges: 0 },
+          ? { holderId: String(saved.goat.holderId || ''), holderName: String(saved.goat.holderName || '') }
+          : { holderId: '', holderName: '' },
         wheel: saved.wheel || {
           open: false,
           segments: [],
@@ -1313,10 +1313,9 @@ function createRoom(gameId, hostWs) {
       charge: 0,
       failedColumns: {}
     },
-    // GOAT -- one awarded Little Hero may hold exactly three random-chaos
-    // charges at a time. The Shadow Broker can invoke /goat independently
-    // without consuming the holder's charges.
-    goat: { holderId: '', holderName: '', charges: 0 },
+    // GOAT -- one awarded Little Hero may hold the skill at a time and use it
+    // freely. The Shadow Broker always has independent access to every skill.
+    goat: { holderId: '', holderName: '' },
     // WHEEL OF MISFORTUNE -- the actual spin interface that OPEN WOMF
     // (armed at charge 10/10) reveals. `segments` are the player names in
     // play for this spin (GM-selected, or defaulted to everyone currently
@@ -6878,7 +6877,7 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/hug', help: '/hug [@Name] -- the Broker hugs someone (or everyone)' },
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
   { name: '/award', help: '/award @Name ghost -- grant a Shadow Market relic or reward (e.g. /drug)' },
-  { name: '/goat', help: '/goat @Name -- crown the one GOAT with 3 charges; /goat revoke removes it' },
+  { name: '/goat', help: '/goat @Name -- award the GOAT skill; /goat revoke removes it' },
   { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' }
 ];
 const GM_CHAT_SLASH_COMMANDS = Array.from(new Map(
@@ -7524,8 +7523,7 @@ function normalizeGoatState(room) {
   const current = room.goat && typeof room.goat === 'object' ? room.goat : {};
   room.goat = {
     holderId: String(current.holderId || ''),
-    holderName: String(current.holderName || ''),
-    charges: Math.max(0, Math.min(3, Number(current.charges) || 0))
+    holderName: String(current.holderName || '')
   };
   return room.goat;
 }
@@ -7537,7 +7535,6 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
     if (!goat.holderId || String(author.id) !== goat.holderId) {
       return { success: false, error: 'YOU ARE NOT THE GOAT // RETURN TO GRAZING' };
     }
-    if (goat.charges <= 0) return { success: false, error: 'THE GOAT IS OUT OF CHAOS // 0/3 CHARGES' };
   }
 
   const roll = crypto.randomInt(0, 100);
@@ -7546,7 +7543,6 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
       : roll < 70 ? 'ragdoll'
         : roll < 90 ? 'goatify'
           : 'sacrifice';
-  if (!gm) goat.charges -= 1;
   const connected = Array.from(room.players.values()).filter(player => player.connected !== false && (gm || String(player.id) !== String(author.id)));
   const target = connected.length ? connected[crypto.randomInt(0, connected.length)] : null;
   let womfReduced = false;
@@ -7561,7 +7557,6 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
     actorName: author.name,
     targetId: target ? String(target.id) : '',
     targetName: target?.name || '',
-    chargesLeft: gm ? null : goat.charges,
     womfReduced,
     timestamp: Date.now()
   };
@@ -7573,7 +7568,7 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
     sacrifice: womfReduced ? 'SACRIFICIAL GOAT → WOMF -1' : 'SACRIFICIAL GOAT → HEROICALLY USELESS'
   };
   const result = buildChatCommandMessage(room, author, 'goat', 'goat',
-    `🐐 ${author.name} unleashes /goat → ${labels[event]} // ${gm ? 'BROKER OVERRIDE' : `${goat.charges}/3 CHARGES LEFT`}`,
+    `🐐 ${author.name} unleashes /goat → ${labels[event]}${gm ? ' // BROKER OVERRIDE' : ''}`,
     { goat: payload });
   if (!result.success) return result;
   broadcastToRoom(room, { type: 'goat:event', ...payload });
@@ -7827,7 +7822,7 @@ function dispatchGmSlashCommand(room, ws, text) {
     const goat = normalizeGoatState(room);
     if (/^\/goat\s+revoke\s*$/i.test(raw)) {
       const previous = goat.holderName;
-      room.goat = { holderId: '', holderName: '', charges: 0 };
+      room.goat = { holderId: '', holderName: '' };
       persistActiveRooms();
       const result = addShadowBrokerMessage(room, previous ? `🐐 GOAT STATUS REVOKED // ${previous} RETURNS TO THE HERD` : '🐐 GOAT STATUS // NO HOLDER TO REVOKE', { editableByHost: true });
       return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
@@ -7836,10 +7831,10 @@ function dispatchGmSlashCommand(room, ws, text) {
     if (!match) return { success: false, error: 'GOAT INVALID // USE /goat @Name OR /goat revoke' };
     const resolved = resolveNamedTarget(room, null, '', match[1], 'GOAT', { includeDisconnected: true });
     if (resolved.error) return { success: false, error: resolved.error };
-    room.goat = { holderId: String(resolved.target.id), holderName: resolved.target.name, charges: 3 };
+    room.goat = { holderId: String(resolved.target.id), holderName: resolved.target.name };
     persistActiveRooms();
-    const result = addShadowBrokerMessage(room, `🐐 THE GOAT HAS BEEN CHOSEN // ${resolved.target.name} // 3 CHARGES`, { editableByHost: true });
-    broadcastToRoom(room, { type: 'goat:awarded', holderId: room.goat.holderId, holderName: room.goat.holderName, charges: 3, timestamp: Date.now() });
+    const result = addShadowBrokerMessage(room, `🐐 THE GOAT HAS BEEN CHOSEN // ${resolved.target.name} // UNLIMITED ACCESS`, { editableByHost: true });
+    broadcastToRoom(room, { type: 'goat:awarded', holderId: room.goat.holderId, holderName: room.goat.holderName, timestamp: Date.now() });
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
   if (/^\/commands\b/i.test(raw)) {
