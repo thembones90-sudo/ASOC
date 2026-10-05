@@ -2179,6 +2179,7 @@ function handleBlackMarket(ws, message) {
     let result;
     if (message.type === 'blackMarket:petition') result = blackMarket.createPetition(state, { id: ws.playerId, name: player.name }, message);
     else if (message.type === 'blackMarket:acceptCounter') result = blackMarket.acceptCounter(state, ws.playerId, message.pactId);
+    else if (message.type === 'blackMarket:tributeSeen') result = blackMarket.markTributeSeen(state, ws.playerId, message.pactId);
     else if (message.type === 'blackMarket:tributeSubmit') {
       let imageRef = '';
       const imageUrl = String(message.imageUrl || '');
@@ -2203,6 +2204,7 @@ function handleBlackMarket(ws, message) {
     if (result?.error) return blackMarketError(result.error);
     persistActiveRooms();
     syncBlackMarket(room, ws.playerId);
+    if (message.type === 'blackMarket:tributeSeen') sendBlackMarketGm(room);
     if (requestId) sendToWs(ws, { type: 'blackMarket:ack', requestId, action: message.type, pactId: result?.pact?.id || null, state: result?.pact?.state || null, persisted: true });
     return;
   }
@@ -13076,6 +13078,7 @@ wss.on('connection', (ws, req) => {
         case 'blackMarket:sync':
         case 'blackMarket:petition':
         case 'blackMarket:acceptCounter':
+        case 'blackMarket:tributeSeen':
         case 'blackMarket:tributeSubmit':
         case 'blackMarket:gmDecision':
         case 'blackMarket:tributeJudge': {
