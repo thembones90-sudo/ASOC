@@ -32,6 +32,9 @@ function normalizePact(raw) {
     tributeImageUrl: state === 'TRIBUTE_SUBMITTED' ? cleanText(raw?.tributeImageUrl, 240) : '',
     tributeId: cleanText(raw?.tributeId, 120) || null,
     rejectionReason: cleanText(raw?.rejectionReason, NOTE_LIMIT),
+    tributeLevel: Math.max(1, Math.min(10, Math.round(Number(raw?.tributeLevel) || 1))),
+    demandedAt: Number(raw?.demandedAt) || null,
+    seenAt: Number(raw?.seenAt) || null,
     createdAt: Number(raw?.createdAt) || Date.now(),
     updatedAt: Number(raw?.updatedAt) || Date.now(),
     fulfilledAt: Number(raw?.fulfilledAt) || null
@@ -63,6 +66,7 @@ function publicPact(pact, host = false) {
     title: pact.title, category: pact.category, request: pact.request, terms: pact.terms,
     state: pact.state, tributeRequired: pact.tributeRequired,
     tributeId: pact.tributeId, rejectionReason: pact.rejectionReason,
+    tributeLevel: pact.tributeLevel, demandedAt: pact.demandedAt, seenAt: pact.seenAt,
     createdAt: pact.createdAt, updatedAt: pact.updatedAt, fulfilledAt: pact.fulfilledAt
   };
   if (host && pact.state === 'TRIBUTE_SUBMITTED') {
@@ -117,6 +121,8 @@ function createGmTributeDebt(state, player, raw) {
   const bucket = ensurePlayer(state, player?.id);
   if (!bucket) return { error: 'LITTLE HERO NOT FOUND' };
   const reason = cleanText(raw?.reason, REQUEST_LIMIT);
+  const tributeLevel = Math.max(1, Math.min(10, Math.round(Number(raw?.tributeLevel) || 1)));
+  const now = Date.now();
   const pact = normalizePact({
     playerId: String(player.id),
     playerName: player.name,
@@ -125,9 +131,24 @@ function createGmTributeDebt(state, player, raw) {
     request: reason || 'A debt has been called by the Shadow Broker.',
     terms: 'Payment is due to the Reliquary.',
     state: 'APPROVED_PENDING_TRIBUTE',
-    tributeRequired: true
+    tributeRequired: true,
+    tributeLevel,
+    demandedAt: now,
+    updatedAt: now
   });
   bucket.pacts.push(pact);
+  return { pact };
+}
+
+function markTributeSeen(state, playerId, pactId) {
+  const pact = findPact(state, pactId);
+  if (!pact || pact.playerId !== String(playerId) || !pact.tributeRequired || !pact.demandedAt) {
+    return { error: 'TRIBUTE DEMAND NOT FOUND' };
+  }
+  if (!pact.seenAt) {
+    pact.seenAt = Date.now();
+    pact.updatedAt = pact.seenAt;
+  }
   return { pact };
 }
 
@@ -221,6 +242,7 @@ module.exports = {
   gmView,
   createPetition,
   createGmTributeDebt,
+  markTributeSeen,
   gmDecision,
   acceptCounter,
   submitTribute,

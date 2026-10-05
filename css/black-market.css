@@ -771,3 +771,18 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
 .bm-demand-notice-card button{min-height:46px;padding:0 22px;border:1px solid #ff2a4a;background:linear-gradient(180deg,#8b1028,#32040d);color:#fff;font:900 11px var(--font-machine,monospace);letter-spacing:.16em;cursor:pointer;box-shadow:0 0 22px rgba(255,30,60,.3)}
 .bm-demand-notice-card button:hover{filter:brightness(1.22);box-shadow:0 0 32px rgba(255,30,60,.5)}
 @media(max-width:760px){.bm-demand-tribute{grid-template-columns:1fr}.bm-demand-tribute button{width:100%}.bm-demand-notice-card{padding:32px 22px}.bm-demand-notice-card h2{font-size:25px}}
+
+
+/* BLOOD TRIBUTE DELIVERY LEDGER + SEVERITY SCALE */
+.bm-tribute-level{display:inline-block;margin:14px 0 0;padding:7px 10px;border:1px solid #781126;background:linear-gradient(180deg,rgba(118,8,28,.28),rgba(20,3,8,.7));color:#ff8396;font:900 10px var(--font-machine,monospace);letter-spacing:.18em;box-shadow:inset 0 0 14px rgba(130,0,28,.2)}
+.bm-delivery{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0;padding:10px 12px;border:1px solid #3e252d;background:rgba(0,0,0,.28)}
+.bm-delivery span{display:flex;align-items:center;gap:9px;min-height:28px;padding:0 10px;border:1px solid #554048;background:#0b080a}
+.bm-delivery b{color:#d9c8ce;font:900 10px var(--font-machine,monospace);letter-spacing:.13em}
+.bm-delivery small{color:#88767c;font:700 9px var(--font-machine,monospace);letter-spacing:.08em}
+.bm-delivery .is-seen{border-color:#226f45;background:rgba(9,56,32,.25)}
+.bm-delivery .is-seen b{color:#65d694}
+.bm-delivery .is-unseen{border-color:#7d182b;background:rgba(85,7,22,.2)}
+.bm-delivery .is-unseen b{color:#ff718a}
+.bm-demand-level{display:inline-block;margin:2px 0 18px;padding:8px 14px;border:1px solid #ff2a4a;background:rgba(110,5,24,.35);color:#ff9bac;font:900 12px var(--font-machine,monospace);letter-spacing:.26em;box-shadow:0 0 20px rgba(255,30,60,.2)}
+.bm-demand-tribute{grid-template-columns:minmax(160px,.7fr) minmax(125px,.35fr) minmax(260px,1.25fr) auto}
+@media(max-width:900px){.bm-demand-tribute{grid-template-columns:1fr 1fr}.bm-demand-tribute label:last-of-type{grid-column:1/-1}.bm-demand-tribute button{grid-column:1/-1}}
