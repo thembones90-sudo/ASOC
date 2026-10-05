@@ -2758,6 +2758,10 @@ const App = {
         window.WarsongAlert?.onMessage(message);
         break;
 
+      case 'backstab:strike':
+        window.BackstabEffect?.onMessage(message, null);
+        break;
+
       case 'c4:alert':
         window.C4Alert?.onMessage(message);
         break;

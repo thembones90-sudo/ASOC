@@ -69,6 +69,7 @@ const CATALOG = Object.freeze([
   { id: 'cmd-love', kind: 'command', command: 'love', name: '/love', price: 4, asset: 'assets/shop/cmd-love.png', desc: 'Colourful hearts fly over the chat. Aim it: /love @Name.' },
   // Relic command: never sold, only granted by the Shadow Broker (/award).
   { id: 'cmd-drug', kind: 'command', command: 'drug', name: '/drug', relic: true, asset: 'assets/shop/cmd-drug.png', desc: 'Relic. Granted by the Shadow Broker, never sold. /drug @Name injects them with... something.' },
+  { id: 'cmd-backstab', kind: 'command', command: 'backstab', name: '/backstab', relic: true, badge: '🗡️', desc: 'Relic command. Granted by the Shadow Broker. Each use still costs 15 SC and carries a 10% chance of stabbing yourself.' },
 
   // ---- Correct-answer celebrations: play on YOUR accepted answers.
   { id: 'cel-broker-nod', kind: 'celebration', name: "THE BROKER'S NOD", price: 6, asset: 'assets/shop/cel-broker-nod.png', desc: 'A gold ACCEPTED stamp slams onto your answer.' },

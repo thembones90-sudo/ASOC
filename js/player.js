@@ -1567,6 +1567,10 @@ const PlayerApp = {
         window.CoinDrop?.onMessage?.(message);
         break;
 
+      case 'backstab:strike':
+        window.BackstabEffect?.onMessage(message, this.playerId);
+        break;
+
       case 'c4:alert':
         window.C4Alert?.onMessage(message);
         break;
@@ -2956,9 +2960,10 @@ const PlayerApp = {
       list.innerHTML = ranked.map(p => {
         const presenceClass = p.connected === false ? 'is-offline' : 'is-online';
         return `
-        <span class="pl-entry ${presenceClass} ${p.id === this.playerId ? 'pl-entry-me' : ''}" title="${this.escapeHtml(p.name)} // ${p.score || 0} points">${this.littleHeroAvatarHTML(p, true)}<span class="pl-entry-name">${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
+        <span class="pl-entry ${presenceClass} ${p.id === this.playerId ? 'pl-entry-me' : ''}" data-player-id="${this.escapeHtml(String(p.id || ''))}" title="${this.escapeHtml(p.name)} // ${p.score || 0} points">${this.littleHeroAvatarHTML(p, true)}<span class="pl-entry-name">${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
       `;
       }).join('');
+      window.BackstabEffect?.decorateRoster?.(list);
     }
     const meIndex = ranked.findIndex(p => p.id === this.playerId);
     const me = meIndex >= 0 ? ranked[meIndex] : null;

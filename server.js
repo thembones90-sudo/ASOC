@@ -6805,6 +6805,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/rupture', help: '/rupture -- SHADOW MARKET unlock: crack reality open' },
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
   { name: '/avada', help: '/avada @Name -- the killing curse (5% it rebounds; 10 min recharge)' },
+  { name: '/backstab', help: '/backstab @Name -- spend 15 SC to betray a player (10% chance you stab yourself; 60 min recharge)' },
   { name: '/love', help: '/love [Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
   { name: '/drug', help: '/drug @Name -- SHADOW MARKET relic: inject someone with... something' },
   { name: '/hug', help: '/hug [@Name] -- hug someone (or everyone), with a sweet animation' },
@@ -7289,6 +7290,76 @@ function handleAfkCommand(room, raw, targetPlayerId) {
 // who lit it, plus an ephemeral fireworks:launch every screen plays from the
 // same seed. A room-wide cooldown keeps the sky readable; Little Heroes also
 // get a personal one so one person cannot run the show all day.
+const BACKSTAB_COST = 15;
+const BACKSTAB_COOLDOWN_MS = 60 * 60 * 1000;
+const BACKSTAB_SELF_HIT_CHANCE = 10;
+
+function handleBackstabCommand(room, author, raw, targetPlayerId) {
+  const match = raw.match(/^\/backstab(?:\s+@?(.*?))?\s*$/i);
+  if (!match) return { success: false, error: 'BACKSTAB INVALID // USE /backstab @Name' };
+  const resolved = resolveNamedTarget(room, author.id, targetPlayerId, match[1] || '', 'BACKSTAB');
+  if (resolved.error) return { success: false, error: resolved.error };
+
+  const account = coinAccount(author.id, author.name);
+  if (!account) return { success: false, error: 'BACKSTAB // TEST PERSONAS HAVE NO SHADOW COIN DOSSIER' };
+
+  const now = Date.now();
+  room.backstabCooldowns ||= {};
+  const actorKey = String(author.id);
+  const lastAt = Number(room.backstabCooldowns[actorKey]) || 0;
+  const remaining = BACKSTAB_COOLDOWN_MS - (now - lastAt);
+  if (remaining > 0) {
+    const mins = Math.ceil(remaining / 60000);
+    return { success: false, error: `BACKSTAB RECHARGING // ${mins} MINUTE${mins === 1 ? '' : 'S'} REMAIN` };
+  }
+
+  const balance = playerStore.getShadowCoins(account);
+  if (balance < BACKSTAB_COST) {
+    return { success: false, error: `BACKSTAB COSTS ${BACKSTAB_COST} SHADOW COINS // YOU HAVE ${balance}` };
+  }
+
+  const receipt = `backstab:${actorKey}:${now}:${crypto.randomBytes(4).toString('hex')}`;
+  const paid = playerStore.spendShadowCoins(account, BACKSTAB_COST, receipt, { reason: 'BACKSTAB attempt' });
+  if (!paid.ok) return { success: false, error: paid.error || 'BACKSTAB PAYMENT FAILED' };
+
+  room.backstabCooldowns[actorKey] = now;
+  const failed = crypto.randomInt(0, 100) < BACKSTAB_SELF_HIT_CHANCE;
+  const intended = resolved.target;
+  const victim = failed ? { id: author.id, name: author.name } : intended;
+  const text = failed
+    ? `${author.name} tried to backstab ${intended.name} and stabbed themselves instead. 🇧🇬`
+    : `${author.name} backstabbed ${intended.name}. 🇧🇬`;
+
+  const result = buildChatCommandMessage(room, author, 'backstab', 'backstab', text, {
+    backstab: {
+      actorId: String(author.id),
+      actorName: author.name,
+      intendedTargetId: String(intended.id),
+      intendedTargetName: intended.name,
+      victimId: String(victim.id),
+      victimName: victim.name,
+      failed,
+      cost: BACKSTAB_COST,
+      cooldownMs: BACKSTAB_COOLDOWN_MS
+    }
+  });
+  if (!result.success) {
+    playerStore.awardShadowCoins(account, BACKSTAB_COST, `${receipt}:refund`, { reason: 'BACKSTAB message rollback' });
+    delete room.backstabCooldowns[actorKey];
+    return result;
+  }
+
+  persistActiveRooms();
+  broadcastPlayersUpdate(room);
+  broadcastToRoom(room, {
+    type: 'backstab:strike',
+    ...result.message.backstab,
+    timestamp: now,
+    durationMs: 3000
+  });
+  return result;
+}
+
 const FIREWORKS_ROOM_COOLDOWN_MS = 8000;
 const FIREWORKS_PLAYER_COOLDOWN_MS = 45000;
 function parseFireworks(raw) {
@@ -7329,6 +7400,10 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   if (/^\/order\b/i.test(raw)) return handleOrderCommand(room, author, raw);
   if (/^\/stats\b/i.test(raw)) return handleStatsCommand(room, author, raw);
   if (/^\/commands\b/i.test(raw)) return handleCommandsCommand(room, author, raw, CHAT_SLASH_COMMANDS);
+  if (/^\/backstab\b/i.test(raw)) {
+    const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
+    return handleBackstabCommand(room, author, raw, targetPlayerId);
+  }
   if (/^\/fireworks\b/i.test(raw)) {
     const fireworks = parseFireworks(raw);
     if (!fireworks) return { success: false, error: 'FIREWORKS INVALID // USE /fireworks [message]' };
