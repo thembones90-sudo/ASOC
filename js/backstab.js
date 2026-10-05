@@ -120,7 +120,7 @@
       <div class="backstab-caption">
         <strong>${headline}</strong>
         <span>${detail}</span>
-        <em>🇧🇬 · 15 SC</em>
+        <em>🇧🇬${Number(message.cost) > 0 ? ` · ${Number(message.cost)} SC` : ' · SHADOW BROKER AUTHORITY'}</em>
       </div>`;
 
     document.body.appendChild(layer);
