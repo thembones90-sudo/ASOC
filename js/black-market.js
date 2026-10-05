@@ -32,6 +32,7 @@
 
   const ui = {
     pacts: [],
+    targets: [],
     // Returns the underlying send() result. PlayerApp.send answers true when the
     // frame left and false when the socket is down; the old wrapper threw that
     // answer away, so a submission into a dead socket was indistinguishable
@@ -65,6 +66,7 @@
         if (message?.type === 'blackMarket:state' || message?.type === 'blackMarket:gmState') {
           if (!window.AsocRuntime?.acceptRevision?.(isGM ? 'black-market-gm' : 'black-market-player', message.revision) && window.AsocRuntime) return;
           this.pacts = Array.isArray(message.pacts) ? message.pacts : [];
+          if (isGM) this.targets = Array.isArray(message.targets) ? message.targets : [];
           if (!isGM && this._tributeAwaitingPactId) {
             const submitted = this.pacts.find(p => p.id === this._tributeAwaitingPactId && p.state === 'TRIBUTE_SUBMITTED');
             if (submitted) this.confirmTributeSubmission();
@@ -125,6 +127,13 @@
       );
       const pending = actionable.length;
       btn.classList.toggle('has-pending', pending > 0);
+      if (!isGM) {
+        const unseenTributes = this.pacts.filter(p => p.tributeRequired && p.demandedAt && !p.seenAt && ['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(p.state));
+        btn.classList.toggle('has-unseen-tribute', unseenTributes.length > 0);
+        const subtitle = btn.querySelector('small');
+        if (subtitle) subtitle.textContent = unseenTributes.length ? 'BLOOD TRIBUTE WAITS' : 'PRIVATE CHANNEL';
+        btn.setAttribute('aria-label', unseenTributes.length ? `Black Market: ${unseenTributes.length} unseen Blood Tribute debt${unseenTributes.length === 1 ? '' : 's'}` : 'Open private Black Market channel');
+      }
       if (isGM) btn.classList.toggle('bm-has-pending', pending > 0);
       btn.dataset.pending = pending || '';
       if (isGM) {
@@ -135,6 +144,13 @@
       }
     },
     open() {
+      if (!isGM) {
+        const unseen = this.pacts.filter(p => p.tributeRequired && p.demandedAt && !p.seenAt && ['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(p.state));
+        unseen.forEach(p => {
+          const requestId = `bm-seen-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+          this.send({ type: 'blackMarket:tributeSeen', pactId: p.id, requestId });
+        });
+      }
       if (!document.getElementById('black-market-overlay')) {
         const overlay = document.createElement('div');
         overlay.id = 'black-market-overlay';
@@ -169,10 +185,10 @@
       // ledger the moment they are judged: only open debts remain.
       const rest = this.pacts.filter(p => !['SUBMITTED','TRIBUTE_SUBMITTED','FULFILLED','DENIED','BROKEN'].includes(p.state));
       const history = this.pacts.filter(p => ['FULFILLED','DENIED','BROKEN'].includes(p.state) && p.tributeRequired);
-      const online = (host.currentPlayers || []).filter(player => player?.connected === true);
-      const playerOptions = online.map(player => '<option value="' + this.esc(player.id) + '">' + this.esc(player.name || 'LITTLE HERO') + '</option>').join('');
+      const targets = Array.isArray(this.targets) ? this.targets : [];
+      const playerOptions = targets.map(player => '<option value="' + this.esc(player.id) + '">' + this.esc(player.name || 'LITTLE HERO') + (player.connected ? ' // ONLINE' : ' // OFFLINE') + '</option>').join('');
       const levelOptions = Array.from({length:10}, (_,i) => '<option value="' + (i+1) + '">LEVEL ' + (i+1) + '</option>').join('');
-      const collector = '<form id="bm-demand-tribute" class="bm-demand-tribute"><label>DEBTOR<select name="playerId" required>' + (playerOptions || '<option value="">NO LITTLE HEROES ONLINE</option>') + '</select></label><label>TRIBUTE LEVEL<select name="tributeLevel" required>' + levelOptions + '</select></label><label>CAUSE OF DEBT<input name="reason" maxlength="1200" placeholder="Lost wager, broken pact, failed challenge?"></label><button type="submit"' + (playerOptions ? '' : ' disabled') + '>BLOOD TRIBUTE REQUIRED</button></form>';
+      const collector = '<form id="bm-demand-tribute" class="bm-demand-tribute"><label>DEBTOR<select name="playerId" required>' + (playerOptions || '<option value="">NO LITTLE HERO ACCOUNTS FOUND</option>') + '</select></label><label>TRIBUTE LEVEL<select name="tributeLevel" required>' + levelOptions + '</select></label><label>CAUSE OF DEBT<input name="reason" maxlength="1200" placeholder="Lost wager, broken pact, failed challenge?"></label><button type="submit"' + (playerOptions ? '' : ' disabled') + '>BLOOD TRIBUTE REQUIRED</button></form>';
       return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>SEALED PETITIONS</b><p>Each chamber terminates here. Nothing below is broadcast to the room.</p></div><h3>CALL A DEBT</h3>' + collector + '<h3>AWAITING JUDGMENT</h3><div class="bm-ledger">' + (pending.map(p => this.card(p, true)).join('') || '<p class="bm-empty">THE MARKET SLEEPS.</p>') + '</div><h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + (rest.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO OPEN DEBTS.</p>') + '</div><h3>TRIBUTE HISTORY</h3><div class="bm-ledger">' + (history.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO CLOSED TRIBUTES.</p>') + '</div>';
     },
     card(p, gm) {

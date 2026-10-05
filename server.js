@@ -2152,9 +2152,27 @@ function sendBlackMarketPlayer(room, playerId) {
     }
   }
 }
+function blackMarketTargets(room) {
+  const connected = new Set();
+  for (const [socket, player] of room?.players || []) {
+    if (socket?.readyState === 1 && player?.id) connected.add(String(player.id));
+  }
+  const targets = new Map();
+  for (const [key, profile] of Object.entries(playerStore.peekPlayers() || {})) {
+    const id = String(profile?.accountId || profile?.id || key || '');
+    if (!id || isMasterTestPlayerId(id)) continue;
+    targets.set(id, { id, name: String(profile?.name || 'LITTLE HERO'), connected: connected.has(id) });
+  }
+  for (const player of room?.players?.values?.() || []) {
+    const id = String(player?.id || '');
+    if (!id || isMasterTestPlayerId(id)) continue;
+    if (!targets.has(id)) targets.set(id, { id, name: String(player?.name || 'LITTLE HERO'), connected: connected.has(id) });
+  }
+  return [...targets.values()].sort((a,b) => Number(b.connected)-Number(a.connected) || a.name.localeCompare(b.name));
+}
 function sendBlackMarketGm(room) {
   if (room?.hostConnection?.readyState === 1) {
-    sendToWs(room.hostConnection, { type: 'blackMarket:gmState', ...blackMarket.gmView(room.blackMarket) });
+    sendToWs(room.hostConnection, { type: 'blackMarket:gmState', ...blackMarket.gmView(room.blackMarket), targets: blackMarketTargets(room) });
   }
 }
 function syncBlackMarket(room, playerId) {
@@ -2211,8 +2229,11 @@ function handleBlackMarket(ws, message) {
   if (!['blackMarket:gmDemandTribute', 'blackMarket:gmDecision', 'blackMarket:tributeJudge'].includes(message.type)) return;
   if (message.type === 'blackMarket:gmDemandTribute') {
     const playerId = String(message.playerId || '');
-    const player = Array.from(room.players.values()).find(item => String(item?.id) === playerId);
-    if (!player) return blackMarketError('LITTLE HERO NOT FOUND');
+    const roomPlayer = Array.from(room.players.values()).find(item => String(item?.id) === playerId);
+    const profiles = playerStore.peekPlayers() || {};
+    const stored = profiles[playerId] || Object.values(profiles).find(profile => String(profile?.accountId || profile?.id || '') === playerId);
+    const player = roomPlayer || (stored ? { id: playerId, name: stored.name || 'LITTLE HERO' } : null);
+    if (!player) return blackMarketError('LITTLE HERO ACCOUNT NOT FOUND');
     const result = blackMarket.createGmTributeDebt(state, { id: player.id, name: player.name }, message);
     if (result?.error) return blackMarketError(result.error);
     persistActiveRooms();
