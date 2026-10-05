@@ -300,7 +300,14 @@
 
     const stageUrl = (url) => {
       const clean = String(url || '').trim();
-      if (!/^https?:\/\//i.test(clean)) return false;
+      // Only direct image URLs belong in the media pipeline. Ordinary links
+      // must remain normal chat text so players can paste and send them.
+      let isImageUrl = false;
+      try {
+        const parsed = new URL(clean);
+        isImageUrl = /^https?:$/.test(parsed.protocol) && /\.(?:png|jpe?g|webp|gif)$/i.test(parsed.pathname);
+      } catch (_) {}
+      if (!isImageUrl) return false;
       revoke();
       pending = { kind: 'url', url: clean };
       image.src = clean;
