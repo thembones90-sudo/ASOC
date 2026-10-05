@@ -87,6 +87,14 @@ const ControlSurfaces = {
 
     const appearance = makeModule('03 // APPEARANCE', primaryGrid);
     appearance.classList.add('gm-appearance-maintenance');
+    const animationControl = document.createElement('label');
+    animationControl.className = 'gm-battle-animation-control';
+    animationControl.innerHTML = '<span>BATTLE MODE ANIMATION</span><select id="gm-battle-animation-select" aria-label="Battle Mode animation"></select><small>SERVER-SYNCHRONIZED // APPLIES ON NEXT BATTLE ENTRY</small>';
+    const animationSelect = animationControl.querySelector('select');
+    const presets = window.BattleAnimations?.list?.() || [{ id:'default', name:'DEFAULT' }, { id:'glitch-world', name:'GLITCH WORLD' }];
+    animationSelect.innerHTML = presets.map(preset => `<option value="${preset.id}">${preset.name}</option>`).join('');
+    animationSelect.addEventListener('change', () => this.app?.send?.({ type:'gm:setBattleAnimation', id:animationSelect.value }));
+    appearance.appendChild(animationControl);
     const layoutStatus = document.createElement('div');
     layoutStatus.id = 'gm-layout-lock-status';
     layoutStatus.className = 'gm-layout-lock-status';
@@ -338,6 +346,8 @@ const ControlSurfaces = {
     const heroes = document.getElementById('battle-session-heroes');
     if (room) room.hidden = !multiplayer;
     if (heroes) heroes.hidden = !multiplayer;
+    const animationSelect = document.getElementById('gm-battle-animation-select');
+    if (animationSelect && animationSelect.value !== (app.battleAnimationId || 'default')) animationSelect.value = app.battleAnimationId || 'default';
   }
 };
 

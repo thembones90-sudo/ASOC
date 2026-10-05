@@ -1393,6 +1393,8 @@ const PlayerApp = {
         setTimeout(() => window.FinalDebt?.update(message), 0);
         const previousState = this.lastPublicState;
         const roomMode = message.roomMode || (message.armed === true ? 'BATTLE_ARMED' : 'CASUAL');
+        this.battleAnimationId = message.battleAnimationId || 'default';
+        window.BattleAnimations?.select?.(this.battleAnimationId);
         const battleVisible = roomMode !== 'CASUAL';
         const boardChanged = !!(previousState?.gameId && message.gameId && previousState.gameId !== message.gameId);
         if (boardChanged || !battleVisible) {
@@ -2318,6 +2320,7 @@ const PlayerApp = {
     if (fromCasual === toCasual) return;
 
     const direction = toCasual ? 'casual' : 'battle';
+    if (window.BattleAnimations?.handleTransition?.({ previous, next, direction, selection: this.battleAnimationId || 'default' })) return;
     const active = document.querySelector('.asoc-mode-transition');
     if (active?.dataset.direction === direction) return;
 
@@ -2450,6 +2453,8 @@ const PlayerApp = {
       screen.classList.toggle('room-mode-recount', next === 'RECOUNT');
       if (screen.dataset.roomMode !== next) screen.dataset.roomMode = next;
     }
+    window.BattleAnimations?.select?.(this.battleAnimationId || 'default');
+    window.BattleAnimations?.syncAmbience?.(next);
     if (standby && !standby.hidden) standby.hidden = true;
     Recount.refreshPill?.();
 

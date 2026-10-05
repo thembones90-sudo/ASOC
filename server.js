@@ -500,6 +500,7 @@ function serializeRoomForRecovery(room) {
   return {
     code: room.code,
     roomMode: normalizeRoomMode(room.roomMode, room.armed === true),
+    battleAnimationId: room.battleAnimationId === 'glitch-world' ? 'glitch-world' : 'default',
     armed: room.armed === true,
     gameId: room.gameId,
     gameData: room.gameData,
@@ -624,6 +625,7 @@ function restoreActiveRooms() {
       const room = {
         code: saved.code.toUpperCase(),
         roomMode: restoredRoomMode,
+        battleAnimationId: saved.battleAnimationId === 'glitch-world' ? 'glitch-world' : 'default',
         // The CASUAL display toggle keeps a battle armed underneath it, so
         // CASUAL + armed is a real persisted state, not a contradiction.
         armed: restoredRoomMode !== ROOM_MODES.CASUAL || saved.armed === true,
@@ -1376,6 +1378,7 @@ function createRoom(gameId, hostWs) {
     // ROCK PAPER SCISSORS OLYMPICS -- independent side-event state.
     olympics: null,
     olympicsChampionId: null,
+    battleAnimationId: 'default',
     // MATCH LEDGER -- per-board data capture for the post-game RECOUNT (see
     // match-ledger.js). Replaced with a fresh ledger whenever a new board id
     // is minted (RESET BOARD / NEXT GAME).
@@ -1452,6 +1455,7 @@ function getPublicState(room) {
     roomCode: room.code,
     avada: avadaPublic(room),
     roomMode: normalizeRoomMode(room.roomMode, room.armed === true),
+    battleAnimationId: room.battleAnimationId === 'glitch-world' ? 'glitch-world' : 'default',
     armed: room.armed === true,
     gameId: game.id,
     title: game.title,
@@ -11175,6 +11179,17 @@ function handleSetRoomMode(ws, message) {
   console.log(`[MASTER ROOM] Display mode -> ${next}`);
 }
 
+function handleSetBattleAnimation(ws, message) {
+  const room = rooms.get(MASTER_ROOM_CODE);
+  if (!room) return;
+  if (ws !== room.hostConnection) return sendToWs(ws, { type: 'error', message: 'Only Shadow Broker can select Battle animation' });
+  const id = String(message.id || '').trim().toLowerCase();
+  if (!['default', 'glitch-world'].includes(id)) return sendToWs(ws, { type: 'error', message: 'Unknown Battle animation preset' });
+  room.battleAnimationId = id; room.revision++;
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+}
+
 function handleCloseRoom(ws) {
   const room = rooms.get(MASTER_ROOM_CODE);
   if (!room) return;
@@ -13068,6 +13083,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:setRoomMode': {
           handleSetRoomMode(ws, message);
+          break;
+        }
+        case 'gm:setBattleAnimation': {
+          handleSetBattleAnimation(ws, message);
           break;
         }
         case 'room:close': {

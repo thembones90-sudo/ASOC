@@ -3185,6 +3185,8 @@ const App = {
 
   applyServerState(state) {
     this.revision = Number(state.revision) || 0;
+    this.battleAnimationId = state.battleAnimationId || 'default';
+    window.BattleAnimations?.select?.(this.battleAnimationId);
     const nextRoomMode = state.roomMode || (state.armed === true ? 'BATTLE_ARMED' : 'CASUAL');
     const battleVisible = nextRoomMode !== 'CASUAL';
     const wasBattleVisible = this.roomMode !== 'CASUAL';
@@ -3409,6 +3411,7 @@ const App = {
     if (fromCasual === toCasual) return;
 
     const direction = toCasual ? 'casual' : 'battle';
+    if (window.BattleAnimations?.handleTransition?.({ previous, next, direction, selection: this.battleAnimationId || 'default' })) return;
     const active = document.querySelector('.asoc-mode-transition');
     if (active?.dataset.direction === direction) return;
 
@@ -3533,6 +3536,8 @@ const App = {
     document.body.classList.toggle('room-mode-battle-armed', next === 'BATTLE_ARMED');
     document.body.classList.toggle('room-mode-battle', next === 'BATTLE');
     document.body.classList.toggle('room-mode-recount', next === 'RECOUNT');
+    window.BattleAnimations?.select?.(this.battleAnimationId || 'default');
+    window.BattleAnimations?.syncAmbience?.(next);
     // Page-wide marker: re-setting it (even to the same value) invalidates
     // styles for the whole document, and this runs on every state tick.
     if (document.body.dataset.roomMode !== next) document.body.dataset.roomMode = next;
