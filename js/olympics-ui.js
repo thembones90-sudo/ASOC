@@ -1,7 +1,13 @@
 (function () {
   'use strict';
   const HANDS = { rock: ['🪨', 'ROCK'], paper: ['📜', 'PAPER'], scissors: ['✂️', 'SCISSORS'] };
-  const state = { data: null, championId: null, open: false, error: '', invitedId: null, lastReveal: '' };
+  const safeSession = {
+    get(key) { try { return sessionStorage.getItem(key) || ''; } catch (_) { return ''; } },
+    set(key, value) { try { if (value) sessionStorage.setItem(key, value); else sessionStorage.removeItem(key); } catch (_) {} }
+  };
+  const DISMISSED_KEY = 'asoc_olympics_dismissed_id';
+  const INVITED_KEY = 'asoc_olympics_invited_id';
+  const state = { data: null, championId: null, open: false, error: '', invitedId: safeSession.get(INVITED_KEY), dismissedId: safeSession.get(DISMISSED_KEY), lastReveal: '' };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   const app = () => window.App || window.PlayerApp;
   const isGm = () => !!window.App && !window.PlayerApp;
@@ -20,8 +26,17 @@
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'Rock Paper Scissors Olympics');
     document.body.appendChild(root); return root;
   }
-  function close() { state.open = false; ensure().hidden = true; }
-  function open() { state.open = true; render(); send({ type: 'olympics:sync' }); }
+  function close() {
+    state.open = false;
+    if (state.data?.id) { state.dismissedId = String(state.data.id); safeSession.set(DISMISSED_KEY, state.dismissedId); }
+    ensure().hidden = true;
+  }
+  function open() {
+    state.open = true;
+    if (state.data?.id && state.dismissedId === String(state.data.id)) { state.dismissedId = ''; safeSession.set(DISMISSED_KEY, ''); }
+    render();
+    send({ type: 'olympics:sync' });
+  }
   function playerCard(player, active = false) {
     return `<article class="oly-player${active ? ' is-active' : ''}${player.eliminated ? ' is-eliminated' : ''}${player.connected === false ? ' is-disconnected' : ''}">
       ${avatar(player)}<span><b>${esc(player.name)}</b><small>${player.eliminated ? 'ELIMINATED' : player.connected === false ? 'DISCONNECTED' : `${Number(player.supporters) || 0} SUPPORTERS`}</small></span>
@@ -146,9 +161,13 @@
     if (message.type !== 'olympics:state') return;
     const hadTournament = !!state.data;
     state.data = message.state || null; state.championId = message.championId || state.data?.championId || null; state.error = ''; updateCards();
-    if (hadTournament && !state.data) { state.invitedId = null; return close(); }
-    if (!isGm() && state.data?.status === 'lobby' && !state.data.joined && state.invitedId !== state.data.id) { state.invitedId = state.data.id; state.open = true; }
-    if (state.data?.joined && ['running', 'complete'].includes(state.data.status)) state.open = true;
+    if (hadTournament && !state.data) { state.invitedId = ''; state.dismissedId = ''; safeSession.set(INVITED_KEY, ''); safeSession.set(DISMISSED_KEY, ''); return close(); }
+    const tournamentId = String(state.data?.id || '');
+    const dismissed = tournamentId && state.dismissedId === tournamentId;
+    if (!isGm() && state.data?.status === 'lobby' && !state.data.joined && state.invitedId !== tournamentId && !dismissed) {
+      state.invitedId = tournamentId; safeSession.set(INVITED_KEY, tournamentId); state.open = true;
+    }
+    if (!dismissed && state.data?.joined && ['running', 'complete'].includes(state.data.status)) state.open = true;
     if (state.open) render();
   }
   document.addEventListener('click', event => {
