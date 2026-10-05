@@ -523,6 +523,7 @@ function serializeRoomForRecovery(room) {
     scoring,
     match: room.match,
     womf: room.womf,
+    goat: room.goat || null,
     wheel: room.wheel,
     bloodTributes: room.bloodTributes || [],
     pendingTribute: room.pendingTribute || null,
@@ -657,6 +658,9 @@ function restoreActiveRooms() {
           pendingResults: null
         },
         womf: saved.womf || { charge: 0, failedColumns: {} },
+        goat: saved.goat && typeof saved.goat === 'object'
+          ? { holderId: String(saved.goat.holderId || ''), holderName: String(saved.goat.holderName || ''), charges: Math.max(0, Math.min(3, Number(saved.goat.charges) || 0)) }
+          : { holderId: '', holderName: '', charges: 0 },
         wheel: saved.wheel || {
           open: false,
           segments: [],
@@ -1309,6 +1313,10 @@ function createRoom(gameId, hostWs) {
       charge: 0,
       failedColumns: {}
     },
+    // GOAT -- one awarded Little Hero may hold exactly three random-chaos
+    // charges at a time. The Shadow Broker can invoke /goat independently
+    // without consuming the holder's charges.
+    goat: { holderId: '', holderName: '', charges: 0 },
     // WHEEL OF MISFORTUNE -- the actual spin interface that OPEN WOMF
     // (armed at charge 10/10) reveals. `segments` are the player names in
     // play for this spin (GM-selected, or defaulted to everyone currently
@@ -1513,6 +1521,7 @@ function getPublicState(room) {
     // Safe to send to every client, GM and players alike.
     clueOrder: room.sessionState.clueOrder || { A: [], B: [], C: [], D: [] },
     womf: getWomfPublicState(room),
+    goat: { ...normalizeGoatState(room) },
     wheel: getWheelPublicState(room),
     bloodTribute: getBloodTributePublicState(room),
     unstableConcoction: unstableConcoction.publicState(room.unstableConcoction),
@@ -6829,6 +6838,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/drug', help: '/drug @Name -- SHADOW MARKET relic: inject someone with... something' },
   { name: '/hug', help: '/hug [@Name] -- hug someone (or everyone), with a sweet animation' },
   { name: '/fireworks', help: '/fireworks [message] -- light up every screen with a fireworks show' },
+  { name: '/goat', help: '/goat -- unleash one random GOAT event (awarded player only)' },
   { name: '/commands', help: '/commands -- this list' }
 ];
 
@@ -6850,6 +6860,7 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/hug', help: '/hug [@Name] -- the Broker hugs someone (or everyone)' },
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
   { name: '/award', help: '/award @Name ghost -- grant a Shadow Market relic or reward (e.g. /drug)' },
+  { name: '/goat', help: '/goat @Name -- crown the one GOAT with 3 charges; /goat revoke removes it' },
   { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' }
 ];
 const GM_CHAT_SLASH_COMMANDS = Array.from(new Map(
@@ -7491,6 +7502,68 @@ function launchFireworks(room, actorKey, byName, text, now = Date.now()) {
   broadcastToRoom(room, { type: 'fireworks:launch', byName: String(byName || 'SOMEONE').slice(0, 40), text, seed: crypto.randomBytes(4).readUInt32BE(0), timestamp: now });
 }
 
+function normalizeGoatState(room) {
+  const current = room.goat && typeof room.goat === 'object' ? room.goat : {};
+  room.goat = {
+    holderId: String(current.holderId || ''),
+    holderName: String(current.holderName || ''),
+    charges: Math.max(0, Math.min(3, Number(current.charges) || 0))
+  };
+  return room.goat;
+}
+
+function handleGoatCommand(room, author, raw, { gm = false } = {}) {
+  if (!/^\/goat\s*$/i.test(raw)) return { success: false, error: 'GOAT INVALID // USE /goat' };
+  const goat = normalizeGoatState(room);
+  if (!gm) {
+    if (!goat.holderId || String(author.id) !== goat.holderId) {
+      return { success: false, error: 'YOU ARE NOT THE GOAT // RETURN TO GRAZING' };
+    }
+    if (goat.charges <= 0) return { success: false, error: 'THE GOAT IS OUT OF CHAOS // 0/3 CHARGES' };
+  }
+
+  const roll = crypto.randomInt(0, 100);
+  const event = roll < 25 ? 'headbutt'
+    : roll < 50 ? 'baaaa'
+      : roll < 70 ? 'ragdoll'
+        : roll < 90 ? 'goatify'
+          : 'sacrifice';
+  if (!gm) goat.charges -= 1;
+  const connected = Array.from(room.players.values()).filter(player => player.connected !== false && (gm || String(player.id) !== String(author.id)));
+  const target = connected.length ? connected[crypto.randomInt(0, connected.length)] : null;
+  let womfReduced = false;
+  if (event === 'sacrifice' && Number(room.womf?.charge) > 0) {
+    room.womf.charge = Math.max(0, Number(room.womf.charge) - 1);
+    womfReduced = true;
+    room.revision++;
+  }
+  const payload = {
+    event,
+    actorId: String(author.id),
+    actorName: author.name,
+    targetId: target ? String(target.id) : '',
+    targetName: target?.name || '',
+    chargesLeft: gm ? null : goat.charges,
+    womfReduced,
+    timestamp: Date.now()
+  };
+  const labels = {
+    headbutt: 'HEADBUTT',
+    baaaa: 'BAAAAAAAAAA',
+    ragdoll: 'RAGDOLL',
+    goatify: target ? `GOATIFY → ${target.name}` : 'GOATIFY → NO VICTIM AVAILABLE',
+    sacrifice: womfReduced ? 'SACRIFICIAL GOAT → WOMF -1' : 'SACRIFICIAL GOAT → HEROICALLY USELESS'
+  };
+  const result = buildChatCommandMessage(room, author, 'goat', 'goat',
+    `🐐 ${author.name} unleashes /goat → ${labels[event]} // ${gm ? 'BROKER OVERRIDE' : `${goat.charges}/3 CHARGES LEFT`}`,
+    { goat: payload });
+  if (!result.success) return result;
+  broadcastToRoom(room, { type: 'goat:event', ...payload });
+  persistActiveRooms();
+  if (womfReduced) broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  return result;
+}
+
 function dispatchPlayerSlashCommand(room, ws, text, message) {
   const raw = String(text || '').trim();
   if (!raw.startsWith('/')) return null;
@@ -7507,6 +7580,7 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   if (/^\/choose\b/i.test(raw)) return handleChooseCommand(room, author, raw);
   if (/^\/order\b/i.test(raw)) return handleOrderCommand(room, author, raw);
   if (/^\/stats\b/i.test(raw)) return handleStatsCommand(room, author, raw);
+  if (/^\/goat\b/i.test(raw)) return handleGoatCommand(room, author, raw);
   if (/^\/commands\b/i.test(raw)) return handleCommandsCommand(room, author, raw, CHAT_SLASH_COMMANDS);
   if (/^\/backstab\b/i.test(raw)) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
@@ -7725,6 +7799,29 @@ function dispatchGmSlashCommand(room, ws, text) {
     const minutes = match[2];
     const text = `TIME CHECK // COLUMN ${column} -- ${minutes} MINUTE${minutes === '1' ? '' : 'S'} REMAINING`;
     const result = addShadowBrokerMessage(room, text, { editableByHost: true });
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+  }
+  if (/^\/goat\b/i.test(raw)) {
+    if (/^\/goat\s*$/i.test(raw)) {
+      const result = handleGoatCommand(room, author, raw, { gm: true });
+      return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+    }
+    const goat = normalizeGoatState(room);
+    if (/^\/goat\s+revoke\s*$/i.test(raw)) {
+      const previous = goat.holderName;
+      room.goat = { holderId: '', holderName: '', charges: 0 };
+      persistActiveRooms();
+      const result = addShadowBrokerMessage(room, previous ? `🐐 GOAT STATUS REVOKED // ${previous} RETURNS TO THE HERD` : '🐐 GOAT STATUS // NO HOLDER TO REVOKE', { editableByHost: true });
+      return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+    }
+    const match = raw.match(/^\/goat\s+@?(.+?)\s*$/i);
+    if (!match) return { success: false, error: 'GOAT INVALID // USE /goat @Name OR /goat revoke' };
+    const resolved = resolveNamedTarget(room, null, '', match[1], 'GOAT', { includeDisconnected: true });
+    if (resolved.error) return { success: false, error: resolved.error };
+    room.goat = { holderId: String(resolved.target.id), holderName: resolved.target.name, charges: 3 };
+    persistActiveRooms();
+    const result = addShadowBrokerMessage(room, `🐐 THE GOAT HAS BEEN CHOSEN // ${resolved.target.name} // 3 CHARGES`, { editableByHost: true });
+    broadcastToRoom(room, { type: 'goat:awarded', holderId: room.goat.holderId, holderName: room.goat.holderName, charges: 3, timestamp: Date.now() });
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
   if (/^\/commands\b/i.test(raw)) {
