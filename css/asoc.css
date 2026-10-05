@@ -18734,6 +18734,8 @@ body:not(.room-mode-casual) .gm-minigames-panel{display:none!important}
   box-shadow: 0 0 16px rgba(70, 190, 215, .22), inset 0 0 18px rgba(70, 190, 215, .12);
 }
 .ritual-gm-accept-btn { border-color: #4fb36c; background: rgba(30, 70, 45, 0.5); }
+.ritual-gm-override-btn { grid-column: 1 / -1; border-color: #d8a938 !important; background: linear-gradient(180deg, rgba(107, 72, 12, .72), rgba(50, 29, 5, .8)) !important; color: #ffe5a0 !important; box-shadow: inset 0 0 16px rgba(255, 193, 57, .1); }
+.ritual-gm-override-btn:hover { box-shadow: 0 0 16px rgba(255, 193, 57, .24), inset 0 0 18px rgba(255, 193, 57, .16); }
 .ritual-gm-reject-btn,
 .ritual-gm-cancel-btn { border-color: #d94b62; background: rgba(80, 25, 35, 0.4); }
 .ritual-danger-menu { flex: 1 0 100%; text-align: center; }

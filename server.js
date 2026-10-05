@@ -1752,9 +1752,10 @@ function sendTributeVaultToHost(room) {
 }
 
 // ---------------------------------------------------------------------
-// SUMMON RITUAL -- pre-Battle gate. Exactly two ways to fulfill it: 5 real
+// SUMMON RITUAL -- pre-Battle gate. Three ways to fulfill it: 5 real
 // online players "join the ritual", OR the Shadow Broker accepts one
-// anonymously-submitted Blood Tribute image. Either condition alone
+// anonymously-submitted Blood Tribute image, OR the Shadow Broker explicitly
+// invokes the administrative override. Any condition alone
 // unlocks START GAME; they are never combined arithmetically (an accepted
 // tribute overrides the vote requirement entirely, regardless of current
 // vote count). The server is authoritative -- see the fulfillment check
@@ -1785,7 +1786,8 @@ function normalizeRitualState(saved) {
         : null
     },
     fulfilled: source.fulfilled === true,
-    fulfilledBy: source.fulfilledBy === 'VOTES' || source.fulfilledBy === 'BLOOD_TRIBUTE' ? source.fulfilledBy : null,
+    fulfilledBy: ['VOTES', 'BLOOD_TRIBUTE', 'GM_OVERRIDE'].includes(source.fulfilledBy) ? source.fulfilledBy : null,
+    gmOverride: source.gmOverride === true || source.fulfilledBy === 'GM_OVERRIDE',
     // LOCK IN: the Shadow Broker primed a fulfilled ritual; Little Heroes now
     // choose their class and the battle waits for the manual START GAME.
     lockedIn: source.lockedIn === true
@@ -1808,6 +1810,11 @@ function endRitual(room) {
 function recomputeRitualFulfillment(room) {
   const ritual = room.ritual;
   if (!ritual) return;
+  if (ritual.gmOverride === true) {
+    ritual.fulfilled = true;
+    ritual.fulfilledBy = 'GM_OVERRIDE';
+    return;
+  }
   if (ritual.tribute.status === 'ACCEPTED') {
     // An accepted Blood Tribute is a full override and, once set, is never
     // cleared by vote count changes (disconnects included) -- only by
@@ -1825,7 +1832,7 @@ function recomputeRitualFulfillment(room) {
 function isRitualFulfilled(room) {
   const ritual = room.ritual;
   if (!ritual) return false;
-  return ritual.tribute.status === 'ACCEPTED' || ritual.joinedPlayerIds.length >= ritual.requiredVotes;
+  return ritual.gmOverride === true || ritual.tribute.status === 'ACCEPTED' || ritual.joinedPlayerIds.length >= ritual.requiredVotes;
 }
 
 // Player-safe projection -- no names, no submitter identity, no image.
@@ -1989,6 +1996,17 @@ function handleRitualReset(ws) {
   if (!room) return;
   if (!room.ritual?.active) return sendToWs(ws, { type: 'error', message: 'No Summon Ritual is currently active' });
   startRitual(room);
+  broadcastRitualState(room);
+}
+
+function handleRitualOverride(ws) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  if (!room.ritual?.active || room.roomMode !== ROOM_MODES.BATTLE_ARMED) {
+    return sendToWs(ws, { type: 'error', message: 'No Summon Ritual is currently active' });
+  }
+  room.ritual.gmOverride = true;
+  recomputeRitualFulfillment(room);
   broadcastRitualState(room);
 }
 
@@ -2845,7 +2863,7 @@ function handleTimerStart(ws) {
   }
   // SUMMON RITUAL security gate. Authoritative: the client's START GAME lock
   // is cosmetic only. A direct gm:timerStart with no valid fulfillment (5
-  // votes OR an accepted Blood Tribute) is rejected here, full stop.
+  // votes, an accepted Blood Tribute, OR an explicit GM override) is rejected here, full stop.
   const launchLocked = Number(room.ritual?.launchApprovedAt) > Date.now() - RITUAL_LAUNCH_GRACE_MS;
   if (!isRitualFulfilled(room) && !launchLocked) {
     sendToWs(ws, { type: 'error', message: 'THE SUMMON RITUAL IS NOT YET FULFILLED' });
@@ -13035,6 +13053,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'ritual:reset': {
           handleRitualReset(ws);
+          break;
+        }
+        case 'ritual:override': {
+          handleRitualOverride(ws);
           break;
         }
         case 'ritual:lockIn': {

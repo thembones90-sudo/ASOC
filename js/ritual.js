@@ -5,9 +5,9 @@
 // This module never computes fulfillment itself; it only renders what it's
 // given and forwards user actions as socket sends via `handlers`.
 //
-// Exactly two ways to fulfill it: 5 real online players "join the ritual",
+// Three ways to fulfill it: 5 real online players "join the ritual",
 // OR the Shadow Broker accepts one anonymously-submitted Blood Tribute
-// image. Neither auto-starts Battle -- fulfillment only unlocks the
+// image, OR the Shadow Broker invokes the GM override. None auto-start Battle -- fulfillment only unlocks the
 // Shadow Broker's own START GAME control (see the isBlockingStart() getter,
 // consulted by timer.js's own START GAME render).
 const Ritual = {
@@ -106,6 +106,7 @@ const Ritual = {
     const fulfilledBy = state?.fulfilledBy || null;
     const tributeStatus = state?.tribute?.status || 'NONE';
     const byBlood = fulfilled && fulfilledBy === 'BLOOD_TRIBUTE';
+    const byOverride = fulfilled && fulfilledBy === 'GM_OVERRIDE';
 
     el.classList.toggle('ritual-active', active);
     el.classList.toggle('ritual-complete', fulfilled);
@@ -152,6 +153,8 @@ const Ritual = {
         statusEl.innerHTML = 'LOCKED IN.<br>THE GAME IS PRIMED.<br>AWAIT THE SHADOW BROKER\'S START.';
       } else if (byBlood) {
         statusEl.innerHTML = 'THE RELIQUARY HAS ACCEPTED THE OFFERING.<br>THE RITUAL IS FULFILLED.<br>AWAIT THE SHADOW BROKER.';
+      } else if (byOverride) {
+        statusEl.innerHTML = 'SHADOW BROKER AUTHORITY OVERRIDES THE CIRCLE.<br>THE RITUAL IS FULFILLED.<br>AWAIT LOCK IN.';
       } else if (fulfilled) {
         statusEl.innerHTML = 'THE CIRCLE IS COMPLETE.<br>THE REQUIREMENT HAS BEEN FULFILLED.<br>AWAIT THE SHADOW BROKER.';
       } else {
@@ -245,7 +248,7 @@ const Ritual = {
         ${ctx.tributeStatus === 'PENDING' ? '<button type="button" class="ritual-gm-accept-btn">ACCEPT BLOOD TRIBUTE</button><button type="button" class="ritual-gm-reject-btn">DENY BLOOD TRIBUTE</button>' : ''}
         <details class="ritual-danger-menu">
           <summary>RITUAL OPTIONS</summary>
-          <div class="ritual-options-grid"><button type="button" class="ritual-gm-reset-btn">RESET RITUAL</button><button type="button" class="ritual-gm-cancel-btn">CANCEL RITUAL</button><button type="button" class="ritual-gm-board-btn">VIEW PLAYING BOARD</button></div>
+          <div class="ritual-options-grid">${ctx.fulfilled ? '' : '<button type="button" class="ritual-gm-override-btn">OVERRIDE RITUAL</button>'}<button type="button" class="ritual-gm-reset-btn">RESET RITUAL</button><button type="button" class="ritual-gm-cancel-btn">CANCEL RITUAL</button><button type="button" class="ritual-gm-board-btn">VIEW PLAYING BOARD</button></div>
         </details>
       </div>
     `;
@@ -253,6 +256,7 @@ const Ritual = {
     bind('.ritual-gm-board-btn', handlers?.onViewBoard);
     bind('.ritual-gm-accept-btn', handlers?.onAcceptTribute);
     bind('.ritual-gm-reject-btn', handlers?.onRejectTribute);
+    bind('.ritual-gm-override-btn', handlers?.onOverride);
     bind('.ritual-gm-reset-btn', handlers?.onReset);
     bind('.ritual-gm-cancel-btn', handlers?.onCancel);
     const previewBtn = detail.querySelector('.ritual-gm-tribute-preview-btn');

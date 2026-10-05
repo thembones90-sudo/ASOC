@@ -4179,6 +4179,7 @@ const App = {
         this.send({ type: 'ritual:tributeReject', reason: String(reason).trim() });
       },
       onReset: () => { if (confirm('RESET RITUAL?\n\nClears every joined vote and any tribute decision. START GAME re-locks.')) this.send({ type: 'ritual:reset' }); },
+      onOverride: () => { if (confirm('OVERRIDE RITUAL?\n\nShadow Broker authority will bypass the remaining votes and unlock LOCK IN.')) this.send({ type: 'ritual:override' }); },
       onCancel: () => { if (confirm('CANCEL RITUAL?\n\nAborts this battle attempt entirely and returns the room to AMUSEMENT PARK. This does not start Battle.')) this.send({ type: 'ritual:cancel' }); }
     });
     this.renderRitualBoardPreview();

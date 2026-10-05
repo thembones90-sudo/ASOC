@@ -103,6 +103,20 @@ async function main() {
   host.send(JSON.stringify({ type: 'room:create', gameId: 'sample-game', gmToken: gmLogin.data.token }));
   await roomCreated;
 
+  const overridden = waitForMessage(host, message => (
+    message.type === 'ritual:gmUpdate' && message.ritual?.fulfilledBy === 'GM_OVERRIDE'
+  ), 'GM ritual override');
+  host.send(JSON.stringify({ type: 'ritual:override' }));
+  const overriddenState = await overridden;
+  assert.equal(overriddenState.ritual.fulfilled, true, 'GM override fulfills the ritual without votes');
+  assert.equal(overriddenState.ritual.joinedCount, 0, 'GM override does not forge player votes');
+
+  const reset = waitForMessage(host, message => (
+    message.type === 'ritual:gmUpdate' && message.ritual?.fulfilled === false && message.ritual?.joinedCount === 0
+  ), 'ritual reset after override');
+  host.send(JSON.stringify({ type: 'ritual:reset' }));
+  await reset;
+
   const players = [];
   for (let index = 1; index <= 5; index++) {
     const name = `RITUAL HERO ${index}`;
@@ -150,9 +164,14 @@ async function main() {
   assert.match(ritualStyles, /\.ritual-crystal-wake::after[^}]*animation:\s*ritual-crystal-ignition-ring/);
   assert.match(ritualStyles, /prefers-reduced-motion:\s*reduce[\s\S]*\.ritual-crystal\.is-active::before/);
   assert.match(indexSource, /id="ritual-board-toggle"[\s\S]*VIEW LOADED BOARD/, 'GM board has a prominent ritual/board toggle');
+  assert.match(indexSource, /css\/asoc\.css\?v=20261005-ritual-override-1/);
+  assert.match(indexSource, /js\/ritual\.js\?v=20261005-ritual-override-1/);
+  assert.match(indexSource, /js\/app\.js\?v=20261005-ritual-override-1/);
   assert.match(appSource, /toggleRitualBoardPreview\(force = null\)/, 'GM can switch locally between ritual and loaded board');
   assert.match(appSource, /ritual\.hidden = !active \|\| previewingBoard/, 'board inspection lifts only the ritual cover');
   assert.match(appSource, /no reveal, vote, timer, or room state is/, 'inspection toggle documents its state-isolation contract');
+  assert.match(ritualSource, /OVERRIDE RITUAL/, 'GM ritual panel exposes the override control');
+  assert.match(appSource, /type: 'ritual:override'/, 'GM override control sends the dedicated authoritative action');
   assert.match(ritualStyles, /\.ritual-board-toggle \{[\s\S]*z-index: 82/, 'toggle is styled above the ritual stage');
   for (let index = 1; index <= 5; index++) {
     const id = String(index).padStart(2, '0');
