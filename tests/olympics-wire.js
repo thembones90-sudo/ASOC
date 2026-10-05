@@ -35,7 +35,7 @@ assert.match(ui, /OLYMPIC CHAMPION/, 'client renders champion ceremony');
 assert.match(ui, /ENTER AS SHADOW BROKER/, 'GM lobby exposes a real tournament entry button');
 assert.match(ui, /DISMISSED_KEY = 'asoc_olympics_dismissed_id'/, 'Olympics dismissal is persisted per browser tab');
 assert.match(ui, /state\.dismissedId === tournamentId/, 'incoming state respects a dismissed tournament instead of force-opening it');
-assert.match(ui, /safeSession\.set\(DISMISSED_KEY, ''\)/, 'manual reopen can clear the dismissal lock');
+assert.match(ui, /safeStorage\.set\(DISMISSED_KEY, ''\)/, 'manual reopen can clear the dismissal lock');
 assert.match(ui, /a\.id !== viewer[\s\S]*supportButton\(a\)/, 'active competitors can visibly support the opponent');
 assert.match(server, /awardShadowCoins\(account, 5, `olympics:\$\{room\.olympics\.id\}:champion`/, 'Little Hero champion earns exactly 5 Shadow Coin with an idempotent tournament receipt');
 assert.match(server, /const account = coinAccount\(event\.playerId, champion\)/, 'GM champion payout is excluded by the shared coinAccount guard');

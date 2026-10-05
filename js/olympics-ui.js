@@ -1,13 +1,13 @@
 (function () {
   'use strict';
   const HANDS = { rock: ['🪨', 'ROCK'], paper: ['📜', 'PAPER'], scissors: ['✂️', 'SCISSORS'] };
-  const safeSession = {
-    get(key) { try { return sessionStorage.getItem(key) || ''; } catch (_) { return ''; } },
-    set(key, value) { try { if (value) sessionStorage.setItem(key, value); else sessionStorage.removeItem(key); } catch (_) {} }
+  const safeStorage = {
+    get(key) { try { return localStorage.getItem(key) || ''; } catch (_) { return ''; } },
+    set(key, value) { try { if (value) localStorage.setItem(key, value); else localStorage.removeItem(key); } catch (_) {} }
   };
   const DISMISSED_KEY = 'asoc_olympics_dismissed_id';
   const INVITED_KEY = 'asoc_olympics_invited_id';
-  const state = { data: null, championId: null, open: false, error: '', invitedId: safeSession.get(INVITED_KEY), dismissedId: safeSession.get(DISMISSED_KEY), lastReveal: '' };
+  const state = { data: null, championId: null, open: false, error: '', invitedId: safeStorage.get(INVITED_KEY), dismissedId: safeStorage.get(DISMISSED_KEY), lastReveal: '' };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   const app = () => window.App || window.PlayerApp;
   const isGm = () => !!window.App && !window.PlayerApp;
@@ -28,12 +28,12 @@
   }
   function close() {
     state.open = false;
-    if (state.data?.id) { state.dismissedId = String(state.data.id); safeSession.set(DISMISSED_KEY, state.dismissedId); }
+    if (state.data?.id) { state.dismissedId = String(state.data.id); safeStorage.set(DISMISSED_KEY, state.dismissedId); }
     ensure().hidden = true;
   }
   function open() {
     state.open = true;
-    if (state.data?.id && state.dismissedId === String(state.data.id)) { state.dismissedId = ''; safeSession.set(DISMISSED_KEY, ''); }
+    if (state.data?.id && state.dismissedId === String(state.data.id)) { state.dismissedId = ''; safeStorage.set(DISMISSED_KEY, ''); }
     render();
     send({ type: 'olympics:sync' });
   }
@@ -161,11 +161,11 @@
     if (message.type !== 'olympics:state') return;
     const hadTournament = !!state.data;
     state.data = message.state || null; state.championId = message.championId || state.data?.championId || null; state.error = ''; updateCards();
-    if (hadTournament && !state.data) { state.invitedId = ''; state.dismissedId = ''; safeSession.set(INVITED_KEY, ''); safeSession.set(DISMISSED_KEY, ''); return close(); }
+    if (hadTournament && !state.data) { state.invitedId = ''; state.dismissedId = ''; safeStorage.set(INVITED_KEY, ''); safeStorage.set(DISMISSED_KEY, ''); return close(); }
     const tournamentId = String(state.data?.id || '');
     const dismissed = tournamentId && state.dismissedId === tournamentId;
     if (!isGm() && state.data?.status === 'lobby' && !state.data.joined && state.invitedId !== tournamentId && !dismissed) {
-      state.invitedId = tournamentId; safeSession.set(INVITED_KEY, tournamentId); state.open = true;
+      state.invitedId = tournamentId; safeStorage.set(INVITED_KEY, tournamentId); state.open = true;
     }
     if (!dismissed && state.data?.joined && ['running', 'complete'].includes(state.data.status)) state.open = true;
     if (state.open) render();
