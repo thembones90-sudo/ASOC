@@ -167,7 +167,7 @@
     },
     decorate() {
       const s = this.state;
-      const picks = s && s.enabled !== false ? s.picks || {} : {};
+      const picks = s && s.enabled !== false && s.live ? s.picks || {} : {};
       document.querySelectorAll('[data-dossier]').forEach(nameEl => {
         const role = picks[String(nameEl.dataset.dossier)] || null;
         let badge = nameEl.querySelector(':scope > .hero-role-sigil');

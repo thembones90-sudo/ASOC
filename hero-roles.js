@@ -26,6 +26,7 @@ function normalizeState(raw) {
 }
 
 function setEnabled(s, enabled) { s.enabled = enabled !== false; }
+function clearPicks(s) { s.picks = {}; }
 
 function pick(s, playerId, role, { locked }) {
   if (!s.enabled) return { ok: false, error: 'ROLES ARE OFF FOR THIS SESSION' };
@@ -41,4 +42,4 @@ function view(s, { locked, live }) {
   return { enabled: s.enabled, locked: !!locked, live: !!live, picks: { ...s.picks } };
 }
 
-module.exports = { ROLES, ROLE_IDS, createState, normalizeState, setEnabled, pick, view };
+module.exports = { ROLES, ROLE_IDS, createState, normalizeState, setEnabled, clearPicks, pick, view };

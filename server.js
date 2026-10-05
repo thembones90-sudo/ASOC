@@ -1168,6 +1168,7 @@ function resetMasterGameSession(room, gameData) {
   if (!room.chat) room.chat = { messages: [], solvedTargets: {} };
   room.chat.solvedTargets = {};
   room.scoring = { players: {}, events: [], activeStreak: null, boardFinalized: false, pendingResults: null };
+  heroRoles.clearPicks(ensureHeroRoles(room));
   // WOMF is Master Room state, not disposable game state. ARM/KILL may reset
   // per-board failure guards, but they must never erase accumulated charge.
   const womfCharge = Math.max(0, Math.min(10, Number(room.womf?.charge) || 0));
@@ -2903,6 +2904,7 @@ function handleTimerStart(ws) {
   endRitual(room);
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastPlayersUpdate(room);
   broadcastToRoom(room, { type: 'battle:controlsOnline' });
   broadcastRitualState(room);
   console.log(`[ROOM ${room.code}] GM started the Timer (${Math.round(room.timer.duration / 1000)}s) â€” BATTLE CONTROLS ONLINE`);
@@ -3105,6 +3107,7 @@ function declareGameLost(room, source = 'timer') {
     performers: performance.performers,
     awards: performance.awards
   };
+  heroRoles.clearPicks(ensureHeroRoles(room));
   room.scoring.pendingResults = {
     outcome: 'failed', penalty: scoring.FAILED_FINAL_PENALTY,
     participants: finalized.participants ? finalized.participants.map(p => p.playerName) : []
@@ -4091,6 +4094,7 @@ function applyCommand(room, command, payload) {
       // the command changed so clients always receive the reset Timer/Wheel/
       // scoring/chat state that is rebuilt below.
       room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, gameWon: false, matchResult: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
+      heroRoles.clearPicks(ensureHeroRoles(room));
       changed = true;
       // Pick up any edit saved to this game since it was loaded.
       if (refreshRoomGameData(room) && room.hostConnection) {
@@ -7976,7 +7980,7 @@ function ensureHeroRoles(room) {
   if (!room.heroRoles) room.heroRoles = heroRoles.createState();
   return room.heroRoles;
 }
-function heroRolesLive(room) { return room.roomMode === ROOM_MODES.BATTLE; }
+function heroRolesLive(room) { return room.roomMode === ROOM_MODES.BATTLE && !room.sessionState?.matchResult; }
 function heroRolesView(room) {
   const live = heroRolesLive(room);
   return heroRoles.view(ensureHeroRoles(room), { locked: live, live });
@@ -8226,7 +8230,9 @@ function handleHeroRole(ws, message) {
   if (message.type !== 'heroRole:pick') return fail('UNKNOWN ROLE ACTION');
   const player = room.players.get(ws);
   if (!player || ws === room.hostConnection || player.isTestPersona === true || String(player.id) !== String(ws.playerId)) return fail('A CONNECTED LITTLE HERO IDENTITY IS REQUIRED');
-  const result = heroRoles.pick(state, String(player.id), String(message.role || ''), { locked: heroRolesLive(room) });
+  const live = heroRolesLive(room);
+  if (!live && (room.roomMode !== ROOM_MODES.BATTLE_ARMED || !room.ritual?.lockedIn)) return fail('ROLES MAY ONLY BE CHOSEN AFTER LOCK IN');
+  const result = heroRoles.pick(state, String(player.id), String(message.role || ''), { locked: live });
   if (!result.ok) return fail(result.error);
   if (!result.already) heroRolesCommit(room);
 }
@@ -9367,7 +9373,7 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       shadowCoins: Math.max(0, Math.round(Number.isInteger(profile.shadowCoinUnits) ? profile.shadowCoinUnits : (Number(profile.shadowCoins) || 0) * 10)) / 10,
       // Equipped cosmetics only (shadow-market.js); purely visual.
       cosmetics: shadowMarket.publicCosmetics(profile),
-      heroRole: room.heroRoles?.enabled === false ? null : (room.heroRoles?.picks?.[String(player.id)] || null),
+      heroRole: heroRolesLive(room) && room.heroRoles?.enabled !== false ? (room.heroRoles?.picks?.[String(player.id)] || null) : null,
       olympicChampion: String(room.olympicsChampionId || '') === String(player.id),
       ...iksArenaFields(player)
     });
@@ -10891,6 +10897,7 @@ function handleGmGameWon(ws) {
     winners: performance.winners,
     performers: performance.performers
   };
+  heroRoles.clearPicks(ensureHeroRoles(room));
   if (room.timer && !['ready', 'expired', 'stopped'].includes(room.timer.phase)) room.timer.phase = 'stopped';
   const ledger = ensureMatchLedger(room);
   if (!ledger.completedAt) ledger.completedAt = room.sessionState.matchResult.occurredAt;
@@ -10905,6 +10912,7 @@ function handleGmGameWon(ws) {
   room.revision++;
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastPlayersUpdate(room);
 }
 
 function scheduleSolvedColumnReveal(room, messageId, column) {
@@ -11108,6 +11116,7 @@ function handleSwitchGame(ws, message) {
   room.gameData = game;
   room.revision = (room.revision || 0) + 1;
   room.sessionState = { cells: {}, finalSolution: false, finalOutcome: null, gameWon: false, matchResult: null, cellOutcomes: {}, clueOrder: { A: [], B: [], C: [], D: [] } };
+  heroRoles.clearPicks(ensureHeroRoles(room));
   room.currentBackground = game.background || gameStore.DEFAULT_BACKGROUND;
   if (!room.chat) room.chat = { messages: [], solvedTargets: {} };
   room.chat.solvedTargets = {};

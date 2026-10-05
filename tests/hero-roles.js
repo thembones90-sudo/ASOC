@@ -1,7 +1,7 @@
 // HERO ROLES (DPS / TANK / HEAL) regressions. Roles are decorative: picks
 // lock when the battle goes live, a FAIL always costs WOMF (no ability can
 // absorb it), the old ability messages are refused, the GM session switch
-// works, Little Heroes cannot switch roles off, picks survive a new board.
+// works, Little Heroes cannot switch roles off, and roles clear after battle.
 const assert = require('assert/strict');
 const fs = require('fs');
 const os = require('os');
@@ -27,6 +27,8 @@ function engine() {
   const back = R.normalizeState({ ...JSON.parse(JSON.stringify(s)), used: { a: true }, marks: { A: 't' }, roleUses: { dps: 2 } });
   assert.deepEqual(back, { enabled: false, picks: { a: 'dps', t: 'tank' } });
   assert.deepEqual(Object.keys(R.view(back, { locked: true, live: true })).sort(), ['enabled', 'live', 'locked', 'picks']);
+  R.clearPicks(back);
+  assert.deepEqual(back.picks, {});
   console.log('PASS hero roles engine');
 }
 
@@ -69,15 +71,11 @@ async function serverSuite() {
     let from;
     gm.send({ type: 'gm:setRoomMode', mode: 'BATTLE' });
     await Dps1.next(m => m.type === 'state:public' && m.roomMode === 'BATTLE_ARMED', 'armed');
-    // Picks before the battle; Little Heroes cannot switch the system.
-    for (const [c, role] of [[Dps1, 'dps'], [Dps2, 'dps'], [Tank, 'tank'], [Heal, 'heal'], [Fifth, 'dps']]) {
-      const st = await c.act({ type: 'heroRole:pick', role }, `${c.name} pick`);
-      assert.equal(st.heroRoles.picks[c.playerId], role);
-    }
+    // Roles are disarmed until the ritual is locked in.
+    let preLock = await Dps1.act({ type: 'heroRole:pick', role: 'dps' }, 'premature pick');
+    assert.match(preLock.message, /LOCK IN/);
     let err = await Dps1.act({ type: 'gm:heroRoles', enabled: false }, 'hero toggle');
     assert.match(err.message, /ONLY THE SHADOW BROKER/);
-    const roster = (await Dps1.next(m => m.type === 'players:update' && m.players.some(p => String(p.id) === Tank.playerId && p.heroRole), 'roster')).players;
-    assert.equal(roster.find(p => String(p.id) === Tank.playerId).heroRole, 'tank');
     // Start the battle.
     Object.values(heroes).forEach(c => c.send({ type: 'ritual:join' }));
     await Fifth.next(m => m.type === 'ritual:update' && m.ritual.fulfilled && !m.ritual.lockedIn, '5/5');
@@ -93,8 +91,15 @@ async function serverSuite() {
     await Fifth.next(m => m.type === 'ritual:update' && m.ritual.fulfilled, 'refilled', from);
     gm.send({ type: 'ritual:lockIn' });
     await Fifth.next(m => m.type === 'ritual:update' && m.ritual.lockedIn === true, 'locked in again', from);
+    // Picks are accepted only in this locked-in pre-battle window.
+    for (const [c, role] of [[Dps1, 'dps'], [Dps2, 'dps'], [Tank, 'tank'], [Heal, 'heal'], [Fifth, 'dps']]) {
+      const picked = await c.act({ type: 'heroRole:pick', role }, `${c.name} pick`);
+      assert.equal(picked.heroRoles.picks[c.playerId], role);
+    }
     gm.send({ type: 'gm:timerLaunchCountdown' }); await sleep(300); gm.send({ type: 'gm:timerStart' });
     await Dps1.next(m => m.type === 'state:public' && m.roomMode === 'BATTLE', 'battle live', 0, 15000);
+    const roster = (await Dps1.next(m => m.type === 'players:update' && m.players.some(p => String(p.id) === Tank.playerId && p.heroRole), 'live roster')).players;
+    assert.equal(roster.find(p => String(p.id) === Tank.playerId).heroRole, 'tank');
     err = await Dps1.act({ type: 'heroRole:pick', role: 'heal' }, 'locked pick');
     assert.match(err.message, /LOCKED/);
     // Decorative: the old abilities are gone and a FAIL always costs WOMF.
@@ -111,10 +116,12 @@ async function serverSuite() {
     st = await gm.act({ type: 'gm:heroRoles', enabled: false }, 'gm off');
     assert.equal(st.heroRoles.enabled, false);
     st = await gm.act({ type: 'gm:heroRoles', enabled: true }, 'gm on');
-    // RESET BOARD: picks survive a new board.
+    // RESET BOARD ends the role assignment; no old badge reaches the roster.
     from = Dps1.mark(); gm.send({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: 1 });
     st = await Dps1.next(m => m.type === 'state:public' && m.heroRoles && m.roomMode !== 'BATTLE', 'reset', from, 10000);
-    assert.equal(st.heroRoles.picks[Tank.playerId], 'tank', 'picks survive a new board');
+    assert.deepEqual(st.heroRoles.picks, {}, 'picks clear for the next battle');
+    const resetRoster = (await Dps1.next(m => m.type === 'players:update', 'reset roster', from)).players;
+    assert.equal(resetRoster.find(p => String(p.id) === Tank.playerId).heroRole, null, 'roles are absent outside a live battle');
     assert.equal(errors.trim(), '');
     console.log('PASS hero roles server');
   } finally {
