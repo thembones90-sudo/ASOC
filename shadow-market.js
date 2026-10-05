@@ -67,7 +67,6 @@ const CATALOG = Object.freeze([
   { id: 'cmd-rupture', kind: 'command', command: 'rupture', name: '/rupture', price: 8, asset: 'assets/shop/cmd-rupture.png', desc: 'Crack reality open for a moment.' },
   { id: 'cmd-vanish', kind: 'command', command: 'vanish', name: '/vanish', price: 4, asset: 'assets/shop/cmd-vanish.png', desc: 'Disappear in smoke. You are still here.' },
   { id: 'cmd-love', kind: 'command', command: 'love', name: '/love', price: 4, asset: 'assets/shop/cmd-love.png', desc: 'Colourful hearts fly over the chat. Aim it: /love @Name.' },
-  { id: 'cmd-avada', kind: 'command', command: 'avada', name: '/avada', price: 12, asset: 'assets/shop/cmd-avada.svg', desc: 'The killing curse. 5% chance it rebounds on you.' },
   // Relic command: never sold, only granted by the Shadow Broker (/award).
   { id: 'cmd-drug', kind: 'command', command: 'drug', name: '/drug', relic: true, asset: 'assets/shop/cmd-drug.png', desc: 'Relic. Granted by the Shadow Broker, never sold. /drug @Name injects them with... something.' },
 

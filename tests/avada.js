@@ -1,4 +1,4 @@
-// /avada -- AVADA KEDAVRA: a Shadow Market unlock (12 SC). Locked until bought,
+// /avada -- AVADA KEDAVRA: available to every Little Hero by default,
 // one target only, kills the target (dead 60 s, in the public state), a 10
 // minute cooldown, the Broker never dies, and aimed at the Broker it always
 // rebounds: the caster dies and the Broker is THE ONE WHO LIVED.
@@ -51,28 +51,10 @@ class Client {
     }
     const [sissy, cigan] = heroes;
     const errorOf = (c, label, from) => c.next(m => /error/i.test(m.type) && m.message, label, from);
-    // Earn coins the honest way: two EPIC drops each (>= 20 SC), then buy /avada.
-    const earn = async hero => {
-      for (let i = 0; i < 2; i++) {
-        const m0 = hero.mark();
-        gm.send({ type: 'gm:broadcast', text: '/coindrop epic' });
-        const sp = await hero.next(m => m.type === 'coinDrop:spawn', 'spawn', m0);
-        await sleep(200);
-        hero.send({ type: 'coinDrop:claim', id: sp.drop.id });
-        await hero.next(m => m.type === 'coinDrop:result' && m.ok, 'caught', m0);
-        await sleep(700);
-      }
-    };
-
     let m0 = sissy.mark();
-    sissy.send({ type: 'chat:guess', text: '/avada @Cigan' });
-    assert.match((await errorOf(sissy, 'locked', m0)).message, /AVADA IS LOCKED/);
 
-    await earn(sissy);
-    m0 = sissy.mark();
-    sissy.send({ type: 'shadow:buy', itemId: 'cmd-avada' });
-    await sissy.next(m => /shadow/.test(m.type) && JSON.stringify(m).includes('cmd-avada'), 'bought', m0);
-
+    // Universal: a fresh player can cast it without buying/unlocking anything.
+    // First prove invalid ALL targeting is rejected without consuming recharge.
     // Never at everyone.
     await sleep(3200);
     m0 = sissy.mark();
@@ -99,10 +81,7 @@ class Client {
     assert.match((await errorOf(sissy, 'cooldown', m0)).message, /RECHARGING \/\/ 10 MIN/);
 
     // Aimed at the Shadow Broker it ALWAYS rebounds (even with chance forced off).
-    await earn(cigan);
-    m0 = cigan.mark();
-    cigan.send({ type: 'shadow:buy', itemId: 'cmd-avada' });
-    await cigan.next(m => /shadow/.test(m.type) && JSON.stringify(m).includes('cmd-avada'), 'bought', m0);
+    // Cigan never bought anything: the command is universal.
     g0 = gm.mark();
     cigan.send({ type: 'chat:guess', text: '/avada @SHADOW BROKER' });
     const back = (await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.emote?.act === 'avada' && x.emote.avada?.rebound), 'rebound', g0)).messages.find(x => x.emote?.avada?.rebound);
@@ -116,7 +95,7 @@ class Client {
     const gmCast = (await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.emote?.act === 'avada' && x.emote.actorName === 'SHADOW BROKER'), 'gm cast', g0)).messages.find(x => x.emote?.actorName === 'SHADOW BROKER' && x.emote?.act === 'avada');
     assert.equal(gmCast.emote.avada.rebound, false);
     assert.equal(gmCast.emote.avada.deadName, 'Sissy');
-    console.log('PASS avada: locked until bought, single target, kills for 60 s, 10 min cooldown, rebounds at the Broker, Broker never misfires');
+    console.log('PASS avada: universal for players, single target, kills for 60 s, 10 min cooldown, rebounds at the Broker, Broker never misfires');
   } finally {
     clients.forEach(c => c.close());
     server.kill('SIGTERM');

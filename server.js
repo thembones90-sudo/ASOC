@@ -6795,7 +6795,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/omen', help: '/omen -- SHADOW MARKET unlock: a bad sign for the room' },
   { name: '/rupture', help: '/rupture -- SHADOW MARKET unlock: crack reality open' },
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
-  { name: '/avada', help: '/avada @Name -- SHADOW MARKET unlock: the killing curse (5% it rebounds)' },
+  { name: '/avada', help: '/avada @Name -- the killing curse (5% it rebounds; 10 min recharge)' },
   { name: '/love', help: '/love [Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
   { name: '/drug', help: '/drug @Name -- SHADOW MARKET relic: inject someone with... something' },
   { name: '/hug', help: '/hug [@Name] -- hug someone (or everyone), with a sweet animation' },
@@ -7115,7 +7115,7 @@ const CHAT_EMOTES = Object.freeze({
   // The killing curse: one target, never 'all'. 5% (or always, at the Shadow
   // Broker) it rebounds. Cosmetic: the dead are grey ghosts for 60 s, the one
   // who lived wears a scar for an hour (room.avada, in the public state).
-  avada:    { label: 'AVADA KEDAVRA', premium: true, targeted: true, noAll: true,
+  avada:    { label: 'AVADA KEDAVRA', targeted: true, noAll: true,
               actor: 'You cast AVADA KEDAVRA on {T}.', target: '{A} cast AVADA KEDAVRA on you. You are dead.', other: '{A} casts AVADA KEDAVRA on {T}. {T} is no more.',
               rebound: { actor: 'You cast AVADA KEDAVRA on {T}... IT REBOUNDS. You are dead.', target: '{A} cast AVADA KEDAVRA on you... IT REBOUNDED. You are THE ONE WHO LIVED.', other: '{A} casts AVADA KEDAVRA on {T}... IT REBOUNDS! {A} is no more. {T} is THE ONE WHO LIVED.' } },
   // Target is optional: /love spreads love, /love Name sends it to someone.
@@ -7180,11 +7180,16 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
   const actorIsBroker = author.id === null || author.id === undefined;
   const actorIsDennis = String(author.id || '') === dennisAI.DENNIS_ID;
   if (def.playerOnly && actorIsBroker) return { success: false, error: 'THE SHADOW BROKER GROVELS BEFORE NO ONE' };
-  if (def.premium && !actorIsBroker && !actorIsDennis) {
-    const account = coinAccount(author.id, author.name);
-    const item = shadowMarket.COMMAND_ITEMS.get(name);
-    if (account && (!item || !playerStore.ownsCosmetic(account, item.id))) {
-      return { success: false, error: `/${name.toUpperCase()} IS LOCKED // UNLOCK IT IN THE SHADOW MARKET` };
+  if ((def.premium || name === 'avada') && !actorIsBroker && !actorIsDennis) {
+    // Premium effects still require ownership. AVADA is universal, but keeps
+    // its own long recharge so making it free does not turn chat into a green
+    // strobe-light homicide simulator.
+    if (def.premium) {
+      const account = coinAccount(author.id, author.name);
+      const item = shadowMarket.COMMAND_ITEMS.get(name);
+      if (account && (!item || !playerStore.ownsCosmetic(account, item.id))) {
+        return { success: false, error: `/${name.toUpperCase()} IS LOCKED // UNLOCK IT IN THE SHADOW MARKET` };
+      }
     }
     room.premiumEmoteAt ||= {};
     const cooldownKey = name === 'avada' ? `avada:${author.id}` : String(author.id);
@@ -7232,7 +7237,7 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
       targetId: target ? String(target.id) : null,
       targetName: target ? target.name : null,
       ...(target?.all ? { targetIds: target.targetIds } : {}),
-      ...(def.premium || def.fx ? { fx: name } : {}),
+      ...(def.premium || def.fx || name === 'avada' ? { fx: name } : {}),
       ...(avada ? { avada } : {}),
       lines
     }
@@ -8379,7 +8384,7 @@ function sanitizeChatCommandMeta(m) {
       targetIds: Array.isArray(emote.targetIds)
         ? Array.from(new Set(emote.targetIds.map(id => String(id).slice(0, 64)).filter(Boolean))).slice(0, 60)
         : undefined,
-      ...(CHAT_EMOTES[emote.act].premium || CHAT_EMOTES[emote.act].fx ? { fx: emote.act } : {}),
+      ...(CHAT_EMOTES[emote.act].premium || CHAT_EMOTES[emote.act].fx || emote.act === 'avada' ? { fx: emote.act } : {}),
       ...(emote.act === 'avada' && emote.avada && typeof emote.avada === 'object' ? { avada: {
         rebound: emote.avada.rebound === true,
         atBroker: emote.avada.atBroker === true,
