@@ -786,3 +786,65 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
 .bm-demand-level{display:inline-block;margin:2px 0 18px;padding:8px 14px;border:1px solid #ff2a4a;background:rgba(110,5,24,.35);color:#ff9bac;font:900 12px var(--font-machine,monospace);letter-spacing:.26em;box-shadow:0 0 20px rgba(255,30,60,.2)}
 .bm-demand-tribute{grid-template-columns:minmax(160px,.7fr) minmax(125px,.35fr) minmax(260px,1.25fr) auto}
 @media(max-width:900px){.bm-demand-tribute{grid-template-columns:1fr 1fr}.bm-demand-tribute label:last-of-type{grid-column:1/-1}.bm-demand-tribute button{grid-column:1/-1}}
+
+/* BLOOD TRIBUTE LEDGER // visual hierarchy pass. Presentation only. */
+.is-sanctum .bm-pact{
+  overflow:hidden;
+  padding:28px 30px 30px!important;
+  border-color:#731026!important;
+  background:
+    radial-gradient(540px 260px at 86% 2%,rgba(126,7,30,.13),transparent 72%),
+    radial-gradient(520px 320px at 0 0,rgba(112,4,24,.23),transparent 62%),
+    linear-gradient(118deg,#120507 0%,#080406 58%,#050305 100%)!important;
+  box-shadow:inset 5px 0 0 #d01635,inset 0 0 0 1px rgba(255,38,70,.05),0 18px 44px rgba(0,0,0,.48)!important;
+}
+.is-sanctum .bm-pact::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.22;
+  background:
+    linear-gradient(90deg,transparent 0 72%,rgba(208,22,53,.035) 72% 72.2%,transparent 72.2%),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 1px,transparent 1px 5px);
+  mix-blend-mode:screen;
+}
+.is-sanctum .bm-pact-sigil{
+  position:absolute;right:34px;top:72px;width:210px;height:210px;border:1px solid rgba(208,22,53,.08);border-radius:50%;opacity:.38;pointer-events:none;
+  background:
+    linear-gradient(45deg,transparent 49.5%,rgba(208,22,53,.12) 50%,transparent 50.5%),
+    linear-gradient(-45deg,transparent 49.5%,rgba(208,22,53,.12) 50%,transparent 50.5%),
+    radial-gradient(circle,transparent 0 33%,rgba(208,22,53,.08) 33.5% 34%,transparent 34.5% 49%,rgba(208,22,53,.08) 49.5% 50%,transparent 50.5%);
+  transform:rotate(12deg);
+}
+.is-sanctum .bm-pact-head{position:relative;z-index:1;align-items:center;padding-bottom:18px;border-bottom:1px solid rgba(193,23,51,.28)}
+.is-sanctum .bm-pact-head small{color:#a76e80!important;font-size:10px!important;letter-spacing:.26em!important;text-transform:uppercase}
+.is-sanctum .bm-pact-head b{margin-top:9px!important;font-size:22px!important;letter-spacing:.075em!important;color:#f6e8ec!important;text-shadow:0 0 18px rgba(255,48,84,.08)}
+.is-sanctum .bm-pact-head>span{position:relative;z-index:2;max-width:38%!important;padding:9px 13px!important;border:1px solid #94142d!important;background:linear-gradient(180deg,rgba(114,6,27,.72),rgba(49,2,12,.78))!important;color:#ffd5dc!important;box-shadow:inset 0 0 15px rgba(255,34,70,.07),0 0 18px rgba(157,12,39,.08);font-size:10px!important;letter-spacing:.18em!important}
+.is-sanctum .bm-tribute-level{position:relative;z-index:1;display:grid;grid-template-columns:auto auto;align-items:center;gap:4px 18px;width:min(470px,100%);margin:18px 0 0;padding:13px 16px 12px;border:1px solid #89122a;background:linear-gradient(180deg,rgba(101,7,26,.38),rgba(27,3,9,.78));box-shadow:inset 0 0 18px rgba(162,10,41,.1)}
+.is-sanctum .bm-tribute-level>span{color:#ff7790;font:900 10px var(--font-machine,monospace);letter-spacing:.24em}
+.is-sanctum .bm-tribute-level>b{justify-self:end;color:#ffd0d9;font:900 11px var(--font-machine,monospace);letter-spacing:.18em}
+.is-sanctum .bm-tribute-meter{grid-column:1/-1;display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-top:7px}
+.is-sanctum .bm-tribute-meter i{display:block;height:5px;border:1px solid rgba(141,34,54,.55);background:#16070b;box-shadow:inset 0 0 5px rgba(0,0,0,.65)}
+.is-sanctum .bm-tribute-meter i.is-lit{border-color:#d32042;background:linear-gradient(90deg,#8f102a,#ef2a4e);box-shadow:0 0 8px rgba(239,42,78,.18)}
+.is-sanctum .bm-delivery{position:relative;z-index:1;display:flex;gap:10px;align-items:stretch;margin:16px 0 0;padding:0;border:0;background:transparent}
+.is-sanctum .bm-delivery .bm-receipt{display:flex;align-items:center;gap:11px;min-width:205px;min-height:52px;padding:8px 13px;border:1px solid #493039;background:linear-gradient(180deg,rgba(18,12,15,.96),rgba(8,6,8,.98));box-shadow:inset 0 0 16px rgba(0,0,0,.26)}
+.is-sanctum .bm-delivery .bm-receipt>i{display:grid;place-items:center;width:25px;height:25px;border:1px solid currentColor;border-radius:50%;font-style:normal;font-size:12px;opacity:.72}
+.is-sanctum .bm-delivery .bm-receipt>span{display:grid;gap:3px;padding:0;border:0;background:transparent;min-height:0}
+.is-sanctum .bm-delivery .bm-receipt b{font-size:10px;letter-spacing:.18em}
+.is-sanctum .bm-delivery .bm-receipt small{font-size:9px;letter-spacing:.08em}
+.is-sanctum .bm-delivery .is-sent{color:#c6aab3;border-color:#60414b}
+.is-sanctum .bm-delivery .is-seen{color:#62e29a;border-color:#1e7449;background:linear-gradient(180deg,rgba(7,49,29,.58),rgba(4,24,15,.86));box-shadow:inset 0 0 18px rgba(34,167,95,.08),0 0 14px rgba(34,167,95,.04)}
+.is-sanctum .bm-delivery .is-unseen{color:#ff718a;border-color:#8a1830;background:linear-gradient(180deg,rgba(72,5,19,.55),rgba(28,3,9,.86))}
+.is-sanctum .bm-pact-request{position:relative;z-index:1;margin:25px 0 0!important;padding-top:25px;border-top:1px solid rgba(113,40,57,.42);font-size:16px!important;color:#cbbbc1!important}
+.is-sanctum .bm-pact-request::before{content:"CAUSE OF DEBT";display:block;margin-bottom:10px;color:#c67488;font:900 10px var(--font-machine,monospace);letter-spacing:.25em}
+.is-sanctum .bm-terms{position:relative;z-index:1;margin-top:22px}
+.is-sanctum .bm-terms-title{display:flex;align-items:center;gap:12px;margin-bottom:11px;color:#e1c2ca;font:900 11px var(--font-machine,monospace);letter-spacing:.24em}
+.is-sanctum .bm-terms-title::before{content:"✦";color:#dd1c3d;text-shadow:0 0 12px rgba(221,28,61,.35)}
+.is-sanctum .bm-terms-title::after{content:"";height:1px;flex:1;background:linear-gradient(90deg,rgba(188,24,50,.55),transparent)}
+.is-sanctum .bm-terms blockquote{position:relative;margin:0!important;padding:18px 20px!important;border:1px solid #40141e!important;border-left:4px solid #d31a3b!important;background:linear-gradient(90deg,rgba(42,6,15,.45),rgba(8,5,7,.84))!important;color:#e1d3d8!important;font-size:17px!important;box-shadow:inset 0 0 24px rgba(80,8,23,.09)}
+.is-sanctum .bm-terms blockquote::after{content:"◇";position:absolute;right:17px;bottom:12px;color:#9e1830;font-size:18px;opacity:.62}
+@media(max-width:760px){
+  .is-sanctum .bm-pact{padding:20px 18px 22px!important}
+  .is-sanctum .bm-pact-sigil{width:140px;height:140px;right:-30px;top:92px;opacity:.22}
+  .is-sanctum .bm-pact-head>span{max-width:none!important}
+  .is-sanctum .bm-tribute-level{width:100%}
+  .is-sanctum .bm-delivery{display:grid;grid-template-columns:1fr}
+  .is-sanctum .bm-delivery .bm-receipt{min-width:0;width:100%}
+}
