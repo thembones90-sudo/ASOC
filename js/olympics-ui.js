@@ -43,7 +43,7 @@
     return `<div class="oly-intro"><span class="oly-sigil">🪨 📜 ✂️</span><h1>THE OLYMPICS HAVE BEGUN.</h1><p>Intellect has failed you. Resort to your hands.</p></div>
       <section class="oly-lobby"><header><b>OLYMPIANS: ${count}</b><span>MINIMUM 2</span></header><div class="oly-roster">${state.data.participants.map(player => playerCard(player)).join('') || '<p>THE ARENA AWAITS ITS FIRST VICTIM.</p>'}</div>
       <div class="oly-actions">${isGm()
-        ? `<button data-oly-gm="begin" ${count < 2 ? 'disabled' : ''}>BEGIN OLYMPICS</button><button class="is-danger" data-oly-gm="cancel">CANCEL</button>`
+        ? `${joined ? '<button data-oly="leave">WITHDRAW SHADOW BROKER</button>' : '<button class="is-primary" data-oly="join">ENTER AS SHADOW BROKER</button>'}<button data-oly-gm="begin" ${count < 2 ? 'disabled' : ''}>BEGIN OLYMPICS</button><button class="is-danger" data-oly-gm="cancel">CANCEL</button>`
         : joined ? '<button data-oly="leave">WITHDRAW</button>' : '<button class="is-primary" data-oly="join">ENTER THE OLYMPICS</button>'}</div></section>`;
   }
   function choiceButton(choice, match, waiting = false) {
@@ -72,9 +72,9 @@
     const final = match.requiredWins === 4;
     return `<div class="oly-arena${final ? ' is-final' : ''}">${final ? '<div class="oly-final-title">THE GRAND FINAL</div>' : ''}
       <div class="oly-duel" data-result="${esc(reveal?.action || reveal?.result || '')}">
-        <div class="oly-combatant">${avatar(a, true)}<h2>${esc(a.name)}</h2>${hand(a) ? `<strong class="oly-reveal-hand">${hand(a)[0]}<small>${hand(a)[1]}</small></strong>` : `<span class="oly-lock">${match.locked?.[a.id] ? 'LOCKED IN' : 'CHOOSING'}</span>`}${state.data.spectator && !a.eliminated ? supportButton(a) : ''}</div>
+        <div class="oly-combatant">${avatar(a, true)}<h2>${esc(a.name)}</h2>${hand(a) ? `<strong class="oly-reveal-hand">${hand(a)[0]}<small>${hand(a)[1]}</small></strong>` : `<span class="oly-lock">${match.locked?.[a.id] ? 'LOCKED IN' : 'CHOOSING'}</span>`}${a.id !== viewer && !a.eliminated ? supportButton(a) : ''}</div>
         <div class="oly-versus"><small>FIRST TO ${match.requiredWins}</small><b>${score}</b><i>VS</i><span class="oly-countdown" data-oly-deadline="${Number(match.deadline) || 0}" data-oly-opens="${Number(match.selectionOpensAt) || 0}">${match.deadline ? '3' : '—'}</span></div>
-        <div class="oly-combatant">${avatar(b, true)}<h2>${esc(b.name)}</h2>${hand(b) ? `<strong class="oly-reveal-hand">${hand(b)[0]}<small>${hand(b)[1]}</small></strong>` : `<span class="oly-lock">${match.locked?.[b.id] ? 'LOCKED IN' : 'CHOOSING'}</span>`}${state.data.spectator && !b.eliminated ? supportButton(b) : ''}</div>
+        <div class="oly-combatant">${avatar(b, true)}<h2>${esc(b.name)}</h2>${hand(b) ? `<strong class="oly-reveal-hand">${hand(b)[0]}<small>${hand(b)[1]}</small></strong>` : `<span class="oly-lock">${match.locked?.[b.id] ? 'LOCKED IN' : 'CHOOSING'}</span>`}${b.id !== viewer && !b.eliminated ? supportButton(b) : ''}</div>
       </div><div class="oly-status">${esc(status)}</div>
       ${competitor && match.phase === 'selecting' ? `<div class="oly-hands">${Object.keys(HANDS).map(choice => choiceButton(choice, match, waitingForThrow)).join('')}</div>` : ''}
       ${isGm() ? gmControls(match) : ''}${bracket()}</div>`;

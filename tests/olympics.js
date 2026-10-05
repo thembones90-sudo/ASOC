@@ -143,4 +143,14 @@ const gmBacker = O.support(activeBacker.state, '__GM__', match.playerAId);
 assert.equal(gmBacker.ok, true, 'the Shadow Broker can support a combatant');
 assert.equal(O.view(gmBacker.state, '__GM__', true).support, match.playerAId);
 
+// The Shadow Broker is a real playable Olympian when explicitly joined.
+let gmLobby = O.createLobby('gm-play-test');
+let gmJoin = O.join(gmLobby, { id: '__GM__', name: 'SHADOW BROKER', avatarData: 'assets/ui/shadow-broker.png', frameColor: '#9B5DE0' });
+assert.equal(gmJoin.ok, true);
+gmLobby = gmJoin.state;
+gmLobby = O.join(gmLobby, { id: 'hero-1', name: 'HERO', avatarData: '', frameColor: '#123456' }).state;
+const gmStarted = O.begin(gmLobby, now += 100, zero);
+assert.equal(gmStarted.ok, true);
+assert.ok(gmStarted.state.participants.__GM__, 'Shadow Broker is in the bracket as a competitor');
+
 console.log('PASS Olympics engine: 2/3/4/5/8 brackets, BYEs, best-of stages, private throws, timers, reconnect, controls, support and completion');

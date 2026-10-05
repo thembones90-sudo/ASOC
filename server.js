@@ -5369,7 +5369,10 @@ function applyThreefoldArena(room, game) {
 // ---------------------------------------------------------------------
 function olympicsActor(room, ws) {
   if (!room || !ws) return null;
-  if (ws === room.hostConnection && ws.isHost === true) return { id: '__GM__', name: 'SHADOW BROKER', isGm: true, connected: true };
+  if (ws === room.hostConnection && ws.isHost === true) {
+    const broker = publicBrokerProfile(room);
+    return { id: '__GM__', name: 'SHADOW BROKER', isGm: true, connected: true, avatarData: broker.avatarData || 'assets/ui/shadow-broker.png', frameColor: broker.frameColor || '#9B5DE0' };
+  }
   const player = room.players.get(ws);
   if (!player || !ws.playerId || String(player.id) !== String(ws.playerId)) return null;
   return { ...player, id: String(player.id), isGm: false, connected: ws.readyState === 1 && player.connected !== false };
@@ -5412,6 +5415,13 @@ function handleOlympicsEvents(room, events = []) {
       const champion = olympicsName(room.olympics, event.playerId);
       room.olympicsChampionId = String(event.playerId);
       olympicsAnnounce(room, `👑 ${champion} IS THE LORD OF THE THREE HANDS.`);
+      // Little Hero champions earn 5 Shadow Coin exactly once per tournament.
+      // The Shadow Broker may compete but never receives player currency.
+      const account = coinAccount(event.playerId, champion);
+      if (account) {
+        const reward = playerStore.awardShadowCoins(account, 5, `olympics:${room.olympics.id}:champion`, { reason: 'Olympics champion' });
+        if (reward.ok && !reward.duplicate) olympicsAnnounce(room, `?? ${champion} CLAIMS 5 SHADOW COIN.`);
+      }
       room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'result', { game: 'Rock Paper Scissors Olympics' });
       broadcastPlayersUpdate(room);
     }
@@ -5463,7 +5473,6 @@ function handleOlympics(ws, message) {
   }
 
   if (!room.olympics) return olympicsError(ws, 'NO OLYMPICS EVENT EXISTS');
-  if (actor.isGm && type !== 'olympics:support') return olympicsError(ws, 'THE SHADOW BROKER COMMANDS THE OLYMPICS BUT DOES NOT COMPETE');
   let result;
   if (type === 'olympics:join') result = olympics.join(room.olympics, actor);
   else if (type === 'olympics:leave') result = olympics.leave(room.olympics, actor.id);
