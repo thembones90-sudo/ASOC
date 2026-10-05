@@ -116,7 +116,7 @@
   :where(html:not(.asoc-mobile)) .bm-pact-head span{max-width:none;text-align:left}
   :where(html:not(.asoc-mobile)) .black-market-entry{right:10px;bottom:10px}
 }
-@media(prefers-reduced-motion:reduce){.black-market-void{animation:none}}
+@media(prefers-reduced-motion:reduce){.black-market-void,.bm-tribute-meter i{animation:none!important}}
 
 body:has(#black-market-gm-button) #black-market-gm-button.black-market-command-btn { position:static; right:auto; bottom:auto; z-index:auto; width:100%; min-width:0; min-height:46px; height:100%; margin:0 !important; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border-color:#4d2741; border-left-width:1px; background:linear-gradient(180deg,rgba(31,18,35,.98),rgba(10,8,13,.99)); box-shadow:inset 0 0 18px rgba(116,42,94,.12),0 0 14px rgba(0,0,0,.28); }
 body:has(#black-market-gm-button) #black-market-gm-button.black-market-command-btn span { color:#d8b9df; letter-spacing:.18em; }
@@ -829,8 +829,20 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
 .is-sanctum .bm-tribute-level>span{color:#ff7790;font:900 10px var(--font-machine,monospace);letter-spacing:.24em}
 .is-sanctum .bm-tribute-level>b{justify-self:end;color:#ffd0d9;font:900 11px var(--font-machine,monospace);letter-spacing:.18em}
 .is-sanctum .bm-tribute-meter{grid-column:1/-1;display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-top:7px}
-.is-sanctum .bm-tribute-meter i{display:block;height:5px;border:1px solid rgba(141,34,54,.55);background:#16070b;box-shadow:inset 0 0 5px rgba(0,0,0,.65)}
-.is-sanctum .bm-tribute-meter i.is-lit{border-color:#d32042;background:linear-gradient(90deg,#8f102a,#ef2a4e);box-shadow:0 0 8px rgba(239,42,78,.18)}
+.is-sanctum .bm-tribute-meter i{display:block;height:5px;border:1px solid rgba(141,34,54,.55);background:#16070b;box-shadow:inset 0 0 5px rgba(0,0,0,.65);transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,filter .2s ease}
+.is-sanctum .bm-tribute-meter i.is-lit:nth-child(1),.is-sanctum .bm-tribute-meter i.is-lit:nth-child(2){border-color:#6f1826;background:linear-gradient(90deg,#461019,#711523);box-shadow:0 0 6px rgba(111,24,38,.18)}
+.is-sanctum .bm-tribute-meter i.is-lit:nth-child(3),.is-sanctum .bm-tribute-meter i.is-lit:nth-child(4){border-color:#9c1b30;background:linear-gradient(90deg,#761322,#a81b31);box-shadow:0 0 7px rgba(156,27,48,.24)}
+.is-sanctum .bm-tribute-meter i.is-lit:nth-child(5),.is-sanctum .bm-tribute-meter i.is-lit:nth-child(6){border-color:#d32042;background:linear-gradient(90deg,#a81832,#ef2a4e);box-shadow:0 0 9px rgba(239,42,78,.34)}
+.is-sanctum .bm-tribute-meter i.is-lit:nth-child(7),.is-sanctum .bm-tribute-meter i.is-lit:nth-child(8){border-color:#ff5a36;background:linear-gradient(90deg,#e72c35,#ff6a3d);box-shadow:0 0 11px rgba(255,90,54,.44)}
+.is-sanctum .bm-tribute-meter i.is-lit:nth-child(9){border-color:#ffb3a0;background:linear-gradient(90deg,#ff654b,#ffb3a0);box-shadow:0 0 14px rgba(255,179,160,.65);filter:saturate(1.12) brightness(1.1)}
+.is-sanctum .bm-tribute-meter i.is-lit:nth-child(10){border-color:#fff1ed;background:linear-gradient(90deg,#ff9a84,#fff2ee);box-shadow:0 0 10px rgba(255,255,255,.9),0 0 22px rgba(255,72,60,.72);filter:brightness(1.16)}
+.is-sanctum .bm-tribute-meter.is-level-5 i.is-lit:nth-child(5),.is-sanctum .bm-tribute-meter.is-level-6 i.is-lit:nth-child(6),.is-sanctum .bm-tribute-meter.is-level-7 i.is-lit:nth-child(7){animation:bm-tribute-heat 1.8s ease-in-out infinite}
+.is-sanctum .bm-tribute-meter.is-level-8 i.is-lit:nth-child(7),.is-sanctum .bm-tribute-meter.is-level-8 i.is-lit:nth-child(8),.is-sanctum .bm-tribute-meter.is-level-9 i.is-lit:nth-child(8),.is-sanctum .bm-tribute-meter.is-level-9 i.is-lit:nth-child(9){animation:bm-tribute-ember 1.35s ease-in-out infinite}
+.is-sanctum .bm-tribute-meter.is-level-10 i.is-lit{animation:bm-tribute-oath 1.1s ease-in-out infinite}
+.is-sanctum .bm-tribute-meter.is-level-10 i.is-lit:nth-child(10){animation-delay:.08s}
+@keyframes bm-tribute-heat{0%,100%{filter:brightness(1)}50%{filter:brightness(1.16)}}
+@keyframes bm-tribute-ember{0%,100%{filter:brightness(1);box-shadow:0 0 9px rgba(255,90,54,.28)}50%{filter:brightness(1.22);box-shadow:0 0 16px rgba(255,90,54,.7)}}
+@keyframes bm-tribute-oath{0%,100%{filter:brightness(1.04)}50%{filter:brightness(1.35);box-shadow:0 0 12px rgba(255,255,255,.88),0 0 26px rgba(255,49,49,.72)}}
 .is-sanctum .bm-delivery{position:relative;z-index:1;display:flex;gap:10px;align-items:stretch;margin:16px 0 0;padding:0;border:0;background:transparent}
 .is-sanctum .bm-delivery .bm-receipt{display:flex;align-items:center;gap:11px;min-width:205px;min-height:52px;padding:8px 13px;border:1px solid #493039;background:linear-gradient(180deg,rgba(18,12,15,.96),rgba(8,6,8,.98));box-shadow:inset 0 0 16px rgba(0,0,0,.26)}
 .is-sanctum .bm-delivery .bm-receipt>i{display:grid;place-items:center;width:25px;height:25px;border:1px solid currentColor;border-radius:50%;font-style:normal;font-size:12px;opacity:.72}
