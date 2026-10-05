@@ -7370,10 +7370,13 @@ function handleBackstabCommand(room, author, raw, targetPlayerId) {
     backstab: {
       actorId: String(author.id),
       actorName: author.name,
+      actorAvatarData: liveAvatarFor(room, author.id),
       intendedTargetId: String(intended.id),
       intendedTargetName: intended.name,
+      intendedTargetAvatarData: liveAvatarFor(room, intended.id),
       victimId: String(victim.id),
       victimName: victim.name,
+      victimAvatarData: liveAvatarFor(room, victim.id),
       failed,
       cost: BACKSTAB_COST,
       cooldownMs: BACKSTAB_COOLDOWN_MS
@@ -7551,10 +7554,13 @@ function dispatchGmSlashCommand(room, ws, text) {
         backstab: {
           actorId: null,
           actorName: 'SHADOW BROKER',
+          actorAvatarData: publicBrokerProfile(room).avatarData || LEGACY_DEFAULT_AVATAR,
           intendedTargetId: String(target.id),
           intendedTargetName: target.name,
+          intendedTargetAvatarData: liveAvatarFor(room, target.id),
           victimId: String(target.id),
           victimName: target.name,
+          victimAvatarData: liveAvatarFor(room, target.id),
           failed: false,
           cost: 0,
           cooldownMs: 0

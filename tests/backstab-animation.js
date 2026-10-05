@@ -31,6 +31,12 @@ assert.match(js, /Number\(message\.cost\) > 0[\s\S]*SHADOW BROKER AUTHORITY/,
   'the effect does not falsely show a coin charge for an administrative GM strike');
 assert.match(js, /function avatarFor\([\s\S]*data-broker-avatar[\s\S]*shadow-broker\.png[\s\S]*\[data-player-id\]/,
   'the vignette resolves the Shadow Broker portrait and player portraits');
+assert.match(js, /authoritativeSource[\s\S]*message\.actorAvatarData[\s\S]*message\.victimAvatarData/,
+  'the vignette prefers authoritative avatar URLs carried by the strike event');
+assert.match(server, /actorAvatarData: liveAvatarFor\(room, author\.id\)[\s\S]*victimAvatarData: liveAvatarFor\(room, victim\.id\)/,
+  'player strikes carry authoritative actor and victim portraits');
+assert.match(server, /actorAvatarData: publicBrokerProfile\(room\)\.avatarData[\s\S]*victimAvatarData: liveAvatarFor\(room, target\.id\)/,
+  'Broker strikes carry the live Broker and target portraits');
 assert.match(js, /backstab-character backstab-victim[\s\S]*backstab-character backstab-attacker/,
   'both attacker and victim avatars are rendered around the existing dagger');
 assert.match(css, /@keyframes backstab-attacker/);
@@ -45,7 +51,7 @@ assert.match(player, /backstab-chat-message[\s\S]*BackstabEffect\?\.flagHTML/, '
 assert.match(app, /backstab-chat-message[\s\S]*BackstabEffect\?\.flagHTML/, 'GM chat renders the Broker event flag');
 for (const [surface, html] of [['GM', index], ['player', join]]) {
   assert.match(html, /css\/backstab\.css\?v=20261005-backstab-4/, `${surface} loads the remodeled CSS`);
-  assert.match(html, /js\/backstab\.js\?v=20261005-backstab-4/, `${surface} loads the matching effect script`);
+  assert.match(html, /js\/backstab\.js\?v=20261005-backstab-5/, `${surface} loads the matching effect script`);
 }
 assert.match(index, /js\/app\.js\?v=20261005-backstab-event-1/);
 assert.match(join, /js\/player\.js\?v=20261005-backstab-event-1/);

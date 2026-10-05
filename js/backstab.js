@@ -78,7 +78,10 @@
     return String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
   }
 
-  function avatarFor(playerId, name, broker = false) {
+  function avatarFor(playerId, name, broker = false, authoritativeSource = '') {
+    if (authoritativeSource) {
+      return `<img src="${escapeHtml(authoritativeSource)}" alt="">`;
+    }
     if (broker) {
       const liveBroker = document.querySelector('img[data-broker-avatar], img.shadow-broker-avatar');
       const source = liveBroker?.currentSrc || liveBroker?.src || 'assets/ui/shadow-broker.png';
@@ -124,8 +127,8 @@
     const detail = failed
       ? `${message.actorName || 'Someone'} tried to backstab ${message.intendedTargetName || 'someone'} and stabbed themselves instead.`
       : `${message.actorName || 'Someone'} backstabbed ${message.victimName || 'someone'}.`;
-    const actorAvatar = avatarFor(message.actorId, message.actorName, !message.actorId);
-    const victimAvatar = avatarFor(message.victimId, message.victimName, false);
+    const actorAvatar = avatarFor(message.actorId, message.actorName, !message.actorId, message.actorAvatarData);
+    const victimAvatar = avatarFor(message.victimId, message.victimName, false, message.victimAvatarData);
 
     layer.innerHTML = `
       <div class="backstab-vignette" aria-hidden="true"></div>
