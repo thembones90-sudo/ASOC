@@ -7311,6 +7311,24 @@ function handleAfkCommand(room, raw, targetPlayerId) {
 const BACKSTAB_COST = 15;
 const BACKSTAB_COOLDOWN_MS = 60 * 60 * 1000;
 const BACKSTAB_SELF_HIT_CHANCE = 10;
+const BACKSTAB_SUCCESS_LINES = Object.freeze([
+  '{A} found the soft spot in {T}\'s defenses.',
+  '{T} trusted {A}. That was the first mistake.',
+  '{A} delivered a Bulgarian farewell to {T}.',
+  '{T} heard the blade only after {A} was gone.',
+  '{A} revoked {T}\'s right to turn around.',
+  '{T} checked the shadows. {A} was already behind them.',
+  '{A} settled the argument through {T}\'s back.',
+  '{T} received the sharp end of {A}\'s diplomacy.',
+  '{A} converted {T}\'s trust into a tactical error.',
+  '{T} never saw {A} coming. Nobody ever does.'
+]);
+
+function backstabSuccessLine(actorName, targetName) {
+  return BACKSTAB_SUCCESS_LINES[crypto.randomInt(BACKSTAB_SUCCESS_LINES.length)]
+    .replace(/\{A\}/g, actorName)
+    .replace(/\{T\}/g, targetName);
+}
 
 function handleBackstabCommand(room, author, raw, targetPlayerId) {
   const match = raw.match(/^\/backstab(?:\s+@?(.*?))?\s*$/i);
@@ -7346,7 +7364,7 @@ function handleBackstabCommand(room, author, raw, targetPlayerId) {
   const victim = failed ? { id: author.id, name: author.name } : intended;
   const text = failed
     ? `${author.name} tried to backstab ${intended.name} and stabbed themselves instead. 🇧🇬`
-    : `${author.name} backstabbed ${intended.name}. 🇧🇬`;
+    : backstabSuccessLine(author.name, intended.name);
 
   const result = buildChatCommandMessage(room, author, 'backstab', 'backstab', text, {
     backstab: {
@@ -7529,7 +7547,7 @@ function dispatchGmSlashCommand(room, ws, text) {
     const target = resolved.target;
     const now = Date.now();
     const result = buildChatCommandMessage(room, author, 'backstab', 'backstab',
-      `SHADOW BROKER backstabbed ${target.name}. 🇧🇬`, {
+      backstabSuccessLine('SHADOW BROKER', target.name), {
         backstab: {
           actorId: null,
           actorName: 'SHADOW BROKER',
@@ -7543,6 +7561,9 @@ function dispatchGmSlashCommand(room, ws, text) {
         }
       });
     if (!result.success) return result;
+    // Use the established Broker identity/transmog renderer instead of the
+    // generic Little Hero bubble, which has no Broker avatar and falls to LH.
+    result.message.source = 'shadowBroker';
     broadcastToRoom(room, {
       type: 'backstab:strike',
       ...result.message.backstab,

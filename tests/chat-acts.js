@@ -221,7 +221,8 @@ async function run() {
     const backstabEventMark = victim.msgs.length;
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/backstab @Victim' }));
     const brokerBackstab = await waitFor(victim, m => m.messageType === 'backstab' && m.playerId === null, 'Broker backstab');
-    assert.equal(brokerBackstab.text, 'SHADOW BROKER backstabbed Victim. 🇧🇬');
+    assert.equal(brokerBackstab.source, 'shadowBroker', 'GM backstab renders through the configured Broker avatar pipeline');
+    assert.ok(brokerBackstab.text.includes('SHADOW BROKER') && brokerBackstab.text.includes('Victim'), 'random line names both attacker and victim');
     assert.equal(victim.chat.some(m => m.text === '/backstab @Victim'), false, 'raw GM slash command never enters chat');
     const strike = victim.msgs.slice(backstabEventMark).find(m => m.type === 'backstab:strike');
     assert.ok(strike, 'GM backstab reuses the existing backstab:strike broadcast');

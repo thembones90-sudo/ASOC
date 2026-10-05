@@ -5263,9 +5263,9 @@ const PlayerApp = {
         });
       }
       return `
-        <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+        <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'backstab' ? ' backstab-chat-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
-          ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}
+          ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}${msg.messageType === 'backstab' ? window.BackstabEffect?.flagHTML?.() || '' : ''}
           ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
           ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
           ${this.createReactionBarHTML(msg)}
@@ -5312,11 +5312,11 @@ const PlayerApp = {
     return `
       <div class="chat-message ${msg.source === 'dennisAI' ? 'dennis-ai-message ' : ''}${msg.messageType === 'voice' ? 'voice-message ' : ''}${msg.messageType === 'sticker' ? 'sticker-message ' : ''}${manualTribute ? 'active-blood-tribute' : ''} ${isOwn ? 'own' : ''} ${grouped ? 'grouped' : ''} ${agedRejected ? 'aged-rejected' : ''} ${msg.verdict || ''}${window.IksRing?.messageClass(identity) || ''}${window.ShadowCosmetics?.celebrationClass(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.messageClass(msg) || ''}" data-message-id="${msg.id}" data-player-name="${this.escapeHtml(msg.playerName)}" data-editable="${canEdit ? 'true' : 'false'}" data-theme-id="${ASOCThemes.get(identity.themeId).id}" style="${ASOCThemes.messageStyle(identity.themeId)}--little-hero-accent:${/^#[0-9A-Fa-f]{6}$/.test(identity.frameColor || '') ? identity.frameColor : '#6f7885'}" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
         <div class="chat-avatar-rail">${this.littleHeroAvatarHTML(identity)}</div>
-        <div class="chat-message-main">${manualBadge}${window.ShadowCosmetics?.celebrationHTML(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.markHTML(msg) || ''}
+        <div class="chat-message-main${msg.messageType === 'backstab' ? ' backstab-chat-message' : ''}">${manualBadge}${window.ShadowCosmetics?.celebrationHTML(msg, identity, this.currentPlayers) || ''}${window.ShadowRealm?.markHTML(msg) || ''}
           <div class="chat-message-header"><span class="chat-player-name${window.ShadowCosmetics?.nameClass(identity, this.currentPlayers) || ''}" data-dossier="${this.escapeHtml(String(msg.playerId || ''))}">${this.escapeHtml(msg.playerName)}</span>${window.ShadowCosmetics?.titleHTML(identity, this.currentPlayers) || ''}</div>
           <button type="button" class="chat-reply-btn" data-reply-id="${msg.id}" title="Reply" aria-label="Reply to ${this.escapeHtml(msg.playerName)}">&#8617;</button>
           ${replyContextHtml}
-          <div class="chat-message-line"><div class="chat-message-text">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : (msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : '')}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
+          <div class="chat-message-line"><div class="chat-message-text">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div><span class="chat-time">${time}</span>${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}</div>${msg.messageType === 'backstab' ? window.BackstabEffect?.flagHTML?.() || '' : ''}${msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : (msg.imageUrl ? `<button type="button" class="chat-image-link" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : '')}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
           ${verdictMetaHtml}
           ${verdictResponseHtml}
           ${this.createReactionBarHTML(msg)}

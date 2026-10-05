@@ -79,13 +79,21 @@
   }
 
   function avatarFor(playerId, name, broker = false) {
-    if (broker) return '<img src="assets/ui/shadow-broker.png" alt="">';
+    if (broker) {
+      const liveBroker = document.querySelector('img[data-broker-avatar], img.shadow-broker-avatar');
+      const source = liveBroker?.currentSrc || liveBroker?.src || 'assets/ui/shadow-broker.png';
+      return `<img src="${escapeHtml(source)}" alt="">`;
+    }
     const entry = Array.from(document.querySelectorAll('[data-player-id]'))
       .find(node => String(node.dataset.playerId || '') === String(playerId || ''));
     const image = entry?.querySelector('img');
     const source = image?.currentSrc || image?.src || '';
     if (source) return `<img src="${escapeHtml(source)}" alt="">`;
     return `<span>${escapeHtml(String(name || '?').trim().slice(0, 2).toUpperCase())}</span>`;
+  }
+
+  function flagHTML() {
+    return '<span class="backstab-chat-flag" role="img" aria-label="Bulgarian flag"><i></i><i></i><i></i></span>';
   }
 
   function onMessage(message, viewerId) {
@@ -159,5 +167,5 @@
     }, duration);
   }
 
-  window.BackstabEffect = Object.freeze({ onMessage, clear: clearExisting, decorateRoster });
+  window.BackstabEffect = Object.freeze({ onMessage, clear: clearExisting, decorateRoster, flagHTML });
 })();
