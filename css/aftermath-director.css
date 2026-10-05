@@ -1,0 +1,234 @@
+/* AFTERMATH DIRECTOR
+   Isolated cinematic layer for the shared post-match story transmission. */
+
+.aftermath-director {
+  --aftermath-accent: #a65be0;
+  --aftermath-accent-rgb: 166, 91, 224;
+  --aftermath-hot: #e5c4ff;
+  --aftermath-ink: #030205;
+}
+
+.aftermath-director.aftermath-won {
+  --aftermath-accent: #d8a83d;
+  --aftermath-accent-rgb: 216, 168, 61;
+  --aftermath-hot: #fff0b0;
+}
+
+.aftermath-director.aftermath-lost {
+  --aftermath-accent: #c22f43;
+  --aftermath-accent-rgb: 194, 47, 67;
+  --aftermath-hot: #ffb1b9;
+}
+
+.aftermath-director .aftermath-dim {
+  background:
+    radial-gradient(ellipse at 50% 43%, rgba(var(--aftermath-accent-rgb), .18), transparent 42%),
+    linear-gradient(115deg, rgba(var(--aftermath-accent-rgb), .07), transparent 35% 65%, rgba(var(--aftermath-accent-rgb), .05)),
+    #020204;
+  backdrop-filter: grayscale(.4) brightness(.38) blur(2px);
+}
+
+.aftermath-director .aftermath-dim::before,
+.aftermath-director .aftermath-dim::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.aftermath-director .aftermath-dim::before {
+  opacity: .34;
+  background: repeating-linear-gradient(90deg, transparent 0 9.8vw, rgba(var(--aftermath-accent-rgb), .12) 9.9vw 10vw);
+  mask-image: linear-gradient(to bottom, transparent, #000 28%, #000 72%, transparent);
+}
+
+.aftermath-director .aftermath-dim::after {
+  background: radial-gradient(circle at center, transparent 42%, rgba(0, 0, 0, .82) 100%);
+}
+
+.aftermath-board-ghost {
+  position: absolute;
+  inset: 10% 6%;
+  z-index: -1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(8px, 1.2vw, 22px);
+  opacity: .065;
+  filter: blur(.25px);
+  transform: perspective(900px) rotateX(62deg) translateY(19%);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+}
+
+.aftermath-board-ghost i {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--aftermath-accent);
+  color: var(--aftermath-hot);
+  font: 900 clamp(60px, 10vw, 190px)/1 var(--font-display, sans-serif);
+  font-style: normal;
+  text-shadow: 0 0 30px var(--aftermath-accent);
+}
+
+.aftermath-director .aftermath-stage {
+  width: min(76vw, 1280px);
+  max-height: min(88vh, 940px);
+  gap: clamp(13px, 1.5vw, 22px);
+}
+
+.aftermath-director .aftermath-identity {
+  justify-content: flex-start;
+  padding-inline: clamp(8px, 2vw, 30px);
+}
+
+.aftermath-director .aftermath-avatar {
+  width: clamp(58px, 5.8vw, 94px);
+  filter: grayscale(.18) drop-shadow(0 0 9px rgba(var(--aftermath-accent-rgb), .7));
+}
+
+.aftermath-director .aftermath-kicker,
+.aftermath-scene-count,
+.aftermath-scene-eyebrow,
+.aftermath-scene-detail {
+  font-family: var(--font-system, monospace);
+  text-transform: uppercase;
+  letter-spacing: .22em;
+}
+
+.aftermath-director .aftermath-title {
+  color: var(--aftermath-hot);
+  text-shadow: 0 0 18px rgba(var(--aftermath-accent-rgb), .66);
+}
+
+.aftermath-director .aftermath-panel {
+  position: relative;
+  display: grid;
+  align-content: center;
+  min-height: clamp(300px, 43vh, 500px);
+  padding: clamp(46px, 5vw, 78px);
+  overflow: hidden;
+  border-color: rgba(var(--aftermath-accent-rgb), .55);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+  background:
+    linear-gradient(90deg, rgba(var(--aftermath-accent-rgb), .08), transparent 18% 82%, rgba(var(--aftermath-accent-rgb), .08)),
+    repeating-linear-gradient(0deg, transparent 0 5px, rgba(255,255,255,.012) 5px 6px),
+    rgba(3, 3, 6, .96);
+  box-shadow: 0 30px 90px #000, inset 0 0 70px rgba(var(--aftermath-accent-rgb), .05), 0 0 40px rgba(var(--aftermath-accent-rgb), .15);
+}
+
+.aftermath-director .aftermath-panel::before,
+.aftermath-director .aftermath-panel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--aftermath-accent) 12% 88%, transparent);
+  box-shadow: 0 0 14px rgba(var(--aftermath-accent-rgb), .7);
+}
+
+.aftermath-director .aftermath-panel::before { top: 0; }
+.aftermath-director .aftermath-panel::after { bottom: 0; }
+
+.aftermath-scene-count {
+  position: absolute;
+  top: clamp(16px, 2vw, 26px);
+  right: clamp(18px, 2.6vw, 38px);
+  color: rgba(255,255,255,.35);
+  font-size: clamp(8px, .65vw, 11px);
+}
+
+.aftermath-scene-eyebrow {
+  margin: 0 auto clamp(18px, 2vw, 30px);
+  color: var(--aftermath-accent);
+  font-size: clamp(10px, .9vw, 14px);
+  font-weight: 900;
+  text-shadow: 0 0 12px rgba(var(--aftermath-accent-rgb), .45);
+}
+
+.aftermath-director .aftermath-story,
+.aftermath-director .aftermath-final-line {
+  max-width: 980px;
+  text-align: center;
+  color: #eeeaf1;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(21px, 1.65vw, 31px);
+  line-height: 1.58;
+}
+
+.aftermath-director .aftermath-final-line {
+  margin-top: 0;
+  color: var(--aftermath-hot);
+  font-family: var(--font-display, sans-serif);
+  font-size: clamp(30px, 3.4vw, 62px);
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(var(--aftermath-accent-rgb), .75), 0 0 34px rgba(var(--aftermath-accent-rgb), .38);
+}
+
+.aftermath-scene-detail {
+  min-height: 1.2em;
+  margin-top: clamp(18px, 2.2vw, 34px);
+  text-align: center;
+  color: rgba(255,255,255,.47);
+  font-size: clamp(9px, .78vw, 12px);
+}
+
+.aftermath-director[data-scene="evidence"] .aftermath-story {
+  color: var(--aftermath-hot);
+  font-family: var(--font-display, sans-serif);
+  font-size: clamp(34px, 5vw, 84px);
+  font-weight: 900;
+  letter-spacing: .07em;
+  line-height: 1;
+}
+
+.aftermath-director[data-scene="opening"] .aftermath-panel,
+.aftermath-director[data-scene="final"] .aftermath-panel {
+  background:
+    radial-gradient(circle at center, rgba(var(--aftermath-accent-rgb), .16), transparent 52%),
+    repeating-linear-gradient(0deg, transparent 0 5px, rgba(255,255,255,.012) 5px 6px),
+    rgba(3, 3, 6, .97);
+}
+
+.aftermath-director.scene-enter .aftermath-scene-eyebrow,
+.aftermath-director.scene-enter .aftermath-story,
+.aftermath-director.scene-enter .aftermath-final-line,
+.aftermath-director.scene-enter .aftermath-scene-detail {
+  animation: aftermath-scene-arrive .52s cubic-bezier(.2,.75,.2,1) both;
+}
+
+.aftermath-director.scene-enter .aftermath-story,
+.aftermath-director.scene-enter .aftermath-final-line { animation-delay: .09s; }
+.aftermath-director.scene-enter .aftermath-scene-detail { animation-delay: .18s; }
+
+.aftermath-director .aftermath-btn {
+  border-color: rgba(var(--aftermath-accent-rgb), .58);
+  color: var(--aftermath-hot);
+}
+
+.aftermath-director .aftermath-btn:hover:not(:disabled) {
+  border-color: var(--aftermath-accent);
+  background: rgba(var(--aftermath-accent-rgb), .13);
+  box-shadow: 0 0 22px rgba(var(--aftermath-accent-rgb), .27);
+}
+
+@keyframes aftermath-scene-arrive {
+  from { opacity: 0; filter: blur(5px); transform: translateY(11px) scale(.992); }
+  to { opacity: 1; filter: blur(0); transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 900px) {
+  :where(html:not(.asoc-mobile)) .aftermath-director .aftermath-stage { width: min(94vw, 780px); }
+  :where(html:not(.asoc-mobile)) .aftermath-director .aftermath-panel { min-height: 300px; padding: 52px 24px 34px; }
+  :where(html:not(.asoc-mobile)) .aftermath-board-ghost { inset-inline: 2%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aftermath-director.scene-enter .aftermath-scene-eyebrow,
+  .aftermath-director.scene-enter .aftermath-story,
+  .aftermath-director.scene-enter .aftermath-final-line,
+  .aftermath-director.scene-enter .aftermath-scene-detail { animation: none !important; }
+}
