@@ -13073,6 +13073,7 @@ wss.on('connection', (ws, req) => {
         case 'blackMarket:sync':
         case 'blackMarket:petition':
         case 'blackMarket:acceptCounter':
+        case 'blackMarket:gmDemandTribute':
         case 'blackMarket:tributeSeen':
         case 'blackMarket:tributeSubmit':
         case 'blackMarket:gmDecision':
