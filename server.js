@@ -7402,6 +7402,24 @@ function handleBackstabCommand(room, author, raw, targetPlayerId) {
 
 
 const FISTBUMP_COOLDOWN_MS = 5 * 60 * 1000;
+const FISTBUMP_LINES = Object.freeze([
+  '{A} fist-bumped {T}. BRO CODE CONFIRMED. 🤜🤛',
+  '{A} and {T} sealed the pact. No paperwork required. 🤜🤛',
+  '{A} fist-bumped {T}. Friendship protocol accepted.',
+  '{A} and {T} achieved temporary male diplomacy. 🤜🤛',
+  '{A} fist-bumped {T}. Respect transferred successfully.',
+  '{A} and {T} synchronized two brain cells. 🤜🤛',
+  '{A} fist-bumped {T}. Hostilities postponed.',
+  '{A} and {T} completed the ancient ritual of "bro."',
+  '{A} fist-bumped {T}. BROTHERHOOD.exe is now running.',
+  '{A} and {T} exchanged one unit of mutual respect. 🤜🤛'
+]);
+
+function fistbumpLine(actorName, targetName) {
+  return FISTBUMP_LINES[crypto.randomInt(FISTBUMP_LINES.length)]
+    .replace(/\{A\}/g, actorName)
+    .replace(/\{T\}/g, targetName);
+}
 
 function handleFistbumpCommand(room, author, raw, targetPlayerId) {
   const match = raw.match(/^\/fistbump(?:\s+@?(.*?))?\s*$/i);
@@ -7423,8 +7441,8 @@ function handleFistbumpCommand(room, author, raw, targetPlayerId) {
   const target = resolved.target;
   const legendary = crypto.randomInt(0, 100) < 5;
   const text = legendary
-    ? `${author.name} and ${target.name} achieved a LEGENDARY DAP. 🤜🤛`
-    : `${author.name} fist-bumped ${target.name}. 🤜🤛`;
+    ? `${author.name} and ${target.name} achieved a LEGENDARY DAP. The ancestors felt that one. 🤜🤛`
+    : fistbumpLine(author.name, target.name);
   const result = buildChatCommandMessage(room, author, 'fistbump', 'fistbump', text, {
     fistbump: {
       actorId: String(author.id),
@@ -7644,8 +7662,8 @@ function dispatchGmSlashCommand(room, ws, text) {
     const now = Date.now();
     const legendary = crypto.randomInt(0, 100) < 5;
     const text = legendary
-      ? `SHADOW BROKER and ${target.name} achieved a LEGENDARY DAP. 🤜🤛`
-      : `SHADOW BROKER fist-bumped ${target.name}. 🤜🤛`;
+      ? `SHADOW BROKER and ${target.name} achieved a LEGENDARY DAP. The ancestors felt that one. 🤜🤛`
+      : fistbumpLine('SHADOW BROKER', target.name);
     const result = buildChatCommandMessage(room, author, 'fistbump', 'fistbump', text, {
       fistbump: {
         actorId: null,
