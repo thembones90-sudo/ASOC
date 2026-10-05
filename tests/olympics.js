@@ -127,7 +127,8 @@ const forfeited = O.forfeit(controlled, O.currentMatch(controlled).playerBId, no
 assert.equal(forfeited.ok, true);
 assert.ok(forfeited.events.some(event => event.type === 'match-complete'));
 
-// Support is spectator-only and single-valued.
+// Support is universal and single-valued. Active Olympians, eliminated players,
+// spectators and the Shadow Broker may back either current combatant; self-support is forbidden.
 state = O.begin(lobby(3), now += 100, zero).state;
 match = O.currentMatch(state);
 let support = O.support(state, spectatorId, match.playerAId);
@@ -135,6 +136,11 @@ assert.equal(support.ok, true); state = support.state;
 support = O.support(state, spectatorId, match.playerBId);
 assert.equal(support.ok, true);
 assert.equal(O.view(support.state, spectatorId).support, match.playerBId);
-assert.equal(O.support(support.state, match.playerAId, match.playerBId).ok, false);
+const activeBacker = O.support(support.state, match.playerAId, match.playerBId);
+assert.equal(activeBacker.ok, true, 'an active Olympian can support the opponent');
+assert.equal(O.support(activeBacker.state, match.playerAId, match.playerAId).ok, false, 'self-support is forbidden');
+const gmBacker = O.support(activeBacker.state, '__GM__', match.playerAId);
+assert.equal(gmBacker.ok, true, 'the Shadow Broker can support a combatant');
+assert.equal(O.view(gmBacker.state, '__GM__', true).support, match.playerAId);
 
 console.log('PASS Olympics engine: 2/3/4/5/8 brackets, BYEs, best-of stages, private throws, timers, reconnect, controls, support and completion');

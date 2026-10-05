@@ -20,6 +20,9 @@ for (const action of ['sync', 'join', 'leave', 'select', 'support']) {
 }
 assert.match(server, /olympicsActor[\s\S]*String\(player\.id\) !== String\(ws\.playerId\)/, 'player identity is derived from the authenticated socket');
 assert.match(server, /olympics\.view\(room\.olympics, viewerId/, 'each socket receives a personalized projection');
+assert.match(server, /actor\.isGm && type !== 'olympics:support'/, 'the Shadow Broker may support without becoming a competitor');
+assert.doesNotMatch(engine, /ACTIVE OLYMPIANS CANNOT SUPPORT/, 'active Olympians are allowed to support');
+assert.match(engine, /YOU CANNOT SUPPORT YOURSELF/, 'self-support remains forbidden');
 assert.match(engine, /yourChoice:[^\n]*viewerId/, 'only the viewer receives their own unrevealed hand');
 assert.match(engine, /const reveal = match\.phase === 'reveal'/, 'choices enter public state only during reveal');
 assert.match(engine, /WAIT FOR THROW/, 'server enforces the ritual countdown');

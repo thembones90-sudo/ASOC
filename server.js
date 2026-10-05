@@ -5463,7 +5463,7 @@ function handleOlympics(ws, message) {
   }
 
   if (!room.olympics) return olympicsError(ws, 'NO OLYMPICS EVENT EXISTS');
-  if (actor.isGm) return olympicsError(ws, 'THE SHADOW BROKER COMMANDS THE OLYMPICS BUT DOES NOT COMPETE');
+  if (actor.isGm && type !== 'olympics:support') return olympicsError(ws, 'THE SHADOW BROKER COMMANDS THE OLYMPICS BUT DOES NOT COMPETE');
   let result;
   if (type === 'olympics:join') result = olympics.join(room.olympics, actor);
   else if (type === 'olympics:leave') result = olympics.leave(room.olympics, actor.id);

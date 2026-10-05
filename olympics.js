@@ -310,10 +310,11 @@ function forfeit(input, playerId, now = Date.now(), random = Math.random) {
   return { ok: true, state, events };
 }
 function support(input, spectatorId, competitorId) {
-  const state = normalizeState(input), from = cleanId(spectatorId), to = cleanId(competitorId);
+  const state = normalizeState(input), from = cleanId(spectatorId), to = cleanId(competitorId), match = currentMatch(state);
   if (!state || !['running', 'complete'].includes(state.status)) return { ok: false, error: 'NO ACTIVE OLYMPICS', state };
-  if (state.participants[from] && !state.participants[from].eliminated) return { ok: false, error: 'ACTIVE OLYMPIANS CANNOT SUPPORT', state };
-  if (!state.participants[to] || state.participants[to].eliminated) return { ok: false, error: 'COMPETITOR UNAVAILABLE', state };
+  if (!from) return { ok: false, error: 'SUPPORTER IDENTITY REQUIRED', state };
+  if (!match || ![match.playerAId, match.playerBId].includes(to)) return { ok: false, error: 'COMPETITOR UNAVAILABLE', state };
+  if (from === to) return { ok: false, error: 'YOU CANNOT SUPPORT YOURSELF', state };
   state.support[from] = to; return { ok: true, state };
 }
 
