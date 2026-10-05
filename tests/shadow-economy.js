@@ -72,6 +72,7 @@ function checkPure() {
   assert.equal(market.catalogFor({ relicProgress: { wheelSurvivals: 1 }, cosmetics: { owned: {} } }).find(i => i.id === 'title-womf-survivor').requires.met, true);
   // public cosmetics expose only equipped + owned items
   assert.deepEqual(market.publicCosmetics({ cosmetics: { owned: { 'fx-fire': 1 }, equipped: { effect: 'fx-fire', title: 'title-little-heretic' } } }), { effect: 'fx-fire', effectTier: 1 });
+  assert.deepEqual(market.publicCosmetics({ cosmetics: { owned: { ghost: 1, 'sigil-skull': 1 }, equipped: { sigil: 'sigil-skull' } } }), { sigil: 'sigil-skull', rewards: ['ghost'] }, 'earned reward badges stack with the equipped sigil');
   assert.deepEqual(market.publicCosmetics({ cosmetics: {
     owned: { 'name-void': 1, 'sigil-crown': 1, 'cel-shatter': 1, 'card-void': 1 },
     equipped: { name: 'name-void', sigil: 'sigil-crown', celebration: 'cel-shatter', card: 'card-void' }

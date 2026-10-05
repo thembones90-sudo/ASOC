@@ -106,7 +106,9 @@ const CATALOG = Object.freeze([
   { id: 'relic-fastest-hand', kind: 'relic', name: 'FASTEST HAND', relic: true, asset: 'assets/shop/relic-fastest-hand.png', earn: { label: 'Make the first solve in 10 matches', counter: 'firstSolves', min: 10 }, desc: 'First blood, ten times over.' },
   { id: 'relic-last-second-heretic', kind: 'relic', name: 'LAST-SECOND HERETIC', relic: true, asset: 'assets/shop/relic-last-second-heretic.png', earn: { label: 'Solve no column, then take the Final' }, desc: 'Silent all match. Then the only answer that mattered.' },
   { id: 'relic-word-killer', kind: 'relic', name: 'WORD KILLER', relic: true, asset: 'assets/shop/relic-word-killer.png', earn: { label: 'Win KALADONT with the word KALADONT' }, desc: 'Ended it with the word itself.' },
-  { id: 'relic-hoarder', kind: 'relic', name: 'THE JEW', relic: true, asset: 'assets/shop/relic-hoarder.png', earn: { label: 'Catch 10 Shadow Coin drops', counter: 'coinCatches', min: 10 }, desc: 'Ten coins snatched off the board. Not one of them shared.' }
+  { id: 'relic-hoarder', kind: 'relic', name: 'THE JEW', relic: true, asset: 'assets/shop/relic-hoarder.png', earn: { label: 'Catch 10 Shadow Coin drops', counter: 'coinCatches', min: 10 }, desc: 'Ten coins snatched off the board. Not one of them shared.' },
+  // Broker-granted name reward. Unlike an equipped sigil this stacks beside it.
+  { id: 'ghost', kind: 'relic', name: 'BLOOD TRIBUTE', relic: true, badge: '👻', desc: 'Granted by the Shadow Broker for an accepted Blood Tribute.' }
 ]);
 
 const BY_ID = new Map(CATALOG.map(item => [item.id, item]));
@@ -226,6 +228,10 @@ function publicCosmetics(profile) {
     else out[slot] = item.id;
     if (slot === 'effect') out.effectTier = Math.min(tierCount(item), Number(owned[item.id]) || 1);
   }
+  const rewards = CATALOG
+    .filter(item => item.relic === true && item.badge && Number(owned[item.id]) > 0)
+    .map(item => item.id);
+  if (rewards.length) out.rewards = rewards;
   return out;
 }
 

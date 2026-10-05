@@ -6820,7 +6820,7 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
   { name: '/hug', help: '/hug [@Name] -- the Broker hugs someone (or everyone)' },
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
-  { name: '/award', help: '/award @Name drug -- grant a Shadow Market relic command (e.g. /drug)' },
+  { name: '/award', help: '/award @Name ghost -- grant a Shadow Market relic or reward (e.g. /drug)' },
   { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' }
 ];
 const GM_CHAT_SLASH_COMMANDS = Array.from(new Map(
@@ -7490,7 +7490,7 @@ function dispatchGmSlashCommand(room, ws, text) {
   }
   if (/^\/award\b/i.test(raw)) {
     const match = raw.match(/^\/award\s+@?(.+?)\s+\/?([a-z-]+)\s*$/i);
-    if (!match) return { success: false, error: 'AWARD INVALID // USE /award @Name drug' };
+    if (!match) return { success: false, error: 'AWARD INVALID // USE /award @Name ghost' };
     const key = match[2].toLowerCase();
     const item = shadowMarket.COMMAND_ITEMS.get(key) || shadowMarket.getItem(key) || shadowMarket.getItem(`cmd-${key}`);
     if (!item?.relic) return { success: false, error: `AWARD // ${key.toUpperCase()} IS NOT A GRANTABLE RELIC` };

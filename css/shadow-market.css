@@ -506,6 +506,7 @@ body.smk-open { overflow: hidden; }
 .cos-sigil.cos-sigil-skull { color: #e6e1d6; text-shadow: 0 0 6px rgba(255, 255, 255, .35); }
 .cos-sigil.cos-sigil-crown { color: #f0c65d; text-shadow: 0 0 6px rgba(232, 184, 74, .6); }
 .cos-sigil.cos-sigil-dagger { color: #ff6b73; text-shadow: 0 0 6px rgba(255, 60, 70, .5); }
+.cos-reward-ghost { filter: drop-shadow(0 0 4px rgba(190, 150, 255, .75)); }
 .cos-sigil-coin img { width: 1.05em; aspect-ratio: 256 / 251; filter: drop-shadow(0 0 3px rgba(140, 210, 60, .5)); }
 
 /* ---------- Correct-answer celebrations ---------- */

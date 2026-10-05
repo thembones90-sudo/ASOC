@@ -69,6 +69,12 @@ class Client {
     gm.send({ type: 'gm:broadcast', text: '/award @Sissy smite' });
     err = await gm.next(m => m.type === 'error', 'non-relic refused', m0);
     assert.match(err.message, /NOT A GRANTABLE RELIC/);
+    // Name rewards use /award too and arrive immediately in the roster.
+    m0 = sissy.mark();
+    gm.send({ type: 'gm:broadcast', text: '/award @Sissy ghost' });
+    const ghostRoster = await sissy.next(m => m.type === 'players:update' && (m.players || []).some(p => p.name === 'Sissy' && p.cosmetics?.rewards?.includes('ghost')), 'ghost reward roster update', m0);
+    const sissyProfile = ghostRoster.players.find(p => p.name === 'Sissy');
+    assert.deepEqual(sissyProfile.cosmetics.rewards, ['ghost']);
     // Sissy injects Cigan; Cigan, without the relic, still cannot.
     m0 = cigan.mark();
     sissy.send({ type: 'chat:guess', text: '/drug @Cigan' });

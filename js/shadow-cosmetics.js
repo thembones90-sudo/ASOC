@@ -8,6 +8,7 @@
   const FX = new Set(['smite', 'freeze', 'glitch', 'omen', 'rupture', 'vanish', 'love', 'drug', 'hug', 'avada']);
   const LOVE_COLORS = ['#ff5fa2', '#ff3b6b', '#ff8fc8', '#c77dff', '#ffd166', '#5ee6ff', '#7dff9b', '#ff9f5a'];
   const SIGILS = { 'sigil-eye': '◉', 'sigil-skull': '☠', 'sigil-crown': '♛', 'sigil-dagger': '†', 'sigil-coin': '' };
+  const REWARD_BADGES = Object.freeze({ ghost: '👻' });
   const BOOT_AT = Date.now();
   const played = new Set();
   const celebrated = new Set();
@@ -60,12 +61,20 @@
     return '<span class="cos-sigil cos-' + c.sigil + '" aria-hidden="true">' + SIGILS[c.sigil] + '</span>';
   }
 
-  // Sigil + title badge, rendered right after a player's name.
+  function rewardHTML(c) {
+    if (!c || !Array.isArray(c.rewards)) return '';
+    return [...new Set(c.rewards)]
+      .filter(id => Object.prototype.hasOwnProperty.call(REWARD_BADGES, id))
+      .map(id => '<span class="cos-sigil cos-reward cos-reward-' + id + '" title="Blood Tribute" aria-label="Blood Tribute reward">' + REWARD_BADGES[id] + '</span>')
+      .join('');
+  }
+
+  // Equipped sigil + permanent earned rewards + title, rendered after the name.
   function titleHTML(entity, players) {
     const c = cosmeticsOf(entity, players);
     if (!c) return '';
     const title = typeof c.title === 'string' && c.title ? '<span class="cos-title">' + escape(c.title.slice(0, 40)) + '</span>' : '';
-    return sigilHTML(c) + title;
+    return sigilHTML(c) + rewardHTML(c) + title;
   }
 
   // ---------------------------------------------------------- celebrations
