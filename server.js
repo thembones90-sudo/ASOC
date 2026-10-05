@@ -7501,6 +7501,39 @@ function dispatchGmSlashCommand(room, ws, text) {
     return { success: true, broadcast: true };
   }
 
+  // Broker authority trigger: reuse the player backstab presentation without
+  // entering the player economy, cooldown, or self-hit roll.
+  if (/^\/backstab\b/i.test(raw)) {
+    const match = raw.match(/^\/backstab(?:\s+@?(.*?))?\s*$/i);
+    if (!match) return { success: false, error: 'BACKSTAB INVALID // USE /backstab @Name' };
+    const resolved = resolveNamedTarget(room, null, '', match[1] || '', 'BACKSTAB');
+    if (resolved.error) return { success: false, error: resolved.error };
+    const target = resolved.target;
+    const now = Date.now();
+    const result = buildChatCommandMessage(room, author, 'backstab', 'backstab',
+      `SHADOW BROKER backstabbed ${target.name}. 🇧🇬`, {
+        backstab: {
+          actorId: null,
+          actorName: 'SHADOW BROKER',
+          intendedTargetId: String(target.id),
+          intendedTargetName: target.name,
+          victimId: String(target.id),
+          victimName: target.name,
+          failed: false,
+          cost: 0,
+          cooldownMs: 0
+        }
+      });
+    if (!result.success) return result;
+    broadcastToRoom(room, {
+      type: 'backstab:strike',
+      ...result.message.backstab,
+      timestamp: now,
+      durationMs: 3000
+    });
+    return { success: true, broadcast: true };
+  }
+
   if (/^\/c4\b/i.test(raw)) {
     if (!/^\/c4\s*$/i.test(raw)) return { success: false, error: 'C4 INVALID // USE /c4' };
     if (room.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) {

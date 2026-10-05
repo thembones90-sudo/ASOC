@@ -216,6 +216,24 @@ async function run() {
     const brokerHiss = await waitFor(victim, m => m.messageType === 'hiss' && m.hiss?.actorId === null, 'Broker hiss');
     assert.equal(brokerHiss.text, 'SHADOW BROKER hisses at Victim.');
 
+    // GM /backstab is an authority trigger: it always strikes the named
+    // victim through the existing event, with no player cost/cooldown/failure.
+    const backstabEventMark = victim.msgs.length;
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/backstab @Victim' }));
+    const brokerBackstab = await waitFor(victim, m => m.messageType === 'backstab' && m.playerId === null, 'Broker backstab');
+    assert.equal(brokerBackstab.text, 'SHADOW BROKER backstabbed Victim. 🇧🇬');
+    assert.equal(victim.chat.some(m => m.text === '/backstab @Victim'), false, 'raw GM slash command never enters chat');
+    const strike = victim.msgs.slice(backstabEventMark).find(m => m.type === 'backstab:strike');
+    assert.ok(strike, 'GM backstab reuses the existing backstab:strike broadcast');
+    assert.equal(strike.victimId, victim.playerId);
+    assert.equal(strike.failed, false);
+    assert.equal(strike.cost, 0);
+    assert.equal(strike.cooldownMs, 0);
+
+    const firstBrokerBackstabId = brokerBackstab.id;
+    gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/backstab Victim' }));
+    await waitFor(victim, m => m.id !== firstBrokerBackstabId && m.messageType === 'backstab' && m.playerId === null, 'immediate second Broker backstab');
+
     gm.ws.send(JSON.stringify({ type: 'gm:broadcast', text: '/fart @all' }));
     const brokerLegacyAll = await waitFor(victim, m => m.id !== brokerAll.id && m.messageType === 'fart' && m.fart?.actorId === null && m.fart?.targetId === '__ALL_ONLINE__', 'Broker legacy fart @all');
     assert.equal(brokerLegacyAll.text, 'SHADOW BROKER farts on everyone.');
