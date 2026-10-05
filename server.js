@@ -7634,6 +7634,42 @@ function dispatchGmSlashCommand(room, ws, text) {
     return { success: true, broadcast: true };
   }
 
+  // Broker fistbump trigger: same avatar animation, no player cooldown.
+  if (/^\/fistbump\b/i.test(raw)) {
+    const match = raw.match(/^\/fistbump(?:\s+@?(.*?))?\s*$/i);
+    if (!match) return { success: false, error: 'FISTBUMP INVALID // USE /fistbump @Name' };
+    const resolved = resolveNamedTarget(room, null, '', match[1] || '', 'FISTBUMP');
+    if (resolved.error) return { success: false, error: resolved.error };
+    const target = resolved.target;
+    const now = Date.now();
+    const legendary = crypto.randomInt(0, 100) < 5;
+    const text = legendary
+      ? `SHADOW BROKER and ${target.name} achieved a LEGENDARY DAP. 🤜🤛`
+      : `SHADOW BROKER fist-bumped ${target.name}. 🤜🤛`;
+    const result = buildChatCommandMessage(room, author, 'fistbump', 'fistbump', text, {
+      fistbump: {
+        actorId: null,
+        actorName: 'SHADOW BROKER',
+        actorAvatarData: publicBrokerProfile(room).avatarData || LEGACY_DEFAULT_AVATAR,
+        targetId: String(target.id),
+        targetName: target.name,
+        targetAvatarData: liveAvatarFor(room, target.id),
+        legendary,
+        cooldownMs: 0,
+        markMs: 30000
+      }
+    });
+    if (!result.success) return result;
+    result.message.source = 'shadowBroker';
+    broadcastToRoom(room, {
+      type: 'fistbump:impact',
+      ...result.message.fistbump,
+      timestamp: now,
+      durationMs: legendary ? 2400 : 1900
+    });
+    return { success: true, broadcast: true };
+  }
+
   if (/^\/c4\b/i.test(raw)) {
     if (!/^\/c4\s*$/i.test(raw)) return { success: false, error: 'C4 INVALID // USE /c4' };
     if (room.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) {
