@@ -33,6 +33,7 @@
   const ui = {
     pacts: [],
     targets: [],
+    tributeLevel: 0,
     // Returns the underlying send() result. PlayerApp.send answers true when the
     // frame left and false when the socket is down; the old wrapper threw that
     // answer away, so a submission into a dead socket was indistinguishable
@@ -66,6 +67,7 @@
         if (message?.type === 'blackMarket:state' || message?.type === 'blackMarket:gmState') {
           if (!window.AsocRuntime?.acceptRevision?.(isGM ? 'black-market-gm' : 'black-market-player', message.revision) && window.AsocRuntime) return;
           this.pacts = Array.isArray(message.pacts) ? message.pacts : [];
+          if (!isGM) this.tributeLevel = Math.max(0, Math.min(10, Number(message.tributeLevel) || 0));
           if (isGM) this.targets = Array.isArray(message.targets) ? message.targets : [];
           if (!isGM && this._tributeAwaitingPactId) {
             const submitted = this.pacts.find(p => p.id === this._tributeAwaitingPactId && p.state === 'TRIBUTE_SUBMITTED');
@@ -85,6 +87,7 @@
           return;
         }
         if (!isGM && message?.type === 'blackMarket:tributeDemanded') {
+          this.tributeLevel = Math.max(1, Math.min(10, Number(message.pact?.tributeLevel) || 1));
           this.showDemandNotice(message.pact || null);
           if (message.pact?.id) {
             const requestId = `bm-seen-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
@@ -133,14 +136,14 @@
           .filter(p => p.tributeRequired && ['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED','TRIBUTE_SUBMITTED'].includes(p.state))
           .sort((a, b) => (Number(b.demandedAt) || Number(b.updatedAt) || 0) - (Number(a.demandedAt) || Number(a.updatedAt) || 0));
         const activeTribute = unresolvedTributes[0] || null;
-        const activeLevel = activeTribute ? Math.max(1, Math.min(10, Number(activeTribute.tributeLevel) || 1)) : 0;
+        const activeLevel = activeTribute ? Math.max(1, Math.min(10, Number(activeTribute.tributeLevel) || 1)) : Math.max(0, Math.min(10, Number(this.tributeLevel) || 0));
         const unseenTributes = unresolvedTributes.filter(p => p.demandedAt && !p.seenAt);
         btn.classList.toggle('has-unseen-tribute', unseenTributes.length > 0);
-        btn.classList.toggle('has-tribute-level', !!activeTribute);
+        btn.classList.toggle('has-tribute-level', activeLevel > 0);
         btn.dataset.tributeLevel = activeLevel ? String(activeLevel) : '';
         const subtitle = btn.querySelector('small');
-        if (subtitle) subtitle.textContent = activeTribute ? `TRIBUTE LEVEL ${activeLevel} / 10` : 'PRIVATE CHANNEL';
-        btn.setAttribute('aria-label', activeTribute
+        if (subtitle) subtitle.textContent = activeLevel ? `TRIBUTE LEVEL ${activeLevel} / 10` : 'PRIVATE CHANNEL';
+        btn.setAttribute('aria-label', activeLevel
           ? `Black Market: Blood Tribute level ${activeLevel} of 10${unseenTributes.length ? ', unseen demand' : ''}`
           : 'Open private Black Market channel');
       }
@@ -187,7 +190,9 @@
       const active = this.pacts.find(p => !['FULFILLED','DENIED','BROKEN'].includes(p.state));
       const ledger = this.pacts.map(p => this.card(p, false)).join('') || '<p class="bm-empty">NO PACTS HAVE BEEN WRITTEN.</p>';
       const petition = active ? '' : '<form id="bm-petition" class="bm-petition"><label>TITLE<input name="title" maxlength="120" placeholder="Name the favor"></label><label>CATEGORY<select name="category"><option>DESIGN</option><option>WRITING</option><option>TECH</option><option>RESEARCH</option><option>CUSTOM</option></select></label><label>YOUR PETITION<textarea name="request" maxlength="1200" required placeholder="State what you ask of the Shadow Broker."></textarea></label><button type="submit">BIND THE REQUEST</button></form>';
-      return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>PETITION THE BROKER</b><p>This chamber belongs to you alone. No other Little Hero sees what is written here.</p></div>' + petition + '<h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + ledger + '</div>';
+      const imposed = Math.max(0, Math.min(10, Number(this.tributeLevel) || 0));
+      const rating = imposed ? '<section class="bm-player-rating"><div class="bm-player-rating-head"><span>BLOOD TRIBUTE RATING</span><b>' + imposed + ' / 10</b></div><div class="bm-player-rating-scale" aria-label="Blood Tribute rating ' + imposed + ' of 10">' + Array.from({length:10}, (_,i) => '<span class="' + (i + 1 <= imposed ? 'is-lit' : '') + (i + 1 === imposed ? ' is-current' : '') + '"><i>' + (i + 1) + '</i></span>').join('') + '</div><small>IMPOSED BY THE SHADOW BROKER</small></section>' : '';
+      return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>PETITION THE BROKER</b><p>This chamber belongs to you alone. No other Little Hero sees what is written here.</p></div>' + rating + petition + '<h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + ledger + '</div>';
     },
     renderGm() {
       const pending = this.pacts.filter(p => ['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state));

@@ -192,6 +192,7 @@ async function run() {
     const gmDemandState = await gm.next(m => m.type === 'blackMarket:gmState' && (m.pacts || []).some(p => p.playerId === alJoined.playerId && p.tributeLevel === 7), 'GM sees imposed debt', gmMark);
     const alDemandState = await al.next(m => m.type === 'blackMarket:state' && (m.pacts || []).some(p => p.tributeLevel === 7), 'al sees imposed debt', alMark);
     const alDebt = (alDemandState.pacts || []).find(p => p.tributeLevel === 7);
+    assert.equal(alDemandState.tributeLevel, 7, 'player receives the imposed rating independently of pact-card rendering');
     assert.equal(alDebt.playerId, alJoined.playerId, 'the debt lands on the live target identity');
     assert.equal(alDebt.state, 'APPROVED_PENDING_TRIBUTE');
     assert.equal(alDebt.tributeLevel, 7, 'player receives the exact imposed tribute level');

@@ -803,6 +803,15 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
 .bm-delivery .is-unseen{border-color:#7d182b;background:rgba(85,7,22,.2)}
 .bm-delivery .is-unseen b{color:#ff718a}
 .bm-demand-level{display:inline-block;margin:2px 0 18px;padding:8px 14px;border:1px solid #ff2a4a;background:rgba(110,5,24,.35);color:#ff9bac;font:900 12px var(--font-machine,monospace);letter-spacing:.26em;box-shadow:0 0 20px rgba(255,30,60,.2)}
+.bm-player-rating{margin:20px 0 24px;padding:18px 20px;border:1px solid #b51934;background:radial-gradient(circle at 50% 0,rgba(179,25,52,.18),transparent 60%),rgba(30,4,10,.72);box-shadow:0 0 26px rgba(177,17,45,.18),inset 0 0 22px rgba(110,5,24,.2)}
+.bm-player-rating-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px;color:#ff9bad;font:900 11px var(--font-machine,monospace);letter-spacing:.2em}
+.bm-player-rating-head b{font-size:16px;color:#fff2f4;text-shadow:0 0 12px rgba(255,50,82,.65)}
+.bm-player-rating-scale{display:grid;grid-template-columns:repeat(10,1fr);gap:6px}
+.bm-player-rating-scale span{position:relative;display:grid;place-items:center;min-height:34px;border:1px solid #4e1b27;background:#13070b;color:#6f5058;box-shadow:inset 0 0 10px rgba(0,0,0,.55)}
+.bm-player-rating-scale span.is-lit{border-color:#9d1b34;background:linear-gradient(180deg,#5b0b1c,#25060d);color:#ff95a8;box-shadow:inset 0 0 14px rgba(255,27,62,.16)}
+.bm-player-rating-scale span.is-current{border-color:#ff3155;background:linear-gradient(180deg,#b51636,#4a0715);color:#fff;box-shadow:0 0 16px rgba(255,30,67,.55),inset 0 0 18px rgba(255,93,118,.18);transform:translateY(-2px)}
+.bm-player-rating-scale i{font:900 11px var(--font-machine,monospace);font-style:normal}
+.bm-player-rating>small{display:block;margin-top:10px;color:#9b6873;font:800 8px var(--font-machine,monospace);letter-spacing:.22em;text-align:right}
 .bm-demand-tribute{grid-template-columns:minmax(160px,.7fr) minmax(125px,.35fr) minmax(260px,1.25fr) auto}
 @media(max-width:900px){.bm-demand-tribute{grid-template-columns:1fr 1fr}.bm-demand-tribute label:last-of-type{grid-column:1/-1}.bm-demand-tribute button{grid-column:1/-1}}
 

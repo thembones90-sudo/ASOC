@@ -49,7 +49,9 @@ function normalizeState(raw) {
     const pacts = Array.isArray(source.pacts)
       ? source.pacts.map(normalizePact).filter(p => p.playerId === String(playerId)).slice(-100)
       : [];
-    byPlayer[String(playerId)] = { pacts };
+    const rememberedLevel = Math.max(0, Math.min(10, Math.round(Number(source.tributeLevel) || 0)));
+    const latestPactLevel = pacts.find(p => p.tributeRequired)?.tributeLevel || 0;
+    byPlayer[String(playerId)] = { pacts, tributeLevel: rememberedLevel || latestPactLevel || 0 };
   }
   return { byPlayer };
 }
@@ -57,7 +59,8 @@ function normalizeState(raw) {
 function ensurePlayer(state, playerId) {
   const id = String(playerId || '');
   if (!id) return null;
-  if (!state.byPlayer[id]) state.byPlayer[id] = { pacts: [] };
+  if (!state.byPlayer[id]) state.byPlayer[id] = { pacts: [], tributeLevel: 0 };
+  if (!Number.isFinite(Number(state.byPlayer[id].tributeLevel))) state.byPlayer[id].tributeLevel = 0;
   return state.byPlayer[id];
 }
 function publicPact(pact, host = false) {
@@ -79,7 +82,7 @@ function publicPact(pact, host = false) {
 function playerView(state, playerId) {
   const bucket = ensurePlayer(state, playerId);
   const pacts = (bucket?.pacts || []).map(p => publicPact(p, false)).reverse();
-  return { revision: pacts.reduce((max, pact) => Math.max(max, Number(pact.updatedAt) || 0), 0), pacts };
+  return { revision: pacts.reduce((max, pact) => Math.max(max, Number(pact.updatedAt) || 0), 0), tributeLevel: Math.max(0, Math.min(10, Number(bucket?.tributeLevel) || 0)), pacts };
 }
 
 function gmView(state) {
@@ -136,6 +139,7 @@ function createGmTributeDebt(state, player, raw) {
     demandedAt: now,
     updatedAt: now
   });
+  bucket.tributeLevel = tributeLevel;
   bucket.pacts.push(pact);
   return { pact };
 }
