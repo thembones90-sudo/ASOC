@@ -32,7 +32,10 @@ assert.match(gmDmCss, /#gm-panel[\s\S]*\.gm-chat-panel\.gm-dm-open[\s\S]*:not\(#
 assert.match(gmDmCss, /> #gm-dm-console[\s\S]*display:flex !important/, 'GM private view exposes its direct-message console');
 assert.match(gmMinigamesClient, /gm-chat-tab'[\s\S]*GMDirectMessages\?\.setOpen\?\.\(false\)/, 'Battle Comms explicitly closes Private Channels');
 assert.match(gmDmClient, /gm:privateList/, 'GM private tab requests its direct-message list');
-assert.match(indexHtml, /gm-direct-messages\.css\?v=[^"']+/, 'GM private-channel view fix is cache-busted');
+assert.match(gmDmClient, /data-gm-dm-purge[\s\S]*gm:privatePurge/, 'GM private threads expose a confirmed per-chat PURGE action');
+assert.match(gmDmCss, /\.gm-dm-purge/, 'GM PURGE action has a distinct destructive style');
+assert.match(indexHtml, /gm-direct-messages\.css\?v=20261006-purge-1/, 'GM purge UI is cache-busted');
+assert.match(joinHtml, /direct-messages\.js\?v=20261006-gm-purge-1/, 'player purge-receipt client is cache-busted');
 
 function api(urlPath, body, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -261,8 +264,30 @@ function checkHiddenFromPublic() {
     assert.equal(list.conversations[0].other.name, 'Ana');
     assert.ok(fs.existsSync(path.join(DATA, 'direct-messages.json')));
 
+    // 12. GM PURGE deletes exactly one Shadow Broker <-> player thread from
+    // durable storage, clears both live clients, and leaves report snapshots.
+    const ana2 = await connect('Ana');
+    const persistedBrokerThread = await gm.ask({ type:'gm:privateOpen', playerId:ana2.playerId }, ['gm:privateThread'], 'open persisted Broker thread');
+    const brokerConversationId = persistedBrokerThread.thread.id;
+    assert.ok(brokerConversationId, 'Broker/Ana private conversation persisted before purge');
+    const gmPurgeMark = gm.mark();
+    const anaPurgeMark = ana2.mark();
+    gm.send({ type:'gm:privatePurge', conversationId:brokerConversationId });
+    await gm.next(m => m.type === 'gm:privatePurged' && m.conversationId === brokerConversationId, 'GM purge acknowledgement', gmPurgeMark);
+    await ana2.next(m => m.type === 'dm:purged' && m.conversationId === brokerConversationId, 'player purge notification', anaPurgeMark);
+    const gmAfterPurge = await gm.ask({ type:'gm:privateList' }, ['gm:privateList'], 'GM list after purge');
+    assert.equal(gmAfterPurge.conversations.some(c => c.id === brokerConversationId), false, 'purged thread leaves GM list');
+    const anaAfterPurge = await ana2.ask({ type:'dm:list' }, ['dm:list'], 'player list after purge');
+    assert.equal(anaAfterPurge.conversations.some(c => c.id === brokerConversationId), false, 'purged thread leaves player list');
+    const reopenedBrokerThread = await gm.ask({ type:'gm:privateOpen', playerId:ana2.playerId }, ['gm:privateThread'], 'reopen after purge');
+    assert.equal(reopenedBrokerThread.thread.id, null, 'reopening purged chat starts fresh');
+    assert.equal(reopenedBrokerThread.thread.messages.length, 0, 'reopened purged chat has no ghost messages');
+    const overviewAfterPurge = (await gm.ask({ type:'gm:dmOverview' }, ['gm:dmOverview'], 'overview after purge')).data;
+    assert.equal(overviewAfterPurge.conversations.some(c => c.id === brokerConversationId), false, 'purged conversation leaves oversight storage');
+    assert.equal(overviewAfterPurge.reports.length, 1, 'existing report snapshot survives unrelated GM purge');
+
     assert.equal(server.errors.trim(), '', 'no server errors');
-    console.log('PASS direct messages: delivery, unread + read receipts, offline delivery, text rules, rate limit, blocks, accept-from-nobody, Battle lock, reports, persistence; Shadow Broker oversight host-only, read-only, traceless, module GM-gated and absent from public files');
+    console.log('PASS direct messages: delivery, unread + read receipts, offline delivery, text rules, rate limit, blocks, accept-from-nobody, Battle lock, reports, persistence, per-chat GM purge; Shadow Broker oversight host-only, read-only, traceless, module GM-gated and absent from public files');
   } finally {
     clients.forEach(c => c.close());
     await require('./lib/stop-process')(server);

@@ -43,7 +43,7 @@
       const mine = String(m.from) === '__GM__';
       return '<div class="gm-dm-msg' + (mine ? ' mine' : '') + '"><p>' + esc(m.text) + '</p><span>' + esc(time(m.at)) + '</span></div>';
     }).join('') || '<div class="gm-dm-empty thread">NO MESSAGES YET</div>';
-    return '<div class="gm-dm-thread-head"><button type="button" data-gm-dm-back aria-label="Back">‹</button>' + avatar(player) + '<div><b>' + esc(player.name || 'Little Hero') + '</b><small>PRIVATE CHANNEL</small></div></div>' +
+    return '<div class="gm-dm-thread-head"><button type="button" data-gm-dm-back aria-label="Back">‹</button>' + avatar(player) + '<div><b>' + esc(player.name || 'Little Hero') + '</b><small>PRIVATE CHANNEL</small></div>' + (t.id ? '<button type="button" class="gm-dm-purge" data-gm-dm-purge>PURGE</button>' : '') + '</div>' +
       '<div class="gm-dm-messages" id="gm-dm-messages">' + msgs + '</div>' +
       '<form class="gm-dm-compose" data-gm-dm-compose><div class="gm-dm-compose-shell"><textarea rows="1" maxlength="500" placeholder="Message ' + esc(player.name || 'Little Hero') + '..."></textarea><button type="submit">SEND</button></div></form>';
   }
@@ -137,6 +137,16 @@
       state.error = m.message || 'PRIVATE CHANNEL FAILED';
       return render();
     }
+    if (m.type === 'gm:privatePurged') {
+      const current = state.thread && state.thread.id === m.conversationId ? state.thread : null;
+      state.list = state.list.filter(c => c.id !== m.conversationId);
+      if (current) {
+        state.thread = { ...current, id:null, messages:[], otherReadAt:0 };
+        state.notice = `PURGED PRIVATE CHANNEL WITH ${current.other?.name || 'LITTLE HERO'}.`;
+      }
+      render();
+      return send({ type:'gm:privateList' });
+    }
     if ((m.type === 'gm:privateRead' || m.type === 'dm:read') && state.thread?.id === m.conversationId) {
       state.thread.otherReadAt = Number(m.at) || Date.now();
       return render();
@@ -151,6 +161,21 @@
     if (e.target.closest?.('#gm-chat-tab') && state.open) {
       state.thread = null;
       return setOpen(false);
+    }
+    const purge = e.target.closest?.('[data-gm-dm-purge]');
+    if (purge && state.thread?.id) {
+      const conversationId = state.thread.id;
+      const name = state.thread.other?.name || 'Little Hero';
+      const confirmPurge = window.AsocDialog?.confirm
+        ? window.AsocDialog.confirm({ title:'PURGE PRIVATE CHANNEL', message:`Permanently delete every private message between the Shadow Broker and ${name}?`, confirmLabel:'PURGE' })
+        : Promise.resolve(confirm(`Permanently delete every private message with ${name}?`));
+      Promise.resolve(confirmPurge).then(ok => {
+        if (!ok || state.thread?.id !== conversationId) return;
+        state.error = '';
+        state.notice = '';
+        send({ type:'gm:privatePurge', conversationId });
+      });
+      return;
     }
     const person = e.target.closest?.('[data-gm-dm-player]');
     if (person) return open(person.dataset.gmDmPlayer);

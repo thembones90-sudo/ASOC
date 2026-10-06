@@ -10216,6 +10216,21 @@ function handleGmDirectMessages(ws, message) {
       dmStore.markRead(convo.id, GM_DM_ID);
       const otherId = convo.members.find(m => m !== GM_DM_ID);
       socketsForPlayer(otherId).forEach(socket => sendToWs(socket, { type:'dm:read', conversationId:convo.id, readerId:GM_DM_ID, at:Date.now() }));
+      return;
+    }
+    if (message.type === 'gm:privatePurge') {
+      const convo = dmStore.conversationById(String(message.conversationId || ''));
+      if (!convo || !convo.members.includes(GM_DM_ID)) return sendToWs(ws, { type:'gm:privateError', message:'PRIVATE CHANNEL NOT FOUND' });
+      const otherId = convo.members.find(m => m !== GM_DM_ID);
+      if (!otherId) return sendToWs(ws, { type:'gm:privateError', message:'PRIVATE CHANNEL NOT FOUND' });
+      const purged = dmStore.purgeConversation(convo.id);
+      if (!purged) return sendToWs(ws, { type:'gm:privateError', message:'PRIVATE CHANNEL NOT FOUND' });
+      sendToWs(ws, { type:'gm:privatePurged', conversationId:convo.id, playerId:otherId });
+      socketsForPlayer(otherId).forEach(socket => {
+        sendToWs(socket, { type:'dm:purged', conversationId:convo.id, other:{ id:GM_DM_ID, name:'Shadow Broker' } });
+        sendDmSummary(socket);
+      });
+      return;
     }
   } catch (error) {
     console.error('[gm-dm] failed:', error.message);
@@ -13207,7 +13222,8 @@ wss.on('connection', (ws, req) => {
         case 'gm:privateList':
         case 'gm:privateOpen':
         case 'gm:privateSend':
-        case 'gm:privateRead': {
+        case 'gm:privateRead':
+        case 'gm:privatePurge': {
           handleGmDirectMessages(ws, message);
           break;
         }

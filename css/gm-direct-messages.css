@@ -93,8 +93,10 @@ body.room-mode-casual #gm-panel .gm-module-chat .gm-chat-panel.gm-dm-open > #gm-
 .gm-dm-presence{width:7px;height:7px;border-radius:50%;background:#555d64}.gm-dm-presence.on{background:#36dd8c;box-shadow:0 0 7px rgba(54,221,140,.65)}
 .gm-dm-badge{position:absolute;right:16px;top:5px;min-width:15px;height:15px;padding:0 4px;display:grid;place-items:center;border-radius:8px;background:#a72e62;color:#fff;font-size:.43rem}
 .gm-dm-empty{margin:auto;padding:20px 8px;text-align:center;color:#606a75;font-size:.47rem;letter-spacing:.13em;line-height:1.7}.gm-dm-empty.thread{align-self:center}
-.gm-dm-thread-head{display:grid;grid-template-columns:26px 34px 1fr;align-items:center;gap:7px;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.gm-dm-thread-head{display:grid;grid-template-columns:26px 34px 1fr auto;align-items:center;gap:7px;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.06)}
 .gm-dm-thread-head>button{width:24px;height:28px;border:1px solid rgba(155,93,224,.32);background:#15101d;color:#c49be9;font-size:1rem;cursor:pointer}
+.gm-dm-thread-head>.gm-dm-purge{width:auto;height:28px;padding:0 9px;border-color:rgba(229,53,76,.72);background:linear-gradient(180deg,rgba(103,18,31,.92),rgba(49,7,15,.96));color:#ff9aaa;font:900 .42rem var(--font-machine,ui-monospace,monospace);letter-spacing:.12em}
+.gm-dm-thread-head>.gm-dm-purge:hover{border-color:#ff4964;background:linear-gradient(180deg,#861c31,#4d0a17);color:#fff;box-shadow:0 0 12px rgba(255,44,76,.22)}
 .gm-dm-thread-head>div{display:flex;min-width:0;flex-direction:column}.gm-dm-thread-head b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.57rem;color:#eee}.gm-dm-thread-head small{font-size:.39rem;letter-spacing:.1em;color:#716b7a}
 .gm-dm-messages{flex:1;min-height:0;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
 .gm-dm-msg{align-self:flex-start;max-width:88%;padding:6px 7px 14px;border:1px solid #34313a;border-radius:7px 7px 7px 2px;background:#14171b;position:relative}.gm-dm-msg.mine{align-self:flex-end;border-color:#684493;border-radius:7px 7px 2px 7px;background:linear-gradient(180deg,#2a1d39,#1a1323)}
@@ -118,8 +120,9 @@ body.room-mode-casual #gm-panel .gm-module-chat .gm-chat-panel.gm-dm-open > #gm-
 .gm-dm-presence{width:9px;height:9px}
 .gm-dm-badge{right:22px;top:8px;min-width:20px;height:20px;border-radius:10px;font-size:11px}
 .gm-dm-empty{font-size:12px}
-.gm-dm-thread-head{grid-template-columns:34px 42px 1fr;gap:10px;padding:10px 12px}
+.gm-dm-thread-head{grid-template-columns:34px 42px 1fr auto;gap:10px;padding:10px 12px}
 .gm-dm-thread-head>button{width:32px;height:34px;border-radius:7px;font-size:20px}
+.gm-dm-thread-head>.gm-dm-purge{width:auto;height:34px;padding:0 13px;font:900 10px var(--font-machine,ui-monospace,monospace);letter-spacing:.14em}
 .gm-dm-thread-head b{font:700 16px/1.2 'Segoe UI',system-ui,sans-serif}
 .gm-dm-thread-head small{font-size:10px}
 .gm-dm-messages{padding:14px 16px;gap:10px}

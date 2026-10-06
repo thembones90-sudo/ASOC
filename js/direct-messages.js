@@ -372,6 +372,16 @@
       case 'dm:reported':
         state.notice = 'REPORT FILED WITH THE SHADOW BROKER.';
         return render();
+      case 'dm:purged': {
+        state.list = state.list.filter(c => c.id !== m.conversationId);
+        if (state.thread?.id === m.conversationId) {
+          state.thread = { ...state.thread, id:null, messages:[], otherReadAt:0 };
+          state.notice = 'THE SHADOW BROKER PURGED THIS PRIVATE CHANNEL.';
+        }
+        renderRail();
+        send({ type:'dm:list' });
+        return render();
+      }
       case 'dm:error':
         state.error = m.message || 'The channel failed.';
         if (!state.open) toast({ id: '', name: 'DIRECT MESSAGES' }, state.error);

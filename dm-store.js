@@ -93,6 +93,17 @@ function send(from, to, text, now = Date.now()) {
 function conversationFor(a, b) { return load().conversations[pairKey(a, b)] || null; }
 function conversationById(id) { return Object.values(load().conversations).find(c => c.id === id) || null; }
 
+function purgeConversation(conversationId) {
+  load();
+  const id = String(conversationId || '');
+  const entry = Object.entries(db.conversations).find(([, convo]) => convo.id === id);
+  if (!entry) return null;
+  const [key, convo] = entry;
+  delete db.conversations[key];
+  save();
+  return convo;
+}
+
 function unreadCount(convo, playerId) {
   const readAt = Number(convo.readAt?.[String(playerId)] || 0);
   return convo.messages.filter(m => m.from !== String(playerId) && m.at > readAt).length;
@@ -202,7 +213,7 @@ module.exports = {
   MAX_TEXT,
   RETENTION_MS,
   isHealthy() { try { load(); return healthy; } catch { return false; } },
-  send, listFor, totalUnread, markRead, conversationFor, conversationById, unreadCount,
+  send, listFor, totalUnread, markRead, conversationFor, conversationById, purgeConversation, unreadCount,
   setBlocked, blockedBy, isBlocked, setAllow, allowOf, report,
   overview, fullConversation, fullReport, pairKey, _reset
 };
