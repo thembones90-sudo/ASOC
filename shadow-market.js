@@ -72,6 +72,7 @@ const CATALOG = Object.freeze([
   { id: 'cmd-backstab', kind: 'command', command: 'backstab', name: '/backstab', relic: true, badge: '🗡️', desc: 'Relic command. Granted by the Shadow Broker. Each use still costs 15 SC and carries a 10% chance of stabbing yourself.' },
 
   { id: 'cmd-goat', kind: 'command', command: 'goat', name: '/goat', relic: true, desc: 'Relic command. Granted by the Shadow Broker. Unleashes one random GOAT event.' },
+  { id: 'cmd-fatality', kind: 'command', command: 'fatality', name: '/fatality', relic: true, badge: '☠️', desc: 'Relic command. Granted by the Shadow Broker. Random Pyroblast/Frost avatar finisher.' },
 
   // ---- Correct-answer celebrations: play on YOUR accepted answers.
   { id: 'cel-broker-nod', kind: 'celebration', name: "THE BROKER'S NOD", price: 6, asset: 'assets/shop/cel-broker-nod.png', desc: 'A gold ACCEPTED stamp slams onto your answer.' },
