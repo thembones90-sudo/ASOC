@@ -137,10 +137,24 @@ const ControlSurfaces = {
     recountLedger.className = 'recount-ledger recount-ledger-gm';
     records.appendChild(recountLedger);
     window.RecountLedger?.mount(recountLedger, payload => this.app?.send?.(payload));
-    const allTimeButton = document.getElementById('alltime-toggle-btn');
-    const allTimePanel = document.getElementById('alltime-leaderboard');
-    if (allTimeButton) records.appendChild(allTimeButton);
-    if (allTimePanel) records.appendChild(allTimePanel);
+    let allTimeButton = document.getElementById('alltime-toggle-btn');
+    let allTimePanel = document.getElementById('alltime-leaderboard');
+    if (!allTimeButton) {
+      allTimeButton = document.createElement('button');
+      allTimeButton.type = 'button';
+      allTimeButton.id = 'alltime-toggle-btn';
+      allTimeButton.className = 'gm-global-btn gm-alltime-standings-btn';
+      allTimeButton.textContent = 'ALL TIME STANDINGS';
+      allTimeButton.addEventListener('click', () => this.app?.toggleAllTimeView?.());
+    }
+    if (!allTimePanel) {
+      allTimePanel = document.createElement('div');
+      allTimePanel.id = 'alltime-leaderboard';
+      allTimePanel.className = 'alltime-leaderboard';
+      allTimePanel.style.display = 'none';
+    }
+    records.appendChild(allTimeButton);
+    records.appendChild(allTimePanel);
 
     const advanced = document.createElement('details');
     advanced.className = 'gm-advanced-maintenance';

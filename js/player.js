@@ -2933,10 +2933,15 @@ const PlayerApp = {
   _lastAnnouncedStreak: {},
 
   bindLeaderboardToggle() {
-    const btn = document.getElementById('player-alltime-toggle-btn');
-    if (!btn || btn._bound) return;
-    btn._bound = true;
-    btn.addEventListener('click', () => this.toggleAllTimeView());
+    const buttons = [
+      document.getElementById('player-alltime-toggle-btn'),
+      document.getElementById('player-alltime-hud-btn')
+    ].filter(Boolean);
+    for (const btn of buttons) {
+      if (btn._bound) continue;
+      btn._bound = true;
+      btn.addEventListener('click', () => this.toggleAllTimeView());
+    }
   },
 
   // ROSTER AVATAR DEDUPE (server.js rosterForSocket): the server sends each

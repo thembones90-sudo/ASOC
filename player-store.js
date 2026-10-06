@@ -852,6 +852,21 @@ function grantAllShadowCoins(amount, receiptId, { reason = '', createdBefore = n
   return { ok: true, granted, skipped, ineligible, amount: unitsToCoins(units) };
 }
 
+function clampNegativeLifetimeScores() {
+  const players = loadPlayers();
+  if (!storageHealthy) return { changed: 0, names: [], error: 'Player storage unavailable' };
+  const names = [];
+  for (const profile of Object.values(players)) {
+    if (!profile || !Number.isFinite(profile.lifetimeScore) || profile.lifetimeScore >= 0) continue;
+    profile.lifetimeScore = 0;
+    names.push(profile.name || profile.id || 'UNKNOWN');
+  }
+  if (names.length && !savePlayersAtomic(players)) {
+    return { changed: 0, names: [], error: 'Player storage refused the score clamp write' };
+  }
+  return { changed: names.length, names };
+}
+
 function getAllTimeLeaderboard(limit = 50) {
   const players = loadPlayers();
   return Object.values(players)
@@ -920,5 +935,6 @@ module.exports = {
   recordBoardFinalization,
   getModerationStatus,
   setBan,
-  getAllTimeLeaderboard
+  getAllTimeLeaderboard,
+  clampNegativeLifetimeScores
 };

@@ -21987,3 +21987,19 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
   font: normal 12px/1 sans-serif;
   filter: drop-shadow(0 2px 4px #000);
 }
+
+/* Persistent access to lifetime standings */
+.player-alltime-hud-btn {
+  border-color: rgba(216,168,61,.58) !important;
+  color: #f0cc72 !important;
+}
+.player-alltime-hud-btn:hover {
+  border-color: #d8a83d !important;
+  box-shadow: 0 0 16px rgba(216,168,61,.18);
+}
+.gm-alltime-standings-btn {
+  width: 100%;
+  margin: 10px 0 8px;
+  border-color: rgba(216,168,61,.58);
+  color: #f0cc72;
+}

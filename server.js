@@ -13531,6 +13531,16 @@ wss.on('connection', (ws, req) => {
   ws.on('error', (err) => console.error('WebSocket error:', err));
 });
 
+// One-time cleanup for historical scoring: lifetime totals must never remain below zero.
+// This only changes lifetimeScore; every other player stat/currency/record is untouched.
+try {
+  const clampedScores = playerStore.clampNegativeLifetimeScores();
+  if (clampedScores.error) console.warn('[scoreboard] Negative-score clamp skipped:', clampedScores.error);
+  else if (clampedScores.changed) console.log(`[scoreboard] Clamped ${clampedScores.changed} negative lifetime score(s) to zero: ${clampedScores.names.join(', ')}`);
+} catch (error) {
+  console.error('[scoreboard] Negative-score clamp failed:', error.message);
+}
+
 // Avatars moved out of players.json into files (avatar-store.js). Idempotent;
 // runs before recovery so restored identities resolve their stored avatars.
 try {
