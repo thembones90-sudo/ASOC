@@ -20,16 +20,17 @@
       .shame-select-all{margin-bottom:6px;background:none;border:0;color:#d5828e;font-weight:800;cursor:pointer}
       .shame-stage{position:fixed;inset:0;z-index:2147483000;background:radial-gradient(circle at 50% 42%,rgba(115,18,29,.18),rgba(0,0,0,.96) 56%);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;overflow:hidden;pointer-events:auto;font-family:inherit}
       .shame-stage .attention{font-size:clamp(18px,2vw,32px);letter-spacing:.22em;color:#d8c4c7;animation:shameFade .7s both}.shame-stage .accused{margin-top:18px;font-size:clamp(26px,4vw,58px);font-weight:900;letter-spacing:.08em;text-align:center}
-      .shame-stage .charge{max-width:min(900px,86vw);margin:14px auto 20px;text-align:center;font-size:clamp(17px,2vw,28px);color:#e6dadd}.shame-avatars{display:flex;flex-wrap:wrap;justify-content:center;gap:20px;max-width:90vw}
+      .shame-stage .charge{max-width:min(900px,86vw);margin:14px auto 20px;text-align:center;color:#e6dadd}.shame-charge-label{display:block;font-size:12px;letter-spacing:.28em;color:#9e626c;margin-bottom:8px}.shame-charge-text{display:block;font-size:clamp(17px,2vw,28px);font-style:italic}.shame-mass-warning{margin:4px 0 10px;color:#b86876;font-size:13px;letter-spacing:.14em;font-weight:900}.shame-avatars{display:flex;flex-wrap:wrap;justify-content:center;gap:20px;max-width:90vw}
       .shame-avatar{position:relative;width:112px;text-align:center;animation:shameDrag .7s cubic-bezier(.2,.9,.2,1) both}.shame-avatar img,.shame-avatar .fallback{width:92px;height:92px;border-radius:50%;object-fit:cover;border:3px solid #702331;box-shadow:0 0 30px rgba(160,35,52,.35)}
-      .shame-avatar .fallback{display:grid;place-items:center;background:#191116;font-size:34px;font-weight:900}.shame-avatar b{display:block;margin-top:8px}.shame-hat{position:absolute;top:-38px;left:34px;font-size:52px;transform:rotate(-8deg);filter:drop-shadow(0 5px 3px #000);animation:hatDrop .55s .8s both}
+      .shame-avatar .fallback{display:grid;place-items:center;background:#191116;font-size:34px;font-weight:900}.shame-avatar b{display:block;margin-top:8px}.shame-hat{position:absolute;top:-46px;left:32px;width:54px;height:58px;transform:rotate(-8deg);filter:drop-shadow(0 5px 3px #000);animation:hatDrop .55s .8s both}.shame-hat::before{content:'';position:absolute;left:7px;top:0;width:0;height:0;border-left:20px solid transparent;border-right:20px solid transparent;border-bottom:48px solid #6f1725}.shame-hat::after{content:'◉';position:absolute;left:22px;top:22px;color:#e78b99;font-size:11px;text-shadow:0 0 7px #e2334e}.shame-hat-base{position:absolute;left:1px;bottom:4px;width:52px;height:9px;border:2px solid #a53345;background:#2a0c12;transform:skewX(-12deg)}
       .shame-word{position:absolute;font-weight:1000;font-size:clamp(72px,15vw,220px);letter-spacing:.04em;color:#a82034;text-shadow:0 8px 0 #360811,0 0 40px rgba(210,30,60,.3);opacity:0}.shame-word.one{animation:shameSlam .45s 2.4s both;left:3%;top:17%;transform:rotate(-8deg)}.shame-word.two{animation:shameSlam .45s 3.25s both;right:3%;bottom:17%;transform:rotate(7deg)}.shame-word.three{animation:shameSlam .5s 4.1s both;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-3deg)}
       .shame-guilty{margin:15px 0 4px;font-size:clamp(24px,3vw,46px);font-weight:1000;color:#c52c42;letter-spacing:.14em;animation:shameFade .5s 1.7s both}.shame-final{position:absolute;inset:auto 0 9%;text-align:center;font-size:clamp(22px,3vw,42px);font-weight:1000;letter-spacing:.1em;opacity:0;animation:shameFade .6s 4.7s forwards}
       .shame-final span{display:block;font-size:.48em;color:#d7aab1;margin-top:8px}.shame-mark{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%) rotate(-11deg) scale(2.5);border:7px solid #b42238;color:#c52a41;padding:.08em .24em;font-size:clamp(50px,10vw,140px);font-weight:1000;letter-spacing:.08em;opacity:0;animation:stamp .42s 4.55s forwards}
       .asoc-shamed-name::after{content:'SHAMED';display:inline-block;margin-left:6px;padding:1px 5px;border:1px solid #a72a3c;color:#d94a60;font-size:.7em;font-weight:900;letter-spacing:.08em;transform:rotate(-3deg)}
-      .asoc-shamed-avatar{position:relative}.asoc-shamed-avatar::after{content:'SHAMED';position:absolute;left:50%;top:52%;transform:translate(-50%,-50%) rotate(-14deg);z-index:5;border:2px solid #b2293e;color:#d83c54;background:rgba(20,0,4,.56);padding:1px 4px;font-size:10px;font-weight:1000;letter-spacing:.05em;pointer-events:none}
+      .asoc-shamed-avatar{position:relative;cursor:help}.asoc-shamed-avatar::after{content:'SHAMED';position:absolute;left:50%;top:52%;transform:translate(-50%,-50%) rotate(-14deg);z-index:5;border:2px solid #b2293e;color:#d83c54;background:rgba(20,0,4,.56);padding:1px 4px;font-size:10px;font-weight:1000;letter-spacing:.05em;pointer-events:none}
+      .shame-pardon-stage{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:radial-gradient(circle,rgba(72,58,64,.2),rgba(0,0,0,.93) 62%);color:#eee;text-align:center;pointer-events:auto}.shame-pardon-card{font-size:clamp(24px,4vw,54px);font-weight:1000;letter-spacing:.09em;animation:shameFade .5s both}.shame-pardon-card b{display:block;color:#c8b8bb;margin:12px 0}.shame-pardon-card span{display:block;font-size:.38em;color:#9e8b8f;letter-spacing:.12em}.shame-pardon-stamp{display:inline-block;margin-top:20px;border:5px solid #8f2b3b;color:#b43a4d;padding:5px 12px;transform:rotate(-9deg);animation:pardonBreak 1.1s .8s forwards}@keyframes pardonBreak{0%{opacity:1}55%{transform:rotate(-13deg) scale(1.08)}100%{opacity:0;transform:rotate(-22deg) scale(1.5);filter:blur(8px)}}
       @keyframes shameFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes shameDrag{from{opacity:0;transform:translateY(90px) scale(.5)}to{opacity:1;transform:none}}@keyframes hatDrop{from{opacity:0;transform:translateY(-120px) rotate(25deg)}70%{opacity:1;transform:translateY(8px) rotate(-12deg)}to{opacity:1;transform:rotate(-8deg)}}@keyframes shameSlam{0%{opacity:0;filter:blur(8px);scale:2.2}70%{opacity:1;filter:none;scale:.92}100%{opacity:.78;scale:1}}@keyframes stamp{0%{opacity:0;transform:translate(-50%,-50%) rotate(-11deg) scale(2.5)}70%{opacity:1;transform:translate(-50%,-50%) rotate(-11deg) scale(.92)}100%{opacity:1;transform:translate(-50%,-50%) rotate(-11deg) scale(1)}}
-      @media(max-width:600px){.shame-targets{grid-template-columns:1fr}.shame-avatar{width:78px}.shame-avatar img,.shame-avatar .fallback{width:66px;height:66px}.shame-hat{left:22px;font-size:38px;top:-29px}}
+      @media(max-width:600px){.shame-targets{grid-template-columns:1fr}.shame-avatar{width:78px}.shame-avatar img,.shame-avatar .fallback{width:66px;height:66px}.shame-hat{left:13px;top:-43px;transform:scale(.82) rotate(-8deg)}}
       @media(prefers-reduced-motion:reduce){.shame-stage *{animation-duration:.01ms!important;animation-delay:0ms!important}}
     `;
     document.head.appendChild(style);
@@ -100,7 +101,7 @@
   function avatar(target) {
     const src = target.avatarData || '';
     const image = src ? '<img src="'+esc(src)+'" alt="">' : '<div class="fallback">'+esc((target.name||'?')[0])+'</div>';
-    return '<div class="shame-avatar">'+image+'<i class="shame-hat">🔻</i><b>'+esc(target.name)+'</b></div>';
+    return '<div class="shame-avatar">'+image+'<i class="shame-hat"><i class="shame-hat-base"></i></i><b>'+esc(target.name)+'</b></div>';
   }
   function play(message) {
     const targets = Array.isArray(message.targets) ? message.targets : [];
@@ -108,9 +109,9 @@
     document.querySelector('.shame-stage')?.remove();
     const stage = document.createElement('div'); stage.className = 'shame-stage';
     const names = targets.map(t=>t.name).join(' • ');
-    stage.innerHTML = '<div class="attention">THE SHADOW BROKER DEMANDS ATTENTION</div><div class="accused">'+esc(targets.length > 1 ? 'THE FOLLOWING LITTLE HEROES STAND ACCUSED' : names+' STANDS ACCUSED')+'</div><div class="charge">CHARGE: '+esc(message.reason||'Unspecified disappointment.')+'</div><div class="shame-guilty">GUILTY.</div><div class="shame-avatars">'+targets.map(avatar).join('')+'</div><div class="shame-word one">SHAME</div><div class="shame-word two">SHAME</div><div class="shame-word three">SHAME</div><div class="shame-mark">SHAMED</div><div class="shame-final">'+esc(names)+' '+(targets.length>1?'HAVE':'HAS')+' BEEN PUBLICLY SHAMED<span>THE GAME WILL REMEMBER.</span></div>';
+    stage.innerHTML = '<div class="attention">THE SHADOW BROKER DEMANDS ATTENTION</div><div class="accused">'+esc(targets.length > 1 ? 'THE FOLLOWING LITTLE HEROES STAND ACCUSED' : names+' STANDS ACCUSED')+'</div>'+(targets.length > 1 ? '<div class="shame-mass-warning">ONE FAILURE CAN BE FORGIVEN. THIS IS CLEARLY AN OUTBREAK.</div>' : '')+'<div class="charge"><span class="shame-charge-label">THE CHARGE</span><span class="shame-charge-text">&ldquo;'+esc(message.reason||'Unspecified disappointment.')+'&rdquo;</span></div><div class="shame-guilty">GUILTY.</div><div class="shame-avatars">'+targets.map(avatar).join('')+'</div><div class="shame-word one">SHAME</div><div class="shame-word two">SHAME</div><div class="shame-word three">SHAME</div><div class="shame-mark">SHAMED</div><div class="shame-final">'+esc(names)+' '+(targets.length>1?'HAVE':'HAS')+' BEEN PUBLICLY SHAMED<span>THE GAME WILL REMEMBER.</span></div>';
     document.body.appendChild(stage);
-    [2450,3300,4150].forEach((ms,i)=>setTimeout(()=>{ try{ window.AsocAudio?.playUi?.('impact'); }catch{} if(i===2) document.body.animate([{transform:'translate(0)'},{transform:'translate(-5px,2px)'},{transform:'translate(4px,-1px)'},{transform:'translate(0)'}],{duration:260}); },ms));
+    [2450,3300,4150].forEach((ms,i)=>setTimeout(()=>{ try{ const audio=window.AsocAudio; audio?.playUi?.('impact'); if(i>0) setTimeout(()=>audio?.playUi?.('impact'),90); if(i>1) setTimeout(()=>audio?.playUi?.('impact'),180); }catch{} if(i===2) document.body.animate([{transform:'translate(0)'},{transform:'translate(-5px,2px)'},{transform:'translate(4px,-1px)'},{transform:'translate(0)'}],{duration:260}); },ms));
     setTimeout(()=>stage.remove(), 6800);
   }
 
@@ -118,7 +119,10 @@
     document.querySelectorAll('.asoc-shamed-name').forEach(el=>el.classList.remove('asoc-shamed-name'));
     document.querySelectorAll('.asoc-shamed-avatar').forEach(el=>el.classList.remove('asoc-shamed-avatar'));
     Object.keys(state.shame).forEach(id => {
+      const record = state.shame[id] || {};
+      const tooltip = 'SHAMED | REASON: '+String(record.reason || 'Unspecified disappointment.')+' | SENTENCED BY: SHADOW BROKER';
       document.querySelectorAll('[data-player-id="'+CSS.escape(String(id))+'"]').forEach(root => {
+        root.setAttribute('title', tooltip);
         const name = root.querySelector('.player-name,.leaderboard-name,.gm-player-name,.name,[data-player-name]') || root;
         name.classList.add('asoc-shamed-name');
         const av = root.querySelector('.avatar,.player-avatar,.leaderboard-avatar,.avatar-frame,[data-avatar]');
@@ -128,9 +132,17 @@
   }
   function onPlayers(players) { state.roster = Array.isArray(players) ? players : []; applyMarks(); }
   function onState(publicState) { state.shame = publicState?.shame || {}; state.busy = false; applyMarks(); }
+  function playPardon(message) {
+    const names = Array.isArray(message.targetNames) ? message.targetNames.join(' • ') : 'LITTLE HERO';
+    document.querySelector('.shame-pardon-stage')?.remove();
+    const stage = document.createElement('div'); stage.className = 'shame-pardon-stage';
+    stage.innerHTML = '<div class="shame-pardon-card">SHADOW BROKER PARDON<b>'+esc(names)+'</b><span>HAS BEEN RELEASED FROM SHAME<br>DO NOT MISTAKE MERCY FOR APPROVAL.</span><i class="shame-pardon-stamp">SHAMED</i></div>';
+    document.body.appendChild(stage);
+    setTimeout(()=>stage.remove(), 2800);
+  }
   function onMessage(message) {
     if (message.type === 'shame:verdict') play(message);
-    if (message.type === 'shame:pardon') { state.busy = false; }
+    if (message.type === 'shame:pardon') { state.busy = false; playPardon(message); }
   }
 
   function init(){ css(); button(); }
