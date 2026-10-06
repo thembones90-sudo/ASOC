@@ -3629,7 +3629,7 @@ const PlayerApp = {
       const editButton = contextMenu.querySelector('[data-chat-action="edit"]');
       if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
       const deleteButton = contextMenu.querySelector('[data-chat-action="delete"]');
-      if (deleteButton) deleteButton.hidden = !this.canDeleteChatMessage(messageId);
+      if (deleteButton) deleteButton.hidden = !messageEl.classList.contains('own');
       contextMenu.hidden = false;
       if (reactionPicker) reactionPicker.hidden = true;
       if (emojiPicker) emojiPicker.hidden = true;
@@ -3943,7 +3943,7 @@ const PlayerApp = {
         // A detached anchor has a zero rect; the message is gone, nothing to react to.
         if (messageEl.isConnected) this.openChatReactionPicker(messageId, { x: e.clientX, y: e.clientY });
       } else if (action === 'delete') {
-        if (!this.canDeleteChatMessage(messageId)) {
+        if (!messageEl.classList.contains('own')) {
           this.chatToast?.('Only your own messages can be deleted');
           return;
         }
@@ -3983,7 +3983,7 @@ const PlayerApp = {
     const editButton = menu.querySelector('[data-chat-action="edit"]');
     if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
     const deleteButton = menu.querySelector('[data-chat-action="delete"]');
-    if (deleteButton) deleteButton.hidden = !this.canDeleteChatMessage(messageId);
+    if (deleteButton) deleteButton.hidden = !messageEl.classList.contains('own');
     menu.hidden = false;
     const reactionPicker = document.getElementById('chat-reaction-picker');
     const emojiPicker = document.getElementById('chat-emoji-picker');
@@ -4213,11 +4213,19 @@ const PlayerApp = {
     return true;
   },
 
+  isOwnChatMessage(msg) {
+    if (!msg) return false;
+    if (String(msg.playerId || '') === String(this.playerId || '')) return true;
+    const mine = String(this.playerName || '').trim().toLocaleLowerCase();
+    const theirs = String(msg.playerName || '').trim().toLocaleLowerCase();
+    return !!mine && mine === theirs;
+  },
+
   canDeleteChatMessage(messageId) {
     const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
     if (!msg || msg.deleted === true) return false;
     if (msg.source === 'bloodTribute' || msg.bloodTribute?.active) return false;
-    return String(msg.playerId || '') === String(this.playerId || '');
+    return this.isOwnChatMessage(msg);
   },
 
   createPlayerSeenChipHTML(msg) {
@@ -5189,7 +5197,7 @@ const PlayerApp = {
 
     if (msg.messageType === 'gifRemote' && msg.gif) {
       const isBrokerGif = msg.source === 'chatGifGm';
-      const isOwn = !isBrokerGif && String(msg.playerId || '') === String(this.playerId || '');
+      const isOwn = !isBrokerGif && this.isOwnChatMessage(msg);
       const identity = (this.currentPlayers || []).find(p =>
         String(p.id || '') === String(msg.playerId || '')
       ) || msg;
@@ -5235,7 +5243,7 @@ const PlayerApp = {
 
     if (msg.messageType === 'poll' && msg.poll) {
       const isBrokerPoll = msg.poll.createdByRole === 'gm';
-      const isOwn = !isBrokerPoll && String(msg.playerId || '') === String(this.playerId || '');
+      const isOwn = !isBrokerPoll && this.isOwnChatMessage(msg);
       const identity = (this.currentPlayers || []).find(p =>
         String(p.id || '') === String(msg.playerId || '')
       ) || msg;
@@ -5310,7 +5318,7 @@ const PlayerApp = {
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const wrongSeenAt = this._wrongVerdictSeenAt.get(msg.id) ?? (now - 3000);
     const agedRejected = msg.verdict === 'wrong' && (now - wrongSeenAt) >= 3000;
-    const isOwn = String(msg.playerId || '') === String(this.playerId || '');
+    const isOwn = this.isOwnChatMessage(msg);
     const canEdit = isOwn && !msg.source && msg.verdict == null;
     const identity = (this.currentPlayers || []).find(p =>
       String(p.id || '') === String(msg.playerId || '')
