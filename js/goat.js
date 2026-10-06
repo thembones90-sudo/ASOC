@@ -13,9 +13,12 @@
     const layer = document.createElement('div');
     layer.id = 'goat-event-layer';
     layer.className = `goat-event-layer goat-event-${message.event || 'unknown'}`;
+    const visual = message.event === 'albania'
+      ? '<img class="goat-albania-image" src="/assets/goat/albania-goat.jpg" alt="Albania">'
+      : '<div class="goat-event-icon">&#128016;</div>';
     layer.innerHTML = `
       <div class="goat-event-card">
-        <div class="goat-event-icon">🐐</div>
+        ${visual}
         <div class="goat-event-title"></div>
         <div class="goat-event-subtitle"></div>
       </div>`;
@@ -31,6 +34,7 @@
       case 'ragdoll': return ['RAGDOLL', `${message.targetName || 'THE TARGET'} has temporarily rejected skeletal integrity.`];
       case 'goatify': return ['GOATIFY', message.targetName ? `${message.targetName} is now a Lesser Goat.` : 'No suitable mammal located.'];
       case 'sacrifice': return ['SACRIFICIAL GOAT', message.womfReduced ? `${message.targetName || 'The target'} absorbs one WOMF charge.` : `${message.targetName || 'The target'} was sacrificed for absolutely nothing.`];
+      case 'albania': return ['SENT TO ALBANIA', `${message.targetName || 'The target'} has been sent to Albania, shall return in 10 seconds.`];
       default: return ['GOAT EVENT', 'Something deeply unnecessary has occurred.'];
     }
   }
@@ -77,7 +81,7 @@
     if (message.event === 'ragdoll') animateRagdoll(message);
     if (message.event === 'goatify') animateGoatify(message);
     requestAnimationFrame(() => layer.classList.add('is-live'));
-    timer = setTimeout(clear, message.event === 'baaaa' ? 2800 : 3500);
+    timer = setTimeout(clear, message.event === 'albania' ? 4200 : (message.event === 'baaaa' ? 2800 : 3500));
   }
 
   window.GoatEvent = { onMessage, clear };

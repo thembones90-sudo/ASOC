@@ -7560,11 +7560,12 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
 
   const rollGoatEvent = () => {
     const roll = crypto.randomInt(0, 100);
-    return roll < 25 ? 'headbutt'
-      : roll < 50 ? 'baaaa'
-        : roll < 70 ? 'ragdoll'
-          : roll < 90 ? 'goatify'
-            : 'sacrifice';
+    return roll < 22 ? 'headbutt'
+      : roll < 44 ? 'baaaa'
+        : roll < 62 ? 'ragdoll'
+          : roll < 80 ? 'goatify'
+            : roll < 90 ? 'sacrifice'
+              : 'albania';
   };
   let event = rollGoatEvent();
   if (room.lastGoatEvent && event === room.lastGoatEvent) {
@@ -7572,10 +7573,16 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
   }
   room.lastGoatEvent = event;
   let womfReduced = false;
+  let albaniaUntil = 0;
   if (event === 'sacrifice' && Number(room.womf?.charge) > 0) {
     room.womf.charge = Math.max(0, Number(room.womf.charge) - 1);
     womfReduced = true;
     room.revision++;
+  }
+  if (event === 'albania') {
+    albaniaUntil = Date.now() + 10000;
+    room.goatAlbania ||= {};
+    room.goatAlbania[String(target.id)] = albaniaUntil;
   }
   const payload = {
     event,
@@ -7584,6 +7591,7 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
     targetId: String(target.id),
     targetName: target.name,
     womfReduced,
+    albaniaUntil,
     timestamp: Date.now()
   };
   const chatText = {
@@ -7593,7 +7601,8 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
     goatify: `🐐 ${target.name} has been promoted to Lesser Goat. Benefits remain unclear.`,
     sacrifice: womfReduced
       ? `🐐 ${target.name} has been offered to the Goat. One WOMF charge vanishes into the void.`
-      : `🐐 ${target.name} was sacrificed with great ceremony and absolutely no practical result.`
+      : `🐐 ${target.name} was sacrificed with great ceremony and absolutely no practical result.`,
+    albania: `🇦🇱 ${target.name} has been sent to Albania, shall return in 10 seconds.`
   }[event] || `🐐 Something deeply unnecessary has happened to ${target.name}.`;
   const result = buildChatCommandMessage(
     room,
@@ -7606,9 +7615,33 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
   if (!result.success) return result;
   if (gm) result.message.source = 'shadowBroker';
   broadcastToRoom(room, { type: 'goat:event', ...payload });
+  if (event === 'albania') {
+    const targetId = String(target.id);
+    const targetName = target.name;
+    const exileToken = albaniaUntil;
+    setTimeout(() => {
+      if (Number(room.goatAlbania?.[targetId]) !== exileToken) return;
+      delete room.goatAlbania[targetId];
+      const returned = addShadowBrokerMessage(room, `🇦🇱 ${targetName} has returned from Albania.`, { editableByHost: false });
+      persistActiveRooms();
+      if (returned.success) broadcastChatUpdate(room, [returned.message.id]);
+    }, 10000);
+  }
   persistActiveRooms();
   if (womfReduced) broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   return result;
+}
+
+function goatAlbaniaRefusal(room, playerId) {
+  const id = String(playerId || '');
+  const until = Number(room.goatAlbania?.[id]) || 0;
+  if (!until) return null;
+  const remaining = until - Date.now();
+  if (remaining <= 0) {
+    delete room.goatAlbania[id];
+    return null;
+  }
+  return `ALBANIA EXILE // ${Math.ceil(remaining / 1000)} SECOND${Math.ceil(remaining / 1000) === 1 ? '' : 'S'} REMAIN`;
 }
 
 function dispatchPlayerSlashCommand(room, ws, text, message) {
@@ -10457,6 +10490,8 @@ function handleChatGuess(ws, message) {
   }
   const silenced = shadowRealmRefusal(room, ws.playerId);
   if (silenced) return sendToWs(ws, { type: 'error', code: 'SHADOW_REALM', message: silenced });
+  const albaniaRefusal = goatAlbaniaRefusal(room, ws.playerId);
+  if (albaniaRefusal) return sendToWs(ws, { type: 'error', code: 'GOAT_ALBANIA', message: albaniaRefusal });
 
   const { text } = message;
   if (!text || typeof text !== 'string') {
