@@ -71,6 +71,8 @@ const CATALOG = Object.freeze([
   { id: 'cmd-drug', kind: 'command', command: 'drug', name: '/drug', relic: true, asset: 'assets/shop/cmd-drug.png', desc: 'Relic. Granted by the Shadow Broker, never sold. /drug @Name injects them with... something.' },
   { id: 'cmd-backstab', kind: 'command', command: 'backstab', name: '/backstab', relic: true, badge: '🗡️', desc: 'Relic command. Granted by the Shadow Broker. Each use still costs 15 SC and carries a 10% chance of stabbing yourself.' },
 
+  { id: 'cmd-goat', kind: 'command', command: 'goat', name: '/goat', relic: true, desc: 'Relic command. Granted by the Shadow Broker. Unleashes one random GOAT event.' },
+
   // ---- Correct-answer celebrations: play on YOUR accepted answers.
   { id: 'cel-broker-nod', kind: 'celebration', name: "THE BROKER'S NOD", price: 6, asset: 'assets/shop/cel-broker-nod.png', desc: 'A gold ACCEPTED stamp slams onto your answer.' },
   { id: 'cel-shatter', kind: 'celebration', name: 'SHATTER', price: 8, asset: 'assets/shop/cel-shatter.png', desc: 'Your answer cracks the glass it was written on.' },

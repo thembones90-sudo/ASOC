@@ -65,14 +65,6 @@
 
   function onMessage(message) {
     if (!message) return;
-    if (message.type === 'goat:awarded') {
-      const layer = makeLayer({ event: 'awarded' });
-      layer.querySelector('.goat-event-title').textContent = 'THE GOAT HAS BEEN CHOSEN';
-      layer.querySelector('.goat-event-subtitle').textContent = `${message.holderName || 'UNKNOWN'} // UNLIMITED ACCESS`;
-      requestAnimationFrame(() => layer.classList.add('is-live'));
-      timer = setTimeout(clear, 3200);
-      return;
-    }
     if (!message.event) return;
     const layer = makeLayer(message);
     const [title, subtitle] = textFor(message);

@@ -1556,7 +1556,6 @@ const PlayerApp = {
         break;
 
       case 'goat:event':
-      case 'goat:awarded':
         window.GoatEvent?.onMessage(message);
         break;
 

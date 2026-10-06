@@ -101,7 +101,7 @@ const App = {
     { name: 'megabonk', insert: '/megabonk all ', icon: '🔨', label: 'MEGABONK ALL', description: '/megabonk all [message] -- every Little Hero must ACKNOWLEDGE' },
     { name: 'megabonk', insert: '/megabonk @', icon: '🔨', label: 'MEGABONK ONE', description: '/megabonk @Name [message] -- one Little Hero must ACKNOWLEDGE' },
     { name: 'relic', insert: '/relic @', icon: '✦', label: 'RELIC', description: "/relic @Name -- grant SHADOW BROKER'S MISTAKE" },
-    { name: 'goat', insert: '/goat', icon: '🐐', label: 'GOAT', description: '/goat -- roll chaos; /goat @Name -- award GOAT skill; /goat revoke -- remove holder' },
+    { name: 'goat', insert: '/goat', icon: '🐐', label: 'GOAT', description: '/goat -- roll chaos; /award @Name goat -- grant player access' },
     { name: 'smite', insert: '/smite ', icon: '⚡', label: 'SMITE', description: '/smite Name | all -- strike one target or everyone' },
     { name: 'freeze', insert: '/freeze ', icon: '❄', label: 'FREEZE', description: '/freeze Name | all -- freeze one target or everyone' },
     { name: 'glitch', insert: '/glitch ', icon: '▦', label: 'GLITCH', description: '/glitch Name | all -- tear one signal or everyone' },
@@ -2760,7 +2760,6 @@ const App = {
         break;
 
       case 'goat:event':
-      case 'goat:awarded':
         window.GoatEvent?.onMessage(message);
         break;
 
