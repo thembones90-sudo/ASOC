@@ -8655,9 +8655,10 @@ function attachChatReceipts(room, message) {
 // like this. Players can never produce one (every player path stamps a
 // playerId), so this check is spoof-proof by construction.
 function isBrokerMessage(message) {
+  // Broker display identity is cosmetic and can change via TRANSMOG.
+  // Structural ownership is authoritative: player-authored chat always has a playerId.
   return !!message
-    && (message.playerId === null || message.playerId === undefined)
-    && String(message.playerName || '') === 'SHADOW BROKER';
+    && (message.playerId === null || message.playerId === undefined);
 }
 
 function handleChatDelete(ws, message) {

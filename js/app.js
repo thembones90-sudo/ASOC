@@ -6144,7 +6144,9 @@ const App = {
     const msg = (this.chatMessages || []).find(entry => String(entry.id) === String(messageId));
     if (!msg || msg.deleted === true) return false;
     if (msg.source === 'bloodTribute' || msg.bloodTribute?.active) return false;
-    return msg.playerId == null && String(msg.playerName || '') === 'SHADOW BROKER';
+    // GM display names can change via TRANSMOG (e.g. BLOOD BROKER).
+    // Broker ownership is structural: GM-authored chat has no playerId.
+    return msg.playerId == null;
   },
 
   // SEND TO SHADOW REALM is offered on a live Little Hero message that has
