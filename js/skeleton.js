@@ -344,22 +344,24 @@ const Skeleton = (() => {
   // menu hooks differ) and its own media/reaction markup; the structure and
   // the Broker identity live here, so the two views cannot drift apart again.
   // Styled by .broker-bare in css/asoc.css.
-  function shadowBrokerMediaHTML({ id = '', time = '', classes = '', attrs = '', media = '', caption = '', extras = '', reactions = '' } = {}) {
+  function shadowBrokerMediaHTML({ id = '', time = '', name = 'SHADOW BROKER', classes = '', attrs = '', media = '', caption = '', extras = '', reactions = '' } = {}) {
     const safeId = escapeHtmlText(String(id)).replace(/"/g, '&quot;');
     const safeTime = escapeHtmlText(String(time)).replace(/"/g, '&quot;');
-    return `<div class="broker-bare ${classes}" data-message-id="${safeId}" data-player-name="SHADOW BROKER" title="SHADOW BROKER · ${safeTime}" ${attrs}>`
+    const safeName = escapeHtmlText(String(name || 'SHADOW BROKER')).replace(/"/g, '&quot;');
+    return `<div class="broker-bare ${classes}" data-message-id="${safeId}" data-player-name="${safeName}" title="${safeName} · ${safeTime}" ${attrs}>`
       + `<div class="broker-bare-main">${caption}${media}${extras}</div>`
       + '<div class="broker-bare-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div>'
       + `${reactions}</div>`;
   }
 
-  function shadowBrokerTransmissionHTML(text, { glitchIn = false, glitchKey = '', variant = 'broadcast', verdict = null } = {}) {
+  function shadowBrokerTransmissionHTML(text, { glitchIn = false, glitchKey = '', variant = 'broadcast', verdict = null, name = 'SHADOW BROKER' } = {}) {
     const variantClass = variant === 'verdict-response' ? 'shadow-broker-verdict-response' : 'shadow-broker-broadcast';
     const verdictClass = verdict ? ` sb-${verdict}` : '';
     const keyAttr = glitchKey ? ` data-sb-glitch-key="${escapeHtmlText(String(glitchKey)).replace(/"/g, '&quot;')}"` : '';
     const decorate = value => window.CommanderEmojis?.renderText?.(value, 'commander-inline-emoji') || escapeHtmlText(value);
     const renderedText = window.ChatLinks?.emphasisHTML?.(text, decorate) || decorate(text);
-    const body = `<div class="shadow-broker-body"><span class="shadow-broker-name">SHADOW BROKER</span><span class="shadow-broker-text">${renderedText}</span></div>`;
+    const safeName = escapeHtmlText(String(name || 'SHADOW BROKER'));
+    const body = `<div class="shadow-broker-body"><span class="shadow-broker-name">${safeName}</span><span class="shadow-broker-text">${renderedText}</span></div>`;
     if (variant === 'broadcast') {
       return `<div class="shadow-broker-mirror-message"><div class="shadow-broker-transmission ${variantClass}${verdictClass} ${glitchIn ? 'sb-glitch-in' : ''}"${keyAttr}>${body}</div><div class="shadow-broker-avatar-rail"><img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker"></div></div>`;
     }

@@ -143,6 +143,11 @@ function normalizeBrokerProfile(input) {
 function publicBrokerProfile(room) {
   return normalizeBrokerProfile(room.brokerProfile);
 }
+function brokerDisplayName(room) {
+  const profile = publicBrokerProfile(room);
+  if (profile.transmogId === transmogCatalog.CUSTOM_ID) return 'SHADOW BROKER';
+  return transmogCatalog.get(profile.transmogId)?.name || 'SHADOW BROKER';
+}
 // A CUSTOM avatar upload is stored as a file beside the chat images (and
 // referenced by path), never as a data URL inside the room: the room file is
 // rewritten on every change and must stay small. Returns the /uploads/chat/
@@ -4726,7 +4731,7 @@ function appendChatRemoteGifMessage(room, actor, gif) {
   const message = {
     id: generateMessageId(),
     playerId: isHost ? null : actor.playerId,
-    playerName: isHost ? 'SHADOW BROKER' : actor.playerName,
+    playerName: isHost ? brokerDisplayName(room) : actor.playerName,
     frameColor: isHost ? '#9B5DE0' : (liveIdentity.frameColor || '#9B5DE0'),
     themeId: isHost ? 'gunmetal' : (liveIdentity.themeId || 'gunmetal'),
     themeColor: isHost ? '#343A42' : (liveIdentity.themeColor || '#343A42'),
@@ -4875,7 +4880,7 @@ function appendChatImageMessage(room, actor, imageUrl, caption = '') {
   const message = {
     id: generateMessageId(),
     playerId: isHost ? null : actor.playerId,
-    playerName: isHost ? 'SHADOW BROKER' : actor.playerName,
+    playerName: isHost ? brokerDisplayName(room) : actor.playerName,
     frameColor: isHost ? '#9B5DE0' : (liveIdentity.frameColor || '#9B5DE0'),
     themeId: isHost ? 'gunmetal' : (liveIdentity.themeId || 'gunmetal'),
     themeColor: isHost ? '#343A42' : (liveIdentity.themeColor || '#343A42'),
@@ -4970,7 +4975,7 @@ function appendChatPollMessage(room, actor, question, options, allowMultiple, du
   const message = {
     id: generateMessageId(),
     playerId: isHost ? null : actor.playerId,
-    playerName: isHost ? 'SHADOW BROKER' : actor.playerName,
+    playerName: isHost ? brokerDisplayName(room) : actor.playerName,
     frameColor: isHost ? '#9B5DE0' : (liveIdentity.frameColor || '#9B5DE0'),
     themeId: isHost ? 'gunmetal' : (liveIdentity.themeId || 'gunmetal'),
     themeColor: isHost ? '#343A42' : (liveIdentity.themeColor || '#343A42'),
@@ -7673,7 +7678,7 @@ function buildWomfStatusText(room) {
 function dispatchGmSlashCommand(room, ws, text) {
   const raw = String(text || '').trim();
   if (!raw.startsWith('/')) return null;
-  const author = { id: null, name: 'SHADOW BROKER' };
+  const author = { id: null, name: brokerDisplayName(room) };
 
   if (/^\/olympics\b/i.test(raw)) {
     if (!/^\/olympics\s*$/i.test(raw)) return { success: false, error: 'OLYMPICS INVALID // USE /olympics' };
@@ -7949,7 +7954,7 @@ function addShadowBrokerMessage(room, text, options = {}) {
   const message = {
     id: generateMessageId(),
     playerId: null,
-    playerName: 'SHADOW BROKER',
+    playerName: brokerDisplayName(room),
     text: sanitized,
     timestamp: Date.now(),
     verdict: null,

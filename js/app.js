@@ -5930,6 +5930,7 @@ const App = {
         return Skeleton.shadowBrokerMediaHTML({
           id: msg.id,
           time,
+          name: msg.playerName || 'SHADOW BROKER',
           classes: 'gm-shadow-broker-entry gm-shadow-broker-media-entry',
           attrs: 'data-editable="false" oncontextmenu="return App.openGMMessageActionMenu(event,this)"',
           media: `<button type="button" class="gm-chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>`,
@@ -5962,11 +5963,11 @@ const App = {
 
       if (isBrokerPoll) {
         return `
-          <div class="gm-shadow-broker-entry gm-shadow-broker-poll-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+          <div class="gm-shadow-broker-entry gm-shadow-broker-poll-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'SHADOW BROKER')}" data-editable="false" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
             <div class="shadow-broker-transmission shadow-broker-broadcast shadow-broker-poll-transmission">
               <img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">
               <div class="shadow-broker-body">
-                <div class="shadow-broker-poll-identity"><span class="shadow-broker-name">SHADOW BROKER</span><span class="gm-chat-time">${time}</span></div>
+                <div class="shadow-broker-poll-identity"><span class="shadow-broker-name">${this.escapeHtml(msg.playerName || 'SHADOW BROKER')}</span><span class="gm-chat-time">${time}</span></div>
                 ${this.createGMPollCardHTML(msg)}
               </div>
             </div>
@@ -6007,6 +6008,7 @@ const App = {
         return Skeleton.shadowBrokerMediaHTML({
           id: msg.id,
           time,
+          name: msg.playerName || 'SHADOW BROKER',
           classes: `gm-shadow-broker-entry gm-shadow-broker-media-entry gm-shadow-broker-image-entry${msg.messageType === 'sticker' ? ' sticker-message' : ''}`,
           attrs: `data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)"`,
           caption: `${manualBadge}${replyContextHtml}${messageText ? `<div class="broker-media-caption">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div>` : ''}`,
@@ -6016,9 +6018,9 @@ const App = {
         });
       }
       return `
-        <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'sticker' ? ' sticker-message' : ''}${msg.messageType === 'backstab' ? ' backstab-chat-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+        <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'sticker' ? ' sticker-message' : ''}${msg.messageType === 'backstab' ? ' backstab-chat-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'SHADOW BROKER')}" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
-          ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}${msg.messageType === 'backstab' ? window.BackstabEffect?.flagHTML?.() || '' : ''}
+          ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id, name: msg.playerName || 'SHADOW BROKER' }) : ''}${msg.messageType === 'backstab' ? window.BackstabEffect?.flagHTML?.() || '' : ''}
           ${msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : (msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : '')}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
           ${msg.editedAt ? '<span class="gm-chat-edited-marker">EDITED</span>' : ''}
           ${this.createGMReactionSummaryHTML(msg)}

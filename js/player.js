@@ -5195,6 +5195,7 @@ const PlayerApp = {
         return Skeleton.shadowBrokerMediaHTML({
           id: msg.id,
           time,
+          name: msg.playerName || 'SHADOW BROKER',
           classes: 'chat-message chat-gif-message broker-media-message',
           attrs: 'data-editable="false" data-theme-id="gunmetal" style="--little-hero-accent:#9B5DE0;" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)"',
           media: `<button type="button" class="chat-gif-link" title="${title}" aria-label="Open GIF preview">${media}</button>`,
@@ -5226,11 +5227,11 @@ const PlayerApp = {
 
       if (isBrokerPoll) {
         return `
-          <div class="chat-broker-entry chat-reactable chat-broker-poll-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+          <div class="chat-broker-entry chat-reactable chat-broker-poll-entry" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'SHADOW BROKER')}" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
             <div class="shadow-broker-transmission shadow-broker-broadcast shadow-broker-poll-transmission">
               <img src="assets/ui/shadow-broker.png" class="shadow-broker-avatar" alt="Shadow Broker">
               <div class="shadow-broker-body">
-                <div class="shadow-broker-poll-identity"><span class="shadow-broker-name">SHADOW BROKER</span><span class="chat-time">${time}</span></div>
+                <div class="shadow-broker-poll-identity"><span class="shadow-broker-name">${this.escapeHtml(msg.playerName || 'SHADOW BROKER')}</span><span class="chat-time">${time}</span></div>
                 ${this.createPollCardHTML(msg)}
               </div>
             </div>
@@ -5270,6 +5271,7 @@ const PlayerApp = {
         return Skeleton.shadowBrokerMediaHTML({
           id: msg.id,
           time,
+          name: msg.playerName || 'SHADOW BROKER',
           classes: `chat-message broker-media-message broker-image-message${msg.messageType === 'sticker' ? ' sticker-message' : ''}`,
           attrs: 'data-editable="false" data-theme-id="gunmetal" style="--little-hero-accent:#9B5DE0;" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)"',
           caption: `${manualBadge}${replyContextHtml}${messageText ? `<div class="broker-media-caption">${window.ChatLinks ? window.ChatLinks.textHTML(messageText) : this.escapeHtml(messageText)}</div>` : ''}`,
@@ -5279,9 +5281,9 @@ const PlayerApp = {
         });
       }
       return `
-        <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'backstab' ? ' backstab-chat-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="SHADOW BROKER" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+        <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'backstab' ? ' backstab-chat-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'SHADOW BROKER')}" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
-          ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id }) : ''}${msg.messageType === 'backstab' ? window.BackstabEffect?.flagHTML?.() || '' : ''}
+          ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id, name: msg.playerName || 'SHADOW BROKER' }) : ''}${msg.messageType === 'backstab' ? window.BackstabEffect?.flagHTML?.() || '' : ''}
           ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
           ${msg.editedAt ? '<span class="chat-edited-marker">EDITED</span>' : ''}
           ${this.createReactionBarHTML(msg)}
