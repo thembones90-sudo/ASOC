@@ -22003,3 +22003,76 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
   border-color: rgba(216,168,61,.58);
   color: #f0cc72;
 }
+
+/* PRIVATE CHANNELS ATTENTION // 2026-10-06 */
+#gm-dm-toggle.has-unread {
+  position:relative;
+  z-index:6!important;
+  color:#fff2ff!important;
+  border-color:#dc7cff!important;
+  background:linear-gradient(180deg,rgba(158,56,207,.96),rgba(72,22,102,.96))!important;
+  box-shadow:inset 0 0 18px rgba(226,140,255,.35),0 0 12px rgba(210,100,255,.96),0 0 30px rgba(183,72,244,.72),0 0 50px rgba(116,45,193,.5)!important;
+  text-shadow:0 0 8px rgba(242,197,255,.9)!important;
+  animation:dmUrgentAttention .86s ease-in-out infinite!important;
+}
+#gm-dm-toggle.has-unread::after {
+  content:attr(data-unread);
+  position:absolute;
+  top:-8px; right:-8px;
+  min-width:20px; height:20px; padding:0 4px;
+  display:grid; place-items:center;
+  border:1px solid #ffd9ff; border-radius:999px;
+  background:#b52cff; color:white;
+  font:900 10px/1 var(--font-machine,monospace);
+  box-shadow:0 0 10px #d96cff,0 0 22px rgba(191,72,255,.88);
+}
+#hero-hud-dm-chip.has-unread {
+  position:relative;
+  color:#fff2ff!important;
+  border-color:#dc7cff!important;
+  box-shadow:inset 0 0 16px rgba(226,140,255,.30),0 0 10px rgba(210,100,255,.92),0 0 26px rgba(183,72,244,.68)!important;
+  animation:dmUrgentAttention .86s ease-in-out infinite!important;
+}
+#hero-hud-dm-chip.has-unread #hero-hud-dm {
+  color:#fff!important;
+  text-shadow:0 0 8px #d96cff,0 0 16px rgba(191,72,255,.88)!important;
+}
+@keyframes dmUrgentAttention {
+  0%,100% { filter:brightness(1.08) saturate(1.18); }
+  50% { filter:brightness(1.55) saturate(1.5); }
+}
+
+/* BLACK MARKET ALERT OVERRIDE // 2026-10-06 */
+body #black-market-player-button.has-pending,
+body #black-market-player-button.has-unseen-tribute {
+  border-color:#ff3157!important;
+  color:#fff7fa!important;
+  filter:brightness(1.42) saturate(1.5)!important;
+  box-shadow:inset 0 0 22px rgba(255,31,76,.46),0 0 14px rgba(255,35,75,.98),0 0 34px rgba(255,18,67,.72),0 0 58px rgba(143,36,211,.5)!important;
+  animation:bmUrgentAttentionHard .78s ease-in-out infinite!important;
+}
+body #black-market-player-button.has-pending small,
+body #black-market-player-button.has-unseen-tribute small {
+  color:#ffe0e7!important;
+  text-shadow:0 0 8px #ff3157,0 0 16px rgba(255,49,87,.85)!important;
+}
+body #black-market-player-button.has-pending::after,
+body #black-market-player-button.has-unseen-tribute::after {
+  background:#ff2448!important;
+  box-shadow:0 0 10px #ff2448,0 0 24px rgba(255,36,72,.95)!important;
+}
+body #black-market-gm-button.bm-has-pending {
+  border-color:#ff3157!important;
+  color:#fff7fa!important;
+  filter:brightness(1.42) saturate(1.5)!important;
+  box-shadow:inset 0 0 24px rgba(255,31,76,.48),0 0 14px rgba(255,35,75,.98),0 0 36px rgba(255,18,67,.76),0 0 64px rgba(143,36,211,.5)!important;
+  animation:bmUrgentAttentionHard .78s ease-in-out infinite!important;
+}
+body #black-market-gm-button.bm-has-pending small {
+  color:#ffe0e7!important;
+  text-shadow:0 0 8px #ff3157,0 0 16px rgba(255,49,87,.85)!important;
+}
+@keyframes bmUrgentAttentionHard {
+  0%,100% { transform:translateZ(0) scale(1); filter:brightness(1.22) saturate(1.35); }
+  50% { transform:translateZ(0) scale(1.025); filter:brightness(1.72) saturate(1.7); }
+}
