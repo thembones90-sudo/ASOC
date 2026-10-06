@@ -7579,10 +7579,27 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
     womfReduced,
     timestamp: Date.now()
   };
+  const eventLabel = {
+    headbutt: 'HEADBUTT',
+    baaaa: 'BAAAAAAAAAA',
+    ragdoll: 'RAGDOLL',
+    goatify: 'GOATIFY',
+    sacrifice: womfReduced ? 'SACRIFICIAL GOAT // WOMF -1' : 'SACRIFICIAL GOAT // ABSOLUTELY NOTHING'
+  }[event] || 'GOAT EVENT';
+  const result = buildChatCommandMessage(
+    room,
+    author,
+    'goat',
+    gm ? 'shadowBroker' : 'goat',
+    `${author.name} unleashes GOAT on ${target.name} // ${eventLabel}`,
+    { goat: payload }
+  );
+  if (!result.success) return result;
+  if (gm) result.message.source = 'shadowBroker';
   broadcastToRoom(room, { type: 'goat:event', ...payload });
   persistActiveRooms();
   if (womfReduced) broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
-  return { success: true };
+  return result;
 }
 
 function dispatchPlayerSlashCommand(room, ws, text, message) {
@@ -7824,7 +7841,7 @@ function dispatchGmSlashCommand(room, ws, text) {
   }
   if (/^\/goat\b/i.test(raw)) {
     const result = handleGoatCommand(room, author, raw, { gm: true });
-    return result.success ? { success: true, broadcast: false } : { success: false, error: result.error };
+    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
   if (/^\/commands\b/i.test(raw)) {
     const result = handleCommandsCommand(room, author, raw, GM_CHAT_SLASH_COMMANDS);
