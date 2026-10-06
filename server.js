@@ -7579,19 +7579,21 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
     womfReduced,
     timestamp: Date.now()
   };
-  const eventLabel = {
-    headbutt: 'HEADBUTT',
-    baaaa: 'BAAAAAAAAAA',
-    ragdoll: 'RAGDOLL',
-    goatify: 'GOATIFY',
-    sacrifice: womfReduced ? 'SACRIFICIAL GOAT // WOMF -1' : 'SACRIFICIAL GOAT // ABSOLUTELY NOTHING'
-  }[event] || 'GOAT EVENT';
+  const chatText = {
+    headbutt: `🐐 ${target.name} has been introduced to the business end of a goat.`,
+    baaaa: `🐐 ${target.name} has received an unsolicited theological argument from a goat.`,
+    ragdoll: `🐐 ${target.name} has temporarily misplaced the concept of bones.`,
+    goatify: `🐐 ${target.name} has been promoted to Lesser Goat. Benefits remain unclear.`,
+    sacrifice: womfReduced
+      ? `🐐 ${target.name} has been offered to the Goat. One WOMF charge vanishes into the void.`
+      : `🐐 ${target.name} was sacrificed with great ceremony and absolutely no practical result.`
+  }[event] || `🐐 Something deeply unnecessary has happened to ${target.name}.`;
   const result = buildChatCommandMessage(
     room,
     author,
     'goat',
     gm ? 'shadowBroker' : 'goat',
-    `${author.name} unleashes GOAT on ${target.name} // ${eventLabel}`,
+    chatText,
     { goat: payload }
   );
   if (!result.success) return result;
