@@ -145,7 +145,6 @@ const ControlSurfaces = {
       allTimeButton.id = 'alltime-toggle-btn';
       allTimeButton.className = 'gm-global-btn gm-alltime-standings-btn';
       allTimeButton.textContent = 'ALL TIME STANDINGS';
-      allTimeButton.addEventListener('click', () => this.app?.toggleAllTimeView?.());
     }
     if (!allTimePanel) {
       allTimePanel = document.createElement('div');
