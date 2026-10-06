@@ -5171,8 +5171,10 @@ const App = {
         const previous = previousById.get(m.id);
         return previous && previous.verdict !== m.verdict && m.verdict;
       });
-      if (verdictUpdates.some(m => m.verdict === 'correct')) {
+      const correctVerdict = verdictUpdates.find(m => m.verdict === 'correct');
+      if (correctVerdict) {
         window.AsocAudio?.correct?.();
+        this._gmFocusVerdictMessageId = String(correctVerdict.id || '');
       }
       const newActivityCount = newMessages.length + verdictUpdates.length;
       if (this.userScrolledUp && newActivityCount) {
@@ -5336,7 +5338,17 @@ const App = {
       this.updateGMNewMessageChip();
     };
 
-    if (followLatest) {
+    const focusVerdictId = String(this._gmFocusVerdictMessageId || '');
+    const focusVerdictNode = focusVerdictId
+      ? container.querySelector(`[data-message-id="${CSS.escape(focusVerdictId)}"]`)
+      : null;
+
+    if (focusVerdictNode) {
+      container.scrollTop = Math.max(0, focusVerdictNode.offsetTop - 8);
+      this.userScrolledUp = true;
+      this._gmFocusVerdictMessageId = '';
+      requestAnimationFrame(() => { this._gmChatProgrammaticScroll = false; });
+    } else if (followLatest) {
       pinLatest();
 
       // Late-loading images/GIFs must not drag the operator viewport upward.

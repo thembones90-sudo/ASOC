@@ -75,7 +75,10 @@
     ensureDock() {
       let dock = document.getElementById('hero-role-dock');
       const ritual = document.getElementById('ritual-overlay');
-      const parent = ritual && !ritual.hidden ? ritual : document.getElementById('board-layer');
+      const status = document.querySelector('.detainee-status-module');
+      const parent = ritual && !ritual.hidden
+        ? ritual
+        : (status || document.querySelector('#little-hero-hud .hero-hud-stats') || document.getElementById('chat-panel'));
       if (!parent) return dock;
       if (!dock) {
         dock = document.createElement('section');
@@ -85,6 +88,7 @@
       }
       if (dock.parentElement !== parent) parent.appendChild(dock);
       dock.classList.toggle('in-ritual', parent === ritual);
+      dock.classList.toggle('in-status', parent === status);
       return dock;
     },
 

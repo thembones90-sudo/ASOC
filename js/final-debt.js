@@ -46,38 +46,16 @@
     tick = null;
   }
 
-  // Lasting state: seal on the Final, a lock on each owed column's solution
-  // cell, the debt strip above the board. Positioned over the live board.
+  // Persistent debt markers are intentionally forbidden. The FALLEN ceremony
+  // is the notification; after it finishes, the battlefield must be clean.
   function place() {
-    if (!current) return;
-    const l = ensureLayer();
-    const b = visibleRect(board());
-    if (!b) { l.innerHTML = ''; return; }
-    const owed = current.owed || [];
-    const paid = current.paid || [];
-    const allPaid = !owed.length;
-    let out = '';
-    const fin = visibleRect(cell('FINAL'));
-    if (fin) out += `<i class="fd-seal is-set" style="left:${fin.right - 30}px;top:${fin.top - 22}px"><b>SEALED</b></i>`;
-    owed.forEach(c => {
-      const r = visibleRect(cell(`${c}5`)) || visibleRect(cell(`${c}1`));
-      if (r) out += `<i class="fd-lock" style="left:${r.right - 22}px;top:${r.top - 16}px"><b>${esc(c)}</b><small>OWED</small></i>`;
-    });
-    const tokens = COLS.filter(c => owed.includes(c) || paid.includes(c))
-      .map(c => `<em class="${owed.includes(c) ? 'is-owed' : 'is-paid'}">${esc(c)}</em>`).join('');
-    const label = allPaid ? 'ALL DEBTS PAID' : `FINAL SEALED · ${owed.length} COLUMN${owed.length > 1 ? 'S' : ''} OWED`;
-    // The strip straddles the bottom edge of the board grid.
-    const grid = visibleRect(cell('FINAL')?.parentElement) || b;
-    out += `<div class="fd-strip${allPaid ? ' is-paid' : ''}" style="left:${grid.left + grid.width / 2}px;top:${Math.min(window.innerHeight - 40, grid.bottom - 16)}px"><span>${label}</span>${tokens}</div>`;
-    l.innerHTML = out;
+    if (layer) layer.innerHTML = '';
   }
-
   function decorate() {
-    if (!current) return clearDecor();
-    html.setAttribute('data-fd-active', '');
-    COLS.forEach(c => html.toggleAttribute(`data-fd-owe-${c.toLowerCase()}`, (current.owed || []).includes(c)));
-    place();
-    if (!tick) tick = setInterval(place, 700);
+    // The FALLEN banner and DEBT PAID stamps are transient notifications.
+    // Keep current debt data in memory for confirmation/scoring, but leave
+    // the battlefield clean once those notifications finish.
+    clearDecor();
   }
 
   // The one-time ceremony.

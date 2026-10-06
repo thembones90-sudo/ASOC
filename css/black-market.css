@@ -24,6 +24,17 @@
   animation:bm-tribute-call 1.65s ease-in-out infinite;
 }
 .black-market-entry.has-unseen-tribute small { color:#ff8095; }
+.black-market-entry.has-tribute-level:not(.has-unseen-tribute) {
+  border-color:#b82d45;
+  color:#fff;
+  background:linear-gradient(180deg,rgba(53,13,24,.97),rgba(15,7,11,.98));
+  box-shadow:0 0 12px rgba(184,45,69,.34),inset 0 0 18px rgba(156,30,52,.14);
+}
+.black-market-entry.has-tribute-level small {
+  color:#ff8fa1;
+  font-weight:900;
+  text-shadow:0 0 8px rgba(255,70,100,.4);
+}
 @keyframes bm-tribute-call { 0%,100%{box-shadow:0 0 8px rgba(255,24,58,.45),0 0 20px rgba(255,18,54,.22),inset 0 0 14px rgba(255,28,64,.12)} 50%{box-shadow:0 0 16px rgba(255,34,68,.9),0 0 38px rgba(255,18,54,.52),inset 0 0 24px rgba(255,28,64,.24)} }
 .black-market-entry.has-pending::after {
   content: attr(data-pending);

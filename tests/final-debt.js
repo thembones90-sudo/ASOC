@@ -39,8 +39,9 @@ const send = (ws, m) => ws.send(JSON.stringify(m));
     let debt = await page.evaluate(() => window.FinalDebt.current);
     assert.deepEqual(debt.owed, ['A', 'B', 'C', 'D']);
     assert.equal(debt.by, 'Maxine');
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#fd-layer .fd-lock').length), 4, 'each owed column is locked');
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#fd-layer .fd-seal').length), 1, 'the Final is sealed');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#fd-layer .fd-lock').length), 0, 'owed-column markers expire with the notification');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#fd-layer .fd-seal').length), 0, 'the Final seal does not remain glued to the screen');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#fd-layer .fd-strip').length), 0, 'the debt strip does not remain glued to the screen');
     await H.sleep(1200);
     send(heroes[1], { type: 'chat:guess', text: 'column a answer' }); await H.sleep(900);
     const aid = await lastId();
@@ -52,13 +53,14 @@ const send = (ws, m) => ws.send(JSON.stringify(m));
     assert.deepEqual(debt.owed, ['B', 'C', 'D']);
     assert.deepEqual(debt.paid, ['A']);
     assert.equal(await page.evaluate(() => (PlayerApp.chatMessages || []).filter(m => /THE FINAL HAS FALLEN/.test(m.text || '')).length), 1, 'the Shadow Broker announces the debt once');
-    // Reload: lasting state without the ceremony.
+    // Reload: debt state survives, but notification visuals stay gone.
     await page.reload(); await page.waitForSelector('#game-screen.active'); await H.sleep(1500);
     assert.equal(await page.evaluate(() => !!document.getElementById('fd-banner')), false, 'a reload does not replay the ceremony');
-    assert.ok(await page.evaluate(() => !!document.querySelector('.fd-strip')), 'a reload keeps the debt strip');
+    assert.equal(await page.evaluate(() => !!document.querySelector('.fd-strip')), false, 'a reload does not resurrect persistent debt UI');
+    assert.deepEqual(await page.evaluate(() => window.FinalDebt.current?.owed || []), ['B', 'C', 'D'], 'debt state survives reload without permanent markers');
     assert.deepEqual(page.pageErrors, []);
     assert.equal(s.errors().trim(), '');
-    console.log('PASS final debt: THE FINAL HAS FALLEN replaces the Final coronation while columns are owed; seal, owed locks, debt strip; DEBT PAID on a later column; announced once; reload keeps state without replaying');
+    console.log('PASS final debt: THE FINAL HAS FALLEN is notification-only while columns are owed; no persistent board markers; DEBT PAID on a later column; announced once; reload keeps debt state without replaying visuals');
     await browser.close();
   } finally { await s.stop(); }
 })().catch(e => { console.error('FAIL final debt:', e); process.exit(1); });

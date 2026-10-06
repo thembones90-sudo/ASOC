@@ -4735,8 +4735,10 @@ const PlayerApp = {
         const previous = previousById.get(m.id);
         return previous && previous.verdict !== m.verdict && m.verdict;
       });
-      if (verdictUpdates.some(m => m.verdict === 'correct')) {
+      const correctVerdict = verdictUpdates.find(m => m.verdict === 'correct');
+      if (correctVerdict) {
         window.AsocAudio?.correct?.();
+        this._focusVerdictMessageId = String(correctVerdict.id || '');
       }
       this._chatArrivalIds = new Set(
         newMessages
@@ -4913,7 +4915,17 @@ const PlayerApp = {
       this.updateNewMessageChip();
     };
 
-    if (followLatest) {
+    const focusVerdictId = String(this._focusVerdictMessageId || '');
+    const focusVerdictNode = focusVerdictId
+      ? container.querySelector(`[data-message-id="${CSS.escape(focusVerdictId)}"]`)
+      : null;
+
+    if (focusVerdictNode) {
+      container.scrollTop = Math.max(0, focusVerdictNode.offsetTop - 8);
+      this.userScrolledUp = true;
+      this._focusVerdictMessageId = '';
+      requestAnimationFrame(() => { this._chatProgrammaticScroll = false; });
+    } else if (followLatest) {
       pinLatest();
 
       // Images/video can acquire their real dimensions after innerHTML lands.

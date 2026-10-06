@@ -173,7 +173,31 @@ async function run() {
     const tooLate = await player.next(m => m.type === 'blackMarket:error', 'late submission refusal', mark);
     assert.match(tooLate.message, /NOT OWED/, 'a resolved pact cannot be re-submitted');
 
-    console.log('PASS black market tribute wire: BLOOD IS OWED -> TRIBUTE_SUBMITTED on player and GM at once, consent and payload enforced server-side, image withheld from the player copy, GM judges and consigns it');
+    // 9. GM-imposed debt is a first-class wire command. This is the exact path
+    // used by CALL A DEBT and must reach both the Broker ledger and the target.
+    const alCreds = { email: 'al@chattest.test', password: 'chat-password' };
+    await api('/api/auth/player/register', { ...alCreds, name: 'al' });
+    const alToken = (await api('/api/auth/player/login', alCreds)).data.token;
+    const al = await new Client('al').open();
+    clients.push(al);
+    al.send({ type: 'room:join', authToken: alToken, roomCode: 'MASTER', name: 'al' });
+    const alJoined = await al.next(m => m.type === 'join:success', 'al joins');
+    await sleep(120);
+    const demandRequestId = 'bm-wire-demand-0001';
+    const alMark = al.mark();
+    gmMark = gm.mark();
+    gm.send({ type: 'blackMarket:gmDemandTribute', playerId: alJoined.playerId, reason: 'Lost wager.', tributeLevel: 7, requestId: demandRequestId });
+    const demandAck = await gm.next(m => m.type === 'blackMarket:ack' && m.requestId === demandRequestId, 'GM imposed-debt ack', gmMark);
+    assert.equal(demandAck.persisted, true, 'the imposed debt is persisted before success is reported');
+    const gmDemandState = await gm.next(m => m.type === 'blackMarket:gmState' && (m.pacts || []).some(p => p.playerId === alJoined.playerId && p.tributeLevel === 7), 'GM sees imposed debt', gmMark);
+    const alDemandState = await al.next(m => m.type === 'blackMarket:state' && (m.pacts || []).some(p => p.tributeLevel === 7), 'al sees imposed debt', alMark);
+    const alDebt = (alDemandState.pacts || []).find(p => p.tributeLevel === 7);
+    assert.equal(alDebt.playerId, alJoined.playerId, 'the debt lands on the live target identity');
+    assert.equal(alDebt.state, 'APPROVED_PENDING_TRIBUTE');
+    assert.equal(alDebt.tributeLevel, 7, 'player receives the exact imposed tribute level');
+    assert.ok((gmDemandState.pacts || []).some(p => p.id === alDebt.id), 'the same debt exists in the GM ledger');
+
+    console.log('PASS black market tribute wire: petition tribute flow plus GM-imposed debt reaches both Broker and target with the exact tribute level');
   } finally {
     clients.forEach(c => c.close());
     server.kill();

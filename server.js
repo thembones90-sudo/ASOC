@@ -1994,8 +1994,12 @@ function handleRitualLockIn(ws) {
   if (!isRitualFulfilled(room)) return sendToWs(ws, { type: 'error', message: 'THE SUMMON RITUAL IS NOT YET FULFILLED' });
   if (room.ritual.lockedIn) return;
   room.ritual.lockedIn = true;
-  if (room.heroRoles?.enabled !== false) iksAnnounce(room, ['LOCKED IN // THE GAME IS PRIMED. LITTLE HEROES, CHOOSE YOUR CLASS: DPS, TANK OR HEAL.']);
-  else iksAnnounce(room, ['LOCKED IN // THE GAME IS PRIMED. AWAITING THE SHADOW BROKER.']);
+  const line = room.heroRoles?.enabled !== false
+    ? 'GAME COMMENCES, LITTLE HEROES. ARM YOURSELVES.'
+    : 'LOCKED IN // THE GAME IS PRIMED. AWAITING THE SHADOW BROKER.';
+  addShadowBrokerMessage(room, line, { editableByHost: false });
+  room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'start', { game: 'ASOC' });
+  broadcastChatUpdate(room);
   broadcastRitualState(room);
 }
 
@@ -4446,11 +4450,20 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
   // Solves/reversals above may have resolved or re-opened a field.
   if (refreshGameComplete(room)) changed = true;
 
-  if (changed) {
+  const promotedCorrect = verdict === 'correct' && (oldVerdict !== 'correct' || oldTarget !== target);
+  if (promotedCorrect) {
+    const currentIndex = room.chat.messages.findIndex(m => m.id === message.id);
+    if (currentIndex >= 0 && currentIndex !== room.chat.messages.length - 1) {
+      const [promoted] = room.chat.messages.splice(currentIndex, 1);
+      room.chat.messages.push(promoted);
+    }
+  }
+
+  if (changed || promotedCorrect) {
     room.revision++;
   }
 
-  return { success: true, changed, revision: room.revision, message, scoreWarning, newAward, finalOutcome, streakChanged, celebration };
+  return { success: true, changed: changed || promotedCorrect, revision: room.revision, message, scoreWarning, newAward, finalOutcome, streakChanged, celebration };
 }
 
 
@@ -13143,6 +13156,7 @@ wss.on('connection', (ws, req) => {
         case 'blackMarket:acceptCounter':
         case 'blackMarket:tributeSeen':
         case 'blackMarket:tributeSubmit':
+        case 'blackMarket:gmDemandTribute':
         case 'blackMarket:gmDecision':
         case 'blackMarket:tributeJudge': {
           handleBlackMarket(ws, message);

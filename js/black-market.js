@@ -105,6 +105,7 @@
         }
         if (message?.type === 'blackMarket:ack') {
           window.AsocRuntime?.record?.('transaction-persisted', message.action || 'BLACK MARKET', `${message.pactId || ''} ${message.state || ''}`);
+          if (message.action === 'blackMarket:gmDemandTribute') this.toast('THE DEBT HAS BEEN CALLED');
           if (message.action === 'blackMarket:tributeSubmit' && message.pactId === this._tributeAwaitingPactId && message.state === 'TRIBUTE_SUBMITTED') this.confirmTributeSubmission();
           return;
         }
@@ -128,11 +129,20 @@
       const pending = actionable.length;
       btn.classList.toggle('has-pending', pending > 0);
       if (!isGM) {
-        const unseenTributes = this.pacts.filter(p => p.tributeRequired && p.demandedAt && !p.seenAt && ['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(p.state));
+        const unresolvedTributes = this.pacts
+          .filter(p => p.tributeRequired && ['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED','TRIBUTE_SUBMITTED'].includes(p.state))
+          .sort((a, b) => (Number(b.demandedAt) || Number(b.updatedAt) || 0) - (Number(a.demandedAt) || Number(a.updatedAt) || 0));
+        const activeTribute = unresolvedTributes[0] || null;
+        const activeLevel = activeTribute ? Math.max(1, Math.min(10, Number(activeTribute.tributeLevel) || 1)) : 0;
+        const unseenTributes = unresolvedTributes.filter(p => p.demandedAt && !p.seenAt);
         btn.classList.toggle('has-unseen-tribute', unseenTributes.length > 0);
+        btn.classList.toggle('has-tribute-level', !!activeTribute);
+        btn.dataset.tributeLevel = activeLevel ? String(activeLevel) : '';
         const subtitle = btn.querySelector('small');
-        if (subtitle) subtitle.textContent = unseenTributes.length ? 'BLOOD TRIBUTE WAITS' : 'PRIVATE CHANNEL';
-        btn.setAttribute('aria-label', unseenTributes.length ? `Black Market: ${unseenTributes.length} unseen Blood Tribute debt${unseenTributes.length === 1 ? '' : 's'}` : 'Open private Black Market channel');
+        if (subtitle) subtitle.textContent = activeTribute ? `TRIBUTE LEVEL ${activeLevel} / 10` : 'PRIVATE CHANNEL';
+        btn.setAttribute('aria-label', activeTribute
+          ? `Black Market: Blood Tribute level ${activeLevel} of 10${unseenTributes.length ? ', unseen demand' : ''}`
+          : 'Open private Black Market channel');
       }
       if (isGM) btn.classList.toggle('bm-has-pending', pending > 0);
       btn.dataset.pending = pending || '';
@@ -224,7 +234,6 @@
         if (!playerId) return this.toast('NO LITTLE HERO SELECTED');
         const requestId = `bm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
         this.send({ type:'blackMarket:gmDemandTribute', playerId, reason, tributeLevel, requestId });
-        this.toast('THE DEBT HAS BEEN CALLED');
       });
       body.querySelector('#bm-petition')?.addEventListener('submit', e => {
         e.preventDefault();

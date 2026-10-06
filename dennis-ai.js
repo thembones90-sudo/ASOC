@@ -318,7 +318,9 @@ function queueGameAnnouncement(input, event, details = {}, now = Date.now(), ran
     ? [...definition.announcer, ...definition.advice]
     : definition.announcer;
   const game = String(details.game || 'Igra').slice(0, 48);
-  const text = pool[Math.floor(randomUnit(random) * pool.length)].replaceAll('{{game}}', game);
+  const text = kind === 'start' && game.toUpperCase() === 'ASOC'
+    ? "IKS OKS POČINJE, NE ČEK' JEBOTE, ovo je asoc.. Huh?"
+    : pool[Math.floor(randomUnit(random) * pool.length)].replaceAll('{{game}}', game);
   state.announcementQueue.push({ event: kind, text, queuedAt: now });
   state.announcementQueue = state.announcementQueue.slice(-6);
   state.announcementCooldowns[kind] = now;
