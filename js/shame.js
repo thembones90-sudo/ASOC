@@ -145,7 +145,14 @@
     if (message.type === 'shame:pardon') { state.busy = false; playPardon(message); }
   }
 
-  function init(){ css(); button(); }
+  function watchButtonMount() {
+    button();
+    if (state._mountObserver) return;
+    state._mountObserver = new MutationObserver(() => button());
+    state._mountObserver.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  function init(){ css(); watchButtonMount(); }
   window.Shame = { init, open, onPlayers, onState, onMessage, play };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
