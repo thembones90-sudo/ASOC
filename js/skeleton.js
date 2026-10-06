@@ -725,31 +725,20 @@ const Skeleton = (() => {
     const isHost = options.isHost === true;
     const onContinue = typeof options.onContinue === 'function' ? options.onContinue : () => {};
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-    const { main, finalLine } = splitAftermathStory(result.story);
-
-    // AFTERMATH DIRECTOR: old stories require no migration. Ordinary prose is
-    // deterministically divided into cinematic scenes; optional [SCENE:*],
-    // [FOCUS] and [FINAL] authoring cues are safely stripped from presentation.
-    const cleanStory = String(main || '').replace(/\[(?:SCENE(?::[^\]]+)?|FOCUS|FINAL)\]/gi, '').trim();
-    const sentences = cleanStory.match(/[^.!?]+[.!?]+(?:["'”’)]*)?|[^.!?]+$/g)?.map(s => s.trim()).filter(Boolean) || [];
-    const storyScenes = [];
-    for (let index = 0; index < sentences.length; index += 2) storyScenes.push({ kind:'story', text:sentences.slice(index,index+2).join(' ') });
-    const solved = Object.values(result.columnResults || {}).filter(Boolean).length;
-    const victor = result.matchWinner?.name || result.topPerformer?.name || '';
     const outcome = String(result.outcome || 'COMPLETE').toUpperCase();
-    const scenes = [
-      { kind:'opening', eyebrow: outcome === 'WON' ? 'SYSTEM CONCESSION' : 'SYSTEM POSTMORTEM', text: outcome === 'WON' ? 'THE FIELD HAS FALLEN.' : 'THE FIELD HAS GONE SILENT.' },
-      ...storyScenes,
-      { kind:'evidence', eyebrow:'MATCH EVIDENCE', text:`${solved}/4 COLUMNS SURVIVED`, detail: victor ? `${victor} // PRIMARY SUBJECT` : `FINAL SOLUTION // ${result.finalSolution || 'UNRESOLVED'}` },
-      { kind:'final', eyebrow: outcome === 'WON' ? 'CASE CLOSED' : 'SUBJECTS FAILED', text:finalLine || 'AFTERMATH DATA UNAVAILABLE.', detail:result.finalSolution ? `FINAL SOLUTION // ${result.finalSolution}` : '' }
-    ];
+    const cleanStory = String(result.story || '')
+      .replace(/\[(?:SCENE(?::[^\]]+)?|FOCUS|FINAL)\]/gi, '')
+      .trim();
+    const sentences = cleanStory.match(/[^.!?]+[.!?]+(?:["'”’)]*)?|[^.!?]+$/g)
+      ?.map(sentence => sentence.trim())
+      .filter(Boolean) || [];
+    if (!sentences.length) sentences.push('AFTERMATH DATA UNAVAILABLE.');
 
     const overlay = document.createElement('div');
     overlay.className = `aftermath-overlay aftermath-director aftermath-${outcome.toLowerCase()}`;
     overlay.innerHTML = `
       <div class="aftermath-dim"></div>
       <div class="aftermath-grain"></div>
-      <div class="aftermath-board-ghost" aria-hidden="true"><i>A</i><i>S</i><i>O</i><i>C</i></div>
       <section class="aftermath-stage" role="dialog" aria-label="Aftermath">
         <div class="aftermath-identity">
           <img class="aftermath-avatar" src="assets/ui/shadow-broker.png" alt="">
@@ -758,12 +747,9 @@ const Skeleton = (() => {
             <h1 class="aftermath-title">AFTERMATH</h1>
           </div>
         </div>
-        <div class="aftermath-panel">
-          <div class="aftermath-scene-count"></div>
-          <div class="aftermath-scene-eyebrow"></div>
+        <div class="aftermath-panel aftermath-typewriter-panel">
           <div class="aftermath-story" aria-live="polite"></div>
-          <div class="aftermath-final-line"></div>
-          <div class="aftermath-scene-detail"></div>
+          <div class="aftermath-final-solution"></div>
         </div>
         ${isHost ? `
           <div class="aftermath-controls">
@@ -775,20 +761,19 @@ const Skeleton = (() => {
     requestAnimationFrame(() => overlay.classList.add('is-visible'));
 
     const storyEl = overlay.querySelector('.aftermath-story');
-    const finalEl = overlay.querySelector('.aftermath-final-line');
-    const countEl = overlay.querySelector('.aftermath-scene-count');
-    const eyebrowEl = overlay.querySelector('.aftermath-scene-eyebrow');
-    const detailEl = overlay.querySelector('.aftermath-scene-detail');
+    const finalSolutionEl = overlay.querySelector('.aftermath-final-solution');
+    if (finalSolutionEl && result.finalSolution) finalSolutionEl.textContent = `FINAL SOLUTION // ${result.finalSolution}`;
     const completeBtn = overlay.querySelector('.aftermath-complete');
     const continueBtn = overlay.querySelector('.aftermath-continue');
     let completed = false;
     let advancing = false;
-    let sceneIndex = 0;
+    let sentenceIndex = 0;
 
     const markComplete = () => {
       if (completed) return;
       completed = true;
-      finalEl?.classList.add('is-complete');
+      overlay.classList.add('is-complete');
+      finalSolutionEl?.classList.add('is-visible');
       if (completeBtn) {
         completeBtn.disabled = true;
         completeBtn.hidden = true;
@@ -799,47 +784,62 @@ const Skeleton = (() => {
       }
     };
 
-    const typeInto = (element, text, base, done) => {
-      if (!element || !text) {
-        done?.();
-        return;
-      }
-      const words = String(text).split(/(\s+)/); let index = 0;
+    const typeSentence = (line, text, done) => {
+      if (!line) { done?.(); return; }
+      const chars = Array.from(String(text));
+      let index = 0;
+      line.classList.add('is-typing');
       const tick = () => {
         if (!overlay.isConnected) return;
-        index += 1;
-        element.textContent = words.slice(0, index).join('');
-        if (index >= words.length) {
+        if (index >= chars.length) {
+          line.classList.remove('is-typing');
+          line.classList.add('is-complete');
           done?.();
           return;
         }
-        const timer = setTimeout(tick, /[.!?]$/.test(words[index - 1] || '') ? 240 : base);
+        const char = chars[index++];
+        line.textContent += char;
+        const delay = reducedMotion ? 0 : aftermathCharDelay(char, 28);
+        const timer = setTimeout(tick, delay);
         aftermathTimers.push(timer);
       };
       tick();
     };
 
-    const showScene = (index, immediate = false) => {
-      clearAftermathTimers(); sceneIndex = Math.max(0, Math.min(index, scenes.length - 1));
-      const scene = scenes[sceneIndex];
-      overlay.dataset.scene = scene.kind; overlay.classList.remove('scene-enter'); void overlay.offsetWidth; overlay.classList.add('scene-enter');
-      countEl.textContent = `TRANSMISSION ${String(sceneIndex + 1).padStart(2,'0')} / ${String(scenes.length).padStart(2,'0')}`;
-      eyebrowEl.textContent = scene.eyebrow || (scene.kind === 'story' ? 'ARCHIVED NARRATIVE' : 'AFTERMATH');
-      detailEl.textContent = scene.detail || '';
-      storyEl.textContent = ''; finalEl.textContent = '';
-      const target = scene.kind === 'final' ? finalEl : storyEl;
-      const done = () => {
-        if (sceneIndex >= scenes.length - 1) { markComplete(); return; }
-        const timer = setTimeout(() => showScene(sceneIndex + 1), 1900); aftermathTimers.push(timer);
-      };
-      if (immediate || reducedMotion) { target.textContent = scene.text; done(); }
-      else typeInto(target, scene.text, scene.kind === 'final' ? 105 : 70, done);
+    const revealNextSentence = () => {
+      if (!overlay.isConnected) return;
+      if (sentenceIndex >= sentences.length) {
+        markComplete();
+        return;
+      }
+      const line = document.createElement('p');
+      line.className = 'aftermath-sentence';
+      storyEl.appendChild(line);
+      storyEl.scrollTop = storyEl.scrollHeight;
+      const sentence = sentences[sentenceIndex++];
+      typeSentence(line, sentence, () => {
+        storyEl.scrollTop = storyEl.scrollHeight;
+        if (sentenceIndex >= sentences.length) {
+          const timer = setTimeout(markComplete, reducedMotion ? 0 : 650);
+          aftermathTimers.push(timer);
+          return;
+        }
+        const timer = setTimeout(revealNextSentence, reducedMotion ? 0 : 700);
+        aftermathTimers.push(timer);
+      });
     };
 
     const completeNow = () => {
       if (!overlay.isConnected || completed) return;
       clearAftermathTimers();
-      showScene(scenes.length - 1, true);
+      storyEl.innerHTML = '';
+      for (const sentence of sentences) {
+        const line = document.createElement('p');
+        line.className = 'aftermath-sentence is-complete';
+        line.textContent = sentence;
+        storyEl.appendChild(line);
+      }
+      storyEl.scrollTop = storyEl.scrollHeight;
       markComplete();
     };
     aftermathCompleteNow = completeNow;
@@ -872,16 +872,13 @@ const Skeleton = (() => {
     }
 
     if (options.alreadyComplete === true) {
-      // Hydrated AFTERMATH (reconnect during the story phase): the narrative
-      // is already shown state, so render it complete immediately -- no
-      // typewriter replay -- and hand the host back its CONTINUE advance.
-      const timer = setTimeout(completeNow, 300);
+      const timer = setTimeout(completeNow, 250);
       aftermathTimers.push(timer);
     } else if (reducedMotion) {
-      const timer = setTimeout(() => showScene(0, true), 300);
+      const timer = setTimeout(completeNow, 250);
       aftermathTimers.push(timer);
     } else {
-      const startTimer = setTimeout(() => showScene(0), 900);
+      const startTimer = setTimeout(revealNextSentence, 700);
       aftermathTimers.push(startTimer);
     }
 
