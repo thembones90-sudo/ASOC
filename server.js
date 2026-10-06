@@ -7544,7 +7544,7 @@ function launchFireworks(room, actorKey, byName, text, now = Date.now()) {
 }
 
 function handleGoatCommand(room, author, raw, { gm = false } = {}) {
-  if (!/^\/goat\s*$/i.test(raw)) return { success: false, error: 'GOAT INVALID // USE /goat' };
+  if (!gm && !/^\/goat\s*$/i.test(raw)) return { success: false, error: 'GOAT INVALID // USE /goat' };
   if (!gm) {
     const account = coinAccount(author.id, author.name);
     const item = shadowMarket.COMMAND_ITEMS.get('goat');
