@@ -10005,9 +10005,16 @@ function dmIdentityFor(playerId) {
   return account ? { id, name: account.name || 'Little Hero', online: false } : null;
 }
 
+function visibleDmListFor(playerId) {
+  return dmStore.listFor(playerId).filter(convo => !!dmIdentityFor(convo?.other?.id));
+}
+
 function sendDmSummary(ws) {
   if (!ws?.playerId || ws.readyState !== 1) return;
-  try { sendToWs(ws, { type: 'dm:summary', unread: dmStore.totalUnread(ws.playerId), allow: dmStore.allowOf(ws.playerId) }); } catch {}
+  try {
+    const unread = visibleDmListFor(ws.playerId).reduce((sum, convo) => sum + Number(convo.unread || 0), 0);
+    sendToWs(ws, { type: 'dm:summary', unread, allow: dmStore.allowOf(ws.playerId) });
+  } catch {}
 }
 
 function dmThreadPayload(convo, viewerId) {
@@ -10030,7 +10037,7 @@ function handleDirectMessage(ws, message) {
   try {
     switch (message.type) {
       case 'dm:list':
-        return sendToWs(ws, { type: 'dm:list', conversations: dmStore.listFor(me.id), blocked: dmStore.blockedBy(me.id), allow: dmStore.allowOf(me.id), locked: dmLocked(room) });
+        return sendToWs(ws, { type: 'dm:list', conversations: visibleDmListFor(me.id), blocked: dmStore.blockedBy(me.id), allow: dmStore.allowOf(me.id), locked: dmLocked(room) });
       case 'dm:open': {
         const other = dmIdentityFor(message.playerId);
         if (!other || other.id === me.id) return sendToWs(ws, { type: 'dm:error', message: 'No such Little Hero' });
@@ -10113,7 +10120,7 @@ function handleGmDirectMessages(ws, message) {
     if (message.type === 'gm:dmOverview') return sendToWs(ws, { type: 'gm:dmOverview', data: dmStore.overview() });
     if (message.type === 'gm:dmThread') return sendToWs(ws, { type: 'gm:dmThread', conversation: dmStore.fullConversation(String(message.conversationId || '')) });
     if (message.type === 'gm:dmReport') return sendToWs(ws, { type: 'gm:dmReport', report: dmStore.fullReport(String(message.reportId || '')) });
-    if (message.type === 'gm:privateList') return sendToWs(ws, { type: 'gm:privateList', conversations: dmStore.listFor(GM_DM_ID), locked: dmLocked(room) });
+    if (message.type === 'gm:privateList') return sendToWs(ws, { type: 'gm:privateList', conversations: visibleDmListFor(GM_DM_ID), locked: dmLocked(room) });
     if (message.type === 'gm:privateOpen') {
       const other = dmIdentityFor(message.playerId);
       if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:privateError', message:'No such Little Hero' });
