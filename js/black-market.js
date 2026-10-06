@@ -485,16 +485,17 @@
         if (!response.ok || !/^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(String(payload.imageUrl || ''))) {
           throw new Error(payload.error || 'THE OFFERING COULD NOT ENTER THE VAULT');
         }
+        const canonicalPactId = String(payload.pactId || pactId || '');
         const requestId = `bm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
-        const sent = this.send({ type:'blackMarket:tributeSubmit', pactId, imageUrl:payload.imageUrl, consent:true, requestId }) === true;
+        const sent = this.send({ type:'blackMarket:tributeSubmit', pactId:canonicalPactId, imageUrl:payload.imageUrl, consent:true, requestId }) === true;
         if (!sent) {
           this.releaseTribute();
           return this.toast('THE RELIQUARY HAS LOST THE LINK');
         }
-        this._tributeAwaitingPactId = pactId;
+        this._tributeAwaitingPactId = canonicalPactId;
         clearTimeout(this._tributeAckTimer);
         this._tributeAckTimer = setTimeout(() => {
-          if (this._tributeAwaitingPactId !== pactId) return;
+          if (this._tributeAwaitingPactId !== canonicalPactId) return;
           this.releaseTribute();
           if (document.getElementById('black-market-overlay')) this.render();
           this.toast('THE RELIQUARY DID NOT CONFIRM THE OFFERING');

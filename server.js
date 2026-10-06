@@ -12004,13 +12004,20 @@ function handleApiRequest(req, res) {
     const actor = getChatImageActor(req, room);
     if (!actor || actor.role !== 'player') return sendJson(res, 401, { error: 'Black Market upload authentication required' });
 
-    const pactId = String(url.searchParams.get('pactId') || '');
+    const requestedPactId = String(url.searchParams.get('pactId') || '');
     const state = room.blackMarket = blackMarket.normalizeState(room.blackMarket);
-    const pact = blackMarket.findPact(state, pactId);
+    let pact = blackMarket.findPact(state, requestedPactId);
+    if (!pact || String(pact.playerId) !== String(actor.playerId)) {
+      const fallback = blackMarket.playerView(state, actor.playerId).pacts.find(item =>
+        ['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(item.state)
+      );
+      pact = fallback ? blackMarket.findPact(state, fallback.id) : null;
+    }
     if (!pact || String(pact.playerId) !== String(actor.playerId)) return sendJson(res, 404, { error: 'Pact not found' });
     if (!['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED'].includes(pact.state)) {
       return sendJson(res, 409, { error: 'Blood is not owed for this pact' });
     }
+    const pactId = String(pact.id);
 
     const actorKey = 'black-market:' + actor.playerId;
     const verdict = chatUploadGuard.checkActor(actorKey, Date.now(), {
@@ -12032,7 +12039,7 @@ function handleApiRequest(req, res) {
       if (!validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Image file signature does not match its declared type' });
       try {
         const stored = persistBlackMarketTributeUpload(actor, body, contentType, pactId);
-        return sendJson(res, 201, { ok: true, ...stored });
+        return sendJson(res, 201, { ok: true, pactId, ...stored });
       } catch (writeError) {
         console.error('[black-market-tribute] upload failed', writeError);
         const status = uploadFailureStatus(writeError);
