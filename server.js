@@ -8684,20 +8684,21 @@ function handleChatDelete(ws, message) {
     }
   } else {
     const directOwner = String(target.playerId || '') === String(ws.playerId || '');
-    const legacyCutoff = Date.parse('2026-09-19T18:25:19+02:00');
-    const legacyId = String(target.playerId || '');
-    const sameName = String(target.playerName || '').trim().toLocaleLowerCase() === String(ws.playerName || '').trim().toLocaleLowerCase();
-    const retiredLegacyId = /^[A-Za-z0-9_-]{8}$/.test(legacyId)
-      && !Array.from(room.players.values()).some(player => String(player.id || '') === legacyId);
-    const legacyOwner = !directOwner
-      && Number(target.timestamp) > 0
-      && Number(target.timestamp) < legacyCutoff
-      && sameName
-      && retiredLegacyId;
-    if (!directOwner && !legacyOwner) {
+    const targetName = String(target.playerName || '').trim().toLocaleLowerCase();
+    const socketName = String(ws.playerName || '').trim().toLocaleLowerCase();
+    const sameCanonicalName = !!targetName && targetName === socketName;
+    const targetId = String(target.playerId || '');
+    const targetIdBelongsToAnotherLivePlayer = Array.from(room.players.values()).some(player =>
+      String(player.id || '') === targetId && String(player.id || '') !== String(ws.playerId || '')
+    );
+    const reclaimableOwner = !directOwner
+      && sameCanonicalName
+      && !targetIdBelongsToAnotherLivePlayer
+      && target.source !== 'dennisAI';
+    if (!directOwner && !reclaimableOwner) {
       return sendToWs(ws, { type: 'error', message: 'You can only delete your own messages' });
     }
-    if (legacyOwner) target.playerId = ws.playerId;
+    if (reclaimableOwner) target.playerId = ws.playerId;
   }
 
   // Tombstone in place. Content, attachments, GIFs and poll cards are stripped

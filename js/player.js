@@ -3629,7 +3629,7 @@ const PlayerApp = {
       const editButton = contextMenu.querySelector('[data-chat-action="edit"]');
       if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
       const deleteButton = contextMenu.querySelector('[data-chat-action="delete"]');
-      if (deleteButton) deleteButton.hidden = !messageEl.classList.contains('own');
+      if (deleteButton) deleteButton.hidden = !this.canDeleteChatMessage(messageId);
       contextMenu.hidden = false;
       if (reactionPicker) reactionPicker.hidden = true;
       if (emojiPicker) emojiPicker.hidden = true;
@@ -3943,7 +3943,7 @@ const PlayerApp = {
         // A detached anchor has a zero rect; the message is gone, nothing to react to.
         if (messageEl.isConnected) this.openChatReactionPicker(messageId, { x: e.clientX, y: e.clientY });
       } else if (action === 'delete') {
-        if (!messageEl.classList.contains('own')) {
+        if (!this.canDeleteChatMessage(messageId)) {
           this.chatToast?.('Only your own messages can be deleted');
           return;
         }
@@ -3983,7 +3983,7 @@ const PlayerApp = {
     const editButton = menu.querySelector('[data-chat-action="edit"]');
     if (editButton) editButton.hidden = messageEl.dataset.editable !== 'true';
     const deleteButton = menu.querySelector('[data-chat-action="delete"]');
-    if (deleteButton) deleteButton.hidden = !messageEl.classList.contains('own');
+    if (deleteButton) deleteButton.hidden = !this.canDeleteChatMessage(messageId);
     menu.hidden = false;
     const reactionPicker = document.getElementById('chat-reaction-picker');
     const emojiPicker = document.getElementById('chat-emoji-picker');
