@@ -1359,6 +1359,9 @@ function createRoom(gameId, hostWs) {
     shadowRealmHistory: [],
     shadowRealmRecentLines: [],
     shadowRealmOffenses: {},
+    // SHAME is a per-board cosmetic sentence. Keys are player ids; values hold
+    // the GM-written charge. It survives reconnects but is cleared by RESET/NEXT GAME.
+    shame: {},
     // TIMER + BORROWED TIME -- server-authoritative, per-board (unlike WOMF's
     // persistent charge, a fresh board gets a fresh, un-started timer -- see
     // resetTimer(), called here and again from resetBoard/switchGame). Never
@@ -1527,6 +1530,7 @@ function getPublicState(room) {
     timer: getTimerPublicState(room),
     solutionCountdowns: getSolutionCountdownPublicState(room),
     hintClaims: room.hintClaims || {},
+    shame: room.shame || {},
     timestamp: new Date().toISOString()
   };
 }
@@ -4132,6 +4136,7 @@ function applyCommand(room, command, payload) {
       room.solutionCountdowns = {};
       room.columnDangerExpired = {};
       room.hintClaims = {};
+      room.shame = {};
       startMatchLedger(room); // new board id => new match ledger
       room.scoring.activeStreak = null;
       room.scoring.boardFinalized = false;
@@ -9430,6 +9435,8 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       shadowCoins: Math.max(0, Math.round(Number.isInteger(profile.shadowCoinUnits) ? profile.shadowCoinUnits : (Number(profile.shadowCoins) || 0) * 10)) / 10,
       // Equipped cosmetics only (shadow-market.js); purely visual.
       cosmetics: shadowMarket.publicCosmetics(profile),
+      shamed: !!room.shame?.[String(player.id)],
+      shameReason: room.shame?.[String(player.id)]?.reason || '',
       heroRole: heroRolesLive(room) && room.heroRoles?.enabled !== false ? (room.heroRoles?.picks?.[String(player.id)] || null) : null,
       olympicChampion: String(room.olympicsChampionId || '') === String(player.id),
       ...iksArenaFields(player)
@@ -9466,6 +9473,70 @@ function broadcastPlayersUpdate(room) {
     room.hostConnection.send(JSON.stringify({ type: 'players:update', players: rosterForSocket(room.hostConnection, getPlayersSnapshot(room, true)), iksArena: arena, brokerOnline: true }));
   }
   if (room.megabonks?.length) sendMegabonkProgress(room); // online/offline dots
+}
+
+function handleShame(ws, message, pardon = false) {
+  const room = rooms.get(MASTER_ROOM_CODE);
+  if (!room || ws !== room.hostConnection || ws.isHost !== true) {
+    sendToWs(ws, { type: 'error', message: 'Only the Shadow Broker may convene the Shame Tribunal' });
+    return;
+  }
+
+  const requested = Array.isArray(message.targetIds) ? message.targetIds : [];
+  const targetIds = [...new Set(requested.map(id => String(id || '').trim()).filter(Boolean))].slice(0, 32);
+  if (!targetIds.length) {
+    sendToWs(ws, { type: 'error', message: 'SHAME requires at least one accused Little Hero' });
+    return;
+  }
+
+  room.shame ||= {};
+  const roster = Array.from(room.players.values());
+  const targets = targetIds.map(id => roster.find(player => String(player.id) === id)).filter(Boolean);
+  if (targets.length !== targetIds.length) {
+    sendToWs(ws, { type: 'error', message: 'One or more Shame targets are no longer in the Master Room' });
+    return;
+  }
+
+  if (pardon) {
+    let changed = false;
+    targets.forEach(target => {
+      if (room.shame[String(target.id)]) {
+        delete room.shame[String(target.id)];
+        changed = true;
+      }
+    });
+    if (!changed) {
+      sendToWs(ws, { type: 'error', message: 'None of the selected Little Heroes are currently SHAMED' });
+      return;
+    }
+    room.revision = (room.revision || 0) + 1;
+    persistActiveRooms();
+    broadcastToRoom(room, { type: 'shame:pardon', targetIds: targets.map(t => String(t.id)), targetNames: targets.map(t => t.name), timestamp: Date.now() });
+    broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+    broadcastPlayersUpdate(room);
+    return;
+  }
+
+  const reason = sanitizeText(typeof message.reason === 'string' ? message.reason : '').trim().slice(0, 280);
+  if (!reason) {
+    sendToWs(ws, { type: 'error', message: 'The Shame Tribunal requires a written charge' });
+    return;
+  }
+
+  const issuedAt = Date.now();
+  targets.forEach(target => {
+    room.shame[String(target.id)] = { playerId: String(target.id), playerName: target.name, reason, issuedAt };
+  });
+  room.revision = (room.revision || 0) + 1;
+  const eventTargets = targets.map(target => ({
+    id: String(target.id),
+    name: target.name,
+    avatarData: target.avatarData || ''
+  }));
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'shame:verdict', targets: eventTargets, reason, issuedAt, mass: targets.length > 1 });
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastPlayersUpdate(room);
 }
 
 function handleModeratePlayer(ws, message, shouldBan) {
@@ -11219,6 +11290,7 @@ function handleSwitchGame(ws, message) {
   room.solutionCountdowns = {};
   room.columnDangerExpired = {};
   room.hintClaims = {};
+  room.shame = {};
   startMatchLedger(room); // new board id => new match ledger
   room.scoring.activeStreak = null;
   room.scoring.boardFinalized = false;
@@ -13095,6 +13167,14 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:command': {
           handleHostCommand(ws, message);
+          break;
+        }
+        case 'gm:shame': {
+          handleShame(ws, message, false);
+          break;
+        }
+        case 'gm:unshame': {
+          handleShame(ws, message, true);
           break;
         }
         case 'coinDrop:claim': {

@@ -1389,6 +1389,7 @@ const PlayerApp = {
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         window.HeroRoles?.onState?.(message);
         window.Avada?.setState?.(message.avada);
+        window.Shame?.onState?.(message);
         // Deferred so the board has painted the new state before the seal,
         // chains and strip are positioned over it.
         setTimeout(() => window.FinalDebt?.update(message), 0);
@@ -1612,6 +1613,7 @@ const PlayerApp = {
 
       case 'players:update': {
         window.HeroRoles?.onPlayers?.(message.players);
+        window.Shame?.onPlayers?.(message.players);
         this.hydrateRosterAvatars(message.players);
         this.updatePlayerLeaderboard(message.players);
         this.iksArena = message.iksArena || null;
@@ -1635,6 +1637,9 @@ const PlayerApp = {
         }
         break;
       }
+
+      case 'shame:verdict':
+      case 'shame:pardon': window.Shame?.onMessage?.(message); break;
 
       case 'quest:update': this.questState = message; window.PlayerQuests?.update?.(message); break;
       case 'quest:error': window.PlayerQuests?.error?.(message.message); break;
@@ -2974,7 +2979,7 @@ const PlayerApp = {
       list.innerHTML = ranked.map(p => {
         const presenceClass = p.connected === false ? 'is-offline' : 'is-online';
         return `
-        <span class="pl-entry ${presenceClass} ${p.id === this.playerId ? 'pl-entry-me' : ''}" data-player-id="${this.escapeHtml(String(p.id || ''))}" title="${this.escapeHtml(p.name)} // ${p.score || 0} points">${this.littleHeroAvatarHTML(p, true)}<span class="pl-entry-name">${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
+        <span class="pl-entry ${presenceClass} ${p.id === this.playerId ? 'pl-entry-me' : ''}" data-player-id="${this.escapeHtml(String(p.id || ''))}" title="${this.escapeHtml(p.name)} // ${p.score || 0} points">${this.littleHeroAvatarHTML(p, true)}<span class="pl-entry-name${p.shamed ? ' asoc-shamed-name' : ''}">${this.escapeHtml(p.name)}</span><b>${p.score || 0}</b></span>
       `;
       }).join('');
       window.BackstabEffect?.decorateRoster?.(list);
@@ -2983,7 +2988,7 @@ const PlayerApp = {
     const meIndex = ranked.findIndex(p => p.id === this.playerId);
     const me = meIndex >= 0 ? ranked[meIndex] : null;
     if (me) {
-      if (identity) identity.innerHTML = `${this.littleHeroAvatarHTML(me, true)}<span>${this.escapeHtml(me.name)} // LITTLE HERO</span>`;
+      if (identity) identity.innerHTML = `${this.littleHeroAvatarHTML(me, true)}<span class="${me.shamed ? 'asoc-shamed-name' : ''}">${this.escapeHtml(me.name)} // LITTLE HERO</span>`;
       const score = document.getElementById('hero-hud-score');
       const rank = document.getElementById('hero-hud-rank');
       if (score) {
@@ -5426,7 +5431,7 @@ const PlayerApp = {
     // IKS OKS GAUNTLET health ring (js/iks-ring.js) for joined fighters.
     const ring = window.IksRing ? html => IksRing.wrap(entity, html) : html => html;
     return ring(`
-      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${auraActive ? ' final-solver-aura' : ''}${entity.olympicChampion ? ' olympic-champion-avatar' : ''}${avatarData ? ' avatar-preview-trigger' : ''}${window.ShadowCosmetics?.avatarClass(entity, this.currentPlayers) || ''}" style="--lh-frame:${frameColor};--lh-aura:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
+      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${auraActive ? ' final-solver-aura' : ''}${entity.olympicChampion ? ' olympic-champion-avatar' : ''}${entity.shamed ? ' asoc-shamed-avatar' : ''}${avatarData ? ' avatar-preview-trigger' : ''}${window.ShadowCosmetics?.avatarClass(entity, this.currentPlayers) || ''}" style="--lh-frame:${frameColor};--lh-aura:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
         ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}${window.ShadowCosmetics?.avatarLayer(entity, this.currentPlayers) || ''}${entity.olympicChampion ? '<i class="olympic-champion-marker" title="Olympic Champion" aria-label="Olympic Champion">🏆</i>' : ''}
       </span>
     `);

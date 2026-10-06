@@ -2882,6 +2882,7 @@ const App = {
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         window.HeroRoles?.onState?.(message);
         window.Avada?.setState?.(message.avada);
+        window.Shame?.onState?.(message);
         this.finalValue = message.finalValue || null;
         this.applyServerState(message);
         setTimeout(() => window.FinalDebt?.update(message), 0);
@@ -2930,6 +2931,7 @@ const App = {
 
       case 'players:update':
         window.HeroRoles?.onPlayers?.(message.players);
+        window.Shame?.onPlayers?.(message.players);
         this.hydrateRosterAvatars(message.players);
         this.iksArena = message.iksArena || null;
         this.updatePlayerList(message.players);
@@ -2938,6 +2940,9 @@ const App = {
         window.GMMinigames?.onArena?.();
         window.AsocAlerts?.gmPlayers(message.players);
         break;
+
+      case 'shame:verdict':
+      case 'shame:pardon': window.Shame?.onMessage?.(message); break;
 
       case 'quest:update': this.questState = message; window.GMQuests?.update?.(message); break;
       case 'quest:error': window.GMQuests?.error?.(message.message); break;
@@ -3727,7 +3732,7 @@ const App = {
 
     listEl.innerHTML = onlinePlayers.map(p => `
       <div class="mp-player mp-player-online">
-        <span class="mp-player-name mp-little-hero">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span></span>
+        <span class="mp-player-name mp-little-hero">${this.littleHeroAvatarHTML(p, true)}<span class="${p.shamed ? 'asoc-shamed-name' : ''}">${this.escapeHtml(p.name)}</span></span>
         <span class="mp-player-actions">
           <span class="mp-status-dot connected" title="Online"></span>
           <button type="button" class="mp-moderation-btn mp-kick-btn" data-action="kick" data-player-id="${encodeURIComponent(String(p.id))}" data-player-name="${encodeURIComponent(String(p.name))}">KICK</button>
@@ -3791,7 +3796,7 @@ const App = {
     el.innerHTML = ranked.map((p, i) => `
       <div class="leaderboard-row ${i === 0 && (p.score || 0) > 0 ? 'leaderboard-lead' : ''}">
         <span class="lb-rank">${i + 1}</span>
-        <span class="lb-name lb-little-hero">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span></span>
+        <span class="lb-name lb-little-hero">${this.littleHeroAvatarHTML(p, true)}<span class="${p.shamed ? 'asoc-shamed-name' : ''}">${this.escapeHtml(p.name)}</span></span>
         <span class="lb-score">${p.score || 0}</span>
       </div>
     `).join('') || '<div class="leaderboard-empty">No players yet</div>';
@@ -5001,7 +5006,7 @@ const App = {
     // IKS OKS GAUNTLET health ring (js/iks-ring.js) for joined fighters.
     const ring = window.IksRing ? html => IksRing.wrap(entity, html) : html => html;
     return ring(`
-      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${entity.olympicChampion ? ' olympic-champion-avatar' : ''}${avatarData ? ' avatar-preview-trigger' : ''}${window.ShadowCosmetics?.avatarClass(entity, this.currentPlayers) || ''}" style="--lh-frame:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
+      <span class="little-hero-avatar${compact ? ' little-hero-avatar-compact' : ''}${entity.olympicChampion ? ' olympic-champion-avatar' : ''}${entity.shamed ? ' asoc-shamed-avatar' : ''}${avatarData ? ' avatar-preview-trigger' : ''}${window.ShadowCosmetics?.avatarClass(entity, this.currentPlayers) || ''}" style="--lh-frame:${frameColor}"${avatarData ? ` role="button" tabindex="0" aria-label="View ${avatarName} avatar" data-preview-label="${avatarName} // AVATAR"` : ''}>
         ${avatarData ? `<img src="${avatarData}" alt="${avatarName} avatar">` : '<span class="little-hero-avatar-fallback">LH</span>'}${window.ShadowCosmetics?.avatarLayer(entity, this.currentPlayers) || ''}${entity.olympicChampion ? '<i class="olympic-champion-marker" title="Olympic Champion" aria-label="Olympic Champion">🏆</i>' : ''}
       </span>
     `);
