@@ -868,3 +868,7 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
   .is-sanctum .bm-delivery{display:grid;grid-template-columns:1fr}
   .is-sanctum .bm-delivery .bm-receipt{min-width:0;width:100%}
 }
+
+/* BLOOD TRIBUTE // use standard ASOC media lightbox */
+.bm-tribute-image-link{display:block;margin:18px auto 0;padding:0;border:0;background:transparent;cursor:zoom-in}
+.bm-tribute-image-link .bm-tribute-preview{display:block;margin:0}

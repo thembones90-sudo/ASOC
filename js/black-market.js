@@ -193,7 +193,7 @@
     },
     card(p, gm) {
       const tributeSource = p.tributeImageUrl || p.tributeImageData || '';
-      const image = gm && p.state === 'TRIBUTE_SUBMITTED' && tributeSource ? '<img class="bm-tribute-preview" src="' + this.esc(tributeSource) + '" alt="Private Blood Tribute">' : '';
+      const image = gm && p.state === 'TRIBUTE_SUBMITTED' && tributeSource ? '<button type="button" class="chat-image-link bm-tribute-image-link" aria-label="Open Blood Tribute image preview"><img class="bm-tribute-preview" src="' + this.esc(tributeSource) + '" alt="Private Blood Tribute"></button>' : '';
       const tributeLevel = Math.max(1, Math.min(10, Number(p.tributeLevel) || 1));
       const meter = p.tributeRequired ? '<div class="bm-tribute-meter is-level-' + tributeLevel + '" aria-label="Blood Tribute level ' + tributeLevel + ' of 10">' + Array.from({ length: 10 }, (_, i) => '<i class="' + (i < tributeLevel ? 'is-lit' : '') + '"></i>').join('') + '</div>' : '';
       const level = p.tributeRequired ? '<div class="bm-tribute-level"><span>BLOOD TRIBUTE</span><b>LEVEL ' + tributeLevel + ' / 10</b>' + meter + '</div>' : '';
