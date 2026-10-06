@@ -7558,12 +7558,19 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
   if (resolved.error) return { success: false, error: resolved.error };
   const target = resolved.target;
 
-  const roll = crypto.randomInt(0, 100);
-  const event = roll < 25 ? 'headbutt'
-    : roll < 50 ? 'baaaa'
-      : roll < 70 ? 'ragdoll'
-        : roll < 90 ? 'goatify'
-          : 'sacrifice';
+  const rollGoatEvent = () => {
+    const roll = crypto.randomInt(0, 100);
+    return roll < 25 ? 'headbutt'
+      : roll < 50 ? 'baaaa'
+        : roll < 70 ? 'ragdoll'
+          : roll < 90 ? 'goatify'
+            : 'sacrifice';
+  };
+  let event = rollGoatEvent();
+  if (room.lastGoatEvent && event === room.lastGoatEvent) {
+    do { event = rollGoatEvent(); } while (event === room.lastGoatEvent);
+  }
+  room.lastGoatEvent = event;
   let womfReduced = false;
   if (event === 'sacrifice' && Number(room.womf?.charge) > 0) {
     room.womf.charge = Math.max(0, Number(room.womf.charge) - 1);
