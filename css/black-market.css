@@ -812,6 +812,9 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
 .bm-player-rating-scale span.is-current{border-color:#ff3155;background:linear-gradient(180deg,#b51636,#4a0715);color:#fff;box-shadow:0 0 16px rgba(255,30,67,.55),inset 0 0 18px rgba(255,93,118,.18);transform:translateY(-2px)}
 .bm-player-rating-scale i{font:900 11px var(--font-machine,monospace);font-style:normal}
 .bm-player-rating>small{display:block;margin-top:10px;color:#9b6873;font:800 8px var(--font-machine,monospace);letter-spacing:.22em;text-align:right}
+.bm-player-cause{margin-top:16px;padding-top:14px;border-top:1px solid rgba(181,25,52,.5);display:grid;gap:7px}
+.bm-player-cause span{color:#c67488;font:900 9px var(--font-machine,monospace);letter-spacing:.24em}
+.bm-player-cause b{color:#fff0f3;font:800 16px/1.45 var(--font-display,system-ui,sans-serif);letter-spacing:.01em;text-shadow:0 0 10px rgba(255,45,78,.18)}
 .bm-demand-tribute{grid-template-columns:minmax(160px,.7fr) minmax(125px,.35fr) minmax(260px,1.25fr) auto}
 @media(max-width:900px){.bm-demand-tribute{grid-template-columns:1fr 1fr}.bm-demand-tribute label:last-of-type{grid-column:1/-1}.bm-demand-tribute button{grid-column:1/-1}}
 
