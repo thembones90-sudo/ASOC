@@ -2230,8 +2230,7 @@ function handleBlackMarket(ws, message) {
   if (message.type === 'blackMarket:gmDemandTribute') {
     const playerId = String(message.playerId || '');
     const roomPlayer = Array.from(room.players.values()).find(item => String(item?.id) === playerId);
-    const profiles = playerStore.peekPlayers() || {};
-    const stored = profiles[playerId] || Object.values(profiles).find(profile => String(profile?.accountId || profile?.id || '') === playerId);
+    const stored = playerStore.peekPlayers()?.[playerId] || Object.values(playerStore.peekPlayers() || {}).find(profile => String(profile?.accountId || profile?.id || '') === playerId);
     const player = roomPlayer || (stored ? { id: playerId, name: stored.name || 'LITTLE HERO' } : null);
     if (!player) return blackMarketError('LITTLE HERO ACCOUNT NOT FOUND');
     const result = blackMarket.createGmTributeDebt(state, { id: player.id, name: player.name }, message);
@@ -6774,7 +6773,7 @@ function addChatMessage(room, playerId, playerName, text) {
   return { success: true, message };
 }
 
-function addDennisMessage(room, text) {
+function addDennisMessage(room, text, imageUrl = '') {
   const sanitized = sanitizeText(text);
   if (!sanitized) return null;
   const message = {
@@ -6792,7 +6791,8 @@ function addDennisMessage(room, text) {
     verdictResponse: null,
     reactions: {},
     source: 'dennisAI',
-    editableByHost: false
+    editableByHost: false,
+    ...(imageUrl ? { imageUrl } : {})
   };
   attachChatReceipts(room, message);
   room.chat.messages.push(message);
@@ -6808,7 +6808,7 @@ function tickDennisAI() {
     room.dennisAI = result.state;
     const changedIds = [];
     if (result.message) {
-      const message = addDennisMessage(room, result.message);
+      const message = addDennisMessage(room, result.message, result.imageUrl || '');
       if (message) changedIds.push(message.id);
     }
     for (const retaliation of result.retaliations || []) {
@@ -13103,7 +13103,6 @@ wss.on('connection', (ws, req) => {
         case 'blackMarket:sync':
         case 'blackMarket:petition':
         case 'blackMarket:acceptCounter':
-        case 'blackMarket:gmDemandTribute':
         case 'blackMarket:tributeSeen':
         case 'blackMarket:tributeSubmit':
         case 'blackMarket:gmDecision':

@@ -7,7 +7,12 @@ const DENNIS_NAME = 'Dennis';
 const DENNIS_AVATAR = '/assets/profiles/dennis-ai.png?v=d2a265d8';
 const DENNIS_FRAME = '#000000';
 const DENNIS_TIME_ZONE = 'Europe/Belgrade';
-const MORNING_GREETING = 'Dobro jutro, ko se nije probudio, spasio se';
+const MORNING_GREETINGS = Object.freeze([
+  'Dobro jutro, ko se nije probudio, spasio se',
+  'Jutro 😩'
+]);
+const MORNING_GREETING = MORNING_GREETINGS[0];
+const DENNIS_MORNING_IMAGE = '/assets/profiles/dennis-jutro-tiny.jpg?v=20261006-jutro-1';
 const MAX_MESSAGES_PER_DAY = 12;
 const RETALIATION_MIN_MS = 10 * 60_000;
 const RETALIATION_MAX_MS = 20 * 60_000;
@@ -368,9 +373,10 @@ function tick(input, now = Date.now(), random = Math.random) {
   if (!state.greetedAt) {
     if (now < state.greetingAt) return { state, message: null, retaliations: [] };
     state.greetedAt = now;
-    remember(state, MORNING_GREETING);
+    const morningGreeting = MORNING_GREETINGS[Math.min(MORNING_GREETINGS.length - 1, Math.floor(random() * MORNING_GREETINGS.length))];
+    remember(state, morningGreeting);
     scheduleAmbient(state, now, random);
-    return { state, message: MORNING_GREETING, retaliations: [] };
+    return { state, message: morningGreeting, morning: true, imageUrl: morningGreeting === 'Jutro 😩' ? DENNIS_MORNING_IMAGE : '', retaliations: [] };
   }
 
   if (state.announcementQueue.length && state.messagesToday < MAX_MESSAGES_PER_DAY) {
@@ -444,6 +450,7 @@ module.exports = {
   DENNIS_FRAME,
   DENNIS_TIME_ZONE,
   MORNING_GREETING,
+  MORNING_GREETINGS,
   RANDOM_MESSAGES,
   MAX_MESSAGES_PER_DAY,
   RETALIATION_MIN_MS,
