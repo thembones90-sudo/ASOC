@@ -28,7 +28,7 @@ const ControlSurfaces = {
       const strip = document.createElement('div');
       strip.id = 'battle-session-strip';
       strip.className = 'battle-session-strip';
-      strip.innerHTML = '<span id="battle-session-mode">LOCAL</span><span id="battle-session-room" hidden>ROOM <b id="battle-session-code">â€”</b></span><span id="battle-session-heroes" hidden><b id="battle-session-player-count">0</b> HEROES</span>';
+      strip.innerHTML = '<span id="battle-session-mode">LOCAL</span><span id="battle-session-room" hidden>ROOM <b id="battle-session-code">—</b></span><span id="battle-session-heroes" hidden><b id="battle-session-player-count">0</b> HEROES</span>';
       game.appendChild(strip);
     }
     if (scoring) scoring.querySelector('.gm-section-title').textContent = 'Session';
@@ -120,7 +120,7 @@ const ControlSurfaces = {
 
     const diagnostics = document.createElement('section');
     diagnostics.className = 'gm-runtime-diagnostics';
-    diagnostics.innerHTML = '<div class="gm-backdoor-log-head"><strong>RUNTIME DIAGNOSTICS</strong><span>SOCKET Â· ERRORS Â· STALE STATE Â· EFFECT QUEUE</span></div><div class="gm-runtime-diagnostics-summary" id="gm-runtime-diagnostics-summary"></div><div class="gm-runtime-diagnostics-events" id="gm-runtime-diagnostics-events"><p>NO RUNTIME FAULTS RECORDED</p></div>';
+    diagnostics.innerHTML = '<div class="gm-backdoor-log-head"><strong>RUNTIME DIAGNOSTICS</strong><span>SOCKET · ERRORS · STALE STATE · EFFECT QUEUE</span></div><div class="gm-runtime-diagnostics-summary" id="gm-runtime-diagnostics-summary"></div><div class="gm-runtime-diagnostics-events" id="gm-runtime-diagnostics-events"><p>NO RUNTIME FAULTS RECORDED</p></div>';
     maintenance.appendChild(diagnostics);
     window.addEventListener('asoc:diagnostic', () => this.refreshDiagnostics());
 
@@ -157,7 +157,7 @@ const ControlSurfaces = {
 
     const advanced = document.createElement('details');
     advanced.className = 'gm-advanced-maintenance';
-    advanced.innerHTML = '<summary><span>âš  SEALED SYSTEMS // DANGEROUS OPERATIONS</span><small>RECOVERY Â· WOMF Â· PLAYERS Â· RECORDS Â· VAULT</small></summary><div class="gm-advanced-maintenance-body"></div>';
+    advanced.innerHTML = '<summary><span>⚠ SEALED SYSTEMS // DANGEROUS OPERATIONS</span><small>RECOVERY · WOMF · PLAYERS · RECORDS · VAULT</small></summary><div class="gm-advanced-maintenance-body"></div>';
     const advancedBody = advanced.querySelector('.gm-advanced-maintenance-body');
     maintenance.appendChild(advanced);
 
@@ -327,7 +327,7 @@ const ControlSurfaces = {
       const active = entry.status === 'BANISHED' && Number(entry.at)+Number(entry.durationMs) > Number(now);
       const status = active ? 'ACTIVE' : entry.status === 'RELEASED' ? 'RELEASED' : 'SERVED';
       const date = new Date(Number(entry.at)||Date.now()).toLocaleString([], { month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
-      return `<article class="is-${status.toLowerCase()}"><div><b>${this.escape(entry.playerName||'LITTLE HERO')}</b><span>${status} // OFFENSE ${Number(entry.offenseCount)||1}</span></div><p>${this.escape(entry.announcement||'')}</p><small>${date} // ${Math.round(Number(entry.durationMs||0)/1000)}S // MESSAGE ${this.escape(entry.messageId||'â€”')}</small></article>`;
+      return `<article class="is-${status.toLowerCase()}"><div><b>${this.escape(entry.playerName||'LITTLE HERO')}</b><span>${status} // OFFENSE ${Number(entry.offenseCount)||1}</span></div><p>${this.escape(entry.announcement||'')}</p><small>${date} // ${Math.round(Number(entry.durationMs||0)/1000)}S // MESSAGE ${this.escape(entry.messageId||'—')}</small></article>`;
     }).join('');
   },
 
@@ -340,7 +340,7 @@ const ControlSurfaces = {
     const layoutLocked = document.body.classList.contains('gm-layout-locked');
     const values = {
       'battle-session-mode': multiplayer ? 'MULTIPLAYER' : 'LOCAL',
-      'battle-session-code': multiplayer ? 'MASTER ROOM' : 'â€”',
+      'battle-session-code': multiplayer ? 'MASTER ROOM' : '—',
       'battle-session-player-count': String(players.length),
       'backdoor-room': multiplayer ? 'MASTER ROOM' : 'LOCAL',
       'backdoor-heroes': String(players.length),
