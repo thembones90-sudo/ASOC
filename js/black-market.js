@@ -216,7 +216,9 @@
       const level = p.tributeRequired ? '<div class="bm-tribute-level"><span>BLOOD TRIBUTE</span><b>LEVEL ' + tributeLevel + ' / 10</b>' + meter + '</div>' : '';
       const tracking = gm && p.tributeRequired && p.demandedAt ? '<div class="bm-delivery"><span class="bm-receipt is-sent"><i aria-hidden="true">↗</i><span><b>SENT</b><small>' + this.esc(this.fmtTime(p.demandedAt)) + '</small></span></span><span class="bm-receipt ' + (p.seenAt ? 'is-seen' : 'is-unseen') + '"><i aria-hidden="true">◉</i><span><b>' + (p.seenAt ? 'SEEN' : 'NOT SEEN') + '</b><small>' + (p.seenAt ? this.esc(this.fmtTime(p.seenAt)) : 'Awaiting player receipt') + '</small></span></span></div>' : '';
       const terms = p.terms ? '<section class="bm-terms"><div class="bm-terms-title">TERMS OF TRIBUTE</div><blockquote>' + this.esc(p.terms) + '</blockquote></section>' : '';
-      return '<article class="bm-pact is-' + this.esc(String(p.state || '').toLowerCase()) + '" data-state="' + this.esc(p.state) + '" data-pact="' + this.esc(p.id) + '"><div class="bm-pact-sigil" aria-hidden="true"></div><div class="bm-pact-head"><div><small>' + this.esc(p.category) + (gm ? ' // ' + this.esc(p.playerName) : '') + '</small><b>' + this.esc(p.title) + '</b></div><span>' + this.esc(STATE_LABEL[p.state] || p.state) + '</span></div>' + level + tracking + '<p class="bm-pact-request">' + this.esc(p.request) + '</p>' + terms + (p.rejectionReason ? '<em>' + this.esc(p.rejectionReason) + '</em>' : '') + image + this.actions(p, gm) + '</article>';
+      const verdict = p.verdictComment ? '<section class="bm-verdict-comment"><div class="bm-verdict-title">SHADOW BROKER COMMENT</div><blockquote>' + this.esc(p.verdictComment) + '</blockquote></section>' : '';
+      const legacyRejection = p.rejectionReason && !p.verdictComment ? '<em>' + this.esc(p.rejectionReason) + '</em>' : '';
+      return '<article class="bm-pact is-' + this.esc(String(p.state || '').toLowerCase()) + '" data-state="' + this.esc(p.state) + '" data-pact="' + this.esc(p.id) + '"><div class="bm-pact-sigil" aria-hidden="true"></div><div class="bm-pact-head"><div><small>' + this.esc(p.category) + (gm ? ' // ' + this.esc(p.playerName) : '') + '</small><b>' + this.esc(p.title) + '</b></div><span>' + this.esc(STATE_LABEL[p.state] || p.state) + '</span></div>' + level + tracking + '<p class="bm-pact-request">' + this.esc(p.request) + '</p>' + terms + verdict + legacyRejection + image + this.actions(p, gm) + '</article>';
     },
     actions(p, gm) {
       if (gm) {
@@ -252,18 +254,29 @@
         const act = btn.dataset.act;
         if (act === 'accept-counter') return this.send({ type:'blackMarket:acceptCounter', pactId });
         if (act === 'offer-tribute') return this.offerTribute(pactId, btn);
-        if (act === 'tribute-accept') return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:true });
-        if (act === 'tribute-reject') {
-          const reason = await window.AsocDialog.prompt({
-            title:'DENY BLOOD TRIBUTE',
-            message:'Tell the Little Hero why. They will see this reason.',
-            placeholder:'e.g. Not bloody enough. Try again.',
-            maxLength:200,
-            required:true,
-            confirmLabel:'DENY'
+        if (act === 'tribute-accept') {
+          const comment = await window.AsocDialog.prompt({
+            title:'ACCEPT BLOOD TRIBUTE',
+            message:'Optional Shadow Broker comment. The Little Hero will see it.',
+            placeholder:'e.g. Adequate. The Reliquary accepts your offering.',
+            maxLength:800,
+            required:false,
+            confirmLabel:'ACCEPT'
           });
-          if (!reason?.trim()) return;
-          return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:false, reason:reason.trim() });
+          if (comment === null) return;
+          return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:true, comment:String(comment || '').trim() });
+        }
+        if (act === 'tribute-reject') {
+          const comment = await window.AsocDialog.prompt({
+            title:'REJECT BLOOD TRIBUTE',
+            message:'Optional Shadow Broker comment. The Little Hero will see it.',
+            placeholder:'e.g. Not enough. Try again.',
+            maxLength:800,
+            required:false,
+            confirmLabel:'REJECT'
+          });
+          if (comment === null) return;
+          return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:false, comment:String(comment || '').trim() });
         }
         if (act === 'accept') {
           btn.disabled = true;

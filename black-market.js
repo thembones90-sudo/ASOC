@@ -32,6 +32,7 @@ function normalizePact(raw) {
     tributeImageUrl: state === 'TRIBUTE_SUBMITTED' ? cleanText(raw?.tributeImageUrl, 240) : '',
     tributeId: cleanText(raw?.tributeId, 120) || null,
     rejectionReason: cleanText(raw?.rejectionReason, NOTE_LIMIT),
+    verdictComment: cleanText(raw?.verdictComment, NOTE_LIMIT),
     tributeLevel: Math.max(1, Math.min(10, Math.round(Number(raw?.tributeLevel) || 1))),
     demandedAt: Number(raw?.demandedAt) || null,
     seenAt: Number(raw?.seenAt) || null,
@@ -68,7 +69,7 @@ function publicPact(pact, host = false) {
     id: pact.id, playerId: pact.playerId, playerName: pact.playerName,
     title: pact.title, category: pact.category, request: pact.request, terms: pact.terms,
     state: pact.state, tributeRequired: pact.tributeRequired,
-    tributeId: pact.tributeId, rejectionReason: pact.rejectionReason,
+    tributeId: pact.tributeId, rejectionReason: pact.rejectionReason, verdictComment: pact.verdictComment,
     tributeLevel: pact.tributeLevel, demandedAt: pact.demandedAt, seenAt: pact.seenAt,
     createdAt: pact.createdAt, updatedAt: pact.updatedAt, fulfilledAt: pact.fulfilledAt
   };
@@ -217,23 +218,26 @@ function submitTribute(state, playerId, pactId, imageRef, consent) {
   pact.tributeImageUrl = /^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(value) ? value : '';
   if (!pact.tributeImageData && !pact.tributeImageUrl) return { error: 'THE OFFERING IS INVALID' };
   pact.rejectionReason = '';
+  pact.verdictComment = '';
   pact.state = 'TRIBUTE_SUBMITTED';
   pact.updatedAt = Date.now();
   return { pact };
 }
 
-function judgeTribute(state, pactId, accepted, reason, tributeId) {
+function judgeTribute(state, pactId, accepted, reason, tributeId, verdictComment = '') {
   const pact = findPact(state, pactId);
   if (!pact || pact.state !== 'TRIBUTE_SUBMITTED') return { error: 'NO TRIBUTE AWAITS JUDGMENT' };
+  pact.verdictComment = cleanText(verdictComment || reason, NOTE_LIMIT);
   if (accepted) {
     pact.tributeId = tributeId;
     pact.tributeImageData = '';
     pact.tributeImageUrl = '';
+    pact.rejectionReason = '';
     pact.state = 'OWED';
   } else {
     pact.tributeImageData = '';
     pact.tributeImageUrl = '';
-    pact.rejectionReason = cleanText(reason, NOTE_LIMIT);
+    pact.rejectionReason = pact.verdictComment;
     pact.state = 'TRIBUTE_REJECTED';
   }
   pact.updatedAt = Date.now();

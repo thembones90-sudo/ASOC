@@ -895,3 +895,10 @@ body:has(#black-market-player-button) #black-market-overlay .bm-ledger{
 /* BLOOD TRIBUTE // use standard ASOC media lightbox */
 .bm-tribute-image-link{display:block;margin:18px auto 0;padding:0;border:0;background:transparent;cursor:zoom-in}
 .bm-tribute-image-link .bm-tribute-preview{display:block;margin:0}
+
+/* BLOOD TRIBUTE // optional Shadow Broker verdict note */
+.is-sanctum .bm-verdict-comment{position:relative;z-index:1;margin-top:22px}
+.is-sanctum .bm-verdict-title{display:flex;align-items:center;gap:12px;margin-bottom:11px;color:#f08ba0;font:900 11px var(--font-machine,monospace);letter-spacing:.24em}
+.is-sanctum .bm-verdict-title::before{content:"◆";color:#ef3154;text-shadow:0 0 12px rgba(239,49,84,.4)}
+.is-sanctum .bm-verdict-title::after{content:"";height:1px;flex:1;background:linear-gradient(90deg,rgba(239,49,84,.5),transparent)}
+.is-sanctum .bm-verdict-comment blockquote{margin:0!important;padding:16px 19px!important;border:1px solid rgba(136,29,51,.7)!important;border-left:4px solid #ef3154!important;background:linear-gradient(90deg,rgba(58,7,18,.55),rgba(12,5,8,.88))!important;color:#f0dce2!important;font-size:16px!important;font-style:italic;box-shadow:inset 0 0 24px rgba(115,12,34,.1)}

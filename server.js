@@ -2275,10 +2275,10 @@ function handleBlackMarket(ws, message) {
       source: 'blackMarket',
       pactId: pact.id
     });
-    blackMarket.judgeTribute(state, pact.id, true, '', tributeId);
+    blackMarket.judgeTribute(state, pact.id, true, '', tributeId, message.comment || '');
     sendTributeVaultToHost(room);
   } else {
-    blackMarket.judgeTribute(state, pact.id, false, message.reason || '', null);
+    blackMarket.judgeTribute(state, pact.id, false, '', null, message.comment || '');
   }
   persistActiveRooms();
   syncBlackMarket(room, pact.playerId);
