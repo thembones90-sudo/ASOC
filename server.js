@@ -10725,10 +10725,16 @@ function handleGmBroadcast(ws, message) {
   // are never broadcast as literal text.
   const dispatch = dispatchGmSlashCommand(room, ws, text);
   if (dispatch) {
-    if (dispatch.error) sendToWs(ws, { type: 'error', message: dispatch.error });
+    if (dispatch.error) {
+      sendToWs(ws, { type: 'error', message: dispatch.error });
+      return;
+    }
     if (dispatch.broadcast && dispatch.success) {
       persistActiveRooms();
       broadcastChatUpdate(room);
+    }
+    if (dispatch.success) {
+      sendToWs(ws, { type: 'gm:broadcast:ack', direct: !dispatch.broadcast, command: text.trim().split(/\s+/)[0], timestamp: Date.now() });
     }
     return;
   }

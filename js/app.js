@@ -3132,6 +3132,10 @@ const App = {
         this.pendingCommands.delete(message.cmdId);
         break;
 
+      case 'gm:broadcast:ack':
+        this.setGMDeliveryState(message.direct ? 'EXECUTED' : 'DELIVERED', 'delivered', 1800);
+        break;
+
       case 'gm:judge:ack':
         console.log('[GM] Verdict acknowledged:', message);
         break;
