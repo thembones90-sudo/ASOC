@@ -7544,7 +7544,8 @@ function launchFireworks(room, actorKey, byName, text, now = Date.now()) {
 }
 
 function handleGoatCommand(room, author, raw, { gm = false } = {}) {
-  if (!gm && !/^\/goat\s*$/i.test(raw)) return { success: false, error: 'GOAT INVALID // USE /goat' };
+  const match = raw.match(/^\/goat\s+@?(.+?)\s*$/i);
+  if (!match) return { success: false, error: 'GOAT TARGET REQUIRED // USE /goat @Name' };
   if (!gm) {
     const account = coinAccount(author.id, author.name);
     const item = shadowMarket.COMMAND_ITEMS.get('goat');
@@ -7553,14 +7554,16 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
     }
   }
 
+  const resolved = resolveNamedTarget(room, gm ? null : author.id, '', match[1], 'GOAT', { includeDisconnected: false });
+  if (resolved.error) return { success: false, error: resolved.error };
+  const target = resolved.target;
+
   const roll = crypto.randomInt(0, 100);
   const event = roll < 25 ? 'headbutt'
     : roll < 50 ? 'baaaa'
       : roll < 70 ? 'ragdoll'
         : roll < 90 ? 'goatify'
           : 'sacrifice';
-  const connected = Array.from(room.players.values()).filter(player => player.connected !== false && (gm || String(player.id) !== String(author.id)));
-  const target = connected.length ? connected[crypto.randomInt(0, connected.length)] : null;
   let womfReduced = false;
   if (event === 'sacrifice' && Number(room.womf?.charge) > 0) {
     room.womf.charge = Math.max(0, Number(room.womf.charge) - 1);
@@ -7569,19 +7572,12 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
   }
   const payload = {
     event,
-    actorId: String(author.id),
+    actorId: author.id === null || author.id === undefined ? '' : String(author.id),
     actorName: author.name,
-    targetId: target ? String(target.id) : '',
-    targetName: target?.name || '',
+    targetId: String(target.id),
+    targetName: target.name,
     womfReduced,
     timestamp: Date.now()
-  };
-  const labels = {
-    headbutt: 'HEADBUTT',
-    baaaa: 'BAAAAAAAAAA',
-    ragdoll: 'RAGDOLL',
-    goatify: target ? `GOATIFY → ${target.name}` : 'GOATIFY → NO VICTIM AVAILABLE',
-    sacrifice: womfReduced ? 'SACRIFICIAL GOAT → WOMF -1' : 'SACRIFICIAL GOAT → HEROICALLY USELESS'
   };
   broadcastToRoom(room, { type: 'goat:event', ...payload });
   persistActiveRooms();

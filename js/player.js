@@ -106,7 +106,7 @@ const PlayerApp = {
     { name: 'order', insert: '/order', syntax: '/order', description: 'Shuffle connected-player turn order' },
     { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
     { name: 'fireworks', insert: '/fireworks ', syntax: '/fireworks [message]', description: 'Light up every screen with a fireworks show' },
-    { name: 'goat', insert: '/goat', syntax: '/goat', description: 'Unleash one random GOAT event // awarded player only' },
+    { name: 'goat', insert: '/goat @', syntax: '/goat @Name', description: 'Unleash random GOAT chaos on another player // awarded skill only' },
     { name: 'spit', insert: '/spit ', syntax: '/spit Name | all', description: 'Spit on one target or everyone online' },
     { name: 'fart', insert: '/fart ', syntax: '/fart Name | all', description: 'Fart on one target or everyone online' },
     { name: 'hiss', insert: '/hiss ', syntax: '/hiss Name | all', description: 'Hiss at one target or everyone online' },

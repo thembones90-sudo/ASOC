@@ -27,25 +27,28 @@
   function textFor(message) {
     switch (message.event) {
       case 'headbutt': return ['HEADBUTT', message.targetName ? `${message.targetName} was selected for structural testing.` : 'No victim found. Furniture survives.'];
-      case 'baaaa': return ['BAAAAAAAAAA', 'The Goat has submitted its argument.'];
-      case 'ragdoll': return ['RAGDOLL', `${message.actorName || 'THE GOAT'} has temporarily rejected skeletal integrity.`];
+      case 'baaaa': return ['BAAAAAAAAAA', message.targetName ? `${message.targetName} receives the Goat's argument.` : 'The Goat has submitted its argument.'];
+      case 'ragdoll': return ['RAGDOLL', `${message.targetName || 'THE TARGET'} has temporarily rejected skeletal integrity.`];
       case 'goatify': return ['GOATIFY', message.targetName ? `${message.targetName} is now a Lesser Goat.` : 'No suitable mammal located.'];
-      case 'sacrifice': return ['SACRIFICIAL GOAT', message.womfReduced ? 'The Goat absorbs one WOMF charge.' : 'A heroic sacrifice accomplished absolutely nothing.'];
+      case 'sacrifice': return ['SACRIFICIAL GOAT', message.womfReduced ? `${message.targetName || 'The target'} absorbs one WOMF charge.` : `${message.targetName || 'The target'} was sacrificed for absolutely nothing.`];
       default: return ['GOAT EVENT', 'Something deeply unnecessary has occurred.'];
     }
   }
 
   function animateHeadbutt(message) {
-    const candidates = Array.from(document.querySelectorAll('.chat-message, .gm-chat-message, [data-message-id]')).filter(el => el.offsetParent !== null);
+    const id = String(message.targetId || '');
+    const targeted = id ? Array.from(document.querySelectorAll(`[data-player-id="${CSS.escape(id)}"], [data-playerid="${CSS.escape(id)}"]`)).filter(el => el.offsetParent !== null) : [];
+    const candidates = targeted.length ? targeted : Array.from(document.querySelectorAll('.chat-message, .gm-chat-message, [data-message-id]')).filter(el => el.offsetParent !== null);
     if (!candidates.length) return;
-    const target = candidates[Math.floor(Math.random() * candidates.length)];
+    const target = candidates[0];
     target.classList.add('goat-headbutted');
     setTimeout(() => target.classList.remove('goat-headbutted'), 1700);
   }
 
   function animateRagdoll(message) {
-    if (!message.actorId || message.actorId === 'null') return;
-    document.querySelectorAll(`[data-player-id="${CSS.escape(String(message.actorId))}"]`).forEach(el => {
+    if (!message.targetId) return;
+    const id = CSS.escape(String(message.targetId));
+    document.querySelectorAll(`[data-player-id="${id}"], [data-playerid="${id}"]`).forEach(el => {
       el.classList.add('goat-ragdolled-player');
       setTimeout(() => el.classList.remove('goat-ragdolled-player'), 2600);
     });
