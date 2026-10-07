@@ -7840,11 +7840,17 @@ function dispatchGmSlashCommand(room, ws, text) {
 
   const FATALITY_LINES = {
     pyroblast: [
-      '{T} discovers that fire safety regulations were written for a reason.',
-      '{T} is reduced to a cautionary tale with excellent lighting.',
-      'ToAstYyYyYy!',
-      '{T} has been promoted from player to atmospheric carbon.',
-      '{T} learns that standing near the Shadow Broker is an extremely combustible hobby.'
+      'Ashes to ashes. Idiot to smoke.',
+      'Congratulations. You are now medium-well.',
+      'The Shadow Broker recommends SPF 9000.',
+      'That was less Pyroblast and more cremation.',
+      'Your warranty does not cover spontaneous combustion.',
+      'Temperatures exceeded recommended Little Hero specifications.',
+      'Carbonized. Embarrassing.',
+      'Fire resistance was apparently optional.',
+      'You have been successfully converted into smoke.',
+      'Next time, stand somewhere less flammable.',
+      'ToAstYyYyYy!'
     ],
     frost: [
       '{T} reaches absolute zero and, regrettably, several pieces.',
