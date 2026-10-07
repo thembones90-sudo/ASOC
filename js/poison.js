@@ -9,6 +9,14 @@
 
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const me = () => String(window.PlayerApp?.playerId || '');
+  const ASSET_ROOT = 'assets/skills/poison/';
+  const ASSETS = Object.freeze({
+    command: ASSET_ROOT + 'poison-command.webp',
+    status: ASSET_ROOT + 'poison-status.webp',
+    failed: ASSET_ROOT + 'poison-failed-roll.webp',
+    tribute: ASSET_ROOT + 'poison-tribute.webp',
+    timer: ASSET_ROOT + 'poison-timer.webp'
+  });
 
   function ensureStyle() {
     if (document.getElementById('asoc-poison-css')) return;
@@ -17,6 +25,7 @@
     style.textContent = `
       [data-player-id].asoc-poisoned{position:relative;isolation:isolate}
       [data-player-id].asoc-poisoned img{filter:hue-rotate(55deg) saturate(2.2) brightness(.82) contrast(1.08)!important}
+      [data-player-id].asoc-poisoned img.poison-status-icon,[data-player-id].asoc-poisoned .poison-gm-badge img{filter:none!important}
       [data-player-id].asoc-poisoned::before,
       [data-player-id].asoc-poisoned::after{content:"";position:absolute;pointer-events:none;z-index:20;border-radius:50%;background:radial-gradient(circle at 35% 30%,#d9ff72 0 16%,#6fd629 28%,#1b6f17 67%,transparent 72%);box-shadow:0 0 8px #79ff39;animation:poison-bubble 1.9s infinite ease-in}
       [data-player-id].asoc-poisoned::before{width:12px;height:12px;left:8%;bottom:8%;animation-delay:-.4s}
@@ -31,7 +40,13 @@
       .poison-card::before{content:"";position:absolute;inset:-30%;background:radial-gradient(circle,rgba(80,255,55,.1),transparent 58%);animation:poison-haze 4s infinite alternate}
       @keyframes poison-haze{to{transform:translate(7%,5%) scale(1.08)}}
       .poison-card>*{position:relative;z-index:2}.poison-kicker{font:800 12px/1 Arial;letter-spacing:.24em;color:#77e746}.poison-card h2{margin:9px 0 7px;font:900 clamp(32px,6vw,58px)/.95 Impact,Arial Black,sans-serif;letter-spacing:.06em;color:#a8ff70;text-shadow:0 0 18px #2c8e1e}.poison-card p{line-height:1.45;color:#b8c8b2}.poison-status{margin:16px 0;padding:12px;border:1px solid #325d26;background:#071006;font-weight:800;letter-spacing:.08em}.poison-actions{display:flex;gap:10px;flex-wrap:wrap}.poison-actions button,.poison-upload-label{border:1px solid #64ce3e;background:#13230f;color:#dfffd0;padding:10px 14px;font-weight:900;letter-spacing:.08em;cursor:pointer}.poison-actions button:hover,.poison-upload-label:hover{background:#1d3615}.poison-upload-label input{display:none}.poison-small{font-size:12px;color:#7e9678}.poison-image{display:block;width:min(420px,80vw);max-height:50vh;object-fit:contain;margin:14px auto;border:1px solid #426c31;background:#000}.poison-loss{color:#b8ff82}.poison-dot-float{position:absolute;left:50%;top:0;z-index:50;transform:translate(-50%,0);font:900 13px/1 Arial;color:#b8ff82;text-shadow:0 0 8px #1b6f17,0 2px 3px #000;pointer-events:none;animation:poison-float 1.35s ease-out forwards}@keyframes poison-float{0%{opacity:0;transform:translate(-50%,12px) scale(.75)}15%{opacity:1}100%{opacity:0;transform:translate(-50%,-42px) scale(1.18)}}
-      .poison-gm-badge{display:inline-grid;place-items:center;margin-left:7px;min-width:21px;height:21px;padding:0 5px;border:1px solid #5ed338;border-radius:999px;background:#0b1908;color:#9cff69;font:900 12px/1 Arial;box-shadow:0 0 10px rgba(82,255,52,.22);cursor:help}
+      .poison-gm-badge{display:inline-grid;place-items:center;margin-left:7px;width:25px;height:25px;padding:1px;border:1px solid #5ed338;border-radius:6px;background:#0b1908;box-shadow:0 0 10px rgba(82,255,52,.22);cursor:help;overflow:hidden}
+      .poison-gm-badge img{width:100%;height:100%;object-fit:cover;border-radius:4px;filter:none!important}
+      .gm-command-icon-image{width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid rgba(115,255,72,.45);box-shadow:0 0 12px rgba(86,255,55,.3);filter:none!important}
+      .poison-state-icon{display:block;width:66px;height:66px;object-fit:cover;margin:8px auto 14px;border-radius:10px;border:1px solid #4fbf2b;box-shadow:0 0 20px rgba(73,255,47,.28);filter:none!important}
+      .poison-inline-icon{width:27px;height:27px;object-fit:cover;border-radius:5px;vertical-align:middle;margin-right:8px;border:1px solid rgba(115,255,72,.35);filter:none!important}
+      .poison-status-icon{position:absolute;right:-5px;top:-5px;z-index:45;width:23px;height:23px;object-fit:cover;border-radius:6px;border:1px solid #76e64d;box-shadow:0 0 9px #3ebd27;filter:none!important;pointer-events:none}
+      .poison-ceremony-icon{display:block;width:86px;height:86px;object-fit:cover;margin:0 auto 18px;border-radius:11px;border:1px solid currentColor;box-shadow:0 0 26px currentColor;filter:none!important}
       .poison-cast-layer{position:fixed;inset:0;z-index:2147482300;pointer-events:none;overflow:hidden}
       .poison-cast-dagger{position:absolute;left:var(--sx);top:var(--sy);width:90px;height:7px;transform-origin:left center;transform:rotate(var(--ang));background:linear-gradient(90deg,transparent,#15340f 20%,#7dff4d 72%,#eaffdc);box-shadow:0 0 10px #6dff42,0 0 24px rgba(86,255,55,.7);clip-path:polygon(0 42%,78% 42%,100% 0,91% 50%,100% 100%,78% 58%,0 58%);animation:poison-dagger-flight .72s cubic-bezier(.18,.8,.2,1) forwards}
       .poison-cast-dagger::after{content:"";position:absolute;inset:-10px -15px;background:radial-gradient(circle at 85% 50%,rgba(120,255,70,.8),transparent 38%);filter:blur(4px)}
@@ -52,9 +67,24 @@
     ensureStyle();
     document.querySelectorAll('[data-player-id]:not(button)').forEach(node => {
       const id = String(node.getAttribute('data-player-id') || '');
-      node.classList.toggle('asoc-poisoned', !!states[id]);
-      if (states[id]) node.dataset.poisonStatus = states[id].status || '';
+      const state = states[id];
+      node.classList.toggle('asoc-poisoned', !!state);
+      if (state) node.dataset.poisonStatus = state.status || '';
       else delete node.dataset.poisonStatus;
+
+      if (node.matches('.pl-entry[data-player-id]')) {
+        let icon = node.querySelector(':scope > .poison-status-icon');
+        if (state && !icon) {
+          icon = document.createElement('img');
+          icon.className = 'poison-status-icon';
+          icon.src = ASSETS.status;
+          icon.alt = '';
+          icon.title = 'POISONED';
+          node.appendChild(icon);
+        } else if (!state) {
+          icon?.remove();
+        }
+      }
     });
   }
 
@@ -71,7 +101,7 @@
       if (!badge) {
         badge = document.createElement('span');
         badge.className = 'poison-gm-badge';
-        badge.textContent = '☣';
+        badge.innerHTML = `<img src="${ASSETS.status}" alt="">`;
         row.appendChild(badge);
       }
       const next = state.status === 'bleeding' && state.nextTickAt
@@ -127,7 +157,8 @@
     document.querySelector('.poison-roll-ceremony')?.remove();
     const layer = document.createElement('div');
     layer.className = 'poison-roll-ceremony ' + (success ? 'success' : 'fail');
-    layer.innerHTML = `<div class="poison-roll-box"><span class="poison-roll-number">${value}</span><span class="poison-roll-label">${success ? 'VENOM RESISTED // CURED' : 'SAVE FAILED // BLOOD TRIBUTE REQUIRED'}</span></div>`;
+    const icon = success ? ASSETS.status : ASSETS.failed;
+    layer.innerHTML = `<div class="poison-roll-box"><img class="poison-ceremony-icon" src="${icon}" alt=""><span class="poison-roll-number">${value}</span><span class="poison-roll-label">${success ? 'VENOM RESISTED // CURED' : 'SAVE FAILED // BLOOD TRIBUTE REQUIRED'}</span></div>`;
     document.body.appendChild(layer);
     window.AsocAudio?.playUi?.(success ? 'success' : 'impact');
     setTimeout(() => layer.remove(), 1950);
@@ -154,6 +185,7 @@
     if (state.status === 'awaiting_roll') {
       card.innerHTML = `
         <div class="poison-kicker">SHADOW BROKER // VENOM</div>
+        <img class="poison-state-icon" src="${ASSETS.status}" alt="Poison">
         <h2>YOU HAVE BEEN POISONED</h2>
         <p>You get exactly one survival check. No rerolls. No custom range. No courtroom appeals.</p>
         <div class="poison-status">TYPE <b>/roll</b> // 50+ CURES // 1–49 FAILS</div>
@@ -167,9 +199,10 @@
     const remaining = Math.max(0, Math.ceil((Number(state.nextTickAt || 0) - Date.now()) / 1000));
     card.innerHTML = `
       <div class="poison-kicker">SURVIVAL CHECK FAILED</div>
+      <img class="poison-state-icon" src="${ASSETS.tribute}" alt="Blood Tribute cure">
       <h2>THE VENOM REMAINS</h2>
       <p class="poison-loss">You bleed <b>0.1 SC every 20 seconds</b> until the Shadow Broker accepts your Blood Tribute.</p>
-      <div class="poison-status">NEXT BLEED // <span data-poison-countdown>${remaining}s</span>${state.pendingTribute ? ' // TRIBUTE AWAITS JUDGMENT' : ''}</div>
+      <div class="poison-status"><img class="poison-inline-icon" src="${ASSETS.timer}" alt="">NEXT BLEED // <span data-poison-countdown>${remaining}s</span>${state.pendingTribute ? ' // TRIBUTE AWAITS JUDGMENT' : ''}</div>
       ${state.pendingTribute ? '<p>Your offering is before the Broker. The poison does not pause while you wait.</p>' : `
       <div class="poison-actions">
         <label class="poison-upload-label">CHOOSE BLOOD TRIBUTE<input data-poison-file type="file" accept="image/png,image/jpeg,image/webp"></label>
@@ -222,6 +255,7 @@
     const card = root.querySelector('#poison-gm-card');
     card.innerHTML = `
       <div class="poison-kicker">BLOOD TRIBUTE // POISON CURE</div>
+      <img class="poison-state-icon" src="${ASSETS.tribute}" alt="Poison cure">
       <h2>THE VICTIM SEEKS MERCY</h2>
       <p><b>${esc(gmOffer.playerName || 'LITTLE HERO')}</b> offers blood to stop the venom.</p>
       <img class="poison-image" src="${esc(gmOffer.imageData || '')}" alt="Poison cure Blood Tribute">

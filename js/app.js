@@ -84,7 +84,7 @@ const App = {
   gmSlashCommands: [
     { name: 'warsong', insert: '/warsong', icon: '⚑', label: 'WARSONG', description: 'Six-second room-wide Horde battle banner' },
     { name: 'fatality', insert: '/fatality @', icon: '☠', label: 'FATALITY', description: '/fatality @Name -- execute one Little Hero with Pyroblast or Absolute Zero' },
-    { name: 'poison', insert: '/poison @', icon: '☣', label: 'POISON', description: '/poison @Name -- one save, then 0.1 SC bleed every 20 seconds until Blood Tribute cure' },
+    { name: 'poison', insert: '/poison @', icon: '☣', iconAsset: 'assets/skills/poison/poison-command.webp', label: 'POISON', description: '/poison @Name -- one save, then 0.1 SC bleed every 20 seconds until Blood Tribute cure' },
     { name: 'fireworks', insert: '/fireworks ', icon: '✺', label: 'FIREWORKS', description: '/fireworks [message] -- light up every screen' },
     { name: 'c4', insert: '/c4', icon: '▣', label: 'C4 COLUMN', description: 'Manually trigger the three-second C4 battle alert' },
     { name: 'b3', insert: '/b3', icon: '◩', label: 'BAKI B3', description: 'Manually trigger the purple-black B3 battle tribute' },
@@ -1337,7 +1337,7 @@ const App = {
       gmCommandCandidates = commandFragment === undefined ? [] : this.gmSlashCommands.filter(command => command.name.startsWith(commandFragment));
       if (!gmCommandCandidates.length) { gmCommandPicker.hidden = true; return; }
       gmCommandIndex = Math.max(0, Math.min(gmCommandIndex, gmCommandCandidates.length - 1));
-      gmCommandPicker.innerHTML = '<div class="gm-command-picker-head">SHADOW BROKER COMMANDS</div>' + gmCommandCandidates.map((command, index) => `<button type="button" class="gm-command-option${index === gmCommandIndex ? ' active' : ''}" data-command-index="${index}"><span>${command.icon}</span><b>${command.label}</b><small>${command.description}</small></button>`).join('');
+      gmCommandPicker.innerHTML = '<div class="gm-command-picker-head">SHADOW BROKER COMMANDS</div>' + gmCommandCandidates.map((command, index) => { const icon = command.iconAsset ? `<img class="gm-command-icon-image" src="${command.iconAsset}" alt="">` : `<span>${command.icon}</span>`; return `<button type="button" class="gm-command-option${index === gmCommandIndex ? ' active' : ''}" data-command-index="${index}">${icon}<b>${command.label}</b><small>${command.description}</small></button>`; }).join('');
       gmCommandPicker.hidden = false;
       this.closeGMMentionPicker(gmMentionPicker);
     };
