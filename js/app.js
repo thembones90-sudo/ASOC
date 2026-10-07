@@ -102,6 +102,7 @@ const App = {
     { name: 'all', insert: '/all ', icon: '⚡', label: 'ALL', description: '/all [message] -- shake every screen' },
     { name: 'megabonk', insert: '/megabonk all ', icon: '🔨', label: 'MEGABONK ALL', description: '/megabonk all [message] -- every Little Hero must ACKNOWLEDGE' },
     { name: 'megabonk', insert: '/megabonk @', icon: '🔨', label: 'MEGABONK ONE', description: '/megabonk @Name [message] -- one Little Hero must ACKNOWLEDGE' },
+    { name: 'dragon', insert: '/dragon', icon: '🐉', label: 'DRAGON RAID', description: '/dragon -- summon the weekly Fire Dragon raid' },
     { name: 'relic', insert: '/relic @', icon: '✦', label: 'RELIC', description: "/relic @Name -- grant SHADOW BROKER'S MISTAKE" },
     { name: 'goat', insert: '/goat @', icon: '🐐', label: 'GOAT', description: '/goat @Name -- unleash random GOAT chaos on that player; /award @Name goat -- grant player access' },
     { name: 'smite', insert: '/smite ', icon: '⚡', label: 'SMITE', description: '/smite Name | all -- strike one target or everyone' },
@@ -2756,6 +2757,13 @@ const App = {
         window.Megabonk?.onMessage(message);
         break;
 
+      case 'dragon:update':
+      case 'dragon:error':
+      case 'dragon:actionResult':
+      case 'dragon:heartRollResult':
+        window.DragonRaid?.onMessage?.(message);
+        break;
+
       case 'coinDrop:spawn':
       case 'coinDrop:claimed':
       case 'coinDrop:gone':
@@ -2909,6 +2917,7 @@ const App = {
         if (!window.AsocRuntime?.acceptRevision?.('gm-public', message.revision) && window.AsocRuntime) break;
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         window.HeroRoles?.onState?.(message);
+        window.DragonRaid?.onState?.(message.dragonRaid, message.serverNow);
         window.Avada?.setState?.(message.avada);
         window.Shame?.onState?.(message);
         window.PoisonEffect?.onState?.(message);

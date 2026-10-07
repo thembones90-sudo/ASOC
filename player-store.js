@@ -63,6 +63,9 @@ function blankProfile(displayName) {
     threefoldLosses: 0,
     threefoldDraws: 0,
     asocGamesEarned: 0,
+    heartOfShadow: 0,
+    dragonRaidReceipts: [],
+    dragonStats: { raidsEntered: 0, dragonKills: 0, deaths: 0, resurrectionsCast: 0, timesResurrected: 0, damageDealt: 0, heartsWon: 0, dragonCoinsEarned: 0 },
     // SHADOW COINS: ASOC's persistent account-level currency. Changed ONLY
     // through the Shadow Coin API below (never adjustProfile, never client
     // input). shadowCoinUnits is authoritative: an integer count of TENTHS of
@@ -95,6 +98,16 @@ function blankCosmetics() {
     // Relic ids shown on the dossier, in order (slot count checked by server).
     showcase: []
   };
+}
+
+function normalizeDragonStats(raw) {
+  const out = { raidsEntered: 0, dragonKills: 0, deaths: 0, resurrectionsCast: 0, timesResurrected: 0, damageDealt: 0, heartsWon: 0, dragonCoinsEarned: 0 };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const key of Object.keys(out)) {
+    const n = Math.floor(Number(raw[key]));
+    out[key] = Number.isFinite(n) && n > 0 ? n : 0;
+  }
+  return out;
 }
 
 function normalizeRelicProgress(raw) {
@@ -145,12 +158,13 @@ const NUMERIC_PROFILE_FIELDS = [
   'threefoldLosses',
   'threefoldDraws',
   'asocGamesEarned',
+  'heartOfShadow',
   'shadowCoins',
   'shadowCoinUnits'
 ];
 
 // Balance-changing fields that the generic counters must never touch.
-const CURRENCY_FIELDS = new Set(['shadowCoins', 'shadowCoinUnits']);
+const CURRENCY_FIELDS = new Set(['shadowCoins', 'shadowCoinUnits', 'heartOfShadow']);
 const COIN_UNIT = 10; // tenths
 const COIN_RECEIPT_LIMIT = 1000;
 const COIN_LEDGER_LIMIT = 500;
@@ -208,6 +222,9 @@ function validateAndNormalizePlayers(raw) {
     profile.relicReceipts = Array.isArray(candidate.relicReceipts) ? candidate.relicReceipts.filter(r => typeof r === 'string').slice(-500) : [];
     profile.dailyContracts = candidate.dailyContracts && typeof candidate.dailyContracts === 'object' ? candidate.dailyContracts : null;
     profile.sibicarRound = candidate.sibicarRound && typeof candidate.sibicarRound === 'object' ? candidate.sibicarRound : null;
+    profile.heartOfShadow = Math.max(0, Math.floor(Number(candidate.heartOfShadow) || 0));
+    profile.dragonRaidReceipts = Array.isArray(candidate.dragonRaidReceipts) ? candidate.dragonRaidReceipts.filter(r => typeof r === 'string').slice(-200) : [];
+    profile.dragonStats = normalizeDragonStats(candidate.dragonStats);
     // Older profiles stored whole coins only; derive tenths from them once.
     const units = candidate.shadowCoinUnits === undefined
       ? Math.round((Number(profile.shadowCoins) || 0) * COIN_UNIT)
@@ -529,6 +546,52 @@ function spendShadowCoins(identity, amount, receiptId, { reason = 'spend' } = {}
   if (profile.shadowCoinUnits < units) return { ok: false, error: 'Not enough Shadow Coins', balance: unitsToCoins(profile.shadowCoinUnits) };
   if (!recordCoinChange(players, profile, receiptId, -units, { kind: 'purchase', reason })) return { ok: false, error: COIN_STORAGE_ERROR };
   return { ok: true, balance: profile.shadowCoins, duplicate: false };
+}
+
+function applyDragonRaidResults(entries, raidId) {
+  const receipt = String(raidId || '').trim();
+  if (!receipt) return { ok: false, error: 'Dragon raid id required' };
+  const players = loadPlayers();
+  if (!storageHealthy) return { ok: false, error: 'Player storage unavailable' };
+  const applied = [];
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const identity = entry && entry.identity;
+    if (!identity || typeof identity !== 'object' || !identity.id) continue;
+    const profile = coinProfile(players, identity);
+    if (!Array.isArray(profile.dragonRaidReceipts)) profile.dragonRaidReceipts = [];
+    if (profile.dragonRaidReceipts.includes(receipt)) continue;
+    profile.name = String(identity.name || profile.name || '').trim() || profile.name;
+    profile.heartOfShadow = Math.max(0, Math.floor(Number(profile.heartOfShadow) || 0));
+    profile.dragonStats = normalizeDragonStats(profile.dragonStats);
+
+    const coins = Math.max(0, Math.floor(Number(entry.coins) || 0));
+    if (coins > 0) {
+      const units = coins * COIN_UNIT;
+      profile.shadowCoinUnits += units;
+      profile.shadowCoins = unitsToCoins(profile.shadowCoinUnits);
+      const coinReceipt = `dragon:${receipt}:coins`;
+      profile.shadowCoinReceipts.push(coinReceipt);
+      if (profile.shadowCoinReceipts.length > COIN_RECEIPT_LIMIT) profile.shadowCoinReceipts.splice(0, profile.shadowCoinReceipts.length - COIN_RECEIPT_LIMIT);
+      profile.shadowCoinLedger.push({ id: coinReceipt, at: nowISO(), delta: coins, balance: profile.shadowCoins, kind: 'dragon_raid', reason: 'DRAGON RAID HOARD', detail: { raidId: receipt } });
+      if (profile.shadowCoinLedger.length > COIN_LEDGER_LIMIT) profile.shadowCoinLedger.splice(0, profile.shadowCoinLedger.length - COIN_LEDGER_LIMIT);
+    }
+
+    const heart = Math.max(0, Math.floor(Number(entry.heart) || 0));
+    if (heart > 0) profile.heartOfShadow += heart;
+
+    const stats = entry.stats && typeof entry.stats === 'object' ? entry.stats : {};
+    for (const key of Object.keys(profile.dragonStats)) {
+      const delta = Math.floor(Number(stats[key]) || 0);
+      if (delta > 0) profile.dragonStats[key] += delta;
+    }
+    profile.dragonStats.dragonCoinsEarned += coins;
+    profile.dragonStats.heartsWon += heart;
+    profile.dragonRaidReceipts.push(receipt);
+    if (profile.dragonRaidReceipts.length > 200) profile.dragonRaidReceipts.splice(0, profile.dragonRaidReceipts.length - 200);
+    applied.push(String(identity.id));
+  }
+  if (applied.length && !savePlayersAtomic(players)) return { ok: false, error: 'Player storage unavailable' };
+  return { ok: true, applied };
 }
 
 // ---------------------------------------------------------------------------
@@ -919,6 +982,7 @@ module.exports = {
   getShadowCoins,
   grantAllShadowCoins,
   awardShadowCoins,
+  applyDragonRaidResults,
   deductShadowCoins,
   spendShadowCoins,
   getShadowProfile,

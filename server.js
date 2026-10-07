@@ -128,6 +128,8 @@ const PROTOCOL_VERSION = 1;
 const transmogCatalog = require('./js/broker-transmog-catalog');
 const heroRoles = require('./hero-roles');
 const coinDrops = require('./coin-drops');
+const dragonRaid = require('./dragon-raid');
+const { createDragonRaidService } = require('./dragon-raid-server');
 const DEFAULT_BROKER_PROFILE = Object.freeze(transmogCatalog.resolveProfile(transmogCatalog.DEFAULT_ID));
 const LEGACY_DEFAULT_AVATAR = 'assets/ui/shadow-broker.png';
 function normalizeBrokerProfile(input) {
@@ -1292,6 +1294,8 @@ function createRoom(gameId, hostWs) {
     brokerTransmogSeq: 0,
     // HERO ROLES (DPS / TANK / HEAL) -- see hero-roles.js.
     heroRoles: heroRoles.createState(),
+    // DRAGON RAID -- raid-local HP/classes and timers; never touches WOMF or board scoring.
+    dragonRaid: null,
     // SESSION-scoped scoring state. This whole object survives NEXT GAME
     // (gm:switchGame) -- only the per-board fields inside it (activeStreak,
     // boardFinalized) get reset there and on resetBoard. It is never
@@ -1480,6 +1484,7 @@ function getPublicState(room) {
     brokerTransmogSeq: Number(room.brokerTransmogSeq) || 0,
     brokerWardrobe: { owned: [...brokerWardrobeOwned()] },
     heroRoles: heroRolesView(room),
+    dragonRaid: dragonRaid.publicView(room.dragonRaid),
     revision: room.revision,
     background: room.currentBackground,
     cells: publicCells,
@@ -6981,7 +6986,8 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
   { name: '/award', help: '/award @Name ghost -- grant a Shadow Market relic or reward (e.g. /drug)' },
   { name: '/goat', help: '/goat -- unleash one random GOAT event' },
-  { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' }
+  { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' },
+  { name: '/dragon', help: '/dragon [random|varkhul|kraevar|azhraak|drazhul|heroic] -- summon a Dragon Raid' }
 ];
 const GM_CHAT_SLASH_COMMANDS = Array.from(new Map(
   [...CHAT_SLASH_COMMANDS, ...GM_ONLY_SLASH_COMMANDS].map(command => [command.name, command])
@@ -8486,6 +8492,13 @@ function dispatchGmSlashCommand(room, ws, text) {
     const result = handleGoatCommand(room, author, raw, { gm: true });
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
+  if (/^\/dragon\b/i.test(raw)) {
+    const match = raw.match(/^\/dragon(?:\s+(random|varkhul|kraevar|azhraak|drazhul|deathwing|heroic))?\s*$/i);
+    if (!match) return { success: false, error: 'DRAGON INVALID // USE /dragon [random|varkhul|kraevar|azhraak|drazhul|heroic]' };
+    const requested = String(match[1] || 'random').toLowerCase();
+    const result = triggerDragonRaid(room, requested === 'heroic' ? 'deathwing' : requested);
+    return result.ok ? { success: true, broadcast: false } : { success: false, error: result.error };
+  }
   if (/^\/commands\b/i.test(raw)) {
     const result = handleCommandsCommand(room, author, raw, GM_CHAT_SLASH_COMMANDS);
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
@@ -8927,6 +8940,30 @@ function sendToWs(ws, message) {
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify(message));
   }
+}
+
+let dragonRaidService = null;
+function getDragonRaidService() {
+  if (!dragonRaidService) {
+    dragonRaidService = createDragonRaidService({
+      playerStore,
+      coinAccount,
+      triggerMegabonk,
+      broadcastToRoom,
+      broadcastPlayersUpdate,
+      sendToWs,
+      randomInt: (min, maxExclusive) => crypto.randomInt(min, maxExclusive)
+    });
+  }
+  return dragonRaidService;
+}
+function triggerDragonRaid(room, bossId = 'random') {
+  return getDragonRaidService().trigger(room, bossId);
+}
+function handleDragonAction(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  const player = room?.players?.get(ws);
+  return getDragonRaidService().handle(room, ws, player, message);
 }
 
 // CLASS WARNING // server-driven so it reaches EVERYONE.
@@ -10028,8 +10065,10 @@ function getPlayersSnapshot(room, includeTestPersonas = true) {
       threefoldLosses: Number(profile.threefoldLosses) || 0,
       threefoldDraws: Number(profile.threefoldDraws) || 0,
       asocGamesEarned: Number(profile.asocGamesEarned) || 0,
-      // Account-level currency, read-only here (see player-store Shadow Coin API).
+      // Account-level currencies, read-only here.
       shadowCoins: Math.max(0, Math.round(Number.isInteger(profile.shadowCoinUnits) ? profile.shadowCoinUnits : (Number(profile.shadowCoins) || 0) * 10)) / 10,
+      heartOfShadow: Math.max(0, Math.floor(Number(profile.heartOfShadow) || 0)),
+      dragonStats: profile.dragonStats && typeof profile.dragonStats === 'object' ? { ...profile.dragonStats } : null,
       // Equipped cosmetics only (shadow-market.js); purely visual.
       cosmetics: shadowMarket.publicCosmetics(profile),
       shamed: !!room.shame?.[String(player.id)],
@@ -13842,6 +13881,12 @@ wss.on('connection', (ws, req) => {
         }
         case 'coinRoll:cast': {
           handleCoinRollCast(ws, message);
+          break;
+        }
+        case 'dragon:join':
+        case 'dragon:action':
+        case 'dragon:heartRoll': {
+          handleDragonAction(ws, message);
           break;
         }
         case 'gm:heroRoles':

@@ -1390,6 +1390,7 @@ const PlayerApp = {
         if (!window.AsocRuntime?.acceptRevision?.('player-public', message.revision) && window.AsocRuntime) break;
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         window.HeroRoles?.onState?.(message);
+        window.DragonRaid?.onState?.(message.dragonRaid, message.serverNow);
         window.Avada?.setState?.(message.avada);
         window.Shame?.onState?.(message);
         window.PoisonEffect?.onState?.(message);
@@ -1560,6 +1561,13 @@ const PlayerApp = {
       case 'megabonk:alert':
       case 'megabonk:cleared':
         window.Megabonk?.onMessage(message);
+        break;
+
+      case 'dragon:update':
+      case 'dragon:error':
+      case 'dragon:actionResult':
+      case 'dragon:heartRollResult':
+        window.DragonRaid?.onMessage?.(message);
         break;
 
       case 'warsong:alert':
@@ -5528,6 +5536,9 @@ const PlayerApp = {
       if (this._coinsSeen) chipEl?.classList.add('coin-bump');
     }
     this._coinsSeen = true;
+    const hearts = Math.max(0, Math.floor(Number(self.heartOfShadow) || 0));
+    const heartHud = document.getElementById('hero-hud-hearts');
+    if (heartHud) heartHud.textContent = String(hearts);
     // Equipped Shadow Market title beside the HUD identity.
     const hudTitle = document.getElementById('hero-hud-title');
     if (hudTitle) {

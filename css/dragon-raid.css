@@ -1,0 +1,372 @@
+.dragon-raid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 7200;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 2vw, 28px);
+  background:
+    radial-gradient(circle at 50% 12%, rgba(128, 38, 8, .30), transparent 34%),
+    linear-gradient(rgba(3, 4, 7, .84), rgba(7, 2, 2, .96));
+  backdrop-filter: blur(7px);
+  color: #f5eee4;
+}
+.dragon-raid-overlay[hidden] { display: none !important; }
+.dragon-raid-shell {
+  position: relative;
+  width: min(1100px, 96vw);
+  max-height: 94vh;
+  overflow: auto;
+  padding: clamp(20px, 3vw, 38px);
+  border: 1px solid rgba(223, 112, 45, .55);
+  border-radius: 20px;
+  background:
+    linear-gradient(145deg, rgba(28, 10, 6, .98), rgba(8, 9, 13, .98) 55%, rgba(18, 5, 5, .98));
+  box-shadow: 0 30px 90px rgba(0,0,0,.8), 0 0 50px rgba(179, 50, 10, .18), inset 0 0 60px rgba(138, 28, 8, .08);
+}
+.dragon-raid-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent, rgba(255,145,70,.025), transparent);
+}
+.dragon-heading {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 18px;
+  align-items: center;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(225,128,67,.25);
+}
+.dragon-heading small,
+.dragon-heart small,
+.dragon-hoard small,
+.dragon-summary-grid small {
+  display: block;
+  color: #c99370;
+  font: 700 11px/1.2 var(--font-system, system-ui);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+.dragon-heading h1 {
+  margin: 4px 0 0;
+  color: #fff3e4;
+  font: 800 clamp(24px, 4vw, 44px)/1 var(--font-display, var(--font-system, system-ui));
+  letter-spacing: .035em;
+  text-transform: uppercase;
+  text-shadow: 0 0 26px rgba(223,78,27,.28);
+}
+.dragon-heading > strong {
+  min-width: 100px;
+  text-align: center;
+  color: #ffd6a1;
+  font: 800 clamp(18px, 2.6vw, 30px)/1 var(--font-mono, monospace);
+  letter-spacing: .08em;
+}
+.dragon-heading > strong.is-critical { color: #ff8c59; animation: dragon-pulse .8s infinite alternate; }
+.dragon-heading > strong.is-terminal { color: #ff4238; animation-duration: .28s; }
+.dragon-heading.victory h1 { color: #ffe2a8; }
+.dragon-heading.defeat h1 { color: #ff766a; }
+.dragon-mark {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border: 1px solid rgba(242,130,65,.35);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(180,55,18,.28), rgba(20,5,3,.82));
+  font-size: 42px;
+  filter: drop-shadow(0 0 16px rgba(255,83,24,.28));
+}
+.dragon-mark.is-burning { animation: dragon-breathe 1.8s ease-in-out infinite alternate; }
+.dragon-lore {
+  margin: 18px auto;
+  max-width: 760px;
+  color: #c9b8ab;
+  text-align: center;
+  font: 500 14px/1.6 var(--font-system, system-ui);
+  letter-spacing: .03em;
+}
+.dragon-party-count {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 10px;
+  margin: 18px 0 12px;
+  color: #d6b295;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.dragon-party-count b { color: #fff1db; font-size: 20px; }
+.dragon-party-count span { color: #836c5c; font-size: 11px; }
+.dragon-raider-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0,1fr));
+  gap: 10px;
+  margin: 14px 0 20px;
+}
+.dragon-raider-card {
+  min-height: 132px;
+  padding: 12px;
+  border: 1px solid rgba(181,115,75,.28);
+  border-radius: 12px;
+  background: rgba(16,13,14,.84);
+  box-shadow: inset 0 0 24px rgba(0,0,0,.22);
+}
+.dragon-raider-card header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 7px;
+}
+.dragon-raider-card header b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #f4e8de;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.dragon-raider-card header small {
+  grid-column: 2;
+  color: #a78f7e;
+  font-size: 9px;
+  letter-spacing: .14em;
+}
+.dragon-role-icon { grid-row: 1 / span 2; font-size: 23px; }
+.dragon-raider-hp {
+  height: 7px;
+  margin: 14px 0 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(255,255,255,.07);
+}
+.dragon-raider-hp i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7e1818, #d04a31, #ff8b52);
+  box-shadow: 0 0 12px rgba(236,69,39,.35);
+  transition: width .35s ease;
+}
+.dragon-raider-card footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  color: #aa9687;
+  font-size: 10px;
+}
+.dragon-raider-card em {
+  display: block;
+  margin-top: 9px;
+  color: #cf9b74;
+  font: 700 9px/1 var(--font-system,system-ui);
+  letter-spacing: .1em;
+  text-align: center;
+}
+.dragon-raider-card.is-fallen {
+  opacity: .55;
+  filter: grayscale(.75);
+  border-color: rgba(110,110,110,.25);
+}
+.dragon-raider-card.is-fallen em { color: #e66a61; }
+.dragon-raider-card.is-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  color: #514945;
+  border-style: dashed;
+  text-align: center;
+}
+.dragon-raider-card.is-empty small { font-size: 9px; letter-spacing: .13em; }
+.dragon-class-pick {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 18px;
+}
+.dragon-class-pick button,
+.dragon-primary,
+.dragon-res-btn,
+.dragon-secondary {
+  border: 1px solid rgba(221,112,49,.48);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(114,38,15,.45), rgba(31,14,10,.9));
+  color: #f7dfca;
+  cursor: pointer;
+  transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease;
+}
+.dragon-class-pick button { min-height: 76px; padding: 12px; }
+.dragon-class-pick button b { display:block; font-size: 15px; }
+.dragon-class-pick button small { display:block; margin-top:7px; color:#ad8a71; letter-spacing:.08em; }
+.dragon-class-pick button:hover,
+.dragon-primary:hover,
+.dragon-res-btn:hover,
+.dragon-secondary:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,155,88,.82);
+  box-shadow: 0 0 24px rgba(204,61,18,.18);
+}
+.dragon-class-pick button:disabled,
+.dragon-primary:disabled,
+.dragon-res-btn:disabled { opacity:.5; cursor:default; transform:none; }
+.dragon-locked,
+.dragon-intermission,
+.dragon-own-roll,
+.dragon-note,
+.dragon-dead-loot {
+  margin: 14px 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(183,112,71,.25);
+  border-radius: 8px;
+  background: rgba(18,12,12,.75);
+  color: #c6a78f;
+  font: 700 11px/1.35 var(--font-system,system-ui);
+  letter-spacing: .11em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.dragon-note { color:#ffd39e; border-color:rgba(234,126,53,.45); }
+.dragon-dead-loot { color:#ff8176; border-color:rgba(200,55,43,.4); }
+.dragon-boss-hp {
+  margin: 22px 0 18px;
+  padding: 15px 18px;
+  border: 1px solid rgba(164,64,34,.35);
+  border-radius: 12px;
+  background: rgba(39,8,5,.6);
+}
+.dragon-boss-hp > div { display:flex; justify-content:space-between; margin-bottom:9px; }
+.dragon-boss-hp b { letter-spacing:.16em; color:#efb288; }
+.dragon-boss-hp strong { color:#ffb787; }
+.dragon-boss-hp > span {
+  display:block;
+  height:16px;
+  overflow:hidden;
+  border-radius:99px;
+  background:#170807;
+  box-shadow: inset 0 0 8px #000;
+}
+.dragon-boss-hp > span i {
+  display:block;
+  height:100%;
+  background: linear-gradient(90deg,#6e0f0d,#b72516,#ed5b20,#ffa043);
+  box-shadow:0 0 18px rgba(239,73,24,.55);
+  transition:width .45s ease;
+}
+.dragon-primary {
+  display:block;
+  width:min(420px,100%);
+  min-height:58px;
+  margin:18px auto;
+  font:800 15px/1 var(--font-system,system-ui);
+  letter-spacing:.15em;
+  text-transform:uppercase;
+}
+.dragon-primary.heart { border-color:rgba(147,73,158,.65); background:linear-gradient(180deg,rgba(74,26,84,.7),rgba(20,8,25,.95)); }
+.dragon-secondary {
+  display:block;
+  margin:20px auto 0;
+  padding:11px 18px;
+  font-weight:700;
+  letter-spacing:.1em;
+}
+.dragon-res-controls { display:flex; flex-wrap:wrap; justify-content:center; gap:9px; }
+.dragon-res-btn { padding:10px 14px; }
+.dragon-round-feed {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:7px;
+  margin-top:16px;
+}
+.dragon-round-feed span {
+  padding:8px 10px;
+  border-radius:7px;
+  background:rgba(255,255,255,.035);
+  color:#aa988a;
+  font-size:10px;
+}
+.dragon-round-feed .hit,
+.dragon-round-feed .heavy { color:#e5bd94; }
+.dragon-round-feed .burn { color:#e98275; }
+.dragon-round-feed b { color:inherit; }
+.dragon-hoard,
+.dragon-heart {
+  margin:22px auto 0;
+  max-width:720px;
+  padding:20px;
+  border:1px solid rgba(222,153,70,.35);
+  border-radius:14px;
+  background:radial-gradient(circle at 50% 0,rgba(158,92,20,.12),rgba(10,9,10,.85));
+  text-align:center;
+}
+.dragon-hoard > b { display:block; margin:6px 0 14px; color:#ffd27c; font-size:34px; }
+.dragon-hoard > div,
+.dragon-heart-rolls { display:grid; gap:6px; }
+.dragon-hoard span,
+.dragon-heart-rolls span {
+  display:flex;
+  justify-content:space-between;
+  padding:7px 10px;
+  background:rgba(255,255,255,.03);
+  color:#bda997;
+}
+.dragon-hoard span strong { color:#ffd27c; }
+.dragon-heart {
+  border-color:rgba(126,67,143,.45);
+  background:radial-gradient(circle at 50% 0,rgba(76,22,89,.22),rgba(9,7,11,.9));
+}
+.dragon-heart h2 { margin:6px 0; color:#dab1e5; font-size:25px; }
+.dragon-heart p { color:#927f9a; }
+.dragon-heart-rolls strong { color:#d8b4e3; }
+.dragon-heart.winner h2 { font-size:34px; text-transform:uppercase; }
+.dragon-summary-grid {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  max-width:620px;
+  margin:24px auto 0;
+}
+.dragon-summary-grid > div {
+  padding:16px;
+  border:1px solid rgba(182,112,70,.25);
+  border-radius:10px;
+  background:rgba(255,255,255,.025);
+  text-align:center;
+}
+.dragon-summary-grid b { display:block; margin-top:5px; font-size:25px; color:#f0d3b9; }
+.dragon-embers { position:absolute; inset:0; overflow:hidden; pointer-events:none; border-radius:inherit; }
+.dragon-embers i {
+  position:absolute;
+  bottom:-12px;
+  width:3px;
+  height:3px;
+  border-radius:50%;
+  background:#ff9f52;
+  box-shadow:0 0 8px #ff5c27;
+  animation:dragon-ember 5s linear infinite;
+}
+.dragon-embers i:nth-child(1){left:8%;animation-delay:-1s}.dragon-embers i:nth-child(2){left:22%;animation-delay:-3s}
+.dragon-embers i:nth-child(3){left:41%;animation-delay:-4s}.dragon-embers i:nth-child(4){left:62%;animation-delay:-2s}
+.dragon-embers i:nth-child(5){left:79%;animation-delay:-4.5s}.dragon-embers i:nth-child(6){left:92%;animation-delay:-.4s}
+@keyframes dragon-ember { to { transform:translateY(-92vh) translateX(35px); opacity:0; } }
+@keyframes dragon-breathe { from { transform:scale(.97); filter:drop-shadow(0 0 8px rgba(255,66,20,.25)); } to { transform:scale(1.04); filter:drop-shadow(0 0 24px rgba(255,90,20,.7)); } }
+@keyframes dragon-pulse { to { text-shadow:0 0 18px currentColor; transform:scale(1.04); } }
+@media (max-width: 820px) {
+  .dragon-raider-grid { grid-template-columns:repeat(2,1fr); }
+  .dragon-class-pick { grid-template-columns:1fr; }
+  .dragon-heading { grid-template-columns:auto 1fr; }
+  .dragon-heading > strong { grid-column:1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dragon-embers i,.dragon-mark.is-burning,.dragon-heading > strong.is-critical { animation:none !important; }
+}
+.dragon-turn-banner{margin:14px 0;padding:12px 16px;border:1px solid rgba(214,80,58,.55);background:linear-gradient(90deg,rgba(89,18,13,.75),rgba(20,12,22,.9));color:#ffd7b4;text-align:center;font:800 13px/1.2 var(--font-mono,monospace);letter-spacing:.16em;text-transform:uppercase}
+.dragon-action-tray{display:grid;grid-template-columns:minmax(160px,1fr) repeat(3,minmax(120px,auto));gap:9px;margin-top:14px;padding:12px;border:1px solid rgba(255,139,72,.32);background:rgba(8,6,10,.82)}
+.dragon-action-tray select,.dragon-action-tray button{min-height:44px;border:1px solid rgba(183,91,255,.48);background:#140d1b;color:#f8e9ff;font:700 11px/1.2 var(--font-mono,monospace);letter-spacing:.08em;text-transform:uppercase}
+.dragon-action-tray button:hover:not(:disabled){border-color:#ff8b48;box-shadow:0 0 18px rgba(255,90,45,.28)}
+.dragon-action-tray button:disabled{opacity:.35;cursor:not-allowed}
+.dragon-raider-card em{display:block;margin-top:6px;color:#d4a6ff;font-size:9px;letter-spacing:.09em}
+.dragon-round-feed .natural20{color:#ffd35c;text-shadow:0 0 10px #ff6a00}.dragon-round-feed .fumble{color:#ff5959}
+@media(max-width:780px){.dragon-action-tray{grid-template-columns:1fr 1fr}.dragon-action-tray select{grid-column:1/-1}}
