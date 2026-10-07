@@ -128,6 +128,7 @@ const PlayerApp = {
     { name: 'train', insert: '/train ', syntax: '/train Name | all', description: 'CHOO CHOO at one target or everyone' },
     { name: 'ass', insert: '/ass ', syntax: '/ass Name | all', description: 'Kick one target or everyone online' },
     { name: 'facepalm', insert: '/facepalm', syntax: '/facepalm', description: 'Facepalm' },
+    { name: 'sigh', insert: '/sigh', syntax: '/sigh', description: 'Sigh heavily at the state of things' },
     { name: 'cower', insert: '/cower', syntax: '/cower', description: 'Cower in fear' },
     { name: 'grovel', insert: '/grovel', syntax: '/grovel', description: 'Grovel before the Shadow Broker' },
     { name: 'flee', insert: '/flee', syntax: '/flee', description: 'Flee in terror' },

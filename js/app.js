@@ -98,6 +98,7 @@ const App = {
     { name: 'choose', insert: '/choose ', icon: '☝', label: 'CHOOSE', description: '/choose A | B | C -- pick one option at random' },
     { name: 'order', insert: '/order', icon: '⇅', label: 'TURN ORDER', description: '/order -- shuffled turn order of connected players' },
     { name: 'stats', insert: '/stats', icon: '▤', label: 'THE BOOK', description: '/stats -- the Broker consults the book' },
+    { name: 'sigh', insert: '/sigh', icon: '…', label: 'SIGH', description: '/sigh -- sigh heavily at the state of things' },
     { name: 'all', insert: '/all ', icon: '⚡', label: 'ALL', description: '/all [message] -- shake every screen' },
     { name: 'megabonk', insert: '/megabonk all ', icon: '🔨', label: 'MEGABONK ALL', description: '/megabonk all [message] -- every Little Hero must ACKNOWLEDGE' },
     { name: 'megabonk', insert: '/megabonk @', icon: '🔨', label: 'MEGABONK ONE', description: '/megabonk @Name [message] -- one Little Hero must ACKNOWLEDGE' },
@@ -235,6 +236,9 @@ const App = {
   // reset to a static 0/10 when there is no room (cleanupRoom). It is never
   // computed locally.
   womf: { charge: 0, armed: false },
+  // One-shot guard for the 10/10 transition. Re-arms when WOMF drops below
+  // 10, so every fresh full charge automatically summons the GM setup once.
+  _womfArmPrompted: false,
   // TIMER + BORROWED TIME -- same philosophy as womf: purely a reflection
   // of the server's authoritative state:public broadcasts (applyServerState)
   // or the static, un-started 'ready' default when there is no room
@@ -3926,10 +3930,35 @@ const App = {
     Womf.update('womf-tracker-public', state);
 
     const openBtn = document.getElementById('womf-open-btn');
+    const armed = state.charge >= 10;
     if (openBtn) {
-      const armed = state.charge >= 10;
       openBtn.disabled = !armed;
       openBtn.classList.toggle('armed', armed);
+    }
+
+    // 10/10 is an event, not merely a prettier number. On every fresh arm,
+    // automatically open the GM roster setup so WOMF cannot silently sit at
+    // full charge doing absolutely nothing. The OPEN WOMF button remains as
+    // a manual re-open if the GM closes/aborts the setup.
+    if (!armed) {
+      this._womfArmPrompted = false;
+    } else if (!this._womfArmPrompted
+        && this.mode === 'multiplayer'
+        && !this.wheel?.open
+        && this.bloodTribute?.status !== 'required') {
+      this._womfArmPrompted = true;
+      // Refresh the authoritative roster before painting the setup. The
+      // currently cached list is still used immediately, so this cannot block
+      // the trigger if the roster reply arrives a moment later.
+      this.send({ type: 'players:list' });
+      setTimeout(() => {
+        if (this.womf?.charge >= 10
+            && this.mode === 'multiplayer'
+            && !this.wheel?.open
+            && this.bloodTribute?.status !== 'required') {
+          this.openWheelSetup();
+        }
+      }, 0);
     }
 
     this.updateWomfControlsVisibility();
