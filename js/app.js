@@ -2767,6 +2767,10 @@ const App = {
         window.BackstabEffect?.onMessage(message, null);
         break;
 
+      case 'fatality:strike':
+        window.Fatality?.play?.(message);
+        break;
+
       case 'fistbump:impact':
         window.FistbumpEffect?.onMessage(message);
         break;

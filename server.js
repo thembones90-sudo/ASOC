@@ -6909,6 +6909,7 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/olympics', help: '/olympics -- declare the Rock Paper Scissors Olympics lobby' },
   { name: '/dennis', help: '/dennis off|announcer|advice -- control Dennis game commentary' },
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
+  { name: '/fatality', help: '/fatality @Name -- 50/50 Pyroblast or Frost cinematic on one Little Hero' },
   { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
   { name: '/b3', help: '/b3 -- manually trigger the three-second Baki B3 battle tribute' },
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
@@ -7821,6 +7822,36 @@ function dispatchGmSlashCommand(room, ws, text) {
       timestamp: now,
       durationMs: 3000
     });
+    return { success: true, broadcast: true };
+  }
+
+  // Fatality is a GM theatrical command, not a score or economy action.
+  // One server roll determines the variant for every connected spectator.
+  if (/^\/fatality\b/i.test(raw)) {
+    const match = raw.match(/^\/fatality(?:\s+@?(.*?))?\s*$/i);
+    if (!match || !match[1]?.trim()) return { success: false, error: 'FATALITY INVALID // USE /fatality @Name' };
+    const resolved = resolveNamedTarget(room, null, '', match[1], 'FATALITY', { includeDisconnected: false });
+    if (resolved.error) return { success: false, error: resolved.error };
+    const target = resolved.target;
+    const variant = crypto.randomInt(0, 2) === 0 ? 'pyroblast' : 'frost';
+    const actorName = brokerDisplayName(room);
+    const strike = {
+      actorId: null,
+      actorName,
+      actorAvatarData: publicBrokerProfile(room).avatarData || LEGACY_DEFAULT_AVATAR,
+      targetId: String(target.id),
+      targetName: target.name,
+      targetAvatarData: liveAvatarFor(room, target.id),
+      variant,
+      timestamp: Date.now(),
+      durationMs: 6200
+    };
+    const result = buildChatCommandMessage(room, author, 'fatality', 'shadowBroker',
+      `${actorName} unleashes FATALITY on ${target.name}. ${variant === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST'}!`,
+      { fatality: strike });
+    if (!result.success) return result;
+    result.message.source = 'shadowBroker';
+    broadcastToRoom(room, { type: 'fatality:strike', ...strike });
     return { success: true, broadcast: true };
   }
 
