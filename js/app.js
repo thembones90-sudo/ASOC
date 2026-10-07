@@ -1267,15 +1267,6 @@ const App = {
     // module boot. GMMinigames.init is idempotent, so this closes the timing
     // gap seen in cached Electron sessions without duplicating listeners.
     window.GMMinigames?.init?.();
-    document.getElementById('poison-gm-button')?.addEventListener('click', () => {
-      const targetName = window.prompt('POISON TARGET // Little Hero name');
-      if (!targetName || !targetName.trim()) return;
-      if (this.mode !== 'multiplayer' || !this.roomCode) {
-        this.setGMDeliveryState('NO LIVE ROOM', 'error', 1800);
-        return;
-      }
-      this.send({ type: 'gm:broadcast', text: `/poison @${targetName.trim()}` });
-    });
     document.getElementById('back-to-gm-btn').addEventListener('click', () => this.togglePublicView(false));
     document.getElementById('bg-select').addEventListener('change', (e) => this.applyBackground(e.target.value));
     document.getElementById('gm-bg-upload-input').addEventListener('change', (e) => {
@@ -2788,6 +2779,8 @@ const App = {
       case 'poison:tributeOffered':
       case 'poison:tributeAcceptedForReview':
       case 'poison:tributeRejected':
+      case 'gm:poisonTargets':
+      case 'gm:poisonCastResult':
         window.PoisonEffect?.onMessage?.(message);
         break;
 

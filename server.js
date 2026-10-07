@@ -7125,6 +7125,48 @@ function poisonTick(room, now = Date.now()) {
   }
 }
 
+function handleGmPoisonTargets(ws) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  const liveById = new Map();
+  room.players.forEach(player => {
+    if (player?.id) liveById.set(String(player.id), player);
+  });
+  const targets = authStore.listPlayers()
+    .filter(account => account && String(account.name || '').trim())
+    .map(account => {
+      const id = String(account.id || '');
+      const live = liveById.get(id);
+      const profile = playerStore.peekPlayers()[id] || {};
+      return {
+        id,
+        name: String(account.name).trim(),
+        online: !!live,
+        avatarData: live?.avatarData || profile.avatarData || ''
+      };
+    })
+    .sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name));
+  sendToWs(ws, { type: 'gm:poisonTargets', targets });
+}
+
+function handleGmPoisonCast(ws, message) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  const targetId = String(message?.playerId || '').trim();
+  const account = authStore.listPlayers().find(item => String(item?.id || '') === targetId && String(item?.name || '').trim());
+  if (!account) return sendToWs(ws, { type: 'gm:poisonCastResult', ok: false, error: 'POISON TARGET NOT FOUND' });
+
+  const result = dispatchGmSlashCommand(room, ws, `/poison @${String(account.name).trim()}`);
+  if (!result?.success) {
+    return sendToWs(ws, { type: 'gm:poisonCastResult', ok: false, error: result?.error || 'POISON CAST REJECTED' });
+  }
+  if (result.broadcast && result.success) {
+    persistActiveRooms();
+    broadcastChatUpdate(room);
+  }
+  sendToWs(ws, { type: 'gm:poisonCastResult', ok: true, playerId: targetId, playerName: String(account.name).trim() });
+}
+
 function handlePoisonTributeSubmit(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || !ws.playerId) return sendToWs(ws, { type: 'error', message: 'POISON TRIBUTE REQUIRES A LITTLE HERO' });
@@ -14006,6 +14048,14 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:tributeForgive': {
           handleTributeForgive(ws);
+          break;
+        }
+        case 'gm:poisonTargets': {
+          handleGmPoisonTargets(ws);
+          break;
+        }
+        case 'gm:poisonCast': {
+          handleGmPoisonCast(ws, message);
           break;
         }
         case 'gm:poisonTributeDecision': {

@@ -6,6 +6,9 @@
   let gmOffer = null;
   let observer = null;
   let countdownTimer = null;
+  let gmTargets = [];
+  let gmPickerOpen = false;
+  let gmCasting = false;
 
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const me = () => String(window.PlayerApp?.playerId || '');
@@ -59,6 +62,30 @@
       .poison-roll-label{display:block;margin-top:22px;font:900 clamp(22px,3vw,42px)/1 Arial;letter-spacing:.14em}
       .poison-roll-ceremony.success .poison-roll-number,.poison-roll-ceremony.success .poison-roll-label{color:#a9ff79}.poison-roll-ceremony.fail .poison-roll-number,.poison-roll-ceremony.fail .poison-roll-label{color:#ff6b59}
       @keyframes poison-roll-bg{0%{opacity:0}12%,78%{opacity:1}100%{opacity:0}}@keyframes poison-roll-pop{0%{opacity:0;transform:scale(1.45)}18%{opacity:1;transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(.82)}}
+      #poison-gm-button{display:grid!important;grid-template-columns:48px 1fr!important;grid-template-rows:1fr!important;align-items:center!important;gap:12px!important;min-height:60px!important;padding:8px 12px!important;text-align:left!important;border:1px solid #315a2a!important;background:linear-gradient(135deg,#0a1009,#11180f 58%,#091008)!important;color:#e7ffe0!important;box-shadow:inset 0 0 0 1px rgba(117,255,75,.04),0 0 0 rgba(79,255,48,0)!important;overflow:hidden!important}
+      #poison-gm-button:hover{border-color:#72df4b!important;box-shadow:inset 0 0 16px rgba(94,234,52,.08),0 0 18px rgba(79,255,48,.14)!important}
+      #poison-gm-button img{width:44px!important;height:44px!important;object-fit:cover!important;border-radius:8px!important;border:1px solid rgba(112,244,69,.75)!important;box-shadow:0 0 13px rgba(76,255,44,.26)!important;margin:0!important;grid-column:1!important;grid-row:1!important}
+      #poison-gm-button span{grid-column:2!important;grid-row:1!important;align-self:center!important;font:900 15px/1 Arial!important;letter-spacing:.12em!important;color:#e9f8e4!important}
+      #poison-gm-button small{display:none!important}
+      #poison-gm-button::after{content:"SELECT TARGET";grid-column:2;grid-row:1;align-self:end;margin-bottom:2px;font:800 8px/1 Arial;letter-spacing:.14em;color:#70a863}
+      #poison-target-picker{position:fixed;z-index:2147482450;width:min(420px,92vw);max-height:min(560px,82vh);display:flex;flex-direction:column;border:1px solid #4fbf2b;background:linear-gradient(165deg,#090d08,#11180e);box-shadow:0 24px 70px rgba(0,0,0,.62),0 0 35px rgba(73,255,47,.13);color:#eaf8e5;font-family:Arial,sans-serif}
+      #poison-target-picker[hidden]{display:none!important}
+      .poison-picker-head{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:11px;padding:14px;border-bottom:1px solid #294522}
+      .poison-picker-head img{width:46px;height:46px;object-fit:cover;border-radius:8px;border:1px solid #5fc83a}
+      .poison-picker-head b{display:block;font:900 18px/1 Arial;letter-spacing:.1em;color:#b8ff87}
+      .poison-picker-head small{display:block;margin-top:5px;font:700 10px/1.2 Arial;letter-spacing:.09em;color:#7e9777}
+      .poison-picker-close{border:0;background:transparent;color:#8fa389;font-size:24px;cursor:pointer}
+      .poison-picker-search{margin:12px 12px 8px;padding:10px 11px;border:1px solid #315126;background:#050805;color:#eaf8e5;outline:none;font:800 13px/1 Arial}
+      .poison-picker-search:focus{border-color:#6dd745;box-shadow:0 0 12px rgba(94,228,56,.12)}
+      .poison-target-list{overflow:auto;padding:4px 10px 12px;display:grid;gap:7px}
+      .poison-target-option{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:10px;width:100%;padding:8px 10px;border:1px solid #253c20;background:#0b100a;color:#e9f8e4;text-align:left;cursor:pointer}
+      .poison-target-option:hover{border-color:#5fc83a;background:#10190e}
+      .poison-target-option img{width:40px;height:40px;object-fit:cover;border-radius:50%;border:1px solid #3f6335}
+      .poison-target-option b{font:900 13px/1 Arial;letter-spacing:.06em}
+      .poison-target-option small{display:block;margin-top:4px;font:700 9px/1 Arial;letter-spacing:.1em;color:#70826b}
+      .poison-target-option .online{color:#82ff68}.poison-target-option .offline{color:#737d70}
+      .poison-picker-empty{padding:28px 12px;text-align:center;color:#768271;font-weight:800;letter-spacing:.08em}
+      .poison-cast-toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:2147482460;padding:11px 16px;border:1px solid #4fbf2b;background:#081007;color:#b9ff90;font:900 12px/1 Arial;letter-spacing:.1em;box-shadow:0 0 22px rgba(73,255,47,.18)}
     `;
     document.head.appendChild(style);
   }
@@ -162,6 +189,97 @@
     document.body.appendChild(layer);
     window.AsocAudio?.playUi?.(success ? 'success' : 'impact');
     setTimeout(() => layer.remove(), 1950);
+  }
+
+  function ensureGmPicker() {
+    let root = document.getElementById('poison-target-picker');
+    if (root) return root;
+    root = document.createElement('section');
+    root.id = 'poison-target-picker';
+    root.hidden = true;
+    root.innerHTML = `
+      <div class="poison-picker-head">
+        <img src="${ASSETS.command}" alt="">
+        <div><b>POISON TARGET</b><small>REGISTERED LITTLE HEROES // ONLINE OR OFFLINE</small></div>
+        <button type="button" class="poison-picker-close" aria-label="Close">×</button>
+      </div>
+      <input class="poison-picker-search" type="search" placeholder="SEARCH LITTLE HERO..." autocomplete="off">
+      <div class="poison-target-list"></div>`;
+    document.body.appendChild(root);
+    root.querySelector('.poison-picker-close')?.addEventListener('click', closeGmPicker);
+    root.querySelector('.poison-picker-search')?.addEventListener('input', renderGmTargets);
+    return root;
+  }
+
+  function positionGmPicker() {
+    const root = ensureGmPicker();
+    const button = document.getElementById('poison-gm-button');
+    const rect = button?.getBoundingClientRect?.();
+    const width = Math.min(420, window.innerWidth * 0.92);
+    const left = rect ? Math.min(window.innerWidth - width - 16, Math.max(16, rect.right + 12)) : Math.max(16, (window.innerWidth - width) / 2);
+    const top = rect ? Math.min(window.innerHeight - 220, Math.max(16, rect.top)) : 80;
+    root.style.left = left + 'px';
+    root.style.top = top + 'px';
+  }
+
+  function openGmPicker() {
+    if (!window.App?.send) return;
+    const root = ensureGmPicker();
+    gmPickerOpen = true;
+    gmTargets = [];
+    root.hidden = false;
+    positionGmPicker();
+    const list = root.querySelector('.poison-target-list');
+    if (list) list.innerHTML = '<div class="poison-picker-empty">FETCHING LITTLE HEROES...</div>';
+    window.App.send({ type:'gm:poisonTargets' });
+    setTimeout(() => root.querySelector('.poison-picker-search')?.focus(), 0);
+  }
+
+  function closeGmPicker() {
+    gmPickerOpen = false;
+    gmCasting = false;
+    const root = document.getElementById('poison-target-picker');
+    if (root) root.hidden = true;
+  }
+
+  function renderGmTargets() {
+    const root = ensureGmPicker();
+    const list = root.querySelector('.poison-target-list');
+    const query = String(root.querySelector('.poison-picker-search')?.value || '').trim().toLocaleLowerCase();
+    const filtered = gmTargets.filter(target => !query || String(target.name || '').toLocaleLowerCase().includes(query));
+    if (!filtered.length) {
+      list.innerHTML = '<div class="poison-picker-empty">NO LITTLE HEROES FOUND</div>';
+      return;
+    }
+    list.innerHTML = filtered.map(target => {
+      const avatar = target.avatarData || ASSETS.status;
+      const status = target.online ? 'ONLINE' : 'OFFLINE';
+      return `<button type="button" class="poison-target-option" data-poison-target-id="${esc(target.id)}">
+        <img src="${esc(avatar)}" alt="">
+        <span><b>${esc(target.name)}</b><small>ACCOUNT TARGET</small></span>
+        <strong class="${target.online ? 'online' : 'offline'}">${status}</strong>
+      </button>`;
+    }).join('');
+  }
+
+  function castAtTarget(playerId) {
+    if (gmCasting || !playerId || !window.App?.send) return;
+    gmCasting = true;
+    document.querySelectorAll('.poison-target-option').forEach(button => { button.disabled = true; });
+    window.App.send({ type:'gm:poisonCast', playerId:String(playerId) });
+  }
+
+  function showGmToast(text, bad = false) {
+    document.querySelector('.poison-cast-toast')?.remove();
+    const toast = document.createElement('div');
+    toast.className = 'poison-cast-toast';
+    if (bad) {
+      toast.style.borderColor = '#b94b43';
+      toast.style.color = '#ff8b80';
+    }
+    toast.textContent = String(text || '');
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2200);
   }
 
   function ensurePlayerOverlay() {
@@ -283,6 +401,23 @@
 
   function onMessage(message) {
     if (!message) return;
+    if (message.type === 'gm:poisonTargets') {
+      gmTargets = Array.isArray(message.targets) ? message.targets : [];
+      gmCasting = false;
+      if (gmPickerOpen) renderGmTargets();
+      return;
+    }
+    if (message.type === 'gm:poisonCastResult') {
+      gmCasting = false;
+      if (message.ok) {
+        closeGmPicker();
+        showGmToast(`POISON CAST // ${message.playerName || 'TARGET'}`);
+      } else {
+        showGmToast(message.error || 'POISON CAST REJECTED', true);
+        document.querySelectorAll('.poison-target-option').forEach(button => { button.disabled = false; });
+      }
+      return;
+    }
     if (message.type === 'poison:applied') playCast(message);
     if (message.type === 'poison:failed') showRollCeremony(message, false);
     if (message.type === 'poison:cured' && message.reason === 'roll') showRollCeremony(message, true);
@@ -325,6 +460,27 @@
 
   function start() {
     ensureStyle();
+    document.addEventListener('click', event => {
+      const skill = event.target.closest?.('#poison-gm-button');
+      if (skill) {
+        event.preventDefault();
+        event.stopPropagation();
+        openGmPicker();
+        return;
+      }
+      const target = event.target.closest?.('[data-poison-target-id]');
+      if (target) {
+        event.preventDefault();
+        castAtTarget(target.dataset.poisonTargetId);
+        return;
+      }
+      if (gmPickerOpen) {
+        const picker = document.getElementById('poison-target-picker');
+        if (picker && !picker.contains(event.target)) closeGmPicker();
+      }
+    });
+    window.addEventListener('resize', () => { if (gmPickerOpen) positionGmPicker(); });
+    ensureGmPicker();
     decorate();
     observer = new MutationObserver(() => decorate());
     observer.observe(document.documentElement, { childList:true, subtree:true });
