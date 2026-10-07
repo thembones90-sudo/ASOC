@@ -7156,15 +7156,45 @@ function handleGmPoisonCast(ws, message) {
   const account = authStore.listPlayers().find(item => String(item?.id || '') === targetId && String(item?.name || '').trim());
   if (!account) return sendToWs(ws, { type: 'gm:poisonCastResult', ok: false, error: 'POISON TARGET NOT FOUND' });
 
-  const result = dispatchGmSlashCommand(room, ws, `/poison @${String(account.name).trim()}`);
-  if (!result?.success) {
-    return sendToWs(ws, { type: 'gm:poisonCastResult', ok: false, error: result?.error || 'POISON CAST REJECTED' });
-  }
-  if (result.broadcast && result.success) {
+  const playerName = String(account.name).trim();
+  const map = ensurePoisonState(room);
+  const existing = map[targetId];
+  const author = { id: null, name: brokerDisplayName(room) };
+
+  if (existing) {
+    broadcastToRoom(room, { type: 'poison:applied', playerId: existing.playerId, playerName: existing.playerName, refreshed: true, timestamp: Date.now() });
+    const result = buildChatCommandMessage(room, author, 'poison', 'shadowBroker', `${brokerDisplayName(room)} renews the poison coursing through ${existing.playerName}.`, { poison: { playerId: existing.playerId, refreshed: true } });
+    if (!result.success) return sendToWs(ws, { type: 'gm:poisonCastResult', ok: false, error: result.error || 'POISON CAST REJECTED' });
+    result.message.source = 'shadowBroker';
     persistActiveRooms();
     broadcastChatUpdate(room);
+    return sendToWs(ws, { type: 'gm:poisonCastResult', ok: true, playerId: targetId, playerName });
   }
-  sendToWs(ws, { type: 'gm:poisonCastResult', ok: true, playerId: targetId, playerName: String(account.name).trim() });
+
+  const now = Date.now();
+  map[targetId] = {
+    id: 'poison-' + crypto.randomBytes(8).toString('hex'),
+    playerId: targetId,
+    playerName,
+    status: 'awaiting_roll',
+    rollUsed: false,
+    rollValue: null,
+    castAt: now,
+    nextTickAt: null,
+    tickCount: 0,
+    totalLost: 0,
+    pendingTributeId: null
+  };
+  poisonBroadcastState(room, { type: 'poison:applied', playerId: targetId, playerName, refreshed: false, timestamp: now });
+  const result = buildChatCommandMessage(room, author, 'poison', 'shadowBroker', `${brokerDisplayName(room)} poisons ${playerName}. ONE SAVE: /roll. 50+ CURES. BELOW 50 BLEEDS 0.1 SC EVERY 20 SECONDS.`, { poison: { playerId: targetId } });
+  if (!result.success) {
+    delete map[targetId];
+    return sendToWs(ws, { type: 'gm:poisonCastResult', ok: false, error: result.error || 'POISON CAST REJECTED' });
+  }
+  result.message.source = 'shadowBroker';
+  persistActiveRooms();
+  broadcastChatUpdate(room);
+  sendToWs(ws, { type: 'gm:poisonCastResult', ok: true, playerId: targetId, playerName });
 }
 
 function handlePoisonTributeSubmit(ws, message) {
