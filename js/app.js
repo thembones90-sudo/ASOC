@@ -3748,7 +3748,7 @@ const App = {
     listEl.style.display = onlinePlayers.length > 0 ? 'flex' : 'none';
 
     listEl.innerHTML = onlinePlayers.map(p => `
-      <div class="mp-player mp-player-online">
+      <div class="mp-player mp-player-online" data-player-id="${this.escapeHtml(String(p.id || ''))}">
         <span class="mp-player-name mp-little-hero">${this.littleHeroAvatarHTML(p, true)}<span class="${p.shamed ? 'asoc-shamed-name' : ''}">${this.escapeHtml(p.name)}</span></span>
         <span class="mp-player-actions">
           <span class="mp-status-dot connected" title="Online"></span>

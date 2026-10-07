@@ -31,18 +31,106 @@
       .poison-card::before{content:"";position:absolute;inset:-30%;background:radial-gradient(circle,rgba(80,255,55,.1),transparent 58%);animation:poison-haze 4s infinite alternate}
       @keyframes poison-haze{to{transform:translate(7%,5%) scale(1.08)}}
       .poison-card>*{position:relative;z-index:2}.poison-kicker{font:800 12px/1 Arial;letter-spacing:.24em;color:#77e746}.poison-card h2{margin:9px 0 7px;font:900 clamp(32px,6vw,58px)/.95 Impact,Arial Black,sans-serif;letter-spacing:.06em;color:#a8ff70;text-shadow:0 0 18px #2c8e1e}.poison-card p{line-height:1.45;color:#b8c8b2}.poison-status{margin:16px 0;padding:12px;border:1px solid #325d26;background:#071006;font-weight:800;letter-spacing:.08em}.poison-actions{display:flex;gap:10px;flex-wrap:wrap}.poison-actions button,.poison-upload-label{border:1px solid #64ce3e;background:#13230f;color:#dfffd0;padding:10px 14px;font-weight:900;letter-spacing:.08em;cursor:pointer}.poison-actions button:hover,.poison-upload-label:hover{background:#1d3615}.poison-upload-label input{display:none}.poison-small{font-size:12px;color:#7e9678}.poison-image{display:block;width:min(420px,80vw);max-height:50vh;object-fit:contain;margin:14px auto;border:1px solid #426c31;background:#000}.poison-loss{color:#b8ff82}.poison-dot-float{position:absolute;left:50%;top:0;z-index:50;transform:translate(-50%,0);font:900 13px/1 Arial;color:#b8ff82;text-shadow:0 0 8px #1b6f17,0 2px 3px #000;pointer-events:none;animation:poison-float 1.35s ease-out forwards}@keyframes poison-float{0%{opacity:0;transform:translate(-50%,12px) scale(.75)}15%{opacity:1}100%{opacity:0;transform:translate(-50%,-42px) scale(1.18)}}
+      .poison-gm-badge{display:inline-grid;place-items:center;margin-left:7px;min-width:21px;height:21px;padding:0 5px;border:1px solid #5ed338;border-radius:999px;background:#0b1908;color:#9cff69;font:900 12px/1 Arial;box-shadow:0 0 10px rgba(82,255,52,.22);cursor:help}
+      .poison-cast-layer{position:fixed;inset:0;z-index:2147482300;pointer-events:none;overflow:hidden}
+      .poison-cast-dagger{position:absolute;left:var(--sx);top:var(--sy);width:90px;height:7px;transform-origin:left center;transform:rotate(var(--ang));background:linear-gradient(90deg,transparent,#15340f 20%,#7dff4d 72%,#eaffdc);box-shadow:0 0 10px #6dff42,0 0 24px rgba(86,255,55,.7);clip-path:polygon(0 42%,78% 42%,100% 0,91% 50%,100% 100%,78% 58%,0 58%);animation:poison-dagger-flight .72s cubic-bezier(.18,.8,.2,1) forwards}
+      .poison-cast-dagger::after{content:"";position:absolute;inset:-10px -15px;background:radial-gradient(circle at 85% 50%,rgba(120,255,70,.8),transparent 38%);filter:blur(4px)}
+      .poison-target-struck{animation:poison-target-hit .6s ease}
+      @keyframes poison-dagger-flight{0%{opacity:0;transform:translate(0,0) rotate(var(--ang)) scaleX(.35)}12%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--ang)) scaleX(1.25)}}
+      @keyframes poison-target-hit{0%,100%{filter:none}35%{filter:hue-rotate(55deg) saturate(3) brightness(1.15);transform:scale(1.06)}60%{filter:hue-rotate(55deg) saturate(3.5) brightness(.78)}}
+      .poison-roll-ceremony{position:fixed;inset:0;z-index:2147482350;display:grid;place-items:center;pointer-events:none;background:radial-gradient(circle at 50% 50%,rgba(7,22,5,.52),rgba(0,0,0,.72));animation:poison-roll-bg 1.9s both}
+      .poison-roll-box{text-align:center;font-family:Arial,sans-serif;color:#e9f8e4;animation:poison-roll-pop 1.9s both}
+      .poison-roll-number{display:block;font:900 clamp(110px,18vw,240px)/.8 Impact,Arial Black,sans-serif;letter-spacing:.02em;text-shadow:0 0 28px currentColor,0 8px 0 #071007}
+      .poison-roll-label{display:block;margin-top:22px;font:900 clamp(22px,3vw,42px)/1 Arial;letter-spacing:.14em}
+      .poison-roll-ceremony.success .poison-roll-number,.poison-roll-ceremony.success .poison-roll-label{color:#a9ff79}.poison-roll-ceremony.fail .poison-roll-number,.poison-roll-ceremony.fail .poison-roll-label{color:#ff6b59}
+      @keyframes poison-roll-bg{0%{opacity:0}12%,78%{opacity:1}100%{opacity:0}}@keyframes poison-roll-pop{0%{opacity:0;transform:scale(1.45)}18%{opacity:1;transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(.82)}}
     `;
     document.head.appendChild(style);
   }
 
   function decorate() {
     ensureStyle();
-    document.querySelectorAll('[data-player-id]').forEach(node => {
+    document.querySelectorAll('[data-player-id]:not(button)').forEach(node => {
       const id = String(node.getAttribute('data-player-id') || '');
       node.classList.toggle('asoc-poisoned', !!states[id]);
       if (states[id]) node.dataset.poisonStatus = states[id].status || '';
       else delete node.dataset.poisonStatus;
     });
+  }
+
+  function updateGmBadges() {
+    if (!window.App?.send) return;
+    document.querySelectorAll('.mp-player[data-player-id]').forEach(row => {
+      const id = String(row.getAttribute('data-player-id') || '');
+      const state = states[id];
+      let badge = row.querySelector(':scope > .poison-gm-badge');
+      if (!state) {
+        badge?.remove();
+        return;
+      }
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'poison-gm-badge';
+        badge.textContent = '☣';
+        row.appendChild(badge);
+      }
+      const next = state.status === 'bleeding' && state.nextTickAt
+        ? Math.max(0, Math.ceil((Number(state.nextTickAt) - Date.now()) / 1000))
+        : null;
+      const lost = Number(state.totalLost || 0).toFixed(1);
+      badge.title = state.status === 'awaiting_roll'
+        ? `POISONED // AWAITING SAVE // ${lost} SC LOST`
+        : `BLEEDING // NEXT TICK ${next}s // ${lost} SC LOST`;
+    });
+  }
+
+  function targetNode(playerId) {
+    const nodes = [...document.querySelectorAll('[data-player-id]:not(button)')];
+    return nodes.find(node => String(node.getAttribute('data-player-id') || '') === String(playerId || '')) || null;
+  }
+
+  function playCast(message) {
+    ensureStyle();
+    const target = targetNode(message.playerId);
+    const rect = target?.getBoundingClientRect?.();
+    const sx = Math.max(20, window.innerWidth * 0.12);
+    const sy = window.innerHeight * 0.52;
+    const tx = rect ? rect.left + rect.width / 2 : window.innerWidth * 0.72;
+    const ty = rect ? rect.top + rect.height / 2 : window.innerHeight * 0.5;
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    const layer = document.createElement('div');
+    layer.className = 'poison-cast-layer';
+    layer.innerHTML = '<div class="poison-cast-dagger"></div>';
+    const dagger = layer.firstElementChild;
+    dagger.style.setProperty('--sx', sx + 'px');
+    dagger.style.setProperty('--sy', sy + 'px');
+    dagger.style.setProperty('--dx', dx + 'px');
+    dagger.style.setProperty('--dy', dy + 'px');
+    dagger.style.setProperty('--ang', angle + 'deg');
+    document.body.appendChild(layer);
+    setTimeout(() => {
+      target?.classList.remove('poison-target-struck');
+      if (target) { void target.offsetWidth; target.classList.add('poison-target-struck'); }
+      window.AsocAudio?.playUi?.('impact');
+    }, 560);
+    setTimeout(() => {
+      target?.classList.remove('poison-target-struck');
+      layer.remove();
+    }, 1050);
+  }
+
+  function showRollCeremony(message, success) {
+    const value = Number(message.roll);
+    if (!Number.isFinite(value)) return;
+    document.querySelector('.poison-roll-ceremony')?.remove();
+    const layer = document.createElement('div');
+    layer.className = 'poison-roll-ceremony ' + (success ? 'success' : 'fail');
+    layer.innerHTML = `<div class="poison-roll-box"><span class="poison-roll-number">${value}</span><span class="poison-roll-label">${success ? 'VENOM RESISTED // CURED' : 'SAVE FAILED // BLOOD TRIBUTE REQUIRED'}</span></div>`;
+    document.body.appendChild(layer);
+    window.AsocAudio?.playUi?.(success ? 'success' : 'impact');
+    setTimeout(() => layer.remove(), 1950);
   }
 
   function ensurePlayerOverlay() {
@@ -155,11 +243,15 @@
   function onState(message) {
     states = message?.poison && typeof message.poison === 'object' ? message.poison : {};
     decorate();
+    updateGmBadges();
     renderPlayer();
   }
 
   function onMessage(message) {
     if (!message) return;
+    if (message.type === 'poison:applied') playCast(message);
+    if (message.type === 'poison:failed') showRollCeremony(message, false);
+    if (message.type === 'poison:cured' && message.reason === 'roll') showRollCeremony(message, true);
     if (message.type === 'poison:tributeOffered' && window.App?.send) {
       gmOffer = message;
       renderGmOffer();
@@ -168,7 +260,7 @@
     if (message.type === 'poison:tick') {
       const playerId = String(message.playerId || '');
       const label = Number(message.deducted || 0) > 0 ? '-0.1 SC' : 'NO SC LEFT';
-      document.querySelectorAll('[data-player-id]').forEach(node => {
+      document.querySelectorAll('[data-player-id]:not(button)').forEach(node => {
         if (String(node.getAttribute('data-player-id') || '') !== playerId) return;
         const floater = document.createElement('span');
         floater.className = 'poison-dot-float';
@@ -203,6 +295,7 @@
     observer = new MutationObserver(() => decorate());
     observer.observe(document.documentElement, { childList:true, subtree:true });
     countdownTimer = setInterval(() => {
+      updateGmBadges();
       const state = states[me()];
       if (state?.status === 'bleeding') {
         const el = document.querySelector('[data-poison-countdown]');

@@ -7055,6 +7055,7 @@ function poisonPublicState(room) {
       rollValue: Number.isFinite(state.rollValue) ? state.rollValue : null,
       nextTickAt: Number(state.nextTickAt) || null,
       tickCount: Number(state.tickCount) || 0,
+      totalLost: Math.round((Number(state.totalLost) || 0) * 10) / 10,
       pendingTribute: !!state.pendingTributeId,
       castAt: Number(state.castAt) || null
     };
@@ -7079,6 +7080,7 @@ function poisonCure(room, playerId, reason = 'cured') {
     playerId: state.playerId,
     playerName: state.playerName,
     reason,
+    totalLost: Math.round((Number(state.totalLost) || 0) * 10) / 10,
     timestamp: Date.now()
   });
   return true;
@@ -7098,15 +7100,18 @@ function poisonTick(room, now = Date.now()) {
       receipt,
       { reason: 'poison damage over time' }
     );
+    const deducted = result?.ok ? Number(result.deducted || 0) : 0;
+    state.totalLost = Math.round(((Number(state.totalLost) || 0) + deducted) * 10) / 10;
     state.nextTickAt = now + 20000;
     changed = true;
     broadcastToRoom(room, {
       type: 'poison:tick',
       playerId: state.playerId,
       playerName: state.playerName,
-      deducted: result?.ok ? Number(result.deducted || 0) : 0,
+      deducted,
       balance: result?.balance,
       tickCount: state.tickCount,
+      totalLost: state.totalLost,
       nextTickAt: state.nextTickAt,
       timestamp: now
     });
@@ -8128,6 +8133,7 @@ function dispatchGmSlashCommand(room, ws, text) {
       castAt: now,
       nextTickAt: null,
       tickCount: 0,
+      totalLost: 0,
       pendingTributeId: null
     };
     map[state.playerId] = state;
