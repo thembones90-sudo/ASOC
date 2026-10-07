@@ -7873,6 +7873,43 @@ const PLAYER_FATALITY_LINES = Object.freeze({
   ]
 });
 
+const FATALITY_FEED_LINES = Object.freeze({
+  pyroblast: [
+    '{T} has been downgraded to ash.',
+    '{T} is now mostly a temperature problem.',
+    '{T} has left the chat in several carbon-based formats.',
+    '{T} has been promoted to smoke.',
+    '{T} is experiencing catastrophic overclocking.',
+    '{T} has discovered why the red button was red.'
+  ],
+  frost: [
+    '{T} has been archived at sub-zero.',
+    '{T} is now legally part of the freezer inventory.',
+    '{T} has been reduced to one very quiet ice sculpture.',
+    '{T} has stopped generating body heat. Efficient.',
+    '{T} has been placed on permanent winter settings.',
+    '{T} is currently unavailable due to excessive freezing.'
+  ],
+  reflect: [
+    'Wrong throne, little heretic. {A} gets the spell back.',
+    'The Broker declines. {A} may keep the FATALITY.',
+    'Cute. The throne returns {A}\'s little extinction request.',
+    '{A} challenged the throne. The throne answered.',
+    'Return to sender. No refunds, little heretic.',
+    'The spell reached the Broker, reconsidered its career, and went back to {A}.'
+  ]
+});
+
+function fatalityFeedLine(variant, targetName) {
+  const pool = FATALITY_FEED_LINES[variant] || FATALITY_FEED_LINES.pyroblast;
+  return pool[crypto.randomInt(0, pool.length)].replace(/\{T\}/g, targetName);
+}
+
+function fatalityReflectLine(actorName) {
+  const pool = FATALITY_FEED_LINES.reflect;
+  return pool[crypto.randomInt(0, pool.length)].replace(/\{A\}/g, actorName);
+}
+
 function handlePlayerFatalityCommand(room, author, raw, targetPlayerId = '') {
   const match = raw.match(/^\/fatality(?:\s+@?(.*?))?\s*$/i);
   if (!match) return { success: false, error: 'FATALITY INVALID // USE /fatality @Name' };
@@ -7914,13 +7951,14 @@ function handlePlayerFatalityCommand(room, author, raw, targetPlayerId = '') {
     avatarData: aimedAtBroker ? brokerAvatar : liveAvatarFor(room, intended.id)
   };
   let line = standardLine;
-  let text = `${author.name} unleashes FATALITY on ${victim.name}. ${variant === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST'}! ${line}`;
+  const finisher = variant === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST';
+  let text = `${finisher} // ${fatalityFeedLine(variant, victim.name)}`;
 
   if (reflected) {
     strikeActor = { id: null, name: brokerName, avatarData: brokerAvatar };
     victim = { id: String(author.id), name: author.name, avatarData: liveAvatarFor(room, author.id) };
-    line = `SPELL REFLECT. ${author.name} has been returned to sender.`;
-    text = `🪞 SPELL REFLECT // ${author.name} aimed FATALITY at ${brokerName}. The Broker returned it to sender.`;
+    line = fatalityReflectLine(author.name);
+    text = `🪞 SPELL REFLECT // ${line}`;
   }
 
   const strike = {
@@ -8199,7 +8237,7 @@ function dispatchGmSlashCommand(room, ws, text) {
       durationMs: 6200
     };
     const result = buildChatCommandMessage(room, author, 'fatality', 'shadowBroker',
-      `${actorName} unleashes FATALITY on ${target.name}. ${variant === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST'}! ${fatalityLine}`,
+      `${variant === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST'} // ${fatalityFeedLine(variant, target.name)}`,
       { fatality: strike });
     if (!result.success) return result;
     result.message.source = 'shadowBroker';
