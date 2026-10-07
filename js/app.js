@@ -84,7 +84,6 @@ const App = {
   gmSlashCommands: [
     { name: 'warsong', insert: '/warsong', icon: '⚑', label: 'WARSONG', description: 'Six-second room-wide Horde battle banner' },
     { name: 'fatality', insert: '/fatality @', icon: '☠', label: 'FATALITY', description: '/fatality @Name -- execute one Little Hero with Pyroblast or Absolute Zero' },
-    { name: 'poison', insert: '/poison @', icon: '☣', iconAsset: 'assets/skills/poison/poison-command.webp', label: 'POISON', description: '/poison @Name -- one save, then 0.1 SC bleed every 20 seconds until Blood Tribute cure' },
     { name: 'fireworks', insert: '/fireworks ', icon: '✺', label: 'FIREWORKS', description: '/fireworks [message] -- light up every screen' },
     { name: 'c4', insert: '/c4', icon: '▣', label: 'C4 COLUMN', description: 'Manually trigger the three-second C4 battle alert' },
     { name: 'b3', insert: '/b3', icon: '◩', label: 'BAKI B3', description: 'Manually trigger the purple-black B3 battle tribute' },
@@ -1268,6 +1267,15 @@ const App = {
     // module boot. GMMinigames.init is idempotent, so this closes the timing
     // gap seen in cached Electron sessions without duplicating listeners.
     window.GMMinigames?.init?.();
+    document.getElementById('poison-gm-button')?.addEventListener('click', () => {
+      const targetName = window.prompt('POISON TARGET // Little Hero name');
+      if (!targetName || !targetName.trim()) return;
+      if (this.mode !== 'multiplayer' || !this.roomCode) {
+        this.setGMDeliveryState('NO LIVE ROOM', 'error', 1800);
+        return;
+      }
+      this.send({ type: 'gm:broadcast', text: `/poison @${targetName.trim()}` });
+    });
     document.getElementById('back-to-gm-btn').addEventListener('click', () => this.togglePublicView(false));
     document.getElementById('bg-select').addEventListener('change', (e) => this.applyBackground(e.target.value));
     document.getElementById('gm-bg-upload-input').addEventListener('change', (e) => {
