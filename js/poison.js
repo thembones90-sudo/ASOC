@@ -62,12 +62,11 @@
       .poison-roll-label{display:block;margin-top:22px;font:900 clamp(22px,3vw,42px)/1 Arial;letter-spacing:.14em}
       .poison-roll-ceremony.success .poison-roll-number,.poison-roll-ceremony.success .poison-roll-label{color:#a9ff79}.poison-roll-ceremony.fail .poison-roll-number,.poison-roll-ceremony.fail .poison-roll-label{color:#ff6b59}
       @keyframes poison-roll-bg{0%{opacity:0}12%,78%{opacity:1}100%{opacity:0}}@keyframes poison-roll-pop{0%{opacity:0;transform:scale(1.45)}18%{opacity:1;transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(.82)}}
-      #poison-gm-button{display:grid!important;grid-template-columns:48px 1fr!important;grid-template-rows:1fr!important;align-items:center!important;gap:12px!important;min-height:60px!important;padding:8px 12px!important;text-align:left!important;border:1px solid #315a2a!important;background:linear-gradient(135deg,#0a1009,#11180f 58%,#091008)!important;color:#e7ffe0!important;box-shadow:inset 0 0 0 1px rgba(117,255,75,.04),0 0 0 rgba(79,255,48,0)!important;overflow:hidden!important}
-      #poison-gm-button:hover{border-color:#72df4b!important;box-shadow:inset 0 0 16px rgba(94,234,52,.08),0 0 18px rgba(79,255,48,.14)!important}
-      #poison-gm-button img{width:44px!important;height:44px!important;object-fit:cover!important;border-radius:8px!important;border:1px solid rgba(112,244,69,.75)!important;box-shadow:0 0 13px rgba(76,255,44,.26)!important;margin:0!important;grid-column:1!important;grid-row:1!important}
-      #poison-gm-button span{grid-column:2!important;grid-row:1!important;align-self:center!important;font:900 15px/1 Arial!important;letter-spacing:.12em!important;color:#e9f8e4!important}
-      #poison-gm-button small{display:none!important}
-      #poison-gm-button::after{content:"SELECT TARGET";grid-column:2;grid-row:1;align-self:end;margin-bottom:2px;font:800 8px/1 Arial;letter-spacing:.14em;color:#70a863}
+      #poison-gm-button{display:block!important;min-height:74px!important;height:74px!important;padding:0!important;border:1px solid rgba(92,255,61,.36)!important;border-radius:7px!important;background-color:#050805!important;background-image:url("assets/skills/poison/poison-button-face.webp?v=20261007-poison-face-1")!important;background-repeat:no-repeat!important;background-position:center!important;background-size:cover!important;box-shadow:0 0 10px rgba(77,255,46,.10),inset 0 0 14px rgba(77,255,46,.05)!important;overflow:hidden!important;cursor:pointer!important;transition:filter .16s ease,box-shadow .16s ease,border-color .16s ease,transform .10s ease!important}
+      #poison-gm-button:hover{filter:brightness(1.08) saturate(1.08)!important;border-color:rgba(126,255,104,.72)!important;box-shadow:0 0 16px rgba(77,255,46,.18),inset 0 0 18px rgba(77,255,46,.08)!important}
+      #poison-gm-button:active{transform:translateY(1px) scale(.995)!important;filter:brightness(.96)!important}
+      #poison-gm-button.is-armed{filter:brightness(1.12) saturate(1.18)!important;border-color:rgba(145,255,124,.92)!important;box-shadow:0 0 20px rgba(77,255,46,.24),inset 0 0 20px rgba(77,255,46,.10)!important}
+      #poison-gm-button>*{display:none!important}
       #poison-target-picker{position:fixed;z-index:2147482450;width:min(420px,92vw);max-height:min(560px,82vh);display:flex;flex-direction:column;border:1px solid #4fbf2b;background:linear-gradient(165deg,#090d08,#11180e);box-shadow:0 24px 70px rgba(0,0,0,.62),0 0 35px rgba(73,255,47,.13);color:#eaf8e5;font-family:Arial,sans-serif}
       #poison-target-picker[hidden]{display:none!important}
       .poison-picker-head{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:11px;padding:14px;border-bottom:1px solid #294522}
@@ -227,6 +226,7 @@
     const root = ensureGmPicker();
     gmPickerOpen = true;
     gmTargets = [];
+    document.getElementById('poison-gm-button')?.classList.add('is-armed');
     root.hidden = false;
     positionGmPicker();
     const list = root.querySelector('.poison-target-list');
@@ -238,6 +238,7 @@
   function closeGmPicker() {
     gmPickerOpen = false;
     gmCasting = false;
+    document.getElementById('poison-gm-button')?.classList.remove('is-armed');
     const root = document.getElementById('poison-target-picker');
     if (root) root.hidden = true;
   }
