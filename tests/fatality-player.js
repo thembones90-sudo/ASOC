@@ -16,9 +16,10 @@ assert.match(server, /COMMAND_ITEMS\.get\('fatality'\)[\s\S]*ownsCosmetic\(accou
 assert.match(server, /allowBroker: true/);
 assert.match(server, /crypto\.randomInt\(0, 100\) < 90/);
 assert.match(server, /reflected[\s\S]*targetName: victim\.name/);
-assert.match(server, /FATALITY_FEED_LINES[\s\S]*Wrong throne, little heretic/);
+assert.match(server, /FATALITY_FEED_LINES[\s\S]*Physics sided with management/);
 assert.doesNotMatch(server, /unleashes FATALITY on/);
-assert.doesNotMatch(server, /The Broker returned it to sender/);
+assert.doesNotMatch(server, /SPELL REFLECT \/\//);
+assert.doesNotMatch(server, /\$\{finisher\} \/\//);
 assert.match(server, /if \(\/\^\\\/fatality\\b\/i\.test\(raw\)\)[\s\S]*handlePlayerFatalityCommand/);
 assert.match(player, /name: 'fatality'[\s\S]*insert: '\/fatality @'/);
 assert.match(player, /targetedChatActs:[^\n]*'fatality'/, 'fatality must use the player target picker');

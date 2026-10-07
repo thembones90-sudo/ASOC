@@ -7875,28 +7875,28 @@ const PLAYER_FATALITY_LINES = Object.freeze({
 
 const FATALITY_FEED_LINES = Object.freeze({
   pyroblast: [
-    '{T} has been downgraded to ash.',
-    '{T} is now mostly a temperature problem.',
-    '{T} has left the chat in several carbon-based formats.',
-    '{T} has been promoted to smoke.',
-    '{T} is experiencing catastrophic overclocking.',
-    '{T} has discovered why the red button was red.'
+    'Pyroblast has turned {T} into a very expensive smoke effect.',
+    '{T} just learned that fire resistance was not optional.',
+    '{T} is now medium-well. Nobody ordered that.',
+    'Pyroblast has promoted {T} from Little Hero to airborne carbon.',
+    '{T} appears to have confused bravery with being flammable.',
+    'There was a {T} here a moment ago. Now there is mostly heat.'
   ],
   frost: [
-    '{T} has been archived at sub-zero.',
-    '{T} is now legally part of the freezer inventory.',
-    '{T} has been reduced to one very quiet ice sculpture.',
-    '{T} has stopped generating body heat. Efficient.',
-    '{T} has been placed on permanent winter settings.',
-    '{T} is currently unavailable due to excessive freezing.'
+    'Absolute Zero has filed {T} under frozen assets.',
+    '{T} is now a decorative ice sculpture. Finally, a contribution.',
+    '{T} has discovered that hypothermia is not a personality trait.',
+    'Absolute Zero has put {T} on permanent winter settings.',
+    '{T} has stopped generating body heat. Efficiency at last.',
+    '{T} is currently unavailable due to being aggressively frozen.'
   ],
   reflect: [
-    'Wrong throne, little heretic. {A} gets the spell back.',
-    'The Broker declines. {A} may keep the FATALITY.',
-    'Cute. The throne returns {A}\'s little extinction request.',
-    '{A} challenged the throne. The throne answered.',
-    'Return to sender. No refunds, little heretic.',
-    'The spell reached the Broker, reconsidered its career, and went back to {A}.'
+    '{A} tried to cast Fatality on the Broker. The spell had more sense and came straight back.',
+    '{A} aimed at the throne. The throne sent it back with interest.',
+    'The Broker declined {A}\'s Fatality and returned it to sender.',
+    '{A} challenged the Broker. Physics sided with management.',
+    '{A} tried to erase the Broker and was introduced to the reply button.',
+    '{A} fired at the throne. The throne, predictably, fired back.'
   ]
 });
 
@@ -7951,14 +7951,13 @@ function handlePlayerFatalityCommand(room, author, raw, targetPlayerId = '') {
     avatarData: aimedAtBroker ? brokerAvatar : liveAvatarFor(room, intended.id)
   };
   let line = standardLine;
-  const finisher = variant === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST';
-  let text = `${finisher} // ${fatalityFeedLine(variant, victim.name)}`;
+  let text = fatalityFeedLine(variant, victim.name);
 
   if (reflected) {
     strikeActor = { id: null, name: brokerName, avatarData: brokerAvatar };
     victim = { id: String(author.id), name: author.name, avatarData: liveAvatarFor(room, author.id) };
     line = fatalityReflectLine(author.name);
-    text = `🪞 SPELL REFLECT // ${line}`;
+    text = line;
   }
 
   const strike = {
@@ -8237,7 +8236,7 @@ function dispatchGmSlashCommand(room, ws, text) {
       durationMs: 6200
     };
     const result = buildChatCommandMessage(room, author, 'fatality', 'shadowBroker',
-      `${variant === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST'} // ${fatalityFeedLine(variant, target.name)}`,
+      fatalityFeedLine(variant, target.name),
       { fatality: strike });
     if (!result.success) return result;
     result.message.source = 'shadowBroker';
