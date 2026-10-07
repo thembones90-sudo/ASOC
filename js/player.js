@@ -107,6 +107,7 @@ const PlayerApp = {
     { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
     { name: 'fireworks', insert: '/fireworks ', syntax: '/fireworks [message]', description: 'Light up every screen with a fireworks show' },
     { name: 'goat', insert: '/goat @', syntax: '/goat @Name', description: 'Unleash random GOAT chaos on another player // awarded skill only' },
+    { name: 'fatality', insert: '/fatality @', syntax: '/fatality @Name', description: '50/50 Pyroblast or Frost finisher // awarded skill only; casting at the GM has 90% SPELL REFLECT' },
     { name: 'spit', insert: '/spit ', syntax: '/spit Name | all', description: 'Spit on one target or everyone online' },
     { name: 'fart', insert: '/fart ', syntax: '/fart Name | all', description: 'Fart on one target or everyone online' },
     { name: 'hiss', insert: '/hiss ', syntax: '/hiss Name | all', description: 'Hiss at one target or everyone online' },
@@ -139,7 +140,7 @@ const PlayerApp = {
   // Commands that take a player target: the target picker opens as soon as
   // the verb is complete and filters the online roster while a name is typed.
   // Legacy @Name input remains accepted by the server, but the UI never adds it.
-  targetedChatActs: ['spit', 'fart', 'hiss', 'nod', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass', 'smite', 'freeze', 'glitch', 'drug', 'hug'],
+  targetedChatActs: ['spit', 'fart', 'hiss', 'nod', 'slap', 'moon', 'chicken', 'violin', 'golfclap', 'pity', 'mock', 'poke', 'bonk', 'taunt', 'threaten', 'lick', 'train', 'ass', 'smite', 'freeze', 'glitch', 'drug', 'hug', 'fatality'],
   targetedChatActPattern(suffix) {
     return new RegExp(`^\\s*\\/(?:${this.targetedChatActs.join('|')})${suffix}`, 'i');
   },

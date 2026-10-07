@@ -49,6 +49,7 @@
 
     const mode = message.variant === 'frost' ? 'frost' : 'pyroblast';
     const finisher = mode === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST';
+    const reflected = message.reflected === true;
     const actorName = String(message.actorName || 'SHADOW BROKER').toUpperCase();
     const targetName = String(message.targetName || 'LITTLE HERO').toUpperCase();
 
@@ -58,8 +59,8 @@
     layer.setAttribute('aria-live', 'assertive');
     layer.innerHTML = `
       <div class="fatality-dark"></div>
-      <div class="fatality-scan">EXECUTION PROTOCOL // TARGET LOCKED</div>
-      <div class="fatality-cue">FINISH THEM</div>
+      <div class="fatality-scan">${reflected ? 'COUNTER-PROTOCOL // FATALITY RETURNED TO SENDER' : 'EXECUTION PROTOCOL // TARGET LOCKED'}</div>
+      <div class="fatality-cue">${reflected ? 'SPELL REFLECT' : 'FINISH THEM'}</div>
       <div class="fatality-variant">${finisher}</div>
       <div class="fatality-stage">
         <div class="fatality-fighter fatality-attacker">

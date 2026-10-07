@@ -6902,6 +6902,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/hug', help: '/hug [@Name] -- hug someone (or everyone), with a sweet animation' },
   { name: '/fireworks', help: '/fireworks [message] -- light up every screen with a fireworks show' },
   { name: '/goat', help: '/goat -- unleash one random GOAT event (awarded player only)' },
+  { name: '/fatality', help: '/fatality @Name -- awarded relic finisher; 50/50 Pyroblast/Frost (90% SPELL REFLECT if aimed at the GM)' },
   { name: '/commands', help: '/commands -- this list' }
 ];
 
@@ -7853,6 +7854,101 @@ function goatAlbaniaRefusal(room, playerId) {
   return `ALBANIA EXILE // ${Math.ceil(remaining / 1000)} SECOND${Math.ceil(remaining / 1000) === 1 ? '' : 'S'} REMAIN`;
 }
 
+const PLAYER_FATALITY_LINES = Object.freeze({
+  pyroblast: [
+    'Ashes to ashes. Idiot to smoke.',
+    'Congratulations. You are now medium-well.',
+    'That was less Pyroblast and more cremation.',
+    'Your warranty does not cover spontaneous combustion.',
+    'Carbonized. Embarrassing.',
+    'Fire resistance was apparently optional.'
+  ],
+  frost: [
+    'Talk about a cold reception.',
+    'No jacket? Bold choice.',
+    'Keep cool. Permanently.',
+    'The forecast says dead cold.',
+    'You have been upgraded to freezer inventory.',
+    'Frozen. Efficient. Humiliating.'
+  ]
+});
+
+function handlePlayerFatalityCommand(room, author, raw, targetPlayerId = '') {
+  const match = raw.match(/^\/fatality(?:\s+@?(.*?))?\s*$/i);
+  if (!match) return { success: false, error: 'FATALITY INVALID // USE /fatality @Name' };
+
+  const account = coinAccount(author.id, author.name);
+  const item = shadowMarket.COMMAND_ITEMS.get('fatality');
+  if (!account || !item || !playerStore.ownsCosmetic(account, item.id)) {
+    return { success: false, error: '/FATALITY IS LOCKED // THE SHADOW BROKER MUST AWARD IT' };
+  }
+
+  const resolved = resolveNamedTarget(
+    room,
+    author.id,
+    targetPlayerId,
+    match[1] || '',
+    'FATALITY',
+    { allowBroker: true, includeDisconnected: false }
+  );
+  if (resolved.error) return { success: false, error: resolved.error };
+
+  const intended = resolved.target;
+  const aimedAtBroker = String(intended.id) === SHADOW_BROKER_TARGET_ID;
+  const forcedReflect = process.env.ASOC_TEST_FATALITY_REFLECT;
+  const reflected = aimedAtBroker && (forcedReflect === '1' ? true : forcedReflect === '0' ? false : crypto.randomInt(0, 100) < 90);
+  const variant = crypto.randomInt(0, 2) === 0 ? 'pyroblast' : 'frost';
+  const linePool = PLAYER_FATALITY_LINES[variant];
+  const standardLine = linePool[crypto.randomInt(0, linePool.length)];
+  const brokerName = brokerDisplayName(room);
+  const brokerAvatar = publicBrokerProfile(room).avatarData || LEGACY_DEFAULT_AVATAR;
+
+  let strikeActor = {
+    id: String(author.id),
+    name: author.name,
+    avatarData: liveAvatarFor(room, author.id)
+  };
+  let victim = {
+    id: String(intended.id),
+    name: intended.name,
+    avatarData: aimedAtBroker ? brokerAvatar : liveAvatarFor(room, intended.id)
+  };
+  let line = standardLine;
+  let text = `${author.name} unleashes FATALITY on ${victim.name}. ${variant === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST'}! ${line}`;
+
+  if (reflected) {
+    strikeActor = { id: null, name: brokerName, avatarData: brokerAvatar };
+    victim = { id: String(author.id), name: author.name, avatarData: liveAvatarFor(room, author.id) };
+    line = `SPELL REFLECT. ${author.name} has been returned to sender.`;
+    text = `🪞 SPELL REFLECT // ${author.name} aimed FATALITY at ${brokerName}. The Broker returned it to sender.`;
+  }
+
+  const strike = {
+    actorId: strikeActor.id,
+    actorName: strikeActor.name,
+    actorAvatarData: strikeActor.avatarData,
+    originalActorId: String(author.id),
+    originalActorName: author.name,
+    intendedTargetId: String(intended.id),
+    intendedTargetName: intended.name,
+    targetId: victim.id,
+    targetName: victim.name,
+    targetAvatarData: victim.avatarData,
+    variant,
+    line,
+    reflected,
+    reflectChance: aimedAtBroker ? 90 : 0,
+    timestamp: Date.now(),
+    durationMs: 6200
+  };
+
+  const result = buildChatCommandMessage(room, author, 'fatality', 'fatality', text, { fatality: strike });
+  if (!result.success) return result;
+
+  broadcastToRoom(room, { type: 'fatality:strike', ...strike });
+  return result;
+}
+
 function dispatchPlayerSlashCommand(room, ws, text, message) {
   const raw = String(text || '').trim();
   if (!raw.startsWith('/')) return null;
@@ -7897,6 +7993,10 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   if (/^\/order\b/i.test(raw)) return handleOrderCommand(room, author, raw);
   if (/^\/stats\b/i.test(raw)) return handleStatsCommand(room, author, raw);
   if (/^\/goat\b/i.test(raw)) return handleGoatCommand(room, author, raw);
+  if (/^\/fatality\b/i.test(raw)) {
+    const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
+    return handlePlayerFatalityCommand(room, author, raw, targetPlayerId);
+  }
   if (/^\/commands\b/i.test(raw)) return handleCommandsCommand(room, author, raw, CHAT_SLASH_COMMANDS);
   if (/^\/backstab\b/i.test(raw)) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
