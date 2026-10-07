@@ -21922,13 +21922,13 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > :is(.battle-controls-header,.battle-flow-row,#final-panel-reopen-btn,#recount-btn) {
   grid-column:1 / -1 !important;
 }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel :is(.battle-controls-host-slot,#nema-asoc-btn,#bice-asoc-btn,#black-market-gm-button,#quests-btn,#library-btn-footer,#reset-board-btn,#sound-toggle-btn,.master-access-wrap,#broker-transmog-btn,#hero-roles-toggle) {
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel :is(.battle-controls-host-slot,#nema-asoc-btn,#bice-asoc-btn,#poison-gm-button,#black-market-gm-button,#quests-btn,#library-btn-footer,#reset-board-btn,#sound-toggle-btn,.master-access-wrap,#broker-transmog-btn,#hero-roles-toggle) {
   width:100% !important;
   min-width:0 !important;
   margin:0 !important;
   box-sizing:border-box !important;
 }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel :is(#black-market-gm-button,#quests-btn,#library-btn-footer,#reset-board-btn,#sound-toggle-btn,.master-access-wrap,#broker-transmog-btn,#hero-roles-toggle) {
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel :is(#poison-gm-button,#black-market-gm-button,#quests-btn,#library-btn-footer,#reset-board-btn,#sound-toggle-btn,.master-access-wrap,#broker-transmog-btn,#hero-roles-toggle) {
   height:auto !important;
   min-height:42px !important;
 }
@@ -21937,15 +21937,16 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .battle-controls-host-slot { order:1; }
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #nema-asoc-btn { order:2; }
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #bice-asoc-btn { order:3; }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > :is(.battle-flow-row,#final-panel-reopen-btn,#recount-btn) { order:4; }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #black-market-gm-button { order:5; }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #quests-btn { order:6; }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #library-btn-footer { order:7; }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #reset-board-btn { order:8; }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #sound-toggle-btn { order:9; }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .master-access-wrap { order:10; }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #broker-transmog-btn { order:11; }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #hero-roles-toggle { order:12; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #poison-gm-button { order:4; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > :is(.battle-flow-row,#final-panel-reopen-btn,#recount-btn) { order:5; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #black-market-gm-button { order:6; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #quests-btn { order:7; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #library-btn-footer { order:8; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #reset-board-btn { order:9; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #sound-toggle-btn { order:10; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .master-access-wrap { order:11; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #broker-transmog-btn { order:12; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #hero-roles-toggle { order:13; }
 /* DENNIS AI // synthetic player signal. The black frame and near-black
    message surface keep him distinct without turning him into a system card. */
 .dennis-ai-message .little-hero-avatar {
