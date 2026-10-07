@@ -32,14 +32,14 @@
       overlay.className = 'dragon-setup-overlay';
       overlay.hidden = true;
       const bosses = [
-        ['varkhul', 'VARKHUL, THE ASH TYRANT', 'ASHEN BLOOD // BURN PRESSURE', 'NORMAL RAID // 3–5 HEROES'],
-        ['kraevar', 'KRAEVAR THE GOLD-EATER', "GREED’S ARMOR // CRUSHING ATTACKS", 'NORMAL RAID // 3–5 HEROES'],
+        ['varkhul', 'WENDIGO', 'HUNGER // ISOLATION // PREDATION', 'CABINET ENCOUNTER // 3–5 HEROES'],
+        ['kraevar', 'HYM', 'GUILT // SHADOW // POSSESSION', 'CABINET ENCOUNTER // 3–5 HEROES'],
         ['azhraak', 'AZHRAAK, LORD OF THE BURNING VAULT', 'INFERNO // PARTY-WIDE FIRE', 'NORMAL RAID // 3–5 HEROES'],
         ['drazhul', 'DRAZHUL, KEEPER OF THE SHADOW HEART', 'SHADOW VEIL // DRAIN AND DEBUFFS', 'NORMAL RAID // 3–5 HEROES'],
         ['deathwing', 'DEATHWING', 'THE DESTROYER // CATACLYSM', 'HEROIC RAID // EXACTLY 5 HEROES']
       ];
       overlay.innerHTML = `<section class="dragon-setup-panel" role="dialog" aria-modal="true" aria-labelledby="dragon-setup-title">
-        <header><div><small>SHADOW BROKER AUTHORITY</small><h2 id="dragon-setup-title">CONFIGURE DRAGON RAID</h2></div><button type="button" data-dragon-action="setup-close" aria-label="Close">×</button></header>
+        <header><div><small>SHADOW BROKER AUTHORITY</small><h2 id="dragon-setup-title">CABINET OF CURIOSITIES</h2></div><button type="button" data-dragon-action="setup-close" aria-label="Close">×</button></header>
         <p>Choose the enemy. Recruitment begins only after your confirmation.</p>
         <div class="dragon-setup-grid">${bosses.map(([id,name,identity,tier]) => `<button type="button" data-dragon-action="setup-launch" data-boss-id="${id}" class="${id === 'deathwing' ? 'is-heroic' : ''}"><small>${tier}</small><b>${name}</b><span>${identity}</span><em>SUMMON</em></button>`).join('')}</div>
       </section>`;
