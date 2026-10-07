@@ -134,10 +134,10 @@
 
     // Shadow Broker: a session switch in the command rail.
     renderGM() {
+      const row = document.querySelector('.battle-controls-utility-row');
+      if (!row) return;
       let btn = document.getElementById('hero-roles-toggle');
       if (!btn) {
-        const row = document.querySelector('.battle-controls-utility-row');
-        if (!row) return;
         btn = document.createElement('button');
         btn.type = 'button';
         btn.id = 'hero-roles-toggle';
@@ -151,6 +151,10 @@
       btn.textContent = `ROLES ${on ? 'ON' : 'OFF'}`;
       btn.classList.toggle('is-off', !on);
       btn.title = on ? 'DPS / TANK / HEAL badges are on. Click to switch them off for this session.' : 'Hero roles are off. Click to switch them on.';
+
+      const rogueSkill = document.getElementById('poison-gm-button');
+      if (rogueSkill && rogueSkill.parentElement !== row) row.appendChild(rogueSkill);
+      if (rogueSkill && btn.nextElementSibling !== rogueSkill) btn.insertAdjacentElement('afterend', rogueSkill);
     },
 
     click(e) {

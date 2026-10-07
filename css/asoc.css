@@ -21937,7 +21937,7 @@ html[data-asoc-light] #game-screen .battle-comms-lobby .chat-broker-entry > .sha
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .battle-controls-host-slot { order:1; }
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #nema-asoc-btn { order:2; }
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #bice-asoc-btn { order:3; }
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #poison-gm-button { order:4; }
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #poison-gm-button { order:14; }
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > :is(.battle-flow-row,#final-panel-reopen-btn,#recount-btn) { order:5; }
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #black-market-gm-button { order:6; }
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #quests-btn { order:7; }
