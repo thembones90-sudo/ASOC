@@ -84,6 +84,7 @@ const App = {
   gmSlashCommands: [
     { name: 'warsong', insert: '/warsong', icon: '⚑', label: 'WARSONG', description: 'Six-second room-wide Horde battle banner' },
     { name: 'fatality', insert: '/fatality @', icon: '☠', label: 'FATALITY', description: '/fatality @Name -- execute one Little Hero with Pyroblast or Absolute Zero' },
+    { name: 'poison', insert: '/poison @', icon: '☣', label: 'POISON', description: '/poison @Name -- one save, then 0.1 SC bleed every 20 seconds until Blood Tribute cure' },
     { name: 'fireworks', insert: '/fireworks ', icon: '✺', label: 'FIREWORKS', description: '/fireworks [message] -- light up every screen' },
     { name: 'c4', insert: '/c4', icon: '▣', label: 'C4 COLUMN', description: 'Manually trigger the three-second C4 battle alert' },
     { name: 'b3', insert: '/b3', icon: '◩', label: 'BAKI B3', description: 'Manually trigger the purple-black B3 battle tribute' },
@@ -2772,6 +2773,16 @@ const App = {
         window.Fatality?.play?.(message);
         break;
 
+      case 'poison:applied':
+      case 'poison:failed':
+      case 'poison:tick':
+      case 'poison:cured':
+      case 'poison:tributeOffered':
+      case 'poison:tributeAcceptedForReview':
+      case 'poison:tributeRejected':
+        window.PoisonEffect?.onMessage?.(message);
+        break;
+
       case 'fistbump:impact':
         window.FistbumpEffect?.onMessage(message);
         break;
@@ -2888,6 +2899,7 @@ const App = {
         window.HeroRoles?.onState?.(message);
         window.Avada?.setState?.(message.avada);
         window.Shame?.onState?.(message);
+        window.PoisonEffect?.onState?.(message);
         this.finalValue = message.finalValue || null;
         this.applyServerState(message);
         setTimeout(() => window.FinalDebt?.update(message), 0);

@@ -531,6 +531,7 @@ function serializeRoomForRecovery(room) {
     wheel: room.wheel,
     bloodTributes: room.bloodTributes || [],
     pendingTribute: room.pendingTribute || null,
+    poison: room.poison || {},
     blackMarket: blackMarket.normalizeState(room.blackMarket),
     nudgeCounts: room.nudgeCounts || {},
     moonTolls: room.moonTolls || {},
@@ -671,6 +672,7 @@ function restoreActiveRooms() {
         },
         bloodTributes: Array.isArray(saved.bloodTributes) ? saved.bloodTributes : [],
         pendingTribute: saved.pendingTribute || null,
+        poison: saved.poison && typeof saved.poison === 'object' ? saved.poison : {},
         blackMarket: blackMarket.normalizeState(saved.blackMarket),
         nudgeCounts: saved.nudgeCounts && typeof saved.nudgeCounts === 'object' ? saved.nudgeCounts : {},
         moonTolls: saved.moonTolls && typeof saved.moonTolls === 'object' ? saved.moonTolls : {},
@@ -1344,6 +1346,7 @@ function createRoom(gameId, hostWs) {
     // its publicUntil deadline is still active.
     bloodTributes: [],
     pendingTribute: null,
+    poison: {},
     blackMarket: blackMarket.normalizeState(null),
     // Little Hero @all nudges used toward the one-time nudge Blood Tribute
     // (a number), or 'settled' once that toll was paid/forgiven.
@@ -1526,6 +1529,7 @@ function getPublicState(room) {
     womf: getWomfPublicState(room),
     wheel: getWheelPublicState(room),
     bloodTribute: getBloodTributePublicState(room),
+    poison: poisonPublicState(room),
     unstableConcoction: unstableConcoction.publicState(room.unstableConcoction),
     timer: getTimerPublicState(room),
     solutionCountdowns: getSolutionCountdownPublicState(room),
@@ -3158,7 +3162,7 @@ function declareGameLost(room, source = 'timer') {
 
 // KALADONT clock (250ms): only rooms with a Kaladont state do any work.
 setInterval(() => runtimeAction(() => {
-  rooms.forEach(room => { if (room.kaladont) tickKaladont(room); if (room.rage) tickRage(room); });
+  rooms.forEach(room => { if (room.kaladont) tickKaladont(room); if (room.rage) tickRage(room); if (room.poison && Object.keys(room.poison).length) poisonTick(room); });
   tickIksGauntlet();
 }), 250);
 
@@ -6682,7 +6686,7 @@ function addRollMessage(room, playerId, playerName, range, options = {}) {
     room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
   }
   let tributeTriggered = false;
-  if (value === 1 && options.isGm !== true) {
+  if (value === 1 && options.isGm !== true && options.suppressTribute !== true) {
     room.pendingTribute = {
       id: 'demand-' + crypto.randomBytes(6).toString('hex'),
       playerId,
@@ -6910,6 +6914,7 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/dennis', help: '/dennis off|announcer|advice -- control Dennis game commentary' },
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
   { name: '/fatality', help: '/fatality @Name -- 50/50 Pyroblast or Frost cinematic on one Little Hero' },
+  { name: '/poison', help: '/poison @Name -- GM-only venom: one /roll save, then -0.1 SC every 20 seconds until Blood Tribute cure' },
   { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
   { name: '/b3', help: '/b3 -- manually trigger the three-second Baki B3 battle tribute' },
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
@@ -7031,6 +7036,173 @@ function resolveFatalityTarget(room, rawTarget) {
   const profile = playerStore.peekPlayers()[id] || {};
   const live = Array.from(room?.players?.values?.() || []).find(player => String(player.id) === id || String(player.name || '').trim().toLocaleLowerCase() === String(account.name).trim().toLocaleLowerCase());
   return { target: { id, name: String(account.name).trim(), avatarData: live?.avatarData || profile.avatarData || '' } };
+}
+
+function ensurePoisonState(room) {
+  if (!room.poison || typeof room.poison !== 'object' || Array.isArray(room.poison)) room.poison = {};
+  return room.poison;
+}
+
+function poisonPublicState(room) {
+  const out = {};
+  for (const [playerId, state] of Object.entries(ensurePoisonState(room))) {
+    if (!state || !state.playerId) continue;
+    out[playerId] = {
+      playerId: state.playerId,
+      playerName: state.playerName,
+      status: state.status,
+      rollUsed: state.rollUsed === true,
+      rollValue: Number.isFinite(state.rollValue) ? state.rollValue : null,
+      nextTickAt: Number(state.nextTickAt) || null,
+      tickCount: Number(state.tickCount) || 0,
+      pendingTribute: !!state.pendingTributeId,
+      castAt: Number(state.castAt) || null
+    };
+  }
+  return out;
+}
+
+function poisonBroadcastState(room, event = null) {
+  room.revision++;
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  if (event) broadcastToRoom(room, event);
+}
+
+function poisonCure(room, playerId, reason = 'cured') {
+  const map = ensurePoisonState(room);
+  const state = map[String(playerId)];
+  if (!state) return false;
+  delete map[String(playerId)];
+  poisonBroadcastState(room, {
+    type: 'poison:cured',
+    playerId: state.playerId,
+    playerName: state.playerName,
+    reason,
+    timestamp: Date.now()
+  });
+  return true;
+}
+
+function poisonTick(room, now = Date.now()) {
+  let changed = false;
+  for (const state of Object.values(ensurePoisonState(room))) {
+    if (!state || state.status !== 'bleeding') continue;
+    if (!Number.isFinite(state.nextTickAt) || state.nextTickAt > now) continue;
+
+    state.tickCount = (Number(state.tickCount) || 0) + 1;
+    const receipt = `poison:${state.id}:tick:${state.tickCount}`;
+    const result = playerStore.deductShadowCoins(
+      { id: state.playerId, name: state.playerName },
+      0.1,
+      receipt,
+      { reason: 'poison damage over time' }
+    );
+    state.nextTickAt = now + 20000;
+    changed = true;
+    broadcastToRoom(room, {
+      type: 'poison:tick',
+      playerId: state.playerId,
+      playerName: state.playerName,
+      deducted: result?.ok ? Number(result.deducted || 0) : 0,
+      balance: result?.balance,
+      tickCount: state.tickCount,
+      nextTickAt: state.nextTickAt,
+      timestamp: now
+    });
+  }
+  if (changed) {
+    room.revision++;
+    persistActiveRooms();
+    broadcastPlayersUpdate(room);
+    broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  }
+}
+
+function handlePoisonTributeSubmit(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || !ws.playerId) return sendToWs(ws, { type: 'error', message: 'POISON TRIBUTE REQUIRES A LITTLE HERO' });
+  const state = ensurePoisonState(room)[String(ws.playerId)];
+  if (!state || state.status !== 'bleeding') return sendToWs(ws, { type: 'error', message: 'NO ACTIVE POISON REQUIRES TRIBUTE' });
+  if (state.pendingTributeId) return sendToWs(ws, { type: 'error', message: 'POISON TRIBUTE ALREADY AWAITS JUDGMENT' });
+  if (message.retentionAcknowledged !== true) return sendToWs(ws, { type: 'error', message: 'Tribute archive notice must be acknowledged' });
+  const imageData = sanitizeTributeImageData(message.imageData);
+  if (!imageData) return sendToWs(ws, { type: 'error', message: 'Invalid tribute image or file too large' });
+
+  const now = Date.now();
+  const tribute = {
+    id: 'tribute-' + crypto.randomBytes(8).toString('hex'),
+    playerId: state.playerId,
+    playerName: state.playerName,
+    source: 'poison',
+    poisonId: state.id,
+    imageData,
+    submittedAt: now,
+    publicUntil: 0,
+    pendingJudgment: true
+  };
+  room.bloodTributes ||= [];
+  room.bloodTributes.push(tribute);
+  state.pendingTributeId = tribute.id;
+  room.revision++;
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  if (room.hostConnection?.readyState === 1) {
+    sendToWs(room.hostConnection, {
+      type: 'poison:tributeOffered',
+      tributeId: tribute.id,
+      playerId: state.playerId,
+      playerName: state.playerName,
+      imageData,
+      timestamp: now
+    });
+  }
+  sendToWs(ws, { type: 'poison:tributeAcceptedForReview', tributeId: tribute.id });
+  sendTributeVaultToHost(room);
+}
+
+function sendPendingPoisonTributesToHost(room) {
+  if (!room?.hostConnection || room.hostConnection.readyState !== 1) return;
+  for (const state of Object.values(ensurePoisonState(room))) {
+    if (!state?.pendingTributeId) continue;
+    const tribute = (room.bloodTributes || []).find(item => item.id === state.pendingTributeId && item.source === 'poison' && item.pendingJudgment === true);
+    if (!tribute?.imageData) continue;
+    sendToWs(room.hostConnection, {
+      type: 'poison:tributeOffered',
+      tributeId: tribute.id,
+      playerId: state.playerId,
+      playerName: state.playerName,
+      imageData: tribute.imageData,
+      timestamp: tribute.submittedAt || Date.now(),
+      replayed: true
+    });
+  }
+}
+
+function handlePoisonTributeDecision(ws, message) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  const playerId = String(message.playerId || '');
+  const state = ensurePoisonState(room)[playerId];
+  if (!state || !state.pendingTributeId) return sendToWs(ws, { type: 'error', message: 'NO POISON TRIBUTE AWAITS JUDGMENT' });
+  const tribute = (room.bloodTributes || []).find(item => item.id === state.pendingTributeId);
+  if (!tribute || tribute.source !== 'poison') return sendToWs(ws, { type: 'error', message: 'POISON TRIBUTE RECORD NOT FOUND' });
+
+  tribute.pendingJudgment = false;
+  tribute.judgedAt = Date.now();
+  tribute.accepted = message.accepted === true;
+  if (tribute.accepted) {
+    poisonCure(room, playerId, 'tribute');
+  } else {
+    state.pendingTributeId = null;
+    poisonBroadcastState(room, {
+      type: 'poison:tributeRejected',
+      playerId: state.playerId,
+      playerName: state.playerName,
+      timestamp: Date.now()
+    });
+  }
+  sendTributeVaultToHost(room);
 }
 
 function handleDiceCommand(room, author, raw) {
@@ -7681,7 +7853,34 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   if (!raw.startsWith('/')) return null;
   const author = { id: ws.playerId, name: ws.playerName };
 
+  if (/^\/poison\b/i.test(raw)) return { success: false, error: 'POISON IS SHADOW BROKER AUTHORITY ONLY' };
+
   if (/^\/roll\b/i.test(raw)) {
+    const poison = ensurePoisonState(room)[String(ws.playerId)];
+    if (poison) {
+      if (poison.status !== 'awaiting_roll' || poison.rollUsed === true) return { success: false, error: 'POISON SAVE ALREADY SPENT' };
+      if (!/^\/roll\s*$/i.test(raw)) return { success: false, error: 'POISON SAVE IS FORCED // USE /roll' };
+      const result = addRollMessage(room, ws.playerId, ws.playerName, { min: 1, max: 100 }, { suppressTribute: true });
+      if (!result.success) return result;
+      const value = Number(result.message?.roll?.value) || 0;
+      poison.rollUsed = true;
+      poison.rollValue = value;
+      result.poisonStateChanged = true;
+      if (value >= 50) {
+        delete room.poison[String(ws.playerId)];
+        result.message.poisonSave = { cured: true, value };
+        result.message.text += ' // VENOM RESISTED // CURED';
+        broadcastToRoom(room, { type: 'poison:cured', playerId: ws.playerId, playerName: ws.playerName, reason: 'roll', roll: value, timestamp: Date.now() });
+      } else {
+        poison.status = 'bleeding';
+        poison.nextTickAt = Date.now() + 20000;
+        result.message.poisonSave = { cured: false, value, nextTickAt: poison.nextTickAt };
+        result.message.text += ' // SURVIVAL CHECK FAILED // BLOOD TRIBUTE REQUIRED';
+        broadcastToRoom(room, { type: 'poison:failed', playerId: ws.playerId, playerName: ws.playerName, roll: value, nextTickAt: poison.nextTickAt, timestamp: Date.now() });
+      }
+      room.revision++;
+      return result;
+    }
     const range = parseRollCommand(raw);
     if (!range) return { success: false, error: 'ROLL RANGE INVALID // USE /roll, /roll 20, OR /roll 50 100' };
     if (range.error) return { success: false, error: range.error };
@@ -7901,6 +8100,41 @@ function dispatchGmSlashCommand(room, ws, text) {
     result.message.source = 'shadowBroker';
     broadcastToRoom(room, { type: 'fatality:strike', ...strike });
     return { success: true, broadcast: true };
+  }
+
+  if (/^\/poison\b/i.test(raw)) {
+    const match = raw.match(/^\/poison(?:\s+@?(.*?))?\s*$/i);
+    const typedTarget = String(match?.[1] || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\u00A0/g, ' ').trim();
+    if (!typedTarget) return { success: false, error: 'POISON INVALID // USE /poison @Name' };
+    const resolved = resolveFatalityTarget(room, typedTarget);
+    if (resolved.error) return { success: false, error: resolved.error.replace(/^FATALITY/, 'POISON') };
+    const target = resolved.target;
+    const map = ensurePoisonState(room);
+    const existing = map[String(target.id)];
+    if (existing) {
+      broadcastToRoom(room, { type: 'poison:applied', playerId: existing.playerId, playerName: existing.playerName, refreshed: true, timestamp: Date.now() });
+      const result = buildChatCommandMessage(room, author, 'poison', 'shadowBroker', `${brokerDisplayName(room)} renews the poison coursing through ${existing.playerName}.`, { poison: { playerId: existing.playerId, refreshed: true } });
+      if (result.success) { result.message.source = 'shadowBroker'; result.broadcast = true; }
+      return result;
+    }
+    const now = Date.now();
+    const state = {
+      id: 'poison-' + crypto.randomBytes(8).toString('hex'),
+      playerId: String(target.id),
+      playerName: target.name,
+      status: 'awaiting_roll',
+      rollUsed: false,
+      rollValue: null,
+      castAt: now,
+      nextTickAt: null,
+      tickCount: 0,
+      pendingTributeId: null
+    };
+    map[state.playerId] = state;
+    poisonBroadcastState(room, { type: 'poison:applied', playerId: state.playerId, playerName: state.playerName, refreshed: false, timestamp: now });
+    const result = buildChatCommandMessage(room, author, 'poison', 'shadowBroker', `${brokerDisplayName(room)} poisons ${state.playerName}. ONE SAVE: /roll. 50+ CURES. BELOW 50 BLEEDS 0.1 SC EVERY 20 SECONDS.`, { poison: { playerId: state.playerId } });
+    if (result.success) { result.message.source = 'shadowBroker'; result.broadcast = true; }
+    return result;
   }
 
   // Broker fistbump trigger: same avatar animation, no player cooldown.
@@ -9777,6 +10011,7 @@ function handleHostReconnect(ws, message) {
   sendChatSnapshot(ws, room);
   sendRecountHydration(ws, room);
   sendTributeVaultToHost(room);
+  sendPendingPoisonTributesToHost(room);
   sendRitualDetailToHost(room);
 
   broadcastPlayersUpdate(room);
@@ -9815,6 +10050,7 @@ function handleHostRecover(ws) {
   sendChatSnapshot(ws, room);
   sendRecountHydration(ws, room);
   sendTributeVaultToHost(room);
+  sendPendingPoisonTributesToHost(room);
   sendRitualDetailToHost(room);
   broadcastPlayersUpdate(room);
   sendKaladontState(room, ws);
@@ -10748,7 +10984,7 @@ function handleChatGuess(ws, message) {
     broadcastChatUpdate(room, singleMessageOnly ? [result.message.id] : null);
     if (dispatch === null) triggerC4Alert(room, result.message?.text, result.message?.id);
     if (dispatch === null) triggerB3Alert(room, result.message?.text, result.message?.id);
-    if (result.tributeTriggered || nudge === 'tribute') broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+    if (result.tributeTriggered || result.poisonStateChanged || nudge === 'tribute') broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
     if (nudge === 'nudge') {
       broadcastToRoom(room, {
         type: 'chat:mentionAll',
@@ -13563,6 +13799,10 @@ wss.on('connection', (ws, req) => {
           handleBloodTributeSubmit(ws, message);
           break;
         }
+        case 'poison:tributeSubmit': {
+          handlePoisonTributeSubmit(ws, message);
+          break;
+        }
         case 'ritual:join': {
           handleRitualJoin(ws);
           break;
@@ -13623,6 +13863,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:tributeForgive': {
           handleTributeForgive(ws);
+          break;
+        }
+        case 'gm:poisonTributeDecision': {
+          handlePoisonTributeDecision(ws, message);
           break;
         }
         case 'gm:judgeGuess': {

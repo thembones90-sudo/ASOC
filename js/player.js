@@ -1390,6 +1390,7 @@ const PlayerApp = {
         window.HeroRoles?.onState?.(message);
         window.Avada?.setState?.(message.avada);
         window.Shame?.onState?.(message);
+        window.PoisonEffect?.onState?.(message);
         // Deferred so the board has painted the new state before the seal,
         // chains and strip are positioned over it.
         setTimeout(() => window.FinalDebt?.update(message), 0);
@@ -1579,6 +1580,16 @@ const PlayerApp = {
 
       case 'fatality:strike':
         window.Fatality?.play?.(message);
+        break;
+
+      case 'poison:applied':
+      case 'poison:failed':
+      case 'poison:tick':
+      case 'poison:cured':
+      case 'poison:tributeOffered':
+      case 'poison:tributeAcceptedForReview':
+      case 'poison:tributeRejected':
+        window.PoisonEffect?.onMessage?.(message);
         break;
 
       case 'fistbump:impact':
