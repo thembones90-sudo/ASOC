@@ -22,7 +22,7 @@ const RecountLedger = (() => {
       </tr>`).join('');
     return `<details class="recount-ledger-match"${index === 0 ? ' open' : ''}>
       <summary>
-        <span><b>${esc(match.title)}</b><small>${when(match.completedAt)}</small></span>
+        <span><b>${esc(match.title)}</b><small>${when(match.completedAt)}${match.satisfaction?.votes ? ` · SAT ${Number(match.satisfaction.average).toFixed(1)}/10 (${number(match.satisfaction.votes)})` : ''}</small></span>
         <strong class="is-${String(match.outcome || '').toLowerCase()}">${esc(match.outcome)}</strong>
       </summary>
       <div class="recount-ledger-table-wrap"><table>

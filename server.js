@@ -1509,6 +1509,7 @@ function getPublicState(room) {
     // A shown RECOUNT (resultsShownAt) ends the AFTERMATH phase; reconnects
     // distinguish "story still pending" from "story already advanced".
     resultsShown: !!(room.match?.resultsShownAt),
+    rating: matchRatingState(room),
     // Final points withheld until the host's SHOW RESULTS (gm:revealResults).
     // Flag + outcome only -- the numbers stay server-side until released --
     // so the GM's closed SOLUTION CONFIRMED panel can be reopened, including
@@ -3495,6 +3496,38 @@ function refreshGameComplete(room) {
   return transition;
 }
 
+function matchRatingState(room) {
+  const ledger = room.match || {};
+  const ratings = ledger.ratings && typeof ledger.ratings === 'object' ? ledger.ratings : {};
+  const values = Object.values(ratings)
+    .map(entry => Number(entry?.rating))
+    .filter(value => Number.isInteger(value) && value >= 1 && value <= 10);
+  const eligibleCount = Object.keys(ledger.presence || {}).filter(id => !isMasterTestPlayerId(id)).length;
+  const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  return {
+    open: !!ledger.ratingOpenedAt && !ledger.resultsShownAt,
+    matchId: String(room.boardId || ''),
+    title: String(room.gameData?.title || ''),
+    openedAt: Number(ledger.ratingOpenedAt || 0),
+    votesCount: values.length,
+    eligibleCount,
+    average
+  };
+}
+
+function persistMatchSatisfaction(room) {
+  const state = matchRatingState(room);
+  const record = matchStore.getMatch(room.boardId);
+  if (!record) return;
+  record.satisfaction = {
+    average: state.average,
+    votes: state.votesCount,
+    eligible: state.eligibleCount,
+    ratings: { ...(room.match?.ratings || {}) }
+  };
+  matchStore.upsertMatch(record);
+}
+
 function archiveCompletedMatch(room, fields) {
   const ledger = room.match;
   const archiveEvents = room.scoring.events.filter(event => !isMasterTestPlayerId(event.playerId));
@@ -3542,6 +3575,13 @@ function archiveCompletedMatch(room, fields) {
     record.recount.lossFindings = room.sessionState.matchResult.awards || [];
     room.sessionState.matchResult.recount = record.recount;
   }
+  const ratingState = matchRatingState(room);
+  record.satisfaction = {
+    average: ratingState.average,
+    votes: ratingState.votesCount,
+    eligible: ratingState.eligibleCount,
+    ratings: { ...(room.match?.ratings || {}) }
+  };
   matchStore.upsertMatch(record);
   return record;
 }
@@ -3557,6 +3597,11 @@ function recountLedgerRows(limit = 30) {
       title: String(match.title || match.recount?.title || 'UNTITLED OPERATION').slice(0, 120),
       completedAt: Number(match.resultsShownAt || match.completedAt || 0),
       outcome: match.recount?.outcome === 'LOST' ? 'LOST' : (match.recount?.gameWon ? 'WON' : 'COMPLETE'),
+      satisfaction: match.satisfaction ? {
+        average: match.satisfaction.average ?? null,
+        votes: Number(match.satisfaction.votes) || 0,
+        eligible: Number(match.satisfaction.eligible) || 0
+      } : null,
       scoreboard: (Array.isArray(match.recount?.scoreboard) ? match.recount.scoreboard : []).slice(0, 50).map(row => ({
         rank: Number(row.rank) || 0,
         name: String(row.name || 'UNKNOWN').slice(0, 80),
@@ -3960,11 +4005,19 @@ function applyCommand(room, command, payload) {
       if (room.chat.solvedTargets[column]) {
         return { success: false, error: `Column ${column} has already been solved from chat` };
       }
+
+      // GM adjudication is reversible. A mistaken RED/GREEN click must not
+      // become permanent board history. If the verdict changes, unwind the
+      // side effects of the old verdict before applying the new one.
       if (existingOutcome && existingOutcome !== outcome) {
-        return { success: false, error: `Column ${column} has already been resolved ${existingOutcome.toUpperCase()}` };
-      }
-      if (outcome === 'success' && room.womf?.failedColumns?.[column]) {
-        return { success: false, error: `Column ${column} has already been declared failed` };
+        if (existingOutcome === 'failed') {
+          if (room.womf?.failedColumns?.[column]) {
+            delete room.womf.failedColumns[column];
+            room.womf.charge = Math.max(0, (Number(room.womf.charge) || 0) - 1);
+          }
+          matchLedger.clearFailed(ensureMatchLedger(room), column);
+          changed = true;
+        }
       }
 
       if (outcome === 'success') {
@@ -12160,6 +12213,49 @@ function handleGmFinishGame(ws) {
   broadcastToRoom(room, { type: 'match:aftermath', result: aftermathResult, live: true });
 }
 
+function handleGmOpenRating(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
+  if (ws !== room.hostConnection) return sendToWs(ws, { type: 'error', message: 'Only host can open match rating' });
+  if (!room.match?.completedAt || !room.match?.aftermathStartedAt) {
+    return sendToWs(ws, { type: 'error', message: 'AFTERMATH must complete before rating' });
+  }
+  if (room.match.resultsShownAt) return;
+  room.match.ratingOpenedAt ||= Date.now();
+  room.match.ratings ||= {};
+  room.revision++;
+  persistActiveRooms();
+  const state = matchRatingState(room);
+  broadcastToRoom(room, { type: 'match:rating', ...state });
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+}
+
+function handleMatchRating(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws === room.hostConnection || !ws.playerId) return;
+  if (!room.match?.ratingOpenedAt || room.match.resultsShownAt) {
+    return sendToWs(ws, { type: 'error', message: 'Match rating is not open' });
+  }
+  if (isMasterTestPlayerId(ws.playerId)) return;
+  const rating = Number(message?.rating);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 10) {
+    return sendToWs(ws, { type: 'error', message: 'Rating must be an integer from 1 to 10' });
+  }
+  room.match.ratings ||= {};
+  room.match.ratings[String(ws.playerId)] = {
+    rating,
+    playerName: String(ws.playerName || 'Little Hero').slice(0, 80),
+    at: Date.now()
+  };
+  room.revision++;
+  persistMatchSatisfaction(room);
+  persistActiveRooms();
+  const state = matchRatingState(room);
+  broadcastToRoom(room, { type: 'match:rating', ...state });
+  sendToWs(ws, { type: 'match:ratingAck', ...state, myRating: rating });
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+}
+
 // releases any withheld Final points, and broadcasts it live exactly once.
 function handleGmShowRecount(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
@@ -12178,6 +12274,10 @@ function handleGmShowRecount(ws) {
   }
   if (!ledger.aftermathStartedAt) {
     sendToWs(ws, { type: 'error', message: 'FINISH GAME first // AFTERMATH must run before RECOUNT' });
+    return;
+  }
+  if (!ledger.ratingOpenedAt) {
+    sendToWs(ws, { type: 'error', message: 'MATCH RATING must open before RECOUNT' });
     return;
   }
   if (ledger.resultsShownAt) {
@@ -12202,6 +12302,19 @@ function handleGmShowRecount(ws) {
     sendToWs(ws, { type: 'error', message: 'RECOUNT unavailable: the match archive could not be written' });
     return;
   }
+
+  const ratedHistory = matchStore.listMatches()
+    .filter(match => match?.satisfaction?.votes > 0 && Number.isFinite(Number(match.satisfaction.average)));
+  const historicalAverage = ratedHistory.length
+    ? ratedHistory.reduce((sum, match) => sum + Number(match.satisfaction.average), 0) / ratedHistory.length
+    : null;
+  record.recount.satisfaction = {
+    average: record.satisfaction?.average ?? null,
+    votes: Number(record.satisfaction?.votes) || 0,
+    eligible: Number(record.satisfaction?.eligible) || 0,
+    historicalAverage,
+    ratedGames: ratedHistory.length
+  };
 
   ledger.recount = record.recount;
   ledger.resultsShownAt = Date.now();
@@ -14190,6 +14303,14 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:finishGame': {
           handleGmFinishGame(ws);
+          break;
+        }
+        case 'gm:openRating': {
+          handleGmOpenRating(ws);
+          break;
+        }
+        case 'match:rate': {
+          handleMatchRating(ws, message);
           break;
         }
         case 'gm:showRecount': {

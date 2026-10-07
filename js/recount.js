@@ -89,6 +89,15 @@ const Recount = (() => {
 
     const noAwards = !awardCards.length && !findingCards.length
       ? '<div class="rc-empty rc-step" data-step="award-0">NO NOTABLE FINDINGS. THE SYSTEM FOUND NOTHING WORTH REPORTING.</div>' : '';
+    const satisfaction = r.satisfaction || {};
+    const satisfactionAverage = satisfaction.average == null ? null : Number(satisfaction.average);
+    const historicalAverage = satisfaction.historicalAverage == null ? null : Number(satisfaction.historicalAverage);
+    const satisfactionText = Number.isFinite(satisfactionAverage)
+      ? `${satisfactionAverage.toFixed(1)}/10 // ${Number(satisfaction.votes) || 0} VOTES`
+      : 'NO RATINGS SUBMITTED';
+    const historicalText = Number.isFinite(historicalAverage)
+      ? `ALL-TIME ${historicalAverage.toFixed(1)}/10 // ${Number(satisfaction.ratedGames) || 0} RATED GAMES`
+      : 'ALL-TIME SCORE UNAVAILABLE';
 
     return `
       <div class="recount-panel">
@@ -110,6 +119,12 @@ const Recount = (() => {
             ? `<div class="rc-top-name">${namesOf(tops)}</div><div class="rc-top-points">${num(tops[0].points)} POINTS</div>`
             : '<div class="rc-top-name rc-dim">NONE</div><div class="rc-top-points">NO PLAYER EARNED POINTS</div>'}
           <div class="rc-strip">${esc(label.replace('MATCH ', ''))}: ${stripNames} · HIGH SCORE: ${num(r.summary.highScore)} · PLAYERS: ${r.summary.players} · ${lost ? 'GAME LOST' : 'GAME COMPLETE'} · TOTAL POINTS: ${num(r.summary.totalPoints)}</div>
+        </section>
+
+        <section class="rc-block rc-satisfaction rc-step" data-step="satisfaction">
+          <h3>PLAYER SATISFACTION</h3>
+          <div class="rc-satisfaction-score">${satisfactionText}</div>
+          <div class="rc-satisfaction-history">${historicalText}</div>
         </section>
 
         <section class="rc-block rc-step" data-step="boardhead">
@@ -147,7 +162,8 @@ const Recount = (() => {
   function playReveal(r) {
     const awardCount = r.awards.length + (Array.isArray(r.lossFindings) ? r.lossFindings.length : 0);
     schedule(500, () => show('top'));
-    schedule(1900, () => { show('boardhead'); show('board'); });
+    schedule(1400, () => show('satisfaction'));
+    schedule(2200, () => { show('boardhead'); show('board'); });
     // One award at a time. The third lands after a slightly longer pause: the
     // system has just found something else.
     let at = 3900;

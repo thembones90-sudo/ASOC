@@ -1430,6 +1430,13 @@ const PlayerApp = {
         }
         this.applyVictoryState(battleVisible && message.gameWon === true, battleVisible ? (message.matchResult || null) : null);
         this.applyLossState(battleVisible ? (message.matchResult || null) : null);
+        if (message.rating?.open === true && message.resultsShown !== true) {
+          Skeleton.closeAftermath?.();
+          window.MatchRating?.update?.(message.rating, { isHost: false, send: payload => this.send(payload) });
+        } else if (message.resultsShown === true || !battleVisible) {
+          window.MatchRating?.close?.();
+        }
+
         if (!battleVisible) {
           // CASUAL hides the battle, it does not end it. Re-entering BATTLE is
           // a hydration (like a late join), so a WON/LOST match already on the
@@ -1792,7 +1799,17 @@ const PlayerApp = {
         Skeleton.playAftermath(message.result || {}, { isHost: false });
         break;
 
+      case 'match:rating':
+        Skeleton.closeAftermath?.();
+        window.MatchRating?.update?.(message, { isHost: false, send: payload => this.send(payload) });
+        break;
+
+      case 'match:ratingAck':
+        window.MatchRating?.update?.(message, { isHost: false, send: payload => this.send(payload) });
+        break;
+
       case 'recount:update':
+        window.MatchRating?.close?.();
         // RECOUNT is the server-authoritative signal that the Shadow Broker
         // advanced beyond AFTERMATH. Close the epilogue for every Little Hero
         // at the same instant before presenting results.
@@ -2090,37 +2107,52 @@ const PlayerApp = {
 
   renderSolutionCountdownBadges() {
     const board = document.querySelector('#public-board > .asoc-board');
-    if (!board) return;
-    // Badges are updated in place (this runs on every state:public and
-    // every 250ms while a countdown runs); only stale ones are removed.
+    const hudRail = document.getElementById('board-hud-rail');
+    if (!board || !hudRail) return;
+
+    // Solution countdowns must never obscure board words. They live in a
+    // dedicated HUD strip above the battlefield instead of inside A5-D5/FINAL.
+    board.querySelectorAll('.solution-countdown-badge').forEach(el => el.remove());
+
+    let dock = hudRail.querySelector(':scope > .solution-countdown-dock');
+    if (!dock) {
+      dock = document.createElement('div');
+      dock.className = 'solution-countdown-dock';
+      hudRail.appendChild(dock);
+    }
+
     clearTimeout(this._solutionCountdownTicker);
     const now = Date.now();
     let active = false;
     const keep = new Set();
+
     Object.values(this.solutionCountdowns || {}).forEach(entry => {
-      // A paused battle freezes its countdowns: the server sends remainingMs
-      // instead of a deadline, and the badge holds still until resume.
       const remaining = entry.paused
         ? Math.max(0, Number(entry.remainingMs) || 0)
         : Math.max(0, Number(entry.deadline || 0) - now);
       if (remaining <= 0) return;
       if (!entry.paused) active = true;
+
       const key = entry.target === 'FINAL' ? 'FINAL' : entry.target + '5';
-      const cell = board.querySelector(`.board-cell[data-label="${CSS.escape(key)}"]`);
-      if (!cell) return;
       const total = Math.ceil(remaining / 1000);
-      let badge = cell.querySelector(':scope > .solution-countdown-badge');
+      let badge = dock.querySelector(`.solution-countdown-badge[data-target="${CSS.escape(key)}"]`);
+
       if (!badge) {
         badge = document.createElement('div');
-        cell.appendChild(badge);
+        badge.dataset.target = key;
+        dock.appendChild(badge);
       }
-      const className = 'solution-countdown-badge' + (entry.paused ? ' is-paused' : '');
-      if (badge.className !== className) badge.className = className;
-      const text = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-      if (badge.textContent !== text) badge.textContent = text;
+
+      badge.className = 'solution-countdown-badge' + (entry.paused ? ' is-paused' : '');
+      badge.innerHTML = `<span class="solution-countdown-target">${key}</span><span class="solution-countdown-time">${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}</span>`;
       keep.add(badge);
     });
-    board.querySelectorAll('.solution-countdown-badge').forEach(el => { if (!keep.has(el)) el.remove(); });
+
+    dock.querySelectorAll('.solution-countdown-badge').forEach(el => {
+      if (!keep.has(el)) el.remove();
+    });
+    dock.hidden = keep.size === 0;
+
     if (active) this._solutionCountdownTicker = setTimeout(() => this.renderSolutionCountdownBadges(), 250);
   },
 

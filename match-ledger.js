@@ -132,6 +132,13 @@ function markFailed(ledger, field, now) {
   if (!ledger.failedAt[field]) ledger.failedAt[field] = now;
 }
 
+function clearFailed(ledger, field) {
+  if (!ledger || !FIELDS.includes(field) || !ledger.failedAt) return false;
+  if (!ledger.failedAt[field]) return false;
+  delete ledger.failedAt[field];
+  return true;
+}
+
 // Per-field status, DERIVED from the authoritative sources each time rather
 // than trusted from a cached flag. A field is OPEN only if it is none of:
 //   solved   -- a correct guess was accepted (chat.solvedTargets)
@@ -308,6 +315,7 @@ module.exports = {
   recordAttempt,
   removeAttempt,
   markFailed,
+  clearFailed,
   resolveFields,
   isComplete,
   refreshCompletion,

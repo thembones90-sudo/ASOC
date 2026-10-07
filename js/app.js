@@ -569,6 +569,7 @@ const App = {
       const isFinal = key === 'FINAL';
       if (!isFinal && !/^[A-D]5$/.test(key)) return;
       const target = isFinal ? 'FINAL' : key[0];
+      const currentOutcome = isFinal ? Board.getFinalOutcome() : Board.getCellOutcome(target, 5);
 
       closeOutcomeChooser();
       this._gmColumnOutcomeColumn = target;
@@ -589,15 +590,15 @@ const App = {
           <button type="button" class="gm-column-countdown-btn" data-countdown-seconds="120">2 MIN</button>
         </div>
       ` : `
-        <div class="gm-column-outcome-title">${target}5 // RESOLVE</div>
+        <div class="gm-column-outcome-title">${target}5 // ${currentOutcome ? 'OVERRULE' : 'RESOLVE'}</div>
         <div class="gm-column-outcome-actions">
-          <button type="button" class="gm-column-outcome-btn is-green" data-outcome="success">GREEN</button>
-          <button type="button" class="gm-column-outcome-btn is-red" data-outcome="failed">RED</button>
+          <button type="button" class="gm-column-outcome-btn is-green" data-outcome="success">${currentOutcome === 'failed' ? 'OVERRULE → GREEN' : 'GREEN'}</button>
+          <button type="button" class="gm-column-outcome-btn is-red" data-outcome="failed">${currentOutcome === 'success' ? 'OVERRULE → RED' : 'RED'}</button>
         </div>
-        <div class="gm-column-countdown-actions">
+        ${currentOutcome ? '' : `<div class="gm-column-countdown-actions">
           <button type="button" class="gm-column-countdown-btn" data-countdown-seconds="60">1 MIN</button>
           <button type="button" class="gm-column-countdown-btn" data-countdown-seconds="120">2 MIN</button>
-        </div>
+        </div>`}
       `;
 
       dialog.addEventListener('click', (event) => {
@@ -669,16 +670,18 @@ const App = {
       if (!/^[A-D][1-5]$/.test(key)) return;
       const column = key[0];
       const row = Number(key.slice(1));
-      if (Board.isRevealed(column, row)) return;
       const columnOutcome = Board.getCellOutcome(column, 5);
-      if (this.solvedTargets?.[column] || columnOutcome === 'success' || columnOutcome === 'failed') return;
+      const solvedFromChat = !!this.solvedTargets?.[column] && !this.solvedTargets[column]?.manual;
 
-      // Every solution surface is an adjudication control. A5-D5 resolve
-      // the column GREEN/RED; FINAL resolves the whole match GREEN/RED.
+      // A5-D5 stay clickable after a manual GREEN/RED verdict so the GM can
+      // correct a bad adjudication. Chat-confirmed solves remain locked.
       if (row === 5) {
-        openOutcomeChooser(cell);
+        if (!solvedFromChat) openOutcomeChooser(cell);
         return;
       }
+
+      if (Board.isRevealed(column, row)) return;
+      if (this.solvedTargets?.[column] || columnOutcome === 'success' || columnOutcome === 'failed') return;
 
       markPending(cell, true);
       this._gmRevealFlashUntil ||= {};
@@ -747,10 +750,14 @@ const App = {
       // verdict resolved it). This keeps B1-B4 available while B5 is merely
       // being considered.
       const columnOutcome = normalCell ? Board.getCellOutcome(column, 5) : null;
+      const manualColumnResolution = normalCell && row === 5 &&
+        (columnOutcome === 'success' || columnOutcome === 'failed') &&
+        (!this.solvedTargets?.[column] || this.solvedTargets[column]?.manual === true);
       const resolved = isFinal
         ? (Board.getFinalOutcome() === 'failed' || !!this.solvedTargets?.FINAL)
         : (normalCell && (!!this.solvedTargets?.[column] || columnOutcome === 'success' || columnOutcome === 'failed'));
-      const actionable = gameLoaded && !this.gameComplete && (isFinal || normalCell) && !revealed && !resolved;
+      const actionable = gameLoaded && !this.gameComplete && (isFinal || normalCell) &&
+        ((!revealed && !resolved) || manualColumnResolution);
 
       cell.classList.toggle('gm-board-hitbox', actionable);
       cell.classList.toggle('gm-board-inert', !actionable);
@@ -3048,7 +3055,7 @@ const App = {
           isHost: true,
           onContinue: () => {
             if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
-              this.send({ type: 'gm:showRecount' });
+              this.send({ type: 'gm:openRating' });
             } else {
               Skeleton.closeAftermath?.();
             }
@@ -3057,7 +3064,13 @@ const App = {
         break;
       }
 
+      case 'match:rating':
+        Skeleton.closeAftermath?.();
+        window.MatchRating?.update?.(message, { isHost: true, send: payload => this.send(payload) });
+        break;
+
       case 'recount:update':
+        window.MatchRating?.close?.();
         // AFTERMATH owns the screen until the Shadow Broker advances. The
         // server's RECOUNT broadcast is the authoritative dismissal signal for
         // every client, so nobody can wander into results ahead of the room.
@@ -3288,11 +3301,18 @@ const App = {
         alreadyComplete: true,
         onContinue: () => {
           if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
-            this.send({ type: 'gm:showRecount' });
+            this.send({ type: 'gm:openRating' });
           }
         }
       });
     }
+    if (state.rating?.open === true && state.resultsShown !== true) {
+      Skeleton.closeAftermath?.();
+      window.MatchRating?.update?.(state.rating, { isHost: true, send: payload => this.send(payload) });
+    } else if (state.resultsShown === true || !battleVisible) {
+      window.MatchRating?.close?.();
+    }
+
     if (!battleVisible) {
       // CASUAL is only a presentation layer over the still-running battle.
       // A timer may expire while the room is hidden; never let that trigger a
@@ -3403,28 +3423,53 @@ const App = {
 
   renderGMSolutionCountdownBadges() {
     const board = document.getElementById('asoc-board');
-    if (!board) return;
+    const womf = document.getElementById('womf-tracker-gm');
+    if (!board || !womf) return;
+
+    // Keep countdown telemetry out of gameplay cells. Humans apparently
+    // enjoy being able to read the word they are racing to solve.
     board.querySelectorAll('.solution-countdown-badge').forEach(el => el.remove());
+
+    let dock = document.getElementById('solution-countdown-dock-gm');
+    if (!dock) {
+      dock = document.createElement('div');
+      dock.id = 'solution-countdown-dock-gm';
+      dock.className = 'solution-countdown-dock';
+      womf.insertAdjacentElement('afterend', dock);
+    }
+
     clearTimeout(this._gmSolutionCountdownTicker);
     const now = Date.now();
     let active = false;
+    const keep = new Set();
+
     Object.values(this.solutionCountdowns || {}).forEach(entry => {
-      // A paused battle freezes its countdowns: the server sends remainingMs
-      // instead of a deadline, and the badge holds still until resume.
       const remaining = entry.paused
         ? Math.max(0, Number(entry.remainingMs) || 0)
         : Math.max(0, Number(entry.deadline || 0) - now);
       if (remaining <= 0) return;
       if (!entry.paused) active = true;
+
       const key = entry.target === 'FINAL' ? 'FINAL' : entry.target + '5';
-      const cell = board.querySelector(`.board-cell[data-cell="${CSS.escape(key)}"]`);
-      if (!cell) return;
       const total = Math.ceil(remaining / 1000);
-      const badge = document.createElement('div');
+      let badge = dock.querySelector(`.solution-countdown-badge[data-target="${CSS.escape(key)}"]`);
+
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.dataset.target = key;
+        dock.appendChild(badge);
+      }
+
       badge.className = 'solution-countdown-badge' + (entry.paused ? ' is-paused' : '');
-      badge.textContent = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-      cell.appendChild(badge);
+      badge.innerHTML = `<span class="solution-countdown-target">${key}</span><span class="solution-countdown-time">${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}</span>`;
+      keep.add(badge);
     });
+
+    dock.querySelectorAll('.solution-countdown-badge').forEach(el => {
+      if (!keep.has(el)) el.remove();
+    });
+    dock.hidden = keep.size === 0;
+
     if (active) this._gmSolutionCountdownTicker = setTimeout(() => this.renderGMSolutionCountdownBadges(), 250);
   },
 

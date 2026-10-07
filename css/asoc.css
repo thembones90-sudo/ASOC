@@ -14371,20 +14371,53 @@ body.asoc-transition-to-battle #game-screen .player-battle-layout {
   filter: brightness(1.2);
 }
 
-.solution-countdown-badge {
-  position: absolute;
-  right: 8px;
-  top: 6px;
-  z-index: 18;
+.solution-countdown-dock {
+  width: 100%;
+  max-width: var(--canvas-width);
+  min-height: 28px;
+  margin: 0 0 8px;
   padding: 3px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.solution-countdown-dock[hidden] {
+  display: none !important;
+}
+
+.solution-countdown-badge {
+  position: static;
+  z-index: auto;
+  min-width: 76px;
+  height: 24px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   border: 1px solid rgba(236, 178, 64, .72);
   border-radius: 5px;
-  background: rgba(12, 8, 3, .9);
+  background: rgba(12, 8, 3, .94);
   color: #f1c45a;
   font: 900 10px/1 var(--font-machine);
   letter-spacing: .08em;
-  box-shadow: 0 0 12px rgba(236, 178, 64, .22);
+  box-shadow: 0 0 12px rgba(236, 178, 64, .18);
   pointer-events: none;
+}
+
+.solution-countdown-target {
+  color: rgba(237, 222, 180, .72);
+  font-size: 8px;
+  letter-spacing: .12em;
+}
+
+.solution-countdown-time {
+  color: #f1c45a;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Frozen with the battle clock while the game is paused. */
@@ -22094,4 +22127,144 @@ body #black-market-gm-button.bm-has-pending small {
   width: auto !important; height: auto !important;
   max-width: 100% !important; max-height: 100% !important;
   object-fit: contain !important;
+}
+
+
+/* =========================================================
+   POST-MATCH SATISFACTION RATING
+   Story -> rating -> RECOUNT. Shared by GM and Little Heroes.
+   ========================================================= */
+.match-rating-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(126,38,48,.14), transparent 38%),
+    rgba(3,5,8,.88);
+  backdrop-filter: blur(7px);
+}
+.match-rating-panel {
+  width: min(760px, calc(100vw - 32px));
+  padding: 28px;
+  border: 1px solid rgba(162,170,183,.34);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(20,24,30,.99), rgba(8,10,14,.99));
+  box-shadow: inset 0 1px rgba(255,255,255,.06), 0 24px 80px rgba(0,0,0,.58);
+  text-align: center;
+}
+.match-rating-kicker {
+  color: #7e8794;
+  font: 800 10px/1 var(--font-machine);
+  letter-spacing: .2em;
+}
+.match-rating-panel h1 {
+  margin: 10px 0 8px;
+  color: #e8ebf1;
+  font: 900 clamp(28px, 4vw, 48px)/1 var(--font-system);
+  letter-spacing: .08em;
+}
+.match-rating-copy {
+  max-width: 620px;
+  margin: 0 auto 22px;
+  color: #aeb5bf;
+  font: 600 15px/1.5 var(--font-human);
+}
+.match-rating-scale-labels {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 2px 8px;
+  color: #747d89;
+  font: 800 9px/1 var(--font-machine);
+  letter-spacing: .1em;
+}
+.match-rating-scores {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(44px, 1fr));
+  gap: 8px;
+}
+.match-rating-score {
+  min-height: 54px;
+  border: 1px solid rgba(126,136,150,.42);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #1a1f26, #0b0e12);
+  color: #d7dce5;
+  font: 900 20px/1 var(--font-machine);
+  cursor: pointer;
+  transition: transform .12s ease, filter .12s ease, border-color .12s ease;
+}
+.match-rating-score:hover,
+.match-rating-score:focus-visible {
+  outline: none;
+  transform: translateY(-2px);
+  filter: brightness(1.22);
+  border-color: rgba(219,174,84,.75);
+}
+.match-rating-score.is-selected {
+  color: #f2c968;
+  border-color: rgba(236,178,64,.85);
+  background: linear-gradient(180deg, #352814, #171005);
+  box-shadow: 0 0 18px rgba(236,178,64,.18);
+}
+.match-rating-status {
+  margin-top: 14px;
+  color: #8d96a2;
+  font: 800 10px/1 var(--font-machine);
+  letter-spacing: .12em;
+}
+.match-rating-host-score {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin: 18px 0 5px;
+}
+.match-rating-host-score strong {
+  color: #f1c45a;
+  font: 900 clamp(54px, 8vw, 86px)/.9 var(--font-machine);
+}
+.match-rating-host-score span {
+  color: #7d8794;
+  font: 900 18px/1 var(--font-machine);
+}
+.match-rating-host-meta {
+  color: #8d96a2;
+  font: 800 10px/1 var(--font-machine);
+  letter-spacing: .14em;
+}
+.match-rating-proceed {
+  margin-top: 24px;
+  min-width: 240px;
+  min-height: 44px;
+  border: 1px solid rgba(212,168,67,.65);
+  border-radius: 5px;
+  background: linear-gradient(180deg, #3b2c13, #171005);
+  color: #f2c968;
+  font: 900 11px/1 var(--font-machine);
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+.match-rating-proceed:hover,
+.match-rating-proceed:focus-visible { outline:none; filter:brightness(1.18); }
+
+@media (max-width: 720px) {
+  :where(html:not(.asoc-mobile)) .match-rating-overlay { padding: 10px; }
+  :where(html:not(.asoc-mobile)) .match-rating-panel { padding: 18px 12px; }
+  :where(html:not(.asoc-mobile)) .match-rating-scores { grid-template-columns: repeat(5, 1fr); }
+}
+
+.rc-satisfaction { text-align:center; }
+.rc-satisfaction-score {
+  margin-top:8px;
+  color:#f1c45a;
+  font:900 clamp(24px,3vw,38px)/1 var(--font-machine);
+  letter-spacing:.06em;
+}
+.rc-satisfaction-history {
+  margin-top:7px;
+  color:#7f8794;
+  font:800 9px/1 var(--font-machine);
+  letter-spacing:.12em;
 }
