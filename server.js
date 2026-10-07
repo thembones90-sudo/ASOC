@@ -7853,11 +7853,16 @@ function dispatchGmSlashCommand(room, ws, text) {
       'ToAstYyYyYy!'
     ],
     frost: [
-      '{T} reaches absolute zero and, regrettably, several pieces.',
-      '{T} is preserved forever as a monument to poor decision-making.',
-      '{T} freezes so thoroughly that even regret stops moving.',
-      '{T} becomes an elegant collection of highly judgmental ice shards.',
-      '{T} discovers that hypothermia is considerably less charming at cinematic scale.'
+      'Talk about a cold reception.',
+      'Looks like somebody caught a draft.',
+      'That’s what I call a cold snap.',
+      'You’re history. Frozen history.',
+      'No jacket? Bold choice.',
+      'You’ve got ice in your veins now. Literally.',
+      'You just got cold-cocked by winter.',
+      'Keep cool. Permanently.',
+      'The forecast says dead cold.',
+      'You’ve been upgraded to freezer inventory.'
     ]
   };
 
