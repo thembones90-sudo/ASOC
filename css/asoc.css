@@ -22268,3 +22268,101 @@ body #black-market-gm-button.bm-has-pending small {
   font:800 9px/1 var(--font-machine);
   letter-spacing:.12em;
 }
+
+
+/* /sigh: deliberately restrained. The card slumps while a few grey wisps
+   drift away; Broker sighs add a brief room-wide desaturation pulse. */
+.chat-system-card.chat-system-sigh {
+  position: relative;
+  overflow: visible;
+  animation: asoc-sigh-slump 900ms ease-out both;
+}
+.chat-system-card.chat-system-sigh::before,
+.chat-system-card.chat-system-sigh::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  width: 24px;
+  height: 12px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(190,196,204,.28) 0%, rgba(160,166,176,.12) 48%, rgba(120,126,136,0) 76%);
+  filter: blur(1.2px);
+  opacity: 0;
+  z-index: 2;
+}
+.chat-system-card.chat-system-sigh::before {
+  left: 44px;
+  top: 8px;
+  animation: asoc-sigh-wisp-a 1100ms ease-out forwards;
+}
+.chat-system-card.chat-system-sigh::after {
+  left: 58px;
+  top: 13px;
+  animation: asoc-sigh-wisp-b 1200ms 80ms ease-out forwards;
+}
+
+.sigh-screen-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  pointer-events: none;
+  overflow: hidden;
+  animation: asoc-sigh-room 760ms ease-out forwards;
+}
+.sigh-screen-fx.is-broker {
+  background: rgba(24,26,30,.10);
+  backdrop-filter: saturate(.78) brightness(.94);
+  animation-duration: 900ms;
+}
+.sigh-screen-wisp {
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  width: 46px;
+  height: 18px;
+  margin-left: -23px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(182,188,198,.20) 0%, rgba(140,146,156,.08) 52%, transparent 78%);
+  filter: blur(2px);
+  opacity: 0;
+  animation: asoc-sigh-screen-wisp 760ms ease-out forwards;
+}
+.sigh-screen-wisp:nth-child(2) { animation-delay: 70ms; transform: translateX(-18px); }
+.sigh-screen-wisp:nth-child(3) { animation-delay: 130ms; transform: translateX(18px); }
+
+@keyframes asoc-sigh-slump {
+  0% { transform: translateY(0); filter: brightness(1) saturate(1); }
+  28% { transform: translateY(3px); filter: brightness(.92) saturate(.86); }
+  100% { transform: translateY(0); filter: brightness(1) saturate(1); }
+}
+@keyframes asoc-sigh-wisp-a {
+  0% { opacity: 0; transform: translate(0,0) scale(.72); }
+  18% { opacity: .45; }
+  100% { opacity: 0; transform: translate(24px,-22px) scale(1.35); }
+}
+@keyframes asoc-sigh-wisp-b {
+  0% { opacity: 0; transform: translate(0,0) scale(.64); }
+  18% { opacity: .34; }
+  100% { opacity: 0; transform: translate(30px,-14px) scale(1.2); }
+}
+@keyframes asoc-sigh-room {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes asoc-sigh-screen-wisp {
+  0% { opacity: 0; transform: translateY(8px) scale(.72); }
+  20% { opacity: .28; }
+  100% { opacity: 0; transform: translateY(-34px) scale(1.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-system-card.chat-system-sigh,
+  .chat-system-card.chat-system-sigh::before,
+  .chat-system-card.chat-system-sigh::after,
+  .sigh-screen-fx,
+  .sigh-screen-wisp {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+}

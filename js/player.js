@@ -5096,7 +5096,8 @@ const PlayerApp = {
   playChatActScreenFx(msg) {
     window.AssKick?.play(msg);
     const type = String(msg?.messageType || '');
-    if (type !== 'fart' && type !== 'spit') return;
+    const sigh = type === 'emote' && msg?.emote?.act === 'sigh';
+    if (type !== 'fart' && type !== 'spit' && !sigh) return;
     const sentAt = Number(msg?.timestamp) || 0;
     if (!sentAt || Math.abs(Date.now() - sentAt) > 8000) return;
     const key = String(msg?.id || `${type}:${sentAt}`);
@@ -5104,6 +5105,17 @@ const PlayerApp = {
     if (this._playedChatActFx.has(key)) return;
     this._playedChatActFx.add(key);
     if (this._playedChatActFx.size > 100) this._playedChatActFx.delete(this._playedChatActFx.values().next().value);
+
+    if (sigh) {
+      const layer = document.createElement('div');
+      const broker = msg?.emote?.actorId == null || msg?.emote?.actorId === '';
+      layer.className = 'sigh-screen-fx' + (broker ? ' is-broker' : '');
+      layer.setAttribute('aria-hidden', 'true');
+      layer.innerHTML = '<span class="sigh-screen-wisp"></span><span class="sigh-screen-wisp"></span><span class="sigh-screen-wisp"></span>';
+      document.body.appendChild(layer);
+      window.setTimeout(() => layer.remove(), broker ? 900 : 760);
+      return;
+    }
 
     const layer = document.createElement('div');
     layer.className = `chat-act-screen-fx is-${type}`;
@@ -5183,8 +5195,9 @@ const PlayerApp = {
     window.ShadowCosmetics?.maybePlayFx(msg);
     const { label, body, detail } = render();
     const lane = String(msg.playerId || '') === String(this.playerId || '') ? ' chat-system-own' : (msg.playerId ? ' chat-system-other' : ' chat-system-room');
+    const sighClass = msg.messageType === 'emote' && msg.emote?.act === 'sigh' ? ' chat-system-sigh' : '';
     return `
-      <div class="chat-system-card chat-system-${esc(msg.messageType)}${lane}${window.ShadowCosmetics?.cardClass(msg) || ''}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
+      <div class="chat-system-card chat-system-${esc(msg.messageType)}${lane}${sighClass}${window.ShadowCosmetics?.cardClass(msg) || ''}" data-message-id="${esc(msg.id)}" data-player-name="${actor}">
         <div class="chat-system-label">${esc(label)}</div>
         <div class="chat-system-body">${body}</div>
         ${detail ? `<div class="chat-system-detail">${detail}</div>` : ''}
