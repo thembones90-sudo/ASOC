@@ -32,10 +32,10 @@
       overlay.className = 'dragon-setup-overlay';
       overlay.hidden = true;
       const bosses = [
-        ['varkhul', 'WENDIGO', 'HUNGER // ISOLATION // PREDATION', 'CABINET ENCOUNTER // 3–5 HEROES'],
-        ['kraevar', 'HYM', 'GUILT // SHADOW // POSSESSION', 'CABINET ENCOUNTER // 3–5 HEROES'],
-        ['azhraak', 'AZHRAAK, LORD OF THE BURNING VAULT', 'INFERNO // PARTY-WIDE FIRE', 'NORMAL RAID // 3–5 HEROES'],
-        ['drazhul', 'DRAZHUL, KEEPER OF THE SHADOW HEART', 'SHADOW VEIL // DRAIN AND DEBUFFS', 'NORMAL RAID // 3–5 HEROES'],
+        ['wendigo', 'WENDIGO', 'HUNGER // ISOLATION // PREDATION', 'CABINET ENCOUNTER // 3–5 HEROES'],
+        ['hym', 'HYM', 'GUILT // SHADOW // POSSESSION', 'CABINET ENCOUNTER // 3–5 HEROES'],
+        ['hydra', 'HYDRA', 'VENOM // SEVEN HEADS // REGENERATION', 'CABINET ENCOUNTER // 3–5 HEROES'],
+        ['necromorph', 'NECROMORPH', 'SCYTHE // AMBUSH // FRENZY', 'CABINET ENCOUNTER // 3–5 HEROES'],
         ['deathwing', 'DEATHWING', 'THE DESTROYER // CATACLYSM', 'HEROIC RAID // EXACTLY 5 HEROES']
       ];
       overlay.innerHTML = `<section class="dragon-setup-panel" role="dialog" aria-modal="true" aria-labelledby="dragon-setup-title">
