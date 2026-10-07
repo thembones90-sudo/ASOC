@@ -83,6 +83,7 @@ const App = {
   bloodTributes: [],
   gmSlashCommands: [
     { name: 'warsong', insert: '/warsong', icon: '⚑', label: 'WARSONG', description: 'Six-second room-wide Horde battle banner' },
+    { name: 'fatality', insert: '/fatality @', icon: '☠', label: 'FATALITY', description: '/fatality @Name -- execute one Little Hero with Pyroblast or Absolute Zero' },
     { name: 'fireworks', insert: '/fireworks ', icon: '✺', label: 'FIREWORKS', description: '/fireworks [message] -- light up every screen' },
     { name: 'c4', insert: '/c4', icon: '▣', label: 'C4 COLUMN', description: 'Manually trigger the three-second C4 battle alert' },
     { name: 'b3', insert: '/b3', icon: '◩', label: 'BAKI B3', description: 'Manually trigger the purple-black B3 battle tribute' },

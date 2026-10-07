@@ -7829,8 +7829,12 @@ function dispatchGmSlashCommand(room, ws, text) {
   // One server roll determines the variant for every connected spectator.
   if (/^\/fatality\b/i.test(raw)) {
     const match = raw.match(/^\/fatality(?:\s+@?(.*?))?\s*$/i);
-    if (!match || !match[1]?.trim()) return { success: false, error: 'FATALITY INVALID // USE /fatality @Name' };
-    const resolved = resolveNamedTarget(room, null, '', match[1], 'FATALITY', { includeDisconnected: false });
+    const typedTarget = String(match?.[1] || '')
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .replace(/\u00A0/g, ' ')
+      .trim();
+    if (!typedTarget) return { success: false, error: 'FATALITY INVALID // USE /fatality @Name' };
+    const resolved = resolveNamedTarget(room, null, '', typedTarget, 'FATALITY', { includeDisconnected: true });
     if (resolved.error) return { success: false, error: resolved.error };
     const target = resolved.target;
     const variant = crypto.randomInt(0, 2) === 0 ? 'pyroblast' : 'frost';
