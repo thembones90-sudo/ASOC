@@ -134,27 +134,11 @@
 
     // Shadow Broker: a session switch in the command rail.
     renderGM() {
+      document.getElementById('hero-roles-toggle')?.remove();
       const row = document.querySelector('.battle-controls-utility-row');
       if (!row) return;
-      let btn = document.getElementById('hero-roles-toggle');
-      if (!btn) {
-        btn = document.createElement('button');
-        btn.type = 'button';
-        btn.id = 'hero-roles-toggle';
-        btn.className = 'toolbar-btn hero-roles-toggle';
-        btn.dataset.hr = 'gm-toggle';
-        // Appended LAST: the Shadow Broker's own order (QUESTS, TRANSMOG,
-        // BACKDOOR) must never shift. Anything new goes after it.
-        row.appendChild(btn);
-      }
-      const on = this.state ? this.state.enabled !== false : true;
-      btn.textContent = `ROLES ${on ? 'ON' : 'OFF'}`;
-      btn.classList.toggle('is-off', !on);
-      btn.title = on ? 'DPS / TANK / HEAL badges are on. Click to switch them off for this session.' : 'Hero roles are off. Click to switch them on.';
-
       const rogueSkill = document.getElementById('poison-gm-button');
       if (rogueSkill && rogueSkill.parentElement !== row) row.appendChild(rogueSkill);
-      if (rogueSkill && btn.nextElementSibling !== rogueSkill) btn.insertAdjacentElement('afterend', rogueSkill);
     },
 
     click(e) {
@@ -163,7 +147,6 @@
       const a = el.dataset.hr;
       e.preventDefault();
       const send = m => host()?.send?.(m);
-      if (a === 'gm-toggle') { const on = this.state ? this.state.enabled !== false : true; if (confirm(on ? 'SWITCH HERO ROLES OFF FOR THIS SESSION?' : 'SWITCH HERO ROLES ON?')) send({ type: 'gm:heroRoles', enabled: !on }); return; }
       if (a === 'pick') return send({ type: 'heroRole:pick', role: el.dataset.role });
     },
 

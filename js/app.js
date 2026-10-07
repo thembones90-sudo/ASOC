@@ -102,7 +102,6 @@ const App = {
     { name: 'all', insert: '/all ', icon: '⚡', label: 'ALL', description: '/all [message] -- shake every screen' },
     { name: 'megabonk', insert: '/megabonk all ', icon: '🔨', label: 'MEGABONK ALL', description: '/megabonk all [message] -- every Little Hero must ACKNOWLEDGE' },
     { name: 'megabonk', insert: '/megabonk @', icon: '🔨', label: 'MEGABONK ONE', description: '/megabonk @Name [message] -- one Little Hero must ACKNOWLEDGE' },
-    { name: 'dragon', insert: '/dragon', icon: '🐉', label: 'DRAGON RAID', description: '/dragon -- summon the weekly Fire Dragon raid' },
     { name: 'relic', insert: '/relic @', icon: '✦', label: 'RELIC', description: "/relic @Name -- grant SHADOW BROKER'S MISTAKE" },
     { name: 'goat', insert: '/goat @', icon: '🐐', label: 'GOAT', description: '/goat @Name -- unleash random GOAT chaos on that player; /award @Name goat -- grant player access' },
     { name: 'smite', insert: '/smite ', icon: '⚡', label: 'SMITE', description: '/smite Name | all -- strike one target or everyone' },

@@ -6986,8 +6986,7 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
   { name: '/award', help: '/award @Name ghost -- grant a Shadow Market relic or reward (e.g. /drug)' },
   { name: '/goat', help: '/goat -- unleash one random GOAT event' },
-  { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' },
-  { name: '/dragon', help: '/dragon [random|varkhul|kraevar|azhraak|drazhul|heroic] -- summon a Dragon Raid' }
+  { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' }
 ];
 const GM_CHAT_SLASH_COMMANDS = Array.from(new Map(
   [...CHAT_SLASH_COMMANDS, ...GM_ONLY_SLASH_COMMANDS].map(command => [command.name, command])
@@ -8492,13 +8491,6 @@ function dispatchGmSlashCommand(room, ws, text) {
     const result = handleGoatCommand(room, author, raw, { gm: true });
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
-  if (/^\/dragon\b/i.test(raw)) {
-    const match = raw.match(/^\/dragon(?:\s+(random|varkhul|kraevar|azhraak|drazhul|deathwing|heroic))?\s*$/i);
-    if (!match) return { success: false, error: 'DRAGON INVALID // USE /dragon [random|varkhul|kraevar|azhraak|drazhul|heroic]' };
-    const requested = String(match[1] || 'random').toLowerCase();
-    const result = triggerDragonRaid(room, requested === 'heroic' ? 'deathwing' : requested);
-    return result.ok ? { success: true, broadcast: false } : { success: false, error: result.error };
-  }
   if (/^\/commands\b/i.test(raw)) {
     const result = handleCommandsCommand(room, author, raw, GM_CHAT_SLASH_COMMANDS);
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
@@ -8636,6 +8628,7 @@ function triggerB3Alert(room, text, messageId) {
 // ---------------------------------------------------------------------
 function ensureHeroRoles(room) {
   if (!room.heroRoles) room.heroRoles = heroRoles.createState();
+  room.heroRoles.enabled = true;
   return room.heroRoles;
 }
 function heroRolesLive(room) { return room.roomMode === ROOM_MODES.BATTLE && !room.sessionState?.matchResult; }
@@ -8880,11 +8873,6 @@ function handleHeroRole(ws, message) {
   if (!room) return;
   const fail = error => sendToWs(ws, { type: 'error', code: 'HERO_ROLE', message: error });
   const state = ensureHeroRoles(room);
-  if (message.type === 'gm:heroRoles') {
-    if (ws !== room.hostConnection || ws.gmAuthenticated !== true) return fail('ONLY THE SHADOW BROKER MAY SWITCH ROLES');
-    heroRoles.setEnabled(state, message.enabled !== false);
-    return heroRolesCommit(room, [`HERO ROLES // ${state.enabled ? 'ONLINE. CHOOSE DPS, TANK OR HEAL.' : 'OFFLINE FOR THIS SESSION.'}`]);
-  }
   if (message.type !== 'heroRole:pick') return fail('UNKNOWN ROLE ACTION');
   const player = room.players.get(ws);
   if (!player || ws === room.hostConnection || player.isTestPersona === true || String(player.id) !== String(ws.playerId)) return fail('A CONNECTED LITTLE HERO IDENTITY IS REQUIRED');
@@ -8957,13 +8945,23 @@ function getDragonRaidService() {
   }
   return dragonRaidService;
 }
-function triggerDragonRaid(room, bossId = 'random') {
+function triggerDragonRaid(room, bossId) {
   return getDragonRaidService().trigger(room, bossId);
 }
 function handleDragonAction(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   const player = room?.players?.get(ws);
   return getDragonRaidService().handle(room, ws, player, message);
+}
+function handleDragonRaidSetup(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) {
+    return sendToWs(ws, { type: 'dragon:error', message: 'ONLY THE SHADOW BROKER MAY OPEN A RAID' });
+  }
+  const bossId = String(message.bossId || '').toLowerCase();
+  if (!dragonRaid.BOSSES[bossId]) return sendToWs(ws, { type: 'dragon:error', message: 'SELECT A VALID DRAGON' });
+  const result = triggerDragonRaid(room, bossId);
+  if (!result.ok) sendToWs(ws, { type: 'dragon:error', message: result.error });
 }
 
 // CLASS WARNING // server-driven so it reaches EVERYONE.
@@ -13889,7 +13887,10 @@ wss.on('connection', (ws, req) => {
           handleDragonAction(ws, message);
           break;
         }
-        case 'gm:heroRoles':
+        case 'gm:dragonRaid': {
+          handleDragonRaidSetup(ws, message);
+          break;
+        }
         case 'heroRole:pick': {
           handleHeroRole(ws, message);
           break;

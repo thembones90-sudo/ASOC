@@ -74,8 +74,6 @@ async function serverSuite() {
     // Roles are disarmed until the ritual is locked in.
     let preLock = await Dps1.act({ type: 'heroRole:pick', role: 'dps' }, 'premature pick');
     assert.match(preLock.message, /LOCK IN/);
-    let err = await Dps1.act({ type: 'gm:heroRoles', enabled: false }, 'hero toggle');
-    assert.match(err.message, /ONLY THE SHADOW BROKER/);
     // Start the battle.
     Object.values(heroes).forEach(c => c.send({ type: 'ritual:join' }));
     await Fifth.next(m => m.type === 'ritual:update' && m.ritual.fulfilled && !m.ritual.lockedIn, '5/5');
@@ -100,7 +98,7 @@ async function serverSuite() {
     await Dps1.next(m => m.type === 'state:public' && m.roomMode === 'BATTLE', 'battle live', 0, 15000);
     const roster = (await Dps1.next(m => m.type === 'players:update' && m.players.some(p => String(p.id) === Tank.playerId && p.heroRole), 'live roster')).players;
     assert.equal(roster.find(p => String(p.id) === Tank.playerId).heroRole, 'tank');
-    err = await Dps1.act({ type: 'heroRole:pick', role: 'heal' }, 'locked pick');
+    let err = await Dps1.act({ type: 'heroRole:pick', role: 'heal' }, 'locked pick');
     assert.match(err.message, /LOCKED/);
     // Decorative: the old abilities are gone and a FAIL always costs WOMF.
     from = Fifth.mark();
@@ -112,10 +110,8 @@ async function serverSuite() {
     from = Tank.mark(); gm.send({ type: 'gm:failColumn', column: 'C' });
     let st = await Tank.next(m => m.type === 'state:public' && m.cells.C5?.revealed, 'C failed', from);
     assert.equal(st.womf.charge, womfBefore + 1, 'a FAIL costs WOMF whatever the roles');
-    // GM switch.
-    st = await gm.act({ type: 'gm:heroRoles', enabled: false }, 'gm off');
-    assert.equal(st.heroRoles.enabled, false);
-    st = await gm.act({ type: 'gm:heroRoles', enabled: true }, 'gm on');
+    // Roles are permanently enabled; there is no redundant GM toggle.
+    assert.equal(st.heroRoles.enabled, true);
     // RESET BOARD ends the role assignment; no old badge reaches the roster.
     from = Dps1.mark(); gm.send({ type: 'gm:command', command: 'resetBoard', payload: {}, cmdId: 1 });
     st = await Dps1.next(m => m.type === 'state:public' && m.heroRoles && m.roomMode !== 'BATTLE', 'reset', from, 10000);

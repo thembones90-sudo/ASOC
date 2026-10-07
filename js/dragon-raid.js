@@ -21,7 +21,40 @@
       if (this.initialized) return;
       this.initialized = true;
       document.addEventListener('click', event => this.click(event));
+      this.ensureSetup();
       this.ticker = setInterval(() => this.tick(), 250);
+    },
+
+    ensureSetup() {
+      if (!this.isGM() || document.getElementById('dragon-raid-setup-overlay')) return;
+      const overlay = document.createElement('div');
+      overlay.id = 'dragon-raid-setup-overlay';
+      overlay.className = 'dragon-setup-overlay';
+      overlay.hidden = true;
+      const bosses = [
+        ['varkhul', 'VARKHUL, THE ASH TYRANT', 'ASHEN BLOOD // BURN PRESSURE', 'NORMAL RAID // 3–5 HEROES'],
+        ['kraevar', 'KRAEVAR THE GOLD-EATER', "GREED’S ARMOR // CRUSHING ATTACKS", 'NORMAL RAID // 3–5 HEROES'],
+        ['azhraak', 'AZHRAAK, LORD OF THE BURNING VAULT', 'INFERNO // PARTY-WIDE FIRE', 'NORMAL RAID // 3–5 HEROES'],
+        ['drazhul', 'DRAZHUL, KEEPER OF THE SHADOW HEART', 'SHADOW VEIL // DRAIN AND DEBUFFS', 'NORMAL RAID // 3–5 HEROES'],
+        ['deathwing', 'DEATHWING', 'THE DESTROYER // CATACLYSM', 'HEROIC RAID // EXACTLY 5 HEROES']
+      ];
+      overlay.innerHTML = `<section class="dragon-setup-panel" role="dialog" aria-modal="true" aria-labelledby="dragon-setup-title">
+        <header><div><small>SHADOW BROKER AUTHORITY</small><h2 id="dragon-setup-title">CONFIGURE DRAGON RAID</h2></div><button type="button" data-dragon-action="setup-close" aria-label="Close">×</button></header>
+        <p>Choose the enemy. Recruitment begins only after your confirmation.</p>
+        <div class="dragon-setup-grid">${bosses.map(([id,name,identity,tier]) => `<button type="button" data-dragon-action="setup-launch" data-boss-id="${id}" class="${id === 'deathwing' ? 'is-heroic' : ''}"><small>${tier}</small><b>${name}</b><span>${identity}</span><em>SUMMON</em></button>`).join('')}</div>
+      </section>`;
+      document.body.appendChild(overlay);
+    },
+
+    openSetup() {
+      this.ensureSetup();
+      const overlay = document.getElementById('dragon-raid-setup-overlay');
+      if (overlay) overlay.hidden = false;
+    },
+
+    closeSetup() {
+      const overlay = document.getElementById('dragon-raid-setup-overlay');
+      if (overlay) overlay.hidden = true;
     },
 
     isGM() {
@@ -323,6 +356,13 @@
       const button = event.target.closest('[data-dragon-action]');
       if (!button || button.disabled) return;
       const action = button.dataset.dragonAction;
+      if (action === 'setup-open') return this.openSetup();
+      if (action === 'setup-close') return this.closeSetup();
+      if (action === 'setup-launch') {
+        const bossId = button.dataset.bossId;
+        this.closeSetup();
+        return this.send({ type: 'gm:dragonRaid', bossId });
+      }
       if (action === 'join') {
         button.disabled = true;
         return this.send({ type: 'dragon:join', role: button.dataset.role });
