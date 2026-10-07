@@ -80,6 +80,7 @@
         <strong>FATALITY</strong>
         <span>${esc(actorName)} WINS</span>
         <em>${finisher} // ${esc(targetName)} ELIMINATED</em>
+        <q>${esc(message.line || '')}</q>
       </div>`;
 
     document.body.appendChild(layer);
@@ -149,7 +150,7 @@
   .fatality-end strong{display:block;font-size:clamp(68px,10vw,150px);line-height:.8;color:#c30b12;text-shadow:0 5px #310000,0 0 25px #e00}
   .fatality-frost .fatality-end strong{color:#d9f8ff;text-shadow:0 5px #08384a,0 0 30px #39cfff}
   .fatality-end span{display:block;margin-top:20px;font:800 25px Arial;letter-spacing:6px}
-  .fatality-end em{display:block;margin-top:9px;font:700 14px Arial;letter-spacing:4px;color:#aaa}
+  .fatality-end em{display:block;margin-top:9px;font:700 14px Arial;letter-spacing:4px;color:#aaa}.fatality-end q{display:block;max-width:min(840px,82vw);margin:18px auto 0;font:700 clamp(16px,1.8vw,26px)/1.25 Arial;letter-spacing:.03em;color:#e8d9dc;text-shadow:0 2px 12px #000}.fatality-end q:before,.fatality-end q:after{content:''}
   .fatality-pyroblast .fatality-end em{color:#ff8c32}.fatality-frost .fatality-end em{color:#83ddff}
 
   .fatality-impact{animation:fat-shake .35s}

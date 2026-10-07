@@ -153,6 +153,10 @@ function getById(id){
   return p?safe(p):null;
 }
 
+function listPlayers(){
+  return Object.values(load().players||{}).filter(Boolean).map(safe);
+}
+
 function updateName(id,name){
   name=String(name||'').trim().slice(0,20);
   if(!name)throw Error('Name cannot be empty');
@@ -268,7 +272,7 @@ function resetPassword(token,password){
 module.exports={
   isHealthy() { try { load(); return true; } catch { return false; } },
   registerAsync,loginAsync,resetPasswordAsync,
-  register,login,getById,updateName,verifyEmail,issueVerificationToken,isVerified,
+  register,login,getById,listPlayers,updateName,verifyEmail,issueVerificationToken,isVerified,
   issueResetToken,resetPassword,
   VERIFY_TTL_MS,RESEND_COOLDOWN_MS,RESET_TTL_MS
 };

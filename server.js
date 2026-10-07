@@ -7020,6 +7020,19 @@ function resolveNamedTarget(room, actorId, targetPlayerId, rawTarget, verbLabel,
   return { target };
 }
 
+function resolveFatalityTarget(room, rawTarget) {
+  const needle = String(rawTarget || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\u00A0/g, ' ').replace(/^@+\s*/, '').trim().toLocaleLowerCase();
+  if (!needle) return { error: 'FATALITY TARGET REQUIRED // USE /fatality @Name' };
+  const accounts = authStore.listPlayers().filter(account => account && String(account.name || '').trim());
+  const exact = accounts.find(account => String(account.name).trim().toLocaleLowerCase() === needle);
+  const account = exact || accounts.find(account => String(account.name).trim().toLocaleLowerCase().includes(needle));
+  if (!account) return { error: 'FATALITY TARGET NOT FOUND // NO SUCH LITTLE HERO EXISTS' };
+  const id = String(account.id || '');
+  const profile = playerStore.peekPlayers()[id] || {};
+  const live = Array.from(room?.players?.values?.() || []).find(player => String(player.id) === id || String(player.name || '').trim().toLocaleLowerCase() === String(account.name).trim().toLocaleLowerCase());
+  return { target: { id, name: String(account.name).trim(), avatarData: live?.avatarData || profile.avatarData || '' } };
+}
+
 function handleDiceCommand(room, author, raw) {
   const match = raw.match(/^\/dice\s+(\d{1,2})d(\d{1,4})(?:\s*\+\s*(\d{1,4}))?\s*$/i);
   if (!match) return { success: false, error: 'DICE INVALID // USE /dice 2d6 OR /dice 1d20+3' };
@@ -7825,6 +7838,23 @@ function dispatchGmSlashCommand(room, ws, text) {
     return { success: true, broadcast: true };
   }
 
+  const FATALITY_LINES = {
+    pyroblast: [
+      '{T} discovers that fire safety regulations were written for a reason.',
+      '{T} is reduced to a cautionary tale with excellent lighting.',
+      'ToAstYyYyYy!',
+      '{T} has been promoted from player to atmospheric carbon.',
+      '{T} learns that standing near the Shadow Broker is an extremely combustible hobby.'
+    ],
+    frost: [
+      '{T} reaches absolute zero and, regrettably, several pieces.',
+      '{T} is preserved forever as a monument to poor decision-making.',
+      '{T} freezes so thoroughly that even regret stops moving.',
+      '{T} becomes an elegant collection of highly judgmental ice shards.',
+      '{T} discovers that hypothermia is considerably less charming at cinematic scale.'
+    ]
+  };
+
   // Fatality is a GM theatrical command, not a score or economy action.
   // One server roll determines the variant for every connected spectator.
   if (/^\/fatality\b/i.test(raw)) {
@@ -7834,10 +7864,12 @@ function dispatchGmSlashCommand(room, ws, text) {
       .replace(/\u00A0/g, ' ')
       .trim();
     if (!typedTarget) return { success: false, error: 'FATALITY INVALID // USE /fatality @Name' };
-    const resolved = resolveNamedTarget(room, null, '', typedTarget, 'FATALITY', { includeDisconnected: true });
+    const resolved = resolveFatalityTarget(room, typedTarget);
     if (resolved.error) return { success: false, error: resolved.error };
     const target = resolved.target;
     const variant = crypto.randomInt(0, 2) === 0 ? 'pyroblast' : 'frost';
+    const linePool = FATALITY_LINES[variant];
+    const fatalityLine = linePool[crypto.randomInt(0, linePool.length)].replace(/\{T\}/g, target.name);
     const actorName = brokerDisplayName(room);
     const strike = {
       actorId: null,
@@ -7845,13 +7877,14 @@ function dispatchGmSlashCommand(room, ws, text) {
       actorAvatarData: publicBrokerProfile(room).avatarData || LEGACY_DEFAULT_AVATAR,
       targetId: String(target.id),
       targetName: target.name,
-      targetAvatarData: liveAvatarFor(room, target.id),
+      targetAvatarData: target.avatarData || liveAvatarFor(room, target.id),
       variant,
+      line: fatalityLine,
       timestamp: Date.now(),
       durationMs: 6200
     };
     const result = buildChatCommandMessage(room, author, 'fatality', 'shadowBroker',
-      `${actorName} unleashes FATALITY on ${target.name}. ${variant === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST'}!`,
+      `${actorName} unleashes FATALITY on ${target.name}. ${variant === 'frost' ? 'ABSOLUTE ZERO' : 'PYROBLAST'}! ${fatalityLine}`,
       { fatality: strike });
     if (!result.success) return result;
     result.message.source = 'shadowBroker';
