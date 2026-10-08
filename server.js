@@ -30,6 +30,7 @@ const dailyContracts = require('./daily-contracts');
 const rouletteCarnage = require('./roulette-carnage');
 const sibicar = require('./sibicar');
 const dennisAI = require('./dennis-ai');
+const spectralAdjudicator = require('./automation/spectral-adjudicator');
 const olympics = require('./olympics');
 const { createChatUploadGuard } = require('./chat-upload-guard');
 const { createLinkPreviewService } = require('./link-preview');
@@ -559,6 +560,7 @@ function serializeRoomForRecovery(room) {
     commandReceipts: room.commandReceipts || [],
     quests: questEngine.normalizeState(room.quests),
     dennisAI: dennisAI.normalizeState(room.dennisAI),
+    spectralAdjudicator: spectralAdjudicator.normalizeState(room.spectralAdjudicator),
     // RPS OLYMPICS is isolated from board/session state. Private selections
     // are persisted here but are projected through olympics.view() only.
     olympics: olympics.normalizeState(room.olympics),
@@ -692,6 +694,7 @@ function restoreActiveRooms() {
         kaladont: kaladont.resumeAfterRestart(kaladont.normalizeState(saved.kaladont), Date.now()),
         rage: rage.resumeAfterRestart(rage.normalizeState(saved.rage), Date.now()),
         rouletteCarnage: rouletteCarnage.normalizeState(saved.rouletteCarnage),
+        spectralAdjudicator: spectralAdjudicator.normalizeState(saved.spectralAdjudicator),
         shadowRealm: saved.shadowRealm && typeof saved.shadowRealm === 'object' ? saved.shadowRealm : {},
         shadowRealmHistory: Array.isArray(saved.shadowRealmHistory) ? saved.shadowRealmHistory.slice(-100) : [],
         shadowRealmRecentLines: Array.isArray(saved.shadowRealmRecentLines) ? saved.shadowRealmRecentLines.slice(-5) : [],
@@ -1294,6 +1297,7 @@ function createRoom(gameId, hostWs) {
     brokerTransmogSeq: 0,
     // HERO ROLES (DPS / TANK / HEAL) -- see hero-roles.js.
     heroRoles: heroRoles.createState(),
+    spectralAdjudicator: spectralAdjudicator.normalizeState(null),
     // DRAGON RAID -- raid-local HP/classes and timers; never touches WOMF or board scoring.
     dragonRaid: null,
     // SESSION-scoped scoring state. This whole object survives NEXT GAME
@@ -11380,6 +11384,7 @@ function handleChatGuess(ws, message) {
   }
   if (result.success) {
     cooldown.chatAt = now;
+    const spectralChange = dispatch === null ? processSpectralAdjudication(room, result.message) : false;
     if (dispatch === null) room.dennisAI = dennisAI.observe(room.dennisAI, result.message.text, now);
     const dennisGroundSpit = dispatch === null ? maybeDennisGroundSpit(room, result.message.text) : null;
     const nudge = dispatch === null && containsAllMention(result.message.text)
@@ -11396,6 +11401,7 @@ function handleChatGuess(ws, message) {
       && !result.tributeTriggered
       && nudge !== 'tribute'
       && !dennisGroundSpit
+      && !spectralChange
       && result.message?.id;
     broadcastChatUpdate(room, singleMessageOnly ? [result.message.id] : null);
     if (dispatch === null) triggerC4Alert(room, result.message?.text, result.message?.id);
@@ -11415,6 +11421,89 @@ function handleChatGuess(ws, message) {
   } else {
     sendToWs(ws, { type: 'error', message: result.error });
   }
+}
+
+function spectralSolutions(room) {
+  return {
+    A: room.gameData?.columns?.A?.solution || '', B: room.gameData?.columns?.B?.solution || '',
+    C: room.gameData?.columns?.C?.solution || '', D: room.gameData?.columns?.D?.solution || '',
+    FINAL: room.gameData?.finalSolution || ''
+  };
+}
+
+function sendSpectralState(room) {
+  if (room?.hostConnection?.readyState === 1) sendToWs(room.hostConnection, {
+    type: 'spectral:state', state: spectralAdjudicator.publicState(room.spectralAdjudicator)
+  });
+}
+
+function addSpectralMessage(room, text) {
+  const message = {
+    id: generateMessageId(), playerId: null, playerName: spectralAdjudicator.NAME,
+    text: sanitizeText(text), timestamp: Date.now(), verdict: null, target: null,
+    source: 'spectralAdjudicator', editableByHost: false, editedAt: null, reactions: {}
+  };
+  attachChatReceipts(room, message);
+  room.chat.messages.push(message);
+  if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages = room.chat.messages.slice(-CHAT_HISTORY_LIMIT);
+  return message;
+}
+
+function broadcastAutomatedVerdict(room, result, messageId, target) {
+  if (result.changed) broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  if (!result.finalOutcome) broadcastPlayersUpdate(room);
+  if (result.newAward && !result.finalOutcome) broadcastToRoom(room, { type: 'score:event', ...result.newAward });
+  if (result.streakChanged) broadcastToRoom(room, { type: 'score:streak', activeStreak: room.scoring.activeStreak });
+  if (result.celebration) broadcastToRoom(room, { type: 'board:solveCelebration', ...result.celebration, debtOwed: publicFinalDebt(room)?.owed || [] });
+  if (target && SCORABLE_COLUMNS.includes(target) && room.chat.solvedTargets[target]?.messageId === messageId) scheduleSolvedColumnReveal(room, messageId, target);
+  if (result.finalOutcome) broadcastToRoom(room, { type: 'score:finalReveal', ...result.finalOutcome, debtOwed: publicFinalDebt(room)?.owed || [] });
+}
+
+function processSpectralAdjudication(room, chatMessage) {
+  room.spectralAdjudicator = spectralAdjudicator.normalizeState(room.spectralAdjudicator);
+  const state = room.spectralAdjudicator;
+  if (state.mode === 'MANUAL' || state.paused || room.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) return false;
+  const result = spectralAdjudicator.inspect(chatMessage, {
+    roomMode: 'battle', boardId: room.boardId, mode: state.mode, solutions: spectralSolutions(room)
+  });
+  if (result.kind === 'IGNORE') return false;
+  if (result.kind === 'COORDINATE') {
+    if (!result.valid || room.sessionState?.cells?.[result.cell] === true) {
+      addSpectralMessage(room, 'invalid field, are you clinically blind?');
+    } else {
+      const reveal = applyCommand(room, 'revealCell', { cell: result.cell, reveal: true });
+      if (reveal.success && reveal.changed) broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+    }
+    return true;
+  }
+  if (result.decision === 'ESCALATE') {
+    if (!state.pending.some(entry => entry.messageId === chatMessage.id)) state.pending.push({
+      messageId: chatMessage.id, playerId: chatMessage.playerId, playerName: chatMessage.playerName,
+      target: result.target, answer: result.answer, createdAt: Date.now()
+    });
+    state.pending = state.pending.slice(-100);
+    sendSpectralState(room);
+    return false;
+  }
+  const verdict = result.decision === 'ACCEPT' ? 'correct' : 'wrong';
+  const judged = applyVerdict(room, chatMessage.id, verdict, result.target, result.target === 'FINAL');
+  if (judged.success) broadcastAutomatedVerdict(room, judged, chatMessage.id, result.target);
+  return judged.success;
+}
+
+function handleSpectralControl(ws, message) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) return sendToWs(ws, { type: 'error', message: 'Only the Shadow Broker controls the Spectral Adjudicator' });
+  room.spectralAdjudicator = spectralAdjudicator.normalizeState(room.spectralAdjudicator);
+  if (message.type === 'gm:spectral:mode') {
+    const mode = String(message.mode || '').toUpperCase();
+    if (!spectralAdjudicator.MODES.includes(mode)) return sendToWs(ws, { type: 'error', message: 'Invalid adjudicator mode' });
+    room.spectralAdjudicator.mode = mode;
+  } else if (message.type === 'gm:spectral:pause') room.spectralAdjudicator.paused = true;
+  else if (message.type === 'gm:spectral:resume') room.spectralAdjudicator.paused = false;
+  else if (message.type === 'gm:spectral:manual') { room.spectralAdjudicator.mode = 'MANUAL'; room.spectralAdjudicator.paused = false; }
+  persistActiveRooms();
+  sendSpectralState(room);
 }
 
 function handleChatEdit(ws, message) {
@@ -11898,6 +11987,10 @@ function handleJudgeGuess(ws, message) {
 
   const result = applyVerdict(room, messageId, verdict === 'clear' ? null : verdict, target, reveal);
   if (result.success) {
+    if (room.spectralAdjudicator?.pending) {
+      room.spectralAdjudicator.pending = room.spectralAdjudicator.pending.filter(entry => entry.messageId !== messageId);
+      sendSpectralState(room);
+    }
     // A verdict mutates the authoritative room (scoring, solved targets,
     // verdicts) and may finalize the board -- persist before any broadcast.
     persistActiveRooms();
@@ -14373,6 +14466,17 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:judgeGuess': {
           handleJudgeGuess(ws, message);
+          break;
+        }
+        case 'gm:spectral:sync':
+        case 'gm:spectral:mode':
+        case 'gm:spectral:pause':
+        case 'gm:spectral:resume':
+        case 'gm:spectral:manual': {
+          if (message.type === 'gm:spectral:sync') {
+            const spectralRoom = rooms.get(ws.roomCode?.toUpperCase());
+            if (spectralRoom && ws === spectralRoom.hostConnection) sendSpectralState(spectralRoom);
+          } else handleSpectralControl(ws, message);
           break;
         }
         case 'gm:denyAll': {

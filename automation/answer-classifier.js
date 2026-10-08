@@ -1,16 +1,19 @@
 'use strict';
 
-const { normalizeAnswer, tokens } = require('./answer-normalize');
 const TARGETS = Object.freeze(['A', 'B', 'C', 'D', 'FINAL']);
 
 function explicitTarget(raw) {
-  const text = String(raw || '').trim();
-  let match = text.match(/^([a-d])\s*(?:5|kolona|column)?\s*[:=\-]\s*(.+)$/iu);
-  if (match) return { target: match[1].toUpperCase(), answer: match[2].trim() };
-  match = text.match(/^(?:final|finalno|konačno|konacno|rešenje|resenje)\s*[:=\-]\s*(.+)$/iu);
-  if (match) return { target: 'FINAL', answer: match[1].trim() };
-  match = text.match(/^([a-d])5\s+(.+)$/iu);
-  return match ? { target: match[1].toUpperCase(), answer: match[2].trim() } : null;
+  const match = String(raw || '').trim().match(/^(?:([a-dk])\s+([a-z]+(?:['-][a-z]+)*)|([a-z]+(?:['-][a-z]+)*)\s+([a-dk]))$/i);
+  if (!match) return null;
+  const marker = (match[1] || match[4]).toUpperCase();
+  return { target: marker === 'K' ? 'FINAL' : marker, answer: match[2] || match[3] };
+}
+
+function coordinateIntent(raw) {
+  const match = String(raw || '').trim().match(/^([a-z])\s*(\d{1,2})$/i);
+  if (!match) return null;
+  const cell = `${match[1].toUpperCase()}${match[2]}`;
+  return { cell, valid: /^[A-D][1-4]$/.test(cell) };
 }
 
 function eligibleMessage(message, context = {}) {
@@ -18,12 +21,11 @@ function eligibleMessage(message, context = {}) {
   if (message.deleted === true) return { ok: false, reason: 'DELETED' };
   if (message.source) return { ok: false, reason: 'NON_PLAYER_SOURCE' };
   if (message.verdict !== null && message.verdict !== undefined) return { ok: false, reason: 'ALREADY_JUDGED' };
-  if (context.roomMode && context.roomMode !== 'battle') return { ok: false, reason: 'NOT_BATTLE' };
+  if (context.roomMode && String(context.roomMode).toLowerCase() !== 'battle') return { ok: false, reason: 'NOT_BATTLE' };
   if (context.boardId && message.boardId !== context.boardId) return { ok: false, reason: 'STALE_BOARD' };
   const text = message.text.trim();
   if (!text) return { ok: false, reason: 'EMPTY' };
   if (text.startsWith('/')) return { ok: false, reason: 'COMMAND' };
-  if (/^(?:https?:\/\/|www\.)/i.test(text)) return { ok: false, reason: 'LINK' };
   return { ok: true };
 }
 
@@ -31,19 +33,11 @@ function classifyMessage(message, context = {}) {
   const eligibility = eligibleMessage(message, context);
   if (!eligibility.ok) return { kind: 'IGNORE', reason: eligibility.reason };
   const raw = message.text.trim();
+  const coordinate = coordinateIntent(raw);
+  if (coordinate) return { kind: 'COORDINATE', ...coordinate };
   const explicit = explicitTarget(raw);
-  if (explicit) return normalizeAnswer(explicit.answer)
-    ? { kind: 'ANSWER', target: explicit.target, answer: explicit.answer, explicit: true, confidence: 1 }
-    : { kind: 'IGNORE', reason: 'EMPTY_ANSWER' };
-  if (/^(?:re|odgovor|reply)\s*:/iu.test(raw) || /^[@>]/.test(raw)) return { kind: 'IGNORE', reason: 'REPLY_OR_MENTION' };
-  if (/[?？]$/.test(raw)) return { kind: 'IGNORE', reason: 'QUESTION' };
-  const wordList = tokens(raw);
-  if (!wordList.length) return { kind: 'IGNORE', reason: 'EMPTY' };
-  if (wordList.length > 7 || raw.length > 100) return { kind: 'IGNORE', reason: 'CONVERSATIONAL_LENGTH' };
-  const unresolved = (Array.isArray(context.unresolvedTargets) ? context.unresolvedTargets : TARGETS).filter(target => TARGETS.includes(target));
-  if (!unresolved.length) return { kind: 'IGNORE', reason: 'NO_OPEN_TARGETS' };
-  if (unresolved.length === 1) return { kind: 'ANSWER', target: unresolved[0], answer: raw, explicit: false, confidence: .82 };
-  return { kind: 'POSSIBLE_ANSWER', answer: raw, candidateTargets: unresolved, explicit: false, confidence: .45 };
+  if (explicit) return { kind: 'ANSWER', ...explicit };
+  return { kind: 'IGNORE', reason: 'NO_EXACT_GAME_GRAMMAR' };
 }
 
-module.exports = { TARGETS, explicitTarget, eligibleMessage, classifyMessage };
+module.exports = { TARGETS, explicitTarget, coordinateIntent, eligibleMessage, classifyMessage };
