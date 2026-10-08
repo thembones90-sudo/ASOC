@@ -36,9 +36,11 @@ function bossReady(boss='wendigo',roles=['tank','heal','dps']){const r=raid(boss
 
 (()=>{const r=raid('wendigo');d.startBattle(r);r.participants.p0.statuses.isolated=true;r.participants.p0.hp=10;d.heroAction(r,'p0','attack','',8);eq(r.participants.p0.statuses.isolated,false)})();
 
+(()=>{const r=bossReady('wendigo');r.dragonHp=4;r.boss.hp=4;r.participants.p0.statuses.taunt=true;r.participants.p0.statuses.shieldNegate=true;r.participants.p0.statuses.shieldReflect=4;const x=d.bossAction(r,4,()=>0);eq(x.reflected,4);eq(r.dragonHp,0);eq(r.phase,'VICTORY')})();
+
 (()=>{eq(d.weightedLoot(()=>.995),500);const s=d.splitLoot(307,['a','b','c','d'],()=>0);eq(Object.values(s).reduce((a,b)=>a+b,0),307);const h=d.heartRound(['a','b'],()=>.41);eq(h.winner,null);eq(h.tied.length,2)})();
 
-(()=>{const src=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8'),client=fs.readFileSync(path.join(__dirname,'..','js','dragon-raid.js'),'utf8');ok(/case 'dragon:action'/.test(src));ok(/CABINET OF CURIOSITIES/.test(client));ok(/WENDIGO/.test(client));ok(/HYM/.test(client));ok(/HYDRA/.test(client));ok(/NECROMORPH/.test(client));ok(!/AZHRAAK/.test(client));ok(!/DRAZHUL/.test(client))})();
+(()=>{const src=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8'),service=fs.readFileSync(path.join(__dirname,'..','dragon-raid-server.js'),'utf8'),client=fs.readFileSync(path.join(__dirname,'..','js','dragon-raid.js'),'utf8');ok(/case 'dragon:action'/.test(src));ok(/r\.phase==='VICTORY'\)return victory\(room\)/.test(service));ok(/r\.boss\.heroic\?'CATACLYSM':'TIME_EXPIRED'/.test(service));ok(/reason === 'CATACLYSM'/.test(client));ok(/CABINET OF CURIOSITIES/.test(client));ok(/WENDIGO/.test(client));ok(/HYM/.test(client));ok(/HYDRA/.test(client));ok(/NECROMORPH/.test(client));ok(!/AZHRAAK/.test(client));ok(!/DRAZHUL/.test(client));ok(!/VARKHUL/.test(client));ok(!/KRAEVAR/.test(client))})();
 
 ok(checks>=70,'expected >=70 checks, got '+checks);
 console.log('cabinet raid tests: OK ('+checks+' checks)');

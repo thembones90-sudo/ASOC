@@ -186,11 +186,11 @@
       return `
         <div class="dragon-heading">
           <span class="dragon-mark">🐉</span>
-          <div><small>${raid.boss.heroic ? 'HEROIC WORLD EVENT' : 'DRAGON RAID'}</small><h1>${this.esc(raid.boss.name)} HAS AWAKENED</h1></div>
+          <div><small>${raid.boss.heroic ? 'HEROIC WORLD EVENT' : 'CABINET ENCOUNTER'}</small><h1>${this.esc(raid.boss.name)} HAS AWAKENED</h1></div>
           <strong data-dragon-clock="recruit">${this.clock(this.remaining(raid.recruitEndsAt))}</strong>
         </div>
-        <p class="dragon-lore">Heroes act in order. Then the dragon answers. ${raid.boss.heroic ? 'Deathwing accepts exactly five victims.' : 'Three may challenge it. Five may enter.'}</p>
-        <div class="dragon-party-count">RAID PARTY <b>${raid.participants.length} / 5</b> <span>MINIMUM 3</span></div>
+        <p class="dragon-lore">Heroes act in order. Then the enemy answers. ${raid.boss.heroic ? 'Deathwing accepts exactly five victims.' : 'Three may challenge it. Five may enter.'}</p>
+        <div class="dragon-party-count">RAID PARTY <b>${raid.participants.length} / 5</b> <span>${raid.boss.heroic ? 'EXACTLY 5 REQUIRED' : 'MINIMUM 3'}</span></div>
         <div class="dragon-raider-grid">${this.partySlotsHTML()}</div>
         ${choose}
       `;
@@ -295,8 +295,12 @@
     failureHTML() {
       const raid = this.raid;
       const aborted = raid.phase === 'ABORTED';
-      const reason = raid.result?.reason === 'TIME_EXPIRED'
-        ? 'TIME EXPIRED'
+      const reason = raid.result?.reason === 'CATACLYSM'
+        ? 'CATACLYSM'
+        : raid.result?.reason === 'CATACLYSM_REQUIRES_FIVE'
+          ? 'DEATHWING REQUIRES EXACTLY FIVE HEROES'
+        : raid.result?.reason === 'TIME_EXPIRED'
+          ? 'TIME EXPIRED'
         : raid.result?.reason === 'PARTY_WIPE'
           ? 'THE RAID PARTY HAS FALLEN'
           : 'TOO FEW RAIDERS';
