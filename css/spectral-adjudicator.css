@@ -16,7 +16,7 @@
 .spectral-console > div { display: grid; min-width: 0; line-height: 1; }
 .spectral-console small, .spectral-console > b { display: none; }
 .spectral-console strong {
-  overflow: hidden; color: #e8bcff; font: 800 12px/1.1 monospace; letter-spacing: 1.25px;
+  overflow: hidden; color: #e8bcff; font: 800 11px/1.1 monospace; letter-spacing: .65px;
   text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 0 9px rgba(199,105,245,.58);
 }
 .spectral-console span {
@@ -26,6 +26,20 @@
   min-width: 0; height: 38px; margin: 0; border: 1px solid #70408a; border-radius: 2px;
   background: linear-gradient(#1c1027, #0d0913); color: #e7cef5;
   font: 800 8px monospace; letter-spacing: .7px; cursor: pointer;
+}
+.spectral-console select {
+  color-scheme: dark;
+  background-color: #100918;
+  color: #f0dafa;
+}
+.spectral-console select option {
+  background: #100918;
+  color: #f0dafa;
+  font-weight: 800;
+}
+.spectral-console select option:checked {
+  background: #6e238e;
+  color: #fff;
 }
 .spectral-console button { color: transparent; font-size: 0; }
 .spectral-console button::before { color: #d89afa; font: 900 12px/1 monospace; }
