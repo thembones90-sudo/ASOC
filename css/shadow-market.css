@@ -842,3 +842,87 @@ body.smk-open { overflow: hidden; }
 @keyframes hug-caption { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes hug-wiggle { 50% { transform: rotate(-14deg) scale(1.2); } }
 .chat-system-card.shadow-fx-card-hug { border-color: rgba(255, 126, 182, .6) !important; box-shadow: 0 0 16px rgba(255, 126, 182, .25); }
+
+/* SHADOW MARKET / DOSSIER VISUAL REFIT — CSS ONLY. No economy or action changes. */
+.smk-overlay {
+  background: radial-gradient(ellipse at 52% -10%, rgba(96,30,149,.24), transparent 52%),
+    radial-gradient(ellipse at 6% 87%, rgba(119,15,45,.13), transparent 43%), rgba(3,3,8,.95);
+}
+.smk-panel {
+  width:min(1490px,100%);
+  border:1px solid #3e2d56;
+  border-top:2px solid #a264e2;
+  background:radial-gradient(ellipse at 80% 0,rgba(61,24,90,.15),transparent 48%),linear-gradient(180deg,#12101a,#08070e 75%);
+  box-shadow:0 32px 95px rgba(0,0,0,.82),0 0 45px rgba(105,40,169,.14),inset 0 0 0 1px rgba(172,101,233,.05);
+}
+.smk-head { padding:23px 28px 19px;gap:20px;background:linear-gradient(90deg,rgba(60,22,70,.18),transparent 75%); }
+.smk-head h2 {font-size:clamp(1.55rem,3vw,2.8rem);line-height:1.12;letter-spacing:.25em;color:#f4eaff;text-shadow:0 0 23px rgba(153,74,231,.43);}
+.smk-head small {color:#aca0c5;line-height:1.6;}
+.smk-balance {border-color:rgba(200,163,81,.43);background:linear-gradient(180deg,rgba(48,38,19,.45),rgba(13,12,12,.83));box-shadow:inset 0 0 12px rgba(188,128,38,.08);}
+.smk-balance b {color:#f6d676;}
+.smk-balance span {color:#c6ac78;}
+.smk-tabs {gap:6px;padding:0 28px;border-bottom-color:#382b4b;}
+.smk-tab {padding:14px 22px;border-color:#393046;color:#a99bbc;transition:border-color .2s,background .2s,color .2s,box-shadow .2s;}
+.smk-tab:hover {border-color:#8357a9;color:#f5eaff;}
+.smk-tab.is-active {color:#fff0ff;border-color:#a46bd9;background:linear-gradient(180deg,rgba(80,43,115,.75),rgba(25,14,41,.9));box-shadow:inset 0 3px 0 #cc97ff,0 0 16px rgba(149,64,220,.25);}
+.smk-close:hover,.smk-btn:hover:not(:disabled) {border-color:#aa71df;box-shadow:0 0 12px rgba(150,67,220,.2);}
+.smk-body {padding:22px 28px 34px;}
+/* Banner retains the existing preview button and showcase tally. */
+.smk-dossier-bar {
+  position:relative;min-height:104px;padding:20px 24px;gap:20px;
+  border:1px solid #604477;
+  background:radial-gradient(ellipse at 82% 35%,rgba(115,46,148,.2),transparent 40%),
+    repeating-linear-gradient(120deg,transparent 0 24px,rgba(165,111,211,.015) 24px 25px),
+    linear-gradient(120deg,#1b1326,#100c18 65%,#181026);
+  box-shadow:inset 0 0 0 3px rgba(13,8,21,.6),0 8px 28px rgba(0,0,0,.19);
+}
+.smk-dossier-bar:before {content:"";position:absolute;inset:6px;border:1px solid rgba(189,123,229,.12);pointer-events:none;}
+.smk-dossier-bar>span {font-size:16px;letter-spacing:.17em;color:#efe7f5;}
+.smk-dossier-bar b {color:#f4d77e;text-shadow:0 0 10px rgba(242,194,65,.18);}
+.smk-dossier-bar .smk-btn {position:relative;padding:13px 18px;border:1px solid #935ac1;background:linear-gradient(180deg,#322045,#1b112b);color:#f6e7ff;box-shadow:0 0 16px rgba(122,42,176,.22);font-weight:700;}
+.smk-dossier-bar+.smk-fine {margin:12px 3px 24px;font-size:10.5px;line-height:1.7;color:#a99bb7;}
+.smk-dossier-bar~.smk-group h3 {display:flex;align-items:center;gap:14px;font-size:16px;color:#d6adf9;margin:0 0 16px;}
+.smk-dossier-bar~.smk-group h3:after {content:"";height:1px;flex:1;background:linear-gradient(90deg,#ae5ccd,rgba(156,77,205,.05));}
+/* Relic cards only, not the shop catalog. */
+.smk-group:has(.smk-relic) .smk-grid {grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+.smk-relic {
+  position:relative;min-width:0;min-height:153px;grid-template-columns:82px minmax(0,1fr);
+  gap:14px;padding:18px 14px;
+  border:1px solid #443354;background:
+    radial-gradient(circle at 12% 42%,rgba(100,42,127,.14),transparent 40%),
+    linear-gradient(145deg,#201829,#110e1a 75%);
+  box-shadow:inset 0 0 0 1px rgba(206,142,242,.035),0 4px 12px rgba(0,0,0,.18);
+  transition:border-color .2s,transform .2s,box-shadow .2s;
+}
+.smk-relic:before,.smk-relic:after {content:"";position:absolute;width:11px;height:11px;pointer-events:none;border-color:rgba(176,109,220,.5);border-style:solid;}
+.smk-relic:before {left:4px;top:4px;border-width:1px 0 0 1px;}
+.smk-relic:after {right:4px;bottom:4px;border-width:0 1px 1px 0;}
+.smk-relic:hover {border-color:#9862bf;transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.3),0 0 19px rgba(133,57,181,.16);}
+.smk-relic.is-owned {border-color:#6f5591;}
+.smk-relic.is-equipped {border-color:#a5cc64;box-shadow:inset 0 0 14px rgba(135,200,71,.12),0 0 17px rgba(135,200,71,.08);}
+.smk-relic .smk-preview-relic {
+  width:76px;height:76px;min-height:0;margin:2px auto;position:relative;
+  border:1px solid #70547f;border-radius:50%;
+  background:radial-gradient(circle at 50% 35%,#281834,#0b0912 72%);
+  box-shadow:inset 0 0 0 5px #100b19,inset 0 0 0 6px rgba(171,111,206,.22),0 0 13px rgba(132,65,172,.12);
+  font-size:34px;
+}
+.smk-relic .smk-preview-relic:after {content:"";position:absolute;inset:-5px;border:1px solid rgba(174,110,197,.22);border-radius:50%;pointer-events:none;}
+.smk-relic .smk-preview-art::before {inset:7px;z-index:0;}
+.smk-relic .smk-preview-art {font-size:0;}
+.smk-relic.is-sealed .smk-preview-relic {border-color:#51435b;color:#786885;}
+.smk-relic.is-sealed h4 {color:#d0c1dd;}
+.smk-relic .smk-item-body {min-width:0;display:flex;flex-direction:column;align-items:flex-start;}
+.smk-relic .smk-item-head {width:100%;}
+.smk-relic h4 {font-size:14px;letter-spacing:.07em;line-height:1.33;color:#f0e5fa;overflow-wrap:anywhere;}
+.smk-relic p {margin:7px 0 0;color:#b7a9ca;font-size:11.5px;line-height:1.5;overflow-wrap:anywhere;}
+.smk-relic .smk-actions {margin-top:auto;padding-top:11px;}
+.smk-relic .smk-hint-locked {display:inline-flex;align-items:center;padding:5px 12px;border:1px solid rgba(166,94,191,.48);border-radius:4px;background:linear-gradient(180deg,rgba(95,46,119,.26),rgba(39,20,52,.25));color:#d6afeb;font-size:10px;letter-spacing:.17em;}
+.smk-relic .smk-hint-locked:before {content:"◇";font-size:12px;margin-right:8px;color:#b789d0;}
+.smk-relic .smk-progress {width:100%;height:16px;border-color:#574369;border-radius:3px;overflow:hidden;background:#0a0810;}
+.smk-relic .smk-progress i {background:linear-gradient(90deg,#7236a7,#c569e8);}
+.smk-relic .smk-progress span {line-height:14px;font-size:10px;}
+@media(max-width:1220px){.smk-group:has(.smk-relic) .smk-grid {grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:930px){.smk-group:has(.smk-relic) .smk-grid {grid-template-columns:repeat(2,minmax(0,1fr));}.smk-relic {grid-template-columns:76px minmax(0,1fr);}}
+@media(max-width:560px){.smk-group:has(.smk-relic) .smk-grid {grid-template-columns:1fr;}.smk-tabs {padding:8px 12px 0;overflow-x:auto;}.smk-head {padding:16px;}.smk-body {padding:15px 12px 20px;}.smk-dossier-bar {padding:17px;}.smk-relic {min-height:126px;}}
+@media(prefers-reduced-motion:reduce){.smk-relic {transition:none;}.smk-relic:hover{transform:none;}}
