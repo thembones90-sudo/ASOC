@@ -13,6 +13,7 @@ const shared=read('js/roulette-carnage-ui.js');
 
 for(const action of ['openTable','openBetting','lockBets','spin','abort','closeTable']){
   assert.match(server,new RegExp(`gm:rouletteCarnage:${action}`),`server must route ${action}`);
+  assert.match(server,new RegExp(`rouletteCarnage:host:${action}`),`server must route player-host ${action}`);
 }
 assert.match(server,/spendShadowCoins[\s\S]*roulette-carnage:[^`]*:stake:/,'stakes must use the persistent Shadow Coin store');
 assert.match(server,/awardShadowCoins[\s\S]*roulette-carnage:[^`]*:payout:/,'payouts must use idempotent persistent receipts');
@@ -27,4 +28,8 @@ assert.match(gmClient,/rouletteCarnage:state/);
 assert.match(playerClient,/rouletteCarnage:state/);
 assert.match(shared,/THE HOUSE HAS SPOKEN/);
 assert.match(shared,/THE HOUSE REMEMBERS/);
+assert.match(shared,/HOST TABLE/,'players can open a Roulette Carnage table');
+assert.match(shared,/rouletteCarnage:host:/,'player dealer controls use the player-host route');
+assert.match(server,/ONLY THE TABLE HOST MAY DEAL THIS ROUND/,'non-host players cannot control another player’s table');
+assert.match(player,/js\/roulette-carnage-ui\.js\?v=20261008-player-host-1/,'player surface loads Roulette Carnage controls');
 console.log('PASS Roulette Carnage server authority, persistent economy, tribute pipeline and both arcade entry points');

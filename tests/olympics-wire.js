@@ -15,7 +15,7 @@ assert.match(server, /const olympics = require\('\.\/olympics'\)/, 'server uses 
 for (const action of ['create', 'begin', 'pause', 'resume', 'restartThrow', 'restartMatch', 'forfeit', 'cancel']) {
   assert.match(server, new RegExp(`gm:olympics:${action}`), `server routes GM ${action}`);
 }
-for (const action of ['sync', 'join', 'leave', 'select', 'support']) {
+for (const action of ['sync', 'create', 'begin', 'cancel', 'join', 'leave', 'select', 'support']) {
   assert.match(server, new RegExp(`olympics:${action}`), `server routes player ${action}`);
 }
 assert.match(server, /olympicsActor[\s\S]*String\(player\.id\) !== String\(ws\.playerId\)/, 'player identity is derived from the authenticated socket');
@@ -33,6 +33,9 @@ assert.match(ui, /data-oly-opens/, 'client renders the 3-2-1-THROW countdown');
 assert.match(ui, /TOURNAMENT BRACKET/, 'client renders the bracket');
 assert.match(ui, /OLYMPIC CHAMPION/, 'client renders champion ceremony');
 assert.match(ui, /ENTER AS SHADOW BROKER/, 'GM lobby exposes a real tournament entry button');
+assert.match(ui, /data-oly-host="create"/, 'players can declare and host a new Olympics event');
+assert.match(ui, /data-oly-host="begin"/, 'the player host can start their Olympics event');
+assert.match(server, /ONLY THE OLYMPICS HOST MAY DO THAT/, 'non-host players cannot control another player’s Olympics event');
 assert.match(ui, /DISMISSED_KEY = 'asoc_olympics_dismissed_id'/, 'Olympics dismissal is persisted per browser tab');
 assert.match(ui, /state\.dismissedId === tournamentId/, 'incoming state respects a dismissed tournament instead of force-opening it');
 assert.match(ui, /safeStorage\.set\(DISMISSED_KEY, ''\)/, 'manual reopen can clear the dismissal lock');
@@ -46,7 +49,7 @@ assert.match(server, /const account = coinAccount\(event\.playerId, champion\)/,
 assert.match(gm, /data-open-olympics/, 'GM arcade exposes Olympics');
 assert.match(player, /data-open-olympics/, 'player arcade exposes Olympics');
 for (const [surface, html] of [['GM', gm], ['player', player]]) {
-  assert.match(html, /js\/olympics-ui\.js\?v=20261005-olympics-2/, `${surface} loads the Battle Mode overlay fix`);
+  assert.match(html, /js\/olympics-ui\.js\?v=20261008-player-host-1/, `${surface} loads player-host Olympics controls`);
 }
 
 console.log('PASS Olympics wire authority, private projections, recovery, controls and both arcade entry points');

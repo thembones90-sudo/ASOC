@@ -3,6 +3,12 @@
 const assert = require('assert/strict');
 const O = require('../olympics');
 
+const ownedLobby = O.createLobby('owned', 100, { id: 'host-1', name: 'Host Hero' });
+assert.equal(ownedLobby.ownerId, 'host-1');
+assert.equal(O.view(ownedLobby, 'host-1').canManage, true, 'creator manages the Olympics lobby');
+assert.equal(O.view(ownedLobby, 'other').canManage, false, 'another player cannot manage the Olympics lobby');
+assert.equal(O.view(ownedLobby, '__GM__', true).canManage, true, 'GM retains Olympics override authority');
+
 const player = index => ({ id: `p${index}`, name: `PLAYER ${index}`, avatarData: `/a${index}.png`, frameColor: '#8844aa', connected: true });
 const zero = () => 0;
 let now = 1_000_000;

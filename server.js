@@ -5591,12 +5591,38 @@ function handleOlympics(ws, message) {
   if (type === 'olympics:sync') return sendOlympicsState(room, ws);
   if (room.roomMode !== ROOM_MODES.CASUAL) return olympicsError(ws, 'OLYMPICS ARE AVAILABLE ONLY IN AMUSEMENT PARK');
 
+  if (type === 'olympics:create') {
+    if (actor.isGm) return olympicsError(ws, 'USE SHADOW BROKER OLYMPICS CONTROLS');
+    if (room.olympics && !['complete', 'cancelled'].includes(room.olympics.status)) return olympicsError(ws, 'AN OLYMPICS EVENT IS ALREADY ACTIVE');
+    room.olympics = olympics.createLobby(`olympics-${crypto.randomBytes(8).toString('hex')}`, Date.now(), actor);
+    const joined = olympics.join(room.olympics, actor);
+    if (!joined.ok) return olympicsError(ws, joined.error || 'OLYMPICS LOBBY COULD NOT BE CREATED');
+    room.olympics = joined.state;
+    olympicsAnnounce(room, `🏆 ${actor.name} HAS DECLARED THE OLYMPICS. ENTER VOLUNTARILY. REGRET IS AUTOMATIC.`);
+    room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'open', { game: 'Rock Paper Scissors Olympics' });
+    return olympicsCommit(room);
+  }
+
+  if (type === 'olympics:begin' || type === 'olympics:cancel') {
+    if (!room.olympics) return olympicsError(ws, 'NO OLYMPICS EVENT EXISTS');
+    if (String(room.olympics.ownerId || '') !== String(actor.id)) return olympicsError(ws, 'ONLY THE OLYMPICS HOST MAY DO THAT');
+    if (type === 'olympics:cancel') {
+      olympicsAnnounce(room, `THE OLYMPICS HAVE BEEN CANCELLED BY ${actor.name}.`);
+      room.olympics = null;
+      return olympicsCommit(room);
+    }
+    const result = olympics.begin(room.olympics);
+    if (!result?.ok) return olympicsError(ws, result?.error || 'OLYMPICS COMMAND REJECTED');
+    room.olympics = result.state;
+    return olympicsCommit(room, result.events || []);
+  }
+
   if (type.startsWith('gm:olympics:')) {
     if (!actor.isGm) return olympicsError(ws, 'ONLY THE SHADOW BROKER MAY COMMAND THE OLYMPICS');
     const action = type.slice('gm:olympics:'.length);
     if (action === 'create') {
       if (room.olympics && !['complete', 'cancelled'].includes(room.olympics.status)) return olympicsError(ws, 'AN OLYMPICS EVENT IS ALREADY ACTIVE');
-      room.olympics = olympics.createLobby(`olympics-${crypto.randomBytes(8).toString('hex')}`);
+      room.olympics = olympics.createLobby(`olympics-${crypto.randomBytes(8).toString('hex')}`, Date.now(), actor);
       olympicsAnnounce(room, '🏆 THE OLYMPICS HAVE BEEN DECLARED. ENTER VOLUNTARILY. REGRET IS AUTOMATIC.');
       room.dennisAI = dennisAI.queueGameAnnouncement(room.dennisAI, 'open', { game: 'Rock Paper Scissors Olympics' });
       return olympicsCommit(room);
@@ -6019,19 +6045,22 @@ function scheduleRouletteCarnage(room){
 }
 function handleRouletteCarnage(ws,message){
   const room=rooms.get(ws.roomCode?.toUpperCase());if(!room)return;
-  const type=String(message.type||''),isGm=ws===room.hostConnection&&ws.gmAuthenticated===true;
+  const type=String(message.type||''),isGm=ws===room.hostConnection&&ws.gmAuthenticated===true,playerActor=rouletteActor(room,ws),manager=isGm?{id:'__GM__',name:'SHADOW BROKER'}:playerActor;
   if(type==='rouletteCarnage:sync')return sendRouletteState(room,ws);
   if(room.roomMode!==ROOM_MODES.CASUAL)return rouletteError(ws,'ROULETTE CARNAGE IS AVAILABLE ONLY IN AMUSEMENT PARK');
-  if(type.startsWith('gm:rouletteCarnage:')){
-    if(!isGm)return rouletteError(ws,'ONLY THE SHADOW BROKER DEALS THIS TABLE');
-    const action=type.slice('gm:rouletteCarnage:'.length),table=room.rouletteCarnage,round=table?.round;
+  if(type.startsWith('gm:rouletteCarnage:')||type.startsWith('rouletteCarnage:host:')){
+    const gmCommand=type.startsWith('gm:rouletteCarnage:');
+    if(gmCommand&&!isGm)return rouletteError(ws,'ONLY THE SHADOW BROKER MAY USE GM TABLE CONTROLS');
+    if(!manager)return rouletteError(ws,'A CONNECTED LITTLE HERO IDENTITY IS REQUIRED');
+    const action=type.slice(gmCommand?'gm:rouletteCarnage:'.length:'rouletteCarnage:host:'.length),table=room.rouletteCarnage,round=table?.round;
     if(action==='openTable'){
       if(table?.open)return rouletteError(ws,'THE ROULETTE TABLE IS ALREADY OPEN');
-      room.rouletteCarnage=rouletteCarnage.createTable('rct-'+crypto.randomBytes(6).toString('hex'),'rcr-'+crypto.randomBytes(8).toString('hex'),rouletteCarnage.MINIMUM_BET);
+      room.rouletteCarnage=rouletteCarnage.createTable('rct-'+crypto.randomBytes(6).toString('hex'),'rcr-'+crypto.randomBytes(8).toString('hex'),rouletteCarnage.MINIMUM_BET,Date.now(),manager);
       room.dennisAI=dennisAI.queueGameAnnouncement(room.dennisAI,'open',{game:'Roulette Carnage'});
       return rouletteCommit(room);
     }
     if(!table?.open)return rouletteError(ws,'OPEN THE TABLE FIRST');
+    if(!isGm&&String(table.ownerId||'')!==String(manager.id))return rouletteError(ws,'ONLY THE TABLE HOST MAY DEAL THIS ROUND');
     if(action==='openBetting'){
       if(['SPINNING','LOCKED'].includes(round.phase))return rouletteError(ws,'THE CURRENT ROUND IS NOT FINISHED');
       if(['RESULT','CARNAGE','ABORTED'].includes(round.phase)){const joined={...round.joined};table.history.push({id:round.id,result:round.winningNumber,settledAt:round.settledAt,carnage:round.carnage});table.history=table.history.slice(-20);table.round=rouletteCarnage.newRound('rcr-'+crypto.randomBytes(8).toString('hex'));table.round.joined=joined;}
@@ -6058,7 +6087,7 @@ function handleRouletteCarnage(ws,message){
     }
     return rouletteError(ws,'UNKNOWN DEALER COMMAND');
   }
-  const actor=rouletteActor(room,ws);if(!actor)return rouletteError(ws,'A CONNECTED LITTLE HERO IDENTITY IS REQUIRED');
+  const actor=playerActor;if(!actor)return rouletteError(ws,'A CONNECTED LITTLE HERO IDENTITY IS REQUIRED');
   const table=room.rouletteCarnage,round=table?.round;if(!table?.open)return rouletteError(ws,'THE TABLE IS CLOSED');
   if(type==='rouletteCarnage:join'){
     if(!['TABLE_OPEN','BETTING_OPEN'].includes(round.phase))return rouletteError(ws,'JOINING IS CLOSED FOR THIS ROUND');
@@ -14168,6 +14197,9 @@ wss.on('connection', (ws, req) => {
           break;
         }
         case 'olympics:sync':
+        case 'olympics:create':
+        case 'olympics:begin':
+        case 'olympics:cancel':
         case 'olympics:join':
         case 'olympics:leave':
         case 'olympics:select':
@@ -14212,6 +14244,12 @@ wss.on('connection', (ws, req) => {
         case 'rouletteCarnage:sync':
         case 'rouletteCarnage:join':
         case 'rouletteCarnage:bet':
+        case 'rouletteCarnage:host:openTable':
+        case 'rouletteCarnage:host:openBetting':
+        case 'rouletteCarnage:host:lockBets':
+        case 'rouletteCarnage:host:spin':
+        case 'rouletteCarnage:host:abort':
+        case 'rouletteCarnage:host:closeTable':
         case 'gm:rouletteCarnage:openTable':
         case 'gm:rouletteCarnage:openBetting':
         case 'gm:rouletteCarnage:lockBets':

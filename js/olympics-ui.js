@@ -61,7 +61,7 @@
       <section class="oly-lobby"><header><b>OLYMPIANS: ${count}</b><span>MINIMUM 2</span></header><div class="oly-roster">${state.data.participants.map(player => playerCard(player)).join('') || '<p>THE ARENA AWAITS ITS FIRST VICTIM.</p>'}</div>
       <div class="oly-actions">${isGm()
         ? `${joined ? '<button data-oly="leave">WITHDRAW SHADOW BROKER</button>' : '<button class="is-primary" data-oly="join">ENTER AS SHADOW BROKER</button>'}<button data-oly-gm="begin" ${count < 2 ? 'disabled' : ''}>BEGIN OLYMPICS</button><button class="is-danger" data-oly-gm="cancel">CANCEL</button>`
-        : joined ? '<button data-oly="leave">WITHDRAW</button>' : '<button class="is-primary" data-oly="join">ENTER THE OLYMPICS</button>'}</div></section>`;
+        : `${joined ? '<button data-oly="leave">WITHDRAW</button>' : '<button class="is-primary" data-oly="join">ENTER THE OLYMPICS</button>'}${state.data.canManage ? `<button data-oly-host="begin" ${count < 2 ? 'disabled' : ''}>BEGIN OLYMPICS</button><button class="is-danger" data-oly-host="cancel">CANCEL</button>` : `<small>HOSTED BY ${esc(state.data.ownerName || 'A LITTLE HERO')}</small>`}`}</div></section>`;
   }
   function choiceButton(choice, match, waiting = false) {
     const [symbol, label] = HANDS[choice], mine = match.yourChoice === choice;
@@ -112,11 +112,11 @@
     const favored = Object.keys(HANDS).sort((a, b) => Number(usage[b] || 0) - Number(usage[a] || 0))[0];
     return `<div class="oly-champion"><small>OLYMPICS COMPLETE</small><h1>OLYMPIC CHAMPION</h1>${avatar(champion, true)}<h2>${esc(champion.name)}</h2><strong>LORD OF THE THREE HANDS</strong></div>
       <section class="oly-stats"><div><span>CHAMPION</span><b>${esc(champion.name)}</b></div><div><span>RUNNER-UP</span><b>${esc(runner.name)}</b></div><div><span>MATCHES PLAYED</span><b>${Number(state.data.stats?.matchesPlayed) || 0}</b></div><div><span>THROWS WON</span><b>${totals.won}</b></div><div><span>THROWS LOST</span><b>${totals.lost}</b></div><div><span>TIES</span><b>${Number(state.data.stats?.ties) || 0}</b></div><div><span>ROCK USAGE</span><b>${Number(usage.rock) || 0}</b></div><div><span>PAPER USAGE</span><b>${Number(usage.paper) || 0}</b></div><div><span>SCISSORS USAGE</span><b>${Number(usage.scissors) || 0}</b></div><div><span>FAVORED WEAPON</span><b>${HANDS[favored][1]} — ${Math.round(Number(usage[favored] || 0) / total * 100)}%</b></div></section>
-      ${bracket()}${isGm() ? '<div class="oly-actions"><button data-oly-gm="create">DECLARE NEW OLYMPICS</button><button data-oly-gm="cancel">DISMISS</button></div>' : ''}`;
+      ${bracket()}<div class="oly-actions">${isGm() ? '<button data-oly-gm="create">DECLARE NEW OLYMPICS</button><button data-oly-gm="cancel">DISMISS</button>' : '<button data-oly-host="create">HOST NEW OLYMPICS</button>'}</div>`;
   }
   function render() {
     const root = ensure(); root.hidden = !state.open; if (!state.open) return;
-    const body = !state.data ? '<div class="oly-wait">THE ARENA SLEEPS.</div>' : state.data.status === 'lobby' ? lobby() : state.data.status === 'complete' ? complete() : arena();
+    const body = !state.data ? `<div class="oly-wait">THE ARENA SLEEPS.${isGm() ? '' : '<button class="is-primary" data-oly-host="create">HOST OLYMPICS</button>'}</div>` : state.data.status === 'lobby' ? lobby() : state.data.status === 'complete' ? complete() : arena();
     root.innerHTML = `<div class="oly-shell"><header><div><b>ROCK <i>•</i> PAPER <i>•</i> SCISSORS OLYMPICS</b><small>ANCIENT RITUAL // MECHANICAL AUTHORITY</small></div><button data-oly-close aria-label="Close">×</button></header>${state.error ? `<div class="oly-error">${esc(state.error)}</div>` : ''}<main>${body}</main></div>`;
     tickClock();
   }
@@ -149,6 +149,8 @@
     if (support) return send({ type: 'olympics:support', playerId: support });
     const action = event.target.closest('[data-oly]')?.dataset.oly;
     if (action) return send({ type: `olympics:${action}` });
+    const hostAction = event.target.closest('[data-oly-host]')?.dataset.olyHost;
+    if (hostAction) { if (!confirmAction(hostAction)) return; return send({ type: `olympics:${hostAction}` }); }
     const gmAction = event.target.closest('[data-oly-gm]')?.dataset.olyGm;
     if (gmAction) { if (!confirmAction(gmAction)) return; return send({ type: `gm:olympics:${gmAction}` }); }
     const forfeit = event.target.closest('[data-oly-forfeit]')?.dataset.olyForfeit;

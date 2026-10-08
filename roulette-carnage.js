@@ -9,9 +9,9 @@ function cleanCoins(value) { return Math.round(Number(value) * 10) / 10; }
 function newRound(id, now = Date.now()) {
   return { id:String(id), phase:'TABLE_OPEN', createdAt:now, joined:{}, wagers:[], winningNumber:null, spinToken:null, revealAt:null, settled:false, settledAt:null, carnage:null };
 }
-function createTable(id, roundId, minimumBet = MINIMUM_BET, now = Date.now()) {
+function createTable(id, roundId, minimumBet = MINIMUM_BET, now = Date.now(), owner = null) {
   const min = cleanCoins(minimumBet);
-  return { id:String(id), open:true, minimumBet:Number.isFinite(min)&&min>0?min:MINIMUM_BET, round:newRound(roundId,now), history:[] };
+  return { id:String(id), open:true, ownerId:String(owner?.id||''), ownerName:String(owner?.name||'').slice(0,40), minimumBet:Number.isFinite(min)&&min>0?min:MINIMUM_BET, round:newRound(roundId,now), history:[] };
 }
 function normalizeState(raw) {
   if (!raw || typeof raw !== 'object' || raw.open !== true) return null;
@@ -23,7 +23,7 @@ function normalizeState(raw) {
     spinToken:roundRaw.spinToken?String(roundRaw.spinToken):null,revealAt:Number(roundRaw.revealAt)||null,settled:roundRaw.settled===true,settledAt:Number(roundRaw.settledAt)||null,
     carnage:roundRaw.carnage&&typeof roundRaw.carnage==='object'?roundRaw.carnage:null
   };
-  return {id:String(raw.id||''),open:true,minimumBet:Math.max(MINIMUM_BET,cleanCoins(raw.minimumBet||MINIMUM_BET)),round,history:Array.isArray(raw.history)?raw.history.slice(-20):[]};
+  return {id:String(raw.id||''),open:true,ownerId:String(raw.ownerId||''),ownerName:String(raw.ownerName||'').slice(0,40),minimumBet:Math.max(MINIMUM_BET,cleanCoins(raw.minimumBet||MINIMUM_BET)),round,history:Array.isArray(raw.history)?raw.history.slice(-20):[]};
 }
 function validateBet(input, minimumBet = MINIMUM_BET) {
   const rawAmount=Number(input?.amount),amount=cleanCoins(rawAmount),type=String(input?.type||'').toUpperCase(),value=input?.value;
@@ -53,7 +53,7 @@ function totals(round){const wagers=round?.wagers||[];return{players:new Set(wag
 function view(state,viewerId,isGm,balance=0){
   const normalized=normalizeState(state);if(!normalized)return{open:false,phase:'CLOSED',minimumBet:MINIMUM_BET,balance};
   const round=normalized.round,t=totals(round),joined=Object.values(round.joined||{}),own=round.wagers.filter(w=>String(w.playerId)===String(viewerId));
-  const payload={open:true,tableId:normalized.id,roundId:round.id,phase:round.phase,minimumBet:normalized.minimumBet,joinedCount:joined.length,activePlayers:t.players,totalWagered:t.coins,zeroPlayers:t.zeroPlayers,balance,joined:!!round.joined[String(viewerId)],ownWagers:own,ownTotal:cleanCoins(own.reduce((n,w)=>n+Number(w.amount||0),0)),result:['RESULT','CARNAGE'].includes(round.phase)?round.winningNumber:null,revealAt:round.revealAt,carnage:round.carnage};
+  const payload={open:true,tableId:normalized.id,roundId:round.id,phase:round.phase,ownerId:normalized.ownerId,ownerName:normalized.ownerName,canManage:isGm||String(viewerId)===normalized.ownerId,minimumBet:normalized.minimumBet,joinedCount:joined.length,activePlayers:t.players,totalWagered:t.coins,zeroPlayers:t.zeroPlayers,balance,joined:!!round.joined[String(viewerId)],ownWagers:own,ownTotal:cleanCoins(own.reduce((n,w)=>n+Number(w.amount||0),0)),result:['RESULT','CARNAGE'].includes(round.phase)?round.winningNumber:null,revealAt:round.revealAt,carnage:round.carnage};
   if(isGm){payload.players=joined;payload.wagers=round.wagers;delete payload.balance;delete payload.joined;delete payload.ownWagers;delete payload.ownTotal;}
   return payload;
 }

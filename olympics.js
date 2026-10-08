@@ -19,9 +19,10 @@ function shuffle(values, random = Math.random) {
   return out;
 }
 
-function createLobby(id = randomId(), now = Date.now()) {
+function createLobby(id = randomId(), now = Date.now(), owner = null) {
   return {
     id: cleanId(id), status: 'lobby', createdAt: now, startedAt: null, completedAt: null,
+    ownerId: cleanId(owner?.id), ownerName: owner ? cleanName(owner.name) : '',
     participants: {}, spectatorIds: [], support: {}, rounds: [], currentRound: -1,
     currentMatchId: null, championId: null, runnerUpId: null, paused: false,
     pauseReason: null, pausedRemaining: null, reconnectDeadlines: {}, sequence: 0,
@@ -33,6 +34,8 @@ function normalizeState(input) {
   if (!input || typeof input !== 'object' || !cleanId(input.id)) return null;
   const state = copy(input);
   state.participants ||= {};
+  state.ownerId = cleanId(state.ownerId);
+  state.ownerName = state.ownerName ? cleanName(state.ownerName) : '';
   state.spectatorIds = Array.isArray(state.spectatorIds) ? state.spectatorIds.map(cleanId).filter(Boolean) : [];
   state.support ||= {};
   state.rounds = Array.isArray(state.rounds) ? state.rounds : [];
@@ -348,7 +351,8 @@ function view(input, viewerId, isGm = false, now = Date.now()) {
   return {
     id: state.id, status: state.status, createdAt: state.createdAt, startedAt: state.startedAt, completedAt: state.completedAt,
     participants, olympians: participants.length, minimum: 2, spectator: !state.participants[id] || state.participants[id].eliminated,
-    joined: !!state.participants[id], paused: state.paused, pauseReason: state.pauseReason,
+    joined: !!state.participants[id], ownerId: state.ownerId, ownerName: state.ownerName,
+    canManage: isGm || (!!id && id === state.ownerId), paused: state.paused, pauseReason: state.pauseReason,
     rounds: state.rounds.map(round => ({ index: round.index, label: round.label, participantIds: [...round.participantIds], matches: round.matches.map(item => ({
       id: item.id, playerAId: item.playerAId, playerBId: item.playerBId, status: item.status,
       requiredWins: item.requiredWins, score: copy(item.score), winnerId: item.winnerId, loserId: item.loserId

@@ -1,7 +1,11 @@
 'use strict';
 const assert=require('node:assert/strict');
 const rc=require('../roulette-carnage');
-const table=rc.createTable('table-1','round-1',.5,1000);
+const table=rc.createTable('table-1','round-1',.5,1000,{id:'p1',name:'Ana'});
+assert.equal(table.ownerId,'p1');
+assert.equal(rc.view(table,'p1',false,9).canManage,true,'table creator becomes dealer');
+assert.equal(rc.view(table,'p2',false,9).canManage,false,'another player cannot deal');
+assert.equal(rc.view(table,'__GM__',true).canManage,true,'GM retains table override authority');
 assert.equal(table.round.phase,'TABLE_OPEN');
 assert.equal(rc.validateBet({type:'STRAIGHT',value:0,amount:.5},.5).value,0);
 assert.ok(rc.validateBet({type:'STRAIGHT',value:37,amount:1},.5).error);
