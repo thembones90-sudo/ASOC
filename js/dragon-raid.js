@@ -804,6 +804,7 @@
       const overlay = this.ensureOverlay();
       overlay.hidden = false;
       overlay.dataset.phase = raid.phase || '';
+      overlay.dataset.bossId = raid.boss?.id || '';
       const shell = overlay.querySelector('.dragon-raid-shell');
       let body = '';
       if (raid.phase === 'RECRUITING') body = this.recruitmentHTML();

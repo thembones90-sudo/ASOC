@@ -2028,3 +2028,125 @@
   .dragon-setup-panel>p{padding-left:44px}.dragon-setup-panel>p::before{left:23px}.dragon-setup-panel>p::after{left:22px;right:22px}
   .dragon-setup-grid{padding:17px 16px 22px}.dragon-setup-grid>button{min-height:155px}
 }
+
+/* Recruitment chamber — shared by GM and players, styled as a living Cabinet seal. */
+.dragon-raid-overlay[data-phase="RECRUITING"]{
+  --recruit-accent:190,92,47;
+  --recruit-secondary:118,45,27;
+  background:
+    radial-gradient(ellipse at 50% 35%,rgba(var(--recruit-accent),.13),transparent 44%),
+    radial-gradient(circle at 12% 80%,rgba(var(--recruit-secondary),.10),transparent 25%),
+    repeating-linear-gradient(118deg,transparent 0 52px,rgba(var(--recruit-accent),.012) 53px 54px),
+    rgba(3,2,5,.94);
+}
+.dragon-raid-overlay[data-phase="RECRUITING"][data-boss-id="wendigo"]{--recruit-accent:184,211,230;--recruit-secondary:89,120,143}
+.dragon-raid-overlay[data-phase="RECRUITING"][data-boss-id="hym"]{--recruit-accent:151,96,205;--recruit-secondary:78,42,119}
+.dragon-raid-overlay[data-phase="RECRUITING"][data-boss-id="hydra"]{--recruit-accent:91,174,102;--recruit-secondary:36,96,51}
+.dragon-raid-overlay[data-phase="RECRUITING"][data-boss-id="necromorph"]{--recruit-accent:216,73,77;--recruit-secondary:105,29,34}
+.dragon-raid-overlay[data-phase="RECRUITING"][data-boss-id="deathwing"]{--recruit-accent:255,72,36;--recruit-secondary:139,25,19}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raid-shell{
+  width:min(1160px,96vw);
+  padding:34px 38px 30px;
+  border:0;
+  border-radius:0;
+  clip-path:polygon(22px 0,calc(100% - 22px) 0,100% 22px,100% calc(100% - 22px),calc(100% - 22px) 100%,22px 100%,0 calc(100% - 22px),0 22px);
+  background:
+    linear-gradient(90deg,rgb(var(--recruit-accent)),transparent 13%,transparent 87%,rgb(var(--recruit-accent))) top/100% 1px no-repeat,
+    linear-gradient(90deg,rgb(var(--recruit-accent)),transparent 13%,transparent 87%,rgb(var(--recruit-accent))) bottom/100% 1px no-repeat,
+    linear-gradient(180deg,rgb(var(--recruit-accent)),transparent 16%,transparent 84%,rgb(var(--recruit-accent))) left/1px 100% no-repeat,
+    linear-gradient(180deg,rgb(var(--recruit-accent)),transparent 16%,transparent 84%,rgb(var(--recruit-accent))) right/1px 100% no-repeat,
+    radial-gradient(circle at 10% 0%,rgba(var(--recruit-accent),.09),transparent 30%),
+    linear-gradient(145deg,rgba(15,9,14,.99),rgba(5,5,8,.995) 58%,rgba(var(--recruit-secondary),.055));
+  box-shadow:0 35px 100px rgba(0,0,0,.82),0 0 70px rgba(var(--recruit-accent),.1);
+}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raid-shell::before{
+  inset:9px;
+  border:1px solid rgba(var(--recruit-accent),.1);
+  border-radius:0;
+  clip-path:polygon(15px 0,calc(100% - 15px) 0,100% 15px,100% calc(100% - 15px),calc(100% - 15px) 100%,15px 100%,0 calc(100% - 15px),0 15px);
+  background:
+    linear-gradient(135deg,rgba(var(--recruit-accent),.5) 0 2px,transparent 2px) 0 0/20px 20px no-repeat,
+    linear-gradient(225deg,rgba(var(--recruit-accent),.5) 0 2px,transparent 2px) 100% 0/20px 20px no-repeat,
+    linear-gradient(45deg,rgba(var(--recruit-accent),.5) 0 2px,transparent 2px) 0 100%/20px 20px no-repeat,
+    linear-gradient(315deg,rgba(var(--recruit-accent),.5) 0 2px,transparent 2px) 100% 100%/20px 20px no-repeat;
+}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading{
+  min-height:100px;
+  padding:0 0 22px;
+  border:0;
+}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading::after{
+  content:"";
+  position:absolute;
+  left:0;right:0;bottom:0;height:4px;
+  background:linear-gradient(90deg,rgb(var(--recruit-accent)) 0 9%,transparent 9% 11%,rgba(var(--recruit-accent),.4) 11% 72%,transparent 72% 74%,rgba(var(--recruit-accent),.18));
+}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-mark{
+  position:relative;
+  width:86px;height:86px;
+  border:0;border-radius:0;
+  clip-path:polygon(50% 0,88% 15%,100% 50%,87% 86%,50% 100%,13% 86%,0 50%,13% 14%);
+  background:
+    radial-gradient(circle,rgba(var(--recruit-accent),.16) 0 45%,transparent 46%),
+    conic-gradient(from 22.5deg,rgba(var(--recruit-accent),.46) 0 1.5%,transparent 1.5% 11%,rgba(var(--recruit-accent),.46) 11% 12.5%,transparent 12.5% 100%);
+  filter:drop-shadow(0 0 14px rgba(var(--recruit-accent),.2));
+}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-mark::after{content:"";position:absolute;inset:9px;border:1px solid rgba(var(--recruit-accent),.42);transform:rotate(45deg)}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading small{color:rgba(var(--recruit-accent),.86)}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading h1{color:#f6eff3;text-shadow:0 0 28px rgba(var(--recruit-accent),.2)}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading>strong{
+  position:relative;
+  padding:13px 16px 12px;
+  color:rgb(var(--recruit-accent));
+  background:linear-gradient(90deg,transparent,rgba(var(--recruit-accent),.06),transparent);
+}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading>strong::before,.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading>strong::after{content:"";position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(var(--recruit-accent),.6),transparent)}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading>strong::before{top:0}.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading>strong::after{bottom:0}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-lore{margin:21px auto 13px;color:#afa5ad}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-party-count{position:relative;margin:17px auto 16px;width:max-content;padding:0 30px;color:rgba(var(--recruit-accent),.85)}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-party-count::before,.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-party-count::after{content:"";position:absolute;top:50%;width:22px;height:1px;background:rgba(var(--recruit-accent),.48)}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-party-count::before{left:0}.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-party-count::after{right:0}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raider-grid{gap:9px;margin:14px 0 22px}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raider-card{
+  position:relative;
+  min-height:148px;
+  border:0;border-radius:0;
+  clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,10px 100%,0 calc(100% - 10px));
+  background:linear-gradient(160deg,rgba(var(--recruit-accent),.055),rgba(11,10,13,.94) 48%,rgba(5,5,7,.98));
+  box-shadow:inset 0 1px rgba(var(--recruit-accent),.25),inset 0 -1px rgba(var(--recruit-accent),.14),inset 3px 0 rgba(var(--recruit-accent),.22);
+}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raider-card::after{content:"";position:absolute;right:8px;top:8px;width:16px;height:16px;background:linear-gradient(135deg,transparent 44%,rgba(var(--recruit-accent),.5) 45% 52%,transparent 53%)}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raider-card.is-empty{
+  border:0;
+  color:rgba(var(--recruit-accent),.28);
+  background:
+    radial-gradient(circle at 50% 50%,transparent 0 22px,rgba(var(--recruit-accent),.07) 23px 24px,transparent 25px),
+    linear-gradient(160deg,rgba(var(--recruit-accent),.025),rgba(6,6,8,.76));
+  box-shadow:inset 0 1px rgba(var(--recruit-accent),.13),inset 3px 0 rgba(var(--recruit-accent),.12);
+}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raider-card.is-empty b{font:800 12px/1 var(--font-mono,monospace);letter-spacing:.16em}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raider-card.is-empty small{color:rgba(var(--recruit-accent),.32)}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-gm-observer,
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-locked{
+  position:relative;
+  margin-top:12px;
+  border:0;border-radius:0;
+  clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,0 100%);
+  background:linear-gradient(90deg,rgba(var(--recruit-secondary),.22),rgba(16,10,19,.88));
+  box-shadow:inset 3px 0 rgb(var(--recruit-accent)),inset 0 1px rgba(var(--recruit-accent),.2),inset 0 -1px rgba(var(--recruit-accent),.12);
+}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-gm-observer span::before{color:rgb(var(--recruit-accent));text-shadow:0 0 10px rgba(var(--recruit-accent),.6)}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-gm-observer button,
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-class-pick button{
+  border:0;border-radius:0;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  box-shadow:inset 2px 0 currentColor,inset 0 1px rgba(255,255,255,.09);
+}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-class-pick button{background:linear-gradient(145deg,rgba(var(--recruit-accent),.13),rgba(10,8,11,.96));color:rgb(var(--recruit-accent))}
+.dragon-raid-overlay[data-phase="RECRUITING"] .dragon-class-pick button small{color:#9d929a}
+
+@media(max-width:760px){
+  .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raid-shell{padding:25px 20px 22px}
+  .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-mark{width:66px;height:66px;font-size:34px}
+  .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading{gap:12px}
+}
