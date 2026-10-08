@@ -2,7 +2,7 @@
   position: relative; isolation: isolate; display: grid;
   grid-template-columns: minmax(0, 1fr) 84px 28px 28px;
   gap: 5px; align-items: center; min-width: 0;
-  min-height: 42px; height: 42px; margin: 0; padding: 4px 6px 4px 12px;
+  min-height: 64px; height: 64px; margin: 0; padding: 7px 7px 7px 14px;
   overflow: hidden; box-sizing: border-box; border: 1px solid #8e45bd; border-radius: 4px;
   background: linear-gradient(90deg, rgba(111,36,145,.27), transparent 45%), repeating-linear-gradient(0deg, rgba(219,163,255,.035) 0 1px, transparent 1px 4px), #0c0712;
   box-shadow: inset 3px 0 #b95aeb, inset 0 0 22px rgba(140,50,183,.18), 0 0 13px rgba(137,48,179,.15);
@@ -16,14 +16,14 @@
 .spectral-console > div { display: grid; min-width: 0; line-height: 1; }
 .spectral-console small, .spectral-console > b { display: none; }
 .spectral-console strong {
-  overflow: hidden; color: #e8bcff; font: 800 11px/1.1 monospace; letter-spacing: 1.5px;
+  overflow: hidden; color: #e8bcff; font: 800 12px/1.1 monospace; letter-spacing: 1.25px;
   text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 0 9px rgba(199,105,245,.58);
 }
 .spectral-console span {
   margin-top: 4px; color: #66ddff; font: 800 8px/1 monospace; letter-spacing: 1px; white-space: nowrap;
 }
 .spectral-console select, .spectral-console button {
-  min-width: 0; height: 28px; margin: 0; border: 1px solid #70408a; border-radius: 2px;
+  min-width: 0; height: 38px; margin: 0; border: 1px solid #70408a; border-radius: 2px;
   background: linear-gradient(#1c1027, #0d0913); color: #e7cef5;
   font: 800 8px monospace; letter-spacing: .7px; cursor: pointer;
 }
@@ -40,6 +40,44 @@
   body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .battle-controls-host-slot { order: 2 !important; }
   body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #nema-asoc-btn { order: 3 !important; }
   body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #bice-asoc-btn { order: 4 !important; }
+
+  /* One command deck, one physical tile size. This deliberately overrides
+     older per-control density rules that left AMUSE/ABUSE shorter. */
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel :is(
+    .spectral-console,
+    .battle-controls-host-slot,
+    .battle-controls-host-slot .room-mode-toggle,
+    #nema-asoc-btn,
+    #bice-asoc-btn,
+    #poison-gm-button,
+    #black-market-gm-button,
+    #quests-btn,
+    #library-btn-footer,
+    #reset-board-btn,
+    #sound-toggle-btn,
+    .master-access-wrap,
+    .master-access-wrap .master-access-btn,
+    #broker-transmog-btn,
+    #dragon-raid-setup-btn
+  ) {
+    width: 100% !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    max-height: 64px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .battle-controls-host-slot {
+    padding: 0 !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .battle-controls-host-slot .room-mode-toggle {
+    padding: 5px !important;
+  }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .battle-controls-host-slot .room-mode-segment {
+    height: 52px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
+  }
 }
 @media (max-width: 900px) { .spectral-console { grid-template-columns: minmax(0,1fr) 88px 30px 30px; width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .spectral-console::before { animation: none; } }
