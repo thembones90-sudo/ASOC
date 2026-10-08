@@ -8152,7 +8152,8 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   if (/^\/coffee\b/i.test(raw)) {
     if (!/^\/coffee\s*$/i.test(raw)) return { success: false, error: 'COFFEE INVALID // USE /coffee' };
     if (room.roomMode !== ROOM_MODES.CASUAL) return { success: false, error: 'COFFEE FORBIDDEN // ONLY AVAILABLE IN AMUSEMENT PARK' };
-    const account = coinAccount(ws.playerId, ws.playerName);
+    const market = shadowAccountFor(ws);
+    const account = market.error ? null : market.account;
     if (!account || !playerStore.ownsCosmetic(account, 'cmd-coffee')) {
       return { success: false, error: 'COFFEE LOCKED // BUY /coffee FOR 10 SC IN THE SHADOW MARKET' };
     }
@@ -11030,11 +11031,28 @@ function handleGmShadowCoinAdjust(ws, message) {
 // SHADOW MARKET / SHADOW ROULETTE -- player-only, account-bound, cosmetic.
 // Every price, gate and payout is decided here from shadow-market.js; the
 // client only ever names an item, a slot or a bet.
+// One isolated, persistent test wallet. The Master Mirror ID changes on
+// login; its wallet does not. Never grant this balance to genuine players.
+const MASTER_MARKET_TEST_ID = '__ASOC_MASTER_MARKET_TEST__';
 function shadowAccountFor(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || ws.isHost || !ws.playerId) return { error: 'Shadow Market requires a Little Hero in a room' };
+  if (isMasterTestPlayerId(ws.playerId)) {
+    const player = room.players.get(ws);
+    if (!player || player.isTestPersona !== true || String(player.id) !== String(ws.playerId)) {
+      return { error: 'Master Mirror authorization required' };
+    }
+    const account = { id: MASTER_MARKET_TEST_ID, name: 'TEST SUBJECT // MARKET SANDBOX' };
+    // Fixed receipt prevents repeated grants across reconnects and restarts.
+    const funded = playerStore.awardShadowCoins(
+      account, 99999, 'master-market-test:initial-credit:v1',
+      { reason: 'GM Master Mirror test wallet initial funding' }
+    );
+    if (!funded.ok) return { error: funded.error || 'Test wallet could not be initialized' };
+    return { room, account };
+  }
   const account = coinAccount(ws.playerId, ws.playerName);
-  if (!account) return { error: 'Test personas have no Shadow Coin account' };
+  if (!account) return { error: 'Shadow Coin account not found' };
   return { room, account };
 }
 
