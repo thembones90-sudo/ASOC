@@ -75,7 +75,8 @@
     .master-access-wrap,
     .master-access-wrap .master-access-btn,
     #broker-transmog-btn,
-    #dragon-raid-setup-btn
+    #dragon-raid-setup-btn,
+    #load-shell-btn
   ) {
     width: 100% !important;
     height: 52px !important;
@@ -95,6 +96,17 @@
     min-height: 42px !important;
     max-height: 42px !important;
   }
+  body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #load-shell-btn { order: 15 !important; }
 }
+.load-shell-btn {
+  position: relative; overflow: hidden; display: flex !important; align-items: center; justify-content: center; gap: 10px;
+  border: 1px solid #55758b !important;
+  background: linear-gradient(135deg, #101922, #080d12 62%, #15202a) !important;
+  color: #b9ddf2 !important; letter-spacing: 2px !important;
+  box-shadow: inset 3px 0 #63c7ef, inset 0 0 18px rgba(75,174,214,.1) !important;
+}
+.load-shell-btn::after { content:''; position:absolute; inset:5px; border:1px solid rgba(117,201,235,.13); pointer-events:none; }
+.load-shell-btn:hover { border-color:#75d8ff !important; color:#e4f7ff !important; box-shadow:inset 3px 0 #75d8ff,0 0 16px rgba(77,190,235,.24) !important; }
+.load-shell-mark { color:#6fdcff; font-size:18px; text-shadow:0 0 10px #52c8f5; }
 @media (max-width: 900px) { .spectral-console { grid-template-columns: minmax(0,1fr) 88px 30px 30px; width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .spectral-console::before { animation: none; } }

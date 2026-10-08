@@ -1312,6 +1312,7 @@ const App = {
     renderSoundToggle();
     this.setupMasterAccess();
     document.getElementById('new-game-btn').addEventListener('click', () => Forge.open().then(() => Forge.openCreator(null, true)));
+    document.getElementById('load-shell-btn')?.addEventListener('click', () => Forge.open().then(() => Forge.openCreator(null, true)));
     document.getElementById('next-game-btn').addEventListener('click', () => Forge.open());
     document.getElementById('finish-game-btn')?.addEventListener('click', () => {
       if (this.mode === 'multiplayer' && this.roomCode && this.ws?.readyState === 1) {
