@@ -3639,6 +3639,10 @@ const PlayerApp = {
     let commandCandidates = [];
     let commandIndex = 0;
     const renderCommandPicker = () => {
+      if (this.roomMode === 'BATTLE' || this.roomMode === 'BATTLE_ARMED') {
+        commandPicker.hidden = true;
+        return;
+      }
       const match = String(input?.value || '').match(/^\/([^\s]*)$/);
       if (!match) { commandPicker.hidden = true; return; }
       const fragment = match[1].toLowerCase();

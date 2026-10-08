@@ -11270,6 +11270,15 @@ function handleChatGuess(ws, message) {
     return;
   }
 
+  // Battle authority: only the Shadow Broker may issue slash commands.
+  // This runs before /all rewriting and generic chat fallback, so unknown
+  // commands cannot sneak through as ordinary guesses or chat messages.
+  if (isBattleSurface(room) && String(text).trimStart().startsWith('/')) {
+    if (clientMsgId) sendToWs(ws, { type: 'chat:ack', clientMsgId, refused: true });
+    sendToWs(ws, { type: 'error', message: 'BATTLE COMMANDS FORBIDDEN // SHADOW BROKER ONLY' });
+    return;
+  }
+
   const now = Date.now();
   const cooldown = playerCooldown(room, ws);
   if (!cooldown) return;
