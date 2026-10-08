@@ -1,7 +1,7 @@
 'use strict';
 const crypto=require('crypto');
 const MIN_RAIDERS=3,MAX_RAIDERS=5,RECRUIT_MS=120000,BATTLE_MS=600000;
-const BOSSES=Object.freeze({wendigo:{id:'wendigo',name:'Wendigo',hp:100,passive:'HUNGER'},hym:{id:'hym',name:'Hym',hp:100,passive:'FEED ON REMORSE'},hydra:{id:'hydra',name:'Hydra',hp:100,passive:'SWAMP VIGOR'},necromorph:{id:'necromorph',name:'Necromorph',hp:100,passive:'MUTATED FURY'},deathwing:{id:'deathwing',name:'Deathwing',hp:150,passive:'THE DESTROYER',heroic:true}});
+const BOSSES=Object.freeze({wendigo:{id:'wendigo',name:'Wendigo',hp:100,passive:'HUNGER'},hym:{id:'hym',name:'Hym',hp:100,passive:'FEED ON REMORSE'},hydra:{id:'hydra',name:'Hydra',hp:120,passive:'SWAMP VIGOR'},necromorph:{id:'necromorph',name:'Necromorph',hp:100,passive:'MUTATED FURY'},deathwing:{id:'deathwing',name:'Deathwing',hp:150,passive:'THE DESTROYER',heroic:true}});
 const NORMAL_BOSSES=['wendigo','hym','hydra','necromorph'];
 const uid=()=>crypto.randomUUID?crypto.randomUUID():crypto.randomBytes(16).toString('hex');
 const d20=v=>Math.max(1,Math.min(20,Math.floor(Number(v)||1)));
@@ -25,7 +25,7 @@ function join(raid,player,role){
 }
 function canStart(r){return!!r&&r.phase==='RECRUITING'&&(r.boss.heroic?r.order.length===5:r.order.length>=MIN_RAIDERS)}
 function startBattle(r,now=Date.now()){if(!canStart(r))return{ok:false,error:r?.boss?.heroic?'DEATHWING DEMANDS EXACTLY FIVE RAIDERS':`AT LEAST ${MIN_RAIDERS} RAIDERS ARE REQUIRED`};r.phase='HERO_TURN';r.battleStartedAt=now;r.battleEndsAt=now+BATTLE_MS;r.round=1;r.turnIndex=0;r.activePlayerId=livingIds(r)[0];return{ok:true}}
-function applyTurnStart(r,p){const dot=(p.statuses.burning?1:0)+(p.statuses.bleeding?1:0)+(p.statuses.poisoned?1:0);p.statuses.burning=0;p.statuses.bleeding=0;p.statuses.poisoned=0;if(dot){p.hp=Math.max(0,p.hp-dot);if(!p.hp&&p.alive){p.alive=false;p.deaths++}}return dot}
+function applyTurnStart(r,p){const dot=(p.statuses.burning?1:0)+(p.statuses.bleeding?1:0)+Math.max(0,Number(p.statuses.poisoned)||0);p.statuses.burning=0;p.statuses.bleeding=0;p.statuses.poisoned=0;if(dot){p.hp=Math.max(0,p.hp-dot);if(!p.hp&&p.alive){p.alive=false;p.deaths++}}return dot}
 function advance(r){let i=r.turnIndex+1;while(i<r.order.length){const p=r.participants[r.order[i]];if(p?.alive){applyTurnStart(r,p);if(p.alive)break}i++}if(i<r.order.length){r.turnIndex=i;r.activePlayerId=r.order[i];r.phase='HERO_TURN'}else{r.turnIndex=r.order.length;r.activePlayerId=null;r.phase='BOSS_TURN'}}
 function baseDamage(role,t){if(role==='tank')return t==='success'?4:t==='critical'?7:t==='natural20'?8:0;if(role==='heal')return t==='success'?3:t==='critical'?5:t==='natural20'?6:0;return t==='success'?5:t==='critical'?9:t==='natural20'?13:0}
 function hitBoss(r,p,n){if(!n)return 0;let dealt=n;if(p.statuses.weakened){dealt=Math.max(0,dealt-1);p.statuses.weakened=false}if(p.statuses.bloodlust){dealt++;p.statuses.bloodlust=false}if(r.sunder){dealt+=2;r.sunder=0}if(r.boss.armor){dealt=Math.max(0,dealt-r.boss.armor);r.boss.armor=0}r.dragonHp=Math.max(0,r.dragonHp-dealt);r.boss.hp=r.dragonHp;p.damage+=dealt;return dealt}
@@ -58,9 +58,9 @@ function bossAction(r,rawRoll,rng=Math.random){
    else if(Math.floor(rng()*2)===0){skill='WHISPER OF GUILT';const q=singleTarget();targets=[q];hurt(q,empowered?2:1,true);r.participants[q].statuses.guilt=true}
    else{skill='SHADOW GRASP';const q=singleTarget();targets=[q];hurt(q,empowered?4:3,true);if(empowered)r.participants[q].statuses.haunted=true}
   }else if(r.boss.id==='hydra'){
-   if(result==='catastrophic'){skill='VENOM FLOOD';targets=[...alive];targets.forEach(id=>hurt(id,1));pickMany(2).forEach(id=>r.participants[id].statuses.poisoned=1);healed=r.dragonHp<r.boss.maxHp*.5?5:3;r.dragonHp=Math.min(r.boss.maxHp,r.dragonHp+healed);r.boss.hp=r.dragonHp}
-   else if(Math.floor(rng()*2)===0){skill='MANY-HEADED BITE';targets=pickMany(empowered?3:2);targets.forEach(id=>hurt(id,2,true))}
-   else{skill='VENOM SPIT';const q=singleTarget();targets=[q];hurt(q,empowered?4:3,true);r.participants[q].statuses.poisoned=1}
+   if(result==='catastrophic'){skill='VENOM FLOOD';targets=[...alive];targets.forEach(id=>hurt(id,1));pickMany(2).forEach(id=>r.participants[id].statuses.poisoned=2);healed=r.dragonHp<r.boss.maxHp*.5?7:4;r.dragonHp=Math.min(r.boss.maxHp,r.dragonHp+healed);r.boss.hp=r.dragonHp}
+   else if(Math.floor(rng()*2)===0){skill='MANY-HEADED BITE';targets=pickMany(empowered?3:2);targets.forEach(id=>hurt(id,empowered?3:2,true))}
+   else{skill='VENOM SPIT';const q=singleTarget();targets=[q];hurt(q,empowered?4:3,true);r.participants[q].statuses.poisoned=2}
   }else if(r.boss.id==='necromorph'){
    if(result==='catastrophic'){skill='ABERRANT FRENZY';for(let i=0;i<3;i++){const q=pick(livingIds(r));if(q){targets.push(q);hurt(q,2,true)}}r.boss.frenzy=true}
    else if(Math.floor(rng()*2)===0){skill='SCYTHE REND';const q=singleTarget();targets=[q];hurt(q,empowered?6:4,true);if(empowered&&r.participants[q]?.alive)r.participants[q].statuses.shredded=true}

@@ -8999,9 +8999,17 @@ function handleDragonRaidSetup(ws, message) {
   if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) {
     return sendToWs(ws, { type: 'dragon:error', message: 'ONLY THE SHADOW BROKER MAY OPEN A RAID' });
   }
-  if (String(message.action || '').toLowerCase() === 'cancel') {
+  const gmAction = String(message.action || '').toLowerCase();
+  if (gmAction === 'cancel') {
     const result = getDragonRaidService().abort(room, 'GM_CANCELLED');
     if (!result.ok) sendToWs(ws, { type: 'dragon:error', message: result.error });
+    return;
+  }
+  if (gmAction === 'start') {
+    const raid = room.dragonRaid;
+    if (!raid || raid.phase !== 'RECRUITING') return sendToWs(ws, { type: 'dragon:error', message: 'NO RECRUITING CABINET ENCOUNTER' });
+    if (!dragonRaid.canStart(raid)) return sendToWs(ws, { type: 'dragon:error', message: raid.boss.heroic ? 'DEATHWING REQUIRES EXACTLY FIVE HEROES' : 'AT LEAST THREE LITTLE HEROES ARE REQUIRED' });
+    if (!getDragonRaidService().begin(room)) return sendToWs(ws, { type: 'dragon:error', message: 'THE CABINET REFUSES TO OPEN' });
     return;
   }
   const bossId = String(message.bossId || '').toLowerCase();
