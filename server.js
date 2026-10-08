@@ -8247,6 +8247,9 @@ function dispatchGmSlashCommand(room, ws, text) {
 
   if (/^\/coffee\b/i.test(raw)) {
     if (!/^\/coffee\s*$/i.test(raw)) return { success: false, error: 'COFFEE INVALID // USE /coffee' };
+    if (room.roomMode !== ROOM_MODES.CASUAL) {
+      return { success: false, error: 'COFFEE FORBIDDEN // ONLY AVAILABLE IN AMUSEMENT PARK' };
+    }
     const now = Date.now();
     const remaining = 60000 - (now - (coffeeCooldowns.get(room) || 0));
     if (remaining > 0) return { success: false, error: `COFFEE BREWING // TRY AGAIN IN ${Math.ceil(remaining / 1000)}s` };
