@@ -8,7 +8,7 @@
   };
 
   // Central portraits. Files live in assets/cabinet/ (one per specimen); the version tag busts caches when art is swapped.
-  const ART_VERSION = '20261008-cabinet-art-1';
+  const ART_VERSION = '20261008-deathwing-art-1';
   const BOSS_ART = {
     wendigo: 'assets/cabinet/wendigo.webp',
     hym: 'assets/cabinet/hym.webp',
