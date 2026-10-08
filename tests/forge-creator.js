@@ -50,5 +50,12 @@ assert.match(forge, /GENERATE 20 COLUMN WORDS/, 'creator generates a twenty-word
 assert.match(forge, /SELECT FOUR · AUTOMATICALLY ORDERED OBSCURE → POPULAR/, 'creator explains ranked clue selection');
 assert.match(forge, /generateForgeSuggestions/, 'creator requests suggestions through the authenticated data API');
 assert.match(css, /\.creator-maker/, 'automatic game maker has dedicated styling');
+assert.match(forge, /REPLACE BLACKLISTED/, 'weak candidates can be blacklisted and selectively replaced');
+assert.match(forge, /AUTO-BUILD DRAFT/, 'creator can automatically assemble an editable draft');
+assert.match(forge, /SEMANTIC AUDIT/, 'creator exposes independent semantic board review');
+assert.match(forge, /_makerLocked/, 'column locks preserve approved work');
+assert.match(forge, /persistMaker\(\)/, 'generated pools survive in the local creator draft');
+assert.match(forge, /Near-duplicate word family/, 'readiness audit catches grammatical variants');
+assert.match(css, /\.maker-audit/, 'semantic audit has dedicated verdict styling');
 
 console.log('PASS ASOC Creator: theme identity, unified editor, guided entry, drafts, test play, fit warnings and prepared hints');

@@ -22,6 +22,9 @@ const Forge = {
   _makerColumnCandidates: [],
   _makerClueCandidates: { A: [], B: [], C: [], D: [] },
   _makerSelections: { A: new Set(), B: new Set(), C: new Set(), D: new Set() },
+  _makerBlacklist: new Set(),
+  _makerLocked: new Set(),
+  _makerAudit: null,
   _makerBusy: '',
   _makerError: '',
 
@@ -346,9 +349,13 @@ const Forge = {
     this._showMissing = false;
     this._longLabels = new Set();
     this.activeColumn = 'ALL';
-    this._makerColumnCandidates = [];
-    this._makerClueCandidates = { A: [], B: [], C: [], D: [] };
-    this._makerSelections = { A: new Set(), B: new Set(), C: new Set(), D: new Set() };
+    const maker = this.editingGame._makerState || {};
+    this._makerColumnCandidates = Array.isArray(maker.columnCandidates) ? maker.columnCandidates : [];
+    this._makerClueCandidates = Object.assign({ A: [], B: [], C: [], D: [] }, maker.clueCandidates || {});
+    this._makerSelections = Object.fromEntries(['A','B','C','D'].map(col => [col, new Set(maker.selections?.[col] || [])]));
+    this._makerBlacklist = new Set(maker.blacklist || []);
+    this._makerLocked = new Set(maker.locked || []);
+    this._makerAudit = maker.audit || null;
     this._makerBusy = '';
     this._makerError = '';
     this.renderCreator();
@@ -531,9 +538,16 @@ const Forge = {
                 </div>
                 <button type="button" class="forge-btn primary creator-maker-generate" data-maker-generate-columns ${this._makerBusy ? 'disabled' : ''}>${this._makerBusy === 'columns' ? 'GENERATING…' : 'GENERATE 20 COLUMN WORDS'}</button>
               </div>
+              <div class="creator-maker-toolbar">
+                <button type="button" data-maker-more-columns ${this._makerBusy || !this._makerColumnCandidates.length ? 'disabled' : ''}>GENERATE 10 MORE</button>
+                <button type="button" data-maker-replace-blacklist ${this._makerBusy || !this._makerBlacklist.size ? 'disabled' : ''}>REPLACE BLACKLISTED (${this._makerBlacklist.size})</button>
+                <button type="button" data-maker-auto-build ${this._makerBusy || !this._makerColumnCandidates.length ? 'disabled' : ''}>AUTO-BUILD DRAFT</button>
+                <button type="button" data-maker-audit ${this._makerBusy ? 'disabled' : ''}>SEMANTIC AUDIT</button>
+              </div>
               <div class="creator-maker-error" id="creator-maker-error" ${this._makerError ? '' : 'hidden'}>${this.escapeHtml(this._makerError)}</div>
               <div class="creator-maker-columns" id="creator-maker-columns">${this.renderMakerColumnCandidates()}</div>
               <div class="creator-maker-clues" id="creator-maker-clues">${['A','B','C','D'].map(col => this.renderMakerClueColumn(col)).join('')}</div>
+              <div class="creator-maker-audit" id="creator-maker-audit">${this.renderMakerAudit()}</div>
             </section>
             <div class="creator-cols">${colHtml}</div>
             <div class="creator-hint-bar" id="creator-hint-bar" hidden>
@@ -722,13 +736,35 @@ const Forge = {
     this.updatePreview();
   },
 
+  persistMaker() {
+    if (!this.editingGame) return;
+    this.editingGame._makerState = {
+      columnCandidates: this._makerColumnCandidates,
+      clueCandidates: this._makerClueCandidates,
+      selections: Object.fromEntries(['A','B','C','D'].map(col => [col, [...(this._makerSelections[col] || [])]])),
+      blacklist: [...this._makerBlacklist],
+      locked: [...this._makerLocked],
+      audit: this._makerAudit
+    };
+    this.markDirty();
+  },
+
+  makerMeta(candidate) {
+    return `<span class="maker-strength" title="Relationship strength">${'◆'.repeat(candidate.strength || 3)}${'◇'.repeat(5 - (candidate.strength || 3))}</span><span class="maker-difficulty">${this.escapeHtml(candidate.difficulty || 'MEDIUM')}</span>`;
+  },
+
+  sortMakerClues(candidates) {
+    const order = { OBSCURE: 0, HARD: 1, MEDIUM: 2, EASY: 3, OBVIOUS: 4 };
+    return [...candidates].sort((a, b) => (order[a.difficulty] ?? 2) - (order[b.difficulty] ?? 2) || (a.strength || 0) - (b.strength || 0));
+  },
+
   renderMakerColumnCandidates() {
     if (!this._makerColumnCandidates.length) return '<div class="creator-maker-empty">ENTER THE FINAL WORD, THEN GENERATE THE COLUMN POOL.</div>';
     return this._makerColumnCandidates.map((candidate, index) => `
-      <article class="maker-candidate">
+      <article class="maker-candidate${this._makerBlacklist.has(candidate.word) ? ' blacklisted' : ''}">
         <span class="maker-rank">${String(index + 1).padStart(2, '0')}</span>
-        <div><b>${this.escapeHtml(candidate.word)}</b><small>${this.escapeHtml(candidate.connection)}</small></div>
-        <div class="maker-slot-actions">${['A','B','C','D'].map(col => `<button type="button" data-maker-assign-column="${col}" data-maker-index="${index}" class="${this.fieldValue(`${col}5`) === candidate.word ? 'active' : ''}">${col}5</button>`).join('')}</div>
+        <div><b>${this.escapeHtml(candidate.word)}</b><div class="maker-meta">${this.makerMeta(candidate)}</div><small>${this.escapeHtml(candidate.connection)}</small></div>
+        <div class="maker-slot-actions">${['A','B','C','D'].map(col => `<button type="button" data-maker-assign-column="${col}" data-maker-index="${index}" class="${this.fieldValue(`${col}5`) === candidate.word ? 'active' : ''}" ${this._makerLocked.has(col) || this._makerBlacklist.has(candidate.word) ? 'disabled' : ''}>${col}5</button>`).join('')}<button type="button" class="maker-reject" data-maker-blacklist="${index}" title="Reject this word">${this._makerBlacklist.has(candidate.word) ? 'UNDO' : '×'}</button></div>
       </article>`).join('');
   },
 
@@ -738,20 +774,36 @@ const Forge = {
     const selected = this._makerSelections[col] || new Set();
     return `
       <section class="maker-clue-column" data-maker-column="${col}">
-        <header><div><b>${col} // ${this.escapeHtml(solution || 'NO SOLUTION')}</b><small>SELECT FOUR · AUTOMATICALLY ORDERED OBSCURE → POPULAR</small></div><button type="button" data-maker-generate-clues="${col}" ${!solution || this._makerBusy ? 'disabled' : ''}>${this._makerBusy === col ? 'GENERATING…' : 'GENERATE 10'}</button></header>
-        ${candidates.length ? `<div class="maker-clue-list">${candidates.map((candidate, index) => `<button type="button" class="maker-clue${selected.has(index) ? ' selected' : ''}" data-maker-toggle-clue="${col}" data-maker-index="${index}" aria-pressed="${selected.has(index)}"><span>${index + 1}</span><b>${this.escapeHtml(candidate.word)}</b><small>${this.escapeHtml(candidate.connection)}</small></button>`).join('')}</div>` : '<div class="creator-maker-empty compact">CHOOSE THE COLUMN SOLUTION, THEN GENERATE ITS RANKED CLUES.</div>'}
+        <header><div><b>${col} // ${this.escapeHtml(solution || 'NO SOLUTION')}</b><small>SELECT FOUR · AUTOMATICALLY ORDERED OBSCURE → POPULAR</small></div><div class="maker-column-actions"><button type="button" data-maker-lock="${col}" class="${this._makerLocked.has(col) ? 'locked' : ''}">${this._makerLocked.has(col) ? 'LOCKED' : 'LOCK'}</button><button type="button" data-maker-generate-clues="${col}" ${!solution || this._makerBusy || this._makerLocked.has(col) ? 'disabled' : ''}>${this._makerBusy === col ? 'GENERATING…' : (candidates.length ? '10 MORE' : 'GENERATE 10')}</button></div></header>
+        ${candidates.length ? `<div class="maker-clue-list">${candidates.map((candidate, index) => `<button type="button" class="maker-clue${selected.has(index) ? ' selected' : ''}" data-maker-toggle-clue="${col}" data-maker-index="${index}" aria-pressed="${selected.has(index)}" ${this._makerLocked.has(col) ? 'disabled' : ''}><span>${index + 1}</span><b>${this.escapeHtml(candidate.word)}</b><span class="maker-meta">${this.makerMeta(candidate)}</span><small>${this.escapeHtml(candidate.connection)}</small></button>`).join('')}</div>` : '<div class="creator-maker-empty compact">CHOOSE THE COLUMN SOLUTION, THEN GENERATE ITS RANKED CLUES.</div>'}
       </section>`;
+  },
+
+  renderMakerAudit() {
+    const audit = this._makerAudit;
+    if (!audit) return '';
+    return `<section class="maker-audit maker-audit-${String(audit.verdict || '').toLowerCase()}"><header><b>${this.escapeHtml(audit.verdict)} // ${Number(audit.score) || 0}/100</b><span>${this.escapeHtml(audit.summary || '')}</span></header>${(audit.issues || []).map(issue => `<article class="severity-${String(issue.severity).toLowerCase()}"><b>${this.escapeHtml(issue.cell)} · ${this.escapeHtml(issue.severity)}</b><span>${this.escapeHtml(issue.problem)}</span><small>${this.escapeHtml(issue.suggestion)}</small></article>`).join('') || '<article class="severity-note"><b>NO ISSUES</b><span>The board passed the independent semantic review.</span></article>'}</section>`;
   },
 
   refreshMaker() {
     const columns = document.getElementById('creator-maker-columns');
     const clues = document.getElementById('creator-maker-clues');
     const error = document.getElementById('creator-maker-error');
+    const audit = document.getElementById('creator-maker-audit');
     if (columns) columns.innerHTML = this.renderMakerColumnCandidates();
     if (clues) clues.innerHTML = ['A','B','C','D'].map(col => this.renderMakerClueColumn(col)).join('');
     if (error) { error.hidden = !this._makerError; error.textContent = this._makerError; }
+    if (audit) audit.innerHTML = this.renderMakerAudit();
     const generate = document.querySelector('[data-maker-generate-columns]');
     if (generate) { generate.disabled = !!this._makerBusy; generate.textContent = this._makerBusy === 'columns' ? 'GENERATING…' : 'GENERATE 20 COLUMN WORDS'; }
+    const more = document.querySelector('[data-maker-more-columns]');
+    const replace = document.querySelector('[data-maker-replace-blacklist]');
+    const auto = document.querySelector('[data-maker-auto-build]');
+    const auditButton = document.querySelector('[data-maker-audit]');
+    if (more) more.disabled = !!this._makerBusy || !this._makerColumnCandidates.length;
+    if (replace) { replace.disabled = !!this._makerBusy || !this._makerBlacklist.size; replace.textContent = `REPLACE BLACKLISTED (${this._makerBlacklist.size})`; }
+    if (auto) auto.disabled = !!this._makerBusy || !this._makerColumnCandidates.length;
+    if (auditButton) auditButton.disabled = !!this._makerBusy;
   },
 
   async generateMakerColumns() {
@@ -767,17 +819,46 @@ const Forge = {
       const result = await GameData.generateForgeSuggestions({ kind: 'columns', finalSolution, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty });
       this._makerColumnCandidates = result.candidates || [];
     } catch (error) { this._makerError = error.message; }
-    finally { this._makerBusy = ''; this.refreshMaker(); }
+    finally { this._makerBusy = ''; this.persistMaker(); this.refreshMaker(); }
+  },
+
+  async generateMoreMakerColumns(count = 10, replacing = false) {
+    const finalSolution = String(this.fieldValue('finalSolution') || '').trim();
+    const rejected = replacing ? [...this._makerBlacklist] : [];
+    const excludeWords = [...new Set([...this._makerColumnCandidates.map(item => item.word), ...this._makerBlacklist])];
+    this._makerBusy = 'columns'; this._makerError = ''; this.refreshMaker();
+    try {
+      const result = await GameData.generateForgeSuggestions({ kind: 'columns', finalSolution, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty, count: replacing ? rejected.length : count, excludeWords });
+      if (replacing) {
+        let cursor = 0;
+        this._makerColumnCandidates = this._makerColumnCandidates.map(candidate => this._makerBlacklist.has(candidate.word) ? result.candidates[cursor++] : candidate);
+        this._makerBlacklist.clear();
+      } else this._makerColumnCandidates.push(...(result.candidates || []));
+    } catch (error) { this._makerError = error.message; }
+    finally { this._makerBusy = ''; this.persistMaker(); this.refreshMaker(); }
+  },
+
+  toggleMakerBlacklist(index) {
+    const word = this._makerColumnCandidates[index]?.word;
+    if (!word) return;
+    if (this._makerBlacklist.has(word)) this._makerBlacklist.delete(word); else this._makerBlacklist.add(word);
+    this.persistMaker(); this.refreshMaker();
+  },
+
+  toggleMakerLock(col) {
+    if (this._makerLocked.has(col)) this._makerLocked.delete(col); else this._makerLocked.add(col);
+    this.persistMaker(); this.refreshMaker();
   },
 
   assignMakerColumn(col, index) {
     const candidate = this._makerColumnCandidates[index];
-    if (!candidate || !/^[A-D]$/.test(col)) return;
+    if (!candidate || !/^[A-D]$/.test(col) || this._makerLocked.has(col) || this._makerBlacklist.has(candidate.word)) return;
     this.setCreatorField(`${col}5`, candidate.word);
     this._makerClueCandidates[col] = [];
     this._makerSelections[col] = new Set();
     for (let row = 1; row <= 4; row++) this.setCreatorField(`${col}${row}`, '');
     this.refreshMaker();
+    this.persistMaker();
   },
 
   async generateMakerClues(col) {
@@ -786,11 +867,13 @@ const Forge = {
     if (!columnSolution) return;
     this._makerBusy = col; this._makerError = ''; this.refreshMaker();
     try {
-      const result = await GameData.generateForgeSuggestions({ kind: 'clues', finalSolution, columnSolution, column: col, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty });
-      this._makerClueCandidates[col] = result.candidates || [];
-      this._makerSelections[col] = new Set();
+      const existing = this._makerClueCandidates[col] || [];
+      const selectedWords = new Set([...(this._makerSelections[col] || [])].map(index => existing[index]?.word).filter(Boolean));
+      const result = await GameData.generateForgeSuggestions({ kind: 'clues', finalSolution, columnSolution, column: col, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty, excludeWords: existing.map(item => item.word) });
+      this._makerClueCandidates[col] = this.sortMakerClues([...existing, ...(result.candidates || [])]);
+      this._makerSelections[col] = new Set(this._makerClueCandidates[col].map((item, index) => selectedWords.has(item.word) ? index : -1).filter(index => index >= 0));
     } catch (error) { this._makerError = error.message; }
-    finally { this._makerBusy = ''; this.refreshMaker(); }
+    finally { this._makerBusy = ''; this.persistMaker(); this.refreshMaker(); }
   },
 
   toggleMakerClue(col, index) {
@@ -803,7 +886,50 @@ const Forge = {
     [...selected].sort((a, b) => a - b).forEach((candidateIndex, rowIndex) => this.setCreatorField(`${col}${rowIndex + 1}`, candidates[candidateIndex].word));
     for (let row = selected.size + 1; row <= 4; row++) this.setCreatorField(`${col}${row}`, '');
     this._makerError = '';
+    this.persistMaker();
     this.refreshMaker();
+  },
+
+  makerBoardPayload() {
+    return {
+      final: this.fieldValue('finalSolution'),
+      columns: Object.fromEntries(['A','B','C','D'].map(col => [col, {
+        clues: [1,2,3,4].map(row => this.fieldValue(`${col}${row}`)),
+        solution: this.fieldValue(`${col}5`)
+      }]))
+    };
+  },
+
+  async runMakerAudit() {
+    if (this.missingFields().length) { this._makerError = 'COMPLETE ALL 21 BOARD WORDS BEFORE THE SEMANTIC AUDIT.'; this.refreshMaker(); return; }
+    this._makerBusy = 'audit'; this._makerError = ''; this.refreshMaker();
+    try {
+      const result = await GameData.generateForgeSuggestions({ kind: 'audit', board: this.makerBoardPayload(), theme: this.editingGame.theme, difficulty: this.editingGame.difficulty });
+      this._makerAudit = result.audit || null;
+    } catch (error) { this._makerError = error.message; }
+    finally { this._makerBusy = ''; this.persistMaker(); this.refreshMaker(); }
+  },
+
+  async autoBuildMakerDraft() {
+    const available = this._makerColumnCandidates.filter(item => !this._makerBlacklist.has(item.word)).sort((a, b) => (b.strength || 0) - (a.strength || 0));
+    const openCols = ['A','B','C','D'].filter(col => !this._makerLocked.has(col));
+    if (available.length < openCols.length) { this._makerError = 'NOT ENOUGH COLUMN CANDIDATES TO BUILD THE UNLOCKED COLUMNS.'; this.refreshMaker(); return; }
+    openCols.forEach((col, index) => {
+      this.setCreatorField(`${col}5`, available[index].word);
+      this._makerClueCandidates[col] = [];
+      this._makerSelections[col] = new Set();
+    });
+    this._makerBusy = 'auto'; this._makerError = ''; this.refreshMaker();
+    try {
+      await Promise.all(openCols.map(async col => {
+        const result = await GameData.generateForgeSuggestions({ kind: 'clues', finalSolution: this.fieldValue('finalSolution'), columnSolution: this.fieldValue(`${col}5`), column: col, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty });
+        this._makerClueCandidates[col] = this.sortMakerClues(result.candidates || []);
+        const picks = [0, 3, 6, 9].filter(index => index < this._makerClueCandidates[col].length);
+        this._makerSelections[col] = new Set(picks);
+        picks.forEach((candidateIndex, rowIndex) => this.setCreatorField(`${col}${rowIndex + 1}`, this._makerClueCandidates[col][candidateIndex].word));
+      }));
+    } catch (error) { this._makerError = error.message; }
+    finally { this._makerBusy = ''; this.persistMaker(); this.refreshMaker(); }
   },
 
   // Progress, missing / duplicate / too-long marks, all from the draft.
@@ -1128,13 +1254,19 @@ const Forge = {
     const missing = this.missingFields();
     if (missing.length) issues.push({ level: 'error', text: `${missing.length} required field${missing.length === 1 ? '' : 's'} missing: ${missing.map(this.previewLabelFor).join(', ')}` });
     const seen = new Map();
+    const families = new Map();
     this.FIELD_ORDER.forEach(name => {
       const word = String(this.fieldValue(name) || '').trim().toLocaleUpperCase();
       if (!word) return;
+      if (!/^[A-Z]+(?:['-][A-Z]+)*$/.test(word)) issues.push({ level: 'error', text: `${this.previewLabelFor(name)} must be exactly one English word.` });
       if (!seen.has(word)) seen.set(word, []);
       seen.get(word).push(this.previewLabelFor(name));
+      const family = word.replace(/[-']/g, '').replace(/(FULLY|LESSNESS|FULNESS|ATION|MENTS|MENT|NESS|ABLE|IBLE|ALLY|ING|FUL|LESS|ED|LY|ES|S)$/i, '');
+      if (!families.has(family)) families.set(family, []);
+      families.get(family).push({ word, label: this.previewLabelFor(name) });
     });
     [...seen.entries()].filter(([, labels]) => labels.length > 1).forEach(([word, labels]) => issues.push({ level: 'warn', text: `Duplicate “${word}” in ${labels.join(', ')}` }));
+    [...families.values()].filter(entries => new Set(entries.map(entry => entry.word)).size > 1).forEach(entries => issues.push({ level: 'warn', text: `Near-duplicate word family: ${entries.map(entry => `${entry.label} “${entry.word}”`).join(', ')}` }));
     ['A', 'B', 'C', 'D'].forEach(col => {
       const solution = String(this.fieldValue(`${col}5`) || '').trim().toLocaleUpperCase();
       for (let row = 1; row <= 4; row++) {
@@ -1182,6 +1314,14 @@ const Forge = {
     overlay.addEventListener('click', (e) => {
       if (this.view !== 'creator') return;
       if (e.target.closest('[data-maker-generate-columns]')) return this.generateMakerColumns();
+      if (e.target.closest('[data-maker-more-columns]')) return this.generateMoreMakerColumns(10, false);
+      if (e.target.closest('[data-maker-replace-blacklist]')) return this.generateMoreMakerColumns(this._makerBlacklist.size, true);
+      if (e.target.closest('[data-maker-auto-build]')) return this.autoBuildMakerDraft();
+      if (e.target.closest('[data-maker-audit]')) return this.runMakerAudit();
+      const blacklist = e.target.closest('[data-maker-blacklist]');
+      if (blacklist) return this.toggleMakerBlacklist(Number(blacklist.dataset.makerBlacklist));
+      const lock = e.target.closest('[data-maker-lock]');
+      if (lock) return this.toggleMakerLock(lock.dataset.makerLock);
       const assignColumn = e.target.closest('[data-maker-assign-column]');
       if (assignColumn) return this.assignMakerColumn(assignColumn.dataset.makerAssignColumn, Number(assignColumn.dataset.makerIndex));
       const generateClues = e.target.closest('[data-maker-generate-clues]');
