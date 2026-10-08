@@ -2,7 +2,7 @@
   position: relative; isolation: isolate; display: grid;
   grid-template-columns: minmax(0, 1fr) 84px 28px 28px;
   gap: 5px; align-items: center; min-width: 0;
-  min-height: 64px; height: 64px; margin: 0; padding: 7px 7px 7px 14px;
+  min-height: 52px; height: 52px; margin: 0; padding: 5px 6px 5px 12px;
   overflow: hidden; box-sizing: border-box; border: 1px solid #8e45bd; border-radius: 4px;
   background: linear-gradient(90deg, rgba(111,36,145,.27), transparent 45%), repeating-linear-gradient(0deg, rgba(219,163,255,.035) 0 1px, transparent 1px 4px), #0c0712;
   box-shadow: inset 3px 0 #b95aeb, inset 0 0 22px rgba(140,50,183,.18), 0 0 13px rgba(137,48,179,.15);
@@ -23,7 +23,7 @@
   margin-top: 4px; color: #66ddff; font: 800 8px/1 monospace; letter-spacing: 1px; white-space: nowrap;
 }
 .spectral-console select, .spectral-console button {
-  min-width: 0; height: 38px; margin: 0; border: 1px solid #70408a; border-radius: 2px;
+  min-width: 0; height: 32px; margin: 0; border: 1px solid #70408a; border-radius: 2px;
   background: linear-gradient(#1c1027, #0d0913); color: #e7cef5;
   font: 800 8px monospace; letter-spacing: .7px; cursor: pointer;
 }
@@ -65,6 +65,7 @@
     .battle-controls-host-slot .room-mode-toggle,
     #nema-asoc-btn,
     #bice-asoc-btn,
+    #shame-gm-button,
     #poison-gm-button,
     #black-market-gm-button,
     #quests-btn,
@@ -77,9 +78,9 @@
     #dragon-raid-setup-btn
   ) {
     width: 100% !important;
-    height: 64px !important;
-    min-height: 64px !important;
-    max-height: 64px !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
     margin: 0 !important;
     box-sizing: border-box !important;
   }
@@ -90,9 +91,9 @@
     padding: 5px !important;
   }
   body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .battle-controls-host-slot .room-mode-segment {
-    height: 52px !important;
-    min-height: 52px !important;
-    max-height: 52px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
   }
 }
 @media (max-width: 900px) { .spectral-console { grid-template-columns: minmax(0,1fr) 88px 30px 30px; width: 100%; } }
