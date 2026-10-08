@@ -7,6 +7,18 @@
     heal: { label: 'HEALER', icon: '✦', perk: 'Heal / 2 Resurrections' }
   };
 
+  // Central portraits. Files live in assets/cabinet/ (one per specimen); the version tag busts caches when art is swapped.
+  const ART_VERSION = '20261008-cabinet-art-1';
+  const BOSS_ART = {
+    wendigo: 'assets/cabinet/wendigo.webp',
+    hym: 'assets/cabinet/hym.webp',
+    hydra: 'assets/cabinet/hydra.webp',
+    necromorph: 'assets/cabinet/necromorph.webp',
+    deathwing: 'assets/cabinet/deathwing.webp'
+  };
+  // Only short same-origin image paths are ever placed in an <img src>.
+  const SAFE_AVATAR = /^\/?(?:avatars\/[a-f0-9]{32}\.(?:png|jpg|webp)|assets\/[A-Za-z0-9_\-\/.]{1,160}\.(?:png|jpe?g|webp|svg|gif))$/;
+
   const DragonRaid = {
     raid: null,
     serverNow: 0,
@@ -21,6 +33,8 @@
       if (this.initialized) return;
       this.initialized = true;
       document.addEventListener('click', event => this.click(event));
+      // Broken portrait -> graceful fallback (capture phase: image errors do not bubble).
+      document.addEventListener('error', event => this.portraitError(event.target), true);
       this.ensureSetup();
       this.ticker = setInterval(() => this.tick(), 250);
     },
@@ -88,7 +102,7 @@
       if (message.type === 'dragon:update') {
         this.onState(message.raid, message.serverNow);
         if (message.heartTie) this.note = 'THE HEART REJECTS EQUALITY — TIED HEROES ROLL AGAIN';
-        const combat = message.actionResult || message.bossResult;
+        const combat = message.actionResult || message.bossResult || message.turnForfeited;
         if (combat) requestAnimationFrame(() => requestAnimationFrame(() => this.animateCombat(combat)));
         return;
       }
@@ -244,6 +258,13 @@
         arena.appendChild(fx);
         setTimeout(() => fx.remove(), 1250);
       };
+
+      if (result.side === 'hero' && result.action === 'timeout') {
+        const lost = player(result.playerId);
+        floatText(lost, 'TURN LOST', 'fallen');
+        pulse(lost, 'is-turn-lost', 640);
+        return;
+      }
 
       if (result.side === 'hero') {
         const actor = player(result.playerId);
@@ -482,6 +503,45 @@
       return ROLE_META[role]?.label || String(role || '').toUpperCase();
     },
 
+    safeAvatar(value) {
+      const v = typeof value === 'string' ? value.trim() : '';
+      return v && v.length <= 200 && !v.includes('..') && SAFE_AVATAR.test(v) ? v : '';
+    },
+
+    safeFrame(value) {
+      return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#9B5DE0';
+    },
+
+    portraitHTML(p, meta) {
+      const avatar = this.safeAvatar(p.avatarData);
+      const initial = String(p.name || '?').trim().slice(0, 1).toUpperCase() || '?';
+      return `<span class="dragon-raider-portrait ${avatar ? 'has-avatar' : 'is-fallback'}" style="--frame:${this.safeFrame(p.frameColor)}">${avatar
+        ? `<img class="dragon-portrait-img" src="${this.esc(avatar)}" alt="" loading="lazy" decoding="async" draggable="false">`
+        : ''}<span class="dragon-portrait-fallback">${this.esc(initial)}</span><i class="dragon-role-icon" title="${this.esc(meta.label)}">${meta.icon}</i></span>`;
+    },
+
+    portraitError(img) {
+      if (!(img instanceof HTMLImageElement)) return;
+      if (img.classList.contains('dragon-portrait-img')) {
+        const box = img.closest('.dragon-raider-portrait');
+        img.remove();
+        if (box) { box.classList.remove('has-avatar'); box.classList.add('is-fallback'); }
+      } else if (img.classList.contains('dragon-boss-img')) {
+        const box = img.closest('.dragon-boss-avatar');
+        img.remove();
+        if (box) box.classList.remove('has-art');
+      }
+    },
+
+    turnPct(raid) {
+      const total = Number(raid.heroTurnMs) || 30000;
+      return Math.max(0, Math.min(100, Math.round(this.remaining(raid.heroTurnEndsAt) / total * 100)));
+    },
+
+    turnSeconds(raid) {
+      return Math.ceil(this.remaining(raid.heroTurnEndsAt) / 1000);
+    },
+
     participantHTML(p) {
       const meta = ROLE_META[p.role] || { label: p.role, icon: '◆' };
       const pct = p.maxHp ? Math.max(0, Math.min(100, Math.round((p.hp / p.maxHp) * 100))) : 0;
@@ -494,12 +554,13 @@
           : ['EXECUTE', 'RAPID STRIKE'];
       const hpState = !p.alive ? 'is-fallen' : pct <= 20 ? 'is-critical-hp' : pct <= 40 ? 'is-low-hp' : '';
       return `<article class="dragon-raider-card ${hpState} ${this.raid.activePlayerId === p.id ? 'is-active' : ''}" data-player-id="${this.esc(p.id)}" data-role="${this.esc(p.role)}">
-        <header><span class="dragon-role-icon">${meta.icon}</span><b>${this.esc(p.name)}</b><small>${this.esc(meta.label)}</small></header>
+        <header>${this.portraitHTML(p, meta)}<b>${this.esc(p.name)}</b><small>${this.esc(meta.label)}</small></header>
         <div class="dragon-raider-skills">${skills.map(skill => `<span>${skill}</span>`).join('')}</div>
         ${statuses.length ? `<div class="dragon-status-chips">${statuses.map(s => `<span class="is-${this.esc(s.key)}">${this.esc(s.label)}</span>`).join('')}</div>` : ''}
         <div class="dragon-raider-hp"><i style="width:${pct}%"></i></div>
         <footer><span>♥ ${p.hp} / ${p.maxHp}</span>${p.role === 'heal' ? `<span>✦ ${p.resurrectionCharges} RES</span>` : ''}<span>⚔ ${p.damage}</span></footer>
         ${p.alive ? `<em>${this.raid.activePlayerId === p.id ? '◆ ACTIVE TURN' : 'AWAITING TURN'}${cooldowns.length ? ' · ' + cooldowns.join(' · ') : ''}</em>` : '<em>☠ FALLEN</em>'}
+        ${this.raid.phase === 'HERO_TURN' && this.raid.activePlayerId === p.id && this.raid.heroTurnEndsAt ? `<div class="dragon-card-timer" data-dragon-turn-bar><b data-dragon-clock="turn">${this.turnSeconds(this.raid)}s</b><span><i style="width:${this.turnPct(this.raid)}%"></i></span></div>` : ''}
       </article>`;
     },
 
@@ -555,7 +616,7 @@
             : `<button data-dragon-action="act" data-ability="execute" ${mine.cooldowns?.execute ? 'disabled' : ''}>EXECUTE (${mine.cooldowns?.execute || 'READY'})</button><button data-dragon-action="act" data-ability="rapid" ${mine.cooldowns?.rapid ? 'disabled' : ''}>RAPID STRIKE (${mine.cooldowns?.rapid || 'READY'})</button>`;
         actions = `<div class="dragon-action-tray"><select id="dragon-action-target">${targetOptions}</select><button class="dragon-primary" data-dragon-action="act" data-ability="attack">ATTACK — ROLL D20</button>${roleActions}</div>`;
       }
-      const last = raid.lastAction ? `<div class="dragon-round-feed"><span class="${this.esc(raid.lastAction.result)}"><b>${this.esc(raid.lastAction.name)}</b> — ${this.esc(raid.lastAction.action || raid.lastAction.result)} — D20 ${raid.lastAction.roll} ${raid.lastAction.damage ? '— ' + raid.lastAction.damage + ' DAMAGE' : ''}</span></div>` : '';
+      const last = raid.lastAction ? `<div class="dragon-round-feed">${raid.lastAction.action === 'timeout' ? `<span class="timeout"><b>${this.esc(raid.lastAction.name)}</b> — TURN FORFEITED — TIME EXPIRED</span>` : `<span class="${this.esc(raid.lastAction.result)}"><b>${this.esc(raid.lastAction.name)}</b> — ${this.esc(raid.lastAction.action || raid.lastAction.result)} — D20 ${raid.lastAction.roll} ${raid.lastAction.damage ? '— ' + raid.lastAction.damage + ' DAMAGE' : ''}</span>`}</div>` : '';
       return `
         <div class="dragon-heading">
           <span class="dragon-mark is-burning">☠</span>
@@ -568,7 +629,8 @@
           <div class="dragon-arena-ring" aria-hidden="true"></div>
           <div class="dragon-arena-party">${this.partySlotsHTML()}</div>
           <section class="dragon-arena-boss">
-            <div class="dragon-boss-avatar" data-boss-avatar="${this.esc(raid.boss.id)}">
+            <div class="dragon-boss-avatar ${BOSS_ART[raid.boss.id] ? 'has-art' : ''}" data-boss-avatar="${this.esc(raid.boss.id)}">
+              ${BOSS_ART[raid.boss.id] ? `<img class="dragon-boss-img" src="${this.esc(BOSS_ART[raid.boss.id])}?v=${ART_VERSION}" alt="${this.esc(raid.boss.name)}" decoding="async" draggable="false">` : ''}
               <span class="dragon-boss-avatar-fallback">${this.esc(raid.boss.name.slice(0,1))}</span>
             </div>
             <div class="dragon-boss-title"><small>CONTAINMENT BROKEN</small><b>${this.esc(raid.boss.name)}</b><span class="dragon-passive-badge ${raid.boss.id === 'hydra' && raid.dragonHp <= raid.dragonMaxHp * .5 ? 'is-awakened' : ''}">${this.esc(raid.boss.passive)}</span></div>
@@ -578,7 +640,7 @@
             </div>
           </section>
         </div>
-        <div class="dragon-turn-banner">${raid.phase === 'BOSS_TURN' ? 'THE SPECIMEN MOVES' : `ACTIVE HERO — ${this.esc(active?.name || '—')}`}</div>
+        <div class="dragon-turn-banner">${raid.phase === 'BOSS_TURN' ? 'THE SPECIMEN MOVES' : `ACTIVE HERO — ${this.esc(active?.name || '—')}${raid.heroTurnEndsAt ? ` — <strong class="dragon-turn-clock" data-dragon-clock="turn">${this.turnSeconds(raid)}s</strong>` : ''}`}</div>
         ${this.isGM() ? '<div class="dragon-gm-observer"><span>SHADOW BROKER OBSERVER — LIVE COMBAT</span><button type="button" data-dragon-action="cancel">CANCEL RAID</button></div>' : ''}
         ${actions}
         ${!myTurn && mine?.alive ? '<div class="dragon-locked">WAIT FOR YOUR TURN</div>' : ''}
@@ -744,6 +806,16 @@
         battle.textContent = this.clock(left);
         battle.classList.toggle('is-critical', left <= 60000);
         battle.classList.toggle('is-terminal', left <= 10000);
+      }
+      if (raid.phase === 'HERO_TURN' && raid.heroTurnEndsAt) {
+        const secs = this.turnSeconds(raid);
+        const pct = this.turnPct(raid);
+        overlay.querySelectorAll('[data-dragon-clock="turn"]').forEach(node => {
+          node.textContent = secs + 's';
+          node.classList.toggle('is-critical', secs <= 10);
+          node.classList.toggle('is-terminal', secs <= 5);
+        });
+        overlay.querySelectorAll('[data-dragon-turn-bar] i').forEach(bar => { bar.style.width = pct + '%'; });
       }
       const heart = overlay.querySelector('[data-dragon-clock="heart"]');
       if (heart) {

@@ -55,5 +55,103 @@ function bossReady(boss='wendigo',roles=['tank','heal','dps']){const r=raid(boss
 
 (()=>{const src=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8'),service=fs.readFileSync(path.join(__dirname,'..','dragon-raid-server.js'),'utf8'),client=fs.readFileSync(path.join(__dirname,'..','js','dragon-raid.js'),'utf8');ok(/case 'dragon:action'/.test(src));ok(/r\.phase==='VICTORY'\)return queueVictory\(room\)/.test(service));ok(/r\.boss\.heroic\?'CATACLYSM':'TIME_EXPIRED'/.test(service));ok(/reason === 'CATACLYSM'/.test(client));ok(/CABINET OF CURIOSITIES/.test(client));ok(/WENDIGO/.test(client));ok(/HYM/.test(client));ok(/HYDRA/.test(client));ok(/NECROMORPH/.test(client));ok(/animateCombat\(result\)/.test(client));ok(/is-venom-flood/.test(client));ok(/ABERRANT FRENZY/.test(client));ok(/WHITE SILENCE/.test(client));ok(/THE SHADOW WITHIN/.test(client));ok(/dragon-attack-trail/.test(client));ok(/dragon-status-chips/.test(client));ok(/dragon-float-text/.test(client));ok(/SWAMP VIGOR AWAKENED/.test(client));ok(/is-targeted-/.test(client));ok(/dragon-passive-badge/.test(client));ok(/dragon-active-lane/.test(client));ok(/updateActiveLane/.test(client));ok(/SPECIMEN TERMINATED/.test(client));ok(/is-boss-dying/.test(client));ok(/is-hero-dying/.test(client));ok(/dragon-arena-atmosphere/.test(client));ok(/phaseCue\(skill, 'attack'\)/.test(client));ok(/SHADOW BROKER OBSERVER/.test(client));ok(/data-dragon-action=\"start\"/.test(client));ok(/START RAID NOW/.test(client));ok(/action:\s*'start'/.test(client));ok(/gmAction === 'start'/.test(src));ok(/getDragonRaidService\(\)\.begin/.test(src));ok(/data-dragon-action=\"cancel\"/.test(client));ok(/action:\s*'cancel'/.test(client));ok(/getDragonRaidService\(\)\.abort/.test(src));ok(!/AZHRAAK/.test(client));ok(!/DRAZHUL/.test(client));ok(!/VARKHUL/.test(client));ok(!/KRAEVAR/.test(client))})();
 
-ok(checks>=70,'expected >=70 checks, got '+checks);
-console.log('cabinet raid tests: OK ('+checks+' checks)');
+
+/* ===== Cabinet avatars, specimen portraits and the server-authoritative 30s hero turn ===== */
+const AV='/avatars/'+'a1b2c3d4'.repeat(4)+'.webp';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function svc(sent=[]){return createDragonRaidService({playerStore:{applyDragonRaidResults:()=>({ok:true})},coinAccount:()=>null,triggerMegabonk:()=>({ok:true}),broadcastToRoom:(room,m)=>sent.push(m),broadcastPlayersUpdate:()=>{},sendToWs:(ws,m)=>{(ws.sent=ws.sent||[]).push(m)},randomInt:a=>a})}
+function started(boss='wendigo',roles=['tank','heal','dps'],now=1000){const r=d.createRaid(0,boss);roles.forEach((role,i)=>d.join(r,{id:'p'+i,name:'P'+i},role));const x=d.startBattle(r,now);eq(x.ok,true);return r}
+
+(()=>{ // avatars survive join -> publicView; hostile / oversized values never reach the public state
+ const r=d.createRaid(0,'hydra');
+ d.join(r,{id:'a',name:'A',avatarData:AV,frameColor:'#12ab34'},'tank');
+ d.join(r,{id:'b',name:'B',avatarData:'javascript:alert(1)',frameColor:'red'},'heal');
+ d.join(r,{id:'c',name:'C',avatarData:'data:image/png;base64,AAAA'},'dps');
+ d.join(r,{id:'e',name:'E',avatarData:'/avatars/../../etc/passwd.png'},'dps');
+ d.join(r,{id:'f',name:'F',avatarData:'assets/transmog/default/avatar.webp'},'dps');
+ const v=d.publicView(r).participants;
+ eq(v[0].avatarData,AV);eq(v[0].frameColor,'#12ab34');
+ eq(v[1].avatarData,'');eq(v[1].frameColor,'#9B5DE0');eq(v[2].avatarData,'');eq(v[3].avatarData,'');
+ eq(v[4].avatarData,'assets/transmog/default/avatar.webp');
+ d.startBattle(r,5000);eq(d.publicView(r).participants[0].avatarData,AV)})();
+
+(()=>{ // the live join path (service) hands the real player's avatar to the engine
+ const room={dragonRaid:d.createRaid(0,'wendigo')},s=svc();
+ s.handle(room,{playerId:'m0'},{id:'m0',name:'M0',avatarData:AV,frameColor:'#ff8800'},{type:'dragon:join',role:'tank'});
+ const p=room.dragonRaid.participants.m0;eq(p.avatarData,AV);eq(p.frameColor,'#ff8800');eq(d.publicView(room.dragonRaid).participants[0].avatarData,AV)})();
+
+(()=>{ // a 30s server deadline exists the moment HERO_TURN starts - same rule for normal bosses and Deathwing
+ eq(d.HERO_TURN_MS,30000);
+ [['wendigo',['tank','heal','dps']],['hydra',['tank','heal','dps','dps']],['deathwing',['tank','heal','dps','dps','dps']]].forEach(([boss,roles])=>{
+  const r=d.createRaid(0,boss);eq(r.heroTurnEndsAt,null);roles.forEach((role,i)=>d.join(r,{id:'p'+i,name:'P'+i},role));eq(r.heroTurnEndsAt,null);
+  d.startBattle(r,10000);eq(r.phase,'HERO_TURN');eq(r.heroTurnEndsAt,40000);const v=d.publicView(r);eq(v.heroTurnEndsAt,40000);eq(v.heroTurnMs,30000)})})();
+
+(()=>{ // acting resets the clock for the NEXT hero; the old deadline is replaced, never extended
+ const r=started('wendigo',['tank','heal','dps'],1000);eq(r.heroTurnEndsAt,31000);
+ let x=d.heroAction(r,'p0','attack','',8,9000);eq(x.ok,true);eq(r.activePlayerId,'p1');eq(r.heroTurnEndsAt,39000);
+ x=d.heroAction(r,'p1','attack','',8,12000);eq(r.activePlayerId,'p2');eq(r.heroTurnEndsAt,42000);
+ x=d.heroAction(r,'p0','attack','',8,13000);eq(x.ok,false);eq(r.heroTurnEndsAt,42000)})();
+
+(()=>{ // timeout advances exactly one hero and costs nothing; hero balance is untouched
+ const r=started('hydra',['dps','heal','dps'],1000);r.participants.p0.cooldowns.execute=0;const hp=r.dragonHp;r.participants.p0.statuses.isolated=true;
+ const x=d.forfeitTurn(r,'p0',5000);eq(x.ok,true);eq(x.action,'timeout');eq(x.result,'timeout');eq(x.damage,0);eq(x.healing,0);
+ eq(r.activePlayerId,'p1');eq(r.turnIndex,1);eq(r.phase,'HERO_TURN');eq(r.heroTurnEndsAt,35000);eq(r.dragonHp,hp);eq(r.participants.p0.cooldowns.execute,0);eq(r.participants.p0.cooldowns.rapid,0);eq(r.participants.p0.statuses.isolated,false);eq(r.participants.p0.hp,10);
+ eq(d.forfeitTurn(r,'p0',5000).ok,false);eq(r.activePlayerId,'p1')})();
+
+(()=>{ // the last hero in order timing out hands the round to the boss: no deadline, BOSS_TURN
+ const r=started('necromorph',['tank','heal','dps'],1000);d.forfeitTurn(r,'p0');d.forfeitTurn(r,'p1');eq(r.activePlayerId,'p2');
+ const x=d.forfeitTurn(r,'p2');eq(x.ok,true);eq(r.phase,'BOSS_TURN');eq(r.activePlayerId,null);eq(r.heroTurnEndsAt,null);
+ const b=d.bossAction(r,4,()=>0,50000);eq(b.ok,true);eq(r.phase,'HERO_TURN');eq(r.activePlayerId,'p0');eq(r.heroTurnEndsAt,80000)})();
+
+(()=>{ // a hero who dies on their own forfeited-over turn start never leaves a stale deadline behind
+ const r=started('hydra',['tank','heal','dps'],1000);r.participants.p1.statuses.poisoned=2;r.participants.p1.hp=2;d.forfeitTurn(r,'p0',2000);
+ eq(r.participants.p1.alive,false);eq(r.activePlayerId,'p2');eq(r.heroTurnEndsAt,32000)})();
+
+const results=(async()=>{
+ // 1) the server timer really forfeits one hero and re-arms for the next
+ {const room={dragonRaid:started('wendigo',['tank','heal','dps'],Date.now())},r=room.dragonRaid,s=svc();
+  r.heroTurnEndsAt=Date.now()+40;s.armHeroTurn(room);ok(r._heroTurnTimer);await sleep(140);
+  eq(r.activePlayerId,'p1');eq(r.lastAction.action,'timeout');eq(r.lastAction.playerId,'p0');ok(r.heroTurnEndsAt-Date.now()>25000);ok(r._heroTurnTimer);eq(r.participants.p0.hp,15);s.clearTimers(r);eq(r._heroTurnTimer,null)}
+ // 2) last hero timeout -> the boss moves (BOSS_TURN, boss timer armed, no hero timer)
+ {const room={dragonRaid:started('hym',['tank','heal','dps'],Date.now())},r=room.dragonRaid,s=svc();
+  d.forfeitTurn(r,'p0');d.forfeitTurn(r,'p1');r.heroTurnEndsAt=Date.now()+40;s.armHeroTurn(room);await sleep(140);
+  eq(r.phase,'BOSS_TURN');eq(r.heroTurnEndsAt,null);eq(r._heroTurnTimer,null);ok(r._bossTimer);s.clearTimers(r)}
+ // 3) acting clears the pending timer immediately - the old deadline can never fire afterwards
+ {const room={dragonRaid:started('hydra',['tank','heal','dps'],Date.now())},r=room.dragonRaid,s=svc(),ws={playerId:'p0'};
+  r.heroTurnEndsAt=Date.now()+60;s.armHeroTurn(room);
+  s.handle(room,ws,{id:'p0',name:'P0'},{type:'dragon:action',action:'attack',targetId:''});
+  eq(r.activePlayerId,'p1');const next=r.heroTurnEndsAt;ok(next-Date.now()>25000);ok(r._heroTurnTimer,'next hero is armed');await sleep(180);
+  eq(r.activePlayerId,'p1');eq(r.heroTurnEndsAt,next);eq(r.lastAction.action,'attack');s.clearTimers(r)}
+ // 4) cancel / fail / victory: nothing fires afterwards
+ {const room={dragonRaid:started('wendigo',['tank','heal','dps'],Date.now())},r=room.dragonRaid,s=svc();
+  r.heroTurnEndsAt=Date.now()+40;s.armHeroTurn(room);eq(s.abort(room).ok,true);eq(r.heroTurnEndsAt,null);eq(r._heroTurnTimer,null);await sleep(130);
+  eq(r.phase,'ABORTED');eq(r.activePlayerId,null);ok(!r.lastAction||r.lastAction.action!=='timeout')}
+ {const room={dragonRaid:started('hydra',['tank','heal','dps'],Date.now())},r=room.dragonRaid,s=svc();
+  r.heroTurnEndsAt=Date.now()+40;s.armHeroTurn(room);s.fail(room,'PARTY_WIPE');eq(r.heroTurnEndsAt,null);eq(r._heroTurnTimer,null);await sleep(130);
+  eq(r.phase,'FAILED');ok(!r.lastAction||r.lastAction.action!=='timeout')}
+ {const room={dragonRaid:started('necromorph',['tank','heal','dps'],Date.now())},r=room.dragonRaid,s=svc();
+  r.heroTurnEndsAt=Date.now()+40;s.armHeroTurn(room);r.dragonHp=0;r.boss.hp=0;r.phase='VICTORY';r.activePlayerId=null;r.heroTurnEndsAt=null;await sleep(130);
+  eq(r.phase,'VICTORY');eq(r.activePlayerId,null);ok(!r.lastAction||r.lastAction.action!=='timeout');s.clearTimers(r)}
+ // a timer left over from an earlier turn can never act on a later one
+ {const room={dragonRaid:started('wendigo',['tank','heal','dps'],Date.now())},r=room.dragonRaid,s=svc();
+  const stale=r.heroTurnEndsAt;d.heroAction(r,'p0','attack','',8);s.expireHeroTurn(room,r,'p0',stale);eq(r.activePlayerId,'p1');ok(!r.lastAction||r.lastAction.action!=='timeout');
+  s.expireHeroTurn(room,r,'p1',r.heroTurnEndsAt);eq(r.activePlayerId,'p1')/* not yet due */;s.clearTimers(r)}
+ // 5) a late action (deadline passed, timer not yet delivered) is refused and the turn is forfeited, never played
+ {const room={dragonRaid:started('hydra',['tank','heal','dps'],Date.now())},r=room.dragonRaid,s=svc(),ws={playerId:'p0'};
+  r.heroTurnEndsAt=Date.now()-5;s.handle(room,ws,{id:'p0',name:'P0'},{type:'dragon:action',action:'attack',targetId:''});
+  ok((ws.sent||[]).some(m=>m.type==='dragon:error'&&/EXPIRED/.test(m.message)));eq(r.lastAction.action,'timeout');eq(r.activePlayerId,'p1');
+  const ws0={playerId:'p0'};s.handle(room,ws0,{id:'p0',name:'P0'},{type:'dragon:action',action:'attack',targetId:''});
+  ok((ws0.sent||[]).some(m=>m.type==='dragon:error'&&/WAIT FOR YOUR TURN/.test(m.message)));eq(r.activePlayerId,'p1');s.clearTimers(r)}
+ // 6) GM start (begin) arms the very first hero turn
+ {const room={dragonRaid:d.createRaid(Date.now(),'deathwing')},r=room.dragonRaid,s=svc();['tank','heal','dps','dps','dps'].forEach((role,i)=>d.join(r,{id:'z'+i,name:'Z'+i},role));
+  eq(s.begin(room),true);ok(r._heroTurnTimer);ok(r.heroTurnEndsAt-Date.now()>29000&&r.heroTurnEndsAt-Date.now()<=30000);s.clearTimers(r)}
+})();
+
+(()=>{ // wiring: specimen art, portraits and the visible clock exist on disk and in the UI
+ const root=path.join(__dirname,'..'),client=fs.readFileSync(path.join(root,'js','dragon-raid.js'),'utf8'),css=fs.readFileSync(path.join(root,'css','dragon-raid.css'),'utf8'),srv=fs.readFileSync(path.join(root,'dragon-raid-server.js'),'utf8');
+ ['wendigo','hym','hydra','necromorph','deathwing'].forEach(id=>{const f=path.join(root,'assets','cabinet',id+'.webp');ok(fs.existsSync(f),id+' art');ok(fs.statSync(f).size>20000,id+' art is a real image');const b=fs.readFileSync(f);eq(b.toString('ascii',0,4),'RIFF');eq(b.toString('ascii',8,12),'WEBP');ok(client.includes(`${id}: 'assets/cabinet/${id}.webp'`),id+' mapped')});
+ ok(/dragon-boss-img/.test(client));ok(/dragon-portrait-img/.test(client));ok(/portraitHTML\(p, meta\)/.test(client));ok(/data-dragon-clock="turn"/.test(client));ok(/heroTurnEndsAt/.test(client));ok(/message\.turnForfeited/.test(client));ok(/TURN FORFEITED/.test(client));
+ ok(/avatarData:player\.avatarData,frameColor:player\.frameColor/.test(srv));ok(/_heroTurnTimer/.test(srv));ok(/dragon-card-timer/.test(css));ok(/\.dragon-raider-portrait/.test(css));
+ ok(!/DRAGON RAID|HEROIC WORLD EVENT|DRAGON HOARD/.test(client))})();
+
+results.then(()=>{ok(checks>=70,'expected >=70 checks, got '+checks);console.log('cabinet raid tests: OK ('+checks+' checks)')}).catch(e=>{console.error(e);process.exit(1)});
