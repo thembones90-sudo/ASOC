@@ -73,6 +73,14 @@ const GameData = {
     return this.normalizeGameData(data.game);
   },
 
+  async generateForgeSuggestions(payload) {
+    return this.apiFetch('api/games/forge-suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  },
+
   async loadGameById(id) {
     this.currentGame = await this.fetchGame(id);
     return this.currentGame;

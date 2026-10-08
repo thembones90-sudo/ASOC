@@ -36,6 +36,7 @@ const { createChatUploadGuard } = require('./chat-upload-guard');
 const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
+const forgeAI = require('./forge-ai');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -13601,6 +13602,24 @@ function handleApiRequest(req, res) {
       return sendJson(res, 200, { success: true, game: result.game, filename: result.filename, liveRefreshed });
     });
     return;
+  }
+
+  if (url.pathname === '/api/games/forge-suggestions' && method === 'POST') {
+    return readJsonBody(req, async (err, body) => {
+      if (err) return sendJson(res, 400, { error: 'Invalid JSON body' });
+      try {
+        const result = await forgeAI.generateForgeCandidates(body || {});
+        return sendJson(res, 200, result);
+      } catch (error) {
+        console.error('[forge-ai] generation failed:', error?.message || error);
+        const setupMissing = /AI_GATEWAY_API_KEY|authentication|API key|credentials/i.test(String(error?.message || ''));
+        return sendJson(res, setupMissing ? 503 : 422, {
+          error: setupMissing
+            ? 'Automatic Game Maker is not configured. Set AI_GATEWAY_API_KEY on the server.'
+            : (error?.message || 'Could not generate board candidates.')
+        });
+      }
+    });
   }
 
   if (parts[0] === 'api' && parts[1] === 'games' && parts[2]) {

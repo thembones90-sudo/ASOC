@@ -19,6 +19,11 @@ const Forge = {
   activeColumn: 'ALL',
   TEMPLATE_KEY: 'asoc_forge_templates:v1',
   _debounceTimer: null,
+  _makerColumnCandidates: [],
+  _makerClueCandidates: { A: [], B: [], C: [], D: [] },
+  _makerSelections: { A: new Set(), B: new Set(), C: new Set(), D: new Set() },
+  _makerBusy: '',
+  _makerError: '',
 
   CANVAS_W: 1900,
   CANVAS_H: 1267,
@@ -341,6 +346,11 @@ const Forge = {
     this._showMissing = false;
     this._longLabels = new Set();
     this.activeColumn = 'ALL';
+    this._makerColumnCandidates = [];
+    this._makerClueCandidates = { A: [], B: [], C: [], D: [] };
+    this._makerSelections = { A: new Set(), B: new Set(), C: new Set(), D: new Set() };
+    this._makerBusy = '';
+    this._makerError = '';
     this.renderCreator();
     this.offerDraft();
     setTimeout(() => this.focusField(this.isNew && !this.editingGame.theme ? 'theme' : 'A1', { select: false }), 60);
@@ -508,11 +518,24 @@ const Forge = {
             <div class="creator-column-focus" role="tablist" aria-label="Column focus">
               ${['ALL','A','B','C','D'].map(col => `<button type="button" class="creator-column-tab${this.activeColumn === col ? ' active' : ''}" data-creator-column-focus="${col}" role="tab" aria-selected="${this.activeColumn === col}">${col === 'ALL' ? 'ALL COLUMNS' : `COLUMN ${col}`}</button>`).join('')}
             </div>
-            <div class="creator-cols">${colHtml}</div>
             <label class="cell-field final" data-cell-wrap="finalSolution">
               <span class="cell-field-label">FINAL SOLUTION</span>
-              <input type="text" class="forge-input" data-creator-field="finalSolution" maxlength="60" autocomplete="off" value="${this.escapeAttr(d.finalSolution)}" placeholder="THE FINAL ANSWER">
+              <input type="text" class="forge-input" data-creator-field="finalSolution" maxlength="60" autocomplete="off" value="${this.escapeAttr(d.finalSolution)}" placeholder="ONE ENGLISH WORD">
             </label>
+            <section class="creator-maker" aria-labelledby="creator-maker-title">
+              <div class="creator-maker-head">
+                <div>
+                  <span class="creator-maker-kicker">SPECTRAL BOARD FOUNDRY</span>
+                  <h5 id="creator-maker-title">AUTOMATIC GAME MAKER</h5>
+                  <p>Final → 20 column candidates. Pick A5–D5, then generate 10 clues per column from obscure to popular.</p>
+                </div>
+                <button type="button" class="forge-btn primary creator-maker-generate" data-maker-generate-columns ${this._makerBusy ? 'disabled' : ''}>${this._makerBusy === 'columns' ? 'GENERATING…' : 'GENERATE 20 COLUMN WORDS'}</button>
+              </div>
+              <div class="creator-maker-error" id="creator-maker-error" ${this._makerError ? '' : 'hidden'}>${this.escapeHtml(this._makerError)}</div>
+              <div class="creator-maker-columns" id="creator-maker-columns">${this.renderMakerColumnCandidates()}</div>
+              <div class="creator-maker-clues" id="creator-maker-clues">${['A','B','C','D'].map(col => this.renderMakerClueColumn(col)).join('')}</div>
+            </section>
+            <div class="creator-cols">${colHtml}</div>
             <div class="creator-hint-bar" id="creator-hint-bar" hidden>
               <span class="cell-field-label" id="creator-hint-label">HINT FOR A1</span>
               <input type="text" class="forge-input" data-creator-hint maxlength="${this.HINT_MAX}" autocomplete="off" placeholder="OPTIONAL. SHOWN TO YOU (GM ONLY) WHEN A PLAYER ASKS FOR THIS ROW'S HINT.">
@@ -688,6 +711,100 @@ const Forge = {
 
   previewLabelFor(name) { return name === 'finalSolution' ? 'FINAL' : name; },
   fieldForPreviewLabel(label) { return label === 'FINAL' ? 'finalSolution' : label; },
+
+  setCreatorField(name, value) {
+    const normalized = this.uppercaseCreatorText(value).trim();
+    this.applyField(name, normalized);
+    const input = this.fieldInput(name);
+    if (input) input.value = normalized;
+    this.markDirty();
+    this.clearErrors();
+    this.updatePreview();
+  },
+
+  renderMakerColumnCandidates() {
+    if (!this._makerColumnCandidates.length) return '<div class="creator-maker-empty">ENTER THE FINAL WORD, THEN GENERATE THE COLUMN POOL.</div>';
+    return this._makerColumnCandidates.map((candidate, index) => `
+      <article class="maker-candidate">
+        <span class="maker-rank">${String(index + 1).padStart(2, '0')}</span>
+        <div><b>${this.escapeHtml(candidate.word)}</b><small>${this.escapeHtml(candidate.connection)}</small></div>
+        <div class="maker-slot-actions">${['A','B','C','D'].map(col => `<button type="button" data-maker-assign-column="${col}" data-maker-index="${index}" class="${this.fieldValue(`${col}5`) === candidate.word ? 'active' : ''}">${col}5</button>`).join('')}</div>
+      </article>`).join('');
+  },
+
+  renderMakerClueColumn(col) {
+    const solution = this.fieldValue(`${col}5`);
+    const candidates = this._makerClueCandidates[col] || [];
+    const selected = this._makerSelections[col] || new Set();
+    return `
+      <section class="maker-clue-column" data-maker-column="${col}">
+        <header><div><b>${col} // ${this.escapeHtml(solution || 'NO SOLUTION')}</b><small>SELECT FOUR · AUTOMATICALLY ORDERED OBSCURE → POPULAR</small></div><button type="button" data-maker-generate-clues="${col}" ${!solution || this._makerBusy ? 'disabled' : ''}>${this._makerBusy === col ? 'GENERATING…' : 'GENERATE 10'}</button></header>
+        ${candidates.length ? `<div class="maker-clue-list">${candidates.map((candidate, index) => `<button type="button" class="maker-clue${selected.has(index) ? ' selected' : ''}" data-maker-toggle-clue="${col}" data-maker-index="${index}" aria-pressed="${selected.has(index)}"><span>${index + 1}</span><b>${this.escapeHtml(candidate.word)}</b><small>${this.escapeHtml(candidate.connection)}</small></button>`).join('')}</div>` : '<div class="creator-maker-empty compact">CHOOSE THE COLUMN SOLUTION, THEN GENERATE ITS RANKED CLUES.</div>'}
+      </section>`;
+  },
+
+  refreshMaker() {
+    const columns = document.getElementById('creator-maker-columns');
+    const clues = document.getElementById('creator-maker-clues');
+    const error = document.getElementById('creator-maker-error');
+    if (columns) columns.innerHTML = this.renderMakerColumnCandidates();
+    if (clues) clues.innerHTML = ['A','B','C','D'].map(col => this.renderMakerClueColumn(col)).join('');
+    if (error) { error.hidden = !this._makerError; error.textContent = this._makerError; }
+    const generate = document.querySelector('[data-maker-generate-columns]');
+    if (generate) { generate.disabled = !!this._makerBusy; generate.textContent = this._makerBusy === 'columns' ? 'GENERATING…' : 'GENERATE 20 COLUMN WORDS'; }
+  },
+
+  async generateMakerColumns() {
+    const finalSolution = String(this.fieldValue('finalSolution') || '').trim();
+    if (!/^[A-Z]+(?:['-][A-Z]+)*$/.test(finalSolution)) {
+      this._makerError = 'FINAL SOLUTION MUST BE EXACTLY ONE ENGLISH WORD.';
+      this.refreshMaker();
+      this.focusField('finalSolution');
+      return;
+    }
+    this._makerBusy = 'columns'; this._makerError = ''; this.refreshMaker();
+    try {
+      const result = await GameData.generateForgeSuggestions({ kind: 'columns', finalSolution, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty });
+      this._makerColumnCandidates = result.candidates || [];
+    } catch (error) { this._makerError = error.message; }
+    finally { this._makerBusy = ''; this.refreshMaker(); }
+  },
+
+  assignMakerColumn(col, index) {
+    const candidate = this._makerColumnCandidates[index];
+    if (!candidate || !/^[A-D]$/.test(col)) return;
+    this.setCreatorField(`${col}5`, candidate.word);
+    this._makerClueCandidates[col] = [];
+    this._makerSelections[col] = new Set();
+    for (let row = 1; row <= 4; row++) this.setCreatorField(`${col}${row}`, '');
+    this.refreshMaker();
+  },
+
+  async generateMakerClues(col) {
+    const finalSolution = String(this.fieldValue('finalSolution') || '').trim();
+    const columnSolution = String(this.fieldValue(`${col}5`) || '').trim();
+    if (!columnSolution) return;
+    this._makerBusy = col; this._makerError = ''; this.refreshMaker();
+    try {
+      const result = await GameData.generateForgeSuggestions({ kind: 'clues', finalSolution, columnSolution, column: col, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty });
+      this._makerClueCandidates[col] = result.candidates || [];
+      this._makerSelections[col] = new Set();
+    } catch (error) { this._makerError = error.message; }
+    finally { this._makerBusy = ''; this.refreshMaker(); }
+  },
+
+  toggleMakerClue(col, index) {
+    const candidates = this._makerClueCandidates[col] || [];
+    if (!candidates[index]) return;
+    const selected = this._makerSelections[col] || (this._makerSelections[col] = new Set());
+    if (selected.has(index)) selected.delete(index);
+    else if (selected.size < 4) selected.add(index);
+    else { this._makerError = `${col} ALREADY HAS FOUR SELECTED CLUES.`; this.refreshMaker(); return; }
+    [...selected].sort((a, b) => a - b).forEach((candidateIndex, rowIndex) => this.setCreatorField(`${col}${rowIndex + 1}`, candidates[candidateIndex].word));
+    for (let row = selected.size + 1; row <= 4; row++) this.setCreatorField(`${col}${row}`, '');
+    this._makerError = '';
+    this.refreshMaker();
+  },
 
   // Progress, missing / duplicate / too-long marks, all from the draft.
   refreshCreatorState() {
@@ -1064,6 +1181,13 @@ const Forge = {
   initCreatorUX(overlay) {
     overlay.addEventListener('click', (e) => {
       if (this.view !== 'creator') return;
+      if (e.target.closest('[data-maker-generate-columns]')) return this.generateMakerColumns();
+      const assignColumn = e.target.closest('[data-maker-assign-column]');
+      if (assignColumn) return this.assignMakerColumn(assignColumn.dataset.makerAssignColumn, Number(assignColumn.dataset.makerIndex));
+      const generateClues = e.target.closest('[data-maker-generate-clues]');
+      if (generateClues) return this.generateMakerClues(generateClues.dataset.makerGenerateClues);
+      const toggleClue = e.target.closest('[data-maker-toggle-clue]');
+      if (toggleClue) return this.toggleMakerClue(toggleClue.dataset.makerToggleClue, Number(toggleClue.dataset.makerIndex));
       if (e.target.closest('[data-creator-template-apply]')) return this.applySelectedTemplate();
       if (e.target.closest('[data-creator-template-save]')) return this.saveCurrentTemplate();
       if (e.target.closest('[data-creator-quality]')) return this.runQualityCheck();

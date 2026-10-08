@@ -45,4 +45,10 @@ assert.match(forge, /return this\.normalizeCreatorGame\(d\)/, 'saved creator dat
 assert.match(index, /forge\.js\?v=[^\"']+/, 'uppercase creator script is cache-busted');
 assert.match(index, /asoc\.css\?v=[^\"']+/, 'compact library and contracts styling is cache-busted');
 
+assert.match(forge, /AUTOMATIC GAME MAKER/, 'creator exposes the automatic game maker');
+assert.match(forge, /GENERATE 20 COLUMN WORDS/, 'creator generates a twenty-word column pool');
+assert.match(forge, /SELECT FOUR · AUTOMATICALLY ORDERED OBSCURE → POPULAR/, 'creator explains ranked clue selection');
+assert.match(forge, /generateForgeSuggestions/, 'creator requests suggestions through the authenticated data API');
+assert.match(css, /\.creator-maker/, 'automatic game maker has dedicated styling');
+
 console.log('PASS ASOC Creator: theme identity, unified editor, guided entry, drafts, test play, fit warnings and prepared hints');

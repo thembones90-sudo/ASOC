@@ -31,6 +31,41 @@
 .creator-tool-btn { min-height: 34px; padding: 6px 12px; }
 .creator-tip { color: #7c8a93; font: 700 .66rem var(--font-machine, monospace); letter-spacing: .06em; }
 
+/* Automatic Game Maker */
+.creator-maker { margin:12px 0 16px; border:1px solid #604171; background:radial-gradient(circle at 8% 0,rgba(137,62,169,.2),transparent 34%),linear-gradient(145deg,#100b15,#090d11 62%); box-shadow:inset 3px 0 #b553dd,0 14px 34px rgba(0,0,0,.28); }
+.creator-maker-head { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:14px 16px; border-bottom:1px solid #37283f; }
+.creator-maker-kicker { color:#60dcff; font:800 .58rem var(--font-machine,monospace); letter-spacing:.2em; }
+.creator-maker h5 { margin:3px 0; color:#eccbfa; font:900 .9rem var(--font-machine,monospace); letter-spacing:.16em; }
+.creator-maker p { margin:0; color:#8f98a1; font-size:.72rem; line-height:1.45; }
+.creator-maker-generate { flex:0 0 auto; min-height:40px; }
+.creator-maker-error { margin:10px 14px 0; padding:9px 11px; border-left:3px solid #ef5063; background:rgba(180,30,50,.12); color:#ff9aaa; font:800 .68rem var(--font-machine,monospace); letter-spacing:.06em; }
+.creator-maker-error[hidden] { display:none; }
+.creator-maker-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:12px 14px; }
+.creator-maker-empty { grid-column:1/-1; padding:16px; border:1px dashed #3c3f49; color:#69757c; text-align:center; font:800 .62rem var(--font-machine,monospace); letter-spacing:.09em; }
+.creator-maker-empty.compact { padding:10px; margin:8px; }
+.maker-candidate { display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:8px; min-height:46px; padding:7px 8px; border:1px solid #292f37; background:rgba(13,17,22,.86); }
+.maker-candidate:hover { border-color:#725283; background:rgba(57,31,67,.36); }
+.maker-rank { color:#626d75; font:800 .62rem var(--font-mono,monospace); }
+.maker-candidate b { display:block; color:#e8ebee; font:900 .75rem var(--font-machine,monospace); letter-spacing:.06em; }
+.maker-candidate small { display:block; overflow:hidden; color:#7f8b92; font-size:.64rem; line-height:1.25; text-overflow:ellipsis; white-space:nowrap; }
+.maker-slot-actions { display:flex; gap:3px; }
+.maker-slot-actions button,.maker-clue-column header button { min-width:31px; min-height:28px; border:1px solid #4c3856; background:#141019; color:#bd96cf; font:900 .6rem var(--font-machine,monospace); cursor:pointer; }
+.maker-slot-actions button:hover,.maker-slot-actions button.active,.maker-clue-column header button:hover { border-color:#cf6df7; background:#4b175f; color:#fff; box-shadow:0 0 9px rgba(194,77,239,.3); }
+.creator-maker-clues { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:0 14px 14px; }
+.maker-clue-column { border:1px solid #303842; background:#090d11; }
+.maker-clue-column header { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 10px; border-bottom:1px solid #2b3038; }
+.maker-clue-column header b { display:block; color:#e3c16a; font:900 .72rem var(--font-machine,monospace); letter-spacing:.08em; }
+.maker-clue-column header small { display:block; margin-top:2px; color:#707d85; font:700 .54rem var(--font-machine,monospace); letter-spacing:.05em; }
+.maker-clue-column header button { padding:4px 8px; }
+.maker-clue-column button:disabled,.creator-maker button:disabled { opacity:.35; cursor:not-allowed; box-shadow:none; }
+.maker-clue-list { display:grid; gap:3px; padding:6px; }
+.maker-clue { display:grid; grid-template-columns:24px 92px minmax(0,1fr); align-items:center; gap:6px; width:100%; padding:6px; border:1px solid transparent; background:#0d1216; color:#b7c0c5; text-align:left; cursor:pointer; }
+.maker-clue:hover { border-color:#47545d; }
+.maker-clue.selected { border-color:#59c7e8; background:rgba(37,128,157,.17); box-shadow:inset 3px 0 #59dafa; }
+.maker-clue span { color:#65717a; font:800 .6rem var(--font-mono,monospace); }
+.maker-clue b { color:#dfe5e8; font:900 .69rem var(--font-machine,monospace); letter-spacing:.04em; }
+.maker-clue small { overflow:hidden; color:#77838a; font-size:.61rem; text-overflow:ellipsis; white-space:nowrap; }
+
 /* Field states */
 .creator-form .forge-input.is-missing { border-color: #c0414c !important; box-shadow: 0 0 0 1px rgba(192, 65, 76, .45), 0 0 10px rgba(192, 65, 76, .25); }
 .creator-form .forge-input.is-duplicate { border-color: #d49a2a !important; box-shadow: 0 0 0 1px rgba(212, 154, 42, .35); }
@@ -103,6 +138,10 @@
   .creator-template-tools { display:grid; width:100%; }
   .creator-template-tools .forge-select { min-width:0; width:100%; }
   .creator-shortcuts { display:none; }
+  .creator-maker-head { align-items:stretch; flex-direction:column; }
+  .creator-maker-columns,.creator-maker-clues { grid-template-columns:1fr; }
+  .maker-candidate { grid-template-columns:24px minmax(0,1fr); }
+  .maker-slot-actions { grid-column:2; }
 }
 
 /* GM chat: the hint prepared for a requested field */

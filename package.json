@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "deploy:manifest": "node scripts/generate-deploy-manifest.js",
-    "test:creator": "node tests/forge-creator.js && node tests/forge-xlsx-export.js",
+    "test:creator": "node tests/forge-ai.js && node tests/forge-creator.js && node tests/forge-xlsx-export.js",
     "test:quests": "node tests/quests.js && node tests/daily-contracts.js && node tests/quest-visuals.js && node tests/board-celebrations.js",
     "test:roulette-carnage": "node tests/roulette-carnage.js && node tests/roulette-carnage-server.js",
     "test:reinforcement": "node tests/reinforcement.js && node tests/black-market-tribute.js && node tests/black-market-tribute-wire.js && node tests/chat-acts.js && node tests/hardening.js",
@@ -16,8 +16,10 @@
     "test": "node scripts/run-all-tests.js"
   },
   "dependencies": {
+    "ai": "^7.0.134",
     "exceljs": "^4.4.0",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "zod": "^4.6.5"
   },
   "engines": {
     "node": "22.x"
