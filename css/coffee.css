@@ -1,0 +1,19 @@
+#asoc-coffee-layer{position:fixed;inset:0;z-index:2147483200;display:flex;align-items:center;justify-content:center;pointer-events:none;background:radial-gradient(circle at center,rgba(72,44,25,.34),rgba(8,6,12,.62));animation:asocCoffeeIn .45s ease-out both}
+.asoc-coffee-panel{width:min(440px,90vw);padding:38px 25px 34px;text-align:center;border:1px solid rgba(231,184,106,.45);border-radius:24px;background:radial-gradient(circle at 50% 18%,#35251e,#151019 76%);box-shadow:0 25px 90px #000b,0 0 52px #b17a3a29;color:#f2d7ae}
+.asoc-coffee-eyebrow{font-size:11px;letter-spacing:.20em;color:#bfa27b;animation:asocCoffeeIn .8s ease both}
+.asoc-coffee-cup-area{position:relative;margin:19px auto 0;width:160px;height:155px}
+.asoc-coffee-cup{display:block;position:absolute;bottom:0;left:0;width:160px;height:135px;border:0;background:transparent;cursor:pointer;pointer-events:auto;font-size:108px;line-height:1.2;filter:drop-shadow(0 0 19px #cd8c4b80);animation:asocCoffeeFloat 2.8s ease-in-out infinite}
+.asoc-coffee-cup:focus-visible{outline:2px solid #f5d397;border-radius:24px}
+.asoc-coffee-sipped{filter:drop-shadow(0 0 28px #e7bf64)}
+.asoc-coffee-steam{position:absolute;top:-12px;left:44px;width:80px;height:75px;pointer-events:none}
+.asoc-coffee-steam i{position:absolute;bottom:0;width:4px;height:50px;border-radius:50%;background:linear-gradient(to top,transparent,#f8e2b7a8,transparent);filter:blur(3px);animation:asocCoffeeSteam 2.4s ease-out infinite}
+.asoc-coffee-steam i:nth-child(1){left:12px;animation-delay:0s}.asoc-coffee-steam i:nth-child(2){left:34px;animation-delay:.65s}.asoc-coffee-steam i:nth-child(3){left:55px;animation-delay:1.3s}
+.asoc-coffee-title{font-size:clamp(27px,5vw,40px);font-family:Georgia,serif;letter-spacing:.12em;font-weight:bold}
+.asoc-coffee-sub{margin:18px auto 22px;max-width:340px;font-size:16px;line-height:1.6;color:#e0cdb9}
+.asoc-coffee-footer{font-size:12px;letter-spacing:.16em;color:#d6a968}
+.asoc-coffee-name-badge{display:inline-block;margin-left:5px;font-size:14px;line-height:1;vertical-align:middle;filter:drop-shadow(0 0 5px #e7b665)}
+.asoc-coffee-out{opacity:0;transition:opacity .35s ease}
+@keyframes asocCoffeeIn{from{opacity:0}to{opacity:1}}
+@keyframes asocCoffeeFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-8px) rotate(2deg)}}
+@keyframes asocCoffeeSteam{0%{opacity:0;transform:translateY(10px) rotate(-8deg) scaleX(.7)}25%{opacity:.8}100%{opacity:0;transform:translateY(-37px) rotate(16deg) scaleX(2)}}
+@media(prefers-reduced-motion:reduce){#asoc-coffee-layer,.asoc-coffee-cup,.asoc-coffee-steam i{animation:none!important}}

@@ -6969,9 +6969,11 @@ const CHAT_SLASH_COMMANDS = [
 // authority-only commands. This is deliberately composed instead of copied:
 // adding a player command can no longer leave the Shadow Broker's /commands
 // list stale or imply that the GM lacks that capability.
+const coffeeCooldowns = new WeakMap();
 const GM_ONLY_SLASH_COMMANDS = [
   { name: '/olympics', help: '/olympics -- declare the Rock Paper Scissors Olympics lobby' },
   { name: '/dennis', help: '/dennis off|announcer|advice -- control Dennis game commentary' },
+  { name: '/coffee', help: '/coffee -- Shadow Broker serves an eight-second room-wide coffee break' },
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
   { name: '/fatality', help: '/fatality @Name -- 50/50 Pyroblast or Frost cinematic on one Little Hero' },
   { name: '/poison', help: '/poison @Name -- GM-only venom: one /roll save, then -0.1 SC every 20 seconds until Blood Tribute cure' },
@@ -8243,6 +8245,26 @@ function dispatchGmSlashCommand(room, ws, text) {
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
 
+  if (/^\/coffee\b/i.test(raw)) {
+    if (!/^\/coffee\s*$/i.test(raw)) return { success: false, error: 'COFFEE INVALID // USE /coffee' };
+    const now = Date.now();
+    const remaining = 60000 - (now - (coffeeCooldowns.get(room) || 0));
+    if (remaining > 0) return { success: false, error: `COFFEE BREWING // TRY AGAIN IN ${Math.ceil(remaining / 1000)}s` };
+    const lines = [
+      'Even idiots deserve a coffee break.',
+      'The Shadow Broker is temporarily unavailable. Try intelligence.',
+      'Your suffering has been postponed. Enjoy.',
+      'Coffee first. Humiliation shortly.',
+      'A moment of peace. Do not get accustomed to it.',
+      'The Shadow Broker runs on caffeine and disappointment.',
+      'Drink responsibly. Think irresponsibly.',
+      'The next wrong answer will be served with biscuits.'
+    ];
+    coffeeCooldowns.set(room, now);
+    broadcastToRoom(room, { type: 'coffee:break', timestamp: now, durationMs: 8000,
+      line: lines[crypto.randomInt(lines.length)] });
+    return { success: true, broadcast: false };
+  }
   if (/^\/warsong\b/i.test(raw)) {
     if (!/^\/warsong\s*$/i.test(raw)) return { success: false, error: 'WARSONG INVALID // USE /warsong' };
     broadcastToRoom(room, { type: 'warsong:alert', timestamp: Date.now(), durationMs: 9000 });

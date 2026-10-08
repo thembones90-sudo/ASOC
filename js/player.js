@@ -1609,7 +1609,10 @@ const PlayerApp = {
         window.PoisonEffect?.onMessage?.(message);
         break;
 
-      case 'fistbump:impact':
+      case 'coffee:break':
+          window.AsocCoffee?.show(message);
+          break;
+        case 'fistbump:impact':
         window.FistbumpEffect?.onMessage(message);
         break;
 
