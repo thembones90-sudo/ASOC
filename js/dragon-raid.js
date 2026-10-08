@@ -32,16 +32,16 @@
       overlay.className = 'dragon-setup-overlay';
       overlay.hidden = true;
       const bosses = [
-        ['wendigo', 'WENDIGO', 'HUNGER // ISOLATION // PREDATION', 'CABINET ENCOUNTER // 3–5 HEROES'],
-        ['hym', 'HYM', 'GUILT // SHADOW // POSSESSION', 'CABINET ENCOUNTER // 3–5 HEROES'],
-        ['hydra', 'HYDRA', 'VENOM // SEVEN HEADS // REGENERATION', 'CABINET ENCOUNTER // 3–5 HEROES'],
-        ['necromorph', 'NECROMORPH', 'SCYTHE // AMBUSH // FRENZY', 'CABINET ENCOUNTER // 3–5 HEROES'],
-        ['deathwing', 'DEATHWING', 'THE DESTROYER // CATACLYSM', 'HEROIC RAID // EXACTLY 5 HEROES']
+        ['wendigo', 'WENDIGO', 'IT HEARS THE WEAK. IT HUNTS THE ALONE.', 'SPECIMEN I — 3–5 LITTLE HEROES', 'BREAK THE SEAL'],
+        ['hym', 'HYM', 'YOUR GUILT FEEDS IT. YOUR FAILURE GIVES IT FORM.', 'SPECIMEN II — 3–5 LITTLE HEROES', 'LET IT IN'],
+        ['hydra', 'HYDRA', 'SEVEN HEADS. SEVEN HUNGERS. ONE SWAMP.', 'SPECIMEN III — 3–5 LITTLE HEROES', 'WADE IN'],
+        ['necromorph', 'NECROMORPH', 'IT SHOULD BE DEAD. IT DID NOT GET THE MESSAGE.', 'SPECIMEN IV — 3–5 LITTLE HEROES', 'OPEN THE AIRLOCK'],
+        ['deathwing', 'DEATHWING', 'THE WORLD BREAKER. THIS ONE DOES NOT GO BACK IN THE CABINET.', 'HEROIC CALAMITY — EXACTLY FIVE LITTLE HEROES', 'WAKE THE DESTROYER']
       ];
       overlay.innerHTML = `<section class="dragon-setup-panel" role="dialog" aria-modal="true" aria-labelledby="dragon-setup-title">
-        <header><div><small>SHADOW BROKER AUTHORITY</small><h2 id="dragon-setup-title">CABINET OF CURIOSITIES</h2></div><button type="button" data-dragon-action="setup-close" aria-label="Close">×</button></header>
-        <p>Choose the enemy. Recruitment begins only after your confirmation.</p>
-        <div class="dragon-setup-grid">${bosses.map(([id,name,identity,tier]) => `<button type="button" data-dragon-action="setup-launch" data-boss-id="${id}" class="${id === 'deathwing' ? 'is-heroic' : ''}"><small>${tier}</small><b>${name}</b><span>${identity}</span><em>SUMMON</em></button>`).join('')}</div>
+        <header><div><small>SHADOW BROKER — FORBIDDEN ARCHIVE</small><h2 id="dragon-setup-title">CABINET OF CURIOSITIES</h2></div><button type="button" data-dragon-action="setup-close" aria-label="Close">×</button></header>
+        <p>The Cabinet is open. Choose what the Little Heroes must survive.</p>
+        <div class="dragon-setup-grid">${bosses.map(([id,name,identity,tier,action]) => `<button type="button" data-dragon-action="setup-launch" data-boss-id="${id}" class="${id === 'deathwing' ? 'is-heroic' : ''}"><small>${tier}</small><b>${name}</b><span>${identity}</span><em>${action}</em></button>`).join('')}</div>
       </section>`;
       document.body.appendChild(overlay);
     },
