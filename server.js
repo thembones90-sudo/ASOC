@@ -6973,7 +6973,7 @@ const coffeeCooldowns = new WeakMap();
 const GM_ONLY_SLASH_COMMANDS = [
   { name: '/olympics', help: '/olympics -- declare the Rock Paper Scissors Olympics lobby' },
   { name: '/dennis', help: '/dennis off|announcer|advice -- control Dennis game commentary' },
-  { name: '/coffee', help: '/coffee -- Shadow Broker serves an eight-second room-wide coffee break' },
+  { name: '/coffee', help: '/coffee -- Shadow Market unlock (10 SC): eight-second break in Amusement Park only' },
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
   { name: '/fatality', help: '/fatality @Name -- 50/50 Pyroblast or Frost cinematic on one Little Hero' },
   { name: '/poison', help: '/poison @Name -- GM-only venom: one /roll save, then -0.1 SC every 20 seconds until Blood Tribute cure' },
@@ -8120,10 +8120,44 @@ function handlePlayerFatalityCommand(room, author, raw, targetPlayerId = '') {
   return result;
 }
 
+// Visual-only event shared by GM and purchased Little Hero command.
+function triggerCoffeeBreak(room) {
+  if (room.roomMode !== ROOM_MODES.CASUAL) {
+    return { success: false, error: 'COFFEE FORBIDDEN // ONLY AVAILABLE IN AMUSEMENT PARK' };
+  }
+  const now = Date.now();
+  const remaining = 60000 - (now - (coffeeCooldowns.get(room) || 0));
+  if (remaining > 0) return { success: false, error: `COFFEE BREWING // TRY AGAIN IN ${Math.ceil(remaining / 1000)}s` };
+    const lines = [
+      'Even idiots deserve a coffee break.',
+      'The Shadow Broker is temporarily unavailable. Try intelligence.',
+      'Your suffering has been postponed. Enjoy.',
+      'Coffee first. Humiliation shortly.',
+      'A moment of peace. Do not get accustomed to it.',
+      'The Shadow Broker runs on caffeine and disappointment.',
+      'Drink responsibly. Think irresponsibly.',
+      'The next wrong answer will be served with biscuits.'
+    ];
+  coffeeCooldowns.set(room, now);
+  broadcastToRoom(room, { type: 'coffee:break', timestamp: now, durationMs: 8000,
+    line: lines[crypto.randomInt(lines.length)] });
+  return { success: true, broadcast: false };
+}
+
 function dispatchPlayerSlashCommand(room, ws, text, message) {
   const raw = String(text || '').trim();
   if (!raw.startsWith('/')) return null;
   const author = { id: ws.playerId, name: ws.playerName };
+
+  if (/^\/coffee\b/i.test(raw)) {
+    if (!/^\/coffee\s*$/i.test(raw)) return { success: false, error: 'COFFEE INVALID // USE /coffee' };
+    if (room.roomMode !== ROOM_MODES.CASUAL) return { success: false, error: 'COFFEE FORBIDDEN // ONLY AVAILABLE IN AMUSEMENT PARK' };
+    const account = coinAccount(ws.playerId, ws.playerName);
+    if (!account || !playerStore.ownsCosmetic(account, 'cmd-coffee')) {
+      return { success: false, error: 'COFFEE LOCKED // BUY /coffee FOR 10 SC IN THE SHADOW MARKET' };
+    }
+    return triggerCoffeeBreak(room);
+  }
 
   if (/^\/poison\b/i.test(raw)) return { success: false, error: 'POISON IS SHADOW BROKER AUTHORITY ONLY' };
 
@@ -8247,26 +8281,7 @@ function dispatchGmSlashCommand(room, ws, text) {
 
   if (/^\/coffee\b/i.test(raw)) {
     if (!/^\/coffee\s*$/i.test(raw)) return { success: false, error: 'COFFEE INVALID // USE /coffee' };
-    if (room.roomMode !== ROOM_MODES.CASUAL) {
-      return { success: false, error: 'COFFEE FORBIDDEN // ONLY AVAILABLE IN AMUSEMENT PARK' };
-    }
-    const now = Date.now();
-    const remaining = 60000 - (now - (coffeeCooldowns.get(room) || 0));
-    if (remaining > 0) return { success: false, error: `COFFEE BREWING // TRY AGAIN IN ${Math.ceil(remaining / 1000)}s` };
-    const lines = [
-      'Even idiots deserve a coffee break.',
-      'The Shadow Broker is temporarily unavailable. Try intelligence.',
-      'Your suffering has been postponed. Enjoy.',
-      'Coffee first. Humiliation shortly.',
-      'A moment of peace. Do not get accustomed to it.',
-      'The Shadow Broker runs on caffeine and disappointment.',
-      'Drink responsibly. Think irresponsibly.',
-      'The next wrong answer will be served with biscuits.'
-    ];
-    coffeeCooldowns.set(room, now);
-    broadcastToRoom(room, { type: 'coffee:break', timestamp: now, durationMs: 8000,
-      line: lines[crypto.randomInt(lines.length)] });
-    return { success: true, broadcast: false };
+    return triggerCoffeeBreak(room);
   }
   if (/^\/warsong\b/i.test(raw)) {
     if (!/^\/warsong\s*$/i.test(raw)) return { success: false, error: 'WARSONG INVALID // USE /warsong' };
