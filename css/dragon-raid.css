@@ -1878,3 +1878,153 @@
   .dragon-setup-portrait{transition:none}
   .dragon-boss-phase,.dragon-roll-drama{display:none}
 }
+
+/* Forbidden Archive frame — replace generic boxed UI with carved, asymmetric dossiers. */
+.dragon-setup-overlay{
+  background:
+    radial-gradient(ellipse at 50% 8%,rgba(109,38,126,.24),transparent 42%),
+    repeating-radial-gradient(circle at 50% 50%,transparent 0 86px,rgba(171,76,205,.018) 87px 88px),
+    linear-gradient(135deg,#030207 0%,#0a0410 52%,#050207 100%);
+}
+.dragon-setup-panel{
+  --archive-edge:#9a4db0;
+  width:min(1160px,94vw);
+  border:0;
+  clip-path:polygon(18px 0,calc(100% - 18px) 0,100% 18px,100% calc(100% - 18px),calc(100% - 18px) 100%,18px 100%,0 calc(100% - 18px),0 18px);
+  background:
+    linear-gradient(90deg,var(--archive-edge),transparent 12%,transparent 88%,var(--archive-edge)) top/100% 1px no-repeat,
+    linear-gradient(90deg,var(--archive-edge),transparent 12%,transparent 88%,var(--archive-edge)) bottom/100% 1px no-repeat,
+    linear-gradient(180deg,var(--archive-edge),transparent 15%,transparent 85%,var(--archive-edge)) left/1px 100% no-repeat,
+    linear-gradient(180deg,var(--archive-edge),transparent 15%,transparent 85%,var(--archive-edge)) right/1px 100% no-repeat,
+    linear-gradient(145deg,rgba(24,9,30,.99),rgba(5,4,8,.995) 38%,rgba(10,3,10,.995));
+  box-shadow:0 38px 110px #000,0 0 80px rgba(131,31,161,.18);
+}
+.dragon-setup-panel::before{
+  z-index:0;
+  inset:10px;
+  border:1px solid rgba(177,83,202,.12);
+  clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 12px,100% calc(100% - 12px),calc(100% - 12px) 100%,12px 100%,0 calc(100% - 12px),0 12px);
+  background:
+    linear-gradient(135deg,rgba(204,122,231,.23) 0 2px,transparent 2px) 0 0/18px 18px no-repeat,
+    linear-gradient(225deg,rgba(204,122,231,.23) 0 2px,transparent 2px) 100% 0/18px 18px no-repeat,
+    linear-gradient(45deg,rgba(204,122,231,.23) 0 2px,transparent 2px) 0 100%/18px 18px no-repeat,
+    linear-gradient(315deg,rgba(204,122,231,.23) 0 2px,transparent 2px) 100% 100%/18px 18px no-repeat;
+  opacity:1;
+}
+.dragon-setup-panel>header,
+.dragon-setup-panel>p,
+.dragon-setup-grid{position:relative;z-index:1}
+.dragon-setup-panel>header{
+  min-height:126px;
+  padding:30px 38px 27px;
+  border:0;
+  background:
+    linear-gradient(90deg,rgba(109,26,126,.62),rgba(45,8,48,.48) 52%,rgba(74,8,23,.55)),
+    repeating-linear-gradient(115deg,transparent 0 28px,rgba(255,255,255,.012) 29px 30px);
+}
+.dragon-setup-panel>header::before{
+  content:"ARCHIVE // 05 SPECIMENS // AUTHORITY: SHADOW BROKER";
+  position:absolute;
+  right:112px;
+  bottom:17px;
+  color:rgba(213,147,229,.42);
+  font:700 8px/1 var(--font-mono,monospace);
+  letter-spacing:.18em;
+}
+.dragon-setup-panel>header::after{
+  left:38px;
+  right:38px;
+  bottom:0;
+  height:4px;
+  background:linear-gradient(90deg,#bd67d4 0 8%,transparent 8% 10%,#6e327e 10% 68%,transparent 68% 70%,#852238 70% 100%);
+  opacity:.82;
+}
+.dragon-setup-panel h2{text-shadow:0 2px 0 #19061e,0 0 32px rgba(218,125,242,.16)}
+.dragon-setup-panel header button{
+  position:relative;
+  width:52px;
+  height:52px;
+  border:0;
+  clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);
+  background:
+    linear-gradient(135deg,rgba(224,112,164,.44) 0 2px,transparent 2px),
+    linear-gradient(315deg,rgba(224,112,164,.44) 0 2px,transparent 2px),
+    rgba(29,7,20,.9);
+  box-shadow:none;
+}
+.dragon-setup-panel header button::before,.dragon-setup-panel header button::after{content:"";position:absolute;background:#d16c9b;opacity:.66}
+.dragon-setup-panel header button::before{width:18px;height:2px;left:17px;top:25px;transform:rotate(45deg)}
+.dragon-setup-panel header button::after{width:18px;height:2px;left:17px;top:25px;transform:rotate(-45deg)}
+.dragon-setup-panel header button{font-size:0}
+.dragon-setup-panel header button:hover{transform:rotate(3deg) scale(1.06);background-color:rgba(68,10,35,.95)}
+.dragon-setup-panel>p{
+  padding:17px 38px 18px 58px;
+  border:0;
+  background:rgba(3,3,7,.78);
+}
+.dragon-setup-panel>p::before{content:"◆";position:absolute;left:36px;color:#b765cd;text-shadow:0 0 12px #9b31bc}
+.dragon-setup-panel>p::after{content:"";position:absolute;left:38px;right:38px;bottom:0;height:1px;background:linear-gradient(90deg,rgba(181,91,205,.5),transparent 72%)}
+.dragon-setup-grid{gap:13px;padding:26px 28px 30px}
+.dragon-setup-grid>button{
+  min-height:166px;
+  padding:23px 24px 21px 27px;
+  border:0;
+  border-left:3px solid rgba(var(--boss-accent),.58);
+  clip-path:polygon(0 0,calc(100% - 20px) 0,100% 20px,100% 100%,14px 100%,0 calc(100% - 14px));
+  background:
+    linear-gradient(90deg,rgba(var(--boss-soft),.13),transparent 46%),
+    linear-gradient(165deg,rgba(23,18,27,.97),rgba(7,7,10,.99));
+  box-shadow:inset 0 1px rgba(var(--boss-accent),.24),inset 0 -1px rgba(var(--boss-accent),.16),0 12px 28px rgba(0,0,0,.24);
+}
+.dragon-setup-grid>button::before{
+  z-index:0;
+  background:
+    linear-gradient(90deg,rgba(var(--boss-accent),.2),transparent 30%) top/100% 1px no-repeat,
+    linear-gradient(90deg,transparent 52%,rgba(var(--boss-accent),.08)) bottom/100% 1px no-repeat,
+    radial-gradient(circle at 78% 50%,rgba(var(--boss-accent),.13),transparent 32%);
+}
+.dragon-setup-grid>button::after{
+  content:"I";
+  right:17px;
+  top:14px;
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border:0;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(6,6,9,.92) 48%,rgba(var(--boss-accent),.28) 50% 53%,transparent 55%),conic-gradient(from 45deg,transparent 0 10%,rgba(var(--boss-accent),.7) 10% 12%,transparent 12% 35%,rgba(var(--boss-accent),.7) 35% 37%,transparent 37% 100%);
+  color:rgba(var(--boss-accent),.92);
+  font:900 9px/1 var(--font-mono,monospace);
+  opacity:.78;
+  transform:none;
+  box-shadow:none;
+}
+.dragon-setup-grid>button[data-boss-id="hym"]::after{content:"II"}
+.dragon-setup-grid>button[data-boss-id="hydra"]::after{content:"III"}
+.dragon-setup-grid>button[data-boss-id="necromorph"]::after{content:"IV"}
+.dragon-setup-grid>button[data-boss-id="deathwing"]::after{content:"V"}
+.dragon-setup-grid>button:hover{
+  transform:translateY(-3px) translateX(2px);
+  border-left-color:rgb(var(--boss-accent));
+  box-shadow:inset 0 1px rgba(var(--boss-accent),.52),inset 0 -1px rgba(var(--boss-accent),.28),-7px 0 24px rgba(var(--boss-accent),.09),0 18px 34px rgba(0,0,0,.38);
+}
+.dragon-setup-grid>button em{
+  min-width:0;
+  min-height:0;
+  padding:8px 13px 7px 17px;
+  border:0;
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
+  background:linear-gradient(90deg,rgba(var(--boss-accent),.18),rgba(var(--boss-accent),.035));
+  box-shadow:inset 3px 0 rgb(var(--boss-accent));
+}
+.dragon-setup-grid>button:hover em{border:0;background:linear-gradient(90deg,rgba(var(--boss-accent),.3),rgba(var(--boss-accent),.07));box-shadow:inset 3px 0 rgb(var(--boss-accent)),0 0 20px rgba(var(--boss-accent),.1)}
+.dragon-setup-grid>button.is-heroic{border:0;border-left:4px solid rgba(255,66,75,.78);clip-path:polygon(0 0,calc(100% - 25px) 0,100% 25px,100% 100%,18px 100%,0 calc(100% - 18px))}
+.dragon-setup-grid>button.is-heroic::after{background:radial-gradient(circle,#170507 45%,rgba(255,61,69,.36) 47% 53%,transparent 55%),conic-gradient(from 45deg,transparent 0 10%,#f34950 10% 12%,transparent 12% 35%,#f34950 35% 37%,transparent 37% 100%)}
+
+@media(max-width:720px){
+  .dragon-setup-panel>header{padding:24px 22px}.dragon-setup-panel>header::before{display:none}
+  .dragon-setup-panel>header::after{left:22px;right:22px}
+  .dragon-setup-panel>p{padding-left:44px}.dragon-setup-panel>p::before{left:23px}.dragon-setup-panel>p::after{left:22px;right:22px}
+  .dragon-setup-grid{padding:17px 16px 22px}.dragon-setup-grid>button{min-height:155px}
+}
