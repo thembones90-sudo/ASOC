@@ -1776,3 +1776,105 @@
 @media(min-width:651px) and (max-width:900px){
   .dragon-arena{min-height:780px}
 }
+
+/* Cabinet dossier portraits: specimen art stays subordinate to the launch copy. */
+.dragon-setup-portrait{
+  position:absolute;
+  z-index:0;
+  right:-8px;
+  top:50%;
+  width:48%;
+  height:118%;
+  object-fit:cover;
+  object-position:center;
+  pointer-events:none;
+  opacity:.23;
+  filter:grayscale(.25) contrast(1.18) brightness(.7);
+  transform:translateY(-50%) scale(1.02);
+  mask-image:linear-gradient(90deg,transparent 0,#000 38%,#000 100%);
+  transition:opacity .22s ease,filter .22s ease,transform .28s ease;
+}
+.dragon-setup-grid>button:hover .dragon-setup-portrait,
+.dragon-setup-grid>button:focus-visible .dragon-setup-portrait{
+  opacity:.46;
+  filter:grayscale(0) contrast(1.12) brightness(.82) saturate(1.08);
+  transform:translateY(-50%) scale(1.08);
+}
+.dragon-setup-grid>button:focus-visible{
+  outline:2px solid rgba(var(--boss-accent),.9);
+  outline-offset:3px;
+}
+.dragon-setup-grid>button.is-heroic .dragon-setup-portrait{width:36%;opacity:.3}
+
+/* A short theatrical takeover between hero and specimen turns. */
+.dragon-boss-phase{
+  position:absolute;
+  inset:0;
+  z-index:18;
+  display:grid;
+  place-content:center;
+  gap:8px;
+  pointer-events:none;
+  text-align:center;
+  background:radial-gradient(circle,rgba(72,9,13,.35),rgba(5,3,7,.82) 62%,rgba(2,2,4,.93));
+  animation:dragon-phase-takeover 1.25s cubic-bezier(.16,.78,.22,1) forwards;
+}
+.dragon-boss-phase small{color:#ce7880;font:800 10px/1 var(--font-mono,monospace);letter-spacing:.28em}
+.dragon-boss-phase b{color:#fff0ee;font:900 clamp(24px,5vw,56px)/1 var(--font-display,monospace);letter-spacing:.16em;text-shadow:0 0 24px rgba(255,48,48,.38)}
+@keyframes dragon-phase-takeover{
+  0%{opacity:0;clip-path:inset(48% 0)}
+  22%,70%{opacity:1;clip-path:inset(0)}
+  100%{opacity:0;clip-path:inset(0)}
+}
+
+/* Natural extremes deserve a readable beat before the impact animation lands. */
+.dragon-roll-drama{
+  position:absolute;
+  left:50%;
+  top:48%;
+  z-index:30;
+  display:grid;
+  min-width:220px;
+  place-items:center;
+  pointer-events:none;
+  transform:translate(-50%,-50%);
+  animation:dragon-roll-reveal 1.4s cubic-bezier(.17,.85,.25,1) forwards;
+}
+.dragon-roll-drama::before{content:"";position:absolute;inset:-45px -85px;z-index:-1;background:radial-gradient(circle,rgba(255,188,55,.22),transparent 66%)}
+.dragon-roll-drama small,.dragon-roll-drama strong{font:900 10px/1 var(--font-mono,monospace);letter-spacing:.25em}
+.dragon-roll-drama b{color:#fff4c4;font:900 clamp(64px,10vw,118px)/.88 var(--font-display,monospace);text-shadow:0 0 12px #ffb52d,0 0 42px rgba(255,117,15,.72)}
+.dragon-roll-drama strong{color:#ffd36b}
+.dragon-roll-drama.is-fumble::before{background:radial-gradient(circle,rgba(214,20,34,.26),transparent 66%)}
+.dragon-roll-drama.is-fumble b{color:#ffd1d1;text-shadow:0 0 12px #ff3048,0 0 42px rgba(174,7,28,.72)}
+.dragon-roll-drama.is-fumble strong{color:#ff6674}
+.dragon-roll-drama.is-boss-roll small{color:#ef7f88}
+@keyframes dragon-roll-reveal{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.3) rotate(-8deg);filter:blur(7px)}
+  18%,64%{opacity:1;transform:translate(-50%,-50%) scale(1);filter:blur(0)}
+  100%{opacity:0;transform:translate(-50%,-58%) scale(1.1);filter:blur(2px)}
+}
+
+/* Three-line battle memory: enough context to read a round without becoming a log wall. */
+.dragon-chronicle{
+  margin-top:10px;
+  border:1px solid rgba(146,101,160,.3);
+  background:linear-gradient(180deg,rgba(15,11,19,.9),rgba(7,7,10,.94));
+  box-shadow:inset 0 1px rgba(255,255,255,.025);
+}
+.dragon-chronicle>header{display:flex;justify-content:space-between;padding:8px 11px;border-bottom:1px solid rgba(146,101,160,.2);color:#b991ca;font:800 9px/1 var(--font-mono,monospace);letter-spacing:.18em}
+.dragon-chronicle>div{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 11px;border-top:1px solid rgba(255,255,255,.035)}
+.dragon-chronicle>div:first-of-type{border-top:0;background:rgba(145,84,166,.055)}
+.dragon-chronicle i{color:#bc8bd1;font-style:normal;text-align:center}.dragon-chronicle .is-boss i{color:#e45e67}
+.dragon-chronicle span{display:flex;min-width:0;gap:8px;align-items:baseline}.dragon-chronicle b{overflow:hidden;color:#e8dceb;font:800 10px/1 var(--font-mono,monospace);text-overflow:ellipsis;white-space:nowrap}.dragon-chronicle span small{overflow:hidden;color:#958b9a;font:700 9px/1 var(--font-mono,monospace);text-overflow:ellipsis;white-space:nowrap}
+.dragon-chronicle em{color:#c6a3d5;font:800 9px/1 var(--font-mono,monospace);font-style:normal}.dragon-chronicle .is-boss em{color:#df848a}.dragon-chronicle .is-timeout small{color:#d9a16f}
+
+@media(max-width:650px){
+  .dragon-setup-portrait{width:58%;opacity:.18}
+  .dragon-setup-grid>button.is-heroic .dragon-setup-portrait{width:55%}
+  .dragon-boss-phase b{font-size:23px}
+  .dragon-chronicle span{display:grid;gap:3px}
+}
+@media(prefers-reduced-motion:reduce){
+  .dragon-setup-portrait{transition:none}
+  .dragon-boss-phase,.dragon-roll-drama{display:none}
+}

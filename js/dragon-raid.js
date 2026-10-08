@@ -55,7 +55,7 @@
       overlay.innerHTML = `<section class="dragon-setup-panel" role="dialog" aria-modal="true" aria-labelledby="dragon-setup-title">
         <header><div><small>SHADOW BROKER — FORBIDDEN ARCHIVE</small><h2 id="dragon-setup-title">CABINET OF CURIOSITIES</h2></div><button type="button" data-dragon-action="setup-close" aria-label="Close">×</button></header>
         <p>The Cabinet is open. Choose what the Little Heroes must survive.</p>
-        <div class="dragon-setup-grid">${bosses.map(([id,name,identity,tier,action]) => `<button type="button" data-dragon-action="setup-launch" data-boss-id="${id}" class="${id === 'deathwing' ? 'is-heroic' : ''}"><small>${tier}</small><b>${name}</b><span>${identity}</span><em>${action}</em></button>`).join('')}</div>
+        <div class="dragon-setup-grid">${bosses.map(([id,name,identity,tier,action]) => `<button type="button" data-dragon-action="setup-launch" data-boss-id="${id}" class="${id === 'deathwing' ? 'is-heroic' : ''}"><img class="dragon-setup-portrait" src="${BOSS_ART[id]}?v=${ART_VERSION}" alt="" loading="lazy" decoding="async" draggable="false"><small>${tier}</small><b>${name}</b><span>${identity}</span><em>${action}</em></button>`).join('')}</div>
       </section>`;
       document.body.appendChild(overlay);
     },
@@ -258,6 +258,14 @@
         arena.appendChild(fx);
         setTimeout(() => fx.remove(), 1250);
       };
+
+      if (Number(result.roll) === 20 || Number(result.roll) === 1) {
+        const roll = document.createElement('div');
+        roll.className = `dragon-roll-drama ${Number(result.roll) === 20 ? 'is-natural20' : 'is-fumble'} ${result.side === 'boss' ? 'is-boss-roll' : ''}`;
+        roll.innerHTML = `<small>${result.side === 'boss' ? 'SPECIMEN ROLL' : 'HERO ROLL'}</small><b>${Number(result.roll)}</b><strong>${Number(result.roll) === 20 ? 'NATURAL TWENTY' : 'CRITICAL FAILURE'}</strong>`;
+        arena.appendChild(roll);
+        setTimeout(() => roll.remove(), 1450);
+      }
 
       if (result.side === 'hero' && result.action === 'timeout') {
         const lost = player(result.playerId);
@@ -571,6 +579,22 @@
       return cards.join('');
     },
 
+    chronicleHTML() {
+      const entries = (this.raid?.log || []).slice(-3).reverse();
+      if (!entries.length) return '';
+      return `<aside class="dragon-chronicle" aria-label="Latest combat events"><header><span>COMBAT CHRONICLE</span><small>LAST ${entries.length}</small></header>${entries.map(entry => {
+        const boss = entry.side === 'boss';
+        const timeout = entry.action === 'timeout';
+        const amount = Number(entry.damage) || 0;
+        const detail = timeout
+          ? 'TURN FORFEITED'
+          : boss
+            ? `${entry.skill || entry.result || 'ATTACK'}${amount ? ` · ${amount} DAMAGE` : ''}`
+            : `${entry.action || entry.result || 'ACTION'}${amount ? ` · ${amount} DAMAGE` : entry.healing ? ` · +${entry.healing} HP` : ''}`;
+        return `<div class="${boss ? 'is-boss' : 'is-hero'} ${timeout ? 'is-timeout' : ''}"><i>${boss ? '☠' : '◆'}</i><span><b>${this.esc(entry.name || (boss ? this.raid.boss.name : 'HERO'))}</b><small>${this.esc(detail)}</small></span>${entry.roll ? `<em>D20 ${Number(entry.roll)}</em>` : '<em>—</em>'}</div>`;
+      }).join('')}</aside>`;
+    },
+
     recruitmentHTML() {
       const raid = this.raid;
       const mine = raid.participants.find(p => String(p.id) === this.myId());
@@ -639,6 +663,7 @@
               <span><i style="width:${hpPct}%"></i></span>
             </div>
           </section>
+          ${raid.phase === 'BOSS_TURN' ? '<div class="dragon-boss-phase"><small>HERO PHASE ENDED</small><b>THE SPECIMEN MOVES</b></div>' : ''}
         </div>
         <div class="dragon-turn-banner">${raid.phase === 'BOSS_TURN' ? 'THE SPECIMEN MOVES' : `ACTIVE HERO — ${this.esc(active?.name || '—')}${raid.heroTurnEndsAt ? ` — <strong class="dragon-turn-clock" data-dragon-clock="turn">${this.turnSeconds(raid)}s</strong>` : ''}`}</div>
         ${this.isGM() ? '<div class="dragon-gm-observer"><span>SHADOW BROKER OBSERVER — LIVE COMBAT</span><button type="button" data-dragon-action="cancel">CANCEL RAID</button></div>' : ''}
@@ -647,6 +672,7 @@
         ${!mine && !this.isGM() ? '<div class="dragon-locked">SPECTATING — RAID GATES SEALED</div>' : ''}
         ${this.myLastRoll && this.myLastRoll.round === raid.round ? `<div class="dragon-own-roll">YOUR ROLL — <b>${this.myLastRoll.value}</b></div>` : ''}
         ${last}
+        ${this.chronicleHTML()}
       `;
     },
 
