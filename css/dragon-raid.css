@@ -1185,12 +1185,6 @@
 .dragon-arena-boss[data-attacking="1"] .dragon-boss-avatar{
   filter:brightness(1.12) saturate(1.08);
 }
-@keyframes dragon-trail{
-  0%{opacity:0;transform:scaleX(.18)}
-  24%{opacity:1}
-  72%{opacity:.86;transform:scaleX(1)}
-  100%{opacity:0;transform:scaleX(1.12)}
-}
 @keyframes dragon-impact-burst{
   0%{opacity:0;transform:scale(.32)}
   28%{opacity:1}
@@ -1355,4 +1349,299 @@
   0%{opacity:0}
   28%{opacity:1}
   100%{opacity:0}
+}
+
+
+/* Readability reinforcement: status chips, telegraphs, combat text, passive cue */
+.dragon-status-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+  margin:7px 0 2px;
+}
+.dragon-status-chips span{
+  padding:3px 6px;
+  border:1px solid rgba(184,126,211,.22);
+  background:rgba(57,29,69,.28);
+  color:#cbb2d8;
+  font:800 8px/1 var(--font-mono,monospace);
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.dragon-status-chips .is-poisoned{border-color:rgba(115,215,103,.42);background:rgba(45,88,38,.30);color:#9be28d}
+.dragon-status-chips .is-guilt{border-color:rgba(180,104,221,.40);color:#d2a3ea}
+.dragon-status-chips .is-haunted{border-color:rgba(143,84,190,.36);color:#ba8ed5}
+.dragon-status-chips .is-isolated{border-color:rgba(196,225,245,.34);color:#cbe7f9}
+.dragon-status-chips .is-shredded{border-color:rgba(236,84,84,.42);color:#ff8f8f}
+.dragon-status-chips .is-taunt,
+.dragon-status-chips .is-guard,
+.dragon-status-chips .is-block,
+.dragon-status-chips .is-shieldwall,
+.dragon-status-chips .is-shieldnegate{
+  border-color:rgba(104,168,234,.42);
+  color:#9dc8f2;
+}
+.dragon-status-chips .is-bloodlust,
+.dragon-status-chips .is-sunder{
+  border-color:rgba(229,92,76,.38);
+  color:#f4a08f;
+}
+.dragon-float-text{
+  position:absolute;
+  z-index:18;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  color:#ff8a73;
+  font:900 23px/1 var(--font-mono,monospace);
+  letter-spacing:.03em;
+  text-shadow:0 2px 3px #000,0 0 12px rgba(255,70,46,.55);
+  animation:dragon-float-up .86s ease-out forwards;
+}
+.dragon-float-text.is-heal{color:#83e3ae;text-shadow:0 2px 3px #000,0 0 12px rgba(64,220,143,.55)}
+.dragon-float-text.is-venom{color:#9ae27f;text-shadow:0 2px 3px #000,0 0 13px rgba(75,220,89,.62)}
+.dragon-float-text.is-heavy{color:#ffc073;font-size:27px}
+.dragon-float-text.is-crit{color:#ffe07e;font-size:33px;text-shadow:0 2px 3px #000,0 0 18px rgba(255,171,48,.76)}
+.dragon-float-text.is-revive{color:#a8f1d1;font-size:20px;letter-spacing:.10em}
+.dragon-raider-card.is-targeted{
+  z-index:6;
+  animation:dragon-target-pulse .32s ease-in-out infinite alternate;
+}
+.dragon-raider-card.is-targeted-venom{border-color:rgba(116,231,101,.82)!important;box-shadow:0 0 0 2px rgba(108,220,92,.16),0 0 30px rgba(82,208,75,.30)!important}
+.dragon-raider-card.is-targeted-frost{border-color:rgba(199,233,255,.84)!important;box-shadow:0 0 0 2px rgba(172,220,251,.15),0 0 30px rgba(149,211,250,.27)!important}
+.dragon-raider-card.is-targeted-shadow{border-color:rgba(183,109,230,.80)!important;box-shadow:0 0 0 2px rgba(150,83,195,.16),0 0 30px rgba(112,50,165,.30)!important}
+.dragon-raider-card.is-targeted-necro{border-color:rgba(255,91,91,.84)!important;box-shadow:0 0 0 2px rgba(255,64,64,.14),0 0 30px rgba(232,54,54,.30)!important}
+.dragon-raider-card.is-targeted-danger{border-color:rgba(255,132,86,.80)!important;box-shadow:0 0 0 2px rgba(255,106,62,.14),0 0 30px rgba(232,75,43,.27)!important}
+.dragon-phase-cue{
+  position:absolute;
+  left:50%;
+  top:45%;
+  z-index:22;
+  transform:translate(-50%,-50%);
+  padding:10px 16px;
+  border:1px solid rgba(185,120,214,.42);
+  background:rgba(10,7,13,.88);
+  color:#e7c7f2;
+  font:900 16px/1 var(--font-display,var(--font-mono,monospace));
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  box-shadow:0 0 28px rgba(143,68,180,.24);
+  animation:dragon-phase-cue 1.18s ease-out forwards;
+}
+.dragon-phase-cue.is-swamp{
+  border-color:rgba(121,218,104,.52);
+  color:#b8ec9f;
+  box-shadow:0 0 30px rgba(79,201,72,.28);
+}
+.dragon-passive-badge{
+  display:inline-block;
+  margin-top:7px;
+  padding:4px 8px;
+  border:1px solid rgba(var(--boss-ring),.22);
+  background:rgba(15,10,16,.72);
+  color:#9f8997;
+  font:800 8px/1 var(--font-mono,monospace);
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.dragon-passive-badge.is-awakened{
+  border-color:rgba(126,224,104,.62);
+  color:#b3ee9e;
+  background:rgba(42,82,34,.42);
+  box-shadow:0 0 18px rgba(76,201,68,.22);
+  animation:dragon-passive-awake 1.25s ease-in-out infinite alternate;
+}
+.dragon-arena.is-swamp-vigor::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:7;
+  pointer-events:none;
+  background:radial-gradient(circle,rgba(88,190,73,.18),rgba(48,91,39,.06) 48%,transparent 76%);
+  animation:dragon-arena-flash 1.05s ease-out forwards;
+}
+@keyframes dragon-float-up{
+  0%{opacity:0;translate:-50% 8px;scale:.86}
+  18%{opacity:1;scale:1.06}
+  100%{opacity:0;translate:-50% -34px;scale:1}
+}
+@keyframes dragon-target-pulse{
+  from{filter:brightness(1)}
+  to{filter:brightness(1.24)}
+}
+@keyframes dragon-phase-cue{
+  0%{opacity:0;translate:0 10px;scale:.88}
+  20%{opacity:1;translate:0 0;scale:1.03}
+  72%{opacity:1}
+  100%{opacity:0;translate:0 -10px;scale:1}
+}
+@keyframes dragon-passive-awake{
+  from{filter:brightness(.98)}
+  to{filter:brightness(1.22);text-shadow:0 0 8px rgba(112,224,91,.48)}
+}
+@media(prefers-reduced-motion:reduce){
+  .dragon-float-text,.dragon-phase-cue,.dragon-passive-badge.is-awakened,.dragon-raider-card.is-targeted{animation:none!important}
+}
+
+
+/* Arena fortification: active lane, danger states, death beats, boss ambience */
+.dragon-active-lane{
+  position:absolute;
+  z-index:1;
+  height:2px;
+  transform-origin:left center;
+  pointer-events:none;
+  background:linear-gradient(90deg,rgba(201,145,235,.08),rgba(219,164,248,.52),rgba(219,164,248,.08));
+  box-shadow:0 0 9px rgba(182,111,224,.24);
+  animation:dragon-lane-pulse 1.2s ease-in-out infinite alternate;
+}
+.dragon-active-lane[hidden]{display:none!important}
+.dragon-raider-card.is-low-hp{
+  border-color:rgba(220,91,77,.48);
+  box-shadow:0 0 0 1px rgba(210,76,63,.08),0 0 18px rgba(189,53,47,.15),inset 0 0 18px rgba(155,42,38,.07);
+}
+.dragon-raider-card.is-critical-hp{
+  border-color:rgba(255,72,72,.72);
+  box-shadow:0 0 0 1px rgba(255,65,65,.14),0 0 28px rgba(221,45,45,.24),inset 0 0 24px rgba(187,36,36,.10);
+  animation:dragon-critical-heartbeat .82s ease-in-out infinite;
+}
+.dragon-arena.is-boss-low .dragon-boss-avatar{
+  box-shadow:0 0 0 7px rgba(var(--boss-ring),.05),0 0 36px rgba(var(--boss-ring),.24),inset 0 0 42px rgba(0,0,0,.42);
+}
+.dragon-arena.is-boss-critical .dragon-boss-avatar{
+  animation:dragon-boss-critical 1s ease-in-out infinite alternate;
+}
+.dragon-arena-atmosphere{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  overflow:hidden;
+  pointer-events:none;
+}
+.dragon-arena-atmosphere i{
+  position:absolute;
+  left:var(--x,10%);
+  bottom:-18px;
+  width:4px;
+  height:4px;
+  border-radius:50%;
+  opacity:.22;
+  animation:dragon-atmos-rise var(--dur,7s) linear infinite;
+  animation-delay:var(--delay,0s);
+}
+.dragon-arena-atmosphere i:nth-child(1){--x:8%;--dur:7.8s;--delay:-1s}
+.dragon-arena-atmosphere i:nth-child(2){--x:19%;--dur:6.7s;--delay:-4s}
+.dragon-arena-atmosphere i:nth-child(3){--x:34%;--dur:8.4s;--delay:-2.2s}
+.dragon-arena-atmosphere i:nth-child(4){--x:48%;--dur:6.2s;--delay:-5.1s}
+.dragon-arena-atmosphere i:nth-child(5){--x:61%;--dur:7.3s;--delay:-3.4s}
+.dragon-arena-atmosphere i:nth-child(6){--x:73%;--dur:8.8s;--delay:-6s}
+.dragon-arena-atmosphere i:nth-child(7){--x:86%;--dur:6.9s;--delay:-2.8s}
+.dragon-arena-atmosphere i:nth-child(8){--x:94%;--dur:8.1s;--delay:-4.8s}
+.dragon-arena[data-boss-id="hydra"] .dragon-arena-atmosphere i{
+  background:#77d36a;
+  box-shadow:0 0 10px rgba(87,211,75,.68);
+}
+.dragon-arena[data-boss-id="wendigo"] .dragon-arena-atmosphere i{
+  width:3px;height:7px;border-radius:30%;
+  background:#d8efff;
+  box-shadow:0 0 8px rgba(191,228,255,.60);
+}
+.dragon-arena[data-boss-id="hym"] .dragon-arena-atmosphere i{
+  width:7px;height:7px;
+  background:rgba(145,83,194,.48);
+  box-shadow:0 0 13px rgba(123,59,174,.70);
+  filter:blur(1px);
+}
+.dragon-arena[data-boss-id="necromorph"] .dragon-arena-atmosphere i{
+  width:2px;height:8px;border-radius:0;
+  background:#ff5555;
+  box-shadow:0 0 8px rgba(255,54,54,.74);
+}
+.dragon-arena[data-boss-id="deathwing"] .dragon-arena-atmosphere i{
+  width:5px;height:5px;
+  background:#ff7b38;
+  box-shadow:0 0 12px rgba(255,73,29,.78);
+}
+.dragon-phase-cue.is-attack{
+  top:36%;
+  padding:8px 14px;
+  border-color:rgba(255,116,79,.38);
+  color:#ffd0bb;
+  background:rgba(22,8,10,.90);
+  font-size:13px;
+  box-shadow:0 0 24px rgba(194,60,42,.20);
+}
+.dragon-phase-cue.is-kill{
+  border-color:rgba(255,76,76,.62);
+  color:#ffd4d4;
+  background:rgba(26,5,8,.94);
+  font-size:18px;
+  box-shadow:0 0 34px rgba(235,48,48,.34);
+}
+.dragon-raider-card.is-hero-dying{
+  animation:dragon-hero-fall .72s cubic-bezier(.2,.8,.24,1) forwards!important;
+}
+.dragon-float-text.is-fallen{
+  color:#ff8383;
+  font-size:18px;
+  letter-spacing:.14em;
+  text-shadow:0 2px 3px #000,0 0 16px rgba(255,52,52,.58);
+}
+.dragon-arena-boss.is-boss-dying{
+  animation:dragon-boss-death .95s cubic-bezier(.18,.82,.26,1) forwards;
+  transform-origin:center;
+}
+.dragon-arena.is-boss-death .dragon-arena-ring{
+  animation:dragon-ring-collapse .9s ease-in forwards;
+}
+.dragon-arena.is-boss-death::before{
+  animation:dragon-death-dim .95s ease-in forwards;
+}
+@keyframes dragon-lane-pulse{
+  from{opacity:.28;filter:brightness(.9)}
+  to{opacity:.72;filter:brightness(1.28)}
+}
+@keyframes dragon-critical-heartbeat{
+  0%,100%{filter:brightness(1);scale:1}
+  42%{filter:brightness(1.13);scale:1.015}
+  58%{filter:brightness(1.03);scale:1.005}
+}
+@keyframes dragon-boss-critical{
+  from{filter:brightness(.96) saturate(1)}
+  to{filter:brightness(1.15) saturate(1.14);box-shadow:0 0 0 7px rgba(var(--boss-ring),.07),0 0 44px rgba(255,58,58,.28),inset 0 0 44px rgba(80,0,0,.18)}
+}
+@keyframes dragon-atmos-rise{
+  0%{transform:translate3d(0,0,0) scale(.7);opacity:0}
+  14%{opacity:.28}
+  74%{opacity:.18}
+  100%{transform:translate3d(22px,-580px,0) scale(1.35);opacity:0}
+}
+@keyframes dragon-hero-fall{
+  0%{opacity:1;translate:0 0;filter:grayscale(0) brightness(1)}
+  28%{opacity:1;translate:0 -4px;filter:grayscale(.2) brightness(1.22)}
+  100%{opacity:.38;translate:0 10px;filter:grayscale(.9) brightness(.58)}
+}
+@keyframes dragon-boss-death{
+  0%{opacity:1;translate:0 0;scale:1;filter:brightness(1)}
+  22%{translate:-4px 2px;scale:1.06;filter:brightness(1.65)}
+  38%{translate:5px -3px;scale:1.03}
+  62%{translate:-3px 4px;scale:.96;filter:brightness(.72) grayscale(.25)}
+  100%{opacity:.08;translate:0 16px;scale:.72;filter:brightness(.25) grayscale(1)}
+}
+@keyframes dragon-ring-collapse{
+  0%{scale:1;opacity:1}
+  55%{scale:1.08;opacity:.72}
+  100%{scale:.18;opacity:0}
+}
+@keyframes dragon-death-dim{
+  from{opacity:.6}
+  to{opacity:.18}
+}
+@media(max-width:650px){
+  .dragon-active-lane{display:none!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .dragon-active-lane,.dragon-raider-card.is-critical-hp,.dragon-arena.is-boss-critical .dragon-boss-avatar,
+  .dragon-arena-atmosphere i,.dragon-raider-card.is-hero-dying,.dragon-arena-boss.is-boss-dying,
+  .dragon-arena.is-boss-death .dragon-arena-ring{animation:none!important}
 }

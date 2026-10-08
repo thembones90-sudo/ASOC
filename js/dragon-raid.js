@@ -87,13 +87,13 @@
       if (!message) return;
       if (message.type === 'dragon:update') {
         this.onState(message.raid, message.serverNow);
-        if (message.heartTie) this.note = 'THE HEART REJECTS EQUALITY // TIED HEROES ROLL AGAIN';
+        if (message.heartTie) this.note = 'THE HEART REJECTS EQUALITY — TIED HEROES ROLL AGAIN';
         const combat = message.actionResult || message.bossResult;
         if (combat) requestAnimationFrame(() => requestAnimationFrame(() => this.animateCombat(combat)));
         return;
       }
       if (message.type === 'dragon:error') {
-        this.note = String(message.message || 'THE DRAGON REFUSES');
+        this.note = String(message.message || 'THE CABINET REFUSES');
         this.render();
         clearTimeout(this._noteTimer);
         this._noteTimer = setTimeout(() => {
@@ -113,7 +113,7 @@
       }
     },
 
-    animateCombat(result) {
+    async animateCombat(result) {
       if (!result || !document.getElementById('dragon-raid-overlay')) return;
       if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
       const boss = document.querySelector('.dragon-arena-boss');
@@ -216,6 +216,34 @@
         arena.classList.add(className);
         setTimeout(() => arena.classList.remove(className), ms);
       };
+      const floatText = (target, text, kind = '') => {
+        if (!target || !arena || !text) return;
+        const tr = target.getBoundingClientRect();
+        const ar = arena.getBoundingClientRect();
+        const fx = document.createElement('b');
+        fx.className = 'dragon-float-text' + (kind ? ' is-' + kind : '');
+        fx.textContent = text;
+        fx.style.left = (tr.left + tr.width / 2 - ar.left) + 'px';
+        fx.style.top = (tr.top + Math.max(18, tr.height * .28) - ar.top) + 'px';
+        arena.appendChild(fx);
+        setTimeout(() => fx.remove(), 900);
+      };
+      const telegraph = (target, kind = 'danger', delay = 320) => {
+        if (!target) return Promise.resolve();
+        target.classList.add('is-targeted', 'is-targeted-' + kind);
+        return new Promise(resolve => setTimeout(() => {
+          target.classList.remove('is-targeted', 'is-targeted-' + kind);
+          resolve();
+        }, delay));
+      };
+      const phaseCue = (text, kind = '') => {
+        if (!arena || !text) return;
+        const fx = document.createElement('div');
+        fx.className = 'dragon-phase-cue' + (kind ? ' is-' + kind : '');
+        fx.textContent = text;
+        arena.appendChild(fx);
+        setTimeout(() => fx.remove(), 1250);
+      };
 
       if (result.side === 'hero') {
         const actor = player(result.playerId);
@@ -225,12 +253,14 @@
           healPulse(target || actor);
           pulse(actor, 'is-casting-heal', 520);
           arenaTint('is-heal-cast', 520);
+          if ((result.healing || 0) > 0) floatText(target || actor, '+' + result.healing, 'heal');
           return;
         }
         if (result.action === 'resurrect') {
           pulse(actor, 'is-casting-heal', 680);
           lift(target || actor);
           arenaTint('is-resurrection-cast', 760);
+          if (result.revived) floatText(target || actor, 'REVIVED', 'revive');
           return;
         }
         if (result.action === 'taunt') {
@@ -253,7 +283,13 @@
           const crit = result.result === 'critical' || result.result === 'natural20';
           recoil(boss, result.result === 'natural20' ? 1.45 : crit ? 1.18 : 1);
           impact(boss, result.result === 'natural20' ? 'crit' : crit ? 'heavy' : '');
+          floatText(boss, '-' + result.damage, result.result === 'natural20' ? 'crit' : crit ? 'heavy' : 'damage');
           if (crit) arenaTint('is-crit-hit', result.result === 'natural20' ? 620 : 420);
+        }
+        if ((this.raid?.dragonHp || 0) <= 0 && boss) {
+          phaseCue('SPECIMEN TERMINATED', 'kill');
+          boss.classList.add('is-boss-dying');
+          arena?.classList.add('is-boss-death');
         }
         return;
       }
@@ -261,6 +297,10 @@
       if (result.side === 'boss') {
         const bossId = String(result.bossId || this.raid?.boss?.id || '');
         const skill = String(result.skill || '').toUpperCase();
+        if (skill && skill !== 'MISS') {
+          phaseCue(skill, 'attack');
+          await new Promise(resolve => setTimeout(resolve, 220));
+        }
         const rawTargets = (result.targets || []).map(id => player(String(id))).filter(Boolean);
         const targets = [...new Set(rawTargets)];
         const bossPulse = (strength = 1.08, duration = 460) => boss?.animate?.([
@@ -269,6 +309,27 @@
           { scale: '.99', offset: .62 },
           { scale: '1' }
         ], { duration, easing: 'cubic-bezier(.2,.85,.25,1)' });
+
+        const teleKind = bossId === 'hydra' ? 'venom' : bossId === 'wendigo' ? 'frost' : bossId === 'hym' ? 'shadow' : bossId === 'necromorph' ? 'necro' : 'danger';
+        if (targets.length) await Promise.all(targets.map(t => telegraph(t, teleKind, 320)));
+        Object.entries(result.dealt || {}).forEach(([id, amount]) => {
+          const t = player(id);
+          if (t && Number(amount) > 0) floatText(t, '-' + amount, bossId === 'hydra' ? 'venom' : 'damage');
+        });
+        if ((result.healed || 0) > 0) floatText(boss, '+' + result.healed, 'heal');
+        targets.forEach(t => {
+          const id = t.dataset.playerId;
+          const state = this.raid?.participants?.find?.(p => String(p.id) === String(id));
+          if (state && !state.alive) setTimeout(() => {
+            t.classList.add('is-hero-dying');
+            floatText(t, 'FALLEN', 'fallen');
+          }, 360);
+        });
+        if (bossId === 'hydra' && this.raid?.dragonHp <= this.raid?.dragonMaxHp * .5 && this._swampVigorCueRaidId !== this.raid?.id) {
+          this._swampVigorCueRaidId = this.raid.id;
+          phaseCue('SWAMP VIGOR AWAKENED', 'swamp');
+          arenaTint('is-swamp-vigor', 1100);
+        }
 
         if (bossId === 'hym') {
           bossPulse(1.04, 520);
@@ -424,19 +485,21 @@
     participantHTML(p) {
       const meta = ROLE_META[p.role] || { label: p.role, icon: '◆' };
       const pct = p.maxHp ? Math.max(0, Math.min(100, Math.round((p.hp / p.maxHp) * 100))) : 0;
-      const statuses = Object.entries(p.statuses || {}).filter(([, value]) => !!value).map(([key, value]) => `${key.toUpperCase()}${typeof value === 'number' && value > 1 ? ' ' + value : ''}`);
+      const statuses = Object.entries(p.statuses || {}).filter(([, value]) => !!value).map(([key, value]) => ({ key, label: `${key.toUpperCase()}${typeof value === 'number' && value > 1 ? ' ' + value : ''}` }));
       const cooldowns = Object.entries(p.cooldowns || {}).filter(([, value]) => value > 0).map(([key, value]) => `${key.toUpperCase()} CD${value}`);
       const skills = p.role === 'tank'
         ? ['TAUNT', 'SHIELD WALL']
         : p.role === 'heal'
           ? ['HEAL', 'RESURRECT']
           : ['EXECUTE', 'RAPID STRIKE'];
-      return `<article class="dragon-raider-card ${p.alive ? '' : 'is-fallen'} ${this.raid.activePlayerId === p.id ? 'is-active' : ''}" data-player-id="${this.esc(p.id)}" data-role="${this.esc(p.role)}">
+      const hpState = !p.alive ? 'is-fallen' : pct <= 20 ? 'is-critical-hp' : pct <= 40 ? 'is-low-hp' : '';
+      return `<article class="dragon-raider-card ${hpState} ${this.raid.activePlayerId === p.id ? 'is-active' : ''}" data-player-id="${this.esc(p.id)}" data-role="${this.esc(p.role)}">
         <header><span class="dragon-role-icon">${meta.icon}</span><b>${this.esc(p.name)}</b><small>${this.esc(meta.label)}</small></header>
         <div class="dragon-raider-skills">${skills.map(skill => `<span>${skill}</span>`).join('')}</div>
+        ${statuses.length ? `<div class="dragon-status-chips">${statuses.map(s => `<span class="is-${this.esc(s.key)}">${this.esc(s.label)}</span>`).join('')}</div>` : ''}
         <div class="dragon-raider-hp"><i style="width:${pct}%"></i></div>
         <footer><span>♥ ${p.hp} / ${p.maxHp}</span>${p.role === 'heal' ? `<span>✦ ${p.resurrectionCharges} RES</span>` : ''}<span>⚔ ${p.damage}</span></footer>
-        ${p.alive ? `<em>${this.raid.activePlayerId === p.id ? '◆ ACTIVE TURN' : 'AWAITING TURN'}${statuses.length ? ' // ' + statuses.join(' · ') : ''}${cooldowns.length ? ' // ' + cooldowns.join(' · ') : ''}</em>` : '<em>☠ FALLEN</em>'}
+        ${p.alive ? `<em>${this.raid.activePlayerId === p.id ? '◆ ACTIVE TURN' : 'AWAITING TURN'}${cooldowns.length ? ' · ' + cooldowns.join(' · ') : ''}</em>` : '<em>☠ FALLEN</em>'}
       </article>`;
     },
 
@@ -458,14 +521,14 @@
             <button data-dragon-action="join" data-role="heal"><b>✦ HEALER</b><small>2× RESURRECTION</small></button>
           </div>`
         : mine
-          ? `<div class="dragon-locked">RAID SLOT CLAIMED // ${this.roleName(mine.role)}</div>`
+          ? `<div class="dragon-locked">RAID SLOT CLAIMED — ${this.roleName(mine.role)}</div>`
           : full && !this.isGM()
-            ? '<div class="dragon-locked">RAID FULL // YOU SNOOZE, YOU LOSE</div>'
+            ? '<div class="dragon-locked">RAID FULL — YOU SNOOZE, YOU LOSE</div>'
             : '';
       return `
         <div class="dragon-heading">
           <span class="dragon-mark">🐉</span>
-          <div><small>${raid.boss.heroic ? 'HEROIC WORLD EVENT' : 'CABINET ENCOUNTER'}</small><h1>${this.esc(raid.boss.name)} HAS AWAKENED</h1></div>
+          <div><small>${raid.boss.heroic ? 'HEROIC CALAMITY' : 'CABINET ENCOUNTER'}</small><h1>${this.esc(raid.boss.name)} HAS AWAKENED</h1></div>
           <strong data-dragon-clock="recruit">${this.clock(this.remaining(raid.recruitEndsAt))}</strong>
         </div>
         <p class="dragon-lore">Heroes act in order. Then the enemy answers. ${raid.boss.heroic ? 'Deathwing accepts exactly five victims.' : 'Three may challenge it. Five may enter.'}</p>
@@ -482,7 +545,7 @@
       const hpPct = Math.max(0, Math.min(100, raid.dragonHp / raid.dragonMaxHp * 100));
       const myTurn = !this.isGM() && raid.phase === 'HERO_TURN' && mine?.alive && raid.activePlayerId === mine.id;
       const active = raid.participants.find(p => p.id === raid.activePlayerId);
-      const targetOptions = raid.participants.map(p => `<option value="${this.esc(p.id)}">${this.esc(p.name)} // ${p.alive ? p.hp + ' HP' : 'FALLEN'}</option>`).join('');
+      const targetOptions = raid.participants.map(p => `<option value="${this.esc(p.id)}">${this.esc(p.name)} — ${p.alive ? p.hp + ' HP' : 'FALLEN'}</option>`).join('');
       let actions = '';
       if (myTurn) {
         const roleActions = mine.role === 'tank'
@@ -490,23 +553,25 @@
           : mine.role === 'heal'
             ? `<button data-dragon-action="act" data-ability="heal">HEAL TARGET</button><button data-dragon-action="act" data-ability="resurrect" ${mine.resurrectionCharges ? '' : 'disabled'}>RESURRECT (${mine.resurrectionCharges})</button>`
             : `<button data-dragon-action="act" data-ability="execute" ${mine.cooldowns?.execute ? 'disabled' : ''}>EXECUTE (${mine.cooldowns?.execute || 'READY'})</button><button data-dragon-action="act" data-ability="rapid" ${mine.cooldowns?.rapid ? 'disabled' : ''}>RAPID STRIKE (${mine.cooldowns?.rapid || 'READY'})</button>`;
-        actions = `<div class="dragon-action-tray"><select id="dragon-action-target">${targetOptions}</select><button class="dragon-primary" data-dragon-action="act" data-ability="attack">ATTACK // ROLL D20</button>${roleActions}</div>`;
+        actions = `<div class="dragon-action-tray"><select id="dragon-action-target">${targetOptions}</select><button class="dragon-primary" data-dragon-action="act" data-ability="attack">ATTACK — ROLL D20</button>${roleActions}</div>`;
       }
-      const last = raid.lastAction ? `<div class="dragon-round-feed"><span class="${this.esc(raid.lastAction.result)}"><b>${this.esc(raid.lastAction.name)}</b> // ${this.esc(raid.lastAction.action || raid.lastAction.result)} // D20 ${raid.lastAction.roll} ${raid.lastAction.damage ? '// ' + raid.lastAction.damage + ' DAMAGE' : ''}</span></div>` : '';
+      const last = raid.lastAction ? `<div class="dragon-round-feed"><span class="${this.esc(raid.lastAction.result)}"><b>${this.esc(raid.lastAction.name)}</b> — ${this.esc(raid.lastAction.action || raid.lastAction.result)} — D20 ${raid.lastAction.roll} ${raid.lastAction.damage ? '— ' + raid.lastAction.damage + ' DAMAGE' : ''}</span></div>` : '';
       return `
         <div class="dragon-heading">
           <span class="dragon-mark is-burning">☠</span>
           <div><small>${raid.boss.heroic ? 'HEROIC CALAMITY' : 'CABINET ARENA'} — ROUND ${raid.round} — ${raid.phase === 'BOSS_TURN' ? 'SPECIMEN PHASE' : 'HERO PHASE'}</small><h1>${this.esc(raid.boss.name)}</h1><small>${this.esc(raid.boss.passive)}${raid.boss.wrath ? ` — WRATH ${raid.boss.wrath}` : ''}${raid.worldBreaker ? ' — WORLD BREAKER' : ''}${raid.sunder ? ' — SUNDERED' : ''}</small></div>
           <strong data-dragon-clock="battle">${this.clock(this.remaining(raid.battleEndsAt))}</strong>
         </div>
-        <div class="dragon-arena" data-boss-id="${this.esc(raid.boss.id)}" data-party-size="${raid.participants.length}">
+        <div class="dragon-arena ${hpPct <= 25 ? 'is-boss-critical' : hpPct <= 50 ? 'is-boss-low' : ''}" data-boss-id="${this.esc(raid.boss.id)}" data-party-size="${raid.participants.length}">
+          <div class="dragon-arena-atmosphere" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="dragon-active-lane" aria-hidden="true"></div>
           <div class="dragon-arena-ring" aria-hidden="true"></div>
           <div class="dragon-arena-party">${this.partySlotsHTML()}</div>
           <section class="dragon-arena-boss">
             <div class="dragon-boss-avatar" data-boss-avatar="${this.esc(raid.boss.id)}">
               <span class="dragon-boss-avatar-fallback">${this.esc(raid.boss.name.slice(0,1))}</span>
             </div>
-            <div class="dragon-boss-title"><small>CONTAINMENT BROKEN</small><b>${this.esc(raid.boss.name)}</b></div>
+            <div class="dragon-boss-title"><small>CONTAINMENT BROKEN</small><b>${this.esc(raid.boss.name)}</b><span class="dragon-passive-badge ${raid.boss.id === 'hydra' && raid.dragonHp <= raid.dragonMaxHp * .5 ? 'is-awakened' : ''}">${this.esc(raid.boss.passive)}</span></div>
             <div class="dragon-boss-hp">
               <div><strong>♥ ${raid.dragonHp} / ${raid.dragonMaxHp}</strong></div>
               <span><i style="width:${hpPct}%"></i></span>
@@ -517,8 +582,8 @@
         ${this.isGM() ? '<div class="dragon-gm-observer"><span>SHADOW BROKER OBSERVER — LIVE COMBAT</span><button type="button" data-dragon-action="cancel">CANCEL RAID</button></div>' : ''}
         ${actions}
         ${!myTurn && mine?.alive ? '<div class="dragon-locked">WAIT FOR YOUR TURN</div>' : ''}
-        ${!mine && !this.isGM() ? '<div class="dragon-locked">SPECTATING // RAID GATES SEALED</div>' : ''}
-        ${this.myLastRoll && this.myLastRoll.round === raid.round ? `<div class="dragon-own-roll">YOUR ROLL // <b>${this.myLastRoll.value}</b></div>` : ''}
+        ${!mine && !this.isGM() ? '<div class="dragon-locked">SPECTATING — RAID GATES SEALED</div>' : ''}
+        ${this.myLastRoll && this.myLastRoll.round === raid.round ? `<div class="dragon-own-roll">YOUR ROLL — <b>${this.myLastRoll.value}</b></div>` : ''}
         ${last}
       `;
     },
@@ -551,7 +616,7 @@
           <div><small>THE BEAST HAS FALLEN</small><h1>THE HOARD BREAKS OPEN</h1></div>
           <strong>VICTORY</strong>
         </div>
-        <div class="dragon-hoard"><small>DRAGON HOARD</small><b>🪙 ${raid.loot?.total || 0}</b><div>${lootRows}</div></div>
+        <div class="dragon-hoard"><small>SHADOW COIN HOARD</small><b>🪙 ${raid.loot?.total || 0}</b><div>${lootRows}</div></div>
         <div class="dragon-heart">
           <small>GUARANTEED BOSS RELIC</small>
           <h2><img class="dragon-hos-icon" src="assets/ui/heart-of-the-shadow.webp" alt="" loading="lazy"> HEART OF THE SHADOW</h2>
@@ -560,7 +625,7 @@
           <div class="dragon-heart-rolls">${heartRows}</div>
           ${!this.isGM() && eligible && !rolled ? '<button class="dragon-primary heart" data-dragon-action="heart">ROLL FOR THE HEART</button>' : ''}
           ${!this.isGM() && eligible && rolled ? '<div class="dragon-locked">HEART ROLL COMMITTED</div>' : ''}
-          ${!this.isGM() && mine && !mine.alive ? '<div class="dragon-dead-loot">☠ YOU ARE DEAD // NO HEART // NO LOOT</div>' : ''}
+          ${!this.isGM() && mine && !mine.alive ? '<div class="dragon-dead-loot">☠ YOU ARE DEAD — NO HEART — NO LOOT</div>' : ''}
         </div>
       `;
     },
@@ -604,7 +669,7 @@
           ? 'TIME EXPIRED'
         : raid.result?.reason === 'PARTY_WIPE'
           ? 'THE RAID PARTY HAS FALLEN'
-          : 'TOO FEW RAIDERS';
+          : 'TOO FEW LITTLE HEROES';
       return `
         <div class="dragon-heading defeat">
           <span class="dragon-mark">🐉</span>
@@ -612,9 +677,33 @@
           <strong>${aborted ? 'WITHDRAWN' : 'DEFEAT'}</strong>
         </div>
         <p class="dragon-lore">${raid.result?.reason === 'GM_CANCELLED' ? 'Encounter terminated by Shadow Broker authority. The specimen returns to containment.' : aborted ? 'The Cabinet remains sealed. The required challengers never arrived.' : 'The specimen survives. Its hoard remains untouched.'}</p>
-        <div class="dragon-dead-loot">${aborted ? 'NO PENALTY' : 'NO COINS // NO HEART OF THE SHADOW'}</div>
+        <div class="dragon-dead-loot">${aborted ? 'NO PENALTY' : 'NO COINS — NO HEART OF THE SHADOW'}</div>
         <button class="dragon-secondary" data-dragon-action="hide">CLOSE RAID REPORT</button>
       `;
+    },
+
+    updateActiveLane() {
+      const arena = document.querySelector('.dragon-arena');
+      const lane = arena?.querySelector('.dragon-active-lane');
+      const active = arena?.querySelector('.dragon-raider-card.is-active');
+      const boss = arena?.querySelector('.dragon-arena-boss');
+      if (!arena || !lane || !active || !boss || this.raid?.phase !== 'HERO_TURN') {
+        if (lane) lane.hidden = true;
+        return;
+      }
+      const ar = arena.getBoundingClientRect();
+      const a = active.getBoundingClientRect();
+      const b = boss.getBoundingClientRect();
+      const ax = a.left + a.width / 2 - ar.left;
+      const ay = a.top + a.height / 2 - ar.top;
+      const bx = b.left + b.width / 2 - ar.left;
+      const by = b.top + b.height / 2 - ar.top;
+      const dx = bx - ax, dy = by - ay;
+      lane.hidden = false;
+      lane.style.left = ax + 'px';
+      lane.style.top = ay + 'px';
+      lane.style.width = Math.max(0, Math.hypot(dx, dy) - Math.min(a.width, b.width) * .34) + 'px';
+      lane.style.transform = `rotate(${Math.atan2(dy, dx) * 180 / Math.PI}deg)`;
     },
 
     render() {
@@ -639,6 +728,7 @@
         ${body}
         ${this.note ? `<div class="dragon-note">${this.esc(this.note)}</div>` : ''}
       `;
+      requestAnimationFrame(() => this.updateActiveLane());
     },
 
     tick() {
