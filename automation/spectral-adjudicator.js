@@ -8,6 +8,9 @@ const MODES = Object.freeze(['MANUAL', 'ASSISTED', 'AUTONOMOUS']);
 function normalizeState(value) {
   const state = value && typeof value === 'object' ? value : {};
   return { mode: MODES.includes(state.mode) ? state.mode : 'MANUAL', paused: state.paused === true,
+    scheduleArmed: state.scheduleArmed === true,
+    lastScheduledDate: /^\d{4}-\d{2}-\d{2}$/.test(String(state.lastScheduledDate || '')) ? state.lastScheduledDate : null,
+    launchScheduledAt: Number(state.launchScheduledAt) || null,
     pending: Array.isArray(state.pending) ? state.pending.slice(-100) : [],
     history: Array.isArray(state.history) ? state.history.slice(-100) : [] };
 }
@@ -29,5 +32,5 @@ function inspect(message, context = {}) {
   return { ...result, decision: 'REJECT', reason: 'CLEAR_MISMATCH' };
 }
 
-function publicState(value) { const s = normalizeState(value); return { name: NAME, mode: s.mode, paused: s.paused, pending: s.pending }; }
+function publicState(value) { const s = normalizeState(value); return { name: NAME, mode: s.mode, paused: s.paused, scheduleArmed: s.scheduleArmed, nextRitualTime: '12:55 Europe/Belgrade', pending: s.pending }; }
 module.exports = { NAME, MODES, normalizeState, inspect, publicState };

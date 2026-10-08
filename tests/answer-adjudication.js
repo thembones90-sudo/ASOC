@@ -23,4 +23,6 @@ eq(spectral.inspect(msg('A banana'),context).decision,'REJECT','clear wrong reje
 eq(spectral.inspect(msg('A spit'),context).decision,'ESCALATE','possible typo requires GM judgment');
 eq(spectral.inspect(msg('bug K'),context).target,'FINAL','final always targetable');
 eq(spectral.normalizeState(null).mode,'MANUAL','safe default is manual');
-assert.ok(checks>=18); console.log(`answer adjudication tests: OK (${checks} checks)`);
+eq(spectral.normalizeState({scheduleArmed:true}).scheduleArmed,true,'schedule arm persists');
+eq(spectral.publicState({scheduleArmed:true}).nextRitualTime,'12:55 Europe/Belgrade','schedule is explicit');
+assert.ok(checks>=20); console.log(`answer adjudication tests: OK (${checks} checks)`);

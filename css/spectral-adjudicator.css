@@ -43,11 +43,13 @@
 }
 .spectral-console button { color: transparent; font-size: 0; }
 .spectral-console button::before { color: #d89afa; font: 900 12px/1 monospace; }
-#spectral-pause::before { content: 'Ⅱ'; }
-#spectral-resume::before { content: '▶'; }
+#spectral-arm::before { content: '◆'; }
+#spectral-disarm::before { content: '◇'; }
 .spectral-console select:hover, .spectral-console button:hover { border-color: #d071ff; box-shadow: 0 0 9px rgba(190,86,239,.3); }
 .spectral-console.is-paused { border-color: #a43a54; box-shadow: inset 3px 0 #d54964, inset 0 0 20px rgba(180,35,66,.16); }
 .spectral-console.is-paused span { color: #ff7089; }
+.spectral-console.is-armed { border-color: #35d6ef; box-shadow: inset 3px 0 #35d6ef, inset 0 0 24px rgba(53,214,239,.14), 0 0 14px rgba(53,214,239,.14); }
+.spectral-console.is-armed #spectral-arm { border-color:#35d6ef; background:linear-gradient(#123341,#09151b); }
 @keyframes spectral-scan { 0%,55% { transform:translateX(-90%); } 80%,100% { transform:translateX(90%); } }
 @media (min-width: 901px) {
   body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > .spectral-console { grid-column: auto !important; order: 1 !important; width: 100% !important; }

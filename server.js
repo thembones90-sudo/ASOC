@@ -1936,6 +1936,7 @@ function handleRitualJoin(ws) {
   room.ritual.joinedPlayerIds.push(id);
   recomputeRitualFulfillment(room);
   broadcastRitualState(room);
+  advanceSpectralRitual(room);
 }
 
 function handleRitualTributeSubmit(ws, message) {
@@ -1984,6 +1985,7 @@ function handleRitualTributeAccept(ws) {
   recomputeRitualFulfillment(room);
   broadcastRitualState(room);
   sendTributeVaultToHost(room);
+  advanceSpectralRitual(room);
 }
 
 function handleRitualTributeReject(ws, message) {
@@ -11502,9 +11504,74 @@ function handleSpectralControl(ws, message) {
   } else if (message.type === 'gm:spectral:pause') room.spectralAdjudicator.paused = true;
   else if (message.type === 'gm:spectral:resume') room.spectralAdjudicator.paused = false;
   else if (message.type === 'gm:spectral:manual') { room.spectralAdjudicator.mode = 'MANUAL'; room.spectralAdjudicator.paused = false; }
+  else if (message.type === 'gm:spectral:arm') {
+    room.spectralAdjudicator.scheduleArmed = true;
+    room.spectralAdjudicator.mode = 'AUTONOMOUS';
+    room.spectralAdjudicator.paused = false;
+  } else if (message.type === 'gm:spectral:disarm') {
+    room.spectralAdjudicator.scheduleArmed = false;
+    room.spectralAdjudicator.launchScheduledAt = null;
+  }
   persistActiveRooms();
   sendSpectralState(room);
 }
+
+function belgradeClock(at = Date.now()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Belgrade', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(new Date(at)).map(part => [part.type, part.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour), minute: Number(parts.minute) };
+}
+
+function advanceSpectralRitual(room) {
+  const state = room?.spectralAdjudicator;
+  if (!state?.scheduleArmed || !room.ritual?.active || room.roomMode !== ROOM_MODES.BATTLE_ARMED || !isRitualFulfilled(room)) return false;
+  if (!room.hostConnection || room.hostConnection.readyState !== 1 || room.hostConnection.gmAuthenticated !== true) return false;
+  if (state.launchScheduledAt) return false;
+  if (!room.ritual.lockedIn) handleRitualLockIn(room.hostConnection);
+  if (!room.ritual.lockedIn) return false;
+  state.launchScheduledAt = Date.now();
+  persistActiveRooms();
+  handleTimerLaunchCountdown(room.hostConnection);
+  setTimeout(() => runtimeAction(() => {
+    const live = rooms.get(room.code);
+    if (!live?.spectralAdjudicator?.scheduleArmed || live.roomMode !== ROOM_MODES.BATTLE_ARMED) return;
+    handleTimerStart(live.hostConnection);
+    live.spectralAdjudicator.launchScheduledAt = null;
+    persistActiveRooms();
+    sendSpectralState(live);
+  }), 10 * 1000).unref?.();
+  sendSpectralState(room);
+  return true;
+}
+
+function tickSpectralSchedule(at = Date.now()) {
+  const clock = belgradeClock(at);
+  for (const room of rooms.values()) {
+    room.spectralAdjudicator = spectralAdjudicator.normalizeState(room.spectralAdjudicator);
+    const state = room.spectralAdjudicator;
+    if (!state.scheduleArmed) continue;
+    if (clock.hour === 12 && clock.minute === 55 && state.lastScheduledDate !== clock.date) {
+      state.lastScheduledDate = clock.date;
+      state.launchScheduledAt = null;
+      if (!isMatchResolved(room) && (!room.timer || room.timer.phase === 'ready')) {
+        room.roomMode = ROOM_MODES.BATTLE_ARMED;
+        room.armed = true;
+        startRitual(room);
+        room.revision++;
+        persistActiveRooms();
+        broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+        broadcastPlayersUpdate(room);
+        broadcastRitualState(room);
+      } else persistActiveRooms();
+      sendSpectralState(room);
+    }
+    advanceSpectralRitual(room);
+  }
+}
+
+setInterval(() => runtimeAction(() => tickSpectralSchedule()), 15 * 1000).unref();
 
 function handleChatEdit(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
@@ -14472,7 +14539,9 @@ wss.on('connection', (ws, req) => {
         case 'gm:spectral:mode':
         case 'gm:spectral:pause':
         case 'gm:spectral:resume':
-        case 'gm:spectral:manual': {
+        case 'gm:spectral:manual':
+        case 'gm:spectral:arm':
+        case 'gm:spectral:disarm': {
           if (message.type === 'gm:spectral:sync') {
             const spectralRoom = rooms.get(ws.roomCode?.toUpperCase());
             if (spectralRoom && ws === spectralRoom.hostConnection) sendSpectralState(spectralRoom);
