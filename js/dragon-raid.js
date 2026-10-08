@@ -79,6 +79,7 @@
       this.serverNow = Number(serverNow) || Date.now();
       this.receivedAt = Date.now();
       if (this.hiddenRaidId && this.hiddenRaidId !== raid.id) this.hiddenRaidId = null;
+      if (this.isGM() && ['RECRUITING','HERO_TURN','BOSS_TURN','VICTORY','HEART'].includes(raid.phase)) this.hiddenRaidId = null;
       this.render();
     },
 
@@ -192,6 +193,7 @@
         <p class="dragon-lore">Heroes act in order. Then the enemy answers. ${raid.boss.heroic ? 'Deathwing accepts exactly five victims.' : 'Three may challenge it. Five may enter.'}</p>
         <div class="dragon-party-count">RAID PARTY <b>${raid.participants.length} / 5</b> <span>${raid.boss.heroic ? 'EXACTLY 5 REQUIRED' : 'MINIMUM 3'}</span></div>
         <div class="dragon-raider-grid">${this.partySlotsHTML()}</div>
+        ${this.isGM() ? '<div class="dragon-gm-observer"><span>SHADOW BROKER OBSERVER — RECRUITMENT LIVE</span><button type="button" data-dragon-action="cancel">CANCEL RAID</button></div>' : ''}
         ${choose}
       `;
     },
@@ -224,7 +226,8 @@
           <span><i style="width:${hpPct}%"></i></span>
         </div>
         <div class="dragon-raider-grid">${this.partySlotsHTML()}</div>
-        <div class="dragon-turn-banner">${raid.phase === 'BOSS_TURN' ? '🐉 THE DRAGON MOVES' : `ACTIVE HERO // ${this.esc(active?.name || '—')}`}</div>
+        <div class="dragon-turn-banner">${raid.phase === 'BOSS_TURN' ? 'THE SPECIMEN MOVES' : `ACTIVE HERO — ${this.esc(active?.name || '—')}`}</div>
+        ${this.isGM() ? '<div class="dragon-gm-observer"><span>SHADOW BROKER OBSERVER — LIVE COMBAT</span><button type="button" data-dragon-action="cancel">CANCEL RAID</button></div>' : ''}
         ${actions}
         ${!myTurn && mine?.alive ? '<div class="dragon-locked">WAIT FOR YOUR TURN</div>' : ''}
         ${!mine && !this.isGM() ? '<div class="dragon-locked">SPECTATING // RAID GATES SEALED</div>' : ''}
@@ -295,7 +298,9 @@
     failureHTML() {
       const raid = this.raid;
       const aborted = raid.phase === 'ABORTED';
-      const reason = raid.result?.reason === 'CATACLYSM'
+      const reason = raid.result?.reason === 'GM_CANCELLED'
+        ? 'THE SHADOW BROKER HAS CLOSED THE CABINET'
+        : raid.result?.reason === 'CATACLYSM'
         ? 'CATACLYSM'
         : raid.result?.reason === 'CATACLYSM_REQUIRES_FIVE'
           ? 'DEATHWING REQUIRES EXACTLY FIVE HEROES'
@@ -310,7 +315,7 @@
           <div><small>${aborted ? 'RAID ABORTED' : 'RAID FAILED'}</small><h1>${reason}</h1></div>
           <strong>${aborted ? 'WITHDRAWN' : 'DEFEAT'}</strong>
         </div>
-        <p class="dragon-lore">${aborted ? 'The Dragon finds the turnout beneath its contempt.' : 'The Dragon survives. Its hoard remains untouched.'}</p>
+        <p class="dragon-lore">${raid.result?.reason === 'GM_CANCELLED' ? 'Encounter terminated by Shadow Broker authority. The specimen returns to containment.' : aborted ? 'The Cabinet remains sealed. The required challengers never arrived.' : 'The specimen survives. Its hoard remains untouched.'}</p>
         <div class="dragon-dead-loot">${aborted ? 'NO PENALTY' : 'NO COINS // NO HEART OF THE SHADOW'}</div>
         <button class="dragon-secondary" data-dragon-action="hide">CLOSE RAID REPORT</button>
       `;
@@ -366,6 +371,11 @@
         const bossId = button.dataset.bossId;
         this.closeSetup();
         return this.send({ type: 'gm:dragonRaid', bossId });
+      }
+      if (action === 'cancel') {
+        if (!this.isGM()) return;
+        button.disabled = true;
+        return this.send({ type: 'gm:dragonRaid', action: 'cancel' });
       }
       if (action === 'join') {
         button.disabled = true;

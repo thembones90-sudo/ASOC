@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('assert/strict'),fs=require('fs'),path=require('path');
-const d=require('../dragon-raid');let checks=0;
+const d=require('../dragon-raid');const {createDragonRaidService}=require('../dragon-raid-server');let checks=0;
 const eq=(a,b,m)=>{checks++;assert.equal(a,b,m)};const ok=(v,m)=>{checks++;assert.ok(v,m)};
 const seq=values=>{let i=0;return()=>values[Math.min(i++,values.length-1)]};
 function raid(boss='wendigo',roles=['tank','heal','dps']){const r=d.createRaid(1000,boss);roles.forEach((role,i)=>d.join(r,{id:'p'+i,name:'P'+i},role));return r}
@@ -40,7 +40,9 @@ function bossReady(boss='wendigo',roles=['tank','heal','dps']){const r=raid(boss
 
 (()=>{eq(d.weightedLoot(()=>.995),500);const s=d.splitLoot(307,['a','b','c','d'],()=>0);eq(Object.values(s).reduce((a,b)=>a+b,0),307);const h=d.heartRound(['a','b'],()=>.41);eq(h.winner,null);eq(h.tied.length,2)})();
 
-(()=>{const src=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8'),service=fs.readFileSync(path.join(__dirname,'..','dragon-raid-server.js'),'utf8'),client=fs.readFileSync(path.join(__dirname,'..','js','dragon-raid.js'),'utf8');ok(/case 'dragon:action'/.test(src));ok(/r\.phase==='VICTORY'\)return victory\(room\)/.test(service));ok(/r\.boss\.heroic\?'CATACLYSM':'TIME_EXPIRED'/.test(service));ok(/reason === 'CATACLYSM'/.test(client));ok(/CABINET OF CURIOSITIES/.test(client));ok(/WENDIGO/.test(client));ok(/HYM/.test(client));ok(/HYDRA/.test(client));ok(/NECROMORPH/.test(client));ok(!/AZHRAAK/.test(client));ok(!/DRAZHUL/.test(client));ok(!/VARKHUL/.test(client));ok(!/KRAEVAR/.test(client))})();
+(()=>{let broadcasts=0;const service=createDragonRaidService({playerStore:{applyDragonRaidResults:()=>({ok:true})},coinAccount:()=>null,triggerMegabonk:()=>({ok:true}),broadcastToRoom:()=>{broadcasts++},broadcastPlayersUpdate:()=>{},sendToWs:()=>{},randomInt:a=>a});const room={dragonRaid:raid('wendigo')};d.startBattle(room.dragonRaid);const x=service.abort(room);eq(x.ok,true);eq(room.dragonRaid.phase,'ABORTED');eq(room.dragonRaid.result.reason,'GM_CANCELLED');ok(broadcasts>0)})();
+
+(()=>{const src=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8'),service=fs.readFileSync(path.join(__dirname,'..','dragon-raid-server.js'),'utf8'),client=fs.readFileSync(path.join(__dirname,'..','js','dragon-raid.js'),'utf8');ok(/case 'dragon:action'/.test(src));ok(/r\.phase==='VICTORY'\)return victory\(room\)/.test(service));ok(/r\.boss\.heroic\?'CATACLYSM':'TIME_EXPIRED'/.test(service));ok(/reason === 'CATACLYSM'/.test(client));ok(/CABINET OF CURIOSITIES/.test(client));ok(/WENDIGO/.test(client));ok(/HYM/.test(client));ok(/HYDRA/.test(client));ok(/NECROMORPH/.test(client));ok(/SHADOW BROKER OBSERVER/.test(client));ok(/data-dragon-action=\"cancel\"/.test(client));ok(/action:\s*'cancel'/.test(client));ok(/getDragonRaidService\(\)\.abort/.test(src));ok(!/AZHRAAK/.test(client));ok(!/DRAZHUL/.test(client));ok(!/VARKHUL/.test(client));ok(!/KRAEVAR/.test(client))})();
 
 ok(checks>=70,'expected >=70 checks, got '+checks);
 console.log('cabinet raid tests: OK ('+checks+' checks)');

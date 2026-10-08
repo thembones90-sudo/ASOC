@@ -8999,8 +8999,13 @@ function handleDragonRaidSetup(ws, message) {
   if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) {
     return sendToWs(ws, { type: 'dragon:error', message: 'ONLY THE SHADOW BROKER MAY OPEN A RAID' });
   }
+  if (String(message.action || '').toLowerCase() === 'cancel') {
+    const result = getDragonRaidService().abort(room, 'GM_CANCELLED');
+    if (!result.ok) sendToWs(ws, { type: 'dragon:error', message: result.error });
+    return;
+  }
   const bossId = String(message.bossId || '').toLowerCase();
-  if (!dragonRaid.BOSSES[bossId]) return sendToWs(ws, { type: 'dragon:error', message: 'SELECT A VALID DRAGON' });
+  if (!dragonRaid.BOSSES[bossId]) return sendToWs(ws, { type: 'dragon:error', message: 'SELECT A VALID CABINET SPECIMEN' });
   const result = triggerDragonRaid(room, bossId);
   if (!result.ok) sendToWs(ws, { type: 'dragon:error', message: result.error });
 }

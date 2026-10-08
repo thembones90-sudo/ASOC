@@ -732,3 +732,53 @@
 .dragon-hos-icon-large{display:block;width:80px;height:80px;margin:8px auto 4px;}
 @media(prefers-reduced-motion:no-preference){.dragon-hos-icon-large{animation:dragonHosPulse 3.5s ease-in-out infinite;}}
 @keyframes dragonHosPulse{0%,100%{filter:drop-shadow(0 0 7px rgba(161,35,189,.4)) drop-shadow(0 0 7px rgba(206,14,44,.35))}50%{filter:drop-shadow(0 0 16px rgba(161,35,189,.65)) drop-shadow(0 0 14px rgba(206,14,44,.55))}}
+
+
+/* Shadow Broker live observer controls */
+.dragon-gm-observer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin:14px 0 4px;
+  padding:10px 12px;
+  border:1px solid rgba(175,86,211,.34);
+  background:linear-gradient(90deg,rgba(45,18,58,.62),rgba(17,10,23,.86));
+  color:#d9b9e8;
+  font:800 10px/1.2 var(--font-mono,monospace);
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  box-shadow:inset 0 0 18px rgba(151,67,190,.04);
+}
+.dragon-gm-observer span::before{
+  content:'◉';
+  margin-right:8px;
+  color:#b96dde;
+  text-shadow:0 0 10px rgba(185,109,222,.5);
+}
+.dragon-gm-observer button{
+  min-height:34px;
+  padding:0 13px;
+  border:1px solid rgba(220,67,79,.55);
+  background:rgba(75,12,19,.52);
+  color:#ff8994;
+  cursor:pointer;
+  font:800 10px/1 var(--font-mono,monospace);
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  transition:.16s ease;
+}
+.dragon-gm-observer button:hover{
+  border-color:#ff5968;
+  color:#ffd1d5;
+  background:rgba(110,18,27,.68);
+  box-shadow:0 0 18px rgba(255,70,84,.18);
+}
+.dragon-gm-observer button:disabled{
+  opacity:.45;
+  cursor:default;
+}
+@media(max-width:640px){
+  .dragon-gm-observer{align-items:stretch;flex-direction:column}
+  .dragon-gm-observer button{width:100%}
+}
