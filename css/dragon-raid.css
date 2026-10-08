@@ -726,3 +726,9 @@
   .dragon-setup-grid>button{min-height:146px}
   .dragon-setup-grid>button.is-heroic{grid-column:auto}
 }
+
+/* Heart of the Shadow: chosen transparent crimson and violet mechanical heart. */
+.dragon-hos-icon{display:inline-block;width:42px;height:42px;object-fit:contain;vertical-align:middle;filter:drop-shadow(0 0 8px rgba(161,35,189,.48)) drop-shadow(0 0 8px rgba(206,14,44,.38));}
+.dragon-hos-icon-large{display:block;width:80px;height:80px;margin:8px auto 4px;}
+@media(prefers-reduced-motion:no-preference){.dragon-hos-icon-large{animation:dragonHosPulse 3.5s ease-in-out infinite;}}
+@keyframes dragonHosPulse{0%,100%{filter:drop-shadow(0 0 7px rgba(161,35,189,.4)) drop-shadow(0 0 7px rgba(206,14,44,.35))}50%{filter:drop-shadow(0 0 16px rgba(161,35,189,.65)) drop-shadow(0 0 14px rgba(206,14,44,.55))}}

@@ -257,7 +257,7 @@
         <div class="dragon-hoard"><small>DRAGON HOARD</small><b>🪙 ${raid.loot?.total || 0}</b><div>${lootRows}</div></div>
         <div class="dragon-heart">
           <small>GUARANTEED BOSS RELIC</small>
-          <h2>🖤 HEART OF THE SHADOW</h2>
+          <h2><img class="dragon-hos-icon" src="assets/ui/heart-of-the-shadow.webp" alt="" loading="lazy"> HEART OF THE SHADOW</h2>
           <p>Only the living may claim it.</p>
           <div class="dragon-heart-rolls">${heartRows}</div>
           ${!this.isGM() && eligible && !rolled ? '<button class="dragon-primary heart" data-dragon-action="heart">ROLL FOR THE HEART</button>' : ''}
@@ -287,7 +287,7 @@
           <div><small>HOARD</small><b>${raid.loot?.total || 0}</b></div>
         </div>
         <div class="dragon-hoard"><div>${lootRows}</div></div>
-        <div class="dragon-heart winner"><small>HEART OF THE SHADOW</small><h2>🖤 ${this.esc(winner)}</h2></div>
+        <div class="dragon-heart winner"><small>HEART OF THE SHADOW</small><img class="dragon-hos-icon dragon-hos-icon-large" src="assets/ui/heart-of-the-shadow.webp" alt="Heart of the Shadow" loading="lazy"><h2>${this.esc(winner)}</h2></div>
         <button class="dragon-secondary" data-dragon-action="hide">CLOSE RAID REPORT</button>
       `;
     },
