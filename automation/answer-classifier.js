@@ -3,7 +3,10 @@
 const TARGETS = Object.freeze(['A', 'B', 'C', 'D', 'FINAL']);
 
 function explicitTarget(raw) {
-  const match = String(raw || '').trim().match(/^(?:([a-dk])\s+([a-z]+(?:['-][a-z]+)*)|([a-z]+(?:['-][a-z]+)*)\s+([a-dk]))$/i);
+  // Players naturally phrase guesses as questions ("property A?"). Terminal
+  // sentence punctuation is presentation, not part of the one-word answer.
+  const text = String(raw || '').trim().replace(/[?!.,;:]+$/u, '').trim();
+  const match = text.match(/^(?:([a-dk])\s+([a-z]+(?:['-][a-z]+)*)|([a-z]+(?:['-][a-z]+)*)\s+([a-dk]))$/i);
   if (!match) return null;
   const marker = (match[1] || match[4]).toUpperCase();
   return { target: marker === 'K' ? 'FINAL' : marker, answer: match[2] || match[3] };

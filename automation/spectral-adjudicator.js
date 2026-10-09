@@ -26,8 +26,10 @@ function inspect(message, context = {}) {
   if (result.kind !== 'ANSWER') return result;
   const solution = context.solutions && context.solutions[result.target];
   if (!solution) return { ...result, decision: 'ESCALATE', reason: 'NO_SOLUTION' };
-  if (normalizeAnswer(result.answer) === normalizeAnswer(solution)) return { ...result, decision: 'ACCEPT', reason: 'EXACT' };
-  if (suffixRelated(result.answer, solution)) return { ...result, decision: context.mode === 'AUTONOMOUS' ? 'ACCEPT' : 'ESCALATE', reason: 'DERIVATIONAL' };
+  // The Adjudicator may identify a plausible correct answer, but only the GM
+  // can award it. Even exact matches must enter the consultation queue.
+  if (normalizeAnswer(result.answer) === normalizeAnswer(solution)) return { ...result, decision: 'ESCALATE', reason: 'EXACT' };
+  if (suffixRelated(result.answer, solution)) return { ...result, decision: 'ESCALATE', reason: 'DERIVATIONAL' };
   if (levenshtein(normalizeAnswer(result.answer), normalizeAnswer(solution), 1) <= 1) return { ...result, decision: 'ESCALATE', reason: 'POSSIBLE_TYPO' };
   return { ...result, decision: 'REJECT', reason: 'CLEAR_MISMATCH' };
 }
