@@ -99,3 +99,14 @@ html body #battle-controls-panel :is(#black-market-gm-button, #poison-gm-button)
 html body #gm-panel :is(.gm-chat-tab, .gm-minigames-toggle) { font-size: 10.5px; }
 html body #gm-panel #gm-chat-presence .gm-presence-label { font-size: 10px; }
 html body #gm-panel .gm-latest-readout-label { font-size: 9.5px; }
+
+/* 6. MASTER ACCESS menu / BACKDOOR log ---------------------------------------
+   The menu let the button text behind it ghost through and used 8px text.
+   Diagnostics timestamps ("09:10:36 PM") wrapped onto two lines. */
+html body #master-access-menu {
+  background: linear-gradient(180deg, #171222, #09080d);
+}
+html body #master-access-menu .master-access-status small { font-size: .62rem; }
+html body #master-access-menu .master-access-status strong { font-size: .74rem; }
+html body .gm-runtime-diagnostics-events div { grid-template-columns: 96px 80px minmax(0, 1fr); }
+html body .gm-runtime-diagnostics-events time { white-space: nowrap; }
