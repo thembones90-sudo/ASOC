@@ -6977,7 +6977,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
   { name: '/avada', help: '/avada @Name -- the killing curse (5% it rebounds; 10 min recharge)' },
   { name: '/backstab', help: '/backstab @Name -- spend 15 SC to betray a player (10% chance you stab yourself; 60 min recharge)' },
-  { name: '/whip', help: '/whip @Name -- one-use Shadow Market leather whip (6 SC; 15% counter-whip); GM free' },
+  { name: '/whip', help: '/whip @Name -- one-use Shadow Market leather whip (40 SC; 15% counter-whip); GM free' },
   { name: '/dropkick', help: '/dropkick @Name -- free comic dropkick (90 sec player recharge; unlimited GM)' },
   { name: '/tickle', help: '/tickle @Name -- free tickle attack (60 sec cooldown); /revenge within 10 sec' },
   { name: '/revenge', help: '/revenge -- retaliate against a tickler (10 sec window)' },
@@ -7014,7 +7014,8 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/afk', help: '/afk @Name -- privately check if a Little Hero is still there' },
   { name: '/hug', help: '/hug [@Name] -- the Broker hugs someone (or everyone)' },
   { name: '/relic', help: "/relic @Name -- grant the relic SHADOW BROKER'S MISTAKE (you were wrong)" },
-  { name: '/award', help: '/award @Name ghost -- grant a Shadow Market relic or reward (e.g. /drug)' },
+  { name: '/award', help: '/award @Name whip -- grant any Shadow Market item (commands, cosmetics, relics)' },
+  { name: '/revoke', help: '/revoke @Name whip -- take any Shadow Market item away from a player' },
   { name: '/goat', help: '/goat -- unleash one random GOAT event' },
   { name: '/megabonk', help: '/megabonk all [message] -- alert EVERY Little Hero (must ACKNOWLEDGE). /megabonk @Name [message] -- alert ONE Little Hero' }
 ];
@@ -8779,19 +8780,44 @@ function dispatchGmSlashCommand(room, ws, text) {
     sendToWs(ws, { type: 'gm:module', name: 'intercept' });
     return { success: true, broadcast: false };
   }
-  if (/^\/award\b/i.test(raw)) {
-    const match = raw.match(/^\/award\s+@?(.+?)\s+\/?([a-z-]+)\s*$/i);
-    if (!match) return { success: false, error: 'AWARD INVALID // USE /award @Name ghost' };
+  if (/^\/(award|revoke)\b/i.test(raw)) {
+    const verb = /^\/revoke\b/i.test(raw) ? 'revoke' : 'award';
+    const label = verb.toUpperCase();
+    const match = raw.match(/^\/(?:award|revoke)\s+@?(.+?)\s+\/?([a-z0-9_-]+)\s*$/i);
+    if (!match) return { success: false, error: `${label} INVALID // USE /${verb} @Name whip` };
     const key = match[2].toLowerCase();
     const item = shadowMarket.COMMAND_ITEMS.get(key) || shadowMarket.getItem(key) || shadowMarket.getItem(`cmd-${key}`);
-    if (!item?.relic) return { success: false, error: `AWARD // ${key.toUpperCase()} IS NOT A GRANTABLE RELIC` };
-    const resolved = resolveNamedTarget(room, null, '', match[1], 'AWARD');
+    if (!item) return { success: false, error: `${label} // ${key.toUpperCase()} IS NOT A SHADOW MARKET ITEM` };
+    const resolved = resolveNamedTarget(room, null, '', match[1], label, { includeDisconnected: true });
     if (resolved.error) return { success: false, error: resolved.error };
     const account = coinAccount(resolved.target.id, resolved.target.name);
-    if (!account) return { success: false, error: 'AWARD // TEST PERSONAS HAVE NO DOSSIER' };
-    const hiddenGrant = item.id === 'cmd-backstab' || item.id === 'cmd-goat';
-    if (!awardRelic(room, account, item.id, { announce: !hiddenGrant })) return { success: false, error: `AWARD // ${resolved.target.name} ALREADY HOLDS ${item.name}` };
-    return { success: true, broadcast: !hiddenGrant };
+    if (!account) return { success: false, error: `${label} // TEST PERSONAS HAVE NO DOSSIER` };
+    const itemName = String(item.name).toUpperCase();
+    let announce = null;
+    if (verb === 'award') {
+      const hiddenGrant = item.id === 'cmd-backstab' || item.id === 'cmd-goat';
+      if (item.relic) {
+        if (!awardRelic(room, account, item.id, { announce: !hiddenGrant })) return { success: false, error: `AWARD // ${resolved.target.name} ALREADY HOLDS ${item.name}` };
+      } else {
+        const granted = playerStore.grantItem(account, item.id, { tiers: Array.isArray(item.tiers) ? item.tiers.length : 1, consumable: item.consumable === true });
+        if (!granted.ok) return { success: false, error: `AWARD // ${label} FAILED` };
+        if (granted.duplicate) return { success: false, error: `AWARD // ${resolved.target.name} ALREADY HOLDS ${item.name}` };
+        announce = item.consumable === true
+          ? `SHADOW MARKET // ${resolved.target.name} RECEIVES A ${itemName} CHARGE (${granted.owned} HELD)`
+          : `SHADOW MARKET // ${resolved.target.name} IS GRANTED ${itemName}`;
+      }
+      if (!announce && !hiddenGrant) { refreshShadowStateFor(room, resolved.target.id, account); return { success: true, broadcast: true }; }
+      if (!announce) { refreshShadowStateFor(room, resolved.target.id, account); return { success: true, broadcast: false }; }
+    } else {
+      const revoked = playerStore.revokeItem(account, item.id);
+      if (!revoked.ok) return { success: false, error: 'REVOKE // FAILED' };
+      if (revoked.missing) return { success: false, error: `REVOKE // ${resolved.target.name} DOES NOT HOLD ${item.name}` };
+      announce = `SHADOW MARKET // ${itemName} REVOKED FROM ${resolved.target.name}`;
+    }
+    addShadowBrokerMessage(room, announce, { editableByHost: false });
+    refreshShadowStateFor(room, resolved.target.id, account);
+    broadcastPlayersUpdate(room);
+    return { success: true, broadcast: true };
   }
   if (/^\/relic\b/i.test(raw)) {
     const match = raw.match(/^\/relic\s+@?(.+?)\s*$/i);
@@ -11425,6 +11451,15 @@ function handleShadowDossier(ws, message) {
 
 // RELICS -- earned only. Grants are idempotent and always reach players:update;
 // callers may suppress the public announcement for hidden mechanics.
+// Pushes a fresh Shadow Market state to a player's open sockets so a GM
+// /award or /revoke shows up in their store and dossier immediately.
+function refreshShadowStateFor(room, playerId, account) {
+  room.players.forEach((player, ws) => {
+    if (String(player.id) !== String(playerId)) return;
+    try { sendToWs(ws, shadowStatePayload(account)); } catch (error) { console.error('[market] state refresh failed:', error.message); }
+  });
+}
+
 function awardRelic(room, account, relicId, { announce = true } = {}) {
   const item = shadowMarket.getItem(relicId);
   if (!room || !account || !item?.relic) return false;
