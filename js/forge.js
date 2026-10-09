@@ -519,11 +519,10 @@ const Forge = {
           <div class="creator-section">
             <h4 class="creator-label">BOARD — ALL 20 ENTRIES + FINAL</h4>
             <div class="creator-board-tools">
-              <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-paste>PASTE WHOLE BOARD</button>
-              <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-quality>CHECK READINESS</button>
-              <button type="button" class="forge-btn ghost creator-tool-btn creator-clear-board" data-creator-clear-board>CLEAR BOARD</button>
-              <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-export ${this.isNew || !d.id ? 'disabled title="Save the game before exporting"' : ''}>EXPORT .XLSX</button>
-              <span class="creator-tip">ENTER → next · drag clue rows to reorder · click preview to jump</span>
+              <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-paste><svg class="creator-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 2.5h6v2H5zM4 3.5H3v10h10v-10h-1M5.5 8h5M5.5 10.5h5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>PASTE WHOLE BOARD</button>
+              <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-quality><svg class="creator-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8l5 1.9v4c0 3-2.1 5-5 6.5-2.9-1.5-5-3.5-5-6.5v-4zM5.6 8l1.7 1.7L10.6 6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>CHECK READINESS</button>
+              <button type="button" class="forge-btn ghost creator-tool-btn creator-clear-board" data-creator-clear-board><svg class="creator-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5v-2h3v2M4.5 4.5l.6 9h5.8l.6-9M7 7v4M9 7v4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>CLEAR BOARD</button>
+              <span class="creator-tip">ENTER → next · drag rows to reorder · click preview to jump</span>
             </div>
             <div class="creator-column-focus" role="tablist" aria-label="Column focus">
               ${['ALL','A','B','C','D'].map(col => `<button type="button" class="creator-column-tab${this.activeColumn === col ? ' active' : ''}" data-creator-column-focus="${col}" role="tab" aria-selected="${this.activeColumn === col}">${col === 'ALL' ? 'ALL COLUMNS' : `COLUMN ${col}`}</button>`).join('')}
@@ -1364,7 +1363,6 @@ const Forge = {
       if (e.target.closest('[data-creator-template-apply]')) return this.applySelectedTemplate();
       if (e.target.closest('[data-creator-template-save]')) return this.saveCurrentTemplate();
       if (e.target.closest('[data-creator-quality]')) return this.runQualityCheck();
-      if (e.target.closest('[data-creator-export]')) return this.editingGame?.id && this.exportGame(this.editingGame.id);
       if (e.target.closest('[data-creator-hint-suggest]')) return this.suggestHint();
       const focusButton = e.target.closest('[data-creator-column-focus]');
       if (focusButton) return this.applyColumnFocus(focusButton.dataset.creatorColumnFocus);
