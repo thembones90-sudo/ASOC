@@ -29,6 +29,8 @@
 
 .creator-board-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
 .creator-tool-btn { min-height: 34px; padding: 6px 12px; }
+.creator-clear-board { border-color:#71343d !important; color:#e88491 !important; }
+.creator-clear-board:hover { border-color:#e34e61 !important; background:rgba(171,38,55,.16) !important; color:#ffd3d8 !important; }
 .creator-tip { color: #7c8a93; font: 700 .66rem var(--font-machine, monospace); letter-spacing: .06em; }
 
 /* Automatic Game Maker */

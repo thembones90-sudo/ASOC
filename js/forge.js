@@ -521,6 +521,7 @@ const Forge = {
             <div class="creator-board-tools">
               <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-paste>PASTE WHOLE BOARD</button>
               <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-quality>CHECK READINESS</button>
+              <button type="button" class="forge-btn ghost creator-tool-btn creator-clear-board" data-creator-clear-board>CLEAR BOARD</button>
               <button type="button" class="forge-btn ghost creator-tool-btn" data-creator-export ${this.isNew || !d.id ? 'disabled title="Save the game before exporting"' : ''}>EXPORT .XLSX</button>
               <span class="creator-tip">ENTER → next · drag clue rows to reorder · click preview to jump</span>
             </div>
@@ -737,6 +738,26 @@ const Forge = {
     this.markDirty();
     this.clearErrors();
     this.updatePreview();
+  },
+
+  clearBoard() {
+    if (!this.editingGame) return;
+    if (!confirm('Clear all 20 board cells, the final solution, and every generated candidate? Theme, background and notes will remain.')) return;
+    for (const name of this.FIELD_ORDER) this.applyField(name, '');
+    this.editingGame.cellHints = {};
+    this._makerColumnCandidates = [];
+    this._makerClueCandidates = { A: [], B: [], C: [], D: [] };
+    this._makerSelections = { A: new Set(), B: new Set(), C: new Set(), D: new Set() };
+    this._makerBlacklist = new Set();
+    this._makerLocked = new Set();
+    this._makerAudit = null;
+    this._makerSource = '';
+    delete this.editingGame._makerState;
+    this._showMissing = false;
+    this._longLabels = new Set();
+    this.markDirty();
+    this.renderCreator();
+    this.focusField('finalSolution', { select: false });
   },
 
   persistMaker() {
@@ -1325,6 +1346,7 @@ const Forge = {
     overlay.addEventListener('click', (e) => {
       if (this.view !== 'creator') return;
       if (e.target.closest('[data-maker-generate-columns]')) return this.generateMakerColumns();
+      if (e.target.closest('[data-creator-clear-board]')) return this.clearBoard();
       if (e.target.closest('[data-maker-more-columns]')) return this.generateMoreMakerColumns(10, false);
       if (e.target.closest('[data-maker-replace-blacklist]')) return this.generateMoreMakerColumns(this._makerBlacklist.size, true);
       if (e.target.closest('[data-maker-auto-build]')) return this.autoBuildMakerDraft();

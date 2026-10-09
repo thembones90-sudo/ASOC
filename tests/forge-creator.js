@@ -58,5 +58,8 @@ assert.match(forge, /persistMaker\(\)/, 'generated pools survive in the local cr
 assert.match(forge, /Near-duplicate word family/, 'readiness audit catches grammatical variants');
 assert.match(css, /\.maker-audit/, 'semantic audit has dedicated verdict styling');
 assert.match(forge, /PRIVATE LOCAL WORDNET/, 'creator identifies its credential-free private fallback');
+assert.match(forge, /data-creator-clear-board/, 'creator exposes a full Clear Board loop');
+assert.match(forge, /for \(const name of this\.FIELD_ORDER\) this\.applyField\(name, ''\)/, 'Clear Board removes all 20 cells and the final answer');
+assert.match(forge, /Theme, background and notes will remain/, 'Clear Board explains which creator settings are preserved');
 
 console.log('PASS ASOC Creator: theme identity, unified editor, guided entry, drafts, test play, fit warnings and prepared hints');
