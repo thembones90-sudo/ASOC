@@ -64,6 +64,7 @@ function blankProfile(displayName) {
     threefoldDraws: 0,
     asocGamesEarned: 0,
     heartOfShadow: 0,
+    heartOfShadowReceipts: [],
     dragonRaidReceipts: [],
     dragonStats: { raidsEntered: 0, dragonKills: 0, deaths: 0, resurrectionsCast: 0, timesResurrected: 0, damageDealt: 0, heartsWon: 0, dragonCoinsEarned: 0 },
     // SHADOW COINS: ASOC's persistent account-level currency. Changed ONLY
@@ -223,6 +224,7 @@ function validateAndNormalizePlayers(raw) {
     profile.dailyContracts = candidate.dailyContracts && typeof candidate.dailyContracts === 'object' ? candidate.dailyContracts : null;
     profile.sibicarRound = candidate.sibicarRound && typeof candidate.sibicarRound === 'object' ? candidate.sibicarRound : null;
     profile.heartOfShadow = Math.max(0, Math.floor(Number(candidate.heartOfShadow) || 0));
+    profile.heartOfShadowReceipts = Array.isArray(candidate.heartOfShadowReceipts) ? candidate.heartOfShadowReceipts.filter(r => typeof r === 'string').slice(-500) : [];
     profile.dragonRaidReceipts = Array.isArray(candidate.dragonRaidReceipts) ? candidate.dragonRaidReceipts.filter(r => typeof r === 'string').slice(-200) : [];
     profile.dragonStats = normalizeDragonStats(candidate.dragonStats);
     // Older profiles stored whole coins only; derive tenths from them once.
@@ -546,6 +548,25 @@ function spendShadowCoins(identity, amount, receiptId, { reason = 'spend' } = {}
   if (profile.shadowCoinUnits < units) return { ok: false, error: 'Not enough Shadow Coins', balance: unitsToCoins(profile.shadowCoinUnits) };
   if (!recordCoinChange(players, profile, receiptId, -units, { kind: 'purchase', reason })) return { ok: false, error: COIN_STORAGE_ERROR };
   return { ok: true, balance: profile.shadowCoins, duplicate: false };
+}
+
+// HEART OF THE SHADOW is a separate prestige currency. It is never converted
+// to Shadow Coins and may only be consumed by an idempotent, server-authorized
+// Black Market redemption.
+function spendHeartOfShadow(identity, receiptId, { reason = 'BLACK MARKET FAVOR' } = {}) {
+  if (!receiptId || typeof receiptId !== 'string') return { ok: false, error: 'Redemption needs a receipt id' };
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  if (!Array.isArray(profile.heartOfShadowReceipts)) profile.heartOfShadowReceipts = [];
+  profile.heartOfShadow = Math.max(0, Math.floor(Number(profile.heartOfShadow) || 0));
+  if (profile.heartOfShadowReceipts.includes(receiptId)) return { ok: true, duplicate: true, balance: profile.heartOfShadow };
+  if (profile.heartOfShadow < 1) return { ok: false, error: 'No Heart of the Shadow remains', balance: 0 };
+  profile.heartOfShadow -= 1;
+  profile.heartOfShadowReceipts.push(receiptId);
+  if (profile.heartOfShadowReceipts.length > 500) profile.heartOfShadowReceipts.splice(0, profile.heartOfShadowReceipts.length - 500);
+  if (!savePlayersAtomic(players)) return { ok: false, error: 'Player storage unavailable' };
+  console.log(`[heart-of-shadow] -1 from ${profile.name} (${reason}) -> ${profile.heartOfShadow}`);
+  return { ok: true, duplicate: false, balance: profile.heartOfShadow };
 }
 
 function applyDragonRaidResults(entries, raidId) {
@@ -1039,6 +1060,7 @@ module.exports = {
   applyDragonRaidResults,
   deductShadowCoins,
   spendShadowCoins,
+  spendHeartOfShadow,
   getShadowProfile,
   resetScoreboard,
   SCOREBOARD_FIELDS,

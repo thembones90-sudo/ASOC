@@ -98,6 +98,18 @@ function started(boss='wendigo',roles=['tank','heal','dps'],now=1000){const r=d.
  eq(r.activePlayerId,'p1');eq(r.turnIndex,1);eq(r.phase,'HERO_TURN');eq(r.heroTurnEndsAt,35000);eq(r.dragonHp,hp);eq(r.participants.p0.cooldowns.execute,0);eq(r.participants.p0.cooldowns.rapid,0);eq(r.participants.p0.statuses.isolated,false);eq(r.participants.p0.hp,10);
  eq(d.forfeitTurn(r,'p0',5000).ok,false);eq(r.activePlayerId,'p1')})();
 
+(()=>{ // five-raider cadence: boss interrupts every three hero turns, then rotation resumes with the next hero
+ eq(d.HERO_TURNS_PER_BOSS,3);
+ const r=started('hydra',['tank','heal','dps','dps','dps'],1000);
+ d.heroAction(r,'p0','attack','',8);eq(r.activePlayerId,'p1');eq(r.heroTurnsSinceBoss,1);
+ d.heroAction(r,'p1','attack','',8);eq(r.activePlayerId,'p2');eq(r.heroTurnsSinceBoss,2);
+ d.heroAction(r,'p2','attack','',8);eq(r.phase,'BOSS_TURN');eq(r.activePlayerId,null);eq(r.turnIndex,3);eq(r.heroTurnsSinceBoss,3);
+ d.bossAction(r,4,()=>0,5000);eq(r.phase,'HERO_TURN');eq(r.activePlayerId,'p3');eq(r.heroTurnsSinceBoss,0);
+ d.forfeitTurn(r,'p3');d.forfeitTurn(r,'p4');d.forfeitTurn(r,'p0');eq(r.phase,'BOSS_TURN');eq(r.turnIndex,1);
+ d.bossAction(r,4,()=>0,6000);eq(r.activePlayerId,'p1');
+ const view=d.publicView(r);eq(view.heroTurnsPerBoss,3);eq(view.heroTurnsSinceBoss,0)
+})();
+
 (()=>{ // the last hero in order timing out hands the round to the boss: no deadline, BOSS_TURN
  const r=started('necromorph',['tank','heal','dps'],1000);d.forfeitTurn(r,'p0');d.forfeitTurn(r,'p1');eq(r.activePlayerId,'p2');
  const x=d.forfeitTurn(r,'p2');eq(x.ok,true);eq(r.phase,'BOSS_TURN');eq(r.activePlayerId,null);eq(r.heroTurnEndsAt,null);

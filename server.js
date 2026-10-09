@@ -2155,9 +2155,12 @@ function blackMarketRoom(ws) {
 }
 function sendBlackMarketPlayer(room, playerId) {
   if (!room || !playerId) return;
+  const storedPlayers = playerStore.peekPlayers() || {};
+  const profile = storedPlayers[String(playerId)] || Object.values(storedPlayers).find(item => String(item?.accountId || item?.id || '') === String(playerId)) || {};
+  const heartOfShadow = Math.max(0, Math.floor(Number(profile.heartOfShadow) || 0));
   for (const [socket, player] of room.players.entries()) {
     if (socket?.readyState === 1 && String(player?.id) === String(playerId)) {
-      sendToWs(socket, { type: 'blackMarket:state', ...blackMarket.playerView(room.blackMarket, playerId) });
+      sendToWs(socket, { type: 'blackMarket:state', ...blackMarket.playerView(room.blackMarket, playerId), heartOfShadow });
     }
   }
 }
@@ -2170,12 +2173,12 @@ function blackMarketTargets(room) {
   for (const [key, profile] of Object.entries(playerStore.peekPlayers() || {})) {
     const id = String(profile?.accountId || profile?.id || key || '');
     if (!id || isMasterTestPlayerId(id)) continue;
-    targets.set(id, { id, name: String(profile?.name || 'LITTLE HERO'), connected: connected.has(id) });
+    targets.set(id, { id, name: String(profile?.name || 'LITTLE HERO'), connected: connected.has(id), heartOfShadow: Math.max(0, Math.floor(Number(profile?.heartOfShadow) || 0)) });
   }
   for (const player of room?.players?.values?.() || []) {
     const id = String(player?.id || '');
     if (!id || isMasterTestPlayerId(id)) continue;
-    if (!targets.has(id)) targets.set(id, { id, name: String(player?.name || 'LITTLE HERO'), connected: connected.has(id) });
+    if (!targets.has(id)) targets.set(id, { id, name: String(player?.name || 'LITTLE HERO'), connected: connected.has(id), heartOfShadow: 0 });
   }
   return [...targets.values()].sort((a,b) => Number(b.connected)-Number(a.connected) || a.name.localeCompare(b.name));
 }
@@ -2204,7 +2207,14 @@ function handleBlackMarket(ws, message) {
     const player = room.players.get(ws);
     if (!player || !ws.playerId || String(player.id) !== String(ws.playerId)) return;
     let result;
-    if (message.type === 'blackMarket:petition') result = blackMarket.createPetition(state, { id: ws.playerId, name: player.name }, message);
+    if (message.type === 'blackMarket:petition') {
+      if (message.paymentKind === 'HEART_OF_SHADOW') {
+        const storedPlayers = playerStore.peekPlayers() || {};
+        const profile = storedPlayers[String(ws.playerId)] || Object.values(storedPlayers).find(item => String(item?.accountId || item?.id || '') === String(ws.playerId));
+        if (Math.max(0, Math.floor(Number(profile?.heartOfShadow) || 0)) < 1) return blackMarketError('YOU POSSESS NO HEART OF THE SHADOW');
+      }
+      result = blackMarket.createPetition(state, { id: ws.playerId, name: player.name }, message);
+    }
     else if (message.type === 'blackMarket:acceptCounter') result = blackMarket.acceptCounter(state, ws.playerId, message.pactId);
     else if (message.type === 'blackMarket:tributeSeen') result = blackMarket.markTributeSeen(state, ws.playerId, message.pactId);
     else if (message.type === 'blackMarket:tributeSubmit') {
@@ -2255,6 +2265,16 @@ function handleBlackMarket(ws, message) {
     return;
   }
   if (message.type === 'blackMarket:gmDecision') {
+    const pact = blackMarket.findPact(state, message.pactId);
+    if (message.action === 'heart-accept') {
+      if (!pact || pact.paymentKind !== 'HEART_OF_SHADOW' || pact.state !== 'SUBMITTED') return blackMarketError('HEART REDEMPTION NOT FOUND');
+      const spent = playerStore.spendHeartOfShadow(
+        { id: pact.playerId, name: pact.playerName },
+        `black-market-heart:${pact.id}`,
+        { reason: pact.title || 'BLACK MARKET FAVOR' }
+      );
+      if (!spent.ok) return blackMarketError(String(spent.error || 'THE HEART COULD NOT BE CLAIMED').toUpperCase());
+    }
     const result = blackMarket.gmDecision(state, message);
     if (result?.error) return blackMarketError(result.error);
     persistActiveRooms();
@@ -2769,11 +2789,39 @@ function syncAutomaticColumnCountdown(room, column) {
   return true;
 }
 
+const COLUMN_DANGER_CHAT_SEQUENCE = Object.freeze([
+  { beforeDeadlineMs: 18000, text: '5' },
+  { beforeDeadlineMs: 15000, text: '4' },
+  { beforeDeadlineMs: 12000, text: '3' },
+  { beforeDeadlineMs: 9000, text: '2' },
+  { beforeDeadlineMs: 6000, text: '1' },
+  { beforeDeadlineMs: 3000, text: 'The time' }
+]);
+
+function armColumnDangerChatSequence(room, entry, armedToken) {
+  if (!entry.automatic || !['A', 'B', 'C', 'D'].includes(entry.target)) return;
+  for (const beat of COLUMN_DANGER_CHAT_SEQUENCE) {
+    const delay = Number(entry.deadline || 0) - beat.beforeDeadlineMs - Date.now();
+    // A restored/resumed countdown never replays beats whose moment passed.
+    if (delay <= 0) continue;
+    setTimeout(() => runtimeAction(() => {
+      const live = rooms.get(room.code);
+      const current = live?.solutionCountdowns?.[entry.target];
+      if (!live || !current || current.token !== armedToken || current.boardId !== live.boardId) return;
+      const posted = addShadowBrokerMessage(live, beat.text, { editableByHost: false });
+      if (!posted.success) return;
+      persistActiveRooms();
+      broadcastChatUpdate(live, [posted.message.id]);
+    }), delay).unref?.();
+  }
+}
+
 function armSolutionCountdown(room, entry) {
   const delay = Math.max(0, Number(entry.deadline || 0) - Date.now());
   // Captured now: pausing replaces entry.token on this same object, which is
   // what must invalidate this timeout.
   const armedToken = entry.token;
+  armColumnDangerChatSequence(room, entry, armedToken);
   setTimeout(() => runtimeAction(() => {
     const live = rooms.get(room.code);
     const current = live?.solutionCountdowns?.[entry.target];
@@ -2789,8 +2837,11 @@ function armSolutionCountdown(room, entry) {
     if (entry.automatic && ['A', 'B', 'C', 'D'].includes(entry.target)) {
       live.columnDangerExpired ||= {};
       live.columnDangerExpired[entry.target] = Date.now();
+      const posted = addShadowBrokerMessage(live, 'Is up.', { editableByHost: false });
+      const result = applyCommand(live, 'resolveColumn', { column: entry.target, outcome: 'failed' });
       live.revision++;
       persistActiveRooms();
+      if (posted.success) broadcastChatUpdate(live, [posted.message.id]);
       broadcastToRoom(live, { type: 'state:public', ...getPublicState(live) });
       broadcastToRoom(live, { type: 'column:dangerExpired', column: entry.target, timestamp: Date.now() });
       return;

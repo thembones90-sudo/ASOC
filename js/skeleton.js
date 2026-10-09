@@ -16,8 +16,8 @@
  *   B1-B4  right upper arm plates
  *   A5/B5  the inner plates above the central gate
  *   C5/D5  the wide tube bands below the central gate
- *   C1-C4  left  lower arm plates
- *   D1-D4  right lower arm plates
+ *   C1-C4  left lower arm plates, numbered outermost -> inward
+ *   D1-D4  right lower arm plates, numbered outermost -> inward
  *   FINAL  the red+purple rectangle pill in the middle of the picture
  *
  * Cells are absolutely positioned with CSS container-size units
@@ -87,16 +87,16 @@ const Skeleton = (() => {
     B4: { x: 1097.5, y: 417, w: 461, h: 61 },
     B5: { x: 978, y: 511, w: 493, h: 57 },
 
-    C1: { x: 331, y: 811, w: 467, h: 57 },
-    C2: { x: 241, y: 905, w: 452, h: 53 },
-    C3: { x: 154, y: 992, w: 440, h: 60 },
-    C4: { x: 71, y: 1083, w: 428, h: 59 },
+    C1: { x: 71, y: 1083, w: 428, h: 59 },
+    C2: { x: 154, y: 992, w: 440, h: 60 },
+    C3: { x: 241, y: 905, w: 452, h: 53 },
+    C4: { x: 331, y: 811, w: 467, h: 57 },
     C5: { x: 426, y: 721, w: 487, h: 55 },
 
-    D1: { x: 1093, y: 808.5, w: 468, h: 62 },
-    D2: { x: 1196.5, y: 905, w: 454, h: 53 },
-    D3: { x: 1297.5, y: 994, w: 440, h: 56 },
-    D4: { x: 1394, y: 1085, w: 426, h: 55 },
+    D1: { x: 1394, y: 1085, w: 426, h: 55 },
+    D2: { x: 1297.5, y: 994, w: 440, h: 56 },
+    D3: { x: 1196.5, y: 905, w: 454, h: 53 },
+    D4: { x: 1093, y: 808.5, w: 468, h: 62 },
     D5: { x: 979, y: 721.5, w: 487, h: 53 },
 
     FINAL: { x: 538.5, y: 613.5, w: 814, h: 55 }

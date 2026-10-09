@@ -34,6 +34,7 @@
     pacts: [],
     targets: [],
     tributeLevel: 0,
+    heartOfShadow: 0,
     // Returns the underlying send() result. PlayerApp.send answers true when the
     // frame left and false when the socket is down; the old wrapper threw that
     // answer away, so a submission into a dead socket was indistinguishable
@@ -67,7 +68,10 @@
         if (message?.type === 'blackMarket:state' || message?.type === 'blackMarket:gmState') {
           if (!window.AsocRuntime?.acceptRevision?.(isGM ? 'black-market-gm' : 'black-market-player', message.revision) && window.AsocRuntime) return;
           this.pacts = Array.isArray(message.pacts) ? message.pacts : [];
-          if (!isGM) this.tributeLevel = Math.max(0, Math.min(10, Number(message.tributeLevel) || 0));
+          if (!isGM) {
+            this.tributeLevel = Math.max(0, Math.min(10, Number(message.tributeLevel) || 0));
+            this.heartOfShadow = Math.max(0, Math.floor(Number(message.heartOfShadow) || 0));
+          }
           if (isGM) this.targets = Array.isArray(message.targets) ? message.targets : [];
           if (!isGM && this._tributeAwaitingPactId) {
             const submitted = this.pacts.find(p => p.id === this._tributeAwaitingPactId && p.state === 'TRIBUTE_SUBMITTED');
@@ -190,11 +194,13 @@
       const active = this.pacts.find(p => !['FULFILLED','DENIED','BROKEN'].includes(p.state));
       const ledger = this.pacts.map(p => this.card(p, false)).join('') || '<p class="bm-empty">NO PACTS HAVE BEEN WRITTEN.</p>';
       const petition = active ? '' : '<form id="bm-petition" class="bm-petition"><label>TITLE<input name="title" maxlength="120" placeholder="Name the favor"></label><label>CATEGORY<select name="category"><option>DESIGN</option><option>WRITING</option><option>TECH</option><option>RESEARCH</option><option>CUSTOM</option></select></label><label>YOUR PETITION<textarea name="request" maxlength="1200" required placeholder="State what you ask of the Shadow Broker."></textarea></label><button type="submit">BIND THE REQUEST</button></form>';
+      const heartCount = Math.max(0, Math.floor(Number(this.heartOfShadow) || 0));
+      const heartPetition = active ? '' : '<section class="bm-heart-exchange"><div class="bm-heart-relic" aria-hidden="true">♥</div><div class="bm-heart-copy"><small>GM FAVOR CURRENCY // ' + heartCount + ' HELD</small><h3>HEART OF THE SHADOW</h3><p>Offer one Heart directly to the Shadow Broker for a custom skill or personal favor. The Heart remains yours until the Broker accepts.</p></div><form id="bm-heart-petition"><label>REQUEST TYPE<select name="category"><option value="CUSTOM">CUSTOM SKILL</option><option value="CUSTOM">SHADOW BROKER FAVOR</option></select></label><label>NAME THE BARGAIN<input name="title" maxlength="120" required placeholder="Name the skill or favor"></label><label>YOUR TERMS<textarea name="request" maxlength="1200" required placeholder="Describe exactly what you ask for in exchange for one Heart."></textarea></label><button type="submit"' + (heartCount > 0 ? '' : ' disabled') + '>' + (heartCount > 0 ? 'OFFER 1 HEART' : 'NO HEART TO OFFER') + '</button></form></section>';
       const imposed = Math.max(0, Math.min(10, Number(this.tributeLevel) || 0));
       const imposedPact = this.pacts.find(p => p.tributeRequired && ['APPROVED_PENDING_TRIBUTE','TRIBUTE_REJECTED','TRIBUTE_SUBMITTED','OWED','IN_PROGRESS'].includes(p.state)) || this.pacts.find(p => p.tributeRequired);
       const cause = imposedPact?.request ? '<div class="bm-player-cause"><span>CAUSE OF DEBT</span><b>' + this.esc(imposedPact.request) + '</b></div>' : '';
       const rating = imposed ? '<section class="bm-player-rating"><div class="bm-player-rating-head"><span>BLOOD TRIBUTE RATING</span><b>' + imposed + ' / 10</b></div><div class="bm-player-rating-scale" aria-label="Blood Tribute rating ' + imposed + ' of 10">' + Array.from({length:10}, (_,i) => '<span class="' + (i + 1 <= imposed ? 'is-lit' : '') + (i + 1 === imposed ? ' is-current' : '') + '"><i>' + (i + 1) + '</i></span>').join('') + '</div><small>IMPOSED BY THE SHADOW BROKER</small>' + cause + '</section>' : '';
-      return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>PETITION THE BROKER</b><p>This chamber belongs to you alone. No other Little Hero sees what is written here.</p></div>' + rating + petition + '<h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + ledger + '</div>';
+      return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>PETITION THE BROKER</b><p>This chamber belongs to you alone. No other Little Hero sees what is written here.</p></div>' + rating + heartPetition + petition + '<h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + ledger + '</div>';
     },
     renderGm() {
       const pending = this.pacts.filter(p => ['SUBMITTED','TRIBUTE_SUBMITTED'].includes(p.state));
@@ -203,7 +209,7 @@
       const rest = this.pacts.filter(p => !['SUBMITTED','TRIBUTE_SUBMITTED','FULFILLED','DENIED','BROKEN'].includes(p.state));
       const history = this.pacts.filter(p => ['FULFILLED','DENIED','BROKEN'].includes(p.state) && p.tributeRequired);
       const targets = Array.isArray(this.targets) ? this.targets : [];
-      const playerOptions = targets.map(player => '<option value="' + this.esc(player.id) + '">' + this.esc(player.name || 'LITTLE HERO') + (player.connected ? ' // ONLINE' : ' // OFFLINE') + '</option>').join('');
+      const playerOptions = targets.map(player => '<option value="' + this.esc(player.id) + '">' + this.esc(player.name || 'LITTLE HERO') + ' // ' + Math.max(0, Math.floor(Number(player.heartOfShadow) || 0)) + ' HOS' + (player.connected ? ' // ONLINE' : ' // OFFLINE') + '</option>').join('');
       const levelOptions = Array.from({length:10}, (_,i) => '<option value="' + (i+1) + '">LEVEL ' + (i+1) + '</option>').join('');
       const collector = '<form id="bm-demand-tribute" class="bm-demand-tribute"><label>DEBTOR<select name="playerId" required>' + (playerOptions || '<option value="">NO LITTLE HERO ACCOUNTS FOUND</option>') + '</select></label><label>TRIBUTE LEVEL<select name="tributeLevel" required>' + levelOptions + '</select></label><label>CAUSE OF DEBT<input name="reason" maxlength="1200" placeholder="Lost wager, broken pact, failed challenge?"></label><button type="submit"' + (playerOptions ? '' : ' disabled') + '>BLOOD TRIBUTE REQUIRED</button></form>';
       return '<div class="bm-intro"><i class="bm-wax" aria-hidden="true"></i><b>SEALED PETITIONS</b><p>Each chamber terminates here. Nothing below is broadcast to the room.</p></div><h3>CALL A DEBT</h3>' + collector + '<h3>AWAITING JUDGMENT</h3><div class="bm-ledger">' + (pending.map(p => this.card(p, true)).join('') || '<p class="bm-empty">THE MARKET SLEEPS.</p>') + '</div><h3>LEDGER OF PACTS</h3><div class="bm-ledger">' + (rest.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO OPEN DEBTS.</p>') + '</div><h3>TRIBUTE HISTORY</h3><div class="bm-ledger">' + (history.map(p => this.card(p, true)).join('') || '<p class="bm-empty">NO CLOSED TRIBUTES.</p>') + '</div>';
@@ -218,10 +224,13 @@
       const terms = p.terms ? '<section class="bm-terms"><div class="bm-terms-title">TERMS OF TRIBUTE</div><blockquote>' + this.esc(p.terms) + '</blockquote></section>' : '';
       const verdict = p.verdictComment ? '<section class="bm-verdict-comment"><div class="bm-verdict-title">SHADOW BROKER COMMENT</div><blockquote>' + this.esc(p.verdictComment) + '</blockquote></section>' : '';
       const legacyRejection = p.rejectionReason && !p.verdictComment ? '<em>' + this.esc(p.rejectionReason) + '</em>' : '';
-      return '<article class="bm-pact is-' + this.esc(String(p.state || '').toLowerCase()) + '" data-state="' + this.esc(p.state) + '" data-pact="' + this.esc(p.id) + '"><div class="bm-pact-sigil" aria-hidden="true"></div><div class="bm-pact-head"><div><small>' + this.esc(p.category) + (gm ? ' // ' + this.esc(p.playerName) : '') + '</small><b>' + this.esc(p.title) + '</b></div><span>' + this.esc(STATE_LABEL[p.state] || p.state) + '</span></div>' + level + tracking + '<p class="bm-pact-request">' + this.esc(p.request) + '</p>' + terms + verdict + legacyRejection + image + this.actions(p, gm) + '</article>';
+      const isHeart = p.paymentKind === 'HEART_OF_SHADOW';
+      const heartSeal = isHeart ? '<div class="bm-heart-seal"><i>♥</i><span>' + (p.heartSpentAt ? 'HEART CLAIMED // FAVOR OWED' : '1 HEART OFFERED // NOT YET CLAIMED') + '</span></div>' : '';
+      return '<article class="bm-pact is-' + this.esc(String(p.state || '').toLowerCase()) + (isHeart ? ' is-heart-pact' : '') + '" data-state="' + this.esc(p.state) + '" data-pact="' + this.esc(p.id) + '"><div class="bm-pact-sigil" aria-hidden="true"></div><div class="bm-pact-head"><div><small>' + this.esc(p.category) + (gm ? ' // ' + this.esc(p.playerName) : '') + '</small><b>' + this.esc(p.title) + '</b></div><span>' + this.esc(STATE_LABEL[p.state] || p.state) + '</span></div>' + heartSeal + level + tracking + '<p class="bm-pact-request">' + this.esc(p.request) + '</p>' + terms + verdict + legacyRejection + image + this.actions(p, gm) + '</article>';
     },
     actions(p, gm) {
       if (gm) {
+        if (p.state === 'SUBMITTED' && p.paymentKind === 'HEART_OF_SHADOW') return '<div class="bm-actions"><button data-act="heart-accept">CLAIM HEART // ACCEPT FAVOR</button><button data-act="deny">REFUSE THE HEART</button></div>';
         if (p.state === 'SUBMITTED') return '<div class="bm-actions"><button data-act="accept">SEAL THE PACT</button><button data-act="waive">WAIVE THE DEBT</button><button data-act="counter">REWRITE THE TERMS</button><button data-act="deny">DENY THE PETITION</button></div>';
         if (p.state === 'TRIBUTE_SUBMITTED') return '<div class="bm-actions"><button data-act="tribute-accept">ACCEPT BLOOD TRIBUTE</button><button data-act="tribute-reject">REJECT BLOOD TRIBUTE</button></div>';
         if (p.state === 'OWED') return '<div class="bm-actions"><button data-act="progress">HONOR THE DEBT</button><button data-act="fulfill">FULFILL THE PACT</button><button data-act="break">BREAK THE PACT</button></div>';
@@ -248,6 +257,11 @@
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
         this.send({ type:'blackMarket:petition', title:fd.get('title'), category:fd.get('category'), request:fd.get('request') });
+      });
+      body.querySelector('#bm-heart-petition')?.addEventListener('submit', e => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        this.send({ type:'blackMarket:petition', title:fd.get('title'), category:fd.get('category'), request:fd.get('request'), paymentKind:'HEART_OF_SHADOW' });
       });
       body.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', async () => {
         const pactId = btn.closest('[data-pact]')?.dataset.pact;
@@ -277,6 +291,12 @@
           });
           if (comment === null) return;
           return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:false, comment:String(comment || '').trim() });
+        }
+        if (act === 'heart-accept') {
+          const terms = await window.AsocDialog.prompt({ title:'CLAIM HEART OF THE SHADOW', message:'Optional written terms for the custom skill or favor.', placeholder:'The exact favor now owed by the Shadow Broker.', maxLength:800, required:false, confirmLabel:'CLAIM HEART' });
+          if (terms === null) return;
+          btn.disabled = true;
+          return this.send({ type:'blackMarket:gmDecision', pactId, action:'heart-accept', terms:String(terms || '').trim(), tributeRequired:false });
         }
         if (act === 'accept') {
           btn.disabled = true;

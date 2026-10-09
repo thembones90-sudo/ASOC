@@ -28,6 +28,8 @@ function normalizePact(raw) {
     terms: cleanText(raw?.terms, NOTE_LIMIT),
     state,
     tributeRequired: raw?.tributeRequired === true,
+    paymentKind: raw?.paymentKind === 'HEART_OF_SHADOW' ? 'HEART_OF_SHADOW' : 'NONE',
+    heartSpentAt: Number(raw?.heartSpentAt) || null,
     tributeImageData: state === 'TRIBUTE_SUBMITTED' ? String(raw?.tributeImageData || '') : '',
     tributeImageUrl: state === 'TRIBUTE_SUBMITTED' ? cleanText(raw?.tributeImageUrl, 240) : '',
     tributeId: cleanText(raw?.tributeId, 120) || null,
@@ -69,6 +71,7 @@ function publicPact(pact, host = false) {
     id: pact.id, playerId: pact.playerId, playerName: pact.playerName,
     title: pact.title, category: pact.category, request: pact.request, terms: pact.terms,
     state: pact.state, tributeRequired: pact.tributeRequired,
+    paymentKind: pact.paymentKind, heartSpentAt: pact.heartSpentAt,
     tributeId: pact.tributeId, rejectionReason: pact.rejectionReason, verdictComment: pact.verdictComment,
     tributeLevel: pact.tributeLevel, demandedAt: pact.demandedAt, seenAt: pact.seenAt,
     createdAt: pact.createdAt, updatedAt: pact.updatedAt, fulfilledAt: pact.fulfilledAt
@@ -106,6 +109,7 @@ function createPetition(state, player, raw) {
     title: cleanText(raw?.title, TITLE_LIMIT) || request.slice(0, 60),
     category: CATEGORIES.has(raw?.category) ? raw.category : 'CUSTOM',
     request,
+    paymentKind: raw?.paymentKind === 'HEART_OF_SHADOW' ? 'HEART_OF_SHADOW' : 'NONE',
     state: 'SUBMITTED'
   });
   bucket.pacts.push(pact);
@@ -162,10 +166,19 @@ function gmDecision(state, raw) {
   if (!pact) return { error: 'PACT NOT FOUND' };
   const action = String(raw?.action || '');
   const now = Date.now();
+  if (pact.paymentKind === 'HEART_OF_SHADOW' && pact.state === 'SUBMITTED' && !['heart-accept', 'deny'].includes(action)) {
+    return { error: 'HEART REDEMPTION REQUIRES A DIRECT VERDICT' };
+  }
   if (action === 'accept') {
     pact.terms = cleanText(raw?.terms, NOTE_LIMIT);
     pact.tributeRequired = true;
     pact.state = 'APPROVED_PENDING_TRIBUTE';
+  } else if (action === 'heart-accept') {
+    if (pact.paymentKind !== 'HEART_OF_SHADOW' || pact.state !== 'SUBMITTED') return { error: 'HEART REDEMPTION NOT FOUND' };
+    pact.terms = cleanText(raw?.terms, NOTE_LIMIT);
+    pact.tributeRequired = false;
+    pact.heartSpentAt = now;
+    pact.state = 'OWED';
   } else if (action === 'waive') {
     pact.terms = cleanText(raw?.terms, NOTE_LIMIT);
     pact.tributeRequired = false;
