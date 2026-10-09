@@ -41,6 +41,7 @@
 .creator-maker-toolbar { display:flex; gap:6px; flex-wrap:wrap; padding:9px 14px 0; }
 .creator-maker-toolbar button { min-height:31px; padding:5px 9px; border:1px solid #3d3445; background:#0d1116; color:#9e8aa7; font:800 .58rem var(--font-machine,monospace); letter-spacing:.06em; cursor:pointer; }
 .creator-maker-toolbar button:hover { border-color:#bc64dc; color:#f2d8ff; }
+.maker-source { align-self:center; margin-left:auto; color:#62c9a8; font:800 .56rem var(--font-machine,monospace); letter-spacing:.09em; }
 .creator-maker-error { margin:10px 14px 0; padding:9px 11px; border-left:3px solid #ef5063; background:rgba(180,30,50,.12); color:#ff9aaa; font:800 .68rem var(--font-machine,monospace); letter-spacing:.06em; }
 .creator-maker-error[hidden] { display:none; }
 .creator-maker-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:12px 14px; }

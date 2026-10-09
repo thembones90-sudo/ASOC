@@ -25,6 +25,7 @@ const Forge = {
   _makerBlacklist: new Set(),
   _makerLocked: new Set(),
   _makerAudit: null,
+  _makerSource: '',
   _makerBusy: '',
   _makerError: '',
 
@@ -356,6 +357,7 @@ const Forge = {
     this._makerBlacklist = new Set(maker.blacklist || []);
     this._makerLocked = new Set(maker.locked || []);
     this._makerAudit = maker.audit || null;
+    this._makerSource = maker.source || '';
     this._makerBusy = '';
     this._makerError = '';
     this.renderCreator();
@@ -543,6 +545,7 @@ const Forge = {
                 <button type="button" data-maker-replace-blacklist ${this._makerBusy || !this._makerBlacklist.size ? 'disabled' : ''}>REPLACE BLACKLISTED (${this._makerBlacklist.size})</button>
                 <button type="button" data-maker-auto-build ${this._makerBusy || !this._makerColumnCandidates.length ? 'disabled' : ''}>AUTO-BUILD DRAFT</button>
                 <button type="button" data-maker-audit ${this._makerBusy ? 'disabled' : ''}>SEMANTIC AUDIT</button>
+                <span class="maker-source" id="maker-source">${this._makerSource === 'local-wordnet' ? 'PRIVATE LOCAL WORDNET' : this._makerSource ? 'AI GATEWAY' : 'ENGINE READY'}</span>
               </div>
               <div class="creator-maker-error" id="creator-maker-error" ${this._makerError ? '' : 'hidden'}>${this.escapeHtml(this._makerError)}</div>
               <div class="creator-maker-columns" id="creator-maker-columns">${this.renderMakerColumnCandidates()}</div>
@@ -744,7 +747,8 @@ const Forge = {
       selections: Object.fromEntries(['A','B','C','D'].map(col => [col, [...(this._makerSelections[col] || [])]])),
       blacklist: [...this._makerBlacklist],
       locked: [...this._makerLocked],
-      audit: this._makerAudit
+      audit: this._makerAudit,
+      source: this._makerSource
     };
     this.markDirty();
   },
@@ -800,10 +804,12 @@ const Forge = {
     const replace = document.querySelector('[data-maker-replace-blacklist]');
     const auto = document.querySelector('[data-maker-auto-build]');
     const auditButton = document.querySelector('[data-maker-audit]');
+    const source = document.getElementById('maker-source');
     if (more) more.disabled = !!this._makerBusy || !this._makerColumnCandidates.length;
     if (replace) { replace.disabled = !!this._makerBusy || !this._makerBlacklist.size; replace.textContent = `REPLACE BLACKLISTED (${this._makerBlacklist.size})`; }
     if (auto) auto.disabled = !!this._makerBusy || !this._makerColumnCandidates.length;
     if (auditButton) auditButton.disabled = !!this._makerBusy;
+    if (source) source.textContent = this._makerSource === 'local-wordnet' ? 'PRIVATE LOCAL WORDNET' : this._makerSource ? 'AI GATEWAY' : 'ENGINE READY';
   },
 
   async generateMakerColumns() {
@@ -817,6 +823,7 @@ const Forge = {
     this._makerBusy = 'columns'; this._makerError = ''; this.refreshMaker();
     try {
       const result = await GameData.generateForgeSuggestions({ kind: 'columns', finalSolution, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty });
+      this._makerSource = result.model || '';
       this._makerColumnCandidates = result.candidates || [];
     } catch (error) { this._makerError = error.message; }
     finally { this._makerBusy = ''; this.persistMaker(); this.refreshMaker(); }
@@ -829,6 +836,7 @@ const Forge = {
     this._makerBusy = 'columns'; this._makerError = ''; this.refreshMaker();
     try {
       const result = await GameData.generateForgeSuggestions({ kind: 'columns', finalSolution, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty, count: replacing ? rejected.length : count, excludeWords });
+      this._makerSource = result.model || this._makerSource;
       if (replacing) {
         let cursor = 0;
         this._makerColumnCandidates = this._makerColumnCandidates.map(candidate => this._makerBlacklist.has(candidate.word) ? result.candidates[cursor++] : candidate);
@@ -870,6 +878,7 @@ const Forge = {
       const existing = this._makerClueCandidates[col] || [];
       const selectedWords = new Set([...(this._makerSelections[col] || [])].map(index => existing[index]?.word).filter(Boolean));
       const result = await GameData.generateForgeSuggestions({ kind: 'clues', finalSolution, columnSolution, column: col, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty, excludeWords: existing.map(item => item.word) });
+      this._makerSource = result.model || this._makerSource;
       this._makerClueCandidates[col] = this.sortMakerClues([...existing, ...(result.candidates || [])]);
       this._makerSelections[col] = new Set(this._makerClueCandidates[col].map((item, index) => selectedWords.has(item.word) ? index : -1).filter(index => index >= 0));
     } catch (error) { this._makerError = error.message; }
@@ -905,6 +914,7 @@ const Forge = {
     this._makerBusy = 'audit'; this._makerError = ''; this.refreshMaker();
     try {
       const result = await GameData.generateForgeSuggestions({ kind: 'audit', board: this.makerBoardPayload(), theme: this.editingGame.theme, difficulty: this.editingGame.difficulty });
+      this._makerSource = result.model || this._makerSource;
       this._makerAudit = result.audit || null;
     } catch (error) { this._makerError = error.message; }
     finally { this._makerBusy = ''; this.persistMaker(); this.refreshMaker(); }
@@ -923,6 +933,7 @@ const Forge = {
     try {
       await Promise.all(openCols.map(async col => {
         const result = await GameData.generateForgeSuggestions({ kind: 'clues', finalSolution: this.fieldValue('finalSolution'), columnSolution: this.fieldValue(`${col}5`), column: col, theme: this.editingGame.theme, difficulty: this.editingGame.difficulty });
+        this._makerSource = result.model || this._makerSource;
         this._makerClueCandidates[col] = this.sortMakerClues(result.candidates || []);
         const picks = [0, 3, 6, 9].filter(index => index < this._makerClueCandidates[col].length);
         this._makerSelections[col] = new Set(picks);

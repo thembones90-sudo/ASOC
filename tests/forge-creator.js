@@ -57,5 +57,6 @@ assert.match(forge, /_makerLocked/, 'column locks preserve approved work');
 assert.match(forge, /persistMaker\(\)/, 'generated pools survive in the local creator draft');
 assert.match(forge, /Near-duplicate word family/, 'readiness audit catches grammatical variants');
 assert.match(css, /\.maker-audit/, 'semantic audit has dedicated verdict styling');
+assert.match(forge, /PRIVATE LOCAL WORDNET/, 'creator identifies its credential-free private fallback');
 
 console.log('PASS ASOC Creator: theme identity, unified editor, guided entry, drafts, test play, fit warnings and prepared hints');
