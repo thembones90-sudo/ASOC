@@ -126,7 +126,7 @@ harness.next = 50;
   const gm = { host: true };
   let res = h.svc.gmSlash(h.rooms, {}, '/chaos @Ana @Bea 50 5');
   ok(res.success, 'slash casts');
-  ok(/Ana, Bea/.test(h.chat[0].text) && /50\+/.test(h.chat[0].text) && /5 SC/.test(h.chat[0].text) && /100/.test(h.chat[0].text) && /1/.test(h.chat[0].text) && /DARK BLOOD/.test(h.chat[0].text) && /30 SECONDS/.test(h.chat[0].text), 'theatrical announcement preserves wager terms and critical rules');
+  eq(h.chat.length, 0, 'opening CHAOS offer is hidden from public chat');
   ok(h.svc.gmSlash(h.rooms, {}, '/chaos @Nobody 50 5').error, 'unknown target refused');
   ok(h.svc.gmSlash(h.rooms, {}, '/chaos all 50 5').success === false, 'all skips everyone who already has an offer');
   // player answers
@@ -139,28 +139,30 @@ harness.next = 50;
   ok(refused.sent.some(s => s.m.type === 'chaos:response' && s.m.chaosEntryId === refusedId && s.m.accepted === false), 'private refusal confirmation');
   eq(refused.rooms.bloodTributes.length, 0, 'refusal creates no tribute');
   h.svc.handleRespond(pa, { accept: true });
-  ok(/Ana/i.test(h.chat[h.chat.length - 1].text) && /\/roll/.test(h.chat[h.chat.length - 1].text), 'accept card directs hero to /roll');
+  eq(h.chat.length, 0, 'acceptance remains private');
   // forced roll
   ok(h.svc.onRoll(h.rooms, { playerId: 'zzz', playerName: 'Z' }, '/roll') === null, 'strangers roll normally');
   ok(h.svc.onRoll(h.rooms, pa, '/roll 20').error, 'a wager roll cannot pick its own range');
   harness.next = 100;
   let posted = h.svc.onRoll(h.rooms, pa, '/roll');
-  ok(posted.success && /PERFECT 100 \/\/ DOUBLE PAYOUT \/\/ \+10 SC/.test(posted.message.text), 'perfect roll text');
+  ok(posted.success && posted.message.text === 'Ana rolls 100', 'only the number appears in public roll text');
   eq(h.awards[0].amt, 10, 'paid double');
-  ok(/100|ONE HUNDRED/.test(h.chat[h.chat.length - 1].text) && /10 SC/.test(h.chat[h.chat.length - 1].text), 'perfect-100 Broker line announces real double payout');
+  eq(h.chat.length, 0, 'no public Broker victory announcement');
   ok(h.awards[0].receipt.startsWith('chaos:') && h.awards[0].receipt.endsWith(':win'), 'payout carries an idempotent receipt');
   ok(posted.poisonStateChanged === true, 'state refresh flagged');
-  const perfect = h.broadcasts.find(m => m.type === 'chaos:result');
+  const perfect = h.sent.find(x => x.m.type === 'chaos:result' && x.ws === pa)?.m;
   ok(perfect && perfect.playerId === 'a' && perfect.perfect === true && perfect.won === true && perfect.payout === 10 && perfect.value === 100, 'the roller gets a result event for the ceremony');
   // Bea loses with a 1 -> dark tribute
   const pb = { playerId: 'b', playerName: 'Bea' };
   h.svc.handleRespond(pb, { accept: true });
   harness.next = 1;
   posted = h.svc.onRoll(h.rooms, pb, '/roll');
-  ok(/CRITICAL FAILURE: 1 \/\/ DARK BLOOD TRIBUTE OWED/.test(posted.message.text), 'dark tribute text');
-  ok(/DARK BLOOD TRIBUTE/.test(h.chat[h.chat.length - 1].text), 'dark-failure Broker dialogue');
-  ok(h.broadcasts.filter(m => m.type === 'chaos:result').pop().dark === true, 'the result event marks the dark tier');
+  eq(posted.message.text, 'Bea rolls 1', 'loser has no public debt metadata');
+  eq(h.chat.length, 0, 'no public Broker debt announcement');
+  ok(h.sent.filter(x => x.m.type === 'chaos:result' && x.ws === pb).pop().m.dark === true, 'private result marks the dark tier');
   eq(h.awards.length, 1, 'a loser is not paid');
+  ok(!h.broadcasts.some(m => m.type === 'chaos:result'), 'no CHAOS result broadcast to spectators');
+  ok(!posted.message.chaos && !/CHAOS|TRIBUTE|SC/.test(posted.message.text), 'public roll carries no hidden outcome information');
   // tribute
   h.svc.handleTributeSubmit(pb, { imageData: 'nope', retentionAcknowledged: true });
   ok(h.sent.some(s => s.m.type === 'error' && /Invalid tribute image/.test(s.m.message)), 'bad image answers with an error');
@@ -197,7 +199,7 @@ harness.next = 50;
   const h2 = harness();
   h2.svc.gmSlash(h2.rooms, {}, '/chaos @Cid 50 5');
   h2.rooms.chaos.entries.c.expiresAt = Date.now() - 1;
-  ok(h2.svc.sweep(h2.rooms) === true && /DID NOT ANSWER/.test(h2.chat[h2.chat.length - 1].text), 'lapsed offer announced');
+  ok(h2.svc.sweep(h2.rooms) === true && h2.chat.length === 0, 'lapsed offer stays out of public chat');
 }
 
 // --- wiring: the pieces that make the command reachable (read as text, like the other wiring tests)

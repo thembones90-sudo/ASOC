@@ -44,10 +44,10 @@ function createChaosService(deps) {
     const first = result.created[0];
     const who = names(result.created);
     const text = dialogue('open', { who, target: first.target, coins: first.coins, seconds: chaos.OFFER_MS / 1000 });
-    const card = announce(room, text, { chaosId: result.chaosId, target: first.target, coins: first.coins, playerIds: result.created.map(e => e.playerId) });
+    // Private mechanic: never publish a wager or its stakes into Battle Comms.
+    // Targeted players receive their offer through their existing CHAOS modal.
     broadcastState(room);
-    flushChat(room);
-    return { ...result, card };
+    return result;
   }
 
   // "/chaos @Ana @Bea 50 5" or "/chaos all 50 5", typed in the Shadow Broker's chat.
@@ -90,12 +90,8 @@ function createChaosService(deps) {
     if (!result.ok) return sendToWs(ws, { type: 'error', message: result.error });
     const entry = result.entry;
     sendToWs(ws, { type: 'chaos:response', playerId: entry.playerId, chaosEntryId: entry.id, accepted: result.accepted });
-    announce(room, result.accepted
-      ? dialogue('accept', { name: entry.playerName })
-      : dialogue('decline', { name: entry.playerName }),
-      { playerId: entry.playerId, accepted: result.accepted });
+    // The target has a private response acknowledgment. No public Broker transcript.
     broadcastState(room);
-    flushChat(room);
   }
 
   // A /roll typed (or sent by the ROLL button) by a hero whose wager is live. Returns a chat result, or null if none is owed.
@@ -110,25 +106,15 @@ function createChaosService(deps) {
     const entry = outcome.entry;
     if (outcome.won) {
       const paid = playerStore.awardShadowCoins({ id: entry.playerId, name: entry.playerName }, outcome.payout, `chaos:${entry.id}:win`, { reason: outcome.perfect ? 'CHAOS wager won with a perfect 100 (double)' : 'CHAOS wager won' });
-      const failed = paid && paid.ok === false;
-      const label = outcome.perfect ? 'PERFECT 100 // DOUBLE PAYOUT' : 'CHAOS WON';
-      posted.message.text += failed ? ` // ${label} // PAYOUT FAILED: ${paid.error || 'UNKNOWN'}` : ` // ${label} // +${coinText(outcome.payout)}`;
-      if (!failed) broadcastPlayersUpdate(room);
-    } else {
-      posted.message.text += outcome.dark
-        ? ' // CRITICAL FAILURE: 1 // DARK BLOOD TRIBUTE OWED'
-        : ` // CHAOS LOST (NEEDED ${entry.target}+) // BLOOD TRIBUTE OWED`;
+      if (!paid || paid.ok !== false) broadcastPlayersUpdate(room);
+      if (paid?.ok === false) sendToWs(ws, { type: 'error', message: 'CHAOS PAYOUT FAILED // CONTACT THE SHADOW BROKER' });
     }
-    posted.message.chaos = { won: outcome.won, value, target: entry.target, coins: entry.coins, payout: outcome.won ? outcome.payout : 0, perfect: !!outcome.perfect, dark: !!outcome.dark };
-    const kind = outcome.dark ? 'dark' : outcome.perfect ? 'perfect' : outcome.won ? 'win' : 'lose';
-    const payoutFailed = outcome.won && posted.message.text.includes('PAYOUT FAILED:');
-    const speech = payoutFailed
-      ? dialogue('payoutFailure', { name: entry.playerName, value, payout: outcome.payout, error: 'TREASURY ERROR' })
-      : dialogue(kind, { name: entry.playerName, value, payout: outcome.payout });
-    announce(room, speech, { playerId: entry.playerId, kind, value, won: outcome.won, payout: payoutFailed ? 0 : outcome.payout, dark: !!outcome.dark });
-    flushChat(room);
+    // Keep only the numerical /roll in public chat. Debt and payout information
+    // belong to the target's private CHAOS UI, never the chat message or metadata.
     posted.poisonStateChanged = true; // makes the roll handler re-broadcast state:public
-    broadcastToRoom(room, { type: 'chaos:result', playerId: entry.playerId, playerName: entry.playerName, value, target: entry.target, coins: entry.coins, won: outcome.won, perfect: !!outcome.perfect, dark: !!outcome.dark, payout: outcome.won ? outcome.payout : 0, timestamp: Date.now() });
+    const resultNotice = { type: 'chaos:result', playerId: entry.playerId, playerName: entry.playerName, value, target: entry.target, coins: entry.coins, won: outcome.won, perfect: !!outcome.perfect, dark: !!outcome.dark, payout: outcome.won ? outcome.payout : 0, timestamp: Date.now() };
+    sendToWs(ws, resultNotice);
+    if (room.hostConnection?.readyState === 1) sendToWs(room.hostConnection, resultNotice);
     room.revision++;
     persistActiveRooms();
     return posted;
@@ -138,15 +124,8 @@ function createChaosService(deps) {
   function sweep(room) {
     const events = chaos.sweep(room, Date.now());
     if (!events.length) return false;
-    for (const event of events) {
-      const entry = event.entry;
-      announce(room, event.type === 'lapsed'
-        ? `${entry.playerName} DID NOT ANSWER. THE CHAOS OFFER LAPSES.`
-        : `${entry.playerName} ACCEPTED BUT NEVER ROLLED. FORFEIT // BLOOD TRIBUTE OWED.`,
-        { playerId: entry.playerId, lapsed: event.type });
-    }
+    // Timeout changes private state only; no public chat announcement.
     broadcastState(room);
-    flushChat(room);
     return true;
   }
 

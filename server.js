@@ -526,7 +526,7 @@ function serializeRoomForRecovery(room) {
     // seen. The sequence counter is carried over so a restored room keeps
     // advancing from where it stopped.
     chat: {
-      messages: room.chat.messages.filter(m => m.source !== 'bloodTribute').slice(-CHAT_RECOVERY_LIMIT),
+      messages: room.chat.messages.filter(m => m.source !== 'bloodTribute' && m.messageType !== 'chaos').slice(-CHAT_RECOVERY_LIMIT),
       solvedTargets: { ...room.chat.solvedTargets },
       seq: Number(room.chat.seq) || 0
     },
@@ -661,7 +661,7 @@ function restoreActiveRooms() {
         hostToken: saved.hostToken,
         hostReconnectTimer: null,
         createdAt: saved.createdAt || Date.now(),
-        chat: saved.chat ? { ...saved.chat, messages: (Array.isArray(saved.chat.messages) ? saved.chat.messages : []).filter(m => m?.source !== 'bloodTribute') } : { messages: [], solvedTargets: {} },
+        chat: saved.chat ? { ...saved.chat, messages: (Array.isArray(saved.chat.messages) ? saved.chat.messages : []).filter(m => m?.source !== 'bloodTribute' && m?.messageType !== 'chaos') } : { messages: [], solvedTargets: {} },
         scoring: saved.scoring || {
           players: {},
           events: [],
@@ -9856,7 +9856,7 @@ function createChatSerializer(room) {
 
 function getChatState(room) {
   const serialize = createChatSerializer(room);
-  const all = room.chat.messages.filter(m => m.source !== 'bloodTribute');
+  const all = room.chat.messages.filter(m => m.source !== 'bloodTribute' && m.messageType !== 'chaos');
   // Only the recent window travels. solvedTargets is room-wide and small, so it
   // always goes with the snapshot.
   const window = all.length > CHAT_SNAPSHOT_LIMIT ? all.slice(-CHAT_SNAPSHOT_LIMIT) : all;
@@ -9891,7 +9891,7 @@ function broadcastChatUpdate(room, changedIds) {
     const serialize = createChatSerializer(room);
     const messages = [];
     for (const message of room.chat.messages) {
-      if (message.source !== 'bloodTribute' && wanted.has(String(message.id))) messages.push(serialize(message));
+      if (message.source !== 'bloodTribute' && message.messageType !== 'chaos' && wanted.has(String(message.id))) messages.push(serialize(message));
     }
     if (messages.length) {
       const seq = nextChatSeq(room);
@@ -9953,7 +9953,7 @@ function handleChatHistory(ws, message) {
   ));
 
   const beforeId = message?.beforeId == null ? null : String(message.beforeId);
-  const visibleMessages = room.chat.messages.filter(m => m.source !== 'bloodTribute');
+  const visibleMessages = room.chat.messages.filter(m => m.source !== 'bloodTribute' && m.messageType !== 'chaos');
   let end = visibleMessages.length;
   if (beforeId) {
     const index = visibleMessages.findIndex(m => String(m.id) === beforeId);
