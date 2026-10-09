@@ -485,6 +485,52 @@
     }
   }
 
+  // A bare "/chaos" (or one missing its numbers) opens the same wager menu as the rail button
+  // instead of failing; any numbers already typed prefill ROLL TARGET and SHADOW COINS.
+  function menuIntent(text) {
+    const t = String(text || '').trim();
+    if (!/^\/chaos(\s|$)/i.test(t)) return null;
+    if (/^\/chaos\s+.+\s+\d{1,3}\s+\d{1,3}(?:\.\d)?$/i.test(t)) return null;
+    const nums = t.replace(/^\/chaos/i, '').match(/(?:^|\s)(\d{1,3}(?:\.\d)?)(?=\s|$)/g) || [];
+    const [target, coins] = nums.map(n => n.trim());
+    return { target, coins };
+  }
+
+  function installCommandMenu() {
+    const composer = () => document.getElementById('shadow-broker-composer');
+    const model = () => document.getElementById('shadow-broker-input');
+    const typed = () => (model()?.value || composer()?.textContent || '');
+    const swallow = intent => {
+      const c = composer();
+      const m = model();
+      if (m) m.value = '';
+      if (c) { c.textContent = ''; c.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (!gmOpen) openPicker();
+      const root = pickerRoot();
+      const t = root.querySelector('[data-chaos-target]');
+      const k = root.querySelector('[data-chaos-coins]');
+      if (intent.target && t) t.value = intent.target;
+      if (intent.coins && k) k.value = intent.coins;
+      syncFoot();
+    };
+    const guard = event => {
+      const intent = menuIntent(typed());
+      if (!intent) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      swallow(intent);
+    };
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+      if (event.target !== composer() && event.target !== model()) return;
+      guard(event);
+    }, true);
+    document.addEventListener('submit', event => {
+      if (!event.target.contains?.(composer())) return;
+      guard(event);
+    }, true);
+  }
+
   function start() {
     document.addEventListener('click', event => {
       if (event.target.closest?.('#chaos-gm-button')) { event.preventDefault(); gmOpen ? closePicker() : openPicker(); return; }
@@ -502,6 +548,7 @@
     });
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && gmOpen) closePicker(); });
     window.addEventListener('resize', () => { if (gmOpen) positionPicker(); });
+    if (isGm()) installCommandMenu();
     ensureRailButton();
     if (isGm()) setTimeout(() => window.App.send({ type: 'gm:chaosPending' }), 1800);
     tick = setInterval(() => {
