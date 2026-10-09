@@ -55,13 +55,13 @@
 @keyframes chaos-result-pop{0%{opacity:0;transform:scale(1.5)}16%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(.85)}}
 
 /* GM rail button */
-#chaos-gm-button{position:relative!important;display:grid!important;place-content:center;gap:3px;min-height:74px!important;padding:6px!important;border:1px solid rgba(190,90,255,.4)!important;border-radius:7px!important;background:radial-gradient(circle at 20% 20%,rgba(166,75,255,.25),transparent 55%),linear-gradient(160deg,#10061a,#1c0b2c)!important;color:#f1dcff!important;text-align:center;cursor:pointer;overflow:hidden}
-#chaos-gm-button span{font:900 clamp(17px,2.3vw,25px)/1 Arial,sans-serif;letter-spacing:.34em;padding-left:.34em;text-shadow:0 0 6px rgba(200,110,255,.95),0 0 18px rgba(166,75,255,.7),0 2px 3px #000}
-#chaos-gm-button small{font:800 9px/1 Arial,sans-serif;letter-spacing:.24em;color:#a68bc0}
+#chaos-gm-button{position:relative!important;display:grid!important;place-content:center;gap:2px;min-height:52px!important;padding:4px 6px!important;border:1px solid rgba(190,90,255,.4)!important;border-radius:7px!important;background:radial-gradient(circle at 20% 20%,rgba(166,75,255,.25),transparent 55%),linear-gradient(160deg,#10061a,#1c0b2c)!important;color:#f1dcff!important;text-align:center;cursor:pointer;overflow:hidden}
+#chaos-gm-button span{font:900 clamp(15px,1.7vw,21px)/1 Arial,sans-serif;letter-spacing:.34em;padding-left:.34em;text-shadow:0 0 6px rgba(200,110,255,.95),0 0 18px rgba(166,75,255,.7),0 2px 3px #000}
+#chaos-gm-button small{font:800 8px/1 Arial,sans-serif;letter-spacing:.24em;color:#a68bc0}
 #chaos-gm-button:hover{filter:brightness(1.1)!important;border-color:rgba(226,184,255,.75)!important;box-shadow:0 0 16px rgba(166,75,255,.25),inset 0 0 18px rgba(166,75,255,.1)!important}
 #chaos-gm-button.is-open{border-color:rgba(226,184,255,.95)!important;box-shadow:0 0 20px rgba(166,75,255,.35),inset 0 0 20px rgba(166,75,255,.14)!important}
 #chaos-gm-button:focus-visible{outline:2px solid #e2b8ff!important;outline-offset:2px}
-:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #chaos-gm-button{order:15;width:100%!important;min-width:0!important;margin:0!important;box-sizing:border-box!important;height:auto!important}
+:where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #chaos-gm-button{order:15;width:100%!important;min-width:0!important;margin:0!important;box-sizing:border-box!important;height:auto!important;min-height:42px!important;align-self:stretch!important}
 
 /* GM picker */
 #chaos-picker{position:fixed;z-index:2147482460;width:min(430px,92vw);max-height:min(640px,88vh);display:flex;flex-direction:column;border:1px solid #a64bff;background:linear-gradient(165deg,#0b0711,#150c20);box-shadow:0 24px 70px rgba(0,0,0,.62),0 0 35px rgba(166,75,255,.16);color:#f1e6fb;font-family:Arial,sans-serif}
