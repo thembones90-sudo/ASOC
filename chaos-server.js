@@ -153,7 +153,7 @@ function createChaosService(deps) {
     const room = deps.roomOf(ws);
     if (!room || !ws.playerId) return sendToWs(ws, { type: 'error', message: 'CHAOS TRIBUTE REQUIRES A LITTLE HERO' });
     const entry = chaos.entryFor(room, ws.playerId);
-    if (!entry || entry.status !== 'owes') return sendToWs(ws, { type: 'error', message: entry?.status === 'judging' ? 'CHAOS TRIBUTE ALREADY AWAITS JUDGMENT' : 'NO CHAOS TRIBUTE IS OWED' });
+    if (!entry || !['owes', 'judging'].includes(entry.status)) return sendToWs(ws, { type: 'error', message: 'NO CHAOS TRIBUTE IS OWED' });
     if (message?.retentionAcknowledged !== true) return sendToWs(ws, { type: 'error', message: 'Tribute archive notice must be acknowledged' });
     const imageData = sanitizeTributeImageData(message?.imageData);
     if (!imageData) return sendToWs(ws, { type: 'error', message: 'Invalid tribute image or file too large' });
@@ -170,9 +170,15 @@ function createChaosService(deps) {
       publicUntil: 0,
       pendingJudgment: true
     };
-    const moved = chaos.submitTribute(room, ws.playerId, tribute.id);
-    if (!moved.ok) return sendToWs(ws, { type: 'error', message: moved.error });
     room.bloodTributes ||= [];
+    if (entry.status === 'judging') {
+      const previous = room.bloodTributes.find(item => item.id === entry.pendingTributeId);
+      if (previous) { previous.pendingJudgment = false; previous.supersededBy = tribute.id; }
+      entry.pendingTributeId = tribute.id;
+    } else {
+      const moved = chaos.submitTribute(room, ws.playerId, tribute.id);
+      if (!moved.ok) return sendToWs(ws, { type: 'error', message: moved.error });
+    }
     room.bloodTributes.push(tribute);
     broadcastState(room);
     if (room.hostConnection?.readyState === 1) {
@@ -188,6 +194,7 @@ function createChaosService(deps) {
     const playerId = String(message?.playerId || '');
     const entry = chaos.entryFor(room, playerId);
     if (!entry || entry.status !== 'judging') return sendToWs(ws, { type: 'error', message: 'NO CHAOS TRIBUTE AWAITS JUDGMENT' });
+    if (message?.tributeId && String(message.tributeId) !== String(entry.pendingTributeId)) return sendToWs(ws, { type: 'error', message: 'TRIBUTE HAS BEEN REPLACED // REFRESH THE OFFER' });
     const tribute = (room.bloodTributes || []).find(item => item.id === entry.pendingTributeId);
     const accepted = message?.accepted === true;
     const judged = chaos.judge(room, playerId, accepted);

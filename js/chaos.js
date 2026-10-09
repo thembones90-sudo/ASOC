@@ -98,21 +98,14 @@
       });
       return;
     }
-    if (entry.status === 'judging') {
-      card.innerHTML = `
-        <div class="chaos-kicker">${entry.dark ? 'DARK ' : ''}BLOOD TRIBUTE // SUBMITTED</div>
-        <h2>THE BROKER JUDGES</h2>
-        <p>Your image was received and is awaiting the Shadow Broker's verdict. You cannot submit a second image while this one is under review.</p>
-        <p class="chaos-small">If you need to replace it, ask the Shadow Broker to REJECT the current tribute. The upload button will return automatically.</p>`;
-      return;
-    }
-    // owes
+    // A player can upload or replace a pending offering even if a stale judging state persists.
+    // owes or judging
     const rolled = entry.roll ? `YOUR ROLL: <b>${entry.roll}</b> // ${entry.target}+ REQUIRED` : 'YOUR UNROLLED WAGER WAS FORFEITED';
     card.innerHTML = `
       <div class="chaos-kicker">${entry.dark ? 'DARK BLOOD TRIBUTE OWED' : 'BLOOD TRIBUTE OWED'}</div>
       <h2>${entry.dark ? 'THE DARK DEBT' : 'CHAOS COLLECTS'}</h2>
       <p>${rolled}</p>
-      <p>THE SHADOW BROKER DEMANDS YOUR BLOOD TRIBUTE.</p>
+      <p>${entry.status === 'judging' ? 'YOUR PREVIOUS OFFERING IS AWAITING JUDGMENT. UPLOAD A NEW PICTURE TO REPLACE IT.' : 'THE SHADOW BROKER DEMANDS YOUR BLOOD TRIBUTE.'}</p>
       <label class="chaos-upload chaos-upload-primary">UPLOAD BLOOD TRIBUTE<input data-chaos-file type="file" accept="image/png,image/jpeg,image/webp"></label>
       <p class="chaos-small" data-chaos-note role="status">${esc(tributeNote || 'CHOOSE A PICTURE // PNG, JPG OR WEBP // MAX 2 MB')}</p>`;
     const file = card.querySelector('[data-chaos-file]');
@@ -424,7 +417,7 @@
   }
 
   function judge(offer, accepted) {
-    window.App?.send?.({ type: 'gm:chaosTributeDecision', playerId: offer.playerId, accepted });
+    window.App?.send?.({ type: 'gm:chaosTributeDecision', playerId: offer.playerId, tributeId: offer.tributeId, accepted });
     gmOffers = gmOffers.filter(o => o !== offer);
     renderOffer();
   }
