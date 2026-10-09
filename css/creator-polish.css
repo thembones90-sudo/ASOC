@@ -252,3 +252,158 @@ html body #forge-overlay .creator-preview-frame::after { right: 5px; bottom: 5px
   html body #forge-overlay .creator-form > .creator-section:nth-of-type(4) { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { html body #forge-overlay .creator-preview-header > span:first-child::before { animation: none; } }
+
+/* ===== LIBRARY, row menu, paste dialog, commands palette ===== */
+html body #forge-overlay.active .forge-shell:has(.forge-library) {
+  --cut: 26px; display: flex; flex-direction: column; height: calc(100vh - 24px); height: calc(100dvh - 24px); max-height: none;
+  border: 0; border-radius: 0; box-shadow: inset 0 0 0 1px #313c46;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  background: radial-gradient(900px 260px at 0% 0%, rgba(227,193,106,.07), transparent 70%), radial-gradient(800px 300px at 100% 0%, rgba(137,62,169,.09), transparent 70%), linear-gradient(160deg, #0d1117, #07090d 70%);
+}
+html body #forge-overlay .forge-shell:has(.forge-library) > * { flex: 0 0 auto; }
+html body #forge-overlay .forge-shell:has(.forge-library) > .forge-library { flex: 1 1 auto; min-height: 0; max-height: none; }
+html body #forge-overlay .forge-shell:has(.forge-library)::before,
+html body #forge-overlay .forge-shell:has(.forge-library)::after { content: ""; position: absolute; z-index: 20; width: 26px; height: 26px; pointer-events: none; }
+html body #forge-overlay .forge-shell:has(.forge-library)::before { top: 0; left: 0; background: linear-gradient(135deg, transparent 17.4px, var(--gold) 0 19px, transparent 0); }
+html body #forge-overlay .forge-shell:has(.forge-library)::after { right: 0; bottom: 0; background: linear-gradient(315deg, transparent 17.4px, var(--gold) 0 19px, transparent 0); }
+html body #forge-overlay .forge-shell:has(.forge-library) .forge-header { position: relative; padding: 12px 22px 12px 34px; background: linear-gradient(90deg, #121821, #0b0e14 60%, #15101c); }
+html body #forge-overlay .forge-shell:has(.forge-library) .forge-header::after { content: ""; position: absolute; left: 20px; right: 20px; bottom: -1px; height: 1px; background: linear-gradient(90deg, #d4a843, rgba(168,87,200,.8), transparent 72%); }
+html body #forge-overlay .forge-shell:has(.forge-library) .forge-title { display: flex; align-items: center; gap: 12px; font: 900 .84rem var(--font-machine, monospace); letter-spacing: .26em; color: #dfe5e8; text-shadow: 0 1px 0 #000; }
+html body #forge-overlay .forge-shell:has(.forge-library) .forge-title::before { content: ""; width: 12px; height: 12px; transform: rotate(45deg); background: linear-gradient(135deg, #f0d587, #a96fd0); box-shadow: 0 0 12px rgba(227,193,106,.6); }
+
+/* toolbars as command strips */
+html body #forge-overlay .forge-toolbar,
+html body #forge-overlay .forge-toolbar-row {
+  --cut: 12px; margin: 10px 18px 0; padding: 8px 12px; border: 0;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  box-shadow: inset 0 0 0 1px #28333c; background: var(--grain), linear-gradient(90deg, #10161d, #0a0d12);
+}
+html body #forge-overlay .forge-toolbar-row .forge-input { min-width: 220px; }
+html body #forge-overlay :is(.forge-toolbar, .forge-toolbar-row) :is(.forge-input, .forge-select) {
+  --cut: 7px; --edge: #34414b; min-height: 36px; padding: 7px 12px; border: 0 !important; border-radius: 0 !important; font-size: .8rem;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    linear-gradient(180deg, #080b0f, #0f141a);
+  box-shadow: inset 0 0 0 1px var(--edge), inset 0 3px 8px rgba(0,0,0,.65);
+}
+html body #forge-overlay :is(.forge-toolbar, .forge-toolbar-row) :is(.forge-input, .forge-select):hover { --edge: #51626e; }
+html body #forge-overlay :is(.forge-toolbar, .forge-toolbar-row) :is(.forge-input, .forge-select):focus { --edge: var(--gold); box-shadow: inset 0 0 0 1px var(--gold), inset 0 0 16px rgba(227,193,106,.2), inset 0 3px 8px rgba(0,0,0,.5); }
+
+/* shared button plate for the library, menus and dialogs */
+html body #forge-overlay :is(.forge-toolbar .forge-btn, .game-list-actions .forge-btn, .game-list-more > summary, .game-list-more-menu .forge-btn, .forge-empty .forge-btn, .creator-paste-card .forge-btn, .creator-palette-card > button) {
+  --cut: 8px; --edge: #404c56; --fill: linear-gradient(180deg, #29313a, #151a20);
+  border: 0 !important; border-radius: 0 !important; color: #c3ccd1; min-height: 36px; padding: 7px 16px; font: 800 .64rem var(--font-machine, monospace); letter-spacing: .14em;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    var(--fill);
+  box-shadow: inset 0 0 0 1px var(--edge), inset 0 1px 0 1px rgba(255,255,255,.07);
+  text-shadow: 0 1px 0 rgba(0,0,0,.7); transition: color .14s, filter .14s;
+}
+html body #forge-overlay :is(.forge-toolbar .forge-btn, .game-list-actions .forge-btn, .game-list-more > summary, .game-list-more-menu .forge-btn, .forge-empty .forge-btn, .creator-paste-card .forge-btn, .creator-palette-card > button):hover:not(:disabled) {
+  --edge: var(--gold); --fill: linear-gradient(180deg, #3a3321, #1c1a12); color: #fbe9b0; filter: drop-shadow(0 0 6px rgba(227,193,106,.25));
+}
+html body #forge-overlay :is(.forge-toolbar .forge-btn.primary, .game-list-actions .forge-btn.primary, .forge-empty .forge-btn.primary, .creator-paste-card .forge-btn.primary) {
+  --edge: #d7b155; --fill: linear-gradient(180deg, #f1d684, #c39a3e 55%, #8f6b22); color: #1c1405; text-shadow: 0 1px 0 rgba(255,255,255,.4); font-weight: 900;
+}
+html body #forge-overlay :is(.forge-toolbar .forge-btn.primary, .game-list-actions .forge-btn.primary, .forge-empty .forge-btn.primary, .creator-paste-card .forge-btn.primary):hover:not(:disabled) { filter: brightness(1.12) drop-shadow(0 0 8px rgba(227,193,106,.4)); color: #1c1405; }
+html body #forge-overlay .forge-btn.danger { --edge: #8c3441; --fill: linear-gradient(180deg, #3a171d, #1d0b0f); color: #ff9aa6; }
+html body #forge-overlay .forge-btn.danger:hover:not(:disabled) { --edge: #ef5a6b; --fill: linear-gradient(180deg, #55202a, #2a1015); color: #ffd1d7; filter: drop-shadow(0 0 6px rgba(239,90,107,.3)); }
+html body #forge-overlay .forge-btn.ghost { color: #8d9aa3; }
+html body #forge-overlay .game-list-actions .forge-btn, html body #forge-overlay .game-list-more > summary { min-height: 38px; padding: 7px 16px; font-size: .66rem; }
+
+/* list */
+html body #forge-overlay .forge-library { padding: 14px 18px 18px; scrollbar-color: #745083 #0a0e13; scrollbar-width: thin; gap: 8px; }
+html body #forge-overlay .game-list-head {
+  top: -14px; margin: 0 0 2px; padding: 9px 16px; background: #0a0e13; border: 0; box-shadow: inset 0 -1px 0 #2e3944;
+  font: 800 .58rem var(--font-machine, monospace); letter-spacing: .24em; color: var(--gold);
+}
+html body #forge-overlay .forge-library > .game-list-row {
+  --cut: 14px; --acc: #7e8b94; position: relative; min-height: 78px; padding: 12px 16px 12px 20px; border: 0; border-radius: 0;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  box-shadow: inset 0 0 0 1px #27313a, inset 0 1px 0 1px rgba(255,255,255,.04);
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--acc) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(var(--acc), var(--acc)) 0 0 / 3px 100% no-repeat,
+    radial-gradient(circle, #aeb8bf 0 1.2px, #2a3138 1.8px 2.8px, transparent 3.4px) right 8px top 8px / 8px 8px no-repeat,
+    var(--grain), linear-gradient(160deg, #141a21, #0b0f14 75%);
+  transition: filter .15s, box-shadow .15s;
+}
+html body #forge-overlay .forge-library > .game-list-row:nth-child(odd) { background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--acc) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(var(--acc), var(--acc)) 0 0 / 3px 100% no-repeat,
+    radial-gradient(circle, #aeb8bf 0 1.2px, #2a3138 1.8px 2.8px, transparent 3.4px) right 8px top 8px / 8px 8px no-repeat,
+    var(--grain), linear-gradient(160deg, #141a21, #0b0f14 75%); }
+html body #forge-overlay .forge-library > .game-list-row:hover { z-index: 2; border-color: transparent; box-shadow: inset 0 0 0 1px var(--acc), inset 0 0 40px rgba(227,193,106,.05); filter: brightness(1.1); }
+html body #forge-overlay .game-list-row:has(.diff-green) { --acc: #3fbf6a; }
+html body #forge-overlay .game-list-row:has(.diff-yellow) { --acc: #e0c030; }
+html body #forge-overlay .game-list-row:has(.diff-amber) { --acc: #e48a30; }
+html body #forge-overlay .game-list-row:has(.diff-red) { --acc: #e3504a; }
+html body #forge-overlay .game-list-row:has(.diff-purple) { --acc: #a86bd2; }
+html body #forge-overlay .game-list-row:has(.diff-black) { --acc: #8a8fb0; }
+html body #forge-overlay .game-card-title { font: 900 1.05rem var(--font-display, var(--font-machine, sans-serif)); letter-spacing: .08em; color: #eef1f3; text-shadow: 0 1px 0 #000; }
+html body #forge-overlay .game-card-theme { font: 800 .64rem var(--font-machine, monospace); letter-spacing: .16em; color: #8795a0; }
+html body #forge-overlay .game-card-sample { border-radius: 0; clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%); padding: 2px 8px; background: #2a3138; color: #aab5bc; }
+html body #forge-overlay .game-list-solutions span {
+  border: 0; border-radius: 0; padding: 3px 9px; background: #0a0e13; box-shadow: inset 0 0 0 1px #2c3640;
+  clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%); font: 700 .62rem var(--font-machine, monospace); letter-spacing: .08em;
+}
+html body #forge-overlay .game-list-solutions .game-list-final { background: linear-gradient(180deg, rgba(120,90,25,.35), rgba(60,44,10,.3)); box-shadow: inset 0 0 0 1px #8c6b2f; color: #f1d98c; }
+html body #forge-overlay .difficulty-badge { border: 0; border-radius: 0; padding: 4px 12px; clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); font: 900 .62rem var(--font-machine, monospace); letter-spacing: .16em; }
+html body #forge-overlay .game-list-date { font: 800 .66rem var(--font-machine, monospace); letter-spacing: .14em; color: #7e8c95; }
+
+/* row menu */
+html body #forge-overlay .game-list-more-menu {
+  --cut: 12px; padding: 10px; border: 0; border-radius: 0; gap: 7px; min-width: 184px;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  box-shadow: inset 0 0 0 1px #5a4a2a; background: var(--grain), linear-gradient(160deg, #181e26, #0a0d12);
+}
+html body #forge-overlay .game-list-more[open] > summary { --edge: var(--gold); color: #fbe9b0; }
+html body #forge-overlay .game-list-more-menu .forge-btn { justify-content: flex-start; }
+
+/* empty state */
+html body #forge-overlay .forge-empty-title { font: 900 .9rem var(--font-machine, monospace); letter-spacing: .3em; color: var(--gold); }
+html body #forge-overlay .forge-empty-sub { font: 700 .66rem var(--font-machine, monospace); letter-spacing: .1em; }
+
+/* paste dialog + commands palette */
+html body #forge-overlay .creator-paste,
+html body #forge-overlay .creator-palette { background: radial-gradient(circle at 50% 40%, rgba(40,24,50,.82), rgba(3,5,8,.9)); backdrop-filter: blur(3px); }
+html body #forge-overlay :is(.creator-paste-card, .creator-palette-card) {
+  --cut: 18px; position: relative; padding: 22px 22px 18px; border: 0; border-radius: 0;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  box-shadow: inset 0 0 0 1px #5a4a2a, inset 0 1px 0 1px rgba(255,255,255,.05);
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--gold) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), #6a5a8a 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    radial-gradient(circle, #aeb8bf 0 1.2px, #2a3138 1.8px 2.8px, transparent 3.4px) right 8px top 8px / 8px 8px no-repeat,
+    var(--grain), linear-gradient(160deg, #181e26, #0a0d12);
+}
+html body #forge-overlay :is(.creator-paste-card, .creator-palette-card)::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; opacity: .8;
+  background: repeating-linear-gradient(-45deg, #e3c16a 0 9px, #15120a 9px 18px);
+}
+html body #forge-overlay :is(.creator-paste-card, .creator-palette-card) h4 {
+  display: flex; align-items: center; width: fit-content; height: 26px; margin: 4px 0 14px; padding: 0 26px 0 14px; border: 0;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 9px) 100%, 0 100%); background: linear-gradient(180deg, #f2d98c, #cba447 55%, #a27a28);
+  color: #1c1405; font: 900 .68rem var(--font-machine, monospace); letter-spacing: .22em; text-shadow: 0 1px 0 rgba(255,255,255,.38);
+}
+html body #forge-overlay .creator-paste-card p { font-size: .8rem; color: #9aa6ae; }
+html body #forge-overlay .creator-paste-card p b { color: var(--gold); }
+html body #forge-overlay .creator-paste-card textarea {
+  --cut: 8px; --edge: #34414b; padding: 10px 12px; border: 0 !important; border-radius: 0 !important; min-height: 200px; font-size: .78rem; color: #dfe5e8;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    linear-gradient(180deg, #080b0f, #0f141a);
+  box-shadow: inset 0 0 0 1px var(--edge), inset 0 3px 8px rgba(0,0,0,.65);
+}
+html body #forge-overlay .creator-paste-card textarea:focus { --edge: var(--gold); outline: none; box-shadow: inset 0 0 0 1px var(--gold), inset 0 0 16px rgba(227,193,106,.2); }
+html body #forge-overlay .creator-paste-card .forge-actions { display: flex; gap: 10px; margin-top: 14px; }
+html body #forge-overlay .creator-palette-card { gap: 6px; }
+html body #forge-overlay .creator-palette-card > button { display: flex; justify-content: space-between; align-items: center; gap: 18px; min-height: 40px; text-align: left; }
+html body #forge-overlay .creator-palette-card kbd { padding: 2px 8px; background: #0a0e13; box-shadow: inset 0 0 0 1px #3a4650; clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%); color: var(--gold); font: 800 .6rem var(--font-mono, monospace); }
+html body #forge-overlay .forge-library > .game-list-row:has(.game-list-more[open]) { clip-path: none; z-index: 6; }
