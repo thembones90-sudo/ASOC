@@ -132,7 +132,7 @@
     btn.type = 'button';
     btn.id = 'broker-transmog-btn';
     btn.className = 'toolbar-btn transmog-utility-btn';
-    btn.textContent = 'TRANSMOG';
+    btn.innerHTML = '<svg class="gm-action-icon transmog-action-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M6 8c3-4 7-5 10-2 3-3 7-2 10 2v12c-3 6-8 9-10 9S9 26 6 20Z"/><path d="M10 14h4M18 14h4M12 21c3 2 5 2 8 0"/><path d="m3 5 3 1-1 3M29 5l-3 1 1 3"/></svg><span>TRANSMOG</span>';
     btn.title = 'Shadow Broker Identity Vault';
     row.insertBefore(btn, row.children[1] || null);
   }

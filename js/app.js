@@ -1306,7 +1306,8 @@ const App = {
     const renderSoundToggle = () => {
       if (!soundToggle) return;
       const muted = window.AsocAudio?.isMuted?.() === true;
-      soundToggle.textContent = muted ? 'MUTE SOUNDS' : 'SOUNDS ON';
+      const soundLabel = soundToggle.querySelector('.sound-toggle-label');
+      if (soundLabel) soundLabel.textContent = muted ? 'MUTE SOUNDS' : 'SOUNDS ON';
       soundToggle.setAttribute('aria-pressed', muted ? 'true' : 'false');
       soundToggle.classList.toggle('is-muted', muted);
       soundToggle.title = muted ? 'Sounds are muted // click to turn them back on' : 'Mute every ASOC sound on this device';

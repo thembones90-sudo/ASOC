@@ -231,7 +231,7 @@ const ControlSurfaces = {
     }
     const footerButton = document.getElementById('library-btn-footer');
     if (footerButton) {
-      footerButton.textContent = 'BACKDOOR';
+      footerButton.innerHTML = '<span class="backdoor-action-icon" aria-hidden="true">⌁</span><span>BACKDOOR</span>';
       footerButton.classList.add('maintenance-toggle-btn');
     }
 
@@ -276,7 +276,7 @@ const ControlSurfaces = {
     maintenance.hidden = !open;
     document.getElementById('gm-panel')?.classList.toggle('maintenance-open', !!open);
     if (footerButton) {
-      footerButton.textContent = open ? 'RETURN TO BATTLE' : 'BACKDOOR';
+      footerButton.innerHTML = `<span class="backdoor-action-icon" aria-hidden="true">${open ? '↩' : '⌁'}</span><span>${open ? 'RETURN TO BATTLE' : 'BACKDOOR'}</span>`;
       footerButton.classList.toggle('active', !!open);
     }
     if (open) {

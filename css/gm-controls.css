@@ -16,3 +16,69 @@
 #dragon-raid-setup-btn.is-live::before{content:'';display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:#ff4f60;box-shadow:0 0 10px #ff4f60;vertical-align:1px;animation:gmLiveDot 1s ease-in-out infinite alternate}
 @keyframes gmLiveDot{from{opacity:.45}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){#dragon-raid-setup-btn.is-live::before{animation:none}}
+
+/* FUNCTION SIGILS // every command reads as a purpose-built instrument. */
+#battle-controls-panel .gm-action-icon{
+  flex:0 0 auto;width:25px;height:25px;overflow:visible;
+  fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+  transition:transform .16s ease,filter .16s ease,color .16s ease;
+}
+#battle-controls-panel :is(#quests-btn,#broker-transmog-btn,#dragon-raid-setup-btn,#reset-board-btn,#sound-toggle-btn,#load-shell-btn){
+  display:flex!important;align-items:center!important;justify-content:center!important;gap:10px!important;
+}
+#battle-controls-panel :is(#quests-btn,#broker-transmog-btn,#dragon-raid-setup-btn,#reset-board-btn,#sound-toggle-btn,#load-shell-btn):hover .gm-action-icon,
+#battle-controls-panel :is(#quests-btn,#broker-transmog-btn,#dragon-raid-setup-btn,#reset-board-btn,#sound-toggle-btn,#load-shell-btn):focus-visible .gm-action-icon{
+  transform:scale(1.08);filter:drop-shadow(0 0 7px currentColor);
+}
+
+/* BLACK MARKET // sealed contraband lock. */
+#black-market-gm-button{display:flex!important;align-items:center!important;justify-content:center!important;gap:10px!important}
+#black-market-gm-button .market-action-icon{width:26px;height:26px;color:#e45a96;filter:drop-shadow(0 0 6px rgba(226,44,118,.55))}
+#black-market-gm-button .gm-action-copy{display:grid;gap:3px;text-align:left}
+#black-market-gm-button .gm-action-copy b{font:900 12px/1 var(--font-machine,monospace);letter-spacing:.17em;color:#f3d9eb}
+#black-market-gm-button .gm-action-copy small{font:700 7px/1 var(--font-mono,monospace);letter-spacing:.18em;color:#b389a3}
+
+/* QUESTS // active dossier and route marker. */
+#quests-btn .quest-action-icon{color:#f0c65b;filter:drop-shadow(0 0 6px rgba(226,179,60,.42))}
+
+/* TRANSMOG // identity mask in a mirrored violet vault. */
+#broker-transmog-btn{
+  position:relative;isolation:isolate;overflow:hidden;border:1px solid #8f4fb5!important;border-radius:7px!important;
+  color:#e5c7f3!important;background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 4px),linear-gradient(110deg,#160c20,#321044 52%,#13091c)!important;
+  box-shadow:inset 0 0 0 2px rgba(8,3,12,.72),inset 0 0 24px rgba(184,64,232,.12),0 0 12px rgba(160,64,205,.1)!important;
+  font:900 12px/1 var(--font-machine,monospace)!important;letter-spacing:.19em!important;
+}
+#broker-transmog-btn::after{content:"";position:absolute;inset:5px;border:1px solid rgba(216,151,241,.12);clip-path:polygon(0 0,35% 0,39% 2px,61% 2px,65% 0,100% 0,100% 100%,65% 100%,61% calc(100% - 2px),39% calc(100% - 2px),35% 100%,0 100%);pointer-events:none}
+#broker-transmog-btn .transmog-action-icon{color:#dc8cff;filter:drop-shadow(-1px 0 rgba(61,224,255,.45)) drop-shadow(1px 0 rgba(255,40,120,.5))}
+#broker-transmog-btn:hover{border-color:#cf7cff!important;color:#fff!important;box-shadow:inset 0 0 0 2px rgba(8,3,12,.72),inset 0 0 30px rgba(184,64,232,.2),0 0 18px rgba(188,75,231,.28)!important}
+
+/* RAID SETUP // Cabinet specimen claw, not a decorative emoji. */
+#dragon-raid-setup-btn{position:relative;overflow:hidden;border-radius:7px!important;background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 4px),radial-gradient(circle at 18% 110%,rgba(214,55,90,.2),transparent 38%),linear-gradient(110deg,#170914,#2a0e33 58%,#100914)!important;box-shadow:inset 0 0 0 2px rgba(8,3,12,.74),inset 0 0 22px rgba(181,72,220,.12)!important}
+#dragon-raid-setup-btn .raid-action-icon{color:#ff718f;filter:drop-shadow(0 0 7px rgba(255,72,114,.48))}
+#dragon-raid-setup-btn.is-live .raid-action-icon{color:#ffd1d8;animation:gmRaidClaw .8s ease-in-out infinite alternate}
+@keyframes gmRaidClaw{to{transform:scale(1.1);filter:drop-shadow(0 0 11px #ff5968)}}
+
+/* RESET // destructive time-loop. */
+#reset-board-btn .reset-action-icon{color:#ff7b86;filter:drop-shadow(0 0 6px rgba(255,62,79,.48))}
+
+/* SOUND // live waveform; muted state visibly severs it. */
+#sound-toggle-btn .sound-action-icon{color:#72dfff;filter:drop-shadow(0 0 6px rgba(61,224,255,.42))}
+#sound-toggle-btn.is-muted .sound-action-icon{color:#ff8793;opacity:.68}
+#sound-toggle-btn.is-muted .sound-action-icon path:last-child{stroke-dasharray:2 4}
+
+/* BACKDOOR // terminal route glyph enclosed by the hazard tape. */
+#library-btn-footer.maintenance-toggle-btn{display:flex!important;align-items:center!important;justify-content:center!important;gap:9px!important}
+#library-btn-footer .backdoor-action-icon{position:relative;z-index:1;color:#ffd63f;font:900 20px/1 var(--font-mono,monospace);text-shadow:0 0 8px rgba(255,207,42,.52);transform:rotate(-12deg)}
+#library-btn-footer>span:last-child{position:relative;z-index:1}
+
+/* LOAD SHELL // prepared board volume. */
+#load-shell-btn .shell-action-icon{color:#70dfff;filter:drop-shadow(0 0 7px rgba(82,200,245,.52))}
+
+/* Existing bespoke marks receive the same physical response without losing their art. */
+#battle-controls-panel :is(#nema-asoc-btn,#bice-asoc-btn,#master-access-btn):hover :is(.nema-nuclear-mark,.bice-btn-sigil,.master-access-sigil),
+#battle-controls-panel :is(#nema-asoc-btn,#bice-asoc-btn,#master-access-btn):focus-visible :is(.nema-nuclear-mark,.bice-btn-sigil,.master-access-sigil){transform:scale(1.07)}
+
+@media(prefers-reduced-motion:reduce){
+  #dragon-raid-setup-btn.is-live .raid-action-icon{animation:none}
+  #battle-controls-panel .gm-action-icon{transition:none}
+}
