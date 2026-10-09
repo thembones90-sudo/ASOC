@@ -84,6 +84,7 @@ const App = {
   gmSlashCommands: [
     { name: 'coffee', insert: '/coffee', icon: '☕', label: 'COFFEE BREAK', description: '/coffee -- eight seconds of caffeinated peace' },
     { name: 'warsong', insert: '/warsong', icon: '⚑', label: 'WARSONG', description: 'Six-second room-wide Horde battle banner' },
+    { name: 'lurk', insert: '/lurk', icon: '👁', label: 'LURK', description: 'Screens dim, two red eyes open in the dark, then fade into shadow and smoke' },
     { name: 'fatality', insert: '/fatality @', icon: '☠', label: 'FATALITY', description: '/fatality @Name -- execute one Little Hero with Pyroblast or Absolute Zero' },
     { name: 'fireworks', insert: '/fireworks ', icon: '✺', label: 'FIREWORKS', description: '/fireworks [message] -- light up every screen' },
     { name: 'c4', insert: '/c4', icon: '▣', label: 'C4 COLUMN', description: 'Manually trigger the three-second C4 battle alert' },
@@ -2785,6 +2786,10 @@ const App = {
 
       case 'warsong:alert':
         window.WarsongAlert?.onMessage(message);
+        break;
+
+      case 'lurk:gaze':
+        window.LurkEffect?.onMessage(message);
         break;
 
       case 'goat:event':
