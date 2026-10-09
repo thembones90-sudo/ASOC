@@ -1575,6 +1575,10 @@ const PlayerApp = {
         window.WarsongAlert?.onMessage(message);
         break;
 
+      case 'lurk:gaze':
+        window.LurkEffect?.onMessage(message);
+        break;
+
       case 'goat:event':
         window.GoatEvent?.onMessage(message);
         break;
