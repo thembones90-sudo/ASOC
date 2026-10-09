@@ -71,7 +71,7 @@
   };
   const SKILLS = [
     { match: el => el.id === 'asoc-whip-effect', key: 'whip', name: 'WHIP', icon: '\u{1FAA2}', tint: '#d9653b',
-      role: el => clsRole(el, /asoc-whip-(victim|attacker|observer)/), heavy: false,
+      role: el => clsRole(el, /asoc-whip-(victim|attacker|observer)/), heavy: false, noFlash: true,
       text: el => (el.classList.contains('is-hijacked') ? 'HIJACKED! ' : '') + (el.querySelector('.asoc-whip-line')?.textContent || '').trim() },
     { match: el => el.id === 'asoc-tickle-layer', key: 'tickle', name: 'TICKLE', icon: '\u{1FAB6}', tint: '#a96bff',
       role: el => clsRole(el, /\bis-(victim|attacker|observer)\b/), heavy: false,
@@ -154,7 +154,7 @@
   }
 
   function flash(skill, role) {
-    if (reducedMotion() || role !== 'victim') return;
+    if (reducedMotion() || role !== 'victim' || skill.noFlash) return;
     const el = document.createElement('div');
     el.className = 'asoc-skill-flash is-' + skill.key + (skill.heavy ? ' is-heavy' : '');
     el.style.setProperty('--tint', skill.tint);
