@@ -6995,6 +6995,8 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
   { name: '/avada', help: '/avada @Name -- the killing curse (5% it rebounds; 10 min recharge)' },
   { name: '/backstab', help: '/backstab @Name -- spend 15 SC to betray a player (10% chance you stab yourself; 60 min recharge)' },
+  { name: '/tickle', help: '/tickle @Name -- free tickle attack (60 sec cooldown); /revenge within 10 sec' },
+  { name: '/revenge', help: '/revenge -- retaliate against a tickler (10 sec window)' },
   { name: '/fistbump', help: '/fistbump @Name -- bro code confirmed (free; 5 min recharge)' },
   { name: '/love', help: '/love [Name] -- SHADOW MARKET unlock: hearts fly over the chat' },
   { name: '/drug', help: '/drug @Name -- SHADOW MARKET relic: inject someone with... something' },
@@ -7838,6 +7840,64 @@ function handleBackstabCommand(room, author, raw, targetPlayerId) {
 }
 
 
+const TICKLE_COOLDOWN_MS = 60000;
+const TICKLE_REVENGE_MS = 10000;
+function tickleCommand(room, author, raw, targetPlayerId, isBroker = false) {
+ const now = Date.now();
+ const actorId = isBroker ? 'shadow-broker' : String(author.id);
+ room.tickleCooldowns ||= {};
+ room.tickleRevenge ||= {};
+ for (const [id, state] of Object.entries(room.tickleRevenge)) if (!state || state.expiresAt < now) delete room.tickleRevenge[id];
+ const revenge = /^\/revenge\s*$/i.test(raw);
+ let target, outcome, actorName = isBroker ? 'SHADOW BROKER' : author.name;
+ if (revenge) {
+   const pending = room.tickleRevenge[actorId];
+   if (!pending || pending.expiresAt < now) return {success:false,error:'REVENGE EXPIRED // YOU HAVE 10 SECONDS AFTER BEING TICKLED'};
+   if (pending.attackerId === 'shadow-broker') {
+     target = {id:'shadow-broker', name:'SHADOW BROKER'};
+   } else {
+     target = room.players?.get?.(pending.attackerId) || Array.from(room.players?.values?.() || []).find(p => String(p.id) === pending.attackerId);
+     if (!target) return {success:false,error:'REVENGE TARGET UNAVAILABLE'};
+   }
+   delete room.tickleRevenge[actorId];
+   outcome = 'happy';
+ } else {
+   const match = raw.match(/^\/tickle(?:\s+@?(.+?))?\s*$/i);
+   if (!match || !match[1]) return {success:false,error:'TICKLE INVALID // USE /tickle @Name'};
+   const remaining = TICKLE_COOLDOWN_MS - (now - (room.tickleCooldowns[actorId] || 0));
+   if (remaining > 0) return {success:false,error:'TICKLE RECHARGING // '+Math.ceil(remaining/1000)+' SECONDS REMAIN'};
+   if (/^(shadow\s*broker|gm)$/i.test(match[1].trim()) && !isBroker) target = {id:'shadow-broker',name:'SHADOW BROKER'};
+   else {
+     const resolved = resolveNamedTarget(room, isBroker ? null : author.id, targetPlayerId || '', match[1], 'TICKLE');
+     if (resolved.error) return {success:false,error:resolved.error};
+     target = resolved.target;
+   }
+   const roll = crypto.randomInt(100);
+   outcome = roll < 60 ? 'happy' : roll < 90 ? 'angry' : 'broker';
+ }
+ const targetName = target.name;
+ const lines = revenge
+   ? [actorName+' returns the tickle with DOUBLE FORCE. '+targetName+' has lost control of the situation.']
+   : outcome === 'happy'
+   ? [actorName+' tickles '+targetName+'. Dignity has left the chat. 🪶',targetName+' was tickled into submission by '+actorName+'. 😂']
+   : outcome === 'angry'
+   ? [targetName+' HATES being tickled. '+actorName+' has made a terrible enemy. 😠']
+   : ['SHADOW BROKER: I have witnessed '+actorName+' tickling '+targetName+'. Both of you disgust me.'];
+ const text = lines[crypto.randomInt(lines.length)];
+ const payload = {actorId, actorName, targetId:String(target.id),targetName,outcome,revenge, timestamp:now};
+ const result = buildChatCommandMessage(room, author, 'tickle', isBroker ? 'shadowBroker' : 'tickle', text, {tickle:payload});
+ if (!result.success) return result;
+ if (isBroker) result.message.source = 'shadowBroker';
+ if (!revenge) {
+   room.tickleCooldowns[actorId] = now;
+   if (outcome !== 'broker') room.tickleRevenge[String(target.id)] = {attackerId:actorId,expiresAt:now+TICKLE_REVENGE_MS};
+ }
+ persistActiveRooms();
+ broadcastToRoom(room,{type:'tickle:impact',...payload});
+ if (isBroker) return {success:true,broadcast:true};
+ return result;
+}
+
 const FISTBUMP_COOLDOWN_MS = 5 * 60 * 1000;
 const FISTBUMP_LINES = Object.freeze([
   '{A} fist-bumped {T}. BRO CODE CONFIRMED. 🤜🤛',
@@ -8252,6 +8312,7 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
     return handleBackstabCommand(room, author, raw, targetPlayerId);
   }
+  if (/^\/(tickle|revenge)\b/i.test(raw)) return tickleCommand(room, author, raw, message?.targetPlayerId || '', false);
   if (/^\/fistbump\b/i.test(raw)) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
     return handleFistbumpCommand(room, author, raw, targetPlayerId);
@@ -8498,6 +8559,8 @@ function dispatchGmSlashCommand(room, ws, text) {
     if (result.success) { result.message.source = 'shadowBroker'; result.broadcast = true; }
     return result;
   }
+
+  if (/^\/(tickle|revenge)\b/i.test(raw)) return tickleCommand(room, author, raw, '', true);
 
   // Broker fistbump trigger: same avatar animation, no player cooldown.
   if (/^\/fistbump\b/i.test(raw)) {

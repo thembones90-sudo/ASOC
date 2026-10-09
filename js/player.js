@@ -1613,6 +1613,9 @@ const PlayerApp = {
       case 'coffee:break':
           window.AsocCoffee?.show(message);
           break;
+        case 'tickle:impact':
+          window.AsocTickle?.onMessage(message);
+          break;
         case 'fistbump:impact':
         window.FistbumpEffect?.onMessage(message);
         break;

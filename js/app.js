@@ -101,6 +101,8 @@ const App = {
     { name: 'stats', insert: '/stats', icon: '▤', label: 'THE BOOK', description: '/stats -- the Broker consults the book' },
     { name: 'sigh', insert: '/sigh', icon: '…', label: 'SIGH', description: '/sigh -- sigh heavily at the state of things' },
     { name: 'all', insert: '/all ', icon: '⚡', label: 'ALL', description: '/all [message] -- shake every screen' },
+    { name: 'tickle', insert: '/tickle @', icon: '🪶', label: 'TICKLE', description: '/tickle @Name -- free playful attack; 60s cooldown' },
+    { name: 'revenge', insert: '/revenge', icon: '😈', label: 'REVENGE', description: '/revenge -- return a tickle within 10 seconds' },
     { name: 'megabonk', insert: '/megabonk all ', icon: '🔨', label: 'MEGABONK ALL', description: '/megabonk all [message] -- every Little Hero must ACKNOWLEDGE' },
     { name: 'megabonk', insert: '/megabonk @', icon: '🔨', label: 'MEGABONK ONE', description: '/megabonk @Name [message] -- one Little Hero must ACKNOWLEDGE' },
     { name: 'relic', insert: '/relic @', icon: '✦', label: 'RELIC', description: "/relic @Name -- grant SHADOW BROKER'S MISTAKE" },
@@ -2806,6 +2808,9 @@ const App = {
 
       case 'coffee:break':
           window.AsocCoffee?.show(message);
+          break;
+        case 'tickle:impact':
+          window.AsocTickle?.onMessage(message);
           break;
         case 'fistbump:impact':
         window.FistbumpEffect?.onMessage(message);
