@@ -32,7 +32,7 @@
   const CUSTOM_ID = 'custom';
 
   // Bump ART_VERSION whenever set art is replaced so browsers fetch it fresh.
-  const ART_VERSION = '2';
+  const ART_VERSION = '3';
   const art = folder => ({ avatar: `assets/transmog/${folder}/avatar.webp?v=${ART_VERSION}`, thumb: `assets/transmog/${folder}/thumb.webp?v=${ART_VERSION}` });
 
   const SETS = Object.freeze([
