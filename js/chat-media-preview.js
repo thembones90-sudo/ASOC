@@ -110,6 +110,211 @@
     return null;
   }
 
+  // ZOOM // examine an opened image. Wheel or pinch zooms toward the pointer,
+  // drag pans, double-click toggles, and the bar offers + / - / FIT / 1:1.
+  // The picture is pinned to the stage (absolute, contain-style fit) so a tall
+  // photo can never overflow and get clipped the way it used to.
+  const ZOOM_STYLE_ID = 'chat-media-zoom-style';
+  const HINT_DEFAULT = 'CLICK OUTSIDE OR PRESS ESC TO CLOSE';
+  const HINT_IMAGE = 'SCROLL OR PINCH TO ZOOM // DRAG TO PAN // DOUBLE-CLICK TO TOGGLE // ESC TO CLOSE';
+  const ZOOM_STEP = 1.4;
+  let zoomState = null;
+
+  function ensureZoomStyles() {
+    if (document.getElementById(ZOOM_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = ZOOM_STYLE_ID;
+    style.textContent = `
+      .${OVERLAY_CLASS}:not(.is-avatar-preview) .chat-media-lightbox-stage { position: relative; }
+      .${OVERLAY_CLASS}:not(.is-avatar-preview) .chat-media-lightbox-stage img.${MEDIA_CLASS} {
+        position: absolute; inset: 0;
+        width: 100% !important; height: 100% !important;
+        max-width: none !important; max-height: none !important;
+        object-fit: scale-down !important; border-radius: 0;
+        touch-action: none; user-select: none; -webkit-user-select: none;
+        transform-origin: 50% 50%; will-change: transform; cursor: zoom-in;
+      }
+      .${OVERLAY_CLASS} img.${MEDIA_CLASS}.is-zoomed { cursor: grab; }
+      .${OVERLAY_CLASS} img.${MEDIA_CLASS}.is-zoomed:active { cursor: grabbing; }
+      .chat-media-zoom-bar {
+        position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 3;
+        display: flex; align-items: center; gap: 4px; padding: 5px;
+        border: 1px solid rgba(159, 171, 184, .45); border-radius: 999px;
+        background: rgba(8, 11, 15, .84); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      }
+      .chat-media-zoom-bar button {
+        min-width: 34px; height: 30px; padding: 0 10px;
+        border: 1px solid rgba(159, 171, 184, .4); border-radius: 999px;
+        background: linear-gradient(180deg, #252b32, #0d1116); color: #e7edf3;
+        font: 800 11px/1 var(--font-machine, monospace); letter-spacing: .08em; cursor: pointer;
+      }
+      .chat-media-zoom-bar button:hover, .chat-media-zoom-bar button:focus-visible { outline: none; border-color: #d6e0ea; color: #fff; }
+      .chat-media-zoom-level { min-width: 50px; text-align: center; color: #c9d2db; font: 800 11px/1 var(--font-machine, monospace); }
+      /* Blood Tribute pictures are evidence: show the whole photo, never a crop. */
+      body .blood-tribute-public-image,
+      body:is(.room-mode-battle, .room-mode-battle-armed, .room-mode-recount) .blood-tribute-public-image {
+        object-fit: contain !important; max-height: min(46vh, 300px) !important; cursor: zoom-in;
+      }
+      .blood-vault-image { height: 220px; }
+      .blood-vault-image img { object-fit: contain !important; background: #050608; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function detachZoom() {
+    if (!zoomState) return;
+    window.removeEventListener('resize', zoomState.onResize);
+    zoomState.bar?.remove();
+    zoomState = null;
+    const hint = overlay?.querySelector('.chat-media-lightbox-hint');
+    if (hint) hint.textContent = HINT_DEFAULT;
+  }
+
+  function attachZoom(img) {
+    detachZoom();
+    ensureZoomStyles();
+    const hint = overlay.querySelector('.chat-media-lightbox-hint');
+    if (hint) hint.textContent = HINT_IMAGE;
+
+    const bar = document.createElement('div');
+    bar.className = 'chat-media-zoom-bar';
+    bar.innerHTML = '<button type="button" data-zoom="out" aria-label="Zoom out">−</button>'
+      + '<output class="chat-media-zoom-level">100%</output>'
+      + '<button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
+      + '<button type="button" data-zoom="fit" aria-label="Fit to screen">FIT</button>'
+      + '<button type="button" data-zoom="actual" aria-label="Actual size">1:1</button>';
+    stage.appendChild(bar);
+    const level = bar.querySelector('.chat-media-zoom-level');
+
+    const st = { img, bar, scale: 1, x: 0, y: 0, onResize: null };
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    img.draggable = false;
+
+    const metrics = () => {
+      const r = stage.getBoundingClientRect();
+      const nw = img.naturalWidth || r.width || 1;
+      const nh = img.naturalHeight || r.height || 1;
+      const fit = Math.min(1, r.width / nw, r.height / nh) || 1;
+      return { r, sw: r.width, sh: r.height, dw: nw * fit, dh: nh * fit, fit };
+    };
+    const maxScale = m => Math.max(8, 4 / m.fit);
+
+    const apply = () => {
+      const m = metrics();
+      st.scale = clamp(st.scale, 1, maxScale(m));
+      const lx = Math.max(0, (m.dw * st.scale - m.sw) / 2);
+      const ly = Math.max(0, (m.dh * st.scale - m.sh) / 2);
+      st.x = clamp(st.x, -lx, lx);
+      st.y = clamp(st.y, -ly, ly);
+      const idle = st.scale <= 1.0001 && !st.x && !st.y;
+      img.style.transform = idle ? '' : `translate(${st.x.toFixed(2)}px, ${st.y.toFixed(2)}px) scale(${st.scale.toFixed(4)})`;
+      img.classList.toggle('is-zoomed', st.scale > 1.001);
+      level.textContent = `${Math.round(st.scale * m.fit * 100)}%`;
+    };
+
+    // cx/cy are measured from the stage centre; that point stays put.
+    const zoomTo = (next, cx = 0, cy = 0) => {
+      const m = metrics();
+      next = clamp(next, 1, maxScale(m));
+      const k = next / st.scale;
+      st.x = cx - (cx - st.x) * k;
+      st.y = cy - (cy - st.y) * k;
+      st.scale = next;
+      apply();
+    };
+    const fromCentre = (clientX, clientY) => {
+      const r = stage.getBoundingClientRect();
+      return [clientX - (r.left + r.width / 2), clientY - (r.top + r.height / 2)];
+    };
+
+    stage.addEventListener('wheel', (event) => {
+      if (!st.img.isConnected) return;
+      event.preventDefault();
+      const unit = event.deltaMode === 1 ? 33 : 1;
+      const factor = Math.exp(-event.deltaY * unit * (event.ctrlKey ? 0.01 : 0.0018));
+      const [cx, cy] = fromCentre(event.clientX, event.clientY);
+      zoomTo(st.scale * factor, cx, cy);
+    }, { passive: false });
+
+    const pointers = new Map();
+    let pinch = null;
+    img.addEventListener('pointerdown', (event) => {
+      if (event.button !== undefined && event.button !== 0 && event.pointerType === 'mouse') return;
+      try { img.setPointerCapture(event.pointerId); } catch (_) {}
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, scale: st.scale };
+      }
+    });
+    img.addEventListener('pointermove', (event) => {
+      const prev = pointers.get(event.pointerId);
+      if (!prev) return;
+      const now = { x: event.clientX, y: event.clientY };
+      pointers.set(event.pointerId, now);
+      if (pointers.size === 2 && pinch) {
+        const [a, b] = [...pointers.values()];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        const [cx, cy] = fromCentre((a.x + b.x) / 2, (a.y + b.y) / 2);
+        zoomTo(pinch.scale * (dist / pinch.dist), cx, cy);
+      } else if (pointers.size === 1 && st.scale > 1.001) {
+        st.x += now.x - prev.x;
+        st.y += now.y - prev.y;
+        apply();
+      }
+    });
+    const release = (event) => {
+      pointers.delete(event.pointerId);
+      if (pointers.size < 2) pinch = null;
+    };
+    img.addEventListener('pointerup', release);
+    img.addEventListener('pointercancel', release);
+
+    img.addEventListener('dblclick', (event) => {
+      event.preventDefault();
+      if (st.scale > 1.05) {
+        st.scale = 1; st.x = 0; st.y = 0; apply();
+        return;
+      }
+      const [cx, cy] = fromCentre(event.clientX, event.clientY);
+      zoomTo(Math.max(2, 1 / metrics().fit), cx, cy);
+    });
+
+    bar.addEventListener('pointerdown', event => event.stopPropagation());
+    bar.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-zoom]');
+      if (!button) return;
+      event.stopPropagation();
+      const action = button.dataset.zoom;
+      if (action === 'in') zoomTo(st.scale * ZOOM_STEP);
+      else if (action === 'out') zoomTo(st.scale / ZOOM_STEP);
+      else if (action === 'fit') { st.scale = 1; st.x = 0; st.y = 0; apply(); }
+      else if (action === 'actual') zoomTo(1 / metrics().fit);
+    });
+
+    st.onResize = () => apply();
+    window.addEventListener('resize', st.onResize);
+    img.addEventListener('load', apply);
+    zoomState = st;
+    st.api = { zoomTo, apply, pan(dx, dy) { st.x += dx; st.y += dy; apply(); }, reset() { st.scale = 1; st.x = 0; st.y = 0; apply(); }, step: ZOOM_STEP };
+    apply();
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (!zoomState || !overlay || overlay.hidden || event.ctrlKey || event.metaKey || event.altKey) return;
+    const api = zoomState.api;
+    let handled = true;
+    if (event.key === '+' || event.key === '=') api.zoomTo(zoomState.scale * api.step);
+    else if (event.key === '-' || event.key === '_') api.zoomTo(zoomState.scale / api.step);
+    else if (event.key === '0') api.reset();
+    else if (zoomState.scale > 1.001 && event.key === 'ArrowLeft') api.pan(60, 0);
+    else if (zoomState.scale > 1.001 && event.key === 'ArrowRight') api.pan(-60, 0);
+    else if (zoomState.scale > 1.001 && event.key === 'ArrowUp') api.pan(0, 60);
+    else if (zoomState.scale > 1.001 && event.key === 'ArrowDown') api.pan(0, -60);
+    else handled = false;
+    if (handled) { event.preventDefault(); event.stopPropagation(); }
+  }, true);
+
   function open(trigger) {
     const media = mediaFromTrigger(trigger);
     if (!media) return;
@@ -124,9 +329,11 @@
       caption.textContent = previewLabel;
       caption.hidden = !previewLabel;
     }
+    detachZoom();
     stage.replaceChildren(media);
     overlay.hidden = false;
     document.body.classList.add('chat-media-preview-open');
+    if (!isAvatar && media instanceof HTMLImageElement) attachZoom(media);
 
     if (media instanceof HTMLVideoElement) {
       media.play().catch(() => {});
@@ -138,6 +345,7 @@
   function close() {
     if (!overlay || overlay.hidden) return;
     stage?.querySelector('video')?.pause();
+    detachZoom();
     stage?.replaceChildren();
     overlay.classList.remove('is-avatar-preview');
     if (caption) {
@@ -176,6 +384,8 @@
     event.stopPropagation();
     open(trigger);
   }, true);
+
+  ensureZoomStyles();
 
   window.ChatMediaPreview = { open, close, isOpenedMediaTarget };
 })();
