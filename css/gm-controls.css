@@ -75,3 +75,30 @@
   #dragon-raid-setup-btn.is-live .raid-action-icon{animation:none}
   #battle-controls-panel .gm-action-icon{transition:none}
 }
+
+/* COMMAND PORTRAITS // cinematic art inside the established pill geometry. */
+#battle-controls-panel :is(#quests-btn,#broker-transmog-btn,#dragon-raid-setup-btn,#poison-gm-button){
+  position:relative;isolation:isolate;overflow:hidden;
+  background-position:center!important;background-size:cover!important;background-repeat:no-repeat!important;
+}
+#battle-controls-panel :is(#quests-btn,#broker-transmog-btn,#dragon-raid-setup-btn,#poison-gm-button)>*{
+  position:relative;z-index:2;
+}
+
+#quests-btn{
+  background-image:linear-gradient(90deg,rgba(7,5,9,.44),rgba(8,6,10,.82) 38%,rgba(8,6,10,.82) 62%,rgba(7,5,9,.44)),url('../assets/ui/gm-pill-quests.png')!important;
+  text-shadow:0 1px 2px #000,0 0 8px rgba(240,198,91,.52)!important;
+}
+#broker-transmog-btn{
+  background-image:linear-gradient(90deg,rgba(10,3,15,.38),rgba(16,7,23,.84) 37%,rgba(16,7,23,.84) 63%,rgba(10,3,15,.38)),url('../assets/ui/gm-pill-transmog.png')!important;
+  text-shadow:0 1px 2px #000,0 0 9px rgba(220,140,255,.48)!important;
+}
+#dragon-raid-setup-btn{
+  background-image:linear-gradient(90deg,rgba(12,3,6,.35),rgba(17,6,13,.84) 38%,rgba(17,6,13,.84) 62%,rgba(12,3,6,.35)),url('../assets/ui/gm-pill-raid.png')!important;
+  text-shadow:0 1px 2px #000,0 0 9px rgba(255,113,143,.48)!important;
+}
+#dragon-raid-setup-btn::before{content:none!important}
+#poison-gm-button{
+  background-image:linear-gradient(90deg,rgba(2,12,4,.31),rgba(4,19,7,.8) 38%,rgba(4,19,7,.8) 62%,rgba(2,12,4,.31)),url('../assets/ui/gm-pill-poison.png')!important;
+  text-shadow:0 1px 2px #000,0 0 9px rgba(134,255,104,.5)!important;
+}

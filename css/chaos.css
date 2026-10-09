@@ -74,6 +74,14 @@
 #chaos-gm-button:focus-visible{outline:2px solid #e2b8ff!important;outline-offset:2px}
 :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #chaos-gm-button{order:15;width:100%!important;min-width:0!important;margin:0!important;box-sizing:border-box!important;height:auto!important;min-height:42px!important;align-self:stretch!important}
 
+/* Impossible die artwork; deliberately leaves all pill dimensions untouched. */
+#chaos-gm-button{
+  isolation:isolate;
+  background-image:linear-gradient(90deg,rgba(8,2,15,.32),rgba(16,6,25,.84) 38%,rgba(16,6,25,.84) 62%,rgba(8,2,15,.32)),url('../assets/ui/gm-pill-chaos.png')!important;
+  background-position:center!important;background-size:cover!important;background-repeat:no-repeat!important;
+}
+#chaos-gm-button>*{position:relative;z-index:2}
+
 /* GM picker */
 #chaos-picker{position:fixed;z-index:2147482460;width:min(430px,92vw);max-height:min(640px,88vh);display:flex;flex-direction:column;border:1px solid #a64bff;background:linear-gradient(165deg,#0b0711,#150c20);box-shadow:0 24px 70px rgba(0,0,0,.62),0 0 35px rgba(166,75,255,.16);color:#f1e6fb;font-family:Arial,sans-serif}
 #chaos-picker[hidden]{display:none!important}
