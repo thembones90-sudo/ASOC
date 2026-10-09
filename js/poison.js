@@ -7,6 +7,13 @@
   let observer = null;
   let countdownTimer = null;
   let gmTargets = [];
+  let gmSelected = new Set();   // ids ticked in the picker
+  let gmCastArmed = false;      // footer button waiting for its confirming second click
+  let gmArmTimer = null;
+  let gmQueue = [];             // ids still waiting for their gm:poisonCast
+  let gmQueueTotal = 0;
+  let gmQueueDone = { ok: [], fail: [] };
+  let gmQueueWatch = null;
   let gmPickerOpen = false;
   let gmCasting = false;
 
@@ -84,6 +91,29 @@
       .poison-target-option small{display:block;margin-top:4px;font:700 9px/1 Arial;letter-spacing:.1em;color:#70826b}
       .poison-target-option .online{color:#82ff68}.poison-target-option .offline{color:#737d70}
       .poison-picker-empty{padding:28px 12px;text-align:center;color:#768271;font-weight:800;letter-spacing:.08em}
+      #poison-gm-button{position:relative!important}
+      #poison-gm-button::after{position:absolute;left:32%;right:5%;text-align:center;pointer-events:none;font-family:Arial,sans-serif;text-transform:uppercase;transition:text-shadow .16s ease,opacity .16s ease,color .16s ease}
+      #poison-gm-button::after{content:'POISON';top:50%;transform:translateY(-50%);font-weight:900;font-size:clamp(17px,2.3vw,25px);line-height:1;letter-spacing:.34em;padding-left:.34em;color:#ecffd9;text-shadow:0 0 6px rgba(120,255,70,.95),0 0 18px rgba(77,255,46,.7),0 2px 3px #000}
+      #poison-gm-button:hover::after,#poison-gm-button:focus-visible::after,#poison-gm-button.is-armed::after{color:#fff;text-shadow:0 0 8px #b8ff87,0 0 26px rgba(95,255,60,.95),0 2px 3px #000}
+      #poison-gm-button:focus-visible{outline:2px solid #8dff6a!important;outline-offset:2px}
+      .poison-target-group{display:flex;align-items:center;gap:8px;margin:6px 2px 0;font:900 10px/1 Arial,sans-serif;letter-spacing:.16em;color:#82ff68}
+      .poison-target-group::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,#2f5a24,transparent)}
+      .poison-target-group.is-offline{color:#737d70}.poison-target-group.is-offline::after{background:linear-gradient(90deg,#2b3228,transparent)}
+      .poison-target-option{grid-template-columns:22px 42px 1fr auto!important}
+      .poison-target-option.is-offline{opacity:.72}
+      .poison-check{width:18px;height:18px;border:1px solid #3f6335;border-radius:3px;background:#050805;display:grid;place-items:center;color:transparent;font:900 12px/1 Arial,sans-serif}
+      .poison-target-option.is-selected{border-color:#6dd745;background:linear-gradient(90deg,#13230f,#0d150b);box-shadow:0 0 14px rgba(94,228,56,.16)}
+      .poison-target-option.is-selected.is-offline{opacity:1}
+      .poison-target-option.is-selected .poison-check{border-color:#8dff6a;background:#2a5d1c;color:#d8ffc8}
+      .poison-target-option .poison-tag{display:inline-block;margin-left:7px;padding:2px 5px;border:1px solid #6dd745;color:#b8ff87;font:900 8px/1 Arial,sans-serif;letter-spacing:.12em;vertical-align:1px}
+      .poison-picker-foot{display:grid;gap:8px;padding:10px 12px 12px;border-top:1px solid #294522;background:#070b06}
+      .poison-picker-tools{display:flex;gap:8px}
+      .poison-picker-tools button{flex:1;padding:8px 6px;border:1px solid #2f5a24;background:#0b100a;color:#9fd88a;font:900 10px/1 Arial,sans-serif;letter-spacing:.12em;cursor:pointer}
+      .poison-picker-tools button:hover{border-color:#6dd745;color:#d8ffc8}
+      .poison-cast-btn{padding:13px 10px;border:1px solid #4fbf2b;background:linear-gradient(180deg,#1b3a12,#0e2009);color:#d8ffc8;font:900 12px/1 Arial,sans-serif;letter-spacing:.16em;cursor:pointer}
+      .poison-cast-btn:disabled{opacity:.4;cursor:not-allowed;border-color:#2b4a22}
+      .poison-cast-btn.is-armed{border-color:#ff5a4d;background:linear-gradient(180deg,#5a1410,#2a0a08);color:#ffe3df;box-shadow:0 0 18px rgba(255,70,52,.3)}
+      .poison-cast-btn.is-casting{border-color:#8dff6a;color:#b8ff87}
       .poison-cast-toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:2147482460;padding:11px 16px;border:1px solid #4fbf2b;background:#081007;color:#b9ff90;font:900 12px/1 Arial;letter-spacing:.1em;box-shadow:0 0 22px rgba(73,255,47,.18)}
     `;
     document.head.appendChild(style);
@@ -199,11 +229,15 @@
     root.innerHTML = `
       <div class="poison-picker-head">
         <img src="${ASSETS.command}" alt="">
-        <div><b>POISON TARGET</b><small>REGISTERED LITTLE HEROES // ONLINE OR OFFLINE</small></div>
+        <div><b>POISON TARGET</b><small>PICK ONE OR MANY // THEN CAST</small></div>
         <button type="button" class="poison-picker-close" aria-label="Close">×</button>
       </div>
       <input class="poison-picker-search" type="search" placeholder="SEARCH LITTLE HERO..." autocomplete="off">
-      <div class="poison-target-list"></div>`;
+      <div class="poison-target-list"></div>
+      <div class="poison-picker-foot">
+        <div class="poison-picker-tools"><button type="button" data-poison-tool="online">SELECT ALL ONLINE</button><button type="button" data-poison-tool="clear">CLEAR</button></div>
+        <button type="button" class="poison-cast-btn" data-poison-cast disabled>SELECT A TARGET</button>
+      </div>`;
     document.body.appendChild(root);
     root.querySelector('.poison-picker-close')?.addEventListener('click', closeGmPicker);
     root.querySelector('.poison-picker-search')?.addEventListener('input', renderGmTargets);
@@ -226,6 +260,7 @@
     const root = ensureGmPicker();
     gmPickerOpen = true;
     gmTargets = [];
+    resetGmSelection();
     document.getElementById('poison-gm-button')?.classList.add('is-armed');
     root.hidden = false;
     positionGmPicker();
@@ -238,6 +273,8 @@
   function closeGmPicker() {
     gmPickerOpen = false;
     gmCasting = false;
+    resetGmSelection();
+    stopGmQueue();
     document.getElementById('poison-gm-button')?.classList.remove('is-armed');
     const root = document.getElementById('poison-target-picker');
     if (root) root.hidden = true;
@@ -252,22 +289,131 @@
       list.innerHTML = '<div class="poison-picker-empty">NO LITTLE HEROES FOUND</div>';
       return;
     }
-    list.innerHTML = filtered.map(target => {
+    const row = target => {
       const avatar = target.avatarData || ASSETS.status;
-      const status = target.online ? 'ONLINE' : 'OFFLINE';
-      return `<button type="button" class="poison-target-option" data-poison-target-id="${esc(target.id)}">
+      const id = String(target.id);
+      const picked = gmSelected.has(id);
+      const poisoned = !!states[id];
+      const status = picked ? 'SELECTED' : (target.online ? 'ONLINE' : 'OFFLINE');
+      const note = poisoned ? 'ALREADY POISONED // CASTING RENEWS IT' : 'ACCOUNT TARGET';
+      return `<button type="button" class="poison-target-option${picked ? ' is-selected' : ''}${target.online ? '' : ' is-offline'}" data-poison-target-id="${esc(id)}" aria-pressed="${picked}">
+        <span class="poison-check" aria-hidden="true">✓</span>
         <img src="${esc(avatar)}" alt="">
-        <span><b>${esc(target.name)}</b><small>ACCOUNT TARGET</small></span>
+        <span><b>${esc(target.name)}${poisoned ? '<i class="poison-tag">POISONED</i>' : ''}</b><small>${note}</small></span>
         <strong class="${target.online ? 'online' : 'offline'}">${status}</strong>
       </button>`;
-    }).join('');
+    };
+    const online = filtered.filter(target => target.online);
+    const offline = filtered.filter(target => !target.online);
+    list.innerHTML = (online.length ? `<div class="poison-target-group">ONLINE // ${online.length}</div>${online.map(row).join('')}` : '')
+      + (offline.length ? `<div class="poison-target-group is-offline">OFFLINE // ${offline.length}</div>${offline.map(row).join('')}` : '');
+    syncGmFoot();
   }
 
-  function castAtTarget(playerId) {
-    if (gmCasting || !playerId || !window.App?.send) return;
+  function resetGmSelection() {
+    clearTimeout(gmArmTimer);
+    gmArmTimer = null;
+    gmCastArmed = false;
+    gmSelected = new Set();
+    syncGmFoot();
+  }
+
+  function syncGmFoot() {
+    const btn = document.querySelector('#poison-target-picker .poison-cast-btn');
+    if (!btn) return;
+    const n = gmSelected.size;
+    btn.classList.toggle('is-armed', gmCastArmed && !gmCasting);
+    btn.classList.toggle('is-casting', gmCasting);
+    btn.disabled = !gmCasting && n === 0;
+    if (gmCasting) btn.textContent = `CASTING ${Math.min(gmQueueTotal, gmQueueDone.ok.length + gmQueueDone.fail.length + 1)} OF ${gmQueueTotal}...`;
+    else if (!n) btn.textContent = 'SELECT A TARGET';
+    else if (gmCastArmed) btn.textContent = `CLICK AGAIN: POISON ${n} ${n === 1 ? 'HERO' : 'HEROES'}`;
+    else btn.textContent = `POISON ${n} ${n === 1 ? 'HERO' : 'HEROES'}`;
+  }
+
+  function toggleGmTarget(playerId) {
+    const id = String(playerId || '');
+    if (!id || gmCasting) return;
+    if (gmSelected.has(id)) gmSelected.delete(id); else gmSelected.add(id);
+    gmCastArmed = false;
+    clearTimeout(gmArmTimer);
+    renderGmTargets();
+  }
+
+  function gmTool(kind) {
+    if (gmCasting) return;
+    if (kind === 'clear') gmSelected = new Set();
+    if (kind === 'online') {
+      const query = String(document.querySelector('#poison-target-picker .poison-picker-search')?.value || '').trim().toLocaleLowerCase();
+      gmTargets.filter(t => t.online && (!query || String(t.name || '').toLocaleLowerCase().includes(query))).forEach(t => gmSelected.add(String(t.id)));
+    }
+    gmCastArmed = false;
+    clearTimeout(gmArmTimer);
+    renderGmTargets();
+  }
+
+  // Casting at several heroes is a fair-sized act: the first click arms the button, the second sends.
+  function pressGmCast() {
+    if (gmCasting || !gmSelected.size) return;
+    if (!gmCastArmed) {
+      gmCastArmed = true;
+      syncGmFoot();
+      clearTimeout(gmArmTimer);
+      gmArmTimer = setTimeout(() => { gmCastArmed = false; syncGmFoot(); }, 4000);
+      return;
+    }
+    clearTimeout(gmArmTimer);
+    gmCastArmed = false;
+    startGmQueue([...gmSelected]);
+  }
+
+  // The server casts one target per message, so a multi-cast is a short, spaced-out queue.
+  function startGmQueue(ids) {
+    if (!window.App?.send || !ids.length) return;
+    gmQueue = ids.slice();
+    gmQueueTotal = ids.length;
+    gmQueueDone = { ok: [], fail: [] };
     gmCasting = true;
     document.querySelectorAll('.poison-target-option').forEach(button => { button.disabled = true; });
-    window.App.send({ type:'gm:poisonCast', playerId:String(playerId) });
+    syncGmFoot();
+    sendNextGmCast();
+  }
+
+  function sendNextGmCast() {
+    clearTimeout(gmQueueWatch);
+    if (!gmQueue.length) return finishGmQueue();
+    const id = gmQueue.shift();
+    syncGmFoot();
+    gmQueueWatch = setTimeout(() => noteGmCastResult({ ok: false, error: 'NO ANSWER', playerId: id }), 8000);
+    window.App.send({ type:'gm:poisonCast', playerId:String(id) });
+  }
+
+  function noteGmCastResult(message) {
+    clearTimeout(gmQueueWatch);
+    if (message.ok) gmQueueDone.ok.push(String(message.playerName || message.playerId || 'TARGET'));
+    else gmQueueDone.fail.push(String(message.error || 'POISON CAST REJECTED'));
+    if (gmQueue.length) setTimeout(() => { if (gmCasting) sendNextGmCast(); }, 700);
+    else finishGmQueue();
+  }
+
+  function finishGmQueue() {
+    const done = gmQueueDone;
+    stopGmQueue();
+    closeGmPicker();
+    const total = done.ok.length + done.fail.length;
+    if (total <= 1) {
+      if (done.ok.length) showGmToast(`POISON CAST // ${done.ok[0]}`);
+      else showGmToast(done.fail[0] || 'POISON CAST REJECTED', true);
+    } else if (!done.fail.length) showGmToast(`POISON CAST // ${done.ok.length} HEROES`);
+    else showGmToast(`POISON CAST // ${done.ok.length} OF ${total} // ${done.fail[0]}`, !done.ok.length);
+  }
+
+  function stopGmQueue() {
+    clearTimeout(gmQueueWatch);
+    gmQueue = [];
+    gmQueueTotal = 0;
+    gmQueueDone = { ok: [], fail: [] };
+    gmCasting = false;
   }
 
   function showGmToast(text, bad = false) {
@@ -409,6 +555,7 @@
       return;
     }
     if (message.type === 'gm:poisonCastResult') {
+      if (gmQueueTotal) { noteGmCastResult(message); return; }
       gmCasting = false;
       if (message.ok) {
         closeGmPicker();
@@ -472,15 +619,19 @@
       const target = event.target.closest?.('[data-poison-target-id]');
       if (target) {
         event.preventDefault();
-        castAtTarget(target.dataset.poisonTargetId);
+        toggleGmTarget(target.dataset.poisonTargetId);
         return;
       }
+      const tool = event.target.closest?.('[data-poison-tool]');
+      if (tool) { event.preventDefault(); gmTool(tool.dataset.poisonTool); return; }
+      if (event.target.closest?.('[data-poison-cast]')) { event.preventDefault(); pressGmCast(); return; }
       if (gmPickerOpen) {
         const picker = document.getElementById('poison-target-picker');
         if (picker && !picker.contains(event.target)) closeGmPicker();
       }
     });
     window.addEventListener('resize', () => { if (gmPickerOpen) positionGmPicker(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && gmPickerOpen) closeGmPicker(); });
     ensureGmPicker();
     decorate();
     observer = new MutationObserver(() => decorate());
