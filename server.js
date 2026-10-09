@@ -132,6 +132,7 @@ const heroRoles = require('./hero-roles');
 const coinDrops = require('./coin-drops');
 const dragonRaid = require('./dragon-raid');
 const { createDragonRaidService } = require('./dragon-raid-server');
+const { createChaosService } = require('./chaos-server');
 const DEFAULT_BROKER_PROFILE = Object.freeze(transmogCatalog.resolveProfile(transmogCatalog.DEFAULT_ID));
 const LEGACY_DEFAULT_AVATAR = 'assets/ui/shadow-broker.png';
 function normalizeBrokerProfile(input) {
@@ -536,6 +537,7 @@ function serializeRoomForRecovery(room) {
     bloodTributes: room.bloodTributes || [],
     pendingTribute: room.pendingTribute || null,
     poison: room.poison || {},
+    chaos: room.chaos || {},
     blackMarket: blackMarket.normalizeState(room.blackMarket),
     nudgeCounts: room.nudgeCounts || {},
     moonTolls: room.moonTolls || {},
@@ -678,6 +680,7 @@ function restoreActiveRooms() {
         bloodTributes: Array.isArray(saved.bloodTributes) ? saved.bloodTributes : [],
         pendingTribute: saved.pendingTribute || null,
         poison: saved.poison && typeof saved.poison === 'object' ? saved.poison : {},
+        chaos: saved.chaos && typeof saved.chaos === 'object' ? saved.chaos : {},
         blackMarket: blackMarket.normalizeState(saved.blackMarket),
         nudgeCounts: saved.nudgeCounts && typeof saved.nudgeCounts === 'object' ? saved.nudgeCounts : {},
         moonTolls: saved.moonTolls && typeof saved.moonTolls === 'object' ? saved.moonTolls : {},
@@ -1541,6 +1544,7 @@ function getPublicState(room) {
     wheel: getWheelPublicState(room),
     bloodTribute: getBloodTributePublicState(room),
     poison: poisonPublicState(room),
+    chaos: getChaosService().publicState(room),
     unstableConcoction: unstableConcoction.publicState(room.unstableConcoction),
     timer: getTimerPublicState(room),
     solutionCountdowns: getSolutionCountdownPublicState(room),
@@ -3175,7 +3179,7 @@ function declareGameLost(room, source = 'timer') {
 
 // KALADONT clock (250ms): only rooms with a Kaladont state do any work.
 setInterval(() => runtimeAction(() => {
-  rooms.forEach(room => { if (room.kaladont) tickKaladont(room); if (room.rage) tickRage(room); if (room.poison && Object.keys(room.poison).length) poisonTick(room); });
+  rooms.forEach(room => { if (room.kaladont) tickKaladont(room); if (room.rage) tickRage(room); if (room.poison && Object.keys(room.poison).length) poisonTick(room); if (getChaosService().hasEntries(room)) getChaosService().sweep(room); });
   tickIksGauntlet();
 }), 250);
 
@@ -7013,6 +7017,7 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
   { name: '/fatality', help: '/fatality @Name -- 50/50 Pyroblast or Frost cinematic on one Little Hero' },
   { name: '/poison', help: '/poison @Name -- GM-only venom: one /roll save, then -0.1 SC every 20 seconds until Blood Tribute cure' },
+  { name: '/chaos', help: '/chaos @Name [@Name2 ...] <roll target> <coins> (or /chaos all ...) -- roll wager: reach the target to win Shadow Coins, fall short and owe a Blood Tribute; 100 pays double, 1 owes a dark tribute' },
   { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
   { name: '/b3', help: '/b3 -- manually trigger the three-second Baki B3 battle tribute' },
   { name: '/recount', help: 'Show the RECOUNT (game over + aftermath required)' },
@@ -8197,6 +8202,7 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   }
 
   if (/^\/poison\b/i.test(raw)) return { success: false, error: 'POISON IS SHADOW BROKER AUTHORITY ONLY' };
+  if (/^\/chaos\b/i.test(raw)) return { success: false, error: 'CHAOS IS SHADOW BROKER AUTHORITY ONLY' };
 
   if (/^\/roll\b/i.test(raw)) {
     const poison = ensurePoisonState(room)[String(ws.playerId)];
@@ -8224,6 +8230,8 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
       room.revision++;
       return result;
     }
+    const chaosRoll = getChaosService().onRoll(room, ws, raw);
+    if (chaosRoll) return chaosRoll;
     const range = parseRollCommand(raw);
     if (!range) return { success: false, error: 'ROLL RANGE INVALID // USE /roll, /roll 20, OR /roll 50 100' };
     if (range.error) return { success: false, error: range.error };
@@ -8452,6 +8460,8 @@ function dispatchGmSlashCommand(room, ws, text) {
     broadcastToRoom(room, { type: 'fatality:strike', ...strike });
     return { success: true, broadcast: true };
   }
+
+  if (/^\/chaos\b/i.test(raw)) return getChaosService().gmSlash(room, author, raw);
 
   if (/^\/poison\b/i.test(raw)) {
     const match = raw.match(/^\/poison(?:\s+@?(.*?))?\s*$/i);
@@ -9007,6 +9017,32 @@ function sendToWs(ws, message) {
   }
 }
 
+let chaosService = null;
+function getChaosService() {
+  if (!chaosService) {
+    chaosService = createChaosService({
+      crypto,
+      broadcastToRoom,
+      sendToWs,
+      getPublicState,
+      persistActiveRooms,
+      playerStore,
+      buildChatCommandMessage,
+      broadcastChatUpdate,
+      broadcastPlayersUpdate,
+      brokerDisplayName,
+      sanitizeTributeImageData,
+      sendTributeVaultToHost,
+      requireGmRoom,
+      resolveTarget: (room, name) => resolveFatalityTarget(room, name),
+      accountById: id => authStore.listPlayers().find(account => String(account?.id || '') === String(id) && String(account?.name || '').trim()) || null,
+      connectedPlayers: room => Array.from(room.players?.values?.() || []).filter(player => player && player.connected !== false && String(player.name || '').trim()),
+      addRollMessage,
+      roomOf: ws => rooms.get(ws.roomCode?.toUpperCase())
+    });
+  }
+  return chaosService;
+}
 let dragonRaidService = null;
 function getDragonRaidService() {
   if (!dragonRaidService) {
@@ -14536,6 +14572,30 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:tributeForgive': {
           handleTributeForgive(ws);
+          break;
+        }
+        case 'gm:chaosCast': {
+          getChaosService().handleGmCast(ws, message);
+          break;
+        }
+        case 'gm:chaosCancel': {
+          getChaosService().handleGmCancel(ws, message);
+          break;
+        }
+        case 'gm:chaosPending': {
+          getChaosService().handleGmPending(ws);
+          break;
+        }
+        case 'chaos:respond': {
+          getChaosService().handleRespond(ws, message);
+          break;
+        }
+        case 'chaos:tributeSubmit': {
+          getChaosService().handleTributeSubmit(ws, message);
+          break;
+        }
+        case 'gm:chaosTributeDecision': {
+          getChaosService().handleTributeDecision(ws, message);
           break;
         }
         case 'gm:poisonTargets': {
