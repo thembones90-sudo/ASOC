@@ -1,0 +1,212 @@
+/* ASOC CREATOR (Load Shell) -- visual pass ---------------------------------------
+   Loaded after forge-creator.css / gm-polish.css. Everything is scoped to the
+   Forge overlay so the library view and the rest of the GM console are untouched. */
+html body #forge-overlay {
+  --cp-gold: #e3c16a;
+  --cp-violet: #a96fd0;
+  --cp-line: #28323b;
+  --cp-ink: #0a0e13;
+  --cp-dim: #7f8d95;
+}
+
+/* shell chrome ------------------------------------------------------------------- */
+html body #forge-overlay .forge-shell:has(.creator-grid) {
+  border-color: #2a333d; border-radius: 12px;
+  background:
+    radial-gradient(900px 260px at 0% 0%, rgba(212, 168, 67, .06), transparent 70%),
+    radial-gradient(800px 300px at 100% 0%, rgba(137, 62, 169, .08), transparent 70%),
+    linear-gradient(160deg, #0d1117, #07090d 70%);
+}
+html body #forge-overlay .forge-shell:has(.creator-grid) .forge-header { padding: 11px 20px; }
+html body #forge-overlay .forge-shell:has(.creator-grid) .forge-title {
+  display: flex; align-items: center; gap: 10px;
+  font: 900 .82rem var(--font-machine, monospace); letter-spacing: .22em; color: #d6dde0;
+}
+html body #forge-overlay .forge-shell:has(.creator-grid) .forge-title::before {
+  content: ""; width: 9px; height: 9px; transform: rotate(45deg);
+  background: linear-gradient(135deg, #e3c16a, #a96fd0); box-shadow: 0 0 10px rgba(227, 193, 106, .55);
+}
+html body #forge-overlay .forge-header .creator-progress { font-size: .66rem; letter-spacing: .14em; padding: 7px 12px; border-radius: 3px; }
+html body #forge-overlay .forge-close { border-radius: 4px; }
+
+/* template / command strip ------------------------------------------------------- */
+html body #forge-overlay .creator-command-strip {
+  margin: 8px 16px 0; padding: 6px 8px; border-radius: 4px;
+  border-color: #26313a; background: linear-gradient(90deg, rgba(14, 19, 25, .9), rgba(10, 13, 18, .6));
+}
+html body #forge-overlay .creator-template-tools .forge-select,
+html body #forge-overlay .creator-template-tools .forge-btn { min-height: 30px; font-size: .62rem; letter-spacing: .1em; }
+html body #forge-overlay .creator-template-tools .forge-select { flex: 0 1 250px; }
+html body #forge-overlay .creator-shortcuts {
+  display: flex; gap: 6px; flex-wrap: nowrap; font-size: 0; letter-spacing: 0;
+}
+html body #forge-overlay .creator-shortcuts::after { content: none; }
+html body #forge-overlay .creator-shortcuts { font: 700 .6rem var(--font-machine, monospace); letter-spacing: .1em; color: #6c7a82; }
+
+/* two-column form: identity + background side by side ------------------------------- */
+html body #forge-overlay .creator-form {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-content: start;
+  padding: 14px 16px 0; counter-reset: csec;
+}
+html body #forge-overlay .creator-form > * { grid-column: 1 / -1; min-width: 0; }
+html body #forge-overlay .creator-form > .creator-section { margin: 0; padding: 12px 14px 12px; border-radius: 4px; }
+html body #forge-overlay .creator-form > .creator-section:nth-of-type(1),
+html body #forge-overlay .creator-form > .creator-section:nth-of-type(2) { grid-column: auto; }
+html body #forge-overlay .creator-form > .creator-section:nth-of-type(4) {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px;
+}
+html body #forge-overlay .creator-form > .creator-section:nth-of-type(4) > .creator-label,
+html body #forge-overlay .creator-form > .creator-section:nth-of-type(4) > .cell-field:nth-of-type(3) { grid-column: 1 / -1; }
+html body #forge-overlay .creator-form > .creator-section:nth-of-type(4) textarea { min-height: 54px; resize: vertical; }
+
+/* section headings with index chips ------------------------------------------------- */
+html body #forge-overlay .creator-form .creator-label {
+  margin: -2px 0 10px; padding: 0 0 8px; font: 900 .68rem var(--font-machine, monospace);
+  letter-spacing: .2em; color: var(--cp-gold);
+}
+html body #forge-overlay .creator-form .creator-label::before {
+  counter-increment: csec; content: counter(csec, decimal-leading-zero);
+  display: inline-grid; place-items: center; min-width: 24px; height: 18px; padding: 0 4px;
+  border: 1px solid rgba(227, 193, 106, .4); border-radius: 2px; background: rgba(227, 193, 106, .08);
+  color: #f1d48a; font: 800 .58rem var(--font-mono, monospace); letter-spacing: .04em;
+}
+html body #forge-overlay .creator-form .cell-field { margin-bottom: 8px; gap: 3px; }
+html body #forge-overlay .creator-form .cell-field-label { color: var(--cp-dim); font-weight: 800; }
+html body #forge-overlay .creator-form .forge-input,
+html body #forge-overlay .creator-form .forge-select,
+html body #forge-overlay .creator-form .forge-textarea { min-height: 36px; padding: 7px 10px; font-size: .78rem; border-radius: 3px; }
+html body #forge-overlay .creator-form .forge-input:focus,
+html body #forge-overlay .creator-form .forge-select:focus,
+html body #forge-overlay .creator-form .forge-textarea:focus {
+  outline: none; border-color: var(--cp-gold); box-shadow: 0 0 0 1px var(--cp-gold), 0 0 14px rgba(227, 193, 106, .18);
+}
+
+/* background upload ----------------------------------------------------------------- */
+html body #forge-overlay .upload-zone {
+  display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; margin: 2px 0 0; padding: 8px 0 0;
+  border-top: 1px dashed #2a343c;
+}
+html body #forge-overlay .upload-zone .upload-label {
+  padding: 6px 10px; border: 1px solid #5a4a2a; border-radius: 3px; background: rgba(227, 193, 106, .06);
+  color: var(--cp-gold); font: 800 .6rem var(--font-machine, monospace); letter-spacing: .12em; cursor: pointer;
+}
+html body #forge-overlay .upload-zone .upload-label:hover { border-color: var(--cp-gold); background: rgba(227, 193, 106, .14); }
+html body #forge-overlay .upload-note { font-size: .58rem; letter-spacing: .06em; color: #6a7880; }
+
+/* board command deck ------------------------------------------------------------------- */
+html body #forge-overlay .creator-board-tools {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; padding: 6px;
+  border: 1px solid var(--cp-line); border-radius: 4px; background: linear-gradient(180deg, #0c1117, #090c10);
+}
+html body #forge-overlay .creator-tool-btn {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 5px 11px; border-radius: 3px;
+  font: 800 .6rem var(--font-machine, monospace); letter-spacing: .12em;
+}
+html body #forge-overlay .creator-tool-btn .creator-ico { width: 14px; height: 14px; flex: 0 0 auto; opacity: .85; }
+html body #forge-overlay .creator-tool-btn:hover { border-color: var(--cp-gold); color: #f6e3a8; background: rgba(227, 193, 106, .08); }
+html body #forge-overlay .creator-tool-btn:hover .creator-ico { opacity: 1; }
+html body #forge-overlay .creator-tip {
+  margin-left: auto; font: 700 .58rem var(--font-machine, monospace); letter-spacing: .08em; color: #66747c; text-align: right;
+}
+
+/* column focus as a segmented control ---------------------------------------------------- */
+html body #forge-overlay .creator-column-focus {
+  display: grid; grid-template-columns: 1.5fr repeat(4, 1fr); gap: 0; margin: 0 0 12px; padding: 0;
+  border: 1px solid var(--cp-line); border-radius: 4px; background: #080b0f; overflow: hidden;
+}
+html body #forge-overlay .creator-column-tab {
+  min-height: 32px; margin: 0; padding: 6px 8px; border: 0; border-right: 1px solid var(--cp-line); border-radius: 0;
+  background: transparent; color: #72818a; font: 800 .6rem var(--font-machine, monospace); letter-spacing: .12em; box-shadow: none;
+}
+html body #forge-overlay .creator-column-tab:last-child { border-right: 0; }
+html body #forge-overlay .creator-column-tab:hover { background: rgba(169, 111, 208, .1); color: #dfc9ee; }
+html body #forge-overlay .creator-column-tab.active {
+  background: linear-gradient(180deg, rgba(169, 111, 208, .3), rgba(169, 111, 208, .12)); color: #fff;
+  box-shadow: inset 0 -2px #c58ae8;
+}
+
+/* final solution --------------------------------------------------------------------------- */
+html body #forge-overlay .creator-form .cell-field.final { margin-bottom: 10px; }
+html body #forge-overlay .creator-form .cell-field.final .cell-field-label { color: #d9b45a; }
+html body #forge-overlay .creator-form .cell-field.final .forge-input { min-height: 42px; font-size: .9rem; }
+
+/* automatic game maker: tighter ------------------------------------------------------------------- */
+html body #forge-overlay .creator-maker { margin: 0 0 12px; border-radius: 4px; }
+html body #forge-overlay .creator-maker-head { padding: 10px 12px; gap: 14px; }
+html body #forge-overlay .creator-maker h5 { margin: 2px 0; font-size: .8rem; }
+html body #forge-overlay .creator-maker p { font-size: .68rem; line-height: 1.4; max-width: 46ch; }
+html body #forge-overlay .creator-maker-generate { min-height: 34px; padding: 6px 12px; font-size: .62rem; letter-spacing: .1em; }
+html body #forge-overlay .creator-maker-toolbar { gap: 5px; padding: 8px 12px 9px; }
+html body #forge-overlay .creator-maker-toolbar button { min-height: 28px; padding: 4px 9px; font-size: .58rem; border-radius: 3px; }
+html body #forge-overlay .creator-maker-toolbar .maker-source { margin-left: auto; align-self: center; font: 800 .56rem var(--font-machine, monospace); letter-spacing: .12em; color: #5fd0a0; }
+html body #forge-overlay .creator-maker-columns { padding: 10px 12px; }
+html body #forge-overlay .creator-maker-clues { padding: 0 12px 12px; gap: 8px; }
+
+/* column cards ------------------------------------------------------------------------------------- */
+html body #forge-overlay .creator-cols { margin: 0 0 12px; padding: 10px; border-radius: 4px; }
+html body #forge-overlay .creator-col { padding: 8px 8px 2px; border-radius: 3px; }
+html body #forge-overlay .creator-col-header {
+  display: flex; align-items: center; gap: 8px; padding: 0 0 7px; margin-bottom: 6px;
+  letter-spacing: .2em; font-size: .66rem; color: #e1e7ea;
+}
+html body #forge-overlay .creator-col-header::before {
+  content: ""; width: 7px; height: 7px; border-radius: 1px; background: currentColor; transform: rotate(45deg); opacity: .75;
+}
+html body #forge-overlay .creator-col:nth-child(1) .creator-col-header { color: #b8c3ca; }
+html body #forge-overlay .creator-col:nth-child(2) .creator-col-header { color: #c79be0; }
+html body #forge-overlay .creator-col:nth-child(3) .creator-col-header { color: #72c4a8; }
+html body #forge-overlay .creator-col:nth-child(4) .creator-col-header { color: #e0a85e; }
+html body #forge-overlay .creator-col .cell-field { margin-bottom: 5px; gap: 2px; }
+html body #forge-overlay .creator-col .forge-input { min-height: 32px; padding: 5px 9px; }
+html body #forge-overlay .creator-col .cell-field.solution .cell-field-label { color: #e3b84f; }
+html body #forge-overlay .creator-col .cell-field.solution .forge-input { border-color: #6c5524; background: linear-gradient(90deg, rgba(86, 62, 14, .22), #141922 40%); }
+
+/* hint bar + warnings + readiness ---------------------------------------------------------------------- */
+html body #forge-overlay .creator-hint-bar { margin-top: 0; border-radius: 4px; }
+html body #forge-overlay .creator-quality-report { border-radius: 4px; }
+
+/* save bar: always reachable ---------------------------------------------------------------------------- */
+html body #forge-overlay .creator-form > .forge-errors:empty { display: none; }
+html body #forge-overlay .creator-form > .forge-actions {
+  position: sticky; bottom: 0; z-index: 4; display: flex; align-items: center; gap: 8px;
+  margin: 0 -16px; padding: 10px 16px; border-top: 1px solid #2c3640;
+  background: linear-gradient(180deg, rgba(10, 13, 18, .92), #080b0f); backdrop-filter: blur(4px);
+}
+html body #forge-overlay .creator-form > .forge-actions .forge-btn { min-height: 34px; padding: 6px 16px; font-size: .64rem; letter-spacing: .14em; }
+
+/* preview pane ----------------------------------------------------------------------------------------- */
+html body #forge-overlay .creator-preview-header { min-height: 40px; padding: 6px 14px; letter-spacing: .2em; }
+html body #forge-overlay .creator-preview-header > span:first-child {
+  display: inline-flex; align-items: center; gap: 8px; color: #8fd0ff; font: 800 .62rem var(--font-machine, monospace); letter-spacing: .22em;
+}
+html body #forge-overlay .creator-preview-header > span:first-child::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; background: #e0485a; box-shadow: 0 0 8px #e0485a;
+  animation: cp-live 1.8s ease-in-out infinite;
+}
+@keyframes cp-live { 50% { opacity: .35; } }
+html body #forge-overlay .creator-test-btn { min-height: 28px; border-radius: 3px; font-size: .6rem; }
+html body #forge-overlay .creator-preview-stage { padding: 16px 18px; align-items: center; justify-content: center; }
+html body #forge-overlay .creator-preview-frame { border-radius: 3px; }
+html body #forge-overlay .creator-preview-frame::before,
+html body #forge-overlay .creator-preview-frame::after {
+  content: ""; position: absolute; z-index: 5; width: 16px; height: 16px; pointer-events: none;
+  border: 0 solid rgba(227, 193, 106, .7);
+}
+html body #forge-overlay .creator-preview-frame::before { top: 5px; left: 5px; border-top-width: 2px; border-left-width: 2px; }
+html body #forge-overlay .creator-preview-frame::after { right: 5px; bottom: 5px; border-bottom-width: 2px; border-right-width: 2px; }
+
+/* narrow windows ---------------------------------------------------------------------------------------- */
+@media (max-width: 1180px) {
+  html body #forge-overlay .creator-form > .creator-section:nth-of-type(1),
+  html body #forge-overlay .creator-form > .creator-section:nth-of-type(2) { grid-column: 1 / -1; }
+  html body #forge-overlay .creator-tip { display: none; }
+}
+@media (max-width: 760px) {
+  html body #forge-overlay .creator-column-focus { grid-template-columns: repeat(3, 1fr); }
+  html body #forge-overlay .creator-form > .creator-section:nth-of-type(4) { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body #forge-overlay .creator-preview-header > span:first-child::before { animation: none; }
+}
+html body #forge-overlay .creator-maker button:disabled,
+html body #forge-overlay .maker-clue-column button:disabled { opacity: .7; color: #9a85a6; }
