@@ -662,6 +662,34 @@ function grantRelic(identity, itemId) {
   return { ok: true };
 }
 
+// Shadow Broker grant of any Shadow Market item, never touching coins.
+// Consumables (/whip) gain a charge, tiered items step up one tier, anything
+// else simply becomes owned. `duplicate` means it was already fully owned.
+function grantItem(identity, itemId, { tiers = 1, consumable = false } = {}) {
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  const current = Number(profile.cosmetics.owned[itemId]) || 0;
+  if (!consumable && current >= Math.max(1, Number(tiers) || 1)) return { ok: true, duplicate: true, owned: current };
+  profile.cosmetics.owned[itemId] = current + 1;
+  savePlayersAtomic(players);
+  return { ok: true, owned: current + 1 };
+}
+
+// Shadow Broker revoke: removes the item entirely (every charge or tier),
+// unequips it and takes it off the relic showcase. `missing` = not owned.
+function revokeItem(identity, itemId) {
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  const current = Number(profile.cosmetics.owned[itemId]) || 0;
+  if (!(current > 0)) return { ok: true, missing: true };
+  delete profile.cosmetics.owned[itemId];
+  const equipped = profile.cosmetics.equipped || {};
+  for (const slot of Object.keys(equipped)) if (equipped[slot] === itemId) equipped[slot] = null;
+  if (Array.isArray(profile.cosmetics.showcase)) profile.cosmetics.showcase = profile.cosmetics.showcase.filter(id => id !== itemId);
+  savePlayersAtomic(players);
+  return { ok: true, removed: current };
+}
+
 // Equips an owned item into `slot`, or clears the slot with itemId null.
 function equipCosmetic(identity, slot, itemId) {
   const players = loadPlayers();
@@ -1018,6 +1046,8 @@ module.exports = {
   purchaseCommandCharge,
   consumeCommandCharge,
   grantRelic,
+  grantItem,
+  revokeItem,
   equipCosmetic,
   ownsCosmetic,
   bumpRelicProgress,
