@@ -2214,3 +2214,37 @@
   transform:none;
 }
 .dragon-arena.is-compact .dragon-arena-party .dragon-raider-card.is-active:nth-child(n){transform:translateY(-3px)}
+
+/* Compact specimen plate: the name sits on the portrait and the HP bar is one slim row,
+   so heroes can sit close to the specimen and the arena stays short (>650px, polygon mode). */
+@media(min-width:651px){
+  .dragon-arena:not(.is-compact) .dragon-boss-avatar{margin-bottom:0}
+  .dragon-arena:not(.is-compact) .dragon-boss-title{
+    position:relative;
+    z-index:2;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:baseline;
+    justify-content:center;
+    gap:2px 10px;
+    width:fit-content;
+    max-width:100%;
+    margin:-24px auto 0;
+    padding:6px 16px 7px;
+    border:1px solid rgba(201,145,235,.26);
+    border-radius:12px;
+    background:rgba(8,5,10,.92);
+    box-shadow:0 6px 18px rgba(0,0,0,.5);
+  }
+  .dragon-arena:not(.is-compact) .dragon-boss-title small{display:none}
+  .dragon-arena:not(.is-compact) .dragon-boss-title b{font-size:21px}
+  .dragon-arena:not(.is-compact) .dragon-arena-boss .dragon-boss-hp{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:6px auto 0;
+    padding:6px 12px;
+  }
+  .dragon-arena:not(.is-compact) .dragon-arena-boss .dragon-boss-hp>div{margin:0;flex:0 0 auto}
+  .dragon-arena:not(.is-compact) .dragon-arena-boss .dragon-boss-hp>span{flex:1}
+}
