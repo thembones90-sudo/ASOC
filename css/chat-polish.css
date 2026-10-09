@@ -1,0 +1,60 @@
+/* =====================================================================
+   SHADOW BROKER CHAT BUBBLE // same form as a Little Hero bubble
+   ---------------------------------------------------------------------
+   - The "OVERRIDE // UNAUTHORIZED" stamp is gone (the avatar and name
+     already say who is talking).
+   - Same shape, padding, border weight, depth and type as a player's
+     bubble; only the accent (violet instead of grey) tells them apart.
+   - The mirrored side (bubble, then avatar on the right) is kept.
+   Cosmetic effects (data-broker-message-effect) keep their own look.
+   ===================================================================== */
+
+/* the stamp */
+#game-screen#game-screen#game-screen .battle-comms-lobby .shadow-broker-transmission::before,
+#game-screen#game-screen#game-screen .battle-comms-lobby .shadow-broker-broadcast::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* shape: a player's bubble, mirrored (small corner next to the avatar) */
+#game-screen#game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message > .shadow-broker-transmission.shadow-broker-broadcast {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 8px 11px !important;
+  border-radius: 7px 7px 3px 7px !important;
+  gap: 0 !important;
+  align-items: stretch !important;
+}
+#game-screen#game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message > .shadow-broker-transmission.shadow-broker-broadcast::after {
+  display: none !important;
+}
+
+/* default look (effects excluded): player depth with a violet accent */
+#game-screen#game-screen#game-screen .battle-comms-lobby .chat-broker-entry:not(.chat-mentions-me) .shadow-broker-mirror-message > .shadow-broker-transmission.shadow-broker-broadcast:is(:not([data-broker-message-effect]), [data-broker-message-effect="none"]) {
+  border: 1px solid #6f5a8c !important;
+  background: linear-gradient(180deg, #1f1730, #100b1a) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .043), 0 1px 3px rgba(0, 0, 0, .34) !important;
+}
+
+/* typography: name line then text, left aligned like a player's */
+#game-screen#game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message .shadow-broker-body {
+  align-items: flex-start !important;
+  text-align: left !important;
+  gap: 0 !important;
+  padding: 0 !important;
+}
+#game-screen#game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message .shadow-broker-name {
+  margin: 0 !important;
+  font: 800 11.5px/1.25 "Segoe UI", system-ui, -apple-system, sans-serif !important;
+  letter-spacing: .06em !important;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--broker-accent, #c486ef) 82%, #8c7aa8) !important;
+  text-shadow: none !important;
+}
+#game-screen#game-screen#game-screen .battle-comms-lobby .chat-broker-entry .shadow-broker-mirror-message .shadow-broker-text {
+  margin: 0 !important;
+  font: 500 16px/1.3 "Segoe UI", system-ui, -apple-system, sans-serif !important;
+  color: #f0f3f7 !important;
+  text-shadow: none !important;
+  text-align: left !important;
+}
