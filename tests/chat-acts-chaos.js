@@ -126,13 +126,13 @@ harness.next = 50;
   const gm = { host: true };
   let res = h.svc.gmSlash(h.rooms, {}, '/chaos @Ana @Bea 50 5');
   ok(res.success, 'slash casts');
-  ok(/OFFERS CHAOS TO Ana, Bea/.test(h.chat[0].text) && /DOUBLE/.test(h.chat[0].text) && /DARK BLOOD TRIBUTE/.test(h.chat[0].text), 'announcement states the stakes and both critical rules');
+  ok(/Ana, Bea/.test(h.chat[0].text) && /50\+/.test(h.chat[0].text) && /5 SC/.test(h.chat[0].text) && /100/.test(h.chat[0].text) && /1/.test(h.chat[0].text) && /DARK BLOOD/.test(h.chat[0].text) && /30 SECONDS/.test(h.chat[0].text), 'theatrical announcement preserves wager terms and critical rules');
   ok(h.svc.gmSlash(h.rooms, {}, '/chaos @Nobody 50 5').error, 'unknown target refused');
   ok(h.svc.gmSlash(h.rooms, {}, '/chaos all 50 5').success === false, 'all skips everyone who already has an offer');
   // player answers
   const pa = { playerId: 'a', playerName: 'Ana' };
   h.svc.handleRespond(pa, { accept: true });
-  ok(/ACCEPTS THE WAGER/.test(h.chat[h.chat.length - 1].text), 'accept card');
+  ok(/Ana/i.test(h.chat[h.chat.length - 1].text) && /\/roll/.test(h.chat[h.chat.length - 1].text), 'accept card directs hero to /roll');
   // forced roll
   ok(h.svc.onRoll(h.rooms, { playerId: 'zzz', playerName: 'Z' }, '/roll') === null, 'strangers roll normally');
   ok(h.svc.onRoll(h.rooms, pa, '/roll 20').error, 'a wager roll cannot pick its own range');
@@ -140,6 +140,7 @@ harness.next = 50;
   let posted = h.svc.onRoll(h.rooms, pa, '/roll');
   ok(posted.success && /PERFECT 100 \/\/ DOUBLE PAYOUT \/\/ \+10 SC/.test(posted.message.text), 'perfect roll text');
   eq(h.awards[0].amt, 10, 'paid double');
+  ok(/100/.test(h.chat[h.chat.length - 1].text) && /10 SC/.test(h.chat[h.chat.length - 1].text), 'perfect-100 Broker line announces real double payout');
   ok(h.awards[0].receipt.startsWith('chaos:') && h.awards[0].receipt.endsWith(':win'), 'payout carries an idempotent receipt');
   ok(posted.poisonStateChanged === true, 'state refresh flagged');
   const perfect = h.broadcasts.find(m => m.type === 'chaos:result');
@@ -150,6 +151,7 @@ harness.next = 50;
   harness.next = 1;
   posted = h.svc.onRoll(h.rooms, pb, '/roll');
   ok(/CRITICAL FAILURE: 1 \/\/ DARK BLOOD TRIBUTE OWED/.test(posted.message.text), 'dark tribute text');
+  ok(/DARK BLOOD TRIBUTE/.test(h.chat[h.chat.length - 1].text), 'dark-failure Broker dialogue');
   ok(h.broadcasts.filter(m => m.type === 'chaos:result').pop().dark === true, 'the result event marks the dark tier');
   eq(h.awards.length, 1, 'a loser is not paid');
   // tribute

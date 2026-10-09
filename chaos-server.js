@@ -5,6 +5,7 @@
 // testable on their own and server.js only needs a handful of hook lines.
 
 const chaos = require('./chaos');
+const { chaosLine } = require('./chaos-dialogue');
 
 function createChaosService(deps) {
   const {
@@ -34,13 +35,15 @@ function createChaosService(deps) {
   const names = list => list.map(item => item.playerName || item.name).join(', ');
   const coinText = coins => `${coins} SC`;
 
+  const dialogue = (kind, params) => chaosLine(kind, params, n => crypto.randomInt(n));
+
   // The one place a wager is opened: used by the /chaos command and the Shadow Broker's picker.
   function open(room, targets, stake) {
     const result = chaos.cast(room, targets, stake, Date.now(), brokerDisplayName(room));
     if (!result.ok) return result;
     const first = result.created[0];
     const who = names(result.created);
-    const text = `${brokerDisplayName(room)} OFFERS CHAOS TO ${who}. ROLL ${first.target}+ TO WIN ${coinText(first.coins)}. FALL SHORT AND YOU OWE A BLOOD TRIBUTE. A ROLL OF 100 PAYS DOUBLE. A ROLL OF 1 OWES A DARK BLOOD TRIBUTE. ${chaos.OFFER_MS / 1000} SECONDS TO ACCEPT OR REJECT.`;
+    const text = dialogue('open', { who, target: first.target, coins: first.coins, seconds: chaos.OFFER_MS / 1000 });
     const card = announce(room, text, { chaosId: result.chaosId, target: first.target, coins: first.coins, playerIds: result.created.map(e => e.playerId) });
     broadcastState(room);
     flushChat(room);
@@ -87,8 +90,8 @@ function createChaosService(deps) {
     if (!result.ok) return sendToWs(ws, { type: 'error', message: result.error });
     const entry = result.entry;
     announce(room, result.accepted
-      ? `${entry.playerName} ACCEPTS THE WAGER. ROLL ${entry.target}+ WITH /roll TO WIN ${coinText(entry.coins)}.`
-      : `${entry.playerName} DECLINES THE WAGER.`,
+      ? dialogue('accept', { name: entry.playerName })
+      : dialogue('decline', { name: entry.playerName }),
       { playerId: entry.playerId, accepted: result.accepted });
     broadcastState(room);
     flushChat(room);
@@ -116,6 +119,13 @@ function createChaosService(deps) {
         : ` // CHAOS LOST (NEEDED ${entry.target}+) // BLOOD TRIBUTE OWED`;
     }
     posted.message.chaos = { won: outcome.won, value, target: entry.target, coins: entry.coins, payout: outcome.won ? outcome.payout : 0, perfect: !!outcome.perfect, dark: !!outcome.dark };
+    const kind = outcome.dark ? 'dark' : outcome.perfect ? 'perfect' : outcome.won ? 'win' : 'lose';
+    const payoutFailed = outcome.won && posted.message.text.includes('PAYOUT FAILED:');
+    const speech = payoutFailed
+      ? dialogue('payoutFailure', { name: entry.playerName, value, payout: outcome.payout, error: 'TREASURY ERROR' })
+      : dialogue(kind, { name: entry.playerName, value, payout: outcome.payout });
+    announce(room, speech, { playerId: entry.playerId, kind, value, won: outcome.won, payout: payoutFailed ? 0 : outcome.payout, dark: !!outcome.dark });
+    flushChat(room);
     posted.poisonStateChanged = true; // makes the roll handler re-broadcast state:public
     broadcastToRoom(room, { type: 'chaos:result', playerId: entry.playerId, playerName: entry.playerName, value, target: entry.target, coins: entry.coins, won: outcome.won, perfect: !!outcome.perfect, dark: !!outcome.dark, payout: outcome.won ? outcome.payout : 0, timestamp: Date.now() });
     room.revision++;
