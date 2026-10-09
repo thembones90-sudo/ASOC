@@ -101,6 +101,7 @@ const App = {
     { name: 'stats', insert: '/stats', icon: '▤', label: 'THE BOOK', description: '/stats -- the Broker consults the book' },
     { name: 'sigh', insert: '/sigh', icon: '…', label: 'SIGH', description: '/sigh -- sigh heavily at the state of things' },
     { name: 'all', insert: '/all ', icon: '⚡', label: 'ALL', description: '/all [message] -- shake every screen' },
+    { name: 'whip', insert: '/whip @', icon: '🪢', label: 'WHIP', description: '/whip @Name -- crack the leather at a Little Hero; GM free, 15% chance it changes hands' },
     { name: 'dropkick', insert: '/dropkick @', icon: '🥾', label: 'DROPKICK', description: '/dropkick @Name -- free comic impact; GM unlimited, players 90s cooldown' },
     { name: 'pat', insert: '/pat @', icon: 'ðŸ–¤', label: 'PAT', description: '/pat @Name -- GM approval for one player' },
     { name: 'tickle', insert: '/tickle @', icon: '🪶', label: 'TICKLE', description: '/tickle @Name -- free playful attack; 60s cooldown' },
