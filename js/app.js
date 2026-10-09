@@ -102,6 +102,7 @@ const App = {
     { name: 'sigh', insert: '/sigh', icon: '…', label: 'SIGH', description: '/sigh -- sigh heavily at the state of things' },
     { name: 'all', insert: '/all ', icon: '⚡', label: 'ALL', description: '/all [message] -- shake every screen' },
     { name: 'dropkick', insert: '/dropkick @', icon: '🥾', label: 'DROPKICK', description: '/dropkick @Name -- free comic impact; GM unlimited, players 90s cooldown' },
+    { name: 'pat', insert: '/pat @', icon: 'ðŸ–¤', label: 'PAT', description: '/pat @Name -- GM approval for one player' },
     { name: 'tickle', insert: '/tickle @', icon: '🪶', label: 'TICKLE', description: '/tickle @Name -- free playful attack; 60s cooldown' },
     { name: 'revenge', insert: '/revenge', icon: '😈', label: 'REVENGE', description: '/revenge -- return a tickle within 10 seconds' },
     { name: 'megabonk', insert: '/megabonk all ', icon: '🔨', label: 'MEGABONK ALL', description: '/megabonk all [message] -- every Little Hero must ACKNOWLEDGE' },
