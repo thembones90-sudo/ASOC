@@ -2150,3 +2150,67 @@
   .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-mark{width:66px;height:66px;font-size:34px}
   .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading{gap:12px}
 }
+
+/* Polygon formation: heroes sit on a circle around the specimen (triangle, square, pentagon) */
+.dragon-formation{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:1;
+  pointer-events:none;
+  overflow:visible;
+}
+.dragon-formation .orbit{fill:none;stroke:rgba(190,101,219,.14);stroke-width:1;stroke-dasharray:3 7}
+.dragon-formation .spoke{stroke:rgba(190,101,219,.14);stroke-width:1}
+.dragon-formation polygon,
+.dragon-formation line:not(.spoke){fill:rgba(147,77,188,.045);stroke:rgba(201,145,235,.34);stroke-width:1.5;stroke-linejoin:round}
+.dragon-formation circle:not(.orbit){fill:rgba(219,164,248,.7)}
+.dragon-arena-party.is-polygon .dragon-raider-card:nth-child(n){
+  right:auto;
+  bottom:auto;
+  transform:none;
+}
+.dragon-arena-party.is-polygon .dragon-raider-card.is-active:nth-child(n){
+  transform:translateY(-5px) scale(1.035);
+}
+.dragon-arena-party.is-polygon .dragon-raider-card.is-fallen:nth-child(n){
+  transform:scale(.97);
+}
+@media(max-width:650px){
+  .dragon-formation{display:none}
+}
+
+/* Too narrow for a polygon: stacked arena (same as phone layout, two columns) */
+.dragon-arena.is-compact{
+  min-height:auto;
+  padding:18px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+.dragon-arena.is-compact .dragon-arena-ring,
+.dragon-arena.is-compact .dragon-formation{display:none}
+.dragon-arena.is-compact .dragon-arena-boss{
+  position:relative;
+  left:auto;
+  top:auto;
+  width:100%;
+  transform:none;
+  order:1;
+}
+.dragon-arena.is-compact .dragon-arena-party{
+  position:relative;
+  inset:auto;
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+  order:2;
+}
+.dragon-arena.is-compact .dragon-arena-party .dragon-raider-card:nth-child(n){
+  position:relative;
+  inset:auto;
+  width:auto;
+  transform:none;
+}
+.dragon-arena.is-compact .dragon-arena-party .dragon-raider-card.is-active:nth-child(n){transform:translateY(-3px)}
