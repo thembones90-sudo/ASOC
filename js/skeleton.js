@@ -69,32 +69,37 @@ const Skeleton = (() => {
     return SKELETON_MAP[difficulty] || SKELETON_FALLBACK;
   }
 
+  // Slot centres are the measured centres of the PAINTED pills' glass interiors
+  // (inside the bright chrome rim; identical across all six difficulty posters), not their old
+  // hand-measured boxes, which sat 6-7px left and 2.5-7px high of the art.
+  // Widths and heights are unchanged so word sizes do not move.
+  //   source: inner edge of the chrome rim of each pill in asoc-skeleton-*.png, Oct 2026
   const slots = {
-    A1: { x: 65,  y: 140, w: 427, h: 60 },
-    A2: { x: 148, y: 231, w: 439, h: 61 },
-    A3: { x: 234, y: 327, w: 451, h: 54 },
-    A4: { x: 326, y: 417, w: 462, h: 55 },
-    A5: { x: 413, y: 508, w: 493, h: 57 },
+    A1: { x: 71.5, y: 147, w: 427, h: 60 },
+    A2: { x: 154, y: 237.5, w: 439, h: 61 },
+    A3: { x: 240.5, y: 330.5, w: 451, h: 54 },
+    A4: { x: 332, y: 420, w: 462, h: 55 },
+    A5: { x: 420.5, y: 511, w: 493, h: 57 },
 
-    B1: { x: 1388, y: 146, w: 426, h: 54 },
-    B2: { x: 1291, y: 237, w: 440, h: 55 },
-    B3: { x: 1191, y: 326, w: 452, h: 55 },
-    B4: { x: 1090, y: 411, w: 461, h: 61 },
-    B5: { x: 971,  y: 508, w: 493, h: 57 },
+    B1: { x: 1395, y: 150, w: 426, h: 54 },
+    B2: { x: 1297.5, y: 240, w: 440, h: 55 },
+    B3: { x: 1198, y: 330, w: 452, h: 55 },
+    B4: { x: 1097.5, y: 417, w: 461, h: 61 },
+    B5: { x: 978, y: 511, w: 493, h: 57 },
 
-    C1: { x: 325, y: 808, w: 467, h: 57 },
-    C2: { x: 234, y: 900, w: 452, h: 53 },
-    C3: { x: 147, y: 986, w: 440, h: 60 },
-    C4: { x: 64,  y: 1076, w: 428, h: 59 },
-    C5: { x: 419, y: 716, w: 487, h: 55 },
+    C1: { x: 331, y: 811, w: 467, h: 57 },
+    C2: { x: 241, y: 905, w: 452, h: 53 },
+    C3: { x: 154, y: 992, w: 440, h: 60 },
+    C4: { x: 71, y: 1083, w: 428, h: 59 },
+    C5: { x: 426, y: 721, w: 487, h: 55 },
 
-    D1: { x: 1087, y: 803, w: 468, h: 62 },
-    D2: { x: 1190, y: 900, w: 454, h: 53 },
-    D3: { x: 1291, y: 991, w: 440, h: 56 },
-    D4: { x: 1387, y: 1081, w: 426, h: 55 },
-    D5: { x: 972,  y: 718, w: 487, h: 53 },
+    D1: { x: 1093, y: 808.5, w: 468, h: 62 },
+    D2: { x: 1196.5, y: 905, w: 454, h: 53 },
+    D3: { x: 1297.5, y: 994, w: 440, h: 56 },
+    D4: { x: 1394, y: 1085, w: 426, h: 55 },
+    D5: { x: 979, y: 721.5, w: 487, h: 53 },
 
-    FINAL: { x: 534, y: 612, w: 814, h: 55 }
+    FINAL: { x: 538.5, y: 613.5, w: 814, h: 55 }
   };
 
   // Font targets expressed as a fraction of the pill's RENDERED HEIGHT.
@@ -179,6 +184,52 @@ const Skeleton = (() => {
     });
   }
 
+  // ---------------------------------------------------------------------
+  // OPTICAL GLYPH CENTRING
+  //
+  // The cell is a flex box that centres the text's LINE BOX, but the visible
+  // glyphs rarely sit in the middle of their line box: every font puts the
+  // baseline at a different height inside it, so capitals ride high or low
+  // by up to a few pixels, and side bearings plus trailing letter-spacing
+  // nudge the word sideways. fit() measures the real font once per word and
+  // returns the shift that puts the INK (capital height vertically, the
+  // actual glyph extent horizontally) exactly on the pill's centre.
+  let measureCtx = null;
+  function glyphOffset(txt, fontPx) {
+    try {
+      if (!measureCtx) {
+        const canvas = document.createElement('canvas');
+        measureCtx = canvas.getContext('2d');
+      }
+      if (!measureCtx || !(fontPx > 0)) return null;
+      const cs = window.getComputedStyle(txt);
+      let text = txt.textContent || '';
+      if (cs.textTransform === 'uppercase') text = text.toUpperCase();
+      if (!text.trim()) return null;
+      measureCtx.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + fontPx + 'px ' + cs.fontFamily;
+      // Canvas needs the same tracking as the CSS so its width matches the DOM line box.
+      if ('letterSpacing' in measureCtx) measureCtx.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing;
+      const word = measureCtx.measureText(text);
+      // Capital height when the word has capitals or digits; x-height when it is all lowercase.
+      const hasCaps = text !== text.toLowerCase() || /[0-9]/.test(text);
+      const ref = measureCtx.measureText(hasCaps ? 'H' : 'x');
+      const fa = ref.fontBoundingBoxAscent;
+      const fd = ref.fontBoundingBoxDescent;
+      const ink = ref.actualBoundingBoxAscent;
+      if (!(fa > 0) || !(fd >= 0) || !(ink > 0)) return null;
+      // line-height is 1em: half-leading splits the unused space evenly around the font's own ascent+descent.
+      // Blink rounds the font's ascent and descent to whole pixels before it builds the line box.
+      const baseline = (fontPx - (Math.round(fa) + Math.round(fd))) / 2 + Math.round(fa);
+      const dy = fontPx / 2 - (baseline - ink / 2);
+      // Horizontal: the measured width includes a trailing letter-spacing; the ink does not.
+      const dx = (word.width + word.actualBoundingBoxLeft - word.actualBoundingBoxRight) / 2;
+      if (!isFinite(dx) || !isFinite(dy)) return null;
+      return { dx, dy };
+    } catch (e) {
+      return null;
+    }
+  }
+
   function fit(container) {
     if (!container || !supported) return;
     const rect = container.getBoundingClientRect();
@@ -203,6 +254,7 @@ const Skeleton = (() => {
       // Reset any previously applied autofit scale BEFORE measuring, so
       // resize/load cycles never compound transforms.
       txt.style.transform = '';
+      txt.style.translate = '';
 
       const label = cell.getAttribute('data-cell') || cell.getAttribute('data-label') || '';
       const slot = slots[label];
@@ -245,6 +297,17 @@ const Skeleton = (() => {
       if (scale < 1) {
         txt.style.transformOrigin = 'center center';
         txt.style.transform = 'scale(' + scale.toFixed(4) + ')';
+      }
+
+      // Optical centring (see glyphOffset). The horizontal presentation
+      // stretch and any shrink scale both act on the span around its centre,
+      // so the measured offsets scale with them. This inline translate also
+      // replaces the old hand-tuned FINAL-only offset in css/asoc.css.
+      const off = glyphOffset(txt, baseFont);
+      if (off) {
+        const dx = off.dx * HORIZONTAL_STRETCH * scale;
+        const dy = off.dy * scale;
+        txt.style.translate = dx.toFixed(2) + 'px ' + dy.toFixed(2) + 'px';
       }
     }
   }
