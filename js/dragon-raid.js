@@ -572,10 +572,10 @@
       </article>`;
     },
 
-    partySlotsHTML() {
+    partySlotsHTML(fill = true) {
       const raid = this.raid;
       const cards = (raid?.participants || []).map(p => this.participantHTML(p));
-      while (cards.length < 5) cards.push('<article class="dragon-raider-card is-empty"><b>EMPTY</b><small>RAID SLOT</small></article>');
+      while (fill && cards.length < 5) cards.push('<article class="dragon-raider-card is-empty"><b>EMPTY</b><small>RAID SLOT</small></article>');
       return cards.join('');
     },
 
@@ -651,7 +651,8 @@
           <div class="dragon-arena-atmosphere" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
           <div class="dragon-active-lane" aria-hidden="true"></div>
           <div class="dragon-arena-ring" aria-hidden="true"></div>
-          <div class="dragon-arena-party">${this.partySlotsHTML()}</div>
+          <svg class="dragon-formation" aria-hidden="true" focusable="false"></svg>
+          <div class="dragon-arena-party">${this.partySlotsHTML(false)}</div>
           <section class="dragon-arena-boss">
             <div class="dragon-boss-avatar ${BOSS_ART[raid.boss.id] ? 'has-art' : ''}" data-boss-avatar="${this.esc(raid.boss.id)}">
               ${BOSS_ART[raid.boss.id] ? `<img class="dragon-boss-img" src="${this.esc(BOSS_ART[raid.boss.id])}?v=${ART_VERSION}" alt="${this.esc(raid.boss.name)}" decoding="async" draggable="false">` : ''}
@@ -770,12 +771,119 @@
       `;
     },
 
+
+    // Regular-polygon seating: N heroes sit on a circle around the specimen,
+    // so a triangle, square or pentagon. Pure geometry, no DOM access.
+    //   o: { cx, width, cw, ch, boss:{l,r,t,b} (offsets from the specimen centre), pad, gap }
+    // Returns { n, R, w, points:[{x,y}], fits } with points relative to the specimen centre.
+    formation(n, o) {
+      const START = { 1: -90, 2: 180, 3: -90, 4: -135, 5: -90 };
+      const count = Math.max(1, Math.min(5, n | 0));
+      const start = (START[count] ?? -90) * Math.PI / 180;
+      const pad = o.pad ?? 14, gap = o.gap ?? 14, minR = o.minR ?? 170;
+      const widths = [o.cw, 160, 148, 136].filter((w, i, a) => w <= o.cw && a.indexOf(w) === i);
+      const hit = (a, b) => a.l < b.r + gap && a.r > b.l - gap && a.t < b.b + gap && a.b > b.t - gap;
+      const build = (R, w) => Array.from({ length: count }, (_, i) => {
+        const t = start + i * 2 * Math.PI / count;
+        return { x: Math.round(R * Math.cos(t) * 100) / 100, y: Math.round(R * Math.sin(t) * 100) / 100 };
+      });
+      let last = null;
+      for (const w of widths) {
+        const rect = pt => ({ l: pt.x - w / 2, r: pt.x + w / 2, t: pt.y - o.ch / 2, b: pt.y + o.ch / 2 });
+        for (let R = minR; R <= 1400; R += 4) {
+          const pts = build(R, w);
+          const inside = pts.every(pt => o.cx + pt.x - w / 2 >= pad && o.cx + pt.x + w / 2 <= o.width - pad);
+          if (!inside) break;
+          last = { n: count, R, w, points: pts, fits: false };
+          const rects = pts.map(rect);
+          const clear = rects.every(r => !hit(r, o.boss)) && rects.every((r, i) => rects.every((q, j) => j <= i || !hit(r, q)));
+          if (clear) return { n: count, R, w, points: pts, fits: true };
+        }
+      }
+      return last || { n: count, R: minR, w: widths[widths.length - 1], points: build(minR), fits: false };
+    },
+
+    layoutParty() {
+      const arena = document.querySelector('.dragon-arena');
+      const party = arena?.querySelector('.dragon-arena-party');
+      const av = arena?.querySelector('.dragon-boss-avatar');
+      const bossEl = arena?.querySelector('.dragon-arena-boss');
+      const svg = arena?.querySelector('.dragon-formation');
+      const ring = arena?.querySelector('.dragon-arena-ring');
+      if (!arena || !party || !av || !bossEl) return;
+      const cards = [...party.querySelectorAll('.dragon-raider-card')];
+      const stacked = window.matchMedia ? window.matchMedia('(max-width:650px)').matches : window.innerWidth <= 650;
+      const release = () => {
+        party.classList.remove('is-polygon');
+        cards.forEach(c => { c.style.left = c.style.top = c.style.width = ''; });
+        if (svg) svg.innerHTML = '';
+        if (ring) ring.style.left = ring.style.top = '';
+        arena.style.minHeight = '';
+        bossEl.style.top = '';
+      };
+      arena.classList.remove('is-compact');
+      if (stacked || !cards.length) {
+        party.classList.remove('is-polygon');
+        cards.forEach(c => { c.style.left = c.style.top = c.style.width = ''; });
+        if (svg) svg.innerHTML = '';
+        if (ring) ring.style.left = ring.style.top = '';
+        arena.style.minHeight = '';
+        bossEl.style.top = '';
+        return;
+      }
+      arena.style.minHeight = '';
+      bossEl.style.top = '';
+      party.classList.add('is-polygon');
+      cards.forEach(c => { c.style.left = c.style.top = c.style.width = ''; });
+      // offset-based geometry: ignores CSS transforms and float animations on the specimen
+      const W = arena.clientWidth;
+      const Ws = bossEl.offsetWidth, Hs = bossEl.offsetHeight;
+      const avCy = av.offsetTop + av.offsetHeight / 2;          // specimen centre inside its section
+      const Cx = W / 2 + (av.offsetLeft + av.offsetWidth / 2 - Ws / 2);
+      const boss = { l: W / 2 - Ws / 2 - Cx, r: W / 2 + Ws / 2 - Cx, t: -avCy, b: Hs - avCy };
+      const cw = Math.max(...cards.map(c => c.offsetWidth));
+      const ch = Math.max(176, ...cards.map(c => c.offsetHeight));
+      const f = this.formation(cards.length, { cx: Cx, width: W, cw, ch, boss, pad: 14, gap: 14 });
+      // size the arena to the formation, with the specimen at the centre of the polygon
+      const ys = f.points.map(p => p.y);
+      const top = Math.min(boss.t, Math.min(...ys) - ch / 2), bottom = Math.max(boss.b, Math.max(...ys) + ch / 2);
+      const base = parseFloat(getComputedStyle(arena).minHeight) || 560;
+      const H = Math.ceil(Math.max(base, bottom - top + 28));
+      const Cy = (H - (bottom - top)) / 2 - top;
+      arena.style.minHeight = H + 'px';
+      bossEl.style.top = (Cy - avCy + Hs / 2) + 'px';
+      if (!f.fits) {
+        // the arena is too narrow for a clean polygon: use the stacked layout instead of overlapping cards
+        release();
+        arena.classList.add('is-compact');
+        return;
+      }
+      const seats = [];
+      cards.forEach((card, i) => {
+        const pt = f.points[i];
+        const frame = card.offsetWidth - parseFloat(getComputedStyle(card).width);   // padding + border
+        card.style.width = (f.w - frame) + 'px';
+        const h = card.offsetHeight;
+        card.style.left = Math.round(Cx + pt.x - f.w / 2) + 'px';
+        card.style.top = Math.round(Cy + pt.y - h / 2) + 'px';
+        seats.push({ x: Cx + pt.x, y: Cy + pt.y });
+      });
+      if (ring) { ring.style.left = Cx + 'px'; ring.style.top = Cy + 'px'; }
+      if (svg) {
+        const poly = seats.length >= 3 ? `<polygon points="${seats.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}"/>` : seats.length === 2 ? `<line x1="${seats[0].x}" y1="${seats[0].y}" x2="${seats[1].x}" y2="${seats[1].y}"/>` : '';
+        const spokes = seats.map(p => `<line class="spoke" x1="${Cx.toFixed(1)}" y1="${Cy.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}"/>`).join('');
+        const dots = seats.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4"/>`).join('');
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.innerHTML = `<circle class="orbit" cx="${Cx.toFixed(1)}" cy="${Cy.toFixed(1)}" r="${f.R}"/>${spokes}${poly}${dots}`;
+      }
+    },
+
     updateActiveLane() {
       const arena = document.querySelector('.dragon-arena');
       const lane = arena?.querySelector('.dragon-active-lane');
       const active = arena?.querySelector('.dragon-raider-card.is-active');
-      const boss = arena?.querySelector('.dragon-arena-boss');
-      if (!arena || !lane || !active || !boss || this.raid?.phase !== 'HERO_TURN') {
+      const boss = arena?.querySelector('.dragon-boss-avatar') || arena?.querySelector('.dragon-arena-boss');
+      if (!arena || !lane || !active || !boss || this.raid?.phase !== 'HERO_TURN' || !arena.querySelector('.dragon-arena-party.is-polygon')) {
         if (lane) lane.hidden = true;
         return;
       }
@@ -817,7 +925,16 @@
         ${body}
         ${this.note ? `<div class="dragon-note">${this.esc(this.note)}</div>` : ''}
       `;
-      requestAnimationFrame(() => this.updateActiveLane());
+      requestAnimationFrame(() => { this.layoutParty(); this.updateActiveLane(); });
+      if (!this.resizeBound) {
+        this.resizeBound = true;
+        let queued = false;
+        window.addEventListener('resize', () => {
+          if (queued) return;
+          queued = true;
+          requestAnimationFrame(() => { queued = false; this.layoutParty(); this.updateActiveLane(); });
+        });
+      }
     },
 
     tick() {
