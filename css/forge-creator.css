@@ -204,3 +204,9 @@
 .gm-hint-prepared { display: grid; gap: 3px; margin-top: 6px; padding: 7px 9px; border-left: 3px solid #6fc3ff; background: rgba(60, 130, 190, .12); }
 .gm-hint-prepared b { color: #8fd0ff; font: 800 .62rem var(--font-machine, monospace); letter-spacing: .12em; }
 .gm-hint-prepared span { color: #e6f3ff; font-size: .86rem; }
+
+/* Dropdown lists: the browser draws the open list itself, so give it a dark surface; otherwise the light option text lands on white. */
+.creator-form select, .creator-template-tools select, .creator-form .forge-select, .creator-template-tools .forge-select { color-scheme: dark; }
+.creator-form select option, .creator-template-tools select option, .creator-form .forge-select option, .creator-template-tools .forge-select option { background-color: #12171e; color: #e8ecf5; }
+.creator-form select option:checked, .creator-template-tools select option:checked { background-color: #24546b; color: #fff; }
+.creator-form select option:disabled, .creator-template-tools select option:disabled { color: #6f7b88; }
