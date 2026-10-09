@@ -2795,6 +2795,14 @@ const App = {
         window.Fatality?.play?.(message);
         break;
 
+      case 'gm:chaosCastResult':
+      case 'chaos:tributeOffered':
+      case 'chaos:tributeSent':
+      case 'chaos:tributeRejected':
+      case 'chaos:result':
+        window.ChaosGame?.onMessage?.(message);
+        break;
+
       case 'poison:applied':
       case 'poison:failed':
       case 'poison:tick':

@@ -24,6 +24,7 @@
   let gmSending = false;
   let sendTimer = null;
   let gmOffers = [];            // tributes waiting for the Shadow Broker's verdict
+  let lastPendingRequest = 0;
   let withdrawArm = null;       // { id, timer }
   let resultTimer = null;
   let tributeNote = '';
@@ -432,7 +433,15 @@
     renderPlayer();
     updateBadges();
     gmOffers = gmOffers.filter(o => states[String(o.playerId)]?.status === 'judging');
-    if (isGm()) { renderOffer(); if (gmOpen) renderTargets(); }
+    if (isGm()) {
+      renderOffer();
+      if (gmOpen) renderTargets();
+      const pending = Object.values(states).some(entry => entry?.status === 'judging');
+      if (pending && !gmOffers.length && Date.now() - lastPendingRequest > 5000) {
+        lastPendingRequest = Date.now();
+        window.App?.send?.({ type: 'gm:chaosPending' });
+      }
+    }
   }
 
   function onMessage(message) {
