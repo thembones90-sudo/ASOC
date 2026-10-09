@@ -7,6 +7,7 @@
   let lastKey = '';
   let onKey = null;
   let speed = 1;
+  let activeFx = null;
 
   // Victims stay charred / frozen for a while. Client-side only; keyed by display name.
   const AFTERMATH_MS = 45000;
@@ -28,6 +29,7 @@
     clearTimers();
     if (onKey) { document.removeEventListener('keydown', onKey, true); onKey = null; }
     document.documentElement.classList.remove('fatality-impact', 'fatality-impact-heavy');
+    if (activeFx) { activeFx.destroy(); activeFx = null; }
     active?.remove();
     active = null;
   };
@@ -91,6 +93,121 @@
     ).join('');
   }
 
+  function centerOf(layer, selector) {
+    const el = layer.querySelector(selector);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: r.width / 2 };
+  }
+
+  // Emits `perSecond` particles per second of simulated time, carrying the fraction between frames.
+  function pacer(perSecond) {
+    let carry = 0;
+    return dt => {
+      carry += perSecond(dt) * dt;
+      const n = Math.floor(carry);
+      carry -= n;
+      return n;
+    };
+  }
+
+  // Canvas particle choreography for Pyroblast: fire gathers on the caster, a flame stream
+  // crosses the stage, the victim detonates and burns, smoke lingers. Returns the fx handle.
+  function pyroFx(layer) {
+    const fx = window.AsocFx && window.AsocFx.create ? window.AsocFx.create(layer, { speed }) : null;
+    if (!fx) return null;
+    layer.classList.add('fatality-fx');
+    const A = () => centerOf(layer, '.fatality-attacker .fatality-avatar');
+    const V = () => centerOf(layer, '.fatality-victim .fatality-avatar');
+    const R = (a, b) => window.AsocFx.rand(a, b);
+
+    // 1. Charge: embers spiral into the caster, the core swells.
+    at(720, () => {
+      const a = A();
+      if (!a) return;
+      let prog = 0;
+      const emit = pacer(() => 70 + 420 * prog * prog);
+      fx.emitter(0.85, (p, dt) => {
+        prog = p;
+        for (let i = emit(dt); i > 0; i -= 1) {
+          const ang = R(0, Math.PI * 2);
+          const rad = a.r * R(1.0, 1.9) + 30;
+          const sp = 240 + 360 * p;
+          fx.spawn(a.x + Math.cos(ang) * rad, a.y + Math.sin(ang) * rad, {
+            ramp: 'fire', vx: -Math.cos(ang) * sp - Math.sin(ang) * 120, vy: -Math.sin(ang) * sp + Math.cos(ang) * 120,
+            life: [0.3, 0.5], size: [10, 26], size1: 4, drag: 0.4
+          });
+        }
+        fx.spawn(a.x, a.y, { ramp: 'fire', size: 70 + 150 * p, size1: 90 + 170 * p, life: 0.22, alpha: 0.28 + 0.3 * p });
+      });
+    });
+
+    // 2. Stream: a fireball head crosses to the victim trailing flame and sparks.
+    at(1600, () => {
+      const a = A();
+      const v = V();
+      if (!a || !v) return;
+      const flames = pacer(() => 640);
+      const sparks = pacer(() => 160);
+      fx.emitter(0.55, (p, dt) => {
+        const e = Math.pow(p, 1.5);
+        const hx = a.x + a.r * 0.6 + (v.x - v.r * 0.5 - a.x - a.r * 0.6) * e;
+        const hy = a.y + (v.y - a.y) * e + Math.sin(p * 18) * 6;
+        const dirx = Math.sign(v.x - a.x) || 1;
+        for (let i = flames(dt); i > 0; i -= 1) {
+          fx.spawn(hx + R(-14, 14), hy + R(-18, 18), {
+            ramp: 'fire', vx: dirx * R(30, 180) + R(-60, 60), vy: R(-90, 70),
+            life: [0.28, 0.55], size: [34, 78], size1: 10, drag: 1.6
+          });
+        }
+        for (let i = sparks(dt); i > 0; i -= 1) {
+          fx.spawn(hx, hy, { ramp: 'ember', vx: R(-220, 220), vy: R(-280, 80), ay: 160, life: [0.5, 1.1], size: [5, 11], size1: 2, drag: 0.5 });
+        }
+        fx.spawn(hx, hy, { ramp: 'fire', size: 170, size1: 210, life: 0.12, alpha: 0.55 });
+      });
+    });
+
+    // 3. Detonation: flash, shockwaves, a fireball of flame and embers, then smoke.
+    at(2150, () => {
+      const v = V();
+      if (!v) return;
+      fx.spawn(v.x, v.y, { ramp: 'fire', size: 520, size1: 620, life: 0.22, alpha: 1, force: true });
+      fx.burst(v.x, v.y, 170, { ramp: 'fire', speed: [160, 780], life: [0.45, 1.1], size: [28, 74], size1: 8, drag: 1.5 });
+      fx.burst(v.x, v.y, 100, { ramp: 'ember', speed: [120, 560], ay: 150, life: [0.9, 2.0], size: [5, 12], size1: 2, drag: 0.5 });
+      fx.ring(v.x, v.y, { radius: 480, life: 0.55, width: 12, color: 'rgba(255,190,80,.95)' });
+      fx.ring(v.x, v.y, { radius: 320, life: 0.4, width: 6, color: 'rgba(255,255,230,.9)' });
+      const plume = pacer(() => 80);
+      fx.emitter(1.8, (p, dt) => {
+        for (let i = plume(dt); i > 0; i -= 1) {
+          fx.spawn(v.x + R(-70, 70), v.y + R(-30, 50), {
+            ramp: 'smoke', vx: R(-35, 35), vy: R(-170, -70), ay: -25, life: [1.2, 2.3],
+            size: [70, 130], size1: R(210, 330), alpha: 0.55, drag: 0.5
+          });
+        }
+      });
+    });
+
+    // 4. Burning: the victim keeps shedding flame and rising embers while they crumble.
+    at(2100, () => {
+      const v = V();
+      if (!v) return;
+      let cur = 0;
+      const emit = pacer(() => cur);
+      fx.emitter(1.6, (p, dt) => {
+        cur = 190 * (1 - p);
+        for (let i = emit(dt); i > 0; i -= 1) {
+          const ang = R(0, Math.PI * 2);
+          const rad = v.r * R(0.2, 1.05);
+          fx.spawn(v.x + Math.cos(ang) * rad, v.y + Math.sin(ang) * rad * 0.9, {
+            ramp: Math.random() < 0.25 ? 'ember' : 'fire', vx: R(-40, 40), vy: R(-260, -100), ay: -60,
+            life: [0.4, 0.9], size: [20, 52], size1: 6, drag: 0.7
+          });
+        }
+      });
+    });
+    return fx;
+  }
+
   function play(message) {
     if (!message || message.type !== 'fatality:strike') return;
 
@@ -150,6 +267,7 @@
       <div class="fatality-skip">CLICK OR PRESS ESC TO SKIP</div>`;
 
     document.body.appendChild(layer);
+    if (mode === 'pyroblast') activeFx = pyroFx(layer);
 
     if (speed !== 1) {
       try { layer.getAnimations({ subtree: true }).forEach(a => { a.playbackRate = speed; }); } catch {}
@@ -157,6 +275,7 @@
 
     const finish = () => {
       if (active === layer) {
+        if (activeFx) { activeFx.destroy(); activeFx = null; }
         active = null;
         layer.remove();
       }
@@ -264,6 +383,8 @@
   @keyframes fat-end{0%{opacity:0;transform:scale(1.3)}14%,77%{opacity:1;transform:scale(1)}100%{opacity:0}}
   @keyframes fat-shake{0%,100%{transform:none}25%{transform:translate(-6px,3px)}50%{transform:translate(5px,-4px)}75%{transform:translate(-3px,-2px)}}
   @keyframes fat-shake-heavy{0%,100%{transform:none}16%{transform:translate(-14px,8px)}32%{transform:translate(12px,-9px)}48%{transform:translate(-10px,-5px)}64%{transform:translate(8px,6px)}80%{transform:translate(-5px,3px)}}
+  .fatality-fx.fatality-pyroblast .fatality-blast,.fatality-fx.fatality-pyroblast .fatality-particles{display:none}
+  .fatality-fx.fatality-pyroblast .fatality-burst,.fatality-fx.fatality-pyroblast .fatality-crack{display:none}
   .fatality-skip{position:absolute;left:50%;bottom:2.2%;transform:translateX(-50%);z-index:20;font:700 11px/1 Arial;letter-spacing:.3em;color:#9a8c90;opacity:0;animation:fat-skip .5s 1s forwards;pointer-events:none}
   .fatality-skipping{opacity:0;transition:opacity .25s ease}
   @keyframes fat-skip{to{opacity:.7}}
