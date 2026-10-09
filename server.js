@@ -7864,8 +7864,10 @@ function tickleCommand(room, author, raw, targetPlayerId, isBroker = false) {
  } else {
    const match = raw.match(/^\/tickle(?:\s+@?(.+?))?\s*$/i);
    if (!match || !match[1]) return {success:false,error:'TICKLE INVALID // USE /tickle @Name'};
-   const remaining = TICKLE_COOLDOWN_MS - (now - (room.tickleCooldowns[actorId] || 0));
-   if (remaining > 0) return {success:false,error:'TICKLE RECHARGING // '+Math.ceil(remaining/1000)+' SECONDS REMAIN'};
+   if (!isBroker) {
+     const remaining = TICKLE_COOLDOWN_MS - (now - (room.tickleCooldowns[actorId] || 0));
+     if (remaining > 0) return {success:false,error:'TICKLE RECHARGING // '+Math.ceil(remaining/1000)+' SECONDS REMAIN'};
+   }
    if (/^(shadow\s*broker|gm)$/i.test(match[1].trim()) && !isBroker) target = {id:'shadow-broker',name:'SHADOW BROKER'};
    else {
      const resolved = resolveNamedTarget(room, isBroker ? null : author.id, targetPlayerId || '', match[1], 'TICKLE');
@@ -7889,7 +7891,7 @@ function tickleCommand(room, author, raw, targetPlayerId, isBroker = false) {
  if (!result.success) return result;
  if (isBroker) result.message.source = 'shadowBroker';
  if (!revenge) {
-   room.tickleCooldowns[actorId] = now;
+   if (!isBroker) room.tickleCooldowns[actorId] = now;
    if (outcome !== 'broker') room.tickleRevenge[String(target.id)] = {attackerId:actorId,expiresAt:now+TICKLE_REVENGE_MS};
  }
  persistActiveRooms();
