@@ -187,3 +187,52 @@ html body #battle-controls-panel #chaos-gm-button:hover .chaos-action-icon { tra
   }
   html body #battle-controls-panel #master-access-btn > span { letter-spacing: .12em; white-space: nowrap; }
 }
+
+
+/* 9. LOAD SHELL / board creator ------------------------------------------------
+   The creator shell was header (61) + template bar (106) + a grid sized to
+   100vh-110, so on any window shorter than ~850px the bottom of the form fell
+   off-screen. It is now a flex column that fits the window exactly, the form
+   and the preview scroll on their own, and the template bar is one slim row. */
+html body #forge-overlay.active { padding: 12px 16px !important; align-items: stretch !important; }
+html body #forge-overlay.active .forge-shell:has(.creator-grid) {
+  display: flex; flex-direction: column;
+  height: calc(100vh - 24px); height: calc(100dvh - 24px);
+  max-height: none;
+}
+html body #forge-overlay .forge-shell:has(.creator-grid) > * { flex: 0 0 auto; }
+html body #forge-overlay .forge-shell:has(.creator-grid) > .creator-grid {
+  flex: 1 1 auto; min-height: 0 !important;
+  grid-template-rows: minmax(0, 1fr);
+}
+html body #forge-overlay .creator-form { max-height: none !important; min-height: 0; }
+html body #forge-overlay .creator-preview { min-height: 0; }
+
+html body #forge-overlay .creator-command-strip {
+  margin: 8px 20px 8px; padding: 6px 10px; gap: 8px 14px; flex-wrap: nowrap;
+}
+html body #forge-overlay .creator-template-tools { flex-wrap: nowrap; flex: 1 1 auto; min-width: 0; }
+html body #forge-overlay .creator-template-tools .forge-select { flex: 0 1 300px; min-width: 160px; min-height: 34px; }
+html body #forge-overlay .creator-template-tools .forge-btn { white-space: nowrap; }
+html body #forge-overlay .creator-shortcuts { flex: 0 0 auto; font-size: .66rem; color: #7d8b93; white-space: nowrap; }
+
+/* readable micro text */
+html body #forge-overlay .creator-form .cell-field-label { font-size: .64rem; letter-spacing: .06em; }
+html body #forge-overlay .creator-col-header { font-size: .68rem; }
+html body #forge-overlay .maker-clue-column header small,
+html body #forge-overlay .creator-maker-kicker { font-size: .64rem; }
+html body #forge-overlay .creator-maker button:disabled,
+html body #forge-overlay .maker-clue-column button:disabled { opacity: .6; color: #7f6c8a; border-color: #3a3042; }
+
+/* the four-across clue grid truncated clues at ~126px per field: 2 x 2 until the
+   window is wide enough to give each column real room */
+@media (max-width: 1699px) {
+  html body #forge-overlay .creator-cols:not(.single-column) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+}
+
+/* readiness check: two compact columns instead of one long red strip */
+html body #forge-overlay .creator-quality-report {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 8px; max-height: 280px; overflow-y: auto;
+}
+html body #forge-overlay .creator-quality-report > b { grid-column: 1 / -1; }
+html body #forge-overlay .creator-quality-report span { padding: 4px 7px; }
