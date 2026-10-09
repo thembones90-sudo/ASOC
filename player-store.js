@@ -626,6 +626,32 @@ function purchaseCosmetic(identity, itemId, tier, price, receiptId, { reason = '
   return { ok: true, balance: profile.shadowCoins, tier };
 }
 
+// Atomic single-use whip charges, persisted with the Shadow Coin ledger.
+function purchaseCommandCharge(identity, itemId, price, receiptId) {
+  const units = coinUnits(price);
+  if (!units || !receiptId) return {ok:false,error:'Invalid charge purchase'};
+  const players = loadPlayers();
+  const profile = coinProfile(players, identity);
+  if (profile.shadowCoinReceipts.includes(receiptId)) return {ok:true,duplicate:true};
+  if (profile.shadowCoinUnits < units) return {ok:false,error:'Not enough Shadow Coins'};
+  const owned = profile.cosmetics.owned || (profile.cosmetics.owned = {});
+  const prior = Math.max(0,Math.floor(Number(owned[itemId])||0));
+  if (prior >= 99) return {ok:false,error:'Maximum 99 charges'};
+  owned[itemId] = prior + 1;
+  if (!recordCoinChange(players,profile,receiptId,-units,{kind:'purchase',reason:'BOUGHT /whip CHARGE',detail:{itemId,charges:prior+1}})) return {ok:false,error:COIN_STORAGE_ERROR};
+  return {ok:true,charges:prior+1};
+}
+function consumeCommandCharge(identity,itemId) {
+  const players = loadPlayers();
+  const profile = coinProfile(players,identity);
+  const owned = profile.cosmetics.owned || (profile.cosmetics.owned = {});
+  const prior = Math.max(0,Math.floor(Number(owned[itemId])||0));
+  if (!prior) return {ok:false,error:'WHIP LOCKED // BUY A CHARGE IN THE SHADOW MARKET'};
+  owned[itemId] = prior - 1;
+  savePlayersAtomic(players);
+  return {ok:true,charges:prior-1};
+}
+
 // Relics are granted, never bought. Idempotent per item.
 function grantRelic(identity, itemId) {
   const players = loadPlayers();
@@ -989,6 +1015,8 @@ module.exports = {
   resetScoreboard,
   SCOREBOARD_FIELDS,
   purchaseCosmetic,
+  purchaseCommandCharge,
+  consumeCommandCharge,
   grantRelic,
   equipCosmetic,
   ownsCosmetic,

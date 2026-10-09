@@ -146,13 +146,14 @@
 
   function itemCard(item, equipped) {
     const owned = item.tier > 0;
-    const maxed = item.tier >= item.maxTier;
+    const maxed = !item.consumable && item.tier >= item.maxTier;
     const isEquipped = equipped[item.kind] === item.id;
     const visual = item.kind === 'appearance' || item.kind === 'effect' || item.kind === 'frame';
-    const tiered = item.maxTier > 1;
+    const tiered = !item.consumable && item.maxTier > 1;
     const locked = item.requires && !item.requires.met;
     let status = '';
-    if (item.relic) status = owned ? '<span class="smk-tag smk-tag-relic">RELIC // OWNED</span>' : '<span class="smk-tag smk-tag-relic">RELIC // NOT FOR SALE</span>';
+    if (item.consumable) status = '<span class="smk-tag smk-tag-owned">CHARGES: ' + item.tier + '</span>';
+    else if (item.relic) status = owned ? '<span class="smk-tag smk-tag-relic">RELIC // OWNED</span>' : '<span class="smk-tag smk-tag-relic">RELIC // NOT FOR SALE</span>';
     else if (owned && maxed) status = '<span class="smk-tag smk-tag-owned">OWNED</span>';
     else if (owned) status = `<span class="smk-tag smk-tag-owned">TIER ${ROMAN[item.tier]}</span>`;
 
@@ -162,7 +163,7 @@
         actions.push(`<button type="button" class="smk-btn smk-btn-locked" disabled>LOCKED // ${esc(item.requires.label)} (${esc(item.requires.progress)}/${esc(item.requires.min)})</button>`);
       } else {
         const armed = state.armedBuy === item.id;
-        const verb = owned ? `UPGRADE → ${ROMAN[item.tier + 1]}` : 'BUY';
+        const verb = item.consumable ? 'BUY ONE CHARGE' : owned ? `UPGRADE → ${ROMAN[item.tier + 1]}` : 'BUY';
         const afford = (state.data?.balance || 0) >= item.nextPrice;
         actions.push(`<button type="button" class="smk-btn smk-btn-buy${armed ? ' is-armed' : ''}" data-buy="${esc(item.id)}"${afford ? '' : ' disabled'}>${armed ? `CONFIRM ${fmt(item.nextPrice)} SC` : `${verb} // ${fmt(item.nextPrice)} SC`}</button>`);
       }

@@ -1,0 +1,27 @@
+#asoc-whip-effect{position:fixed;z-index:2147482050;bottom:22px;left:50%;transform:translateX(-50%);width:min(650px,calc(100vw - 20px));pointer-events:none;color:#f9e7da;font-family:Arial,sans-serif;text-align:center}
+.asoc-whip-stage{padding:12px 16px 14px;border:1px solid #674032;border-radius:10px;background:linear-gradient(145deg,#140e10f5,#291613f7);box-shadow:0 12px 34px #000b;overflow:hidden}
+.asoc-whip-kicker{font-weight:900;font-size:12px;letter-spacing:.19em;color:#f2cda7}
+.asoc-whip-combatants{height:130px;display:flex;align-items:center;justify-content:space-between;position:relative;padding:0 22px}
+.asoc-whip-combatant{z-index:2;display:flex;flex-direction:column;align-items:center;gap:6px;width:125px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;font-weight:700}
+.asoc-whip-avatar{width:66px;height:66px;display:grid;place-items:center;border-radius:50%;border:2px solid #8a6251;background:#2d2120;color:#ecd5c3;overflow:hidden;font-size:22px;box-shadow:0 4px 12px #0008}
+.asoc-whip-avatar img{width:100%;height:100%;object-fit:cover}
+.asoc-whip-line{font-size:12px;line-height:1.4;letter-spacing:.025em;font-weight:700;max-width:590px;margin:0 auto}
+.asoc-whip-lash{position:absolute;top:4px;left:18%;width:64%;height:115px;z-index:3;transform-origin:10% 90%;animation:asoc-whip-swing 1.2s ease-in-out both}
+.asoc-whip-lash svg{width:100%;height:100%;overflow:visible}
+.asoc-whip-lash path{fill:none;stroke:#704331;stroke-width:7;stroke-linecap:round;filter:drop-shadow(1px 2px 1px #000)}
+.asoc-whip-crack{position:absolute;left:60%;top:37px;color:#fff1dc;font-size:21px;font-weight:900;letter-spacing:.08em;opacity:0;text-shadow:0 0 9px #f6b984;z-index:4;animation:asoc-whip-flash 2s ease-out both}
+.asoc-whip-target .asoc-whip-avatar{animation:asoc-whip-recoil 2s ease both}
+.asoc-whip-actor .asoc-whip-avatar{animation:asoc-whip-windup 2s ease both}
+#asoc-whip-effect.is-hijacked{border-color:#a54a38}
+#asoc-whip-effect.is-hijacked .asoc-whip-kicker{color:#ff8276}
+#asoc-whip-effect.asoc-whip-observer{width:min(420px,calc(100vw - 20px));opacity:.9}
+#asoc-whip-effect.asoc-whip-observer .asoc-whip-combatants{height:90px}
+#asoc-whip-effect.asoc-whip-observer .asoc-whip-avatar{width:42px;height:42px}
+#asoc-whip-effect.asoc-whip-observer .asoc-whip-lash{height:75px}
+#asoc-whip-effect.asoc-whip-observer .asoc-whip-line{font-size:11px}
+@keyframes asoc-whip-swing{0%{transform:rotate(-68deg) scaleX(.7);opacity:.15}30%{transform:rotate(-38deg) scaleX(.85);opacity:1}55%{transform:rotate(14deg) scaleX(1.15)}68%{transform:rotate(0deg) scaleX(1)}100%{opacity:0}}
+@keyframes asoc-whip-flash{0%,33%{opacity:0;transform:scale(.6)}42%{opacity:1;transform:scale(1.2)}65%,100%{opacity:0;transform:scale(1.4)}}
+@keyframes asoc-whip-recoil{0%,35%{transform:translateX(0) rotate(0)}44%{transform:translateX(13px) rotate(12deg)}60%{transform:translateX(-3px) rotate(-5deg)}100%{transform:none}}
+@keyframes asoc-whip-windup{0%,20%{transform:rotate(0)}35%{transform:rotate(-13deg)}50%{transform:rotate(7deg)}100%{transform:none}}
+@media(prefers-reduced-motion:reduce){#asoc-whip-effect *{animation:none!important}}
+@media(max-width:500px){#asoc-whip-effect{bottom:12px}.asoc-whip-combatants{padding:0 4px;height:100px}.asoc-whip-combatant{width:90px}.asoc-whip-avatar{width:50px;height:50px}.asoc-whip-line{font-size:11px}}

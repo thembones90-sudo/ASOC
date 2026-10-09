@@ -6976,6 +6976,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
   { name: '/avada', help: '/avada @Name -- the killing curse (5% it rebounds; 10 min recharge)' },
   { name: '/backstab', help: '/backstab @Name -- spend 15 SC to betray a player (10% chance you stab yourself; 60 min recharge)' },
+  { name: '/whip', help: '/whip @Name -- one-use Shadow Market leather whip (6 SC; 15% counter-whip); GM free' },
   { name: '/dropkick', help: '/dropkick @Name -- free comic dropkick (90 sec player recharge; unlimited GM)' },
   { name: '/tickle', help: '/tickle @Name -- free tickle attack (60 sec cooldown); /revenge within 10 sec' },
   { name: '/revenge', help: '/revenge -- retaliate against a tickler (10 sec window)' },
@@ -7823,6 +7824,60 @@ function handleBackstabCommand(room, author, raw, targetPlayerId) {
 }
 
 
+const WHIP_HIT_LINES = [
+  'BACK TO WORK, {T}! EVEN THE RATS HAVE EARNED THEIR SUPPER, AND YOU ARE STILL WASTING MY AIR!',
+  'DID I GIVE YOU PERMISSION TO REST, {T}? THE WHIP DOES NOT RECOGNIZE HOLIDAYS!',
+  'STRAIGHTEN THAT BACK, {T}! I HAVE SEEN WET NOODLES WITH MORE SPINE!',
+  'MOVE THOSE USELESS LEGS, {T}! THE DEAD HAVE SHOWN MORE ENTHUSIASM!',
+  'YOU CALL THAT EFFORT, {T}? I HAVE SEEN DONKEYS WITH BETTER WORK ETHICS!',
+  'SILENCE, {T}! YOUR EXCUSES ARE WORTH LESS THAN THE DIRT UNDER MY BOOTS!',
+  'THE WHIP HAS SPOKEN, {T}! FOR ONCE, SOMETHING HERE HAS MADE A VALID POINT!',
+  'FASTER, {T}! EVEN YOUR OWN SHADOW IS EMBARRASSED TO FOLLOW YOU!',
+  'QUIT WHIMPERING, {T}! THAT WAS A REMINDER OF WHO RUNS THIS CIRCUS!',
+  'UP YOU GET, {T}! I HAVE BURIED BETTER WORKERS AND THEY STILL LOOKED MORE PRODUCTIVE!'
+];
+const WHIP_REFLECT_LINES = [
+  'THE WHIP HAS CHANGED HANDS, {A}! APPARENTLY SO HAS YOUR DIGNITY!',
+  'WHO IS THE MASTER NOW, {A}? BECAUSE IT CERTAINLY IS NOT YOU!',
+  'YOU BROUGHT THE WHIP, {A}. HOW GENEROUS TO DELIVER YOUR OWN PUNISHMENT!',
+  'LOVELY WHIP, {A}! SHAME YOU NEVER LEARNED WHICH END TO HOLD!',
+  'YOU WANTED OBEDIENCE, {A}? HERE IS A LESSON IN CONSEQUENCES!',
+  'STAND STILL, {A}! YOUR CAREER AS A TYRANT HAS BEEN CANCELED!',
+  'YOU HAD ONE JOB, {A}! EVEN YOUR OWN WHIP HAS DEFECTED!',
+  'THE TABLES HAVE TURNED, {A}! AND THEY ARE LAUGHING AT YOU!',
+  'CONGRATULATIONS, {A}! PROMOTED FROM TYRANT TO TARGET!',
+  'NEXT TIME, {A}, HOLD ONTO YOUR AUTHORITY AS TIGHTLY AS YOUR WHIP!'
+];
+function whipCommand(room, author, raw, targetPlayerId, isBroker = false) {
+  const parsed = String(raw || '').match(/^\/whip\s+@?(.+?)\s*$/i);
+  if (!parsed) return { success:false, error:'WHIP INVALID // USE /whip @Name' };
+  const resolved = resolveNamedTarget(room, isBroker ? null : author.id, targetPlayerId || '', parsed[1], 'WHIP');
+  if (resolved.error) return { success:false, error:resolved.error };
+  const target = resolved.target;
+  const actorName = isBroker ? brokerDisplayName(room) : author.name;
+  const actorId = isBroker ? 'shadow-broker' : String(author.id);
+  if (!isBroker) {
+    const account = coinAccount(author.id, author.name);
+    if (!account) return { success:false, error:'WHIP UNAVAILABLE // PLAYER ACCOUNT REQUIRED' };
+    const spent = playerStore.consumeCommandCharge(account, 'cmd-whip');
+    if (!spent.ok) return { success:false, error:spent.error };
+  }
+  const hijacked = crypto.randomInt(100) < 15;
+  const line = (hijacked ? WHIP_REFLECT_LINES : WHIP_HIT_LINES)[crypto.randomInt(10)]
+    .replace(/\{A\}/g, actorName).replace(/\{T\}/g, target.name);
+  const brokerAvatar = publicBrokerProfile(room).avatarData || LEGACY_DEFAULT_AVATAR;
+  const event = {
+    actorId, actorName, actorAvatarData:isBroker ? brokerAvatar : liveAvatarFor(room,author.id),
+    targetId:String(target.id), targetName:target.name, targetAvatarData:liveAvatarFor(room,target.id),
+    victimId:hijacked ? actorId : String(target.id), hijacked, line, timestamp:Date.now(), durationMs:3200
+  };
+  const result = buildChatCommandMessage(room,author,'whip',isBroker ? 'shadowBroker' : 'whip',line,{ whip:{ actorId, targetId:event.targetId, victimId:event.victimId, hijacked } });
+  if (!result.success) return result;
+  if (isBroker) result.message.source = 'shadowBroker';
+  persistActiveRooms();
+  broadcastToRoom(room,{type:'whip:impact',...event});
+  return isBroker ? {success:true,broadcast:true} : result;
+}
 const DROPKICK_COOLDOWN_MS = 90 * 1000;
 function dropkickCommand(room, author, raw, targetPlayerId, isBroker = false) {
  const match = String(raw || '').match(/^\/dropkick(?:\s+@?(.+?))?\s*$/i);
@@ -8336,6 +8391,11 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
     return handleBackstabCommand(room, author, raw, targetPlayerId);
   }
+  if (/^\/whip\b/i.test(raw)) {
+    const used = whipCommand(room, author, raw, message?.targetPlayerId || '', false);
+    if (used.success) handleShadowState(ws); // refresh remaining market charges
+    return used;
+  }
   if (/^\/dropkick\b/i.test(raw)) return dropkickCommand(room, author, raw, message?.targetPlayerId || '', false);
   if (/^\/(tickle|revenge)\b/i.test(raw)) return tickleCommand(room, author, raw, message?.targetPlayerId || '', false);
   if (/^\/fistbump\b/i.test(raw)) {
@@ -8585,6 +8645,7 @@ function dispatchGmSlashCommand(room, ws, text) {
     return result;
   }
 
+  if (/^\/whip\b/i.test(raw)) return whipCommand(room, author, raw, '', true);
   if (/^\/dropkick\b/i.test(raw)) return dropkickCommand(room, author, raw, '', true);
   if (/^\/(tickle|revenge)\b/i.test(raw)) return tickleCommand(room, author, raw, '', true);
 
@@ -11274,6 +11335,13 @@ function handleShadowBuy(ws, message) {
   const price = shadowMarket.nextPrice(item, owned);
   if (price === null) return sendToWs(ws, { type: 'shadow:error', message: 'Already fully owned' });
   if (!shadowMarket.requirementMet(item, profile)) return sendToWs(ws, { type: 'shadow:error', message: `Locked // ${item.requires.label}` });
+  if (item.consumable === true) {
+    const receipt = `market:charge:${item.id}:${crypto.randomBytes(8).toString('hex')}`;
+    const purchase = playerStore.purchaseCommandCharge(ctx.account,item.id,price,receipt);
+    if (!purchase.ok) return sendToWs(ws,{type:'shadow:error',message:purchase.error});
+    sendToWs(ws,{...shadowStatePayload(ctx.account),notice:`/whip CHARGE ACQUIRED // ${purchase.charges} AVAILABLE`});
+    return;
+  }
   const tier = owned + 1;
   const tierText = shadowMarket.tierCount(item) > 1 ? ` TIER ${tier}` : '';
   const result = playerStore.purchaseCosmetic(ctx.account, item.id, tier, price, `market:${item.id}:${tier}`, { reason: `BOUGHT ${item.name}${tierText}` });

@@ -2821,7 +2821,10 @@ const App = {
       case 'coffee:break':
           window.AsocCoffee?.show(message);
           break;
-        case 'dropkick:impact':
+        case 'whip:impact':
+        window.AsocWhip?.onMessage?.(message, null, true);
+        break;
+      case 'dropkick:impact':
           window.AsocDropkick?.onMessage(message, null, true);
           break;
         case 'tickle:impact':

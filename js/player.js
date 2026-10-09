@@ -1622,7 +1622,10 @@ const PlayerApp = {
       case 'coffee:break':
           window.AsocCoffee?.show(message);
           break;
-        case 'dropkick:impact':
+        case 'whip:impact':
+        window.AsocWhip?.onMessage?.(message, this.playerId, false);
+        break;
+      case 'dropkick:impact':
           window.AsocDropkick?.onMessage(message, this.playerId, false);
           break;
         case 'tickle:impact':
