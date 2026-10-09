@@ -91,37 +91,7 @@
   animation: asoc-hit-flash 1s ease-out both;
 }
 .asoc-skill-flash.is-heavy { animation-duration: 1.5s; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--tint) 14%, transparent) 20%, color-mix(in srgb, var(--tint) 70%, transparent) 100%); }
-.asoc-skill-flash.is-whip::after {
-  content: "";
-  position: absolute;
-  left: -10%; right: -10%; top: 38%;
-  height: 7px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, transparent, #ff8c5a 18%, #fff2dc 50%, #ff8c5a 82%, transparent);
-  box-shadow: 0 0 22px #ff6a3a;
-  transform: rotate(-17deg) scaleX(0);
-  animation: asoc-welt .5s .1s cubic-bezier(.1, .9, .2, 1) both;
-}
 @keyframes asoc-hit-flash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes asoc-welt { 0% { transform: rotate(-17deg) scaleX(0); opacity: 1; } 60% { transform: rotate(-17deg) scaleX(1); opacity: 1; } 100% { transform: rotate(-17deg) scaleX(1); opacity: 0; } }
-
-/* ---- whip: a harder, clearer cut ---- */
-#asoc-whip-effect.asoc-whip-victim .asoc-whip-stage {
-  border-color: #c9472d;
-  box-shadow: 0 0 0 1px rgba(201, 71, 45, .35), 0 12px 34px #000b, 0 0 44px rgba(201, 71, 45, .38);
-}
-#asoc-whip-effect.asoc-whip-victim .asoc-whip-kicker { color: #ff9b7a; }
-#asoc-whip-effect.asoc-whip-attacker .asoc-whip-stage { border-color: #c79a4a; box-shadow: 0 12px 34px #000b, 0 0 30px rgba(199, 154, 74, .26); }
-.asoc-whip-stage::before {
-  content: "";
-  display: block;
-  height: 2px;
-  margin: -12px -16px 10px;
-  background: linear-gradient(90deg, transparent, #d9653b, transparent);
-  opacity: .85;
-}
-.asoc-whip-crack { font-size: 26px; text-shadow: 0 0 12px #ff9a5c, 0 0 28px #d9653b; }
-.asoc-whip-lash path { stroke: #8a5238; filter: drop-shadow(0 0 5px rgba(255, 150, 90, .55)) drop-shadow(1px 2px 1px #000); }
 
 /* ---- pat / goat: same layer order and phone rules as the other skills ---- */
 .asoc-pat-layer { z-index: 2147482020; }
@@ -159,8 +129,4 @@ html.asoc-tab-hidden :is(#asoc-whip-effect, #asoc-tickle-layer, #asoc-dropkick-l
   #fistbump-effect-layer, #goat-event-layer, #ass-kick-effect-layer, #asoc-coffee-layer, .asoc-pat-layer,
   #chaos-player-overlay, #chaos-result, #asoc-skill-feed) * {
   animation-play-state: paused !important;
-}
-
-@media (max-width: 500px) {
-  .asoc-whip-crack { left: 36%; top: 14px; font-size: 22px; }
 }
