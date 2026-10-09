@@ -540,6 +540,7 @@
   }
 
   function onState(message) {
+    window.ChaosGame?.onState?.(message);
     states = message?.poison && typeof message.poison === 'object' ? message.poison : {};
     decorate();
     updateGmBadges();
@@ -548,6 +549,7 @@
 
   function onMessage(message) {
     if (!message) return;
+    window.ChaosGame?.onMessage?.(message);
     if (message.type === 'gm:poisonTargets') {
       gmTargets = Array.isArray(message.targets) ? message.targets : [];
       gmCasting = false;
