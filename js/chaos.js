@@ -24,6 +24,8 @@
   let gmSending = false;
   let sendTimer = null;
   let gmOffers = [];            // tributes waiting for the Shadow Broker's verdict
+  const gmRollHistory = [];
+  const gmRollSeen = new Set();
   let lastPendingRequest = 0;
   let withdrawArm = null;       // { id, timer }
   let resultTimer = null;
@@ -176,6 +178,50 @@
     resultTimer = setTimeout(() => { layer.hidden = true; }, 2600);
   }
 
+  // Host-only roll receipts. No Battle Comms message, no spectator broadcast.
+  function showGmRoll(message) {
+    if (!isGm()) return;
+    const playerId = String(message.playerId || '');
+    const value = Number(message.value);
+    if (!playerId || !Number.isInteger(value) || value < 1 || value > 100) return;
+    const stamp = Number(message.timestamp) || Date.now();
+    const receipt = [playerId, stamp, value].join(':');
+    if (gmRollSeen.has(receipt)) return;
+    gmRollSeen.add(receipt);
+    const row = {
+      playerName: String(message.playerName || 'LITTLE HERO').slice(0, 60),
+      value,
+      target: Number(message.target) || 0,
+      won: message.won === true,
+      dark: message.dark === true,
+      timestamp: stamp
+    };
+    gmRollHistory.unshift(row);
+    if (gmRollHistory.length > 12) gmRollHistory.pop();
+    if (gmRollSeen.size > 100) gmRollSeen.clear();
+    renderGmRolls();
+  }
+
+  function renderGmRolls() {
+    if (!isGm()) return;
+    let dock = document.getElementById('chaos-gm-rolls');
+    if (!dock) {
+      dock = document.createElement('aside');
+      dock.id = 'chaos-gm-rolls';
+      dock.setAttribute('aria-label', 'Private Shadow Broker CHAOS rolls');
+      dock.innerHTML = '<div class="chaos-gm-rolls-head"><b>CHAOS // PRIVATE ROLLS</b><button type="button" aria-label="Hide CHAOS rolls">×</button></div><div class="chaos-gm-rolls-list" role="log" aria-live="polite"></div>';
+      dock.querySelector('button').addEventListener('click', () => { dock.hidden = true; });
+      document.body.appendChild(dock);
+    }
+    dock.hidden = false;
+    const list = dock.querySelector('.chaos-gm-rolls-list');
+    list.innerHTML = gmRollHistory.map(row =>
+      '<div class="chaos-gm-roll-entry' + (row.won ? ' is-win' : ' is-loss') + '"><span>' + esc(row.playerName) +
+      '</span><strong>' + row.value + '</strong><small> / ' + row.target + '+ ' +
+      (row.won ? 'WIN' : row.dark ? 'DARK DEBT' : 'DEBT') + '</small></div>'
+    ).join('');
+  }
+
   /* ---------- Shadow Broker ---------- */
 
   function ensureRailButton() {
@@ -247,6 +293,7 @@
     gmSelected = new Set();
     disarm();
     root.hidden = false;
+    if (gmRollHistory.length) renderGmRolls();
     document.getElementById('chaos-gm-button')?.classList.add('is-open');
     positionPicker();
     root.querySelector('.chaos-target-list').innerHTML = '<div class="chaos-empty">FETCHING LITTLE HEROES...</div>';
@@ -550,7 +597,8 @@
         { const note = document.querySelector('#chaos-player-card [data-chaos-note]'); if (note) note.textContent = tributeNote; }
         break;
       case 'chaos:result':
-        showResult(message);
+        if (isGm()) showGmRoll(message);
+        else showResult(message);
         break;
       default:
     }

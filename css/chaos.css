@@ -156,3 +156,17 @@
 #chaos-full-tribute img{display:block;max-width:calc(100vw - 28px);max-height:calc(100dvh - 100px);width:auto;height:auto;object-fit:contain;box-shadow:0 0 45px #0009}
 #chaos-full-tribute button{position:absolute;top:12px;right:14px;z-index:1;border:1px solid #c68fec;background:#29153e;color:#fff;border-radius:7px;padding:11px 16px;cursor:pointer;font:800 12px/1 Arial,sans-serif;letter-spacing:.1em}
 #chaos-full-tribute button:focus-visible{outline:2px solid white;outline-offset:3px}
+
+/* GM-only compact CHAOS roll receipts; never injected into Battle Comms. */
+#chaos-gm-rolls{position:fixed;right:18px;bottom:90px;z-index:2147482100;width:min(320px,calc(100vw - 36px));max-height:min(340px,50dvh);overflow:hidden;display:flex;flex-direction:column;border:1px solid #8e5cb1;border-radius:10px;background:#100c1df2;color:#eee0f6;box-shadow:0 12px 40px #0009;font:12px Arial,sans-serif;pointer-events:auto}
+#chaos-gm-rolls[hidden]{display:none!important}
+.chaos-gm-rolls-head{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:9px 12px;background:#241431;border-bottom:1px solid #644377;letter-spacing:.09em}
+.chaos-gm-rolls-head b{font-size:10px}
+.chaos-gm-rolls-head button{background:none;border:0;color:#e5cfed;font-size:19px;cursor:pointer;line-height:1}
+.chaos-gm-rolls-list{overflow-y:auto;min-height:0}
+.chaos-gm-roll-entry{display:flex;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid #ffffff12}
+.chaos-gm-roll-entry span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.chaos-gm-roll-entry strong{font-size:20px;color:#f18f95;font-variant-numeric:tabular-nums}
+.chaos-gm-roll-entry.is-win strong{color:#5de4a9}
+.chaos-gm-roll-entry small{color:#c8b6d3;min-width:85px;text-align:right;font-size:10px}
+@media(max-width:600px){#chaos-gm-rolls{right:8px;bottom:65px;width:min(280px,calc(100vw - 16px))}}
