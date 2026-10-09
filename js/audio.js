@@ -373,6 +373,85 @@ const AsocAudio = (() => {
     return enabled;
   }
 
+  // One-shot event cues (Fatality, Poison, Chaos). Same synth primitives as the game cues,
+  // so MUTE SOUNDS and the unlock rule apply automatically.
+  function playUi(kind) {
+    const crackle = (count, span, gain, freq) => {
+      for (let i = 0; i < count; i += 1) {
+        noise({ start: Math.random() * span, duration: 0.025 + Math.random() * 0.04, gain: gain * (0.5 + Math.random() * 0.8), type: 'highpass', frequency: freq + Math.random() * 1800, q: 0.6 });
+      }
+    };
+    switch (String(kind || '')) {
+      case 'impact':
+        tone({ frequency: 130, endFrequency: 40, duration: 0.36, gain: 0.26, type: 'sine' });
+        noise({ duration: 0.12, gain: 0.12, type: 'lowpass', frequency: 900, q: 0.6 });
+        break;
+      case 'lock':
+        metallicClick(0, 0.1);
+        tone({ frequency: 880, start: 0.04, duration: 0.1, gain: 0.05, type: 'square' });
+        break;
+      case 'success':
+        [523, 659, 784, 1047].forEach((f, i) => tone({ frequency: f, start: i * 0.08, duration: 0.24, gain: 0.09, type: 'triangle' }));
+        break;
+      case 'charge':
+        tone({ frequency: 70, endFrequency: 540, duration: 1.45, gain: 0.12, type: 'sawtooth', filter: { type: 'lowpass', frequency: 900, q: 1.2 } });
+        tone({ frequency: 35, endFrequency: 90, duration: 1.45, gain: 0.18, type: 'sine' });
+        noise({ duration: 1.35, gain: 0.05, type: 'bandpass', frequency: 1400, q: 1.4 });
+        break;
+      case 'fire':
+        noise({ duration: 1.0, gain: 0.17, type: 'bandpass', frequency: 650, q: 0.7 });
+        tone({ frequency: 95, endFrequency: 52, duration: 1.0, gain: 0.2, type: 'sawtooth', filter: { type: 'lowpass', frequency: 520, q: 0.8 } });
+        break;
+      case 'burn':
+        tone({ frequency: 60, endFrequency: 38, duration: 1.1, gain: 0.2, type: 'sine' });
+        noise({ duration: 1.1, gain: 0.1, type: 'lowpass', frequency: 700, q: 0.5 });
+        crackle(14, 1.2, 0.08, 2200);
+        break;
+      case 'ice':
+        noise({ duration: 0.7, gain: 0.1, type: 'highpass', frequency: 4200, q: 0.5 });
+        tone({ frequency: 1500, endFrequency: 3400, duration: 0.55, gain: 0.06, type: 'sine' });
+        tone({ frequency: 2250, endFrequency: 5100, start: 0.08, duration: 0.5, gain: 0.035, type: 'triangle' });
+        break;
+      case 'freeze':
+        tone({ frequency: 1300, endFrequency: 260, duration: 0.8, gain: 0.1, type: 'sine' });
+        noise({ duration: 0.5, gain: 0.08, type: 'highpass', frequency: 3600, q: 0.6 });
+        crackle(9, 0.9, 0.09, 3000);
+        break;
+      case 'shatter':
+        noise({ duration: 0.4, gain: 0.22, type: 'highpass', frequency: 2800, q: 0.5 });
+        tone({ frequency: 140, endFrequency: 45, duration: 0.3, gain: 0.2, type: 'sine' });
+        for (let i = 0; i < 8; i += 1) {
+          tone({ frequency: 2200 + Math.random() * 3600, start: 0.02 + Math.random() * 0.3, duration: 0.16 + Math.random() * 0.14, gain: 0.035, type: 'sine' });
+        }
+        break;
+      case 'reflect':
+        metallicClick(0, 0.12);
+        tone({ frequency: 440, endFrequency: 1760, duration: 0.28, gain: 0.09, type: 'sawtooth', filter: { type: 'bandpass', frequency: 1800, q: 1.4 } });
+        tone({ frequency: 1760, endFrequency: 660, start: 0.3, duration: 0.5, gain: 0.07, type: 'triangle' });
+        noise({ start: 0.02, duration: 0.2, gain: 0.1, type: 'highpass', frequency: 3000, q: 0.5 });
+        break;
+      case 'acid':
+        for (let i = 0; i < 6; i += 1) {
+          const f = 260 + Math.random() * 260;
+          tone({ frequency: f, endFrequency: f * 2.1, start: i * 0.11 + Math.random() * 0.05, duration: 0.1, gain: 0.07, type: 'sine' });
+        }
+        break;
+      case 'chaos':
+        tone({ frequency: 110, endFrequency: 98, duration: 0.9, gain: 0.14, type: 'sawtooth', filter: { type: 'lowpass', frequency: 700, q: 1 } });
+        tone({ frequency: 156, endFrequency: 139, duration: 0.9, gain: 0.1, type: 'sawtooth', filter: { type: 'lowpass', frequency: 700, q: 1 } });
+        metallicClick(0.55, 0.1);
+        break;
+      case 'fatal':
+        tone({ frequency: 58, endFrequency: 40, duration: 1.4, gain: 0.26, type: 'sine' });
+        tone({ frequency: 196, duration: 1.6, gain: 0.07, type: 'triangle' });
+        tone({ frequency: 294, duration: 1.4, gain: 0.04, type: 'triangle' });
+        noise({ duration: 0.25, gain: 0.1, type: 'lowpass', frequency: 1200, q: 0.5 });
+        break;
+      default:
+        break;
+    }
+  }
+
   function toggleMuted() {
     return !setEnabled(!enabled);
   }
@@ -402,6 +481,7 @@ const AsocAudio = (() => {
     syncWomf,
     syncTimerPhase,
     resetObservers,
+    playUi,
     setEnabled,
     toggleMuted,
     isEnabled: () => enabled,
