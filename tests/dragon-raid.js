@@ -154,4 +154,20 @@ const results=(async()=>{
  ok(/avatarData:player\.avatarData,frameColor:player\.frameColor/.test(srv));ok(/_heroTurnTimer/.test(srv));ok(/dragon-card-timer/.test(css));ok(/\.dragon-raider-portrait/.test(css));
  ok(!/DRAGON RAID|HEROIC WORLD EVENT|DRAGON HOARD/.test(client))})();
 
+(()=>{ // arena formation: heroes sit on a regular polygon around the specimen, equal distance, never overlapping
+ const vm=require('vm'),root=path.join(__dirname,'..'),ctx={window:{},document:{readyState:'loading',addEventListener(){}},console};ctx.window.window=ctx.window;vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(root,'js','dragon-raid.js'),'utf8'),ctx);
+ const DR=ctx.window.DragonRaid;ok(typeof DR.formation==='function','formation exists');
+ const boss={l:-155,r:155,t:-95,b:245};
+ [[3,1100],[4,1100],[5,1100],[5,1400],[4,760],[3,700]].forEach(([n,width])=>{
+  const f=DR.formation(n,{cx:width/2,width,cw:237,ch:176,boss,pad:14,gap:14});
+  eq(f.points.length,n);ok(f.fits,n+' heroes fit at '+width);
+  const dist=f.points.map(p=>Math.hypot(p.x,p.y));ok(Math.max(...dist)-Math.min(...dist)<.5,n+' equal distance from the specimen');
+  const ang=f.points.map(p=>Math.atan2(p.y,p.x)*180/Math.PI),step=360/n;
+  for(let i=0;i<n;i++){const da=((ang[(i+1)%n]-ang[i])%360+360)%360;ok(Math.abs(da-step)<.5,n+' equal angular spacing')}
+  const rect=p=>({l:p.x-f.w/2,r:p.x+f.w/2,t:p.y-88,b:p.y+88}),hit=(a,b)=>a.l<b.r&&a.r>b.l&&a.t<b.b&&a.b>b.t;
+  const rs=f.points.map(rect);rs.forEach((a,i)=>{ok(!hit(a,boss),n+' seat '+i+' clear of the specimen');rs.forEach((b,j)=>{if(j>i)ok(!hit(a,b),n+' seats '+i+'/'+j+' do not overlap')});ok(width/2+a.l>=14&&width/2+a.r<=width-14,n+' seat '+i+' inside the arena')});
+ });
+ const tight=DR.formation(5,{cx:325,width:650,cw:237,ch:176,boss,pad:14,gap:14});eq(tight.fits,false,'a pentagon cannot fit 650px: caller falls back to the stacked layout');
+ const css=fs.readFileSync(path.join(root,'css','dragon-raid.css'),'utf8');ok(/\.dragon-arena\.is-compact/.test(css));ok(/\.dragon-arena-party\.is-polygon/.test(css));ok(/dragon-formation/.test(css))})();
+
 results.then(()=>{ok(checks>=70,'expected >=70 checks, got '+checks);console.log('cabinet raid tests: OK ('+checks+' checks)')}).catch(e=>{console.error(e);process.exit(1)});
