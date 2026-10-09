@@ -9,6 +9,11 @@
 
   // Central portraits. Files live in assets/cabinet/ (one per specimen); the version tag busts caches when art is swapped.
   const ART_VERSION = '20261008-deathwing-art-1';
+  const NORMAL_SPECIMENS = ['wendigo', 'hym', 'hydra', 'necromorph'];
+  const DEAD_PHASES = ['FAILED', 'ABORTED', 'COMPLETE'];
+  const CANCEL_ARM_MS = 4000;
+  const HEROIC_ARM_MS = 5000;
+  const LAUNCH_WAIT_MS = 8000;
   const BOSS_ART = {
     wendigo: 'assets/cabinet/wendigo.webp',
     hym: 'assets/cabinet/hym.webp',
@@ -55,7 +60,9 @@
       overlay.innerHTML = `<section class="dragon-setup-panel" role="dialog" aria-modal="true" aria-labelledby="dragon-setup-title">
         <header><div><small>SHADOW BROKER — FORBIDDEN ARCHIVE</small><h2 id="dragon-setup-title">CABINET OF CURIOSITIES</h2></div><button type="button" data-dragon-action="setup-close" aria-label="Close">×</button></header>
         <p>The Cabinet is open. Choose what the Little Heroes must survive.</p>
+        <div class="dragon-setup-status" data-dragon-setup-status role="status" aria-live="polite" hidden></div>
         <div class="dragon-setup-grid">${bosses.map(([id,name,identity,tier,action]) => `<button type="button" data-dragon-action="setup-launch" data-boss-id="${id}" class="${id === 'deathwing' ? 'is-heroic' : ''}"><img class="dragon-setup-portrait" src="${BOSS_ART[id]}?v=${ART_VERSION}" alt="" loading="lazy" decoding="async" draggable="false"><small>${tier}</small><b>${name}</b><span>${identity}</span><em>${action}</em></button>`).join('')}</div>
+        <div class="dragon-setup-random"><button type="button" data-dragon-action="setup-random"><b>RANDOM SPECIMEN</b><span>LET THE CABINET CHOOSE. NEVER THE HEROIC CALAMITY.</span></button></div>
       </section>`;
       document.body.appendChild(overlay);
     },
@@ -64,11 +71,97 @@
       this.ensureSetup();
       const overlay = document.getElementById('dragon-raid-setup-overlay');
       if (overlay) overlay.hidden = false;
+      this.syncSetup();
     },
 
     closeSetup() {
       const overlay = document.getElementById('dragon-raid-setup-overlay');
       if (overlay) overlay.hidden = true;
+      this.setupArm = null;
+      this.syncSetup();
+    },
+
+    raidIsActive(raid = this.raid) {
+      return !!raid && !DEAD_PHASES.includes(raid.phase);
+    },
+
+    // Keeps the setup panel honest: locked while an encounter runs, busy while a launch is pending,
+    // and the Heroic Calamity needs a second click.
+    syncSetup() {
+      const overlay = document.getElementById('dragon-raid-setup-overlay');
+      if (!overlay) return;
+      const pending = this.pendingLaunch;
+      if (pending && Date.now() - pending.at > LAUNCH_WAIT_MS) {
+        this.pendingLaunch = null;
+        this.setupError = 'NO ANSWER FROM THE CABINET. TRY AGAIN.';
+      }
+      const arm = this.setupArm;
+      if (arm && Date.now() > arm.until) this.setupArm = null;
+      const active = this.raidIsActive();
+      const busy = !!this.pendingLaunch;
+      const locked = active || busy;
+      const status = overlay.querySelector('[data-dragon-setup-status]');
+      if (status) {
+        let text = '';
+        if (busy) text = 'OPENING THE CABINET...';
+        else if (active) text = `${String(this.raid.boss?.name || 'AN ENCOUNTER').toUpperCase()} IS ALREADY LOOSE. CANCEL THE ACTIVE ENCOUNTER FIRST.`;
+        else if (this.setupError) text = this.setupError;
+        status.textContent = text;
+        status.hidden = !text;
+        status.classList.toggle('is-error', !busy && !active && !!this.setupError);
+      }
+      overlay.querySelector('.dragon-setup-panel')?.classList.toggle('is-locked', locked);
+      overlay.querySelectorAll('[data-dragon-action="setup-launch"],[data-dragon-action="setup-random"]').forEach(btn => {
+        btn.disabled = locked;
+        const armed = !locked && this.setupArm?.bossId === btn.dataset.bossId && !!btn.dataset.bossId;
+        btn.classList.toggle('is-armed', armed);
+        const label = btn.querySelector('em');
+        if (label) {
+          if (!label.dataset.base) label.dataset.base = label.textContent;
+          label.textContent = armed ? 'CLICK AGAIN TO WAKE IT. THERE IS NO RETREAT.' : label.dataset.base;
+        }
+        if (btn.dataset.dragonAction === 'setup-launch') btn.title = locked ? 'An encounter is already active' : '';
+      });
+    },
+
+    launchSpecimen(bossId) {
+      if (!this.isGM() || this.raidIsActive() || this.pendingLaunch) return;
+      this.setupError = '';
+      this.setupArm = null;
+      this.pendingLaunch = { bossId, at: Date.now(), prevId: this.raid?.id || null };
+      this.syncSetup();
+      clearTimeout(this._launchTimer);
+      this._launchTimer = setTimeout(() => this.syncSetup(), LAUNCH_WAIT_MS + 100);
+      return this.send({ type: 'gm:dragonRaid', bossId });
+    },
+
+    // GM raid controls. Cancel needs a second click; START explains why it is locked.
+    cancelArmed(raid = this.raid) {
+      const arm = this.cancelArm;
+      return !!arm && !!raid && arm.raidId === raid.id && Date.now() < arm.until;
+    },
+
+    recruitStartInfo(raid) {
+      const n = raid.participants.length;
+      const need = raid.boss.heroic ? 5 : 3;
+      const ready = raid.boss.heroic ? n === need : n >= need;
+      const label = ready ? 'START RAID NOW' : `NEED ${need - n} MORE (${n}/${need})`;
+      const title = ready ? 'Begin the encounter now' : raid.boss.heroic ? `Deathwing needs exactly 5 heroes (${n} so far)` : `At least ${need} heroes are required (${n} so far)`;
+      return { ready, label, title };
+    },
+
+    gmCancelHTML(raid) {
+      const armed = this.cancelArmed(raid);
+      return `<button type="button" class="dragon-gm-cancel${armed ? ' is-armed' : ''}" data-dragon-action="cancel" title="${armed ? 'Click again to end the encounter for everyone' : 'End the encounter for everyone'}">${armed ? 'SURE? CLICK AGAIN TO CANCEL' : 'CANCEL RAID'}</button>`;
+    },
+
+    gmRecruitHTML(raid) {
+      const info = this.recruitStartInfo(raid);
+      return `<div class="dragon-gm-observer"><span>SHADOW BROKER OBSERVER — RECRUITMENT LIVE</span><div class="dragon-gm-actions"><span class="dragon-gm-countdown">${info.ready ? 'BEGINS' : 'ABORTS'} IN <b data-dragon-clock="recruit-gm">${this.clock(this.remaining(raid.recruitEndsAt))}</b></span><button type="button" data-dragon-action="start" title="${info.title}" ${info.ready ? '' : 'disabled'}>${info.label}</button><i class="dragon-gm-gap" aria-hidden="true"></i>${this.gmCancelHTML(raid)}</div></div>`;
+    },
+
+    gmCombatHTML(raid) {
+      return `<div class="dragon-gm-observer"><span>SHADOW BROKER OBSERVER — LIVE COMBAT</span>${this.gmCancelHTML(raid)}</div>`;
     },
 
     isGM() {
@@ -86,10 +179,19 @@
     onState(raid, serverNow) {
       if (!raid) {
         this.raid = null;
+        this.cancelArm = null;
+        this.syncSetup();
         this.render();
         return;
       }
+      if (this.cancelArm && this.cancelArm.raidId !== raid.id) this.cancelArm = null;
       this.raid = raid;
+      if (this.pendingLaunch && this.raidIsActive(raid) && raid.id !== this.pendingLaunch.prevId) {
+        this.pendingLaunch = null;
+        this.setupError = '';
+        this.closeSetup();
+      }
+      this.syncSetup();
       this.serverNow = Number(serverNow) || Date.now();
       this.receivedAt = Date.now();
       if (this.hiddenRaidId && this.hiddenRaidId !== raid.id) this.hiddenRaidId = null;
@@ -108,6 +210,12 @@
       }
       if (message.type === 'dragon:error') {
         this.note = String(message.message || 'THE CABINET REFUSES');
+        if (this.pendingLaunch) {
+          this.pendingLaunch = null;
+          this.setupError = this.note;
+        }
+        this.cancelArm = null;
+        this.syncSetup();
         this.render();
         clearTimeout(this._noteTimer);
         this._noteTimer = setTimeout(() => {
@@ -619,7 +727,7 @@
         <p class="dragon-lore">Heroes act in order. Then the enemy answers. ${raid.boss.heroic ? 'Deathwing accepts exactly five victims.' : 'Three may challenge it. Five may enter.'}</p>
         <div class="dragon-party-count">RAID PARTY <b>${raid.participants.length} / 5</b> <span>${raid.boss.heroic ? 'EXACTLY 5 REQUIRED' : 'MINIMUM 3'}</span></div>
         <div class="dragon-raider-grid">${this.partySlotsHTML()}</div>
-        ${this.isGM() ? `<div class="dragon-gm-observer"><span>SHADOW BROKER OBSERVER — RECRUITMENT LIVE</span><div class="dragon-gm-actions"><button type="button" data-dragon-action="start" ${raid.boss.heroic ? (raid.participants.length === 5 ? '' : 'disabled') : (raid.participants.length >= 3 ? '' : 'disabled')}>START RAID NOW</button><button type="button" data-dragon-action="cancel">CANCEL RAID</button></div></div>` : ''}
+        ${this.isGM() ? this.gmRecruitHTML(raid) : ''}
         ${choose}
       `;
     },
@@ -667,7 +775,7 @@
           ${raid.phase === 'BOSS_TURN' ? '<div class="dragon-boss-phase"><small>HERO PHASE ENDED</small><b>THE SPECIMEN MOVES</b></div>' : ''}
         </div>
         <div class="dragon-turn-banner">${raid.phase === 'BOSS_TURN' ? 'THE SPECIMEN MOVES' : `ACTIVE HERO — ${this.esc(active?.name || '—')}${raid.heroTurnEndsAt ? ` — <strong class="dragon-turn-clock" data-dragon-clock="turn">${this.turnSeconds(raid)}s</strong>` : ''}`}</div>
-        ${this.isGM() ? '<div class="dragon-gm-observer"><span>SHADOW BROKER OBSERVER — LIVE COMBAT</span><button type="button" data-dragon-action="cancel">CANCEL RAID</button></div>' : ''}
+        ${this.isGM() ? this.gmCombatHTML(raid) : ''}
         ${actions}
         ${!myTurn && mine?.alive ? '<div class="dragon-locked">WAIT FOR YOUR TURN</div>' : ''}
         ${!mine && !this.isGM() ? '<div class="dragon-locked">SPECTATING — RAID GATES SEALED</div>' : ''}
@@ -944,6 +1052,8 @@
       if (!overlay || overlay.hidden) return;
       const recruit = overlay.querySelector('[data-dragon-clock="recruit"]');
       if (recruit) recruit.textContent = this.clock(this.remaining(raid.recruitEndsAt));
+      const gmRecruit = overlay.querySelector('[data-dragon-clock="recruit-gm"]');
+      if (gmRecruit) gmRecruit.textContent = this.clock(this.remaining(raid.recruitEndsAt));
       const battle = overlay.querySelector('[data-dragon-clock="battle"]');
       if (battle) {
         const left = this.remaining(raid.battleEndsAt);
@@ -978,8 +1088,17 @@
       if (action === 'setup-close') return this.closeSetup();
       if (action === 'setup-launch') {
         const bossId = button.dataset.bossId;
-        this.closeSetup();
-        return this.send({ type: 'gm:dragonRaid', bossId });
+        if (bossId === 'deathwing' && this.setupArm?.bossId !== 'deathwing') {
+          this.setupArm = { bossId, until: Date.now() + HEROIC_ARM_MS };
+          this.syncSetup();
+          clearTimeout(this._armTimer);
+          this._armTimer = setTimeout(() => this.syncSetup(), HEROIC_ARM_MS + 100);
+          return;
+        }
+        return this.launchSpecimen(bossId);
+      }
+      if (action === 'setup-random') {
+        return this.launchSpecimen(NORMAL_SPECIMENS[Math.floor(Math.random() * NORMAL_SPECIMENS.length)]);
       }
       if (action === 'start') {
         if (!this.isGM()) return;
@@ -988,6 +1107,14 @@
       }
       if (action === 'cancel') {
         if (!this.isGM()) return;
+        if (!this.cancelArmed()) {
+          this.cancelArm = { raidId: this.raid?.id, until: Date.now() + CANCEL_ARM_MS };
+          clearTimeout(this._cancelTimer);
+          this._cancelTimer = setTimeout(() => { this.cancelArm = null; this.render(); }, CANCEL_ARM_MS + 50);
+          return this.render();
+        }
+        this.cancelArm = null;
+        clearTimeout(this._cancelTimer);
         button.disabled = true;
         return this.send({ type: 'gm:dragonRaid', action: 'cancel' });
       }
