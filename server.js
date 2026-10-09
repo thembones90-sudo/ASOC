@@ -6995,6 +6995,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/vanish', help: '/vanish -- SHADOW MARKET unlock: disappear in smoke' },
   { name: '/avada', help: '/avada @Name -- the killing curse (5% it rebounds; 10 min recharge)' },
   { name: '/backstab', help: '/backstab @Name -- spend 15 SC to betray a player (10% chance you stab yourself; 60 min recharge)' },
+  { name: '/dropkick', help: '/dropkick @Name -- free comic dropkick (90 sec player recharge; unlimited GM)' },
   { name: '/tickle', help: '/tickle @Name -- free tickle attack (60 sec cooldown); /revenge within 10 sec' },
   { name: '/revenge', help: '/revenge -- retaliate against a tickler (10 sec window)' },
   { name: '/fistbump', help: '/fistbump @Name -- bro code confirmed (free; 5 min recharge)' },
@@ -7840,6 +7841,45 @@ function handleBackstabCommand(room, author, raw, targetPlayerId) {
 }
 
 
+const DROPKICK_COOLDOWN_MS = 90 * 1000;
+function dropkickCommand(room, author, raw, targetPlayerId, isBroker = false) {
+ const match = String(raw || '').match(/^\/dropkick(?:\s+@?(.+?))?\s*$/i);
+ if (!match || !match[1]) return { success: false, error: 'DROPKICK INVALID // USE /dropkick @Name' };
+ const now = Date.now();
+ const actorId = isBroker ? 'shadow-broker' : String(author.id);
+ room.dropkickCooldowns ||= {};
+ if (!isBroker) {
+   const remaining = DROPKICK_COOLDOWN_MS - (now - (Number(room.dropkickCooldowns[actorId]) || 0));
+   if (remaining > 0) return { success: false, error: 'DROPKICK RECHARGING // ' + Math.ceil(remaining / 1000) + ' SECONDS REMAIN' };
+ }
+ let target;
+ if (!isBroker && /^(shadow\s*broker|gm)$/i.test(match[1].trim())) target = { id:'shadow-broker', name:'SHADOW BROKER' };
+ else {
+   const resolved = resolveNamedTarget(room, isBroker ? null : author.id, targetPlayerId || '', match[1], 'DROPKICK');
+   if (resolved.error) return { success:false, error:resolved.error };
+   target = resolved.target;
+ }
+ const actorName = isBroker ? 'SHADOW BROKER' : author.name;
+ const roll = crypto.randomInt(100);
+ const outcome = roll < 70 ? 'hit' : roll < 90 ? 'miss' : 'reflect';
+ const descriptions = {
+   hit: target.name + ' has been dropkicked into another postal code by ' + actorName + '. The Broker offers no compensation. 💥',
+   miss: actorName + ' attempted a glorious dropkick on ' + target.name + ' and hit absolutely nothing. Physics is disappointed. 💨',
+   reflect: target.name + ' caught the incoming dropkick and launched ' + actorName + ' into orbit. EMBARRASSING. 🪐'
+ };
+ const brokerAvatar = publicBrokerProfile(room).avatarData || LEGACY_DEFAULT_AVATAR;
+ const actorAvatarData = isBroker ? brokerAvatar : liveAvatarFor(room, author.id);
+ const targetAvatarData = String(target.id) === 'shadow-broker' ? brokerAvatar : liveAvatarFor(room, target.id);
+ const payload = { actorId, actorName, actorAvatarData, targetId:String(target.id), targetName:target.name, targetAvatarData, outcome, timestamp:now };
+ const result = buildChatCommandMessage(room, author, 'dropkick', isBroker ? 'shadowBroker' : 'dropkick', descriptions[outcome], { dropkick:payload });
+ if (!result.success) return result;
+ if (!isBroker) room.dropkickCooldowns[actorId] = now;
+ if (isBroker) result.message.source = 'shadowBroker';
+ persistActiveRooms();
+ broadcastToRoom(room, { type:'dropkick:impact', ...payload });
+ return isBroker ? { success:true, broadcast:true } : result;
+}
+
 const TICKLE_COOLDOWN_MS = 60000;
 const TICKLE_REVENGE_MS = 10000;
 function tickleCommand(room, author, raw, targetPlayerId, isBroker = false) {
@@ -8314,6 +8354,7 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
     return handleBackstabCommand(room, author, raw, targetPlayerId);
   }
+  if (/^\/dropkick\b/i.test(raw)) return dropkickCommand(room, author, raw, message?.targetPlayerId || '', false);
   if (/^\/(tickle|revenge)\b/i.test(raw)) return tickleCommand(room, author, raw, message?.targetPlayerId || '', false);
   if (/^\/fistbump\b/i.test(raw)) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
@@ -8562,6 +8603,7 @@ function dispatchGmSlashCommand(room, ws, text) {
     return result;
   }
 
+  if (/^\/dropkick\b/i.test(raw)) return dropkickCommand(room, author, raw, '', true);
   if (/^\/(tickle|revenge)\b/i.test(raw)) return tickleCommand(room, author, raw, '', true);
 
   // Broker fistbump trigger: same avatar animation, no player cooldown.
