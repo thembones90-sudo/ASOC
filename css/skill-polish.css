@@ -130,3 +130,26 @@ html.asoc-tab-hidden :is(#asoc-whip-effect, #asoc-tickle-layer, #asoc-dropkick-l
   #chaos-player-overlay, #chaos-result, #asoc-skill-feed) * {
   animation-play-state: paused !important;
 }
+
+/* =====================================================================
+   PLAYER HUD FIXES
+   ===================================================================== */
+
+/* ALL TIME STANDINGS had a border and a gold colour but no background, so it fell back
+   to the browser's default light-grey button (gold on grey, contrast 1.3:1). Give it the
+   same dark, tinted treatment the SCOREBOARD button next to it already has. */
+html body .player-alltime-hud-btn {
+  background: linear-gradient(135deg, #34260e, #15100a) !important;
+  color: #f4d57e !important;
+  box-shadow: inset 0 0 0 1px rgba(216, 168, 61, .12);
+}
+html body .player-alltime-hud-btn:hover,
+html body .player-alltime-hud-btn:focus-visible {
+  background: linear-gradient(135deg, #46330f, #1d150b) !important;
+  color: #ffe9a6 !important;
+  box-shadow: 0 0 16px rgba(216, 168, 61, .22), inset 0 0 0 1px rgba(216, 168, 61, .3);
+}
+
+/* The "ON A PHONE? MOBILE VERSION" offer belongs to the sign-in screens. Once the player is
+   in the room it floated over the message composer, and the HUD already has its own toggle. */
+html:has(#game-screen.active) .asoc-phone-offer { display: none !important; }
