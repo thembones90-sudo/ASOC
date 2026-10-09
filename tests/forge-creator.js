@@ -61,5 +61,7 @@ assert.match(forge, /PRIVATE LOCAL WORDNET/, 'creator identifies its credential-
 assert.match(forge, /data-creator-clear-board/, 'creator exposes a full Clear Board loop');
 assert.match(forge, /for \(const name of this\.FIELD_ORDER\) this\.applyField\(name, ''\)/, 'Clear Board removes all 20 cells and the final answer');
 assert.match(forge, /Theme, background and notes will remain/, 'Clear Board explains which creator settings are preserved');
+assert.match(css, /Creator shell polish/, 'creator has a dedicated visual workstation treatment');
+assert.match(css, /\.creator-preview-frame \{ border:1px solid #4e3b59/, 'live preview is visually framed');
 
 console.log('PASS ASOC Creator: theme identity, unified editor, guided entry, drafts, test play, fit warnings and prepared hints');

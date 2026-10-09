@@ -1,5 +1,34 @@
 /* ASOC CREATOR // faster, guided game building (js/forge.js). */
 
+/* Creator shell polish: one workstation, two deliberate surfaces. */
+.forge-shell:has(.creator-grid) { border-color:#303944; background:linear-gradient(145deg,#0d1117,#080b10 64%); box-shadow:0 30px 100px #000,0 0 0 1px rgba(121,82,143,.16),inset 0 1px rgba(255,255,255,.025); }
+.forge-shell:has(.creator-grid) .forge-header { position:relative; background:linear-gradient(90deg,#10151c,#0b0e14 58%,#14101a); }
+.forge-shell:has(.creator-grid) .forge-header::after { content:""; position:absolute; left:20px; right:20px; bottom:-1px; height:1px; background:linear-gradient(90deg,#d4a843,rgba(168,87,200,.8),transparent 72%); }
+.creator-grid { background:linear-gradient(90deg,rgba(13,18,24,.98) 0 50%,rgba(5,7,11,.98) 50%); }
+.creator-form { scrollbar-color:#745083 #0a0e13; scrollbar-width:thin; }
+.creator-form > .creator-section { position:relative; margin-bottom:14px; padding:14px; border:1px solid #242d35; background:linear-gradient(145deg,rgba(18,23,30,.88),rgba(10,14,19,.76)); box-shadow:0 10px 28px rgba(0,0,0,.16); }
+.creator-form > .creator-section::before { content:""; position:absolute; inset:0 auto 0 0; width:2px; background:linear-gradient(#d2a845,#79518b 55%,transparent); opacity:.55; }
+.creator-form .creator-label { display:flex; align-items:center; gap:8px; margin:-2px 0 12px; padding:0 0 8px; border-color:#2b343d; font-weight:900; letter-spacing:.18em; }
+.creator-form .creator-label::after { content:""; flex:1; height:1px; background:linear-gradient(90deg,rgba(212,168,67,.35),transparent); }
+.creator-form .forge-input,.creator-form .forge-select,.creator-form .forge-textarea { border-radius:2px; border-color:#3a4650; background:linear-gradient(180deg,#161c24,#12171e); box-shadow:inset 0 1px rgba(255,255,255,.025); }
+.creator-form .cell-field.final .forge-input { min-height:44px; border-color:#8c6b2f; color:#f1d279; font-weight:900; letter-spacing:.14em; background:linear-gradient(90deg,rgba(77,55,13,.22),#151922 28%,#151922 72%,rgba(113,56,135,.18)); box-shadow:inset 3px 0 #d1a33c,inset -3px 0 #9e59bd,0 0 16px rgba(176,112,57,.08); }
+.creator-board-tools { padding:8px; border:1px solid #27313a; background:#0b1015; }
+.creator-column-focus { padding:5px; border:1px solid #252e36; background:rgba(6,9,13,.74); }
+.creator-column-tab { flex:1 1 90px; border-radius:2px; }
+.creator-cols { padding:10px; border:1px solid #27313a; background:rgba(6,9,13,.55); }
+.creator-col { padding:8px; border-top:2px solid #43515b; background:linear-gradient(180deg,rgba(25,31,39,.7),rgba(9,12,16,.28)); }
+.creator-col:nth-child(2) { border-color:#75528b; }.creator-col:nth-child(3) { border-color:#416f62; }.creator-col:nth-child(4) { border-color:#8a6333; }
+.creator-col-header { padding:0 0 7px; color:#d2d9dc; font-weight:900; letter-spacing:.14em; }
+.creator-preview { position:relative; background:radial-gradient(circle at 50% 45%,rgba(76,42,88,.16),transparent 45%),#05080c; }
+.creator-preview::before { content:""; position:absolute; inset:42px 0 0; pointer-events:none; opacity:.28; background:linear-gradient(rgba(114,141,157,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(114,141,157,.055) 1px,transparent 1px); background-size:42px 42px; mask-image:radial-gradient(circle,#000,transparent 82%); }
+.creator-preview-header { position:relative; z-index:2; min-height:42px; background:linear-gradient(90deg,#0c1117,#13101a); border-color:#303944; font-weight:900; }
+.creator-preview-stage { position:relative; z-index:1; padding:24px; }
+.creator-preview-frame { border:1px solid #4e3b59; border-radius:4px; box-shadow:0 28px 70px rgba(0,0,0,.72),0 0 32px rgba(145,75,173,.11),inset 0 0 0 3px rgba(0,0,0,.42); }
+.creator-maker { border-radius:3px; overflow:hidden; box-shadow:inset 3px 0 #b553dd,0 18px 38px rgba(0,0,0,.36),0 0 24px rgba(137,62,169,.07); }
+.maker-candidate,.maker-clue-column { transition:border-color .14s ease,background .14s ease,transform .14s ease; }
+.maker-candidate:hover { transform:translateY(-1px); }
+.creator-maker-toolbar { border-bottom:1px solid rgba(91,65,102,.35); padding-bottom:9px; }
+
 .forge-header .creator-progress {
   margin: 0 14px 0 auto;
   padding: 5px 10px;
