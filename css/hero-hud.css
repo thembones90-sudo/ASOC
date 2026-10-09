@@ -1,0 +1,292 @@
+/* =====================================================================
+   LITTLE HERO HUD // one visual system for the player's status area
+   ---------------------------------------------------------------------
+   Covers: clock + online pill, identity line, the utility buttons
+   (DISCONNECT / SCOREBOARD / ALL TIME / MASTER ACCESS / BLACK MARKET),
+   the seven stat chips and the LEDGER button.
+
+   Rules of the system
+     - Every control is the same family: dark violet glass, 9px corners,
+       a tinted border and a glowing duotone icon badge.
+     - Each stat owns ONE accent (--c) and ONE soft value tint (--cv).
+     - Nothing in here is ever pure white. Text and numbers use pastel
+       tints of their accent so the HUD reads as one palette.
+   The light theme (html[data-asoc-light]) keeps its own rules.
+   ===================================================================== */
+
+/* P = the scope. Two :not(#id) hooks lift specificity above the layered
+   '#game-screen.room-mode-casual:not(#casual-scale-guard) ... !important'
+   rules this HUD already carries. */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) {
+  --hud-lav: #dccdf6;
+}
+
+/* ---- header strip: clock, online pill ---------------------------------- */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-atomic-clock time,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-atomic-clock time b {
+  color: #e2d5fb !important;
+  text-shadow: 0 0 14px rgba(170, 120, 255, .55) !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-atomic-clock time i {
+  color: #7a679c !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .casual-online-count {
+  border-radius: 999px !important;
+  border: 1px solid rgba(79, 214, 154, .38) !important;
+  background: linear-gradient(180deg, rgba(40, 110, 80, .28), rgba(10, 30, 24, .6)) !important;
+  color: #a6f0cb !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .casual-online-count b,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .casual-online-count span {
+  color: #a6f0cb !important;
+}
+
+/* ---- identity line ------------------------------------------------------ */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-identity {
+  color: #e6dbf8 !important;
+  min-width: 0;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-identity > span:last-child {
+  max-width: 34ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .little-hero-avatar-fallback {
+  color: #cfc0ea !important;
+}
+
+/* ---- stat chips --------------------------------------------------------- */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-stats {
+  flex-wrap: wrap !important;
+  row-gap: 8px !important;
+  align-items: center !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat {
+  --c: #b98cff;
+  --cv: #e4d4ff;
+  position: relative;
+  height: 34px !important;
+  padding: 0 14px 0 6px !important;
+  gap: 9px !important;
+  border: 1px solid color-mix(in srgb, var(--c) 34%, #1e1629) !important;
+  border-radius: 9px !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 11%, #130c1d), #0c0813) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c) 16%, transparent), 0 0 16px color-mix(in srgb, var(--c) 8%, transparent) !important;
+  color: var(--c) !important;
+  white-space: nowrap;
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-score { --c: #b98cff; --cv: #e4d4ff; }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-rank { --c: #f2c45a; --cv: #ffe6a8; }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-streak { --c: #ff9a55; --cv: #ffd2ad; }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-dm { --c: #62bfff; --cv: #c6e9ff; }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-coins { --c: #a6e05a; --cv: #d9f7a4; }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts { --c: #ff6fb0; --cv: #ffc2de; }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link { --c: #f2c45a; --cv: #ffe6a8; }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link.stable { --c: #4fd69a; --cv: #b0f5d4; }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link.lost { --c: #ff6b6b; --cv: #ffb8b8; }
+
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-label {
+  color: color-mix(in srgb, var(--c) 38%, #8e83a6) !important;
+  font-size: 9.5px !important;
+  letter-spacing: .15em !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat b,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-link-value {
+  color: var(--cv) !important;
+  font-size: 13px !important;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--c) 50%, transparent);
+}
+
+/* icon badge: the SVG itself becomes a small tinted tile with a glowing duotone glyph */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) svg.hero-stat-icon,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts > .hero-stat-icon {
+  width: 24px !important;
+  height: 24px !important;
+  flex: 0 0 24px !important;
+  box-sizing: border-box;
+  padding: 5px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--c) 42%, transparent);
+  background: radial-gradient(circle at 35% 25%, color-mix(in srgb, var(--c) 30%, #140d1f), color-mix(in srgb, var(--c) 8%, #0d0814));
+  stroke: var(--c) !important;
+  fill: color-mix(in srgb, var(--c) 26%, transparent) !important;
+  stroke-width: 1.9 !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 1 !important;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 60%, transparent));
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link svg.hero-stat-icon { fill: none !important; }
+
+/* the heart was an emoji (different font, different weight); draw it like the others */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts > .hero-stat-icon {
+  display: inline-grid;
+  place-items: center;
+  font-size: 0 !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts > .hero-stat-icon::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  background: var(--c);
+  -webkit-mask: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21s-8.5-5.2-8.5-11.2C3.5 6.6 5.8 4.5 8.4 4.5c1.5 0 2.9.8 3.6 2 .7-1.2 2.1-2 3.6-2 2.6 0 4.9 2.1 4.9 5.3C20.5 15.8 12 21 12 21z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21s-8.5-5.2-8.5-11.2C3.5 6.6 5.8 4.5 8.4 4.5c1.5 0 2.9.8 3.6 2 .7-1.2 2.1-2 3.6-2 2.6 0 4.9 2.1 4.9 5.3C20.5 15.8 12 21 12 21z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* the coin keeps its artwork, in a matching ring */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-coins .hero-stat-coin {
+  width: 24px !important;
+  height: 24px !important;
+  padding: 2px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
+  background: radial-gradient(circle at 35% 25%, color-mix(in srgb, var(--c) 25%, #140d1f), #0d0814);
+  object-fit: contain;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 55%, transparent));
+}
+
+/* clickable chips behave like buttons */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat[role="button"] { cursor: pointer; }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat[role="button"]:hover,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat[role="button"]:focus-visible {
+  border-color: color-mix(in srgb, var(--c) 78%, #1e1629) !important;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--c) 28%, transparent), inset 0 1px 0 color-mix(in srgb, var(--c) 22%, transparent) !important;
+  transform: translateY(-1px);
+  outline: none;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat[role="button"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--c) 70%, transparent);
+  outline-offset: 2px;
+}
+
+/* ---- utility buttons ---------------------------------------------------- */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn {
+  --c: #b98cff;
+  --cv: #e4d4ff;
+  --ico: none;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 9px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 15px 0 12px !important;
+  border: 1px solid color-mix(in srgb, var(--c) 46%, #1e1629) !important;
+  border-radius: 9px !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 17%, #150e20), #0d0914) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c) 20%, transparent) !important;
+  color: var(--cv) !important;
+  font: 800 10.5px/1 var(--font-machine, monospace) !important;
+  letter-spacing: .14em !important;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--c) 45%, transparent);
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, transform .15s, background .15s;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:hover,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--c) 85%, #1e1629) !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 26%, #170f24), #0f0a18) !important;
+  box-shadow: 0 0 20px color-mix(in srgb, var(--c) 30%, transparent), inset 0 1px 0 color-mix(in srgb, var(--c) 28%, transparent) !important;
+  transform: translateY(-1px);
+  outline: none;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--c) 70%, transparent);
+  outline-offset: 2px;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:active { transform: translateY(0); }
+
+/* glyph on the left of each button, drawn in the button's accent */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:not(.black-market-entry)::before {
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  align-self: center;
+  width: 15px;
+  height: 15px;
+  min-width: 15px;
+  min-height: 15px;
+  max-height: 15px;
+  background: var(--c);
+  -webkit-mask: var(--ico) center / contain no-repeat;
+          mask: var(--ico) center / contain no-repeat;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 60%, transparent));
+}
+/* DISCONNECT and the view toggle already carry (or do not need) a glyph */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-disconnect::before,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .asoc-view-toggle-game::before { display: none !important; }
+
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-scoreboard-btn {
+  --c: #b98cff; --cv: #e4d4ff;
+  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 20V12M12 20V4M19 20v-6' stroke='black' stroke-width='3.2' stroke-linecap='round' fill='none'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-alltime-hud-btn {
+  --c: #f2c45a; --cv: #ffe6a8;
+  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.6l2.9 6 6.5.9-4.7 4.6 1.1 6.5L12 17.5l-5.8 3.1 1.1-6.5L2.6 9.5l6.5-.9z'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-master-access-control {
+  --c: #7ea6ff; --cv: #cfdcff;
+  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.8l8 3v5.4c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V5.8z' stroke='black' stroke-width='2.2' stroke-linejoin='round' fill='none'/%3E%3Cpath d='M8.5 12l2.4 2.4 4.6-4.8' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-disconnect {
+  --c: #ff6b86; --cv: #ffc4d0;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-disconnect .hero-utility-icon {
+  width: 15px;
+  height: 15px;
+  fill: none !important;
+  stroke: var(--c) !important;
+  stroke-width: 2.4 !important;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 60%, transparent));
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .asoc-view-toggle-game {
+  --c: #7ea6ff; --cv: #cfdcff;
+}
+
+/* Black Market keeps its banner artwork, in the shared shape, with no white text */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-market-player-control {
+  --c: #ff5c8a;
+  border-radius: 9px !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-market-player-control span {
+  color: #f6cfe0 !important;
+  text-shadow: 0 0 10px rgba(255, 92, 138, .55);
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-market-player-control small {
+  color: #c98aa5 !important;
+}
+
+/* Daily ledger button: same shape and height as the rest */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #player-quest-hud {
+  border-radius: 9px !important;
+  min-height: 34px !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud b,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud span {
+  color: #ffe0a0 !important;
+}
+
+/* ---- master access dropdown ---------------------------------------------- */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-master-access-menu {
+  border: 1px solid rgba(126, 166, 255, .4) !important;
+  border-radius: 10px !important;
+  background: linear-gradient(180deg, #14102a, #0b0817) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .7), 0 0 22px rgba(126, 166, 255, .14) !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-master-access-menu button {
+  color: #cfdcff !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-master-access-menu .master-access-signout {
+  color: #ffc4d0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body #game-screen .hero-stat,
+  html body #game-screen .hero-utility-btn { transition: none !important; transform: none !important; }
+}
