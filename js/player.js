@@ -1614,7 +1614,7 @@ const PlayerApp = {
           window.AsocCoffee?.show(message);
           break;
         case 'tickle:impact':
-          window.AsocTickle?.onMessage(message);
+          window.AsocTickle?.onMessage(message, this.playerId, false);
           break;
         case 'fistbump:impact':
         window.FistbumpEffect?.onMessage(message);

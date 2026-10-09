@@ -2810,7 +2810,7 @@ const App = {
           window.AsocCoffee?.show(message);
           break;
         case 'tickle:impact':
-          window.AsocTickle?.onMessage(message);
+          window.AsocTickle?.onMessage(message, null, true);
           break;
         case 'fistbump:impact':
         window.FistbumpEffect?.onMessage(message);
