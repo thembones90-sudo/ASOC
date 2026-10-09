@@ -40,6 +40,9 @@
     node.dataset.brokerMessageEffect = p.messageEffect;
     node.style.setProperty('--broker-frame', p.frameColor);
     node.style.setProperty('--broker-accent', p.accent);
+    const identity = C.get(p.transmogId);
+    const name = node.querySelector('.shadow-broker-name');
+    if (name) name.textContent = identity?.chatName || 'SHADOW BROKER';
   }
   function decorate(root = document) {
     const html = document.documentElement;

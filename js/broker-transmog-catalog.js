@@ -32,7 +32,7 @@
   const CUSTOM_ID = 'custom';
 
   // Bump ART_VERSION whenever set art is replaced so browsers fetch it fresh.
-  const ART_VERSION = '3';
+  const ART_VERSION = '4';
   const art = folder => ({ avatar: `assets/transmog/${folder}/avatar.webp?v=${ART_VERSION}`, thumb: `assets/transmog/${folder}/thumb.webp?v=${ART_VERSION}` });
 
   const SETS = Object.freeze([
@@ -72,7 +72,7 @@
       sample: 'THE WAR DRUMS DO NOT CARE ABOUT YOUR FEELINGS.'
     },
     {
-      id: 'sovereign-broker', name: 'SOVEREIGN BROKER', tagline: 'Crowned by nobody. Obeyed by everyone.',
+      id: 'sovereign-broker', name: 'SHADOW OF REVAN', chatName: 'SHADOW OF REVAN', tagline: 'Broken by war. Bound together by the dark.',
       category: 'royal', rarity: 'epic', unlock: { method: 'default' }, ...art('sovereign'),
       frameColor: '#f0b432', accent: '#c486ef', avatarEffect: 'crown', messageEffect: 'royal', aura: 'royal',
       entrance: 'rise', sound: 'fanfare', systemStyle: 'royal',
