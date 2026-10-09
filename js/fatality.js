@@ -208,6 +208,125 @@
     return fx;
   }
 
+  // Canvas particle choreography for Frost: crystals gather on the caster, an icy comet
+  // crosses the stage, the victim freezes over in a flash of mist, then shatters in shards.
+  function frostFx(layer) {
+    const fx = window.AsocFx && window.AsocFx.create ? window.AsocFx.create(layer, { speed }) : null;
+    if (!fx) return null;
+    layer.classList.add('fatality-fx');
+    const A = () => centerOf(layer, '.fatality-attacker .fatality-avatar');
+    const V = () => centerOf(layer, '.fatality-victim .fatality-avatar');
+    const R = (a, b) => window.AsocFx.rand(a, b);
+
+    // 1. Charge: shards and glints spiral into the caster, the core swells.
+    at(720, () => {
+      const a = A();
+      if (!a) return;
+      let prog = 0;
+      const emit = pacer(() => 60 + 300 * prog * prog);
+      fx.emitter(0.85, (p, dt) => {
+        prog = p;
+        for (let i = emit(dt); i > 0; i -= 1) {
+          const ang = R(0, Math.PI * 2);
+          const rad = a.r * R(1.0, 1.9) + 30;
+          const sp = 240 + 340 * p;
+          const vx = -Math.cos(ang) * sp - Math.sin(ang) * 110;
+          const vy = -Math.sin(ang) * sp + Math.cos(ang) * 110;
+          if (Math.random() < 0.55) {
+            fx.spawn(a.x + Math.cos(ang) * rad, a.y + Math.sin(ang) * rad, { ramp: 'ice', shard: true, align: true, vx, vy, life: [0.3, 0.5], size: [18, 38], drag: 0.4 });
+          } else {
+            fx.spawn(a.x + Math.cos(ang) * rad, a.y + Math.sin(ang) * rad, { ramp: 'ice', vx, vy, life: [0.3, 0.55], size: [8, 18], size1: 3, drag: 0.4 });
+          }
+        }
+        fx.spawn(a.x, a.y, { ramp: 'ice', size: 80 + 150 * p, size1: 100 + 170 * p, life: 0.22, alpha: 0.25 + 0.3 * p });
+      });
+    });
+
+    // 2. Comet: a bright icy head crosses the stage trailing mist, crystals and glitter.
+    at(1600, () => {
+      const a = A();
+      const v = V();
+      if (!a || !v) return;
+      const mist = pacer(() => 420);
+      const shards = pacer(() => 90);
+      const glints = pacer(() => 200);
+      fx.emitter(0.55, (p, dt) => {
+        const e = Math.pow(p, 1.5);
+        const hx = a.x + a.r * 0.6 + (v.x - v.r * 0.5 - a.x - a.r * 0.6) * e;
+        const hy = a.y + (v.y - a.y) * e + Math.sin(p * 14) * 5;
+        const dirx = Math.sign(v.x - a.x) || 1;
+        for (let i = mist(dt); i > 0; i -= 1) {
+          fx.spawn(hx + R(-12, 12), hy + R(-16, 16), { ramp: 'ice', vx: dirx * R(20, 140) + R(-50, 50), vy: R(-70, 70), life: [0.3, 0.6], size: [34, 74], size1: 12, drag: 1.5, alpha: 0.7 });
+        }
+        for (let i = shards(dt); i > 0; i -= 1) {
+          fx.spawn(hx, hy, { ramp: 'ice', shard: true, align: true, vx: -dirx * R(20, 220) + R(-120, 120), vy: R(-200, 200), life: [0.4, 0.8], size: [16, 36], drag: 0.8 });
+        }
+        for (let i = glints(dt); i > 0; i -= 1) {
+          fx.spawn(hx + R(-30, 30), hy + R(-30, 30), { ramp: 'ice', vx: R(-60, 60), vy: R(-60, 60), life: [0.4, 0.9], size: [5, 11], size1: 1, drag: 0.6 });
+        }
+        fx.spawn(hx, hy, { ramp: 'ice', size: 180, size1: 220, life: 0.12, alpha: 0.6 });
+        fx.spawn(hx, hy, { ramp: 'ice', size: 70, size1: 80, life: 0.1, alpha: 1 });
+      });
+    });
+
+    // 3. Freezing over: frost creeps inward on the victim, then the flash and a rolling mist.
+    at(1900, () => {
+      const v = V();
+      if (!v) return;
+      const creep = pacer(() => 260);
+      fx.emitter(0.3, (p, dt) => {
+        for (let i = creep(dt); i > 0; i -= 1) {
+          const ang = R(0, Math.PI * 2);
+          const rad = v.r * R(1.3, 2.0);
+          fx.spawn(v.x + Math.cos(ang) * rad, v.y + Math.sin(ang) * rad, { ramp: 'ice', vx: -Math.cos(ang) * 340, vy: -Math.sin(ang) * 340, life: [0.25, 0.4], size: [20, 44], size1: 6, drag: 0.3, alpha: 0.8 });
+        }
+      });
+    });
+    at(2150, () => {
+      const v = V();
+      if (!v) return;
+      fx.spawn(v.x, v.y, { ramp: 'ice', size: 500, size1: 600, life: 0.22, alpha: 1, force: true });
+      fx.burst(v.x, v.y, 90, { ramp: 'ice', speed: [100, 520], life: [0.5, 1.1], size: [30, 66], size1: 10, drag: 1.4, alpha: 0.85 });
+      fx.burst(v.x, v.y, 60, { ramp: 'ice', shard: true, align: true, speed: [160, 640], life: [0.5, 1.0], size: [18, 42], drag: 0.9 });
+      fx.ring(v.x, v.y, { radius: 460, life: 0.55, width: 11, color: 'rgba(120,225,255,.95)' });
+      fx.ring(v.x, v.y, { radius: 300, life: 0.4, width: 5, color: 'rgba(255,255,255,.95)' });
+      const fog = pacer(() => 20);
+      fx.emitter(2.4, (p, dt) => {
+        for (let i = fog(dt); i > 0; i -= 1) {
+          fx.spawn(v.x + R(-150, 150), v.y + R(-60, 90), { ramp: 'ice', vx: R(-40, 40), vy: R(10, 60), ay: 6, life: [1.2, 2.2], size: [90, 150], size1: R(180, 260), alpha: 0.1, drag: 0.5 });
+        }
+      });
+    });
+
+    // 4. Frozen: glints twinkle across the ice until it gives way.
+    at(2250, () => {
+      const v = V();
+      if (!v) return;
+      const tw = pacer(() => 55);
+      fx.emitter(0.75, (p, dt) => {
+        for (let i = tw(dt); i > 0; i -= 1) {
+          const ang = R(0, Math.PI * 2);
+          const rad = v.r * R(0.1, 1.1);
+          fx.spawn(v.x + Math.cos(ang) * rad, v.y + Math.sin(ang) * rad, { ramp: 'ice', vx: 0, vy: R(-12, 6), life: [0.35, 0.7], size: [10, 24], size1: 2, drag: 1, alpha: 0.9 });
+        }
+      });
+    });
+
+    // 5. Shatter: the victim bursts into shards that fall, with glitter and a final shockwave.
+    at(3050, () => {
+      const v = V();
+      if (!v) return;
+      fx.spawn(v.x, v.y, { ramp: 'ice', size: 560, size1: 660, life: 0.2, alpha: 0.85, force: true });
+      fx.burst(v.x, v.y, 150, { ramp: 'ice', shard: true, align: true, speed: [200, 900], ay: 420, life: [0.7, 1.5], size: [18, 50], drag: 0.7, radius: v.r * 0.6 });
+      fx.burst(v.x, v.y, 70, { ramp: 'ice', shard: true, speed: [100, 500], ay: 300, life: [0.8, 1.6], size: [14, 30], spin: [-7, 7], drag: 0.6 });
+      fx.burst(v.x, v.y, 60, { ramp: 'ice', speed: [120, 600], ay: 120, life: [0.8, 1.8], size: [6, 12], size1: 1, drag: 0.7, alpha: 0.8, radius: v.r * 0.6 });
+      fx.burst(v.x, v.y, 12, { ramp: 'ice', speed: [60, 260], life: [1.0, 1.8], size: [80, 140], size1: 220, drag: 1.0, alpha: 0.14 });
+      fx.ring(v.x, v.y, { radius: 560, life: 0.6, width: 14, color: 'rgba(235,252,255,.95)' });
+      fx.ring(v.x, v.y, { radius: 380, life: 0.45, width: 6, color: 'rgba(110,220,255,.9)' });
+    });
+    return fx;
+  }
+
   function play(message) {
     if (!message || message.type !== 'fatality:strike') return;
 
@@ -268,6 +387,7 @@
 
     document.body.appendChild(layer);
     if (mode === 'pyroblast') activeFx = pyroFx(layer);
+    else if (mode === 'frost') activeFx = frostFx(layer);
 
     if (speed !== 1) {
       try { layer.getAnimations({ subtree: true }).forEach(a => { a.playbackRate = speed; }); } catch {}
@@ -385,6 +505,7 @@
   @keyframes fat-shake-heavy{0%,100%{transform:none}16%{transform:translate(-14px,8px)}32%{transform:translate(12px,-9px)}48%{transform:translate(-10px,-5px)}64%{transform:translate(8px,6px)}80%{transform:translate(-5px,3px)}}
   .fatality-fx.fatality-pyroblast .fatality-blast,.fatality-fx.fatality-pyroblast .fatality-particles{display:none}
   .fatality-fx.fatality-pyroblast .fatality-burst,.fatality-fx.fatality-pyroblast .fatality-crack{display:none}
+  .fatality-fx.fatality-frost .fatality-blast,.fatality-fx.fatality-frost .fatality-particles,.fatality-fx.fatality-frost .fatality-burst{display:none}
   .fatality-skip{position:absolute;left:50%;bottom:2.2%;transform:translateX(-50%);z-index:20;font:700 11px/1 Arial;letter-spacing:.3em;color:#9a8c90;opacity:0;animation:fat-skip .5s 1s forwards;pointer-events:none}
   .fatality-skipping{opacity:0;transition:opacity .25s ease}
   @keyframes fat-skip{to{opacity:.7}}
