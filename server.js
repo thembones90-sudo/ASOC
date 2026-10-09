@@ -7000,7 +7000,7 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/coffee', help: '/coffee -- Shadow Market unlock (10 SC): eight-second break in Amusement Park only' },
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
   { name: '/fatality', help: '/fatality @Name -- 50/50 Pyroblast or Frost cinematic on one Little Hero' },
-  { name: '/pat', help: '/pat @Name -- the Shadow Broker declares a Little Hero a good girl ðŸ–¤' },
+  { name: '/pat', help: '/pat @Name -- the Shadow Broker declares a Little Hero a good girl \u{1F5A4}' },
   { name: '/poison', help: '/poison @Name -- GM-only venom: one /roll save, then -0.1 SC every 20 seconds until Blood Tribute cure' },
   { name: '/chaos', help: '/chaos @Name [@Name2 ...] <roll target> <coins> (or /chaos all ...) -- roll wager: reach the target to win Shadow Coins, fall short and owe a Blood Tribute; 100 pays double, 1 owes a dark tribute' },
   { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
@@ -8594,7 +8594,7 @@ function dispatchGmSlashCommand(room, ws, text) {
     const resolved = resolveNamedTarget(room, null, '', match[1], 'PAT');
     if (resolved.error) return { success: false, error: resolved.error };
     const target = resolved.target;
-    const line = `The Shadow Broker gently pats ${target.name} on the head. "You've been a good girl. Yes, you have." ðŸ–¤`;
+    const line = `The Shadow Broker gently pats ${target.name} on the head. "You've been a good girl. Yes, you have." \u{1F5A4}`;
     const result = buildChatCommandMessage(room, author, 'pat', 'shadowBroker', line, { pat: { targetId: String(target.id), targetName: target.name } });
     if (!result.success) return result;
     result.message.source = 'shadowBroker';
