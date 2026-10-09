@@ -57,11 +57,43 @@
     return root;
   }
 
+  const clampFace = v => Math.max(1, Math.min(100, Math.round(Number(v)) || 1));
+  const winChance = target => Math.max(0, Math.min(100, 101 - clampFace(target)));
+  const reducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+  // One bar for all 100 faces: 1 is the dark failure, below the target is a
+  // Blood Tribute, the target and up wins, and 100 pays double.
+  function oddsBar(target) {
+    const t = clampFace(target);
+    const lose = Math.max(0, t - 2);
+    const win = Math.max(0, 99 - t + 1);
+    return `<span class="chaos-odds" aria-hidden="true"><i class="o-dark" style="flex:1"></i><i class="o-lose" style="flex:${lose}"></i><i class="o-win" style="flex:${win}"></i><i class="o-perfect" style="flex:1"></i></span>`;
+  }
+
+  // The odds bar plus markers for the target and (optionally) the roll that landed.
+  function rollGauge(target, roll) {
+    const t = clampFace(target);
+    const r = roll ? clampFace(roll) : 0;
+    const marks = `<span class="g-target" style="left:${(t - 0.5).toFixed(1)}%"><b>${t}+</b></span>`
+      + (r ? `<span class="g-roll ${r >= t ? 'is-win' : r === 1 ? 'is-dark' : 'is-lose'}" style="left:${(r - 0.5).toFixed(1)}%"><b>${r}</b></span>` : '');
+    return `<div class="chaos-gauge${r ? ' has-roll' : ''}" aria-hidden="true">${oddsBar(t)}${marks}</div>`;
+  }
+
+  function stakeHero(entry) {
+    const win = winChance(entry.target);
+    return `<div class="chaos-stake-hero">
+      <div class="chaos-die" aria-label="Roll ${entry.target} or higher"><small>ROLL</small><b>${entry.target}<sup>+</sup></b><em>OR HIGHER</em></div>
+      <div class="chaos-prize"><small>THE BROKER PAYS</small><b>${coinText(entry.coins)}</b><em>${win}% CHANCE // 100 PAYS ${coinText(entry.coins * 2)}</em></div>
+    </div>
+    ${rollGauge(entry.target)}
+    <div class="chaos-odds-key"><span class="k-lose">${100 - win}% BLOOD TRIBUTE</span><span class="k-win">${win}% WIN</span></div>`;
+  }
+
   function stakeLines(entry) {
     return `<ul class="chaos-terms">
       <li><b>ROLL ${entry.target}+</b><span>WIN ${coinText(entry.coins)}</span></li>
-      <li><b>ROLL 100</b><span>DOUBLE // ${coinText(entry.coins * 2)}</span></li>
-      <li><b>BELOW ${entry.target}</b><span>BLOOD TRIBUTE OWED</span></li>
+      <li class="perfect"><b>ROLL 100</b><span>DOUBLE // ${coinText(entry.coins * 2)}</span></li>
+      <li class="lose"><b>BELOW ${entry.target}</b><span>BLOOD TRIBUTE OWED</span></li>
       <li class="dark"><b>ROLL 1</b><span>DARK BLOOD TRIBUTE</span></li>
     </ul>`;
   }
@@ -79,12 +111,15 @@
     const key = `${entry.id}:${entry.status}:${entry.pendingTribute}:${tributeNote}`;
     if (card.dataset.key === key) return;
     card.dataset.key = key;
+    card.classList.remove('is-offered', 'is-rolling', 'is-owes', 'is-urgent');
+    card.classList.add(entry.status === 'offered' ? 'is-offered' : entry.status === 'rolling' ? 'is-rolling' : 'is-owes');
 
     if (entry.status === 'offered') {
       card.innerHTML = `
-        <div class="chaos-kicker">SHADOW BROKER // CHAOS</div>
+        <div class="chaos-kicker"><i class="chaos-sigil" aria-hidden="true"></i>SHADOW BROKER // CHAOS</div>
         <h2>THE BROKER OFFERS CHAOS</h2>
-        <p>Accept and you are playing. Reject, or stay silent, and nothing happens.</p>
+        <p class="chaos-lede">Accept and you are playing. Reject, or stay silent, and nothing happens.</p>
+        ${stakeHero(entry)}
         ${stakeLines(entry)}
         <div class="chaos-timer"><i data-chaos-bar></i></div>
         <div class="chaos-clock">ANSWER IN <b data-chaos-clock>${secondsLeft(entry.expiresAt)}</b>s</div>
@@ -99,11 +134,14 @@
     }
     if (entry.status === 'rolling') {
       card.innerHTML = `
-        <div class="chaos-kicker">WAGER ACCEPTED</div>
+        <div class="chaos-kicker"><i class="chaos-sigil" aria-hidden="true"></i>WAGER ACCEPTED</div>
         <h2>NOW ROLL</h2>
-        <p>Type <b>/roll</b> or press the button. One roll. No rerolls. You need <b>${entry.target}+</b> to win ${coinText(entry.coins)}.</p>
+        <div class="chaos-die-stage" aria-hidden="true"><span class="chaos-die-ring"></span><span class="chaos-die-core"><b>${entry.target}+</b><small>TO WIN ${coinText(entry.coins)}</small></span></div>
+        <p class="chaos-lede">Type <b>/roll</b> or press the button. One roll. No rerolls. You need <b>${entry.target}+</b> to win ${coinText(entry.coins)}.</p>
+        ${rollGauge(entry.target)}
+        <div class="chaos-timer"><i data-chaos-bar></i></div>
         <div class="chaos-clock">UNROLLED IN <b data-chaos-clock>${secondsLeft(entry.rollEndsAt)}</b>s FORFEITS THE WAGER</div>
-        <div class="chaos-actions"><button type="button" data-chaos-roll>ROLL /roll</button></div>`;
+        <div class="chaos-actions"><button type="button" class="chaos-roll-btn" data-chaos-roll>ROLL /roll</button></div>`;
       card.querySelector('[data-chaos-roll]').addEventListener('click', () => {
         window.PlayerApp?.send?.({ type: 'chat:guess', text: '/roll' });
       });
@@ -113,11 +151,12 @@
     // owes or judging
     const rolled = entry.roll ? `YOUR ROLL: <b>${entry.roll}</b> // ${entry.target}+ REQUIRED` : 'YOUR UNROLLED WAGER WAS FORFEITED';
     card.innerHTML = `
-      <div class="chaos-kicker">${entry.dark ? 'DARK BLOOD TRIBUTE OWED' : 'BLOOD TRIBUTE OWED'}</div>
+      <div class="chaos-kicker"><i class="chaos-sigil" aria-hidden="true"></i>${entry.dark ? 'DARK BLOOD TRIBUTE OWED' : 'BLOOD TRIBUTE OWED'}</div>
       <h2>${entry.dark ? 'THE DARK DEBT' : 'CHAOS COLLECTS'}</h2>
-      <p>${rolled}</p>
-      <p>${entry.status === 'judging' ? 'YOUR PREVIOUS OFFERING IS AWAITING JUDGMENT. UPLOAD A NEW PICTURE TO REPLACE IT.' : 'THE SHADOW BROKER DEMANDS YOUR BLOOD TRIBUTE.'}</p>
-      <label class="chaos-upload chaos-upload-primary">UPLOAD BLOOD TRIBUTE<input data-chaos-file type="file" accept="image/png,image/jpeg,image/webp"></label>
+      <p class="chaos-lede">${rolled}</p>
+      ${entry.roll ? rollGauge(entry.target, entry.roll) : ''}
+      <p class="chaos-lede">${entry.status === 'judging' ? 'YOUR PREVIOUS OFFERING IS AWAITING JUDGMENT. UPLOAD A NEW PICTURE TO REPLACE IT.' : 'THE SHADOW BROKER DEMANDS YOUR BLOOD TRIBUTE.'}</p>
+      <label class="chaos-upload chaos-upload-primary"><span class="chaos-upload-icon" aria-hidden="true">&#10515;</span><span>UPLOAD BLOOD TRIBUTE</span><input data-chaos-file type="file" accept="image/png,image/jpeg,image/webp"></label>
       <p class="chaos-small" data-chaos-note role="status">${esc(tributeNote || 'CHOOSE A PICTURE // PNG, JPG OR WEBP // MAX 2 MB')}</p>`;
     const file = card.querySelector('[data-chaos-file]');
     file.addEventListener('change', () => {
@@ -181,6 +220,8 @@
     reader.readAsDataURL(file);
   }
 
+  let resultSpin = null;
+
   function showResult(message) {
     if (String(message.playerId) !== me()) return;
     let layer = document.getElementById('chaos-result');
@@ -190,18 +231,46 @@
       document.body.appendChild(layer);
     }
     const kind = message.perfect ? 'perfect' : message.won ? 'won' : message.dark ? 'dark' : 'lost';
-    const label = {
-      perfect: `PERFECT 100 // DOUBLE // +${coinText(message.payout)}`,
-      won: `CHAOS WON // +${coinText(message.payout)}`,
-      dark: 'CRITICAL FAILURE // DARK BLOOD TRIBUTE',
-      lost: `CHAOS LOST // NEEDED ${message.target}+`
+    const head = { perfect: 'PERFECT 100', won: 'CHAOS WON', dark: 'CRITICAL FAILURE', lost: 'CHAOS LOST' }[kind];
+    const sub = {
+      perfect: `DOUBLE PAYOUT // +${coinText(message.payout)}`,
+      won: `+${coinText(message.payout)} // NEEDED ${message.target}+`,
+      dark: 'DARK BLOOD TRIBUTE OWED',
+      lost: `NEEDED ${message.target}+ // BLOOD TRIBUTE OWED`
     }[kind];
+    const embers = Array.from({ length: kind === 'won' || kind === 'perfect' ? 34 : 22 }, (_, i) =>
+      `<i class="chaos-ember" style="--x:${(Math.random() * 100).toFixed(1)}%;--d:${(Math.random() * 0.9).toFixed(2)}s;--t:${(1.8 + Math.random() * 1.6).toFixed(2)}s;--s:${(4 + Math.random() * 9).toFixed(1)}px;--r:${Math.floor(Math.random() * 360)}deg;--h:${i % 5}"></i>`).join('');
+    const finalValue = String(message.value);
     layer.className = `is-${kind}`;
-    layer.innerHTML = `<div><span class="chaos-roll-number">${esc(message.value)}</span><span class="chaos-roll-label">${esc(label)}</span></div>`;
+    layer.style.animation = 'none';
+    void layer.offsetWidth;
+    layer.style.animation = '';
+    layer.innerHTML = `<div class="chaos-res-fx" aria-hidden="true"><span class="chaos-res-rays"></span><span class="chaos-res-ring"></span><span class="chaos-res-ring r2"></span>${embers}</div>
+      <div class="chaos-res-body">
+        <span class="chaos-res-head">${esc(head)}</span>
+        <span class="chaos-roll-number">${reducedMotion() ? esc(finalValue) : '00'}</span>
+        <span class="chaos-roll-label">${esc(sub)}</span>
+        ${message.target ? `<div class="chaos-res-gauge">${rollGauge(message.target, message.value)}</div>` : ''}
+      </div>`;
     layer.hidden = false;
-    window.AsocAudio?.playUi?.(message.won ? 'success' : 'impact');
+    clearInterval(resultSpin);
+    const numberEl = layer.querySelector('.chaos-roll-number');
+    const land = () => {
+      clearInterval(resultSpin);
+      numberEl.textContent = finalValue;
+      layer.classList.add('is-landed');
+      window.AsocAudio?.playUi?.(message.won ? 'success' : 'impact');
+    };
+    if (reducedMotion()) land();
+    else {
+      let n = 0;
+      resultSpin = setInterval(() => {
+        numberEl.textContent = String(1 + Math.floor(Math.random() * 100));
+        if (++n >= 16) land();
+      }, 45);
+    }
     clearTimeout(resultTimer);
-    resultTimer = setTimeout(() => { layer.hidden = true; }, 2600);
+    resultTimer = setTimeout(() => { layer.hidden = true; layer.classList.remove('is-landed'); }, 4300);
   }
 
   // Host-only roll receipts. No Battle Comms message, no spectator broadcast.
@@ -242,9 +311,9 @@
     dock.hidden = false;
     const list = dock.querySelector('.chaos-gm-rolls-list');
     list.innerHTML = gmRollHistory.map(row =>
-      '<div class="chaos-gm-roll-entry' + (row.won ? ' is-win' : ' is-loss') + '"><span>' + esc(row.playerName) +
-      '</span><strong>' + row.value + '</strong><small> / ' + row.target + '+ ' +
-      (row.won ? 'WIN' : row.dark ? 'DARK DEBT' : 'DEBT') + '</small></div>'
+      '<div class="chaos-gm-roll-entry' + (row.won ? ' is-win' : row.dark ? ' is-dark' : ' is-loss') + '"><div class="chaos-gm-roll-line"><span>' + esc(row.playerName) +
+      '</span><strong>' + row.value + '</strong><small>' + row.target + '+ ' +
+      (row.won ? 'WIN' : row.dark ? 'DARK DEBT' : 'DEBT') + '</small></div>' + (row.target ? rollGauge(row.target, row.value) : '') + '</div>'
     ).join('');
   }
 
@@ -272,14 +341,17 @@
     root.hidden = true;
     root.innerHTML = `
       <div class="chaos-picker-head">
+        <i class="chaos-sigil is-large" aria-hidden="true"></i>
         <div><b>CHAOS WAGER</b><small>PICK ONE OR MANY // SET THE STAKE</small></div>
         <button type="button" class="chaos-picker-close" aria-label="Close">×</button>
       </div>
       <div class="chaos-stake">
-        <label>ROLL TARGET<input type="number" data-chaos-target min="${MIN_TARGET}" max="${MAX_TARGET}" step="1" value="50" inputmode="numeric"></label>
-        <label>SHADOW COINS<input type="number" data-chaos-coins min="${MIN_COINS}" max="${MAX_COINS}" step="0.1" value="5" inputmode="decimal"></label>
+        <label>ROLL TARGET<input type="number" data-chaos-target min="${MIN_TARGET}" max="${MAX_TARGET}" step="1" value="50" inputmode="numeric">
+          <span class="chaos-presets" data-chaos-preset-for="target">${[25, 50, 75, 90, 99].map(v => `<button type="button" data-chaos-preset="${v}">${v}</button>`).join('')}</span></label>
+        <label>SHADOW COINS<input type="number" data-chaos-coins min="${MIN_COINS}" max="${MAX_COINS}" step="0.1" value="5" inputmode="decimal">
+          <span class="chaos-presets" data-chaos-preset-for="coins">${[1, 5, 10, 25, 50].map(v => `<button type="button" data-chaos-preset="${v}">${v}</button>`).join('')}</span></label>
       </div>
-      <div class="chaos-stake-note" data-chaos-preview></div>
+      <div class="chaos-preview-wrap"><div data-chaos-gauge></div><div class="chaos-stake-note" data-chaos-preview></div></div>
       <input class="chaos-picker-search" type="search" placeholder="SEARCH LITTLE HERO..." autocomplete="off">
       <div class="chaos-target-list"></div>
       <div class="chaos-picker-foot">
@@ -290,6 +362,13 @@
     root.querySelector('.chaos-picker-close').addEventListener('click', closePicker);
     root.querySelector('.chaos-picker-search').addEventListener('input', renderTargets);
     root.querySelectorAll('[data-chaos-target],[data-chaos-coins]').forEach(input => input.addEventListener('input', () => { disarm(); syncFoot(); }));
+    root.querySelectorAll('[data-chaos-preset]').forEach(button => button.addEventListener('click', event => {
+      event.preventDefault();
+      const field = button.parentElement.dataset.chaosPresetFor === 'target' ? '[data-chaos-target]' : '[data-chaos-coins]';
+      root.querySelector(field).value = button.dataset.chaosPreset;
+      disarm();
+      syncFoot();
+    }));
     return root;
   }
 
@@ -359,7 +438,7 @@
       const note = entry ? 'ALREADY IN A WAGER // SKIPPED' : (target.online ? 'ONLINE' : 'OFFLINE');
       return `<button type="button" class="chaos-target${picked ? ' is-selected' : ''}${target.online ? '' : ' is-offline'}${entry ? ' is-busy' : ''}" data-chaos-id="${esc(id)}" aria-pressed="${picked}"${entry ? ' disabled' : ''}>
         <span class="chaos-check" aria-hidden="true">✓</span>
-        <img src="${esc(target.avatarData || '')}" alt="" onerror="this.style.visibility='hidden'">
+        <span class="chaos-avatar" data-initial="${esc(String(target.name || '?').trim().charAt(0).toUpperCase() || '?')}"><img src="${esc(target.avatarData || '')}" alt="" onerror="this.remove()"></span>
         <span><b>${esc(target.name || 'LITTLE HERO')}${tag}</b><small>${picked ? 'SELECTED' : note}</small></span>
       </button>`;
     };
@@ -379,8 +458,13 @@
     const n = gmSelected.size;
     if (preview) {
       preview.classList.toggle('is-bad', !!s.error);
-      preview.textContent = s.error ? s.error : `ROLL ${s.target}+ WINS ${coinText(s.coins)} // 100 PAYS ${coinText(s.coins * 2)} // BELOW OWES A BLOOD TRIBUTE // 1 OWES A DARK ONE`;
+      const win = winChance(s.target);
+      preview.textContent = s.error ? s.error : `ROLL ${s.target}+ WINS ${coinText(s.coins)} (${win}% CHANCE) // 100 PAYS ${coinText(s.coins * 2)} // BELOW OWES A BLOOD TRIBUTE // 1 OWES A DARK ONE`;
+      const gauge = root.querySelector('[data-chaos-gauge]');
+      if (gauge) gauge.innerHTML = s.error ? '' : rollGauge(s.target);
     }
+    root.querySelectorAll('[data-chaos-preset-for="target"] [data-chaos-preset]').forEach(b => b.classList.toggle('is-on', Number(b.dataset.chaosPreset) === s.target));
+    root.querySelectorAll('[data-chaos-preset-for="coins"] [data-chaos-preset]').forEach(b => b.classList.toggle('is-on', Number(b.dataset.chaosPreset) === s.coins));
     btn.classList.toggle('is-armed', gmArmed);
     btn.classList.toggle('is-casting', gmSending);
     if (gmSending) { btn.disabled = true; btn.textContent = 'SENDING OFFER...'; return; }
@@ -516,6 +600,21 @@
   function showFullTribute(offer) {
     closeFullTribute();
     if (!isGm() || !offer?.imageData) return;
+    // Prefer the shared lightbox: zoom, pan, FIT and 1:1 for examining the photo.
+    if (window.ChatMediaPreview?.open) {
+      const trigger = document.createElement('span');
+      trigger.className = 'chat-image-link chaos-tribute-trigger';
+      trigger.dataset.previewLabel = `Blood Tribute // ${offer.playerName || 'Little Hero'}`;
+      const probe = document.createElement('img');
+      probe.src = offer.imageData;
+      probe.alt = `Blood Tribute from ${offer.playerName || 'Little Hero'}`;
+      trigger.appendChild(probe);
+      trigger.style.display = 'none';
+      document.body.appendChild(trigger);
+      window.ChatMediaPreview.open(trigger);
+      setTimeout(() => trigger.remove(), 0);
+      return;
+    }
     const overlay = document.createElement('div');
     overlay.id = 'chaos-full-tribute';
     overlay.setAttribute('role', 'dialog');
@@ -722,6 +821,9 @@
         if (clock && left !== null) clock.textContent = left;
         const bar = document.querySelector('#chaos-player-card [data-chaos-bar]');
         if (bar && entry.status === 'offered') bar.style.width = Math.max(0, Math.min(100, (Number(entry.expiresAt) - now()) / OFFER_MS * 100)) + '%';
+        const cardEl = document.getElementById('chaos-player-card');
+        if (cardEl && left !== null) cardEl.classList.toggle('is-urgent', left <= 8 && left > 0);
+        if (entry.status === 'rolling' && bar) bar.style.width = Math.max(0, Math.min(100, (Number(entry.rollEndsAt) - now()) / ROLL_MS * 100)) + '%';
         if (entry.status === 'offered' && left === 0) {
           document.querySelectorAll('#chaos-player-card button').forEach(b => { b.disabled = true; });
         }
