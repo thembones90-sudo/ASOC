@@ -170,4 +170,13 @@ const results=(async()=>{
  const tight=DR.formation(5,{cx:325,width:650,cw:237,ch:176,boss,pad:14,gap:14});eq(tight.fits,false,'a pentagon cannot fit 650px: caller falls back to the stacked layout');
  const css=fs.readFileSync(path.join(root,'css','dragon-raid.css'),'utf8');ok(/\.dragon-arena\.is-compact/.test(css));ok(/\.dragon-arena-party\.is-polygon/.test(css));ok(/dragon-formation/.test(css))})();
 
+(()=>{ // GM controls v2: guarded cancel, explained start, launch safety net, random specimen
+ const root=path.join(__dirname,'..'),client=fs.readFileSync(path.join(root,'js','dragon-raid.js'),'utf8'),css=fs.readFileSync(path.join(root,'css','dragon-raid.css'),'utf8');
+ ok(/cancelArmed\(/.test(client)&&/SURE\? CLICK AGAIN TO CANCEL/.test(client),'cancel is a two-step action');
+ ok(/NEED \$\{need - n\} MORE/.test(client),'start explains why it is locked');
+ ok(/data-dragon-clock=\"recruit-gm\"/.test(client)&&/recruit-gm/.test(client.slice(client.indexOf('tick() {'))),'gm recruit countdown is ticked');
+ ok(/pendingLaunch/.test(client)&&/syncSetup\(\)/.test(client),'launch waits for the server');
+ ok(/bossId === 'deathwing' && this\.setupArm/.test(client),'Heroic Calamity needs a second click');
+ ok(/data-dragon-action=\"setup-random\"/.test(client)&&/NORMAL_SPECIMENS/.test(client)&&!/bossId: 'random'/.test(client),'random specimen picks a concrete boss on the client');
+ ok(/\.dragon-gm-cancel\.is-armed/.test(css)&&/\.dragon-setup-panel\.is-locked/.test(css)&&/\.dragon-setup-random/.test(css),'gm v2 styles exist')})();
 results.then(()=>{ok(checks>=70,'expected >=70 checks, got '+checks);console.log('cabinet raid tests: OK ('+checks+' checks)')}).catch(e=>{console.error(e);process.exit(1)});
