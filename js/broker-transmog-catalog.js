@@ -18,9 +18,9 @@
 
   // Every effect a set (or the CUSTOM forge) may use. Values are CSS hooks:
   // [data-broker-effect], [data-broker-message-effect], html[data-broker-aura].
-  const AVATAR_EFFECTS = Object.freeze(['none', 'signal', 'void', 'heartbeat', 'pulse', 'eclipse', 'glitch', 'inferno', 'frost', 'crown', 'warsong', 'omen', 'bloodfang', 'fel']);
+  const AVATAR_EFFECTS = Object.freeze(['none', 'signal', 'void', 'heartbeat', 'pulse', 'eclipse', 'glitch', 'inferno', 'frost', 'crown', 'warsong', 'omen', 'bloodfang', 'fel', 'revan']);
   const MESSAGE_EFFECTS = Object.freeze(['none', 'void', 'blood', 'royal', 'static', 'frost', 'warsong', 'omen', 'bloodfang', 'fel']);
-  const AURAS = Object.freeze(['none', 'void', 'blood', 'frost', 'warsong', 'royal', 'static', 'omen', 'bloodfang', 'fel']);
+  const AURAS = Object.freeze(['none', 'void', 'blood', 'frost', 'warsong', 'royal', 'static', 'omen', 'bloodfang', 'fel', 'revan']);
   const ENTRANCES = Object.freeze(['none', 'fade', 'shatter', 'slam', 'glitch', 'rise', 'strike', 'fel']);
   const SOUNDS = Object.freeze(['none', 'hum', 'drone', 'chime', 'horn', 'fanfare', 'static', 'toll', 'blade', 'fel']);
 
@@ -74,7 +74,7 @@
     {
       id: 'sovereign-broker', name: 'SHADOW OF REVAN', chatName: 'SHADOW OF REVAN', tagline: 'Broken by war. Bound together by the dark.',
       category: 'royal', rarity: 'epic', unlock: { method: 'default' }, ...art('sovereign'),
-      frameColor: '#f0b432', accent: '#c486ef', avatarEffect: 'crown', messageEffect: 'royal', aura: 'royal',
+      frameColor: '#7029c9', accent: '#ff334f', avatarEffect: 'revan', messageEffect: 'royal', aura: 'revan',
       entrance: 'rise', sound: 'fanfare', systemStyle: 'royal',
       sample: 'KNEEL. OR DO NOT. THE CROWN REMEMBERS EITHER WAY.'
     },
