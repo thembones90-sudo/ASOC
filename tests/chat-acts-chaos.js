@@ -140,6 +140,13 @@ harness.next = 50;
   eq(refused.rooms.bloodTributes.length, 0, 'refusal creates no tribute');
   h.svc.handleRespond(pa, { accept: true });
   eq(h.chat.length, 0, 'acceptance remains private');
+  const acceptedEntry = chaos.entryFor(h.rooms, 'a');
+  h.svc.handleRespond(pa, { accept: true, chaosEntryId: acceptedEntry.id });
+  ok(h.sent.filter(s => s.m.type === 'chaos:response' && s.m.chaosEntryId === acceptedEntry.id && s.m.accepted === true).length === 2, 'duplicate accept receives idempotent positive confirmation');
+  ok(chaos.entryFor(h.rooms, 'a')?.status === 'rolling', 'duplicate accept preserves rolling state');
+  h.svc.handleRespond(pa, { accept: false, chaosEntryId: 'stale-previous-wager' });
+  ok(h.sent.some(s => s.m.type === 'chaos:responseError' && /CHANGED/.test(s.m.error)), 'stale offer rejection refused');
+  eq(h.chat.length, 0, 'acceptance remains private');
   // forced roll
   ok(h.svc.onRoll(h.rooms, { playerId: 'zzz', playerName: 'Z' }, '/roll') === null, 'strangers roll normally');
   ok(h.svc.onRoll(h.rooms, pa, '/roll 20').error, 'a wager roll cannot pick its own range');

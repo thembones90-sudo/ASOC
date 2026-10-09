@@ -31,6 +31,8 @@
   let resultTimer = null;
   let tributeNote = '';
   let declinedEntryId = null;
+  let responsePending = null;
+  let responseTimer = null;
   let tributeUploadTimer = null;
   let tributeSending = false;
   let tick = null;
@@ -68,6 +70,7 @@
     if (isGm() && !me()) return;
     const root = playerRoot();
     const entry = states[me()];
+    if (entry && responsePending && (String(entry.id) !== responsePending.id || entry.status !== 'offered')) clearResponsePending();
     if (!entry || (declinedEntryId && String(entry.id) === declinedEntryId)) { root.hidden = true; return; }
     if (declinedEntryId && String(entry.id) !== declinedEntryId) declinedEntryId = null;
     const card = root.querySelector('#chaos-player-card');
@@ -88,7 +91,8 @@
         <div class="chaos-actions">
           <button type="button" data-chaos-accept>ACCEPT THE WAGER</button>
           <button type="button" class="ghost" data-chaos-reject>REJECT</button>
-        </div>`;
+        </div>
+        <p class="chaos-small" data-chaos-response-note role="status"></p>`;
       card.querySelector('[data-chaos-accept]').addEventListener('click', () => answer(true));
       card.querySelector('[data-chaos-reject]').addEventListener('click', () => answer(false));
       return;
@@ -121,10 +125,32 @@
     });
   }
 
+  function clearResponsePending() {
+    clearTimeout(responseTimer);
+    responseTimer = null;
+    responsePending = null;
+  }
+
   function answer(accept) {
-    window.PlayerApp?.send?.({ type: 'chaos:respond', accept });
+    const entry = states[me()];
+    if (!entry || entry.status !== 'offered' || responsePending) return;
     const card = document.getElementById('chaos-player-card');
-    card?.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    const note = card?.querySelector('[data-chaos-response-note]');
+    const buttons = card?.querySelectorAll('[data-chaos-accept],[data-chaos-reject]');
+    const sent = window.PlayerApp?.send?.({ type: 'chaos:respond', accept, chaosEntryId: entry.id });
+    if (!sent) {
+      if (note) note.textContent = 'CONNECTION LOST // RECONNECT AND TRY AGAIN';
+      return;
+    }
+    responsePending = { id: String(entry.id), accept };
+    buttons?.forEach(b => { b.disabled = true; });
+    if (note) note.textContent = 'WAITING FOR SERVER CONFIRMATION...';
+    responseTimer = setTimeout(() => {
+      if (!responsePending || responsePending.id !== String(entry.id)) return;
+      clearResponsePending();
+      buttons?.forEach(b => { b.disabled = false; });
+      if (note) note.textContent = 'NO CONFIRMATION RECEIVED // TRY AGAIN';
+    }, 5000);
   }
 
   function submitTribute() {
@@ -540,7 +566,25 @@
   function onMessage(message) {
     if (!message) return;
     switch (message.type) {
+      case 'chaos:responseError':
+        clearResponsePending();
+        { const card = document.getElementById('chaos-player-card');
+          card?.querySelectorAll('[data-chaos-accept],[data-chaos-reject]').forEach(b => { b.disabled = false; });
+          const note = card?.querySelector('[data-chaos-response-note]');
+          if (note) note.textContent = String(message.error || 'OFFER NOT CONFIRMED // TRY AGAIN'); }
+        break;
       case 'chaos:response':
+        if (String(message.playerId) === me()) {
+          clearResponsePending();
+          if (message.accepted === true) {
+            const entry = states[me()];
+            if (entry && String(entry.id) === String(message.chaosEntryId)) {
+              entry.status = 'rolling';
+              entry.rollEndsAt = Number(message.rollEndsAt) || Date.now() + ROLL_MS;
+              renderPlayer();
+            }
+          }
+        }
         if (String(message.playerId) === me() && message.accepted === false) {
           declinedEntryId = String(message.chaosEntryId);
           tributeNote = '';

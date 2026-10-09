@@ -86,10 +86,16 @@ function createChaosService(deps) {
   function handleRespond(ws, message) {
     const room = deps.roomOf(ws);
     if (!room || !ws.playerId) return sendToWs(ws, { type: 'error', message: 'CHAOS REQUIRES A LINKED LITTLE HERO' });
+    const current = chaos.entryFor(room, ws.playerId);
+    const requestId = String(message?.chaosEntryId || '');
+    if (requestId && current && String(current.id) !== requestId) return sendToWs(ws, { type: 'chaos:responseError', error: 'CHAOS OFFER HAS CHANGED // REFRESH', chaosEntryId: requestId });
+    if (current?.status === 'rolling' && message?.accept === true && (!requestId || String(current.id) === requestId)) {
+      return sendToWs(ws, { type: 'chaos:response', playerId: current.playerId, chaosEntryId: current.id, accepted: true, rollEndsAt: current.rollEndsAt });
+    }
     const result = chaos.respond(room, ws.playerId, message?.accept === true, Date.now());
-    if (!result.ok) return sendToWs(ws, { type: 'error', message: result.error });
+    if (!result.ok) return sendToWs(ws, { type: 'chaos:responseError', error: result.error, chaosEntryId: requestId });
     const entry = result.entry;
-    sendToWs(ws, { type: 'chaos:response', playerId: entry.playerId, chaosEntryId: entry.id, accepted: result.accepted });
+    sendToWs(ws, { type: 'chaos:response', playerId: entry.playerId, chaosEntryId: entry.id, accepted: result.accepted, rollEndsAt: entry.rollEndsAt });
     // The target has a private response acknowledgment. No public Broker transcript.
     broadcastState(room);
   }
