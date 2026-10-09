@@ -526,7 +526,7 @@ function serializeRoomForRecovery(room) {
     // seen. The sequence counter is carried over so a restored room keeps
     // advancing from where it stopped.
     chat: {
-      messages: room.chat.messages.slice(-CHAT_RECOVERY_LIMIT),
+      messages: room.chat.messages.filter(m => m.source !== 'bloodTribute').slice(-CHAT_RECOVERY_LIMIT),
       solvedTargets: { ...room.chat.solvedTargets },
       seq: Number(room.chat.seq) || 0
     },
@@ -661,7 +661,7 @@ function restoreActiveRooms() {
         hostToken: saved.hostToken,
         hostReconnectTimer: null,
         createdAt: saved.createdAt || Date.now(),
-        chat: saved.chat || { messages: [], solvedTargets: {} },
+        chat: saved.chat ? { ...saved.chat, messages: (Array.isArray(saved.chat.messages) ? saved.chat.messages : []).filter(m => m?.source !== 'bloodTribute') } : { messages: [], solvedTargets: {} },
         scoring: saved.scoring || {
           players: {},
           events: [],
@@ -2125,25 +2125,12 @@ function handleBloodTributeSubmit(ws, message) {
     source: demand.source || 'womf',
     imageData,
     submittedAt: now,
-    publicUntil: now + BLOOD_TRIBUTE_PUBLIC_MS
+    submittedPrivately: true
   };
   if (!Array.isArray(room.bloodTributes)) room.bloodTributes = [];
   room.bloodTributes.push(tribute);
 
-  room.chat.messages.push({
-    id: 'chat-' + tribute.id,
-    playerId: tribute.playerId,
-    playerName: tribute.playerName,
-    text: 'BLOOD TRIBUTE',
-    timestamp: now,
-    verdict: null,
-    target: null,
-    reactions: {},
-    source: 'bloodTribute',
-    tributeId: tribute.id,
-    publicUntil: tribute.publicUntil
-  });
-  if (room.chat.messages.length > CHAT_HISTORY_LIMIT) room.chat.messages.shift();
+  // Private upload: never create a public chat entry for an intimate tribute.
   room.pendingTribute = null;
   // The nudge toll is one-time: once paid, this player nudges freely forever.
   if (demand.source === 'nudge') settleNudgeToll(room, demand.playerId);
@@ -2159,14 +2146,8 @@ function handleBloodTributeSubmit(ws, message) {
   // side is told that payment succeeded.
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
-  broadcastChatUpdate(room);
   sendTributeVaultToHost(room);
-  sendToWs(ws, { type: 'tribute:accepted', publicUntil: tribute.publicUntil });
-
-  setTimeout(() => {
-    const stillRoom = rooms.get(room.code);
-    if (stillRoom) broadcastChatUpdate(stillRoom);
-  }, BLOOD_TRIBUTE_PUBLIC_MS + 50);
+  sendToWs(ws, { type: 'tribute:accepted', private: true });
 }
 
 function blackMarketRoom(ws) {
@@ -9862,7 +9843,7 @@ function createChatSerializer(room) {
 
 function getChatState(room) {
   const serialize = createChatSerializer(room);
-  const all = room.chat.messages;
+  const all = room.chat.messages.filter(m => m.source !== 'bloodTribute');
   // Only the recent window travels. solvedTargets is room-wide and small, so it
   // always goes with the snapshot.
   const window = all.length > CHAT_SNAPSHOT_LIMIT ? all.slice(-CHAT_SNAPSHOT_LIMIT) : all;
@@ -9897,7 +9878,7 @@ function broadcastChatUpdate(room, changedIds) {
     const serialize = createChatSerializer(room);
     const messages = [];
     for (const message of room.chat.messages) {
-      if (wanted.has(String(message.id))) messages.push(serialize(message));
+      if (message.source !== 'bloodTribute' && wanted.has(String(message.id))) messages.push(serialize(message));
     }
     if (messages.length) {
       const seq = nextChatSeq(room);
@@ -9959,9 +9940,10 @@ function handleChatHistory(ws, message) {
   ));
 
   const beforeId = message?.beforeId == null ? null : String(message.beforeId);
-  let end = room.chat.messages.length;
+  const visibleMessages = room.chat.messages.filter(m => m.source !== 'bloodTribute');
+  let end = visibleMessages.length;
   if (beforeId) {
-    const index = room.chat.messages.findIndex(m => String(m.id) === beforeId);
+    const index = visibleMessages.findIndex(m => String(m.id) === beforeId);
     // An unknown cursor (server restarted, client held a stale id) falls back
     // to the newest page so the client can rebuild instead of stalling.
     if (index >= 0) end = index;
@@ -9970,11 +9952,11 @@ function handleChatHistory(ws, message) {
   const serialize = createChatSerializer(room);
   sendToWs(ws, {
     type: 'chat:history',
-    messages: room.chat.messages.slice(start, end).map(serialize),
+    messages: visibleMessages.slice(start, end).map(serialize),
     // Once the start of the log is reached there is nothing older left to ask
     // for, so the client stops requesting and shows a floor marker.
     hasMore: start > 0,
-    nextBeforeId: start > 0 ? String(room.chat.messages[start].id) : null
+    nextBeforeId: start > 0 ? String(visibleMessages[start].id) : null
   });
 }
 

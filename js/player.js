@@ -1858,7 +1858,7 @@ const PlayerApp = {
       case 'tribute:accepted': {
         this.tributeUploading = false;
         const status = document.getElementById('blood-tribute-status');
-        if (status) status.textContent = 'TRIBUTE ACCEPTED // PUBLIC WINDOW 02:00';
+        if (status) status.textContent = 'TRIBUTE RECEIVED // PRIVATE DELIVERY';
         const file = document.getElementById('blood-tribute-file');
         if (file) file.value = '';
         break;
