@@ -56,101 +56,220 @@ html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .little-he
   color: #cfc0ea !important;
 }
 
-/* ---- stat chips --------------------------------------------------------- */
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-stats {
-  flex-wrap: wrap !important;
-  row-gap: 8px !important;
-  align-items: center !important;
+/* ---- LAYOUT: exactly two rows -------------------------------------------
+   Row 1: identity on the left, every button on the right (DISCONNECT,
+          SCOREBOARD, ALL TIME STANDINGS, MASTER ACCESS, BLACK MARKET, LEDGER).
+   Row 2: the seven stat chips, sharing the width evenly.
+   Both wrapper elements dissolve (display: contents) so the scripts that
+   mount LEDGER / BLACK MARKET into the stats row keep working untouched. */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .detainee-status-module {
+  max-height: none !important;
+  overflow: visible !important;
 }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .little-hero-hud {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px 8px !important;
+  grid-template-columns: none !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .little-hero-hud::after {
+  content: "";
+  order: 20;
+  flex: 0 0 100%;
+  height: 0;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .little-hero-hud > .hero-hud-identity-block,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .little-hero-hud > .hero-hud-stats {
+  display: contents !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-identity-block > * {
+  order: 5;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-identity-block > #hero-hud-identity {
+  order: 1;
+  flex: 1 1 150px !important;
+  min-width: 0 !important;
+  margin-right: auto;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-identity-block > #hero-hud-title {
+  order: 2;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-identity-block > #player-logout-control {
+  order: 10;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-identity-block > #player-scoreboard-btn {
+  order: 11;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-identity-block > #player-alltime-hud-btn {
+  order: 12;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-identity-block > #player-master-access-wrap {
+  order: 13;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-identity-block > #asoc-view-toggle-game {
+  order: 14;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-stats > #black-market-player-button {
+  order: 15;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-stats > .player-quest-hud {
+  order: 16;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-stats > .hero-stat {
+  order: 30;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-hud-stats > .hero-stat-coins {
+  flex-grow: 1.15 !important;
+}
+/* ---- stat chips: emblem on the left, label over value ---- */
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat {
   --c: #b98cff;
   --cv: #e4d4ff;
   position: relative;
-  height: 34px !important;
-  padding: 0 14px 0 6px !important;
-  gap: 9px !important;
-  border: 1px solid color-mix(in srgb, var(--c) 34%, #1e1629) !important;
-  border-radius: 9px !important;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 11%, #130c1d), #0c0813) !important;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c) 16%, transparent), 0 0 16px color-mix(in srgb, var(--c) 8%, transparent) !important;
+  display: grid !important;
+  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 10px !important;
+  row-gap: 1px;
+  height: 42px !important;
+  padding: 0 14px 0 8px !important;
+  border: 1px solid color-mix(in srgb, var(--c) 36%, #1e1629) !important;
+  border-radius: 10px !important;
+  background:
+    radial-gradient(120% 140% at 0% 50%, color-mix(in srgb, var(--c) 16%, transparent), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--c) 8%, #130c1d), #0b0712) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c) 16%, transparent), 0 0 16px color-mix(in srgb, var(--c) 7%, transparent) !important;
   color: var(--c) !important;
   white-space: nowrap;
+  overflow: hidden;
   transition: border-color .15s, box-shadow .15s, transform .15s;
 }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-score { --c: #b98cff; --cv: #e4d4ff; }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-rank { --c: #f2c45a; --cv: #ffe6a8; }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-streak { --c: #ff9a55; --cv: #ffd2ad; }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-dm { --c: #62bfff; --cv: #c6e9ff; }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-coins { --c: #a6e05a; --cv: #d9f7a4; }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts { --c: #ff6fb0; --cv: #ffc2de; }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link { --c: #f2c45a; --cv: #ffe6a8; }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link.stable { --c: #4fd69a; --cv: #b0f5d4; }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link.lost { --c: #ff6b6b; --cv: #ffb8b8; }
-
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-score {
+  --c: #b98cff; --cv: #e4d4ff;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-rank {
+  --c: #f2c45a; --cv: #ffe6a8;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-streak {
+  --c: #ff9a55; --cv: #ffd2ad;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-dm {
+  --c: #62bfff; --cv: #c6e9ff;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-coins {
+  --c: #a6e05a; --cv: #d9f7a4;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts {
+  --c: #ff6fb0; --cv: #ffc2de;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link {
+  --c: #f2c45a; --cv: #ffe6a8;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link.stable {
+  --c: #4fd69a; --cv: #b0f5d4;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link.lost {
+  --c: #ff6b6b; --cv: #ffb8b8;
+}
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-label {
-  color: color-mix(in srgb, var(--c) 38%, #8e83a6) !important;
-  font-size: 9.5px !important;
-  letter-spacing: .15em !important;
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  color: color-mix(in srgb, var(--c) 52%, #8e83a6) !important;
+  font-size: 9px !important;
+  line-height: 1 !important;
+  letter-spacing: .2em !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat b,
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-link-value {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
   color: var(--cv) !important;
-  font-size: 13px !important;
+  font-size: 16px !important;
+  line-height: 1.1 !important;
+  font-weight: 800 !important;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 12px color-mix(in srgb, var(--c) 50%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-/* icon badge: the SVG itself becomes a small tinted tile with a glowing duotone glyph */
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) svg.hero-stat-icon,
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts > .hero-stat-icon {
-  width: 24px !important;
-  height: 24px !important;
-  flex: 0 0 24px !important;
-  box-sizing: border-box;
-  padding: 5px;
-  border-radius: 7px;
-  border: 1px solid color-mix(in srgb, var(--c) 42%, transparent);
-  background: radial-gradient(circle at 35% 25%, color-mix(in srgb, var(--c) 30%, #140d1f), color-mix(in srgb, var(--c) 8%, #0d0814));
-  stroke: var(--c) !important;
-  fill: color-mix(in srgb, var(--c) 26%, transparent) !important;
-  stroke-width: 1.9 !important;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts > .hero-stat-icon,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-coins .hero-stat-coin {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: center;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent center / contain no-repeat;
+  box-shadow: none !important;
   opacity: 1 !important;
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 60%, transparent));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--c) 55%, transparent));
 }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link svg.hero-stat-icon { fill: none !important; }
-
-/* the heart was an emoji (different font, different weight); draw it like the others */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) svg.hero-stat-icon > * {
+  display: none !important;
+}
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts > .hero-stat-icon {
-  display: inline-grid;
-  place-items: center;
   font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
 }
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts > .hero-stat-icon::before {
-  content: "";
-  width: 12px;
-  height: 12px;
-  background: var(--c);
-  -webkit-mask: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21s-8.5-5.2-8.5-11.2C3.5 6.6 5.8 4.5 8.4 4.5c1.5 0 2.9.8 3.6 2 .7-1.2 2.1-2 3.6-2 2.6 0 4.9 2.1 4.9 5.3C20.5 15.8 12 21 12 21z'/%3E%3C/svg%3E") center / contain no-repeat;
-          mask: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21s-8.5-5.2-8.5-11.2C3.5 6.6 5.8 4.5 8.4 4.5c1.5 0 2.9.8 3.6 2 .7-1.2 2.1-2 3.6-2 2.6 0 4.9 2.1 4.9 5.3C20.5 15.8 12 21 12 21z'/%3E%3C/svg%3E") center / contain no-repeat;
+  content: none !important;
 }
-
-/* the coin keeps its artwork, in a matching ring */
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-coins .hero-stat-coin {
-  width: 24px !important;
-  height: 24px !important;
-  padding: 2px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
-  background: radial-gradient(circle at 35% 25%, color-mix(in srgb, var(--c) 25%, #140d1f), #0d0814);
+  width: 28px !important;
+  height: 28px !important;
   object-fit: contain;
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 55%, transparent));
+  border-radius: 50% !important;
 }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-score svg.hero-stat-icon {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%233a2470'/%3E%3Cstop offset='1' stop-color='%23150b2e'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23e4d4ff'/%3E%3Cstop offset='1' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M16 1.5l12.5 7.2v14.6L16 30.5 3.5 23.3V8.7z' fill='url(%23p)' stroke='%23b98cff' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M9.6 13.4L13 9h6l3.4 4.4L16 23.6z' fill='url(%23g)'/%3E%3Cpath d='M9.6 13.4h12.8M13 9l3 14.6M19 9l-3 14.6' stroke='%235b2fc0' stroke-width='.9' fill='none' opacity='.75'/%3E%3Cpath d='M13 9l-1.2 4.4h8.4L19 9z' fill='%23efe4ff' opacity='.35'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-rank svg.hero-stat-icon {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%234a3510'/%3E%3Cstop offset='1' stop-color='%231a1205'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff0b8'/%3E%3Cstop offset='1' stop-color='%23e0a020'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M16 1.5l11.5 3.6v10.2c0 7-5.2 12-11.5 15.2C9.7 27.3 4.5 22.3 4.5 15.3V5.1z' fill='url(%23p)' stroke='%23f2c45a' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M9.4 20.2l-1.1-8.2 4.3 3.7L16 9.6l3.4 6.1 4.3-3.7-1.1 8.2z' fill='url(%23g)' stroke='%238a5d0c' stroke-width='.7' stroke-linejoin='round'/%3E%3Cpath d='M9.6 22.8h12.8' stroke='%23f2c45a' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='9.4' r='1.3' fill='%23ffe6a8'/%3E%3Ccircle cx='8.3' cy='11.8' r='1.1' fill='%23ffe6a8'/%3E%3Ccircle cx='23.7' cy='11.8' r='1.1' fill='%23ffe6a8'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-streak svg.hero-stat-icon {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%234a2210'/%3E%3Cstop offset='1' stop-color='%23180a05'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffd9a8'/%3E%3Cstop offset='1' stop-color='%23ff6a1a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='14.3' fill='url(%23p)' stroke='%23ff9a55' stroke-width='1.6'/%3E%3Cpath d='M16.6 4.6c.6 3.8 5 6.2 5 11.6 0 4.2-2.5 7.5-5.6 7.5s-5.6-2.8-5.6-6.6c0-2.5 1.3-3.9 2.4-5.4.3 1.6 1.1 2.4 2 2.4.7-2.8-.4-5.9 1.8-9.5z' fill='url(%23g)'/%3E%3Cpath d='M16 14.4c.4 2.1 2.5 3.2 2.5 5.5 0 1.9-1.1 3.2-2.5 3.2s-2.5-1.3-2.5-3c0-1.5.9-2.2 1.4-3.2.3.8.7 1 1 .9.3-1.1 0-2.3.1-3.4z' fill='%23ffe8a8'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-dm svg.hero-stat-icon {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2312304a'/%3E%3Cstop offset='1' stop-color='%2308121e'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23d2eeff'/%3E%3Cstop offset='1' stop-color='%2362bfff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='2' y='2' width='28' height='28' rx='9' fill='url(%23p)' stroke='%2362bfff' stroke-width='1.6'/%3E%3Cpath d='M7.6 10.4a2.6 2.6 0 0 1 2.6-2.6h11.6a2.6 2.6 0 0 1 2.6 2.6v7.4a2.6 2.6 0 0 1-2.6 2.6h-5.8l-4.8 4v-4h-1a2.6 2.6 0 0 1-2.6-2.6z' fill='url(%23g)'/%3E%3Ccircle cx='12.2' cy='14.1' r='1.45' fill='%2312456e'/%3E%3Ccircle cx='16' cy='14.1' r='1.45' fill='%2312456e'/%3E%3Ccircle cx='19.8' cy='14.1' r='1.45' fill='%2312456e'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts > .hero-stat-icon {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%234a1030'/%3E%3Cstop offset='1' stop-color='%231a0612'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffc2de'/%3E%3Cstop offset='1' stop-color='%23ff3d8e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M16 1.2L30.8 16 16 30.8 1.2 16z' fill='url(%23p)' stroke='%23ff6fb0' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M16 23.4s-7.2-4.4-7.2-9.4c0-2.7 1.9-4.4 4.1-4.4 1.3 0 2.5.7 3.1 1.8.6-1.1 1.8-1.8 3.1-1.8 2.2 0 4.1 1.7 4.1 4.4 0 5-7.2 9.4-7.2 9.4z' fill='url(%23g)'/%3E%3Cpath d='M11.4 12.6c.5-.8 1.3-1.1 2-.9' stroke='%23ffe0ee' stroke-width='1.1' stroke-linecap='round' fill='none' opacity='.8'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link svg.hero-stat-icon {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%233d3010'/%3E%3Cstop offset='1' stop-color='%230a0710'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffe6a8'/%3E%3Cstop offset='1' stop-color='%23e0a020'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M10.5 1.5h11l9 9v11l-9 9h-11l-9-9v-11z' fill='url(%23p)' stroke='%23f2c45a' stroke-width='1.6' stroke-linejoin='round'/%3E%3Crect x='7.2' y='19' width='3.4' height='5' rx='1' fill='url(%23g)' opacity='1'/%3E%3Crect x='11.9' y='15' width='3.4' height='9' rx='1' fill='url(%23g)' opacity='1'/%3E%3Crect x='16.6' y='11' width='3.4' height='13' rx='1' fill='url(%23g)' opacity='1'/%3E%3Crect x='21.3' y='7' width='3.4' height='17' rx='1' fill='url(%23g)' opacity='1'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link.stable svg.hero-stat-icon {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%230f3a2a'/%3E%3Cstop offset='1' stop-color='%230a0710'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23b0f5d4'/%3E%3Cstop offset='1' stop-color='%232fb27e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M10.5 1.5h11l9 9v11l-9 9h-11l-9-9v-11z' fill='url(%23p)' stroke='%234fd69a' stroke-width='1.6' stroke-linejoin='round'/%3E%3Crect x='7.2' y='19' width='3.4' height='5' rx='1' fill='url(%23g)' opacity='1'/%3E%3Crect x='11.9' y='15' width='3.4' height='9' rx='1' fill='url(%23g)' opacity='1'/%3E%3Crect x='16.6' y='11' width='3.4' height='13' rx='1' fill='url(%23g)' opacity='1'/%3E%3Crect x='21.3' y='7' width='3.4' height='17' rx='1' fill='url(%23g)' opacity='1'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-link.lost svg.hero-stat-icon {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23401414'/%3E%3Cstop offset='1' stop-color='%230a0710'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffb8b8'/%3E%3Cstop offset='1' stop-color='%23e04646'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M10.5 1.5h11l9 9v11l-9 9h-11l-9-9v-11z' fill='url(%23p)' stroke='%23ff6b6b' stroke-width='1.6' stroke-linejoin='round'/%3E%3Crect x='7.2' y='19' width='3.4' height='5' rx='1' fill='url(%23g)' opacity='1'/%3E%3Crect x='11.9' y='15' width='3.4' height='9' rx='1' fill='url(%23g)' opacity='.28'/%3E%3Crect x='16.6' y='11' width='3.4' height='13' rx='1' fill='url(%23g)' opacity='.28'/%3E%3Crect x='21.3' y='7' width='3.4' height='17' rx='1' fill='url(%23g)' opacity='.28'/%3E%3Cpath d='M20.2 6.8l6 6M26.2 6.8l-6 6' stroke='%23ffb8b8' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+/* a living heart */
+@keyframes hero-heart-beat { 0%, 100% { transform: scale(1); } 14% { transform: scale(1.12); } 28% { transform: scale(1); } 42% { transform: scale(1.07); } }
 
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-hearts > .hero-stat-icon {
+  animation: hero-heart-beat 2.4s ease-in-out infinite;
+}
 /* clickable chips behave like buttons */
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat[role="button"] { cursor: pointer; }
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat[role="button"] {
+  cursor: pointer;
+}
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat[role="button"]:hover,
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat[role="button"]:focus-visible {
   border-color: color-mix(in srgb, var(--c) 78%, #1e1629) !important;
@@ -162,34 +281,39 @@ html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat
   outline: 2px solid color-mix(in srgb, var(--c) 70%, transparent);
   outline-offset: 2px;
 }
-
-/* ---- utility buttons ---------------------------------------------------- */
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn {
+/* ---- buttons: each carries its own emblem ---- */
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud {
   --c: #b98cff;
   --cv: #e4d4ff;
   --ico: none;
+  position: relative;
   display: inline-flex !important;
+  align-self: center !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 9px !important;
+  gap: 10px !important;
   height: 34px !important;
   min-height: 34px !important;
-  padding: 0 15px 0 12px !important;
+  margin: 0 !important;
+  padding: 0 14px 0 10px !important;
   border: 1px solid color-mix(in srgb, var(--c) 46%, #1e1629) !important;
-  border-radius: 9px !important;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 17%, #150e20), #0d0914) !important;
+  border-radius: 10px !important;
+  background:
+    radial-gradient(110% 160% at 0% 50%, color-mix(in srgb, var(--c) 18%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--c) 12%, #150e20), #0c0813) !important;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c) 20%, transparent) !important;
   color: var(--cv) !important;
-  font: 800 10.5px/1 var(--font-machine, monospace) !important;
-  letter-spacing: .14em !important;
+  font: 800 10px/1 var(--font-machine, monospace) !important;
+  letter-spacing: .1em !important;
   text-shadow: 0 0 10px color-mix(in srgb, var(--c) 45%, transparent);
   cursor: pointer;
   transition: border-color .15s, box-shadow .15s, transform .15s, background .15s;
 }
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:hover,
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:focus-visible {
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:focus-visible,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud:hover {
   border-color: color-mix(in srgb, var(--c) 85%, #1e1629) !important;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 26%, #170f24), #0f0a18) !important;
   box-shadow: 0 0 20px color-mix(in srgb, var(--c) 30%, transparent), inset 0 1px 0 color-mix(in srgb, var(--c) 28%, transparent) !important;
   transform: translateY(-1px);
   outline: none;
@@ -198,60 +322,105 @@ html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-util
   outline: 2px solid color-mix(in srgb, var(--c) 70%, transparent);
   outline-offset: 2px;
 }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:active { transform: translateY(0); }
-
-/* glyph on the left of each button, drawn in the button's accent */
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:not(.black-market-entry)::before {
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn:active {
+  transform: translateY(0);
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-btn::before,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud::before {
   content: "";
   display: block;
   flex: 0 0 auto;
   align-self: center;
-  width: 15px;
-  height: 15px;
-  min-width: 15px;
-  min-height: 15px;
-  max-height: 15px;
-  background: var(--c);
-  -webkit-mask: var(--ico) center / contain no-repeat;
-          mask: var(--ico) center / contain no-repeat;
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 60%, transparent));
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  max-height: 20px;
+  position: static;
+  inset: auto;
+  opacity: 1;
+  transform: none;
+  animation: none;
+  background: var(--ico) center / contain no-repeat;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 55%, transparent));
 }
-/* DISCONNECT and the view toggle already carry (or do not need) a glyph */
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-disconnect::before,
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .asoc-view-toggle-game::before { display: none !important; }
-
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-scoreboard-btn {
-  --c: #b98cff; --cv: #e4d4ff;
-  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 20V12M12 20V4M19 20v-6' stroke='black' stroke-width='3.2' stroke-linecap='round' fill='none'/%3E%3C/svg%3E");
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .asoc-view-toggle-game::before {
+  display: none !important;
 }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-alltime-hud-btn {
-  --c: #f2c45a; --cv: #ffe6a8;
-  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.6l2.9 6 6.5.9-4.7 4.6 1.1 6.5L12 17.5l-5.8 3.1 1.1-6.5L2.6 9.5l6.5-.9z'/%3E%3C/svg%3E");
-}
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-master-access-control {
-  --c: #7ea6ff; --cv: #cfdcff;
-  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.8l8 3v5.4c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V5.8z' stroke='black' stroke-width='2.2' stroke-linejoin='round' fill='none'/%3E%3Cpath d='M8.5 12l2.4 2.4 4.6-4.8' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-disconnect .hero-utility-icon,
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud > svg {
+  display: none !important;
 }
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-disconnect {
   --c: #ff6b86; --cv: #ffc4d0;
+  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffc4d0'/%3E%3Cstop offset='1' stop-color='%23ff4f74'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M11 2.5v6.5M21 2.5v6.5' stroke='url(%23g)' stroke-width='2.8' stroke-linecap='round'/%3E%3Cpath d='M7.5 9h17v5.2a8.5 8.5 0 0 1-17 0z' fill='url(%23g)'/%3E%3Cpath d='M16 22.7v3.2l-2.4 2 4.8 1.6' stroke='url(%23g)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Cpath d='M12 13.6h8' stroke='%234a1020' stroke-width='1.6' stroke-linecap='round' opacity='.55'/%3E%3C/svg%3E");
 }
-html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-utility-disconnect .hero-utility-icon {
-  width: 15px;
-  height: 15px;
-  fill: none !important;
-  stroke: var(--c) !important;
-  stroke-width: 2.4 !important;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 60%, transparent));
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-scoreboard-btn {
+  --c: #b98cff; --cv: #e4d4ff;
+  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23d4bcff'/%3E%3Cstop offset='1' stop-color='%237c4ae0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M16 2.2l1.7 3.4 3.7.5-2.7 2.6.7 3.7-3.4-1.8-3.4 1.8.7-3.7-2.7-2.6 3.7-.5z' fill='%23e4d4ff'/%3E%3Crect x='2.5' y='16' width='8.4' height='13' rx='1.6' fill='url(%23g)' opacity='.8'/%3E%3Crect x='11.8' y='11.5' width='8.4' height='17.5' rx='1.6' fill='url(%23g)'/%3E%3Crect x='21.1' y='19.5' width='8.4' height='9.5' rx='1.6' fill='url(%23g)' opacity='.65'/%3E%3Cpath d='M14.4 16.2v5M24.2 22.6v2.6M6.6 20v3' stroke='%232a1658' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-alltime-hud-btn {
+  --c: #f2c45a; --cv: #ffe6a8;
+  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff0b8'/%3E%3Cstop offset='1' stop-color='%23e0a020'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M9.2 3.5h13.6v8a6.8 6.8 0 0 1-13.6 0z' fill='url(%23g)'/%3E%3Cpath d='M9.2 6H4.6v2.4a5 5 0 0 0 5.2 5M22.8 6h4.6v2.4a5 5 0 0 1-5.2 5' stroke='%23f2c45a' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Crect x='14.4' y='18' width='3.2' height='5.2' fill='%23e0a020'/%3E%3Cpath d='M9.6 28.5h12.8l-1.2-5.3H10.8z' fill='url(%23g)'/%3E%3Cpath d='M16 6.6l1.1 2.3 2.5.3-1.8 1.7.5 2.5-2.3-1.2-2.3 1.2.5-2.5-1.8-1.7 2.5-.3z' fill='%238a5d0c' opacity='.55'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .player-master-access-control {
+  --c: #7ea6ff; --cv: #cfdcff;
+  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23d9e4ff'/%3E%3Cstop offset='1' stop-color='%236f98ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='11' cy='11.5' r='6.6' fill='none' stroke='url(%23g)' stroke-width='3.2'/%3E%3Ccircle cx='11' cy='11.5' r='2.1' fill='url(%23g)'/%3E%3Cpath d='M15.8 16.3L28 28.5' stroke='url(%23g)' stroke-width='3.4' stroke-linecap='round'/%3E%3Cpath d='M22 22.5l3.4-3.4M25.4 25.9l3-3' stroke='url(%23g)' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud {
+  --c: #f2c45a; --cv: #ffe0a0;
+  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%233a2a0c'/%3E%3Cstop offset='1' stop-color='%23150f05'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffe6a8'/%3E%3Cstop offset='1' stop-color='%23e0a020'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M7.6 4.6h16.8a2 2 0 0 1 2 2v21a2 2 0 0 1-2 2H7.6a2 2 0 0 1-2-2v-21a2 2 0 0 1 2-2z' fill='url(%23p)' stroke='%23f2c45a' stroke-width='1.6'/%3E%3Crect x='11' y='1.8' width='10' height='5.6' rx='1.8' fill='url(%23g)'/%3E%3Cpath d='M9.6 14l1.9 1.9 3.5-3.7M9.6 21.2l1.9 1.9 3.5-3.7' stroke='%23ffe0a0' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Cpath d='M18 14.6h5M18 21.8h5' stroke='%23c99a3c' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-market-player-control {
+  --c: #ff5c8a; --cv: #f6cfe0;
+  --ico: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%234a0f2a'/%3E%3Cstop offset='1' stop-color='%231a0610'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffb8cf'/%3E%3Cstop offset='1' stop-color='%23ff3d78'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M16 1.6l13.4 14.4L16 30.4 2.6 16z' fill='url(%23p)' stroke='%23ff5c8a' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M7.6 16c2.2-3.6 5.1-5.4 8.4-5.4s6.200 1.800 8.400 5.400c-2.200 3.600-5.100 5.400-8.400 5.400S9.800 19.600 7.600 16z' fill='%231a0610' stroke='%23ff9bb8' stroke-width='1.2'/%3E%3Ccircle cx='16' cy='16' r='3.4' fill='url(%23g)'/%3E%3Ccircle cx='16' cy='16' r='1.3' fill='%231a0610'/%3E%3C/svg%3E");
 }
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .asoc-view-toggle-game {
   --c: #7ea6ff; --cv: #cfdcff;
 }
-
-/* Black Market keeps its banner artwork, in the shared shape, with no white text */
+/* Black Market keeps its two-line banner text, in the shared shape */
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-market-player-control {
-  --c: #ff5c8a;
-  border-radius: 9px !important;
+  display: grid !important;
+  grid-template-columns: 20px auto;
+  grid-template-rows: min-content min-content;
+  align-content: center;
+  column-gap: 10px !important;
+  row-gap: 3px !important;
+  line-height: 1 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+  text-align: left !important;
+  border-radius: 10px !important;
+  padding: 0 14px 0 10px !important;
+  background-image: radial-gradient(110% 160% at 0% 50%, color-mix(in srgb, var(--c) 18%, transparent), transparent 60%), linear-gradient(180deg, color-mix(in srgb, var(--c) 12%, #150e20), #0c0813) !important;
+  background-color: #0c0813 !important;
+  border-color: color-mix(in srgb, var(--c) 46%, #1e1629) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c) 20%, transparent) !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-market-player-control::before {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  z-index: 3;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-market-player-control > span {
+  text-transform: uppercase;
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  margin: 0 !important;
+  padding: 0 !important;
+  font: 800 10px/1 var(--font-machine, monospace) !important;
+  letter-spacing: .1em !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-market-player-control > small {
+  text-transform: uppercase;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  margin: 0 !important;
+  font: 700 7.5px/1 var(--font-machine, monospace) !important;
+  letter-spacing: .2em !important;
 }
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-market-player-control span {
   color: #f6cfe0 !important;
@@ -260,16 +429,18 @@ html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-mar
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .black-market-player-control small {
   color: #c98aa5 !important;
 }
-
-/* Daily ledger button: same shape and height as the rest */
+/* LEDGER: shared button shape; gold text */
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud,
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #player-quest-hud {
-  border-radius: 9px !important;
   min-height: 34px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
 }
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud b,
 html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) #daily-contract-hud span {
   color: #ffe0a0 !important;
+  font: 800 10.5px/1 var(--font-machine, monospace) !important;
+  letter-spacing: .14em !important;
 }
 
 /* ---- master access dropdown ---------------------------------------------- */
