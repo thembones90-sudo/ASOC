@@ -28,6 +28,8 @@
   let withdrawArm = null;       // { id, timer }
   let resultTimer = null;
   let tributeNote = '';
+  let tributeUploadTimer = null;
+  let tributeSending = false;
   let tick = null;
 
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -129,12 +131,21 @@
     if (!file) return say('NO IMAGE SELECTED');
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return say('PNG, JPG OR WEBP ONLY');
     if (file.size > 2 * 1024 * 1024) return say('IMAGE TOO LARGE // 2 MB MAX');
+    if (tributeSending) return say('UPLOAD ALREADY IN PROGRESS // PLEASE WAIT');
     say('TRANSMITTING BLOOD TRIBUTE...');
     const reader = new FileReader();
     reader.onload = () => {
       const imageData = String(reader.result || '');
       if (!imageData.startsWith('data:image/')) return say('IMAGE COULD NOT BE READ');
-      window.PlayerApp?.send?.({ type: 'chaos:tributeSubmit', imageData, retentionAcknowledged: true });
+      tributeSending = true;
+      const sent = window.PlayerApp?.send?.({ type: 'chaos:tributeSubmit', imageData, retentionAcknowledged: true });
+      if (!sent) { tributeSending = false; return say('CONNECTION FAILED // RECONNECT AND SELECT PICTURE AGAIN'); }
+      clearTimeout(tributeUploadTimer);
+      tributeUploadTimer = setTimeout(() => {
+        if (!tributeSending) return;
+        tributeSending = false;
+        say('UPLOAD NOT CONFIRMED BY SERVER // RECONNECT AND SELECT PICTURE AGAIN');
+      }, 12000);
     };
     reader.onerror = () => say('IMAGE COULD NOT BE READ');
     reader.readAsDataURL(file);
@@ -406,12 +417,12 @@
     const more = gmOffers.length > 1 ? ` // ${gmOffers.length - 1} MORE WAITING` : '';
     card.innerHTML = `
       <div class="chaos-kicker">${offer.dark ? 'DARK ' : ''}BLOOD TRIBUTE // CHAOS${more}</div>
-      <h2>${offer.dark ? 'A DARK OFFERING' : 'A DEBT IS PAID'}</h2>
-      <p><b>${esc(offer.playerName || 'LITTLE HERO')}</b> rolled ${offer.dark ? 'a <b>1</b>' : `<b>${esc(offer.roll || 0)}</b> against ${esc(offer.target)}+`} and offers blood.</p>
-      <img class="chaos-image" src="${esc(offer.imageData || '')}" alt="Chaos Blood Tribute">
-      <div class="chaos-actions">
-        <button type="button" data-chaos-accept-tribute>ACCEPT // CLEAR THE DEBT</button>
-        <button type="button" class="ghost" data-chaos-reject-tribute>REJECT // DEBT STANDS</button>
+      <h2>${offer.dark ? 'DARK TRIBUTE' : 'TRIBUTE REVIEW'}</h2>
+      <p class="chaos-gm-meta"><b>${esc(offer.playerName || 'LITTLE HERO')}</b><span>ROLL ${esc(offer.roll || 0)} / TARGET ${esc(offer.target)}+</span></p>
+      <div class="chaos-gm-image-frame"><img class="chaos-image" src="${esc(offer.imageData || '')}" alt="Blood Tribute offered by ${esc(offer.playerName || 'Little Hero')}"></div>
+      <div class="chaos-actions chaos-gm-verdict-actions">
+        <button type="button" data-chaos-accept-tribute>ACCEPT TRIBUTE</button>
+        <button type="button" class="ghost" data-chaos-reject-tribute>REJECT TRIBUTE</button>
       </div>`;
     card.querySelector('[data-chaos-accept-tribute]').addEventListener('click', () => judge(offer, true));
     card.querySelector('[data-chaos-reject-tribute]').addEventListener('click', () => judge(offer, false));
@@ -472,11 +483,26 @@
           renderOffer();
         }
         break;
+      case 'chaos:tributeDecision':
+        if (String(message.playerId) === me()) {
+          tributeNote = message.accepted ? '' : 'OFFERING REJECTED // CHOOSE ANOTHER PICTURE';
+          renderPlayer();
+        }
+        break;
       case 'chaos:tributeRejected':
         if (String(message.playerId) === me()) { tributeNote = 'TRIBUTE REJECTED // OFFER ANOTHER'; renderPlayer(); }
         break;
       case 'chaos:tributeSent':
-        tributeNote = '';
+        tributeSending = false;
+        clearTimeout(tributeUploadTimer);
+        tributeNote = 'IMAGE RECEIVED BY SERVER // AWAITING BROKER REVIEW';
+        { const note = document.querySelector('#chaos-player-card [data-chaos-note]'); if (note) note.textContent = tributeNote; }
+        break;
+      case 'chaos:tributeStatus':
+        tributeSending = false;
+        clearTimeout(tributeUploadTimer);
+        tributeNote = message.error || 'UPLOAD FAILED // PLEASE TRY AGAIN';
+        { const note = document.querySelector('#chaos-player-card [data-chaos-note]'); if (note) note.textContent = tributeNote; }
         break;
       case 'chaos:result':
         showResult(message);

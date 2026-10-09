@@ -2796,6 +2796,7 @@ const App = {
         break;
 
       case 'gm:chaosCastResult':
+      case 'chaos:tributeDecision':
       case 'chaos:tributeOffered':
       case 'chaos:tributeSent':
       case 'chaos:tributeRejected':

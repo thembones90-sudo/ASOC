@@ -204,13 +204,13 @@ function createChaosService(deps) {
       tribute.judgedAt = Date.now();
       tribute.accepted = accepted;
     }
-    announce(room, accepted
-      ? `${entry.playerName} HAS PAID THEIR ${entry.dark ? 'DARK ' : ''}BLOOD TRIBUTE. THE CHAOS DEBT IS CLEARED.`
-      : `THE SHADOW BROKER REJECTS ${entry.playerName}'S ${entry.dark ? 'DARK ' : ''}TRIBUTE. THE CHAOS DEBT STANDS.`,
-      { playerId, cleared: accepted });
-    if (!accepted) broadcastToRoom(room, { type: 'chaos:tributeRejected', playerId, playerName: entry.playerName, timestamp: Date.now() });
+    // A blood tribute judgment is PRIVATE. Never create a public chat card or broadcast the decision.
+    const decision = { type: 'chaos:tributeDecision', playerId, accepted, tributeId: tribute?.id || entry.pendingTributeId };
+    sendToWs(ws, decision); // GM confirmation
+    for (const [playerSocket, player] of room.players || []) {
+      if (String(player?.id) === playerId) sendToWs(playerSocket, decision);
+    }
     broadcastState(room);
-    flushChat(room);
     sendTributeVaultToHost(room);
   }
 
