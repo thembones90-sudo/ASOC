@@ -110,3 +110,11 @@
 .load-shell-mark { color:#6fdcff; font-size:18px; text-shadow:0 0 10px #52c8f5; }
 @media (max-width: 900px) { .spectral-console { grid-template-columns: minmax(0,1fr) 88px 30px 30px; width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .spectral-console::before { animation: none; } }
+/* Console fit: the status line and the mode select no longer clip when the rail is narrow. */
+@media (min-width: 901px) {
+  .spectral-console { grid-template-columns: minmax(0, 1fr) 84px 26px 26px; gap: 4px; padding: 5px 6px 5px 10px; }
+}
+.spectral-console > div { overflow: hidden; align-content: center; gap: 5px; }
+.spectral-console strong { font-size: 10px; letter-spacing: .2px; line-height: 1.15; }
+.spectral-console span { display: block; margin-top: 0; overflow: hidden; text-overflow: ellipsis; font-size: 8px; letter-spacing: .3px; }
+.spectral-console select { padding: 0 2px 0 6px; letter-spacing: .3px; }
