@@ -1,0 +1,26 @@
+/* PLAYER chat: space budget -----------------------------------------------------
+   The chat header (title) and the search bar were two stacked rows, ~81px, on a
+   panel that already carries the status bar, profile row and seven stat tiles.
+   On a 768px-tall window that left under 400px for messages. The search bar now
+   sits in the header row, to the right of the channel title. */
+@media (min-width: 900px) {
+  html:not(.asoc-mobile) body #game-screen #chat-panel { position: relative; }
+  html:not(.asoc-mobile) body #game-screen #chat-panel > .chat-header {
+    height: 42px !important; min-height: 42px !important; box-sizing: border-box;
+  }
+  html:not(.asoc-mobile) body #game-screen #chat-panel > .chat-search-strip {
+    position: absolute !important; top: 0 !important; right: 14px !important; left: auto !important; z-index: 7 !important;
+    flex: none !important; width: min(340px, 36%) !important; height: 42px !important; min-height: 0 !important;
+    margin: 0 !important; padding: 5px 0 !important; border: 0 !important; background: transparent !important; box-sizing: border-box;
+  }
+  html:not(.asoc-mobile) body #game-screen #chat-panel .chat-search-strip #chat-search {
+    height: 32px !important; min-height: 0 !important; padding: 0 12px 0 32px !important; border-radius: 3px !important;
+    border: 1px solid rgba(155, 93, 224, .4) !important; font-size: 11.5px !important; letter-spacing: .14em !important;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='7' cy='7' r='4.6' fill='none' stroke='%239b5de0' stroke-width='1.5'/%3E%3Cpath d='M10.5 10.5 14 14' stroke='%239b5de0' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 11px 50% / 13px 13px no-repeat,
+      rgba(8, 10, 15, .9) !important;
+  }
+  html:not(.asoc-mobile) body #game-screen #chat-panel .chat-search-strip #chat-search:focus {
+    border-color: rgba(190, 130, 255, .9) !important; box-shadow: 0 0 0 1px rgba(155, 93, 224, .3), 0 0 14px rgba(155, 93, 224, .25) !important;
+  }
+}
