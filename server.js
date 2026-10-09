@@ -6996,11 +6996,14 @@ const CHAT_SLASH_COMMANDS = [
 // adding a player command can no longer leave the Shadow Broker's /commands
 // list stale or imply that the GM lacks that capability.
 const coffeeCooldowns = new WeakMap();
+const lurkLastAt = new WeakMap();
+const LURK_MS = 9400;
 const GM_ONLY_SLASH_COMMANDS = [
   { name: '/olympics', help: '/olympics -- declare the Rock Paper Scissors Olympics lobby' },
   { name: '/dennis', help: '/dennis off|announcer|advice -- control Dennis game commentary' },
   { name: '/coffee', help: '/coffee -- Shadow Market unlock (10 SC): eight-second break in Amusement Park only' },
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
+  { name: '/lurk', help: '/lurk -- every screen dims, two red eyes open in the dark, then sink into shadow and smoke' },
   { name: '/fatality', help: '/fatality @Name -- 50/50 Pyroblast or Frost cinematic on one Little Hero' },
   { name: '/pat', help: '/pat @Name -- the Shadow Broker declares a Little Hero a good girl \u{1F5A4}' },
   { name: '/poison', help: '/poison @Name -- GM-only venom: one /roll save, then -0.1 SC every 20 seconds until Blood Tribute cure' },
@@ -8479,6 +8482,14 @@ function dispatchGmSlashCommand(room, ws, text) {
   if (/^\/warsong\b/i.test(raw)) {
     if (!/^\/warsong\s*$/i.test(raw)) return { success: false, error: 'WARSONG INVALID // USE /warsong' };
     broadcastToRoom(room, { type: 'warsong:alert', timestamp: Date.now(), durationMs: 9000 });
+    return { success: true, broadcast: false };
+  }
+  if (/^\/lurk\b/i.test(raw)) {
+    if (!/^\/lurk\s*$/i.test(raw)) return { success: false, error: 'LURK INVALID // USE /lurk' };
+    const now = Date.now();
+    if (now - (lurkLastAt.get(room) || 0) < LURK_MS) return { success: false, error: 'SOMETHING IS ALREADY WATCHING // WAIT FOR THE DARK TO LIFT' };
+    lurkLastAt.set(room, now);
+    broadcastToRoom(room, { type: 'lurk:gaze', timestamp: now, durationMs: LURK_MS });
     return { success: true, broadcast: false };
   }
 
