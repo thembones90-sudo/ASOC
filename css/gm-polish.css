@@ -1,0 +1,101 @@
+/* =====================================================================
+   GM CONSOLE POLISH // rev 1
+   Layered on top of asoc.css / gm-controls.css. Fixes only what the
+   screenshots showed: the arcade grid clipping its own cards, chat bubbles
+   reserving space for a hidden button, a stray emoji on RAID SETUP,
+   and a rail whose labels used four different type treatments.
+   ===================================================================== */
+
+/* 1. MINI GAMES arcade ------------------------------------------------
+   The panel sits beside the 230px rail, so it is ~1140px wide on a 1440px
+   screen, not 1440. Columns now follow the panel width, rows start at the top
+   and scroll instead of overflowing upward over the tabs. */
+html body #gm-panel .gm-minigames-menu {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  align-content: start;
+  align-items: start;
+  grid-auto-rows: min-content;
+  gap: 16px;
+  padding: 22px clamp(18px, 3vw, 44px) 30px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #5b3a73 transparent;
+}
+html body #gm-panel .gm-minigames-menu > div { padding-bottom: 16px; }
+html body #gm-panel .gm-minigames-menu > div b { font-size: 18px; letter-spacing: .22em; }
+html body #gm-panel .gm-minigames-menu > div small { font-size: 11px; }
+html body #gm-panel .gm-minigames-menu > button {
+  grid-template-columns: 72px minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: center;
+  align-self: stretch;
+  height: auto;
+  min-height: 128px;
+  padding: 18px 18px;
+  border-radius: 12px;
+}
+html body #gm-panel .gm-minigames-menu > button > :is(img, .gm-minigame-art) { width: 72px; height: 72px; }
+html body #gm-panel .gm-minigames-menu > button .oly-mini-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+html body #gm-panel .gm-minigames-menu > button .minigame-title { font-size: 22px; line-height: 1.08; }
+html body #gm-panel .gm-minigames-menu > button .minigame-desc { margin-top: 6px; font-size: 14px; line-height: 1.36; }
+html body #gm-panel .gm-minigames-menu > button .minigame-status { margin-top: 10px; padding: 4px 11px; font-size: 12px; }
+
+/* 2. CHAT bubbles --------------------------------------------------------
+   Every one-line bubble was locked to 68px so it lines up with the stacked
+   X / heart controls, but those only exist on messages awaiting a verdict.
+   A plain message (empty quick-actions slot) now sizes to its text. The
+   invisible add-reaction button also held a 22px row open under each bubble;
+   it leaves the flow and fades in beside the bubble on hover as before. */
+html body #gm-panel .gm-chat-bubble-cluster:has(> .gm-chat-quick-actions:empty) .gm-chat-message-main { min-height: 0 !important; }
+html body #gm-panel .gm-chat-message-main { position: relative; }
+html body #gm-panel .gm-chat-reactions:not(.has-reactions) {
+  min-height: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+html body #gm-panel .gm-chat-reactions:not(.has-reactions) .gm-chat-reaction-add {
+  position: absolute;
+  right: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+}
+
+/* 3. RAID SETUP keeps one icon -------------------------------------------
+   dragon-raid.css still prepends a dragon emoji next to the drawn claw icon.
+   The live-state dot is left alone. */
+html body #dragon-raid-setup-btn:not(.is-live)::before { content: none; display: none; }
+
+/* 4. RAIL labels: one type treatment ---------------------------------------
+   Four fonts, weights from 400 to 900 and sizes from 10 to 14px across a
+   column of equal buttons. Same family, weight and tracking everywhere; the
+   two stacked buttons keep their second line. */
+html body #battle-controls-panel :is(
+  #nema-asoc-btn .nema-label, #bice-asoc-btn .bice-label, #quests-btn > span,
+  #broker-transmog-btn > span, #library-btn-footer > span:last-child,
+  #dragon-raid-setup-btn > span, #reset-board-btn > span,
+  #sound-toggle-btn .sound-toggle-label, #master-access-btn > span,
+  #load-shell-btn > span, #poison-gm-button > b
+) {
+  font: 900 12px/1.1 var(--font-machine);
+  letter-spacing: .2em;
+}
+html body #battle-controls-panel #black-market-gm-button > span:first-child { font: 900 11px/1.1 var(--font-machine); letter-spacing: .2em; }
+html body #battle-controls-panel :is(#black-market-gm-button, #poison-gm-button) small { font-size: 8px; letter-spacing: .16em; }
+
+/* 5. Header text that was 8-9px --------------------------------------------- */
+html body #gm-panel :is(.gm-chat-tab, .gm-minigames-toggle) { font-size: 10.5px; }
+html body #gm-panel #gm-chat-presence .gm-presence-label { font-size: 10px; }
+html body #gm-panel .gm-latest-readout-label { font-size: 9.5px; }
