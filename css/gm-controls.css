@@ -31,13 +31,6 @@
   transform:scale(1.08);filter:drop-shadow(0 0 7px currentColor);
 }
 
-/* BLACK MARKET // sealed contraband lock. */
-#black-market-gm-button{display:flex!important;align-items:center!important;justify-content:center!important;gap:10px!important}
-#black-market-gm-button .market-action-icon{width:26px;height:26px;color:#e45a96;filter:drop-shadow(0 0 6px rgba(226,44,118,.55))}
-#black-market-gm-button .gm-action-copy{display:grid;gap:3px;text-align:left}
-#black-market-gm-button .gm-action-copy b{font:900 12px/1 var(--font-machine,monospace);letter-spacing:.17em;color:#f3d9eb}
-#black-market-gm-button .gm-action-copy small{font:700 7px/1 var(--font-mono,monospace);letter-spacing:.18em;color:#b389a3}
-
 /* QUESTS // active dossier and route marker. */
 #quests-btn .quest-action-icon{color:#f0c65b;filter:drop-shadow(0 0 6px rgba(226,179,60,.42))}
 
