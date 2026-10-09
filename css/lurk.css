@@ -27,9 +27,9 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 50% 42%, rgba(12, 0, 4, .72) 0%, rgba(2, 0, 2, .94) 55%, #000 100%);
-  -webkit-backdrop-filter: brightness(.35) saturate(.45);
-          backdrop-filter: brightness(.35) saturate(.45);
+    radial-gradient(ellipse at 50% 46%, rgba(6, 0, 2, .84) 0%, rgba(1, 0, 1, .96) 52%, #000 100%);
+  -webkit-backdrop-filter: brightness(.28) saturate(.4);
+          backdrop-filter: brightness(.28) saturate(.4);
 }
 @keyframes lurk-layer {
   0% { opacity: 0; }
@@ -38,54 +38,45 @@
   100% { opacity: 0; }
 }
 
-/* the eyes */
+/* the eyes: two thin crescent slits, no boxes, glow comes from the svg itself */
 .lurk-eyes {
   position: absolute;
   left: 50%;
-  top: 40%;
+  top: 46%;
   display: flex;
-  gap: clamp(36px, 11vmin, 150px);
+  gap: clamp(56px, 14vmin, 190px);
   transform: translate(-50%, -50%);
-  animation: lurk-eyes var(--lurk-ms) cubic-bezier(.4, 0, .2, 1) both;
+  animation: lurk-eyes var(--lurk-ms) ease-in-out both;
 }
-.lurk-eye {
-  width: clamp(140px, 25vmin, 360px);
-  transform-origin: 50% 55%;
-  filter: drop-shadow(0 0 14px rgba(255, 30, 20, .85)) drop-shadow(0 0 46px rgba(200, 0, 10, .55));
-  animation: lurk-lids var(--lurk-ms) cubic-bezier(.3, .1, .2, 1) both;
+.lurk-eye { position: relative; width: clamp(80px, 16vmin, 210px); }
+.lurk-eye-r { transform: scaleX(-1); }
+.lurk-eye svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  transform-origin: 62% 68%;
+  animation: lurk-open var(--lurk-ms) cubic-bezier(.3, .1, .2, 1) both;
 }
-.lurk-eye svg { display: block; width: 100%; height: auto; overflow: visible; }
-.lurk-eye-l { transform: rotate(7deg); }
-.lurk-eye-r { transform: scaleX(-1) rotate(7deg); }
 @keyframes lurk-eyes {
-  0%, 15% { opacity: 0; transform: translate(-50%, -50%) scale(.94); }
-  22% { opacity: 1; }
-  30%, 62% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  70% { opacity: .82; }
-  90% { opacity: 0; transform: translate(-50%, -52%) scale(1.1); }
-  100% { opacity: 0; transform: translate(-50%, -52%) scale(1.1); }
+  0%, 12% { opacity: 0; transform: translate(-50%, -50%) scale(.95); }
+  20%, 80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -53%) scale(1.06); }
 }
-/* slow lids, one heavy half-blink mid stare, then the eyes sink shut */
-@keyframes lurk-lids {
-  0%, 15% { clip-path: inset(48% 0 48% 0); }
-  27% { clip-path: inset(0 0 0 0); }
-  44% { clip-path: inset(0 0 0 0); }
-  46% { clip-path: inset(30% 0 30% 0); }
-  49% { clip-path: inset(0 0 0 0); }
-  70% { clip-path: inset(0 0 0 0); }
-  86% { clip-path: inset(34% 0 38% 0); }
-  100% { clip-path: inset(48% 0 48% 0); }
+/* the slits flare open, hold, one heavy half-blink, then sink shut */
+@keyframes lurk-open {
+  0%, 14% { opacity: 0; transform: scale(.55, .08); }
+  27% { opacity: 1; transform: scale(1, 1); }
+  44% { opacity: 1; transform: scale(1, 1); }
+  46.5% { opacity: .4; transform: scale(1, .3); }
+  50% { opacity: 1; transform: scale(1, 1); }
+  68% { opacity: .9; transform: scale(1, 1); }
+  88% { opacity: 0; transform: scale(.8, .12); }
+  100% { opacity: 0; transform: scale(.8, .12); }
 }
-.lurk-eye::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(closest-side, rgba(255, 60, 30, .55), transparent 70%);
-  mix-blend-mode: screen;
-  animation: lurk-pulse 1.7s ease-in-out infinite;
-}
-.lurk-eye { position: relative; }
-@keyframes lurk-pulse { 0%, 100% { opacity: .25; } 50% { opacity: .8; } }
+.lurk-eye .lurk-bloom, .lurk-eye .lurk-haze { animation: lurk-breathe 2.1s ease-in-out infinite; }
+.lurk-eye .lurk-haze { animation-delay: -.7s; }
+@keyframes lurk-breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 
 /* smoke: soft, slow, rises over the eyes in the last third */
 .lurk-smoke { position: absolute; inset: 0; }
@@ -94,7 +85,7 @@
   width: 78vmax;
   height: 52vmax;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(78, 46, 60, .72), rgba(34, 18, 26, .4) 55%, transparent 100%);
+  background: radial-gradient(closest-side, rgba(70, 12, 18, .6), rgba(30, 6, 10, .38) 55%, transparent 100%);
   opacity: 0;
   animation: lurk-smoke var(--lurk-ms) ease-in-out both;
   will-change: transform, opacity;
@@ -116,24 +107,24 @@
   right: -10%;
   bottom: -8%;
   height: 46%;
-  background: linear-gradient(0deg, rgba(60, 34, 46, .8), transparent);
+  background: linear-gradient(0deg, rgba(48, 8, 12, .75), transparent);
   opacity: 0;
   animation: lurk-fog var(--lurk-ms) ease-in-out both;
 }
 @keyframes lurk-fog { 0%, 20% { opacity: 0; } 60%, 84% { opacity: .85; } 100% { opacity: 0; } }
 
 html.asoc-lite .lurk-dark { -webkit-backdrop-filter: none; backdrop-filter: none; }
-html.asoc-lite .lurk-eye { filter: drop-shadow(0 0 12px rgba(255, 30, 20, .8)); }
-html.asoc-lite .lurk-smoke .s4, html.asoc-lite .lurk-smoke .s5, html.asoc-lite .lurk-eye::after { display: none; }
+html.asoc-lite .lurk-eye .lurk-bloom { display: none; }
+html.asoc-lite .lurk-smoke .s4, html.asoc-lite .lurk-smoke .s5 { display: none; }
 html.asoc-tab-hidden .lurk-layer * { animation-play-state: paused !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  .lurk-eye, .lurk-eye::after, .lurk-smoke i, .lurk-fog { animation: none !important; }
+  .lurk-eye svg, .lurk-eye .lurk-bloom, .lurk-eye .lurk-haze, .lurk-smoke i, .lurk-fog { animation: none !important; }
   .lurk-smoke, .lurk-fog { display: none; }
   .lurk-eyes { animation: lurk-eyes-calm var(--lurk-ms) linear both; }
   @keyframes lurk-eyes-calm { 0%, 15% { opacity: 0; } 30%, 70% { opacity: 1; } 90%, 100% { opacity: 0; } }
 }
 @media (max-width: 560px) {
-  .lurk-eyes { top: 36%; gap: 7vmin; }
-  .lurk-eye { width: 34vw; }
+  .lurk-eyes { top: 42%; gap: 9vmin; }
+  .lurk-eye { width: 22vw; }
 }
