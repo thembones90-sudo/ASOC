@@ -115,12 +115,62 @@
       .poison-cast-btn.is-armed{border-color:#ff5a4d;background:linear-gradient(180deg,#5a1410,#2a0a08);color:#ffe3df;box-shadow:0 0 18px rgba(255,70,52,.3)}
       .poison-cast-btn.is-casting{border-color:#8dff6a;color:#b8ff87}
       .poison-cast-toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:2147482460;padding:11px 16px;border:1px solid #4fbf2b;background:#081007;color:#b9ff90;font:900 12px/1 Arial;letter-spacing:.1em;box-shadow:0 0 22px rgba(73,255,47,.18)}
+      .asoc-poison-avatar{position:relative;animation:poison-avatar-pulse 1.8s ease-in-out infinite}
+      .asoc-poison-avatar img{filter:hue-rotate(75deg) saturate(2.6) sepia(.35) brightness(.92) contrast(1.1)!important}
+      .asoc-poison-avatar .little-hero-avatar-fallback{color:#caff9a!important}
+      .poison-acid{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:6;mix-blend-mode:screen;background:radial-gradient(circle at 50% 125%,rgba(130,255,60,.4),rgba(60,200,30,.18) 55%,transparent 72%);box-shadow:inset 0 0 0 2px rgba(110,255,60,.85),inset 0 0 10px rgba(110,255,60,.75)}
+      .poison-acid s{position:absolute;bottom:-20%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 30%,#efffb0 0 14%,#8bff3f 30%,rgba(40,160,20,.55) 62%,rgba(190,255,120,.16) 72%);box-shadow:0 0 5px #8bff3f;animation:poison-acid-rise var(--t,2.2s) var(--d,0s) infinite ease-in}
+      .poison-acid s:nth-child(1){left:10%;width:20%;--t:2.1s;--d:-.2s}
+      .poison-acid s:nth-child(2){left:34%;width:14%;--t:1.7s;--d:-1.1s}
+      .poison-acid s:nth-child(3){left:54%;width:24%;--t:2.5s;--d:-.7s}
+      .poison-acid s:nth-child(4){left:76%;width:13%;--t:1.9s;--d:-1.5s}
+      .poison-acid s:nth-child(5){left:22%;width:11%;--t:1.5s;--d:-.4s}
+      .poison-acid s:nth-child(6){left:66%;width:16%;--t:2.3s;--d:-1.9s}
+      @keyframes poison-acid-rise{0%{transform:translateY(0) scale(.5);opacity:0}15%{opacity:.95}70%{opacity:.85}100%{transform:translateY(-430%) scale(1.15);opacity:0}}
+      @keyframes poison-avatar-pulse{0%,100%{filter:drop-shadow(0 0 2px rgba(98,255,58,.55))}50%{filter:drop-shadow(0 0 8px rgba(125,255,73,.95))}}
+      .asoc-poison-avatar.poison-avatar-hit{animation:poison-avatar-hit .9s ease-out,poison-avatar-pulse 1.8s .9s ease-in-out infinite}
+      @keyframes poison-avatar-hit{0%{transform:scale(1.2);filter:brightness(2.2) saturate(3) hue-rotate(60deg)}40%{transform:scale(.94)}100%{transform:scale(1)}}
+      @media (prefers-reduced-motion:reduce){.poison-acid s,.asoc-poison-avatar{animation:none!important}}
     `;
     document.head.appendChild(style);
   }
 
+  // Every avatar of a poisoned hero (chat, rosters, seats) turns acid green with rising bubbles.
+  function decorateAvatars() {
+    const byName = new Map();
+    Object.values(states).forEach(s => { const n = String(s?.playerName || '').trim(); if (n) byName.set(n, s); });
+    document.querySelectorAll('.little-hero-avatar').forEach(node => {
+      let state = null;
+      const alt = node.querySelector(':scope > img')?.getAttribute('alt') || '';
+      const name = alt.replace(/ avatar$/, '').trim();
+      if (name) state = byName.get(name) || null;
+      else {
+        const holder = node.closest('[data-player-id]:not(button)');
+        if (holder) state = states[String(holder.getAttribute('data-player-id') || '')] || null;
+      }
+      const was = node.classList.contains('asoc-poison-avatar');
+      if (state && !was) {
+        node.classList.add('asoc-poison-avatar', 'poison-avatar-hit');
+        setTimeout(() => node.classList.remove('poison-avatar-hit'), 1000);
+      } else if (!state && was) {
+        node.classList.remove('asoc-poison-avatar', 'poison-avatar-hit');
+      }
+      const layer = node.querySelector(':scope > .poison-acid');
+      if (state && !layer) {
+        const acid = document.createElement('i');
+        acid.className = 'poison-acid';
+        acid.setAttribute('aria-hidden', 'true');
+        acid.innerHTML = '<s></s><s></s><s></s><s></s><s></s><s></s>';
+        node.appendChild(acid);
+      } else if (!state && layer) {
+        layer.remove();
+      }
+    });
+  }
+
   function decorate() {
     ensureStyle();
+    decorateAvatars();
     document.querySelectorAll('[data-player-id]:not(button)').forEach(node => {
       const id = String(node.getAttribute('data-player-id') || '');
       const state = states[id];
