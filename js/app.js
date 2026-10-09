@@ -2833,6 +2833,9 @@ const App = {
         case 'fistbump:impact':
         window.FistbumpEffect?.onMessage(message);
         break;
+      case 'pat:impact':
+        window.AsocPat?.onMessage(message);
+        break;
 
       case 'c4:alert':
         window.C4Alert?.onMessage(message);

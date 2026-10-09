@@ -8660,6 +8660,7 @@ function dispatchGmSlashCommand(room, ws, text) {
     const result = buildChatCommandMessage(room, author, 'pat', 'shadowBroker', line, { pat: { targetId: String(target.id), targetName: target.name } });
     if (!result.success) return result;
     result.message.source = 'shadowBroker';
+    broadcastToRoom(room, { type: 'pat:impact', targetId: String(target.id), targetName: target.name, timestamp: Date.now() });
     return { success: true, broadcast: true };
   }
   // Broker fistbump trigger: same avatar animation, no player cooldown.

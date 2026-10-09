@@ -1,0 +1,4 @@
+.asoc-pat-layer { position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:99990; }
+.asoc-pat-heart { position:absolute; left:50%; top:45%; font-size:var(--size,28px); line-height:1; opacity:0; user-select:none; text-shadow:0 0 2px #ad6bff,0 0 10px #9042e0,0 0 18px #4a1677; filter:drop-shadow(0 2px 3px #050208); animation:asoc-pat-burst 2.3s cubic-bezier(.2,.7,.2,1) var(--delay,0s) both; }
+@keyframes asoc-pat-burst { 0% {opacity:0;transform:translate(-50%,-50%) scale(.3)} 14% {opacity:1} 65% {opacity:1} 100% {opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.25) rotate(var(--rot))} }
+@media (prefers-reduced-motion: reduce) { .asoc-pat-heart {animation:asoc-pat-gentle .75s ease-out both} @keyframes asoc-pat-gentle {0%{opacity:0;transform:translate(-50%,-50%) scale(.8)} 50%{opacity:1} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.1)}} }
