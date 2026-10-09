@@ -1,0 +1,18 @@
+/* Shadow Broker command rail polish. Pairs with js/gm-controls.js. */
+.gm-confirm-armed{overflow:hidden}
+.gm-confirm-veil{position:absolute;inset:0;z-index:20;display:grid;place-items:center;padding:0 6px;background:linear-gradient(135deg,rgba(130,14,28,.96),rgba(60,6,14,.97));color:#ffe3e6;font:900 11px/1.15 var(--font-mono,monospace);letter-spacing:.14em;text-align:center;text-transform:uppercase;box-shadow:inset 0 0 0 1px rgba(255,110,122,.7),0 0 22px rgba(255,60,76,.5);animation:gmVeilPulse .8s ease-in-out infinite alternate;pointer-events:none}
+.room-mode-segment .gm-confirm-veil{font-size:10px;letter-spacing:.1em}
+@keyframes gmVeilPulse{from{filter:brightness(.92)}to{filter:brightness(1.18)}}
+.gm-cooling{opacity:.55;cursor:not-allowed!important;filter:saturate(.6)}
+@media(prefers-reduced-motion:reduce){.gm-confirm-veil{animation:none}}
+
+.gm-ctl-toast{position:fixed;left:50%;bottom:34px;z-index:2147482400;transform:translate(-50%,10px);padding:11px 18px;border:1px solid #8a4fa5;background:rgba(14,8,20,.96);color:#ecd6f7;font:900 11px/1 var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase;box-shadow:0 0 26px rgba(150,70,200,.28);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+.gm-ctl-toast.is-visible{opacity:1;transform:translate(-50%,0)}
+
+/* RAID SETUP: violet Cabinet accent, and a live state while an encounter is running. */
+#dragon-raid-setup-btn{border-color:rgba(160,84,200,.62);color:#d9a8f0;background:linear-gradient(180deg,rgba(54,22,70,.55),rgba(20,10,28,.82));letter-spacing:.14em}
+#dragon-raid-setup-btn:hover{border-color:#c25cf0;color:#f2dcff;box-shadow:0 0 18px rgba(178,61,226,.25)}
+#dragon-raid-setup-btn.is-live{border-color:#ff5968;color:#ffd1d5;background:linear-gradient(180deg,rgba(110,14,26,.7),rgba(40,8,14,.9));box-shadow:0 0 18px rgba(255,70,84,.28)}
+#dragon-raid-setup-btn.is-live::before{content:'';display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:#ff4f60;box-shadow:0 0 10px #ff4f60;vertical-align:1px;animation:gmLiveDot 1s ease-in-out infinite alternate}
+@keyframes gmLiveDot{from{opacity:.45}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){#dragon-raid-setup-btn.is-live::before{animation:none}}
