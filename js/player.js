@@ -1600,6 +1600,7 @@ const PlayerApp = {
         window.Fatality?.play?.(message);
         break;
 
+      case 'chaos:response':
       case 'chaos:tributeDecision':
       case 'chaos:tributeSent':
       case 'chaos:tributeRejected':

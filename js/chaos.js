@@ -28,6 +28,7 @@
   let withdrawArm = null;       // { id, timer }
   let resultTimer = null;
   let tributeNote = '';
+  let declinedEntryId = null;
   let tributeUploadTimer = null;
   let tributeSending = false;
   let tick = null;
@@ -65,7 +66,8 @@
     if (isGm() && !me()) return;
     const root = playerRoot();
     const entry = states[me()];
-    if (!entry) { root.hidden = true; return; }
+    if (!entry || (declinedEntryId && String(entry.id) === declinedEntryId)) { root.hidden = true; return; }
+    if (declinedEntryId && String(entry.id) !== declinedEntryId) declinedEntryId = null;
     const card = root.querySelector('#chaos-player-card');
     root.hidden = false;
     root.classList.toggle('is-dark', entry.dark === true);
@@ -419,16 +421,49 @@
       <div class="chaos-kicker">${offer.dark ? 'DARK ' : ''}BLOOD TRIBUTE // CHAOS${more}</div>
       <h2>${offer.dark ? 'DARK TRIBUTE' : 'TRIBUTE REVIEW'}</h2>
       <p class="chaos-gm-meta"><b>${esc(offer.playerName || 'LITTLE HERO')}</b><span>ROLL ${esc(offer.roll || 0)} / TARGET ${esc(offer.target)}+</span></p>
-      <div class="chaos-gm-image-frame"><img class="chaos-image" src="${esc(offer.imageData || '')}" alt="Blood Tribute offered by ${esc(offer.playerName || 'Little Hero')}"></div>
+      <button type="button" class="chaos-gm-image-frame" data-chaos-enlarge aria-label="View complete Blood Tribute image"><img class="chaos-image" src="${esc(offer.imageData || '')}" alt="Blood Tribute offered by ${esc(offer.playerName || 'Little Hero')}"><span class="chaos-gm-image-hint">VIEW FULL PICTURE <span aria-hidden="true">⤢</span></span></button>
       <div class="chaos-actions chaos-gm-verdict-actions">
         <button type="button" data-chaos-accept-tribute>ACCEPT TRIBUTE</button>
         <button type="button" class="ghost" data-chaos-reject-tribute>REJECT TRIBUTE</button>
       </div>`;
+    card.querySelector('[data-chaos-enlarge]').addEventListener('click', () => showFullTribute(offer));
     card.querySelector('[data-chaos-accept-tribute]').addEventListener('click', () => judge(offer, true));
     card.querySelector('[data-chaos-reject-tribute]').addEventListener('click', () => judge(offer, false));
   }
 
+  function closeFullTribute() {
+    document.getElementById('chaos-full-tribute')?.remove();
+    document.removeEventListener('keydown', onFullTributeKey);
+  }
+
+  function onFullTributeKey(event) {
+    if (event.key === 'Escape') closeFullTribute();
+  }
+
+  function showFullTribute(offer) {
+    closeFullTribute();
+    if (!isGm() || !offer?.imageData) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'chaos-full-tribute';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Full Blood Tribute picture');
+    const image = document.createElement('img');
+    image.src = offer.imageData;
+    image.alt = `Full Blood Tribute from ${offer.playerName || 'Little Hero'}`;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = '✕ CLOSE PICTURE';
+    close.addEventListener('click', closeFullTribute);
+    overlay.addEventListener('click', event => { if (event.target === overlay) closeFullTribute(); });
+    overlay.append(image, close);
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', onFullTributeKey);
+    close.focus();
+  }
+
   function judge(offer, accepted) {
+    closeFullTribute();
     window.App?.send?.({ type: 'gm:chaosTributeDecision', playerId: offer.playerId, tributeId: offer.tributeId, accepted });
     gmOffers = gmOffers.filter(o => o !== offer);
     renderOffer();
@@ -458,6 +493,16 @@
   function onMessage(message) {
     if (!message) return;
     switch (message.type) {
+      case 'chaos:response':
+        if (String(message.playerId) === me() && message.accepted === false) {
+          declinedEntryId = String(message.chaosEntryId);
+          tributeNote = '';
+          tributeSending = false;
+          clearTimeout(tributeUploadTimer);
+          delete states[me()];
+          renderPlayer();
+        }
+        break;
       case 'gm:poisonTargets':
         gmTargets = Array.isArray(message.targets) ? message.targets : [];
         if (gmOpen) renderTargets();

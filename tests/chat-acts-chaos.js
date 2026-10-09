@@ -131,6 +131,13 @@ harness.next = 50;
   ok(h.svc.gmSlash(h.rooms, {}, '/chaos all 50 5').success === false, 'all skips everyone who already has an offer');
   // player answers
   const pa = { playerId: 'a', playerName: 'Ana' };
+  const refused = harness();
+  refused.svc.gmSlash(refused.rooms, {}, '/chaos @Ana 60 20');
+  const refusedId = chaos.entryFor(refused.rooms, 'a').id;
+  refused.svc.handleRespond(pa, { accept: false });
+  ok(!chaos.entryFor(refused.rooms, 'a'), 'refusing offer leaves no debt');
+  ok(refused.sent.some(s => s.m.type === 'chaos:response' && s.m.chaosEntryId === refusedId && s.m.accepted === false), 'private refusal confirmation');
+  eq(refused.rooms.bloodTributes.length, 0, 'refusal creates no tribute');
   h.svc.handleRespond(pa, { accept: true });
   ok(/Ana/i.test(h.chat[h.chat.length - 1].text) && /\/roll/.test(h.chat[h.chat.length - 1].text), 'accept card directs hero to /roll');
   // forced roll

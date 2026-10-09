@@ -89,6 +89,7 @@ function createChaosService(deps) {
     const result = chaos.respond(room, ws.playerId, message?.accept === true, Date.now());
     if (!result.ok) return sendToWs(ws, { type: 'error', message: result.error });
     const entry = result.entry;
+    sendToWs(ws, { type: 'chaos:response', playerId: entry.playerId, chaosEntryId: entry.id, accepted: result.accepted });
     announce(room, result.accepted
       ? dialogue('accept', { name: entry.playerName })
       : dialogue('decline', { name: entry.playerName }),
