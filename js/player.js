@@ -5123,6 +5123,7 @@ const PlayerApp = {
     const ledger = document.getElementById('player-recount-ledger');
     if (!button || !overlay || !ledger || button._bound) return;
     button._bound = true;
+    if (overlay.parentElement !== document.body) document.body.appendChild(overlay);
     window.RecountLedger?.mount(ledger, payload => this.send(payload));
     const dismiss = () => { overlay.hidden = true; };
     button.addEventListener('click', () => {
