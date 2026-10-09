@@ -98,29 +98,27 @@
       });
       return;
     }
-    if (entry.status === 'judging' || entry.pendingTribute) {
+    if (entry.status === 'judging') {
       card.innerHTML = `
-        <div class="chaos-kicker">${entry.dark ? 'DARK ' : ''}BLOOD TRIBUTE</div>
+        <div class="chaos-kicker">${entry.dark ? 'DARK ' : ''}BLOOD TRIBUTE // SUBMITTED</div>
         <h2>THE BROKER JUDGES</h2>
-        <p>Your offering is before the Shadow Broker. The debt stands until it is accepted.</p>`;
+        <p>Your image was received and is awaiting the Shadow Broker's verdict. You cannot submit a second image while this one is under review.</p>
+        <p class="chaos-small">If you need to replace it, ask the Shadow Broker to REJECT the current tribute. The upload button will return automatically.</p>`;
       return;
     }
     // owes
-    const rolled = entry.roll ? `You rolled <b>${entry.roll}</b>${entry.dark ? ' // CRITICAL FAILURE' : ` of ${entry.target} needed`}.` : 'The wager was forfeited.';
+    const rolled = entry.roll ? `YOUR ROLL: <b>${entry.roll}</b> // ${entry.target}+ REQUIRED` : 'YOUR UNROLLED WAGER WAS FORFEITED';
     card.innerHTML = `
       <div class="chaos-kicker">${entry.dark ? 'DARK BLOOD TRIBUTE OWED' : 'BLOOD TRIBUTE OWED'}</div>
       <h2>${entry.dark ? 'THE DARK DEBT' : 'CHAOS COLLECTS'}</h2>
-      <p>${rolled} Offer your Blood Tribute for the Shadow Broker to judge.</p>
-      <div class="chaos-actions">
-        <label class="chaos-upload">CHOOSE BLOOD TRIBUTE<input data-chaos-file type="file" accept="image/png,image/jpeg,image/webp"></label>
-        <button type="button" data-chaos-submit>OFFER TRIBUTE</button>
-      </div>
-      <p class="chaos-small" data-chaos-note>${esc(tributeNote || 'PNG, JPG or WEBP // 2 MB max')}</p>`;
+      <p>${rolled}</p>
+      <p>THE SHADOW BROKER DEMANDS YOUR BLOOD TRIBUTE.</p>
+      <label class="chaos-upload chaos-upload-primary">UPLOAD BLOOD TRIBUTE<input data-chaos-file type="file" accept="image/png,image/jpeg,image/webp"></label>
+      <p class="chaos-small" data-chaos-note role="status">${esc(tributeNote || 'CHOOSE A PICTURE // PNG, JPG OR WEBP // MAX 2 MB')}</p>`;
     const file = card.querySelector('[data-chaos-file]');
     file.addEventListener('change', () => {
-      card.querySelector('[data-chaos-note]').textContent = file.files?.[0]?.name || 'PNG, JPG or WEBP // 2 MB max';
+      if (file.files?.length) submitTribute();
     });
-    card.querySelector('[data-chaos-submit]').addEventListener('click', submitTribute);
   }
 
   function answer(accept) {
