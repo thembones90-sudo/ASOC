@@ -58,6 +58,33 @@
     return out;
   }
 
+  // Ice shard: an elongated diamond, bright core fading to cyan edges. Drawn pointing up.
+  let shardSprite = null;
+  function shardCanvas() {
+    if (shardSprite) return shardSprite;
+    const c = document.createElement('canvas');
+    c.width = 32;
+    c.height = 64;
+    const g = c.getContext('2d');
+    const grad = g.createLinearGradient(0, 0, 32, 0);
+    grad.addColorStop(0, 'rgba(90,200,255,.9)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,1)');
+    grad.addColorStop(1, 'rgba(120,214,255,.85)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(16, 0);
+    g.lineTo(29, 42);
+    g.lineTo(16, 64);
+    g.lineTo(3, 42);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = 'rgba(210,248,255,.9)';
+    g.lineWidth = 1.5;
+    g.stroke();
+    shardSprite = c;
+    return c;
+  }
+
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = v => (Array.isArray(v) ? rand(v[0], v[1]) : v);
   const reduced = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -116,7 +143,8 @@
         grow: o.grow ?? 0.5,
         alpha: o.alpha ?? 1,
         ramp, sprites: rampSprites(ramp), blend: (RAMPS[ramp] || RAMPS.fire).blend,
-        jitter: o.jitter || 0
+        jitter: o.jitter || 0,
+        shard: !!o.shard, align: !!o.align, rot: o.rot ?? rand(0, Math.PI * 2), spin: pick(o.spin || 0)
       });
       start();
     };
@@ -178,7 +206,15 @@
           const idx = Math.min(STEPS - 1, Math.floor(f * STEPS));
           const size = p.s0 + ((p.s1 ?? p.s0 * (1 + p.grow)) - p.s0) * f;
           ctx.globalAlpha = Math.max(0, Math.min(1, fade * p.alpha));
-          ctx.drawImage(p.sprites[idx], p.x - size / 2, p.y - size / 2, size, size);
+          if (p.shard) {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.align ? Math.atan2(p.vy, p.vx) + Math.PI / 2 : p.rot);
+            ctx.drawImage(shardCanvas(), -size * 0.22, -size / 2, size * 0.44, size);
+            ctx.restore();
+          } else {
+            ctx.drawImage(p.sprites[idx], p.x - size / 2, p.y - size / 2, size, size);
+          }
         }
       }
       ctx.globalAlpha = 1;
@@ -199,6 +235,7 @@
 
       for (const p of parts) {
         p.t += dt;
+        if (p.spin) p.rot += p.spin * dt;
         const damp = Math.max(0, 1 - p.drag * dt);
         p.vx = (p.vx + p.ax * dt) * damp;
         p.vy = (p.vy + p.ay * dt) * damp;
