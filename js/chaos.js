@@ -338,7 +338,7 @@
     const row = document.querySelector('.battle-controls-utility-row');
     if (row) {
       ['quests-btn', 'broker-transmog-btn', 'dragon-raid-setup-btn', 'poison-gm-button', 'chaos-gm-button', 'blood-scope-gm-button', 'library-btn-footer']
-        .map(id => document.getElementById(id))
+        .map(id => id === 'chaos-gm-button' ? button : document.getElementById(id))
         .filter(Boolean)
         .forEach(control => row.appendChild(control));
     } else if (poison.nextElementSibling !== button) {
