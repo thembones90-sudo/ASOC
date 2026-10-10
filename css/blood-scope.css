@@ -107,6 +107,28 @@
 }
 .bs-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .bs-av b { font-size: calc(var(--s) * 0.05); color: #cfd6e2; }
+/* No picture on file: a frame-tinted sigil plate with scanlines, a faint
+   crosshair and the hero's initial. */
+.bs-av.is-sigil {
+  position: relative;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 4px),
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--frame, #6f7885) 55%, #10131a) 0%, #0a0c12 78%);
+}
+.bs-av.is-sigil::before {
+  content: ''; position: absolute; inset: 14%; border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--frame, #6f7885) 70%, transparent);
+  background:
+    linear-gradient(var(--frame, #6f7885), var(--frame, #6f7885)) 50% 0 / 1px 22% no-repeat,
+    linear-gradient(var(--frame, #6f7885), var(--frame, #6f7885)) 50% 100% / 1px 22% no-repeat,
+    linear-gradient(var(--frame, #6f7885), var(--frame, #6f7885)) 0 50% / 22% 1px no-repeat,
+    linear-gradient(var(--frame, #6f7885), var(--frame, #6f7885)) 100% 50% / 22% 1px no-repeat;
+  opacity: 0.7;
+}
+.bs-av.is-sigil b {
+  position: relative; font-weight: 900; letter-spacing: 0;
+  font-size: calc(var(--s) * 0.06); color: #fff; text-shadow: 0 0 calc(var(--s) * 0.014) var(--frame, #6f7885), 0 0 calc(var(--s) * 0.03) var(--frame, #6f7885);
+}
 .bs-cand em {
   position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 5px;
   font-style: normal; font-size: 10px; letter-spacing: 0.14em; white-space: nowrap; color: #fff; opacity: 0;
@@ -377,6 +399,16 @@ html body #battle-controls-panel #blood-scope-gm-button:hover:not(:disabled) .bl
 html body #battle-controls-panel #blood-scope-gm-button:disabled { opacity: .5; cursor: default; }
 html body #battle-controls-panel #blood-scope-gm-button.is-active { border-color: #ff3b4a !important; opacity: 1; }
 html body #battle-controls-panel #blood-scope-gm-button.is-active .gm-action-copy small { color: #ff8d98; }
+html body #battle-controls-panel #blood-scope-gm-button.is-recall {
+  border-color: #e0a030 !important;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 4px),
+    linear-gradient(110deg, #160f05, #3a2608 52%, #140d04) !important;
+  color: #ffe6b8 !important;
+}
+html body #battle-controls-panel #blood-scope-gm-button.is-recall .blood-scope-action-icon { stroke: #ffb347; filter: drop-shadow(0 0 6px rgba(255, 179, 71, .55)); }
+html body #battle-controls-panel #blood-scope-gm-button.is-recall .gm-action-copy b { text-shadow: 0 0 8px rgba(255, 179, 71, .7); }
+html body #battle-controls-panel #blood-scope-gm-button.is-recall .gm-action-copy small { color: #d8b072; }
 @media (prefers-reduced-motion: reduce) {
   html body #battle-controls-panel #blood-scope-gm-button,
   html body #battle-controls-panel #blood-scope-gm-button .blood-scope-action-icon { transition: none; }
