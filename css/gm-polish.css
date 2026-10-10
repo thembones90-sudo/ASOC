@@ -267,3 +267,166 @@ html body #forge-overlay .creator-quality-report {
 }
 html body #forge-overlay .creator-quality-report > b { grid-column: 1 / -1; }
 html body #forge-overlay .creator-quality-report span { padding: 4px 7px; }
+
+/* 10. POISON TARGET picker -----------------------------------------------------
+   poison.js injects a plain rounded-rectangle skin (Arial, 1px border). This
+   re-skins it as the same chamfered armory plate used by the creator: diagonal
+   corners with real edge lines, hazard stripe, recessed search, slab rows with a
+   status bar, chamfered check boxes and cast button. Selectors carry an
+   html/body prefix so they win over the injected <style>. */
+html body #poison-target-picker {
+  --cut: 14px; --tox: #8dff6a; --tox-d: #4fbf2b; --edge: rgba(120, 230, 84, .6);
+  width: min(440px, 92vw);
+  max-height: min(640px, calc(100vh - 24px));
+  border: 0; border-radius: 0;
+  font-family: var(--font-machine);
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .02) 0 1px, transparent 1px 4px),
+    radial-gradient(120% 55% at 0 0, rgba(77, 255, 46, .11), transparent 62%),
+    linear-gradient(165deg, #050805, #0c140a);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  box-shadow: none;
+}
+html body #poison-target-picker::before {
+  content: ''; position: absolute; z-index: 2; top: 0; left: var(--cut); right: 0; height: 5px; pointer-events: none;
+  background: repeating-linear-gradient(135deg, #d8b52a 0 7px, #0b0f08 7px 14px); opacity: .9;
+}
+html body #poison-target-picker::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--edge), inset 0 0 46px rgba(77, 255, 46, .05);
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat;
+}
+
+html body #poison-target-picker .poison-picker-head {
+  grid-template-columns: 52px 1fr auto; gap: 14px; padding: 20px 16px 14px 20px;
+  border-bottom: 0; position: relative;
+}
+html body #poison-target-picker .poison-picker-head::after {
+  content: ''; position: absolute; left: 20px; right: 16px; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, var(--tox-d), rgba(79, 191, 43, .15) 70%, transparent);
+}
+html body #poison-target-picker .poison-picker-head img {
+  width: 52px; height: 52px; padding: 2px; border: 0; border-radius: 0; box-sizing: border-box;
+  background: linear-gradient(135deg, var(--tox), #1d4a12 70%);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+html body #poison-target-picker .poison-picker-head b {
+  font: 900 18px/1 var(--font-machine); letter-spacing: .2em; color: #c4ff9a;
+  text-shadow: 0 0 12px rgba(120, 255, 70, .55);
+}
+html body #poison-target-picker .poison-picker-head small {
+  margin-top: 7px; font: 800 9px/1.2 var(--font-machine); letter-spacing: .2em; color: #6f8f66;
+}
+html body #poison-target-picker .poison-picker-close {
+  width: 32px; height: 32px; padding: 0; display: grid; place-items: center; font-size: 20px; line-height: 1; color: #9fd88a;
+  box-shadow: inset 0 0 0 1px #2f5a24; background: rgba(5, 8, 5, .8);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  transition: color .15s, box-shadow .15s, background .15s;
+}
+html body #poison-target-picker .poison-picker-close:hover { color: #fff; background: rgba(120, 30, 24, .55); box-shadow: inset 0 0 0 1px #ff6a5a; }
+
+html body #poison-target-picker .poison-picker-search {
+  margin: 14px 16px 8px 20px; padding: 0 12px 0 36px; height: 38px; box-sizing: border-box; border: 0; border-radius: 0;
+  font: 800 12px/1 var(--font-machine); letter-spacing: .14em; color: #eaf8e5;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='7' cy='7' r='4.6' fill='none' stroke='%238dff6a' stroke-width='1.5'/%3E%3Cpath d='M10.5 10.5 14 14' stroke='%238dff6a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 12px 50% / 14px 14px no-repeat,
+    linear-gradient(180deg, #030503, #070b06);
+  box-shadow: inset 0 0 0 1px #2a4a22, inset 0 2px 6px rgba(0, 0, 0, .7);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+html body #poison-target-picker .poison-picker-search::placeholder { color: #5d7656; letter-spacing: .16em; }
+html body #poison-target-picker .poison-picker-search:focus {
+  box-shadow: inset 0 0 0 1px var(--tox), inset 0 0 16px rgba(94, 228, 56, .18), inset 0 2px 6px rgba(0, 0, 0, .7);
+}
+
+html body #poison-target-picker .poison-target-list {
+  padding: 4px 12px 14px 20px; gap: 6px; scrollbar-width: thin; scrollbar-color: #3f8a2a #060a06;
+}
+html body #poison-target-picker .poison-target-list::-webkit-scrollbar { width: 8px; }
+html body #poison-target-picker .poison-target-list::-webkit-scrollbar-track { background: #060a06; box-shadow: inset 1px 0 0 #1b3016; }
+html body #poison-target-picker .poison-target-list::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #4fbf2b, #2a6a1a); }
+
+html body #poison-target-picker .poison-target-group {
+  margin: 8px 0 2px; font: 900 9.5px/1 var(--font-machine); letter-spacing: .26em; color: var(--tox);
+}
+html body #poison-target-picker .poison-target-group::before {
+  content: ''; width: 7px; height: 7px; background: currentColor; transform: rotate(45deg); box-shadow: 0 0 8px currentColor; flex: none;
+}
+html body #poison-target-picker .poison-target-group.is-offline { color: #6f786b; }
+
+html body #poison-target-picker .poison-target-option {
+  --cut: 10px; --edge: #264420; --slab: #0a100a;
+  position: relative; grid-template-columns: 22px 42px 1fr auto !important; gap: 12px; padding: 9px 12px 9px 16px;
+  border: 0; border-radius: 0; font-family: var(--font-machine);
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    linear-gradient(90deg, var(--slab), #080c07);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  transition: box-shadow .15s, background-color .15s;
+}
+html body #poison-target-picker .poison-target-option::before {
+  content: ''; position: absolute; left: 0; top: var(--cut); bottom: 0; width: 3px; background: var(--tox-d); opacity: .85;
+}
+html body #poison-target-picker .poison-target-option.is-offline::before { background: #38423a; }
+html body #poison-target-picker .poison-target-option:hover { --edge: #4f9a35; --slab: #101a0d; }
+html body #poison-target-picker .poison-target-option.is-selected {
+  --edge: #7dff58; --slab: #153a10; box-shadow: inset 0 0 0 1px var(--edge), inset 0 0 26px rgba(94, 228, 56, .14);
+}
+html body #poison-target-picker .poison-target-option.is-selected::before { background: var(--tox); box-shadow: 0 0 10px var(--tox); opacity: 1; }
+html body #poison-target-picker .poison-target-option:focus-visible { outline: 0; --edge: #a8ff8a; }
+
+html body #poison-target-picker .poison-target-option img {
+  width: 40px; height: 40px; border: 0; box-shadow: 0 0 0 2px #070b06, 0 0 0 3px #3f7a2c;
+}
+html body #poison-target-picker .poison-target-option.is-selected img { box-shadow: 0 0 0 2px #070b06, 0 0 0 3px var(--tox), 0 0 12px rgba(120, 255, 70, .4); }
+html body #poison-target-picker .poison-target-option b { font: 900 13px/1 var(--font-machine); letter-spacing: .08em; color: #eaf8e5; }
+html body #poison-target-picker .poison-target-option small { margin-top: 5px; font: 800 8.5px/1 var(--font-machine); letter-spacing: .16em; color: #62785c; }
+html body #poison-target-picker .poison-target-option strong {
+  padding: 5px 9px; font: 900 9px/1 var(--font-machine); letter-spacing: .18em; color: var(--tox);
+  background: rgba(77, 255, 46, .07); box-shadow: inset 0 0 0 1px rgba(120, 230, 84, .35);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+html body #poison-target-picker .poison-target-option strong.offline { color: #7b8577; background: rgba(255, 255, 255, .03); box-shadow: inset 0 0 0 1px #2e362d; }
+html body #poison-target-picker .poison-target-option.is-selected strong { color: #072a06; background: var(--tox); box-shadow: none; }
+
+html body #poison-target-picker .poison-check {
+  width: 20px; height: 20px; border: 0; border-radius: 0; background: #030503; box-shadow: inset 0 0 0 1px #3f6335, inset 0 1px 4px rgba(0, 0, 0, .8);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); font-size: 13px;
+}
+html body #poison-target-picker .poison-target-option.is-selected .poison-check { background: var(--tox); box-shadow: none; color: #072a06; }
+html body #poison-target-picker .poison-target-option .poison-tag { border-radius: 0; margin-left: 8px; font-family: var(--font-machine); }
+
+html body #poison-target-picker .poison-picker-foot {
+  gap: 8px; padding: 12px 12px 18px 20px; border-top: 0; position: relative; background: rgba(0, 0, 0, .3);
+}
+html body #poison-target-picker .poison-picker-foot::before {
+  content: ''; position: absolute; left: 20px; right: 12px; top: 0; height: 1px;
+  background: linear-gradient(90deg, var(--tox-d), rgba(79, 191, 43, .15) 70%, transparent);
+}
+html body #poison-target-picker .poison-picker-tools button {
+  padding: 0; height: 32px; border: 0; border-radius: 0; font: 900 10px/1 var(--font-machine); letter-spacing: .16em; color: #9fd88a;
+  background: linear-gradient(180deg, #0d150b, #080d07); box-shadow: inset 0 0 0 1px #2f5a24;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+html body #poison-target-picker .poison-picker-tools button:hover { color: #e4ffd6; box-shadow: inset 0 0 0 1px var(--tox), inset 0 0 14px rgba(94, 228, 56, .16); }
+html body #poison-target-picker .poison-cast-btn {
+  height: 44px; padding: 0 10px; border: 0; border-radius: 0; font: 900 12px/1 var(--font-machine); letter-spacing: .24em; color: #072a06;
+  background: linear-gradient(180deg, #a6ff7f, #5fcf36 55%, #3f9f22); box-shadow: inset 0 0 0 1px #d4ffbd, inset 0 -3px 0 rgba(0, 0, 0, .2);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .35);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+html body #poison-target-picker .poison-cast-btn:not(:disabled):hover { filter: brightness(1.08); }
+html body #poison-target-picker .poison-cast-btn:disabled {
+  opacity: 1; color: #55704d; text-shadow: none; box-shadow: inset 0 0 0 1px #234019;
+  background: repeating-linear-gradient(135deg, #0b130a 0 8px, #0e170c 8px 16px);
+}
+html body #poison-target-picker .poison-cast-btn.is-armed {
+  color: #ffe3df; text-shadow: none; box-shadow: inset 0 0 0 1px #ff8a7c, 0 0 0 transparent;
+  background: repeating-linear-gradient(135deg, #7a1a14 0 10px, #4d0e0a 10px 20px);
+}
+html body #poison-target-picker .poison-cast-btn.is-casting { color: #b8ff87; background: #0e2009; box-shadow: inset 0 0 0 1px var(--tox); }
+html body #poison-target-picker .poison-picker-empty { font-family: var(--font-machine); letter-spacing: .18em; font-size: 11px; }
