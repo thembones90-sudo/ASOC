@@ -1449,12 +1449,12 @@ const PlayerApp = {
         }
         this.applyFinalSolverAura(battleVisible ? (message.finalSolverAura || null) : null, message.serverNow);
         Womf.update('womf-tracker-player', battleVisible ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
-        Wheel.update('wheel-overlay', battleVisible ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false, {
+        Wheel.update('wheel-overlay', (battleVisible || message.wheel?.command === true) ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false, {
           // The selected hero's own tribute prompt waits until the scope has been shown.
           onPresentationEnd: () => this.updateBloodTributeDemand(this.bloodTribute)
         }, message.timestamp);
         const tributeState = message.bloodTribute || { status: 'idle' };
-        this.updateBloodTributeDemand(battleVisible || ['unstableConcoction', 'nudge', 'moon', 'rouletteCarnage'].includes(tributeState.source) ? tributeState : { status: 'idle' });
+        this.updateBloodTributeDemand(battleVisible || ['unstableConcoction', 'nudge', 'moon', 'rouletteCarnage'].includes(tributeState.source) || tributeState.sourceLabel === 'BLOOD SCOPE' ? tributeState : { status: 'idle' });
         Timer.update('timer-tracker-player', battleVisible ? (message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }) : { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
         if (battleVisible) this.updateTerminalPhase(message);
         else Recount.apply(null);
@@ -1478,7 +1478,7 @@ const PlayerApp = {
         (masterMirror ? sessionStorage : localStorage).setItem('asoc_player_in_master', '1');
         {
           const tributeState = this.lastPublicState?.bloodTribute || { status: 'idle' };
-          this.updateBloodTributeDemand(this.roomMode !== 'CASUAL' || ['unstableConcoction', 'nudge', 'moon', 'rouletteCarnage'].includes(tributeState.source) ? tributeState : { status: 'idle' });
+          this.updateBloodTributeDemand(this.roomMode !== 'CASUAL' || ['unstableConcoction', 'nudge', 'moon', 'rouletteCarnage'].includes(tributeState.source) || tributeState.sourceLabel === 'BLOOD SCOPE' ? tributeState : { status: 'idle' });
         }
         if (message.littleHero) {
           if (message.littleHero.name) {
