@@ -366,6 +366,6 @@ html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger .rl-rank { 
 html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger tbody tr:first-child td { color: #ffd46a; font-weight: 800; }
 html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger tbody tr:first-child .rl-rank { text-shadow: 0 0 12px rgba(232, 184, 74, .55); }
 html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-empty { padding: 34px; font-size: 13px; }
-html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) { grid-template-columns: 44px minmax(0, 1fr); row-gap: 6px; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) { grid-template-columns: 54px minmax(0, 1fr); row-gap: 6px; }
 html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) .lb-rank { grid-row: 1 / span 2; }
-html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) .lb-score { grid-column: 2; padding-left: 57px; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) .lb-score { grid-column: 2; padding-left: 67px; }
