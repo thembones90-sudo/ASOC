@@ -482,6 +482,7 @@ const Wheel = (() => {
       mk('bs-btn-danger', id + '-close-btn', 'ABORT ACQUISITION', h.onClose);
     } else {
       mk('bs-btn-primary', id + '-view-btn', 'VIEW TRIBUTE', h.onViewTribute);
+      if (st.committedAt && h.onRecall) mk('bs-btn-danger', id + '-recall-btn', 'RECALL SNIPE', h.onRecall);
       mk('bs-btn-ghost', id + '-close-btn', 'CLOSE FOR ALL', h.onClose);
     }
   }
@@ -497,7 +498,7 @@ const Wheel = (() => {
       teardown(ctx, el);
     },
 
-    // isGM: draw controls. handlers: { onRoll, onClose, onViewTribute, onPresentationEnd }.
+    // isGM: draw controls. handlers: { onRoll, onClose, onViewTribute, onRecall, onPresentationEnd }.
     // serverTs: ISO timestamp of the state packet, used to align local clocks.
     update(containerId, wheelState, isGM, handlers, serverTs) {
       const el = document.getElementById(containerId);
