@@ -9,6 +9,7 @@
 //   * a victim who disconnects mid-hunt is still the committed victim
 //   * a late client sees the committed state
 //   * selection is unbiased across many rolls
+//   * the GM command button works in AMUSE without WOMF charge and never spends it
 const assert = require('assert/strict');
 const fs = require('fs');
 const os = require('os');
@@ -223,6 +224,39 @@ const scopeLines = client => client.chat.filter(m => m.messageType === 'bloodSco
     players.find(p => p.name === victimName).close();
     const commit3 = await gm.waitFor(m => m.type === 'state:public' && m.wheel?.committedAt && m.wheel.spinToken === hunt3.wheel.spinToken, 'commit after disconnect', mark);
     assert.equal(commit3.bloodTribute.playerId, victim3, 'a victim who disconnects mid-animation is still the committed victim');
+
+    // ---- 10. COMMAND button: any mode, no WOMF charge, charge untouched -----
+    mark = gm.mark();
+    gm.send({ type: 'gm:tributeForgive' });
+    await gm.waitFor(m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'previous debt released', mark);
+    gm.send({ type: 'gm:wheelClose' });
+    await gm.waitFor(m => m.type === 'state:public' && m.wheel?.open === false, 'scope reset', mark);
+    gm.send({ type: 'gm:setRoomMode', mode: 'CASUAL' });
+    await gm.waitFor(m => m.type === 'state:public' && m.roomMode === 'CASUAL', 'AMUSE mode', mark);
+    const chargeBefore = gm.state.womf.charge;
+
+    mark = gm.mark();
+    gm.send({ type: 'gm:wheelOpen', segments: [] }); // the WOMF path stays battle-only
+    await gm.waitFor(m => m.type === 'error' && /Battle surface/i.test(m.message), 'WOMF path still battle-only', mark);
+    assert.ok(!gm.state.wheel.open, 'the charge-gated path cannot open the scope in AMUSE');
+
+    mark = gm.mark();
+    gm.send({ type: 'gm:wheelOpen', segments: [], command: true });
+    const cmdArmed = await gm.waitFor(m => m.type === 'state:public' && m.wheel?.open && m.wheel.phase === 'idle' && m.wheel.command === true, 'command scope armed in AMUSE', mark);
+    assert.ok(cmdArmed.wheel.segmentIds.length >= 2);
+    players.filter(p => p.ws.readyState === 1).forEach(p => assert.equal(p.state?.wheel?.command, true, 'players are told this is a command scope'));
+    mark = gm.mark();
+    gm.send({ type: 'gm:wheelRoll' });
+    const cmdDone = await gm.waitFor(m => m.type === 'state:public' && m.wheel?.committedAt, 'command scope commits in AMUSE', mark);
+    assert.equal(cmdDone.bloodTribute.status, 'required');
+    assert.equal(cmdDone.bloodTribute.sourceLabel, 'BLOOD SCOPE');
+    assert.equal(cmdDone.bloodTribute.playerId, cmdDone.wheel.segmentIds[cmdDone.wheel.winnerIndex]);
+    assert.equal(cmdDone.womf.charge, chargeBefore, 'summoning the scope never spends WOMF charge');
+    mark = gm.mark();
+    gm.send({ type: 'gm:tributeForgive' });
+    const cmdForgiven = await gm.waitFor(m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'command debt released', mark);
+    assert.equal(cmdForgiven.wheel.open, false, 'a forgiven command scope closes instead of re-arming the WOMF wheel');
+    assert.equal(cmdForgiven.womf.charge, chargeBefore, 'forgiving a command scope leaves WOMF charge alone');
 
     assert.equal(errors.trim(), '', 'no server errors');
     console.log('PASS blood scope: GM-only activation, server-authoritative victim, hunt creates no debt, one commit + one announcement, close keeps debt, abort creates none, disconnect-safe, late-client recovery');
