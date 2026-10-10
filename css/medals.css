@@ -1,0 +1,18 @@
+/* All Time Standings podium medals (GM Backdoor + player panel).
+   Ranks 1-3 get a ribbon-and-disc medal in gold / silver / bronze. */
+.leaderboard-row.has-medal .lb-rank { display: flex; align-items: center; justify-content: center; line-height: 0; }
+.leaderboard-row.has-medal { grid-template-columns: 34px minmax(0, 1fr) auto; }
+.lb-medal { display: block; width: 30px; height: 40px; overflow: visible; }
+.lb-medal .m-num { font: 900 19px/1 "Barlow Condensed", "Segoe UI", sans-serif; stroke: none; }
+.lb-medal .m-shine { fill: #fff; opacity: .38; }
+.lb-medal-gold   { filter: drop-shadow(0 0 5px rgba(255, 205, 80, .75)) drop-shadow(0 0 14px rgba(236, 170, 40, .4)); }
+.lb-medal-silver { filter: drop-shadow(0 0 5px rgba(200, 214, 235, .65)) drop-shadow(0 0 12px rgba(150, 170, 200, .3)); }
+.lb-medal-bronze { filter: drop-shadow(0 0 5px rgba(222, 138, 72, .65)) drop-shadow(0 0 12px rgba(190, 106, 46, .3)); }
+.lb-medal-gold   .m-strap-a { fill: #d8453a; } .lb-medal-gold   .m-strap-b { fill: #9c2c25; }
+.lb-medal-gold   .m-rim { fill: #b8832a; }     .lb-medal-gold   .m-face { fill: #f6d065; } .lb-medal-gold   .m-num { fill: #5b3b05; }
+.lb-medal-silver .m-strap-a { fill: #3f84d6; } .lb-medal-silver .m-strap-b { fill: #2b5c9c; }
+.lb-medal-silver .m-rim { fill: #7d8aa0; }     .lb-medal-silver .m-face { fill: #dde4ee; } .lb-medal-silver .m-num { fill: #2f3a4c; }
+.lb-medal-bronze .m-strap-a { fill: #33a46f; } .lb-medal-bronze .m-strap-b { fill: #1f7350; }
+.lb-medal-bronze .m-rim { fill: #8f5424; }     .lb-medal-bronze .m-face { fill: #de9559; } .lb-medal-bronze .m-num { fill: #43230a; }
+/* GM Backdoor podium: bigger medals in the rank column, centred on the two-line card */
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) .lb-medal { width: 48px; height: 65px; }
