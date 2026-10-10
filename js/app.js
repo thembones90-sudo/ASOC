@@ -4062,7 +4062,31 @@ const App = {
 
   // BLOOD SCOPE command (rail button under POISON / CHAOS). Unlike the
   // WOMF-armed path it needs no 10/10 charge and works in AMUSE and ABUSE.
+  // RECALL THE SNIPE -- only an unpaid BLOOD SCOPE debt, never any other tribute.
+  scopeRecallable() {
+    return this.mode === 'multiplayer' && this.bloodTribute?.status === 'required' && this.bloodTribute?.sourceLabel === 'BLOOD SCOPE';
+  },
+
+  recallScope() {
+    if (!this.scopeRecallable()) return;
+    this.send({ type: 'gm:scopeRecall' });
+  },
+
   openBloodScopeCommand() {
+    if (this.scopeRecallable() && !this.wheel?.open) {
+      // Rail button doubles as RECALL while a scope debt is owed: two clicks.
+      const btn = document.getElementById('blood-scope-gm-button');
+      if (this._scopeRecallArmed) {
+        clearTimeout(this._scopeRecallTimer);
+        this._scopeRecallArmed = false;
+        this.recallScope();
+      } else {
+        this._scopeRecallArmed = true;
+        this.syncBloodScopeButton();
+        this._scopeRecallTimer = setTimeout(() => { this._scopeRecallArmed = false; this.syncBloodScopeButton(); }, 4000);
+      }
+      return;
+    }
     if (this.mode !== 'multiplayer' || this.wheel?.open || this.bloodTribute?.status === 'required') return;
     this.send({ type: 'players:list' });
     this.openWheelSetup(true);
@@ -4076,10 +4100,15 @@ const App = {
     const live = this.mode === 'multiplayer';
     const busy = !!this.wheel?.open;
     const owed = this.bloodTribute?.status === 'required';
-    btn.disabled = !live || busy || owed;
+    const recall = this.scopeRecallable() && !busy;
+    if (!recall) this._scopeRecallArmed = false;
+    btn.disabled = !live || busy || (owed && !recall);
     btn.classList.toggle('is-active', busy);
+    btn.classList.toggle('is-recall', recall);
+    const label = btn.querySelector('b');
+    if (label) label.textContent = recall ? 'RECALL SNIPE' : 'BLOOD SCOPE';
     const caption = btn.querySelector('small');
-    if (caption) caption.textContent = !live ? 'NEEDS A ROOM' : busy ? 'SCOPE ACTIVE' : owed ? 'TRIBUTE OWED' : 'HUNT A HERO';
+    if (caption) caption.textContent = !live ? 'NEEDS A ROOM' : busy ? 'SCOPE ACTIVE' : recall ? (this._scopeRecallArmed ? 'CLICK AGAIN TO CONFIRM' : 'VOID THE TRIBUTE') : owed ? 'TRIBUTE OWED' : 'HUNT A HERO';
   },
 
   openWheelSetup(command = false) {
@@ -4138,7 +4167,8 @@ const App = {
     Wheel.update('wheel-overlay', state, true, {
       onRoll: () => this.rollWheel(),
       onClose: () => this.closeWheel(),
-      onViewTribute: () => this.viewBloodTribute()
+      onViewTribute: () => this.viewBloodTribute(),
+      onRecall: () => this.recallScope()
     }, this._wheelTs);
   },
 
