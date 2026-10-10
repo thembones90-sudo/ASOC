@@ -1,0 +1,300 @@
+/* BACKDOOR // compact armory layout ---------------------------------------------
+   Loaded after backdoor-console.css. The console used to be one tall scroll of
+   seven full-width blocks. It is now a single screen:
+
+     [ title ........ status chips ............ RETURN ]
+     [ controls   ] [ tabbed panels: log | diagnostics | realm | recount ]
+     [ sealed systems (collapsed hazard strip)                           ]
+
+   The four read-only panels are tabs (js/backdoor.js builds .gm-backdoor-tabs).
+   Every rule is prefixed to beat the !important font-size / display rules in
+   backdoor-console.css and asoc.css. */
+
+html body #gm-panel.maintenance-open #gm-maintenance {
+  --bd-teal: #7fc4c0; --bd-teal-d: #3f7f7c; --bd-gold: #e3c16a; --bd-edge: #2c4448; --bd-red: #d96a6f;
+  font-family: var(--font-machine);
+}
+
+/* ---- layout (wide) ---------------------------------------------------------- */
+@media (min-width: 1001px) {
+  html body #gm-panel.maintenance-open .gm-content { padding: 12px 16px 14px; }
+  html body #gm-panel.maintenance-open #gm-maintenance {
+    display: grid; width: 100%; max-width: none; box-sizing: border-box; padding: 0;
+    grid-template-columns: 330px minmax(0, 1fr) auto;
+    grid-template-rows: auto 1fr auto;
+    gap: 10px 12px; align-items: stretch;
+    min-height: calc(100vh - 28px);
+  }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-header { display: contents; }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-header > div { grid-column: 1; grid-row: 1; align-self: center; }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-telemetry { grid-column: 2; grid-row: 1; }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-return { grid-column: 3; grid-row: 1; align-self: center; }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-primary-grid { grid-column: 1; grid-row: 2; display: flex !important; flex-direction: column; gap: 8px; min-width: 0; }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-panels { grid-column: 2 / 4; grid-row: 2; contain: size; min-height: 0; }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance { grid-column: 1 / -1; grid-row: 3; }
+}
+
+/* ---- title + status chips -------------------------------------------------- */
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-header strong {
+  font: 900 15px/1.1 var(--font-machine) !important; letter-spacing: .18em; color: #a9e0dc; text-shadow: 0 0 12px rgba(111, 200, 195, .35);
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-header span {
+  font: 800 8.5px/1 var(--font-machine); letter-spacing: .22em; color: #56716f;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-header > div { gap: 5px; }
+
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-telemetry {
+  grid-template-columns: 1.15fr .7fr 1fr 1fr 1fr 1.5fr; gap: 6px; margin: 0; border: 0; background: none;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-telemetry > span {
+  --cut: 7px; --edge: #2c4448; gap: 4px; padding: 6px 10px; border: 0;
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(180deg, #0f171a, #080c0e);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-telemetry small { font: 800 8px/1 var(--font-machine) !important; letter-spacing: .22em; color: #4f6a6a; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-telemetry b { font: 900 13px/1.1 var(--font-machine) !important; letter-spacing: .08em; color: #c8e6e2; }
+
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-return {
+  --cut: 9px; --edge: #b0902f; min-width: 150px; height: 38px; min-height: 38px; padding: 0 16px; border: 0; border-radius: 0;
+  font: 900 11px/1 var(--font-machine) !important; letter-spacing: .18em; color: #f0cb63;
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    linear-gradient(180deg, #342c15, #17130a);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-return:hover { color: #fff2bd; --edge: #e5bb45; }
+
+/* ---- module plates ----------------------------------------------------------- */
+html body #gm-panel.maintenance-open #gm-maintenance .maintenance-module {
+  --cut: 10px; --edge: #2c4448;
+  position: relative; min-width: 0; margin: 0; padding: 9px 12px 12px; border: 0; border-radius: 0;
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .014) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #0f171a, #080c0e);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance .maintenance-module > .gm-section-title {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 9px; padding: 0; border: 0;
+  font: 900 10px/1 var(--font-machine) !important; letter-spacing: .26em; color: var(--bd-teal);
+}
+html body #gm-panel.maintenance-open #gm-maintenance .maintenance-module > .gm-section-title::before {
+  content: ''; flex: none; width: 6px; height: 6px; background: currentColor; transform: rotate(45deg); box-shadow: 0 0 8px currentColor;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .maintenance-module > .gm-section-title::after {
+  content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--bd-teal-d), transparent);
+}
+
+/* ---- buttons / selects --------------------------------------------------------- */
+html body #gm-panel.maintenance-open #gm-maintenance .gm-global-btn {
+  --cut: 7px; --edge: #3a5a62;
+  width: 100%; height: 34px; min-height: 34px; margin: 0; padding: 0 10px; border: 0; border-radius: 0; box-sizing: border-box;
+  font: 900 11px/1 var(--font-machine) !important; letter-spacing: .14em; color: #a9cfcc; text-shadow: none;
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    linear-gradient(180deg, #141d21, #0a0f12);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  transition: color .15s, box-shadow .15s;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-global-btn:hover:not(:disabled) { --edge: #6fb3b0; color: #e0f6f4; box-shadow: inset 0 0 0 1px var(--edge), inset 0 0 14px rgba(111, 200, 195, .12); }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-global-btn:disabled { opacity: .5; cursor: not-allowed; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-global-btn.primary {
+  --edge: #a9893a; color: #f0cb63;
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    linear-gradient(180deg, #2f2913, #17130a);
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-global-btn.primary:hover:not(:disabled) { --edge: #e5bb45; color: #fff2bd; box-shadow: inset 0 0 0 1px var(--edge), inset 0 0 14px rgba(229, 187, 69, .12); }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-global-btn.reset-btn {
+  --edge: #8a3a40; color: #ee9a9f;
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    linear-gradient(180deg, #2a1315, #150a0b);
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-global-btn.reset-btn:hover:not(:disabled) { --edge: #e0646c; color: #ffd0d3; box-shadow: inset 0 0 0 1px var(--edge), inset 0 0 14px rgba(224, 100, 108, .14); }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-global-btn.active { --edge: #d9a927; color: #ffe399; }
+
+html body #gm-panel.maintenance-open #gm-maintenance :is(select, .bg-select) {
+  --cut: 6px; --edge: #2f4a50;
+  width: 100%; height: 34px; min-height: 34px; padding: 0 30px 0 11px; border: 0; border-radius: 0; box-sizing: border-box; appearance: none;
+  font: 800 11px/1 var(--font-machine) !important; letter-spacing: .1em; color: #cfe8e5;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%237fc4c0' stroke-width='1.6'/%3E%3C/svg%3E") calc(100% - 11px) 50% / 11px 8px no-repeat,
+    linear-gradient(180deg, #030607, #070c0e);
+  box-shadow: inset 0 0 0 1px var(--edge), inset 0 2px 6px rgba(0, 0, 0, .7);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance :is(select, .bg-select):focus { outline: 0; box-shadow: inset 0 0 0 1px var(--bd-teal), inset 0 0 14px rgba(111, 200, 195, .16); }
+
+/* ---- left column: session / board / appearance ---------------------------------- */
+html body #gm-panel.maintenance-open #gm-maintenance .gm-session-maintenance .current-game { margin: 0 0 8px; padding: 0; }
+html body #gm-panel.maintenance-open #gm-maintenance .cg-title { margin: 0 0 6px; font: 900 13px/1.2 var(--font-machine) !important; letter-spacing: .06em; color: #eaf6f4; }
+html body #gm-panel.maintenance-open #gm-maintenance .cg-meta { gap: 8px; margin: 0 0 7px; font-size: 10px; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-session-maintenance .cg-theme { display: none; }
+html body #gm-panel.maintenance-open #gm-maintenance .difficulty-picker { display: flex; gap: 8px; margin: 0; }
+html body #gm-panel.maintenance-open #gm-maintenance .diff-swatch { width: 26px; height: 26px; min-height: 0 !important; padding: 0; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-session-maintenance .gm-global-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-session-maintenance .battle-session-strip { display: none !important; }
+html body #gm-panel.maintenance-open #gm-maintenance #next-game-btn { margin: 6px 0 0 !important; }
+
+html body #gm-panel.maintenance-open #gm-maintenance .gm-maintenance-readout {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 7px; padding: 0 0 7px; border: 0; border-bottom: 1px solid rgba(44, 68, 72, .7); background: none;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-maintenance-readout small { font: 800 8px/1 var(--font-machine) !important; letter-spacing: .2em; color: #4f6a6a; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-maintenance-readout strong { font: 900 9.5px/1 var(--font-machine); letter-spacing: .12em; color: #8fcf9d; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-board-control-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+html body #gm-panel.maintenance-open #gm-maintenance .gm-battle-animation-control { gap: 5px; margin: 0 0 8px; padding: 0; border: 0; background: none; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-battle-animation-control > span { font: 900 8.5px/1 var(--font-machine); letter-spacing: .22em; color: #6fa8a5; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-battle-animation-control > small { font: 700 8px/1.3 var(--font-machine); letter-spacing: .1em; color: #4a6260; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-layout-lock-status {
+  min-height: 0; margin: 0 0 5px; padding: 0; border: 0; background: none; font: 800 8.5px/1.3 var(--font-machine); letter-spacing: .14em; color: #6a8583;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-appearance-background { margin: 8px 0 0 !important; padding: 8px 0 0 !important; border-top: 1px solid rgba(44, 68, 72, .7) !important; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-appearance-background .background-selector { gap: 5px; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-appearance-background .bg-label { font: 900 8.5px/1 var(--font-machine) !important; letter-spacing: .22em; text-transform: uppercase; color: #6fa8a5; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-appearance-background .upload-label {
+  --cut: 6px; display: grid; place-items: center; height: 30px; min-height: 30px; padding: 0 10px; border: 0; box-sizing: border-box;
+  font: 800 10px/1 var(--font-machine) !important; letter-spacing: .16em; color: #7fb4b0; background: rgba(5, 9, 10, .6);
+  box-shadow: inset 0 0 0 1px #2f4a50; clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-appearance-background .upload-label:hover { color: #e0f6f4; box-shadow: inset 0 0 0 1px var(--bd-teal); }
+
+/* ---- tabbed panels --------------------------------------------------------------- */
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-panels {
+  --cut: 12px; --edge: #2c4448; display: flex; flex-direction: column; min-width: 0;
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .014) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #0c1316, #070b0d);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-tabs {
+  display: flex; align-items: stretch; flex: none; height: 38px; padding-left: 14px; border-bottom: 1px solid #1f3236; background: rgba(0, 0, 0, .25);
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-tabs button {
+  position: relative; min-height: 0; height: 100%; margin: 0; padding: 0 16px; border: 0; border-radius: 0; background: none; cursor: pointer;
+  font: 900 10px/1 var(--font-machine) !important; letter-spacing: .2em; color: #5f7e7c; text-shadow: none; transition: color .15s;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-tabs button:hover { color: #bfe3df; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-tabs button.active {
+  color: #bff0ec; background: linear-gradient(180deg, rgba(111, 200, 195, .02), rgba(111, 200, 195, .13)); text-shadow: 0 0 10px rgba(111, 200, 195, .45);
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-tabs button.active::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--bd-gold); box-shadow: 0 0 8px rgba(227, 193, 106, .5);
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-tab-hint {
+  align-self: center; margin-left: auto; padding-right: 16px; font: 800 8px/1 var(--font-machine); font-style: normal; letter-spacing: .2em; color: #455f5d;
+}
+
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-panels > [data-bd-tab] {
+  display: none !important; flex: 1 1 auto; min-height: 0; margin: 0; padding: 0; border: 0; background: none; overflow: auto;
+  clip-path: none; box-shadow: none; scrollbar-width: thin; scrollbar-color: #3f7f7c #070b0d;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-panels[data-active="log"] > [data-bd-tab="log"],
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-panels[data-active="diag"] > [data-bd-tab="diag"],
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-panels[data-active="realm"] > [data-bd-tab="realm"],
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-panels[data-active="recount"] > [data-bd-tab="recount"] { display: block !important; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-panels .gm-backdoor-log-head,
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-panels #records-section > .gm-section-title { display: none; }
+
+/* event log */
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-log-entries { display: grid; min-height: 0; max-height: none; padding: 4px 16px 10px; overflow: visible; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-log-entries div { grid-template-columns: 76px 1fr; gap: 12px; padding: 7px 0; border-bottom: 1px solid rgba(44, 68, 72, .45); }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-log-entries time { font: 700 11px/1.3 var(--font-mono, monospace); color: #5a7775; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-log-entries span { font: 800 11px/1.3 var(--font-machine); letter-spacing: .1em; color: #a9c2c0; }
+
+/* diagnostics */
+html body #gm-panel.maintenance-open #gm-maintenance .gm-runtime-diagnostics-summary { gap: 6px; padding: 12px 16px 10px; border: 0; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-runtime-diagnostics-summary span {
+  --cut: 7px; --edge: #2c4448; gap: 5px; padding: 7px 10px; border: 0;
+  background: linear-gradient(180deg, #0f171a, #080c0e); box-shadow: inset 0 0 0 1px var(--edge);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-runtime-diagnostics-summary small { font: 800 8px/1 var(--font-machine) !important; letter-spacing: .2em; color: #4f6a6a; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-runtime-diagnostics-summary b { font: 900 12.5px/1.1 var(--font-machine); letter-spacing: .08em; color: #c8e6e2; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-runtime-diagnostics-events { max-height: none; padding: 0 16px 10px; overflow: visible; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-runtime-diagnostics-events div { padding: 7px 0; font-size: 11px; }
+
+/* shadow realm ledger */
+html body #gm-panel.maintenance-open #gm-maintenance .gm-shadow-realm-history {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px; max-height: none; padding: 12px 16px; overflow: visible;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-shadow-realm-history article {
+  --cut: 8px; --edge: #3a3548; position: relative; gap: 4px; padding: 8px 10px 8px 13px; border: 0; background: linear-gradient(90deg, #121018, #0a0a0e);
+  box-shadow: inset 0 0 0 1px var(--edge); clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-shadow-realm-history article::before { content: ''; position: absolute; left: 0; top: var(--cut); bottom: 0; width: 3px; background: #77717f; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-shadow-realm-history article.is-active::before { background: #e8eaee; box-shadow: 0 0 8px rgba(232, 234, 238, .5); }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-shadow-realm-history article.is-released::before { background: #9b78ca; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-shadow-realm-history b { font: 900 12px/1.2 var(--font-machine); letter-spacing: .08em; color: #e4e6ea; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-shadow-realm-history article > div span { font: 800 8.5px/1.2 var(--font-machine); letter-spacing: .14em; color: #8a8593; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-shadow-realm-history p {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font: 600 11px/1.45 var(--font-machine); color: #a9a5b1;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-shadow-realm-history small { font: 700 8.5px/1.2 var(--font-machine); letter-spacing: .08em; color: #5f5a68; }
+
+/* recount */
+html body #gm-panel.maintenance-open #gm-maintenance #records-section { padding: 12px 16px; }
+html body #gm-panel.maintenance-open #gm-maintenance #records-section > #alltime-toggle-btn { width: auto; min-width: 220px; margin: 0 0 10px; }
+
+/* ---- sealed systems ------------------------------------------------------------------ */
+html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance {
+  --cut: 12px; --edge: #6d5525; border: 0; border-radius: 0; overflow: visible;
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    linear-gradient(180deg, #17140d, #0b0c0d);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance > summary {
+  position: relative; min-height: 38px; padding: 0 16px 0 34px; border: 0;
+  font: 900 10.5px/1 var(--font-machine) !important; letter-spacing: .2em; color: #d8b456;
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance > summary::before {
+  content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 10px; opacity: .85;
+  background: repeating-linear-gradient(135deg, #d8b52a 0 5px, #0b0f08 5px 10px);
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance > summary small { font: 800 8.5px/1 var(--font-machine) !important; letter-spacing: .18em; color: #6d6555; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance[open] > summary { border-bottom: 1px solid #3f3519; background: rgba(111, 82, 22, .08); }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance-body { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 10px 14px 14px; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance-body .gm-module-multiplayer { grid-column: 1 / -1; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance-body .maintenance-module { --edge: #3b3622; background-color: #0d1011; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-recovery-maintenance { grid-template-columns: 1fr; }
+
+/* ---- narrow viewports: back to a single stacked column ---------------------------------- */
+@media (max-width: 1000px) {
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-header { display: flex; }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-panels { contain: none; min-height: 420px; margin-top: 10px; }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-backdoor-primary-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance { margin-top: 10px; }
+  html body #gm-panel.maintenance-open #gm-maintenance .gm-advanced-maintenance-body { grid-template-columns: 1fr; }
+}
+html body #gm-panel.maintenance-open #gm-maintenance .gm-layout-lock-status { text-align: left; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-appearance-background::before,
+html body #gm-panel.maintenance-open #gm-maintenance .gm-appearance-background::after { display: none !important; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-recovery-maintenance { display: flex !important; flex-direction: column; gap: 6px; }
+html body #gm-panel.maintenance-open #gm-maintenance .gm-recovery-maintenance > .gm-section-title { margin-bottom: 3px; }
+html body #gm-panel.maintenance-open #gm-maintenance #multiplayer-status { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+html body #gm-panel.maintenance-open #gm-maintenance #multiplayer-status > .mp-row {
+  --cut: 7px; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 5px; margin: 0; padding: 7px 10px; border: 0;
+  background: linear-gradient(180deg, #0f171a, #080c0e); box-shadow: inset 0 0 0 1px #2c4448;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance #multiplayer-status > .mp-row .mp-label { font: 800 8px/1 var(--font-machine) !important; letter-spacing: .2em; color: #4f6a6a; }
+html body #gm-panel.maintenance-open #gm-maintenance #multiplayer-status > .mp-row .mp-value { font: 900 12px/1.1 var(--font-machine) !important; letter-spacing: .08em; color: #c8e6e2; }
+html body #gm-panel.maintenance-open #gm-maintenance #multiplayer-status > #mp-player-list { grid-column: 1 / -1; }
