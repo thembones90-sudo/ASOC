@@ -40,7 +40,7 @@
   // ---------------------------------------------------------------- record
   let session = null;
 
-  function record({ anchor, headers = {}, onError } = {}) {
+  function record({ anchor, headers = {}, onError, uploadUrl = '/api/chat/voice', onUploaded } = {}) {
     const fail = message => { if (typeof onError === 'function') onError(message); else root.alert?.(message); };
     if (session) return;
     if (!supported()) return fail('Voice messages are not supported in this browser.');
@@ -103,13 +103,15 @@
       bar.classList.add('is-sending');
       bar.querySelector('.voice-recorder-label').textContent = 'SENDING';
       try {
-        const res = await fetch('/api/chat/voice?seconds=' + seconds, {
+        const separator = uploadUrl.includes('?') ? '&' : '?';
+        const res = await fetch(uploadUrl + separator + 'seconds=' + seconds, {
           method: 'POST',
           headers: { ...headers, 'Content-Type': type.base },
           body: blob
         });
         const result = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(result.error || 'Voice message upload failed');
+        if (typeof onUploaded === 'function') await onUploaded(result, seconds);
         cleanup();
       } catch (error) {
         cleanup();

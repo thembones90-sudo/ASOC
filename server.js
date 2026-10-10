@@ -372,6 +372,7 @@ infostudInit().catch(() => {});
 fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
 const chatUploadGuard = createChatUploadGuard({ dir: CHAT_UPLOAD_DIR });
 const blackMarketUploadClaims = new Map();
+const dmUploadClaims = new Map();
 // Link previews unfurl on the host, never in a reader's browser: the same
 // private-address predicate the chat image importer uses is injected in, so
 // the two can never drift apart on what counts as unreachable. Declared here
@@ -2385,6 +2386,8 @@ function handleBlackMarket(ws, message) {
   }
   const pact = blackMarket.findPact(state, message.pactId);
   if (!pact || pact.state !== 'TRIBUTE_SUBMITTED') return sendToWs(ws, { type: 'blackMarket:error', message: 'NO TRIBUTE AWAITS JUDGMENT' });
+  const verdictComment = String(message.comment || '').trim();
+  if (!verdictComment) return sendToWs(ws, { type: 'blackMarket:error', message: 'A WRITTEN VERDICT IS REQUIRED' });
   if (message.accepted === true) {
     const tributeId = 'black-market-' + crypto.randomBytes(8).toString('hex');
     room.bloodTributes = Array.isArray(room.bloodTributes) ? room.bloodTributes : [];
@@ -2402,10 +2405,10 @@ function handleBlackMarket(ws, message) {
       source: 'blackMarket',
       pactId: pact.id
     });
-    blackMarket.judgeTribute(state, pact.id, true, '', tributeId, message.comment || '');
+    blackMarket.judgeTribute(state, pact.id, true, '', tributeId, verdictComment);
     sendTributeVaultToHost(room);
   } else {
-    blackMarket.judgeTribute(state, pact.id, false, '', null, message.comment || '');
+    blackMarket.judgeTribute(state, pact.id, false, '', null, verdictComment);
   }
   persistActiveRooms();
   syncBlackMarket(room, pact.playerId);
@@ -7696,12 +7699,10 @@ function handleStatsCommand(room, author, raw) {
     { stats });
 }
 
-function handleCommandsCommand(room, author, raw, registry) {
+function handleCommandsCommand(ws, raw, registry) {
   if (!/^\/commands\s*$/i.test(raw)) return { success: false, error: 'COMMANDS INVALID // USE /commands' };
-  const commands = registry.map(entry => ({ name: entry.name, help: entry.help }));
-  return buildChatCommandMessage(room, author, 'commands', 'commands',
-    `COMMANDS → ${commands.map(entry => entry.name).join(' ')}`,
-    { commands: { commands } });
+  sendToWs(ws, { type: 'commands:private', commands: registry.map(entry => ({ name: entry.name, help: entry.help })) });
+  return { success: true, private: true };
 }
 
 // Targeted "acts" -- /spit and /fart share one mechanism: pick a target, the
@@ -8634,7 +8635,7 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
     return handlePlayerFatalityCommand(room, author, raw, targetPlayerId);
   }
-  if (/^\/commands\b/i.test(raw)) return handleCommandsCommand(room, author, raw, CHAT_SLASH_COMMANDS);
+  if (/^\/commands\b/i.test(raw)) return handleCommandsCommand(ws, raw, CHAT_SLASH_COMMANDS);
   if (/^\/backstab\b/i.test(raw)) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
     return handleBackstabCommand(room, author, raw, targetPlayerId);
@@ -9009,8 +9010,8 @@ function dispatchGmSlashCommand(room, ws, text) {
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
   if (/^\/commands\b/i.test(raw)) {
-    const result = handleCommandsCommand(room, author, raw, GM_CHAT_SLASH_COMMANDS);
-    return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
+    const result = handleCommandsCommand(ws, raw, GM_CHAT_SLASH_COMMANDS);
+    return result.success ? { success: true, broadcast: false } : { success: false, error: result.error };
   }
   // Every Little Hero utility works for the Broker too.
   const utility = [
@@ -10220,7 +10221,8 @@ function isRetiredRageAnnouncement(message) {
 function isVisibleChatMessage(message) {
   return message?.source !== 'bloodTribute'
     && message?.messageType !== 'chaos'
-    && !isRetiredRageAnnouncement(message);
+    && !isRetiredRageAnnouncement(message)
+    && message?.messageType !== 'commands';
 }
 
 function getChatState(room) {
@@ -11403,6 +11405,59 @@ function dmThreadPayload(convo, viewerId) {
   };
 }
 
+// Private attachments are stored with the same hardened upload rules, but are
+// not appended to room.chat. The returned unguessable URL becomes usable only
+// when a subsequent authenticated dm:send binds it to a conversation.
+function persistPrivateAttachment(actor, buffer, contentType, kind = 'image') {
+  const ext = kind === 'voice' ? CHAT_VOICE_TYPES[contentType] : ({'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif'})[contentType];
+  if (!ext) throw new Error('Unsupported private attachment type');
+  const capacity = chatUploadGuard.checkCapacity(buffer.length);
+  if (!capacity.ok) throw Object.assign(new Error(capacity.error), { code:'UPLOAD_CAPACITY' });
+  const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
+  fs.writeFileSync(path.join(CHAT_UPLOAD_DIR, filename), buffer, { flag:'wx', mode:0o600 });
+  chatUploadGuard.recordStored(actor.uploadSlot, buffer.length);
+  const storedUrl='/uploads/chat/' + filename;
+  const expiredBefore=Date.now()-10*60*1000;
+  for(const [url,claim] of dmUploadClaims)if(Number(claim.createdAt||0)<expiredBefore)dmUploadClaims.delete(url);
+  dmUploadClaims.set(storedUrl,{actorId:String(actor.role === 'gm' ? GM_DM_ID : actor.playerId),kind,createdAt:Date.now()});
+  return { url:storedUrl };
+}
+
+const DM_UPLOAD_URL = /^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp|gif|webm|ogg|m4a)$/i;
+function dmMediaPayload(message, actorId, actorName) {
+  const kind = String(message.messageType || 'text');
+  const media = { messageType:kind };
+  if (kind === 'gifRemote') { media.gif = normalizeRemoteGifPayload(message.gif); if (!media.gif) return null; }
+  if (kind === 'image') { media.imageUrl = String(message.imageUrl || ''); const claim=dmUploadClaims.get(media.imageUrl); if (!DM_UPLOAD_URL.test(media.imageUrl) || !/\.(?:png|jpg|webp|gif)$/i.test(media.imageUrl) || claim?.actorId !== String(actorId) || claim.kind !== 'image' || Date.now()-claim.createdAt>10*60*1000) return null; }
+  if (kind === 'voice') { media.audioUrl = String(message.audioUrl || ''); media.voiceSeconds = Math.round(Number(message.voiceSeconds)); const claim=dmUploadClaims.get(media.audioUrl); if (!DM_UPLOAD_URL.test(media.audioUrl) || !/\.(?:webm|ogg|m4a)$/i.test(media.audioUrl) || media.voiceSeconds < 1 || media.voiceSeconds > 60 || claim?.actorId !== String(actorId) || claim.kind !== 'voice' || Date.now()-claim.createdAt>10*60*1000) return null; }
+  if (kind === 'sticker') { media.stickerUrl = String(message.stickerUrl || ''); if (!stickerExists(media.stickerUrl)) return null; }
+  if (kind === 'poll') {
+    const normalized = normalizeChatPoll(message.poll?.question, message.poll?.options, message.poll?.allowMultiple, message.poll?.durationSeconds);
+    if (normalized.error) return null;
+    const createdAt = Date.now(); media.poll = { ...normalized, createdById:String(actorId), createdByName:String(actorName), createdAt, expiresAt:normalized.durationSeconds ? createdAt + normalized.durationSeconds * 1000 : null, closedAt:null, votes:{} };
+  }
+  if (message.replyTo?.id) media.replyTo = { id:String(message.replyTo.id) };
+  return media;
+}
+function finalizeDmMedia(media, fromId, toId) {
+  if (media?.replyTo?.id) {
+    const convo=dmStore.conversationFor(fromId,toId);
+    const original=convo?.messages?.find(entry=>entry.id===media.replyTo.id && !entry.deleted);
+    if (!original) return false;
+    media.replyTo={id:original.id,from:original.from,name:convo.names?.[original.from]||'Little Hero',excerpt:String(original.text||original.poll?.question||({gifRemote:'GIF',image:'Photo',voice:'Voice message',sticker:'Sticker'}[original.messageType])||'Attachment').slice(0,120)};
+  }
+  return true;
+}
+function consumeDmUploadClaim(media){const url=media?.imageUrl||media?.audioUrl;if(url)dmUploadClaims.delete(url);}
+function broadcastDmMutation(convo, changedMessage) {
+  for (const memberId of convo.members) {
+    if (memberId === GM_DM_ID) {
+      const host = rooms.get(MASTER_ROOM_CODE)?.hostConnection;
+      if (host?.readyState === 1) sendToWs(host, { type:'gm:privateUpdate', conversationId:convo.id, message:changedMessage });
+    } else socketsForPlayer(memberId).forEach(socket => sendToWs(socket, { type:'dm:update', conversationId:convo.id, message:changedMessage }));
+  }
+}
+
 function handleDirectMessage(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || ws === room.hostConnection || !ws.playerId) return sendToWs(ws, { type: 'dm:error', message: 'Direct messages need a Little Hero in the room' });
@@ -11435,10 +11490,12 @@ function handleDirectMessage(ws, message) {
         const other = dmIdentityFor(message.toId);
         if (!other) return sendToWs(ws, { type: 'dm:error', message: 'No such Little Hero' });
         const text = sanitizeText(String(message.text || '')).slice(0, dmStore.MAX_TEXT + 1);
-        const gif = message.messageType === 'gifRemote' ? normalizeRemoteGifPayload(message.gif) : null;
-        if (message.messageType === 'gifRemote' && !gif) return sendToWs(ws, { type: 'dm:error', message: 'Invalid GIF payload' });
-        const result = dmStore.send(me, other, text, now, gif ? { messageType:'gifRemote', gif } : null);
+        const media = dmMediaPayload(message, me.id, me.name);
+        if (!media) return sendToWs(ws, { type: 'dm:error', message: 'Invalid private attachment' });
+        if (!finalizeDmMedia(media,me.id,other.id)) return sendToWs(ws,{type:'dm:error',message:'Reply target is unavailable'});
+        const result = dmStore.send(me, other, text, now, media);
         if (!result.ok) return sendToWs(ws, { type: 'dm:error', message: result.error });
+        consumeDmUploadClaim(media);
         ws.dmTimes.push(now);
         const clientRef = typeof message.clientRef === 'string' ? message.clientRef.slice(0, 40) : undefined;
         socketsForPlayer(me.id).forEach(socket => sendToWs(socket, {
@@ -11451,6 +11508,16 @@ function handleDirectMessage(ws, message) {
           });
         }
         return;
+      }
+      case 'dm:edit': case 'dm:delete': case 'dm:react': case 'dm:pollVote': {
+        const convo = dmStore.conversationById(String(message.conversationId || ''));
+        if (!convo?.members.includes(me.id)) return sendToWs(ws, { type:'dm:error', message:'Private message not found' });
+        const action = message.type === 'dm:edit' ? dmStore.editMessage(convo.id, message.messageId, me.id, sanitizeText(message.text || ''))
+          : message.type === 'dm:delete' ? dmStore.deleteMessage(convo.id, message.messageId, me.id, false)
+          : message.type === 'dm:react' ? dmStore.reactMessage(convo.id, message.messageId, me.id, message.emoji)
+          : dmStore.votePoll(convo.id, message.messageId, me.id, message.optionIndex);
+        if (!action.ok) return sendToWs(ws, { type:'dm:error', message:action.error });
+        broadcastDmMutation(convo, action.message); return;
       }
       case 'dm:read': {
         const convo = dmStore.conversationById(String(message.conversationId || ''));
@@ -11511,13 +11578,25 @@ function handleGmDirectMessages(ws, message) {
       const other = dmIdentityFor(message.toId);
       if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:privateError', message:'No such Little Hero' });
       const text = sanitizeText(String(message.text || '')).slice(0, dmStore.MAX_TEXT + 1);
-      const gif = message.messageType === 'gifRemote' ? normalizeRemoteGifPayload(message.gif) : null;
-      if (message.messageType === 'gifRemote' && !gif) return sendToWs(ws, { type:'gm:privateError', message:'Invalid GIF payload' });
-      const result = dmStore.send(me, other, text, Date.now(), gif ? { messageType:'gifRemote', gif } : null);
+      const media = dmMediaPayload(message, me.id, me.name);
+      if (!media) return sendToWs(ws, { type:'gm:privateError', message:'Invalid private attachment' });
+      if (!finalizeDmMedia(media,me.id,other.id)) return sendToWs(ws,{type:'gm:privateError',message:'REPLY TARGET IS UNAVAILABLE'});
+      const result = dmStore.send(me, other, text, Date.now(), media);
       if (!result.ok) return sendToWs(ws, { type:'gm:privateError', message:result.error });
+      consumeDmUploadClaim(media);
       sendToWs(ws, { type:'gm:privateMessage', conversationId:result.conversation.id, other:{ id:other.id, name:other.name }, message:result.message });
       if (!dmStore.isBlocked(other.id, GM_DM_ID)) socketsForPlayer(other.id).forEach(socket => { sendToWs(socket, { type:'dm:message', conversationId:result.conversation.id, other:{ id:GM_DM_ID, name:'Shadow Broker' }, message:result.message }); sendDmSummary(socket); });
       return;
+    }
+    if (['gm:privateEdit','gm:privateDelete','gm:privateReact','gm:privatePollVote'].includes(message.type)) {
+      const convo = dmStore.conversationById(String(message.conversationId || ''));
+      if (!convo?.members.includes(GM_DM_ID)) return sendToWs(ws, { type:'gm:privateError', message:'PRIVATE MESSAGE NOT FOUND' });
+      const action = message.type === 'gm:privateEdit' ? dmStore.editMessage(convo.id, message.messageId, GM_DM_ID, sanitizeText(message.text || ''))
+        : message.type === 'gm:privateDelete' ? dmStore.deleteMessage(convo.id, message.messageId, GM_DM_ID, true)
+        : message.type === 'gm:privateReact' ? dmStore.reactMessage(convo.id, message.messageId, GM_DM_ID, message.emoji)
+        : dmStore.votePoll(convo.id, message.messageId, GM_DM_ID, message.optionIndex);
+      if (!action.ok) return sendToWs(ws, { type:'gm:privateError', message:action.error });
+      broadcastDmMutation(convo, action.message); return;
     }
     if (message.type === 'gm:privateRead') {
       const convo = dmStore.conversationById(String(message.conversationId || ''));
@@ -11914,6 +11993,7 @@ function handleChatGuess(ws, message) {
     sendToWs(ws, { type: 'chat:ack', clientMsgId, refused: !result.success || undefined });
   }
   if (result.success) {
+    if (result.private) return; // no persistence, chat:update or spectator event
     cooldown.chatAt = now;
     const spectralChange = dispatch === null ? processSpectralAdjudication(room, result.message) : false;
     if (dispatch === null) room.dennisAI = dennisAI.observe(room.dennisAI, result.message.text, now);
@@ -13719,6 +13799,25 @@ function handleApiRequest(req, res) {
     return sendJson(res, 405, { error: 'Method not allowed' });
   }
 
+  if (method === 'POST' && (url.pathname === '/api/dm/image' || url.pathname === '/api/dm/voice')) {
+    const voice = url.pathname.endsWith('/voice');
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    const allowed = voice ? !!CHAT_VOICE_TYPES[contentType] : ['image/png','image/jpeg','image/webp','image/gif'].includes(contentType);
+    if (!allowed) return sendJson(res, 415, { error:voice ? 'Only WEBM, OGG and MP4 audio are allowed' : 'Only PNG, JPEG, WEBP and GIF images are allowed' });
+    const room = rooms.get(MASTER_ROOM_CODE); if (!room) return sendJson(res,409,{error:'Master Room is unavailable'});
+    const actor = getChatImageActor(req, room); if (!actor) return sendJson(res,401,{error:'Private upload authentication required'});
+    if (actor.role !== 'gm' && shadowRealmRefusal(room, actor.playerId)) return sendJson(res,423,{error:shadowRealmRefusal(room,actor.playerId),code:'SHADOW_REALM'});
+    if (!admitChatUpload(res, actor, voice ? 'voice' : 'image')) return;
+    const seconds = voice ? Math.round(Number(url.searchParams.get('seconds'))) : 0;
+    if (voice && (!Number.isFinite(seconds) || seconds < 1 || seconds > MAX_CHAT_VOICE_SECONDS)) return sendJson(res,400,{error:'Voice messages must be 1–60 seconds'});
+    return readChatImageBody(req, (err, body) => {
+      if (err || !body?.length) return sendJson(res,err?.code==='TOO_LARGE'?413:400,{error:voice?'Voice upload failed':'Image upload failed'});
+      if (voice ? !validChatVoiceBytes(body,contentType) : !validChatImageBytes(body,contentType)) return sendJson(res,415,{error:'File signature does not match its declared type'});
+      try { const stored=persistPrivateAttachment(actor,body,contentType,voice?'voice':'image'); return sendJson(res,201,{ok:true,...stored,...(voice?{seconds}:{})}); }
+      catch(error){ return sendJson(res,uploadFailureStatus(error),{error:error.message||'Private upload failed'}); }
+    }, voice ? MAX_CHAT_VOICE_BYTES : MAX_CHAT_IMAGE_BYTES);
+  }
+
   if (method === 'POST' && url.pathname === '/api/chat/image') {
     const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
     const extByType = {
@@ -14820,7 +14919,11 @@ wss.on('connection', (ws, req) => {
         case 'dm:read':
         case 'dm:block':
         case 'dm:report':
-        case 'dm:setting': {
+        case 'dm:setting':
+        case 'dm:edit':
+        case 'dm:delete':
+        case 'dm:react':
+        case 'dm:pollVote': {
           handleDirectMessage(ws, message);
           break;
         }
@@ -14831,7 +14934,11 @@ wss.on('connection', (ws, req) => {
         case 'gm:privateOpen':
         case 'gm:privateSend':
         case 'gm:privateRead':
-        case 'gm:privatePurge': {
+        case 'gm:privatePurge':
+        case 'gm:privateEdit':
+        case 'gm:privateDelete':
+        case 'gm:privateReact':
+        case 'gm:privatePollVote': {
           handleGmDirectMessages(ws, message);
           break;
         }

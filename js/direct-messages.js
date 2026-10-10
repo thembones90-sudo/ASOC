@@ -14,9 +14,11 @@
     picking: false,
     error: '',
     notice: '',
-    draft: {}, emojiOpen: false, gifOpen: false, gifResults: [], gifLoading: false
+    draft: {}, emojiOpen: false, gifOpen: false, gifResults: [], gifLoading: false,
+    attachmentOpen:false, pollOpen:false, replyTo:null, editingId:null, reactionFor:null
   };
   const EMOJIS = ['😀','😂','🥰','😍','😘','😈','😭','😡','🤡','👀','💀','🔥','❤️','💜','✨','👍','👎','🙏','🎉'];
+  const emojiButton = value => `<button type="button" data-dmx-emoji-value="${esc(value)}">${window.CommanderEmojis?.has?.(value) ? window.CommanderEmojis.html(value,'commander-emoji-picker-icon') : esc(value)}</button>`;
   const app = () => window.PlayerApp;
   const send = m => app()?.send(m);
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -24,9 +26,23 @@
   const day = t => new Date(Number(t) || 0).toLocaleDateString([], { month: 'short', day: '2-digit' });
   const battleLive = () => /^BATTLE/.test(String(app()?.roomMode || ''));
   const locked = () => state.locked || battleLive();
-  const messageBody = m => m.messageType === 'gifRemote' && m.gif
-    ? `<img class="dmx-gif" src="${esc(m.gif.gifUrl)}" alt="${esc(m.gif.title || 'GIF')}" loading="lazy">${m.text ? `<p>${esc(m.text)}</p>` : ''}`
-    : `<p>${esc(m.text)}</p>`;
+  const richText = value => window.CommanderEmojis?.renderText ? window.CommanderEmojis.renderText(value || '') : esc(value || '');
+  function pollHTML(m) { const p=m.poll||{}; return `<div class="dmx-poll"><b>${esc(p.question||m.text)}</b>${(p.options||[]).map((o,i)=>`<button type="button" data-dmx-poll-vote="${i}" data-message-id="${esc(m.id)}">${esc(o)} <small>${(p.votes?.[i]||[]).length}</small></button>`).join('')}</div>`; }
+  function reactionsHTML(m){return `<div class="dmx-reactions">${Object.entries(m.reactions||{}).map(([emoji,ids])=>`<button type="button" data-dmx-react="${esc(emoji)}" data-message-id="${esc(m.id)}">${richText(emoji)} ${ids.length}</button>`).join('')}<button type="button" data-dmx-reaction-open="${esc(m.id)}" aria-label="Add reaction">＋</button>${state.reactionFor===m.id?`<div class="dmx-reaction-picker">${EMOJIS.slice(0,14).concat(window.CommanderEmojis?.tokens||[]).map(v=>`<button type="button" data-dmx-react="${esc(v)}" data-message-id="${esc(m.id)}">${window.CommanderEmojis?.has?.(v)?window.CommanderEmojis.html(v,'commander-emoji-picker-icon'):esc(v)}</button>`).join('')}</div>`:''}</div>`;}
+  function messageBody(m) {
+    if(m.deleted) return '<p class="dmx-deleted">MESSAGE DELETED</p>';
+    const reply=m.replyTo?`<div class="dmx-reply-context">↳ ${esc(m.replyTo.name)} // ${esc(m.replyTo.excerpt)}</div>`:'';
+    let media='';
+    if(m.messageType==='gifRemote'&&m.gif) media=`<img class="dmx-gif" src="${esc(m.gif.gifUrl)}" alt="${esc(m.gif.title||'GIF')}" loading="lazy">`;
+    if(m.messageType==='image'&&m.imageUrl) media=`<img class="dmx-gif" src="${esc(m.imageUrl)}" alt="Private attachment" loading="lazy">`;
+    if(m.messageType==='voice') media=window.AsocVoice?.messageHTML?.(m)||'';
+    if(m.messageType==='sticker'&&m.stickerUrl) media=`<img class="dmx-sticker" src="${esc(m.stickerUrl)}" alt="Sticker">`;
+    if(m.messageType==='poll') media=pollHTML(m);
+    return reply+media+(m.text&&m.messageType!=='poll'?`<p>${richText(m.text)}</p>`:'')+(m.editedAt?'<em class="dmx-edited">EDITED</em>':'')+reactionsHTML(m)+`<div class="dmx-message-actions"><button type="button" data-dmx-reply="${esc(m.id)}" title="Reply">↩</button><button type="button" data-dmx-reaction-open="${esc(m.id)}" title="React">☺</button>${m.from===String(app()?.playerId||'')&&(!m.messageType||m.messageType==='text')?`<button type="button" data-dmx-edit="${esc(m.id)}" title="Edit">✎</button>`:''}${m.from===String(app()?.playerId||'')?`<button type="button" data-dmx-delete="${esc(m.id)}" title="Delete">⌫</button>`:''}</div>`;
+  }
+
+  const authHeaders=()=>({'x-player-token':sessionStorage.getItem('asoc_player_auth_token')||localStorage.getItem('asoc_player_auth_token')||''});
+  async function uploadPrivate(file){const type=String(file?.type||'').toLowerCase();if(!['image/png','image/jpeg','image/webp','image/gif'].includes(type)||file.size>5*1024*1024)throw new Error('PNG, JPG, WEBP or GIF up to 5 MB.');const res=await fetch('/api/dm/image',{method:'POST',headers:{...authHeaders(),'Content-Type':type},body:file});const body=await res.json();if(!res.ok)throw new Error(body.error||'Upload failed');send({type:'dm:send',toId:state.thread.other.id,text:'',messageType:'image',imageUrl:body.url,replyTo:state.replyTo});state.replyTo=null;}
 
   async function loadGifs(query = '') {
     if (state.gifLoading) return;
@@ -105,6 +121,9 @@
     el.addEventListener('click', onClick);
     el.addEventListener('keydown', onKey);
     el.addEventListener('input', onInput);
+    el.addEventListener('paste', onPaste);
+    el.addEventListener('dragover', e => { if (state.thread && !locked()) e.preventDefault(); });
+    el.addEventListener('drop', onDrop);
     document.body.appendChild(el);
     return el;
   }
@@ -215,7 +234,7 @@
       const divider = d !== lastDay ? `<div class="dmx-day">${esc(d)}</div>` : '';
       lastDay = d;
       const seen = lastMine && m.id === lastMine.id && t.otherReadAt >= m.at ? '<span class="dmx-seen">SEEN</span>' : '';
-      return `${divider}<div class="dmx-msg${m.from === me ? ' mine' : ''}${m.messageType === 'gifRemote' ? ' media' : ''}">${messageBody(m)}<span>${esc(time(m.at))}</span>${seen}</div>`;
+      return `${divider}<div class="dmx-msg${m.from === me ? ' mine' : ''}${m.messageType && m.messageType !== 'text' ? ' media' : ''}">${messageBody(m)}<span>${esc(time(m.at))}</span>${seen}</div>`;
     }).join('');
     const blockedNote = t.blocked
       ? '<div class="dmx-note">YOU BLOCKED THIS LITTLE HERO. UNBLOCK TO WRITE AGAIN.</div>'
@@ -232,14 +251,16 @@
       </div>
       <div class="dmx-msgs" id="dmx-msgs">${msgs || '<p class="dmx-empty">NO MESSAGES YET. SAY SOMETHING.</p>'}</div>
       ${blockedNote}${lockNote}
-      <div class="dmx-media-tools">
-        <button type="button" data-dmx-emoji aria-label="Emoji">☺</button><button type="button" data-dmx-gif>GIF</button>
-        ${state.emojiOpen ? `<div class="dmx-emoji-picker">${EMOJIS.map(x => `<button type="button" data-dmx-emoji-value="${x}">${x}</button>`).join('')}</div>` : ''}
+      ${state.replyTo?`<div class="dmx-reply-preview">↳ ${esc(state.replyTo.name)} // ${esc(state.replyTo.excerpt)}<button type="button" data-dmx-reply-cancel>×</button></div>`:''}${state.editingId?`<div class="dmx-edit-preview">EDITING MESSAGE<button type="button" data-dmx-edit-cancel>×</button></div>`:''}
+      <div class="dmx-public-composer"><div class="dmx-attachment-wrap"><button type="button" data-dmx-attach>+</button>${state.attachmentOpen?`<div class="dmx-attachment-menu"><button type="button" data-dmx-image>▧ <span>PHOTOS<small>UPLOAD · PASTE · DROP</small></span></button><button type="button" data-dmx-gif>GIF <span>GIPHY · UPLOAD</span></button><button type="button" data-dmx-voice>◉ <span>VOICE<small>UP TO 1 MINUTE</small></span></button><button type="button" data-dmx-poll>▥ <span>POLL<small>2–8 OPTIONS</small></span></button><button type="button" data-dmx-sticker>◇ <span>STICKERS</span></button></div>`:''}</div>
+        <button type="button" data-dmx-emoji aria-label="Emoji">☺</button>
+        ${state.emojiOpen ? `<div class="dmx-emoji-picker">${EMOJIS.concat(window.CommanderEmojis?.tokens||[]).map(emojiButton).join('')}</div>` : ''}
         ${state.gifOpen ? `<div class="dmx-gif-picker"><form data-dmx-gif-search><input type="search" maxlength="60" placeholder="Search GIFs…"><button>SEARCH</button></form><div class="dmx-gif-grid">${state.gifLoading ? '<em>ACQUIRING…</em>' : state.gifResults.map((g,i) => `<button type="button" data-dmx-gif-index="${i}"><img src="${esc(g.previewUrl || g.gifUrl)}" alt="${esc(g.title || 'GIF')}" loading="lazy"></button>`).join('')}</div></div>` : ''}
-      </div><form class="dmx-compose" data-compose>
+      <form class="dmx-compose" data-compose>
         <textarea id="dmx-input" rows="2" maxlength="500" placeholder="${canWrite ? `Message ${esc(t.other.name)}…` : ''}"${canWrite ? '' : ' disabled'}>${esc(draft)}</textarea>
         <button type="submit" class="dmx-send"${canWrite ? '' : ' disabled'}>SEND</button>
-      </form>`;
+      </form><button type="button" data-dmx-voice class="dmx-mic">●</button><input type="file" data-dmx-file accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>
+      ${state.pollOpen?`<form class="dmx-poll-maker" data-dmx-poll-maker><input name="question" maxlength="160" placeholder="Ask privately…" required>${Array.from({length:8},(_,i)=>`<input name="option" maxlength="80" placeholder="Option ${i+1}"${i<2?' required':''}>`).join('')}<label><input type="checkbox" name="multiple"> MULTIPLE ANSWERS</label><button>CREATE POLL</button></form>`:''}`;
   }
 
   function render() {
@@ -280,12 +301,29 @@
     if (!t || !text || locked() || t.blocked) return;
     state.error = '';
     state.draft[t.other.id] = '';
-    send({ type: 'dm:send', toId: t.other.id, text });
+    if(state.editingId) send({type:'dm:edit',conversationId:t.id,messageId:state.editingId,text});
+    else send({ type: 'dm:send', toId: t.other.id, text, replyTo:state.replyTo });
+    state.editingId=null; state.replyTo=null;
     if (input) input.value = '';
   }
 
   function onClick(e) {
     const t = e.target;
+    if(t.closest?.('[data-dmx-attach]')){state.attachmentOpen=!state.attachmentOpen;return render();}
+    if(t.closest?.('[data-dmx-image]')){root().querySelector('[data-dmx-file]')?.click();return;}
+    if(t.closest?.('[data-dmx-voice]')){state.attachmentOpen=false;render();return window.AsocVoice?.record?.({anchor:root().querySelector('.dmx-public-composer'),headers:authHeaders(),uploadUrl:'/api/dm/voice',onUploaded:(result,seconds)=>send({type:'dm:send',toId:state.thread.other.id,text:'',messageType:'voice',audioUrl:result.url,voiceSeconds:seconds,replyTo:state.replyTo}),onError:msg=>{state.error=msg;render();}});}
+    if(t.closest?.('[data-dmx-poll]')){state.pollOpen=!state.pollOpen;state.attachmentOpen=false;return render();}
+    if(t.closest?.('[data-dmx-sticker]')){state.attachmentOpen=false;render();return window.AsocStickers?.open?.({anchor:root().querySelector('.dmx-public-composer'),onSend:url=>send({type:'dm:send',toId:state.thread.other.id,text:'',messageType:'sticker',stickerUrl:url,replyTo:state.replyTo})});}
+    if(t.closest?.('[data-dmx-reply-cancel]')){state.replyTo=null;return render();}
+    if(t.closest?.('[data-dmx-edit-cancel]')){state.editingId=null;state.draft[state.thread.other.id]='';return render();}
+    const messageId=t.closest?.('[data-message-id]')?.dataset.messageId||t.closest?.('[data-dmx-reply]')?.dataset.dmxReply||t.closest?.('[data-dmx-edit]')?.dataset.dmxEdit||t.closest?.('[data-dmx-delete]')?.dataset.dmxDelete;
+    const msg=state.thread?.messages?.find(m=>m.id===messageId);
+    if(t.closest?.('[data-dmx-reply]')&&msg){state.replyTo={id:msg.id,from:msg.from,name:msg.from===String(app()?.playerId||'')?'You':state.thread.other.name,excerpt:msg.text||msg.poll?.question||'Attachment'};return render();}
+    if(t.closest?.('[data-dmx-edit]')&&msg){state.editingId=msg.id;state.draft[state.thread.other.id]=msg.text||'';render();document.getElementById('dmx-input')?.focus();return;}
+    if(t.closest?.('[data-dmx-delete]')&&msg)return send({type:'dm:delete',conversationId:state.thread.id,messageId:msg.id});
+    const reactionOpen=t.closest?.('[data-dmx-reaction-open]');if(reactionOpen){state.reactionFor=state.reactionFor===reactionOpen.dataset.dmxReactionOpen?null:reactionOpen.dataset.dmxReactionOpen;return render();}
+    const reaction=t.closest?.('[data-dmx-react]');if(reaction&&msg)return send({type:'dm:react',conversationId:state.thread.id,messageId:msg.id,emoji:reaction.dataset.dmxReact});
+    const vote=t.closest?.('[data-dmx-poll-vote]');if(vote&&msg)return send({type:'dm:pollVote',conversationId:state.thread.id,messageId:msg.id,optionIndex:Number(vote.dataset.dmxPollVote)});
     const emojiValue = t.closest?.('[data-dmx-emoji-value]');
     if (emojiValue) { const input = document.getElementById('dmx-input'); if (input) { input.value += emojiValue.dataset.dmxEmojiValue; state.draft[state.thread.other.id] = input.value; input.focus(); } state.emojiOpen = false; return render(); }
     if (t.closest?.('[data-dmx-emoji]')) { state.emojiOpen = !state.emojiOpen; state.gifOpen = false; return render(); }
@@ -335,11 +373,31 @@
     if (e.target.id === 'dmx-input' && state.thread) state.draft[state.thread.other.id] = e.target.value;
   }
 
+  function imageFromTransfer(items) {
+    return [...(items || [])].map(item => item.kind === 'file' ? item.getAsFile() : item).find(file => /^image\//.test(file?.type || '')) || null;
+  }
+  function onPaste(e) {
+    if (!e.target.closest?.('#dmx-input') || !state.thread || locked()) return;
+    const file = imageFromTransfer(e.clipboardData?.items);
+    if (!file) return;
+    e.preventDefault();
+    uploadPrivate(file).catch(error => { state.error=error.message; render(); });
+  }
+  function onDrop(e) {
+    if (!state.thread || locked()) return;
+    const file = imageFromTransfer(e.dataTransfer?.files);
+    if (!file) return;
+    e.preventDefault();
+    uploadPrivate(file).catch(error => { state.error=error.message; render(); });
+  }
+
   document.addEventListener('submit', e => {
     if (e.target.matches?.('[data-dmx-gif-search]')) { e.preventDefault(); return loadGifs(e.target.querySelector('input')?.value); }
+    if(e.target.matches?.('[data-dmx-poll-maker]')){e.preventDefault();const fd=new FormData(e.target);const options=fd.getAll('option').map(String).map(x=>x.trim()).filter(Boolean);send({type:'dm:send',toId:state.thread.other.id,text:'',messageType:'poll',poll:{question:String(fd.get('question')||''),options,allowMultiple:fd.get('multiple')==='on',durationSeconds:0}});state.pollOpen=false;return render();}
     if (e.target.closest?.('[data-compose]')) { e.preventDefault(); submit(); }
   });
   document.addEventListener('change', e => {
+    if(e.target.matches?.('#direct-messages [data-dmx-file]')){const file=e.target.files?.[0];e.target.value='';if(file)uploadPrivate(file).catch(error=>{state.error=error.message;render();});return;}
     if (e.target.matches?.('#direct-messages [data-allow]')) send({ type: 'dm:setting', allow: e.target.value });
   });
   document.addEventListener('click', e => {
@@ -392,6 +450,8 @@
       case 'dm:read':
         if (state.thread && state.thread.id === m.conversationId) { state.thread.otherReadAt = Number(m.at) || Date.now(); render(); }
         return;
+      case 'dm:update':
+        if(state.thread?.id===m.conversationId){const index=state.thread.messages.findIndex(x=>x.id===m.message.id);if(index>=0)state.thread.messages[index]=m.message;render();}return;
       case 'dm:blocked':
         state.blocked = m.blocked || [];
         if (state.thread && state.thread.other.id === m.playerId) state.thread.blocked = m.isBlocked;

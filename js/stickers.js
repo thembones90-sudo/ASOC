@@ -14,7 +14,7 @@
 
   const SIZE = 512;
   const MAX_BYTES = 1024 * 1024;
-  const state = { pack: [], mine: [], max: 120, loaded: false, tab: 'mine', tray: null, maker: null };
+  const state = { pack: [], mine: [], max: 120, loaded: false, tab: 'mine', tray: null, maker: null, onSend:null, anchor:null };
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   // Works on both pages: the Little Hero chat (PlayerApp) and the Shadow
@@ -48,6 +48,7 @@
   }
 
   function send(url) {
+    if (typeof state.onSend === 'function') { state.onSend(url); close(); return; }
     const target = app();
     if (!target?.ws || target.ws.readyState !== WebSocket.OPEN) return toast('Chat is not connected.');
     target.send({ type: 'chat:sticker', url });
@@ -78,11 +79,12 @@
 
   function renderTray() { if (state.tray) state.tray.innerHTML = trayHTML(); }
 
-  async function open() {
+  async function open(options = {}) {
     close();
-    const anchor = isGM()
+    state.onSend = typeof options.onSend === 'function' ? options.onSend : null;
+    const anchor = options.anchor || (isGM()
       ? document.querySelector('#shadow-broker-form .gm-composer-shell') || document.getElementById('shadow-broker-form')
-      : document.querySelector('#chat-form .chat-composer-shell') || document.getElementById('chat-form');
+      : document.querySelector('#chat-form .chat-composer-shell') || document.getElementById('chat-form'));
     if (!anchor) return;
     const tray = document.createElement('div');
     tray.className = 'stk-tray';
@@ -108,6 +110,7 @@
     document.removeEventListener('pointerdown', outside, true);
     state.tray?.remove();
     state.tray = null;
+    state.onSend = null;
   }
 
   async function onTrayClick(event) {
@@ -115,7 +118,12 @@
     const tab = t.closest('[data-stk-tab]')?.dataset.stkTab;
     if (tab) { state.tab = tab; return renderTray(); }
     if (t.closest('[data-stk-close]')) return close();
-    if (t.closest('[data-stk-create]')) { close(); return openMaker(); }
+    if (t.closest('[data-stk-create]')) {
+      const privateSend = state.onSend;
+      close();
+      state.onSend = privateSend;
+      return openMaker();
+    }
     const removeId = t.closest('[data-stk-remove]')?.dataset.stkRemove;
     if (removeId) {
       try { await api('/api/stickers/item/' + encodeURIComponent(removeId), { method: 'DELETE' }); state.mine = state.mine.filter(s => s.id !== removeId); renderTray(); }

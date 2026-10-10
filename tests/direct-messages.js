@@ -24,7 +24,7 @@ const indexHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const joinHtml = fs.readFileSync(path.join(ROOT, 'join.html'), 'utf8');
 assert.match(dmCss, /min-width:761px[\s\S]*max-width:1380px[\s\S]*player-battle-layout[\s\S]*width:calc\(100% - 92px\)/, 'compact desktop reserves a lane for the fixed social rail');
 assert.match(dmCss, /margin-left:92px !important/, 'casual chat starts to the right of the rail');
-assert.match(joinHtml, /direct-messages\.css\?v=20261010-private-media-1/, 'player DM media UI is cache-busted');
+assert.match(joinHtml, /direct-messages\.css\?v=20261010-private-parity-2/, 'player DM parity UI is cache-busted');
 assert.match(dmCss, /\.dmx-row\.unread[\s\S]*dmxUnreadRowGlow/, 'player conversation row glows as a whole when unread');
 assert.match(dmCss, /\.dmx-rail-person\.unread[\s\S]*dmxUnreadRailGlow/, 'player private rail entry glows as a whole when unread');
 assert.match(gmDmCss, /\.gm-dm-person\.unread[\s\S]*gmDmRowUnreadGlow/, 'GM private-channel row glows as a whole when unread');
@@ -34,9 +34,12 @@ assert.match(gmMinigamesClient, /gm-chat-tab'[\s\S]*GMDirectMessages\?\.setOpen\
 assert.match(gmDmClient, /gm:privateList/, 'GM private tab requests its direct-message list');
 assert.match(gmDmClient, /data-gm-dm-purge[\s\S]*gm:privatePurge/, 'GM private threads expose a confirmed per-chat PURGE action');
 assert.match(gmDmCss, /\.gm-dm-purge/, 'GM PURGE action has a distinct destructive style');
-assert.match(indexHtml, /gm-direct-messages\.css\?v=20261010-unread-badge-fit-1/, 'GM DM unread badge fix is cache-busted');
+assert.match(indexHtml, /gm-direct-messages\.css\?v=20261010-private-parity-2/, 'GM DM parity UI is cache-busted');
 assert.match(gmDmCss, /#gm-dm-toggle\.has-unread::after[\s\S]*top:3px !important[\s\S]*right:6px !important/, 'GM unread counter remains inside the clipped tab header');
-assert.match(joinHtml, /direct-messages\.js\?v=20261010-private-media-1/, 'player DM media client is cache-busted');
+assert.match(joinHtml, /direct-messages\.js\?v=20261010-private-parity-2/, 'player DM parity client is cache-busted');
+assert.match(indexHtml, /gm-direct-messages\.js\?v=20261010-private-parity-2/, 'GM DM parity client is cache-busted');
+assert.match(fs.readFileSync(path.join(ROOT, 'js', 'direct-messages.js'), 'utf8'), /UPLOAD · PASTE · DROP[\s\S]*2–8 OPTIONS/, 'player private composer exposes the complete attachment surface');
+assert.match(gmDmClient, /UPLOAD · PASTE · DROP[\s\S]*2–8 OPTIONS/, 'GM private composer exposes the complete attachment surface');
 assert.match(gmDmClient, /messageType:'gifRemote'/, 'GM private composer sends remote GIFs privately');
 
 function api(urlPath, body, headers = {}) {
@@ -49,6 +52,12 @@ function api(urlPath, body, headers = {}) {
     req.on('error', reject);
     if (body) req.write(JSON.stringify(body));
     req.end();
+  });
+}
+function upload(urlPath, body, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req=http.request({host:'127.0.0.1',port:PORT,path:urlPath,method:'POST',headers:{'content-length':body.length,...headers}},res=>{let text='';res.on('data',c=>{text+=c});res.on('end',()=>{let data={};try{data=JSON.parse(text)}catch{}resolve({status:res.statusCode,data,text});});});
+    req.on('error',reject);req.end(body);
   });
 }
 
@@ -136,6 +145,7 @@ function checkHiddenFromPublic() {
       }
       const token = (await api('/api/auth/player/login', creds[name])).data.token;
       const c = await new Client(name).open();
+      c.authToken = token;
       clients.push(c);
       c.send({ type: 'room:join', authToken: token, roomCode: 'MASTER', name });
       await c.next(m => m.type === 'join:success', `${name} join`);
@@ -169,14 +179,46 @@ function checkHiddenFromPublic() {
     ana.send({ type:'dm:send', toId:bo.playerId, text:'', messageType:'gifRemote', gif });
     const privateGif = await bo.next(m => m.type === 'dm:message' && m.message.messageType === 'gifRemote', 'private GIF', from);
     assert.equal(privateGif.message.gif.title, 'Private GIF');
+    await sleep(700);
+    const tinyPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=','base64');
+    const stored=await upload('/api/dm/image',tinyPng,{'content-type':'image/png','x-player-token':ana.authToken});
+    assert.equal(stored.status,201,'private image upload succeeds');
+    from=bo.mark();const publicMark=cy.mark();
+    ana.send({type:'dm:send',toId:bo.playerId,text:'',messageType:'image',imageUrl:stored.data.url});
+    assert.equal((await bo.next(m=>m.type==='dm:message'&&m.message.messageType==='image','private image',from)).message.imageUrl,stored.data.url);
+    assert.equal(await cy.none(m=>m.type==='chat:update',publicMark),true,'private attachment never publishes to room chat');
 
     // 2. Opening marks read; the sender learns it was seen.
     from = ana.mark();
     const thread = await bo.ask({ type: 'dm:open', playerId: ana.playerId }, ['dm:thread'], 'bo opens');
-    assert.equal(thread.thread.messages.length, 3);
+    assert.equal(thread.thread.messages.length, 4);
     assert.equal(thread.thread.other.name, 'Ana');
     await ana.next(m => m.type === 'dm:read' && m.conversationId === conversationId, 'ana sees read', from);
     assert.equal((await bo.ask({ type: 'dm:list' }, ['dm:list'], 'bo list')).conversations[0].unread, 0);
+
+    // Rich-message mutations remain scoped to the exact private conversation.
+    await sleep(700);
+    from = bo.mark();
+    ana.send({ type:'dm:send', toId:bo.playerId, text:'', messageType:'poll', poll:{ question:'Choose privately', options:['One','Two'], allowMultiple:false, durationSeconds:0 } });
+    const pollMessage = await bo.next(m => m.type === 'dm:message' && m.message.messageType === 'poll', 'private poll', from);
+    from = ana.mark();
+    bo.send({ type:'dm:pollVote', conversationId, messageId:pollMessage.message.id, optionIndex:1 });
+    const pollUpdate = await ana.next(m => m.type === 'dm:update' && m.message.id === pollMessage.message.id, 'private poll vote', from);
+    assert.deepEqual(pollUpdate.message.poll.votes['1'], [bo.playerId]);
+    from = bo.mark();
+    ana.send({ type:'dm:react', conversationId, messageId:pollMessage.message.id, emoji:'🔥' });
+    assert.deepEqual((await bo.next(m => m.type === 'dm:update' && m.message.id === pollMessage.message.id, 'private reaction', from)).message.reactions['🔥'], [ana.playerId]);
+    await sleep(700);
+    from = bo.mark();
+    ana.send({ type:'dm:send', toId:bo.playerId, text:'editable private line', replyTo:{ id:pollMessage.message.id, from:bo.playerId, name:'Bo', excerpt:'Choose privately' } });
+    const editable = await bo.next(m => m.type === 'dm:message' && m.message.text === 'editable private line', 'private reply', from);
+    assert.equal(editable.message.replyTo.id, pollMessage.message.id);
+    from = bo.mark();
+    ana.send({ type:'dm:edit', conversationId, messageId:editable.message.id, text:'edited private line' });
+    assert.equal((await bo.next(m => m.type === 'dm:update' && m.message.id === editable.message.id, 'private edit', from)).message.text, 'edited private line');
+    from = bo.mark();
+    ana.send({ type:'dm:delete', conversationId, messageId:editable.message.id });
+    assert.equal((await bo.next(m => m.type === 'dm:update' && m.message.id === editable.message.id, 'private delete', from)).message.deleted, true);
 
     // 3. Text rules and the rate limit.
     await sleep(700);

@@ -1,12 +1,15 @@
 // SHADOW BROKER DIRECT MESSAGES // compact GM console for Amusement Park.
 (function () {
-  const state = { list: [], thread: null, error: '', notice: '', open: false, emojiOpen:false, gifOpen:false, gifResults:[], gifLoading:false };
+  const state = { list: [], thread: null, error: '', notice: '', open: false, emojiOpen:false, gifOpen:false, gifResults:[], gifLoading:false, attachmentOpen:false, pollOpen:false, replyTo:null, editingId:null, reactionFor:null };
   const EMOJIS = ['😀','😂','🥰','😍','😘','😈','😭','😡','🤡','👀','💀','🔥','❤️','💜','✨','👍','👎','🙏','🎉'];
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   const time = t => new Date(Number(t) || 0).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
   const send = m => window.App?.send?.(m);
   const root = () => document.getElementById('gm-dm-console');
-  const messageBody = m => m.messageType === 'gifRemote' && m.gif ? '<img class="gm-dm-gif" src="' + esc(m.gif.gifUrl) + '" alt="' + esc(m.gif.title || 'GIF') + '" loading="lazy">' + (m.text ? '<p>' + esc(m.text) + '</p>' : '') : '<p>' + esc(m.text) + '</p>';
+  const richText=v=>window.CommanderEmojis?.renderText?window.CommanderEmojis.renderText(v||''):esc(v||'');
+  const authHeaders=()=>({'x-gm-token':window.GameData?.gmToken||sessionStorage.getItem('asoc_gm_token')||''});
+  function messageBody(m){if(m.deleted)return '<p class="gm-dm-deleted">MESSAGE DELETED</p>';let out=m.replyTo?'<div class="gm-dm-reply-context">↳ '+esc(m.replyTo.name)+' // '+esc(m.replyTo.excerpt)+'</div>':'';if(m.messageType==='gifRemote'&&m.gif)out+='<img class="gm-dm-gif" src="'+esc(m.gif.gifUrl)+'" alt="GIF">';if(m.messageType==='image')out+='<img class="gm-dm-gif" src="'+esc(m.imageUrl)+'" alt="Private attachment">';if(m.messageType==='voice')out+=window.AsocVoice?.messageHTML?.(m)||'';if(m.messageType==='sticker')out+='<img class="gm-dm-sticker" src="'+esc(m.stickerUrl)+'" alt="Sticker">';if(m.messageType==='poll'){const p=m.poll||{};out+='<div class="gm-dm-poll"><b>'+esc(p.question||m.text)+'</b>'+(p.options||[]).map((o,i)=>'<button type="button" data-gm-dm-poll-vote="'+i+'" data-message-id="'+esc(m.id)+'">'+esc(o)+' <small>'+((p.votes?.[i]||[]).length)+'</small></button>').join('')+'</div>';}if(m.text&&m.messageType!=='poll')out+='<p>'+richText(m.text)+'</p>';out+='<div class="gm-dm-reactions">'+Object.entries(m.reactions||{}).map(([e,ids])=>'<button type="button" data-gm-dm-react="'+esc(e)+'" data-message-id="'+esc(m.id)+'">'+richText(e)+' '+ids.length+'</button>').join('')+(state.reactionFor===m.id?'<div class="gm-dm-reaction-picker">'+EMOJIS.slice(0,14).concat(window.CommanderEmojis?.tokens||[]).map(e=>'<button type="button" data-gm-dm-react="'+esc(e)+'" data-message-id="'+esc(m.id)+'">'+(window.CommanderEmojis?.has?.(e)?window.CommanderEmojis.html(e,'commander-emoji-picker-icon'):esc(e))+'</button>').join('')+'</div>':'')+'</div><div class="gm-dm-actions"><button type="button" data-gm-dm-reply="'+esc(m.id)+'">↩</button><button type="button" data-gm-dm-reaction-open="'+esc(m.id)+'">☺</button>'+(m.from==='__GM__'&&(!m.messageType||m.messageType==='text')?'<button type="button" data-gm-dm-edit="'+esc(m.id)+'">✎</button>':'')+'<button type="button" data-gm-dm-delete="'+esc(m.id)+'">⌫</button></div>';return out;}
+  async function uploadPrivate(file){const type=String(file?.type||'').toLowerCase();if(!['image/png','image/jpeg','image/webp','image/gif'].includes(type)||file.size>5*1024*1024)throw new Error('PNG, JPG, WEBP or GIF up to 5 MB.');const res=await fetch('/api/dm/image',{method:'POST',headers:{...authHeaders(),'Content-Type':type},body:file});const body=await res.json();if(!res.ok)throw new Error(body.error||'Upload failed');send({type:'gm:privateSend',toId:state.thread.other.id,text:'',messageType:'image',imageUrl:body.url,replyTo:state.replyTo});state.replyTo=null;}
   async function loadGifs(query='') {
     if (state.gifLoading) return;
     state.gifLoading=true; render();
@@ -50,14 +53,14 @@
     const player = playerById(t.other?.id) || t.other || {};
     const msgs = (t.messages || []).map(m => {
       const mine = String(m.from) === '__GM__';
-      return '<div class="gm-dm-msg' + (mine ? ' mine' : '') + (m.messageType === 'gifRemote' ? ' media' : '') + '">' + messageBody(m) + '<span>' + esc(time(m.at)) + '</span></div>';
+      return '<div class="gm-dm-msg' + (mine ? ' mine' : '') + (m.messageType && m.messageType !== 'text' ? ' media' : '') + '">' + messageBody(m) + '<span>' + esc(time(m.at)) + '</span></div>';
     }).join('') || '<div class="gm-dm-empty thread">NO MESSAGES YET</div>';
     return '<div class="gm-dm-thread-head"><button type="button" data-gm-dm-back aria-label="Back">‹</button>' + avatar(player) + '<div><b>' + esc(player.name || 'Little Hero') + '</b><small>PRIVATE CHANNEL</small></div>' + (t.id ? '<button type="button" class="gm-dm-purge" data-gm-dm-purge>PURGE</button>' : '') + '</div>' +
       '<div class="gm-dm-messages" id="gm-dm-messages">' + msgs + '</div>' +
-      '<div class="gm-dm-media-tools"><button type="button" data-gm-dm-emoji>☺</button><button type="button" data-gm-dm-gif>GIF</button>' +
-      (state.emojiOpen ? '<div class="gm-dm-emoji-picker">' + EMOJIS.map(x=>'<button type="button" data-gm-dm-emoji-value="'+x+'">'+x+'</button>').join('') + '</div>' : '') +
-      (state.gifOpen ? '<div class="gm-dm-gif-picker"><form data-gm-dm-gif-search><input type="search" maxlength="60" placeholder="Search GIFs…"><button>SEARCH</button></form><div class="gm-dm-gif-grid">' + (state.gifLoading ? '<em>ACQUIRING…</em>' : state.gifResults.map((g,i)=>'<button type="button" data-gm-dm-gif-index="'+i+'"><img src="'+esc(g.previewUrl||g.gifUrl)+'" alt="'+esc(g.title||'GIF')+'"></button>').join('')) + '</div></div>' : '') + '</div>' +
-      '<form class="gm-dm-compose" data-gm-dm-compose><div class="gm-dm-compose-shell"><textarea rows="1" maxlength="500" placeholder="Message ' + esc(player.name || 'Little Hero') + '..."></textarea><button type="submit">SEND</button></div></form>';
+      (state.replyTo?'<div class="gm-dm-reply-preview">↳ '+esc(state.replyTo.name)+' // '+esc(state.replyTo.excerpt)+'<button type="button" data-gm-dm-reply-cancel>×</button></div>':'')+(state.editingId?'<div class="gm-dm-edit-preview">EDITING MESSAGE<button type="button" data-gm-dm-edit-cancel>×</button></div>':'')+'<div class="gm-dm-public-composer"><div class="gm-dm-attachment-wrap"><button type="button" data-gm-dm-attach>+</button>'+(state.attachmentOpen?'<div class="gm-dm-attachment-menu"><button type="button" data-gm-dm-image>▧ <span>PHOTOS<small>UPLOAD · PASTE · DROP</small></span></button><button type="button" data-gm-dm-gif>GIF <span>GIPHY · UPLOAD</span></button><button type="button" data-gm-dm-voice>◉ <span>VOICE<small>UP TO 1 MINUTE</small></span></button><button type="button" data-gm-dm-poll>▥ <span>POLL<small>2–8 OPTIONS</small></span></button><button type="button" data-gm-dm-sticker>◇ <span>STICKERS</span></button></div>':'')+'</div><button type="button" data-gm-dm-emoji>☺</button>' +
+      (state.emojiOpen ? '<div class="gm-dm-emoji-picker">' + EMOJIS.concat(window.CommanderEmojis?.tokens||[]).map(x=>'<button type="button" data-gm-dm-emoji-value="'+esc(x)+'">'+(window.CommanderEmojis?.has?.(x)?window.CommanderEmojis.html(x,'commander-emoji-picker-icon'):esc(x))+'</button>').join('') + '</div>' : '') +
+      (state.gifOpen ? '<div class="gm-dm-gif-picker"><form data-gm-dm-gif-search><input type="search" maxlength="60" placeholder="Search GIFs…"><button>SEARCH</button></form><div class="gm-dm-gif-grid">' + (state.gifLoading ? '<em>ACQUIRING…</em>' : state.gifResults.map((g,i)=>'<button type="button" data-gm-dm-gif-index="'+i+'"><img src="'+esc(g.previewUrl||g.gifUrl)+'" alt="'+esc(g.title||'GIF')+'"></button>').join('')) + '</div></div>' : '') +
+      '<form class="gm-dm-compose" data-gm-dm-compose><div class="gm-dm-compose-shell"><textarea rows="1" maxlength="500" placeholder="Message ' + esc(player.name || 'Little Hero') + '..."></textarea><button type="submit">SEND</button></div></form><button type="button" data-gm-dm-voice class="gm-dm-mic">●</button><input type="file" data-gm-dm-file accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>'+(state.pollOpen?'<form class="gm-dm-poll-maker" data-gm-dm-poll-maker><input name="question" maxlength="160" placeholder="Ask privately…" required>'+Array.from({length:8},(_,i)=>'<input name="option" maxlength="80" placeholder="Option '+(i+1)+'"'+(i<2?' required':'')+'>').join('')+'<label><input type="checkbox" name="multiple"> MULTIPLE ANSWERS</label><button>CREATE POLL</button></form>':'');
   }
   function render() {
     const el = root();
@@ -145,6 +148,7 @@
       render();
       return send({ type:'gm:privateList' });
     }
+    if(m.type==='gm:privateUpdate'&&state.thread?.id===m.conversationId){const index=state.thread.messages.findIndex(x=>x.id===m.message.id);if(index>=0)state.thread.messages[index]=m.message;return render();}
     if (m.type === 'gm:privateError') {
       state.error = m.message || 'PRIVATE CHANNEL FAILED';
       return render();
@@ -165,6 +169,20 @@
     }
   }
   document.addEventListener('click', e => {
+    if(e.target.closest?.('[data-gm-dm-attach]')){state.attachmentOpen=!state.attachmentOpen;return render();}
+    if(e.target.closest?.('[data-gm-dm-image]')){root()?.querySelector('[data-gm-dm-file]')?.click();return;}
+    if(e.target.closest?.('[data-gm-dm-voice]')){state.attachmentOpen=false;render();return window.AsocVoice?.record?.({anchor:root()?.querySelector('.gm-dm-public-composer'),headers:authHeaders(),uploadUrl:'/api/dm/voice',onUploaded:(result,seconds)=>send({type:'gm:privateSend',toId:state.thread.other.id,text:'',messageType:'voice',audioUrl:result.url,voiceSeconds:seconds,replyTo:state.replyTo}),onError:msg=>{state.error=msg;render();}});}
+    if(e.target.closest?.('[data-gm-dm-poll]')){state.pollOpen=!state.pollOpen;state.attachmentOpen=false;return render();}
+    if(e.target.closest?.('[data-gm-dm-sticker]')){state.attachmentOpen=false;render();return window.AsocStickers?.open?.({anchor:root()?.querySelector('.gm-dm-public-composer'),onSend:url=>send({type:'gm:privateSend',toId:state.thread.other.id,text:'',messageType:'sticker',stickerUrl:url,replyTo:state.replyTo})});}
+    if(e.target.closest?.('[data-gm-dm-reply-cancel]')){state.replyTo=null;return render();}
+    if(e.target.closest?.('[data-gm-dm-edit-cancel]')){state.editingId=null;return render();}
+    const id=e.target.closest?.('[data-message-id]')?.dataset.messageId||e.target.closest?.('[data-gm-dm-reply]')?.dataset.gmDmReply||e.target.closest?.('[data-gm-dm-edit]')?.dataset.gmDmEdit||e.target.closest?.('[data-gm-dm-delete]')?.dataset.gmDmDelete;const msg=state.thread?.messages?.find(m=>m.id===id);
+    if(e.target.closest?.('[data-gm-dm-reply]')&&msg){state.replyTo={id:msg.id,from:msg.from,name:msg.from==='__GM__'?'You':state.thread.other.name,excerpt:msg.text||msg.poll?.question||'Attachment'};return render();}
+    if(e.target.closest?.('[data-gm-dm-edit]')&&msg){state.editingId=msg.id;render();const input=root()?.querySelector('.gm-dm-compose textarea');if(input){input.value=msg.text||'';input.focus();}return;}
+    if(e.target.closest?.('[data-gm-dm-delete]')&&msg)return send({type:'gm:privateDelete',conversationId:state.thread.id,messageId:msg.id});
+    const reactionOpen=e.target.closest?.('[data-gm-dm-reaction-open]');if(reactionOpen){state.reactionFor=state.reactionFor===reactionOpen.dataset.gmDmReactionOpen?null:reactionOpen.dataset.gmDmReactionOpen;return render();}
+    const reaction=e.target.closest?.('[data-gm-dm-react]');if(reaction&&msg)return send({type:'gm:privateReact',conversationId:state.thread.id,messageId:msg.id,emoji:reaction.dataset.gmDmReact});
+    const vote=e.target.closest?.('[data-gm-dm-poll-vote]');if(vote&&msg)return send({type:'gm:privatePollVote',conversationId:state.thread.id,messageId:msg.id,optionIndex:Number(vote.dataset.gmDmPollVote)});
     const emoji=e.target.closest?.('[data-gm-dm-emoji-value]');
     if(emoji){const input=root()?.querySelector('.gm-dm-compose textarea');if(input){input.value+=emoji.dataset.gmDmEmojiValue;input.focus();}state.emojiOpen=false;return render();}
     if(e.target.closest?.('[data-gm-dm-emoji]')){state.emojiOpen=!state.emojiOpen;state.gifOpen=false;return render();}
@@ -201,13 +219,15 @@
   });
   document.addEventListener('submit', e => {
     if(e.target.matches?.('[data-gm-dm-gif-search]')){e.preventDefault();return loadGifs(e.target.querySelector('input')?.value);}
+    if(e.target.matches?.('[data-gm-dm-poll-maker]')){e.preventDefault();const fd=new FormData(e.target),options=fd.getAll('option').map(String).map(x=>x.trim()).filter(Boolean);send({type:'gm:privateSend',toId:state.thread.other.id,text:'',messageType:'poll',poll:{question:String(fd.get('question')||''),options,allowMultiple:fd.get('multiple')==='on',durationSeconds:0}});state.pollOpen=false;return render();}
     const form = e.target.closest?.('[data-gm-dm-compose]');
     if (!form) return;
     e.preventDefault();
     const input = form.querySelector('textarea');
     const text = String(input?.value || '').trim();
     if (!text || !state.thread?.other?.id) return;
-    send({ type:'gm:privateSend', toId:state.thread.other.id, text });
+    if(state.editingId)send({type:'gm:privateEdit',conversationId:state.thread.id,messageId:state.editingId,text});else send({ type:'gm:privateSend', toId:state.thread.other.id, text,replyTo:state.replyTo });
+    state.editingId=null;state.replyTo=null;
     if (input) input.value = '';
   });
   document.addEventListener('keydown', e => {
@@ -218,6 +238,19 @@
       return;
     }
     if (e.key === 'Escape' && state.thread) { e.preventDefault(); back(); }
+  });
+  document.addEventListener('change',e=>{if(e.target.matches?.('#gm-dm-console [data-gm-dm-file]')){const file=e.target.files?.[0];e.target.value='';if(file)uploadPrivate(file).catch(error=>{state.error=error.message;render();});}});
+  const transferImage = items => [...(items || [])].map(item => item.kind === 'file' ? item.getAsFile() : item).find(file => /^image\//.test(file?.type || '')) || null;
+  document.addEventListener('paste', e => {
+    if (!e.target.closest?.('#gm-dm-console .gm-dm-compose textarea') || !state.thread) return;
+    const file=transferImage(e.clipboardData?.items); if(!file)return; e.preventDefault();
+    uploadPrivate(file).catch(error=>{state.error=error.message;render();});
+  });
+  document.addEventListener('dragover', e => { if(state.open&&state.thread&&e.target.closest?.('#gm-dm-console'))e.preventDefault(); });
+  document.addEventListener('drop', e => {
+    if(!state.open||!state.thread||!e.target.closest?.('#gm-dm-console'))return;
+    const file=transferImage(e.dataTransfer?.files); if(!file)return; e.preventDefault();
+    uploadPrivate(file).catch(error=>{state.error=error.message;render();});
   });
 
   window.GMDirectMessages = { sync, render, onMessage, open, back, setOpen };

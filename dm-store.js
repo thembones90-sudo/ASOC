@@ -70,8 +70,10 @@ function allowOf(playerId) { return load().settings[String(playerId)]?.allow ===
 function send(from, to, text, now = Date.now(), media = null) {
   load();
   const body = String(text || '').replace(/\s+$/g, '').replace(/^\s+/g, '');
-  const gif = media?.messageType === 'gifRemote' && media.gif ? media.gif : null;
-  if (!body && !gif) return { ok: false, error: 'Message is empty' };
+  const kind = String(media?.messageType || 'text');
+  const gif = kind === 'gifRemote' && media.gif ? media.gif : null;
+  const hasAttachment = !!(gif || media?.imageUrl || media?.audioUrl || media?.stickerUrl || media?.poll);
+  if (!body && !hasAttachment) return { ok: false, error: 'Message is empty' };
   if (body.length > MAX_TEXT) return { ok: false, error: `Message is too long (max ${MAX_TEXT})` };
   if (String(from.id) === String(to.id)) return { ok: false, error: 'You cannot message yourself' };
   if (eitherBlocked(from.id, to.id)) return { ok: false, error: 'This message cannot be delivered' };
@@ -92,12 +94,54 @@ function send(from, to, text, now = Date.now(), media = null) {
       title: String(gif.title || 'GIF').slice(0, 120)
     };
   }
+  if (kind === 'image' && media.imageUrl) { message.messageType = 'image'; message.imageUrl = String(media.imageUrl); }
+  if (kind === 'voice' && media.audioUrl) { message.messageType = 'voice'; message.audioUrl = String(media.audioUrl); message.voiceSeconds = Math.max(1, Math.min(60, Number(media.voiceSeconds) || 1)); }
+  if (kind === 'sticker' && media.stickerUrl) { message.messageType = 'sticker'; message.stickerUrl = String(media.stickerUrl); }
+  if (kind === 'poll' && media.poll) { message.messageType = 'poll'; message.poll = JSON.parse(JSON.stringify(media.poll)); }
+  if (media?.replyTo?.id) message.replyTo = { id:String(media.replyTo.id), from:String(media.replyTo.from || ''), name:String(media.replyTo.name || '').slice(0,40), excerpt:String(media.replyTo.excerpt || '').slice(0,120) };
+  message.reactions = {};
   convo.messages.push(message);
   if (convo.messages.length > MAX_MESSAGES_PER_CONVERSATION) convo.messages.splice(0, convo.messages.length - MAX_MESSAGES_PER_CONVERSATION);
   convo.lastAt = now;
   convo.readAt[String(from.id)] = now;
   save();
   return { ok: true, conversation: convo, message };
+}
+
+function messageInConversation(conversationId, messageId) {
+  const conversation = conversationById(conversationId);
+  const message = conversation?.messages?.find(entry => entry.id === String(messageId));
+  return conversation && message ? { conversation, message } : null;
+}
+
+function editMessage(conversationId, messageId, actorId, text, now = Date.now()) {
+  const found = messageInConversation(conversationId, messageId);
+  const body = String(text || '').trim();
+  if (!found || found.message.from !== String(actorId)) return { ok:false, error:'Message not found' };
+  if (!body || body.length > MAX_TEXT || found.message.messageType && found.message.messageType !== 'text') return { ok:false, error:'This message cannot be edited' };
+  found.message.text = body; found.message.editedAt = now; save(); return { ok:true, ...found };
+}
+
+function deleteMessage(conversationId, messageId, actorId, isGm = false) {
+  const found = messageInConversation(conversationId, messageId);
+  if (!found || (!isGm && found.message.from !== String(actorId))) return { ok:false, error:'Message not found' };
+  found.message.deleted = true; found.message.text = ''; found.message.reactions = {}; delete found.message.gif; delete found.message.imageUrl; delete found.message.audioUrl; delete found.message.voiceSeconds; delete found.message.stickerUrl; delete found.message.poll; save(); return { ok:true, ...found };
+}
+
+function reactMessage(conversationId, messageId, actorId, emoji) {
+  const found = messageInConversation(conversationId, messageId);
+  if (!found || found.message.deleted) return { ok:false, error:'Message not found' };
+  const key = String(emoji || '').slice(0,40); if (!key) return { ok:false, error:'Invalid reaction' };
+  const set = new Set(found.message.reactions?.[key] || []); set.has(String(actorId)) ? set.delete(String(actorId)) : set.add(String(actorId));
+  found.message.reactions ||= {}; if (set.size) found.message.reactions[key] = [...set]; else delete found.message.reactions[key]; save(); return { ok:true, ...found };
+}
+
+function votePoll(conversationId, messageId, actorId, optionIndex) {
+  const found = messageInConversation(conversationId, messageId); const poll = found?.message?.poll; const index = Number(optionIndex);
+  if (poll?.expiresAt && Date.now() >= Number(poll.expiresAt)) poll.closedAt ||= Number(poll.expiresAt);
+  if (!poll || poll.closedAt || !Number.isInteger(index) || index < 0 || index >= poll.options.length) return { ok:false, error:'Poll is unavailable' };
+  poll.votes ||= {}; const id = String(actorId); if (!poll.allowMultiple) Object.keys(poll.votes).forEach(key => { poll.votes[key] = (poll.votes[key] || []).filter(x => x !== id); });
+  const set = new Set(poll.votes[index] || []); set.has(id) ? set.delete(id) : set.add(id); poll.votes[index] = [...set]; save(); return { ok:true, ...found };
 }
 
 function conversationFor(a, b) { return load().conversations[pairKey(a, b)] || null; }
@@ -130,7 +174,7 @@ function listFor(playerId) {
       return {
         id: c.id,
         other: { id: otherId, name: c.names[otherId] || 'Little Hero' },
-        last: last ? { from: last.from, text: last.text ? last.text.slice(0, 120) : (last.messageType === 'gifRemote' ? 'GIF' : ''), at: last.at } : null,
+        last: last ? { from: last.from, text: last.deleted ? 'MESSAGE DELETED' : last.text ? last.text.slice(0, 120) : ({ gifRemote:'GIF', image:'PHOTO', voice:'VOICE MESSAGE', sticker:'STICKER', poll:'POLL' }[last.messageType] || ''), at: last.at } : null,
         unread: unreadCount(c, id),
         blocked: isBlocked(id, otherId)
       };
@@ -199,7 +243,7 @@ function overview() {
       members: c.members.map(id => ({ id, name: c.names[id] || 'Little Hero' })),
       count: c.messages.length,
       lastAt: c.lastAt,
-      last: c.messages.length ? (c.messages[c.messages.length - 1].text || (c.messages[c.messages.length - 1].messageType === 'gifRemote' ? 'GIF' : '')).slice(0, 120) : ''
+      last: c.messages.length ? (c.messages[c.messages.length - 1].deleted ? 'MESSAGE DELETED' : c.messages[c.messages.length - 1].text || ({ gifRemote:'GIF', image:'PHOTO', voice:'VOICE MESSAGE', sticker:'STICKER', poll:'POLL' }[c.messages[c.messages.length - 1].messageType] || '')).slice(0, 120) : ''
     })).sort((a, b) => b.lastAt - a.lastAt),
     reports: db.reports.map(r => ({ id: r.id, conversationId: r.conversationId, names: r.names, reporterName: r.reporterName, reason: r.reason, at: r.at, count: r.snapshot.length })).sort((a, b) => b.at - a.at),
     blocks: Object.entries(db.blocks).filter(([, list]) => list.length).map(([id, list]) => ({ id, blocked: list }))
@@ -223,7 +267,7 @@ module.exports = {
   MAX_TEXT,
   RETENTION_MS,
   isHealthy() { try { load(); return healthy; } catch { return false; } },
-  send, listFor, totalUnread, markRead, conversationFor, conversationById, purgeConversation, unreadCount,
+  send, editMessage, deleteMessage, reactMessage, votePoll, listFor, totalUnread, markRead, conversationFor, conversationById, purgeConversation, unreadCount,
   setBlocked, blockedBy, isBlocked, setAllow, allowOf, report,
   overview, fullConversation, fullReport, pairKey, _reset
 };
