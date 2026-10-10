@@ -57,17 +57,17 @@
     }).join('') || '<div class="gm-dm-empty thread">NO MESSAGES YET</div>';
     return '<div class="gm-dm-thread-head"><button type="button" data-gm-dm-back aria-label="Back">‹</button>' + avatar(player) + '<div><b>' + esc(player.name || 'Little Hero') + '</b><small>PRIVATE CHANNEL</small></div>' + (t.id ? '<button type="button" class="gm-dm-purge" data-gm-dm-purge>PURGE</button>' : '') + '</div>' +
       '<div class="gm-dm-messages" id="gm-dm-messages">' + msgs + '</div>' +
-      (state.replyTo?'<div class="gm-dm-reply-preview">↳ '+esc(state.replyTo.name)+' // '+esc(state.replyTo.excerpt)+'<button type="button" data-gm-dm-reply-cancel>×</button></div>':'')+(state.editingId?'<div class="gm-dm-edit-preview">EDITING MESSAGE<button type="button" data-gm-dm-edit-cancel>×</button></div>':'')+'<div class="gm-dm-public-composer"><div class="gm-dm-attachment-wrap"><button type="button" data-gm-dm-attach>+</button>'+(state.attachmentOpen?'<div class="gm-dm-attachment-menu"><button type="button" data-gm-dm-image>▧ <span>PHOTOS<small>UPLOAD · PASTE · DROP</small></span></button><button type="button" data-gm-dm-gif>GIF <span>GIPHY · UPLOAD</span></button><button type="button" data-gm-dm-voice>◉ <span>VOICE<small>UP TO 1 MINUTE</small></span></button><button type="button" data-gm-dm-poll>▥ <span>POLL<small>2–8 OPTIONS</small></span></button><button type="button" data-gm-dm-sticker>◇ <span>STICKERS</span></button></div>':'')+'</div><button type="button" data-gm-dm-emoji>☺</button>' +
-      (state.emojiOpen ? '<div class="gm-dm-emoji-picker">' + EMOJIS.concat(window.CommanderEmojis?.tokens||[]).map(x=>'<button type="button" data-gm-dm-emoji-value="'+esc(x)+'">'+(window.CommanderEmojis?.has?.(x)?window.CommanderEmojis.html(x,'commander-emoji-picker-icon'):esc(x))+'</button>').join('') + '</div>' : '') +
-      (state.gifOpen ? '<div class="gm-dm-gif-picker"><form data-gm-dm-gif-search><input type="search" maxlength="60" placeholder="Search GIFs…"><button>SEARCH</button></form><div class="gm-dm-gif-grid">' + (state.gifLoading ? '<em>ACQUIRING…</em>' : state.gifResults.map((g,i)=>'<button type="button" data-gm-dm-gif-index="'+i+'"><img src="'+esc(g.previewUrl||g.gifUrl)+'" alt="'+esc(g.title||'GIF')+'"></button>').join('')) + '</div></div>' : '') +
-      '<form class="gm-dm-compose" data-gm-dm-compose><div class="gm-dm-compose-shell"><textarea rows="1" maxlength="500" placeholder="Message ' + esc(player.name || 'Little Hero') + '..."></textarea><button type="submit">SEND</button></div></form><button type="button" data-gm-dm-voice class="gm-dm-mic">●</button><input type="file" data-gm-dm-file accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>'+(state.pollOpen?'<form class="gm-dm-poll-maker" data-gm-dm-poll-maker><input name="question" maxlength="160" placeholder="Ask privately…" required>'+Array.from({length:8},(_,i)=>'<input name="option" maxlength="80" placeholder="Option '+(i+1)+'"'+(i<2?' required':'')+'>').join('')+'<label><input type="checkbox" name="multiple"> MULTIPLE ANSWERS</label><button>CREATE POLL</button></form>':'');
+      (state.replyTo?'<div class="gm-dm-reply-preview">↳ '+esc(state.replyTo.name)+' // '+esc(state.replyTo.excerpt)+'<button type="button" data-gm-dm-reply-cancel>×</button></div>':'')+(state.editingId?'<div class="gm-dm-edit-preview">EDITING MESSAGE<button type="button" data-gm-dm-edit-cancel>×</button></div>':'')+
+      '<div class="gm-dm-public-composer"><form class="shadow-broker-form gm-dm-compose" data-gm-dm-compose><div class="gm-composer-shell"><div class="gm-attachment-wrap gm-dm-attachment-wrap"><button type="button" class="chat-image-upload-btn gm-image-upload-btn gm-attach-toggle" data-gm-dm-attach title="Attachments" aria-label="Open attachments" aria-expanded="'+String(state.attachmentOpen)+'">+</button>'+(state.attachmentOpen?'<div class="gm-attachment-menu gm-dm-attachment-menu"><button type="button" class="gm-attachment-option" data-gm-dm-image><span>PHOTOS<small>UPLOAD · PASTE · DROP · 5 MB</small></span></button><button type="button" class="gm-attachment-option" data-gm-dm-gif><span>GIF<small>GIPHY · UPLOAD</small></span></button><button type="button" class="gm-attachment-option" data-gm-dm-voice><span>VOICE<small>UP TO 1 MINUTE</small></span></button><button type="button" class="gm-attachment-option" data-gm-dm-poll><span>POLL<small>2–8 OPTIONS · LIVE RESULTS</small></span></button><button type="button" class="gm-attachment-option" data-gm-dm-sticker><span>STICKERS<small>SEND · MAKE YOUR OWN</small></span></button></div>':'')+'</div><button type="button" class="gm-emoji-toggle" data-gm-dm-emoji title="Emoji" aria-label="Open emoji picker"><span class="gm-wolf-glyph" aria-hidden="true">🐺</span></button><div class="shadow-broker-input shadow-broker-rich-input" data-gm-dm-input contenteditable="true" role="textbox" aria-label="Private transmission to '+esc(player.name||'Little Hero')+'" aria-multiline="false" data-placeholder="Message '+esc(player.name||'Little Hero')+'..." spellcheck="true"></div><button type="button" data-gm-dm-voice class="gm-emoji-toggle gm-voice-btn" title="Voice message (up to 1 min)" aria-label="Record voice message"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg></button></div><input type="file" data-gm-dm-file accept="image/png,image/jpeg,image/webp,image/gif" hidden></form>'+
+      (state.emojiOpen?'<div class="gm-dm-emoji-picker">'+EMOJIS.concat(window.CommanderEmojis?.tokens||[]).map(x=>'<button type="button" data-gm-dm-emoji-value="'+esc(x)+'">'+(window.CommanderEmojis?.has?.(x)?window.CommanderEmojis.html(x,'commander-emoji-picker-icon'):esc(x))+'</button>').join('')+'</div>':'')+(state.gifOpen?'<div class="gm-dm-gif-picker"><form data-gm-dm-gif-search><input type="search" maxlength="60" placeholder="Search GIFs…"><button>SEARCH</button></form><div class="gm-dm-gif-grid">'+(state.gifLoading?'<em>ACQUIRING…</em>':state.gifResults.map((g,i)=>'<button type="button" data-gm-dm-gif-index="'+i+'"><img src="'+esc(g.previewUrl||g.gifUrl)+'" alt="'+esc(g.title||'GIF')+'"></button>').join(''))+'</div></div>':'')+'</div>'+
+      (state.pollOpen?'<form class="gm-dm-poll-maker" data-gm-dm-poll-maker><input name="question" maxlength="160" placeholder="Ask privately…" required>'+Array.from({length:8},(_,i)=>'<input name="option" maxlength="80" placeholder="Option '+(i+1)+'"'+(i<2?' required':'')+'>').join('')+'<label><input type="checkbox" name="multiple"> MULTIPLE ANSWERS</label><button>CREATE POLL</button></form>':'');
   }
   function render() {
     const el = root();
     if (!el) return;
     // Re-rendering must never eat a half-typed message.
-    const draftBox = el.querySelector('.gm-dm-compose textarea');
-    const draft = draftBox ? { value: draftBox.value, focused: document.activeElement === draftBox, start: draftBox.selectionStart, end: draftBox.selectionEnd, thread: state.thread?.other?.id } : null;
+    const draftBox = el.querySelector('[data-gm-dm-input]');
+    const draft = draftBox ? { value:draftBox.textContent || '', focused:document.activeElement === draftBox, thread:state.thread?.other?.id } : null;
     el.hidden = !state.open;
     const unread = state.list.reduce((n,c) => n + Number(c.unread || 0), 0);
     const toggle = document.getElementById('gm-dm-toggle');
@@ -82,10 +82,10 @@
       (state.thread ? threadHTML() : '<div class="gm-dm-roster">' + rosterHTML() + '</div>');
     const box = document.getElementById('gm-dm-messages');
     if (box) box.scrollTop = box.scrollHeight;
-    const nextBox = el.querySelector('.gm-dm-compose textarea');
+    const nextBox = el.querySelector('[data-gm-dm-input]');
     if (draft && nextBox && draft.thread === state.thread?.other?.id) {
-      nextBox.value = draft.value;
-      if (draft.focused) { nextBox.focus(); try { nextBox.setSelectionRange(draft.start, draft.end); } catch {} }
+      nextBox.textContent = draft.value;
+      if (draft.focused) { nextBox.focus(); const range=document.createRange();range.selectNodeContents(nextBox);range.collapse(false);const selection=getSelection();selection.removeAllRanges();selection.addRange(range); }
     }
   }
 
@@ -178,13 +178,13 @@
     if(e.target.closest?.('[data-gm-dm-edit-cancel]')){state.editingId=null;return render();}
     const id=e.target.closest?.('[data-message-id]')?.dataset.messageId||e.target.closest?.('[data-gm-dm-reply]')?.dataset.gmDmReply||e.target.closest?.('[data-gm-dm-edit]')?.dataset.gmDmEdit||e.target.closest?.('[data-gm-dm-delete]')?.dataset.gmDmDelete;const msg=state.thread?.messages?.find(m=>m.id===id);
     if(e.target.closest?.('[data-gm-dm-reply]')&&msg){state.replyTo={id:msg.id,from:msg.from,name:msg.from==='__GM__'?'You':state.thread.other.name,excerpt:msg.text||msg.poll?.question||'Attachment'};return render();}
-    if(e.target.closest?.('[data-gm-dm-edit]')&&msg){state.editingId=msg.id;render();const input=root()?.querySelector('.gm-dm-compose textarea');if(input){input.value=msg.text||'';input.focus();}return;}
+    if(e.target.closest?.('[data-gm-dm-edit]')&&msg){state.editingId=msg.id;render();const input=root()?.querySelector('[data-gm-dm-input]');if(input){input.textContent=msg.text||'';input.focus();}return;}
     if(e.target.closest?.('[data-gm-dm-delete]')&&msg)return send({type:'gm:privateDelete',conversationId:state.thread.id,messageId:msg.id});
     const reactionOpen=e.target.closest?.('[data-gm-dm-reaction-open]');if(reactionOpen){state.reactionFor=state.reactionFor===reactionOpen.dataset.gmDmReactionOpen?null:reactionOpen.dataset.gmDmReactionOpen;return render();}
     const reaction=e.target.closest?.('[data-gm-dm-react]');if(reaction&&msg)return send({type:'gm:privateReact',conversationId:state.thread.id,messageId:msg.id,emoji:reaction.dataset.gmDmReact});
     const vote=e.target.closest?.('[data-gm-dm-poll-vote]');if(vote&&msg)return send({type:'gm:privatePollVote',conversationId:state.thread.id,messageId:msg.id,optionIndex:Number(vote.dataset.gmDmPollVote)});
     const emoji=e.target.closest?.('[data-gm-dm-emoji-value]');
-    if(emoji){const input=root()?.querySelector('.gm-dm-compose textarea');if(input){input.value+=emoji.dataset.gmDmEmojiValue;input.focus();}state.emojiOpen=false;return render();}
+    if(emoji){const input=root()?.querySelector('[data-gm-dm-input]');if(input){input.textContent+=emoji.dataset.gmDmEmojiValue;input.focus();}state.emojiOpen=false;return render();}
     if(e.target.closest?.('[data-gm-dm-emoji]')){state.emojiOpen=!state.emojiOpen;state.gifOpen=false;return render();}
     if(e.target.closest?.('[data-gm-dm-gif]')){state.gifOpen=!state.gifOpen;state.emojiOpen=false;render();if(state.gifOpen&&!state.gifResults.length)loadGifs();return;}
     const gifButton=e.target.closest?.('[data-gm-dm-gif-index]');
@@ -223,16 +223,16 @@
     const form = e.target.closest?.('[data-gm-dm-compose]');
     if (!form) return;
     e.preventDefault();
-    const input = form.querySelector('textarea');
-    const text = String(input?.value || '').trim();
+    const input = form.querySelector('[data-gm-dm-input]');
+    const text = String(input?.textContent || '').trim();
     if (!text || !state.thread?.other?.id) return;
     if(state.editingId)send({type:'gm:privateEdit',conversationId:state.thread.id,messageId:state.editingId,text});else send({ type:'gm:privateSend', toId:state.thread.other.id, text,replyTo:state.replyTo });
     state.editingId=null;state.replyTo=null;
-    if (input) input.value = '';
+    if (input) input.textContent = '';
   });
   document.addEventListener('keydown', e => {
     // Enter sends, Shift+Enter breaks the line -- same as Battle Comms.
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.closest?.('.gm-dm-compose textarea')) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.closest?.('[data-gm-dm-input]')) {
       e.preventDefault();
       e.target.closest('form').requestSubmit();
       return;
@@ -242,7 +242,7 @@
   document.addEventListener('change',e=>{if(e.target.matches?.('#gm-dm-console [data-gm-dm-file]')){const file=e.target.files?.[0];e.target.value='';if(file)uploadPrivate(file).catch(error=>{state.error=error.message;render();});}});
   const transferImage = items => [...(items || [])].map(item => item.kind === 'file' ? item.getAsFile() : item).find(file => /^image\//.test(file?.type || '')) || null;
   document.addEventListener('paste', e => {
-    if (!e.target.closest?.('#gm-dm-console .gm-dm-compose textarea') || !state.thread) return;
+    if (!e.target.closest?.('#gm-dm-console [data-gm-dm-input]') || !state.thread) return;
     const file=transferImage(e.clipboardData?.items); if(!file)return; e.preventDefault();
     uploadPrivate(file).catch(error=>{state.error=error.message;render();});
   });

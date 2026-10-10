@@ -155,3 +155,23 @@ body.room-mode-casual #gm-panel .gm-module-chat #gm-dm-toggle.has-unread::after{
 }
 .gm-dm-edit-preview{margin:0 14px;padding:7px 9px;border-left:3px solid #42d9ff;background:#101a21;color:#9bdff0;font-size:12px}.gm-dm-edit-preview button{float:right}.gm-dm-attachment-menu button span{display:grid;font-weight:800}.gm-dm-attachment-menu button small{color:#887d92;font-size:9px}.gm-dm-public-composer{flex:0 0 auto}.gm-dm-public-composer .gm-dm-compose{display:block;min-width:0}.gm-dm-public-composer .gm-dm-mic{display:grid;place-items:center}.gm-dm-msg.media{overflow:visible}
 .gm-dm-reactions{position:relative}.gm-dm-reaction-picker{position:absolute;z-index:12;left:0;bottom:28px;display:grid;grid-template-columns:repeat(7,28px);gap:3px;padding:7px;border:1px solid #70439c;border-radius:8px;background:#0c0a10;box-shadow:0 12px 28px #000}.gm-dm-reaction-picker button{width:28px;height:28px;padding:2px}
+
+/* Private Channels deliberately reuse the Battle Comms composer component:
+   one capsule, attachments + wolf inside the left edge, voice inside right. */
+.gm-dm-public-composer{position:relative;display:block;padding:10px 16px 14px;border-top:1px solid rgba(255,255,255,.06)}
+.gm-dm-public-composer .gm-dm-compose{display:block;width:100%;padding:0;border:0;background:none}
+.gm-dm-public-composer .gm-composer-shell{position:relative;display:flex;align-items:center;width:100%;min-width:0;min-height:46px;padding:4px 7px;gap:2px;border:1px solid rgba(112,123,136,.50);border-radius:23px;background:linear-gradient(180deg,rgba(29,34,41,.98),rgba(15,18,23,.995));box-shadow:inset 0 1px 0 rgba(255,255,255,.045),inset 0 -1px 0 rgba(0,0,0,.58),0 3px 12px rgba(0,0,0,.20);box-sizing:border-box;transition:border-color .15s ease,box-shadow .15s ease}
+.gm-dm-public-composer .gm-composer-shell:focus-within{border-color:rgba(154,96,207,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 0 1px rgba(155,93,224,.12),0 0 14px rgba(115,55,166,.13)}
+.gm-dm-public-composer .gm-attachment-wrap{position:relative;flex:0 0 36px;width:36px;height:36px}
+.gm-dm-public-composer :is(.gm-attach-toggle,.gm-emoji-toggle){position:static;inset:auto;transform:none;display:inline-flex;align-items:center;justify-content:center;flex:0 0 36px;width:36px;height:36px;min-width:36px;min-height:36px;margin:0;padding:0;border:0;border-radius:50%;background:transparent;color:#a7aeb8;cursor:pointer;transition:background .13s ease,color .13s ease,transform .13s ease}
+.gm-dm-public-composer .gm-attach-toggle{font:400 1.72rem/1 Arial,sans-serif}
+.gm-dm-public-composer .gm-emoji-toggle{font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;font-size:1.18rem;line-height:1}
+.gm-dm-public-composer :is(.gm-attach-toggle,.gm-emoji-toggle):hover,.gm-dm-public-composer .gm-attach-toggle[aria-expanded="true"]{color:#f6f2fa;background:rgba(155,93,224,.17)}
+.gm-dm-public-composer :is(.gm-attach-toggle,.gm-emoji-toggle):active{transform:scale(.94)}
+.gm-dm-public-composer [data-gm-dm-input]{position:static;flex:1 1 auto;width:auto;min-width:0;min-height:36px;max-width:none;padding:8px 9px;border:0;border-radius:0;outline:0;background:transparent;box-shadow:none;color:#edf0f4;font:400 14.4px/1.35 'Segoe UI','Noto Sans',Arial,system-ui,sans-serif;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere}
+.gm-dm-public-composer [data-gm-dm-input]:empty::before{content:attr(data-placeholder);color:#7f8791;pointer-events:none}
+.gm-dm-public-composer .gm-voice-btn svg{display:block;margin:auto}
+.gm-dm-public-composer .gm-dm-attachment-menu{left:0;bottom:44px;width:280px;padding:6px}
+.gm-dm-public-composer .gm-dm-attachment-menu .gm-attachment-option{display:flex;align-items:center;width:100%;padding:9px 11px;border:0;border-bottom:1px solid #29222f;background:transparent;color:#e9dcf3;text-align:left}
+.gm-dm-public-composer .gm-dm-attachment-menu .gm-attachment-option span{display:grid;font-weight:800}.gm-dm-public-composer .gm-dm-attachment-menu .gm-attachment-option small{color:#887d92;font-size:9px;font-weight:500}
+.gm-dm-public-composer>.gm-dm-emoji-picker,.gm-dm-public-composer>.gm-dm-gif-picker{left:16px;bottom:66px}
