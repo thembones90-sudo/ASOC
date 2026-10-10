@@ -54,6 +54,10 @@ const ControlSurfaces = {
     const primaryGrid = document.createElement('div');
     primaryGrid.className = 'gm-backdoor-primary-grid';
     maintenance.appendChild(primaryGrid);
+    const panels = document.createElement('div');
+    panels.className = 'gm-backdoor-panels';
+    panels.dataset.active = 'log';
+    maintenance.appendChild(panels);
     const makeModule = (titleText, parent = maintenance) => {
       const section = document.createElement('section');
       section.className = 'gm-section gm-module maintenance-module';
@@ -116,20 +120,20 @@ const ControlSurfaces = {
     const log = document.createElement('section');
     log.className = 'gm-backdoor-log';
     log.innerHTML = '<div class="gm-backdoor-log-head"><strong>SYSTEM EVENT LOG</strong><span>LIVE // LOCAL AUDIT</span></div><div id="gm-backdoor-log-entries" class="gm-backdoor-log-entries"></div>';
-    maintenance.appendChild(log);
+    panels.appendChild(log);
 
     const diagnostics = document.createElement('section');
     diagnostics.className = 'gm-runtime-diagnostics';
     diagnostics.innerHTML = '<div class="gm-backdoor-log-head"><strong>RUNTIME DIAGNOSTICS</strong><span>SOCKET · ERRORS · STALE STATE · EFFECT QUEUE</span></div><div class="gm-runtime-diagnostics-summary" id="gm-runtime-diagnostics-summary"></div><div class="gm-runtime-diagnostics-events" id="gm-runtime-diagnostics-events"><p>NO RUNTIME FAULTS RECORDED</p></div>';
-    maintenance.appendChild(diagnostics);
+    panels.appendChild(diagnostics);
     window.addEventListener('asoc:diagnostic', () => this.refreshDiagnostics());
 
     const realmAudit = document.createElement('section');
     realmAudit.className = 'gm-shadow-realm-audit';
     realmAudit.innerHTML = '<div class="gm-backdoor-log-head"><strong>SHADOW REALM LEDGER</strong><span>SENTENCES // RELEASES // RETURNS</span></div><div id="gm-shadow-realm-history" class="gm-shadow-realm-history"><p>NO SENTENCES RECORDED</p></div>';
-    maintenance.appendChild(realmAudit);
+    panels.appendChild(realmAudit);
 
-    const records = makeModule('RECOUNT // RESULTS LEDGER', maintenance);
+    const records = makeModule('RECOUNT // RESULTS LEDGER', panels);
     records.id = 'records-section';
     records.classList.add('gm-records-section');
     let allTimeButton = document.getElementById('alltime-toggle-btn');
@@ -154,6 +158,36 @@ const ControlSurfaces = {
     recountLedger.className = 'recount-ledger recount-ledger-gm';
     records.appendChild(recountLedger);
     window.RecountLedger?.mount(recountLedger, payload => this.app?.send?.(payload));
+
+    // The four read-only panels share one tabbed pane so the console fits a
+    // single screen instead of stacking four full-width blocks.
+    const tabDefs = [
+      ['log', 'EVENT LOG', 'LIVE // LOCAL AUDIT', log],
+      ['diag', 'DIAGNOSTICS', 'SOCKET · ERRORS · STALE STATE · EFFECT QUEUE', diagnostics],
+      ['realm', 'SHADOW REALM', 'SENTENCES // RELEASES // RETURNS', realmAudit],
+      ['recount', 'RECOUNT', 'COMPLETED MATCH SCOREBOARDS', records]
+    ];
+    const tabBar = document.createElement('nav');
+    tabBar.className = 'gm-backdoor-tabs';
+    tabBar.setAttribute('role', 'tablist');
+    tabBar.innerHTML = tabDefs.map(([key, label]) => `<button type="button" role="tab" data-bd-tab-btn="${key}">${label}</button>` ).join('') + '<em class="gm-backdoor-tab-hint"></em>';
+    panels.insertBefore(tabBar, panels.firstChild);
+    tabDefs.forEach(([key, , , section]) => { section.dataset.bdTab = key; });
+    const selectTab = key => {
+      const def = tabDefs.find(item => item[0] === key) || tabDefs[0];
+      panels.dataset.active = def[0];
+      tabBar.querySelectorAll('[data-bd-tab-btn]').forEach(button => {
+        const on = button.dataset.bdTabBtn === def[0];
+        button.classList.toggle('active', on);
+        button.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      tabBar.querySelector('.gm-backdoor-tab-hint').textContent = def[2];
+    };
+    tabBar.addEventListener('click', event => {
+      const button = event.target.closest('[data-bd-tab-btn]');
+      if (button) selectTab(button.dataset.bdTabBtn);
+    });
+    selectTab('log');
 
     const advanced = document.createElement('details');
     advanced.className = 'gm-advanced-maintenance';
@@ -241,7 +275,7 @@ const ControlSurfaces = {
 
     maintenance.addEventListener('click', event => {
       const button = event.target.closest('button');
-      if (!button || button.classList.contains('gm-backdoor-return')) return;
+      if (!button || button.classList.contains('gm-backdoor-return') || button.closest('.gm-backdoor-tabs')) return;
       const label = String(button.textContent || button.getAttribute('aria-label') || 'CONTROL').trim().replace(/\s+/g, ' ');
       this.recordEvent(`${label} // COMMAND ISSUED`);
     });
@@ -258,7 +292,7 @@ const ControlSurfaces = {
   recordEvent(message) {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     this.eventLog.unshift({ time, message });
-    this.eventLog = this.eventLog.slice(0, 6);
+    this.eventLog = this.eventLog.slice(0, 40);
     const entries = document.getElementById('gm-backdoor-log-entries');
     if (entries) entries.innerHTML = this.eventLog.map(entry => `<div><time>${entry.time}</time><span>${this.escape(entry.message)}</span></div>`).join('');
   },
