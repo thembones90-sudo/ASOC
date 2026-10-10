@@ -67,10 +67,11 @@ function allowOf(playerId) { return load().settings[String(playerId)]?.allow ===
 
 // Appends a message. Caller has already checked rooms/rate limits; this
 // enforces blocks, the recipient's setting and text rules.
-function send(from, to, text, now = Date.now()) {
+function send(from, to, text, now = Date.now(), media = null) {
   load();
   const body = String(text || '').replace(/\s+$/g, '').replace(/^\s+/g, '');
-  if (!body) return { ok: false, error: 'Message is empty' };
+  const gif = media?.messageType === 'gifRemote' && media.gif ? media.gif : null;
+  if (!body && !gif) return { ok: false, error: 'Message is empty' };
   if (body.length > MAX_TEXT) return { ok: false, error: `Message is too long (max ${MAX_TEXT})` };
   if (String(from.id) === String(to.id)) return { ok: false, error: 'You cannot message yourself' };
   if (eitherBlocked(from.id, to.id)) return { ok: false, error: 'This message cannot be delivered' };
@@ -82,6 +83,15 @@ function send(from, to, text, now = Date.now()) {
   convo.names[String(from.id)] = String(from.name || 'Little Hero').slice(0, 40);
   convo.names[String(to.id)] = String(to.name || convo.names[String(to.id)] || 'Little Hero').slice(0, 40);
   const message = { id: newId('dmm'), from: String(from.id), text: body, at: now };
+  if (gif) {
+    message.messageType = 'gifRemote';
+    message.gif = {
+      id: String(gif.id || '').slice(0, 120),
+      gifUrl: String(gif.gifUrl || '').slice(0, 2048),
+      previewUrl: String(gif.previewUrl || gif.gifUrl || '').slice(0, 2048),
+      title: String(gif.title || 'GIF').slice(0, 120)
+    };
+  }
   convo.messages.push(message);
   if (convo.messages.length > MAX_MESSAGES_PER_CONVERSATION) convo.messages.splice(0, convo.messages.length - MAX_MESSAGES_PER_CONVERSATION);
   convo.lastAt = now;
@@ -120,7 +130,7 @@ function listFor(playerId) {
       return {
         id: c.id,
         other: { id: otherId, name: c.names[otherId] || 'Little Hero' },
-        last: last ? { from: last.from, text: last.text.slice(0, 120), at: last.at } : null,
+        last: last ? { from: last.from, text: last.text ? last.text.slice(0, 120) : (last.messageType === 'gifRemote' ? 'GIF' : ''), at: last.at } : null,
         unread: unreadCount(c, id),
         blocked: isBlocked(id, otherId)
       };
@@ -189,7 +199,7 @@ function overview() {
       members: c.members.map(id => ({ id, name: c.names[id] || 'Little Hero' })),
       count: c.messages.length,
       lastAt: c.lastAt,
-      last: c.messages.length ? c.messages[c.messages.length - 1].text.slice(0, 120) : ''
+      last: c.messages.length ? (c.messages[c.messages.length - 1].text || (c.messages[c.messages.length - 1].messageType === 'gifRemote' ? 'GIF' : '')).slice(0, 120) : ''
     })).sort((a, b) => b.lastAt - a.lastAt),
     reports: db.reports.map(r => ({ id: r.id, conversationId: r.conversationId, names: r.names, reporterName: r.reporterName, reason: r.reason, at: r.at, count: r.snapshot.length })).sort((a, b) => b.at - a.at),
     blocks: Object.entries(db.blocks).filter(([, list]) => list.length).map(([id, list]) => ({ id, blocked: list }))

@@ -14,8 +14,9 @@
     picking: false,
     error: '',
     notice: '',
-    draft: {}
+    draft: {}, emojiOpen: false, gifOpen: false, gifResults: [], gifLoading: false
   };
+  const EMOJIS = ['😀','😂','🥰','😍','😘','😈','😭','😡','🤡','👀','💀','🔥','❤️','💜','✨','👍','👎','🙏','🎉'];
   const app = () => window.PlayerApp;
   const send = m => app()?.send(m);
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -23,6 +24,23 @@
   const day = t => new Date(Number(t) || 0).toLocaleDateString([], { month: 'short', day: '2-digit' });
   const battleLive = () => /^BATTLE/.test(String(app()?.roomMode || ''));
   const locked = () => state.locked || battleLive();
+  const messageBody = m => m.messageType === 'gifRemote' && m.gif
+    ? `<img class="dmx-gif" src="${esc(m.gif.gifUrl)}" alt="${esc(m.gif.title || 'GIF')}" loading="lazy">${m.text ? `<p>${esc(m.text)}</p>` : ''}`
+    : `<p>${esc(m.text)}</p>`;
+
+  async function loadGifs(query = '') {
+    if (state.gifLoading) return;
+    state.gifLoading = true; render();
+    try {
+      const q = String(query || '').trim();
+      const url = '/api/gif/' + (q.length >= 2 ? 'search?q=' + encodeURIComponent(q) + '&' : 'trending?') + 'limit=12&offset=0';
+      const response = await fetch(url, { credentials:'same-origin' });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || 'GIF NETWORK OFFLINE');
+      state.gifResults = Array.isArray(payload.results) ? payload.results : [];
+    } catch (error) { state.error = error.message || 'GIF NETWORK OFFLINE'; }
+    state.gifLoading = false; render();
+  }
 
   function railRoot() {
     let rail = document.getElementById('dmx-rail');
@@ -197,7 +215,7 @@
       const divider = d !== lastDay ? `<div class="dmx-day">${esc(d)}</div>` : '';
       lastDay = d;
       const seen = lastMine && m.id === lastMine.id && t.otherReadAt >= m.at ? '<span class="dmx-seen">SEEN</span>' : '';
-      return `${divider}<div class="dmx-msg${m.from === me ? ' mine' : ''}"><p>${esc(m.text)}</p><span>${esc(time(m.at))}</span>${seen}</div>`;
+      return `${divider}<div class="dmx-msg${m.from === me ? ' mine' : ''}${m.messageType === 'gifRemote' ? ' media' : ''}">${messageBody(m)}<span>${esc(time(m.at))}</span>${seen}</div>`;
     }).join('');
     const blockedNote = t.blocked
       ? '<div class="dmx-note">YOU BLOCKED THIS LITTLE HERO. UNBLOCK TO WRITE AGAIN.</div>'
@@ -214,7 +232,11 @@
       </div>
       <div class="dmx-msgs" id="dmx-msgs">${msgs || '<p class="dmx-empty">NO MESSAGES YET. SAY SOMETHING.</p>'}</div>
       ${blockedNote}${lockNote}
-      <form class="dmx-compose" data-compose>
+      <div class="dmx-media-tools">
+        <button type="button" data-dmx-emoji aria-label="Emoji">☺</button><button type="button" data-dmx-gif>GIF</button>
+        ${state.emojiOpen ? `<div class="dmx-emoji-picker">${EMOJIS.map(x => `<button type="button" data-dmx-emoji-value="${x}">${x}</button>`).join('')}</div>` : ''}
+        ${state.gifOpen ? `<div class="dmx-gif-picker"><form data-dmx-gif-search><input type="search" maxlength="60" placeholder="Search GIFs…"><button>SEARCH</button></form><div class="dmx-gif-grid">${state.gifLoading ? '<em>ACQUIRING…</em>' : state.gifResults.map((g,i) => `<button type="button" data-dmx-gif-index="${i}"><img src="${esc(g.previewUrl || g.gifUrl)}" alt="${esc(g.title || 'GIF')}" loading="lazy"></button>`).join('')}</div></div>` : ''}
+      </div><form class="dmx-compose" data-compose>
         <textarea id="dmx-input" rows="2" maxlength="500" placeholder="${canWrite ? `Message ${esc(t.other.name)}…` : ''}"${canWrite ? '' : ' disabled'}>${esc(draft)}</textarea>
         <button type="submit" class="dmx-send"${canWrite ? '' : ' disabled'}>SEND</button>
       </form>`;
@@ -264,6 +286,12 @@
 
   function onClick(e) {
     const t = e.target;
+    const emojiValue = t.closest?.('[data-dmx-emoji-value]');
+    if (emojiValue) { const input = document.getElementById('dmx-input'); if (input) { input.value += emojiValue.dataset.dmxEmojiValue; state.draft[state.thread.other.id] = input.value; input.focus(); } state.emojiOpen = false; return render(); }
+    if (t.closest?.('[data-dmx-emoji]')) { state.emojiOpen = !state.emojiOpen; state.gifOpen = false; return render(); }
+    if (t.closest?.('[data-dmx-gif]')) { state.gifOpen = !state.gifOpen; state.emojiOpen = false; render(); if (state.gifOpen && !state.gifResults.length) loadGifs(); return; }
+    const gifButton = t.closest?.('[data-dmx-gif-index]');
+    if (gifButton && state.thread) { const gif = state.gifResults[Number(gifButton.dataset.dmxGifIndex)]; if (gif) send({ type:'dm:send', toId:state.thread.other.id, text:'', messageType:'gifRemote', gif }); state.gifOpen = false; state.gifResults = []; return render(); }
     if (t === e.currentTarget || t.closest('[data-close]')) return close();
     if (t.closest('[data-back]')) { state.thread = null; state.picking = false; return render(); }
     if (t.closest('[data-new]')) { state.picking = true; state.thread = null; return render(); }
@@ -308,6 +336,7 @@
   }
 
   document.addEventListener('submit', e => {
+    if (e.target.matches?.('[data-dmx-gif-search]')) { e.preventDefault(); return loadGifs(e.target.querySelector('input')?.value); }
     if (e.target.closest?.('[data-compose]')) { e.preventDefault(); submit(); }
   });
   document.addEventListener('change', e => {

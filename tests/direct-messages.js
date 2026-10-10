@@ -24,7 +24,7 @@ const indexHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const joinHtml = fs.readFileSync(path.join(ROOT, 'join.html'), 'utf8');
 assert.match(dmCss, /min-width:761px[\s\S]*max-width:1380px[\s\S]*player-battle-layout[\s\S]*width:calc\(100% - 92px\)/, 'compact desktop reserves a lane for the fixed social rail');
 assert.match(dmCss, /margin-left:92px !important/, 'casual chat starts to the right of the rail');
-assert.match(joinHtml, /direct-messages\.css\?v=20261006-unread-row-glow-1/, 'player unread-row glow is cache-busted');
+assert.match(joinHtml, /direct-messages\.css\?v=20261010-private-media-1/, 'player DM media UI is cache-busted');
 assert.match(dmCss, /\.dmx-row\.unread[\s\S]*dmxUnreadRowGlow/, 'player conversation row glows as a whole when unread');
 assert.match(dmCss, /\.dmx-rail-person\.unread[\s\S]*dmxUnreadRailGlow/, 'player private rail entry glows as a whole when unread');
 assert.match(gmDmCss, /\.gm-dm-person\.unread[\s\S]*gmDmRowUnreadGlow/, 'GM private-channel row glows as a whole when unread');
@@ -34,8 +34,9 @@ assert.match(gmMinigamesClient, /gm-chat-tab'[\s\S]*GMDirectMessages\?\.setOpen\
 assert.match(gmDmClient, /gm:privateList/, 'GM private tab requests its direct-message list');
 assert.match(gmDmClient, /data-gm-dm-purge[\s\S]*gm:privatePurge/, 'GM private threads expose a confirmed per-chat PURGE action');
 assert.match(gmDmCss, /\.gm-dm-purge/, 'GM PURGE action has a distinct destructive style');
-assert.match(indexHtml, /gm-direct-messages\.css\?v=20261006-purge-1/, 'GM purge UI is cache-busted');
-assert.match(joinHtml, /direct-messages\.js\?v=20261006-gm-purge-1/, 'player purge-receipt client is cache-busted');
+assert.match(indexHtml, /gm-direct-messages\.css\?v=20261010-private-media-1/, 'GM DM media UI is cache-busted');
+assert.match(joinHtml, /direct-messages\.js\?v=20261010-private-media-1/, 'player DM media client is cache-busted');
+assert.match(gmDmClient, /messageType:'gifRemote'/, 'GM private composer sends remote GIFs privately');
 
 function api(urlPath, body, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -155,10 +156,23 @@ function checkHiddenFromPublic() {
     await ana.next(m => m.type === 'dm:message' && m.message.text === 'hey Bo', 'ana echo');
     const conversationId = got.conversationId;
 
+    // Emoji are ordinary private text; GIF payloads are normalized, persisted,
+    // echoed privately to both participants, and never enter public chat.
+    await sleep(700);
+    from = bo.mark();
+    ana.send({ type:'dm:send', toId:bo.playerId, text:'Private fire 🔥' });
+    assert.equal((await bo.next(m => m.type === 'dm:message' && m.message.text.includes('🔥'), 'private emoji', from)).message.text, 'Private fire 🔥');
+    await sleep(700);
+    from = bo.mark();
+    const gif = { provider:'giphy', providerId:'private-gif', gifUrl:'https://media.giphy.com/media/abc/giphy.gif', previewUrl:'https://media.giphy.com/media/abc/200.gif', title:'Private GIF', width:320, height:240 };
+    ana.send({ type:'dm:send', toId:bo.playerId, text:'', messageType:'gifRemote', gif });
+    const privateGif = await bo.next(m => m.type === 'dm:message' && m.message.messageType === 'gifRemote', 'private GIF', from);
+    assert.equal(privateGif.message.gif.title, 'Private GIF');
+
     // 2. Opening marks read; the sender learns it was seen.
     from = ana.mark();
     const thread = await bo.ask({ type: 'dm:open', playerId: ana.playerId }, ['dm:thread'], 'bo opens');
-    assert.equal(thread.thread.messages.length, 1);
+    assert.equal(thread.thread.messages.length, 3);
     assert.equal(thread.thread.other.name, 'Ana');
     await ana.next(m => m.type === 'dm:read' && m.conversationId === conversationId, 'ana sees read', from);
     assert.equal((await bo.ask({ type: 'dm:list' }, ['dm:list'], 'bo list')).conversations[0].unread, 0);

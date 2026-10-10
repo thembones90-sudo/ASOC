@@ -11394,7 +11394,9 @@ function handleDirectMessage(ws, message) {
         const other = dmIdentityFor(message.toId);
         if (!other) return sendToWs(ws, { type: 'dm:error', message: 'No such Little Hero' });
         const text = sanitizeText(String(message.text || '')).slice(0, dmStore.MAX_TEXT + 1);
-        const result = dmStore.send(me, other, text, now);
+        const gif = message.messageType === 'gifRemote' ? normalizeRemoteGifPayload(message.gif) : null;
+        if (message.messageType === 'gifRemote' && !gif) return sendToWs(ws, { type: 'dm:error', message: 'Invalid GIF payload' });
+        const result = dmStore.send(me, other, text, now, gif ? { messageType:'gifRemote', gif } : null);
         if (!result.ok) return sendToWs(ws, { type: 'dm:error', message: result.error });
         ws.dmTimes.push(now);
         const clientRef = typeof message.clientRef === 'string' ? message.clientRef.slice(0, 40) : undefined;
@@ -11468,7 +11470,9 @@ function handleGmDirectMessages(ws, message) {
       const other = dmIdentityFor(message.toId);
       if (!other || other.id === GM_DM_ID) return sendToWs(ws, { type:'gm:privateError', message:'No such Little Hero' });
       const text = sanitizeText(String(message.text || '')).slice(0, dmStore.MAX_TEXT + 1);
-      const result = dmStore.send(me, other, text, Date.now());
+      const gif = message.messageType === 'gifRemote' ? normalizeRemoteGifPayload(message.gif) : null;
+      if (message.messageType === 'gifRemote' && !gif) return sendToWs(ws, { type:'gm:privateError', message:'Invalid GIF payload' });
+      const result = dmStore.send(me, other, text, Date.now(), gif ? { messageType:'gifRemote', gif } : null);
       if (!result.ok) return sendToWs(ws, { type:'gm:privateError', message:result.error });
       sendToWs(ws, { type:'gm:privateMessage', conversationId:result.conversation.id, other:{ id:other.id, name:other.name }, message:result.message });
       if (!dmStore.isBlocked(other.id, GM_DM_ID)) socketsForPlayer(other.id).forEach(socket => { sendToWs(socket, { type:'dm:message', conversationId:result.conversation.id, other:{ id:GM_DM_ID, name:'Shadow Broker' }, message:result.message }); sendDmSummary(socket); });
