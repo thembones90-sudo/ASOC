@@ -4579,7 +4579,7 @@ const PlayerApp = {
     const concoctionDebt = this.bloodTribute.source === 'unstableConcoction';
     const nudgeDebt = this.bloodTribute.source === 'nudge';
     const moonDebt = this.bloodTribute.source === 'moon';
-    if (kicker) kicker.textContent = moonDebt ? 'MOON // INDECENT EXPOSURE' : nudgeDebt ? 'NUDGE // PRIVILEGE EXHAUSTED' : concoctionDebt ? 'UNSTABLE CONCOCTION // REACTION DEBT' : this.bloodTribute.sourceLabel === 'BLOOD SCOPE' ? 'BLOOD SCOPE // TARGET ACQUIRED' : 'WOMF // DEBT CALLED';
+    if (kicker) kicker.textContent = moonDebt ? 'MOON // INDECENT EXPOSURE' : nudgeDebt ? 'NUDGE // PRIVILEGE EXHAUSTED' : concoctionDebt ? 'UNSTABLE CONCOCTION // REACTION DEBT' : this.bloodTribute.sourceLabel === 'BLOOD SCOPE' ? 'BLOOD SCOPE: TARGET ACQUIRED' : 'WOMF // DEBT CALLED';
     if (heading) heading.textContent = moonDebt ? 'THE BROKER SAW EVERYTHING' : nudgeDebt ? 'THE NUDGE DEMANDS BLOOD' : concoctionDebt ? 'CONCOCTION DEMANDS BLOOD' : 'BLOOD TRIBUTE DEMANDED';
     if (player) player.textContent = `${this.bloodTribute.playerName || this.playerName || 'LITTLE HERO'} // YOUR DEBT IS DUE`;
     if (status && !this.tributeUploading) status.textContent = 'SELECT AN IMAGE TO PAY THE TRIBUTE';
