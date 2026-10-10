@@ -2429,6 +2429,7 @@ function handleTributeForgive(ws) {
     delete room.wheel.startedAt;
     delete room.wheel.durationMs;
     delete room.wheel.committedAt;
+    delete room.wheel.rigId;
   } else if ((demand.source || 'womf') === 'womf') {
     resetWheel(room);
   }
@@ -2512,13 +2513,31 @@ function handleWheelOpen(ws, message) {
 
   if (segments.length > WHEEL_MAX_SEGMENTS) segments = segments.slice(0, WHEEL_MAX_SEGMENTS);
 
+  // SECRET TARGET (GM-only, hidden mechanic): the GM may name the Little Hero
+  // the scope will land on. The scope still hunts exactly as if the pick were
+  // random; rigId is never part of the public wheel state. It must be a real,
+  // connected player and is added to the candidate list if the GM left them out.
+  let rigId = null;
+  const rigWanted = typeof message.rigPlayerId === 'string' ? message.rigPlayerId.trim() : '';
+  if (rigWanted) {
+    const hit = [...connectedIds.entries()].find(([, id]) => id === rigWanted);
+    if (hit) {
+      const rigName = connectedNames.get(hit[0]);
+      if (!segments.some(name => name.toLowerCase() === hit[0])) {
+        if (segments.length >= WHEEL_MAX_SEGMENTS) segments[segments.length - 1] = rigName;
+        else segments.push(rigName);
+      }
+      rigId = rigWanted;
+    }
+  }
+
   if (segments.length < WHEEL_MIN_SEGMENTS) {
     sendToWs(ws, { type: 'error', message: `The Wheel needs at least ${WHEEL_MIN_SEGMENTS} names (got ${segments.length})` });
     return;
   }
 
   const segmentIds = segments.map(name => connectedIds.get(name.toLowerCase()) || null);
-  room.wheel = { open: true, segments, segmentIds, phase: 'idle', winnerIndex: null, spinToken: null, ...(scopeCommand ? { command: true } : {}) };
+  room.wheel = { open: true, segments, segmentIds, phase: 'idle', winnerIndex: null, spinToken: null, ...(scopeCommand ? { command: true } : {}), ...(rigId ? { rigId } : {}) };
   room.revision++;
 
   persistActiveRooms();
@@ -2595,7 +2614,12 @@ function handleWheelRoll(ws) {
 
   // The winner is chosen HERE, before any animation exists, with an unbiased
   // CSPRNG draw. The scope's choreography is theatre derived from `seed`.
-  const winnerIndex = crypto.randomInt(room.wheel.segments.length);
+  let winnerIndex = crypto.randomInt(room.wheel.segments.length);
+  // GM's secret target, if one was set and that hero is still on the wheel.
+  if (room.wheel.rigId) {
+    const rigged = room.wheel.segmentIds.indexOf(room.wheel.rigId);
+    if (rigged >= 0) winnerIndex = rigged;
+  }
   const spinToken = 'spin-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex');
   const startedAt = Date.now();
 
@@ -2640,7 +2664,7 @@ function armWheelSettlement(room) {
 
 // RECALL THE SNIPE -- the GM calls off a Blood Scope strike that has landed.
 // Voids the unpaid Blood Tribute it armed and takes the scope off every
-// screen. Only an unpaid BLOOD SCOPE debt can be recalled; WOMF charge is
+// screen. Silent: nothing is announced in chat. Only an unpaid BLOOD SCOPE debt can be recalled; WOMF charge is
 // never touched (it was only ever spent by a paid tribute).
 function handleScopeRecall(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
@@ -2660,8 +2684,6 @@ function handleScopeRecall(ws) {
   room.pendingTribute = null;
   resetWheel(room);
   room.revision++;
-  const posted = addShadowBrokerMessage(room, `☠ BLOOD SCOPE: SNIPE RECALLED // ${demand.playerName} IS SPARED // THE TRIBUTE IS VOID`);
-  if (posted.success) posted.message.text = posted.message.text.split(' // ').join('\n');
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastChatUpdate(room);
