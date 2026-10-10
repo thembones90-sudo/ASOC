@@ -4128,6 +4128,18 @@ const App = {
             </label>
           `).join('')
         : '<div class="wheel-setup-hint">No Little Heroes are online. The Blood Scope has nobody to hunt yet.</div>';
+      // SECRET TARGET: GM-only. The scope still hunts as if it were random.
+      let rig = document.getElementById('wheel-setup-rig');
+      if (!rig) {
+        rig = document.createElement('label');
+        rig.id = 'wheel-setup-rig';
+        rig.className = 'wheel-setup-rig';
+        listEl.insertAdjacentElement('afterend', rig);
+      }
+      rig.hidden = players.length < 1;
+      rig.innerHTML = `<span class="wheel-setup-rig-title">SECRET TARGET</span>
+        <select id="wheel-setup-rig-select"><option value="">NONE // LET THE SCOPE DECIDE</option>${players.filter(p => !String(p.id).startsWith('__')).map(p => `<option value="${this.escapeHtmlAttr(String(p.id))}">${this.escapeHtml(p.name)}</option>`).join('')}</select>
+        <small>Only you can see this. The scope hunts as if it were random, then lands on your pick.</small>`;
     }
     document.getElementById('wheel-setup-overlay')?.classList.add('active');
   },
@@ -4140,11 +4152,14 @@ const App = {
     if (this.mode !== 'multiplayer') return;
     const checked = Array.from(document.querySelectorAll('#wheel-setup-player-list .wheel-setup-checkbox:checked'));
     const segments = checked.map(cb => cb.dataset.playerName).filter(Boolean);
-    if (segments.length < 2) {
+    const rigPlayerId = document.getElementById('wheel-setup-rig-select')?.value || '';
+    const rigName = rigPlayerId ? (this.currentPlayers || []).find(p => String(p.id) === rigPlayerId)?.name : '';
+    const total = segments.length + (rigName && !segments.includes(rigName) ? 1 : 0);
+    if (total < 2) {
       alert('Select at least 2 online Little Heroes for THE BLOOD SCOPE.');
       return;
     }
-    this.send({ type: 'gm:wheelOpen', segments, ...(this._scopeCommand === true ? { command: true } : {}) });
+    this.send({ type: 'gm:wheelOpen', segments, ...(this._scopeCommand === true ? { command: true } : {}), ...(rigPlayerId ? { rigPlayerId } : {}) });
     this.closeWheelSetup();
   },
 
