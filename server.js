@@ -2638,6 +2638,37 @@ function armWheelSettlement(room) {
   }), Math.max(0, Number(room.wheel.settleAt || 0) - Date.now()));
 }
 
+// RECALL THE SNIPE -- the GM calls off a Blood Scope strike that has landed.
+// Voids the unpaid Blood Tribute it armed and takes the scope off every
+// screen. Only an unpaid BLOOD SCOPE debt can be recalled; WOMF charge is
+// never touched (it was only ever spent by a paid tribute).
+function handleScopeRecall(ws) {
+  const room = rooms.get(ws.roomCode?.toUpperCase());
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+  if (ws !== room.hostConnection) {
+    sendToWs(ws, { type: 'error', message: 'Only host can recall the snipe' });
+    return;
+  }
+  const demand = room.pendingTribute;
+  if (!demand || demand.status !== 'required' || demand.sourceLabel !== 'BLOOD SCOPE') {
+    sendToWs(ws, { type: 'error', message: 'No unpaid Blood Scope tribute to recall' });
+    return;
+  }
+  room.pendingTribute = null;
+  resetWheel(room);
+  room.revision++;
+  const posted = addShadowBrokerMessage(room, `☠ BLOOD SCOPE: SNIPE RECALLED // ${demand.playerName} IS SPARED // THE TRIBUTE IS VOID`);
+  if (posted.success) posted.message.text = posted.message.text.split(' // ').join('\n');
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastChatUpdate(room);
+  sendTributeVaultToHost(room);
+  console.log(`[ROOM ${room.code}] GM RECALLED the Blood Scope snipe on ${demand.playerName}`);
+}
+
 function handleWheelClose(ws) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
@@ -15087,6 +15118,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:wheelClose': {
           handleWheelClose(ws);
+          break;
+        }
+        case 'gm:scopeRecall': {
+          handleScopeRecall(ws);
           break;
         }
         case 'gm:timerLaunchCountdown': {
