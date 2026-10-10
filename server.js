@@ -7049,12 +7049,16 @@ const CHAT_SLASH_COMMANDS = [
 const coffeeCooldowns = new WeakMap();
 const lurkLastAt = new WeakMap();
 const LURK_MS = 9400;
+const nudgeLastAt = new WeakMap();
+const NUDGE_MS = 900;
+const NUDGE_COOLDOWN_MS = 2500;
 const GM_ONLY_SLASH_COMMANDS = [
   { name: '/olympics', help: '/olympics -- declare the Rock Paper Scissors Olympics lobby' },
   { name: '/dennis', help: '/dennis off|announcer|advice -- control Dennis game commentary' },
   { name: '/coffee', help: '/coffee -- Shadow Market unlock (10 SC): eight-second break in Amusement Park only' },
   { name: '/warsong', help: '/warsong -- Horde battle ritual: crimson warning, impact and banner' },
   { name: '/lurk', help: '/lurk -- every screen dims, two red eyes open in the dark, then sink into shadow and smoke' },
+  { name: '/nudge', help: '/nudge -- shake every player chat like an old MSN nudge (ready check)' },
   { name: '/fatality', help: '/fatality @Name -- 50/50 Pyroblast or Frost cinematic on one Little Hero' },
   { name: '/pat', help: '/pat @Name -- the Shadow Broker declares a Little Hero a good girl \u{1F5A4}' },
   { name: '/poison', help: '/poison @Name -- GM-only venom: one /roll save, then -0.1 SC every 20 seconds until Blood Tribute cure' },
@@ -8541,6 +8545,17 @@ function dispatchGmSlashCommand(room, ws, text) {
     if (now - (lurkLastAt.get(room) || 0) < LURK_MS) return { success: false, error: 'SOMETHING IS ALREADY WATCHING // WAIT FOR THE DARK TO LIFT' };
     lurkLastAt.set(room, now);
     broadcastToRoom(room, { type: 'lurk:gaze', timestamp: now, durationMs: LURK_MS });
+    return { success: true, broadcast: false };
+  }
+
+  // /nudge -- MSN-style shake of every player's chat window (a ready check). Ephemeral:
+  // nothing is written to chat history and reconnecting clients never replay it.
+  if (/^\/nudge\b/i.test(raw)) {
+    if (!/^\/nudge\s*$/i.test(raw)) return { success: false, error: 'NUDGE INVALID // USE /nudge' };
+    const now = Date.now();
+    if (now - (nudgeLastAt.get(room) || 0) < NUDGE_COOLDOWN_MS) return { success: false, error: 'NUDGE COOLING DOWN // GIVE THEM A MOMENT' };
+    nudgeLastAt.set(room, now);
+    broadcastToRoom(room, { type: 'nudge:shake', timestamp: now, durationMs: NUDGE_MS });
     return { success: true, broadcast: false };
   }
 
