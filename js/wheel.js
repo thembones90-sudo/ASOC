@@ -83,14 +83,24 @@ const Wheel = (() => {
     const wrap = document.createElement('span');
     wrap.className = 'bs-av';
     wrap.style.setProperty('--frame', identity.frame);
-    const ok = identity.avatar && /^(data:image\/|assets\/|\/uploads\/|https?:\/\/)/i.test(identity.avatar);
+    const ok = identity.avatar && /^(data:image\/|assets\/|\/assets\/|\/avatars\/|\/uploads\/|https?:\/\/)/i.test(identity.avatar);
     if (ok) {
       const img = document.createElement('img');
       img.alt = '';
       img.decoding = 'async';
       img.src = identity.avatar;
+      img.addEventListener('error', () => {
+        img.remove();
+        wrap.classList.add('is-sigil');
+        const letter = document.createElement('b');
+        letter.textContent = (identity.name.trim()[0] || '?').toUpperCase();
+        wrap.appendChild(letter);
+      }, { once: true });
       wrap.appendChild(img);
     } else {
+      // No picture on file: a designed sigil plate (frame-tinted, scanlined,
+      // with the player's initial) rather than a bare letter.
+      wrap.classList.add('is-sigil');
       const letter = document.createElement('b');
       letter.textContent = (identity.name.trim()[0] || '?').toUpperCase();
       wrap.appendChild(letter);
