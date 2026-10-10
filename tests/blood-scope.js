@@ -275,6 +275,36 @@ const scopeLines = client => client.chat.filter(m => m.messageType === 'bloodSco
     gm.send({ type: 'gm:scopeRecall' });
     await gm.waitFor(m => m.type === 'error' && /No unpaid Blood Scope tribute/i.test(m.message), 'nothing left to recall', mark);
 
+    // ---- 12. SECRET TARGET: the scope lands on the GM's pick, and says nothing
+    gm.send({ type: 'gm:wheelOpen', segments: [], command: true });
+    const probe = await gm.waitFor(m => m.type === 'state:public' && m.wheel?.open && m.wheel.phase === 'idle', 'probe scope', gm.mark());
+    const ids = probe.wheel.segmentIds.slice();
+    assert.ok(ids.length >= 2);
+    gm.send({ type: 'gm:wheelClose' });
+    await gm.waitFor(m => m.type === 'state:public' && m.wheel?.open === false, 'probe closed', gm.mark());
+    for (let round = 0; round < 3; round++) {
+      const pick = ids[(ids.length - 1 - round + ids.length) % ids.length];
+      mark = gm.mark();
+      gm.send({ type: 'gm:wheelOpen', segments: [], command: true, rigPlayerId: pick });
+      const armedRig = await gm.waitFor(m => m.type === 'state:public' && m.wheel?.open && m.wheel.phase === 'idle', 'rigged scope armed', mark);
+      assert.ok(!/rig/i.test(JSON.stringify(armedRig.wheel)), 'the public wheel never mentions the secret target');
+      mark = gm.mark();
+      gm.send({ type: 'gm:wheelRoll' });
+      const landed = await gm.waitFor(m => m.type === 'state:public' && m.wheel?.committedAt, 'rigged strike landed', mark);
+      assert.equal(landed.wheel.segmentIds[landed.wheel.winnerIndex], pick, 'the scope lands on the secret target');
+      assert.equal(landed.bloodTribute.playerId, pick);
+      assert.ok(!/rig/i.test(JSON.stringify(landed.wheel)), 'nothing in the public state gives the rig away');
+      mark = gm.mark();
+      gm.send({ type: 'gm:scopeRecall' });
+      await gm.waitFor(m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'rigged tribute recalled', mark);
+    }
+    mark = gm.mark();
+    gm.send({ type: 'gm:wheelOpen', segments: [], command: true, rigPlayerId: 'not-a-real-player' });
+    const bogus = await gm.waitFor(m => m.type === 'state:public' && m.wheel?.open, 'bogus rig is ignored', mark);
+    assert.ok(bogus.wheel.segmentIds.length >= 2, 'an invalid secret target falls back to an honest scope');
+    gm.send({ type: 'gm:wheelClose' });
+    await gm.waitFor(m => m.type === 'state:public' && m.wheel?.open === false, 'cleanup', gm.mark());
+
     assert.equal(errors.trim(), '', 'no server errors');
     console.log('PASS blood scope: GM-only activation, server-authoritative victim, hunt creates no debt, one commit + one announcement, close keeps debt, abort creates none, disconnect-safe, late-client recovery');
   } finally {
