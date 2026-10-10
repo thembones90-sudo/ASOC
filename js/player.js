@@ -1873,6 +1873,21 @@ const PlayerApp = {
         window.RecountLedger?.render(message.matches || []);
         break;
 
+      case 'tribute:pending': {
+        this.tributeUploading = false;
+        const status = document.getElementById('blood-tribute-status');
+        if (status) status.textContent = 'DELIVERED // AWAITING SHADOW BROKER VERDICT';
+        const file = document.getElementById('blood-tribute-file');
+        if (file) file.value = '';
+        break;
+      }
+      case 'tribute:rejected': {
+        this.tributeUploading = false;
+        const status = document.getElementById('blood-tribute-status');
+        if (status) status.textContent = 'TRIBUTE REJECTED // NEW OFFERING REQUIRED';
+        break;
+      }
+
       case 'tribute:accepted': {
         this.tributeUploading = false;
         const status = document.getElementById('blood-tribute-status');

@@ -3145,6 +3145,10 @@ const App = {
         window.RecountLedger?.render(message.matches || []);
         break;
 
+      case 'tribute:review':
+        this.showPendingBloodTributeReview(message.tribute);
+        break;
+
       case 'tribute:vault':
         // Only held while the vault is open (opened by /reliquary).
         if (document.getElementById('blood-tribute-vault-modal')?.hidden !== false && !this._vaultOpening) break;
@@ -4198,6 +4202,36 @@ const App = {
     setTimeout(() => section.classList.remove('bs-section-ping'), 2400);
   },
 
+  showPendingBloodTributeReview(tribute) {
+    let overlay = document.getElementById('pending-blood-tribute-review');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'pending-blood-tribute-review';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:20px';
+      overlay.innerHTML = '<section style="background:#1b1119;border:1px solid #bc5262;border-radius:14px;padding:20px;max-width:740px;width:100%;max-height:90vh;overflow:auto;color:#fff;text-align:center"><h2 style="color:#ff8a99">BLOOD TRIBUTE AWAITS JUDGMENT</h2><p data-review-player></p><img data-review-image alt="Privately submitted tribute awaiting judgment" style="max-width:100%;max-height:55vh;object-fit:contain;border-radius:8px"><div style="display:flex;gap:12px;justify-content:center;margin-top:18px"><button type="button" data-review-action="accept">ACCEPT TRIBUTE</button><button type="button" data-review-action="reject">REJECT TRIBUTE</button></div><p style="font-size:12px;color:#baa9b6">Only the Shadow Broker can view and judge this private submission.</p></section>';
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => {
+        const action = e.target.closest('[data-review-action]')?.dataset.reviewAction;
+        if (!action || !overlay.dataset.tributeId) return;
+        if (action === 'reject' && !confirm('Reject this Blood Tribute and restore the player debt?')) return;
+        this.send({ type: 'gm:tributeReviewDecision', id: overlay.dataset.tributeId, accepted: action === 'accept' });
+      });
+    }
+    const image = overlay.querySelector('[data-review-image]');
+    if (!tribute) {
+      image.removeAttribute('src');
+      delete overlay.dataset.tributeId;
+      overlay.hidden = true;
+      overlay.style.display = 'none';
+      return;
+    }
+    overlay.dataset.tributeId = tribute.id;
+    overlay.querySelector('[data-review-player]').textContent = (tribute.playerName || 'LITTLE HERO') + ' // ' + (tribute.sourceLabel || 'BLOOD TRIBUTE');
+    image.src = tribute.imageData;
+    overlay.hidden = false;
+    overlay.style.display = 'flex';
+  },
+
   renderBloodTributeVault() {
     const list = document.getElementById('blood-tribute-vault-list');
     const status = document.getElementById('blood-tribute-vault-status');
@@ -4206,7 +4240,7 @@ const App = {
     if (!list || !status) return;
 
     const tributes = Array.isArray(this.bloodTributes) ? this.bloodTributes : [];
-    if (this.bloodTribute?.status === 'required') {
+    if (['required', 'review'].includes(this.bloodTribute?.status)) {
       status.textContent = `DEBT OUTSTANDING // ${this.bloodTribute.playerName || 'UNKNOWN'}${this.bloodTribute.sourceLabel ? ' // SOURCE: ' + this.bloodTribute.sourceLabel : ''}`;
       status.classList.add('debt-outstanding');
       if (overrideBtn) overrideBtn.style.display = 'block';

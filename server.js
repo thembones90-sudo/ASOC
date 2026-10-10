@@ -1610,9 +1610,9 @@ function resetWheel(room) {
 
 function getBloodTributePublicState(room) {
   const tribute = room.pendingTribute;
-  if (!tribute || tribute.status !== 'required') return { status: 'idle' };
+  if (!tribute || !['required', 'review'].includes(tribute.status)) return { status: 'idle' };
   return {
-    status: 'required',
+    status: tribute.status,
     playerId: tribute.playerId,
     playerName: tribute.playerName,
     requestedAt: tribute.requestedAt,
@@ -1623,7 +1623,7 @@ function getBloodTributePublicState(room) {
 }
 
 function getBloodTributeVaultState(room) {
-  const tributes = Array.isArray(room.bloodTributes) ? room.bloodTributes : [];
+  const tributes = Array.isArray(room.bloodTributes) ? room.bloodTributes.filter(t => t.pendingReview !== true) : [];
   return {
     tributes: tributes.slice().reverse().map(t => ({
       id: t.id,
@@ -1786,6 +1786,52 @@ function mirrorTributesToInfostud(room) {
       .catch(error => console.error('[infostud] Reliquary copy failed:', error.message))
       .finally(() => tributeMirrorPending.delete(tribute.id));
   }
+}
+
+function sendPendingBloodTributeReview(room) {
+  const pending = (room?.bloodTributes || []).find(t => t.pendingReview === true);
+  if (!room?.hostConnection || room.hostConnection.readyState !== 1) return;
+  sendToWs(room.hostConnection, {
+    type: 'tribute:review',
+    tribute: pending ? {
+      id: pending.id, playerName: pending.playerName, playerId: pending.playerId,
+      sourceLabel: pending.sourceLabel, imageData: pending.imageData,
+      submittedAt: pending.submittedAt
+    } : null
+  });
+}
+
+function handleBloodTributeReviewDecision(ws, message) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  const tribute = (room.bloodTributes || []).find(t => t.id === String(message.id || '') && t.pendingReview === true);
+  if (!tribute || room.pendingTribute?.status !== 'review' || room.pendingTribute?.playerId !== tribute.playerId)
+    return sendToWs(ws, { type: 'error', message: 'No matching Blood Tribute awaits review' });
+  const accepted = message.accepted === true;
+  const demand = room.pendingTribute;
+  if (accepted) {
+    tribute.pendingReview = false;
+    room.pendingTribute = null;
+    if (demand.source === 'nudge') settleNudgeToll(room, demand.playerId);
+    if (demand.source === 'moon') { room.moonTolls ||= {}; room.moonTolls[String(demand.playerId)] = 'settled'; }
+    if ((demand.source || 'womf') === 'womf') {
+      if (demand.command !== true) room.womf.charge = 0;
+      resetWheel(room);
+    }
+  } else {
+    room.bloodTributes = room.bloodTributes.filter(t => t.id !== tribute.id);
+    demand.status = 'required';
+  }
+  room.revision++;
+  persistActiveRooms();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  for (const [socket, player] of room.players.entries()) {
+    if (String(player?.id) === String(tribute.playerId)) {
+      sendToWs(socket, { type: accepted ? 'tribute:accepted' : 'tribute:rejected', private: true });
+    }
+  }
+  sendPendingBloodTributeReview(room);
+  if (accepted) sendTributeVaultToHost(room);
 }
 
 function sendTributeVaultToHost(room) {
@@ -2189,29 +2235,20 @@ function handleBloodTributeSubmit(ws, message) {
     sourceLabel: demand.sourceLabel || null,
     imageData,
     submittedAt: now,
-    submittedPrivately: true
+    submittedPrivately: true,
+    pendingReview: true
   };
   if (!Array.isArray(room.bloodTributes)) room.bloodTributes = [];
   room.bloodTributes.push(tribute);
 
-  // Private upload: never create a public chat entry for an intimate tribute.
-  room.pendingTribute = null;
-  // The nudge toll is one-time: once paid, this player nudges freely forever.
-  if (demand.source === 'nudge') settleNudgeToll(room, demand.playerId);
-  // So is the moon toll: once paid, this player may moon the Broker freely.
-  if (demand.source === 'moon') { room.moonTolls ||= {}; room.moonTolls[String(demand.playerId)] = 'settled'; }
-  if ((demand.source || 'womf') === 'womf') {
-    if (demand.command !== true) room.womf.charge = 0;
-    resetWheel(room);
-  }
+  // Private upload: not accepted until the Shadow Broker judges it.
+  // Preserve the debt and store the image durably for host reconnect.
+  room.pendingTribute.status = 'review';
   room.revision++;
-
-  // The accepted tribute and private vault copy are durable before either
-  // side is told that payment succeeded.
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
-  sendTributeVaultToHost(room);
-  sendToWs(ws, { type: 'tribute:accepted', private: true });
+  sendPendingBloodTributeReview(room);
+  sendToWs(ws, { type: 'tribute:pending', private: true });
 }
 
 function blackMarketRoom(ws) {
@@ -10878,6 +10915,7 @@ function handleHostReconnect(ws, message) {
   sendChatSnapshot(ws, room);
   sendRecountHydration(ws, room);
   sendTributeVaultToHost(room);
+  sendPendingBloodTributeReview(room);
   sendPendingPoisonTributesToHost(room);
   sendRitualDetailToHost(room);
 
@@ -14960,6 +14998,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'tribute:submit': {
           handleBloodTributeSubmit(ws, message);
+          break;
+        }
+        case 'gm:tributeReviewDecision': {
+          handleBloodTributeReviewDecision(ws, message);
           break;
         }
         case 'poison:tributeSubmit': {

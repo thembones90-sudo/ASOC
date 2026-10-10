@@ -305,6 +305,42 @@ const scopeLines = client => client.chat.filter(m => m.messageType === 'bloodSco
     gm.send({ type: 'gm:wheelClose' });
     await gm.waitFor(m => m.type === 'state:public' && m.wheel?.open === false, 'cleanup', gm.mark());
 
+    // ---- 13. PRIVATE TRIBUTE APPROVAL: no automatic settlement --------------
+    mark = gm.mark();
+    gm.send({ type: 'gm:wheelOpen', segments: [], command: true });
+    await gm.waitFor(m => m.type === 'state:public' && m.wheel?.open && m.wheel.phase === 'idle', 'approval test armed', mark);
+    mark = gm.mark();
+    gm.send({ type: 'gm:wheelRoll' });
+    const billed = await gm.waitFor(m => m.type === 'state:public' && m.bloodTribute?.status === 'required', 'approval debt created', mark);
+    const victim = players.find(p => p.playerId === billed.bloodTribute.playerId);
+    assert.ok(victim, 'victim must be online');
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lfcAAAAASUVORK5CYII=';
+    mark = gm.mark();
+    let victimMark = victim.mark();
+    victim.send({ type: 'tribute:submit', imageData: png, retentionAcknowledged: true });
+    const review = await gm.waitFor(m => m.type === 'tribute:review' && m.tribute?.imageData === png, 'private GM review', mark);
+    assert.equal(review.tribute.playerId, victim.playerId);
+    await victim.waitFor(m => m.type === 'tribute:pending', 'player pending receipt', victimMark);
+    assert.equal(gm.state.bloodTribute.status, 'review', 'debt remains pending until GM verdict');
+    assert.ok(!JSON.stringify(players.map(p => p.state)).includes(png), 'image cannot leak in public state');
+    assert.ok(!JSON.stringify(gm.chat).includes(png), 'image cannot leak in chat');
+    mark = gm.mark();
+    gm.send({ type: 'gm:tributeReviewDecision', id: review.tribute.id, accepted: false });
+    await gm.waitFor(m => m.type === 'state:public' && m.bloodTribute?.status === 'required', 'rejected debt restored', mark);
+    mark = gm.mark();
+    victimMark = victim.mark();
+    victim.send({ type: 'tribute:submit', imageData: png, retentionAcknowledged: true });
+    const second = await gm.waitFor(m => m.type === 'tribute:review' && m.tribute?.id && m.tribute.id !== review.tribute.id, 'second review', mark);
+    await victim.waitFor(m => m.type === 'tribute:pending', 'second pending receipt', victimMark);
+    mark = gm.mark();
+    victimMark = victim.mark();
+    gm.send({ type: 'gm:tributeReviewDecision', id: second.tribute.id, accepted: true });
+    await gm.waitFor(m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'GM accepted debt settled', mark);
+    await victim.waitFor(m => m.type === 'tribute:accepted', 'player acceptance notice', victimMark);
+    mark = gm.mark();
+    gm.send({ type: 'gm:tributeReviewDecision', id: second.tribute.id, accepted: true });
+    await gm.waitFor(m => m.type === 'error' && /No matching Blood Tribute/i.test(m.message), 'duplicate verdict rejected', mark);
+
     assert.equal(errors.trim(), '', 'no server errors');
     console.log('PASS blood scope: GM-only activation, server-authoritative victim, hunt creates no debt, one commit + one announcement, close keeps debt, abort creates none, disconnect-safe, late-client recovery');
   } finally {
