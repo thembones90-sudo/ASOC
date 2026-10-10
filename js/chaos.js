@@ -337,7 +337,7 @@
     // created or relocated by separate features at different times.
     const row = document.querySelector('.battle-controls-utility-row');
     if (row) {
-      ['quests-btn', 'broker-transmog-btn', 'dragon-raid-setup-btn', 'poison-gm-button', 'chaos-gm-button', 'library-btn-footer']
+      ['quests-btn', 'broker-transmog-btn', 'dragon-raid-setup-btn', 'poison-gm-button', 'chaos-gm-button', 'blood-scope-gm-button', 'library-btn-footer']
         .map(id => document.getElementById(id))
         .filter(Boolean)
         .forEach(control => row.appendChild(control));
