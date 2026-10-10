@@ -492,3 +492,6 @@ html body #gm-panel .gm-latest-readout-label { font-size: 11.4px; }
 html body #gm-panel .gm-latest-readout-state { font-size: 8.8px; }
 html body #gm-panel .gm-latest-readout-state strong { font-size: 8px; }
 html body #gm-panel .gm-latest-readout-more { font-size: 8.4px; }
+
+/* 12. Emoji picker opens right above the wolf button (was anchored to the far right of the bar). */
+html body #gm-broker-bar #gm-emoji-picker.gm-emoji-picker { left: 44px !important; right: auto !important; transform-origin: bottom left; }
