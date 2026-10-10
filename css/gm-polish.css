@@ -177,6 +177,44 @@ html body #battle-controls-panel #chaos-gm-button {
   background-repeat: no-repeat !important;
 }
 
+/* SYSTEM PORTRAITS // original art under the existing compact controls. */
+html body #battle-controls-panel :is(#load-shell-btn,#reset-board-btn,#sound-toggle-btn,#master-access-btn) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-position: center !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+}
+html body #battle-controls-panel :is(#load-shell-btn,#reset-board-btn,#sound-toggle-btn,#master-access-btn) > * {
+  position: relative;
+  z-index: 2;
+}
+html body #battle-controls-panel #load-shell-btn {
+  background-image:
+    linear-gradient(90deg, rgba(1, 10, 15, .28), rgba(5, 16, 22, .8) 38%, rgba(5, 16, 22, .8) 62%, rgba(1, 10, 15, .28)),
+    url('../assets/ui/gm-pill-load-shell.png') !important;
+  text-shadow: 0 1px 2px #000, 0 0 9px rgba(90, 220, 255, .52) !important;
+}
+html body #battle-controls-panel #reset-board-btn {
+  background-image:
+    linear-gradient(90deg, rgba(16, 2, 4, .25), rgba(25, 6, 9, .78) 38%, rgba(25, 6, 9, .78) 62%, rgba(16, 2, 4, .25)),
+    url('../assets/ui/gm-pill-reset-board.png') !important;
+  text-shadow: 0 1px 2px #000, 0 0 9px rgba(255, 91, 104, .54) !important;
+}
+html body #battle-controls-panel #sound-toggle-btn {
+  background-image:
+    linear-gradient(90deg, rgba(2, 8, 14, .25), rgba(5, 13, 22, .79) 38%, rgba(5, 13, 22, .79) 62%, rgba(2, 8, 14, .25)),
+    url('../assets/ui/gm-pill-sounds.png') !important;
+  text-shadow: 0 1px 2px #000, 0 0 9px rgba(94, 206, 255, .52) !important;
+}
+html body #battle-controls-panel #master-access-btn {
+  background-image:
+    linear-gradient(90deg, rgba(9, 2, 14, .25), rgba(16, 5, 24, .79) 38%, rgba(16, 5, 24, .79) 62%, rgba(9, 2, 14, .25)),
+    url('../assets/ui/gm-pill-master-access.png') !important;
+  text-shadow: 0 1px 2px #000, 0 0 9px rgba(206, 112, 255, .54) !important;
+}
+
 /* Command rail reading order: mission to identity, raid, toxins, wager,
    then the maintenance entrance. Geometry remains owned by the rail layout. */
 html body #battle-controls-panel #quests-btn { order: 7 !important; }
