@@ -2128,16 +2128,19 @@ function commitBloodScope(room) {
   }
   wheel.committedAt = Date.now();
   const demand = room.pendingTribute;
-  const posted = addShadowBrokerMessage(
-    room,
-    `☠ BLOOD SCOPE: TARGET ACQUIRED // VICTIM: ${demand.playerName} // SENTENCE: BLOOD TRIBUTE REQUIRED // ISSUED BY: THE SHADOW BROKER // “The scope has spoken. Your offering is expected.”`
-  );
+  // One short, compact line; the wording rotates so it never reads as a form letter.
+  const name = demand.playerName;
+  const lines = [
+    `☠ ${name} is marked.`,
+    `☠ The scope chose ${name}.`,
+    `☠ ${name} owes blood.`,
+    `☠ Scope locked on ${name}.`,
+    `☠ ${name}. Pay up.`
+  ];
+  const posted = addShadowBrokerMessage(room, lines[crypto.randomInt(lines.length)]);
   if (posted.success) {
     posted.message.messageType = 'bloodScope';
     posted.message.bloodScope = { eventId: wheel.spinToken, victimId: demand.playerId };
-    // sanitizeText flattens newlines for typed input; this server-built text
-    // is trusted, and the chat bubble renders it as separate lines.
-    posted.message.text = posted.message.text.split(' // ').join('\n');
   }
   return true;
 }
