@@ -468,3 +468,27 @@ html body #poison-target-picker .poison-cast-btn.is-armed {
 }
 html body #poison-target-picker .poison-cast-btn.is-casting { color: #b8ff87; background: #0e2009; box-shadow: inset 0 0 0 1px var(--tox); }
 html body #poison-target-picker .poison-picker-empty { font-family: var(--font-machine); letter-spacing: .18em; font-size: 11px; }
+
+/* 11. GM composer + latest readout ---------------------------------------------
+   The "SHADOW BROKER" label in front of the composer said nothing the panel
+   does not already say, and cost the input ~100px. It is hidden (kept while
+   editing a sent message, where the label doubles as the edit indicator), so
+   the pill extends the full width of the bar. The emoji picker opens from a
+   wolf with a soft grey glow. The LATEST READOUT strip is 20% larger. */
+body.room-mode-casual #gm-broker-bar #shadow-broker-form:not(.editing-message) > .shadow-broker-form-label { display: none !important; }
+html body #gm-broker-bar #shadow-broker-form:not(.editing-message) { gap: 0 !important; grid-template-columns: minmax(0, 1fr) !important; max-width: none !important; width: 100% !important; }
+html body #gm-broker-bar #shadow-broker-form > .gm-composer-shell { flex: 1 1 100% !important; width: 100% !important; }
+html body #gm-broker-bar #gm-emoji-toggle .gm-wolf-glyph {
+  display: block; font-size: 1.28rem; line-height: 1; pointer-events: none;
+  filter: drop-shadow(0 0 3px rgba(178, 184, 196, .6)) drop-shadow(0 0 8px rgba(150, 156, 170, .3));
+  transition: filter .15s ease;
+}
+html body #gm-broker-bar #gm-emoji-toggle:hover .gm-wolf-glyph,
+html body #gm-broker-bar #gm-emoji-toggle[aria-expanded="true"] .gm-wolf-glyph {
+  filter: drop-shadow(0 0 4px rgba(214, 219, 228, .78)) drop-shadow(0 0 11px rgba(176, 182, 196, .4));
+}
+html body #gm-panel .gm-latest-readout { min-height: 30px; padding: 5px 11px; gap: 11px; }
+html body #gm-panel .gm-latest-readout-label { font-size: 11.4px; }
+html body #gm-panel .gm-latest-readout-state { font-size: 8.8px; }
+html body #gm-panel .gm-latest-readout-state strong { font-size: 8px; }
+html body #gm-panel .gm-latest-readout-more { font-size: 8.4px; }
