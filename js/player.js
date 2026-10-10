@@ -1449,7 +1449,10 @@ const PlayerApp = {
         }
         this.applyFinalSolverAura(battleVisible ? (message.finalSolverAura || null) : null, message.serverNow);
         Womf.update('womf-tracker-player', battleVisible ? (message.womf || { charge: 0, armed: false }) : { charge: 0, armed: false });
-        Wheel.update('wheel-overlay', battleVisible ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false);
+        Wheel.update('wheel-overlay', battleVisible ? message.wheel : { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null }, false, {
+          // The selected hero's own tribute prompt waits until the scope has been shown.
+          onPresentationEnd: () => this.updateBloodTributeDemand(this.bloodTribute)
+        }, message.timestamp);
         const tributeState = message.bloodTribute || { status: 'idle' };
         this.updateBloodTributeDemand(battleVisible || ['unstableConcoction', 'nudge', 'moon', 'rouletteCarnage'].includes(tributeState.source) ? tributeState : { status: 'idle' });
         Timer.update('timer-tracker-player', battleVisible ? (message.timer || { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }) : { phase: 'ready', duration: 0, remaining: 0, borrowedDuration: 0, borrowedRemaining: 0 }, false);
@@ -4559,9 +4562,11 @@ const PlayerApp = {
 
   updateBloodTributeDemand(state) {
     this.bloodTribute = state || { status: 'idle' };
+    window.BloodScopeMarks?.setTarget(this.bloodTribute);
     const overlay = document.getElementById('blood-tribute-overlay');
     if (!overlay) return;
-    const mine = this.bloodTribute.status === 'required' && this.bloodTribute.playerId === this.playerId;
+    const mine = this.bloodTribute.status === 'required' && this.bloodTribute.playerId === this.playerId
+      && !window.Wheel?.isPresenting?.('wheel-overlay');
     if (overlay.hidden !== !mine) overlay.hidden = !mine;
     if (!mine) {
       this.tributeUploading = false;
@@ -4574,7 +4579,7 @@ const PlayerApp = {
     const concoctionDebt = this.bloodTribute.source === 'unstableConcoction';
     const nudgeDebt = this.bloodTribute.source === 'nudge';
     const moonDebt = this.bloodTribute.source === 'moon';
-    if (kicker) kicker.textContent = moonDebt ? 'MOON // INDECENT EXPOSURE' : nudgeDebt ? 'NUDGE // PRIVILEGE EXHAUSTED' : concoctionDebt ? 'UNSTABLE CONCOCTION // REACTION DEBT' : 'WOMF // DEBT CALLED';
+    if (kicker) kicker.textContent = moonDebt ? 'MOON // INDECENT EXPOSURE' : nudgeDebt ? 'NUDGE // PRIVILEGE EXHAUSTED' : concoctionDebt ? 'UNSTABLE CONCOCTION // REACTION DEBT' : this.bloodTribute.sourceLabel === 'BLOOD SCOPE' ? 'BLOOD SCOPE // TARGET ACQUIRED' : 'WOMF // DEBT CALLED';
     if (heading) heading.textContent = moonDebt ? 'THE BROKER SAW EVERYTHING' : nudgeDebt ? 'THE NUDGE DEMANDS BLOOD' : concoctionDebt ? 'CONCOCTION DEMANDS BLOOD' : 'BLOOD TRIBUTE DEMANDED';
     if (player) player.textContent = `${this.bloodTribute.playerName || this.playerName || 'LITTLE HERO'} // YOUR DEBT IS DUE`;
     if (status && !this.tributeUploading) status.textContent = 'SELECT AN IMAGE TO PAY THE TRIBUTE';
@@ -5442,7 +5447,7 @@ const PlayerApp = {
         });
       }
       return `
-        <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'backstab' ? ' backstab-chat-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'SHADOW BROKER')}" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
+        <div class="chat-broker-entry chat-reactable${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'bloodScope' ? ' bloodscope-chat-message' : ''}${msg.messageType === 'backstab' ? ' backstab-chat-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'SHADOW BROKER')}" data-editable="false" oncontextmenu="return PlayerApp.openMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
           ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id, name: msg.playerName || 'SHADOW BROKER' }) : ''}${msg.messageType === 'backstab' ? window.BackstabEffect?.flagHTML?.() || '' : ''}
           ${msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : ''}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
