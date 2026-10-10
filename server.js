@@ -1579,18 +1579,27 @@ function getWomfPublicState(room) {
   };
 }
 
-const WHEEL_SPIN_DURATION_MS = Math.max(100, Number(process.env.ASOC_WHEEL_SPIN_DURATION_MS) || 4200);
+const WHEEL_SPIN_DURATION_MS = Math.max(100, Number(process.env.ASOC_WHEEL_SPIN_DURATION_MS) || 9000);
 const WHEEL_MIN_SEGMENTS = 2;
 const WHEEL_MAX_SEGMENTS = 12;
 
 function getWheelPublicState(room) {
   if (!room.wheel) room.wheel = { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
+  // THE BLOOD SCOPE -- the event is fully described here so every client can
+  // derive the same presentation from (seed, startedAt, durationMs) and a late
+  // or reconnecting client resumes at the right moment instead of restarting.
   return {
     open: room.wheel.open,
     segments: room.wheel.segments,
+    segmentIds: Array.isArray(room.wheel.segmentIds) ? room.wheel.segmentIds : [],
     phase: room.wheel.phase,
     winnerIndex: room.wheel.winnerIndex,
-    spinToken: room.wheel.spinToken
+    spinToken: room.wheel.spinToken,
+    eventId: room.wheel.spinToken || null,
+    seed: room.wheel.seed || null,
+    startedAt: room.wheel.startedAt || null,
+    durationMs: room.wheel.durationMs || null,
+    committedAt: room.wheel.committedAt || null
   };
 }
 
@@ -1607,7 +1616,8 @@ function getBloodTributePublicState(room) {
     playerName: tribute.playerName,
     requestedAt: tribute.requestedAt,
     spinToken: tribute.spinToken,
-    source: tribute.source || 'womf'
+    source: tribute.source || 'womf',
+    sourceLabel: tribute.sourceLabel || null
   };
 }
 
@@ -1620,6 +1630,7 @@ function getBloodTributeVaultState(room) {
       imageAssetId: t.imageAssetId || null,
       playerId: t.senderPlayerId || t.playerId || null,
       playerName: t.senderName || t.playerName || 'LITTLE HERO',
+      sourceLabel: t.sourceLabel || null,
       senderAvatar: t.senderAvatar || '',
       imageData: t.source === 'blackMarket' && /^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(String(t.imageUrlOrStoragePath || ''))
         ? t.imageUrlOrStoragePath
@@ -2072,24 +2083,68 @@ function findPlayerByName(room, name) {
   return fallback;
 }
 
+// Immutable player ids are authoritative; the display name is only a fallback
+// for rooms persisted before the Blood Scope stored segment ids.
+function findPlayerById(room, playerId) {
+  const target = String(playerId || '');
+  if (!target) return null;
+  let fallback = null;
+  for (const [socket, info] of room.players) {
+    if (String(info.id) !== target) continue;
+    if (socket.readyState === 1) return info;
+    if (!fallback) fallback = info;
+  }
+  return fallback;
+}
+
 function armBloodTributeForWheelResult(room) {
   const winnerName = room.wheel?.segments?.[room.wheel.winnerIndex];
-  const player = findPlayerByName(room, winnerName);
+  // Idempotent: the same spin can only ever create one obligation.
+  if (room.pendingTribute?.status === 'required' && room.pendingTribute.spinToken && room.pendingTribute.spinToken === room.wheel?.spinToken) return true;
+  const winnerId = room.wheel?.segmentIds?.[room.wheel.winnerIndex];
+  const player = findPlayerById(room, winnerId) || findPlayerByName(room, winnerName);
   if (!player) {
     room.pendingTribute = null;
     sendToWs(room.hostConnection, { type: 'tribute:unavailable', playerName: winnerName || 'UNKNOWN' });
     return false;
   }
-  return armBloodTributeForPlayer(room, player, room.wheel.spinToken);
+  return armBloodTributeForPlayer(room, player, room.wheel.spinToken, 'womf', 'BLOOD SCOPE');
 }
 
-function armBloodTributeForPlayer(room, player, spinToken, source = 'womf') {
+// THE BLOOD SCOPE COMMIT -- runs once, server-side, when the strike lands.
+// Arms the real Blood Tribute demand, then posts the single public
+// announcement. Closing any overlay afterwards can never undo this.
+function commitBloodScope(room) {
+  const wheel = room.wheel;
+  if (!wheel || wheel.committedAt) return false;
+  if (!armBloodTributeForWheelResult(room)) {
+    resetWheel(room);
+    return false;
+  }
+  wheel.committedAt = Date.now();
+  const demand = room.pendingTribute;
+  const posted = addShadowBrokerMessage(
+    room,
+    `☠ BLOOD SCOPE: TARGET ACQUIRED // VICTIM: ${demand.playerName} // SENTENCE: BLOOD TRIBUTE REQUIRED // ISSUED BY: THE SHADOW BROKER // “The scope has spoken. Your offering is expected.”`
+  );
+  if (posted.success) {
+    posted.message.messageType = 'bloodScope';
+    posted.message.bloodScope = { eventId: wheel.spinToken, victimId: demand.playerId };
+    // sanitizeText flattens newlines for typed input; this server-built text
+    // is trusted, and the chat bubble renders it as separate lines.
+    posted.message.text = posted.message.text.split(' // ').join('\n');
+  }
+  return true;
+}
+
+function armBloodTributeForPlayer(room, player, spinToken, source = 'womf', sourceLabel = null) {
   room.pendingTribute = {
     id: 'demand-' + crypto.randomBytes(6).toString('hex'),
     playerId: player.id,
     playerName: player.name,
     spinToken,
     source,
+    ...(sourceLabel ? { sourceLabel } : {}),
     status: 'required',
     requestedAt: Date.now()
   };
@@ -2123,6 +2178,7 @@ function handleBloodTributeSubmit(ws, message) {
     playerId: demand.playerId,
     playerName: demand.playerName,
     source: demand.source || 'womf',
+    sourceLabel: demand.sourceLabel || null,
     imageData,
     submittedAt: now,
     submittedPrivately: true
@@ -2364,6 +2420,10 @@ function handleTributeForgive(ws) {
     room.wheel.winnerIndex = null;
     room.wheel.spinToken = null;
     delete room.wheel.settleAt;
+    delete room.wheel.seed;
+    delete room.wheel.startedAt;
+    delete room.wheel.durationMs;
+    delete room.wheel.committedAt;
   } else if ((demand.source || 'womf') === 'womf') {
     resetWheel(room);
   }
@@ -2411,12 +2471,16 @@ function handleWheelOpen(ws, message) {
   // requested roster against it. This makes offline/custom identities
   // impossible even if an old or hand-crafted client sends them.
   const connectedNames = new Map();
+  const connectedIds = new Map();
   for (const [socket, player] of room.players) {
     if (!player || player.connected !== true || socket.readyState !== 1) continue;
     const canonical = String(player.name || '').trim();
     if (!canonical) continue;
     const key = canonical.toLowerCase();
-    if (!connectedNames.has(key)) connectedNames.set(key, canonical);
+    if (!connectedNames.has(key)) {
+      connectedNames.set(key, canonical);
+      connectedIds.set(key, String(player.id));
+    }
   }
 
   let segments = Array.isArray(message.segments) ? message.segments : [];
@@ -2444,7 +2508,8 @@ function handleWheelOpen(ws, message) {
     return;
   }
 
-  room.wheel = { open: true, segments, phase: 'idle', winnerIndex: null, spinToken: null };
+  const segmentIds = segments.map(name => connectedIds.get(name.toLowerCase()) || null);
+  room.wheel = { open: true, segments, segmentIds, phase: 'idle', winnerIndex: null, spinToken: null };
   room.revision++;
 
   persistActiveRooms();
@@ -2495,10 +2560,14 @@ function handleWheelRoll(ws) {
   // disconnected identity must not remain eligible merely because it was
   // online when the setup modal was rendered.
   const liveNameKeys = new Set();
+  const liveIdByKey = new Map();
   for (const [socket, player] of room.players) {
     if (!player || player.connected !== true || socket.readyState !== 1) continue;
     const name = String(player.name || '').trim();
-    if (name) liveNameKeys.add(name.toLowerCase());
+    if (name) {
+      liveNameKeys.add(name.toLowerCase());
+      if (!liveIdByKey.has(name.toLowerCase())) liveIdByKey.set(name.toLowerCase(), String(player.id));
+    }
   }
   const liveSegments = room.wheel.segments.filter(name => liveNameKeys.has(String(name || '').trim().toLowerCase()));
   if (liveSegments.length < WHEEL_MIN_SEGMENTS) {
@@ -2512,14 +2581,23 @@ function handleWheelRoll(ws) {
   if (liveSegments.length !== room.wheel.segments.length) {
     room.wheel.segments = liveSegments;
   }
+  // Ids always travel with their names; they are what the tribute binds to.
+  room.wheel.segmentIds = room.wheel.segments.map(name => liveIdByKey.get(String(name).trim().toLowerCase()) || null);
 
+  // The winner is chosen HERE, before any animation exists, with an unbiased
+  // CSPRNG draw. The scope's choreography is theatre derived from `seed`.
   const winnerIndex = crypto.randomInt(room.wheel.segments.length);
   const spinToken = 'spin-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex');
+  const startedAt = Date.now();
 
   room.wheel.phase = 'spinning';
   room.wheel.winnerIndex = winnerIndex;
   room.wheel.spinToken = spinToken;
-  room.wheel.settleAt = Date.now() + WHEEL_SPIN_DURATION_MS;
+  room.wheel.seed = crypto.randomBytes(4).readUInt32BE(0);
+  room.wheel.startedAt = startedAt;
+  room.wheel.durationMs = WHEEL_SPIN_DURATION_MS;
+  delete room.wheel.committedAt;
+  room.wheel.settleAt = startedAt + WHEEL_SPIN_DURATION_MS;
   room.revision++;
 
   persistActiveRooms();
@@ -2538,13 +2616,16 @@ function armWheelSettlement(room) {
     delete live.wheel.settleAt;
     try { checkWheelRelics(live); } catch (error) { console.error('[relics] wheel check failed:', error.message); }
 
-    // Result presentation and punishment presentation are deliberately
-    // separate stages. Everyone, INCLUDING the selected Little Hero, gets
-    // to see the landed wheel first. The Blood Tribute is not armed until
-    // the GM explicitly dismisses the result.
+    // COMMIT: the strike has landed. The obligation and the single public
+    // announcement are created here, once, by the server. Presentation is
+    // separate: the selected Little Hero's own tribute prompt simply waits
+    // until their client has finished showing the scope.
+    commitBloodScope(live);
     live.revision++;
     persistActiveRooms();
     broadcastToRoom(live, { type: 'state:public', ...getPublicState(live) });
+    broadcastChatUpdate(live);
+    sendTributeVaultToHost(live);
   }), Math.max(0, Number(room.wheel.settleAt || 0) - Date.now()));
 }
 
@@ -2568,7 +2649,12 @@ function handleWheelClose(ws) {
     return;
   }
 
-  if (room.wheel?.phase === 'result') {
+  if (room.wheel?.phase === 'result' && room.wheel.committedAt) {
+    // The obligation was committed when the strike landed. Closing the scope
+    // only removes the presentation; it never touches the debt.
+    room.wheel.open = false;
+  } else if (room.wheel?.phase === 'result') {
+    // LEGACY (result persisted before the Blood Scope committed on landing):
     // DISMISS is the hand-off from spectacle to consequence. Preserve the
     // exact roster/result behind the scenes so a forgiven tribute can reopen
     // this wheel for a clean reroll, but remove it from every screen before
@@ -9952,6 +10038,9 @@ function createChatSerializer(room) {
       source: m.source || null,
       // A Little Hero @all that actually shook every screen.
       nudge: m.nudge === true || undefined,
+      bloodScope: m.bloodScope && typeof m.bloodScope === 'object'
+        ? { eventId: String(m.bloodScope.eventId || '').slice(0, 80), victimId: String(m.bloodScope.victimId || '').slice(0, 80) }
+        : undefined,
       imageUrl: !manualClaimed && typeof m.imageUrl === 'string' ? m.imageUrl : undefined,
       audioUrl: typeof m.audioUrl === 'string' && CHAT_VOICE_URL.test(m.audioUrl) ? m.audioUrl : undefined,
       voiceSeconds: m.messageType === 'voice' ? Math.min(MAX_CHAT_VOICE_SECONDS, Math.max(1, Number(m.voiceSeconds) || 1)) : undefined,
