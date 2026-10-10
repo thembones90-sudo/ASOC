@@ -34,7 +34,8 @@ assert.match(gmMinigamesClient, /gm-chat-tab'[\s\S]*GMDirectMessages\?\.setOpen\
 assert.match(gmDmClient, /gm:privateList/, 'GM private tab requests its direct-message list');
 assert.match(gmDmClient, /data-gm-dm-purge[\s\S]*gm:privatePurge/, 'GM private threads expose a confirmed per-chat PURGE action');
 assert.match(gmDmCss, /\.gm-dm-purge/, 'GM PURGE action has a distinct destructive style');
-assert.match(indexHtml, /gm-direct-messages\.css\?v=20261010-private-media-1/, 'GM DM media UI is cache-busted');
+assert.match(indexHtml, /gm-direct-messages\.css\?v=20261010-unread-badge-fit-1/, 'GM DM unread badge fix is cache-busted');
+assert.match(gmDmCss, /#gm-dm-toggle\.has-unread::after[\s\S]*top:3px !important[\s\S]*right:6px !important/, 'GM unread counter remains inside the clipped tab header');
 assert.match(joinHtml, /direct-messages\.js\?v=20261010-private-media-1/, 'player DM media client is cache-busted');
 assert.match(gmDmClient, /messageType:'gifRemote'/, 'GM private composer sends remote GIFs privately');
 

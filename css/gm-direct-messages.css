@@ -143,3 +143,12 @@ body.room-mode-casual #gm-panel .gm-module-chat .gm-chat-panel.gm-dm-open > #gm-
 .gm-dm-compose button:hover{background:linear-gradient(180deg,#6d3aa0,#46226b)}
 body:not(.room-mode-casual) .gm-dm-console{display:none !important}
 @media(max-height:760px){body.room-mode-casual #gm-panel .gm-module-chat .gm-chat-panel.gm-dm-open > #gm-dm-console{min-height:0;max-height:none}}
+
+/* Keep the unread counter inside the clipped chat-panel header. The legacy
+   attention rule in asoc.css lifts it above the tab, where overflow:hidden
+   cuts the badge in half. */
+body.room-mode-casual #gm-panel .gm-module-chat #gm-dm-toggle.has-unread::after{
+  top:3px !important;
+  right:6px !important;
+  z-index:9;
+}
