@@ -155,8 +155,8 @@ const scopeLines = client => client.chat.filter(m => m.messageType === 'bloodSco
     assert.equal(lines.length, 1, 'exactly one public announcement');
     assert.equal(lines[0].source, 'shadowBroker', 'attributed to the Shadow Broker identity');
     assert.equal(lines[0].playerId, null, 'never impersonates a Little Hero');
-    assert.match(lines[0].text, new RegExp(`VICTIM: ${winnerName}`));
-    assert.match(lines[0].text, /BLOOD TRIBUTE REQUIRED/);
+    assert.ok(lines[0].text.includes(winnerName), 'the one-line announcement names the victim');
+    assert.ok(!/\/\/|\n/.test(lines[0].text), 'the announcement is a single short line');
     assert.equal(scopeLines(players[0]).length, 1, 'players receive the same single announcement');
 
     // ---- 5. no reroll while committed; closing the overlay keeps the debt ---
