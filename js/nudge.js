@@ -8,7 +8,7 @@
   let toastTimer = 0;
 
   function target() {
-    return document.getElementById('chat-panel') || document.getElementById('game-screen') || document.body;
+    return document.getElementById('chat-panel') || document.querySelector('.gm-chat-panel') || document.getElementById('game-screen') || document.body;
   }
 
   function clear() {
@@ -28,7 +28,10 @@
     toast.id = 'nudge-toast';
     toast.className = 'nudge-toast';
     toast.setAttribute('role', 'status');
-    toast.innerHTML = '<b>NUDGE</b><span>THE SHADOW BROKER WANTS YOUR ATTENTION</span>';
+    const isGM = !document.getElementById('chat-panel') && !!document.querySelector('.gm-chat-panel');
+    toast.innerHTML = isGM
+      ? '<b>NUDGE SENT</b><span>EVERY PLAYER CHAT JUST SHOOK</span>'
+      : '<b>NUDGE</b><span>THE SHADOW BROKER WANTS YOUR ATTENTION</span>';
     document.body.appendChild(toast);
     shakeTimer = window.setTimeout(() => el.classList.remove('asoc-nudge-shake'), DURATION_MS + 100);
     toastTimer = window.setTimeout(() => toast.remove(), TOAST_MS);
