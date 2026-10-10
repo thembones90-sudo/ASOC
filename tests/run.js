@@ -1169,26 +1169,33 @@ async function testCrashInjectionPersistence(server) {
   host.send(JSON.stringify({ type: 'gm:wheelOpen', segments: ['REGRESSION TEST', 'CRASH TWO'] }));
   await wheelOpened;
 
+  // THE BLOOD SCOPE: the strike COMMITS server-side when the animation lands
+  // (settle), which arms exactly one Blood Tribute. Closing the overlay later
+  // is presentation only and must not touch the debt.
+  const spinning = waitForMessage(host, m => m.type === 'state:public' && m.wheel?.phase === 'spinning', 'crash scope acquiring', 7000);
   const resultPromise = waitForMessage(
     host,
-    m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'idle',
-    'crash wheel result before tribute demand',
-    7000
+    m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
+    'crash scope commit arms the tribute',
+    9000
   );
   host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
-  const visibleResult = await resultPromise;
-  assert.equal(visibleResult.womf.charge, 10);
-  assert.equal(visibleResult.bloodTribute.status, 'idle', 'selected player must see the wheel result before Blood Tribute opens');
+  const acquiring = await spinning;
+  assert.equal(acquiring.bloodTribute.status, 'idle', 'no obligation exists while the scope is still hunting');
+  assert.ok(acquiring.wheel.seed && acquiring.wheel.startedAt && acquiring.wheel.durationMs, 'event seed + shared start timestamp are published');
+  assert.equal(acquiring.wheel.segmentIds.length, acquiring.wheel.segments.length, 'candidates carry immutable player ids');
+  const committed = await resultPromise;
+  assert.equal(committed.womf.charge, 10);
+  assert.equal(committed.bloodTribute.sourceLabel, 'BLOOD SCOPE', 'obligation is labelled with its Blood Scope source');
+  assert.equal(committed.bloodTribute.playerId, committed.wheel.segmentIds[committed.wheel.winnerIndex], 'the obligation binds to the server-selected player id');
+  assert.ok(committed.wheel.committedAt, 'the commit is recorded');
 
-  const tributePromise = waitForMessage(
-    host,
-    m => m.type === 'state:public' && m.wheel?.open === false && m.bloodTribute?.status === 'required',
-    'crash tribute demand after WOMF dismissal'
-  );
+  const closed = waitForMessage(host, m => m.type === 'state:public' && m.wheel?.open === false, 'crash scope closes');
   host.send(JSON.stringify({ type: 'gm:wheelClose' }));
-  const result = await tributePromise;
+  const result = await closed;
+  assert.equal(result.bloodTribute.status, 'required', 'closing the scope after commit never undoes the obligation');
   assert.ok(result.bloodTribute.playerId === one.playerId || result.bloodTribute.playerId === two.playerId,
-    'the dismissed wheel winner becomes the tribute debtor');
+    'the scope victim becomes the tribute debtor');
 
   // ---- CRASH #1 -----------------------------------------------------------
   await new Promise(resolve => { server.once('exit', resolve); server.kill(); });
@@ -2478,7 +2485,8 @@ function startServer() {
         ASOC_MATCHES_FILE: TEST_MATCHES,
         ASOC_DATA_DIR: TEST_DATA,
         ASOC_GM_PASSWORD: 'test-gm-password',
-        ASOC_EMAIL_VERIFICATION: '0'
+        ASOC_EMAIL_VERIFICATION: '0',
+        ASOC_WHEEL_SPIN_DURATION_MS: '1500'
       },
       stdio: ['ignore', 'pipe', 'pipe']
     });
