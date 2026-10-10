@@ -298,3 +298,74 @@ html body #gm-panel.maintenance-open #gm-maintenance #multiplayer-status > .mp-r
 html body #gm-panel.maintenance-open #gm-maintenance #multiplayer-status > .mp-row .mp-label { font: 800 8px/1 var(--font-machine) !important; letter-spacing: .2em; color: #4f6a6a; }
 html body #gm-panel.maintenance-open #gm-maintenance #multiplayer-status > .mp-row .mp-value { font: 900 12px/1.1 var(--font-machine) !important; letter-spacing: .08em; color: #c8e6e2; }
 html body #gm-panel.maintenance-open #gm-maintenance #multiplayer-status > #mp-player-list { grid-column: 1 / -1; }
+
+/* ---- RECOUNT tab: larger type, podium standings -------------------------------------------
+   The ledger and the all-time list inherited 10-13px type from the old narrow
+   layout. Here the tab owns the whole panel, so everything is sized for reading. */
+html body #gm-panel.maintenance-open #gm-maintenance #records-section { padding: 18px 22px 26px; }
+html body #gm-panel.maintenance-open #gm-maintenance #records-section > #alltime-toggle-btn {
+  --cut: 10px; --edge: #b0902f; width: auto; min-width: 300px; height: 46px; min-height: 46px; margin: 0 0 16px; padding: 0 28px;
+  font: 900 13px/1 var(--font-machine) !important; letter-spacing: .22em; color: #f0cb63;
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(315deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 100% 100% / var(--cut) var(--cut) no-repeat,
+    linear-gradient(180deg, #342c15, #17130a);
+}
+html body #gm-panel.maintenance-open #gm-maintenance #records-section > #alltime-toggle-btn:hover:not(:disabled) { --edge: #e5bb45; color: #fff2bd; }
+
+/* all-time standings: podium (top 3) + two-column list */
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard:not([style*="none"]) {
+  display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 0 0 22px; padding: 0;
+}
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard::before {
+  content: 'ALL TIME STANDINGS // LIFETIME SCORE'; grid-column: 1 / -1; margin: 0 0 6px; padding: 0 0 10px; border-bottom: 1px solid #4a3f1f;
+  font: 900 12px/1 var(--font-machine); letter-spacing: .28em; color: #e3c16a;
+}
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-empty { grid-column: 1 / -1; padding: 22px; font: 800 12px/1 var(--font-machine); letter-spacing: .16em; color: #6a8583; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row {
+  --cut: 9px; --edge: #2c4448; grid-column: span 3; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+  padding: 10px 18px 10px 12px; border: 0; border-radius: 0; font-size: 14px;
+  background:
+    linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0) 0 0 / var(--cut) var(--cut) no-repeat,
+    linear-gradient(90deg, #10181b, #0a0f11);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) { grid-column: span 2; padding: 16px 18px 16px 12px; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .lb-rank { font: 900 18px/1 var(--font-machine); color: #7f9a98; text-align: center; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) .lb-rank { font-size: 26px; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .lb-name { gap: 11px; font: 800 14px/1.2 var(--font-machine); letter-spacing: .08em; color: #eef6f5; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) .lb-name { font-size: 16px; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .lb-name .little-hero-avatar { flex: none; width: 38px; height: 38px; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) .lb-name .little-hero-avatar { width: 46px; height: 46px; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .lb-score { font: 900 17px/1 var(--font-machine); letter-spacing: .04em; color: #e3c16a; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) .lb-score { font-size: 24px; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(1) { --edge: #d4a843; background-color: #1a1507; background-image: linear-gradient(135deg, transparent calc(var(--cut) * .7071 - .5px), var(--edge) 0 calc(var(--cut) * .7071 + 1.2px), transparent 0), linear-gradient(90deg, rgba(212, 168, 67, .2), rgba(212, 168, 67, .03)); background-size: var(--cut) var(--cut), auto; background-repeat: no-repeat; background-position: 0 0, 0 0; box-shadow: inset 0 0 0 1px var(--edge), inset 0 0 26px rgba(212, 168, 67, .12); }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(1) .lb-rank { color: #ffd46a; text-shadow: 0 0 14px rgba(232, 184, 74, .6); }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(2) { --edge: #8d9bae; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(2) .lb-rank { color: #d4dbe4; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(3) { --edge: #a8703f; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(3) .lb-rank { color: #d99560; }
+
+/* recount ledger */
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-head {
+  --cut: 10px; padding: 18px 22px; border: 0; box-shadow: inset 0 0 0 1px rgba(190, 120, 255, .35);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
+}
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-head b { font-size: 21px; letter-spacing: .2em; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-head small { font-size: 12px; letter-spacing: .14em; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-head button { min-height: 44px; padding: 0 22px; font-size: 13px !important; letter-spacing: .18em; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-match { margin-top: 12px; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-match summary { padding: 16px 22px; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-match summary b { font-size: 17px; letter-spacing: .08em; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-match summary small { font-size: 12px; letter-spacing: .06em; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-match summary strong { font-size: 14px; letter-spacing: .18em; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger th { padding: 12px 22px; font-size: 12px; letter-spacing: .16em; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger td { padding: 12px 22px; font-size: 16px; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger .rl-rank { width: 56px; font-size: 18px; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger tbody tr:first-child td { color: #ffd46a; font-weight: 800; }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger tbody tr:first-child .rl-rank { text-shadow: 0 0 12px rgba(232, 184, 74, .55); }
+html body #gm-panel.maintenance-open #gm-maintenance .recount-ledger-empty { padding: 34px; font-size: 13px; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) { grid-template-columns: 44px minmax(0, 1fr); row-gap: 6px; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) .lb-rank { grid-row: 1 / span 2; }
+html body #gm-panel.maintenance-open #gm-maintenance #alltime-leaderboard .leaderboard-row:nth-child(-n+3) .lb-score { grid-column: 2; padding-left: 57px; }
