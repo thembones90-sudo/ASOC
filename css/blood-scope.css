@@ -413,3 +413,17 @@ html body #battle-controls-panel #blood-scope-gm-button.is-recall .gm-action-cop
   html body #battle-controls-panel #blood-scope-gm-button,
   html body #battle-controls-panel #blood-scope-gm-button .blood-scope-action-icon { transition: none; }
 }
+
+/* ---------- GM setup: hidden SECRET TARGET picker ---------- */
+.wheel-setup-rig {
+  display: grid; gap: 6px; margin-top: 12px; padding: 10px 12px;
+  border: 1px dashed rgba(255, 59, 74, 0.45); background: rgba(255, 59, 74, 0.05);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.wheel-setup-rig[hidden] { display: none; }
+.wheel-setup-rig-title { font: 800 10px/1 var(--font-machine, ui-monospace, Menlo, Consolas, monospace); letter-spacing: 0.22em; color: #ff5a68; }
+.wheel-setup-rig select {
+  width: 100%; padding: 8px 10px; background: #0d0a10; color: #ffd9dd;
+  border: 1px solid rgba(255, 59, 74, 0.5); font: 700 12px var(--font-machine, ui-monospace, Menlo, Consolas, monospace);
+}
+.wheel-setup-rig small { font-size: 10px; letter-spacing: 0.04em; color: #a98890; }
