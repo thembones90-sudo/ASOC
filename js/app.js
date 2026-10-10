@@ -2793,6 +2793,10 @@ const App = {
         window.LurkEffect?.onMessage(message);
         break;
 
+      case 'nudge:shake':
+        window.NudgeEffect?.onMessage(message);
+        break;
+
       case 'goat:event':
         window.GoatEvent?.onMessage(message);
         break;
