@@ -258,6 +258,23 @@ const scopeLines = client => client.chat.filter(m => m.messageType === 'bloodSco
     assert.equal(cmdForgiven.wheel.open, false, 'a forgiven command scope closes instead of re-arming the WOMF wheel');
     assert.equal(cmdForgiven.womf.charge, chargeBefore, 'forgiving a command scope leaves WOMF charge alone');
 
+    // ---- 11. RECALL THE SNIPE: voids an unpaid scope tribute, leaves charge alone
+    mark = gm.mark();
+    gm.send({ type: 'gm:wheelOpen', segments: [], command: true });
+    await gm.waitFor(m => m.type === 'state:public' && m.wheel?.open && m.wheel.phase === 'idle', 'scope armed for recall test', mark);
+    mark = gm.mark();
+    gm.send({ type: 'gm:wheelRoll' });
+    await gm.waitFor(m => m.type === 'state:public' && m.wheel?.committedAt, 'strike landed', mark);
+    assert.equal(gm.state.bloodTribute.status, 'required');
+    mark = gm.mark();
+    gm.send({ type: 'gm:scopeRecall' });
+    const recalled = await gm.waitFor(m => m.type === 'state:public' && m.bloodTribute?.status === 'idle', 'snipe recalled', mark);
+    assert.equal(recalled.wheel.open, false, 'recall takes the scope off every screen');
+    assert.equal(recalled.womf.charge, chargeBefore, 'recall never touches WOMF charge');
+    mark = gm.mark();
+    gm.send({ type: 'gm:scopeRecall' });
+    await gm.waitFor(m => m.type === 'error' && /No unpaid Blood Scope tribute/i.test(m.message), 'nothing left to recall', mark);
+
     assert.equal(errors.trim(), '', 'no server errors');
     console.log('PASS blood scope: GM-only activation, server-authoritative victim, hunt creates no debt, one commit + one announcement, close keeps debt, abort creates none, disconnect-safe, late-client recovery');
   } finally {
