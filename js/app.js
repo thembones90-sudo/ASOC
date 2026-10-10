@@ -299,7 +299,7 @@ const App = {
         openBtn.id = 'womf-open-btn';
         openBtn.className = 'womf-open-btn';
         openBtn.disabled = true;
-        openBtn.textContent = 'OPEN WOMF';
+        openBtn.textContent = 'ACTIVATE BLOOD SCOPE';
         gmTracker.appendChild(openBtn);
       }
 
@@ -3398,9 +3398,11 @@ const App = {
     this.updateWomfTracker();
 
     this.wheel = state.wheel || { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
+    this._wheelTs = state.timestamp;
     this.updateWheelUI();
 
     this.bloodTribute = state.bloodTribute || { status: 'idle' };
+    window.BloodScopeMarks?.setTarget(this.bloodTribute);
     this.renderBloodTributeVault();
     this.syncFinalPanelState(state, battleVisible);
 
@@ -4070,7 +4072,7 @@ const App = {
               <span class="wheel-setup-presence">● ONLINE</span>
             </label>
           `).join('')
-        : '<div class="wheel-setup-hint">No Little Heroes are online. WOMF has nobody to ruin yet.</div>';
+        : '<div class="wheel-setup-hint">No Little Heroes are online. The Blood Scope has nobody to hunt yet.</div>';
     }
     document.getElementById('wheel-setup-overlay')?.classList.add('active');
   },
@@ -4084,7 +4086,7 @@ const App = {
     const checked = Array.from(document.querySelectorAll('#wheel-setup-player-list .wheel-setup-checkbox:checked'));
     const segments = checked.map(cb => cb.dataset.playerName).filter(Boolean);
     if (segments.length < 2) {
-      alert('Select at least 2 online Little Heroes for the Wheel.');
+      alert('Select at least 2 online Little Heroes for THE BLOOD SCOPE.');
       return;
     }
     this.send({ type: 'gm:wheelOpen', segments });
@@ -4108,8 +4110,20 @@ const App = {
     const state = this.wheel || { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
     Wheel.update('wheel-overlay', state, true, {
       onRoll: () => this.rollWheel(),
-      onClose: () => this.closeWheel()
-    });
+      onClose: () => this.closeWheel(),
+      onViewTribute: () => this.viewBloodTribute()
+    }, this._wheelTs);
+  },
+
+  // VIEW TRIBUTE -- jump from the scope result to the Blood Tribute panel
+  // (debt status + override). Closing the presentation never touches the debt.
+  viewBloodTribute() {
+    const section = document.getElementById('blood-tribute-vault-section');
+    if (!section) return;
+    document.getElementById('wheel-overlay')?.classList.remove('active');
+    section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    section.classList.add('bs-section-ping');
+    setTimeout(() => section.classList.remove('bs-section-ping'), 2400);
   },
 
   renderBloodTributeVault() {
@@ -4121,7 +4135,7 @@ const App = {
 
     const tributes = Array.isArray(this.bloodTributes) ? this.bloodTributes : [];
     if (this.bloodTribute?.status === 'required') {
-      status.textContent = `DEBT OUTSTANDING // ${this.bloodTribute.playerName || 'UNKNOWN'}`;
+      status.textContent = `DEBT OUTSTANDING // ${this.bloodTribute.playerName || 'UNKNOWN'}${this.bloodTribute.sourceLabel ? ' // SOURCE: ' + this.bloodTribute.sourceLabel : ''}`;
       status.classList.add('debt-outstanding');
       if (overrideBtn) overrideBtn.style.display = 'block';
     } else {
@@ -6209,7 +6223,7 @@ const App = {
         });
       }
       return `
-        <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'sticker' ? ' sticker-message' : ''}${msg.messageType === 'backstab' ? ' backstab-chat-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'SHADOW BROKER')}" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
+        <div class="gm-shadow-broker-entry${manualTribute ? ' active-blood-tribute' : ''}${msg.messageType === 'bloodScope' ? ' bloodscope-chat-message' : ''}${msg.messageType === 'sticker' ? ' sticker-message' : ''}${msg.messageType === 'backstab' ? ' backstab-chat-message' : ''}" data-message-id="${this.escapeHtml(msg.id)}" data-player-name="${this.escapeHtml(msg.playerName || 'SHADOW BROKER')}" data-editable="${msg.editableByHost === true ? 'true' : 'false'}" oncontextmenu="return App.openGMMessageActionMenu(event,this)">
           ${manualBadge}${replyContextHtml}
           ${messageText ? Skeleton.shadowBrokerTransmissionHTML(messageText, { glitchKey: msg.id, name: msg.playerName || 'SHADOW BROKER' }) : ''}${msg.messageType === 'backstab' ? window.BackstabEffect?.flagHTML?.() || '' : ''}
           ${msg.messageType === 'sticker' && window.AsocStickers ? window.AsocStickers.messageHTML(msg) : (msg.imageUrl ? `<button type="button" class="chat-image-link broker-image-only" aria-label="Open image preview"><img class="chat-image-attachment" src="${this.escapeHtml(msg.imageUrl)}" alt="Chat image"></button>` : '')}${window.AsocVoice?.messageHTML(msg) || ''}${window.ChatLinks?.messageHTML(msg) || ''}
