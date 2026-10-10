@@ -2197,6 +2197,7 @@ const App = {
     });
     document.getElementById('alltime-toggle-btn')?.addEventListener('click', () => this.toggleAllTimeView());
     document.getElementById('womf-open-btn')?.addEventListener('click', () => this.openWomf());
+    document.getElementById('blood-scope-gm-button')?.addEventListener('click', () => this.openBloodScopeCommand());
 
     document.getElementById('wheel-setup-close')?.addEventListener('click', () => this.closeWheelSetup());
     document.getElementById('wheel-setup-confirm')?.addEventListener('click', () => this.confirmWheelSetup());
@@ -3403,6 +3404,7 @@ const App = {
 
     this.bloodTribute = state.bloodTribute || { status: 'idle' };
     window.BloodScopeMarks?.setTarget(this.bloodTribute);
+    this.syncBloodScopeButton();
     this.renderBloodTributeVault();
     this.syncFinalPanelState(state, battleVisible);
 
@@ -3720,6 +3722,7 @@ const App = {
 
   updateMultiplayerUI() {
     const isMultiplayer = this.mode === 'multiplayer';
+    this.syncBloodScopeButton?.();
     const inCasual = this.roomMode === 'CASUAL';
     const battleSession = isMultiplayer && !inCasual;
 
@@ -4057,7 +4060,30 @@ const App = {
   // gathering the segment list and sending the three gm:wheel* commands.
   // ---------------------------------------------------------------------
 
-  openWheelSetup() {
+  // BLOOD SCOPE command (rail button under POISON / CHAOS). Unlike the
+  // WOMF-armed path it needs no 10/10 charge and works in AMUSE and ABUSE.
+  openBloodScopeCommand() {
+    if (this.mode !== 'multiplayer' || this.wheel?.open || this.bloodTribute?.status === 'required') return;
+    this.send({ type: 'players:list' });
+    this.openWheelSetup(true);
+  },
+
+  // The command button is only usable when a scope could actually start:
+  // live multiplayer room, no scope already on screen, no tribute outstanding.
+  syncBloodScopeButton() {
+    const btn = document.getElementById('blood-scope-gm-button');
+    if (!btn) return;
+    const live = this.mode === 'multiplayer';
+    const busy = !!this.wheel?.open;
+    const owed = this.bloodTribute?.status === 'required';
+    btn.disabled = !live || busy || owed;
+    btn.classList.toggle('is-active', busy);
+    const caption = btn.querySelector('small');
+    if (caption) caption.textContent = !live ? 'NEEDS A ROOM' : busy ? 'SCOPE ACTIVE' : owed ? 'TRIBUTE OWED' : 'HUNT A HERO';
+  },
+
+  openWheelSetup(command = false) {
+    this._scopeCommand = command === true;
     const listEl = document.getElementById('wheel-setup-player-list');
     if (listEl) {
       // WOMF can only target Little Heroes who are actually online. The
@@ -4089,7 +4115,7 @@ const App = {
       alert('Select at least 2 online Little Heroes for THE BLOOD SCOPE.');
       return;
     }
-    this.send({ type: 'gm:wheelOpen', segments });
+    this.send({ type: 'gm:wheelOpen', segments, ...(this._scopeCommand === true ? { command: true } : {}) });
     this.closeWheelSetup();
   },
 
@@ -4108,6 +4134,7 @@ const App = {
   // default when there is no room).
   updateWheelUI() {
     const state = this.wheel || { open: false, segments: [], phase: 'idle', winnerIndex: null, spinToken: null };
+    this.syncBloodScopeButton();
     Wheel.update('wheel-overlay', state, true, {
       onRoll: () => this.rollWheel(),
       onClose: () => this.closeWheel(),
