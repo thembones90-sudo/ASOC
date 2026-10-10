@@ -1595,6 +1595,7 @@ function getWheelPublicState(room) {
     phase: room.wheel.phase,
     winnerIndex: room.wheel.winnerIndex,
     spinToken: room.wheel.spinToken,
+    command: room.wheel.command === true,
     eventId: room.wheel.spinToken || null,
     seed: room.wheel.seed || null,
     startedAt: room.wheel.startedAt || null,
@@ -2108,7 +2109,11 @@ function armBloodTributeForWheelResult(room) {
     sendToWs(room.hostConnection, { type: 'tribute:unavailable', playerName: winnerName || 'UNKNOWN' });
     return false;
   }
-  return armBloodTributeForPlayer(room, player, room.wheel.spinToken, 'womf', 'BLOOD SCOPE');
+  const armed = armBloodTributeForPlayer(room, player, room.wheel.spinToken, 'womf', 'BLOOD SCOPE');
+  // A command-summoned scope was never earned with WOMF charge, so paying or
+  // forgiving its debt must not drain or re-arm the WOMF meter either.
+  if (armed && room.wheel.command === true) room.pendingTribute.command = true;
+  return armed;
 }
 
 // THE BLOOD SCOPE COMMIT -- runs once, server-side, when the strike lands.
@@ -2193,7 +2198,7 @@ function handleBloodTributeSubmit(ws, message) {
   // So is the moon toll: once paid, this player may moon the Broker freely.
   if (demand.source === 'moon') { room.moonTolls ||= {}; room.moonTolls[String(demand.playerId)] = 'settled'; }
   if ((demand.source || 'womf') === 'womf') {
-    room.womf.charge = 0;
+    if (demand.command !== true) room.womf.charge = 0;
     resetWheel(room);
   }
   room.revision++;
@@ -2414,7 +2419,7 @@ function handleTributeForgive(ws) {
 
   // Only WOMF-origin debt owns the Battle wheel. Casual Concoction debt
   // must never mutate or resurrect Battle wheel state.
-  if ((demand.source || 'womf') === 'womf' && room.wheel && Array.isArray(room.wheel.segments) && room.wheel.segments.length >= WHEEL_MIN_SEGMENTS) {
+  if ((demand.source || 'womf') === 'womf' && demand.command !== true && room.wheel && Array.isArray(room.wheel.segments) && room.wheel.segments.length >= WHEEL_MIN_SEGMENTS) {
     room.wheel.open = true;
     room.wheel.phase = 'idle';
     room.wheel.winnerIndex = null;
@@ -2453,11 +2458,15 @@ function handleWheelOpen(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Only host can open the Wheel' });
     return;
   }
-  if (!isBattleSurface(room)) {
+  // BLOOD SCOPE COMMAND: the GM's command-rail button summons the scope on
+  // demand, in any room mode and without WOMF charge. The charge-gated path
+  // (battle surface + 10/10) is unchanged for the WOMF-earned scope.
+  const scopeCommand = message.command === true;
+  if (!scopeCommand && !isBattleSurface(room)) {
     sendToWs(ws, { type: 'error', message: 'WOMF is only available on the Battle surface' });
     return;
   }
-  if (!room.womf || room.womf.charge < 10) {
+  if (!scopeCommand && (!room.womf || room.womf.charge < 10)) {
     sendToWs(ws, { type: 'error', message: 'WOMF is not armed yet (10/10 required)' });
     return;
   }
@@ -2509,7 +2518,7 @@ function handleWheelOpen(ws, message) {
   }
 
   const segmentIds = segments.map(name => connectedIds.get(name.toLowerCase()) || null);
-  room.wheel = { open: true, segments, segmentIds, phase: 'idle', winnerIndex: null, spinToken: null };
+  room.wheel = { open: true, segments, segmentIds, phase: 'idle', winnerIndex: null, spinToken: null, ...(scopeCommand ? { command: true } : {}) };
   room.revision++;
 
   persistActiveRooms();
@@ -2529,7 +2538,7 @@ function handleWheelRoll(ws) {
     sendToWs(ws, { type: 'error', message: 'Only host can roll the Wheel' });
     return;
   }
-  if (!isBattleSurface(room)) {
+  if (!isBattleSurface(room) && room.wheel?.command !== true) {
     sendToWs(ws, { type: 'error', message: 'WOMF is only available on the Battle surface' });
     return;
   }
@@ -2644,7 +2653,7 @@ function handleWheelClose(ws) {
   // dismissible, otherwise it stays on every screen and its Blood Tribute
   // is never demanded. ABUSE after a shown RECOUNT returns to RECOUNT, so
   // there is no other way back to it.
-  if (!isBattleSurface(room) && room.roomMode !== ROOM_MODES.RECOUNT) {
+  if (!isBattleSurface(room) && room.roomMode !== ROOM_MODES.RECOUNT && room.wheel?.command !== true) {
     sendToWs(ws, { type: 'error', message: 'WOMF is only available on the Battle surface' });
     return;
   }
