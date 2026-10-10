@@ -158,6 +158,37 @@ html body #battle-controls-panel #chaos-gm-button .gm-action-copy small {
 }
 html body #battle-controls-panel #chaos-gm-button:hover .chaos-action-icon { transform: scale(1.08) rotate(8deg); }
 
+/* Final command-art layer. This file loads after the rail component sheets,
+   so keep the two dynamically restyled controls pinned to their portraits. */
+html body #battle-controls-panel #poison-gm-button {
+  background-image:
+    linear-gradient(90deg, rgba(2, 12, 4, .24), rgba(4, 19, 7, .76) 38%, rgba(4, 19, 7, .76) 62%, rgba(2, 12, 4, .24)),
+    url('../assets/ui/gm-pill-poison.png') !important;
+  background-position: center !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+}
+html body #battle-controls-panel #chaos-gm-button {
+  background-image:
+    linear-gradient(90deg, rgba(8, 2, 15, .24), rgba(16, 6, 25, .78) 38%, rgba(16, 6, 25, .78) 62%, rgba(8, 2, 15, .24)),
+    url('../assets/ui/gm-pill-chaos.png') !important;
+  background-position: center !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+}
+
+/* Command rail reading order: mission to identity, raid, toxins, wager,
+   then the maintenance entrance. Geometry remains owned by the rail layout. */
+html body #battle-controls-panel #quests-btn { order: 7 !important; }
+html body #battle-controls-panel #broker-transmog-btn { order: 8 !important; }
+html body #battle-controls-panel #dragon-raid-setup-btn { order: 9 !important; }
+html body #battle-controls-panel #poison-gm-button { order: 10 !important; }
+html body #battle-controls-panel #chaos-gm-button { order: 11 !important; }
+html body #battle-controls-panel #library-btn-footer { order: 12 !important; }
+html body #battle-controls-panel #reset-board-btn { order: 13 !important; }
+html body #battle-controls-panel #sound-toggle-btn { order: 14 !important; }
+html body #battle-controls-panel .master-access-wrap { order: 15 !important; }
+
 /* 8. RAIL height budget (AMUSE) -----------------------------------------------
    The command stack and the bottom-pinned dock were both fixed at 46px
    buttons, so on a ~810px tall window they met exactly with no room for

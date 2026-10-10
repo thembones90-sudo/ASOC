@@ -333,9 +333,17 @@
       button.setAttribute('aria-label', 'Chaos');
       button.innerHTML = '<svg class="gm-action-icon chaos-action-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3l11 6.5v13L16 29 5 22.5v-13z"/><path d="M16 9l6.5 11h-13z"/><path d="M16 3v6M5 9.5L9.5 20M27 9.5L22.5 20M9.5 20L5 22.5M22.5 20l4.5 2.5M16 29v-9"/></svg><span class="gm-action-copy"><b>CHAOS</b><small>ROLL WAGER</small></span>';
     }
-    // POISON is moved into the utility row after this script first runs, so the
-    // button follows it instead of staying behind in the hidden command grid.
-    if (poison.nextElementSibling !== button) poison.insertAdjacentElement('afterend', button);
+    // Keep the utility rail deterministic even though several controls are
+    // created or relocated by separate features at different times.
+    const row = document.querySelector('.battle-controls-utility-row');
+    if (row) {
+      ['quests-btn', 'broker-transmog-btn', 'dragon-raid-setup-btn', 'poison-gm-button', 'chaos-gm-button', 'library-btn-footer']
+        .map(id => document.getElementById(id))
+        .filter(Boolean)
+        .forEach(control => row.appendChild(control));
+    } else if (poison.nextElementSibling !== button) {
+      poison.insertAdjacentElement('afterend', button);
+    }
   }
 
   function pickerRoot() {
