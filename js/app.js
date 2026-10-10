@@ -3932,12 +3932,27 @@ const App = {
     }
   },
 
+  // Podium medal for the all-time standings: gold / silver / bronze disc with a
+  // ribbon. Pure inline SVG (no gradient ids, so several can coexist on a page).
+  medalRankHTML(place) {
+    const cls = ['gold', 'silver', 'bronze'][place - 1];
+    const label = ['1st place', '2nd place', '3rd place'][place - 1];
+    return '<svg class="lb-medal lb-medal-' + cls + '" viewBox="0 0 40 54" role="img" aria-label="' + label + '">' +
+      '<polygon class="m-strap-a" points="7,0 19,0 26,21 14,21"/>' +
+      '<polygon class="m-strap-b" points="33,0 21,0 14,21 26,21"/>' +
+      '<circle class="m-rim" cx="20" cy="35" r="17.5"/>' +
+      '<circle class="m-face" cx="20" cy="35" r="13.8"/>' +
+      '<path class="m-shine" d="M9.5 31a11.5 11.5 0 0 1 14-8.2 12.5 12.5 0 0 0-12.6 11z"/>' +
+      '<text class="m-num" x="20" y="35" text-anchor="middle" dominant-baseline="central">' + place + '</text>' +
+      '</svg>';
+  },
+
   renderAllTimeLeaderboard(players) {
     const panel = document.getElementById('alltime-leaderboard');
     if (!panel || panel.style.display === 'none') return;
     panel.innerHTML = players.map((p, i) => `
-      <div class="leaderboard-row">
-        <span class="lb-rank">${i + 1}</span>
+      <div class="leaderboard-row${i < 3 ? ' has-medal' : ''}">
+        <span class="lb-rank">${i < 3 ? this.medalRankHTML(i + 1) : i + 1}</span>
         <span class="lb-name lb-little-hero">${this.littleHeroAvatarHTML(p, true)}<span>${this.escapeHtml(p.name)}</span></span>
         <span class="lb-score">${p.lifetimeScore}</span>
       </div>
