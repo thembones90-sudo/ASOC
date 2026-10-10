@@ -309,3 +309,75 @@
   0% { box-shadow: 0 0 0 0 rgba(255, 59, 74, 0.7); }
   100% { box-shadow: 0 0 0 14px rgba(255, 59, 74, 0); }
 }
+
+/* ---------- GM command rail: BLOOD SCOPE, directly under POISON / CHAOS ----------
+   Same anatomy as the CHAOS button (drawn icon, label, one-line caption) in
+   the scope's crimson. Reading order: ... POISON (10), CHAOS (11), BLOOD SCOPE
+   (11, after CHAOS in the DOM -- see chaos.js ensureRailButton), LIBRARY (12). */
+html body #battle-controls-panel #blood-scope-gm-button {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0 !important;
+  min-height: var(--rail-btn, 46px) !important;
+  height: var(--rail-btn, 46px) !important;
+  margin: 0 !important;
+  padding: 4px 10px !important;
+  box-sizing: border-box !important;
+  order: 11 !important;
+  cursor: pointer;
+  border: 1px solid #b3202e !important;
+  border-radius: 7px !important;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 4px),
+    radial-gradient(circle at 18% 110%, rgba(255, 59, 74, .26), transparent 42%),
+    linear-gradient(110deg, #14060a, #34101a 52%, #12060a) !important;
+  color: #ffd9dd !important;
+  box-shadow: inset 0 0 0 2px rgba(10, 3, 5, .72), inset 0 0 22px rgba(255, 59, 74, .12), 0 0 12px rgba(255, 59, 74, .14) !important;
+  transition: box-shadow .15s, border-color .15s;
+}
+html body #battle-controls-panel #blood-scope-gm-button .blood-scope-action-icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: #ff5a68;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(255, 59, 74, .6));
+  transition: transform .15s;
+}
+html body #battle-controls-panel #blood-scope-gm-button .gm-action-copy {
+  display: grid;
+  gap: 3px;
+  padding: 0;
+  font: inherit;
+  letter-spacing: 0;
+  text-align: center;
+  text-shadow: none;
+}
+html body #battle-controls-panel #blood-scope-gm-button .gm-action-copy b {
+  font: 900 12px/1.1 var(--font-machine, ui-monospace, Menlo, Consolas, monospace);
+  letter-spacing: .2em;
+  text-shadow: 0 0 8px rgba(255, 70, 85, .8);
+}
+html body #battle-controls-panel #blood-scope-gm-button .gm-action-copy small {
+  font: 800 8px/1 var(--font-machine, ui-monospace, Menlo, Consolas, monospace);
+  letter-spacing: .16em;
+  color: #c98a92;
+}
+html body #battle-controls-panel #blood-scope-gm-button:hover:not(:disabled),
+html body #battle-controls-panel #blood-scope-gm-button:focus-visible {
+  border-color: #ff3b4a !important;
+  box-shadow: inset 0 0 0 2px rgba(10, 3, 5, .72), inset 0 0 22px rgba(255, 59, 74, .22), 0 0 18px rgba(255, 59, 74, .32) !important;
+}
+html body #battle-controls-panel #blood-scope-gm-button:hover:not(:disabled) .blood-scope-action-icon { transform: scale(1.1) rotate(45deg); }
+html body #battle-controls-panel #blood-scope-gm-button:disabled { opacity: .5; cursor: default; }
+html body #battle-controls-panel #blood-scope-gm-button.is-active { border-color: #ff3b4a !important; opacity: 1; }
+html body #battle-controls-panel #blood-scope-gm-button.is-active .gm-action-copy small { color: #ff8d98; }
+@media (prefers-reduced-motion: reduce) {
+  html body #battle-controls-panel #blood-scope-gm-button,
+  html body #battle-controls-panel #blood-scope-gm-button .blood-scope-action-icon { transition: none; }
+}
