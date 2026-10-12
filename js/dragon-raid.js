@@ -178,6 +178,7 @@
 
     onState(raid, serverNow) {
       if (!raid) {
+        this.lastRaidViewKey = null;
         this.raid = null;
         this.cancelArm = null;
         this.syncSetup();
@@ -185,6 +186,9 @@
         return;
       }
       if (this.cancelArm && this.cancelArm.raidId !== raid.id) this.cancelArm = null;
+      const viewKey = JSON.stringify(raid);
+      const sameView = viewKey === this.lastRaidViewKey;
+      this.lastRaidViewKey = viewKey;
       this.raid = raid;
       if (this.pendingLaunch && this.raidIsActive(raid) && raid.id !== this.pendingLaunch.prevId) {
         this.pendingLaunch = null;
@@ -196,7 +200,11 @@
       this.receivedAt = Date.now();
       if (this.hiddenRaidId && this.hiddenRaidId !== raid.id) this.hiddenRaidId = null;
       if (this.isGM() && ['RECRUITING','HERO_TURN','BOSS_TURN','VICTORY','HEART'].includes(raid.phase)) this.hiddenRaidId = null;
-      this.render();
+      const overlay = document.getElementById('dragon-raid-overlay');
+      const shouldShow = this.hiddenRaidId !== raid.id;
+      // Server time may update without combat state changing. The 250ms clock
+      // ticker owns deadline displays, so identical snapshots need no rebuild.
+      if (!sameView || !overlay || overlay.hidden === shouldShow) this.render();
     },
 
     onMessage(message) {
@@ -610,9 +618,32 @@
       overlay.id = 'dragon-raid-overlay';
       overlay.className = 'dragon-raid-overlay';
       overlay.setAttribute('aria-live', 'polite');
-      overlay.innerHTML = '<div class="dragon-raid-shell"></div>';
+      overlay.innerHTML = '<div class="dragon-raid-shell"></div><aside class="dragon-chat-dock" aria-label="Live general chat"><header><b>BATTLE COMMS</b><button type="button" data-dragon-action="chat-toggle" aria-label="Collapse raid chat">×</button></header><div class="dragon-chat-slot"></div></aside><button type="button" class="dragon-chat-open" data-dragon-action="chat-toggle" aria-label="Open general chat">◉ CHAT</button>';
       document.body.appendChild(overlay);
       return overlay;
+    },
+
+    syncChatDock(overlay, visible) {
+      if (!visible) {
+        if (this.chatHome && this.chatNode) this.chatHome.replaceWith(this.chatNode);
+        this.chatHome = null;
+        this.chatNode = null;
+        return;
+      }
+      const slot = overlay.querySelector('.dragon-chat-slot');
+      if (!slot) return;
+      if (!this.chatNode) {
+        const nativeChat = this.isGM() ? document.querySelector('.gm-chat-panel') : document.getElementById('chat-panel');
+        if (!nativeChat || nativeChat.closest('#dragon-raid-overlay')) return;
+        this.chatHome = document.createComment('raid chat return location');
+        nativeChat.parentNode.insertBefore(this.chatHome, nativeChat);
+        this.chatNode = nativeChat;
+        slot.appendChild(nativeChat);
+      }
+      if (!overlay.dataset.chatReady) {
+        overlay.dataset.chatReady = 'true';
+        overlay.classList.add('dragon-chat-visible');
+      }
     },
 
     roleName(role) {
@@ -1015,10 +1046,12 @@
       const existing = document.getElementById('dragon-raid-overlay');
       if (!raid || this.hiddenRaidId === raid.id) {
         if (existing) existing.hidden = true;
+        this.syncChatDock(existing, false);
         return;
       }
       const overlay = this.ensureOverlay();
       overlay.hidden = false;
+      this.syncChatDock(overlay, true);
       overlay.dataset.phase = raid.phase || '';
       overlay.dataset.bossId = raid.boss?.id || '';
       const shell = overlay.querySelector('.dragon-raid-shell');
@@ -1028,12 +1061,16 @@
       else if (raid.phase === 'HEART') body = this.heartHTML();
       else if (raid.phase === 'COMPLETE') body = this.completeHTML();
       else body = this.failureHTML();
-      shell.innerHTML = `
+      const markup = `
         <div class="dragon-embers" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
         ${body}
         ${this.note ? `<div class="dragon-note">${this.esc(this.note)}</div>` : ''}
       `;
-      requestAnimationFrame(() => { this.layoutParty(); this.updateActiveLane(); });
+      if (shell.__dragonMarkup !== markup) {
+        shell.__dragonMarkup = markup;
+        shell.innerHTML = markup;
+        requestAnimationFrame(() => { this.layoutParty(); this.updateActiveLane(); });
+      }
       if (!this.resizeBound) {
         this.resizeBound = true;
         let queued = false;
@@ -1084,6 +1121,7 @@
       const button = event.target.closest('[data-dragon-action]');
       if (!button || button.disabled) return;
       const action = button.dataset.dragonAction;
+      if (action === 'chat-toggle') { document.getElementById('dragon-raid-overlay')?.classList.toggle('dragon-chat-visible'); return; }
       if (action === 'setup-open') return this.openSetup();
       if (action === 'setup-close') return this.closeSetup();
       if (action === 'setup-launch') {

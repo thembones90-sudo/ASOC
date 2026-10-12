@@ -354,10 +354,10 @@
 @keyframes dragon-breathe { from { transform:scale(.97); filter:drop-shadow(0 0 8px rgba(255,66,20,.25)); } to { transform:scale(1.04); filter:drop-shadow(0 0 24px rgba(255,90,20,.7)); } }
 @keyframes dragon-pulse { to { text-shadow:0 0 18px currentColor; transform:scale(1.04); } }
 @media (max-width: 820px) {
-  .dragon-raider-grid { grid-template-columns:repeat(2,1fr); }
-  .dragon-class-pick { grid-template-columns:1fr; }
-  .dragon-heading { grid-template-columns:auto 1fr; }
-  .dragon-heading > strong { grid-column:1 / -1; }
+  :where(html:not(.asoc-mobile)) .dragon-raider-grid { grid-template-columns:repeat(2,1fr); }
+  :where(html:not(.asoc-mobile)) .dragon-class-pick { grid-template-columns:1fr; }
+  :where(html:not(.asoc-mobile)) .dragon-heading { grid-template-columns:auto 1fr; }
+  :where(html:not(.asoc-mobile)) .dragon-heading > strong { grid-column:1 / -1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dragon-embers i,.dragon-mark.is-burning,.dragon-heading > strong.is-critical { animation:none !important; }
@@ -369,7 +369,7 @@
 .dragon-action-tray button:disabled{opacity:.35;cursor:not-allowed}
 .dragon-raider-card em{display:block;margin-top:6px;color:#d4a6ff;font-size:9px;letter-spacing:.09em}
 .dragon-round-feed .natural20{color:#ffd35c;text-shadow:0 0 10px #ff6a00}.dragon-round-feed .fumble{color:#ff5959}
-@media(max-width:780px){.dragon-action-tray{grid-template-columns:1fr 1fr}.dragon-action-tray select{grid-column:1/-1}}
+@media(max-width:780px){:where(html:not(.asoc-mobile)) .dragon-action-tray{grid-template-columns:1fr 1fr}:where(html:not(.asoc-mobile)) .dragon-action-tray select{grid-column:1/-1}}
 
 .dragon-raid-setup-btn{border-color:#793fb0!important;background:linear-gradient(135deg,#26102f,#120b19)!important;color:#efd5ff!important;letter-spacing:.16em!important}
 .dragon-raid-setup-btn::before{content:'🐉';margin-right:.55rem;filter:drop-shadow(0 0 6px #c04cff)}
@@ -379,7 +379,7 @@
 .dragon-setup-panel>header{display:flex;align-items:center;justify-content:space-between;padding:22px 26px;border-bottom:1px solid #52265f;background:linear-gradient(90deg,rgba(82,22,98,.52),rgba(90,15,23,.25))}
 .dragon-setup-panel h2{margin:3px 0 0;font:800 clamp(20px,3vw,34px)/1 var(--font-display,monospace);letter-spacing:.13em}.dragon-setup-panel header small{color:#c472e9;letter-spacing:.18em}.dragon-setup-panel header button{width:42px;height:42px;border:1px solid #7d3b66;background:#190c15;color:#f2b8d1;font-size:25px}.dragon-setup-panel>p{margin:0;padding:15px 26px;border-bottom:1px solid #302034;color:#aaa0ae;letter-spacing:.06em}
 .dragon-setup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:20px}.dragon-setup-grid>button{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-height:138px;padding:18px;border:1px solid #493052;background:linear-gradient(135deg,rgba(36,22,43,.96),rgba(12,10,15,.98));color:#eee;text-align:left;cursor:pointer;transition:.18s ease}.dragon-setup-grid>button:hover{transform:translateY(-2px);border-color:#b34ce0;box-shadow:0 0 24px rgba(178,61,226,.24)}.dragon-setup-grid>button small{color:#9f77ae;font:700 10px/1.2 monospace;letter-spacing:.14em}.dragon-setup-grid>button b{font:800 17px/1.15 var(--font-display,monospace);letter-spacing:.08em}.dragon-setup-grid>button span{color:#b8aabc;font:600 11px/1.3 monospace}.dragon-setup-grid>button em{margin-top:auto;color:#d978ff;font:800 11px/1 monospace;letter-spacing:.18em}.dragon-setup-grid>button.is-heroic{grid-column:1/-1;border-color:#9d252f;background:linear-gradient(110deg,#28090c,#11090c 65%,#321009)}.dragon-setup-grid>button.is-heroic:hover{border-color:#ff3548;box-shadow:0 0 30px rgba(255,32,50,.25)}.dragon-setup-grid>button.is-heroic em{color:#ff5363}
-@media(max-width:720px){.dragon-setup-grid{grid-template-columns:1fr}.dragon-setup-grid>button.is-heroic{grid-column:auto}}
+@media(max-width:720px){:where(html:not(.asoc-mobile)) .dragon-setup-grid{grid-template-columns:1fr}:where(html:not(.asoc-mobile)) .dragon-setup-grid>button.is-heroic{grid-column:auto}}
 
 
 /* =========================================================
@@ -719,12 +719,12 @@
 }
 
 @media(max-width:720px){
-  .dragon-setup-panel>header{min-height:auto;padding:22px 20px}
-  .dragon-setup-panel h2{font-size:24px;letter-spacing:.11em}
-  .dragon-setup-panel>p{padding:15px 20px}
-  .dragon-setup-grid{padding:14px;gap:12px}
-  .dragon-setup-grid>button{min-height:146px}
-  .dragon-setup-grid>button.is-heroic{grid-column:auto}
+  :where(html:not(.asoc-mobile)) .dragon-setup-panel>header{min-height:auto;padding:22px 20px}
+  :where(html:not(.asoc-mobile)) .dragon-setup-panel h2{font-size:24px;letter-spacing:.11em}
+  :where(html:not(.asoc-mobile)) .dragon-setup-panel>p{padding:15px 20px}
+  :where(html:not(.asoc-mobile)) .dragon-setup-grid{padding:14px;gap:12px}
+  :where(html:not(.asoc-mobile)) .dragon-setup-grid>button{min-height:146px}
+  :where(html:not(.asoc-mobile)) .dragon-setup-grid>button.is-heroic{grid-column:auto}
 }
 
 /* Heart of the Shadow: chosen transparent crimson and violet mechanical heart. */
@@ -779,8 +779,8 @@
   cursor:default;
 }
 @media(max-width:640px){
-  .dragon-gm-observer{align-items:stretch;flex-direction:column}
-  .dragon-gm-observer button{width:100%}
+  :where(html:not(.asoc-mobile)) .dragon-gm-observer{align-items:stretch;flex-direction:column}
+  :where(html:not(.asoc-mobile)) .dragon-gm-observer button{width:100%}
 }
 
 
@@ -806,7 +806,7 @@
   background:rgba(20,71,36,.18);
 }
 @media(max-width:640px){
-  .dragon-gm-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  :where(html:not(.asoc-mobile)) .dragon-gm-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}
 }
 
 
@@ -843,8 +843,8 @@
 .dragon-heart-rolls .is-invalid{color:#ff6877!important;letter-spacing:.08em}
 .dragon-heart-rolls .is-eliminated{color:#796d7e!important;font-size:10px;letter-spacing:.07em}
 @media(max-width:620px){
-  .dragon-heart-deadline{grid-template-columns:1fr;justify-items:center;text-align:center}
-  .dragon-heart-deadline span{text-align:center}
+  :where(html:not(.asoc-mobile)) .dragon-heart-deadline{grid-template-columns:1fr;justify-items:center;text-align:center}
+  :where(html:not(.asoc-mobile)) .dragon-heart-deadline span{text-align:center}
 }
 
 
@@ -1040,45 +1040,45 @@
   opacity:.20;
 }
 @media(max-width:900px){
-  .dragon-arena{
+  :where(html:not(.asoc-mobile)) .dragon-arena{
     min-height:720px;
   }
-  .dragon-arena-boss{
+  :where(html:not(.asoc-mobile)) .dragon-arena-boss{
     width:min(320px,48%);
   }
-  .dragon-arena-party .dragon-raider-card{
+  :where(html:not(.asoc-mobile)) .dragon-arena-party .dragon-raider-card{
     width:170px;
   }
-  .dragon-arena-party .dragon-raider-card:nth-child(1){
+  :where(html:not(.asoc-mobile)) .dragon-arena-party .dragon-raider-card:nth-child(1){
     top:18px;
   }
-  .dragon-arena-party .dragon-raider-card:nth-child(2){
+  :where(html:not(.asoc-mobile)) .dragon-arena-party .dragon-raider-card:nth-child(2){
     left:18px;
     top:132px;
   }
-  .dragon-arena-party .dragon-raider-card:nth-child(3){
+  :where(html:not(.asoc-mobile)) .dragon-arena-party .dragon-raider-card:nth-child(3){
     right:18px;
     top:132px;
   }
-  .dragon-arena-party .dragon-raider-card:nth-child(4){
+  :where(html:not(.asoc-mobile)) .dragon-arena-party .dragon-raider-card:nth-child(4){
     left:40px;
     bottom:24px;
   }
-  .dragon-arena-party .dragon-raider-card:nth-child(5){
+  :where(html:not(.asoc-mobile)) .dragon-arena-party .dragon-raider-card:nth-child(5){
     right:40px;
     bottom:24px;
   }
 }
 @media(max-width:650px){
-  .dragon-arena{
+  :where(html:not(.asoc-mobile)) .dragon-arena{
     min-height:auto;
     padding:18px;
     display:flex;
     flex-direction:column;
     gap:16px;
   }
-  .dragon-arena-ring{display:none}
-  .dragon-arena-boss{
+  :where(html:not(.asoc-mobile)) .dragon-arena-ring{display:none}
+  :where(html:not(.asoc-mobile)) .dragon-arena-boss{
     position:relative;
     left:auto;
     top:auto;
@@ -1086,11 +1086,11 @@
     transform:none;
     order:1;
   }
-  .dragon-boss-avatar{
+  :where(html:not(.asoc-mobile)) .dragon-boss-avatar{
     width:150px;
     height:150px;
   }
-  .dragon-arena-party{
+  :where(html:not(.asoc-mobile)) .dragon-arena-party{
     position:relative;
     inset:auto;
     display:grid;
@@ -1098,8 +1098,8 @@
     gap:10px;
     order:2;
   }
-  .dragon-arena-party .dragon-raider-card,
-  .dragon-arena-party .dragon-raider-card:nth-child(n){
+  :where(html:not(.asoc-mobile)) .dragon-arena-party .dragon-raider-card,
+  :where(html:not(.asoc-mobile)) .dragon-arena-party .dragon-raider-card:nth-child(n){
     position:relative;
     inset:auto;
     width:100%;
@@ -1638,7 +1638,7 @@
   to{opacity:.18}
 }
 @media(max-width:650px){
-  .dragon-active-lane{display:none!important}
+  :where(html:not(.asoc-mobile)) .dragon-active-lane{display:none!important}
 }
 @media(prefers-reduced-motion:reduce){
   .dragon-active-lane,.dragon-raider-card.is-critical-hp,.dragon-arena.is-boss-critical .dragon-boss-avatar,
@@ -1765,7 +1765,7 @@
   .dragon-card-timer b.is-terminal,.dragon-turn-clock.is-terminal,.dragon-raider-card.is-turn-lost{animation:none!important}
 }
 @media(max-width:650px){
-  .dragon-arena-party .dragon-raider-portrait{width:48px;height:48px}
+  :where(html:not(.asoc-mobile)) .dragon-arena-party .dragon-raider-portrait{width:48px;height:48px}
 }
 
 /* Portrait rows make the party cards taller: give the arena the room so the top card never overlaps the specimen frame. */
@@ -1774,7 +1774,7 @@
   .dragon-arena-boss{top:56%}
 }
 @media(min-width:651px) and (max-width:900px){
-  .dragon-arena{min-height:780px}
+  :where(html:not(.asoc-mobile)) .dragon-arena{min-height:780px}
 }
 
 /* Cabinet dossier portraits: specimen art stays subordinate to the launch copy. */
@@ -1869,10 +1869,10 @@
 .dragon-chronicle em{color:#c6a3d5;font:800 9px/1 var(--font-mono,monospace);font-style:normal}.dragon-chronicle .is-boss em{color:#df848a}.dragon-chronicle .is-timeout small{color:#d9a16f}
 
 @media(max-width:650px){
-  .dragon-setup-portrait{width:58%;opacity:.18}
-  .dragon-setup-grid>button.is-heroic .dragon-setup-portrait{width:55%}
-  .dragon-boss-phase b{font-size:23px}
-  .dragon-chronicle span{display:grid;gap:3px}
+  :where(html:not(.asoc-mobile)) .dragon-setup-portrait{width:58%;opacity:.18}
+  :where(html:not(.asoc-mobile)) .dragon-setup-grid>button.is-heroic .dragon-setup-portrait{width:55%}
+  :where(html:not(.asoc-mobile)) .dragon-boss-phase b{font-size:23px}
+  :where(html:not(.asoc-mobile)) .dragon-chronicle span{display:grid;gap:3px}
 }
 @media(prefers-reduced-motion:reduce){
   .dragon-setup-portrait{transition:none}
@@ -2023,10 +2023,10 @@
 .dragon-setup-grid>button.is-heroic::after{background:radial-gradient(circle,#170507 45%,rgba(255,61,69,.36) 47% 53%,transparent 55%),conic-gradient(from 45deg,transparent 0 10%,#f34950 10% 12%,transparent 12% 35%,#f34950 35% 37%,transparent 37% 100%)}
 
 @media(max-width:720px){
-  .dragon-setup-panel>header{padding:24px 22px}.dragon-setup-panel>header::before{display:none}
-  .dragon-setup-panel>header::after{left:22px;right:22px}
-  .dragon-setup-panel>p{padding-left:44px}.dragon-setup-panel>p::before{left:23px}.dragon-setup-panel>p::after{left:22px;right:22px}
-  .dragon-setup-grid{padding:17px 16px 22px}.dragon-setup-grid>button{min-height:155px}
+  :where(html:not(.asoc-mobile)) .dragon-setup-panel>header{padding:24px 22px}:where(html:not(.asoc-mobile)) .dragon-setup-panel>header::before{display:none}
+  :where(html:not(.asoc-mobile)) .dragon-setup-panel>header::after{left:22px;right:22px}
+  :where(html:not(.asoc-mobile)) .dragon-setup-panel>p{padding-left:44px}:where(html:not(.asoc-mobile)) .dragon-setup-panel>p::before{left:23px}:where(html:not(.asoc-mobile)) .dragon-setup-panel>p::after{left:22px;right:22px}
+  :where(html:not(.asoc-mobile)) .dragon-setup-grid{padding:17px 16px 22px}:where(html:not(.asoc-mobile)) .dragon-setup-grid>button{min-height:155px}
 }
 
 /* Recruitment chamber — shared by GM and players, styled as a living Cabinet seal. */
@@ -2146,9 +2146,9 @@
 .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-class-pick button small{color:#9d929a}
 
 @media(max-width:760px){
-  .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raid-shell{padding:25px 20px 22px}
-  .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-mark{width:66px;height:66px;font-size:34px}
-  .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading{gap:12px}
+  :where(html:not(.asoc-mobile)) .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-raid-shell{padding:25px 20px 22px}
+  :where(html:not(.asoc-mobile)) .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-mark{width:66px;height:66px;font-size:34px}
+  :where(html:not(.asoc-mobile)) .dragon-raid-overlay[data-phase="RECRUITING"] .dragon-heading{gap:12px}
 }
 
 /* Polygon formation: heroes sit on a circle around the specimen (triangle, square, pentagon) */
@@ -2178,7 +2178,7 @@
   transform:scale(.97);
 }
 @media(max-width:650px){
-  .dragon-formation{display:none}
+  :where(html:not(.asoc-mobile)) .dragon-formation{display:none}
 }
 
 /* Too narrow for a polygon: stacked arena (same as phone layout, two columns) */
@@ -2260,9 +2260,9 @@
 @keyframes dragonGmArm{from{box-shadow:0 0 10px rgba(255,70,84,.25)}to{box-shadow:0 0 26px rgba(255,70,84,.6)}}
 @media(prefers-reduced-motion:reduce){.dragon-gm-observer button.dragon-gm-cancel.is-armed{animation:none}}
 @media(max-width:640px){
-  .dragon-gm-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px}
-  .dragon-gm-gap{display:none}
-  .dragon-gm-countdown{text-align:center}
+  :where(html:not(.asoc-mobile)) .dragon-gm-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+  :where(html:not(.asoc-mobile)) .dragon-gm-gap{display:none}
+  :where(html:not(.asoc-mobile)) .dragon-gm-countdown{text-align:center}
 }
 
 .dragon-setup-status{margin:0;padding:12px 26px;border-bottom:1px solid #302034;background:rgba(122,48,157,.16);color:#e4c4f3;font:800 11px/1.3 var(--font-mono,monospace);letter-spacing:.12em}
@@ -2277,5 +2277,95 @@
 .dragon-setup-random>button:hover:not(:disabled){border-style:solid;border-color:#c25cf0;box-shadow:0 0 22px rgba(178,61,226,.25)}
 .dragon-setup-random>button b{font:800 14px/1 var(--font-display,monospace);letter-spacing:.14em}
 .dragon-setup-random>button span{color:#a894b3;font:700 10px/1.3 var(--font-mono,monospace);letter-spacing:.1em;text-align:right}
-@media(max-width:720px){.dragon-setup-random>button{flex-direction:column;align-items:flex-start}.dragon-setup-random>button span{text-align:left}.dragon-setup-status{padding:12px 20px}.dragon-setup-random{padding:0 14px 14px}}
+@media(max-width:720px){:where(html:not(.asoc-mobile)) .dragon-setup-random>button{flex-direction:column;align-items:flex-start}:where(html:not(.asoc-mobile)) .dragon-setup-random>button span{text-align:left}:where(html:not(.asoc-mobile)) .dragon-setup-status{padding:12px 20px}:where(html:not(.asoc-mobile)) .dragon-setup-random{padding:0 14px 14px}}
 .dragon-gm-observer button[data-dragon-action="start"]:disabled{color:rgba(190,240,203,.66);border-style:dashed}
+
+/* Native chat dock during Cabinet encounters. No second chat socket or event listeners. */
+.dragon-raid-overlay.dragon-chat-visible {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 12px;
+  align-items: stretch;
+}
+.dragon-raid-overlay.dragon-chat-visible > .dragon-raid-shell {
+  width: 100%;
+  min-width: 0;
+}
+.dragon-chat-dock {
+  display: none;
+  min-height: 0;
+  max-height: 94vh;
+  overflow: hidden;
+  border: 1px solid rgba(190, 100, 180, .48);
+  border-radius: 14px;
+  background: #100c16;
+}
+.dragon-chat-visible > .dragon-chat-dock {
+  display: flex;
+  flex-direction: column;
+}
+.dragon-chat-dock > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  color: #edc5ee;
+  border-bottom: 1px solid #55305a;
+}
+.dragon-chat-dock > header button {
+  color: inherit;
+  border: 1px solid #55305a;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+}
+.dragon-chat-slot {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dragon-chat-slot > #chat-panel,
+.dragon-chat-slot > .gm-chat-panel {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column;
+  min-height: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  position: relative !important;
+  inset: auto !important;
+}
+.dragon-chat-slot #chat-messages,
+.dragon-chat-slot #gm-chat-messages {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  flex: 1 1 auto !important;
+}
+.dragon-chat-open {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2;
+  border: 1px solid #ac6cbd;
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: #f0caed;
+  background: #1c0d28;
+  cursor: pointer;
+}
+.dragon-chat-visible > .dragon-chat-open { display: none; }
+@media (max-width: 1000px) {
+  .dragon-raid-overlay.dragon-chat-visible { grid-template-columns: minmax(0, 1fr); }
+  .dragon-chat-visible > .dragon-chat-dock {
+    position: fixed;
+    z-index: 4;
+    right: 10px;
+    bottom: 10px;
+    width: min(400px, calc(100vw - 20px));
+    height: min(65vh, 560px);
+    box-shadow: 0 12px 50px #000;
+  }
+}
