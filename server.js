@@ -33,6 +33,7 @@ const dennisAI = require('./dennis-ai');
 const spectralAdjudicator = require('./automation/spectral-adjudicator');
 const olympics = require('./olympics');
 const { createChatUploadGuard } = require('./chat-upload-guard');
+const { advanceBattleTimer } = require('./battle-timer-tick');
 const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
@@ -41,6 +42,8 @@ const forgeAI = require('./forge-ai');
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_WS_PAYLOAD_BYTES = 5 * 1024 * 1024;
+const WS_BUFFER_WARN_BYTES = 2 * 1024 * 1024;
+const WS_BUFFER_CLOSE_BYTES = 8 * 1024 * 1024;
 const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
 const BLACK_MARKET_TRIBUTE_MAX_BYTES = 20 * 1024 * 1024;
 // Voice messages: up to 60 s. Opus at typical recorder bitrates is ~0.5 MB a
@@ -460,7 +463,7 @@ function runtimeAction(action) {
     if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
     durableIO.commit();
     const frames = outbound; outbound = null;
-    for (const [ws, data] of frames) if (ws.readyState === 1) ws.durableSend(data);
+    for (const [ws, data] of frames) if (ws.readyState === 1) sendDurableFrame(ws, data);
   } catch (error) {
     outbound = null;
     durableIO.abort();
@@ -596,6 +599,12 @@ function persistActiveRooms() {
     durableIO.writeJson(ACTIVE_ROOMS_FILE, {
       format: RECOVERY_STORE_FORMAT, version: CURRENT_STORE_VERSION,
       savedAt: Date.now(), rooms: Array.from(rooms.values(), serializeRoomForRecovery)
+    });
+    const persistedAt = Date.now();
+    rooms.forEach(room => {
+      if (room.timer?.phase === 'running' || room.timer?.phase === 'borrowed') {
+        room._lastTimerPersistAt = persistedAt;
+      }
     });
     const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
     if (elapsedMs >= 75 && Date.now() - lastRoomPersistenceWarning >= 30000) {
@@ -2861,6 +2870,7 @@ function resetTimer(room) {
     borrowedDuration: TIMER_BORROWED_MS,
     borrowedRemaining: TIMER_BORROWED_MS
   };
+  delete room._lastTimerTickAt;
 }
 
 // Freezes the battle clock at a board-resolving moment (Final solved, REVEAL
@@ -2873,6 +2883,7 @@ function stopClock(room) {
   if (!t || !CLOCK_ACTIVE_PHASES.includes(t.phase)) return false;
   t.stoppedFrom = t.phase;
   t.phase = 'stopped';
+  delete room._lastTimerTickAt;
   pauseSolutionCountdowns(room);
   return true;
 }
@@ -2881,6 +2892,7 @@ function resumeStoppedClock(room) {
   const t = room.timer;
   if (!t || t.phase !== 'stopped' || !CLOCK_ACTIVE_PHASES.includes(t.stoppedFrom) || room.sessionState.matchResult) return false;
   t.phase = t.stoppedFrom;
+  if (t.phase === 'running' || t.phase === 'borrowed') room._lastTimerTickAt = Date.now();
   delete t.stoppedFrom;
   // Resumed while the room shows AMUSEMENT PARK: hold it paused until BATTLE.
   if (room.roomMode === ROOM_MODES.CASUAL) pauseBattleForCasual(room);
@@ -2899,6 +2911,7 @@ function pauseBattleForCasual(room) {
   if (!t || (t.phase !== 'running' && t.phase !== 'borrowed')) return false;
   t.casualPausedFrom = t.phase;
   t.phase = t.phase === 'borrowed' ? 'borrowed_paused' : 'paused';
+  delete room._lastTimerTickAt;
   pauseSolutionCountdowns(room);
   return true;
 }
@@ -2911,6 +2924,7 @@ function resumeBattleFromCasual(room) {
   const expected = from === 'borrowed' ? 'borrowed_paused' : 'paused';
   if (t.phase !== expected || isMatchResolved(room)) return false;
   t.phase = from;
+  room._lastTimerTickAt = Date.now();
   resumeSolutionCountdowns(room);
   return true;
 }
@@ -3179,6 +3193,7 @@ function handleTimerStart(ws) {
   }
 
   room.timer.phase = 'running';
+  room._lastTimerTickAt = Date.now();
   room.roomMode = ROOM_MODES.BATTLE;
   room.armed = true;
   room.revision++;
@@ -3211,6 +3226,7 @@ function handleTimerPause(ws) {
   }
 
   room.timer.phase = room.timer.phase === 'borrowed' ? 'borrowed_paused' : 'paused';
+  delete room._lastTimerTickAt;
   pauseSolutionCountdowns(room);
   room.revision++;
   persistActiveRooms();
@@ -3238,6 +3254,7 @@ function handleTimerResume(ws) {
   }
 
   room.timer.phase = room.timer.phase === 'borrowed_paused' ? 'borrowed' : 'running';
+  room._lastTimerTickAt = Date.now();
   resumeSolutionCountdowns(room);
   room.revision++;
   persistActiveRooms();
@@ -3456,6 +3473,8 @@ function enterBorrowedIfAllColumnsOpen(room) {
 
 setInterval(() => runtimeAction(() => {
   const dirty = [];
+  let phaseTransitioned = false;
+  const now = Date.now();
   rooms.forEach((room) => {
     if (!room.timer) return;
     // Battle time never drains in AMUSEMENT PARK (see pauseBattleForCasual):
@@ -3464,22 +3483,22 @@ setInterval(() => runtimeAction(() => {
     const t = room.timer;
 
     if (enterBorrowedIfAllColumnsOpen(room)) {
+      room._lastTimerTickAt = now;
+      phaseTransitioned = true;
       dirty.push(room);
       return;
     }
 
-    if (t.phase === 'running') {
-      t.remaining = Math.max(0, t.remaining - TIMER_TICK_MS);
-      if (t.remaining <= 0) {
-        t.phase = 'borrowed';
-        t.borrowedRemaining = t.borrowedDuration;
-        t.borrowedStartedAt = Date.now();
+    if (t.phase === 'running' || t.phase === 'borrowed') {
+      const elapsed = Math.max(0, now - (Number(room._lastTimerTickAt) || now - TIMER_TICK_MS));
+      room._lastTimerTickAt = now;
+      const tick = advanceBattleTimer(t, elapsed, now);
+      if (tick.transitioned) phaseTransitioned = true;
+      if (tick.enteredBorrowed) {
         console.log(`[ROOM ${room.code}] Timer hit 0:00 -- entering BORROWED TIME`);
       }
-    } else if (t.phase === 'borrowed') {
-      t.borrowedRemaining = Math.max(0, t.borrowedRemaining - TIMER_TICK_MS);
-      if (t.borrowedRemaining <= 0) {
-        t.phase = 'expired';
+      if (tick.expired) {
+        delete room._lastTimerTickAt;
         console.log(`[ROOM ${room.code}] Borrowed Time hit 0:00 -- evaluating terminal state`);
         if (declareGameLost(room)) {
           // declareGameLost already persisted and broadcast the terminal state.
@@ -3487,6 +3506,7 @@ setInterval(() => runtimeAction(() => {
         }
       }
     } else {
+      delete room._lastTimerTickAt;
       return;
     }
 
@@ -3498,11 +3518,9 @@ setInterval(() => runtimeAction(() => {
   // and stalls chat / verdicts on slow volumes. Bound snapshot traffic to
   // one write per five seconds while preserving immediate writes elsewhere
   // (commands, verdicts, phase transitions, chat and settlements).
-  const now = Date.now();
-  const due = dirty.some(room => now - (room._lastTimerPersistAt || 0) >= 5000);
+  const due = phaseTransitioned || dirty.some(room => now - (room._lastTimerPersistAt || 0) >= 5000);
   if (due) {
     persistActiveRooms();
-    dirty.forEach(room => { room._lastTimerPersistAt = now; });
   }
   dirty.forEach((room) => {
     broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -14613,6 +14631,25 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server, maxPayload: MAX_WS_PAYLOAD_BYTES });
 let shuttingDown = false;
+let lastSocketBufferWarning = 0;
+
+function sendDurableFrame(ws, data) {
+  const bufferedBytes = Number(ws.bufferedAmount) || 0;
+  if (bufferedBytes >= WS_BUFFER_CLOSE_BYTES) {
+    if (Date.now() - lastSocketBufferWarning >= 30000) {
+      lastSocketBufferWarning = Date.now();
+      console.warn(`[performance] websocket backpressure disconnect: buffered=${bufferedBytes} bytes`);
+    }
+    ws.terminate();
+    return;
+  }
+  if (bufferedBytes >= WS_BUFFER_WARN_BYTES && Date.now() - lastSocketBufferWarning >= 30000) {
+    lastSocketBufferWarning = Date.now();
+    const payloadBytes = Buffer.isBuffer(data) ? data.length : Buffer.byteLength(String(data));
+    console.warn(`[performance] websocket send delayed: buffered=${bufferedBytes} bytes payload=${payloadBytes} bytes`);
+  }
+  ws.durableSend(data);
+}
 
 const heartbeatInterval = setInterval(() => {
   wss.clients.forEach(ws => {
@@ -14645,7 +14682,7 @@ wss.on('connection', (ws, req) => {
   ws.send = data => {
     if (persistenceFailed) return;
     if (outbound) outbound.push([ws, data]);
-    else ws.durableSend(data);
+    else sendDurableFrame(ws, data);
   };
   const handshakeTimer = setTimeout(() => {
     if (!ws.protocolVerified) ws.terminate();
