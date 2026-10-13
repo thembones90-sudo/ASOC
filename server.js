@@ -40,6 +40,7 @@ const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
 const forgeAI = require('./forge-ai');
+const payloadDiagnostics = require('./ws-payload-diagnostics');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -5191,7 +5192,7 @@ function handleChatRemoteGif(ws, message) {
     cooldown.chatAt = now;
   }
 
-  appendChatRemoteGifMessage(
+  const gifMessage = appendChatRemoteGifMessage(
     room,
     actor.role === 'gm'
       ? { role: 'gm' }
@@ -5199,7 +5200,7 @@ function handleChatRemoteGif(ws, message) {
     gif
   );
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [gifMessage.id]);
 }
 
 const MAX_STICKER_BYTES = 1024 * 1024;
@@ -5250,7 +5251,7 @@ function handleChatSticker(ws, message) {
   entry.messageType = 'sticker';
   entry.source = actor.role === 'gm' ? 'shadowBroker' : 'chatSticker';
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [entry.id]);
 }
 
 async function handleChatImageUrl(ws, message) {
@@ -5352,7 +5353,7 @@ function persistChatVoice(room, actor, buffer, contentType, seconds) {
   const audioUrl = '/uploads/chat/' + filename;
   const message = appendChatVoiceMessage(room, actor, audioUrl, seconds);
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [message.id]);
   return { audioUrl, messageId: message.id };
 }
 
@@ -5524,7 +5525,7 @@ function handleChatPollCreate(ws, message) {
   );
   if (!result.success) return sendToWs(ws, { type: 'error', message: result.error });
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [result.message.id]);
   schedulePollExpiry(room, result.message);
 
   // A Shadow Broker poll is a room directive. Publishing one automatically
@@ -5615,7 +5616,7 @@ function handleChatPollVote(ws, message) {
     frameColor: actor.frameColor || '#9B5DE0'
   };
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [target.id]);
 }
 
 function handleChatPollClose(ws, message) {
@@ -5632,7 +5633,7 @@ function handleChatPollClose(ws, message) {
   if (target.poll.closedAt) return;
   target.poll.closedAt = Date.now();
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [target.id]);
 }
 
 const threefoldRooms = new Map();
@@ -6974,7 +6975,7 @@ function persistChatImage(room, actor, buffer, contentType, caption) {
   const imageUrl = '/uploads/chat/' + filename;
   const message = appendChatImageMessage(room, actor, imageUrl, caption);
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [message.id]);
   return { imageUrl, messageId: message.id };
 }
 
@@ -8066,7 +8067,10 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
   if (result.success) scheduleDennisCommandRetaliation(room, author, target, 'emote', name);
   if (!result.success || actorIsBroker || actorIsDennis || target?.id !== SHADOW_BROKER_TARGET_ID) return result;
   if (name === 'threaten') {
-    addShadowBrokerMessage(room, SKYNET_THREAT_REPLIES[crypto.randomInt(SKYNET_THREAT_REPLIES.length)], { editableByHost: false });
+    const reply = addShadowBrokerMessage(room, SKYNET_THREAT_REPLIES[crypto.randomInt(SKYNET_THREAT_REPLIES.length)], { editableByHost: false });
+    // The Broker's retort is a second visible line in the same tick, so the
+    // narrow delta must carry both it and the emote that provoked it.
+    if (reply.success) result.changedChatIds = [result.message.id, reply.message.id];
   }
   if (name === 'moon' && applyMoonToll(room, author)) result.tributeTriggered = true;
   return result;
@@ -12123,17 +12127,21 @@ function handleChatGuess(ws, message) {
     // Permanent channel contract: if clients can see a transmission, it has
     // already reached the recovery snapshot.
     persistActiveRooms();
-    // A plain post touches exactly one message, so ship only that one. A nudge
-    // or a triggered tribute can add a second message in the same tick, and a
-    // slash command can post, mutate and clear solved targets at once -- every
-    // one of those still takes the full snapshot.
-    const singleMessageOnly = dispatch === null
-      && !result.tributeTriggered
-      && nudge !== 'tribute'
-      && !dennisGroundSpit
-      && !spectralChange
-      && result.message?.id;
-    broadcastChatUpdate(room, singleMessageOnly ? [result.message.id] : null);
+    // A plain post and every slash command whose handler names exactly the
+    // messages it touched ship only those messages as a delta. Deltas always
+    // carry solvedTargets, so verdicts that clear them ride along. Events that
+    // can add or mutate messages the handler did not name (a triggered
+    // tribute, a nudge, Dennis spit, spectral adjudication) keep the full
+    // snapshot fallback.
+    const changedChatIds = Array.isArray(result.changedChatIds) && result.changedChatIds.length
+      ? result.changedChatIds
+      : (result.message?.id ? [result.message.id] : []);
+    const needsFullChatSnapshot = result.tributeTriggered
+      || nudge === 'tribute'
+      || dennisGroundSpit
+      || spectralChange
+      || !changedChatIds.length;
+    broadcastChatUpdate(room, needsFullChatSnapshot ? null : changedChatIds);
     if (dispatch === null) triggerC4Alert(room, result.message?.text, result.message?.id);
     if (dispatch === null) triggerB3Alert(room, result.message?.text, result.message?.id);
     if (result.tributeTriggered || result.poisonStateChanged || nudge === 'tribute') broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -12505,7 +12513,7 @@ function handleGmBroadcast(ws, message) {
     }
     const rollResult = addRollMessage(room, null, 'SHADOW BROKER', gmRange, { isGm: true });
     persistActiveRooms();
-    broadcastChatUpdate(room);
+    broadcastChatUpdate(room, [rollResult.message.id]);
     return;
   }
 
@@ -12533,9 +12541,13 @@ function handleGmBroadcast(ws, message) {
 
   const result = addShadowBrokerMessage(room, text, { editableByHost: true });
   if (result.success) {
-    maybeDennisGroundSpit(room, result.message?.text);
+    const spitMessage = maybeDennisGroundSpit(room, result.message?.text);
     persistActiveRooms();
-    broadcastChatUpdate(room);
+    // A transmission touches exactly the line it posted; a Dennis ground-spit
+    // reply is the one case that appends a second visible message in the same
+    // tick, and both must ride the delta.
+    if (spitMessage) broadcastChatUpdate(room, [result.message.id, spitMessage.id]);
+    else broadcastChatUpdate(room, [result.message.id]);
     triggerC4Alert(room, result.message?.text, result.message?.id);
     triggerB3Alert(room, result.message?.text, result.message?.id);
 
@@ -14718,6 +14730,10 @@ let lastLargePayloadWarning = 0;
 function sendDurableFrame(ws, data) {
   const bufferedBytes = Number(ws.bufferedAmount) || 0;
   const payloadBytes = Buffer.isBuffer(data) ? data.length : Buffer.byteLength(String(data));
+  // Privacy-safe aggregate accounting: classifies the frame into a whitelisted
+  // category and records byte counts only -- never the payload -- so an
+  // oversized or queued backlog can be attributed after the fact.
+  payloadDiagnostics.observe(data, bufferedBytes);
   if (payloadBytes >= 524288 && Date.now() - lastLargePayloadWarning >= 30000) {
     lastLargePayloadWarning = Date.now();
     const category = /^\{"type":"([a-zA-Z:-]+)"/.exec(String(data).slice(0, 80))?.[1] || '';
