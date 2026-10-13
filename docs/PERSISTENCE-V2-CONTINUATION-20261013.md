@@ -22,6 +22,9 @@ The interrupted Codex changes were preserved, inspected and extended rather than
 - `node tests/raid-live-chat.js`, `node tests/scoreboard-reset.js`, `node tests/casual-battle-pause.js`, `node tests/all-columns-borrowed.js`: pass.
 - `node tests/durable-single-write.js`, `node tests/persistence-bloat.js`, `node tests/match-ledger.js`, `node tests/recount-engine.js`: pass.
 - `node tests/battle-flow.js`: RECOUNT timeout reproduced on untouched baseline `fbf4fd7` in separate worktree; not attributable to this worker patch.
+- `node tests/avada.js`: GM-cast timeout also reproduced on untouched `fbf4fd7` baseline.
+- `node tests/black-market-tribute-wire.js`: GM acceptance timeout also reproduced on untouched `fbf4fd7` baseline.
+- Broad suite was started, encountered multiple legacy UI/source-shape expectation failures, and was deliberately stopped early after targeted tests and these baseline comparisons. Do not claim a complete broad-suite pass.
 - The benchmark from `tests/durable-chat-benchmark.js` reports existing single-file optimization p95 40.7 ms vs 62.4 ms old WAL simulation; this is **not** a production benchmark of Persistence V2.
 
 ## Not yet proven
