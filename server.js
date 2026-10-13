@@ -3493,7 +3493,17 @@ setInterval(() => runtimeAction(() => {
     dirty.push(room);
   });
   dirty.forEach(room => room.revision++);
-  if (dirty.length) persistActiveRooms();
+  // The countdown still broadcasts every second. Persisting its transient
+  // remaining-milliseconds value every tick fsyncs the whole recovery store
+  // and stalls chat / verdicts on slow volumes. Bound snapshot traffic to
+  // one write per five seconds while preserving immediate writes elsewhere
+  // (commands, verdicts, phase transitions, chat and settlements).
+  const now = Date.now();
+  const due = dirty.some(room => now - (room._lastTimerPersistAt || 0) >= 5000);
+  if (due) {
+    persistActiveRooms();
+    dirty.forEach(room => { room._lastTimerPersistAt = now; });
+  }
   dirty.forEach((room) => {
     broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   });
