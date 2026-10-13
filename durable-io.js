@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { Worker } = require('worker_threads');
 
 const root = process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_DIR) : __dirname;
 const journal = path.join(root, '.runtime-transaction.json');
@@ -18,6 +19,10 @@ const testAtomicDelayMs = process.env.NODE_ENV === 'test'
 let pending = null;
 let failed = false;
 let failureHandler = null;
+let worker = null;
+let workerSeq = 0;
+let workerStopped = false;
+const workerRequests = new Map();
 
 const TRANSIENT_FS_CODES = new Set(['EAGAIN', 'EBUSY', 'EINTR', 'ESTALE']);
 const UNSUPPORTED_DIRSYNC_CODES = new Set(['EINVAL', 'ENOTSUP', 'EOPNOTSUPP', 'EPERM']);
@@ -136,6 +141,51 @@ function notifyCommitted(writes) {
   }
 }
 
+function workerError(view) {
+  const error = new Error(view?.message || 'Persistence worker failed');
+  if (view?.code) error.code = view.code;
+  if (view?.name) error.name = view.name;
+  if (view?.stack) error.stack = view.stack;
+  return error;
+}
+function rejectWorkerRequests(error) {
+  for (const { reject } of workerRequests.values()) reject(error);
+  workerRequests.clear();
+}
+function ensureWorker() {
+  if (workerStopped) throw new Error('Persistence worker is stopped');
+  if (worker) return worker;
+  worker = new Worker(path.join(__dirname, 'durable-io-worker.js'), { workerData: {
+    root, journal, testFailureTrigger, testAtomicDelayMs
+  }});
+  worker.on('message', message => {
+    const request = workerRequests.get(message?.id);
+    if (!request) return;
+    workerRequests.delete(message.id);
+    if (message.ok) request.resolve(); else request.reject(workerError(message.error));
+  });
+  worker.on('error', error => { rejectWorkerRequests(error); markFailed(error); });
+  worker.on('exit', code => {
+    const unacknowledged = workerRequests.size > 0;
+    const unexpected = !workerStopped || unacknowledged;
+    worker = null;
+    if (unexpected) {
+      const error = new Error(`Persistence worker exited with code ${code}; pending=${workerRequests.size}`);
+      rejectWorkerRequests(error);
+      markFailed(error);
+    }
+  });
+  return worker;
+}
+function commitInWorker(writes) {
+  return new Promise((resolve, reject) => {
+    const id = ++workerSeq;
+    workerRequests.set(id, { resolve, reject });
+    try { ensureWorker().postMessage({ type: 'commit', id, writes, forceWal: testForceTransactionWal }); }
+    catch (error) { workerRequests.delete(id); reject(error); }
+  });
+}
+
 // Returns the exact serialized string written (or queued), so a caller can
 // recognise its own pending write later without re-serializing.
 function writeJson(file, value) {
@@ -207,6 +257,18 @@ module.exports = {
       throw error;
     }
   },
+  async commitAsync() {
+    const writes = Array.from(pending || []);
+    pending = null;
+    if (!writes.length) return;
+    try {
+      await commitInWorker(writes);
+      notifyCommitted(writes);
+    } catch (error) {
+      markFailed(error);
+      throw error;
+    }
+  },
   abort() {
     pending = null;
   },
@@ -223,5 +285,16 @@ module.exports = {
   },
   onFailure(handler) {
     failureHandler = typeof handler === 'function' ? handler : null;
+  },
+  async closeWorker() {
+    workerStopped = true;
+    const active = worker;
+    worker = null;
+    if (workerRequests.size) {
+      const error = new Error('Persistence worker closed with commits awaiting acknowledgment');
+      rejectWorkerRequests(error);
+      markFailed(error);
+    }
+    if (active) await active.terminate();
   }
 };

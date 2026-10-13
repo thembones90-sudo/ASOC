@@ -443,6 +443,11 @@ const CURRENT_STORE_VERSION = 2;
 let recoveryStoreLocked = false;
 let persistenceFailed = false;
 let outbound = null;
+let runtimeActionExecuting = false;
+const runtimeQueue = [];
+let runtimeQueueActive = false;
+let runtimeDrainWaiters = [];
+const RUNTIME_BATCH_MAX = Math.max(1, Math.min(64, Number(process.env.ASOC_RUNTIME_BATCH_MAX) || 32));
 function failPersistence(error = null) {
   if (!persistenceFailed) {
     persistenceFailed = true;
@@ -455,33 +460,68 @@ function failPersistence(error = null) {
 }
 durableIO.onFailure(error => failPersistence(error));
 
+function resolveRuntimeDrain() {
+  if (runtimeQueueActive || runtimeQueue.length) return;
+  const waiters = runtimeDrainWaiters; runtimeDrainWaiters = [];
+  waiters.forEach(resolve => resolve());
+}
+function drainRuntimeActions() {
+  if (!runtimeQueueActive && !runtimeQueue.length) return Promise.resolve();
+  return new Promise(resolve => runtimeDrainWaiters.push(resolve));
+}
+async function processRuntimeQueue() {
+  if (runtimeQueueActive) return;
+  runtimeQueueActive = true;
+  while (runtimeQueue.length && !persistenceFailed) {
+    // Admit actions that arrived in the same event-loop turn, then durably
+    // commit their final combined state once. This preserves strict mutation
+    // and frame order while avoiding one fsync sequence per chat burst.
+    await new Promise(resolve => setImmediate(resolve));
+    const batch = runtimeQueue.splice(0, RUNTIME_BATCH_MAX);
+    const timings = [];
+    outbound = [];
+    try {
+      durableIO.begin();
+      for (const { action, metricType } of batch) {
+        const measured = realtimeMetrics.isMeasured(metricType);
+        const started = measured ? process.hrtime.bigint() : 0n;
+        runtimeActionExecuting = true;
+        try { action(); } finally { runtimeActionExecuting = false; }
+        timings.push({ metricType, measured, started, actionDone: measured ? process.hrtime.bigint() : 0n });
+      }
+      if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
+      const frames = outbound; outbound = null;
+      await durableIO.commitAsync();
+      const commitDone = process.hrtime.bigint();
+      for (const [ws, data] of frames) if (ws.readyState === 1) sendDurableFrame(ws, data);
+      const finished = process.hrtime.bigint();
+      for (const timing of timings) if (timing.measured) realtimeMetrics.record(timing.metricType, {
+        validationAndMutationMs: Number(timing.actionDone - timing.started) / 1e6,
+        persistenceMs: Number(commitDone - timing.actionDone) / 1e6,
+        totalServerMs: Number(finished - timing.started) / 1e6,
+        frameCount: frames.length
+      });
+    } catch (error) {
+      runtimeActionExecuting = false; outbound = null; durableIO.abort();
+      console.error('[runtime] Authoritative action failed:', error?.stack || error?.message || error);
+      failPersistence(error);
+    }
+  }
+  runtimeQueueActive = false;
+  // An event can enqueue after the loop observes an empty queue but before
+  // this flag is cleared. Hand ownership to a fresh drain so that edge can
+  // never strand the final chat command indefinitely.
+  if (runtimeQueue.length && !persistenceFailed) void processRuntimeQueue();
+  else resolveRuntimeDrain();
+}
 function runtimeAction(action, metricType = '') {
   if (persistenceFailed || recoveryStoreLocked || shuttingDown) return;
-  if (outbound) return action();
-  const measured = realtimeMetrics.isMeasured(metricType);
-  const started = measured ? process.hrtime.bigint() : 0n;
-  outbound = [];
-  durableIO.begin();
-  try {
-    action();
-    const actionDone = measured ? process.hrtime.bigint() : 0n;
-    if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
-    durableIO.commit();
-    const commitDone = measured ? process.hrtime.bigint() : 0n;
-    const frames = outbound; outbound = null;
-    for (const [ws, data] of frames) if (ws.readyState === 1) sendDurableFrame(ws, data);
-    if (measured) realtimeMetrics.record(metricType, {
-      validationAndMutationMs: Number(actionDone - started) / 1e6,
-      persistenceMs: Number(commitDone - actionDone) / 1e6,
-      totalServerMs: Number(process.hrtime.bigint() - started) / 1e6,
-      frameCount: frames.length
-    });
-  } catch (error) {
-    outbound = null;
-    durableIO.abort();
-    console.error('[runtime] Authoritative action failed:', error?.stack || error?.message || error);
-    failPersistence(error);
-  }
+  // Only calls made synchronously by the action currently mutating state are
+  // nested. New socket/timer events arriving while its worker commit is in
+  // flight must queue behind it, never leak into the open outbound batch.
+  if (runtimeActionExecuting) return action();
+  runtimeQueue.push({ action, metricType });
+  void processRuntimeQueue();
 }
 
 function makeOfflinePlayerSocket() {
@@ -15583,7 +15623,7 @@ server.listen(PORT, '0.0.0.0', () => {
 });
 
 const SHUTDOWN_GRACE_MS = Math.max(1000, Number(process.env.ASOC_SHUTDOWN_GRACE_MS) || 10000);
-function gracefulShutdown(signal) {
+async function gracefulShutdown(signal) {
   if (shuttingDown) {
     console.warn(`[shutdown] ${signal} received while shutdown is already in progress`);
     return;
@@ -15597,6 +15637,8 @@ function gracefulShutdown(signal) {
   }, SHUTDOWN_GRACE_MS);
   forceTimer.unref();
 
+  await drainRuntimeActions();
+
   try {
     persistActiveRooms();
     savePlayerAuthSessions();
@@ -15604,6 +15646,7 @@ function gracefulShutdown(signal) {
   } catch (error) {
     console.error('[shutdown] Persistence flush failed:', error);
   }
+  try { await durableIO.closeWorker(); } catch (error) { console.error('[shutdown] Persistence worker close failed:', error); }
 
   clearInterval(heartbeatInterval);
   for (const ws of wss.clients) {
