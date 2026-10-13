@@ -2956,6 +2956,11 @@ const App = {
         this._recoverPending = false;
         break;
 
+      case 'timer:tick':
+        this.timer = message.timer || this.timer;
+        this.updateTimerUI();
+        break;
+
       case 'state:public':
         if (!window.AsocRuntime?.acceptRevision?.('gm-public', message.revision) && window.AsocRuntime) break;
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);

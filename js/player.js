@@ -1387,6 +1387,12 @@ const PlayerApp = {
         alert(message.message || 'SYSTEM VERSION MISMATCH // REFRESH REQUIRED');
         break;
 
+      case 'timer:tick':
+        if (this.roomMode !== 'CASUAL') {
+          Timer.update('timer-tracker-player', message.timer, false);
+        }
+        break;
+
       case 'state:public': {
         if (!window.AsocRuntime?.acceptRevision?.('player-public', message.revision) && window.AsocRuntime) break;
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);

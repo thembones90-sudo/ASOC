@@ -3523,7 +3523,11 @@ setInterval(() => runtimeAction(() => {
     persistActiveRooms();
   }
   dirty.forEach((room) => {
-    broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+    // The one-second heartbeat carries only timer values, not the whole game.
+    // Full state remains authoritative on every mutation and phase boundary.
+    broadcastToRoom(room, phaseTransitioned
+      ? { type: 'state:public', ...getPublicState(room) }
+      : { type: 'timer:tick', revision: room.revision, timer: getTimerPublicState(room) });
   });
 }), TIMER_TICK_MS);
 
@@ -14640,8 +14644,9 @@ function sendDurableFrame(ws, data) {
       lastSocketBufferWarning = Date.now();
       console.warn(`[performance] websocket backpressure disconnect: buffered=${bufferedBytes} bytes`);
     }
-    ws.terminate();
-    return;
+    // GM reconnect hydration can legitimately enqueue a large initial burst.
+    // Disconnecting that socket caused a permanent reconnect loop in production.
+    // Retain observability until a measured per-message backpressure policy exists.
   }
   if (bufferedBytes >= WS_BUFFER_WARN_BYTES && Date.now() - lastSocketBufferWarning >= 30000) {
     lastSocketBufferWarning = Date.now();
