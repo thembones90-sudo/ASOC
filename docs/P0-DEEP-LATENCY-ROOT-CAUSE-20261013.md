@@ -1,7 +1,9 @@
 # ASOC P0 deep-latency investigation | 2026-10-13
 
 ## Production evidence (read-only)
+- Latest Railway deployment check confirms active successful commit `542b185` (raid-chat containment), superseding the earlier handoff's `fbf4fd7`. Baseline comparisons must use `542b185` for release qualification.
 - Railway service `asoc-live` has one replica in `sfo` (San Francisco), verified via service configuration. The app predominantly serves Serbian / European players.
+- Railway supports an EU West / Amsterdam deployment (`europe-west4-drams3a`). Railway's official region documentation warns that migrating a service with an attached volume causes downtime; any ASOC move requires a verified persistent-data migration and rollback plan: https://docs.railway.com/deployments/regions
 - Latest production `[realtime-performance]` batch for 300 `chat:guess` actions:
   - validation+mutation median 80.8ms, p95 114.5ms, worst 144.3ms
   - persistence/wait median 566ms, p95 710.9ms, p99 1339.2ms, worst 1602.9ms
