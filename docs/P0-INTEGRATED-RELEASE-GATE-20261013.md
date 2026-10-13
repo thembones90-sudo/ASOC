@@ -37,3 +37,10 @@ Independent Claude session hit weekly limit and did not perform a source audit. 
 
 ## Safety
 Production was not deployed or restarted. Do not merge this feature branch into main until gates above are cleared and a controlled downtime window is authorized. No player messages should be dropped to mask queue pressure; no 8MB unconditional GM WebSocket disconnect should be restored.
+
+## Repeatability and heavier browser load (continuation)
+- PASS: 3 consecutive complete `node tests/scoring-audit.js` runs on the integrated branch, all exit 0 (roughly 50 seconds each). Covers CORRECT, score reversals, Final and Shadow Coins; prior intermittent timeouts in a separate worker tree remain an operational risk to monitor.
+- PASS: 12 browser clients using `tests/persistence-v2-load12.js`; with simulated 200ms worker storage delay, all messages delivered in 490ms, unrelated HTTP worst 1ms, no duplicate messages or JS page errors.
+- PASS: full targeted group `chat-payload-budget`, `chat-deltas`, `reliquary-adversarial`, `raid-live-chat`, `casual-battle-pause`, `all-columns-borrowed`, `worker-wal-crash`, `worker-partial-crash`.
+- Storage and network caveat: The worker keeps the event loop responsive but durable acceptance still waits for actual fsync completion, and production SFO region adds transatlantic RTT. Sub-250ms production ACK is not yet proven.
+- EU migration remains a separate safety operation: do not move a live attached volume without verified complete persistent-data backup, recovery rehearsal and controlled downtime.
