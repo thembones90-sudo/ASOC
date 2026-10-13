@@ -584,15 +584,25 @@ function liveAvatarFor(room, playerId) {
   return playerStore.peekPlayers()[String(playerId)]?.avatarData || '';
 }
 
+// Chat messages are not broadcast until the recovery snapshot is durable.
+ // Observe slow writes without weakening this crash-recovery guarantee.
+let lastRoomPersistenceWarning = 0;
 function persistActiveRooms() {
   if (recoveryStoreLocked) return false;
   if (persistenceFailed) throw Error('Persistence unavailable');
   if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
+  const started = process.hrtime.bigint();
   try {
     durableIO.writeJson(ACTIVE_ROOMS_FILE, {
       format: RECOVERY_STORE_FORMAT, version: CURRENT_STORE_VERSION,
       savedAt: Date.now(), rooms: Array.from(rooms.values(), serializeRoomForRecovery)
     });
+    const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+    if (elapsedMs >= 75 && Date.now() - lastRoomPersistenceWarning >= 30000) {
+      lastRoomPersistenceWarning = Date.now();
+      // No room contents, player identities, message text, tokens, or paths.
+      console.warn('[performance] room recovery write slow: ' + Math.round(elapsedMs) + 'ms');
+    }
     return true;
   } catch (error) { failPersistence(error); throw error; }
 }
