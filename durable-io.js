@@ -10,6 +10,10 @@ const journal = path.join(root, '.runtime-transaction.json');
 const testFailureTrigger = process.env.NODE_ENV === 'test'
   ? String(process.env.ASOC_TEST_DURABILITY_FAIL_TRIGGER || '')
   : '';
+const testForceTransactionWal = process.env.NODE_ENV === 'test' && process.env.ASOC_TEST_FORCE_TRANSACTION_WAL === '1';
+const testAtomicDelayMs = process.env.NODE_ENV === 'test'
+  ? Math.max(0, Number(process.env.ASOC_TEST_ATOMIC_DELAY_MS) || 0)
+  : 0;
 
 let pending = null;
 let failed = false;
@@ -57,6 +61,8 @@ function injectedFailure() {
 }
 
 function atomic(file, value) {
+  // Deterministic storage-latency injection for performance regression tests.
+  if (testAtomicDelayMs) sleepSync(testAtomicDelayMs);
   const target = path.resolve(file);
   const dir = path.dirname(target);
   const retryDelays = [0, 20, 60, 140];
@@ -178,6 +184,17 @@ module.exports = {
     const writes = Array.from(pending || []);
     if (!writes.length) { pending = null; return; }
     try {
+      // A one-file transaction is already crash-safe through atomic(): its
+      // fsynced temp file is renamed over the target and the directory is
+      // synced before we return. Writing a separate WAL for this common chat
+      // path triples the durable filesystem round trips without adding any
+      // cross-file atomicity. Multi-file actions still use the journal below.
+      if (writes.length === 1 && !testForceTransactionWal) {
+        atomic(writes[0][0], writes[0][1]);
+        pending = null;
+        notifyCommitted(writes);
+        return;
+      }
       atomic(journal, JSON.stringify({ version: 1, writes }));
       for (const [file, value] of writes) atomic(file, value);
       fs.unlinkSync(journal);

@@ -1,4 +1,5 @@
 const durableIO = require('./durable-io');
+const realtimeMetrics = require('./realtime-metrics');
 const { hasReliquaryAccess } = require('./reliquary-access');
 const playerSessionStore = require('./player-session-store');
 const net = require('net');
@@ -454,17 +455,27 @@ function failPersistence(error = null) {
 }
 durableIO.onFailure(error => failPersistence(error));
 
-function runtimeAction(action) {
+function runtimeAction(action, metricType = '') {
   if (persistenceFailed || recoveryStoreLocked || shuttingDown) return;
   if (outbound) return action();
+  const measured = realtimeMetrics.isMeasured(metricType);
+  const started = measured ? process.hrtime.bigint() : 0n;
   outbound = [];
   durableIO.begin();
   try {
     action();
+    const actionDone = measured ? process.hrtime.bigint() : 0n;
     if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
     durableIO.commit();
+    const commitDone = measured ? process.hrtime.bigint() : 0n;
     const frames = outbound; outbound = null;
     for (const [ws, data] of frames) if (ws.readyState === 1) sendDurableFrame(ws, data);
+    if (measured) realtimeMetrics.record(metricType, {
+      validationAndMutationMs: Number(actionDone - started) / 1e6,
+      persistenceMs: Number(commitDone - actionDone) / 1e6,
+      totalServerMs: Number(process.hrtime.bigint() - started) / 1e6,
+      frameCount: frames.length
+    });
   } catch (error) {
     outbound = null;
     durableIO.abort();
@@ -1654,9 +1665,9 @@ function getBloodTributeVaultState(room) {
       playerName: t.senderName || t.playerName || 'LITTLE HERO',
       sourceLabel: t.sourceLabel || null,
       senderAvatar: t.senderAvatar || '',
-      imageData: t.source === 'blackMarket' && /^\/uploads\/chat\/[a-f0-9]{32}\.(?:png|jpg|webp)$/i.test(String(t.imageUrlOrStoragePath || ''))
-        ? t.imageUrlOrStoragePath
-        : getTributeImageData(t),
+      // Vault media is delivered only inside the GM-authorized WebSocket
+      // payload. Never hand the client a generally fetchable upload URL.
+      imageData: getTributeImageData(t),
       originalMessageTimestamp: Number(t.originalMessageTimestamp || t.submittedAt) || null,
       submittedAt: Number(t.markedAt || t.submittedAt) || null,
       publicUntil: Number(t.expiresAt || t.publicUntil) || null,
@@ -1857,7 +1868,7 @@ function handleBloodTributeReviewDecision(ws, message) {
 
 function sendTributeVaultToHost(room) {
   mirrorTributesToInfostud(room);
-  if (!room?.hostConnection || !hasReliquaryAccess(room.hostConnection)) return;
+  if (!room?.hostConnection || room.hostConnection.gmAuthenticated !== true || !hasReliquaryAccess(room.hostConnection)) return;
   sendToWs(room.hostConnection, { type: 'tribute:vault', ...getBloodTributeVaultState(room) });
 }
 
@@ -2305,8 +2316,17 @@ function blackMarketTargets(room) {
   return [...targets.values()].sort((a,b) => Number(b.connected)-Number(a.connected) || a.name.localeCompare(b.name));
 }
 function sendBlackMarketGm(room) {
-  if (room?.hostConnection?.readyState === 1) {
-    sendToWs(room.hostConnection, { type: 'blackMarket:gmState', ...blackMarket.gmView(room.blackMarket), targets: blackMarketTargets(room) });
+  if (room?.hostConnection?.readyState === 1 && room.hostConnection.gmAuthenticated === true) {
+    const view = blackMarket.gmView(room.blackMarket);
+    // Binary tribute uploads are private from the instant they are written.
+    // Materialize them for the authenticated GM over the socket instead of
+    // exposing a reusable HTTP URL in the GM projection.
+    for (const pact of view.pacts || []) {
+      if (!pact.tributeImageUrl) continue;
+      pact.tributeImageData = getTributeImageData({ imageUrlOrStoragePath: pact.tributeImageUrl });
+      pact.tributeImageUrl = '';
+    }
+    sendToWs(room.hostConnection, { type: 'blackMarket:gmState', ...view, targets: blackMarketTargets(room) });
   }
 }
 function syncBlackMarket(room, playerId) {
@@ -2436,11 +2456,8 @@ function handleBlackMarket(ws, message) {
 }
 
 function handleBloodTributeVaultClear(ws) {
-  const room = rooms.get(ws.roomCode?.toUpperCase());
-  if (!room || ws !== room.hostConnection) {
-    sendToWs(ws, { type: 'error', message: 'Only host can purge the Blood Tribute vault' });
-    return;
-  }
+  const room = requireGmRoom(ws);
+  if (!room) return;
   if (!hasReliquaryAccess(ws)) {
     sendToWs(ws, { type: 'error', code: 'RELIQUARY_LOCKED', message: 'Reliquary code required' });
     return;
@@ -6921,6 +6938,9 @@ function persistBlackMarketTributeUpload(actor, buffer, contentType, pactId) {
   const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
   const filePath = path.join(CHAT_UPLOAD_DIR, filename);
   fs.writeFileSync(filePath, buffer, { flag: 'wx', mode: 0o600 });
+  // Sidecar is checked by the HTTP serving path. The offering is never public
+  // chat media, even before the GM judges it or after a restart.
+  fs.writeFileSync(filePath + '.private', 'black-market-tribute', { flag: 'wx', mode: 0o600 });
   chatUploadGuard.recordStored(actor.uploadSlot, buffer.length);
   const imageUrl = '/uploads/chat/' + filename;
   blackMarketUploadClaims.set(imageUrl, {
@@ -6957,6 +6977,13 @@ function readChatImageBody(req, cb, limit = MAX_CHAT_IMAGE_BYTES) {
 function serveChatUpload(req, res, urlPath) {
   const match = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp|gif|webm|ogg|m4a))$/i.exec(urlPath);
   if (!match) return false;
+  // Private tribute media has no public HTTP representation. Returning 404
+  // avoids confirming whether a guessed content URL exists.
+  if (fs.existsSync(path.join(CHAT_UPLOAD_DIR, match[1] + '.private'))) {
+    res.writeHead(404, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+    res.end('Not Found');
+    return true;
+  }
   const active = Array.from(rooms.values()).some(room => room.chat?.messages?.some(message =>
     message.imageUrl === urlPath && message.bloodTribute?.active === true && Number(message.bloodTribute.expiresAt) > Date.now()
   ));
@@ -15228,8 +15255,8 @@ wss.on('connection', (ws, req) => {
         }
         case 'gm:reliquaryLock': {
           // The GM closed the vault: seal it again right away.
-          const lockRoom = rooms.get(ws.roomCode?.toUpperCase());
-          if (lockRoom && ws === lockRoom.hostConnection) ws.reliquaryUnlockedUntil = 0;
+          const lockRoom = requireGmRoom(ws);
+          if (lockRoom) ws.reliquaryUnlockedUntil = 0;
           break;
         }
         case 'gm:reliquaryAccess': {
@@ -15444,7 +15471,7 @@ wss.on('connection', (ws, req) => {
         default:
           sendToWs(ws, { type: 'error', message: 'Unknown message type' });
       }
-      });
+      }, message.type);
     } catch (e) {
       console.error('WebSocket message error:', e);
       sendToWs(ws, { type: 'error', message: 'Malformed message' });

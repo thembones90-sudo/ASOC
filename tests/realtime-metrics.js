@@ -1,0 +1,10 @@
+const assert=require('assert/strict');
+const metrics=require('../realtime-metrics');
+assert.equal(metrics.isMeasured('chat:guess'),true);
+assert.equal(metrics.isMeasured('gm:judgeGuess'),true);
+assert.equal(metrics.isMeasured('password'),false);
+for(let i=1;i<=100;i++)metrics.record('chat:guess',{validationAndMutationMs:i,persistenceMs:i*2,totalServerMs:i*3,frameCount:2});
+const s=metrics.snapshot('chat:guess');
+assert.equal(s.samples,100);assert.equal(s.totalServerMs.p50,150);assert.equal(s.totalServerMs.p95,285);assert.equal(s.totalServerMs.p99,297);assert.equal(s.totalServerMs.worst,300);
+assert.equal(JSON.stringify(s).includes('message'),false);
+console.log('PASS realtime metrics: bounded aggregate p50/p95/p99/worst timings with no message or identity data');
