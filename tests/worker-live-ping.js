@@ -45,7 +45,12 @@ async function waitFor(predicate,timeout=10000){
   const pingAt=Date.now();
   socket.send(JSON.stringify({type:'client:ping',id:'latency-check'}));
   const pong=await waitFor(()=>events.find(e=>e.m.type==='server:pong'&&e.m.id==='latency-check'),1800);
+  const secondAt=Date.now();
+  socket.send(JSON.stringify({type:'gm:broadcast',text:'Second ordered worker message'}));
   const chat=await waitFor(()=>events.find(e=>e.m.type==='chat:update'&&e.m.messages?.some(m=>m.text==='Latency worker fixture message')),4500);
+  const secondChat=await waitFor(()=>events.find(e=>e.m.type==='chat:update'&&e.m.messages?.some(m=>m.text==='Second ordered worker message')),5500);
+  assert.ok(secondChat.at>=chat.at,'new socket action overtook an in-flight durable commit');
+  assert.ok(secondChat.at-secondAt>=350,'second action was sent before its own slow durable commit');
   assert.ok(pong.at-pingAt<350,'pong waited behind slow durable commit ('+(pong.at-pingAt)+'ms)');
   assert.ok(chat.at>=before,'chat was not emitted before its send');
   console.log('PASS async durable protocol response:',JSON.stringify({pongMs:pong.at-pingAt,chatMs:chat.at-before}));
