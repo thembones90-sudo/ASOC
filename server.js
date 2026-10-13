@@ -447,6 +447,7 @@ let runtimeActionExecuting = false;
 const runtimeQueue = [];
 let runtimeQueueActive = false;
 let runtimeDrainWaiters = [];
+let lastRuntimeBacklogWarning = 0;
 const RUNTIME_BATCH_MAX = Math.max(1, Math.min(64, Number(process.env.ASOC_RUNTIME_BATCH_MAX) || 32));
 function failPersistence(error = null) {
   if (!persistenceFailed) {
@@ -525,6 +526,10 @@ function runtimeAction(action, metricType = '') {
   // flight must queue behind it, never leak into the open outbound batch.
   if (runtimeActionExecuting) return action();
   runtimeQueue.push({ action, metricType, queuedAt: process.hrtime.bigint() });
+  if (runtimeQueue.length >= 256 && Date.now() - lastRuntimeBacklogWarning >= 30000) {
+    lastRuntimeBacklogWarning = Date.now();
+    console.warn('[performance] authoritative action queue backlog=' + runtimeQueue.length);
+  }
   void processRuntimeQueue();
 }
 
