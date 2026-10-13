@@ -12,8 +12,8 @@ function record(type, sample) {
   if (!isMeasured(type)) return;
   const list=buckets.get(type)||[];list.push(sample);if(list.length>MAX_SAMPLES)list.shift();buckets.set(type,list);
   if (list.length % REPORT_EVERY === 0) {
-    console.log('[realtime-performance] '+JSON.stringify({operation:type,samples:list.length,validationAndMutationMs:summary(list,'validationAndMutationMs'),persistenceMs:summary(list,'persistenceMs'),totalServerMs:summary(list,'totalServerMs'),frames:summary(list,'frameCount')}));
+    console.log('[realtime-performance] '+JSON.stringify({operation:type,samples:list.length,queueMs:summary(list,'queueMs'),validationAndMutationMs:summary(list,'validationAndMutationMs'),batchPreparationMs:summary(list,'batchPreparationMs'),persistenceMs:summary(list,'persistenceMs'),totalServerMs:summary(list,'totalServerMs'),frames:summary(list,'frameCount')}));
   }
 }
-function snapshot(type) { const list=buckets.get(type)||[]; return list.length?{samples:list.length,validationAndMutationMs:summary(list,'validationAndMutationMs'),persistenceMs:summary(list,'persistenceMs'),totalServerMs:summary(list,'totalServerMs'),frames:summary(list,'frameCount')}:null; }
+function snapshot(type) { const list=buckets.get(type)||[]; return list.length?{samples:list.length,queueMs:summary(list,'queueMs'),validationAndMutationMs:summary(list,'validationAndMutationMs'),batchPreparationMs:summary(list,'batchPreparationMs'),persistenceMs:summary(list,'persistenceMs'),totalServerMs:summary(list,'totalServerMs'),frames:summary(list,'frameCount')}:null; }
 module.exports={isMeasured,record,snapshot};

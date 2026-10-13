@@ -56,7 +56,12 @@ function atomic(file, value) {
 function commit(writes, forceWal) {
   if (writes.length === 1 && !forceWal) return atomic(writes[0][0], writes[0][1]);
   atomic(journal, JSON.stringify({ version: 1, writes }));
-  for (const [file, value] of writes) atomic(file, value);
+  if (workerData.testCrashAfterWal === true) process.exit(86);
+  for (let i = 0; i < writes.length; i++) {
+    const [file, value] = writes[i];
+    atomic(file, value);
+    if (i === 0 && workerData.testCrashAfterFirstTarget === true) process.exit(87);
+  }
   fs.unlinkSync(journal); syncDirectory(root);
 }
 function errorView(error) {

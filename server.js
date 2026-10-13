@@ -482,22 +482,25 @@ async function processRuntimeQueue() {
     outbound = [];
     try {
       durableIO.begin();
-      for (const { action, metricType } of batch) {
+      for (const { action, metricType, queuedAt } of batch) {
         const measured = realtimeMetrics.isMeasured(metricType);
         const started = measured ? process.hrtime.bigint() : 0n;
         runtimeActionExecuting = true;
         try { action(); } finally { runtimeActionExecuting = false; }
-        timings.push({ metricType, measured, started, actionDone: measured ? process.hrtime.bigint() : 0n });
+        timings.push({ metricType, measured, started, queuedAt, actionDone: measured ? process.hrtime.bigint() : 0n });
       }
       if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
       const frames = outbound; outbound = null;
+      const commitStarted = process.hrtime.bigint();
       await durableIO.commitAsync();
       const commitDone = process.hrtime.bigint();
       for (const [ws, data] of frames) if (ws.readyState === 1) sendDurableFrame(ws, data);
       const finished = process.hrtime.bigint();
       for (const timing of timings) if (timing.measured) realtimeMetrics.record(timing.metricType, {
         validationAndMutationMs: Number(timing.actionDone - timing.started) / 1e6,
-        persistenceMs: Number(commitDone - timing.actionDone) / 1e6,
+        queueMs: Number(timing.started - timing.queuedAt) / 1e6,
+        batchPreparationMs: Number(commitStarted - timing.actionDone) / 1e6,
+        persistenceMs: Number(commitDone - commitStarted) / 1e6,
         totalServerMs: Number(finished - timing.started) / 1e6,
         frameCount: frames.length
       });
@@ -520,7 +523,7 @@ function runtimeAction(action, metricType = '') {
   // nested. New socket/timer events arriving while its worker commit is in
   // flight must queue behind it, never leak into the open outbound batch.
   if (runtimeActionExecuting) return action();
-  runtimeQueue.push({ action, metricType });
+  runtimeQueue.push({ action, metricType, queuedAt: process.hrtime.bigint() });
   void processRuntimeQueue();
 }
 
@@ -14704,9 +14707,17 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server, maxPayload: MAX_WS_PAYLOAD_BYTES });
 let shuttingDown = false;
 let lastSocketBufferWarning = 0;
+let lastLargePayloadWarning = 0;
 
 function sendDurableFrame(ws, data) {
   const bufferedBytes = Number(ws.bufferedAmount) || 0;
+  const payloadBytes = Buffer.isBuffer(data) ? data.length : Buffer.byteLength(String(data));
+  if (payloadBytes >= 524288 && Date.now() - lastLargePayloadWarning >= 30000) {
+    lastLargePayloadWarning = Date.now();
+    const category = /^\{"type":"([a-zA-Z:-]+)"/.exec(String(data).slice(0, 80))?.[1] || '';
+    const safeCategory = ['state:public','chat:update','chat:delta','players:update','tribute:vault','timer:tick'].includes(category) ? category : 'other';
+    console.warn('[performance] oversized websocket frame category=' + safeCategory + ' bytes=' + payloadBytes + ' queued=' + bufferedBytes);
+  }
   if (bufferedBytes >= WS_BUFFER_CLOSE_BYTES) {
     if (Date.now() - lastSocketBufferWarning >= 30000) {
       lastSocketBufferWarning = Date.now();

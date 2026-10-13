@@ -156,7 +156,9 @@ function ensureWorker() {
   if (workerStopped) throw new Error('Persistence worker is stopped');
   if (worker) return worker;
   worker = new Worker(path.join(__dirname, 'durable-io-worker.js'), { workerData: {
-    root, journal, testFailureTrigger, testAtomicDelayMs
+    root, journal, testFailureTrigger, testAtomicDelayMs,
+    testCrashAfterWal: process.env.NODE_ENV === 'test' && process.env.ASOC_TEST_WORKER_CRASH_AFTER_WAL === '1',
+    testCrashAfterFirstTarget: process.env.NODE_ENV === 'test' && process.env.ASOC_TEST_WORKER_CRASH_AFTER_FIRST_TARGET === '1'
   }});
   worker.on('message', message => {
     const request = workerRequests.get(message?.id);

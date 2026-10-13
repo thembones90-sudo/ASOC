@@ -53,7 +53,13 @@ async function waitFor(predicate,timeout=10000){
   assert.ok(secondChat.at-secondAt>=350,'second action was sent before its own slow durable commit');
   assert.ok(pong.at-pingAt<350,'pong waited behind slow durable commit ('+(pong.at-pingAt)+'ms)');
   assert.ok(chat.at>=before,'chat was not emitted before its send');
-  console.log('PASS async durable protocol response:',JSON.stringify({pongMs:pong.at-pingAt,chatMs:chat.at-before}));
+  const burstSent=Date.now();
+  const burst=Array.from({length:12},(_,i)=>'Worker burst '+i);
+  for (const text of burst) socket.send(JSON.stringify({type:'gm:broadcast',text}));
+  const burstReplies=await Promise.all(burst.map(text=>waitFor(()=>events.find(e=>e.m.type==='chat:update'&&e.m.messages?.some(m=>m.text===text)),7000)));
+  const latencies=burstReplies.map(e=>e.at-burstSent).sort((a,b)=>a-b);
+  assert.ok(latencies[latencies.length-1]<4000,'bounded burst exceeded 4s under slow durable writes');
+  console.log('PASS async durable protocol response:',JSON.stringify({pongMs:pong.at-pingAt,chatMs:chat.at-before,burst12P95Ms:latencies[Math.ceil(latencies.length*.95)-1],burst12MaxMs:latencies[latencies.length-1]}));
  }finally{
   try{socket?.terminate()}catch{}child.kill('SIGTERM');
   await delay(500);if(child.exitCode===null)child.kill('SIGKILL');
