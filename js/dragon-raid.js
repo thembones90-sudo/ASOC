@@ -642,7 +642,9 @@
       }
       if (!overlay.dataset.chatReady) {
         overlay.dataset.chatReady = 'true';
-        overlay.classList.add('dragon-chat-visible');
+        // Keep the arena sovereign. Chat remains attached and live, but opens
+        // only when requested instead of consuming a third of every raid.
+        overlay.classList.remove('dragon-chat-visible');
       }
     },
 

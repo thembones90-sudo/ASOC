@@ -24,6 +24,7 @@ const PORT=18995;
   assert.equal(engine.startBattle(raid,Date.now()).ok,true);
   const view=engine.publicView(raid);
   await Promise.all(pages.map(p=>p.evaluate(r=>DragonRaid.onState(r,Date.now()),view)));
+  await Promise.all(pages.map(p=>p.locator('.dragon-chat-open').click()));
   const started=Date.now();
   for(let i=0;i<6;i++){
    await pages[i].locator('.dragon-chat-slot #chat-input').fill('raid-load-message-'+i);

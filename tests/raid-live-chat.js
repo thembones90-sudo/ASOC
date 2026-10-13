@@ -25,6 +25,7 @@ const PORT=18994;
    assert.equal(await page.locator('#dragon-raid-overlay:not([hidden])').count(),1);
    assert.equal(await page.locator('.dragon-chat-slot #chat-input').count(),1);
    assert.equal(await page.locator('.dragon-arena').count(),1);
+   await page.locator('.dragon-chat-open').click();
   }
   assert.equal(await spectator.locator('.dragon-locked').filter({hasText:'SPECTATING'}).count(),1);
   await spectator.locator('.dragon-chat-slot #chat-input').fill('spectator can chat during raid');

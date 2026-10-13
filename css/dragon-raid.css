@@ -2282,22 +2282,27 @@
 
 /* Native chat dock during Cabinet encounters. No second chat socket or event listeners. */
 .dragon-raid-overlay.dragon-chat-visible {
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-  gap: 12px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr);
 }
 .dragon-raid-overlay.dragon-chat-visible > .dragon-raid-shell {
-  width: 100%;
+  width: min(1100px, 96vw);
+  max-width: 100%;
   min-width: 0;
 }
 .dragon-chat-dock {
   display: none;
+  position: fixed;
+  z-index: 6;
+  top: 14px;
+  right: 14px;
+  width: min(340px, calc(100vw - 28px));
+  height: min(72vh, 680px);
   min-height: 0;
-  max-height: 94vh;
   overflow: hidden;
   border: 1px solid rgba(190, 100, 180, .48);
   border-radius: 14px;
   background: #100c16;
+  box-shadow: 0 18px 58px rgba(0,0,0,.82), 0 0 0 1px rgba(0,0,0,.72);
 }
 .dragon-chat-visible > .dragon-chat-dock {
   display: flex;
@@ -2310,6 +2315,9 @@
   padding: 8px 12px;
   color: #edc5ee;
   border-bottom: 1px solid #55305a;
+  background: linear-gradient(90deg, #241126, #120e18);
+  font: 800 10px/1 var(--font-mono,monospace);
+  letter-spacing: .14em;
 }
 .dragon-chat-dock > header button {
   color: inherit;
@@ -2317,6 +2325,8 @@
   border-radius: 5px;
   background: transparent;
   cursor: pointer;
+  width: 28px;
+  height: 24px;
 }
 .dragon-chat-slot {
   min-height: 0;
@@ -2344,6 +2354,31 @@
   overflow-y: auto !important;
   flex: 1 1 auto !important;
 }
+/* The native console is full-screen elsewhere. Inside a raid it becomes a
+   dense feed: no duplicated navigation chrome and no flex-grown message rows. */
+.dragon-chat-slot .gm-chat-header,
+.dragon-chat-slot .gm-chat-search-strip,
+.dragon-chat-slot #gm-latest-readout {
+  display: none !important;
+}
+.dragon-chat-slot #gm-chat-messages {
+  display: block !important;
+  padding: 6px !important;
+}
+.dragon-chat-slot #gm-chat-messages > * {
+  height: auto !important;
+  min-height: 0 !important;
+  flex: 0 0 auto !important;
+  align-self: auto !important;
+}
+.dragon-chat-slot .gm-chat-message.gm-flow-message {
+  margin: 0 0 5px !important;
+  padding-block: 3px !important;
+}
+.dragon-chat-slot #gm-broker-bar {
+  flex: 0 0 auto !important;
+  padding: 7px 5px 5px !important;
+}
 .dragon-chat-open {
   position: fixed;
   bottom: 20px;
@@ -2358,12 +2393,10 @@
 }
 .dragon-chat-visible > .dragon-chat-open { display: none; }
 @media (max-width: 1000px) {
-  .dragon-raid-overlay.dragon-chat-visible { grid-template-columns: minmax(0, 1fr); }
   .dragon-chat-visible > .dragon-chat-dock {
-    position: fixed;
-    z-index: 4;
     right: 10px;
     bottom: 10px;
+    top: auto;
     width: min(400px, calc(100vw - 20px));
     height: min(65vh, 560px);
     box-shadow: 0 12px 50px #000;
