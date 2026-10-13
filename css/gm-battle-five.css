@@ -1,0 +1,79 @@
+/* GM battle deck: exactly three tactical rows of five commands.
+   Only applies to the desktop battle/recount modes; AMUSE retains its own layout.
+   The existing command nodes stay in place with their event handlers intact.
+   display:contents lets late-injected commands participate in the same grid. */
+@media (min-width: 1101px) {
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0,1fr)) !important;
+    gap: 7px 8px !important;
+    align-items: stretch !important;
+  }
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > :is(.battle-controls-grid,.battle-controls-utility-row,.gm-system-dock) {
+    display: contents !important;
+  }
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > .battle-controls-header {
+    grid-column: 1 / -1 !important; order: -1 !important;
+  }
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel :is(.battle-controls-host-slot,#spectral-console,#shame-gm-button,#nema-asoc-btn,#bice-asoc-btn,#poison-gm-button,#black-market-gm-button,#quests-btn,#library-btn-footer,#reset-board-btn,.master-access-wrap,#load-shell-btn,#dragon-raid-setup-btn,#chaos-gm-button,#blood-scope-gm-button) {
+    grid-column: auto !important;
+    grid-row: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    height: 52px !important;
+    min-height: 52px !important;
+  }
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel :is(#sound-toggle-btn,#broker-transmog-btn,.hero-roles-toggle) {
+    display: none !important;
+  }
+  /* The first row is always combat setup. */
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #shame-gm-button {order:1 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #spectral-console {order:2 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .battle-controls-host-slot {order:3 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #bice-asoc-btn {order:4 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #dragon-raid-setup-btn {order:5 !important;}
+  /* The second row is player pressure. */
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #nema-asoc-btn {order:6 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #black-market-gm-button {order:7 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #chaos-gm-button {order:8 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #poison-gm-button {order:9 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #blood-scope-gm-button {order:10 !important;}
+  /* The third row is operational authority. */
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #quests-btn {order:11 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #library-btn-footer {order:12 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #reset-board-btn {order:13 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .master-access-wrap {order:14 !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel #load-shell-btn {order:15 !important;}
+
+  /* Spectral Adjudicator retains its selector and arm/disarm controls. */
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #spectral-console {
+    grid-template-columns: minmax(0,1fr) minmax(53px,67px) 20px 20px !important;
+    gap: 3px !important;
+    padding: 5px !important;
+  }
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #spectral-console strong {
+    font-size: 8px !important;
+    letter-spacing: 0 !important;
+  }
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #spectral-console select {
+    font-size: 7px !important;
+  }
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #spectral-console button {height:30px !important;}
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel .master-access-wrap .master-access-btn {
+    width:100% !important; height:100% !important; min-height:52px !important;
+  }
+  /* Match-end actions are never part of the 15-command deck. */
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel > :is(.battle-flow-row,#final-panel-reopen-btn,#recount-btn) {
+    grid-column:1 / -1 !important;
+    order:90 !important;
+  }
+}
+/* Compact desktop rail: prioritize access to all controls over tiny, clipped labels. */
+@media (min-width: 901px) and (max-width: 1100px) {
+  :where(html:not(.asoc-mobile)) body:is(.room-mode-battle,.room-mode-battle-armed,.room-mode-recount) #battle-controls-panel :is(#sound-toggle-btn,#broker-transmog-btn) {
+    display:none !important;
+  }
+}
