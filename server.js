@@ -1864,7 +1864,7 @@ function mirrorTributesToInfostud(room) {
     const who = tribute.senderName || tribute.playerName || 'LITTLE HERO';
     infostudInit()
       .then(() => infostud.addBuffer({ name: `${who} - ${stamp} - ${tribute.source || 'chat'}.${ext}`, type: image.type, parentId: reliquaryFolderId(), buffer: image.buffer, modifiedAt: at }))
-      .then(item => { tribute.infostudId = item.id; persistActiveRooms(); })
+      .then(item => runtimeAction(() => { tribute.infostudId = item.id; persistActiveRooms(); }))
       .catch(error => console.error('[infostud] Reliquary copy failed:', error.message))
       .finally(() => tributeMirrorPending.delete(tribute.id));
   }

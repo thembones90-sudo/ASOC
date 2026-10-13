@@ -44,3 +44,11 @@ Production was not deployed or restarted. Do not merge this feature branch into 
 - PASS: full targeted group `chat-payload-budget`, `chat-deltas`, `reliquary-adversarial`, `raid-live-chat`, `casual-battle-pause`, `all-columns-borrowed`, `worker-wal-crash`, `worker-partial-crash`.
 - Storage and network caveat: The worker keeps the event loop responsive but durable acceptance still waits for actual fsync completion, and production SFO region adds transatlantic RTT. Sub-250ms production ACK is not yet proven.
 - EU migration remains a separate safety operation: do not move a live attached volume without verified complete persistent-data backup, recovery rehearsal and controlled downtime.
+
+## Live-region isolated staging validation
+- Isolated Railway project `asoc-p0-eu-staging` created with a synthetic-only 300MB volume in `europe-west4-drams3a`, no production data, no production credentials, and a branch-pinned commit `2ff27bf`.
+- 55 read-only keep-alive GET /api/build probes from SKYNET: production San Francisco p50 181.64ms / p95 189.04ms; EU staging p50 42.56ms / p95 67.36ms (one EU outlier 604.17ms).
+- 35 liveness WebSocket ping probes: US p50 178.43ms / p95 181.93ms; EU p50 39.58ms / p95 47.55ms.
+- EU staging 15 synthetic GM broadcasts after authenticated host reconnect: client-visible chat p50 69.96ms / p95 70.23ms, no errors.
+- These are single-origin probe samples, not multi-origin production guarantees; regional migration requires verified backup and full attached-volume data copy. DO NOT change region on existing volume blindly.
+- Reliquary infostud completion callback now commits its room link through runtimeAction rather than synchronously persisting on Node's event loop. GM-only security regressions pass.
