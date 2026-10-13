@@ -502,6 +502,7 @@ async function processRuntimeQueue() {
         batchPreparationMs: Number(commitStarted - timing.actionDone) / 1e6,
         persistenceMs: Number(commitDone - commitStarted) / 1e6,
         totalServerMs: Number(finished - timing.started) / 1e6,
+        queueToBroadcastMs: Number(finished - timing.queuedAt) / 1e6,
         frameCount: frames.length
       });
     } catch (error) {
