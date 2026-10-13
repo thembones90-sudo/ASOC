@@ -1,4 +1,5 @@
 const durableIO = require('./durable-io');
+const { hasReliquaryAccess } = require('./reliquary-access');
 const playerSessionStore = require('./player-session-store');
 const net = require('net');
 const dns = require('dns');
@@ -1736,7 +1737,7 @@ function handleCancelChatBloodTribute(ws, payload) {
 function handleTributeVaultUpdate(ws, payload) {
   const room = requireGmRoom(ws);
   if (!room) return;
-  if (Number(ws.reliquaryUnlockedUntil) <= Date.now()) {
+  if (!hasReliquaryAccess(ws)) {
     sendToWs(ws, { type: 'error', code: 'RELIQUARY_LOCKED', message: 'Reliquary code required' });
     return;
   }
@@ -1856,7 +1857,7 @@ function handleBloodTributeReviewDecision(ws, message) {
 
 function sendTributeVaultToHost(room) {
   mirrorTributesToInfostud(room);
-  if (!room?.hostConnection || Number(room.hostConnection.reliquaryUnlockedUntil) <= Date.now()) return;
+  if (!room?.hostConnection || !hasReliquaryAccess(room.hostConnection)) return;
   sendToWs(room.hostConnection, { type: 'tribute:vault', ...getBloodTributeVaultState(room) });
 }
 
@@ -2440,7 +2441,7 @@ function handleBloodTributeVaultClear(ws) {
     sendToWs(ws, { type: 'error', message: 'Only host can purge the Blood Tribute vault' });
     return;
   }
-  if (Number(ws.reliquaryUnlockedUntil) <= Date.now()) {
+  if (!hasReliquaryAccess(ws)) {
     sendToWs(ws, { type: 'error', code: 'RELIQUARY_LOCKED', message: 'Reliquary code required' });
     return;
   }
@@ -14642,7 +14643,7 @@ function sendDurableFrame(ws, data) {
   if (bufferedBytes >= WS_BUFFER_CLOSE_BYTES) {
     if (Date.now() - lastSocketBufferWarning >= 30000) {
       lastSocketBufferWarning = Date.now();
-      console.warn(`[performance] websocket backpressure disconnect: buffered=${bufferedBytes} bytes`);
+      console.warn(`[performance] websocket backpressure high: buffered=${bufferedBytes} bytes`);
     }
     // GM reconnect hydration can legitimately enqueue a large initial burst.
     // Disconnecting that socket caused a permanent reconnect loop in production.
