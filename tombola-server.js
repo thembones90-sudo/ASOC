@@ -65,11 +65,12 @@ function createTombolaService(deps) {
       const receipt = `${state.id}:${who.id}:field-${message.field}:${outcome.kind}`;
       let actualAmount = 0;
       if (outcome.kind !== 'BLOOD_TRIBUTE') {
-        const paid = outcome.kind === 'BLESSING'
-          ? deps.playerStore.awardShadowCoins(who, outcome.amount, receipt, { reason: `TOMBOLA ${state.id} field ${message.field} blessing +${outcome.amount}` })
+        const reward = outcome.kind === 'BLESSING' || outcome.kind === 'GRAIL';
+        const paid = reward
+          ? deps.playerStore.awardShadowCoins(who, outcome.amount, receipt, { reason: `TOMBOLA ${state.id} field ${message.field} ${outcome.kind === 'GRAIL' ? 'THE GRAIL' : 'blessing'} +${outcome.amount}` })
           : deps.playerStore.deductShadowCoins(who, outcome.amount, receipt, { reason: `TOMBOLA ${state.id} field ${message.field} curse -${outcome.amount}` });
         if (!paid.ok) throw new Error('Tombola ledger write failed: ' + (paid.error || 'storage unavailable'));
-        actualAmount = outcome.kind === 'BLESSING' ? outcome.amount : -Number(paid.deducted || 0);
+        actualAmount = reward ? outcome.amount : -Number(paid.deducted || 0);
       }
       result = game.reveal(state, who.id, message.field, actualAmount);
       if (!result.ok) throw new Error('Tombola reveal rejected after ledger validation');

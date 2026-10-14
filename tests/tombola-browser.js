@@ -58,18 +58,41 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       assert.ok(await page.locator('.tombola-number').first().evaluate(node => parseFloat(getComputedStyle(node).fontSize) >= 16));
       await page.screenshot({ path: path.join(shots, `${name}-closed.png`) });
     }
+    const motions = { blessing: 'tombola-blessing-open', curse: 'tombola-curse-open', blood_tribute: 'tombola-blood-open', grail: 'tombola-grail-open' };
+    const checkedMotions = new Set();
     for (let field = 1; field <= 36; field++) {
       await alpha.waitForFunction(() => document.querySelector('.tombola-turn')?.textContent.includes('CYCLE'));
       const actor = await alpha.locator('[data-tombola-field]:not([disabled])').count() ? alpha : beta;
       await actor.locator(`[data-tombola-field="${field}"]:not([disabled])`).waitFor();
       await actor.locator(`[data-tombola-field="${field}"]`).click();
       for (const page of [alpha, beta]) await page.locator(`[data-tombola-field="${field}"]:not(.is-closed)`).waitFor();
+      const tile = alpha.locator(`[data-tombola-field="${field}"]`);
+      const motion = await tile.evaluate(node => ({ kind: ['blessing', 'curse', 'blood_tribute', 'grail'].find(kind => node.classList.contains('is-' + kind)), animation: getComputedStyle(node).animationName }));
+      if (!checkedMotions.has(motion.kind)) {
+        assert.equal(motion.animation, motions[motion.kind]);
+        checkedMotions.add(motion.kind);
+        await alpha.emulateMedia({ reducedMotion: 'reduce' });
+        assert.equal(await tile.evaluate(node => getComputedStyle(node).animationName), 'none');
+        assert.equal(await tile.locator('.tombola-reveal-fx').evaluate(node => getComputedStyle(node).display), 'none');
+        await alpha.emulateMedia({ reducedMotion: 'no-preference' });
+        await tile.evaluate(node => node.getAnimations({ subtree: true }).forEach(animation => { animation.pause(); animation.currentTime = 260; }));
+        await tile.screenshot({ path: path.join(shots, `reveal-${motion.kind}.png`), animations: 'allow' });
+        await tile.evaluate(node => node.getAnimations({ subtree: true }).forEach(animation => animation.finish()));
+        await alpha.waitForFunction(n => !document.querySelector(`[data-tombola-field="${n}"]`)?.classList.contains('is-new-reveal'), field);
+        assert.equal(await tile.locator('.tombola-reveal-fx').count(), 0, 'temporary effects clean up after reveal');
+      }
       if (field < 36) {
         assert.equal(await alpha.locator('.tombola-blood-verdict').count(), 0);
         assert.equal(await beta.locator('#bm-demand-notice').count(), 0);
       }
     }
     await gm.locator('.tombola-blood-verdict').waitFor();
+    assert.equal(checkedMotions.size, 4, 'all four distinct animations verified');
+    assert.equal(await alpha.locator('.is-grail').count(), 1);
+    assert.match(await alpha.locator('.is-grail').textContent(), /THE GRAIL.*\+50/);
+    // Re-sync/reopening must not replay historical reveal effects.
+    await gm.evaluate(() => window.TombolaUI.open());
+    assert.equal(await gm.locator('.is-new-reveal').count(), 0);
     for (const [name, page] of [['desktop', alpha], ['mobile', beta]]) {
       await page.locator('.tombola-blood-verdict').waitFor();
       assert.equal(await page.locator('[data-tombola-field]:not([disabled])').count(), 0);
@@ -102,7 +125,7 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       assert.deepEqual(page.pageErrors || [], []);
     }
     assert.deepEqual(errors, []);
-    console.log('PASS actual ASOC browser: GM lobby/start, player signup, randomized turns/all36, desktop/mobile art, unskippable tribute/refresh, consent and real binary upload, chat restored after submission');
+    console.log('PASS actual ASOC browser: all36, four distinct reveal animations/cleanup/reduced motion, golden Grail +50, desktop/mobile icons, unskippable tribute/refresh, actual upload, chat restored');
   } catch (error) {
     for (let i = 0; i < pages.length; i++) {
       await pages[i].screenshot({ path: path.join(shots, `failure-${i}.png`) });

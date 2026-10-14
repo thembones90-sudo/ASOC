@@ -7,7 +7,8 @@ Main checkout and existing unrelated changes were preserved.
 
 ## Implemented behavior
 
-- Securely shuffled exact inventory: 18 Blessings (+48 SC theoretical),
+- Securely shuffled exact inventory: 17 regular Blessings and one THE GRAIL
+  (+50 SC), for 18 positive fields (+88 SC theoretical),
   17 Curses (-47 SC theoretical), and one Blood Tribute.
 - GM opens a lobby; up to 10 players enroll; signup closes when GM starts.
   Signup also closes automatically two minutes after lobby activation, with
@@ -20,6 +21,10 @@ Main checkout and existing unrelated changes were preserved.
 - Hidden outcomes never appear in the role-aware network projection. Only
   opened fields reveal their outcome, nominal amount, actual balance change,
   selecting account and timestamp.
+- Four brief tile reveal animations: blessing glint/ring, curse crack/shudder,
+  Blood Tribute pulse, and golden Grail rays/chalice. No added game delay,
+  server timer, audio, canvas render loop or new image asset. Reduced-motion
+  disables all reveal motion. Historical reveals do not replay on reopening.
 - Existing player-store credit/debit APIs enforce the zero floor and use
   receipts containing round, player, field and outcome. Validation, ledger,
   reveal, debt and broadcasts execute inside ASOC's existing synchronous
@@ -99,6 +104,8 @@ Image edit prompt used:
   Market navigation, unskippable requirement after refresh/Escape, and restored
   real consent/file picker and authenticated binary image upload, and access
   to normal chat after submission.
+  Also verifies all four outcome animation names, reduced-motion suppression,
+  temporary-effect cleanup, the single +50 Grail, and no historical replay.
 
 Screenshots inspected: `.scratch/tombola-visuals/desktop-closed.png`,
 `mobile-closed.png`, `desktop-finale.png`, and `mobile-finale.png`.

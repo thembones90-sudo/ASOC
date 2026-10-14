@@ -3,6 +3,10 @@ const assert = require('assert/strict');
 const game = require('../tombola');
 for (let size = 2; size <= 10; size++) {
   const r = game.create('round-' + size);
+  assert.equal(r.inventory.filter(f => f.kind === 'GRAIL' && f.amount === 50).length, 1);
+  assert.equal(r.inventory.filter(f => f.kind === 'BLESSING').length, 17);
+  assert.ok(!r.inventory.some(f => f.kind === 'BLESSING' && f.amount === 10));
+  assert.equal(r.inventory.filter(f => ['BLESSING', 'GRAIL'].includes(f.kind)).reduce((sum, f) => sum + f.amount, 0), 88);
   assert.deepEqual(r.inventory.map(x => `${x.kind}:${x.amount}`).sort(), game.inventory().map(x => `${x.kind}:${x.amount}`).sort());
   for (let i = 0; i < size; i++) assert.ok(game.join(r, { id: String(i), name: 'Hero ' + i }).ok);
   if (size === 10) assert.ok(game.join(r, { id: 'overflow', name: 'Overflow' }).error);

@@ -1,10 +1,10 @@
 'use strict';
 const crypto = require('crypto');
-const BLESSINGS = Object.freeze([[1, 6], [2, 5], [3, 4], [5, 2], [10, 1]]);
+const BLESSINGS = Object.freeze([[1, 6], [2, 5], [3, 4], [5, 2], [50, 1]]);
 const CURSES = Object.freeze([[1, 5], [2, 5], [3, 4], [5, 2], [10, 1]]);
 const SIGNUP_MS = 2 * 60 * 1000;
 function inventory() {
-  return [...BLESSINGS.flatMap(([amount, count]) => Array.from({ length: count }, () => ({ kind: 'BLESSING', amount }))),
+  return [...BLESSINGS.flatMap(([amount, count]) => Array.from({ length: count }, () => ({ kind: amount === 50 ? 'GRAIL' : 'BLESSING', amount }))),
     ...CURSES.flatMap(([amount, count]) => Array.from({ length: count }, () => ({ kind: 'CURSE', amount }))), { kind: 'BLOOD_TRIBUTE', amount: 0 }];
 }
 function shuffle(items, randomInt = crypto.randomInt) {

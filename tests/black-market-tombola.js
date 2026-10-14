@@ -64,13 +64,16 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
       if (duplicate) c.send({ type: 'tombola:pick', roundId: id, field: n });
       const state = (await c.next(m => m.type === 'tombola:state' && m.state.fields[n - 1].revealed, from)).state;
       if (duplicate) await c.next(m => m.type === 'tombola:error', from);
-      expected[c.id] = outcome.kind === 'BLESSING' ? balance + outcome.amount : outcome.kind === 'CURSE' ? Math.max(0, balance - outcome.amount) : balance;
+      expected[c.id] = ['BLESSING', 'GRAIL'].includes(outcome.kind) ? balance + outcome.amount : outcome.kind === 'CURSE' ? Math.max(0, balance - outcome.amount) : balance;
       assert.equal(profiles()[c.id]?.shadowCoins || 0, expected[c.id], 'exact durable wallet change');
       assert.equal(state.fields[n - 1].actualAmount, expected[c.id] - balance);
       return state;
     }
     await pick(field('BLESSING', 1), true); await pick(field('BLESSING', 2));
     await pick(field('CURSE', 1)); await pick(field('CURSE', 10));
+    const grail = await pick(field('GRAIL', 50), true);
+    assert.equal(grail.fields.filter(f => f.kind === 'GRAIL').length, 1);
+    assert.equal(grail.fields.find(f => f.kind === 'GRAIL').actualAmount, 50, 'THE GRAIL credits exactly 50 SC once');
     const blood = field('BLOOD_TRIBUTE'), bloodState = await pick(blood);
     assert.equal(bloodState.phase, 'PLAYING');
     const debtorId = bloodState.tributePlayerId;

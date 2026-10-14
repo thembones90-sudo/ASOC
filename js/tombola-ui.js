@@ -15,6 +15,12 @@
     root = document.createElement('section'); root.id = 'tombola-overlay'; root.hidden = true;
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'ASOC Tombola');
     document.body.append(root);
+    root.addEventListener('animationend', event => {
+      if (event.target.matches('.tombola-field.is-new-reveal')) {
+        event.target.classList.remove('is-new-reveal');
+        event.target.querySelector('.tombola-reveal-fx')?.remove();
+      }
+    });
     root.addEventListener('click', event => {
       const close = event.target.closest('[data-tombola-close]');
       if (close) { if (!ui.state?.requiredTribute) { ui.open = false; root.hidden = true; } return; }
@@ -47,9 +53,12 @@
     const terminal = s?.phase === 'ENDED', cancelled = s?.phase === 'CANCELLED';
     const tiles = fields.map(f => {
       const kind = f.revealed ? f.kind.toLowerCase() : 'closed';
-      const amount = f.kind === 'BLESSING' ? `+${f.amount}` : `−${f.amount}`;
+      const amount = ['BLESSING', 'GRAIL'].includes(f.kind) ? `+${f.amount}` : `−${f.amount}`;
+      const fresh = ui.lastReveal === `${s?.id}:${f.field}`;
+      const fx = fresh ? '<span class="tombola-reveal-fx" aria-hidden="true"><i></i><i></i><i></i><i></i></span>' : '';
+      const outcome = f.kind === 'GRAIL' ? '<b class="tombola-outcome tombola-grail"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M11 6h18l-2 12q-2 6-7 6t-7-6zM11 9H5q0 10 10 10M29 9h6q0 10-10 10M20 24v9M12 35h16"/></svg><span>THE GRAIL</span>+50<small>SC</small></b>' : f.kind === 'BLOOD_TRIBUTE' ? '<b class="tombola-outcome">BLOOD<br>TRIBUTE</b>' : `<b class="tombola-outcome">${amount}<small>SC</small></b>`;
       const label = f.revealed ? f.kind === 'BLOOD_TRIBUTE' ? `Field ${f.field}: Blood Tribute. Due after all 36 fields open.` : `Field ${f.field}: ${f.kind}, ${amount} SC. Actual balance change ${f.actualAmount} SC.` : `Open field ${f.field}`;
-      return `<button type="button" class="tombola-field is-${kind}${ui.lastReveal === `${s?.id}:${f.field}` ? ' is-new-reveal' : ''}" data-tombola-field="${f.field}" aria-label="${esc(label)}" ${f.revealed || !s?.viewer?.canPick || ui.pending ? 'disabled' : ''}><span class="tombola-number">${f.field}</span>${f.revealed ? f.kind === 'BLOOD_TRIBUTE' ? '<b class="tombola-outcome">BLOOD<br>TRIBUTE</b>' : `<b class="tombola-outcome">${amount}<small>SC</small></b>` : ''}</button>`;
+      return `<button type="button" class="tombola-field is-${kind}${fresh ? ' is-new-reveal' : ''}" data-tombola-field="${f.field}" aria-label="${esc(label)}" ${f.revealed || !s?.viewer?.canPick || ui.pending ? 'disabled' : ''}><span class="tombola-number">${f.field}</span>${fx}${f.revealed ? outcome : ''}</button>`;
     }).join('');
     const control = !s?.active ? gm() ? '<button data-tombola-action="create">OPEN A TOMBOLA LOBBY</button>' : '<p>THE SHADOW BROKER HAS NOT OPENED A ROUND.</p>'
       : s.phase === 'LOBBY' ? gm() ? '<button data-tombola-action="start">START ROUND</button><button data-tombola-action="cancel">CANCEL LOBBY</button>'
@@ -57,7 +66,7 @@
       : s.phase === 'PLAYING' ? gm() ? '<button data-tombola-action="cancel">CANCEL ROUND</button>' : ''
       : gm() ? '<button data-tombola-action="create">OPEN A FRESH ROUND</button>' : '';
     root.classList.toggle('tombola-finale', terminal && ui.finale === s.id);
-    root.innerHTML = `<div class="tombola-shell"><header class="tombola-heading"><div><small>SHADOW BROKER // SEALED FORTUNES</small><h2>ASOC TOMBOLA</h2></div><button data-tombola-close aria-label="Close Tombola">×</button></header><div class="tombola-turn" role="status">${terminal ? 'THE ROUND IS OVER FOR EVERYONE' : cancelled ? 'ROUND CANCELLED' : s?.phase === 'PLAYING' ? `${s.viewer?.canPick ? 'YOUR TURN' : 'CURRENT TURN'} // ${esc(s.currentPlayerName)}` : 'LOBBY // THE FIELDS REMAIN SEALED'}</div>${terminal ? `<div class="tombola-blood-verdict" role="alert"><strong>BLOOD TRIBUTE REQUIRED</strong><b>${esc(s.tributePlayerName)}</b><p>ALL 36 VAULTS ARE OPEN. THE MARKED PLAYER MUST SUBMIT BLOOD TRIBUTE IN THE BLACK MARKET.</p></div>` : ''}<div class="tombola-board" role="group" aria-label="36 numbered Tombola vaults">${tiles}</div><div class="tombola-status" role="status">${esc(ui.error || (ui.pending ? 'THE LOCK IS TURNING…' : s?.phase === 'PLAYING' ? 'ONE FIELD PER TURN. NO WAGERS. NO MERCY.' : '18 BLESSINGS · 17 CURSES · ONE BLOOD TRIBUTE'))}</div><div class="tombola-controls">${control}</div>${s?.participants?.length ? `<ol class="tombola-roster" aria-label="Turn order">${s.participants.map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('')}</ol>` : ''}${s?.history?.length ? `<details class="tombola-history"><summary>PREVIOUS ROUNDS // ${s.history.length}</summary>${s.history.slice().reverse().map(r => `<p>${esc(r.id)} · ${esc(r.phase)} · ${r.revealedCount} OPENED${r.tributePlayerName ? ` · BLOOD: ${esc(r.tributePlayerName)}` : ''}</p>`).join('')}</details>` : ''}</div>`;
+    root.innerHTML = `<div class="tombola-shell"><header class="tombola-heading"><div><small>SHADOW BROKER // SEALED FORTUNES</small><h2>ASOC TOMBOLA</h2></div><button data-tombola-close aria-label="Close Tombola">×</button></header><div class="tombola-turn" role="status">${terminal ? 'THE ROUND IS OVER FOR EVERYONE' : cancelled ? 'ROUND CANCELLED' : s?.phase === 'PLAYING' ? `${s.viewer?.canPick ? 'YOUR TURN' : 'CURRENT TURN'} // ${esc(s.currentPlayerName)}` : 'LOBBY // THE FIELDS REMAIN SEALED'}</div>${terminal ? `<div class="tombola-blood-verdict" role="alert"><strong>BLOOD TRIBUTE REQUIRED</strong><b>${esc(s.tributePlayerName)}</b><p>ALL 36 VAULTS ARE OPEN. THE MARKED PLAYER MUST SUBMIT BLOOD TRIBUTE IN THE BLACK MARKET.</p></div>` : ''}<div class="tombola-board" role="group" aria-label="36 numbered Tombola vaults">${tiles}</div><div class="tombola-status" role="status">${esc(ui.error || (ui.pending ? 'THE LOCK IS TURNING…' : s?.phase === 'PLAYING' ? 'ONE FIELD PER TURN. NO WAGERS. NO MERCY.' : '17 BLESSINGS · THE GRAIL +50 · 17 CURSES · ONE BLOOD TRIBUTE'))}</div><div class="tombola-controls">${control}</div>${s?.participants?.length ? `<ol class="tombola-roster" aria-label="Turn order">${s.participants.map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('')}</ol>` : ''}${s?.history?.length ? `<details class="tombola-history"><summary>PREVIOUS ROUNDS // ${s.history.length}</summary>${s.history.slice().reverse().map(r => `<p>${esc(r.id)} · ${esc(r.phase)} · ${r.revealedCount} OPENED${r.tributePlayerName ? ` · BLOOD: ${esc(r.tributePlayerName)}` : ''}</p>`).join('')}</details>` : ''}</div>`;
     if (ui.pending) root.querySelectorAll('[data-tombola-action]').forEach(button => { button.disabled = true; });
     if (required) {
       root.querySelector('[data-tombola-close]').disabled = true;
@@ -69,6 +78,7 @@
       const roster = root.querySelector('.tombola-roster');
       if (roster) roster.innerHTML = s.turnOrder.map(id => s.participants.find(p => p.id === id)).map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('');
     }
+    ui.lastReveal = '';
   }
   function updateSignupCountdown() {
     const s = ui.state, root = document.getElementById('tombola-overlay');
@@ -84,11 +94,15 @@
     if (message.type === 'tombola:error') { ui.error = message.error || 'TOMBOLA ACTION REFUSED'; ui.pending = false; render(); return; }
     if (message.type !== 'tombola:state') return;
     const prior = ui.state;
+    ui.clockOffset = Number.isFinite(message.state?.serverNow) ? message.state.serverNow - Date.now() : 0;
+    const { serverNow: oldClock, ...oldView } = prior || {};
+    const { serverNow: newClock, ...newView } = message.state || {};
+    if (prior && !ui.pending && JSON.stringify(oldView) === JSON.stringify(newView)) { updateSignupCountdown(); return; }
     ui.state = message.state; ui.pending = false; ui.error = '';
     ui.clockOffset = Number.isFinite(message.state?.serverNow) ? message.state.serverNow - Date.now() : 0;
     const reveals = ui.state?.fields?.filter(f => f.revealed) || [];
     if (ui.state?.id === prior?.id && reveals.length > (prior.fields?.filter(f => f.revealed).length || 0)) {
-      const last = reveals.reduce((a, b) => a.at > b.at ? a : b); ui.lastReveal = `${ui.state.id}:${last.field}`;
+      const last = reveals.find(f => !prior.fields?.some(p => p.field === f.field && p.revealed)); ui.lastReveal = ui.open && last ? `${ui.state.id}:${last.field}` : '';
     } else ui.lastReveal = '';
     if (ui.state?.phase === 'PLAYING' && prior?.phase !== 'PLAYING' && ui.state.viewer?.participant) ui.open = true;
     if (ui.state?.phase === 'ENDED' && (prior?.id !== ui.state.id || prior?.phase !== 'ENDED')) {
