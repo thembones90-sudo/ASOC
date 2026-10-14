@@ -37,7 +37,7 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       await page.locator('[data-tombola-action="leave"]').waitFor();
     }
     await gm.locator('[data-tombola-action="start"]').click();
-    await alpha.locator('[data-tombola-field="1"]:not([disabled])').waitFor();
+    await alpha.waitForFunction(() => document.querySelector('.tombola-turn')?.textContent.includes('CYCLE 1'));
     for (const [name, page] of [['desktop', alpha], ['mobile', beta]]) {
       assert.equal(await page.locator('[data-tombola-field]').count(), 36);
       const numbers = await page.locator('.tombola-number').allTextContents();
@@ -53,29 +53,50 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       await page.screenshot({ path: path.join(shots, `${name}-closed.png`) });
     }
     for (let field = 1; field <= 36; field++) {
-      const actor = field % 2 === 1 ? alpha : beta;
+      await alpha.waitForFunction(() => document.querySelector('.tombola-turn')?.textContent.includes('CYCLE'));
+      const actor = await alpha.locator('[data-tombola-field]:not([disabled])').count() ? alpha : beta;
       await actor.locator(`[data-tombola-field="${field}"]:not([disabled])`).waitFor();
       await actor.locator(`[data-tombola-field="${field}"]`).click();
-      await actor.locator(`[data-tombola-field="${field}"]:not(.is-closed)`).waitFor();
-      if (await actor.locator('.tombola-blood-verdict').count()) break;
+      for (const page of [alpha, beta]) await page.locator(`[data-tombola-field="${field}"]:not(.is-closed)`).waitFor();
+      if (field < 36) {
+        assert.equal(await alpha.locator('.tombola-blood-verdict').count(), 0);
+        assert.equal(await beta.locator('#bm-demand-notice').count(), 0);
+      }
     }
     await gm.locator('.tombola-blood-verdict').waitFor();
     for (const [name, page] of [['desktop', alpha], ['mobile', beta]]) {
       await page.locator('.tombola-blood-verdict').waitFor();
       assert.equal(await page.locator('[data-tombola-field]:not([disabled])').count(), 0);
-      if (await page.locator('#bm-demand-notice').count()) {
-        await page.locator('[data-bm-pay-debt]').click();
+      assert.equal(await page.locator('[data-tombola-field]:not(.is-closed)').count(), 36);
+      const required = await page.locator('#tombola-required-veil').count();
+      if (required) {
+        assert.ok(await page.locator('[data-tombola-close]').isDisabled());
+        if (await page.locator('#bm-demand-notice').count()) await page.locator('[data-bm-pay-debt]').click();
+        else await page.locator('[data-tombola-pay]').click();
         await page.locator('[data-bm-close]').waitFor();
         assert.ok((await page.locator('#black-market-body').textContent()).includes('BLOOD TRIBUTE REQUIRED'));
+        await page.locator('[data-bm-close]').click();
+        await page.keyboard.press('Escape');
+        assert.ok(await page.locator('#tombola-overlay').isVisible(), 'cannot dismiss required tribute');
+        await page.reload();
+        await page.locator('#tombola-required-veil').waitFor();
+        assert.ok(await page.locator('[data-tombola-close]').isDisabled(), 'refresh cannot bypass requirement');
+        await page.waitForFunction(() => window.BlackMarket?.pacts?.some(p => p.id.startsWith('pact-tombola-')));
+        await page.locator('[data-tombola-pay]').click();
+        await page.locator('[data-act="offer-tribute"]').click();
+        const picker = page.waitForEvent('filechooser');
+        await page.locator('[data-bm-consent-open]').click();
+        await (await picker).setFiles({ name: 'tombola-test.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64') });
+        await page.locator('#tombola-required-veil').waitFor({ state: 'detached' });
         await page.locator('[data-bm-close]').click();
       }
       await page.screenshot({ path: path.join(shots, `${name}-finale.png`) });
       await page.locator('[data-tombola-close]').click();
-      await page.locator('#chat-input').fill('Chat remains available after Tombola');
+      await page.locator('#chat-input').fill('Chat remains available after Tombola tribute submission');
       assert.deepEqual(page.pageErrors || [], []);
     }
     assert.deepEqual(errors, []);
-    console.log('PASS actual ASOC browser: GM lobby/start, player signup, live turns/picks, square 36-field desktop/mobile art, synchronized finale, existing chat preserved');
+    console.log('PASS actual ASOC browser: GM lobby/start, player signup, randomized turns/all36, desktop/mobile art, unskippable tribute/refresh, consent and real binary upload, chat restored after submission');
   } catch (error) {
     for (let i = 0; i < pages.length; i++) {
       await pages[i].screenshot({ path: path.join(shots, `failure-${i}.png`) });

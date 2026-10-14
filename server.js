@@ -2442,6 +2442,7 @@ function sendBlackMarketGm(room) {
 function syncBlackMarket(room, playerId) {
   sendBlackMarketPlayer(room, playerId);
   sendBlackMarketGm(room);
+  getTombolaService().sendPlayerState(room, playerId);
 }
 function handleBlackMarket(ws, message) {
   const room = blackMarketRoom(ws);

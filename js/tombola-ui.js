@@ -17,7 +17,8 @@
     document.body.append(root);
     root.addEventListener('click', event => {
       const close = event.target.closest('[data-tombola-close]');
-      if (close) { ui.open = false; root.hidden = true; return; }
+      if (close) { if (!ui.state?.requiredTribute) { ui.open = false; root.hidden = true; } return; }
+      if (event.target.closest('[data-tombola-pay]')) { window.BlackMarket?.open?.(); return; }
       const field = event.target.closest('[data-tombola-field]');
       if (field && ui.state?.viewer?.canPick && !ui.pending && !field.disabled) {
         ui.pending = true; ui.error = ''; send('tombola:pick', { field: Number(field.dataset.tombolaField) }); render(); return;
@@ -26,11 +27,20 @@
       if (!action || ui.pending) return;
       ui.pending = true; ui.error = ''; send(`tombola:${action}`); render();
     });
-    document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.open) { ui.open = false; root.hidden = true; } });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.open && !ui.state?.requiredTribute) { ui.open = false; root.hidden = true; } });
+    document.addEventListener('focusin', event => {
+      if (ui.state?.requiredTribute && !event.target.closest('#tombola-overlay, #black-market-overlay, #bm-demand-notice, #bm-tribute-consent')) root.querySelector('[data-tombola-pay]')?.focus();
+    });
     return root;
   }
   function render() {
+    const required = !!ui.state?.requiredTribute;
+    if (required) ui.open = true;
+    let veil = document.getElementById('tombola-required-veil');
+    if (required && !veil) { veil = document.createElement('div'); veil.id = 'tombola-required-veil'; document.body.append(veil); }
+    if (!required) veil?.remove();
     const root = ensure(); root.hidden = !ui.open;
+    root.setAttribute('aria-modal', required ? 'true' : 'false');
     if (!ui.open) return;
     const s = ui.state;
     const fields = s?.fields || Array.from({ length: 36 }, (_, i) => ({ field: i + 1, revealed: false }));
@@ -38,17 +48,30 @@
     const tiles = fields.map(f => {
       const kind = f.revealed ? f.kind.toLowerCase() : 'closed';
       const amount = f.kind === 'BLESSING' ? `+${f.amount}` : `−${f.amount}`;
-      const label = f.revealed ? f.kind === 'BLOOD_TRIBUTE' ? `Field ${f.field}: Blood Tribute. Game over.` : `Field ${f.field}: ${f.kind}, ${amount} SC. Actual balance change ${f.actualAmount} SC.` : `Open field ${f.field}`;
+      const label = f.revealed ? f.kind === 'BLOOD_TRIBUTE' ? `Field ${f.field}: Blood Tribute. Due after all 36 fields open.` : `Field ${f.field}: ${f.kind}, ${amount} SC. Actual balance change ${f.actualAmount} SC.` : `Open field ${f.field}`;
       return `<button type="button" class="tombola-field is-${kind}${ui.lastReveal === `${s?.id}:${f.field}` ? ' is-new-reveal' : ''}" data-tombola-field="${f.field}" aria-label="${esc(label)}" ${f.revealed || !s?.viewer?.canPick || ui.pending ? 'disabled' : ''}><span class="tombola-number">${f.field}</span>${f.revealed ? f.kind === 'BLOOD_TRIBUTE' ? '<b class="tombola-outcome">BLOOD<br>TRIBUTE</b>' : `<b class="tombola-outcome">${amount}<small>SC</small></b>` : ''}</button>`;
     }).join('');
     const control = !s?.active ? gm() ? '<button data-tombola-action="create">OPEN A TOMBOLA LOBBY</button>' : '<p>THE SHADOW BROKER HAS NOT OPENED A ROUND.</p>'
       : s.phase === 'LOBBY' ? gm() ? '<button data-tombola-action="start">START ROUND</button><button data-tombola-action="cancel">CANCEL LOBBY</button>'
         : s.viewer?.participant ? '<button data-tombola-action="leave">LEAVE LOBBY</button>' : '<button data-tombola-action="join">JOIN TOMBOLA</button>'
-      : s.phase === 'PLAYING' ? gm() ? '<button data-tombola-action="skip">SKIP CURRENT TURN</button><button data-tombola-action="cancel">CANCEL ROUND</button>' : ''
+      : s.phase === 'PLAYING' ? gm() ? '<button data-tombola-action="cancel">CANCEL ROUND</button>' : ''
       : gm() ? '<button data-tombola-action="create">OPEN A FRESH ROUND</button>' : '';
     root.classList.toggle('tombola-finale', terminal && ui.finale === s.id);
-    root.innerHTML = `<div class="tombola-shell"><header class="tombola-heading"><div><small>SHADOW BROKER // SEALED FORTUNES</small><h2>ASOC TOMBOLA</h2></div><button data-tombola-close aria-label="Close Tombola">×</button></header><div class="tombola-turn" role="status">${terminal ? 'THE ROUND IS OVER FOR EVERYONE' : cancelled ? 'ROUND CANCELLED' : s?.phase === 'PLAYING' ? `${s.viewer?.canPick ? 'YOUR TURN' : 'CURRENT TURN'} // ${esc(s.currentPlayerName)}` : 'LOBBY // THE FIELDS REMAIN SEALED'}</div>${terminal ? `<div class="tombola-blood-verdict" role="alert"><strong>BLOOD TRIBUTE REQUIRED</strong><b>${esc(s.tributePlayerName)}</b><p>THE FINAL LOCK HAS FALLEN. NO MORE SELECTIONS. YOUR DEBT AWAITS IN THE BLACK MARKET.</p></div>` : ''}<div class="tombola-board" role="group" aria-label="36 numbered Tombola vaults">${tiles}</div><div class="tombola-status" role="status">${esc(ui.error || (ui.pending ? 'THE LOCK IS TURNING…' : s?.phase === 'PLAYING' ? 'ONE FIELD PER TURN. NO WAGERS. NO MERCY.' : '18 BLESSINGS · 17 CURSES · ONE BLOOD TRIBUTE'))}</div><div class="tombola-controls">${control}</div>${s?.participants?.length ? `<ol class="tombola-roster" aria-label="Turn order">${s.participants.map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('')}</ol>` : ''}${s?.history?.length ? `<details class="tombola-history"><summary>PREVIOUS ROUNDS // ${s.history.length}</summary>${s.history.slice().reverse().map(r => `<p>${esc(r.id)} · ${esc(r.phase)} · ${r.revealedCount} OPENED${r.tributePlayerName ? ` · BLOOD: ${esc(r.tributePlayerName)}` : ''}</p>`).join('')}</details>` : ''}</div>`;
+    root.innerHTML = `<div class="tombola-shell"><header class="tombola-heading"><div><small>SHADOW BROKER // SEALED FORTUNES</small><h2>ASOC TOMBOLA</h2></div><button data-tombola-close aria-label="Close Tombola">×</button></header><div class="tombola-turn" role="status">${terminal ? 'THE ROUND IS OVER FOR EVERYONE' : cancelled ? 'ROUND CANCELLED' : s?.phase === 'PLAYING' ? `${s.viewer?.canPick ? 'YOUR TURN' : 'CURRENT TURN'} // ${esc(s.currentPlayerName)}` : 'LOBBY // THE FIELDS REMAIN SEALED'}</div>${terminal ? `<div class="tombola-blood-verdict" role="alert"><strong>BLOOD TRIBUTE REQUIRED</strong><b>${esc(s.tributePlayerName)}</b><p>ALL 36 VAULTS ARE OPEN. THE MARKED PLAYER MUST SUBMIT BLOOD TRIBUTE IN THE BLACK MARKET.</p></div>` : ''}<div class="tombola-board" role="group" aria-label="36 numbered Tombola vaults">${tiles}</div><div class="tombola-status" role="status">${esc(ui.error || (ui.pending ? 'THE LOCK IS TURNING…' : s?.phase === 'PLAYING' ? 'ONE FIELD PER TURN. NO WAGERS. NO MERCY.' : '18 BLESSINGS · 17 CURSES · ONE BLOOD TRIBUTE'))}</div><div class="tombola-controls">${control}</div>${s?.participants?.length ? `<ol class="tombola-roster" aria-label="Turn order">${s.participants.map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('')}</ol>` : ''}${s?.history?.length ? `<details class="tombola-history"><summary>PREVIOUS ROUNDS // ${s.history.length}</summary>${s.history.slice().reverse().map(r => `<p>${esc(r.id)} · ${esc(r.phase)} · ${r.revealedCount} OPENED${r.tributePlayerName ? ` · BLOOD: ${esc(r.tributePlayerName)}` : ''}</p>`).join('')}</details>` : ''}</div>`;
     if (ui.pending) root.querySelectorAll('[data-tombola-action]').forEach(button => { button.disabled = true; });
+    if (required) {
+      root.querySelector('[data-tombola-close]').disabled = true;
+      root.querySelector('.tombola-controls').innerHTML = '<p>YOUR BLOOD TRIBUTE IS REQUIRED. SUBMIT IT TO CONTINUE.</p><button data-tombola-pay>SUBMIT BLOOD TRIBUTE</button>';
+    }
+    if (s?.phase === 'LOBBY') {
+      root.querySelector('.tombola-turn').textContent = `LOBBY // ${s.participants.length} / 10 PLAYERS`;
+      const join = root.querySelector('[data-tombola-action="join"]'); if (join) join.disabled = !s.viewer.canJoin;
+    }
+    if (s?.phase === 'PLAYING') {
+      root.querySelector('.tombola-turn').append(` // CYCLE ${s.cycle}`);
+      const roster = root.querySelector('.tombola-roster');
+      if (roster) roster.innerHTML = s.turnOrder.map(id => s.participants.find(p => p.id === id)).map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('');
+    }
   }
   function onMessage(message) {
     if (message.type === 'tombola:error') { ui.error = message.error || 'TOMBOLA ACTION REFUSED'; ui.pending = false; render(); return; }

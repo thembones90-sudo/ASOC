@@ -51,35 +51,70 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     for (const c of clients) for (const m of c.messages.filter(m => m.type === 'tombola:state')) {
       assert.equal(m.state.inventory, undefined); assert.ok((m.state.fields || []).every(f => f.revealed || (!('kind' in f) && !('amount' in f))));
     }
-    const field = (kind, amount) => snapshot().tombola.inventory.findIndex((f, i) => f.kind === kind && (amount == null || f.amount === amount) && !snapshot().tombola.reveals.some(r => r.field === i + 1)) + 1;
-    mark = b.mark(); b.send({ type: 'tombola:pick', roundId: id, field: field('BLESSING', 1) }); await b.next(m => m.type === 'tombola:error', mark);
-    mark = spectator.mark(); spectator.send({ type: 'tombola:pick', roundId: id, field: field('BLESSING', 1), playerId: a.id }); await spectator.next(m => m.type === 'tombola:error', mark);
-    const first = field('BLESSING', 1); mark = a.mark(); a.send({ type: 'tombola:pick', roundId: id, field: first }); a.send({ type: 'tombola:pick', roundId: id, field: first });
-    await a.next(m => m.type === 'tombola:state' && m.state.fields[first - 1].revealed, mark); await a.next(m => m.type === 'tombola:error', mark);
-    assert.equal(profiles()[a.id].shadowCoins, 1, 'double click pays exactly once');
-    async function pick(c, n) { const from = c.mark(); c.send({ type: 'tombola:pick', roundId: id, field: n, amount: 999999 }); return (await c.next(m => m.type === 'tombola:state' && m.state.fields[n - 1].revealed, from)).state; }
-    await pick(b, field('BLESSING', 2)); await pick(a, field('CURSE', 1)); await pick(b, field('CURSE', 10));
-    assert.equal(profiles()[a.id].shadowCoins, 0); assert.equal(profiles()[b.id].shadowCoins, 0, 'curse cannot create debt');
-    assert.equal(snapshot().tombola.reveals.at(-1).actualAmount, -2, 'capped deduction is recorded');
-    // Reconnect and restart without changing the concealed inventory or turn.
-    const before = snapshot().tombola; for (const c of clients) c.close();
+    const currentActor = () => [a, b].find(c => c.id === snapshot().tombola.turnOrder[snapshot().tombola.turnIndex]);
+    const field = (kind, amount) => { const round = snapshot().tombola; return round.inventory.findIndex((f, i) => f.kind === kind && (amount == null || f.amount === amount) && !round.reveals.some(r => r.field === i + 1)) + 1; };
+    mark = spectator.mark(); spectator.send({ type: 'tombola:join', roundId: id }); await spectator.next(m => m.type === 'tombola:error', mark);
+    const wrong = [a, b].find(c => c !== currentActor());
+    mark = wrong.mark(); wrong.send({ type: 'tombola:pick', roundId: id, field: 1 }); await wrong.next(m => m.type === 'tombola:error', mark);
+    const expected = { [a.id]: 0, [b.id]: 0 };
+    async function pick(n, duplicate = false) {
+      const c = currentActor(), round = snapshot().tombola, outcome = round.inventory[n - 1], balance = expected[c.id], from = c.mark();
+      c.send({ type: 'tombola:pick', roundId: id, field: n, amount: 999999 });
+      if (duplicate) c.send({ type: 'tombola:pick', roundId: id, field: n });
+      const state = (await c.next(m => m.type === 'tombola:state' && m.state.fields[n - 1].revealed, from)).state;
+      if (duplicate) await c.next(m => m.type === 'tombola:error', from);
+      expected[c.id] = outcome.kind === 'BLESSING' ? balance + outcome.amount : outcome.kind === 'CURSE' ? Math.max(0, balance - outcome.amount) : balance;
+      assert.equal(profiles()[c.id]?.shadowCoins || 0, expected[c.id], 'exact durable wallet change');
+      assert.equal(state.fields[n - 1].actualAmount, expected[c.id] - balance);
+      return state;
+    }
+    await pick(field('BLESSING', 1), true); await pick(field('BLESSING', 2));
+    await pick(field('CURSE', 1)); await pick(field('CURSE', 10));
+    const blood = field('BLOOD_TRIBUTE'), bloodState = await pick(blood);
+    assert.equal(bloodState.phase, 'PLAYING');
+    const debtorId = bloodState.tributePlayerId;
+    assert.equal(snapshot().tombola.tributePactId, null, 'no debt demanded midgame');
+    assert.ok(!clients.some(c => c.messages.some(m => m.type === 'blackMarket:tributeDemanded')));
+    const before = snapshot().tombola, identities = [a, b].map(c => ({ id: c.id, token: c.token, name: c.name }));
+    for (const c of clients) c.close();
     await new Promise(resolve => { server.once('exit', resolve); server.kill(); }); boot(); await ready();
-    const login2 = await api('/api/auth/gm/login', { password: 'tombola-test-password' }); gm = await new Client('GM restored').open(); clients.push(gm); gm.send({ type: 'host:recover', gmToken: login2.token }); await gm.next(m => m.type === 'host:recovered');
-    const a2 = await new Client('Alpha restored').open(); clients.push(a2); a2.send({ type: 'room:join', authToken: a.token, roomCode: 'MASTER', name: 'Alpha' }); await a2.next(m => m.type === 'join:success'); a2.id = a.id; a = a2;
-    const restored = (await a.next(m => m.type === 'tombola:state' && m.state.id === id)).state;
-    assert.equal(restored.currentPlayerId, a.id); assert.deepEqual(snapshot().tombola.inventory, before.inventory); assert.equal(restored.fields.filter(f => f.revealed).length, 4);
-    mark = a.mark(); a.send({ type: 'tombola:pick', roundId: id, field: first }); await a.next(m => m.type === 'tombola:error', mark);
-    assert.equal(profiles()[a.id].shadowCoins, 0, 'replaying a paid field after restart cannot pay twice');
-    const blood = field('BLOOD_TRIBUTE'); const end = await pick(a, blood);
-    assert.equal(end.phase, 'ENDED'); assert.equal(end.tributePlayerId, a.id); assert.equal(end.fields.filter(f => f.revealed).length, 5);
-    await a.next(m => m.type === 'blackMarket:tributeDemanded');
-    const debts = () => snapshot().blackMarket.byPlayer[a.id].pacts.filter(p => p.id === `pact-${id}`);
-    assert.equal(debts().length, 1); assert.equal(debts()[0].title, 'BLOOD TRIBUTE REQUIRED'); assert.equal(debts()[0].state, 'APPROVED_PENDING_TRIBUTE');
-    mark = a.mark(); a.send({ type: 'tombola:pick', roundId: id, field: blood }); await a.next(m => m.type === 'tombola:error', mark);
-    assert.equal(debts().length, 1); assert.equal(profiles()[a.id].shadowCoins, 0);
+    const login2 = await api('/api/auth/gm/login', { password: 'tombola-test-password' });
+    gm = await new Client('GM restored').open(); clients.push(gm); gm.send({ type: 'host:recover', gmToken: login2.token }); await gm.next(m => m.type === 'host:recovered');
+    const restoredClients = [];
+    for (const identity of identities) {
+      const c = await new Client(identity.name).open(); clients.push(c); Object.assign(c, identity);
+      c.send({ type: 'room:join', authToken: c.token, roomCode: 'MASTER', name: c.name }); await c.next(m => m.type === 'join:success'); restoredClients.push(c);
+    }
+    [a, b] = restoredClients;
+    assert.deepEqual(snapshot().tombola.inventory, before.inventory);
+    assert.deepEqual(snapshot().tombola.turnOrder, before.turnOrder);
+    assert.equal(snapshot().tombola.turnIndex, before.turnIndex);
+    assert.equal(snapshot().tombola.tributePlayerId, debtorId);
+    while (snapshot().tombola.phase === 'PLAYING') {
+      const round = snapshot().tombola, n = Array.from({ length: 36 }, (_, i) => i + 1).find(n => !round.reveals.some(r => r.field === n));
+      await pick(n);
+    }
+    assert.equal(snapshot().tombola.reveals.length, 36);
+    const debtor = [a, b].find(c => c.id === debtorId);
+    await debtor.next(m => m.type === 'blackMarket:tributeDemanded');
+    const debts = () => snapshot().blackMarket.byPlayer[debtorId].pacts.filter(p => p.id === `pact-${id}`);
+    assert.equal(debts().length, 1); assert.equal(debts()[0].state, 'APPROVED_PENDING_TRIBUTE');
+    mark = debtor.mark(); debtor.send({ type: 'tombola:sync' }); assert.ok((await debtor.next(m => m.type === 'tombola:state', mark)).state.requiredTribute);
     mark = gm.mark(); gm.send({ type: 'tombola:create' }); const fresh = (await gm.next(m => m.type === 'tombola:state' && m.state.phase === 'LOBBY', mark)).state;
-    assert.notEqual(fresh.id, id); assert.equal(fresh.fields.filter(f => f.revealed).length, 0); assert.equal(fresh.participants.length, 0); assert.equal(fresh.history.at(-1).id, id);
-    console.log('PASS real Tombola sockets: auth, lobby/start, privacy, race/double click, exact credit/debit/floor, restart, synchronized Blood Tribute, one Black Market debt, stopped picks, fresh round');
+    assert.equal(fresh.history.at(-1).revealedCount, 36);
+    mark = debtor.mark(); debtor.send({ type: 'tombola:join', roundId: fresh.id }); await debtor.next(m => m.type === 'tombola:error', mark);
+    mark = debtor.mark();
+    debtor.send({ type: 'blackMarket:tributeSubmit', pactId: `pact-${id}`, consent: true, imageData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=' });
+    await debtor.next(m => m.type === 'tombola:state' && !m.state.requiredTribute, mark);
+    assert.equal(debts()[0].state, 'TRIBUTE_SUBMITTED');
+    mark = debtor.mark(); gm.send({ type: 'blackMarket:tributeJudge', pactId: `pact-${id}`, accepted: false, comment: 'Test rejection requires a new offering' });
+    await debtor.next(m => m.type === 'tombola:state' && m.state.requiredTribute, mark);
+    assert.equal(debts()[0].state, 'TRIBUTE_REJECTED');
+    mark = debtor.mark(); debtor.send({ type: 'tombola:join', roundId: fresh.id }); await debtor.next(m => m.type === 'tombola:error', mark);
+    mark = debtor.mark(); debtor.send({ type: 'blackMarket:tributeSubmit', pactId: `pact-${id}`, consent: true, imageData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=' });
+    await debtor.next(m => m.type === 'tombola:state' && !m.state.requiredTribute, mark);
+    mark = debtor.mark(); debtor.send({ type: 'tombola:join', roundId: fresh.id }); await debtor.next(m => m.type === 'tombola:state' && m.state.viewer.participant, mark);
+    console.log('PASS real Tombola sockets: auth, locked lobby, privacy, randomized turns, duplicate protection, exact SC ledger/floor, restart, all36 completion, deferred tribute, mandatory submission, GM rejection re-block, fresh round');
   } catch (error) { console.error(error); console.error(logs.slice(-1600)); process.exitCode = 1; }
   finally { for (const c of clients) c.close(); if (server?.exitCode === null) await new Promise(resolve => { server.once('exit', resolve); server.kill(); }); fs.rmSync(data, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

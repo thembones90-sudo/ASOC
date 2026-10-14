@@ -9,8 +9,9 @@ Main checkout and existing unrelated changes were preserved.
 
 - Securely shuffled exact inventory: 18 Blessings (+48 SC theoretical),
   17 Curses (-47 SC theoretical), and one Blood Tribute.
-- GM opens a lobby; players enroll; GM starts with a roster locked in signup
-  order. Turns rotate deterministically, without wagers, fees or turn timers.
+- GM opens a lobby; up to 10 players enroll; signup closes when GM starts.
+  Each cycle securely shuffles the roster and gives each player exactly one
+  move. The next cycle reshuffles. No wagers, fees, skips or turn timers.
 - Hidden outcomes never appear in the role-aware network projection. Only
   opened fields reveal their outcome, nominal amount, actual balance change,
   selecting account and timestamp.
@@ -18,23 +19,27 @@ Main checkout and existing unrelated changes were preserved.
   receipts containing round, player, field and outcome. Validation, ledger,
   reveal, debt and broadcasts execute inside ASOC's existing synchronous
   durable runtime transaction and outbox; no separate wallet was introduced.
-- Blood Tribute immediately ends the round. The selecting player receives
+- Blood Tribute records its selecting player but does not stop play. Only
+  after all 36 tiles open does that player receive
   one deterministic Black Market pact through `createGmTributeDebt` with title
   `BLOOD TRIBUTE REQUIRED`. No coin transaction occurs for that field and no
-  unopened fields are automatically exposed. Dennis announces the named player.
+  unopened fields are automatically exposed. Dennis announces the named player
+  at the end. The upload prompt cannot be dismissed or escaped, survives refresh
+  and new rounds, and blocks new Tombola participation until submission. GM
+  rejection reinstates the requirement; only the GM judges the offering.
 - The existing Black Market demand prompt and image/moderation flow remain
   intact. The game never approves payment itself.
 - Room recovery saves the concealed inventory, roster, current turn, reveals,
   obligation link and history. Reconnects receive the same board. Old rounds,
   repeat clicks, invalid fields, wrong-turn users, nonparticipants and forged
   outcome/amount payloads cannot change the wallet.
-- GM can cancel, skip a stalled turn and open a fresh lobby after a terminal
+- GM can cancel and open a fresh lobby after a terminal
   round. History keeps the latest 20 summaries without storing hidden outcomes
   in public payloads. Prior earned/spent coins remain after cancellation.
 
 Conservative defaults for unspecified rules: at least two active human players
 are needed; GM watches and controls the round rather than playing. A disconnected
-participant retains the turn until reconnect or an explicit GM skip. These are
+participant retains the turn until reconnect (or GM cancels the round). These are
 reversible defaults, not entry fees or forced timers.
 
 ## Approved artwork
@@ -69,20 +74,26 @@ Image edit prompt used:
 
 `npm run test:tombola` passes all three suites:
 
-- `tests/tombola.js`: 100 randomized rounds preserve the exact inventory;
+- `tests/tombola.js`: roster sizes 2–10 preserve the exact inventory;
   36 unique numbered fields, no hidden outcomes, valid reveals, wrong turns,
-  stale round IDs, duplicate selections, roster lock, recovery and terminal blood.
+  stale round IDs, duplicate selections, cap/roster lock, randomized cycles,
+  exactly one move per player per full cycle, recovery with blood already
+  revealed, and completion only on tile 36. The final cycle can be partial
+  when the remaining tiles are fewer than the roster size.
 - `tests/black-market-tombola.js`: real server, authenticated GM and three
   players, lobby and start, spectator/forged identity refusal, duplicate-click
   race, exact +1/+2 SC credit, -1 debit, -10 curse capped at zero, actual capped
   deduction record, process restart/reconnect, replay after recovery, identical
   hidden inventory and turn, synchronized finale, exactly one existing Black
-  Market debt, blocked subsequent picks and new-round reset/history.
+  Market debt only at completion, blocked subsequent picks, new-round
+  reset/history, and mandatory submission before joining another round.
 - `tests/tombola-browser.js`: real ASOC pages and server in Chromium, logged-in
   GM, desktop and phone players, actual mini-game menu clicks, enrollment,
-  starting and playing through a random round to blood, 36 dynamic numbers,
+  starting and playing through all 36 tiles in randomized turn order, dynamic numbers,
   square 6x6 geometry, numberless artwork use, legibility, debt notice/Black
-  Market navigation and restored access to normal chat after closing the game.
+  Market navigation, unskippable requirement after refresh/Escape, and restored
+  real consent/file picker and authenticated binary image upload, and access
+  to normal chat after submission.
 
 Screenshots inspected: `.scratch/tombola-visuals/desktop-closed.png`,
 `mobile-closed.png`, `desktop-finale.png`, and `mobile-finale.png`.
