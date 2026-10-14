@@ -140,6 +140,7 @@ const PlayerApp = {
     { name: 'rofl', insert: '/rofl', syntax: '/rofl', description: 'Roll on the floor laughing' },
     { name: 'burp', insert: '/burp', syntax: '/burp', description: 'Let out a loud belch' },
     { name: 'oom', insert: '/oom', syntax: '/oom', description: 'Out of ideas!' },
+    { name: 'command', insert: '/command', syntax: '/command', description: 'Open your private command directory' },
     { name: 'commands', insert: '/commands', syntax: '/commands', description: 'Show every available command' }
   ],
   // Commands that take a player target: the target picker opens as soon as
@@ -3793,14 +3794,13 @@ const PlayerApp = {
     let commandCandidates = [];
     let commandIndex = 0;
     const renderCommandPicker = () => {
-      if (this.roomMode === 'BATTLE' || this.roomMode === 'BATTLE_ARMED') {
-        commandPicker.hidden = true;
-        return;
-      }
       const match = String(input?.value || '').match(/^\/([^\s]*)$/);
       if (!match) { commandPicker.hidden = true; return; }
       const fragment = match[1].toLowerCase();
-      commandCandidates = this.playerSlashCommands.filter(command => command.name.startsWith(fragment));
+      // Battle exposes only the private help directory; active player powers
+      // remain blocked by the server's authority checks.
+      const battle = this.roomMode === 'BATTLE' || this.roomMode === 'BATTLE_ARMED';
+      commandCandidates = this.playerSlashCommands.filter(command => (!battle || command.name === 'command' || command.name === 'commands') && command.name.startsWith(fragment));
       if (!commandCandidates.length) { commandPicker.hidden = true; return; }
       commandIndex = Math.max(0, Math.min(commandIndex, commandCandidates.length - 1));
       commandPicker.innerHTML = '<div class="chat-command-picker-head">AVAILABLE COMMANDS</div>' + commandCandidates.map((command, index) => `<button type="button" class="chat-command-option${index === commandIndex ? ' active' : ''}" data-command-index="${index}" role="option" aria-selected="${index === commandIndex}"><span>／</span><b>/${this.escapeHtml(command.name)}</b><small>${this.escapeHtml(command.description)}</small><em>${this.escapeHtml(command.syntax)}</em></button>`).join('');
@@ -3875,6 +3875,13 @@ const PlayerApp = {
 
     input.addEventListener('keydown', (e) => {
       if (!commandPicker.hidden) {
+        // A complete directory command must submit on the first Enter.
+        if (e.key === 'Enter' && /^\/commands?$/i.test(String(input.value).trim())) {
+          e.preventDefault();
+          commandPicker.hidden = true;
+          this.submitGuess();
+          return;
+        }
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault();
           commandIndex = (commandIndex + (e.key === 'ArrowDown' ? 1 : -1) + commandCandidates.length) % commandCandidates.length;

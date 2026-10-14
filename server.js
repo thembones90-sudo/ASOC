@@ -7353,6 +7353,7 @@ const CHAT_SLASH_COMMANDS = [
   { name: '/fireworks', help: '/fireworks [message] -- light up every screen with a fireworks show' },
   { name: '/goat', help: '/goat -- unleash one random GOAT event (awarded player only)' },
   { name: '/fatality', help: '/fatality @Name -- awarded relic finisher; 50/50 Pyroblast/Frost (90% SPELL REFLECT if aimed at the GM)' },
+  { name: '/command', help: '/command -- open the private command directory' },
   { name: '/commands', help: '/commands -- this list' }
 ];
 
@@ -7823,7 +7824,7 @@ function handleStatsCommand(room, author, raw) {
 }
 
 function handleCommandsCommand(ws, raw, registry) {
-  if (!/^\/commands\s*$/i.test(raw)) return { success: false, error: 'COMMANDS INVALID // USE /commands' };
+  if (!/^\/commands?\s*$/i.test(raw)) return { success: false, error: 'COMMANDS INVALID // USE /command OR /commands' };
   sendToWs(ws, { type: 'commands:private', commands: registry.map(entry => ({ name: entry.name, help: entry.help })) });
   return { success: true, private: true };
 }
@@ -8758,7 +8759,7 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
     return handlePlayerFatalityCommand(room, author, raw, targetPlayerId);
   }
-  if (/^\/commands\b/i.test(raw)) return handleCommandsCommand(ws, raw, CHAT_SLASH_COMMANDS);
+  if (/^\/commands?\b/i.test(raw)) return handleCommandsCommand(ws, raw, CHAT_SLASH_COMMANDS);
   if (/^\/backstab\b/i.test(raw)) {
     const targetPlayerId = typeof message?.targetPlayerId === 'string' ? message.targetPlayerId : '';
     return handleBackstabCommand(room, author, raw, targetPlayerId);
@@ -9132,7 +9133,7 @@ function dispatchGmSlashCommand(room, ws, text) {
     const result = handleGoatCommand(room, author, raw, { gm: true });
     return result.success ? { success: true, broadcast: true } : { success: false, error: result.error };
   }
-  if (/^\/commands\b/i.test(raw)) {
+  if (/^\/commands?\b/i.test(raw)) {
     const result = handleCommandsCommand(ws, raw, GM_CHAT_SLASH_COMMANDS);
     return result.success ? { success: true, broadcast: false } : { success: false, error: result.error };
   }
@@ -12087,7 +12088,8 @@ function handleChatGuess(ws, message) {
   // Battle authority: only the Shadow Broker may issue slash commands.
   // This runs before /all rewriting and generic chat fallback, so unknown
   // commands cannot sneak through as ordinary guesses or chat messages.
-  if (isBattleSurface(room) && String(text).trimStart().startsWith('/')) {
+  const directoryRequest = /^\/commands?\s*$/i.test(String(text).trim());
+  if (isBattleSurface(room) && String(text).trimStart().startsWith('/') && !directoryRequest) {
     if (clientMsgId) sendToWs(ws, { type: 'chat:ack', clientMsgId, refused: true });
     sendToWs(ws, { type: 'error', message: 'BATTLE COMMANDS FORBIDDEN // SHADOW BROKER ONLY' });
     return;
@@ -12096,7 +12098,7 @@ function handleChatGuess(ws, message) {
   const now = Date.now();
   const cooldown = playerCooldown(room, ws);
   if (!cooldown) return;
-  if (cooldown.chatAt && now - cooldown.chatAt < PLAYER_CHAT_MIN_INTERVAL_MS) {
+  if (!directoryRequest && cooldown.chatAt && now - cooldown.chatAt < PLAYER_CHAT_MIN_INTERVAL_MS) {
     if (clientMsgId) sendToWs(ws, { type: 'chat:ack', clientMsgId, refused: true });
     sendToWs(ws, { type: 'error', message: 'Battle Comms cooling down' });
     return;
