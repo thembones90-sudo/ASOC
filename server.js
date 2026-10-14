@@ -3814,6 +3814,29 @@ function matchRatingState(room) {
   };
 }
 
+// Individual votes belong to the authenticated Shadow Broker only. The
+// existing match:rating / state:public payload remains aggregate-only.
+function sendMatchRatingRosterToHost(room) {
+  const host = room?.hostConnection;
+  if (!host || host.readyState !== 1 || !room.match?.ratingOpenedAt || room.match.resultsShownAt) return;
+  const ledger = room.match;
+  const present = ledger.presence && typeof ledger.presence === 'object' ? ledger.presence : {};
+  const ratings = ledger.ratings && typeof ledger.ratings === 'object' ? ledger.ratings : {};
+  const ids = new Set([...Object.keys(present), ...Object.keys(ratings)]);
+  const roster = [...ids].filter(id => !isMasterTestPlayerId(id)).map(id => {
+    const vote = ratings[id];
+    const value = Number(vote?.rating);
+    const rating = Number.isInteger(value) && value >= 1 && value <= 10 ? value : null;
+    return {
+      playerId: id,
+      name: String(present[id]?.name || vote?.playerName || 'Little Hero').slice(0, 80),
+      rating,
+      submittedAt: rating === null ? null : Number(vote?.at) || null
+    };
+  }).sort((a, b) => Number(b.rating !== null) - Number(a.rating !== null) || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId));
+  sendToWs(host, { type: 'match:ratingRoster', matchId: String(room.boardId || ''), roster });
+}
+
 function persistMatchSatisfaction(room) {
   const state = matchRatingState(room);
   const record = matchStore.getMatch(room.boardId);
@@ -11011,6 +11034,7 @@ function handleHostReconnect(ws, message) {
 
   const publicState = getPublicState(room);
   sendToWs(ws, { type: 'state:public', ...publicState });
+  sendMatchRatingRosterToHost(room);
   sendToWs(ws, { type: 'host:reconnected', roomCode: room.code });
   sendToWs(ws, megabonkProgress(room));
 
@@ -11052,6 +11076,7 @@ function handleHostRecover(ws) {
   persistActiveRooms();
   sendToWs(ws, { type: 'game:loaded', game: room.gameData });
   sendToWs(ws, { type: 'state:public', ...getPublicState(room) });
+  sendMatchRatingRosterToHost(room);
   sendToWs(ws, { type: 'host:recovered', roomCode: room.code, hostToken });
   sendMegabonkProgress(room);
   sendChatSnapshot(ws, room);
@@ -13244,6 +13269,7 @@ function handleGmOpenRating(ws) {
   persistActiveRooms();
   const state = matchRatingState(room);
   broadcastToRoom(room, { type: 'match:rating', ...state });
+  sendMatchRatingRosterToHost(room);
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
 }
 
@@ -13269,6 +13295,7 @@ function handleMatchRating(ws, message) {
   persistActiveRooms();
   const state = matchRatingState(room);
   broadcastToRoom(room, { type: 'match:rating', ...state });
+  sendMatchRatingRosterToHost(room);
   sendToWs(ws, { type: 'match:ratingAck', ...state, myRating: rating });
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
 }

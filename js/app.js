@@ -3130,6 +3130,11 @@ const App = {
         window.MatchRating?.update?.(message, { isHost: true, send: payload => this.send(payload) });
         break;
 
+      // Only the authenticated host receives the per-player breakdown.
+      case 'match:ratingRoster':
+        window.MatchRating?.update?.({ matchId: message.matchId, roster: message.roster }, { isHost: true, send: payload => this.send(payload) });
+        break;
+
       case 'recount:update':
         window.MatchRating?.close?.();
         // AFTERMATH owns the screen until the Shadow Broker advances. The
