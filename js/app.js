@@ -2751,6 +2751,10 @@ const App = {
   },
 
   handleServerMessage(message) {
+    if (String(message?.type || '').startsWith('mudpits:')) {
+      window.GMMinigames?.onMessage?.(message);
+      window.MudPitsUI?.onMessage?.(message);
+    }
     window.GMDirectMessages?.onMessage?.(message);
     if (this._gmModules) {
       for (const module of Object.values(this._gmModules)) {

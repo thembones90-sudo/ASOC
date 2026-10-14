@@ -42,6 +42,7 @@ const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
 const forgeAI = require('./forge-ai');
+const mudpits = require('./mudpits');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -318,6 +319,84 @@ const mimeTypes = {
 };
 
 const rooms = new Map();
+
+// THE MUD PITS: room-scoped, server-authoritative duel bridge.  The rules
+// module owns validation/concealment; this layer owns identity, timers,
+// delivery and the one-time economy settlement.
+function mudpitsRoom(ws) { return rooms.get(String(ws?.roomCode || '').toUpperCase()); }
+function mudpitsIdentity(ws) {
+  const room = mudpitsRoom(ws);
+  if (room && ws === room.hostConnection) return { id: '__GM__', name: 'SHADOW BROKER' };
+  if (!ws?.playerId) return null;
+  const roster = room?.players ? Array.from(room.players.values()).find(p => String(p?.id || '') === String(ws.playerId)) : null;
+  return { id: String(ws.playerId), name: String(roster?.name || ws.playerName || 'LITTLE HERO').slice(0, 40) };
+}
+function mudpitsView(room, ws) {
+  const identity = mudpitsIdentity(ws);
+  return mudpits.view(room?.mudpits || null, identity?.id || '__GM__', {
+    isGm: !!room && ws === room.hostConnection,
+    eligibleVoter: !!identity,
+    now: Date.now()
+  });
+}
+function sendMudpitsState(room, ws) {
+  if (room && ws) sendToWs(ws, { type: 'mudpits:state', state: mudpitsView(room, ws) });
+}
+function broadcastMudpits(room) {
+  if (!room) return;
+  if (room.hostConnection) sendMudpitsState(room, room.hostConnection);
+  for (const socket of room.players?.keys?.() || []) sendMudpitsState(room, socket);
+}
+function settleMudpitsAward(room) {
+  const duel = room?.mudpits;
+  if (!duel || duel.phase !== mudpits.PHASES.RESULT || duel.awarded || !duel.winnerId) return;
+  duel.awarded = true;
+  const identity = { id: duel.winnerId, name: duel.names[duel.winnerId] || 'LITTLE HERO' };
+  const result = playerStore.awardShadowCoins(identity, 1, `mudpits:${duel.id}`, { reason: 'MUD PITS victory' });
+  if (result?.ok) duel.awardedTo = identity;
+  else duel.awarded = false;
+}
+function scheduleMudpits(room) {
+  if (!room?.mudpits || room.mudpits.settled) return;
+  clearTimeout(room.mudpitsTimer);
+  const duel = room.mudpits;
+  const deadline = duel.phase === mudpits.PHASES.WRITING ? duel.writeDeadline
+    : duel.phase === mudpits.PHASES.REVEAL ? duel.readDeadline : duel.voteDeadline;
+  room.mudpitsTimer = setTimeout(() => runtimeAction(() => {
+    const result = mudpits.tick(duel, Date.now());
+    if (result.changed) { settleMudpitsAward(room); persistActiveRooms(); broadcastMudpits(room); }
+    scheduleMudpits(room);
+  }), Math.max(1, Number(deadline || Date.now()) - Date.now() + 5));
+  room.mudpitsTimer.unref?.();
+}
+function handleMudpits(ws, message) {
+  const room = mudpitsRoom(ws);
+  if (!room) return sendToWs(ws, { type: 'error', message: 'Join a room before entering THE MUD PITS' });
+  const isGm = ws === room.hostConnection;
+  const now = Date.now();
+  if (message.type === 'mudpits:start') {
+    if (!isGm) return sendToWs(ws, { type: 'error', message: 'GM authentication required' });
+    if (room.mudpits && !room.mudpits.settled) return sendToWs(ws, { type: 'error', message: 'A MUD PITS duel is already running' });
+    const requested = Array.isArray(message.contestantIds) ? message.contestantIds.map(String) : [];
+    const roster = Array.from(room.players?.values?.() || []).filter(p => p?.id && !p.isBot);
+    const candidates = [{ id: '__GM__', name: 'SHADOW BROKER' }, ...roster];
+    const chosen = requested.map(id => candidates.find(p => String(p.id) === id)).filter(Boolean);
+    const distinct = []; for (const p of chosen) if (!distinct.some(x => String(x.id) === String(p.id))) distinct.push(p);
+    if (distinct.length !== 2) return sendToWs(ws, { type: 'error', message: 'Choose two distinct players' });
+    room.mudpits = mudpits.newDuel({ id: `mudpits-${crypto.randomBytes(8).toString('hex')}`, contestants: distinct, now });
+    scheduleMudpits(room); persistActiveRooms(); broadcastMudpits(room); return;
+  }
+  if (!room.mudpits) return sendMudpitsState(room, ws);
+  const duel = room.mudpits;
+  const identity = mudpitsIdentity(ws);
+  let result;
+  if (message.type === 'mudpits:submit') result = identity && mudpits.submit(duel, identity.id, message.text, now);
+  else if (message.type === 'mudpits:vote') result = identity && mudpits.castVote(duel, identity.id, message.contestantId, now);
+  else if (message.type === 'mudpits:cancel') result = isGm && mudpits.cancel(duel, message.reason, now);
+  else if (message.type === 'mudpits:sync') { mudpits.tick(duel, now); settleMudpitsAward(room); return sendMudpitsState(room, ws); }
+  if (!result || result.ok !== true) return sendToWs(ws, { type: 'mudpits:error', error: result?.error || 'MUD PITS action denied' });
+  mudpits.tick(duel, now); settleMudpitsAward(room); persistActiveRooms(); broadcastMudpits(room); scheduleMudpits(room);
+}
 
 // One durable data root can move every file-backed piece of ASOC state onto
 // a mounted production volume. Per-file ASOC_* overrides still win when set.
@@ -10722,6 +10801,7 @@ function handlePlayerJoin(ws, message) {
   });
 
   sendChatSnapshot(ws, room);
+  sendMudpitsState(room, ws);
   sendQuestState(room, ws);
   sendRouletteState(room, ws);
   sendDailyState(ws, dailyIdentity(playerId, cleanName));
@@ -14911,6 +14991,14 @@ wss.on('connection', (ws, req) => {
         return sendToWs(ws, { type: 'error', code: 'LOCKDOWN', message: 'LOCKDOWN // PLAYER FUNCTIONS SEALED. PLAIN CHAT ONLY.' });
       }
       switch (message.type) {
+        case 'mudpits:start':
+        case 'mudpits:submit':
+        case 'mudpits:vote':
+        case 'mudpits:cancel':
+        case 'mudpits:sync': {
+          handleMudpits(ws, message);
+          break;
+        }
         case 'room:create': {
           if (!isValidGmToken(message.gmToken)) {
             sendToWs(ws, { type: 'auth:required', role: 'gm', message: 'Game Master authentication required' });

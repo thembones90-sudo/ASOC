@@ -52,6 +52,7 @@
         else if (launch.dataset.gmMinigame === 'rouletteCarnage') window.RouletteCarnageUI?.open?.('gm');
         else if (launch.dataset.gmMinigame === 'sibicar') window.SibicarUI?.open?.();
         else if (launch.dataset.gmMinigame === 'olympics') window.OlympicsUI?.open?.();
+        else if (launch.dataset.gmMinigame === 'mudpits') this.startMudpits();
         else this.spinConcoction();
         return;
       }
@@ -92,6 +93,26 @@
       if (iks === 'toggle-health') { App.send({type:'gm:iksHealthVisibility',visible:App.iksArena?.healthVisible===false}); return; }
       const cell = e.target.closest('[data-gm-cell]');
       if (cell && this.game && !this.game.complete) App.send({type:'threefold:move',gameId:this.game.id,cell:Number(cell.dataset.gmCell)});
+    },
+    startMudpits() {
+      const players = (App.currentPlayers || App.players || []).filter(p => p?.id && !p.isBot);
+      const options = [{id:'__GM__',name:'SHADOW BROKER // GM'}].concat(players);
+      this.title('THE MUD PITS // CHOOSE YOUR VICTIMS');
+      this.content(`<div class="gm-mudpits-selector"><p>SELECT EXACTLY TWO CONTESTANTS. THE PIT WILL NOT SUMMON ITSELF.</p><div class="gm-mudpits-options">${options.map(p=>`<label><input type="checkbox" data-mudpits-contestant value="${this.esc(p.id)}"><span>${this.esc(p.name||p.displayName||p.id)}</span></label>`).join('')}</div><button type="button" class="gm-global-btn primary" data-mudpits-summon>SUMMON THE DUEL</button></div>`);
+      document.querySelector('[data-mudpits-summon]')?.addEventListener('click',()=>{
+        const ids=[...document.querySelectorAll('[data-mudpits-contestant]:checked')].map(x=>x.value);
+        if(ids.length!==2||new Set(ids).size!==2){ this.status('TWO CONTESTANTS REQUIRED','Choose two distinct authenticated active players—or the GM.'); return; }
+        App.send({type:'mudpits:start',contestantIds:ids});
+      });
+      this.show();
+    },
+    onMessage(message) {
+      if (!String(message?.type || '').startsWith('mudpits:')) return;
+      if (message.type === 'mudpits:state') {
+        let root=document.getElementById('gm-mudpits-root');
+        if (!root) { root=document.createElement('div'); root.id='gm-mudpits-root'; document.querySelector('.gm-module-chat .gm-chat-panel')?.append(root); }
+        window.MudPitsUI?.render(message.state, root, {gm:true});
+      }
     },
     openChooser() {
       if (App.roomMode !== 'CASUAL') return;
