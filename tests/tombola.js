@@ -1,0 +1,34 @@
+'use strict';
+const assert = require('assert/strict');
+const game = require('../tombola');
+for (let i = 0; i < 100; i++) {
+  const round = game.create('round-' + i);
+  const tally = round.inventory.reduce((counts, f) => { const key = `${f.kind}:${f.amount}`; counts[key] = (counts[key] || 0) + 1; return counts; }, {});
+  assert.deepEqual(tally, { 'BLESSING:1': 6, 'BLESSING:2': 5, 'BLESSING:3': 4, 'BLESSING:5': 2, 'BLESSING:10': 1, 'CURSE:1': 5, 'CURSE:2': 5, 'CURSE:3': 4, 'CURSE:5': 2, 'CURSE:10': 1, 'BLOOD_TRIBUTE:0': 1 });
+  const view = game.view(round, 'spectator');
+  assert.equal(view.fields.length, 36);
+  assert.equal(new Set(view.fields.map(f => f.field)).size, 36);
+  assert.ok(!JSON.stringify(view).includes('inventory'));
+  assert.ok(view.fields.every(f => !('kind' in f) && !('amount' in f)));
+}
+const r = game.create('duel');
+game.join(r, { id: 'a', name: 'Alpha' }); game.join(r, { id: 'b', name: 'Beta' });
+assert.ok(game.join(r, { id: 'a', name: 'Alpha' }).error);
+assert.equal(game.start(r, ['a', 'b']).ok, true);
+const field = r.inventory.findIndex(f => f.kind === 'BLESSING') + 1;
+assert.ok(game.validatePick(r, 'b', field, r.id).error);
+assert.ok(game.validatePick(r, 'a', field, 'old-round').error);
+assert.ok(game.validatePick(r, 'a', '1', r.id).error);
+assert.equal(game.reveal(r, 'a', field, 1).ok, true);
+assert.ok(game.validatePick(r, 'b', field, r.id).error);
+assert.equal(game.view(r, 'b').fields[field - 1].kind, 'BLESSING');
+const restored = game.normalize(JSON.parse(JSON.stringify(r)));
+assert.deepEqual(game.view(restored, 'b'), game.view(r, 'b'));
+const blood = r.inventory.findIndex(f => f.kind === 'BLOOD_TRIBUTE') + 1;
+assert.equal(game.reveal(r, 'b', blood, 0).ok, true);
+assert.equal(r.phase, 'ENDED'); assert.equal(r.tributePlayerId, 'b');
+assert.ok(game.validatePick(r, 'a', 1, r.id).error);
+assert.equal(game.view(r, 'a').fields.filter(f => f.revealed).length, 2);
+assert.ok(game.join(r, { id: 'c', name: 'Other' }).error);
+assert.equal(game.normalize({ ...r, phase: 'PLAYING' }), null, 'a blood reveal cannot recover as active');
+console.log('PASS Tombola: exact inventory, concealed 36-field projection, turns, stale/duplicate rejection, recovery, terminal Blood Tribute');

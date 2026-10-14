@@ -2751,6 +2751,7 @@ const App = {
   },
 
   handleServerMessage(message) {
+    if (String(message?.type || '').startsWith('tombola:')) { window.TombolaUI?.onMessage?.(message); return; }
     if (String(message?.type || '').startsWith('mudpits:')) {
       window.GMMinigames?.onMessage?.(message);
       window.MudPitsUI?.onMessage?.(message);
@@ -2942,6 +2943,7 @@ const App = {
         break;
 
       case 'host:reconnected':
+        this.send({ type: 'tombola:sync' });
         this.send({ type: 'mudpits:sync' });
         this._reconnectPending = false;
         this.roomCode = message.roomCode;
@@ -2953,6 +2955,7 @@ const App = {
         break;
 
       case 'host:recovered':
+        this.send({ type: 'tombola:sync' });
         this.send({ type: 'mudpits:sync' });
         this._recoverPending = false;
         this.roomCode = message.roomCode;

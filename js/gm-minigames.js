@@ -53,6 +53,7 @@
         else if (launch.dataset.gmMinigame === 'sibicar') window.SibicarUI?.open?.();
         else if (launch.dataset.gmMinigame === 'olympics') window.OlympicsUI?.open?.();
         else if (launch.dataset.gmMinigame === 'mudpits') this.startMudpits();
+        else if (launch.dataset.gmMinigame === 'tombola') window.TombolaUI?.open?.();
         else this.spinConcoction();
         return;
       }

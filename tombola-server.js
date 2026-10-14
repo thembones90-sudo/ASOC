@@ -1,0 +1,85 @@
+'use strict';
+const crypto = require('crypto');
+const game = require('./tombola');
+
+function createTombolaService(deps) {
+  function actor(room, ws) {
+    if (ws === room.hostConnection && ws.gmAuthenticated === true) return { isGm: true, id: '__GM__', name: 'SHADOW BROKER' };
+    const player = room.players.get(ws);
+    if (!player || player.connected === false || player.id !== ws.playerId || player.isBot || player.isSynthetic) return null;
+    return { id: String(player.id), name: player.name, isGm: false };
+  }
+  function sendState(room, ws) {
+    const who = actor(room, ws);
+    if (!who) return;
+    deps.sendToWs(ws, { type: 'tombola:state', state: game.view(room.tombola, who.id, who.isGm, room.tombolaHistory || []) });
+  }
+  function publish(room) {
+    if (room.hostConnection) sendState(room, room.hostConnection);
+    for (const socket of room.players.keys()) if (socket.readyState === 1) sendState(room, socket);
+  }
+  function commit(room) { room.revision++; deps.persist(); publish(room); }
+  function handle(ws, message) {
+    const room = deps.roomOf(ws);
+    if (!room) return deps.sendToWs(ws, { type: 'tombola:error', error: 'JOIN THE MASTER ROOM FIRST' });
+    const who = actor(room, ws);
+    const fail = error => deps.sendToWs(ws, { type: 'tombola:error', error });
+    if (!who) return fail('AUTHENTICATED ACTIVE PLAYER REQUIRED');
+    if (message.type === 'tombola:sync') return sendState(room, ws);
+    if (['tombola:create', 'tombola:start', 'tombola:skip', 'tombola:cancel'].includes(message.type) && !who.isGm) return fail('TOMBOLA CONTROL BELONGS TO THE SHADOW BROKER');
+    if (message.type === 'tombola:create') {
+      if (room.tombola && ['LOBBY', 'PLAYING'].includes(room.tombola.phase)) return fail('A TOMBOLA ROUND IS ALREADY OPEN');
+      if (room.tombola) room.tombolaHistory = [...(room.tombolaHistory || []), game.summary(room.tombola)].slice(-20);
+      room.tombola = game.create('tombola-' + crypto.randomBytes(12).toString('hex'));
+      commit(room); return;
+    }
+    const state = room.tombola;
+    if (!state || message.roundId !== state.id) return fail('THIS TOMBOLA ROUND IS NO LONGER CURRENT');
+    let result;
+    if (message.type === 'tombola:join') result = who.isGm ? { error: 'THE GM WATCHES TOMBOLA' } : game.join(state, who);
+    else if (message.type === 'tombola:leave') result = game.leave(state, who.id);
+    else if (message.type === 'tombola:start') {
+      const active = [...room.players.entries()].filter(([socket, p]) => socket.readyState === 1 && p.connected !== false && !p.isBot && !p.isSynthetic).map(([, p]) => String(p.id));
+      result = game.start(state, active);
+    } else if (message.type === 'tombola:skip') result = game.skip(state);
+    else if (message.type === 'tombola:cancel') result = game.cancel(state);
+    else if (message.type === 'tombola:pick') {
+      const check = game.validatePick(state, who.id, message.field, message.roundId);
+      if (!check.ok) return fail(check.error);
+      const outcome = check.outcome;
+      // No await: validation, wallet change, reveal and obligation all execute
+      // in the caller's existing durable transaction before any frame is sent.
+      const receipt = `${state.id}:${who.id}:field-${message.field}:${outcome.kind}`;
+      let actualAmount = 0;
+      if (outcome.kind !== 'BLOOD_TRIBUTE') {
+        const paid = outcome.kind === 'BLESSING'
+          ? deps.playerStore.awardShadowCoins(who, outcome.amount, receipt, { reason: `TOMBOLA ${state.id} field ${message.field} blessing +${outcome.amount}` })
+          : deps.playerStore.deductShadowCoins(who, outcome.amount, receipt, { reason: `TOMBOLA ${state.id} field ${message.field} curse -${outcome.amount}` });
+        if (!paid.ok) throw new Error('Tombola ledger write failed: ' + (paid.error || 'storage unavailable'));
+        actualAmount = outcome.kind === 'BLESSING' ? outcome.amount : -Number(paid.deducted || 0);
+      }
+      result = game.reveal(state, who.id, message.field, actualAmount);
+      if (!result.ok) throw new Error('Tombola reveal rejected after ledger validation');
+      if (outcome.kind === 'BLOOD_TRIBUTE') {
+        room.blackMarket = deps.blackMarket.normalizeState(room.blackMarket);
+        const pactId = `pact-${state.id}`;
+        let pact = deps.blackMarket.findPact(room.blackMarket, pactId);
+        if (!pact) {
+          const debt = deps.blackMarket.createGmTributeDebt(room.blackMarket, who, { reason: `ASOC TOMBOLA // FIELD ${message.field} // ${state.id}`, tributeLevel: 1 });
+          if (debt.error || !debt.pact) throw new Error('Tombola tribute creation failed');
+          pact = debt.pact; pact.id = pactId;
+        }
+        state.tributePactId = pact.id;
+        deps.addDennisMessage(room, `@${who.name} — BLOOD TRIBUTE REQUIRED. FIELD ${message.field} HAS ENDED TOMBOLA FOR EVERYONE. THE BLACK MARKET AWAITS.`);
+        deps.syncBlackMarket(room, who.id);
+        deps.sendToWs(ws, { type: 'blackMarket:tributeDemanded', pact: deps.blackMarket.playerView(room.blackMarket, who.id).pacts.find(p => p.id === pact.id) });
+        deps.broadcastChatUpdate(room);
+      }
+      deps.broadcastPlayersUpdate(room);
+    } else return fail('UNKNOWN TOMBOLA ACTION');
+    if (!result?.ok) return fail(result?.error || 'TOMBOLA ACTION REFUSED');
+    commit(room);
+  }
+  return { handle, sendState, publish };
+}
+module.exports = { createTombolaService };

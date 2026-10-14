@@ -43,6 +43,8 @@ const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
 const forgeAI = require('./forge-ai');
 const mudpits = require('./mudpits');
+const tombola = require('./tombola');
+const { createTombolaService } = require('./tombola-server');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -673,6 +675,8 @@ function serializeRoomForRecovery(room) {
     dennisAI: dennisAI.normalizeState(room.dennisAI),
     spectralAdjudicator: spectralAdjudicator.normalizeState(room.spectralAdjudicator),
     mudpits: mudpits.normalizeState(room.mudpits),
+    tombola: tombola.normalize(room.tombola),
+    tombolaHistory: (room.tombolaHistory || []).slice(-20),
     lockdown: room.lockdown === true,
     // RPS OLYMPICS is isolated from board/session state. Private selections
     // are persisted here but are projected through olympics.view() only.
@@ -826,6 +830,8 @@ function restoreActiveRooms() {
         rouletteCarnage: rouletteCarnage.normalizeState(saved.rouletteCarnage),
         spectralAdjudicator: spectralAdjudicator.normalizeState(saved.spectralAdjudicator),
         mudpits: mudpits.normalizeState(saved.mudpits),
+        tombola: tombola.normalize(saved.tombola),
+        tombolaHistory: Array.isArray(saved.tombolaHistory) ? saved.tombolaHistory.slice(-20) : [],
         lockdown: saved.lockdown === true,
         shadowRealm: saved.shadowRealm && typeof saved.shadowRealm === 'object' ? saved.shadowRealm : {},
         shadowRealmHistory: Array.isArray(saved.shadowRealmHistory) ? saved.shadowRealmHistory.slice(-100) : [],
@@ -9701,6 +9707,14 @@ function sendToWs(ws, message) {
 }
 
 let chaosService = null;
+let tombolaService = null;
+function getTombolaService() {
+  if (!tombolaService) tombolaService = createTombolaService({
+    roomOf: ws => rooms.get(ws.roomCode?.toUpperCase()), sendToWs, persist: persistActiveRooms,
+    playerStore, blackMarket, addDennisMessage, syncBlackMarket, broadcastChatUpdate, broadcastPlayersUpdate
+  });
+  return tombolaService;
+}
 function getChaosService() {
   if (!chaosService) {
     chaosService = createChaosService({
@@ -10816,6 +10830,7 @@ function handlePlayerJoin(ws, message) {
 
   sendChatSnapshot(ws, room);
   sendMudpitsState(room, ws);
+  getTombolaService().sendState(room, ws);
   sendQuestState(room, ws);
   sendRouletteState(room, ws);
   sendDailyState(ws, dailyIdentity(playerId, cleanName));
@@ -15005,6 +15020,17 @@ wss.on('connection', (ws, req) => {
         return sendToWs(ws, { type: 'error', code: 'LOCKDOWN', message: 'LOCKDOWN // PLAYER FUNCTIONS SEALED. PLAIN CHAT ONLY.' });
       }
       switch (message.type) {
+        case 'tombola:create':
+        case 'tombola:join':
+        case 'tombola:leave':
+        case 'tombola:start':
+        case 'tombola:pick':
+        case 'tombola:skip':
+        case 'tombola:cancel':
+        case 'tombola:sync': {
+          getTombolaService().handle(ws, message);
+          break;
+        }
         case 'mudpits:start':
         case 'mudpits:submit':
         case 'mudpits:draft':

@@ -1347,6 +1347,7 @@ const PlayerApp = {
   },
 
   handleMessage(message) {
+    if (String(message?.type || '').startsWith('tombola:')) { window.TombolaUI?.onMessage?.(message); return; }
     if (String(message?.type || '').startsWith('mudpits:')) {
       window.MudPitsUI?.onMessage?.(message);
       if (message.type === 'mudpits:state') {
