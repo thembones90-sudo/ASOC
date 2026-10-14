@@ -85,6 +85,9 @@ const PlayerApp = {
   _unreadSystemCount: 0,
   _pendingChatPayloads: [],
   _unackedChat: new Map(),
+  // Client-only preview. An entry is NEVER authoritative until the durable
+  // server echo reconciles it; refuses retain an explicit retry affordance.
+  _localChatPending: new Map(),
   _wrongFadeTimer: null,
   _wrongVerdictSeenAt: new Map(),
   _tributeExpiryTimer: null,
@@ -1514,9 +1517,15 @@ const PlayerApp = {
         this.flushChatAfterReconnect();
         break;
 
-      case 'chat:ack':
+      case 'chat:ack': {
         this._unackedChat.delete(message.clientMsgId);
+        const pending = this._localChatPending.get(message.clientMsgId);
+        if (pending) {
+          pending.state = message.refused === true ? 'failed' : 'confirmed';
+          this.renderChat({ forceLatest: true });
+        }
         break;
+      }
 
       case 'server:pong':
         this.onLinkPong(message);
@@ -2902,6 +2911,62 @@ const PlayerApp = {
     }, isPermanent ? 0 : 3000);
   },
 
+  addPendingChat(payload, state = 'sending', at = Date.now()) {
+    // Slash commands create authoritative cards or private effects rather
+    // than ordinary chat text. Never fabricate their chat message preview.
+    if (!payload?.clientMsgId || !payload.text || String(payload.text).trimStart().startsWith('/')) return;
+    this._localChatPending.set(payload.clientMsgId, { text: payload.text, state, at });
+    while (this._localChatPending.size > 20) {
+      const removable = [...this._localChatPending].find(([, item]) => item.state === 'confirmed')?.[0]
+        || this._localChatPending.keys().next().value;
+      this._localChatPending.delete(removable);
+    }
+    this.renderChat({ forceLatest: true });
+  },
+
+  reconcilePendingChat(incoming) {
+    const used = new Set();
+    for (const [id, pending] of this._localChatPending) {
+      if (pending.state === 'failed') continue;
+      const match = (incoming || []).find(msg =>
+        msg && !msg.deleted && !msg.source && !used.has(msg.id)
+        && String(msg.playerId || '') === String(this.playerId || '')
+        && msg.text === pending.text
+        && Math.abs((Number(msg.timestamp) || 0) - pending.at) < 120000
+      );
+      if (match) {
+        used.add(match.id);
+        this._localChatPending.delete(id);
+      }
+    }
+  },
+
+  createPendingChatHTML(id, pending) {
+    const status = pending.state === 'failed' ? 'NOT SENT'
+      : pending.state === 'queued' ? 'QUEUED'
+      : pending.state === 'confirmed' ? 'CONFIRMED // SYNCING'
+      : 'SENDING';
+    const theme = ASOCThemes.get(this.themeId);
+    const frame = /^#[0-9A-Fa-f]{6}$/.test(this.frameColor || '') ? this.frameColor : '#6f7885';
+    return `<div class="chat-message own chat-local-pending" data-local-chat-id="${this.escapeHtml(id)}" data-theme-id="${theme.id}" style="${ASOCThemes.messageStyle(theme.id)}--little-hero-accent:${frame}">
+      <div class="chat-avatar-rail">${this.littleHeroAvatarHTML(this)}</div>
+      <div class="chat-message-main">
+        <div class="chat-message-header"><span class="chat-player-name">${this.escapeHtml(this.playerName || 'LITTLE HERO')}</span></div>
+        <div class="chat-message-line"><div class="chat-message-text">${this.escapeHtml(pending.text)}</div></div>
+        <div class="chat-local-pending-status" role="status" data-delivery="${pending.state}">${status}${pending.state === 'failed' ? ` <button type="button" data-local-chat-retry="${this.escapeHtml(id)}">RETRY</button>` : ''}</div>
+      </div>
+    </div>`;
+  },
+
+  retryPendingChat(id) {
+    const entry = this._localChatPending.get(id);
+    const input = document.getElementById('chat-input');
+    if (!entry || entry.state !== 'failed' || !input) return;
+    this._localChatPending.delete(id);
+    input.value = entry.text;
+    this.submitGuess();
+  },
+
   newClientMsgId() {
     const bytes = new Uint8Array(12);
     (window.crypto || window.msCrypto).getRandomValues(bytes);
@@ -2917,7 +2982,11 @@ const PlayerApp = {
     const byId = new Map();
     for (const [id, entry] of this._unackedChat) {
       if (now - entry.at < 2 * 60 * 1000) byId.set(id, entry.payload);
-      else this._unackedChat.delete(id);
+      else {
+        this._unackedChat.delete(id);
+        const preview = this._localChatPending.get(id);
+        if (preview) preview.state = 'failed';
+      }
     }
     for (const payload of this._pendingChatPayloads.splice(0, 10)) {
       payload.clientMsgId ||= this.newClientMsgId();
@@ -2929,6 +2998,8 @@ const PlayerApp = {
     queue.forEach((payload, index) => setTimeout(() => {
       if (this.ws?.readyState !== WebSocket.OPEN) return;
       this._unackedChat.set(payload.clientMsgId, { payload, at: this._unackedChat.get(payload.clientMsgId)?.at || Date.now() });
+      const preview = this._localChatPending.get(payload.clientMsgId);
+      if (preview) { preview.state = 'sending'; this.renderChat({ forceLatest: true }); }
       this.send(payload);
     }, index * 450));
   },
@@ -4572,9 +4643,12 @@ const PlayerApp = {
         input.focus({ preventScroll: true });
       });
       this.setChatDeliveryState('SENDING', 'sending');
-      this._unackedChat.set(payload.clientMsgId, { payload, at: Date.now() });
+      const sentAt = Date.now();
+      this._unackedChat.set(payload.clientMsgId, { payload, at: sentAt });
+      this.addPendingChat(payload, 'sending', sentAt);
       this.send(payload);
     } else {
+      this.addPendingChat(payload, 'queued');
       this._pendingChatPayloads.push(payload);
       this._pendingChatPayloads = this._pendingChatPayloads.slice(-10);
       this.setChatDeliveryState(`QUEUED ${this._pendingChatPayloads.length} // RECONNECTING`, 'queued');
@@ -4958,6 +5032,9 @@ const PlayerApp = {
     });
     this._chatEverInitialized = true;
     this.chatMessages = this.trimChatLog(incoming);
+    // A durable server echo retires exactly one matching local preview. Never
+    // insert local previews into authoritative chatMessages or receipt logic.
+    this.reconcilePendingChat(this.chatMessages);
     this.solvedTargets = solvedTargets || {};
     const solvedCount = document.getElementById('chat-solved-count');
     const solvedText = this.roomMode === 'CASUAL' ? 'CHANNEL OPEN' : `SOLVED: ${Object.keys(this.solvedTargets).length}/5`;
@@ -4970,6 +5047,16 @@ const PlayerApp = {
   renderChat({ forceLatest = false, preserveScroll = false } = {}) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
+    if (!this._localChatRetryBound) {
+      this._localChatRetryBound = true;
+      container.addEventListener('click', event => {
+        const retry = event.target.closest('[data-local-chat-retry]');
+        if (!retry || !container.contains(retry)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.retryPendingChat(retry.dataset.localChatRetry);
+      });
+    }
 
     // Trust the actual viewport position first. A stale userScrolledUp flag can
     // be produced by DOM reflow/media loading; physical proximity to the bottom
@@ -5027,6 +5114,9 @@ const PlayerApp = {
       }
       entries.push({ key: `msg:${msg.id}`, html: this.createChatMessageHTML(msg, this.shouldGroupChatMessage(previous, msg), now) });
     });
+    if (!search) for (const [id, pending] of this._localChatPending) {
+      entries.push({ key: `pending:${id}`, html: this.createPendingChatHTML(id, pending) });
+    }
 
     this._chatProgrammaticScroll = true;
     // Keyed patch, not innerHTML: every chat:update (a new line, a seen

@@ -22366,3 +22366,32 @@ body #black-market-gm-button.bm-has-pending small {
     animation-delay: 0ms !important;
   }
 }
+
+/* P0: ephemeral, never-authoritative chat preview. Hidden from receipts and commands. */
+#game-screen #chat-messages .chat-local-pending .chat-message-main {
+  opacity: .83;
+  border-style: dashed;
+}
+#game-screen #chat-messages .chat-local-pending-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: #d2b673;
+}
+#game-screen #chat-messages .chat-local-pending-status[data-delivery="confirmed"] { color: #8bbd98; }
+#game-screen #chat-messages .chat-local-pending-status[data-delivery="queued"] { color: #bcb5a8; }
+#game-screen #chat-messages .chat-local-pending-status[data-delivery="failed"] { color: #ef8a8a; }
+#game-screen #chat-messages [data-local-chat-retry] {
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  padding: 2px 7px;
+  font: inherit;
+  cursor: pointer;
+}
+#game-screen #chat-messages [data-local-chat-retry]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
