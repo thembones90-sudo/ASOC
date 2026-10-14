@@ -52,3 +52,10 @@ Status: verification complete for targeted tests; production cutover NOT authori
 5. Provision a new EU production replacement volume/service separate from synthetic staging, transfer private data and variables securely, validate health and GM/player reconnect/score/reliquary in isolation, then cut over domain once.
 6. Keep original SFO volume untouched for rollback. Reconcile data if EU has accepted writes before any rollback.
 7. Obtain explicit maintenance/cutover authorization. No production merge, redeploy, migration, or rollback was executed here.
+
+## Additional GM-only WebSocket payload risk
+
+- `getBloodTributeVaultState()` embeds `imageData` in every entry of the `tribute:vault` response.
+- `sendTributeVaultToHost()` transmits the whole vault to an authenticated, Reliquary-unlocked GM, and is invoked from several state-changing paths.
+- The 25.4MB retained tribute-image footprint creates a plausible mechanism for huge GM-side WebSocket frames and buffered send queues. This is **not confirmation** that the historical 48.5MB backpressure event came from the vault.
+- Qualify with aggregate, privacy-safe per-frame byte telemetry; introduce private, paged/on-demand media retrieval or authenticated delta updates if verified. Avoid public URLs, dropping images, or silent skipped frames.
