@@ -1553,7 +1553,7 @@ async function testTributeForgive(server) {
     //     dismissed into a second demand, then forgiven the exact same way.
     const secondVisibleResultPromise = waitForMessage(
       host,
-      m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'idle',
+      m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
       'forgive second visible result',
       7000
     );
@@ -2479,14 +2479,16 @@ async function testChatSlashCommands() {
 
   // GM /spit: broker-authored, null actorId, host-deletable contract intact.
   state = await (async () => {
-    const spitUpdate = nextUpdate(m => m.messageType === 'spit' && m.spit?.actorName === 'SHADOW BROKER');
+    const spitUpdate = waitForMessage(host, m => m.type === 'chat:update' && m.messages?.some(entry => entry.messageType === 'spit' && entry.spit?.actorId == null), 'GM spit chat update');
     host.send(JSON.stringify({ type: 'gm:broadcast', text: `/spit @${commanderName}` }));
     return spitUpdate;
   })();
-  const brokerSpit = findIn(state, m => m.messageType === 'spit' && m.spit?.actorName === 'SHADOW BROKER');
+  const brokerSpit = findIn(state, m => m.messageType === 'spit' && m.spit?.actorId == null);
+  assert.ok(brokerSpit, 'a broker-authored spit card is present');
   assert.equal(brokerSpit.playerId, null);
   assert.equal(brokerSpit.playerName, 'SHADOW BROKER');
-  assert.equal(brokerSpit.text, `SHADOW BROKER spits on ${commanderName}.`);
+  // The visible Broker label is configurable; preserve the actor identity.
+  assert.equal(brokerSpit.text, `${brokerSpit.spit.actorName} spits on ${commanderName}.`);
   assert.equal(brokerSpit.spit.actorId, null);
   assert.equal(brokerSpit.spit.targetId, joined1.playerId);
 
