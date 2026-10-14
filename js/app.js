@@ -1798,6 +1798,14 @@ const App = {
     shadowBrokerComposer?.addEventListener('keydown', (e) => {
       this.syncGMComposerModel();
       if (!gmCommandPicker.hidden) {
+        // Submit a complete directory command on the first Enter. Otherwise
+        // the autocomplete swallows Enter and merely re-inserts /commands.
+        if (e.key === 'Enter' && /^\/commands?$/i.test(this.getGMComposerText().trim())) {
+          e.preventDefault();
+          gmCommandPicker.hidden = true;
+          shadowBrokerForm?.requestSubmit();
+          return;
+        }
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); gmCommandIndex = (gmCommandIndex + (e.key === 'ArrowDown' ? 1 : -1) + gmCommandCandidates.length) % gmCommandCandidates.length; updateGMCommandPicker(); return; }
         if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); selectGMCommand(gmCommandIndex); return; }
         if (e.key === 'Escape') { e.preventDefault(); gmCommandPicker.hidden = true; return; }
@@ -3236,6 +3244,11 @@ const App = {
 
       case 'command:ack':
         this.pendingCommands.delete(message.cmdId);
+        break;
+
+      case 'commands:private':
+        window.ASOCCommandDirectory?.show?.(message.commands, { isHost: true });
+        this.setGMDeliveryState('COMMAND DIRECTORY OPEN', 'delivered', 1800);
         break;
 
       case 'gm:broadcast:ack':

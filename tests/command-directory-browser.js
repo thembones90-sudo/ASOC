@@ -1,0 +1,70 @@
+'use strict';
+const assert = require('node:assert/strict');
+const {chromium} = require('playwright');
+const H = require('./lib/browser-harness');
+const PORT = Number(process.env.ASOC_DIRECTORY_BROWSER_PORT) || 19463;
+(async()=>{
+  const server=await H.startServer({port:PORT});
+  let browser;
+  try {
+    browser=await chromium.launch(H.launchOptions());
+    const c1=await browser.newContext({viewport:{width:1280,height:800}});
+    const c2=await browser.newContext({viewport:{width:1280,height:800}});
+    const a=await H.openHeroPage(c1,server,await H.heroToken(server,'Directory Alpha'));
+    const b=await H.openHeroPage(c2,server,await H.heroToken(server,'Directory Beta'));
+    const gmLogin=await server.api('POST','/api/auth/gm/login',{password:'browser-gm-pass'});
+    assert.equal(gmLogin.status,200);
+    const gc=await browser.newContext({viewport:{width:1440,height:900}});
+    await gc.addInitScript(token=>{
+      localStorage.setItem('asoc_master_token',token);
+      sessionStorage.setItem('asoc_gm_token',token);
+    },gmLogin.data.token);
+    const gm=await gc.newPage();
+    const gmErrors=[];
+    gm.on('pageerror',e=>gmErrors.push(e.message));
+    await gm.goto(server.base+'/index.html',{waitUntil:'domcontentloaded'});
+    await gm.waitForFunction(()=>window.App?.roomMode==='CASUAL',{timeout:15000});
+    const sendPlayer=async (page,verb)=>{
+      await page.locator('#chat-input').fill(verb);
+      await page.locator('#chat-input').press('Enter');
+      await page.locator('.asoc-command-directory[role="dialog"]').waitFor({state:'visible',timeout:12000});
+      const entries=await page.locator('.asoc-command-directory-row').count();
+      assert.ok(entries>5,verb+' lists commands in DOM');
+      assert.equal(await page.locator('.asoc-command-directory-summary').textContent().then(x=>x.includes('ONLY YOU')),true);
+      await page.locator('.asoc-command-directory-close').click();
+      await page.locator('.asoc-command-directory').waitFor({state:'detached'});
+    };
+    await sendPlayer(a,'/commands');
+    assert.equal(await b.locator('.asoc-command-directory').count(),0,'player request does not reach bystander');
+    assert.equal(await gm.locator('.asoc-command-directory').count(),0,'player request does not reach GM');
+    await sendPlayer(a,'/command');
+    await gm.locator('#shadow-broker-composer').fill('/commands');
+    await gm.locator('#shadow-broker-composer').press('Enter');
+    await gm.locator('.asoc-command-directory').waitFor({state:'visible',timeout:12000});
+    assert.ok(await gm.locator('.asoc-command-directory-row').count()>10,'GM directory has full command list');
+    assert.ok(await gm.locator('.asoc-command-directory-row').filter({hasText:'/dennis'}).count()>0,'GM-only command visible in GM directory');
+    await gm.keyboard.press('Escape');
+    await gm.locator('.asoc-command-directory').waitFor({state:'detached'});
+    await gm.evaluate(()=>App.send({type:'gm:setRoomMode',mode:'BATTLE'}));
+    await a.waitForFunction(()=>PlayerApp.roomMode==='BATTLE'||PlayerApp.roomMode==='BATTLE_ARMED',null,{timeout:12000});
+    await sendPlayer(a,'/commands');
+    await sendPlayer(a,'/command');
+    assert.equal(await b.locator('.asoc-command-directory').count(),0,'battle directory private');
+    assert.equal(await gm.locator('.asoc-command-directory').count(),0,'battle directory not leaked to host');
+    await gm.locator('#shadow-broker-composer').fill('/command');
+    await gm.locator('#shadow-broker-composer').press('Enter');
+    await gm.locator('.asoc-command-directory').waitFor({state:'visible',timeout:12000});
+    const xss=await gm.evaluate(()=>{
+      ASOCCommandDirectory.show([{name:'/test',help:'<img src=x onerror=alert(1)>'}],{isHost:true});
+      return {text:document.querySelector('.asoc-command-directory-row')?.textContent,imgs:document.querySelectorAll('.asoc-command-directory img').length};
+    });
+    assert.ok(xss.text.includes('<img'),'help strings escaped rather than parsed');
+    assert.equal(xss.imgs,0,'HTML injection cannot create elements');
+    await gm.locator('.asoc-command-directory-close').click();
+    assert.deepEqual(a.pageErrors,[],'player browser errors');
+    assert.deepEqual(b.pageErrors,[],'bystander browser errors');
+    assert.deepEqual(gmErrors,[],'GM browser errors');
+    assert.equal(server.errors().trim(),'','server error logs');
+    console.log('PASS /commands browser: real player + GM Enter, singular/plural, AMUSE/ABUSE, private isolation, modal close, XSS resistance');
+  }finally{await browser?.close();await server.stop();}
+})().catch(e=>{console.error('FAIL /commands browser',e.stack||e);process.exitCode=1});

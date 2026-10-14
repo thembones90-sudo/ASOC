@@ -1518,6 +1518,11 @@ const PlayerApp = {
         this.flushChatAfterReconnect();
         break;
 
+      case 'commands:private':
+        window.ASOCCommandDirectory?.show?.(message.commands, { isHost: false });
+        this.setChatDeliveryState('COMMAND DIRECTORY OPEN', 'delivered', 1800);
+        break;
+
       case 'chat:ack': {
         this._unackedChat.delete(message.clientMsgId);
         const pending = this._localChatPending.get(message.clientMsgId);
@@ -4637,6 +4642,17 @@ const PlayerApp = {
       if (!typed || typed === String(pending.name).trim().toLocaleLowerCase()) {
         payload.targetPlayerId = pending.id;
       }
+    }
+    // The command directory is a private, transient server response, not a
+    // public chat message. It must never create an optimistic chat bubble.
+    if (/^\/commands?$/i.test(text)) {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.setChatDeliveryState('OPENING DIRECTORY', 'sending');
+        this.send(payload);
+      } else {
+        this.setChatDeliveryState('NOT CONNECTED', 'error', 2600);
+      }
+      return;
     }
     if (this.ws?.readyState === WebSocket.OPEN) {
       // Sending is an explicit request to return to the live edge. Keep the

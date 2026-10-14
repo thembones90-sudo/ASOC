@@ -22468,3 +22468,104 @@ body #black-market-gm-button.bm-has-pending small {
   cursor: pointer;
 }
 #game-screen #chat-messages [data-local-chat-retry]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* Private /commands directory: local to the requesting GM / Little Hero. */
+.asoc-command-directory-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20080;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 4, 8, .84);
+  backdrop-filter: blur(7px);
+}
+.asoc-command-directory {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 100%);
+  max-height: min(84dvh, 820px);
+  min-height: 200px;
+  overflow: hidden;
+  border: 1px solid rgba(197, 164, 91, .52);
+  border-radius: 9px;
+  background: linear-gradient(160deg, #191d24, #0b0d12);
+  color: #e0e6ef;
+  box-shadow: 0 20px 70px rgba(0, 0, 0, .66);
+}
+.asoc-command-directory-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 23px 10px;
+}
+.asoc-command-directory-kicker {
+  color: #b7a06b;
+  font: 800 10px/1.4 var(--font-machine, monospace);
+  letter-spacing: .14em;
+}
+.asoc-command-directory h2 {
+  margin: 6px 0 0;
+  color: #f0f0f2;
+  font: 900 clamp(21px, 4vw, 30px)/1.2 var(--font-system, sans-serif);
+  letter-spacing: .09em;
+}
+.asoc-command-directory-close {
+  flex: 0 0 auto;
+  min-width: 38px;
+  min-height: 38px;
+  border: 1px solid #656871;
+  border-radius: 6px;
+  background: #242832;
+  color: #f0f0f2;
+  font-size: 16px;
+  cursor: pointer;
+}
+.asoc-command-directory-close:hover,
+.asoc-command-directory-close:focus-visible {
+  outline: 2px solid #ebc260;
+  outline-offset: 2px;
+}
+.asoc-command-directory-summary {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 23px 16px;
+  border-bottom: 1px solid rgba(175, 183, 192, .2);
+  color: #9ca6b3;
+  font: 750 10px/1.4 var(--font-machine, monospace);
+  letter-spacing: .09em;
+}
+.asoc-command-directory-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 0;
+}
+.asoc-command-directory-row {
+  display: grid;
+  grid-template-columns: minmax(95px, 135px) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 10px 23px;
+  border-bottom: 1px solid rgba(175, 183, 192, .10);
+  font: 500 13px/1.4 var(--font-human, sans-serif);
+}
+.asoc-command-directory-row:last-child { border-bottom: 0; }
+.asoc-command-directory-row code {
+  color: #f1c968;
+  overflow-wrap: anywhere;
+  font: 800 12px/1.35 var(--font-machine, monospace);
+}
+.asoc-command-directory-row span {
+  color: #c2c8d2;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 540px) {
+  .asoc-command-directory-backdrop { padding: 10px; }
+  .asoc-command-directory { max-height: 88dvh; }
+  .asoc-command-directory-header { padding: 15px 14px 10px; }
+  .asoc-command-directory-summary { padding: 0 14px 10px; }
+  .asoc-command-directory-row { grid-template-columns: 1fr; gap: 3px; padding: 9px 14px; }
+}
