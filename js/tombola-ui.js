@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const ui = { state: null, open: false, pending: false, error: '', lastReveal: '', finale: '' };
+  const ui = { state: null, open: false, pending: false, error: '', lastReveal: '', finale: '', clockOffset: 0 };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const app = () => window.App || window.PlayerApp;
   const send = (type, extra = {}) => {
@@ -63,21 +63,29 @@
       root.querySelector('[data-tombola-close]').disabled = true;
       root.querySelector('.tombola-controls').innerHTML = '<p>YOUR BLOOD TRIBUTE IS REQUIRED. SUBMIT IT TO CONTINUE.</p><button data-tombola-pay>SUBMIT BLOOD TRIBUTE</button>';
     }
-    if (s?.phase === 'LOBBY') {
-      root.querySelector('.tombola-turn').textContent = `LOBBY // ${s.participants.length} / 10 PLAYERS`;
-      const join = root.querySelector('[data-tombola-action="join"]'); if (join) join.disabled = !s.viewer.canJoin;
-    }
+    updateSignupCountdown();
     if (s?.phase === 'PLAYING') {
       root.querySelector('.tombola-turn').append(` // CYCLE ${s.cycle}`);
       const roster = root.querySelector('.tombola-roster');
       if (roster) roster.innerHTML = s.turnOrder.map(id => s.participants.find(p => p.id === id)).map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('');
     }
   }
+  function updateSignupCountdown() {
+    const s = ui.state, root = document.getElementById('tombola-overlay');
+    if (!ui.open || s?.phase !== 'LOBBY' || !root) return;
+    const seconds = Math.max(0, Math.ceil((s.signupEndsAt - (Date.now() + ui.clockOffset)) / 1000));
+    const remaining = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+    root.querySelector('.tombola-turn').textContent = `LOBBY // ${s.participants.length} / 10 PLAYERS // ${seconds ? `SIGNUP ${remaining}` : 'SIGNUP CLOSED // WAITING FOR GM'}`;
+    const join = root.querySelector('[data-tombola-action="join"]'); if (join) join.disabled = !seconds || !s.viewer.canJoin || ui.pending;
+    const leave = root.querySelector('[data-tombola-action="leave"]'); if (leave) leave.disabled = !seconds || ui.pending;
+  }
+  setInterval(updateSignupCountdown, 1000);
   function onMessage(message) {
     if (message.type === 'tombola:error') { ui.error = message.error || 'TOMBOLA ACTION REFUSED'; ui.pending = false; render(); return; }
     if (message.type !== 'tombola:state') return;
     const prior = ui.state;
     ui.state = message.state; ui.pending = false; ui.error = '';
+    ui.clockOffset = Number.isFinite(message.state?.serverNow) ? message.state.serverNow - Date.now() : 0;
     const reveals = ui.state?.fields?.filter(f => f.revealed) || [];
     if (ui.state?.id === prior?.id && reveals.length > (prior.fields?.filter(f => f.revealed).length || 0)) {
       const last = reveals.reduce((a, b) => a.at > b.at ? a : b); ui.lastReveal = `${ui.state.id}:${last.field}`;

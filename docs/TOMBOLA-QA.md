@@ -10,6 +10,11 @@ Main checkout and existing unrelated changes were preserved.
 - Securely shuffled exact inventory: 18 Blessings (+48 SC theoretical),
   17 Curses (-47 SC theoretical), and one Blood Tribute.
 - GM opens a lobby; up to 10 players enroll; signup closes when GM starts.
+  Signup also closes automatically two minutes after lobby activation, with
+  a visible server-time-synchronized countdown. The deadline survives recovery;
+  the server refuses late joins even if a client bypasses its disabled button.
+  At expiry the roster locks and waits for the GM to start or cancel. GM may
+  still start early; expiry does not auto-start a game.
   Each cycle securely shuffles the roster and gives each player exactly one
   move. The next cycle reshuffles. No wagers, fees, skips or turn timers.
 - Hidden outcomes never appear in the role-aware network projection. Only

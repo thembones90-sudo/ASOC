@@ -46,6 +46,7 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     let mark = a.mark(); a.send({ type: 'tombola:create' }); await a.next(m => m.type === 'tombola:error', mark);
     mark = gm.mark(); gm.send({ type: 'tombola:create' }); const lobby = (await gm.next(m => m.type === 'tombola:state' && m.state.phase === 'LOBBY', mark)).state;
     const id = lobby.id;
+    assert.equal(lobby.signupEndsAt - lobby.createdAt, 120000, 'two minutes from GM activation');
     for (const c of [a, b]) { const from = c.mark(); c.send({ type: 'tombola:join', roundId: id }); await c.next(m => m.type === 'tombola:state' && m.state.viewer.participant, from); }
     mark = gm.mark(); gm.send({ type: 'tombola:start', roundId: id }); await gm.next(m => m.type === 'tombola:state' && m.state.phase === 'PLAYING', mark);
     for (const c of clients) for (const m of c.messages.filter(m => m.type === 'tombola:state')) {
@@ -87,6 +88,7 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     }
     [a, b] = restoredClients;
     assert.deepEqual(snapshot().tombola.inventory, before.inventory);
+    assert.equal(snapshot().tombola.signupEndsAt, lobby.signupEndsAt, 'restart preserves activation deadline');
     assert.deepEqual(snapshot().tombola.turnOrder, before.turnOrder);
     assert.equal(snapshot().tombola.turnIndex, before.turnIndex);
     assert.equal(snapshot().tombola.tributePlayerId, debtorId);

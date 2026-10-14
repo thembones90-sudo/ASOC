@@ -24,6 +24,7 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     await gm.locator('[data-gm-minigame="tombola"]').click();
     await gm.locator('[data-tombola-action="create"]').click();
     await gm.locator('[data-tombola-action="start"]').waitFor();
+    assert.match(await gm.locator('.tombola-turn').textContent(), /SIGNUP 0[12]:\d{2}/);
     const desktop = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     const alpha = await H.openHeroPage(desktop, server, await H.heroToken(server, 'Tombola Alpha'));
@@ -35,6 +36,7 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       await page.locator('#minigames-tombola').click();
       await page.locator('[data-tombola-action="join"]').click();
       await page.locator('[data-tombola-action="leave"]').waitFor();
+      assert.match(await page.locator('.tombola-turn').textContent(), /SIGNUP 0[12]:\d{2}/);
     }
     await gm.locator('[data-tombola-action="start"]').click();
     await alpha.waitForFunction(() => document.querySelector('.tombola-turn')?.textContent.includes('CYCLE 1'));
