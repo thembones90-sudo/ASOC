@@ -273,7 +273,9 @@ function tick(state, now = Date.now()) {
   }
 
   if (state.phase === PHASES.WRITING && now >= state.writeDeadline) {
-    reveal(state, state.writeDeadline);
+    // After an outage, give the crowd the full reading window from the actual
+    // reveal rather than skipping straight into voting on an old deadline.
+    reveal(state, now);
     events.push('reveal');
   }
   if (state.phase === PHASES.REVEAL && now >= (state.readDeadline || 0)) {

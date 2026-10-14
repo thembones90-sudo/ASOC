@@ -19,6 +19,8 @@ assert.match(p.submit(p.newDuel({id:'m3',contestants:['a','b'],now:0}),'a','x'.r
 const late=p.newDuel({id:'late',contestants:['a','b'],now:1});
 assert.equal(p.submit(late,'a','Too late',late.writeDeadline).ok,false);
 assert.equal(p.saveDraft(late,'a','Too late',late.writeDeadline).ok,false);
+p.tick(late,late.writeDeadline+10000);
+assert.equal(late.phase,'REVEAL');assert.equal(late.readDeadline,late.writeDeadline+15000,'recovery retains five seconds for reading');
 const tie=p.newDuel({id:'tie',contestants:['a','b'],now:1});
 p.submit(tie,'a','One sentence',2);p.submit(tie,'b','Another sentence',3);
 p.tick(tie,tie.readDeadline);p.castVote(tie,'v1','a',tie.readDeadline+1);p.castVote(tie,'v2','b',tie.readDeadline+2);
