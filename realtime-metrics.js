@@ -4,7 +4,7 @@
 const MEASURED = new Set(['chat:guess', 'gm:judgeGuess', 'gm:broadcast']);
 const buckets = new Map();
 const MAX_SAMPLES = 1000;
-const REPORT_EVERY = Math.max(10, Number(process.env.ASOC_REALTIME_METRICS_EVERY) || 100);
+const REPORT_EVERY = Math.max(process.env.NODE_ENV === 'test' ? 1 : 10, Number(process.env.ASOC_REALTIME_METRICS_EVERY) || 100);
 function isMeasured(type) { return MEASURED.has(String(type || '')); }
 function percentile(values, p) { if (!values.length) return 0; const sorted=[...values].sort((a,b)=>a-b); return sorted[Math.min(sorted.length-1,Math.ceil(sorted.length*p)-1)]; }
 function summary(samples, key) { const v=samples.map(x=>Number(x[key])).filter(Number.isFinite); return {p50:+percentile(v,.5).toFixed(1),p95:+percentile(v,.95).toFixed(1),p99:+percentile(v,.99).toFixed(1),worst:+(v.length?Math.max(...v):0).toFixed(1)}; }

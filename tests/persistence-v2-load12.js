@@ -2,7 +2,8 @@
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 const H = require('./lib/browser-harness');
-const PORT = 19028;
+const PORT = Number(process.env.ASOC_P0_LOAD_PORT) || 19028;
+const CLIENT_COUNT = Math.max(1, Math.min(30, Number(process.env.ASOC_P0_LOAD_CLIENTS) || 12));
 
 (async () => {
   const server = await H.startServer({ port: PORT, env: {
@@ -12,7 +13,7 @@ const PORT = 19028;
   try {
     browser = await chromium.launch(H.launchOptions());
     const contexts = [], pages = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < CLIENT_COUNT; i++) {
       const context = await browser.newContext({ viewport: { width: 1100, height: 760 } });
       contexts.push(context);
       pages.push(await H.openHeroPage(context, server, await H.heroToken(server, `Durable Hero ${i}`)));
@@ -42,14 +43,14 @@ const PORT = 19028;
       return expected.every(text => messages.some(message => message.text === text));
     }, texts, { timeout: 5000 })));
     const deliveryMs = Date.now() - started;
-    assert.ok(deliveryMs < 2500, `batched twelve-message durable delivery took ${deliveryMs}ms`);
+    assert.ok(deliveryMs < 2500, `batched ${CLIENT_COUNT}-message durable delivery took ${deliveryMs}ms`);
     for (const page of pages) {
       const counts = await page.evaluate(expected => Object.fromEntries(expected.map(text => [text,
         (PlayerApp.chatMessages || []).filter(message => message.text === text).length])), texts);
       assert.ok(Object.values(counts).every(count => count === 1), 'each accepted message is delivered exactly once');
       assert.deepEqual(page.pageErrors, []);
     }
-    console.log(`PASS Persistence V2 12-client load: 200ms storage isolation, ordered batch delivery ${deliveryMs}ms, HTTP worst ${worstProbe}ms`);
+    console.log(`PASS Persistence V2 ${CLIENT_COUNT}-client load: 200ms storage isolation, ordered batch delivery ${deliveryMs}ms, HTTP worst ${worstProbe}ms`);
   } finally {
     if (browser) await browser.close();
     await server.stop();

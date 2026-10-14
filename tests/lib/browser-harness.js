@@ -29,9 +29,13 @@ async function startServer({ port, env = {} } = {}) {
   const child = spawn(process.execPath, ['server.js'], {
     cwd: ROOT,
     env: { ...process.env, PORT: String(port), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'browser-gm-pass', ASOC_EMAIL_VERIFICATION: '0', ...env },
-    stdio: ['ignore', 'ignore', 'pipe']
+    stdio: ['ignore', process.env.ASOC_TEST_CAPTURE_REALTIME === '1' ? 'pipe' : 'ignore', 'pipe']
   });
   let errors = '';
+  let capturedOutput = '';
+  if (child.stdout) child.stdout.on('data', c => {
+    capturedOutput = (capturedOutput + c.toString()).slice(-100000);
+  });
   child.stderr.on('data', c => { errors += c; });
   for (let i = 0; i < 100; i++) {
     try { if ((await request(port, 'GET', '/health')).status === 200) break; } catch {}
@@ -43,6 +47,7 @@ async function startServer({ port, env = {} } = {}) {
     base: `http://127.0.0.1:${port}`,
     api,
     errors: () => errors,
+    output: () => capturedOutput,
     async stop() {
       if (child.exitCode === null) {
         child.kill('SIGTERM');

@@ -450,6 +450,11 @@ let runtimeQueueActive = false;
 let runtimeDrainWaiters = [];
 let lastRuntimeBacklogWarning = 0;
 const RUNTIME_BATCH_MAX = Math.max(1, Math.min(64, Number(process.env.ASOC_RUNTIME_BATCH_MAX) || 32));
+// Coalesce WebSocket actions arriving on adjacent network turns into one WAL commit.
+// A tiny bounded delay trades a few milliseconds on a quiet room for fewer fsync
+// barriers during simultaneous chat and GM adjudication.
+const RUNTIME_BATCH_WINDOW_MS = process.env.ASOC_RUNTIME_BATCH_WINDOW_MS === undefined ? 4
+  : Math.max(0, Math.min(20, Number(process.env.ASOC_RUNTIME_BATCH_WINDOW_MS) || 0));
 function failPersistence(error = null) {
   if (!persistenceFailed) {
     persistenceFailed = true;
@@ -478,7 +483,9 @@ async function processRuntimeQueue() {
     // Admit actions that arrived in the same event-loop turn, then durably
     // commit their final combined state once. This preserves strict mutation
     // and frame order while avoiding one fsync sequence per chat burst.
-    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => RUNTIME_BATCH_WINDOW_MS > 0
+      ? setTimeout(resolve, RUNTIME_BATCH_WINDOW_MS)
+      : setImmediate(resolve));
     const batch = runtimeQueue.splice(0, RUNTIME_BATCH_MAX);
     const timings = [];
     outbound = [];
