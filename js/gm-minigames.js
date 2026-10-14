@@ -50,11 +50,9 @@
         else if (launch.dataset.gmMinigame === 'kaladont') this.openKaladont();
         else if (launch.dataset.gmMinigame === 'rage') window.RageGame?.show?.();
         else if (launch.dataset.gmMinigame === 'rouletteCarnage') window.RouletteCarnageUI?.open?.('gm');
-        else if (launch.dataset.gmMinigame === 'sibicar') window.SibicarUI?.open?.();
         else if (launch.dataset.gmMinigame === 'olympics') window.OlympicsUI?.open?.();
         else if (launch.dataset.gmMinigame === 'mudpits') this.startMudpits();
         else if (launch.dataset.gmMinigame === 'tombola') window.TombolaUI?.open?.();
-        else this.spinConcoction();
         return;
       }
       if (e.target.closest('[data-gm-kaladont-chat]')) return this.kaladontToChat();
@@ -215,10 +213,10 @@
     onDeclined(m) { this.challenge=null; this.status('CHALLENGE DECLINED',this.esc(m.byName||'Little Hero')); },
     onState(m) { this.challenge=null; this.game=m.game; if (!this.game) return; const meX=this.game.xId===GM_ID; this.lastOpponentId=meX?this.game.oId:this.game.xId; const myTurn=this.game.turnId===GM_ID&&!this.game.complete; const status=this.game.complete?(this.game.winnerId?(this.game.winnerId===GM_ID?'YOU WIN':`${this.esc(this.game.winnerName)} WINS`):'STALEMATE'):(myTurn?'YOUR MOVE':`${this.esc(this.game.turnName)} IS THINKING`); const winLine=Array.isArray(this.game.winningLine)&&this.game.winningLine.length===3?`<i class="threefold-win-line" data-line="${this.game.winningLine.join('-')}" aria-hidden="true"></i>`:''; this.content(`<div class="gm-arcade-versus"><span><b>X</b>${this.esc(this.game.xName)}</span><i>VS</i><span><b>O</b>${this.esc(this.game.oName)}</span></div><div class="gm-arcade-turn">${status}</div>${window.IksBoard?IksBoard.html(this.game,{cellAttr:'data-gm-cell',canPlay:myTurn,me:meX?'X':'O'}):`<div class="gm-arcade-board">${this.game.board.map((mark,i)=>`<button data-gm-cell="${i}" ${mark||this.game.complete||!myTurn?'disabled':''}>${mark||''}</button>`).join('')}${winLine}</div>`}${this.game.complete?'<button class="gm-arcade-rematch" data-gm-threefold="rematch">REMATCH</button>':''}`); this.show(); },
     onClosed(m) { if(m?.challengeId&&this.challenge?.id!==m.challengeId)return; this.game=null;this.challenge=null;if(m?.reason)this.status('DUEL CLOSED',this.esc(m.reason));else this.close(); },
-    spinConcoction() { if(App.roomMode!=='CASUAL'||this.concoction.spinning||this.concoction.cooldownUntil>Date.now())return;if(!confirm('TRIGGER UNSTABLE CONCOCTION?\n\nThis burns the room-wide dose for 24 hours.'))return;App.send({type:'unstableConcoction:spin'}); },
     updateConcoction(state){this.concoction=state&&typeof state==='object'?{cooldownUntil:0,...state}:{cooldownUntil:0,spinning:false};this.renderConcoctionStatus();},
-    onConcoctionStarted(m){this.concoction={...this.concoction,spinning:true,cooldownUntil:Number(m.cooldownUntil)||0};if(m.playerId===GM_ID){this.title('UNSTABLE CONCOCTION');this.content('<img class="gm-concoction-drop" src="assets/ui/unstable-concoction-toxic-drop.png" alt=""><div class="gm-arcade-turn">REACTION IN PROGRESS</div>');this.show();}this.renderConcoctionStatus();},
-    onConcoctionResolved(m){this.concoction={...this.concoction,spinning:false,cooldownUntil:Number(m.cooldownUntil)||0};if(m.playerId===GM_ID){this.content(`<img class="gm-concoction-drop" src="assets/ui/unstable-concoction-toxic-drop.png" alt=""><div class="gm-arcade-result">${this.esc(m.outcome)}</div>`);setTimeout(()=>this.close(),2200);}this.renderConcoctionStatus();},
+    // Retired game events may exist in saved history, but must never open a game UI.
+    onConcoctionStarted(m){this.concoction={...this.concoction,spinning:true,cooldownUntil:Number(m.cooldownUntil)||0};},
+    onConcoctionResolved(m){this.concoction={...this.concoction,spinning:false,cooldownUntil:Number(m.cooldownUntil)||0};},
     renderConcoctionStatus(){const el=document.getElementById('gm-concoction-status');if(!el)return;const n=Math.max(0,Number(this.concoction.cooldownUntil)-Date.now());el.textContent=this.concoction.spinning?'REACTING':n?`${Math.ceil(n/3600000)}H`:'READY';},
     leaveCasual(){
       this.toggleLibrary(false);

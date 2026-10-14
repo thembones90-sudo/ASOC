@@ -43,6 +43,15 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
       c.id = (await c.next(m => m.type === 'join:success')).playerId; players.push(c);
     }
     let [a, b, spectator] = players;
+    const initialCoins = players.map(c => profiles()[c.id]?.shadowCoins || 0);
+    for (const c of [gm, a]) {
+      for (const type of ['player:sibicarSync', 'player:sibicarStart', 'player:sibicarPick', 'unstableConcoction:spin']) {
+        const from = c.mark(); c.send({ type, mode: 'WAGER', wager: 1, position: 1 });
+        await c.next(m => m.code === 'MINIGAME_RETIRED', from);
+      }
+    }
+    assert.deepEqual(players.map(c => profiles()[c.id]?.shadowCoins || 0), initialCoins, 'retired games cannot mutate coins for GM or players');
+    assert.equal(snapshot().unstableConcoction.pendingSpin, null);
     let mark = a.mark(); a.send({ type: 'tombola:create' }); await a.next(m => m.type === 'tombola:error', mark);
     mark = gm.mark(); gm.send({ type: 'tombola:create' }); const lobby = (await gm.next(m => m.type === 'tombola:state' && m.state.phase === 'LOBBY', mark)).state;
     const id = lobby.id;

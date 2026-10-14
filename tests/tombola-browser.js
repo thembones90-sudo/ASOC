@@ -21,6 +21,8 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     await gm.goto(server.base + '/index.html');
     await gm.waitForFunction(() => window.App?.roomCode === 'MASTER' && window.App?.mode === 'multiplayer');
     await gm.locator('#gm-minigames-toggle').click();
+    assert.equal(await gm.locator('[data-gm-minigame="sibicar"], [data-gm-minigame="concoction"]').count(), 0);
+    assert.equal(await gm.evaluate(() => typeof window.SibicarUI), 'undefined');
     await gm.locator('[data-gm-minigame="tombola"] .tombola-mini-icon img').evaluate(img => img.decode());
     assert.equal(await gm.locator('[data-gm-minigame="tombola"] .minigame-title').textContent(), 'FATEBREAKER');
     await gm.locator('[data-gm-minigame="tombola"]').screenshot({ path: path.join(shots, 'gm-menu-icon.png') });
@@ -38,6 +40,8 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     for (const page of [alpha, beta]) {
       page.on('pageerror', e => errors.push(e.message));
       await page.locator('#casual-minigames-toggle').click();
+      assert.equal(await page.locator('#minigames-sibicar, #minigames-unstable-concoction').count(), 0);
+      assert.deepEqual(await page.evaluate(() => [typeof window.SibicarUI, typeof window.UnstableConcoction]), ['undefined', 'undefined']);
       await page.locator('#minigames-tombola .tombola-mini-icon img').evaluate(img => img.decode());
       assert.equal(await page.locator('#minigames-tombola .minigame-title').textContent(), 'FATEBREAKER');
       await page.locator('#minigames-tombola').screenshot({ path: path.join(shots, page === alpha ? 'desktop-menu-icon.png' : 'mobile-menu-icon.png') });

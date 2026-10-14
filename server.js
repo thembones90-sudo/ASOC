@@ -15411,7 +15411,7 @@ wss.on('connection', (ws, req) => {
         case 'player:sibicarSync':
         case 'player:sibicarStart':
         case 'player:sibicarPick': {
-          handleSibicar(ws, message);
+          sendToWs(ws, { type: 'sibicar:error', code: 'MINIGAME_RETIRED', message: 'ŠIBICAR HAS BEEN RETIRED.' });
           break;
         }
         case 'iks:join': {
@@ -15435,7 +15435,7 @@ wss.on('connection', (ws, req) => {
           break;
         }
         case 'unstableConcoction:spin': {
-          handleUnstableConcoctionSpin(ws);
+          sendToWs(ws, { type: 'error', code: 'MINIGAME_RETIRED', message: 'UNSTABLE CONCOCTION HAS BEEN RETIRED.' });
           break;
         }
         case 'tribute:submit': {
