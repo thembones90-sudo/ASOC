@@ -22234,8 +22234,81 @@ body #black-market-gm-button.bm-has-pending small {
   font: 800 10px/1 var(--font-machine);
   letter-spacing: .14em;
 }
+.match-rating-roster {
+  width: min(490px, 100%);
+  margin: 20px auto 0;
+  border: 1px solid rgba(150,160,175,.24);
+  border-radius: 7px;
+  background: rgba(5,8,12,.56);
+  text-align: left;
+  overflow: hidden;
+}
+.match-rating-roster-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid rgba(150,160,175,.2);
+  color: #aab4c3;
+  font: 800 10px/1.35 var(--font-machine);
+  letter-spacing: .09em;
+}
+.match-rating-roster-head span:last-child {
+  color: #7e8998;
+  text-align: right;
+}
+.match-rating-roster-list {
+  max-height: min(250px, 33vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.match-rating-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 41px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(150,160,175,.12);
+}
+.match-rating-player:last-child { border-bottom: 0; }
+.match-rating-player-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e3e8ee;
+  font: 700 13px/1.3 var(--font-human);
+}
+.match-rating-player-result {
+  flex: 0 0 auto;
+  color: #f2c968;
+  font: 900 19px/1 var(--font-machine);
+  font-variant-numeric: tabular-nums;
+}
+.match-rating-player-result small {
+  margin-left: 4px;
+  color: #84909d;
+  font: 800 10px/1 var(--font-machine);
+}
+.match-rating-player-result.is-waiting {
+  color: #778292;
+  font: 800 10px/1 var(--font-machine);
+  letter-spacing: .08em;
+}
+.match-rating-roster-empty {
+  padding: 16px;
+  color: #808b99;
+  text-align: center;
+  font: 800 10px/1.4 var(--font-machine);
+  letter-spacing: .1em;
+}
+.match-rating-panel.is-host {
+  max-height: min(92vh, 900px);
+  overflow-y: auto;
+}
 .match-rating-proceed {
-  margin-top: 24px;
+  margin-top: 20px;
   min-width: 240px;
   min-height: 44px;
   border: 1px solid rgba(212,168,67,.65);

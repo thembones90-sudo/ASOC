@@ -11,6 +11,7 @@ const MatchRating = (() => {
   function close() {
     if (overlay) overlay.remove();
     overlay = null;
+    state = null;
   }
 
   function ratingButtons(selected) {
@@ -30,6 +31,16 @@ const MatchRating = (() => {
     const average = Number(state.average);
     const averageText = Number.isFinite(average) && state.votesCount > 0 ? average.toFixed(1) : '—';
     const selected = Number(state.myRating) || 0;
+    const roster = Array.isArray(state.roster) ? state.roster : null;
+    const rated = (roster || []).filter(player => Number.isInteger(player.rating) && player.rating >= 1 && player.rating <= 10);
+    const ratingRows = roster?.map(player => {
+      const score = Number(player.rating);
+      const voted = Number.isInteger(score) && score >= 1 && score <= 10;
+      return `<div class="match-rating-player${voted ? ' has-rated' : ' is-waiting'}">
+        <span class="match-rating-player-name" title="${esc(player.name || 'Little Hero')}">${esc(player.name || 'Little Hero')}</span>
+        <span class="match-rating-player-result${voted ? '' : ' is-waiting'}">${voted ? `${score}<small>/10</small>` : 'WAITING'}</span>
+      </div>`;
+    }).join('') || '';
 
     overlay.innerHTML = isHost ? `
       <section class="match-rating-panel is-host" role="dialog" aria-modal="true" aria-label="Match satisfaction rating">
@@ -38,6 +49,10 @@ const MatchRating = (() => {
         <p class="match-rating-copy">Little Heroes are scoring this game from 1 to 10. Humanity has finally found a number system it can operate under pressure.</p>
         <div class="match-rating-host-score"><strong>${averageText}</strong><span>/ 10</span></div>
         <div class="match-rating-host-meta">${Number(state.votesCount) || 0} / ${Number(state.eligibleCount) || 0} RATINGS RECEIVED</div>
+        <section class="match-rating-roster" aria-label="Player ratings visible only to the Shadow Broker">
+          <div class="match-rating-roster-head"><span>PLAYER VERDICTS</span><span>${roster ? `${rated.length} RATED · ${roster.length - rated.length} WAITING` : 'UPDATING...'}</span></div>
+          <div class="match-rating-roster-list">${roster ? (ratingRows || '<div class="match-rating-roster-empty">NO ELIGIBLE PLAYERS</div>') : '<div class="match-rating-roster-empty">RETRIEVING PRIVATE RATINGS...</div>'}</div>
+        </section>
         <button type="button" class="match-rating-proceed">PROCEED TO RECOUNT</button>
       </section>` : `
       <section class="match-rating-panel" role="dialog" aria-modal="true" aria-label="Rate this game">
@@ -74,7 +89,8 @@ const MatchRating = (() => {
   function update(nextState, options = {}) {
     if (options.isHost !== undefined) isHost = options.isHost === true;
     if (typeof options.send === 'function') send = options.send;
-    state = { ...(state || {}), ...(nextState || {}) };
+    const changedMatch = state?.matchId && nextState?.matchId && state.matchId !== nextState.matchId;
+    state = { ...(changedMatch ? {} : (state || {})), ...(nextState || {}) };
     if (state.open === false) { close(); return; }
     render();
   }
