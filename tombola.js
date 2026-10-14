@@ -17,30 +17,30 @@ function create(id, now = Date.now()) {
     turnIndex: 0, cycle: 1, turnOrder: [], inventory: shuffle(inventory()), reveals: [], tributePlayerId: null, tributePactId: null, cancelled: false };
 }
 function join(state, player, now = Date.now()) {
-  if (state.phase !== 'LOBBY' || now >= state.signupEndsAt) return { error: 'TOMBOLA SIGNUP IS CLOSED' };
-  if (state.participants.some(p => p.id === player.id)) return { error: 'YOU ARE ALREADY IN TOMBOLA' };
-  if (state.participants.length >= 10) return { error: 'TOMBOLA IS FULL // MAXIMUM 10 PLAYERS' };
+  if (state.phase !== 'LOBBY' || now >= state.signupEndsAt) return { error: 'FATEBREAKER SIGNUP IS CLOSED' };
+  if (state.participants.some(p => p.id === player.id)) return { error: 'YOU ARE ALREADY IN FATEBREAKER' };
+  if (state.participants.length >= 10) return { error: 'FATEBREAKER IS FULL // MAXIMUM 10 PLAYERS' };
   state.participants.push({ id: String(player.id), name: String(player.name || 'LITTLE HERO').slice(0, 80) });
   return { ok: true };
 }
 function leave(state, id, now = Date.now()) {
   if (state.phase !== 'LOBBY') return { error: 'THE ROUND HAS ALREADY STARTED' };
-  if (now >= state.signupEndsAt) return { error: 'TOMBOLA SIGNUP IS CLOSED // ROSTER LOCKED' };
+  if (now >= state.signupEndsAt) return { error: 'FATEBREAKER SIGNUP IS CLOSED // ROSTER LOCKED' };
   state.participants = state.participants.filter(p => p.id !== id); return { ok: true };
 }
 function start(state, activeIds, now = Date.now(), randomInt = crypto.randomInt) {
   if (state.phase !== 'LOBBY') return { error: 'THIS ROUND HAS ALREADY STARTED' };
   const roster = state.participants.filter(p => activeIds.includes(p.id));
-  if (roster.length < 2) return { error: 'TOMBOLA NEEDS TWO ACTIVE PLAYERS' };
+  if (roster.length < 2) return { error: 'FATEBREAKER NEEDS TWO ACTIVE PLAYERS' };
   state.participants = roster;
   state.turnOrder = shuffle(roster, randomInt).map(p => p.id); state.cycle = 1;
   state.phase = 'PLAYING'; state.startedAt = now; state.turnIndex = 0; return { ok: true };
 }
 function current(state) { return state.phase === 'PLAYING' ? state.participants.find(p => p.id === state.turnOrder[state.turnIndex]) : null; }
 function validatePick(state, playerId, field, roundId) {
-  if (!state || state.id !== roundId) return { error: 'THIS TOMBOLA ROUND IS NO LONGER CURRENT' };
-  if (state.phase !== 'PLAYING') return { error: 'TOMBOLA IS NOT ACCEPTING SELECTIONS' };
-  if (current(state)?.id !== playerId) return { error: 'WAIT FOR YOUR TOMBOLA TURN' };
+  if (!state || state.id !== roundId) return { error: 'THIS FATEBREAKER ROUND IS NO LONGER CURRENT' };
+  if (state.phase !== 'PLAYING') return { error: 'FATEBREAKER IS NOT ACCEPTING SELECTIONS' };
+  if (current(state)?.id !== playerId) return { error: 'WAIT FOR YOUR FATEBREAKER TURN' };
   if (!Number.isInteger(field) || field < 1 || field > 36) return { error: 'SELECT A FIELD FROM 1 TO 36' };
   if (state.reveals.some(r => r.field === field)) return { error: 'THAT VAULT IS ALREADY OPEN' };
   return { ok: true, outcome: { ...state.inventory[field - 1] } };
@@ -65,7 +65,7 @@ function skip(state) {
   return { error: 'EVERY PLAYER MUST MAKE ONE MOVE // TURNS CANNOT BE SKIPPED' };
 }
 function cancel(state, now = Date.now()) {
-  if (!['LOBBY', 'PLAYING'].includes(state.phase)) return { error: 'TOMBOLA IS ALREADY OVER' };
+  if (!['LOBBY', 'PLAYING'].includes(state.phase)) return { error: 'FATEBREAKER IS ALREADY OVER' };
   state.phase = 'CANCELLED'; state.cancelled = true; state.endedAt = now; return { ok: true };
 }
 function summary(state) {

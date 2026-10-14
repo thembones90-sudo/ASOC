@@ -1,4 +1,9 @@
-# ASOC Tombola — implementation and verification
+# FATEBREAKER — implementation and verification
+
+Official game name: **FATEBREAKER**. Menus, game headings, accessible labels,
+server errors, ledger reasons and Black Market debt descriptions use that name.
+Internal `tombola` protocol names, saved-state keys, receipt/pact identifiers,
+asset paths and the existing feature branch remain unchanged for compatibility.
 
 Date: 2026-10-14 (Europe/Belgrade).
 Checkout: `C:\Users\user\Documents\Codex\asoc-tombola-20261014`.
@@ -35,7 +40,7 @@ Main checkout and existing unrelated changes were preserved.
   `BLOOD TRIBUTE REQUIRED`. No coin transaction occurs for that field and no
   unopened fields are automatically exposed. Dennis announces the named player
   at the end. The upload prompt cannot be dismissed or escaped, survives refresh
-  and new rounds, and blocks new Tombola participation until submission. GM
+  and new rounds, and blocks new FATEBREAKER participation until submission. GM
   rejection reinstates the requirement; only the GM judges the offering.
 - The existing Black Market demand prompt and image/moderation flow remain
   intact. The game never approves payment itself.
@@ -127,7 +132,7 @@ Two existing suites fail identically on unchanged production `c074874`:
   `20261005-ritual-override-1`; production already uses a later tag.
 
 These baseline failures were reproduced separately and were not masked or
-rewritten. Tombola has no outstanding failure in its focused checks.
+rewritten. FATEBREAKER has no outstanding failure in its focused checks.
 
 ## Changed production files
 
@@ -141,9 +146,9 @@ rewritten. Tombola has no outstanding failure in its focused checks.
 ## Running and release status
 
 Start the checkout with the existing `npm start` workflow. In the GM console,
-open MINI GAMES → ASOC TOMBOLA → OPEN A TOMBOLA LOBBY. Players open their
-MINI GAMES → ASOC TOMBOLA and join. The GM then presses START ROUND.
+open MINI GAMES → FATEBREAKER → OPEN A FATEBREAKER LOBBY. Players open their
+MINI GAMES → FATEBREAKER and join. The GM then presses START ROUND.
 
-This implementation is prepared on its isolated feature branch; no Tombola
+This implementation is prepared on its isolated feature branch; no FATEBREAKER
 production deployment was requested or performed. No production accounts,
 balances, active sessions, secrets or infrastructure were changed by testing.

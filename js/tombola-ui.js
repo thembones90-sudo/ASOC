@@ -13,7 +13,7 @@
     let root = document.getElementById('tombola-overlay');
     if (root) return root;
     root = document.createElement('section'); root.id = 'tombola-overlay'; root.hidden = true;
-    root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'ASOC Tombola');
+    root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'FATEBREAKER');
     document.body.append(root);
     root.addEventListener('animationend', event => {
       if (event.target.matches('.tombola-field.is-new-reveal')) {
@@ -60,13 +60,13 @@
       const label = f.revealed ? f.kind === 'BLOOD_TRIBUTE' ? `Field ${f.field}: Blood Tribute. Due after all 36 fields open.` : `Field ${f.field}: ${f.kind}, ${amount} SC. Actual balance change ${f.actualAmount} SC.` : `Open field ${f.field}`;
       return `<button type="button" class="tombola-field is-${kind}${fresh ? ' is-new-reveal' : ''}" data-tombola-field="${f.field}" aria-label="${esc(label)}" ${f.revealed || !s?.viewer?.canPick || ui.pending ? 'disabled' : ''}><span class="tombola-number">${f.field}</span>${fx}${f.revealed ? outcome : ''}</button>`;
     }).join('');
-    const control = !s?.active ? gm() ? '<button data-tombola-action="create">OPEN A TOMBOLA LOBBY</button>' : '<p>THE SHADOW BROKER HAS NOT OPENED A ROUND.</p>'
+    const control = !s?.active ? gm() ? '<button data-tombola-action="create">OPEN A FATEBREAKER LOBBY</button>' : '<p>THE SHADOW BROKER HAS NOT OPENED A ROUND.</p>'
       : s.phase === 'LOBBY' ? gm() ? '<button data-tombola-action="start">START ROUND</button><button data-tombola-action="cancel">CANCEL LOBBY</button>'
-        : s.viewer?.participant ? '<button data-tombola-action="leave">LEAVE LOBBY</button>' : '<button data-tombola-action="join">JOIN TOMBOLA</button>'
+        : s.viewer?.participant ? '<button data-tombola-action="leave">LEAVE LOBBY</button>' : '<button data-tombola-action="join">JOIN FATEBREAKER</button>'
       : s.phase === 'PLAYING' ? gm() ? '<button data-tombola-action="cancel">CANCEL ROUND</button>' : ''
       : gm() ? '<button data-tombola-action="create">OPEN A FRESH ROUND</button>' : '';
     root.classList.toggle('tombola-finale', terminal && ui.finale === s.id);
-    root.innerHTML = `<div class="tombola-shell"><header class="tombola-heading"><div><small>SHADOW BROKER // SEALED FORTUNES</small><h2>ASOC TOMBOLA</h2></div><button data-tombola-close aria-label="Close Tombola">×</button></header><div class="tombola-turn" role="status">${terminal ? 'THE ROUND IS OVER FOR EVERYONE' : cancelled ? 'ROUND CANCELLED' : s?.phase === 'PLAYING' ? `${s.viewer?.canPick ? 'YOUR TURN' : 'CURRENT TURN'} // ${esc(s.currentPlayerName)}` : 'LOBBY // THE FIELDS REMAIN SEALED'}</div>${terminal ? `<div class="tombola-blood-verdict" role="alert"><strong>BLOOD TRIBUTE REQUIRED</strong><b>${esc(s.tributePlayerName)}</b><p>ALL 36 VAULTS ARE OPEN. THE MARKED PLAYER MUST SUBMIT BLOOD TRIBUTE IN THE BLACK MARKET.</p></div>` : ''}<div class="tombola-board" role="group" aria-label="36 numbered Tombola vaults">${tiles}</div><div class="tombola-status" role="status">${esc(ui.error || (ui.pending ? 'THE LOCK IS TURNING…' : s?.phase === 'PLAYING' ? 'ONE FIELD PER TURN. NO WAGERS. NO MERCY.' : '17 BLESSINGS · THE GRAIL +50 · 17 CURSES · ONE BLOOD TRIBUTE'))}</div><div class="tombola-controls">${control}</div>${s?.participants?.length ? `<ol class="tombola-roster" aria-label="Turn order">${s.participants.map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('')}</ol>` : ''}${s?.history?.length ? `<details class="tombola-history"><summary>PREVIOUS ROUNDS // ${s.history.length}</summary>${s.history.slice().reverse().map(r => `<p>${esc(r.id)} · ${esc(r.phase)} · ${r.revealedCount} OPENED${r.tributePlayerName ? ` · BLOOD: ${esc(r.tributePlayerName)}` : ''}</p>`).join('')}</details>` : ''}</div>`;
+    root.innerHTML = `<div class="tombola-shell"><header class="tombola-heading"><div><small>SHADOW BROKER // SEALED FORTUNES</small><h2>FATEBREAKER</h2></div><button data-tombola-close aria-label="Close FATEBREAKER">×</button></header><div class="tombola-turn" role="status">${terminal ? 'THE ROUND IS OVER FOR EVERYONE' : cancelled ? 'ROUND CANCELLED' : s?.phase === 'PLAYING' ? `${s.viewer?.canPick ? 'YOUR TURN' : 'CURRENT TURN'} // ${esc(s.currentPlayerName)}` : 'LOBBY // THE FIELDS REMAIN SEALED'}</div>${terminal ? `<div class="tombola-blood-verdict" role="alert"><strong>BLOOD TRIBUTE REQUIRED</strong><b>${esc(s.tributePlayerName)}</b><p>ALL 36 VAULTS ARE OPEN. THE MARKED PLAYER MUST SUBMIT BLOOD TRIBUTE IN THE BLACK MARKET.</p></div>` : ''}<div class="tombola-board" role="group" aria-label="36 numbered FATEBREAKER vaults">${tiles}</div><div class="tombola-status" role="status">${esc(ui.error || (ui.pending ? 'THE LOCK IS TURNING…' : s?.phase === 'PLAYING' ? 'ONE FIELD PER TURN. NO WAGERS. NO MERCY.' : '17 BLESSINGS · THE GRAIL +50 · 17 CURSES · ONE BLOOD TRIBUTE'))}</div><div class="tombola-controls">${control}</div>${s?.participants?.length ? `<ol class="tombola-roster" aria-label="Turn order">${s.participants.map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('')}</ol>` : ''}${s?.history?.length ? `<details class="tombola-history"><summary>PREVIOUS ROUNDS // ${s.history.length}</summary>${s.history.slice().reverse().map(r => `<p>${esc(r.id)} · ${esc(r.phase)} · ${r.revealedCount} OPENED${r.tributePlayerName ? ` · BLOOD: ${esc(r.tributePlayerName)}` : ''}</p>`).join('')}</details>` : ''}</div>`;
     if (ui.pending) root.querySelectorAll('[data-tombola-action]').forEach(button => { button.disabled = true; });
     if (required) {
       root.querySelector('[data-tombola-close]').disabled = true;
@@ -91,7 +91,7 @@
   }
   setInterval(updateSignupCountdown, 1000);
   function onMessage(message) {
-    if (message.type === 'tombola:error') { ui.error = message.error || 'TOMBOLA ACTION REFUSED'; ui.pending = false; render(); return; }
+    if (message.type === 'tombola:error') { ui.error = message.error || 'FATEBREAKER ACTION REFUSED'; ui.pending = false; render(); return; }
     if (message.type !== 'tombola:state') return;
     const prior = ui.state;
     ui.clockOffset = Number.isFinite(message.state?.serverNow) ? message.state.serverNow - Date.now() : 0;

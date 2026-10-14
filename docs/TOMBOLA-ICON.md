@@ -1,4 +1,7 @@
-# Tombola mini-game icon
+# FATEBREAKER mini-game icon
+
+Official game name: FATEBREAKER. The generation prompt below is the original
+historical prompt; the asset path retains its internal compatibility name.
 
 Generated with the built-in image-generation tool on 2026-10-14.
 Project asset: `assets/tombola/menu-icon.png` (transparent PNG).

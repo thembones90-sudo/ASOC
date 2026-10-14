@@ -104,6 +104,7 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     await debtor.next(m => m.type === 'blackMarket:tributeDemanded');
     const debts = () => snapshot().blackMarket.byPlayer[debtorId].pacts.filter(p => p.id === `pact-${id}`);
     assert.equal(debts().length, 1); assert.equal(debts()[0].state, 'APPROVED_PENDING_TRIBUTE');
+    assert.ok(JSON.stringify(debts()[0]).includes('ASOC FATEBREAKER'), 'debt uses official game name');
     mark = debtor.mark(); debtor.send({ type: 'tombola:sync' }); assert.ok((await debtor.next(m => m.type === 'tombola:state', mark)).state.requiredTribute);
     mark = gm.mark(); gm.send({ type: 'tombola:create' }); const fresh = (await gm.next(m => m.type === 'tombola:state' && m.state.phase === 'LOBBY', mark)).state;
     assert.equal(fresh.history.at(-1).revealedCount, 36);
