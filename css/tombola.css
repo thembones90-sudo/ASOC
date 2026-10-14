@@ -1,4 +1,9 @@
 #tombola-required-veil{position:fixed;inset:0;z-index:1949;background:#050305ee;pointer-events:auto}
+#tombola-overlay .tombola-board{position:relative}
+.tombola-legendary-event{position:absolute;inset:30% 10%;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;pointer-events:none;color:#ffe7a2;background:radial-gradient(ellipse,#3b2407f5,#100b05ed);border:1px solid #f5ca63;box-shadow:0 0 28px #e3ae3d66,inset 0 0 24px #d49a2722;text-align:center;animation:tombola-legendary-banner 1.6s ease-out both}
+.tombola-legendary-event small{font:700 clamp(7px,1.4vw,12px)/1.2 monospace;letter-spacing:.16em}.tombola-legendary-event strong{font:900 clamp(18px,4vw,38px)/1.1 Georgia,serif;letter-spacing:.06em}.tombola-legendary-event b{font:900 clamp(23px,4.5vw,44px)/1 monospace}.tombola-legendary-event span{font:700 clamp(8px,1.5vw,13px)/1.2 monospace;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes tombola-legendary-banner{0%{opacity:0;transform:scale(.92)}15%,75%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.025)}}
+@media(prefers-reduced-motion:reduce){.tombola-legendary-event{animation:none;opacity:1}}
 #tombola-overlay .tombola-field.is-grail::before{background:radial-gradient(circle,#594012ef,#1d1104f5);border-color:#ffe28a;box-shadow:inset 0 0 16px #edb63188}
 .is-grail .tombola-outcome{color:#ffe9a0;font-size:clamp(15px,2.5vw,25px)}
 .tombola-grail span{display:block;font-size:clamp(6px,1.1vw,10px);letter-spacing:.05em;margin-bottom:2px}

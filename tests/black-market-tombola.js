@@ -53,6 +53,7 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     assert.deepEqual(players.map(c => profiles()[c.id]?.shadowCoins || 0), initialCoins, 'retired games cannot mutate coins for GM or players');
     assert.equal(snapshot().unstableConcoction.pendingSpin, null);
     let mark = a.mark(); a.send({ type: 'tombola:create' }); await a.next(m => m.type === 'tombola:error', mark);
+    for (const type of ['tombola:start', 'tombola:cancel', 'tombola:skip']) { const from = a.mark(); a.send({ type }); await a.next(m => m.type === 'tombola:error', from); }
     mark = gm.mark(); gm.send({ type: 'tombola:create' }); const lobby = (await gm.next(m => m.type === 'tombola:state' && m.state.phase === 'LOBBY', mark)).state;
     const id = lobby.id;
     assert.equal(lobby.signupEndsAt - lobby.createdAt, 120000, 'two minutes from GM activation');
@@ -76,17 +77,18 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
       expected[c.id] = ['BLESSING', 'GRAIL'].includes(outcome.kind) ? balance + outcome.amount : outcome.kind === 'CURSE' ? Math.max(0, balance - outcome.amount) : balance;
       assert.equal(profiles()[c.id]?.shadowCoins || 0, expected[c.id], 'exact durable wallet change');
       assert.equal(state.fields[n - 1].actualAmount, expected[c.id] - balance);
+      const ledger = (profiles()[c.id]?.shadowCoinLedger || []).filter(e => e.id === `${id}:${c.id}:field-${n}:${outcome.kind}`);
+      assert.equal(ledger.length, outcome.kind === 'BLOOD_TRIBUTE' ? 0 : 1, 'each SC action has exactly one attributed ledger entry');
+      if (ledger.length) { assert.equal(ledger[0].delta, expected[c.id] - balance); assert.match(ledger[0].reason, /FATEBREAKER/); }
       return state;
     }
-    await pick(field('BLESSING', 1), true); await pick(field('BLESSING', 2));
-    await pick(field('CURSE', 1)); await pick(field('CURSE', 10));
+    await pick(field('BLESSING', 2), true); await pick(field('BLESSING', 3));
+    await pick(field('CURSE', 2)); await pick(field('CURSE', 15));
     const grail = await pick(field('GRAIL', 50), true);
     assert.equal(grail.fields.filter(f => f.kind === 'GRAIL').length, 1);
     assert.equal(grail.fields.find(f => f.kind === 'GRAIL').actualAmount, 50, 'THE GRAIL credits exactly 50 SC once');
-    const blood = field('BLOOD_TRIBUTE'), bloodState = await pick(blood);
-    assert.equal(bloodState.phase, 'PLAYING');
-    const debtorId = bloodState.tributePlayerId;
-    assert.equal(snapshot().tombola.tributePactId, null, 'no debt demanded midgame');
+    assert.equal(grail.phase, 'PLAYING', 'THE GRAIL does not terminate the round');
+    assert.equal(snapshot().tombola.tributePactId, null);
     assert.ok(!clients.some(c => c.messages.some(m => m.type === 'blackMarket:tributeDemanded')));
     const before = snapshot().tombola, identities = [a, b].map(c => ({ id: c.id, token: c.token, name: c.name }));
     for (const c of clients) c.close();
@@ -103,20 +105,32 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     assert.equal(snapshot().tombola.signupEndsAt, lobby.signupEndsAt, 'restart preserves activation deadline');
     assert.deepEqual(snapshot().tombola.turnOrder, before.turnOrder);
     assert.equal(snapshot().tombola.turnIndex, before.turnIndex);
-    assert.equal(snapshot().tombola.tributePlayerId, debtorId);
-    while (snapshot().tombola.phase === 'PLAYING') {
-      const round = snapshot().tombola, n = Array.from({ length: 36 }, (_, i) => i + 1).find(n => !round.reveals.some(r => r.field === n));
-      await pick(n);
+    assert.equal(snapshot().tombola.tributePlayerId, null);
+    const ended = await pick(field('BLOOD_TRIBUTE'), true);
+    const debtorId = ended.tributePlayerId;
+    assert.equal(ended.phase, 'ENDED', 'Blood Tribute immediately terminates');
+    assert.equal(ended.fields.filter(f => f.revealed).length, before.reveals.length + 1);
+    assert.ok(ended.fields.some(f => !f.revealed), 'unopened fields remain sealed');
+    for (const c of [a, b, gm]) {
+      const state = (await c.next(m => m.type === 'tombola:state' && m.state.phase === 'ENDED')).state;
+      assert.equal(state.viewer.canPick, false);
+      assert.equal(state.revealedCount, ended.revealedCount);
     }
-    assert.equal(snapshot().tombola.reveals.length, 36);
+    const frozenCoins = [profiles()[a.id].shadowCoins, profiles()[b.id].shadowCoins];
+    for (const c of [a, b]) {
+      const from = c.mark(); c.send({ type: 'tombola:pick', roundId: id, field: field('BLESSING'), amount: 9999 });
+      await c.next(m => m.type === 'tombola:error', from);
+    }
+    assert.deepEqual([profiles()[a.id].shadowCoins, profiles()[b.id].shadowCoins], frozenCoins);
     const debtor = [a, b].find(c => c.id === debtorId);
     await debtor.next(m => m.type === 'blackMarket:tributeDemanded');
     const debts = () => snapshot().blackMarket.byPlayer[debtorId].pacts.filter(p => p.id === `pact-${id}`);
     assert.equal(debts().length, 1); assert.equal(debts()[0].state, 'APPROVED_PENDING_TRIBUTE');
     assert.ok(JSON.stringify(debts()[0]).includes('ASOC FATEBREAKER'), 'debt uses official game name');
+    mark = debtor.mark(); debtor.send({ type: 'tombola:create' }); await debtor.next(m => m.type === 'tombola:error', mark);
     mark = debtor.mark(); debtor.send({ type: 'tombola:sync' }); assert.ok((await debtor.next(m => m.type === 'tombola:state', mark)).state.requiredTribute);
     mark = gm.mark(); gm.send({ type: 'tombola:create' }); const fresh = (await gm.next(m => m.type === 'tombola:state' && m.state.phase === 'LOBBY', mark)).state;
-    assert.equal(fresh.history.at(-1).revealedCount, 36);
+    assert.equal(fresh.history.at(-1).revealedCount, ended.revealedCount);
     mark = debtor.mark(); debtor.send({ type: 'tombola:join', roundId: fresh.id }); await debtor.next(m => m.type === 'tombola:error', mark);
     mark = debtor.mark();
     debtor.send({ type: 'blackMarket:tributeSubmit', pactId: `pact-${id}`, consent: true, imageData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=' });
@@ -129,7 +143,7 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     mark = debtor.mark(); debtor.send({ type: 'blackMarket:tributeSubmit', pactId: `pact-${id}`, consent: true, imageData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=' });
     await debtor.next(m => m.type === 'tombola:state' && !m.state.requiredTribute, mark);
     mark = debtor.mark(); debtor.send({ type: 'tombola:join', roundId: fresh.id }); await debtor.next(m => m.type === 'tombola:state' && m.state.viewer.participant, mark);
-    console.log('PASS real Tombola sockets: auth, locked lobby, privacy, randomized turns, duplicate protection, exact SC ledger/floor, restart, all36 completion, deferred tribute, mandatory submission, GM rejection re-block, fresh round');
+    console.log('PASS FATEBREAKER V2 sockets: GM-only controls, private outcomes, exact ledger/floor, +50 once, restart, immediate Blood termination/one debt, synchronized freeze/no further SC, submission/rejection/new round');
   } catch (error) { console.error(error); console.error(logs.slice(-1600)); process.exitCode = 1; }
   finally { for (const c of clients) c.close(); if (server?.exitCode === null) await new Promise(resolve => { server.once('exit', resolve); server.kill(); }); fs.rmSync(data, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

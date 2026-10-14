@@ -12,9 +12,11 @@ Main checkout and existing unrelated changes were preserved.
 
 ## Implemented behavior
 
-- Securely shuffled exact inventory: 17 regular Blessings and one THE GRAIL
-  (+50 SC), for 18 positive fields (+88 SC theoretical),
-  17 Curses (-47 SC theoretical), and one Blood Tribute.
+- V2 exact inventory: Blessings +2×4, +3×5, +5×5, +8×3 (17, +72 SC);
+  Curses −2×3, −4×4, −6×5, −10×4, −15×1 (17, −107 SC);
+  THE GRAIL ×1 (+50 SC); Blood Tribute ×1. Total 36 fields.
+  Theoretical full-board net +15; expected pre-floor stopped-round net +7.5;
+  probability Grail precedes Blood is 50%, without forcing round results.
 - GM opens a lobby; up to 10 players enroll; signup closes when GM starts.
   Signup also closes automatically two minutes after lobby activation, with
   a visible server-time-synchronized countdown. The deadline survives recovery;
@@ -27,21 +29,25 @@ Main checkout and existing unrelated changes were preserved.
   opened fields reveal their outcome, nominal amount, actual balance change,
   selecting account and timestamp.
 - Four brief tile reveal animations: blessing glint/ring, curse crack/shudder,
-  Blood Tribute pulse, and golden Grail rays/chalice. No added game delay,
+  Blood Tribute pulse, and golden Grail rays/chalice plus a large shared
+  THE GRAIL / +50 SC banner (1.6 seconds, pointer-transparent). No added game delay,
   server timer, audio, canvas render loop or new image asset. Reduced-motion
   disables all reveal motion. Historical reveals do not replay on reopening.
 - Existing player-store credit/debit APIs enforce the zero floor and use
   receipts containing round, player, field and outcome. Validation, ledger,
   reveal, debt and broadcasts execute inside ASOC's existing synchronous
   durable runtime transaction and outbox; no separate wallet was introduced.
-- Blood Tribute records its selecting player but does not stop play. Only
-  after all 36 tiles open does that player receive
+- V2 Blood Tribute immediately terminates the round. The selecting player receives
   one deterministic Black Market pact through `createGmTributeDebt` with title
   `BLOOD TRIBUTE REQUIRED`. No coin transaction occurs for that field and no
   unopened fields are automatically exposed. Dennis announces the named player
   at the end. The upload prompt cannot be dismissed or escaped, survives refresh
   and new rounds, and blocks new FATEBREAKER participation until submission. GM
   rejection reinstates the requirement; only the GM judges the offering.
+- Recovery recognizes older exact distributions without rerolling assigned
+  rewards or altering balances. Already-started V1 rounds retain their original
+  ending rule; unstarted legacy lobbies upgrade on GM start. Every new lobby
+  is V2. This compatibility exception protects existing saves, not new rounds.
 - The existing Black Market demand prompt and image/moderation flow remain
   intact. The game never approves payment itself.
 - Room recovery saves the concealed inventory, roster, current turn, reveals,
@@ -87,30 +93,30 @@ Image edit prompt used:
 
 ## Verification results
 
-`npm run test:tombola` passes all three suites:
+`npm run test:fatebreaker` (compatible alias of `test:tombola`) passes all three suites:
 
 - `tests/tombola.js`: roster sizes 2–10 preserve the exact inventory;
   36 unique numbered fields, no hidden outcomes, valid reveals, wrong turns,
   stale round IDs, duplicate selections, cap/roster lock, randomized cycles,
-  exactly one move per player per full cycle, recovery with blood already
-  revealed, and completion only on tile 36. The final cycle can be partial
-  when the remaining tiles are fewer than the roster size.
+  exactly one move per player per full cycle, immediate Blood endings at
+  positions 1, 18 and 36, Grail continuation, exact V2 totals, and V1 recovery.
 - `tests/black-market-tombola.js`: real server, authenticated GM and three
   players, lobby and start, spectator/forged identity refusal, duplicate-click
-  race, exact +1/+2 SC credit, -1 debit, -10 curse capped at zero, actual capped
+  race, exact +2/+3 SC credit, −2 debit, −15 curse capped at zero, actual capped
   deduction record, process restart/reconnect, replay after recovery, identical
   hidden inventory and turn, synchronized finale, exactly one existing Black
-  Market debt only at completion, blocked subsequent picks, new-round
+  Market debt immediately on Blood, frozen balances/fields, new-round
   reset/history, and mandatory submission before joining another round.
 - `tests/tombola-browser.js`: real ASOC pages and server in Chromium, logged-in
   GM, desktop and phone players, actual mini-game menu clicks, enrollment,
-  starting and playing through all 36 tiles in randomized turn order, dynamic numbers,
+  revealing Blessing, Curse, Grail and Blood in real randomized turns, dynamic numbers,
   square 6x6 geometry, numberless artwork use, legibility, debt notice/Black
   Market navigation, unskippable requirement after refresh/Escape, and restored
   real consent/file picker and authenticated binary image upload, and access
   to normal chat after submission.
   Also verifies all four outcome animation names, reduced-motion suppression,
-  temporary-effect cleanup, the single +50 Grail, and no historical replay.
+  temporary-effect cleanup, shared large golden +50 Grail celebration,
+  32 unopened fields preserved after termination, and no historical replay.
 
 Screenshots inspected: `.scratch/tombola-visuals/desktop-closed.png`,
 `mobile-closed.png`, `desktop-finale.png`, and `mobile-finale.png`.

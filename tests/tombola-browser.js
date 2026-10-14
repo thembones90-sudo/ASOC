@@ -69,13 +69,26 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     }
     const motions = { blessing: 'tombola-blessing-open', curse: 'tombola-curse-open', blood_tribute: 'tombola-blood-open', grail: 'tombola-grail-open' };
     const checkedMotions = new Set();
-    for (let field = 1; field <= 36; field++) {
+    // Read the private test fixture on disk, never expose concealed outcomes through a browser API.
+    const deck = JSON.parse(fs.readFileSync(path.join(server.dataDir, 'active-rooms.json'), 'utf8')).rooms[0].tombola.inventory;
+    const fieldsToOpen = ['BLESSING', 'CURSE', 'GRAIL', 'BLOOD_TRIBUTE'].map(kind => deck.findIndex(f => f.kind === kind) + 1);
+    for (const [index, field] of fieldsToOpen.entries()) {
       await alpha.waitForFunction(() => document.querySelector('.tombola-turn')?.textContent.includes('CYCLE'));
       const actor = await alpha.locator('[data-tombola-field]:not([disabled])').count() ? alpha : beta;
       await actor.locator(`[data-tombola-field="${field}"]:not([disabled])`).waitFor();
       await actor.locator(`[data-tombola-field="${field}"]`).click();
       for (const page of [alpha, beta]) await page.locator(`[data-tombola-field="${field}"]:not(.is-closed)`).waitFor();
       const tile = alpha.locator(`[data-tombola-field="${field}"]`);
+      if (deck[field - 1].kind === 'GRAIL') {
+        for (const page of [alpha, beta, gm]) { await page.locator('.tombola-legendary-event').waitFor(); assert.match(await page.locator('.tombola-legendary-event').textContent(), /THE GRAIL.*\+50 SC/); }
+        const bannerStyle = await alpha.locator('.tombola-legendary-event').evaluate(node => {
+          node.getAnimations().forEach(animation => { animation.pause(); animation.currentTime = 400; });
+          const style = getComputedStyle(node); return { background: style.backgroundImage, border: parseFloat(style.borderTopWidth) };
+        });
+        assert.notEqual(bannerStyle.background, 'none'); assert.ok(bannerStyle.border >= 1);
+        await alpha.locator('.tombola-legendary-event').screenshot({ path: path.join(shots, 'grail-legendary-banner.png'), animations: 'allow' });
+        assert.equal(await alpha.locator('.tombola-legendary-event').evaluate(node => getComputedStyle(node).pointerEvents), 'none');
+      }
       const motion = await tile.evaluate(node => ({ kind: ['blessing', 'curse', 'blood_tribute', 'grail'].find(kind => node.classList.contains('is-' + kind)), animation: getComputedStyle(node).animationName }));
       if (!checkedMotions.has(motion.kind)) {
         assert.equal(motion.animation, motions[motion.kind]);
@@ -90,7 +103,7 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
         await alpha.waitForFunction(n => !document.querySelector(`[data-tombola-field="${n}"]`)?.classList.contains('is-new-reveal'), field);
         assert.equal(await tile.locator('.tombola-reveal-fx').count(), 0, 'temporary effects clean up after reveal');
       }
-      if (field < 36) {
+      if (index < fieldsToOpen.length - 1) {
         assert.equal(await alpha.locator('.tombola-blood-verdict').count(), 0);
         assert.equal(await beta.locator('#bm-demand-notice').count(), 0);
       }
@@ -105,7 +118,8 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     for (const [name, page] of [['desktop', alpha], ['mobile', beta]]) {
       await page.locator('.tombola-blood-verdict').waitFor();
       assert.equal(await page.locator('[data-tombola-field]:not([disabled])').count(), 0);
-      assert.equal(await page.locator('[data-tombola-field]:not(.is-closed)').count(), 36);
+      assert.equal(await page.locator('[data-tombola-field]:not(.is-closed)').count(), 4);
+      assert.equal(await page.locator('[data-tombola-field].is-closed').count(), 32, 'Blood Tribute stops the round with unopened vaults intact');
       const required = await page.locator('#tombola-required-veil').count();
       if (required) {
         assert.ok(await page.locator('[data-tombola-close]').isDisabled());
@@ -134,7 +148,7 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       assert.deepEqual(page.pageErrors || [], []);
     }
     assert.deepEqual(errors, []);
-    console.log('PASS actual ASOC browser: all36, four distinct reveal animations/cleanup/reduced motion, golden Grail +50, desktop/mobile icons, unskippable tribute/refresh, actual upload, chat restored');
+    console.log('PASS FATEBREAKER V2 browser: 36 vaults, four reveals/reduced motion, shared legendary Grail +50 banner, immediate Blood ending with 32 closed fields, forced tribute/reconnect/upload');
   } catch (error) {
     for (let i = 0; i < pages.length; i++) {
       await pages[i].screenshot({ path: path.join(shots, `failure-${i}.png`) });

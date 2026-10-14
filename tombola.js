@@ -1,11 +1,16 @@
 'use strict';
 const crypto = require('crypto');
-const BLESSINGS = Object.freeze([[1, 6], [2, 5], [3, 4], [5, 2], [50, 1]]);
-const CURSES = Object.freeze([[1, 5], [2, 5], [3, 4], [5, 2], [10, 1]]);
+const BLESSINGS = Object.freeze([[2, 4], [3, 5], [5, 5], [8, 3]]);
+const CURSES = Object.freeze([[2, 3], [4, 4], [6, 5], [10, 4], [15, 1]]);
 const SIGNUP_MS = 2 * 60 * 1000;
 function inventory() {
-  return [...BLESSINGS.flatMap(([amount, count]) => Array.from({ length: count }, () => ({ kind: amount === 50 ? 'GRAIL' : 'BLESSING', amount }))),
-    ...CURSES.flatMap(([amount, count]) => Array.from({ length: count }, () => ({ kind: 'CURSE', amount }))), { kind: 'BLOOD_TRIBUTE', amount: 0 }];
+  return [...BLESSINGS.flatMap(([amount, count]) => Array.from({ length: count }, () => ({ kind: 'BLESSING', amount }))),
+    ...CURSES.flatMap(([amount, count]) => Array.from({ length: count }, () => ({ kind: 'CURSE', amount }))), { kind: 'GRAIL', amount: 50 }, { kind: 'BLOOD_TRIBUTE', amount: 0 }];
+}
+function legacyInventory(grail = true) {
+  const entries = (kind, pairs) => pairs.flatMap(([amount, count]) => Array.from({ length: count }, () => ({ kind, amount })));
+  return [...entries('BLESSING', [[1, 6], [2, 5], [3, 4], [5, 2]]), { kind: grail ? 'GRAIL' : 'BLESSING', amount: grail ? 50 : 10 },
+    ...entries('CURSE', [[1, 5], [2, 5], [3, 4], [5, 2], [10, 1]]), { kind: 'BLOOD_TRIBUTE', amount: 0 }];
 }
 function shuffle(items, randomInt = crypto.randomInt) {
   const copy = items.map(item => ({ ...item }));
@@ -13,7 +18,7 @@ function shuffle(items, randomInt = crypto.randomInt) {
   return copy;
 }
 function create(id, now = Date.now()) {
-  return { id, phase: 'LOBBY', createdAt: now, signupEndsAt: now + SIGNUP_MS, startedAt: null, endedAt: null, participants: [],
+  return { id, economyVersion: 2, endOnBlood: true, phase: 'LOBBY', createdAt: now, signupEndsAt: now + SIGNUP_MS, startedAt: null, endedAt: null, participants: [],
     turnIndex: 0, cycle: 1, turnOrder: [], inventory: shuffle(inventory()), reveals: [], tributePlayerId: null, tributePactId: null, cancelled: false };
 }
 function join(state, player, now = Date.now()) {
@@ -32,6 +37,7 @@ function start(state, activeIds, now = Date.now(), randomInt = crypto.randomInt)
   if (state.phase !== 'LOBBY') return { error: 'THIS ROUND HAS ALREADY STARTED' };
   const roster = state.participants.filter(p => activeIds.includes(p.id));
   if (roster.length < 2) return { error: 'FATEBREAKER NEEDS TWO ACTIVE PLAYERS' };
+  if (state.economyVersion !== 2) { state.inventory = shuffle(inventory(), randomInt); state.economyVersion = 2; state.endOnBlood = true; }
   state.participants = roster;
   state.turnOrder = shuffle(roster, randomInt).map(p => p.id); state.cycle = 1;
   state.phase = 'PLAYING'; state.startedAt = now; state.turnIndex = 0; return { ok: true };
@@ -51,7 +57,7 @@ function reveal(state, playerId, field, actualAmount, now = Date.now(), randomIn
   const player = current(state), outcome = checked.outcome;
   state.reveals.push({ field, ...outcome, playerId, playerName: player.name, actualAmount, at: now });
   if (outcome.kind === 'BLOOD_TRIBUTE') state.tributePlayerId = playerId;
-  if (state.reveals.length === 36) { state.phase = 'ENDED'; state.endedAt = now; }
+  if ((outcome.kind === 'BLOOD_TRIBUTE' && state.endOnBlood) || state.reveals.length === 36) { state.phase = 'ENDED'; state.endedAt = now; }
   else {
     state.turnIndex++;
     if (state.turnIndex === state.participants.length) {
@@ -69,7 +75,7 @@ function cancel(state, now = Date.now()) {
   state.phase = 'CANCELLED'; state.cancelled = true; state.endedAt = now; return { ok: true };
 }
 function summary(state) {
-  return { id: state.id, phase: state.phase, createdAt: state.createdAt, endedAt: state.endedAt,
+  return { id: state.id, economyVersion: state.economyVersion, endOnBlood: state.endOnBlood, phase: state.phase, createdAt: state.createdAt, endedAt: state.endedAt,
     participants: state.participants.map(p => ({ ...p })), revealedCount: state.reveals.length,
     tributePlayerId: state.tributePlayerId, tributePlayerName: state.participants.find(p => p.id === state.tributePlayerId)?.name || null };
 }
@@ -87,17 +93,22 @@ function normalize(raw) {
   if (!raw || !['LOBBY', 'PLAYING', 'ENDED', 'CANCELLED'].includes(raw.phase) || typeof raw.id !== 'string') return null;
   const deck = raw.inventory;
   const signature = items => items.map(x => `${x.kind}:${x.amount}`).sort().join('|');
-  if (!Array.isArray(deck) || deck.length !== 36 || deck.some(x => !x || typeof x.kind !== 'string' || !Number.isFinite(x.amount)) || signature(deck) !== signature(inventory())) return null;
+  if (!Array.isArray(deck) || deck.length !== 36 || deck.some(x => !x || typeof x.kind !== 'string' || !Number.isFinite(x.amount))) return null;
+  const deckSignature = signature(deck);
+  const economyVersion = deckSignature === signature(inventory()) ? 2 : [signature(legacyInventory()), signature(legacyInventory(false))].includes(deckSignature) ? 1 : 0;
+  if (!economyVersion) return null;
+  const endOnBlood = economyVersion === 2 || !deck.some(f => f.kind === 'GRAIL');
   const participants = Array.isArray(raw.participants) ? raw.participants.filter(p => p && typeof p.id === 'string' && typeof p.name === 'string').map(p => ({ id: p.id, name: p.name.slice(0, 80) })) : [];
   if (participants.length > 10 || new Set(participants.map(p => p.id)).size !== participants.length || (raw.phase === 'PLAYING' && participants.length < 2)) return null;
   const reveals = Array.isArray(raw.reveals) ? raw.reveals.map(r => ({ ...r })) : [];
   if (reveals.length > 36 || new Set(reveals.map(r => r.field)).size !== reveals.length || reveals.some(r => !Number.isInteger(r.field) || r.field < 1 || r.field > 36 || r.kind !== deck[r.field - 1].kind || r.amount !== deck[r.field - 1].amount || !participants.some(p => p.id === r.playerId))) return null;
-  if (raw.phase === 'PLAYING' && reveals.length === 36) return null;
+  if (raw.phase === 'PLAYING' && (reveals.length === 36 || (endOnBlood && reveals.some(r => r.kind === 'BLOOD_TRIBUTE')))) return null;
+  if (economyVersion === 2 && raw.phase === 'ENDED' && (reveals.at(-1)?.kind !== 'BLOOD_TRIBUTE' || reveals.slice(0, -1).some(r => r.kind === 'BLOOD_TRIBUTE'))) return null;
   const turnOrder = raw.phase === 'CANCELLED' && !raw.startedAt ? participants.map(p => p.id) : Array.isArray(raw.turnOrder) ? raw.turnOrder.slice() : participants.map(p => p.id);
   if (raw.phase !== 'LOBBY' && (turnOrder.length !== participants.length || new Set(turnOrder).size !== participants.length || turnOrder.some(id => !participants.some(p => p.id === id)))) return null;
   const turnIndex = Math.max(0, Math.floor(Number(raw.turnIndex) || 0));
   if (raw.phase === 'PLAYING' && turnIndex >= participants.length) return null;
-  return { id: raw.id, phase: raw.phase, createdAt: Number(raw.createdAt) || 0, signupEndsAt: (Number(raw.createdAt) || 0) + SIGNUP_MS, startedAt: Number(raw.startedAt) || null, endedAt: Number(raw.endedAt) || null,
+  return { id: raw.id, economyVersion, endOnBlood, phase: raw.phase, createdAt: Number(raw.createdAt) || 0, signupEndsAt: (Number(raw.createdAt) || 0) + SIGNUP_MS, startedAt: Number(raw.startedAt) || null, endedAt: Number(raw.endedAt) || null,
     participants, inventory: deck.map(x => ({ kind: x.kind, amount: x.amount })), reveals,
     turnIndex, turnOrder, cycle: Math.max(1, Math.floor(Number(raw.cycle) || 1)), tributePlayerId: reveals.find(r => r.kind === 'BLOOD_TRIBUTE')?.playerId || null, tributePactId: raw.tributePactId || null, cancelled: raw.phase === 'CANCELLED' };
 }

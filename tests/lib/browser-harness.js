@@ -40,6 +40,7 @@ async function startServer({ port, env = {} } = {}) {
   const api = (method, urlPath, body) => request(port, method, urlPath, body);
   return {
     port,
+    dataDir: DATA,
     base: `http://127.0.0.1:${port}`,
     api,
     errors: () => errors,

@@ -86,7 +86,7 @@ function createTombolaService(deps) {
           pact = debt.pact; pact.id = pactId;
         }
         state.tributePactId = pact.id;
-        deps.addDennisMessage(room, `@${debtor.name} — ALL 36 VAULTS ARE OPEN. YOUR BLOOD TRIBUTE FROM FIELD ${bloodField} IS NOW REQUIRED. THE BLACK MARKET AWAITS.`);
+        deps.addDennisMessage(room, `@${debtor.name} — BLOOD TRIBUTE REQUIRED. FIELD ${bloodField} HAS ENDED FATEBREAKER. THE BOARD IS SEALED. THE BLACK MARKET AWAITS.`);
         deps.syncBlackMarket(room, debtor.id);
         for (const [socket, player] of room.players) if (String(player.id) === debtor.id && socket.readyState === 1) deps.sendToWs(socket, { type: 'blackMarket:tributeDemanded', pact: deps.blackMarket.playerView(room.blackMarket, debtor.id).pacts.find(p => p.id === pact.id) });
         deps.broadcastChatUpdate(room);
