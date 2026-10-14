@@ -21,6 +21,8 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     await gm.goto(server.base + '/index.html');
     await gm.waitForFunction(() => window.App?.roomCode === 'MASTER' && window.App?.mode === 'multiplayer');
     await gm.locator('#gm-minigames-toggle').click();
+    await gm.locator('[data-gm-minigame="tombola"] .tombola-mini-icon img').evaluate(img => img.decode());
+    await gm.locator('[data-gm-minigame="tombola"]').screenshot({ path: path.join(shots, 'gm-menu-icon.png') });
     await gm.locator('[data-gm-minigame="tombola"]').click();
     await gm.locator('[data-tombola-action="create"]').click();
     await gm.locator('[data-tombola-action="start"]').waitFor();
@@ -33,6 +35,8 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     for (const page of [alpha, beta]) {
       page.on('pageerror', e => errors.push(e.message));
       await page.locator('#casual-minigames-toggle').click();
+      await page.locator('#minigames-tombola .tombola-mini-icon img').evaluate(img => img.decode());
+      await page.locator('#minigames-tombola').screenshot({ path: path.join(shots, page === alpha ? 'desktop-menu-icon.png' : 'mobile-menu-icon.png') });
       await page.locator('#minigames-tombola').click();
       await page.locator('[data-tombola-action="join"]').click();
       await page.locator('[data-tombola-action="leave"]').waitFor();
