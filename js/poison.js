@@ -2,6 +2,8 @@
   'use strict';
 
   let states = {};
+  let tributeFile = null;
+  let tributeFileOwner = '';
   let lastTickFlash = 0;
   let gmOffer = null;
   let observer = null;
@@ -492,7 +494,11 @@
   function renderPlayer() {
     const root = ensurePlayerOverlay();
     const state = states[me()];
-    if (!state) { root.hidden = true; return; }
+    if (!state) { root.hidden = true; tributeFile = null; tributeFileOwner = ''; return; }
+    if (tributeFileOwner !== me() || state.status !== 'bleeding' || state.pendingTribute) {
+      tributeFile = null;
+      tributeFileOwner = me();
+    }
     const card = root.querySelector('#poison-player-card');
     if (!card) return;
     root.hidden = false;
@@ -526,16 +532,20 @@
     `;
     if (!state.pendingTribute) {
       const file = card.querySelector('[data-poison-file]');
+      const filename = card.querySelector('[data-poison-file-name]');
+      if (filename && tributeFile) filename.textContent = tributeFile.name;
       file?.addEventListener('change', () => {
+        tributeFile = file.files?.[0] || null;
+        tributeFileOwner = me();
         const n = card.querySelector('[data-poison-file-name]');
-        if (n) n.textContent = file.files?.[0]?.name || 'PNG, JPG or WEBP // 2 MB max';
+        if (n) n.textContent = tributeFile?.name || 'PNG, JPG or WEBP // 2 MB max';
       });
       card.querySelector('[data-poison-submit]')?.addEventListener('click', submitTribute);
     }
   }
 
   function submitTribute() {
-    const file = document.querySelector('#poison-player-card [data-poison-file]')?.files?.[0];
+    const file = tributeFileOwner === me() ? tributeFile : null;
     const note = document.querySelector('#poison-player-card [data-poison-file-name]');
     if (!file) { if (note) note.textContent = 'NO IMAGE SELECTED'; return; }
     if (!['image/png','image/jpeg','image/webp'].includes(file.type)) { if (note) note.textContent = 'PNG, JPG OR WEBP ONLY'; return; }
