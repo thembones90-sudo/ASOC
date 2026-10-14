@@ -32,6 +32,7 @@ const dailyContracts = require('./daily-contracts');
 const rouletteCarnage = require('./roulette-carnage');
 const sibicar = require('./sibicar');
 const dennisAI = require('./dennis-ai');
+const { poisonView } = require('./poison-privacy');
 const spectralAdjudicator = require('./automation/spectral-adjudicator');
 const olympics = require('./olympics');
 const { createChatUploadGuard } = require('./chat-upload-guard');
@@ -7633,11 +7634,7 @@ function handleGmPoisonCast(ws, message) {
 
   if (existing) {
     broadcastToRoom(room, { type: 'poison:applied', playerId: existing.playerId, playerName: existing.playerName, refreshed: true, timestamp: Date.now() });
-    const result = buildChatCommandMessage(room, author, 'poison', 'shadowBroker', `${brokerDisplayName(room)} renews the poison coursing through ${existing.playerName}.`, { poison: { playerId: existing.playerId, refreshed: true } });
-    if (!result.success) return sendToWs(ws, { type: 'gm:poisonCastResult', ok: false, error: result.error || 'POISON CAST REJECTED' });
-    result.message.source = 'shadowBroker';
     persistActiveRooms();
-    broadcastChatUpdate(room);
     return sendToWs(ws, { type: 'gm:poisonCastResult', ok: true, playerId: targetId, playerName });
   }
 
@@ -7656,14 +7653,6 @@ function handleGmPoisonCast(ws, message) {
     pendingTributeId: null
   };
   poisonBroadcastState(room, { type: 'poison:applied', playerId: targetId, playerName, refreshed: false, timestamp: now });
-  const result = buildChatCommandMessage(room, author, 'poison', 'shadowBroker', `${brokerDisplayName(room)} poisons ${playerName}. ONE SAVE: /roll. 50+ CURES. BELOW 50 BLEEDS 0.1 SC EVERY 20 SECONDS.`, { poison: { playerId: targetId } });
-  if (!result.success) {
-    delete map[targetId];
-    return sendToWs(ws, { type: 'gm:poisonCastResult', ok: false, error: result.error || 'POISON CAST REJECTED' });
-  }
-  result.message.source = 'shadowBroker';
-  persistActiveRooms();
-  broadcastChatUpdate(room);
   sendToWs(ws, { type: 'gm:poisonCastResult', ok: true, playerId: targetId, playerName });
 }
 
@@ -9014,7 +9003,7 @@ function dispatchGmSlashCommand(room, ws, text) {
     const resolved = resolveFatalityTarget(room, name);
     if (resolved.error) return { success: false, error: resolved.error.replace(/^FATALITY/, 'CURE') };
     if (!poisonCure(room, resolved.target.id, 'gm_release')) return { success: false, error: 'THIS PLAYER IS NOT POISONED' };
-    return { ...addShadowBrokerMessage(room, `${brokerDisplayName(room)} releases ${resolved.target.name} from the venom.`, { editableByHost: false }), broadcast: true };
+    return { success: true, broadcast: false };
   }
 
   if (/^\/poison\b/i.test(raw)) {
@@ -9028,9 +9017,8 @@ function dispatchGmSlashCommand(room, ws, text) {
     const existing = map[String(target.id)];
     if (existing) {
       broadcastToRoom(room, { type: 'poison:applied', playerId: existing.playerId, playerName: existing.playerName, refreshed: true, timestamp: Date.now() });
-      const result = buildChatCommandMessage(room, author, 'poison', 'shadowBroker', `${brokerDisplayName(room)} renews the poison coursing through ${existing.playerName}.`, { poison: { playerId: existing.playerId, refreshed: true } });
-      if (result.success) { result.message.source = 'shadowBroker'; result.broadcast = true; }
-      return result;
+      persistActiveRooms();
+      return { success: true, broadcast: false };
     }
     const now = Date.now();
     const state = {
@@ -9048,9 +9036,7 @@ function dispatchGmSlashCommand(room, ws, text) {
     };
     map[state.playerId] = state;
     poisonBroadcastState(room, { type: 'poison:applied', playerId: state.playerId, playerName: state.playerName, refreshed: false, timestamp: now });
-    const result = buildChatCommandMessage(room, author, 'poison', 'shadowBroker', `${brokerDisplayName(room)} poisons ${state.playerName}. ONE SAVE: /roll. 50+ CURES. BELOW 50 BLEEDS 0.1 SC EVERY 20 SECONDS.`, { poison: { playerId: state.playerId } });
-    if (result.success) { result.message.source = 'shadowBroker'; result.broadcast = true; }
-    return result;
+    return { success: true, broadcast: false };
   }
 
   if (/^\/whip\b/i.test(raw)) return whipCommand(room, author, raw, '', true);
@@ -9599,7 +9585,8 @@ function broadcastToRoom(room, message, excludeWs = null) {
   const data = JSON.stringify(message);
   room.players.forEach((player, ws) => {
     if (ws !== excludeWs && ws.readyState === 1) {
-      ws.send(data);
+      const view = poisonView(message, player.id, false);
+      if (view) ws.send(view === message ? data : JSON.stringify(view));
     }
   });
   if (room.hostConnection && room.hostConnection !== excludeWs && room.hostConnection.readyState === 1) {
@@ -9609,7 +9596,9 @@ function broadcastToRoom(room, message, excludeWs = null) {
 
 function sendToWs(ws, message) {
   if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify(message));
+    const room = rooms.get(ws.roomCode?.toUpperCase());
+    const view = poisonView(message, ws.playerId, !!room && ws === room.hostConnection && ws.gmAuthenticated === true);
+    if (view) ws.send(JSON.stringify(view));
   }
 }
 
@@ -10360,6 +10349,9 @@ function isRetiredRageAnnouncement(message) {
 }
 function isVisibleChatMessage(message) {
   return message?.source !== 'bloodTribute'
+    && message?.messageType !== 'poison'
+    && !message?.poison
+    && !message?.poisonSave
     && message?.messageType !== 'chaos'
     && !isRetiredRageAnnouncement(message)
     && message?.messageType !== 'commands';
