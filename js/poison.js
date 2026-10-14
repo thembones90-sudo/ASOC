@@ -129,6 +129,9 @@
       .poison-cast-btn:disabled{opacity:.4;cursor:not-allowed;border-color:#2b4a22}
       .poison-cast-btn.is-armed{border-color:#ff5a4d;background:linear-gradient(180deg,#5a1410,#2a0a08);color:#ffe3df;box-shadow:0 0 18px rgba(255,70,52,.3)}
       .poison-cast-btn.is-casting{border-color:#8dff6a;color:#b8ff87}
+      #poison-target-picker .poison-cure-btn{min-height:42px;padding:11px;border:1px solid #70c4ba;border-radius:7px;background:linear-gradient(180deg,#163d37,#0c211e);color:#c4fff0;font:900 12px/1.2 Arial,sans-serif;letter-spacing:.1em;cursor:pointer}
+      #poison-target-picker .poison-cure-btn:hover:not(:disabled){border-color:#bbffed;box-shadow:0 0 14px #59d6bd33}
+      #poison-target-picker .poison-cure-btn:disabled{opacity:.45;cursor:not-allowed}
       .poison-cast-toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:2147482460;padding:11px 16px;border:1px solid #4fbf2b;background:#081007;color:#b9ff90;font:900 12px/1 Arial;letter-spacing:.1em;box-shadow:0 0 22px rgba(73,255,47,.18)}
       .asoc-poison-avatar{position:relative;animation:poison-avatar-pulse 1.8s ease-in-out infinite}
       .asoc-poison-avatar img{filter:hue-rotate(75deg) saturate(2.6) sepia(.35) brightness(.92) contrast(1.1)!important}
@@ -302,6 +305,7 @@
       <div class="poison-picker-foot">
         <div class="poison-picker-tools"><button type="button" data-poison-tool="online">SELECT ALL ONLINE</button><button type="button" data-poison-tool="clear">CLEAR</button></div>
         <button type="button" class="poison-cast-btn" data-poison-cast disabled>SELECT A TARGET</button>
+        <button type="button" class="poison-cure-btn" data-poison-cure disabled>CURE SELECTED</button>
       </div>`;
     document.body.appendChild(root);
     root.querySelector('.poison-picker-close')?.addEventListener('click', closeGmPicker);
@@ -384,6 +388,12 @@
   }
 
   function syncGmFoot() {
+    const cure = document.querySelector('#poison-target-picker [data-poison-cure]');
+    const poisoned = [...gmSelected].filter(id => !!states[id]);
+    if (cure) {
+      cure.disabled = gmCasting || poisoned.length === 0;
+      cure.textContent = poisoned.length ? `CURE ${poisoned.length} SELECTED ${poisoned.length === 1 ? 'HERO' : 'HEROES'}` : 'CURE SELECTED';
+    }
     const btn = document.querySelector('#poison-target-picker .poison-cast-btn');
     if (!btn) return;
     const n = gmSelected.size;
@@ -403,6 +413,16 @@
     gmCastArmed = false;
     clearTimeout(gmArmTimer);
     renderGmTargets();
+  }
+
+  function cureGmSelection() {
+    if (gmCasting || !window.App?.send) return;
+    const targets = gmTargets.filter(target => gmSelected.has(String(target.id)) && states[String(target.id)]);
+    if (!targets.length) return;
+    targets.forEach(target => window.App.send({ type: 'gm:broadcast', text: `/cure @${target.name}` }));
+    resetGmSelection();
+    renderGmTargets();
+    showGmToast(`CURE REQUESTED // ${targets.length} ${targets.length === 1 ? 'HERO' : 'HEROES'}`);
   }
 
   function gmTool(kind) {
@@ -629,6 +649,7 @@
     decorate();
     updateGmBadges();
     renderPlayer();
+    if (gmPickerOpen) renderGmTargets();
   }
 
   function onMessage(message) {
@@ -711,6 +732,7 @@
       const tool = event.target.closest?.('[data-poison-tool]');
       if (tool) { event.preventDefault(); gmTool(tool.dataset.poisonTool); return; }
       if (event.target.closest?.('[data-poison-cast]')) { event.preventDefault(); pressGmCast(); return; }
+      if (event.target.closest?.('[data-poison-cure]')) { event.preventDefault(); cureGmSelection(); return; }
       if (gmPickerOpen) {
         const picker = document.getElementById('poison-target-picker');
         if (picker && !picker.contains(event.target)) closeGmPicker();
