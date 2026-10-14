@@ -12,11 +12,11 @@ const ROOT = path.join(__dirname, '..');
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'asoc-reliquary-attack-'));
 const PORT = Number(process.env.ASOC_RELIQUARY_TEST_PORT) || 18917;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const PNG = Buffer.concat([Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]), Buffer.alloc(64, 7)]);
+const PNG = Buffer.concat([Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]), Buffer.alloc(12 * 1024 * 1024, 7)]);
 
 function request(method, urlPath, body, headers={}) { return new Promise((resolve,reject)=>{ const req=http.request({host:'127.0.0.1',port:PORT,path:urlPath,method,headers},res=>{const chunks=[];res.on('data',c=>chunks.push(c));res.on('end',()=>{const raw=Buffer.concat(chunks);let data=raw.toString();try{data=JSON.parse(data);}catch{}resolve({status:res.statusCode,data});});});req.on('error',reject);if(body)req.write(body);req.end();}); }
 const json=(p,b,h={})=>request('POST',p,Buffer.from(JSON.stringify(b)),{'content-type':'application/json',...h});
-class Client { constructor(name){this.name=name;this.msgs=[];} open(){return new Promise((resolve,reject)=>{this.ws=new WebSocket(`ws://127.0.0.1:${PORT}`);this.ws.once('error',reject);this.ws.on('message',raw=>{const m=JSON.parse(raw);if(m.type==='protocol:hello')return this.send({type:'protocol:hello',protocolVersion:1});if(m.type==='protocol:ready')return resolve(this);this.msgs.push(m);});});} send(m){this.ws.send(JSON.stringify(m));} mark(){return this.msgs.length;} async next(fn,label,from=0){for(let i=0;i<400;i++){const hit=this.msgs.slice(from).find(fn);if(hit)return hit;await sleep(20);}throw Error(`${this.name}: ${label}`);} close(){try{this.ws.close();}catch{}} }
+class Client { constructor(name,capabilities=[]){this.name=name;this.capabilities=capabilities;this.msgs=[];} open(){return new Promise((resolve,reject)=>{this.ws=new WebSocket(`ws://127.0.0.1:${PORT}`);this.ws.once('error',reject);this.ws.on('message',raw=>{const m=JSON.parse(raw);if(m.type==='protocol:hello')return this.send({type:'protocol:hello',protocolVersion:1,capabilities:this.capabilities});if(m.type==='protocol:ready')return resolve(this);this.msgs.push(m);});});} send(m){this.ws.send(JSON.stringify(m));} mark(){return this.msgs.length;} async next(fn,label,from=0){for(let i=0;i<400;i++){const hit=this.msgs.slice(from).find(fn);if(hit)return hit;await sleep(20);}throw Error(`${this.name}: ${label}`);} close(){try{this.ws.close();}catch{}} }
 
 (async()=>{
   const server=spawn(process.execPath,['server.js'],{cwd:ROOT,env:{...process.env,PORT:String(PORT),ASOC_DATA_DIR:DATA,ASOC_GM_PASSWORD:'vault-pass',ASOC_EMAIL_VERIFICATION:'0',ASOC_MIN_FREE_DISK_BYTES:'0'},stdio:['ignore','ignore','pipe']});
@@ -26,10 +26,16 @@ class Client { constructor(name){this.name=name;this.msgs=[];} open(){return new
     const gmToken=(await json('/api/auth/gm/login',{password:'vault-pass'})).data.token;
     const creds={email:'attacker@vault.test',password:'player-password',name:'Attacker'};
     await json('/api/auth/player/register',creds);const playerToken=(await json('/api/auth/player/login',creds)).data.token;
-    const gm=await new Client('GM').open();clients.push(gm);gm.send({type:'host:recover',gmToken});await gm.next(m=>m.type==='host:recovered','recover');
+    const stale=await new Client('stale GM').open();clients.push(stale);stale.send({type:'host:recover',gmToken});await stale.next(m=>m.type==='host:recovered','stale recover');
+    let mark=stale.mark();stale.send({type:'gm:reliquaryAccess',code:'112018'});
+    const upgrade=await stale.next(m=>m.type==='tribute:vaultAccess'&&m.upgradeRequired===true,'explicit upgrade required',mark);
+    assert.equal(upgrade.granted,false,'legacy GM is explicitly refused instead of receiving incompatible metadata');
+    assert.equal(stale.ws.readyState,WebSocket.OPEN,'legacy GM session is preserved');
+    const gm=await new Client('GM',['tribute:on-demand']).open();clients.push(gm);gm.send({type:'host:recover',gmToken});await gm.next(m=>m.type==='host:recovered','recover');
     const player=await new Client('player').open();clients.push(player);player.send({type:'room:join',authToken:playerToken,roomCode:'MASTER',name:'Attacker'});await player.next(m=>m.type==='join:success','join');
+    mark=gm.mark();gm.send({type:'gm:tributeImageGet',id:'forged',requestId:'locked-test'});await gm.next(m=>m.type==='error'&&m.code==='RELIQUARY_LOCKED','locked GM image denial',mark);
 
-    let mark=player.mark();player.send({type:'blackMarket:petition',title:'PRIVATE TEST',category:'CUSTOM',request:'test'});
+    mark=player.mark();player.send({type:'blackMarket:petition',title:'PRIVATE TEST',category:'CUSTOM',request:'test'});
     const petition=await player.next(m=>m.type==='blackMarket:state'&&m.pacts?.length,'petition',mark);const pactId=petition.pacts[0].id;
     mark=gm.mark();gm.send({type:'blackMarket:gmDecision',pactId,action:'accept',terms:'',tributeRequired:true});await gm.next(m=>m.type==='blackMarket:gmState'&&m.pacts?.find(p=>p.id===pactId)?.state==='APPROVED_PENDING_TRIBUTE','approve',mark);
     const uploaded=await request('POST',`/api/black-market/tribute-image?pactId=${encodeURIComponent(pactId)}`,PNG,{'content-type':'image/png','x-player-token':playerToken});
@@ -42,6 +48,7 @@ class Client { constructor(name){this.name=name;this.msgs=[];} open(){return new
     for(const payload of [
       {type:'gm:reliquaryAccess',code:'112018'},
       {type:'gm:tributeVaultUpdate',id:'anything',action:'reliquary',value:false},
+      {type:'gm:tributeImageGet',id:'anything'},
       {type:'gm:tributeVaultClear'},
       {type:'gm:reliquaryLock'},
       {type:'host:recover',gmToken:'forged-player-token'}
@@ -53,8 +60,28 @@ class Client { constructor(name){this.name=name;this.msgs=[];} open(){return new
     mark=gm.mark();gm.send({type:'gm:reliquaryAccess',code:'112018'});
     await gm.next(m=>m.type==='tribute:vaultAccess'&&m.granted===true,'unlock',mark);
     const vault=await gm.next(m=>m.type==='tribute:vault'&&m.tributes?.length===1,'vault',mark);
-    assert.match(vault.tributes[0].imageData,/^data:image\/png;base64,/,'GM receives private bytes over authorized socket');
+    assert.ok(Buffer.byteLength(JSON.stringify(vault)) < 10000,'vault metadata frame stays bounded');
+    assert.equal(vault.tributes[0].imageData,undefined,'vault refresh is metadata-only');
+    mark=gm.mark();
+    gm.send({type:'gm:tributeImageGet',id:vault.tributes[0].id,requestId:'superseded-test'});
+    gm.send({type:'gm:tributeImageGet',id:vault.tributes[0].id,requestId:'authorized-test'});
+    await gm.next(m=>m.type==='tribute:imageEnd'&&m.requestId==='authorized-test','chunked individual image',mark);
+    const transfer=gm.msgs.slice(mark).filter(m=>m.requestId==='authorized-test');
+    const begin=transfer.find(m=>m.type==='tribute:imageBegin');
+    const chunks=transfer.filter(m=>m.type==='tribute:imageChunk').sort((a,b)=>a.index-b.index);
+    assert.ok(begin.chunks>1&&chunks.length===begin.chunks,'large image is bounded into a complete declared chunk count');
+    const imageData=chunks.map(m=>m.data).join('');
+    assert.match(imageData,/^data:image\/png;base64,/,'unlocked GM receives requested private bytes');
+    assert.equal(Buffer.from(imageData.split(',')[1],'base64').equals(PNG),true,'chunked image is byte-for-byte exact');
+    assert.equal(gm.msgs.slice(mark).some(m=>m.type==='tribute:imageEnd'&&m.requestId==='superseded-test'),false,'overlapping request cancels stale transfer');
+    mark=gm.mark();gm.send({type:'gm:tributeVaultUpdate',id:vault.tributes[0].id,action:'viewed'});
+    const delta=await gm.next(m=>m.type==='tribute:vault'&&m.tributes?.length===1,'metadata refresh',mark);
+    assert.equal(delta.tributes[0].imageData,undefined,'one field update does not resend old media');
+    mark=gm.mark();gm.send({type:'gm:tributeImageGet',id:vault.tributes[0].id,requestId:'revoked-test'});
+    await gm.next(m=>m.type==='tribute:imageBegin'&&m.requestId==='revoked-test','revocation transfer begins',mark);
+    gm.send({type:'gm:reliquaryLock'});await sleep(300);
+    assert.equal(gm.msgs.slice(mark).some(m=>m.type==='tribute:imageEnd'&&m.requestId==='revoked-test'),false,'lock revokes in-flight transfer before completion');
     assert.equal(player.msgs.some(m=>m.type==='tribute:vault'),false,'player never receives vault hydration');
-    console.log('PASS Reliquary adversarial boundary: forged player commands denied, known private URL returns 404, only unlocked authenticated GM receives vault bytes');
+    console.log('PASS Reliquary adversarial boundary: forged player commands denied, known private URL returns 404, only unlocked authenticated GM receives requested vault bytes');
   } finally {clients.forEach(c=>c.close());await require('./lib/stop-process')(server);fs.rmSync(DATA,{recursive:true,force:true,maxRetries:20,retryDelay:100});}
 })().catch(e=>{console.error('FAIL Reliquary adversarial boundary:',e);process.exit(1);});

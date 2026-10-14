@@ -221,7 +221,7 @@ async function runServer() {
     // 10. Both clients declare the capability in their handshake.
     for (const file of ['js/player.js', 'js/app.js']) {
       const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
-      assert.match(src, /capabilities:\s*\['chat:delta'\]/, `${file} opts into chat deltas`);
+      assert.match(src, /capabilities:\s*\[[^\]]*'chat:delta'/, `${file} opts into chat deltas`);
     }
 
     assert.equal(server.errors.trim(), '', 'no server errors');

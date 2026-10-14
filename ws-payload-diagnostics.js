@@ -30,6 +30,8 @@ const CATEGORIES = Object.freeze([
   'chat:history',
   'players:update',
   'tribute:vault',
+  'tribute:image',
+  'tribute:imageChunk',
   'timer:tick',
   'join:success',
   'game:loaded',

@@ -41,6 +41,8 @@ const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
 const forgeAI = require('./forge-ai');
 const payloadDiagnostics = require('./ws-payload-diagnostics');
+const tributeMediaFactory = require('./tribute-media-store');
+const commandDiagnostics = require('./command-queue-diagnostics');
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
@@ -352,6 +354,7 @@ function assertDataDirectoryWritable(dataDir) {
 }
 assertDataDirectoryWritable(ASOC_DATA_DIR);
 const CHAT_UPLOAD_DIR = path.join(ASOC_DATA_DIR, 'chat-uploads');
+const tributeMedia = tributeMediaFactory.create(ASOC_DATA_DIR);
 // INFOSTUD: the Shadow Broker's hidden personal picture/video storage.
 // With ASOC_R2_* set, INFOSTUD lives in a Cloudflare R2 bucket (capped at
 // R2's 10 GB free tier) and can never fill the game volume again.
@@ -541,6 +544,32 @@ function makeOfflinePlayerSocket() {
   };
 }
 
+function ensureTributeMediaRef(tribute) {
+  if (!tribute) return null;
+  if (tribute.mediaRef && tributeMedia.check(tribute.mediaRef)) return tribute.mediaRef;
+  const imageData = getTributeImageData(tribute);
+  if (!imageData) return tribute.mediaRef || null;
+  const mediaRef = tributeMedia.putDataUrl(imageData);
+  tribute.mediaRef = mediaRef;
+  return mediaRef;
+}
+
+function tributeForRecovery(tribute) {
+  if (!tribute || typeof tribute !== 'object') return tribute;
+  try {
+    const mediaRef = ensureTributeMediaRef(tribute);
+    if (!mediaRef) return { ...tribute };
+    const projected = { ...tribute, mediaRef };
+    delete projected.imageData;
+    return projected;
+  } catch (error) {
+    // Lossless fallback: retain legacy inline bytes if private blob creation or
+    // verification fails. Persistence remains large, but content is safe.
+    console.error('[tribute-media] durable conversion failed:', error.message);
+    return { ...tribute };
+  }
+}
+
 function serializeRoomForRecovery(room) {
   const players = [];
   room.players.forEach(player => {
@@ -600,7 +629,10 @@ function serializeRoomForRecovery(room) {
     match: room.match,
     womf: room.womf,
     wheel: room.wheel,
-    bloodTributes: room.bloodTributes || [],
+    // A blob is fsync'd and hash-verified before its inline source is removed
+    // from the recovery projection. The live legacy object is left intact, so
+    // a failed room commit can never destroy the only copy.
+    bloodTributes: (room.bloodTributes || []).map(tributeForRecovery),
     pendingTribute: room.pendingTribute || null,
     poison: room.poison || {},
     chaos: room.chaos || {},
@@ -800,6 +832,14 @@ function restoreActiveRooms() {
         // starts a fresh ledger for the current board.
         match: saved.match && saved.match.boardId === (saved.boardId || null) ? saved.match : null
       };
+
+      // Copy legacy inline/archive media during boot, before the room accepts
+      // traffic. The legacy recovery JSON is not rewritten here; a later
+      // ordinary commit projects references only after each blob verifies.
+      for (const tribute of room.bloodTributes) {
+        try { ensureTributeMediaRef(tribute); }
+        catch (error) { console.error('[tribute-media] restore copy failed:', error.message); }
+      }
 
       if (!room.timer) resetTimer(room);
       if (!room.match) room.match = matchLedger.createLedger(room.boardId, room.createdAt, []);
@@ -1715,9 +1755,7 @@ function getBloodTributeVaultState(room) {
       playerName: t.senderName || t.playerName || 'LITTLE HERO',
       sourceLabel: t.sourceLabel || null,
       senderAvatar: t.senderAvatar || '',
-      // Vault media is delivered only inside the GM-authorized WebSocket
-      // payload. Never hand the client a generally fetchable upload URL.
-      imageData: getTributeImageData(t),
+      imageAvailable: Boolean((t.mediaRef && tributeMedia.check(t.mediaRef)) || t.imageData || t.imageUrlOrStoragePath),
       originalMessageTimestamp: Number(t.originalMessageTimestamp || t.submittedAt) || null,
       submittedAt: Number(t.markedAt || t.submittedAt) || null,
       publicUntil: Number(t.expiresAt || t.publicUntil) || null,
@@ -1731,6 +1769,10 @@ function getBloodTributeVaultState(room) {
 }
 
 function getTributeImageData(tribute) {
+  if (tribute?.mediaRef) {
+    const stored = tributeMedia.read(tribute.mediaRef);
+    if (stored) return stored.dataUrl;
+  }
   if (typeof tribute?.imageData === 'string' && tribute.imageData.startsWith('data:image/')) return tribute.imageData;
   const match = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp|gif))$/i.exec(String(tribute?.imageUrlOrStoragePath || ''));
   if (!match) return '';
@@ -1739,6 +1781,54 @@ function getTributeImageData(tribute) {
     const ext = path.extname(filePath).toLowerCase();
     return `data:${mimeTypes[ext] || 'application/octet-stream'};base64,${fs.readFileSync(filePath).toString('base64')}`;
   } catch (_) { return ''; }
+}
+
+function handleTributeImageGet(ws, payload) {
+  const room = requireGmRoom(ws);
+  if (!room) return;
+  if (ws.supportsTributeOnDemand !== true) return sendToWs(ws, { type: 'error', code: 'CLIENT_UPGRADE_REQUIRED', message: 'Refresh the GM client to open the Reliquary' });
+  if (!hasReliquaryAccess(ws)) return sendToWs(ws, { type: 'error', code: 'RELIQUARY_LOCKED', message: 'Reliquary code required' });
+  const id = String(payload?.id || '');
+  const tribute = (room.bloodTributes || []).find(item => item.id === id && item.pendingReview !== true);
+  const requestId = /^[A-Za-z0-9_-]{1,64}$/.test(String(payload?.requestId || '')) ? String(payload.requestId) : null;
+  if (!requestId) return sendToWs(ws, { type: 'error', code: 'INVALID_TRIBUTE_REQUEST', message: 'Invalid tribute image request' });
+  cancelTributeImageTransfer(ws);
+  if (!tribute) return sendToWs(ws, { type: 'tribute:image', id, requestId, unavailable: true });
+  const imageData = getTributeImageData(tribute);
+  if (!imageData) return sendToWs(ws, { type: 'tribute:image', id, requestId, unavailable: true });
+  if (imageData.length > 30 * 1024 * 1024) return sendToWs(ws, { type: 'tribute:image', id, requestId, unavailable: true });
+  const chunkChars = 256 * 1024;
+  if (imageData.length <= chunkChars) return sendToWs(ws, { type: 'tribute:image', id, requestId, imageData });
+  const chunks = Math.ceil(imageData.length / chunkChars);
+  const mediaIdentity = tribute.mediaRef || tribute.imageUrlOrStoragePath || crypto.createHash('sha256').update(imageData).digest('hex');
+  const transfer = { id, requestId, mediaIdentity, cancelled: false, startedAt: Date.now() };
+  ws.tributeImageTransfer = transfer;
+  sendToWs(ws, { type: 'tribute:imageBegin', id, requestId, chunks, chars: imageData.length });
+  let index = 0;
+  const pump = () => {
+    const current = (room.bloodTributes || []).find(item => item.id === id && item.pendingReview !== true);
+    const currentIdentity = current && (current.mediaRef || current.imageUrlOrStoragePath || crypto.createHash('sha256').update(String(current.imageData || '')).digest('hex'));
+    if (transfer.cancelled || ws.tributeImageTransfer !== transfer || ws.readyState !== 1 || ws !== room.hostConnection || ws.gmAuthenticated !== true || ws.supportsTributeOnDemand !== true || !hasReliquaryAccess(ws) || currentIdentity !== mediaIdentity) return;
+    if (Date.now() - transfer.startedAt > 12000) {
+      ws.tributeImageTransfer = null;
+      return sendToWs(ws, { type: 'tribute:image', id, requestId, unavailable: true });
+    }
+    if (outbound) return setTimeout(pump, 10);
+    if (Number(ws.bufferedAmount) > WS_BUFFER_WARN_BYTES) return setTimeout(pump, 10);
+    sendToWs(ws, { type: 'tribute:imageChunk', id, requestId, index, data: imageData.slice(index * chunkChars, (index + 1) * chunkChars) });
+    index++;
+    if (index < chunks) setImmediate(pump);
+    else {
+      ws.tributeImageTransfer = null;
+      sendToWs(ws, { type: 'tribute:imageEnd', id, requestId });
+    }
+  };
+  setImmediate(pump);
+}
+
+function cancelTributeImageTransfer(ws) {
+  if (ws?.tributeImageTransfer) ws.tributeImageTransfer.cancelled = true;
+  if (ws) ws.tributeImageTransfer = null;
 }
 
 function requireGmRoom(ws) {
@@ -1823,6 +1913,12 @@ function handleReliquaryAccess(ws, payload) {
   const granted = supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
   if (!granted) ws.reliquaryAttempts.push(now);
   else {
+    if (ws.supportsTributeOnDemand !== true) {
+      ws.reliquaryUnlockedUntil = 0;
+      sendToWs(ws, { type: 'tribute:vaultAccess', granted: false, upgradeRequired: true, code: 'CLIENT_UPGRADE_REQUIRED' });
+      sendToWs(ws, { type: 'error', code: 'CLIENT_UPGRADE_REQUIRED', message: 'Refresh the GM client to open the Reliquary safely' });
+      return;
+    }
     ws.reliquaryAttempts = [];
     ws.reliquaryUnlockedUntil = now + (10 * 60 * 1000);
   }
@@ -1836,6 +1932,10 @@ function handleReliquaryAccess(ws, payload) {
 // and deleting it from INFOSTUD or purging the vault never brings it back.
 const tributeMirrorPending = new Set();
 function tributeImageBytes(tribute) {
+  if (tribute?.mediaRef) {
+    const stored = tributeMedia.read(tribute.mediaRef);
+    if (stored) return { type: stored.type, buffer: stored.buffer };
+  }
   const data = /^data:(image\/[\w.+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(tribute?.imageData || ''));
   if (data) return { type: data[1], buffer: Buffer.from(data[2], 'base64') };
   const file = /^\/uploads\/chat\/([a-f0-9]{32}\.(png|jpg|webp|gif))$/i.exec(String(tribute?.imageUrlOrStoragePath || ''));
@@ -1877,7 +1977,7 @@ function sendPendingBloodTributeReview(room) {
     type: 'tribute:review',
     tribute: pending ? {
       id: pending.id, playerName: pending.playerName, playerId: pending.playerId,
-      sourceLabel: pending.sourceLabel, imageData: pending.imageData,
+      sourceLabel: pending.sourceLabel, imageData: getTributeImageData(pending),
       submittedAt: pending.submittedAt
     } : null
   });
@@ -1918,7 +2018,7 @@ function handleBloodTributeReviewDecision(ws, message) {
 
 function sendTributeVaultToHost(room) {
   mirrorTributesToInfostud(room);
-  if (!room?.hostConnection || room.hostConnection.gmAuthenticated !== true || !hasReliquaryAccess(room.hostConnection)) return;
+  if (!room?.hostConnection || room.hostConnection.gmAuthenticated !== true || room.hostConnection.supportsTributeOnDemand !== true || !hasReliquaryAccess(room.hostConnection)) return;
   sendToWs(room.hostConnection, { type: 'tribute:vault', ...getBloodTributeVaultState(room) });
 }
 
@@ -2512,6 +2612,7 @@ function handleBloodTributeVaultClear(ws) {
     sendToWs(ws, { type: 'error', code: 'RELIQUARY_LOCKED', message: 'Reliquary code required' });
     return;
   }
+  cancelTributeImageTransfer(ws);
   room.bloodTributes = [];
   room.chat.messages = room.chat.messages.filter(m => m.source !== 'bloodTribute');
   persistActiveRooms();
@@ -10222,7 +10323,10 @@ function createChatSerializer(room) {
     const manualState = m.bloodTribute && typeof m.bloodTribute === 'object' ? m.bloodTribute : null;
     const manualExpiresAt = Number(manualState?.expiresAt) || 0;
     const manualClaimed = !!manualState && (manualState.claimed === true || manualExpiresAt <= now);
-    const legacyClaimed = m.source === 'bloodTribute' && Number(m.publicUntil) <= now;
+    // A legacy public tribute expires closed. Missing or malformed expiry
+    // timestamps must NEVER leave private archive bytes visible to players.
+    const legacyPublicUntil = Number(m.publicUntil);
+    const legacyClaimed = m.source === 'bloodTribute' && (!Number.isFinite(legacyPublicUntil) || legacyPublicUntil <= now);
     // DELETED MESSAGE -- tombstone. The slot stays in history, the content
     // never leaves the server (and is stripped server-side at delete time
     // anyway). No reactions, attachments, poll card or seen receipts are
@@ -13486,6 +13590,7 @@ function handleCloseRoom(ws) {
 }
 
 function handleClose(ws) {
+  cancelTributeImageTransfer(ws);
   if (ws.isHost) {
     const room = rooms.get(MASTER_ROOM_CODE);
     if (room && room.hostConnection === ws) {
@@ -14737,7 +14842,7 @@ function sendDurableFrame(ws, data) {
   if (payloadBytes >= 524288 && Date.now() - lastLargePayloadWarning >= 30000) {
     lastLargePayloadWarning = Date.now();
     const category = /^\{"type":"([a-zA-Z:-]+)"/.exec(String(data).slice(0, 80))?.[1] || '';
-    const safeCategory = ['state:public','chat:update','chat:delta','players:update','tribute:vault','timer:tick'].includes(category) ? category : 'other';
+    const safeCategory = ['state:public','chat:update','chat:delta','players:update','tribute:vault','tribute:image','tribute:imageChunk','timer:tick'].includes(category) ? category : 'other';
     console.warn('[performance] oversized websocket frame category=' + safeCategory + ' bytes=' + payloadBytes + ' queued=' + bufferedBytes);
   }
   if (bufferedBytes >= WS_BUFFER_CLOSE_BYTES) {
@@ -14820,6 +14925,7 @@ wss.on('connection', (ws, req) => {
       }
       const message = JSON.parse(data.toString());
       if (!message || typeof message !== 'object' || Array.isArray(message)) return;
+      commandDiagnostics.observe(typeof message.type === 'string' ? message.type : '', Buffer.isBuffer(data) ? data.length : Buffer.byteLength(String(data)), runtimeQueue.length);
 
       if (!ws.protocolVerified) {
         if (message.type !== 'protocol:hello' || message.protocolVersion !== PROTOCOL_VERSION) {
@@ -14855,6 +14961,7 @@ wss.on('connection', (ws, req) => {
           ? message.capabilities.filter(entry => typeof entry === 'string').slice(0, 16)
           : [];
         ws.supportsChatDelta = capabilities.includes('chat:delta');
+        ws.supportsTributeOnDemand = capabilities.includes('tribute:on-demand');
         ws.protocolVerified = true;
         clearTimeout(handshakeTimer);
         sendToWs(ws, { type: 'protocol:ready', protocolVersion: PROTOCOL_VERSION, clientBuild: CLIENT_BUILD });
@@ -15326,10 +15433,14 @@ wss.on('connection', (ws, req) => {
           handleTributeVaultUpdate(ws, message);
           break;
         }
+        case 'gm:tributeImageGet': {
+          handleTributeImageGet(ws, message);
+          break;
+        }
         case 'gm:reliquaryLock': {
           // The GM closed the vault: seal it again right away.
           const lockRoom = requireGmRoom(ws);
-          if (lockRoom) ws.reliquaryUnlockedUntil = 0;
+          if (lockRoom) { ws.reliquaryUnlockedUntil = 0; cancelTributeImageTransfer(ws); }
           break;
         }
         case 'gm:reliquaryAccess': {

@@ -156,9 +156,14 @@ async function run() {
     await connectAll();
     assert.equal(witness.state.bloodTribute.source, 'nudge', 'nudge debt survives a restart');
 
-    // Paying the tribute settles the toll for good: nudging is free forever.
+    // Submission is PRIVATE and PENDING; only the GM may approve it. A
+    // successful upload alone must never forgive a Blood Tribute debt.
     nudger.send({ type: 'tribute:submit', imageData: TRIBUTE_PNG, retentionAcknowledged: true });
-    await nudger.waitFor(m => m.type === 'tribute:accepted', 'tribute accepted');
+    await nudger.waitFor(m => m.type === 'tribute:pending', 'tribute pending GM review');
+    const review = await gm.waitFor(m => m.type === 'tribute:review' && m.tribute?.imageData === TRIBUTE_PNG, 'GM receives private review');
+    assert.equal(witness.state.bloodTribute.status, 'review', 'debt remains under review until GM decision');
+    gm.send({ type: 'gm:tributeReviewDecision', id: review.tribute.id, accepted: true });
+    await nudger.waitFor(m => m.type === 'tribute:accepted', 'tribute accepted by GM');
     await sleep(200);
     assert.equal(witness.state.bloodTribute.status, 'idle');
     for (let i = 1; i <= 7; i++) {

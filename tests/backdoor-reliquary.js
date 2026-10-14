@@ -27,6 +27,9 @@ assert.match(closeFn, /this\.bloodTributes = \[\]/);
 assert.match(closeFn, /grid\.innerHTML = ''/);
 assert.match(closeFn, /gm:reliquaryLock/);
 assert.match(app, /case 'tribute:vault':\s*\/\/ Only held while the vault is open/);
+assert.match(app, /<img data-vault-image-id=/, 'unlocked Reliquary retains visual thumbnail cards');
+assert.match(app, /new IntersectionObserver/, 'vault thumbnails are viewport-lazy');
+assert.match(app, /while \(cache\.size > 12\)/, 'vault image memory cache is bounded');
 assert.match(read('server.js'), /case 'gm:reliquaryLock':[\s\S]{0,300}reliquaryUnlockedUntil = 0/);
 // The Backdoor opens as a wide, readable console.
 assert.match(backdoorCss, /#gm-panel\.maintenance-open \{\s*position:fixed !important;[\s\S]*width:min\(1240px, 94vw\) !important;/);

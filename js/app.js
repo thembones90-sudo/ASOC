@@ -2756,7 +2756,7 @@ const App = {
           clientBuild: window.StaleGuard?.pageBuild('gm') || 'unknown',
           // Opt into incremental chat. Without this the server keeps sending
           // the full chat snapshot on every event.
-          capabilities: ['chat:delta']
+          capabilities: ['chat:delta', 'tribute:on-demand']
         });
         break;
 
@@ -3158,17 +3158,50 @@ const App = {
         // Only held while the vault is open (opened by /reliquary).
         if (document.getElementById('blood-tribute-vault-modal')?.hidden !== false && !this._vaultOpening) break;
         this.bloodTributes = Array.isArray(message.tributes) ? message.tributes : [];
+        if (this._tributeImagePending && !this.bloodTributes.some(item => item.id === this._tributeImagePending.id)) {
+          clearTimeout(this._tributeImagePending.timer); this._tributeImagePending = null; this._tributeImageTransfer = null;
+        }
         this.renderBloodTributeVault();
+        this.pumpTributeImageQueue();
         break;
+
+      case 'tribute:image': { // GM-only, requested one at a time after Reliquary unlock
+        if (!this.acceptTributeImageResponse(message.id, message.requestId)) break;
+        this.finishTributeImageRequest(message.id, message.requestId, message.unavailable ? null : message.imageData);
+        break;
+      }
+
+      case 'tribute:imageBegin': {
+        if (!this.acceptTributeImageResponse(message.id, message.requestId)) break;
+        const chunks = Number(message.chunks), chars = Number(message.chars);
+        if (!Number.isInteger(chunks) || chunks < 1 || chunks > 128 || !Number.isInteger(chars) || chars < 1 || chars > 30 * 1024 * 1024) {
+          this.finishTributeImageRequest(message.id, message.requestId, null); break;
+        }
+        this._tributeImageTransfer = { id: message.id, requestId: message.requestId, chunks: new Array(chunks), chars };
+        break;
+      }
+      case 'tribute:imageChunk':
+        if (this._tributeImageTransfer?.id === message.id && this._tributeImageTransfer?.requestId === message.requestId && Number.isInteger(message.index) && message.index >= 0 && message.index < this._tributeImageTransfer.chunks.length && typeof message.data === 'string' && message.data.length <= 256 * 1024) this._tributeImageTransfer.chunks[message.index] = message.data;
+        break;
+      case 'tribute:imageEnd': {
+        const transfer = this._tributeImageTransfer;
+        this._tributeImageTransfer = null;
+        if (!transfer || transfer.id !== message.id || transfer.requestId !== message.requestId || !this.acceptTributeImageResponse(message.id, message.requestId) || transfer.chunks.some(part => typeof part !== 'string')) break;
+        const imageData = transfer.chunks.join('');
+        this.finishTributeImageRequest(message.id, message.requestId, imageData.length === transfer.chars ? imageData : null);
+        break;
+      }
 
       case 'tribute:vaultAccess':
         if (message.granted) {
+          this._reliquaryUnlocked = true;
           this._vaultView = 'reliquary';
           this._vaultOpening = true;
           setTimeout(() => { this._vaultOpening = false; }, 3000);
           this.openBloodTributeVault();
         } else {
-          this.signalReliquaryAccessDenied(message.locked === true);
+          this._reliquaryUnlocked = false;
+          this.signalReliquaryAccessDenied(message.upgradeRequired ? 'upgrade' : message.locked === true);
         }
         break;
 
@@ -4276,7 +4309,94 @@ const App = {
     const view = this._vaultView || 'recent';
     document.querySelectorAll('[data-vault-view]').forEach(button => button.classList.toggle('active', button.dataset.vaultView === view));
     const filtered = tributes.filter(t => (view !== 'reliquary' || t.reliquary) && (!selectedPlayer || t.playerName === selectedPlayer) && (!selectedSession || (t.sessionId || 'CASUAL') === selectedSession) && (!dateFilter || new Date(t.originalMessageTimestamp || t.submittedAt).toISOString().slice(0, 10) === dateFilter));
-    grid.innerHTML = filtered.length ? filtered.map(t => `<article class="blood-vault-card${t.viewedByGM ? '' : ' unread'}" data-vault-id="${this.escapeHtml(t.id)}"><button type="button" class="blood-vault-image"><img src="${t.imageData}" alt="Archived Blood Tribute"></button><div><strong>${this.escapeHtml(t.playerName || 'LITTLE HERO')}</strong><span>${new Date(t.originalMessageTimestamp || t.submittedAt).toLocaleString()} // ${this.escapeHtml(t.sessionId || 'CASUAL')}</span><button type="button" class="blood-vault-reliquary">${t.reliquary ? 'REMOVE FROM RELIQUARY' : 'MOVE TO RELIQUARY'}</button></div></article>`).join('') : '<p class="blood-vault-empty">NO TRIBUTES IN THIS ARCHIVE</p>';
+    grid.innerHTML = filtered.length ? filtered.map(t => `<article class="blood-vault-card${t.viewedByGM ? '' : ' unread'}" data-vault-id="${this.escapeHtml(t.id)}"><button type="button" class="blood-vault-image" aria-label="Open archived Blood Tribute"><img data-vault-image-id="${this.escapeHtml(t.id)}" alt="Archived Blood Tribute from ${this.escapeHtml(t.playerName || 'Little Hero')}"></button><div><strong>${this.escapeHtml(t.playerName || 'LITTLE HERO')}</strong><span>${new Date(t.originalMessageTimestamp || t.submittedAt).toLocaleString()} // ${this.escapeHtml(t.sessionId || 'CASUAL')}</span><button type="button" class="blood-vault-reliquary">${t.reliquary ? 'REMOVE FROM RELIQUARY' : 'MOVE TO RELIQUARY'}</button></div></article>`).join('') : '<p class="blood-vault-empty">NO TRIBUTES IN THIS ARCHIVE</p>';
+    this.bindVisibleTributeThumbnails(grid);
+  },
+
+  tributeImageCache() {
+    return this._tributeImageCache || (this._tributeImageCache = new Map());
+  },
+
+  bindVisibleTributeThumbnails(grid) {
+    this._tributeThumbnailObserver?.disconnect?.();
+    this._tributeThumbnailObserver = null;
+    if (!this._reliquaryUnlocked || document.getElementById('blood-tribute-vault-modal')?.hidden !== false) return;
+    const images = [...grid.querySelectorAll('img[data-vault-image-id]')];
+    for (const image of images) {
+      const cached = this.tributeImageCache().get(image.dataset.vaultImageId);
+      if (cached) image.src = cached;
+    }
+    const pending = images.filter(image => !image.getAttribute('src'));
+    if (typeof IntersectionObserver !== 'function') {
+      pending.slice(0, 4).forEach(image => this.queueTributeImage(image.dataset.vaultImageId, 'thumbnail'));
+      return;
+    }
+    this._tributeThumbnailObserver = new IntersectionObserver(entries => {
+      for (const entry of entries) if (entry.isIntersecting) {
+        this._tributeThumbnailObserver?.unobserve(entry.target);
+        this.queueTributeImage(entry.target.dataset.vaultImageId, 'thumbnail');
+      }
+    }, { root: grid, rootMargin: '160px' });
+    pending.forEach(image => this._tributeThumbnailObserver.observe(image));
+  },
+
+  queueTributeImage(id, purpose = 'thumbnail') {
+    if (!this._reliquaryUnlocked || document.getElementById('blood-tribute-vault-modal')?.hidden !== false || !this.bloodTributes.some(item => item.id === id)) return;
+    const cached = this.tributeImageCache().get(id);
+    if (cached) return this.applyTributeImage(id, cached, purpose);
+    this._tributeImageQueue ||= [];
+    const existing = this._tributeImageQueue.find(item => item.id === id);
+    if (existing) { if (purpose === 'viewer') existing.purpose = 'viewer'; return; }
+    if (this._tributeImagePending?.id === id) { if (purpose === 'viewer') this._tributeImagePending.purpose = 'viewer'; return; }
+    const item = { id, purpose };
+    if (purpose === 'viewer') this._tributeImageQueue.unshift(item); else this._tributeImageQueue.push(item);
+    this.pumpTributeImageQueue();
+  },
+
+  pumpTributeImageQueue() {
+    if (this._tributeImagePending || !this._reliquaryUnlocked || document.getElementById('blood-tribute-vault-modal')?.hidden !== false) return;
+    const next = this._tributeImageQueue?.shift();
+    if (!next) return;
+    const requestId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    this._tributeImagePending = { ...next, requestId };
+    this._tributeImagePending.timer = setTimeout(() => {
+      if (this._tributeImagePending?.requestId === requestId) { this._tributeImagePending = null; this._tributeImageTransfer = null; this.pumpTributeImageQueue(); }
+    }, 15000);
+    this.send({ type: 'gm:tributeImageGet', id: next.id, requestId });
+  },
+
+  acceptTributeImageResponse(id, requestId) {
+    return this._reliquaryUnlocked === true && document.getElementById('blood-tribute-vault-modal')?.hidden === false && this._tributeImagePending?.id === id && this._tributeImagePending?.requestId === requestId;
+  },
+
+  finishTributeImageRequest(id, requestId, imageData) {
+    if (!this.acceptTributeImageResponse(id, requestId)) return;
+    const purpose = this._tributeImagePending.purpose;
+    clearTimeout(this._tributeImagePending?.timer);
+    this._tributeImagePending = null;
+    this._tributeImageTransfer = null;
+    if (typeof imageData === 'string' && /^data:image\/(?:png|jpeg|webp|gif);base64,/.test(imageData)) {
+      this.cacheTributeImage(id, imageData);
+      this.applyTributeImage(id, imageData, purpose);
+    }
+    this.pumpTributeImageQueue();
+  },
+
+  cacheTributeImage(id, imageData) {
+    const cache = this.tributeImageCache();
+    cache.delete(id); if (imageData.length <= 8 * 1024 * 1024) cache.set(id, imageData);
+    while (cache.size > 4 || [...cache.values()].reduce((n, data) => n + data.length, 0) > 8 * 1024 * 1024) {
+      const evictedId = cache.keys().next().value;
+      cache.delete(evictedId);
+      document.querySelectorAll('img[data-vault-image-id]').forEach(image => {
+        if (image.dataset.vaultImageId === evictedId) { image.removeAttribute('src'); this._tributeThumbnailObserver?.observe?.(image); }
+      });
+    }
+  },
+
+  applyTributeImage(id, imageData, purpose) {
+    document.querySelectorAll('img[data-vault-image-id]').forEach(image => { if (image.dataset.vaultImageId === id) image.src = imageData; });
+    if (purpose === 'viewer') this.showBloodTributeImage(this.bloodTributes.find(item => item.id === id), imageData);
   },
 
   openBloodTributeConfirmation(messageId) {
@@ -4288,8 +4408,8 @@ const App = {
 
   openBloodTributeVault() {
     this._vaultView = this._vaultView || 'recent';
-    this.renderBloodTributeVault();
     document.getElementById('blood-tribute-vault-modal').hidden = false;
+    this.renderBloodTributeVault();
   },
 
   // Closing re-seals everything: the images leave the page and memory, and
@@ -4305,6 +4425,14 @@ const App = {
     const grid = document.getElementById('blood-vault-grid');
     if (grid) grid.innerHTML = '';
     this.bloodTributes = [];
+    this._reliquaryUnlocked = false;
+    this._tributeThumbnailObserver?.disconnect?.();
+    this._tributeThumbnailObserver = null;
+    this._tributeImageCache?.clear?.();
+    this._tributeImageCache = null;
+    this._tributeImageQueue = [];
+    this._tributeImagePending = null;
+    this._tributeImageTransfer = null;
     this._vaultView = 'recent';
     this.renderBloodTributeVault();
     if (this.mode === 'multiplayer' && this.roomCode) this.send({ type: 'gm:reliquaryLock' });
@@ -4364,11 +4492,17 @@ const App = {
   },
 
   openBloodTributeImage(tribute) {
-    if (!tribute?.imageData) return;
+    if (!tribute?.id || tribute.imageAvailable === false) return;
+    const cached = this.tributeImageCache().get(tribute.id);
+    if (!cached) return this.queueTributeImage(tribute.id, 'viewer');
+    this.showBloodTributeImage(tribute, cached);
+  },
+
+  showBloodTributeImage(tribute, imageData) {
     const viewer = document.getElementById('blood-vault-viewer');
     const image = viewer?.querySelector('img');
     if (!viewer || !image) return;
-    image.src = tribute.imageData;
+    image.src = imageData;
     image.alt = `Blood Tribute from ${tribute.playerName || 'Little Hero'}`;
     this.bindVaultViewerZoom(viewer, image);
     this._vaultZoom = { scale: 1, x: 0, y: 0 };
@@ -6872,7 +7006,7 @@ const App = {
     const composer = this.getGMComposerElement();
     if (!composer) return;
     const original = composer.dataset.placeholder || 'Transmit to players...';
-    composer.dataset.placeholder = locked ? 'RELIQUARY LOCKED // WAIT 60 SECONDS' : 'ACCESS DENIED';
+    composer.dataset.placeholder = locked === 'upgrade' ? 'RELIQUARY REQUIRES REFRESH' : locked ? 'RELIQUARY LOCKED // WAIT 60 SECONDS' : 'ACCESS DENIED';
     document.getElementById('shadow-broker-form')?.classList.add('shadow-broker-no-room');
     clearTimeout(this._reliquaryDeniedTimer);
     this._reliquaryDeniedTimer = setTimeout(() => {

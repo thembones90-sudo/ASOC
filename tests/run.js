@@ -84,7 +84,7 @@ function waitForMessage(ws, predicate, label, timeout = 5000) {
   });
 }
 
-function openWs() {
+function openWs(capabilities = []) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
     ws.once('error', reject);
@@ -92,7 +92,7 @@ function openWs() {
       let message;
       try { message = JSON.parse(data.toString()); } catch { return; }
       if (message.type === 'protocol:hello') {
-        ws.send(JSON.stringify({ type: 'protocol:hello', protocolVersion: 1 }));
+        ws.send(JSON.stringify({ type: 'protocol:hello', protocolVersion: 1, capabilities }));
         return;
       }
       if (message.type === 'protocol:ready') {
@@ -438,7 +438,14 @@ async function testReconnectIdentity() {
 
 async function testChatTransportHygiene() {
   const host = await openWs();
-  const room = await createRoom(host);
+  // Player slash commands (including /roll) belong to AMUSEMENT PARK.
+  // Battle Mode deliberately rejects them before command dispatch.
+  const room = await createRoom(host, { startBattle: false });
+  // Loading a board enters BATTLE_ARMED, which intentionally blocks player
+  // slash commands even before the timer begins. Disarm back to CASUAL.
+  const casualReady = waitForMessage(host, m => m.type === 'room:casual', 'Amusement Park mode');
+  host.send(JSON.stringify({ type: 'room:close' }));
+  await casualReady;
 
   const player = await openWs();
   const joined = waitForMessage(player, m => m.type === 'join:success', 'chat hygiene player join');
@@ -1284,7 +1291,7 @@ async function testCrashInjectionPersistence(server) {
 }
 
 async function testBloodTributeLifecycle() {
-  const host = await openWs();
+  const host = await openWs(['tribute:on-demand']);
   const room = await createRoom(host);
   // WOMF is intentionally global Master Room state, so this test establishes
   // its own baseline instead of assuming previous scenarios left it at zero.
@@ -1340,14 +1347,14 @@ async function testBloodTributeLifecycle() {
 
   const resultPromise = waitForMessage(
     host,
-    m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'idle',
-    'tribute wheel result before dismissal',
+    m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
+    'tribute debt commits as wheel settles',
     7000
   );
   host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
   const visibleResult = await resultPromise;
   assert.equal(visibleResult.womf.charge, 10);
-  assert.equal(visibleResult.bloodTribute.status, 'idle');
+  assert.equal(visibleResult.bloodTribute.status, 'required', 'Blood Tribute is committed at wheel settlement, not delayed until dismissal');
 
   const tributePromise = waitForMessage(
     host,
@@ -1387,22 +1394,25 @@ async function testBloodTributeLifecycle() {
   const vaultAccess = waitForMessage(host, m => m.type === 'tribute:vaultAccess' && m.granted === true, 'private Reliquary access');
   host.send(JSON.stringify({ type: 'gm:reliquaryAccess', code: '112018' }));
   await vaultAccess;
-  const acceptedPromise = waitForMessage(selected, m => m.type === 'tribute:accepted', 'tribute accepted');
-  const resetPromise = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 0 && m.wheel?.open === false, 'WOMF reset after tribute');
-  const vaultPromise = waitForMessage(host, m => m.type === 'tribute:vault' && m.tributes?.length === 1, 'private tribute vault');
-  const publicChatPromise = waitForMessage(selected, m => m.type === 'chat:update' && m.messages?.some(x => x.source === 'bloodTribute'), 'public tribute chat');
-
+  // Submission is PRIVATE until the GM reviews it and explicitly accepts.
+  const pendingPromise = waitForMessage(selected, m => m.type === 'tribute:pending', 'private tribute pending review');
+  const reviewPromise = waitForMessage(host, m => m.type === 'tribute:review' && m.tribute?.imageData === imageData, 'GM private tribute review');
   selected.send(JSON.stringify({ type: 'tribute:submit', imageData, retentionAcknowledged: true }));
-  const [accepted, resetState, vault, publicChat] = await Promise.all([acceptedPromise, resetPromise, vaultPromise, publicChatPromise]);
-
-  assert.ok(Number(accepted.publicUntil) > Date.now());
+  const [pending, review] = await Promise.all([pendingPromise, reviewPromise]);
+  assert.equal(pending.private, true);
+  const acceptedPromise = waitForMessage(selected, m => m.type === 'tribute:accepted', 'tribute accepted by GM');
+  const resetPromise = waitForMessage(host, m => m.type === 'state:public' && m.womf?.charge === 0 && m.wheel?.open === false, 'WOMF reset after GM approval');
+  const vaultPromise = waitForMessage(host, m => m.type === 'tribute:vault' && m.tributes?.length === 1, 'GM-only tribute vault');
+  host.send(JSON.stringify({ type: 'gm:tributeReviewDecision', id: review.tribute.id, accepted: true }));
+  const [accepted, resetState, vault] = await Promise.all([acceptedPromise, resetPromise, vaultPromise]);
+  assert.equal(accepted.private, true);
   assert.equal(resetState.bloodTribute.status, 'idle');
   assert.equal(Object.prototype.hasOwnProperty.call(resetState, 'bloodTributes'), false);
-  assert.equal(vault.tributes[0].imageData, imageData);
-  assert.equal(vault.tributes[0].publicUntil - vault.tributes[0].submittedAt, 120000);
-  const publicTribute = publicChat.messages.find(x => x.source === 'bloodTribute');
-  assert.equal(publicTribute.imageData, imageData);
-  assert.equal(publicTribute.publicUntil, vault.tributes[0].publicUntil);
+  assert.equal(vault.tributes[0].imageData, undefined);
+  const requestId = 'run-private-reliquary';
+  const vaultImagePromise = waitForMessage(host, m => m.type === 'tribute:image' && m.id === vault.tributes[0].id && m.requestId === requestId, 'authorized GM private tribute image');
+  host.send(JSON.stringify({ type: 'gm:tributeImageGet', id: vault.tributes[0].id, requestId }));
+  assert.equal((await vaultImagePromise).imageData, imageData);
 
   console.log('PASS Blood Tribute lifecycle');
   closeWs(p1);
@@ -1415,7 +1425,7 @@ async function testTributeForgive(server) {
   let restarted = null;
   let ok = false;
   try {
-    const host = await openWs();
+    const host = await openWs(['tribute:on-demand']);
     opened.push(host);
     const room = await createRoom(host);
 
@@ -1487,14 +1497,14 @@ async function testTributeForgive(server) {
 
     const visibleResultPromise = waitForMessage(
       host,
-      m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'idle',
-      'forgive visible wheel result',
+      m => m.type === 'state:public' && m.wheel?.phase === 'result' && m.bloodTribute?.status === 'required',
+      'forgive wheel result commits tribute debt',
       7000
     );
     host.send(JSON.stringify({ type: 'gm:wheelRoll' }));
     const visibleResult = await visibleResultPromise;
     assert.equal(visibleResult.womf.charge, 10);
-    assert.equal(visibleResult.bloodTribute.status, 'idle', 'tribute stays hidden until GM dismisses the result');
+    assert.equal(visibleResult.bloodTribute.status, 'required', 'debt is durable once the scope lands, even before dismissal');
 
     const demandPromise = waitForMessage(
       host,
@@ -1930,6 +1940,9 @@ async function testRecountShowFlow() {
     label === 'host' ? host : label === 'p1' ? p1 : p2, m => m.type === 'match:aftermath' && m.result, `${label} aftermath`));
   host.send(JSON.stringify({ type: 'gm:finishGame' }));
   await Promise.all(aftermath);
+  const ratingOpened = waitForMessage(host, m => m.type === 'match:rating', 'rating phase before recount');
+  host.send(JSON.stringify({ type: 'gm:openRating' }));
+  await ratingOpened;
 
   const shown = ['host', 'p1', 'p2'].map(label => waitForMessage(
     label === 'host' ? host : label === 'p1' ? p1 : p2, m => m.type === 'recount:update' && m.recount, `${label} recount`));
@@ -1992,6 +2005,9 @@ async function testRecountShowFlow() {
   const secondAftermath = waitForMessage(p2, m => m.type === 'match:aftermath' && m.result, 'second aftermath');
   host.send(JSON.stringify({ type: 'gm:finishGame' }));
   await secondAftermath;
+  const secondRating = waitForMessage(host, m => m.type === 'match:rating', 'second match rating');
+  host.send(JSON.stringify({ type: 'gm:openRating' }));
+  await secondRating;
   const shownAgain = waitForMessage(p2, m => m.type === 'recount:update' && m.recount && m.live === true, 'second recount');
   host.send(JSON.stringify({ type: 'gm:showRecount' }));
   await shownAgain;
@@ -2058,7 +2074,18 @@ async function testFinishGameAftermathLifecycle() {
   assert.ok(hydratedState.aftermathResult, 'the persisted narrative is available for the recovery overlay');
   assert.equal(hydratedState.aftermathResult.story, hostAftermath.result.story, 'the recovery narrative is the same payload, never regenerated');
 
-  // 4. The reconnected host can still advance into RECOUNT exactly once.
+  // 4. RECOUNT is gated by the newer MATCH RATING phase, even after a GM
+  // reconnect. Verify the refusal, open the rating, then advance exactly once.
+  const ratingRequired = waitForMessage(host2, m => m.type === 'error' && /MATCH RATING/i.test(m.message || ''), 'recount requires rating phase');
+  host2.send(JSON.stringify({ type: 'gm:showRecount' }));
+  await ratingRequired;
+  const ratingOpened = waitForMessage(host2, m => m.type === 'match:rating', 'host can open match rating after reconnect');
+  host2.send(JSON.stringify({ type: 'gm:openRating' }));
+  await ratingOpened;
+  host2.on('message', raw => {
+    const observed = JSON.parse(raw.toString());
+    if (observed.type === 'error' || observed.type === 'recount:update') console.log('RECOUNT_DIAGNOSTIC', observed.type, observed.message || '', Boolean(observed.recount));
+  });
   const shownHost = waitForMessage(host2, m => m.type === 'recount:update' && m.recount, 'reconnected host recount');
   const shownPlayer = waitForMessage(p1, m => m.type === 'recount:update' && m.recount, 'reconnected player recount');
   host2.send(JSON.stringify({ type: 'gm:showRecount' }));
@@ -2264,6 +2291,11 @@ async function testChatDeleteAndSeen() {
 async function testChatSlashCommands() {
   const host = await openWs();
   const room = await createRoom(host, { startBattle: false });
+  // A loaded board remains battle-armed even without starting its timer.
+  // Player slash commands are allowed only after the host disarms it.
+  const casualReady = waitForMessage(host, m => m.type === 'room:casual', 'slash command casual phase');
+  host.send(JSON.stringify({ type: 'room:close' }));
+  await casualReady;
 
   const secondCredentials = {
     email: `slash-target-${process.pid}@asoc.test`,
@@ -2357,11 +2389,10 @@ async function testChatSlashCommands() {
   assert.ok(Number.isInteger(stats.stats.points));
 
   await delay(450);
-  update = nextUpdate(m => m.messageType === 'commands');
+  const playerCommands = waitForMessage(p1, m => m.type === 'commands:private', 'private player command directory');
   sendGuess('/commands');
-  state = await update;
-  const commands = findIn(state, m => m.messageType === 'commands');
-  const names = commands.commands.commands.map(c => c.name);
+  const commands = await playerCommands;
+  const names = commands.commands.map(c => c.name);
   assert.ok(names.includes('/dice') && names.includes('/spit') && names.includes('/order'));
 
   // /spit contract: bare verb errors with the player-list prompt; by-name
@@ -2422,11 +2453,10 @@ async function testChatSlashCommands() {
   host.send(JSON.stringify({ type: 'gm:broadcast', text: '/recount' }));
   await recountError;
 
-  const recountState = nextUpdate(m => m.messageType === 'commands' && m.playerId == null);
+  const recountState = waitForMessage(host, m => m.type === 'commands:private', 'private GM command directory');
   host.send(JSON.stringify({ type: 'gm:broadcast', text: '/commands' }));
-  state = await recountState;
-  const gmCommands = findIn(state, m => m.messageType === 'commands' && m.playerId == null);
-  const gmNames = gmCommands.commands.commands.map(c => c.name);
+  const gmCommands = await recountState;
+  const gmNames = gmCommands.commands.map(c => c.name);
   assert.ok(gmNames.includes('/recount') && gmNames.includes('/womf'));
   // The /recount attempt above must never have leaked into chat.
   assert.ok(!state.messages.some(m => /^\/recount/.test(m.text || '')), '/recount gate leaves no chat message');

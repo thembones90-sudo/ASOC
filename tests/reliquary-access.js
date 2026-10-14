@@ -26,7 +26,7 @@ for(const invalid of [undefined,NaN,0,Date.now()-1]){
  sendVault({hostConnection:{reliquaryUnlockedUntil:invalid}});
 }
 assert.equal(sent.length,0,'reconnecting locked GM must never receive image vault');
-sendVault({hostConnection:{gmAuthenticated:true,reliquaryUnlockedUntil:Date.now()+600000}});
+sendVault({hostConnection:{gmAuthenticated:true,supportsTributeOnDemand:true,reliquaryUnlockedUntil:Date.now()+600000}});
 assert.equal(sent.length,1);
 assert.equal(sent[0].type,'tribute:vault');
 console.log('PASS Reliquary: missing/expired access denies reads/updates/purge; unlocked GM receives vault');
