@@ -5,10 +5,13 @@ const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const WebSocket = require('ws');
 const path = require('node:path');
+const fs = require('node:fs');
+const os = require('node:os');
+const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mudpits-integration-'));
 
 const port = 18970 + Math.floor(Math.random() * 100);
 const runTag = Date.now();
-const env = { ...process.env, PORT: String(port), ASOC_GM_PASSWORD:'mudpits-qa-gm', ASOC_EMAIL_VERIFICATION:'0', ASOC_MUD_PITS_WRITE_MS:'90', ASOC_MUD_PITS_READ_MS:'50', ASOC_MUD_PITS_VOTE_MS:'120', NODE_ENV:'test' };
+const env = { ...process.env, ASOC_DATA_DIR: dataRoot, PORT: String(port), ASOC_GM_PASSWORD:'mudpits-qa-gm', ASOC_EMAIL_VERIFICATION:'0', ASOC_MUD_PITS_WRITE_MS:'90', ASOC_MUD_PITS_READ_MS:'50', ASOC_MUD_PITS_VOTE_MS:'120', NODE_ENV:'test' };
 const server = spawn(process.execPath, ['server.js'], { cwd: path.resolve(__dirname, '..'), env, stdio:['ignore','pipe','pipe'] });
 let logs = ''; server.stdout.on('data', b => logs += b); server.stderr.on('data', b => logs += b);
 const sockets = [];

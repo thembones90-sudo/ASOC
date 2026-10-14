@@ -7,8 +7,10 @@ const ROOT=path.join(__dirname,'..');
 const DATA=fs.mkdtempSync(path.join(os.tmpdir(),'asoc-mudpits-live-'));
 const PORT=19171;
 const delay=n=>new Promise(r=>setTimeout(r,n));
-const server=spawn(process.execPath,['server.js'],{cwd:ROOT,env:{...process.env,PORT:String(PORT),ASOC_DATA_DIR:DATA,ASOC_GM_PASSWORD:'mudpits-pass',ASOC_EMAIL_VERIFICATION:'0',ASOC_MUD_PITS_WRITE_MS:'1200',ASOC_MUD_PITS_READ_MS:'200',ASOC_MUD_PITS_VOTE_MS:'700',NODE_ENV:'test'},stdio:['ignore','pipe','pipe']});
-let logs='';server.stdout.on('data',b=>logs+=b);server.stderr.on('data',b=>logs+=b);
+let logs='';
+function boot(){ const child=spawn(process.execPath,['server.js'],{cwd:ROOT,env:{...process.env,PORT:String(PORT),ASOC_DATA_DIR:DATA,ASOC_GM_PASSWORD:'mudpits-pass',ASOC_EMAIL_VERIFICATION:'0',ASOC_MUD_PITS_WRITE_MS:'5000',ASOC_MUD_PITS_READ_MS:'200',ASOC_MUD_PITS_VOTE_MS:'700',NODE_ENV:'test'},stdio:['ignore','pipe','pipe']}); child.stdout.on('data',b=>logs+=b);child.stderr.on('data',b=>logs+=b);return child; }
+let server=boot();
+async function restart(){await new Promise(resolve=>{server.once('exit',resolve);server.kill();});server=boot();for(let i=0;i<60;i++){try{if((await api('/health')).status===200)return;}catch{}await delay(100);}throw Error('restart failed');}
 function api(url,body){return new Promise((ok,no)=>{const req=http.request({host:'127.0.0.1',port:PORT,path:url,method:body?'POST':'GET',headers:{'content-type':'application/json'}},res=>{let txt='';res.on('data',c=>txt+=c);res.on('end',()=>{try{ok({status:res.statusCode,data:JSON.parse(txt)})}catch{ok({status:res.statusCode,data:txt})}})});req.on('error',no);if(body)req.write(JSON.stringify(body));req.end()})}
 class Client{
   constructor(name){this.name=name;this.msgs=[]}
@@ -57,12 +59,41 @@ class Client{
   const invalidMark=a.mark();a.send({type:'mudpits:vote',contestantId:a.id});await a.wait('mudpits:error',invalidMark);
   const result=(await gm.wait(m=>m.type==='mudpits:state'&&m.state?.phase==='RESULT',startMark)).state;
   assert.equal(result.winnerId,a.id);assert.equal(result.awarded,true);
+  const profiles=()=>JSON.parse(fs.readFileSync(path.join(DATA,'players.json'),'utf8'));
+  assert.equal(profiles()[a.id].shadowCoins,1,'winner gets exactly one persisted coin');
+  gm.send({type:'mudpits:sync'});await delay(50);
+  assert.equal(profiles()[a.id].shadowCoins,1,'sync cannot duplicate payout');
   const gmMark=gm.mark();gm.send({type:'mudpits:start',contestantIds:['__GM__',b.id]});
   const gmRound=(await gm.wait(m=>m.type==='mudpits:state'&&m.state?.phase==='WRITING',gmMark)).state;
   assert.ok(gmRound.viewer.canSubmit,'GM can be fighter');
-  gm.send({type:'mudpits:cancel'});
-  await gm.wait(m=>m.type==='mudpits:state'&&m.state?.phase==='CANCELLED',gmMark);
-  console.log('PASS real sockets, auth, 4 players, privacy, reveal, voting, duplicate, result, reward and GM entry');
+  gm.send({type:'mudpits:submit',text:'The house strikes first'});b.send({type:'mudpits:submit',text:'The challenger stands tall'});
+  await v.wait(m=>m.type==='mudpits:state'&&m.state?.phase==='VOTING'&&m.state?.id===gmRound.id);
+  v.send({type:'mudpits:vote',contestantId:'__GM__'});
+  await gm.wait(m=>m.type==='mudpits:state'&&m.state?.phase==='RESULT'&&m.state?.id===gmRound.id);
+  assert.equal(profiles().__GM__.shadowCoins,1,'GM duel victory also pays exactly one coin');
+  // Simulate a restart between durable payout and saved awarded flag.
+  for(const c of clients)c.close();
+  await new Promise(resolve=>{server.once('exit',resolve);server.kill();});
+  const snapshotFile=path.join(DATA,'active-rooms.json');const snapshot=JSON.parse(fs.readFileSync(snapshotFile,'utf8'));
+  snapshot.rooms[0].mudpits.awarded=false;snapshot.rooms[0].mudpits.awardedTo=null;
+  fs.writeFileSync(snapshotFile,JSON.stringify(snapshot));server=boot();
+  for(let i=0;i<60;i++){try{if((await api('/health')).status===200)break;}catch{}await delay(100);}
+  const login2=await api('/api/auth/gm/login',{password:'mudpits-pass'});
+  const gm2=await new Client('gm-restart').open();clients.push(gm2);gm2.send({type:'host:recover',gmToken:login2.data.token});await gm2.wait('host:recovered');
+  gm2.send({type:'mudpits:sync'});await gm2.wait(m=>m.type==='mudpits:state'&&m.state?.awarded);
+  assert.equal(profiles().__GM__.shadowCoins,1,'restart retry cannot duplicate reward receipt');
+  const bLogin=await api('/api/auth/player/login',{email:'beta@mudpits.test',password:'strong-test-password'});
+  const b2=await new Client('beta-restart').open();clients.push(b2);b2.send({type:'room:join',authToken:bLogin.data.token,roomCode:'MASTER',name:'Beta'});await b2.wait('join:success');
+  gm2.send({type:'mudpits:start',contestantIds:['__GM__',b2.id]});
+  const active=(await gm2.wait(m=>m.type==='mudpits:state'&&m.state?.phase==='WRITING')).state;
+  b2.send({type:'mudpits:draft',duelId:active.id,text:'A recoverable private draft'});await delay(100);
+  gm2.close();b2.close();await restart();
+  const b3=await new Client('beta-active-restart').open();clients.push(b3);b3.send({type:'room:join',authToken:bLogin.data.token,roomCode:'MASTER',name:'Beta'});await b3.wait('join:success');
+  const recovered=(await b3.wait(m=>m.type==='mudpits:state'&&m.state?.id===active.id)).state;
+  assert.equal(recovered.viewer.myDraft,'A recoverable private draft');assert.equal(recovered.entries,null);
+  const login3=await api('/api/auth/gm/login',{password:'mudpits-pass'});const gm3=await new Client('gm-active-restart').open();clients.push(gm3);gm3.send({type:'host:recover',gmToken:login3.data.token});await gm3.wait('host:recovered');
+  gm3.send({type:'mudpits:cancel',duelId:active.id});await gm3.wait(m=>m.type==='mudpits:state'&&m.state?.phase==='CANCELLED');
+  console.log('PASS real sockets: privacy, voting, exact payout, GM duel, reconnect, draft recovery, restart-safe duplicate award, cancel');
  } catch(err){console.error('FAIL MUD PITS INTEGRATION',err.stack);console.error(logs.slice(-1200));process.exitCode=1}
  finally {for(const c of clients)c.close();server.kill();setTimeout(()=>{try{server.kill('SIGKILL')}catch{}},1500).unref();try{fs.rmSync(DATA,{recursive:true,force:true,maxRetries:5,retryDelay:100})}catch{}}
 })();

@@ -326,15 +326,16 @@ const rooms = new Map();
 function mudpitsRoom(ws) { return rooms.get(String(ws?.roomCode || '').toUpperCase()); }
 function mudpitsIdentity(ws) {
   const room = mudpitsRoom(ws);
-  if (room && ws === room.hostConnection) return { id: '__GM__', name: 'SHADOW BROKER' };
+  if (room && ws === room.hostConnection && ws.gmAuthenticated === true) return { id: '__GM__', name: 'SHADOW BROKER' };
   if (!ws?.playerId) return null;
-  const roster = room?.players ? Array.from(room.players.values()).find(p => String(p?.id || '') === String(ws.playerId)) : null;
+  const roster = room?.players?.get(ws);
+  if (!roster || roster.connected === false || roster.isBot || roster.isSynthetic) return null;
   return { id: String(ws.playerId), name: String(roster?.name || ws.playerName || 'LITTLE HERO').slice(0, 40) };
 }
 function mudpitsView(room, ws) {
   const identity = mudpitsIdentity(ws);
   return mudpits.view(room?.mudpits || null, identity?.id || '__GM__', {
-    isGm: !!room && ws === room.hostConnection,
+    isGm: !!room && ws === room.hostConnection && ws.gmAuthenticated === true,
     eligibleVoter: !!identity,
     now: Date.now()
   });
@@ -357,14 +358,15 @@ function settleMudpitsAward(room) {
   else duel.awarded = false;
 }
 function scheduleMudpits(room) {
-  if (!room?.mudpits || room.mudpits.settled) return;
+  if (!room?.mudpits) return;
   clearTimeout(room.mudpitsTimer);
   const duel = room.mudpits;
+  if (duel.settled && (!duel.winnerId || duel.awarded)) return;
   const deadline = duel.phase === mudpits.PHASES.WRITING ? duel.writeDeadline
-    : duel.phase === mudpits.PHASES.REVEAL ? duel.readDeadline : duel.voteDeadline;
+    : duel.phase === mudpits.PHASES.REVEAL ? duel.readDeadline : duel.settled ? Date.now() + 1000 : duel.voteDeadline;
   room.mudpitsTimer = setTimeout(() => runtimeAction(() => {
     const result = mudpits.tick(duel, Date.now());
-    if (result.changed) { settleMudpitsAward(room); persistActiveRooms(); broadcastMudpits(room); }
+    if (result.changed || (duel.winnerId && !duel.awarded)) { settleMudpitsAward(room); persistActiveRooms(); broadcastMudpits(room); }
     scheduleMudpits(room);
   }), Math.max(1, Number(deadline || Date.now()) - Date.now() + 5));
   room.mudpitsTimer.unref?.();
@@ -372,13 +374,13 @@ function scheduleMudpits(room) {
 function handleMudpits(ws, message) {
   const room = mudpitsRoom(ws);
   if (!room) return sendToWs(ws, { type: 'error', message: 'Join a room before entering THE MUD PITS' });
-  const isGm = ws === room.hostConnection;
+  const isGm = ws === room.hostConnection && ws.gmAuthenticated === true;
   const now = Date.now();
   if (message.type === 'mudpits:start') {
     if (!isGm) return sendToWs(ws, { type: 'error', message: 'GM authentication required' });
     if (room.mudpits && !room.mudpits.settled) return sendToWs(ws, { type: 'error', message: 'A MUD PITS duel is already running' });
     const requested = Array.isArray(message.contestantIds) ? message.contestantIds.map(String) : [];
-    const roster = Array.from(room.players?.values?.() || []).filter(p => p?.id && !p.isBot);
+    const roster = Array.from(room.players?.entries?.() || []).filter(([socket, p]) => socket.readyState === 1 && p?.id && p.connected !== false && !p.isBot && !p.isSynthetic).map(([, p]) => p);
     const candidates = [{ id: '__GM__', name: 'SHADOW BROKER' }, ...roster];
     const chosen = requested.map(id => candidates.find(p => String(p.id) === id)).filter(Boolean);
     const distinct = []; for (const p of chosen) if (!distinct.some(x => String(x.id) === String(p.id))) distinct.push(p);
@@ -389,11 +391,20 @@ function handleMudpits(ws, message) {
   if (!room.mudpits) return sendMudpitsState(room, ws);
   const duel = room.mudpits;
   const identity = mudpitsIdentity(ws);
+  if (!identity) return sendToWs(ws, { type: 'mudpits:error', error: 'Authenticated active player required' });
+  if (message.duelId && message.duelId !== duel.id) return sendToWs(ws, { type: 'mudpits:error', error: 'THIS DUEL HAS ENDED' });
+  const advanced = mudpits.tick(duel, now);
+  if (advanced.changed) { settleMudpitsAward(room); persistActiveRooms(); broadcastMudpits(room); scheduleMudpits(room); }
   let result;
   if (message.type === 'mudpits:submit') result = identity && mudpits.submit(duel, identity.id, message.text, now);
+  else if (message.type === 'mudpits:draft') {
+    result = mudpits.saveDraft(duel, identity.id, message.text, now);
+    if (!result.ok) return sendToWs(ws, { type: 'mudpits:error', error: result.error });
+    persistActiveRooms(); return;
+  }
   else if (message.type === 'mudpits:vote') result = identity && mudpits.castVote(duel, identity.id, message.contestantId, now);
   else if (message.type === 'mudpits:cancel') result = isGm && mudpits.cancel(duel, message.reason, now);
-  else if (message.type === 'mudpits:sync') { mudpits.tick(duel, now); settleMudpitsAward(room); return sendMudpitsState(room, ws); }
+  else if (message.type === 'mudpits:sync') { settleMudpitsAward(room); persistActiveRooms(); scheduleMudpits(room); return sendMudpitsState(room, ws); }
   if (!result || result.ok !== true) return sendToWs(ws, { type: 'mudpits:error', error: result?.error || 'MUD PITS action denied' });
   mudpits.tick(duel, now); settleMudpitsAward(room); persistActiveRooms(); broadcastMudpits(room); scheduleMudpits(room);
 }
@@ -661,6 +672,7 @@ function serializeRoomForRecovery(room) {
     quests: questEngine.normalizeState(room.quests),
     dennisAI: dennisAI.normalizeState(room.dennisAI),
     spectralAdjudicator: spectralAdjudicator.normalizeState(room.spectralAdjudicator),
+    mudpits: mudpits.normalizeState(room.mudpits),
     lockdown: room.lockdown === true,
     // RPS OLYMPICS is isolated from board/session state. Private selections
     // are persisted here but are projected through olympics.view() only.
@@ -813,6 +825,7 @@ function restoreActiveRooms() {
         rage: rage.resumeAfterRestart(rage.normalizeState(saved.rage), Date.now()),
         rouletteCarnage: rouletteCarnage.normalizeState(saved.rouletteCarnage),
         spectralAdjudicator: spectralAdjudicator.normalizeState(saved.spectralAdjudicator),
+        mudpits: mudpits.normalizeState(saved.mudpits),
         lockdown: saved.lockdown === true,
         shadowRealm: saved.shadowRealm && typeof saved.shadowRealm === 'object' ? saved.shadowRealm : {},
         shadowRealmHistory: Array.isArray(saved.shadowRealmHistory) ? saved.shadowRealmHistory.slice(-100) : [],
@@ -848,6 +861,7 @@ function restoreActiveRooms() {
       }
       scheduleUnstableConcoctionResolution(room);
       scheduleRouletteCarnage(room);
+      if (room.mudpits) scheduleMudpits(room);
       // Every restored player comes back offline, so any presence interval
       // that was open at the moment of the crash ends now.
       matchLedger.closeAllPresence(room.match, Date.now());
@@ -14993,6 +15007,7 @@ wss.on('connection', (ws, req) => {
       switch (message.type) {
         case 'mudpits:start':
         case 'mudpits:submit':
+        case 'mudpits:draft':
         case 'mudpits:vote':
         case 'mudpits:cancel':
         case 'mudpits:sync': {

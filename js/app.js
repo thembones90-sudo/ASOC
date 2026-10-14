@@ -2942,6 +2942,7 @@ const App = {
         break;
 
       case 'host:reconnected':
+        this.send({ type: 'mudpits:sync' });
         this._reconnectPending = false;
         this.roomCode = message.roomCode;
         this.mode = 'multiplayer';
@@ -2952,6 +2953,7 @@ const App = {
         break;
 
       case 'host:recovered':
+        this.send({ type: 'mudpits:sync' });
         this._recoverPending = false;
         this.roomCode = message.roomCode;
         this.hostToken = message.hostToken;

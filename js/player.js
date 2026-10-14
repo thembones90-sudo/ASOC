@@ -1348,6 +1348,7 @@ const PlayerApp = {
 
   handleMessage(message) {
     if (String(message?.type || '').startsWith('mudpits:')) {
+      window.MudPitsUI?.onMessage?.(message);
       if (message.type === 'mudpits:state') {
         let root=document.getElementById('player-mudpits-root');
         if (!root) { root=document.createElement('div'); root.id='player-mudpits-root'; document.body.append(root); }

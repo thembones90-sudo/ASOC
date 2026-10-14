@@ -157,8 +157,8 @@ function normalizeState(raw) {
   const entries = {};
   const submitted = {};
   for (const cid of contestantIds) {
-    entries[cid] = cleanText(rawEntries[cid]) || null;
-    submitted[cid] = rawSubmitted[cid] === true || !!entries[cid];
+    entries[cid] = validateEntry(rawEntries[cid]).ok ? cleanText(rawEntries[cid]) : null;
+    submitted[cid] = rawSubmitted[cid] === true;
   }
 
   const rawVotes = raw.votes && typeof raw.votes === 'object' ? raw.votes : {};
@@ -166,7 +166,7 @@ function normalizeState(raw) {
   for (const [voter, pick] of Object.entries(rawVotes)) {
     const voterId = String(voter || '');
     const pickId = String(pick || '');
-    if (voterId && contestantIds.includes(pickId)) votes[voterId] = pickId;
+    if (voterId && !contestantIds.includes(voterId) && contestantIds.includes(pickId)) votes[voterId] = pickId;
   }
 
   const revealedAt = asDeadline(raw.revealedAt);
@@ -204,6 +204,7 @@ function normalizeState(raw) {
 
   if (state.phase === PHASES.REVEAL && !state.readDeadline) state.readDeadline = Date.now();
   if (state.phase === PHASES.VOTING && !state.voteDeadline) state.voteDeadline = Date.now();
+  if (state.phase === PHASES.RESULT) state.counts = tally(state);
   return state;
 }
 
@@ -213,7 +214,7 @@ function reveal(state, at) {
   state.revealedAt = at;
   state.readDeadline = at + READ_MS;
   for (const cid of state.contestantIds) {
-    if (state.entries[cid]) {
+    if (validateEntry(state.entries[cid]).ok) {
       state.submitted[cid] = true;
     } else {
       state.entries[cid] = null;
@@ -296,10 +297,12 @@ function saveDraft(state, contestantId, text, now = Date.now()) {
   const cid = String(contestantId || '');
   if (!state) return { ok: false, error: 'NO DUEL IS RUNNING' };
   if (state.phase !== PHASES.WRITING) return { ok: false, error: 'THE WRITING WINDOW HAS CLOSED' };
+  if (now >= state.writeDeadline) return { ok: false, error: 'THE WRITING WINDOW HAS CLOSED' };
   if (!isContestant(state, cid)) return { ok: false, error: 'YOU ARE NOT IN THIS DUEL' };
   if (state.submitted[cid]) return { ok: false, error: 'YOUR ENTRY IS LOCKED' };
 
   const cleaned = cleanText(text);
+  if (cleaned.length > MAX_TEXT) return { ok: false, error: 'YOUR SENTENCE MUST BE 250 CHARACTERS OR LESS' };
   state.entries[cid] = cleaned || null;
   state.submittedAt[cid] = now;
   return { ok: true, entry: cleaned };
@@ -311,6 +314,7 @@ function submit(state, contestantId, text, now = Date.now()) {
   const cid = String(contestantId || '');
   if (!state) return { ok: false, error: 'NO DUEL IS RUNNING' };
   if (state.phase !== PHASES.WRITING) return { ok: false, error: 'THE WRITING WINDOW HAS CLOSED' };
+  if (now >= state.writeDeadline) return { ok: false, error: 'THE WRITING WINDOW HAS CLOSED' };
   if (!isContestant(state, cid)) return { ok: false, error: 'YOU ARE NOT IN THIS DUEL' };
   if (state.submitted[cid]) return { ok: false, error: 'YOUR ENTRY IS ALREADY LOCKED' };
 
@@ -336,6 +340,7 @@ function castVote(state, voterId, contestantId, now = Date.now()) {
   const pick = String(contestantId || '');
   if (!state) return { ok: false, error: 'NO DUEL IS RUNNING' };
   if (state.phase !== PHASES.VOTING) return { ok: false, error: 'VOTING IS NOT OPEN' };
+  if (now >= state.voteDeadline) return { ok: false, error: 'VOTING HAS CLOSED' };
   if (!vid) return { ok: false, error: 'YOU CANNOT VOTE' };
   if (isContestant(state, vid)) return { ok: false, error: 'CONTESTANTS CANNOT VOTE' };
   if (state.votes[vid]) return { ok: false, error: 'YOU ALREADY VOTED' };

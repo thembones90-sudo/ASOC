@@ -1,5 +1,40 @@
 # MUD PITS QA Report
 
+## Production candidate verification — 2026-10-14
+
+The earlier development report below is superseded by the integrated release
+candidate at `C:\Users\user\Documents\Codex\mudpits-production-20261014`.
+The reviewed feature commit was cherry-picked onto current production main
+`f89ef0d`, with targeted HTML conflict resolution retaining the current chat,
+lockdown, poison and cache versions. Both original dirty checkouts were preserved.
+
+Release blockers fixed: authenticated active identity checks; deadline enforcement
+before actions; persistent duel state and private drafts; recovery scheduling;
+restart-safe reward retries using the existing receipt; restored result tallies;
+live countdown; cancellation and dismiss controls; draft/focus preservation;
+visible VS, vote totals and verdict; scrollable desktop/mobile panels above the
+public message composer; filtering offline and synthetic contestants.
+
+Verified suites: mudpits, mudpits-live, mudpits-integration, mudpits-browser,
+gm-minigames, production-readiness, lockdown, player-lockdown, poison-cure,
+poison-picker-cure, and poison-privacy. All eleven passed on the integrated
+candidate. The live suite now asserts actual persisted +1 SC, GM-vs-player
+gameplay, a duplicate-award crash/restart retry, and private draft recovery.
+The unit suite asserts the production 90s/5s/60s constants, ties, incomplete
+duels, and deadline rejection. Browser QA ran at 1440x1000 and 390x844;
+screenshots were inspected, no sideways overflow or composer obstruction was
+present, and typing, selection, submission, cancellation and dismissal worked.
+
+Existing `mobile-shell.js` fails its MOBILE VERSION offer assertion on both
+unchanged production main and the release candidate. This is a baseline failure;
+the feature's own desktop/mobile browser verification passes.
+
+Production workflow: GitHub main auto-deploys to Railway `asoc-live` in
+Europe, with the existing `/data` volume. No environment variables, volume
+mounts, database migrations or staged infrastructure changes are required.
+Production smoke must inspect health/build, asset responses and GM selector
+without summoning a duel or altering player balances.
+
 Date: 2026-10-14  
 Checkout tested: `A:\ASOC-MUDPITS-PICKLE`  
 Main checkout `A:\ASOC ENGINE`: not opened, modified, merged, or deployed.
