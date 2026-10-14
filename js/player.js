@@ -1399,6 +1399,7 @@ const PlayerApp = {
 
       case 'state:public': {
         if (!window.AsocRuntime?.acceptRevision?.('player-public', message.revision) && window.AsocRuntime) break;
+        window.PlayerLockdown?.update?.(message.lockdown === true);
         window.BrokerTransmog?.setProfile?.(message.brokerProfile, message);
         window.HeroRoles?.onState?.(message);
         window.DragonRaid?.onState?.(message.dragonRaid, message.serverNow);

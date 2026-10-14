@@ -2385,6 +2385,10 @@ const App = {
   },
 
   send(message) {
+    if (message.type === 'gm:broadcast' && /^\/lockdown(?:\s+on)?\s*$/i.test(String(message.text || '').trim())) {
+      if (!window.confirm('ACTIVATE LOCKDOWN?\n\nSeal player mini games and functions. Plain public chat and debt payment remain available. GM access is unrestricted.\n\nUse /lockdown off to release the locks.')) return;
+      message = { ...message, lockdownConfirmed: true };
+    }
     if (this.ws && this.ws.readyState === 1) {
       this.ws.send(JSON.stringify(message));
     }

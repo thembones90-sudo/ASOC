@@ -33,6 +33,7 @@ const rouletteCarnage = require('./roulette-carnage');
 const sibicar = require('./sibicar');
 const dennisAI = require('./dennis-ai');
 const { poisonView } = require('./poison-privacy');
+const { blocksPlayerAction } = require('./lockdown');
 const spectralAdjudicator = require('./automation/spectral-adjudicator');
 const olympics = require('./olympics');
 const { createChatUploadGuard } = require('./chat-upload-guard');
@@ -581,6 +582,7 @@ function serializeRoomForRecovery(room) {
     quests: questEngine.normalizeState(room.quests),
     dennisAI: dennisAI.normalizeState(room.dennisAI),
     spectralAdjudicator: spectralAdjudicator.normalizeState(room.spectralAdjudicator),
+    lockdown: room.lockdown === true,
     // RPS OLYMPICS is isolated from board/session state. Private selections
     // are persisted here but are projected through olympics.view() only.
     olympics: olympics.normalizeState(room.olympics),
@@ -732,6 +734,7 @@ function restoreActiveRooms() {
         rage: rage.resumeAfterRestart(rage.normalizeState(saved.rage), Date.now()),
         rouletteCarnage: rouletteCarnage.normalizeState(saved.rouletteCarnage),
         spectralAdjudicator: spectralAdjudicator.normalizeState(saved.spectralAdjudicator),
+        lockdown: saved.lockdown === true,
         shadowRealm: saved.shadowRealm && typeof saved.shadowRealm === 'object' ? saved.shadowRealm : {},
         shadowRealmHistory: Array.isArray(saved.shadowRealmHistory) ? saved.shadowRealmHistory.slice(-100) : [],
         shadowRealmRecentLines: Array.isArray(saved.shadowRealmRecentLines) ? saved.shadowRealmRecentLines.slice(-5) : [],
@@ -1519,6 +1522,7 @@ function getPublicState(room) {
   return {
     roomCode: room.code,
     avada: avadaPublic(room),
+    lockdown: room.lockdown === true,
     roomMode: normalizeRoomMode(room.roomMode, room.armed === true),
     battleAnimationId: room.battleAnimationId === 'glitch-world' ? 'glitch-world' : 'default',
     armed: room.armed === true,
@@ -4867,6 +4871,7 @@ function resolveGifRequestActor(req, room) {
   const playerToken = String(req.headers['x-player-token'] || '');
   const auth = getPlayerAuth(playerToken);
   if (!auth?.playerId) return null;
+  if (room.lockdown && !/^\/api\/(?:poison\/tribute-image|black-market\/tribute-image)(?:\?|$)/.test(String(req.url || ''))) return null;
   const live = Array.from(room.players.values()).find(player => String(player.id) === String(auth.playerId));
   if (!live) return null;
   return { role: 'player', id: String(live.id), name: live.name || 'LITTLE HERO' };
@@ -12131,9 +12136,9 @@ function handleChatGuess(ws, message) {
     if (result.private) return; // no persistence, chat:update or spectator event
     cooldown.chatAt = now;
     const spectralChange = dispatch === null ? processSpectralAdjudication(room, result.message) : false;
-    if (dispatch === null) room.dennisAI = dennisAI.observe(room.dennisAI, result.message.text, now);
-    const dennisGroundSpit = dispatch === null ? maybeDennisGroundSpit(room, result.message.text) : null;
-    const nudge = dispatch === null && containsAllMention(result.message.text)
+    if (dispatch === null && !room.lockdown) room.dennisAI = dennisAI.observe(room.dennisAI, result.message.text, now);
+    const dennisGroundSpit = dispatch === null && !room.lockdown ? maybeDennisGroundSpit(room, result.message.text) : null;
+    const nudge = dispatch === null && !room.lockdown && containsAllMention(result.message.text)
       ? applyPlayerNudge(room, ws, result.message)
       : null;
     // Permanent channel contract: if clients can see a transmission, it has
@@ -12150,8 +12155,8 @@ function handleChatGuess(ws, message) {
       && !spectralChange
       && result.message?.id;
     broadcastChatUpdate(room, singleMessageOnly ? [result.message.id] : null);
-    if (dispatch === null) triggerC4Alert(room, result.message?.text, result.message?.id);
-    if (dispatch === null) triggerB3Alert(room, result.message?.text, result.message?.id);
+    if (dispatch === null && !room.lockdown) triggerC4Alert(room, result.message?.text, result.message?.id);
+    if (dispatch === null && !room.lockdown) triggerB3Alert(room, result.message?.text, result.message?.id);
     if (result.tributeTriggered || result.poisonStateChanged || nudge === 'tribute') broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
     if (nudge === 'nudge') {
       broadcastToRoom(room, {
@@ -12206,6 +12211,7 @@ function broadcastAutomatedVerdict(room, result, messageId, target) {
 }
 
 function processSpectralAdjudication(room, chatMessage) {
+  if (room.lockdown === true) return false;
   room.spectralAdjudicator = spectralAdjudicator.normalizeState(room.spectralAdjudicator);
   const state = room.spectralAdjudicator;
   if (state.mode === 'MANUAL' || state.paused || room.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) return false;
@@ -12508,6 +12514,16 @@ function handleGmBroadcast(ws, message) {
     return;
   }
 
+  const lockdown = text.trim().match(/^\/lockdown(?:\s+(on|off))?\s*$/i);
+  if (lockdown) {
+    if (lockdown[1] !== 'off' && message.lockdownConfirmed !== true) return sendToWs(ws, { type: 'error', message: 'CONFIRM LOCKDOWN IN THE GM CONSOLE' });
+    room.lockdown = lockdown[1] !== 'off';
+    addShadowBrokerMessage(room, room.lockdown ? 'LOCKDOWN // PLAYER FUNCTIONS SEALED. PLAIN CHAT ONLY.' : 'LOCKDOWN LIFTED // PLAYER FUNCTIONS RESTORED.', { editableByHost: false });
+    persistActiveRooms();
+    broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+    broadcastChatUpdate(room);
+    return sendToWs(ws, { type: 'gm:broadcast:ack', command: '/lockdown', timestamp: Date.now() });
+  }
   const requestedRoll = parseRollCommand(text);
   if (requestedRoll) {
     if (requestedRoll.error) {
@@ -14888,6 +14904,12 @@ wss.on('connection', (ws, req) => {
       }
 
       runtimeAction(() => {
+      const lockedRoom = rooms.get(ws.roomCode?.toUpperCase());
+      const isLockdownHost = lockedRoom && ws === lockedRoom.hostConnection && ws.gmAuthenticated === true;
+      if (lockedRoom && blocksPlayerAction(lockedRoom.lockdown, message, isLockdownHost)) {
+        if (message.clientMsgId) sendToWs(ws, { type: 'chat:ack', clientMsgId: message.clientMsgId, refused: true });
+        return sendToWs(ws, { type: 'error', code: 'LOCKDOWN', message: 'LOCKDOWN // PLAYER FUNCTIONS SEALED. PLAIN CHAT ONLY.' });
+      }
       switch (message.type) {
         case 'room:create': {
           if (!isValidGmToken(message.gmToken)) {
