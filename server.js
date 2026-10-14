@@ -6182,9 +6182,32 @@ function rageSettle(room, announce) {
   announce.push(`THY SHALL NOT RAGE // ${winner.name} TAKES THE POT: +${s.pot} SHADOW COIN${s.pot === 1 ? '' : 'S'}.`);
   broadcastPlayersUpdate(room);
 }
+function rageApplyIdlePenalties(room) {
+  const s = room.rage;
+  if (!s?.idlePenalties) return;
+  let updated = false;
+  for (const [id, entry] of Object.entries(s.idlePenalties)) {
+    if (!entry || entry.settled) continue;
+    if (!ragePays(id)) { entry.settled = true; continue; }
+    const p = s.players[id];
+    if (!p) continue;
+    const identity = { id, name: p.baseName || p.name };
+    // An idempotent receipt makes retries and server restarts safe. The store
+    // itself clamps deductions to zero even when the player has fewer than 20.
+    const result = playerStore.deductShadowCoins(identity, rage.IDLE_PENALTY_SC,
+      `rage:${s.id}:idle:${id}`, { reason: 'THY SHALL NOT RAGE: two missed turns' });
+    if (!result.ok) { console.error('[rage] idle penalty failed:', result.error); continue; }
+    entry.settled = true;
+    entry.deducted = result.deducted;
+    entry.balance = result.balance;
+    updated = true;
+  }
+  if (updated) broadcastPlayersUpdate(room);
+}
 function rageCommit(room, announce = []) {
   // The RAGE board/state owns its activity feed. Do not turn every move,
   // capture or payout into a Shadow Broker announcement in Battle Comms.
+  rageApplyIdlePenalties(room);
   rageSettle(room, announce);
   persistActiveRooms();
   broadcastRage(room);
@@ -6257,6 +6280,9 @@ function handleRage(ws, message) {
     case 'rage:move':
       result = rage.move(s, actor.id, message.piece, message.turnSeq, now);
       break;
+    case 'rage:vote-kick':
+      result = rage.voteKick(s, actor.id, message.targetId, now);
+      break;
     default:
       return fail('UNKNOWN ACTION');
   }
@@ -6269,6 +6295,10 @@ function tickRage(room, now = Date.now()) {
   if (!s) return;
   if (room.roomMode !== ROOM_MODES.CASUAL && s.phase !== 'ended') {
     return rageClose(room, 'THY SHALL NOT RAGE // CLOSED FOR BATTLE. STAKES RETURNED.', { refund: true });
+  }
+  if (Object.values(s.idlePenalties || {}).some(entry => entry && !entry.settled) && now >= (s.idlePenaltyRetryAt || 0)) {
+    s.idlePenaltyRetryAt = now + 5000;
+    rageCommit(room, []);
   }
   if (s.phase === 'ended' && s.winnerId && !s.reward) return rageCommit(room, []);
   const out = rage.tick(s, now, kaladontOnlineIds(room));
@@ -15141,6 +15171,7 @@ wss.on('connection', (ws, req) => {
         case 'rage:color':
         case 'rage:roll':
         case 'rage:move':
+        case 'rage:vote-kick':
         case 'rage:sync': {
           handleRage(ws, message);
           break;

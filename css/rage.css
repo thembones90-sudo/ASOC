@@ -380,6 +380,11 @@ button.rage-term:hover { border-color: #ff4a5c; box-shadow: 0 0 24px rgba(255, 4
 .rage-players b { color: #fff; font: 700 13px var(--font-system, system-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rage-players b em { color: #8ff0c2; font: 800 9px var(--font-machine, monospace); font-style: normal; letter-spacing: .16em; }
 .rage-players small { color: #a8939c; font-size: 9.5px; letter-spacing: .14em; }
+.rage-players .rage-vote-kick { grid-column: 2; justify-self: start; margin-top: 5px; padding: 5px 8px; font: 800 10px var(--font-system, system-ui); letter-spacing: .07em; color: #ffadba; border: 1px solid rgba(255,80,110,.48); border-radius: 6px; background: rgba(125,20,40,.22); cursor: pointer; }
+.rage-players .rage-vote-kick:disabled { color: #a8939c; cursor: default; opacity: .75; }
+.rage-vote-status:not([hidden]) { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 9px 11px; border: 1px solid rgba(255,80,110,.4); border-radius: 8px; color: #e9d4db; background: rgba(125,20,40,.15); font: 700 11px var(--font-system,system-ui); }
+.rage-vote-status b { color: #ffadba; }
+.rage-vote-status .rage-clock { margin-left: auto; }
 .rage-pot { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid rgba(255, 190, 70, .35); border-radius: 10px; background: rgba(90, 60, 10, .14); }
 .rage-pot b { color: #ffcf5a; font-size: 11px; letter-spacing: .24em; }
 .rage-pot span { color: #fff; font-size: 18px; font-weight: 900; }

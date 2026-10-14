@@ -209,7 +209,9 @@
               <li><i aria-hidden="true">⚅</i><span>A <em>6</em> leaves the yard. With nothing on the board you get <em>3 tries</em> for it.</span></li>
               <li><i aria-hidden="true">↻</i><span>Every <em>6</em> rolls again.</span></li>
               <li><i aria-hidden="true">☠</i><span>Eating is a <em>must</em>: if you can send someone back, you have to.</span></li>
-              <li><i aria-hidden="true">⌂</i><span>Home squares need an <em>exact roll</em>. Too slow and the House moves for you.</span></li>
+              <li><i aria-hidden="true">⌂</i><span>Home squares need an <em>exact roll</em>. The House plays after your first missed turn.</span></li>
+              <li><i aria-hidden="true">⏳</i><span><em>Two missed turns</em> in one match: automatic expulsion and up to <em>20 SC</em> lost. Your balance never goes below zero.</span></li>
+              <li><i aria-hidden="true">⚖</i><span>With at least <em>3 active players</em>, call a <em>30-second vote to kick</em>. A majority removes the target, but never charges the idle fine.</span></li>
             </ul>
           </div>
           <div class="rage-terms">
@@ -320,6 +322,7 @@
               <div class="rage-roll-box" id="rage-roll-box"></div>
             </div>
             <ol class="rage-players" id="rage-players"></ol>
+            <div class="rage-vote-status" id="rage-vote-status" aria-live="polite"></div>
             <div class="rage-pot" id="rage-pot"></div>
             <div class="rage-log" id="rage-log"></div>
             <div class="rage-actions" id="rage-end-actions"></div>
@@ -357,11 +360,28 @@
       }
       const list = document.getElementById('rage-players');
       if (list) {
+        const active = s.players.filter(p => !p.out);
+        const canVote = live && me && !me.out && active.length >= (s.voteMinPlayers || 3);
         list.innerHTML = s.players.map(p => {
           const home = p.pieces.filter(x => x >= HOME_FIRST).length;
           const yard = p.pieces.filter(x => x < 0).length;
-          return `<li class="${p.id === s.turnId ? 'is-turn' : ''}${p.out ? ' is-out' : ''}" style="--seat:${hexOf(p.color)}"><span class="rage-face">${this.face(p.id, p.name)}</span><b>${esc(p.name)}${p.id === viewerId() ? ' <em>YOU</em>' : ''}</b><small>${p.out ? 'FORFEITED' : `${home}/4 HOME · ${yard} IN YARD`}${p.online ? '' : ' · OFFLINE'}</small></li>`;
+          const wasIdleKicked = p.out && (p.outReason === 'idle' || s.events.some(e => e.kind === 'idleKick' && e.by === p.id));
+          const wasVotedOut = p.out && (p.outReason === 'vote' || s.events.some(e => e.kind === 'voteKick' && e.by === p.id));
+          const status = p.out ? (wasIdleKicked ? 'IDLE EXPELLED' : wasVotedOut ? 'VOTED OUT' : 'FORFEITED') : `${home}/4 HOME · ${yard} IN YARD · IDLE ${p.idleMisses || 0}/2`;
+          const eligible = canVote && !p.out && p.id !== viewerId() && p.id !== GM_ID
+            && (s.vote ? s.vote.targetId === p.id : !(s.voteHistory || []).includes(p.id));
+          const voted = !!s.vote?.votes?.includes(viewerId());
+          const button = eligible ? `<button type="button" class="rage-vote-kick" data-rage="vote-kick" data-target="${esc(p.id)}" ${voted ? 'disabled' : ''}>${voted ? 'VOTE CAST' : s.vote ? 'CAST KICK VOTE' : 'VOTE TO KICK'}</button>` : '';
+          return `<li class="${p.id === s.turnId ? 'is-turn' : ''}${p.out ? ' is-out' : ''}" style="--seat:${hexOf(p.color)}"><span class="rage-face">${this.face(p.id, p.name)}</span><b>${esc(p.name)}${p.id === viewerId() ? ' <em>YOU</em>' : ''}</b><small>${status}${p.online ? '' : ' · OFFLINE'}</small>${button}</li>`;
         }).join('');
+      }
+      const voteBox = document.getElementById('rage-vote-status');
+      if (voteBox) {
+        if (live && s.vote) {
+          const target = s.players.find(p => p.id === s.vote.targetId);
+          voteBox.innerHTML = `<b>KICK VOTE: ${esc(target?.name || 'PLAYER')}</b><span>${s.vote.votes.length}/${s.vote.required} VOTES NEEDED</span><span class="rage-clock" data-deadline="${s.vote.deadline}"></span>`;
+        } else voteBox.innerHTML = '';
+        voteBox.hidden = !live || !s.vote;
       }
       const pot = document.getElementById('rage-pot');
       if (pot) pot.innerHTML = s.stake ? `<b>POT</b><span>${s.pot} SC</span><small>${s.stake} A HEAD${s.players.some(p => p.id === GM_ID) ? ' · THE BROKER PLAYS FREE' : ''}</small>` : '<b>FOR FUN</b><small>NO COINS ON THE TABLE</small>';
@@ -385,6 +405,11 @@
         if (e.kind === 'roll') return `<p><i style="background:${c}"></i>${esc(this.nameOf(e.by))} rolled <b>${e.value}</b></p>`;
         if (e.kind === 'capture') return `<p class="is-capture"><i style="background:${c}"></i>${esc(this.nameOf(e.by))} sent <b>${esc(this.nameOf(e.victim))}</b> back</p>`;
         if (e.kind === 'win') return `<p class="is-win"><i style="background:${c}"></i>${esc(this.nameOf(e.by))} brought all four home</p>`;
+        if (e.kind === 'idle') return `<p class="is-capture"><i style="background:${c}"></i>${esc(this.nameOf(e.by))} missed turn ${e.count}/2</p>`;
+        if (e.kind === 'idleKick') return `<p class="is-capture"><i style="background:${c}"></i>${esc(this.nameOf(e.by))} IDLE KICKED · UP TO -20 SC</p>`;
+        if (e.kind === 'vote') return `<p><i style="background:${c}"></i>KICK BALLOT ${e.count}/${e.required}</p>`;
+        if (e.kind === 'voteKick') return `<p class="is-capture"><i style="background:${c}"></i>${esc(this.nameOf(e.by))} WAS VOTED OUT</p>`;
+        if (e.kind === 'voteFailed') return `<p><i style="background:${c}"></i>KICK VOTE EXPIRED</p>`;
         return '';
       }).join('');
       log.innerHTML = lines;
@@ -553,6 +578,14 @@
       if (a === 'cancel') { if (confirm('CANCEL THIS TABLE?')) this.send({ type: 'rage:cancel' }); return; }
       if (a === 'gm-cancel') { if (confirm('OVERTURN THE BOARD FOR EVERYONE?\n\nAny stakes are returned.')) this.send({ type: 'rage:cancel' }); return; }
       if (a === 'forfeit') { if (confirm('FORFEIT? Your stake stays in the pot.')) this.send({ type: 'rage:leave' }); return; }
+      if (a === 'vote-kick') {
+        const targetId = btn.dataset.target;
+        const target = this.state?.players.find(p => p.id === targetId);
+        if (!target) return;
+        if (!this.state.vote && !confirm(`START A 30-SECOND VOTE TO REMOVE ${target.name} FROM THIS TABLE?`)) return;
+        btn.disabled = true;
+        return this.send({ type: 'rage:vote-kick', targetId });
+      }
       if (a === 'new') return this.send({ type: 'rage:create', stake: this.state?.stake || 0 });
       if (a === 'roll') { btn.disabled = true; return this.send({ type: 'rage:roll', turnSeq: Number(btn.dataset.seq) }); }
       if (a === 'move') {

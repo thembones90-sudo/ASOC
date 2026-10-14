@@ -90,6 +90,12 @@ function engine() {
   assert.equal(s.winnerId, 'a');
   assert.match(won.announce.join(' '), /BRINGS? ALL FOUR HOME|BROUGHT ALL FOUR HOME/);
 
+  // Reaching zero is decisive even if the 250ms server tick has not run yet.
+  s = game();
+  assert.equal(R.roll(s, 'a', s.turnSeq, s.deadline, dice(6)).error, 'TURN TIMER EXPIRED');
+  R.roll(s, 'a', s.turnSeq, 0, dice(6));
+  assert.equal(R.move(s, 'a', 0, s.turnSeq, s.deadline).error, 'TURN TIMER EXPIRED');
+
   // The clock plays for a slow player; an offline one after a short grace.
   s = game();
   const t = R.tick(s, R.ROLL_MS + 1, new Set(['a', 'b']));
@@ -97,6 +103,57 @@ function engine() {
   s = game();
   assert.equal(R.tick(s, 1000, new Set(['a', 'b'])).changed, false);
   assert.equal(R.tick(s, 6000, new Set(['b'])).changed, true, 'offline player is rolled for after 5 s');
+
+  // Two DISTINCT missed turns expel a player, while multiple timeouts during
+  // one turn only add one strike. The penalty is queued for the server ledger.
+  s = game(['a', 'b', 'c']);
+  const online = new Set(['a', 'b', 'c']);
+  assert.equal(R.tick(s, R.ROLL_MS + 1, online).changed, true);
+  assert.equal(s.players.a.idleMisses, 1);
+  assert.equal(s.players.a.out, false);
+  s.players.a.pieces[0] = 0;
+  s.phase = 'move';
+  s.roll = 1;
+  s.options = [{ piece: 0, from: 0, to: 1, capture: null }];
+  s.deadline = R.ROLL_MS + 2;
+  R.tick(s, R.ROLL_MS + 3, online);
+  assert.equal(s.players.a.idleMisses, 1, 'roll and move timeouts on one turn count once');
+  s.turnIndex = 0;
+  s.turnNumber += 1;
+  s.phase = 'roll';
+  s.clockAt = R.ROLL_MS + 3;
+  s.deadline = R.ROLL_MS + 4;
+  R.tick(s, R.ROLL_MS + 5, online);
+  assert.equal(s.players.a.idleMisses, 2);
+  assert.equal(s.players.a.out, true);
+  assert.equal(s.idlePenalties.a.settled, false);
+  assert.equal(s.phase, 'roll', 'other players continue after the expulsion');
+  assert.equal(R.view(s, 'b').players.find(p => p.id === 'a').idleMisses, 2);
+
+  // Voting requires a quorum and rejects duplicate votes, self-votes, and
+  // targeting the Shadow Broker. Voted-out players never incur idle fines.
+  s = game(['a', 'b', 'c', 'd']);
+  assert.match(R.voteKick(s, 'a', 'a', 1).error, /YOURSELF/);
+  assert.equal(R.voteKick(s, 'a', 'b', 1).ok, true);
+  assert.equal(s.vote.required, 2, '2 of 3 eligible voters constitute a majority');
+  assert.deepEqual(s.vote.votes, ['a']);
+  assert.equal(R.voteKick(s, 'a', 'b', 2).already, true);
+  assert.match(R.voteKick(s, 'c', 'd', 2).error, /ANOTHER KICK VOTE/);
+  assert.equal(R.voteKick(s, 'c', 'b', 3).ok, true);
+  assert.equal(s.players.b.out, true);
+  assert.equal(s.vote, null);
+  assert.deepEqual(s.idlePenalties, {});
+  assert.equal(s.phase, 'roll');
+  assert.match(R.voteKick(s, 'd', 'b', 4).error, /NOT PLAYING/);
+  s = game(['a', 'b', 'c']);
+  R.voteKick(s, 'a', 'b', 10);
+  assert.equal(R.tick(s, 10 + R.KICK_VOTE_MS + 1, online).changed, true);
+  assert.equal(s.vote, null);
+  assert.match(R.voteKick(s, 'c', 'b', 10 + R.KICK_VOTE_MS + 2).error, /ALREADY FACED/);
+  s = game(['a', 'b', '__GM__']);
+  assert.match(R.voteKick(s, 'a', '__GM__', 1).error, /SHADOW BROKER/);
+  s = game();
+  assert.match(R.voteKick(s, 'a', 'b', 1).error, /THREE ACTIVE PLAYERS/);
 
   // Forfeit leaves the last one standing as winner.
   s = game();
@@ -219,10 +276,10 @@ class Client {
   close() { try { this.ws.close(); } catch {} }
 }
 
-function spawnServer() {
+function spawnServer(fast = false) {
   const server = spawn(process.execPath, ['server.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'rage-pass', ASOC_EMAIL_VERIFICATION: '0' },
+    env: { ...process.env, PORT: String(PORT), ASOC_DATA_DIR: DATA, ASOC_GM_PASSWORD: 'rage-pass', ASOC_EMAIL_VERIFICATION: '0', ...(fast ? { ASOC_RAGE_ROLL_MS: '200', ASOC_RAGE_MOVE_MS: '200' } : {}) },
     stdio: ['ignore', 'ignore', 'pipe']
   });
   server.errors = '';
@@ -324,6 +381,36 @@ async function runServer() {
     assert.equal(await ana.balance(), 10);
     assert.equal(await bo.balance(), 3);
 
+    // Live WebSocket voting: only active players can vote, an actual
+    // majority expels the target, and a vote carries no 20-SC idle fine.
+    await ana.act({ type: 'rage:create', stake: 0 }, 'vote table');
+    await bo.act({ type: 'rage:join' }, 'vote bo');
+    await gm.act({ type: 'rage:join' }, 'vote gm');
+    await ana.act({ type: 'rage:color', color: 'blood' }, 'vote color ana');
+    await bo.act({ type: 'rage:color', color: 'void' }, 'vote color bo');
+    await gm.act({ type: 'rage:color', color: 'rose' }, 'vote color gm');
+    st = await ana.act({ type: 'rage:start' }, 'vote start');
+    assert.equal(st.state.phase, 'roll');
+    err = await bo.act({ type: 'rage:vote-kick', targetId: '__GM__' }, 'gm protected');
+    assert.match(err.message, /SHADOW BROKER/);
+    st = await ana.act({ type: 'rage:vote-kick', targetId: ids.bo }, 'first ballot');
+    assert.equal(st.state.vote.votes.length, 1);
+    assert.equal(st.state.vote.required, 2);
+    st = await gm.act({ type: 'rage:vote-kick', targetId: ids.bo }, 'winning ballot');
+    assert.equal(st.state.players.find(p => p.id === ids.bo).out, true);
+    assert.equal(st.state.vote, null);
+    assert.equal(await bo.balance(), 3, 'a vote is not an idle penalty');
+    await gm.act({ type: 'rage:cancel' }, 'close vote table');
+
+    // Partial balances clamp at zero, with a receipt preventing double fines.
+    const idleActor = { id: 'rage-idle-test', name: 'Idle Test' };
+    const seeded = store.awardShadowCoins(idleActor, 13, 'rage:idle:seed', { reason: 'test' });
+    assert.equal(seeded.ok, true);
+    const fine = store.deductShadowCoins(idleActor, 20, 'rage:idle:test-receipt', { reason: 'test idle expulsion' });
+    assert.equal(fine.deducted, 13);
+    assert.equal(fine.balance, 0);
+    assert.equal(store.deductShadowCoins(idleActor, 20, 'rage:idle:test-receipt').duplicate, true);
+
     // Stake 2: Bo forfeits, Ana takes the 4-coin pot.
     await ana.act({ type: 'rage:create', stake: 2 }, 'create 2');
     await bo.act({ type: 'rage:join' }, 'bo join 2');
@@ -372,6 +459,49 @@ async function runServer() {
     await sleep(300);
     const roster = (await (async () => { const from = ana.mark(); ana.send({ type: 'rage:sync' }); await sleep(300); return ana.msgs.slice(from).concat(ana.msgs).reverse().find(m => m.type === 'players:update'); })())?.players || [];
     roster.forEach(p => assert.doesNotMatch(String(p.name), / the /, `roster name changed: ${p.name}`));
+    assert.equal(server.errors.trim(), '');
+
+    // Second server with accelerated clocks verifies the actual integration:
+    // two idle turns -> kicked + ledger deduction + persisted zero floor.
+    clients.forEach(c => c.close());
+    clients.length = 0;
+    await stop(server);
+    server = spawnServer(true);
+    await healthy();
+    const fastGm = await openGm();
+    fastGm.send({ type: 'rage:cancel' });
+    await sleep(200);
+    fastGm.send({ type: 'gm:setRoomMode', mode: 'CASUAL' });
+    await sleep(300);
+    ana = await connect('Ana');
+    bo = await connect('Bo');
+    assert.equal(await ana.balance(), 12);
+    st = await ana.act({ type: 'rage:create', stake: 0 }, 'idle table');
+    assert.ok(st.state && st.state.phase === 'lobby', 'fast-table create failed: ' + JSON.stringify(st));
+    await bo.act({ type: 'rage:join' }, 'idle join');
+    await ana.act({ type: 'rage:color', color: 'blood' }, 'idle color a');
+    await bo.act({ type: 'rage:color', color: 'void' }, 'idle color b');
+    st = await ana.act({ type: 'rage:start' }, 'idle start');
+    assert.ok(st.state, 'fast-table start failed: ' + JSON.stringify(st));
+    assert.equal(st.state.turnId, ids.ana);
+    let idleDone = false;
+    for (let tries = 0; tries < 110; tries += 1) {
+      const latest = await bo.act({ type: 'rage:sync' }, 'idle status');
+      const state = latest.state;
+      if (state.players.find(p => p.id === ids.ana).out) {
+        assert.equal(state.players.find(p => p.id === ids.ana).idleMisses, 2);
+        assert.equal(state.players.find(p => p.id === ids.ana).outReason, 'idle');
+        idleDone = true;
+        break;
+      }
+      if (state.turnId === ids.bo && state.phase === 'roll') {
+        await bo.act({ type: 'rage:roll', turnSeq: state.turnSeq }, 'bo keeps playing');
+      } else if (state.turnId === ids.bo && state.phase === 'move' && state.options.length) {
+        await bo.act({ type: 'rage:move', turnSeq: state.turnSeq, piece: state.options[0].piece }, 'bo moves');
+      } else await sleep(110);
+    }
+    assert.ok(idleDone, 'idle player should be automatically expelled after two missed turns');
+    assert.equal(await ana.balance(), 0, 'idle fine clamps the 12-SC balance to zero');
     assert.equal(server.errors.trim(), '');
     console.log('PASS rage server');
   } finally {

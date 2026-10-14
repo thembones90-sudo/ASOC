@@ -35,6 +35,9 @@ const TRACK = 40;
 const HOME_FIRST = 40;
 const HOME_LAST = 43;
 const MAX_STAKE = 50;
+const IDLE_KICK_AFTER = 2;
+const IDLE_PENALTY_SC = 20;
+const KICK_VOTE_MS = 30000;
 const SEATS_BY_COUNT = { 2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3] };
 const PHASES = new Set(['lobby', 'roll', 'move', 'ended']);
 // Figurine colours. Each lobby member owns one; no two members share.
@@ -70,6 +73,10 @@ function createLobby(actor, { stake = 0 } = {}, now = Date.now()) {
     order: [],
     turnIndex: 0,
     turnSeq: 0,
+    turnNumber: 0,
+    vote: null,
+    voteHistory: [],
+    idlePenalties: {},
     roll: null,
     tries: 0,
     sixes: 0,
@@ -140,12 +147,16 @@ function start(s, actorId, onlineIds, now = Date.now()) {
   s.players = {};
   const nicknames = drawNicknames(seated.length);
   s.order = seated.map((m, i) => {
-    s.players[m.id] = { id: m.id, name: `${m.name} ${nicknames[i].toLowerCase()}`, baseName: m.name, nickname: nicknames[i], color: COLORS.includes(m.color) ? m.color : COLORS[i], seat: seats[i], pieces: Array(PIECES).fill(-1), out: false, finishedAt: 0 };
+    s.players[m.id] = { id: m.id, name: `${m.name} ${nicknames[i].toLowerCase()}`, baseName: m.name, nickname: nicknames[i], color: COLORS.includes(m.color) ? m.color : COLORS[i], seat: seats[i], pieces: Array(PIECES).fill(-1), out: false, finishedAt: 0, idleMisses: 0, lastMissedTurn: -1 };
     return m.id;
   });
   s.members = seated;
   s.turnIndex = 0;
   s.turnSeq = 0;
+  s.turnNumber = 0;
+  s.vote = null;
+  s.voteHistory = [];
+  s.idlePenalties = {};
   s.pot = 0;
   return { ok: true, seated: s.order.slice() };
 }
@@ -167,6 +178,7 @@ function piecesOnTrack(player) { return player.pieces.some(onTrack); }
 
 // Rolling for the yard: no piece on the track means up to three throws.
 function beginTurn(s, now, index) {
+  s.turnNumber = (s.turnNumber || 0) + 1;
   s.turnIndex = index;
   s.turnSeq += 1;
   s.phase = 'roll';
@@ -227,6 +239,7 @@ function roll(s, actorId, turnSeq, now = Date.now(), die = rollDie) {
   if (s?.phase !== 'roll') return { ok: false, error: 'NOT ROLLING NOW' };
   if (current(s).id !== String(actorId)) return { ok: false, error: 'NOT YOUR TURN' };
   if (turnSeq != null && Number(turnSeq) !== s.turnSeq) return { ok: true, already: true };
+  if (now >= s.deadline) return { ok: false, error: 'TURN TIMER EXPIRED' };
   return doRoll(s, now, die);
 }
 
@@ -261,6 +274,7 @@ function move(s, actorId, piece, turnSeq, now = Date.now()) {
   if (s?.phase !== 'move') return { ok: false, error: 'NOTHING TO MOVE NOW' };
   if (current(s).id !== String(actorId)) return { ok: false, error: 'NOT YOUR TURN' };
   if (turnSeq != null && Number(turnSeq) !== s.turnSeq) return { ok: true, already: true };
+  if (now >= s.deadline) return { ok: false, error: 'TURN TIMER EXPIRED' };
   const chosen = s.options.find(m => m.piece === Number(piece));
   if (!chosen) return { ok: false, error: s.options.some(m => m.capture) ? 'YOU MUST CAPTURE' : 'THAT PIECE CANNOT MOVE' };
   return applyMove(s, chosen, now);
@@ -305,24 +319,64 @@ function autoMove(s, now) {
   return applyMove(s, best, now);
 }
 
-function forfeit(s, id, why) {
+function forfeit(s, id, why, now = Date.now()) {
   const pl = s.players[id];
   if (!pl || pl.out) return { ok: true, already: true };
   const wasTurn = current(s).id === id;
   pl.out = true;
+  pl.outReason = why === 'WAS EXPELLED FOR TWO MISSED TURNS' ? 'idle' : why === 'WAS REMOVED BY PLAYER VOTE' ? 'vote' : 'forfeit';
   pl.pieces = pl.pieces.map(() => -1);
   const announce = [`THY SHALL NOT RAGE // ${pl.name} ${why}.`];
   const left = s.order.filter(pid => !s.players[pid].out);
+  if (s.vote && (s.vote.targetId === id || s.vote.votes.some(voter => !left.includes(voter)) || left.length < 3)) s.vote = null;
   if (left.length === 1) {
     s.phase = 'ended';
     s.winnerId = left[0];
-    s.endedAt = Date.now();
+    s.endedAt = now;
     s.options = [];
     s.deadline = 0;
     pushEvent(s, { kind: 'win', by: left[0] });
     announce.push(`THY SHALL NOT RAGE // ${s.players[left[0]].name} IS THE LAST ONE AT THE TABLE AND WINS.`);
-  } else if (wasTurn) nextTurn(s, Date.now());
+  } else if (wasTurn) nextTurn(s, now);
   return { ok: true, announce };
+}
+
+// Player-initiated, server-authoritative vote. Only seated active players vote;
+// the target and the Broker cannot be voted against. Two-player tables cannot
+// expel an opponent with a unilateral vote. One ballot per target per game.
+function voteKick(s, voterId, targetId, now = Date.now()) {
+  if (!isLive(s)) return { ok: false, error: 'VOTING REQUIRES A LIVE GAME' };
+  voterId = String(voterId);
+  targetId = String(targetId);
+  const voter = s.players[voterId];
+  const target = s.players[targetId];
+  if (!voter || voter.out) return { ok: false, error: 'ONLY ACTIVE SEATED PLAYERS CAN VOTE' };
+  if (!target || target.out) return { ok: false, error: 'TARGET IS NOT PLAYING' };
+  if (targetId === '__GM__') return { ok: false, error: 'THE SHADOW BROKER IS NOT SUBJECT TO PLAYER VOTES' };
+  if (voterId === targetId) return { ok: false, error: 'YOU CANNOT VOTE AGAINST YOURSELF' };
+  const active = s.order.filter(id => !s.players[id].out);
+  if (active.length < 3) return { ok: false, error: 'VOTE TO KICK REQUIRES AT LEAST THREE ACTIVE PLAYERS' };
+  if (s.vote && now >= s.vote.deadline) {
+    pushEvent(s, { kind: 'voteFailed', by: s.vote.targetId });
+    s.vote = null;
+  }
+  if (s.vote && s.vote.targetId !== targetId) return { ok: false, error: 'ANOTHER KICK VOTE IS ALREADY ACTIVE' };
+  s.voteHistory ||= [];
+  if (!s.vote) {
+    if (s.voteHistory.includes(targetId)) return { ok: false, error: 'THIS PLAYER HAS ALREADY FACED A VOTE IN THIS GAME' };
+    s.voteHistory.push(targetId);
+    s.vote = { targetId, votes: [], deadline: now + KICK_VOTE_MS, required: Math.floor((active.length - 1) / 2) + 1 };
+  }
+  if (s.vote.votes.includes(voterId)) return { ok: true, already: true };
+  s.vote.votes.push(voterId);
+  pushEvent(s, { kind: 'vote', by: voterId, targetId, count: s.vote.votes.length, required: s.vote.required });
+  if (s.vote.votes.length >= s.vote.required) {
+    s.vote = null;
+    const outcome = forfeit(s, targetId, 'WAS REMOVED BY PLAYER VOTE', now);
+    pushEvent(s, { kind: 'voteKick', by: targetId });
+    return outcome;
+  }
+  return { ok: true, announce: [] };
 }
 
 // The clock. Offline players are played for after a short grace.
@@ -330,10 +384,29 @@ function tick(s, now = Date.now(), onlineIds = null) {
   if (!s) return { changed: false };
   if (s.phase === 'ended') return { changed: false, expired: now - s.endedAt > ENDED_TTL_MS };
   if (s.phase === 'lobby') return { changed: false, expired: now - s.createdAt > LOBBY_TTL_MS };
+  if (s.vote && now >= s.vote.deadline) {
+    pushEvent(s, { kind: 'voteFailed', by: s.vote.targetId });
+    s.vote = null;
+    return { changed: true };
+  }
   const pl = current(s);
   const offline = onlineIds && !onlineIds.has(pl.id);
   const limit = offline ? Math.min(s.deadline, (s.clockAt || 0) + OFFLINE_MS) : s.deadline;
   if (now < limit) return { changed: false };
+  // A turn can contain several rolls and moves (especially after rolling 6).
+  // Every timed-out action in that SAME turn is only one idle strike.
+  if (pl.lastMissedTurn !== s.turnNumber) {
+    pl.lastMissedTurn = s.turnNumber;
+    pl.idleMisses = (pl.idleMisses || 0) + 1;
+    pushEvent(s, { kind: 'idle', by: pl.id, count: pl.idleMisses });
+    if (pl.idleMisses >= IDLE_KICK_AFTER) {
+      s.idlePenalties ||= {};
+      s.idlePenalties[pl.id] ||= { settled: false };
+      const out = forfeit(s, pl.id, 'WAS EXPELLED FOR TWO MISSED TURNS', now);
+      pushEvent(s, { kind: 'idleKick', by: pl.id });
+      return { changed: true, ...out };
+    }
+  }
   if (s.phase === 'roll') return { changed: true, ...doRoll(s, now) };
   return { changed: true, ...autoMove(s, now) };
 }
@@ -354,11 +427,16 @@ function view(s, viewerId, now = Date.now(), onlineIds = new Set()) {
     members: s.members.map(m => ({ ...m, online: onlineIds.has(m.id) })),
     players: s.order.map(id => {
       const p = s.players[id];
-      return { id, name: p.name, baseName: p.baseName || p.name, nickname: p.nickname || null, color: p.color || COLORS[p.seat], seat: p.seat, pieces: p.pieces.slice(), out: p.out, online: onlineIds.has(id) };
+      return { id, name: p.name, baseName: p.baseName || p.name, nickname: p.nickname || null, color: p.color || COLORS[p.seat], seat: p.seat, pieces: p.pieces.slice(), out: p.out, outReason: p.outReason || null, online: onlineIds.has(id), idleMisses: p.idleMisses || 0 };
     }),
     turnId: turn?.id || null,
     turnName: turn?.name || null,
     turnSeq: s.turnSeq,
+    vote: s.vote ? { targetId: s.vote.targetId, votes: s.vote.votes.slice(), required: s.vote.required, deadline: s.vote.deadline } : null,
+    voteHistory: (s.voteHistory || []).slice(),
+    voteMinPlayers: 3,
+    idleKickAfter: IDLE_KICK_AFTER,
+    idlePenalty: IDLE_PENALTY_SC,
     roll: s.roll,
     tries: s.tries,
     options: yourTurn && s.phase === 'move' ? s.options.map(m => ({ piece: m.piece, to: m.to, capture: !!m.capture })) : [],
@@ -381,6 +459,16 @@ function view(s, viewerId, now = Date.now(), onlineIds = new Set()) {
 
 function normalizeState(raw) {
   if (!raw || typeof raw !== 'object' || !PHASES.has(raw.phase) || typeof raw.id !== 'string') return null;
+  raw.turnNumber = Number.isInteger(raw.turnNumber) && raw.turnNumber > 0 ? raw.turnNumber : 1;
+  raw.voteHistory = Array.isArray(raw.voteHistory) ? raw.voteHistory : [];
+  raw.idlePenalties = raw.idlePenalties && typeof raw.idlePenalties === 'object' ? raw.idlePenalties : {};
+  if (raw.players && typeof raw.players === 'object') {
+    Object.values(raw.players).forEach(p => {
+      p.idleMisses = Number.isInteger(p.idleMisses) && p.idleMisses >= 0 ? p.idleMisses : 0;
+      p.lastMissedTurn = Number.isInteger(p.lastMissedTurn) ? p.lastMissedTurn : -1;
+    });
+  }
+  if (!raw.vote || typeof raw.vote !== 'object' || !raw.players?.[raw.vote.targetId] || raw.players[raw.vote.targetId].out) raw.vote = null;
   return raw;
 }
 
@@ -393,6 +481,6 @@ function resumeAfterRestart(s, now = Date.now()) {
 
 module.exports = {
   ROLL_MS, MOVE_MS, MAX_PLAYERS, MAX_STAKE, TRACK, HOME_FIRST, HOME_LAST,
-  COLORS, NICKNAMES, createLobby, pickColor, isOpenLobby, isLive, join, leave, start, begin, roll, move, forfeit, tick, view,
+  COLORS, NICKNAMES, IDLE_KICK_AFTER, IDLE_PENALTY_SC, KICK_VOTE_MS, createLobby, pickColor, isOpenLobby, isLive, join, leave, start, begin, roll, move, forfeit, voteKick, tick, view,
   legalMoves, absSquare, normalizeState, resumeAfterRestart
 };

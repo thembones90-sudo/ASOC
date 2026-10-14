@@ -21,11 +21,11 @@ assert.deepEqual(messages.map(allowed),[false,false,false,false,true,true,true,f
 assert(/function rageCommit\(room, announce = \[\]\)\s*\{\s*\/\/ The RAGE board\/state owns its activity feed\./.test(source));
 const body=source.slice(source.indexOf('function rageCommit('),source.indexOf('function rageClose(',source.indexOf('function rageCommit(')));
 assert(!body.includes('iksAnnounce'),'RAGE must not create public chat messages');
-let settled=false,persisted=false,broadcast=false;
-const sandbox={rageSettle:(r,arr)=>{settled=true;arr.push('RAGE WIN')},persistActiveRooms:()=>{persisted=true},broadcastRage:()=>{broadcast=true}};
+let settled=false,persisted=false,broadcast=false,penalties=false;
+const sandbox={rageApplyIdlePenalties:()=>{penalties=true},rageSettle:(r,arr)=>{settled=true;arr.push('RAGE WIN')},persistActiveRooms:()=>{persisted=true},broadcastRage:()=>{broadcast=true}};
 vm.runInNewContext(body+'\nthis.rageCommit=rageCommit;',sandbox);
 sandbox.rageCommit({},['THY SHALL NOT RAGE // CAPTURE']);
-assert(settled&&persisted&&broadcast,'state, payout settlement and board updates remain');
+assert(penalties&&settled&&persisted&&broadcast,'idle penalties, state, payout settlement and board updates remain');
 for(const pattern of [
  'messages: room.chat.messages.filter(isVisibleChatMessage).slice(-CHAT_RECOVERY_LIMIT)',
  '(Array.isArray(saved.chat.messages) ? saved.chat.messages : []).filter(isVisibleChatMessage)',
