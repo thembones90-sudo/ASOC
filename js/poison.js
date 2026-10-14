@@ -88,6 +88,20 @@
       .poison-picker-close{border:0;background:transparent;color:#8fa389;font-size:24px;cursor:pointer}
       .poison-picker-search{margin:12px 12px 8px;padding:10px 11px;border:1px solid #315126;background:#050805;color:#eaf8e5;outline:none;font:800 13px/1 Arial}
       .poison-picker-search:focus{border-color:#6dd745;box-shadow:0 0 12px rgba(94,228,56,.12)}
+      #poison-target-picker{border-radius:14px;border-color:#48632b;background:radial-gradient(ellipse at 95% 0,rgba(105,168,35,.16),transparent 50%),linear-gradient(155deg,#12190f,#080d08);box-shadow:0 18px 50px #000b,inset 0 1px #a2d86822;overflow:hidden}
+      #poison-target-picker .poison-picker-head{padding:16px;background:linear-gradient(105deg,#24341699,#10160d);border-bottom-color:#51683266}
+      #poison-target-picker .poison-picker-head b{letter-spacing:.14em;font-size:17px;color:#d2edaa}
+      #poison-target-picker .poison-picker-close{width:30px;height:30px;border:1px solid #647d3c55;border-radius:7px;background:#0a1008;color:#c3de9c;font-size:20px}
+      #poison-target-picker .poison-picker-search{min-height:38px;height:38px;box-sizing:border-box;border-radius:8px;background:#070c07;padding:9px 12px;line-height:20px;letter-spacing:.05em;color:#e0efd0}
+      #poison-target-picker .poison-picker-search::placeholder{color:#8d9c77;font-size:11px;letter-spacing:.07em}
+      #poison-target-picker .poison-target-option{border-radius:9px;border-color:#35472c;background:linear-gradient(105deg,#172012,#0c120c);padding:10px;gap:9px;min-width:0}
+      #poison-target-picker .poison-target-option:hover{border-color:#8aae51;background:#1b2a15}
+      #poison-target-picker .poison-target-option.is-selected{border-color:#b0d971;background:linear-gradient(105deg,#314722,#142110)}
+      #poison-target-picker .poison-target-option b{letter-spacing:.025em;color:#edf2e5}
+      #poison-target-picker .poison-target-option small{line-height:1.4;letter-spacing:.05em;color:#9aa989}
+      #poison-target-picker .poison-picker-tools button,#poison-target-picker .poison-cast-btn{border-radius:7px;letter-spacing:.09em}
+      #poison-target-picker .poison-picker-foot{background:#0b1209;border-top-color:#48632b66}
+      #poison-target-picker .poison-target-list{scrollbar-width:thin;scrollbar-color:#668a38 #0c1209}
       .poison-target-list{overflow:auto;padding:4px 10px 12px;display:grid;gap:7px}
       .poison-target-option{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:10px;width:100%;padding:8px 10px;border:1px solid #253c20;background:#0b100a;color:#e9f8e4;text-align:left;cursor:pointer}
       .poison-target-option:hover{border-color:#5fc83a;background:#10190e}
@@ -528,7 +542,7 @@
         <label class="poison-upload-label">CHOOSE BLOOD TRIBUTE<input data-poison-file type="file" accept="image/png,image/jpeg,image/webp"></label>
         <button type="button" data-poison-submit>OFFER TRIBUTE</button>
       </div>
-      <p class="poison-small" data-poison-file-name>PNG, JPG or WEBP // 2 MB max</p>`}
+      <p class="poison-small" data-poison-file-name>PNG, JPG or WEBP // 20 MB max</p>`}
     `;
     if (!state.pendingTribute) {
       const file = card.querySelector('[data-poison-file]');
@@ -538,27 +552,38 @@
         tributeFile = file.files?.[0] || null;
         tributeFileOwner = me();
         const n = card.querySelector('[data-poison-file-name]');
-        if (n) n.textContent = tributeFile?.name || 'PNG, JPG or WEBP // 2 MB max';
+        if (n) n.textContent = tributeFile?.name || 'PNG, JPG or WEBP // 20 MB max';
       });
       card.querySelector('[data-poison-submit]')?.addEventListener('click', submitTribute);
     }
   }
 
-  function submitTribute() {
+  async function submitTribute() {
     const file = tributeFileOwner === me() ? tributeFile : null;
     const note = document.querySelector('#poison-player-card [data-poison-file-name]');
     if (!file) { if (note) note.textContent = 'NO IMAGE SELECTED'; return; }
     if (!['image/png','image/jpeg','image/webp'].includes(file.type)) { if (note) note.textContent = 'PNG, JPG OR WEBP ONLY'; return; }
-    if (file.size > 2 * 1024 * 1024) { if (note) note.textContent = 'IMAGE TOO LARGE // 2 MB MAX'; return; }
+    if (file.size > 20 * 1024 * 1024) { if (note) note.textContent = 'IMAGE TOO LARGE // 20 MB MAX'; return; }
     if (note) note.textContent = 'TRANSMITTING BLOOD TRIBUTE...';
-    const reader = new FileReader();
-    reader.onload = () => {
-      const imageData = String(reader.result || '');
-      if (!imageData.startsWith('data:image/')) { if (note) note.textContent = 'IMAGE COULD NOT BE READ'; return; }
-      window.PlayerApp?.send?.({ type:'poison:tributeSubmit', imageData, retentionAcknowledged:true });
-    };
-    reader.onerror = () => { if (note) note.textContent = 'IMAGE COULD NOT BE READ'; };
-    reader.readAsDataURL(file);
+    const button = document.querySelector('#poison-player-card [data-poison-submit]');
+    if (button) button.disabled = true;
+    try {
+      const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
+      const response = await fetch('/api/poison/tribute-image', {
+        method: 'POST', headers: { 'Content-Type': file.type, 'x-player-token': token }, body: file
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'TRIBUTE UPLOAD FAILED');
+      const state = states[me()];
+      if (state) state.pendingTribute = true;
+      renderPlayer();
+    } catch (error) {
+      const currentNote = document.querySelector('#poison-player-card [data-poison-file-name]');
+      if (currentNote) currentNote.textContent = String(error.message || 'UPLOAD FAILED. TRY AGAIN.');
+    } finally {
+      const currentButton = document.querySelector('#poison-player-card [data-poison-submit]');
+      if (currentButton) currentButton.disabled = false;
+    }
   }
 
   function ensureGmOffer() {

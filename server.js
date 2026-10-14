@@ -1140,9 +1140,15 @@ function sanitizeThemeId(value) {
     : null;
 }
 
-function sanitizeTributeImageData(value) {
+function sanitizeTributeImageData(value, maxFileBytes = null) {
   if (typeof value !== 'string' || !value) return null;
-  if (value.length > MAX_TRIBUTE_DATA_LENGTH) return null;
+  const maxLength = maxFileBytes ? 4 * Math.ceil(maxFileBytes / 3) + 64 : MAX_TRIBUTE_DATA_LENGTH;
+  if (value.length > maxLength) return null;
+  if (maxFileBytes) {
+    const encoded = value.slice(value.indexOf(',') + 1);
+    const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+    if (Math.floor(encoded.length * 3 / 4) - padding > maxFileBytes) return null;
+  }
   return /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
     ? value
     : null;
@@ -7377,6 +7383,7 @@ const GM_ONLY_SLASH_COMMANDS = [
   { name: '/fatality', help: '/fatality @Name -- 50/50 Pyroblast or Frost cinematic on one Little Hero' },
   { name: '/pat', help: '/pat @Name -- the Shadow Broker declares a Little Hero a good girl \u{1F5A4}' },
   { name: '/poison', help: '/poison @Name -- GM-only venom: one /roll save, then -0.1 SC every 20 seconds until Blood Tribute cure' },
+  { name: '/cure', help: '/cure @Name -- GM-only immediate poison release' },
   { name: '/chaos', help: '/chaos @Name [@Name2 ...] <roll target> <coins> (or /chaos all ...) -- roll wager: reach the target to win Shadow Coins, fall short and owe a Blood Tribute; 100 pays double, 1 owes a dark tribute' },
   { name: '/c4', help: '/c4 -- manually detonate the three-second C4 column alert during Battle' },
   { name: '/b3', help: '/b3 -- manually trigger the three-second Baki B3 battle tribute' },
@@ -7667,7 +7674,7 @@ function handlePoisonTributeSubmit(ws, message) {
   if (!state || state.status !== 'bleeding') return sendToWs(ws, { type: 'error', message: 'NO ACTIVE POISON REQUIRES TRIBUTE' });
   if (state.pendingTributeId) return sendToWs(ws, { type: 'error', message: 'POISON TRIBUTE ALREADY AWAITS JUDGMENT' });
   if (message.retentionAcknowledged !== true) return sendToWs(ws, { type: 'error', message: 'Tribute archive notice must be acknowledged' });
-  const imageData = sanitizeTributeImageData(message.imageData);
+  const imageData = sanitizeTributeImageData(message.imageData, BLACK_MARKET_TRIBUTE_MAX_BYTES);
   if (!imageData) return sendToWs(ws, { type: 'error', message: 'Invalid tribute image or file too large' });
 
   const now = Date.now();
@@ -9000,6 +9007,15 @@ function dispatchGmSlashCommand(room, ws, text) {
   }
 
   if (/^\/chaos\b/i.test(raw)) return getChaosService().gmSlash(room, author, raw);
+
+  if (/^\/cure\b/i.test(raw)) {
+    const name = raw.replace(/^\/cure\s*/i, '').replace(/^@/, '').trim();
+    if (!name) return { success: false, error: 'CURE INVALID // USE /cure @Name' };
+    const resolved = resolveFatalityTarget(room, name);
+    if (resolved.error) return { success: false, error: resolved.error.replace(/^FATALITY/, 'CURE') };
+    if (!poisonCure(room, resolved.target.id, 'gm_release')) return { success: false, error: 'THIS PLAYER IS NOT POISONED' };
+    return { ...addShadowBrokerMessage(room, `${brokerDisplayName(room)} releases ${resolved.target.name} from the venom.`, { editableByHost: false }), broadcast: true };
+  }
 
   if (/^\/poison\b/i.test(raw)) {
     const match = raw.match(/^\/poison(?:\s+@?(.*?))?\s*$/i);
@@ -13820,6 +13836,31 @@ function handleApiRequest(req, res) {
         const status = uploadFailureStatus(writeError);
         return sendJson(res, status, { error: status === 507 ? writeError.message : 'Tribute image could not be stored', code: status === 507 ? 'UPLOAD_CAPACITY' : undefined });
       }
+    }, BLACK_MARKET_TRIBUTE_MAX_BYTES);
+  }
+
+  if (method === 'POST' && url.pathname === '/api/poison/tribute-image') {
+    const room = rooms.get(MASTER_ROOM_CODE);
+    const actor = room && getChatImageActor(req, room);
+    if (!actor || actor.role !== 'player') return sendJson(res, 401, { error: 'Player authentication required' });
+    const poison = room.poison?.[String(actor.playerId)];
+    if (poison?.status !== 'bleeding' || poison.pendingTributeId) return sendJson(res, 409, { error: 'No poison tribute is currently owed' });
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].toLowerCase();
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(contentType)) return sendJson(res, 415, { error: 'PNG, JPG or WEBP only' });
+    const gate = chatUploadGuard.checkActor('poison:' + actor.playerId, Date.now(), { maxCount: 4, minGapMs: 1000, maxBytes: 40 * 1024 * 1024 });
+    if (!gate.ok) return sendJson(res, 429, { error: gate.error });
+    chatUploadGuard.reserve('poison:' + actor.playerId);
+    const poisonId = poison.id;
+    return readChatImageBody(req, (error, body) => {
+      if (error) return sendJson(res, error.code === 'TOO_LARGE' ? 413 : 400, { error: error.code === 'TOO_LARGE' ? 'Image exceeds 20 MB limit' : 'Image upload failed' });
+      if (!body?.length || !validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Invalid image file' });
+      runtimeAction(() => {
+        const ws = Array.from(room.players.keys()).find(socket => socket.playerId === actor.playerId && socket.readyState === 1);
+        const live = room.poison?.[String(actor.playerId)];
+        if (!ws || live?.id !== poisonId || live.pendingTributeId) return sendJson(res, 409, { error: 'Poison status changed. Reconnect and try again.' });
+        handlePoisonTributeSubmit(ws, { imageData: `data:${contentType};base64,${body.toString('base64')}`, retentionAcknowledged: true });
+        return sendJson(res, live.pendingTributeId ? 201 : 400, live.pendingTributeId ? { ok: true, tributeId: live.pendingTributeId } : { error: 'Offering was not accepted for review' });
+      });
     }, BLACK_MARKET_TRIBUTE_MAX_BYTES);
   }
 
