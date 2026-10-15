@@ -15,9 +15,19 @@ const H=require('./lib/browser-harness');
   const token=await H.heroToken(server,'Invite Alpha');
   const a=await H.openHeroPage(desktop,server,token),b=await H.openHeroPage(mobile,server,await H.heroToken(server,'Invite Beta'));
   const errors=[];for(const p of [gm,a,b]){p.on('pageerror',e=>errors.push(e.message));await p.addStyleTag({content:'#class-warning-banner{display:none!important}'});}
+  for(const p of [a,b]){
+   await p.locator('#casual-minigames-toggle').click();
+   await p.evaluate(()=>{
+    window.inviteNudges=0;const original=NudgeEffect.play;NudgeEffect.play=()=>{window.inviteNudges++;original();};
+    const panel=document.createElement('div');panel.id='obscuring-panel-fixture';Object.assign(panel.style,{position:'fixed',inset:'0',zIndex:'2147483647',background:'#211a28'});document.body.append(panel);
+   });
+  }
   await gm.evaluate(()=>TombolaUI.open());await gm.locator('[data-tombola-action=create]').click();
   for(const p of [a,b]){
    await p.locator('#tombola-invite').waitFor({state:'visible'});
+   assert.equal(await p.locator('#tombola-invite').evaluate(n=>n.matches(':modal')),true,'summon is in browser top layer');
+   assert.equal(await p.locator('[data-tombola-invite-join]').evaluate(n=>{const r=n.getBoundingClientRect();return n.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),true,'JOIN wins hit testing above the highest app panel');
+   assert.equal(await p.evaluate(()=>inviteNudges),1,'activation nudges the player');
    assert.equal(await p.locator('#tombola-overlay').isVisible(),false,'invitation does not force board open or autojoin');
    assert.match(await p.locator('[data-tombola-invite-time]').innerText(),/0\/10 PLAYERS \/\/ SIGNUP 0[12]:\d{2}/);
    const box=await p.locator('#tombola-invite').evaluate(n=>{const r=n.getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom,width:innerWidth,height:innerHeight,zoom:getComputedStyle(document.body).zoom};});
@@ -26,7 +36,10 @@ const H=require('./lib/browser-harness');
    await p.locator('#tombola-invite').screenshot({path:path.join(H.ROOT,'.scratch','fatebreaker-invite',p===a?'desktop.png':'mobile.png')});
   }
   assert.equal(await gm.locator('#tombola-invite').count(),0);
-  await b.locator('[data-tombola-invite-dismiss]').click();await a.evaluate(()=>TombolaUI.open());
+  for(const p of [a,b])await p.evaluate(()=>document.getElementById('obscuring-panel-fixture').remove());
+  await a.evaluate(()=>PlayerApp.send({type:'tombola:sync'}));
+  assert.equal(await a.evaluate(()=>inviteNudges),1,'sync does not replay the nudge');
+  await b.locator('[data-tombola-invite-dismiss]').click();await a.locator('[data-tombola-invite-view]').click();
   await a.locator('[data-tombola-action=join]').click();await a.locator('[data-tombola-action=leave]').waitFor();
   assert.equal(await a.locator('#tombola-invite').count(),0,'joined players no longer invited');assert.equal(await b.locator('#tombola-invite').count(),0,'dismissal survives other joins');
   // Reload with an open lobby: server hydration must show an actionable invite.
@@ -37,6 +50,7 @@ const H=require('./lib/browser-harness');
   for(const p of [a,b])assert.equal(await p.locator('#tombola-invite').count(),0);
   await gm.locator('[data-tombola-action=create]').click();
   for(const p of [a,b])await p.locator('#tombola-invite').waitFor({state:'visible'});
+  assert.equal(await a.evaluate(()=>inviteNudges),2,'a fresh lobby nudges again');
   await a.locator('[data-tombola-invite-join]').click();await a.locator('[data-tombola-action=leave]').waitFor();
   await b.locator('[data-tombola-invite-join]').click();await b.locator('[data-tombola-action=leave]').waitFor();
   await gm.locator('[data-tombola-action=start]').click();await a.waitForFunction(()=>document.querySelector('.tombola-turn')?.textContent.includes('CYCLE'));

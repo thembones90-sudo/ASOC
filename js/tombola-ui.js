@@ -10,22 +10,34 @@
   };
   const gm = () => !!window.App && !window.PlayerApp;
   let dismissedInvite = '';
+  let nudgedRound = '';
+  try { nudgedRound = sessionStorage.getItem('asoc_fatebreaker_summon') || ''; } catch (_) {}
   function signupRemaining() { return Math.max(0, Math.ceil((Number(ui.state?.signupEndsAt || 0) - Date.now() - ui.clockOffset) / 1000)); }
   function invite() {
     let notice = document.getElementById('tombola-invite');
-    const eligible = !gm() && ui.state?.phase === 'LOBBY' && ui.state?.viewer?.canJoin && !ui.state?.requiredTribute && signupRemaining() > 0 && dismissedInvite !== ui.state.id;
-    if (!eligible) { notice?.remove(); return; }
+    const eligible = !gm() && !ui.pending && ui.state?.phase === 'LOBBY' && ui.state?.viewer?.canJoin && !ui.state?.requiredTribute && signupRemaining() > 0 && dismissedInvite !== ui.state.id;
+    if (!eligible) { notice?.close(); notice?.remove(); return; }
     if (!notice) {
-      notice = document.createElement('aside'); notice.id = 'tombola-invite'; notice.setAttribute('aria-label', 'FATEBREAKER signup invitation');
-      notice.innerHTML = '<div role="status"><small>THE SHADOW BROKER INVITES YOU</small><strong>FATEBREAKER</strong><p data-tombola-invite-time></p></div><div class="tombola-invite-actions"><button type="button" data-tombola-invite-join>JOIN FATEBREAKER</button><button type="button" data-tombola-invite-view>VIEW</button><button type="button" data-tombola-invite-dismiss aria-label="Dismiss FATEBREAKER invitation">×</button></div>';
+      notice = document.createElement('dialog'); notice.id = 'tombola-invite'; notice.setAttribute('aria-labelledby', 'tombola-summon-title');
+      notice.innerHTML = '<div><small>THE SHADOW BROKER SUMMONS YOU</small><strong id="tombola-summon-title">FATEBREAKER</strong><p>THE VAULTS ARE OPEN. TAKE YOUR PLACE.</p><p data-tombola-invite-time role="status"></p></div><div class="tombola-invite-actions"><button type="button" data-tombola-invite-join autofocus>JOIN FATEBREAKER</button><button type="button" data-tombola-invite-view>VIEW LOBBY</button><button type="button" data-tombola-invite-dismiss>NOT NOW</button></div>';
+      const dismiss = () => { dismissedInvite = ui.state?.id; notice.close(); notice.remove(); };
+      notice.addEventListener('cancel', event => { event.preventDefault(); dismiss(); });
       notice.addEventListener('click', event => {
-        if (event.target.closest('[data-tombola-invite-dismiss]')) { dismissedInvite = ui.state?.id; notice.remove(); return; }
-        if (event.target.closest('[data-tombola-invite-view]')) { open(); return; }
+        if (event.target.closest('[data-tombola-invite-dismiss]')) { dismiss(); return; }
+        if (event.target.closest('[data-tombola-invite-view]')) { dismiss(); open(); return; }
         if (event.target.closest('[data-tombola-invite-join]') && !ui.pending && ui.state?.viewer?.canJoin && signupRemaining() > 0) {
+          notice.close(); notice.remove();
           ui.pending = true; ui.error = ''; ui.open = true; send('tombola:join'); render();
         }
       });
       document.body.append(notice);
+      // Native top layer wins over any app stacking context or clipped chat panel.
+      notice.showModal();
+      if (nudgedRound !== ui.state.id) {
+        nudgedRound = ui.state.id;
+        try { sessionStorage.setItem('asoc_fatebreaker_summon', nudgedRound); } catch (_) {}
+        window.NudgeEffect?.play?.(); // Presentation only: no /nudge command, quota or tribute debt.
+      }
     }
     const seconds = signupRemaining();
     notice.querySelector('[data-tombola-invite-time]').textContent = ui.error || `${ui.state.participants?.length || 0}/10 PLAYERS // SIGNUP ${Math.floor(seconds / 60).toString().padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -70,6 +82,7 @@
     if (required && !veil) { veil = document.createElement('div'); veil.id = 'tombola-required-veil'; document.body.append(veil); }
     if (!required) veil?.remove();
     const root = ensure(); root.hidden = !ui.open;
+    root.classList.toggle('tombola-summoned-board', !gm() && !required);
     root.setAttribute('aria-modal', required ? 'true' : 'false');
     if (!ui.open) return;
     const s = ui.state;

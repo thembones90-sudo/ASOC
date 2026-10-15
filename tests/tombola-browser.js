@@ -52,6 +52,7 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     pages.push(alpha, beta);
     for (const page of [alpha, beta]) {
       page.on('pageerror', e => errors.push(e.message));
+      await page.locator('[data-tombola-invite-dismiss]').click();
       await page.locator('#casual-minigames-toggle').click();
       assert.equal(await page.locator('#minigames-sibicar, #minigames-unstable-concoction').count(), 0);
       assert.deepEqual(await page.evaluate(() => [typeof window.SibicarUI, typeof window.UnstableConcoction]), ['undefined', 'undefined']);
