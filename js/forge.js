@@ -531,6 +531,7 @@ const Forge = {
               <span class="cell-field-label">FINAL SOLUTION</span>
               <input type="text" class="forge-input" data-creator-field="finalSolution" maxlength="60" autocomplete="off" value="${this.escapeAttr(d.finalSolution)}" placeholder="ONE ENGLISH WORD">
             </label>
+            <div id="association-forge-root"></div>
             <section class="creator-maker" aria-labelledby="creator-maker-title">
               <div class="creator-maker-head">
                 <div>
@@ -639,6 +640,7 @@ const Forge = {
     this.updatePreviewBackground();
     this.refreshCreatorState();
     this.applyColumnFocus(this.activeColumn);
+    window.AssociationForge?.mount(document.getElementById('association-forge-root'), this);
   },
 
   // ------------------------------------------------------------------

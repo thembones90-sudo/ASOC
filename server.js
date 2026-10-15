@@ -42,6 +42,8 @@ const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
 const forgeAI = require('./forge-ai');
+const { createAssociationProvider, AssociationError } = require('./association-provider');
+const associationProvider = createAssociationProvider();
 const payloadDiagnostics = require('./ws-payload-diagnostics');
 const mudpits = require('./mudpits');
 const tombola = require('./tombola');
@@ -14600,6 +14602,17 @@ function handleApiRequest(req, res) {
     return sendJson(res, 401, { error: 'Gamemaster authorization required' });
   }
 
+
+  if (url.pathname === '/api/word-associations') {
+    res.setHeader('Cache-Control', 'no-store');
+    if (method !== 'GET') return sendJson(res, 405, { error: 'Use GET for association research.' });
+    associationProvider.fetch(url.searchParams.get('word')).then(result => sendJson(res, 200, result)).catch(error => {
+      // Never log/return upstream URLs, bodies or errors: the provider URL holds a secret.
+      if (error?.status === 429) res.setHeader('Retry-After', '2');
+      sendJson(res, error instanceof AssociationError ? error.status : 502, { error: error instanceof AssociationError ? error.message : 'Association service temporarily unavailable.' });
+    });
+    return;
+  }
 
   if (url.pathname === '/api/games' && method === 'GET') {
     return sendJson(res, 200, { games: gameStore.listGameFiles() });

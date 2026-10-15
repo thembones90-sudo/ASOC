@@ -878,4 +878,8 @@ The screen is called **RECOUNT** — never "Results". Files: `recount-engine.js`
 - Until the outstanding tribute is paid, another Wheel opening/roll is rejected.
 - Current vault lifetime is the active room/session, with active-room crash recovery; closing/destroying the room removes that room archive.
 
+## Association Forge setup
+
+The GM creator's Association Forge uses the official Word Associations API through a server-only proxy. Set the secret `WORD_ASSOCIATIONS_API_KEY` on the server, never in browser configuration. See [Association Forge setup and verification](docs/ASSOCIATION-FORGE.md) for cache limits, assignment safety, tests and API assumptions.
+
 <!-- railway-deploy-sync: casual-battle-modes-2026-09-21 -->
