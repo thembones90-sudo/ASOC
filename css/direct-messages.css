@@ -199,3 +199,112 @@ body.dmx-open { overflow: hidden; }
 
 /* Rich private-message controls mirror Battle Comms inside one compact bar. */
 .dmx-edit-preview{margin:0 16px;padding:7px 10px;border-left:3px solid #42d9ff;background:#101a21;color:#9bdff0;font-size:12px}.dmx-edit-preview button{float:right}.dmx-reactions{position:relative}.dmx-reaction-picker{position:absolute;z-index:12;left:0;bottom:28px;display:grid;grid-template-columns:repeat(7,30px);gap:3px;padding:7px;border:1px solid #70439c;border-radius:8px;background:#0c0a10;box-shadow:0 12px 28px #000}.dmx-reaction-picker button{width:30px;height:30px;padding:2px}.dmx-public-composer{flex:0 0 auto}.dmx-public-composer .dmx-mic{display:grid;place-items:center}.dmx-msg.media{overflow:visible}
+
+/* =========================================================
+   DM READABILITY PASS -- bigger drawer, roomy composer, quiet bubbles.
+   Layout/typography only: no behaviour or markup changes.
+   ========================================================= */
+/* Wider drawer: the thread column used to be ~300px, which crushed the composer. */
+@media (min-width: 761px) {
+  html body .dmx-overlay.dmx-casual-drawer {
+    width: min(800px, calc(100vw - max(124px, calc(50vw - 594px)) - 16px));
+  }
+  html body .dmx-overlay.dmx-casual-drawer .dmx-body { grid-template-columns: 210px minmax(0, 1fr); }
+  html body .dmx-overlay.dmx-casual-drawer .dmx-head { padding: 14px 18px; }
+  html body .dmx-overlay.dmx-casual-drawer .dmx-head h2 { font-size: 1.05rem; letter-spacing: .2em; }
+}
+@media (min-width: 761px) and (max-width: 1380px) {
+  html body .dmx-overlay.dmx-casual-drawer { width: min(720px, calc(100vw - 104px)); }
+  html body .dmx-overlay.dmx-casual-drawer .dmx-body { grid-template-columns: 180px minmax(0, 1fr); }
+}
+
+/* Conversation list */
+html body .dmx-overlay.dmx-casual-drawer .dmx-list { font-size: 12px; }
+html body .dmx-overlay.dmx-casual-drawer .dmx-row { padding: 12px 14px; }
+html body .dmx-overlay.dmx-casual-drawer .dmx-row strong { font-size: 13.5px; }
+html body .dmx-overlay.dmx-casual-drawer .dmx-row-last { font-size: 12px; }
+html body .dmx-new { font-size: 12px; letter-spacing: .1em; white-space: nowrap; }
+html body .dmx-thread-head strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+html body .dmx-thread-head .dmx-btn { flex: none; }
+
+/* Messages: real type size, wider bubbles, no dead space. */
+html body .dmx-overlay.dmx-casual-drawer .dmx-msg p,
+html body .dmx-msg p { font-size: 15.5px; line-height: 1.45; }
+html body .dmx-msgs { padding: 16px 18px; gap: 8px; }
+html body .dmx-msg {
+  max-width: min(82%, 560px);
+  min-width: 112px;
+  padding: 9px 13px 22px;
+}
+html body .dmx-msg > span { font-size: 10.5px; right: 12px; bottom: 5px; }
+html body .dmx-seen { font-size: 10px; left: 12px; bottom: 5px; }
+
+/* Per-message tools stay out of the way until you point at a message. They
+   float over the bubble corner instead of adding a row of clutter to each one. */
+html body .dmx-msg .dmx-message-actions {
+  position: absolute;
+  top: -13px;
+  right: 8px;
+  margin: 0;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #4b3a63;
+  border-radius: 8px;
+  background: #120d1a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .6);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition: opacity .14s ease, transform .14s ease;
+  z-index: 3;
+}
+html body .dmx-msg:hover .dmx-message-actions,
+html body .dmx-msg:focus-within .dmx-message-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+html body .dmx-msg .dmx-message-actions button { width: 26px; height: 24px; padding: 0; font-size: 13px; border-color: transparent; background: transparent; }
+html body .dmx-msg .dmx-message-actions button:hover { background: #2a1f3d; color: #fff; }
+/* The extra reaction chip row only shows when there are reactions (or while the picker is open). */
+html body .dmx-msg .dmx-reactions { margin-top: 6px; }
+html body .dmx-msg .dmx-reactions:not(:has([data-dmx-react])) { margin: 0; min-height: 0; }
+html body .dmx-msg .dmx-reactions > [data-dmx-reaction-open] { display: none; }
+html body .dmx-msg .dmx-reactions > button[data-dmx-react] { padding: 2px 8px; font-size: 13px; }
+
+/* Composer: one comfortable bar. The old one fit a four-column grid into the
+   narrow drawer and left the text box about 50px wide. */
+html body .dmx-public-composer {
+  grid-template-columns: 40px 40px minmax(0, 1fr) 40px;
+  gap: 8px;
+  padding: 12px 16px 16px;
+}
+html body .dmx-public-composer > button,
+html body .dmx-attachment-wrap > button { width: 40px; height: 40px; font-size: 16px; }
+html body .dmx-public-composer .dmx-compose {
+  min-width: 0;
+  padding: 4px 5px 4px 16px;
+  align-items: center;
+}
+html body .dmx-public-composer .dmx-compose textarea {
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  max-height: 120px;
+  padding: 10px 0;
+  font-size: 15px;
+  line-height: 20px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+html body .dmx-public-composer .dmx-compose textarea::-webkit-scrollbar { display: none; }
+html body .dmx-public-composer .dmx-send { height: 38px; padding: 0 18px; letter-spacing: .14em; }
+html body .dmx-reply-preview, html body .dmx-edit-preview { font-size: 12.5px; }
+
+/* Private rail: the names were 7px. */
+html body .dmx-rail-person > span { font-size: 9px; letter-spacing: .3px; }
+html body .dmx-rail-badge { font-size: 9px; }
+
+/* Day dividers and notes read a little clearer. */
+html body .dmx-day { font-size: 11px; }
+html body .dmx-note { font-size: 12px; }
