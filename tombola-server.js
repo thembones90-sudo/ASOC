@@ -39,12 +39,16 @@ function createTombolaService(deps) {
     if (!who) return fail('AUTHENTICATED ACTIVE PLAYER REQUIRED');
     if (message.type === 'tombola:sync') return sendState(room, ws);
     if (requiredTribute(room, who) && ['tombola:join', 'tombola:pick'].includes(message.type)) return fail('SUBMIT YOUR REQUIRED FATEBREAKER BLOOD TRIBUTE FIRST');
-    if (['tombola:create', 'tombola:start', 'tombola:skip', 'tombola:cancel'].includes(message.type) && !who.isGm) return fail('FATEBREAKER CONTROL BELONGS TO THE SHADOW BROKER');
-    if (message.type === 'tombola:create') {
+    if (['tombola:activate', 'tombola:create', 'tombola:start', 'tombola:skip', 'tombola:cancel'].includes(message.type) && !who.isGm) return fail('FATEBREAKER CONTROL BELONGS TO THE SHADOW BROKER');
+    // The GM arcade card opens signup in one click. Reopening an active round
+    // must not replace it or reset the two-minute deadline.
+    if (message.type === 'tombola:activate' && room.tombola && ['LOBBY', 'PLAYING'].includes(room.tombola.phase)) return sendState(room, ws);
+    if (message.type === 'tombola:create' || message.type === 'tombola:activate') {
       if (room.tombola && ['LOBBY', 'PLAYING'].includes(room.tombola.phase)) return fail('A FATEBREAKER ROUND IS ALREADY OPEN');
       if (room.tombola) room.tombolaHistory = [...(room.tombolaHistory || []), game.summary(room.tombola)].slice(-20);
       room.tombola = game.create('tombola-' + crypto.randomBytes(12).toString('hex'));
-      commit(room); return;
+      deps.addDennisMessage(room, 'FATEBREAKER LOBBY IS OPEN // SIGNUP 02:00 // UP TO 10 PLAYERS. JOIN THROUGH THE SUMMON PROMPT OR FATEBREAKER IN MINI GAMES.');
+      commit(room); deps.broadcastChatUpdate(room); return;
     }
     const state = room.tombola;
     if (!state || message.roundId !== state.id) return fail('THIS FATEBREAKER ROUND IS NO LONGER CURRENT');

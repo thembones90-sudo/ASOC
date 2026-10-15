@@ -15146,6 +15146,7 @@ wss.on('connection', (ws, req) => {
         return sendToWs(ws, { type: 'error', code: 'LOCKDOWN', message: 'LOCKDOWN // PLAYER FUNCTIONS SEALED. PLAIN CHAT ONLY.' });
       }
       switch (message.type) {
+        case 'tombola:activate':
         case 'tombola:create':
         case 'tombola:join':
         case 'tombola:leave':

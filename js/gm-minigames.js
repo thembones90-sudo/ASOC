@@ -52,7 +52,7 @@
         else if (launch.dataset.gmMinigame === 'rouletteCarnage') window.RouletteCarnageUI?.open?.('gm');
         else if (launch.dataset.gmMinigame === 'olympics') window.OlympicsUI?.open?.();
         else if (launch.dataset.gmMinigame === 'mudpits') this.startMudpits();
-        else if (launch.dataset.gmMinigame === 'tombola') window.TombolaUI?.open?.();
+        else if (launch.dataset.gmMinigame === 'tombola') window.TombolaUI?.activate?.();
         return;
       }
       if (e.target.closest('[data-gm-kaladont-chat]')) return this.kaladontToChat();

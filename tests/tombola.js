@@ -80,10 +80,14 @@ try {
   Date.now = () => now;
   const gm = { gmAuthenticated: true }, player = { playerId: 'p', readyState: 1 }, late = { playerId: 'late', readyState: 1 };
   const room = { hostConnection: gm, revision: 0, players: new Map([[player, { id: 'p', name: 'Player' }], [late, { id: 'late', name: 'Late' }]]) };
-  const frames = [];
-  const service = createTombolaService({ roomOf: () => room, sendToWs: (ws, frame) => frames.push({ ws, frame }), persist() {}, blackMarket: { normalizeState: state => state, playerView: () => ({ pacts: [] }) } });
-  service.handle(gm, { type: 'tombola:create' });
+  const frames = [], announcements = [];
+  const service = createTombolaService({ roomOf: () => room, sendToWs: (ws, frame) => frames.push({ ws, frame }), persist() {}, addDennisMessage: (_room, text) => announcements.push(text), broadcastChatUpdate() {}, blackMarket: { normalizeState: state => state, playerView: () => ({ pacts: [] }) } });
+  service.handle(gm, { type: 'tombola:activate' });
   assert.equal(room.tombola.signupEndsAt, 125000);
+  const lobbyId = room.tombola.id;
+  now = 6000; service.handle(gm, { type: 'tombola:activate' });
+  assert.equal(room.tombola.id, lobbyId); assert.equal(room.tombola.signupEndsAt, 125000);
+  assert.equal(announcements.length, 1, 'reopening does not repeat lobby announcement');
   now = 124999;
   service.handle(player, { type: 'tombola:join', roundId: room.tombola.id });
   assert.equal(room.tombola.participants.length, 1);

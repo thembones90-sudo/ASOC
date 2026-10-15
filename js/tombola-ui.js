@@ -82,7 +82,7 @@
     if (required && !veil) { veil = document.createElement('div'); veil.id = 'tombola-required-veil'; document.body.append(veil); }
     if (!required) veil?.remove();
     const root = ensure(); root.hidden = !ui.open;
-    root.classList.toggle('tombola-summoned-board', !gm() && !required);
+    root.classList.toggle('tombola-summoned-board', !gm() && !required && ['LOBBY', 'PLAYING'].includes(ui.state?.phase));
     root.setAttribute('aria-modal', required ? 'true' : 'false');
     if (!ui.open) return;
     const s = ui.state;
@@ -153,6 +153,12 @@
     render();
   }
   function open() { ui.open = true; ensure(); send('tombola:sync'); render(); }
+  function activate() {
+    if (!gm()) return open();
+    if (ui.pending) return;
+    ui.open = true; ui.pending = true; ui.error = ''; ensure();
+    send('tombola:activate'); render();
+  }
   function installLauncher() {
     document.getElementById('minigames-tombola')?.addEventListener('click', event => {
       event.preventDefault(); event.stopPropagation();
@@ -161,5 +167,5 @@
     });
   }
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', installLauncher, { once: true }) : installLauncher();
-  window.TombolaUI = { open, onMessage };
+  window.TombolaUI = { open, activate, onMessage };
 })();

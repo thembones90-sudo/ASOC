@@ -40,7 +40,6 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     assert.equal(await gm.locator('[data-gm-minigame="tombola"] .minigame-title').textContent(), 'FATEBREAKER');
     await gm.locator('[data-gm-minigame="tombola"]').screenshot({ path: path.join(shots, 'gm-menu-icon.png') });
     await gm.locator('[data-gm-minigame="tombola"]').click();
-    await gm.locator('[data-tombola-action="create"]').click();
     await gm.locator('[data-tombola-action="start"]').waitFor();
     assert.equal(await gm.locator('#tombola-overlay h2').textContent(), 'FATEBREAKER');
     assert.equal(await gm.locator('#tombola-overlay').getAttribute('aria-label'), 'FATEBREAKER');

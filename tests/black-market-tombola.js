@@ -53,7 +53,7 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     assert.deepEqual(players.map(c => profiles()[c.id]?.shadowCoins || 0), initialCoins, 'retired games cannot mutate coins for GM or players');
     assert.equal(snapshot().unstableConcoction.pendingSpin, null);
     let mark = a.mark(); a.send({ type: 'tombola:create' }); await a.next(m => m.type === 'tombola:error', mark);
-    for (const type of ['tombola:start', 'tombola:cancel', 'tombola:skip']) { const from = a.mark(); a.send({ type }); await a.next(m => m.type === 'tombola:error', from); }
+    for (const type of ['tombola:activate', 'tombola:start', 'tombola:cancel', 'tombola:skip']) { const from = a.mark(); a.send({ type }); await a.next(m => m.type === 'tombola:error', from); }
     mark = gm.mark(); gm.send({ type: 'tombola:create' }); const lobby = (await gm.next(m => m.type === 'tombola:state' && m.state.phase === 'LOBBY', mark)).state;
     const id = lobby.id;
     assert.equal(lobby.signupEndsAt - lobby.createdAt, 120000, 'two minutes from GM activation');
