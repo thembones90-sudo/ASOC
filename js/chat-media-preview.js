@@ -443,6 +443,31 @@
     return looksLikeImageUrl(plain) ? plain : '';
   }
 
+  // Upload bytes and await the server response. 100% means the bytes have
+  // arrived, not that chat delivery has been accepted. Never retry implicitly.
+  function upload(url, { headers = {}, body, onProgress } = {}) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.timeout = 120000;
+      Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value));
+      xhr.upload.onprogress = event => {
+        if (event.lengthComputable && event.total > 0) onProgress?.(Math.min(100, Math.round(event.loaded / event.total * 100)));
+      };
+      xhr.onload = () => {
+        let result = {};
+        try { result = JSON.parse(xhr.responseText); }
+        catch { reject(new Error('Server response could not be confirmed. Check chat before retrying.')); return; }
+        if (!result || typeof result !== 'object') { reject(new Error('Invalid upload response. Check chat before retrying.')); return; }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(result);
+        else reject(Object.assign(new Error(result.error || `Upload refused (${xhr.status})`), { status: xhr.status }));
+      };
+      const uncertain = () => reject(new Error('Delivery could not be confirmed. Check chat before retrying.'));
+      xhr.onerror = uncertain; xhr.ontimeout = uncertain; xhr.onabort = uncertain;
+      xhr.send(body);
+    });
+  }
+
   function create(options = {}) {
     const form = options.form;
     if (!form) return null;
@@ -460,7 +485,10 @@
       <div class="chat-pending-media-copy">
         <b>IMAGE ATTACHED</b>
         <span>PRESS ENTER TO TRANSMIT</span>
+        <progress class="chat-upload-progress" max="100" value="0" aria-label="Attachment upload progress" hidden></progress>
+        <span class="chat-upload-error" role="alert" hidden></span>
       </div>
+      <button type="button" class="chat-pending-media-retry" hidden>RETRY</button>
       <button type="button" class="chat-pending-media-remove" aria-label="Remove pending image">×</button>
     `;
     const shell = form.querySelector(options.shellSelector || '.chat-composer-shell, .gm-composer-shell');
@@ -470,14 +498,25 @@
     const title = tray.querySelector('.chat-pending-media-copy b');
     const detail = tray.querySelector('.chat-pending-media-copy span');
     const remove = tray.querySelector('.chat-pending-media-remove');
+    const retry = tray.querySelector('.chat-pending-media-retry');
+    const progress = tray.querySelector('progress');
+    const errorEl = tray.querySelector('.chat-upload-error');
+    const resetStatus = () => {
+      tray.removeAttribute('aria-busy');
+      delete tray.dataset.state;
+      progress.hidden = true; progress.value = 0;
+      retry.hidden = true; errorEl.hidden = true; errorEl.textContent = '';
+    };
 
     const revoke = () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       objectUrl = '';
     };
 
-    const clear = () => {
+    const clear = (force = false) => {
+      if (submitting && !force) return false;
       revoke();
+      resetStatus();
       pending = null;
       tray.hidden = true;
       image.removeAttribute('src');
@@ -486,6 +525,7 @@
     };
 
     const stageFile = (file) => {
+      if (submitting) return false;
       if (!file) return false;
       const type = String(file.type || '').toLowerCase();
       if (!IMAGE_TYPES.has(type)) {
@@ -497,11 +537,12 @@
         return false;
       }
       revoke();
+      resetStatus();
       objectUrl = URL.createObjectURL(file);
       pending = { kind: 'file', file };
       image.src = objectUrl;
       title.textContent = type === 'image/gif' ? 'GIF ATTACHED' : 'IMAGE ATTACHED';
-      detail.textContent = 'PRESS ENTER TO TRANSMIT';
+      detail.textContent = `${file.name || 'IMAGE'} · ${(file.size / 1024 / 1024).toFixed(2)} MB · ENTER TO SEND`;
       tray.hidden = false;
       form.classList.add('has-pending-media');
       options.onStateChange?.(true);
@@ -509,6 +550,7 @@
     };
 
     const stageUrl = (url) => {
+      if (submitting) return false;
       const clean = String(url || '').trim();
       // Only direct image URLs belong in the media pipeline. Ordinary links
       // must remain normal chat text so players can paste and send them.
@@ -519,6 +561,7 @@
       } catch (_) {}
       if (!isImageUrl) return false;
       revoke();
+      resetStatus();
       pending = { kind: 'url', url: clean };
       image.src = clean;
       title.textContent = 'IMAGE LINK ATTACHED';
@@ -567,16 +610,32 @@
       submitting = true;
       form.classList.add('media-submitting');
       remove.disabled = true;
+      resetStatus();
+      tray.setAttribute('aria-busy', 'true');
+      tray.dataset.state = 'uploading';
+      progress.hidden = false;
+      progress.removeAttribute('value');
+      detail.textContent = pending.kind === 'file' ? 'UPLOADING…' : 'VERIFYING IMAGE LINK…';
       try {
         const caption = String(options.getCaption?.() || '').trim();
-        if (pending.kind === 'file') await options.uploadFile?.(pending.file, caption);
-        else await options.uploadUrl?.(pending.url, caption);
-        clear();
+        const status = { onProgress: percent => {
+          progress.value = percent;
+          detail.textContent = percent >= 100 ? 'FINALIZING // WAITING FOR SERVER' : `UPLOADING ${percent}%`;
+        } };
+        if (pending.kind === 'file') await options.uploadFile(pending.file, caption, status);
+        else await options.uploadUrl(pending.url, caption, status);
+        clear(true);
         options.clearCaption?.();
         options.focus?.();
         return true;
       } catch (error) {
-        alert(error?.message || 'Image transmission failed');
+        tray.dataset.state = 'failed';
+        tray.removeAttribute('aria-busy');
+        progress.hidden = true;
+        detail.textContent = 'ATTACHMENT KEPT // NOT CONFIRMED';
+        errorEl.textContent = error?.message || 'Image transmission failed';
+        errorEl.hidden = false;
+        retry.hidden = false;
         return false;
       } finally {
         submitting = false;
@@ -584,6 +643,8 @@
         remove.disabled = false;
       }
     };
+
+    retry.addEventListener('click', submit);
 
     remove.addEventListener('click', () => {
       clear();
@@ -624,6 +685,7 @@
   }
 
   window.ChatMediaComposer = {
+    upload,
     create,
     imageFileFromTransfer,
     imageUrlFromTransfer

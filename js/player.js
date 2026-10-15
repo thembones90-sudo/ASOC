@@ -607,7 +607,7 @@ const PlayerApp = {
       else imageButton.removeAttribute('aria-busy');
     };
 
-    const uploadChatMedia = async (file, caption = '') => {
+    const uploadChatMedia = async (file, caption = '', status = {}) => {
       if (!file) return;
       const type = String(file.type || '').toLowerCase();
       if (!['image/png','image/jpeg','image/webp','image/gif'].includes(type)) {
@@ -617,14 +617,10 @@ const PlayerApp = {
       const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
       setChatMediaBusy(true);
       try {
-        const res = await fetch('/api/chat/image?caption=' + encodeURIComponent(caption), {
-          method: 'POST',
+        return await window.ChatMediaComposer.upload('/api/chat/image?caption=' + encodeURIComponent(caption), {
           headers: { 'Content-Type': type, 'x-player-token': token },
-          body: file
+          body: file, onProgress: status.onProgress
         });
-        const result = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(result.error || 'Image upload failed');
-        return result;
       } finally {
         setChatMediaBusy(false);
       }
@@ -636,7 +632,15 @@ const PlayerApp = {
       }
       setChatMediaBusy(true);
       try {
-        this.send({ type: 'chat:image-url', url: imageUrl, caption });
+        // Keep the draft until server-side import succeeds, just like a file.
+        const token = sessionStorage.getItem('asoc_player_auth_token') || localStorage.getItem('asoc_player_auth_token') || '';
+        const response = await fetch('/api/chat/image-url', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-player-token': token },
+          body: JSON.stringify({url: imageUrl, caption})
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Image link import failed');
+        return result;
       } finally {
         setChatMediaBusy(false);
       }

@@ -1733,7 +1733,7 @@ const App = {
       else gmImageButton.removeAttribute('aria-busy');
     };
 
-    const uploadGMChatMedia = async (file, caption = '') => {
+    const uploadGMChatMedia = async (file, caption = '', status = {}) => {
       if (!file) return;
       const type = String(file.type || '').toLowerCase();
       if (!['image/png','image/jpeg','image/webp','image/gif'].includes(type)) {
@@ -1743,14 +1743,10 @@ const App = {
       const token = GameData.gmToken || sessionStorage.getItem('asoc_gm_token') || '';
       setGMMediaBusy(true);
       try {
-        const res = await fetch('/api/chat/image?caption=' + encodeURIComponent(caption), {
-          method: 'POST',
+        return await window.ChatMediaComposer.upload('/api/chat/image?caption=' + encodeURIComponent(caption), {
           headers: { 'Content-Type': type, 'x-gm-token': token },
-          body: file
+          body: file, onProgress: status.onProgress
         });
-        const result = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(result.error || 'Image upload failed');
-        return result;
       } finally {
         setGMMediaBusy(false);
       }

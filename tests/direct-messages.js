@@ -36,8 +36,8 @@ assert.match(gmDmClient, /data-gm-dm-purge[\s\S]*gm:privatePurge/, 'GM private t
 assert.match(gmDmCss, /\.gm-dm-purge/, 'GM PURGE action has a distinct destructive style');
 assert.match(indexHtml, /gm-direct-messages\.css\?v=20261010-exact-composer-3/, 'GM DM exact composer UI is cache-busted');
 assert.match(gmDmCss, /#gm-dm-toggle\.has-unread::after[\s\S]*top:3px !important[\s\S]*right:6px !important/, 'GM unread counter remains inside the clipped tab header');
-assert.match(joinHtml, /direct-messages\.js\?v=20261010-private-parity-2/, 'player DM parity client is cache-busted');
-assert.match(indexHtml, /gm-direct-messages\.js\?v=20261010-exact-composer-3/, 'GM DM exact composer client is cache-busted');
+assert.match(joinHtml, /direct-messages\.js\?v=20261015-comms-polish-1/, 'player DM polish client is cache-busted');
+assert.match(indexHtml, /gm-direct-messages\.js\?v=20261015-comms-polish-1/, 'GM DM polish client is cache-busted');
 assert.match(fs.readFileSync(path.join(ROOT, 'js', 'direct-messages.js'), 'utf8'), /UPLOAD · PASTE · DROP[\s\S]*2–8 OPTIONS/, 'player private composer exposes the complete attachment surface');
 assert.match(gmDmClient, /UPLOAD · PASTE · DROP[\s\S]*2–8 OPTIONS/, 'GM private composer exposes the complete attachment surface');
 assert.match(gmDmClient, /gm-composer-shell[\s\S]*gm-wolf-glyph[\s\S]*data-gm-dm-input[\s\S]*gm-voice-btn/, 'GM private composer reuses the public one-capsule control order');

@@ -311,7 +311,13 @@
     const t = e.target;
     if(t.closest?.('[data-dmx-attach]')){state.attachmentOpen=!state.attachmentOpen;return render();}
     if(t.closest?.('[data-dmx-image]')){root().querySelector('[data-dmx-file]')?.click();return;}
-    if(t.closest?.('[data-dmx-voice]')){state.attachmentOpen=false;render();return window.AsocVoice?.record?.({anchor:root().querySelector('.dmx-public-composer'),headers:authHeaders(),uploadUrl:'/api/dm/voice',onUploaded:(result,seconds)=>send({type:'dm:send',toId:state.thread.other.id,text:'',messageType:'voice',audioUrl:result.url,voiceSeconds:seconds,replyTo:state.replyTo}),onError:msg=>{state.error=msg;render();}});}
+    if(t.closest?.('[data-dmx-voice]')){
+      const toId=state.thread.other.id,replyTo=state.replyTo;
+      state.attachmentOpen=false;render();
+      return window.AsocVoice?.record?.({anchor:root().querySelector('.dmx-public-composer'),headers:authHeaders(),uploadUrl:'/api/dm/voice',
+        onUploaded:(result,seconds)=>send({type:'dm:send',toId,text:'',messageType:'voice',audioUrl:result.url,voiceSeconds:seconds,replyTo}),
+        onError:msg=>{state.error=msg;render();}});
+    }
     if(t.closest?.('[data-dmx-poll]')){state.pollOpen=!state.pollOpen;state.attachmentOpen=false;return render();}
     if(t.closest?.('[data-dmx-sticker]')){state.attachmentOpen=false;render();return window.AsocStickers?.open?.({anchor:root().querySelector('.dmx-public-composer'),onSend:url=>send({type:'dm:send',toId:state.thread.other.id,text:'',messageType:'sticker',stickerUrl:url,replyTo:state.replyTo})});}
     if(t.closest?.('[data-dmx-reply-cancel]')){state.replyTo=null;return render();}

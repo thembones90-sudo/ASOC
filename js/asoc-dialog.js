@@ -29,10 +29,10 @@
       overlay.innerHTML = `
         <form class="asoc-dialog" role="dialog" aria-modal="true" aria-labelledby="asoc-dialog-title" novalidate>
           <div class="asoc-dialog-title" id="asoc-dialog-title"></div>
-          <div class="asoc-dialog-message"></div>
+          <div class="asoc-dialog-message" id="asoc-dialog-message"></div>
           <input class="asoc-dialog-input" type="text" autocomplete="off" spellcheck="true">
           <div class="asoc-dialog-meta">
-            <span class="asoc-dialog-error" role="alert"></span>
+            <span class="asoc-dialog-error" id="asoc-dialog-error" role="alert"></span>
             <span class="asoc-dialog-count"></span>
           </div>
           <div class="asoc-dialog-actions">
@@ -50,6 +50,9 @@
       overlay.querySelector('.asoc-dialog-confirm').textContent = confirmLabel;
       messageEl.textContent = message;
       messageEl.hidden = !message;
+      if (message) form.setAttribute('aria-describedby', 'asoc-dialog-message');
+      input.setAttribute('aria-label', title);
+      input.setAttribute('aria-describedby', 'asoc-dialog-error');
       if (confirmOnly) { input.hidden = true; countEl.hidden = true; }
       input.value = String(value ?? '');
       input.placeholder = placeholder;
@@ -58,19 +61,39 @@
       const updateCount = () => {
         countEl.textContent = maxLength > 0 ? `${input.value.length}/${maxLength}` : '';
         errorEl.textContent = '';
+        input.removeAttribute('aria-invalid');
       };
 
+      let closed = false;
+      const previousOverflow = document.body.style.overflow;
       const close = result => {
+        if (closed) return;
+        closed = true;
         document.removeEventListener('keydown', onKeydown, true);
+        document.removeEventListener('focusin', onFocus, true);
+        document.body.style.overflow = previousOverflow;
         overlay.remove();
         active = null;
-        if (previousFocus && typeof previousFocus.focus === 'function') {
+        if (previousFocus?.isConnected && typeof previousFocus.focus === 'function') {
           try { previousFocus.focus(); } catch {}
         }
         resolve(result);
       };
 
+      const focusable = () => Array.from(form.querySelectorAll('input:not([hidden]),button')).filter(el => !el.disabled && !el.hidden);
+      const onFocus = event => {
+        if (!closed && !form.contains(event.target)) (confirmOnly ? form.querySelector('.asoc-dialog-confirm') : input).focus({preventScroll:true});
+      };
       const onKeydown = event => {
+        if (event.key === 'Tab') {
+          const targets = focusable();
+          const first = targets[0], last = targets[targets.length - 1];
+          if (event.shiftKey && (document.activeElement === first || !form.contains(document.activeElement))) {
+            event.preventDefault(); event.stopPropagation(); last?.focus();
+          } else if (!event.shiftKey && (document.activeElement === last || !form.contains(document.activeElement))) {
+            event.preventDefault(); event.stopPropagation(); first?.focus();
+          }
+        }
         // Enter answers a yes/no question even if a page hotkey would eat it.
         if (confirmOnly && event.key === 'Enter' && !event.target?.classList?.contains('asoc-dialog-cancel')) {
           event.preventDefault();
@@ -95,6 +118,7 @@
         else if (typeof validate === 'function') error = validate(clean) || '';
         if (error) {
           errorEl.textContent = error;
+          input.setAttribute('aria-invalid', 'true');
           input.focus();
           return;
         }
@@ -119,11 +143,14 @@
       input.addEventListener('pointerdown', event => event.stopPropagation());
       input.addEventListener('click', event => { event.stopPropagation(); input.focus(); });
       document.addEventListener('keydown', onKeydown, true);
+      document.addEventListener('focusin', onFocus, true);
 
       active = { cancel: () => close(null) };
       document.body.appendChild(overlay);
+      document.body.style.overflow = 'hidden';
       updateCount();
       requestAnimationFrame(() => {
+        if (closed) return;
         input.disabled = false;
         input.readOnly = false;
         if (confirmOnly) { overlay.querySelector('.asoc-dialog-confirm').focus({ preventScroll: true }); return; }

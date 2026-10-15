@@ -97,25 +97,47 @@
     const upload = async () => {
       if (s.cancelled || s.uploading) return;
       s.uploading = true;
-      const seconds = Math.min(MAX_SECONDS, Math.round(elapsed()));
+      const seconds = s.uploadSeconds || Math.min(MAX_SECONDS, Math.round(elapsed()));
+      s.uploadSeconds = seconds;
       if (seconds < 1) { cleanup(); return fail('Voice message is too short.'); }
       const blob = new Blob(s.chunks, { type: type.base });
       bar.classList.add('is-sending');
+      bar.setAttribute('aria-busy', 'true');
+      bar.classList.remove('is-failed');
+      bar.querySelector('.voice-recorder-cancel').disabled = true;
       bar.querySelector('.voice-recorder-label').textContent = 'SENDING';
       try {
         const separator = uploadUrl.includes('?') ? '&' : '?';
-        const res = await fetch(uploadUrl + separator + 'seconds=' + seconds, {
-          method: 'POST',
-          headers: { ...headers, 'Content-Type': type.base },
-          body: blob
-        });
-        const result = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(result.error || 'Voice message upload failed');
+        let result = s.uploadResult;
+        if (!result && root.ChatMediaComposer?.upload) {
+          result = await root.ChatMediaComposer.upload(uploadUrl + separator + 'seconds=' + seconds, {
+            headers: { ...headers, 'Content-Type': type.base }, body: blob,
+            onProgress: percent => { bar.querySelector('.voice-recorder-label').textContent = percent >= 100 ? 'FINALIZING…' : `UPLOADING ${percent}%`; }
+          });
+        } else if (!result) {
+          const res = await fetch(uploadUrl + separator + 'seconds=' + seconds, {
+            method: 'POST', headers: { ...headers, 'Content-Type': type.base }, body: blob
+          });
+          result = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(result.error || 'Voice message upload failed');
+        }
+        s.uploadResult = result;
         if (typeof onUploaded === 'function') await onUploaded(result, seconds);
         cleanup();
       } catch (error) {
-        cleanup();
-        fail(error.message || 'Voice message upload failed');
+        // Retain stopped audio locally: a failed request must never destroy
+        // the only recording. Retrying is an explicit user action.
+        s.uploading = false;
+        bar.removeAttribute('aria-busy');
+        bar.classList.remove('is-sending'); bar.classList.add('is-failed');
+        bar.querySelector('.voice-recorder-cancel').disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.setAttribute('aria-label', 'Retry voice message upload');
+        sendBtn.title = 'Retry voice message upload';
+        const label = bar.querySelector('.voice-recorder-label');
+        label.textContent = 'NOT CONFIRMED // RECORDING KEPT';
+        label.title = (error.message || 'Upload failed') + '. Check chat before retrying.';
+        label.setAttribute('role', 'status');
       }
     };
 
@@ -125,6 +147,7 @@
       const recorder = s.recorder = new MediaRecorder(stream, { mimeType: type.mime, audioBitsPerSecond: 48000 });
       recorder.addEventListener('dataavailable', event => { if (event.data?.size) s.chunks.push(event.data); });
       recorder.addEventListener('stop', () => {
+        clearInterval(s.timer);
         s.stream?.getTracks().forEach(track => track.stop());
         if (s.cancelled) return;
         bar.classList.add('is-stopped');
