@@ -22469,6 +22469,19 @@ body #black-market-gm-button.bm-has-pending small {
 }
 #game-screen #chat-messages [data-local-chat-retry]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 
+/* Immediate GM outbox: local presentation only, never a judged chat entry. */
+#gm-chat-messages .gm-chat-local-outbox { display: contents; }
+#gm-chat-messages .gm-chat-local-pending .shadow-broker-transmission { border-style: dashed; }
+#gm-chat-messages .gm-chat-local-pending-status {
+  display: flex; justify-content: flex-end; align-items: center; gap: 8px;
+  padding: 2px 76px 6px 0; color: #d2b673;
+  font: 700 10px/1.4 var(--font-machine, monospace); letter-spacing: .08em;
+}
+#gm-chat-messages .gm-chat-local-pending-status[data-delivery="failed"],
+#gm-chat-messages .gm-chat-local-pending-status[data-delivery="uncertain"] { color: #ef9a94; }
+#gm-chat-messages [data-gm-local-chat-retry] { border: 1px solid currentColor; background: #160d1d; color: inherit; border-radius: 4px; padding: 3px 8px; font: inherit; cursor: pointer; }
+#gm-chat-messages [data-gm-local-chat-retry]:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
 /* Private /commands directory: local to the requesting GM / Little Hero. */
 .asoc-command-directory-backdrop {
   position: fixed;

@@ -729,6 +729,7 @@ function serializeRoomForRecovery(room) {
     columnDangerExpired: room.columnDangerExpired || {},
     hintClaims: room.hintClaims || {},
     commandReceipts: room.commandReceipts || [],
+    gmChatReceipts: (room.gmChatReceipts || []).slice(-2000),
     quests: questEngine.normalizeState(room.quests),
     dennisAI: dennisAI.normalizeState(room.dennisAI),
     spectralAdjudicator: spectralAdjudicator.normalizeState(room.spectralAdjudicator),
@@ -902,6 +903,9 @@ function restoreActiveRooms() {
         columnDangerExpired: saved.columnDangerExpired || {},
         hintClaims: saved.hintClaims || {},
         commandReceipts: Array.isArray(saved.commandReceipts) ? saved.commandReceipts.slice(-2048) : [],
+        gmChatReceipts: Array.isArray(saved.gmChatReceipts) ? saved.gmChatReceipts.filter(entry =>
+          entry && /^[A-Za-z0-9_-]{8,40}$/.test(entry.clientMsgId) && typeof entry.messageId === 'string' && Number.isFinite(entry.at)
+        ).slice(-2000) : [],
         quests: questEngine.normalizeState(saved.quests),
         dennisAI: dennisAI.normalizeState(saved.dennisAI),
         olympics: olympics.resumeAfterRestart(saved.olympics, Date.now()),
@@ -10421,6 +10425,7 @@ function createChatSerializer(room) {
         deletedAt: Number(m.deletedAt) || null,
         timestamp: m.timestamp,
         text: '',
+        clientMsgId: m.source === 'shadowBroker' ? m.clientMsgId : undefined,
         source: m.source || null,
         messageType: null
       };
@@ -10430,6 +10435,7 @@ function createChatSerializer(room) {
       playerId: m.playerId,
       playerName,
       text: m.text,
+      clientMsgId: m.source === 'shadowBroker' ? m.clientMsgId : undefined,
       timestamp: m.timestamp,
       editedAt: Number(m.editedAt) || null,
       shadowRealm: m.shadowRealm && Number(m.shadowRealm.at) ? { at: Number(m.shadowRealm.at) } : undefined,
@@ -12677,21 +12683,35 @@ function applyPlayerNudge(room, ws, message) {
 }
 
 function handleGmBroadcast(ws, message) {
+  // IDs identify only ordinary GM text, never replayable operational verbs.
+  const clientMsgId = typeof message.clientMsgId === 'string' && /^[A-Za-z0-9_-]{8,40}$/.test(message.clientMsgId)
+    && typeof message.text === 'string' && !/^\s*\//.test(message.text) ? message.clientMsgId : null;
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room) {
-    sendToWs(ws, { type: 'error', message: 'Room not found' });
+    sendToWs(ws, { type: 'error', message: 'Room not found', clientMsgId: clientMsgId || undefined });
     return;
   }
 
   if (ws !== room.hostConnection) {
-    sendToWs(ws, { type: 'error', message: 'Only host can send a Shadow Broker transmission' });
+    sendToWs(ws, { type: 'error', message: 'Only host can send a Shadow Broker transmission', clientMsgId: clientMsgId || undefined });
     return;
   }
 
   let { text } = message;
   if (!text || typeof text !== 'string') {
-    sendToWs(ws, { type: 'error', message: 'Invalid transmission text' });
+    sendToWs(ws, { type: 'error', message: 'Invalid transmission text', clientMsgId: clientMsgId || undefined });
     return;
+  }
+
+  if (clientMsgId) {
+    const receipt = (room.gmChatReceipts || []).find(entry => entry.clientMsgId === clientMsgId);
+    const existing = receipt || room.chat.messages.find(m => m.source === 'shadowBroker' && m.clientMsgId === clientMsgId);
+    if (existing) {
+      // Handles a lost ACK, socket reconnect, or retry. Never repeat a board
+      // effect, mention-all shake, or append the same transmission twice.
+      sendChatSnapshot(ws, room);
+      return sendToWs(ws, { type: 'gm:broadcast:ack', clientMsgId, messageId: receipt ? receipt.messageId : existing.id, duplicate: true });
+    }
   }
 
   const lockdown = text.trim().match(/^\/lockdown(?:\s+(on|off))?\s*$/i);
@@ -12745,6 +12765,11 @@ function handleGmBroadcast(ws, message) {
 
   const result = addShadowBrokerMessage(room, text, { editableByHost: true });
   if (result.success) {
+    if (clientMsgId) {
+      result.message.clientMsgId = clientMsgId;
+      room.gmChatReceipts = (room.gmChatReceipts || []).filter(entry => Date.now() - entry.at < 86400000).slice(-1999);
+      room.gmChatReceipts.push({clientMsgId, messageId: result.message.id, at: Date.now()});
+    }
     const spitMessage = maybeDennisGroundSpit(room, result.message?.text);
     persistActiveRooms();
     // A transmission touches exactly the line it posted; a Dennis ground-spit
@@ -12752,6 +12777,7 @@ function handleGmBroadcast(ws, message) {
     // tick, and both must ride the delta.
     if (spitMessage) broadcastChatUpdate(room, [result.message.id, spitMessage.id]);
     else broadcastChatUpdate(room, [result.message.id]);
+    if (clientMsgId) sendToWs(ws, { type: 'gm:broadcast:ack', clientMsgId, messageId: result.message.id });
     triggerC4Alert(room, result.message?.text, result.message?.id);
     triggerB3Alert(room, result.message?.text, result.message?.id);
 
@@ -12766,7 +12792,7 @@ function handleGmBroadcast(ws, message) {
       });
     }
   } else {
-    sendToWs(ws, { type: 'error', message: result.error });
+    sendToWs(ws, { type: 'error', message: result.error, clientMsgId: clientMsgId || undefined });
   }
 }
 

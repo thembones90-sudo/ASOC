@@ -159,6 +159,7 @@ const App = {
   _gmEmojiFavoritesEditing: false,
   _gmEmojiFavoriteSlot: 0,
   _editingBroadcast: null,
+  _gmLocalChatPending: new Map(),
   _gmComposerSelection: { start: 0, end: 0 },
   pendingVerdict: null,
   _reconnectPending: false,
@@ -2375,6 +2376,11 @@ const App = {
       if (this._superseded) return;
       document.querySelector('.gm-module-chat .gm-chat-panel')?.classList.add('is-reconnecting');
       this.setGMDeliveryState('RECONNECTING', 'queued');
+      for (const pending of this._gmLocalChatPending.values()) {
+        if (pending.state !== 'failed') pending.state = 'queued';
+        clearTimeout(pending.timer);
+      }
+      this.renderGMPendingChat();
       this.handleDisconnect();
     };
 
@@ -2952,6 +2958,7 @@ const App = {
         localStorage.setItem('asoc_master_host_token', this.hostToken);
         this.updateMultiplayerUI();
         this.resendPendingCommands();
+        this.flushGMPendingChat();
         break;
 
       case 'host:recovered':
@@ -2965,6 +2972,7 @@ const App = {
         localStorage.setItem('asoc_master_host_token', this.hostToken);
         this.updateMultiplayerUI();
         this.resendPendingCommands();
+        this.flushGMPendingChat();
         break;
 
       case 'host:superseded':
@@ -3265,6 +3273,17 @@ const App = {
         break;
 
       case 'gm:broadcast:ack':
+        if (message.clientMsgId) {
+          const pending = this._gmLocalChatPending.get(message.clientMsgId);
+          if (pending) {
+            clearTimeout(pending.timer);
+            if (message.refused) pending.state = 'failed';
+            else if (message.duplicate || this.chatMessages.some(m => m.id === message.messageId || m.clientMsgId === message.clientMsgId)) this._gmLocalChatPending.delete(message.clientMsgId);
+            else { pending.state = 'confirmed'; this.requestChatResync(); }
+            this.renderGMPendingChat();
+          }
+          if (message.refused) { this.setGMDeliveryState('NOT SENT', 'error', 4200); break; }
+        }
         this.setGMDeliveryState(message.direct ? 'EXECUTED' : 'DELIVERED', 'delivered', 1800);
         break;
 
@@ -3287,6 +3306,12 @@ const App = {
         break;
 
       case 'error':
+        if (message.clientMsgId && this._gmLocalChatPending.has(message.clientMsgId)) {
+          const pending = this._gmLocalChatPending.get(message.clientMsgId);
+          clearTimeout(pending.timer);
+          pending.state = 'failed';
+          this.renderGMPendingChat();
+        }
         console.error('[GM] Server error:', message.message);
         window.AsocRuntime?.record?.('server-rejection', message.message || 'COMMAND REJECTED', message.code || 'GM');
         if (message.code === 'TRANSMOG') window.BrokerTransmog?.onError?.(message.message);
@@ -5469,6 +5494,18 @@ const App = {
   },
 
   applyChatMessages(incoming, solvedTargets) {
+    for (const message of incoming) {
+      if (message.source !== 'shadowBroker' || !message.clientMsgId) continue;
+      const pending = this._gmLocalChatPending.get(message.clientMsgId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        this._gmLocalChatPending.delete(message.clientMsgId);
+        // It was already visible locally. Confirmation must not hide it
+        // behind a second entry animation.
+        this._seenShadowBrokerKeys.add(String(message.id));
+        Skeleton._glitchFirstSeen?.delete(String(message.id));
+      }
+    }
     const previousIds = new Set(this.chatMessages.map(m => m.id));
     const previousById = new Map(this.chatMessages.map(m => [m.id, m]));
     // Same first-hydration guard as PlayerApp's copy in js/player.js --
@@ -5628,6 +5665,7 @@ const App = {
       this.decorateGMChatLinks(node);
       this.decorateGMChatMentions(node);
     });
+    this.renderGMPendingChat();
     this.armGMPollCountdowns(container);
     // The inline CORRECT target picker lives inside its message node; if that
     // message was rebuilt (reaction, edit), put the picker back.
@@ -6865,10 +6903,20 @@ const App = {
     }
 
     if (this.mode === 'multiplayer' && this.roomCode) {
-      // Live room: let the authoritative server broadcast it to every
-      // connected surface exactly as before.
-      this.setGMDeliveryState('SENDING', 'sending');
-      this.send({ type: 'gm:broadcast', text });
+      if (!text.startsWith('/')) {
+        if (this._gmLocalChatPending.size >= 50) {
+          this.setGMDeliveryState('OUTBOX FULL // CHECK CONNECTION', 'error', 4200);
+          return; // Preserve the draft, never silently discard a pending line.
+        }
+        const bytes = crypto.getRandomValues(new Uint8Array(12));
+        const id = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+        this._gmLocalChatPending.set(id, { text, state: 'queued', at: Date.now() });
+        this.sendGMPendingChat(id);
+      } else {
+        // Operational/private slash commands are not fake chat messages.
+        this.setGMDeliveryState('SENDING', 'sending');
+        this.send({ type: 'gm:broadcast', text });
+      }
     } else {
       // No room: TRANSMIT still means transmit. Play the message locally on
       // both GM board surfaces and keep it in the GM chat log instead of
@@ -6897,6 +6945,61 @@ const App = {
     // immediately. There is deliberately no character counter or GM-side
     // transmission length cap.
     composer.focus();
+  },
+
+  sendGMPendingChat(id) {
+    const pending = this._gmLocalChatPending.get(id);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    const connected = this.ws?.readyState === 1 && this._protocolReady && !this._recoverPending && !this._reconnectPending && !this._superseded;
+    pending.state = connected ? 'sending' : 'queued';
+    this.renderGMPendingChat(true); // Local paint does not wait for disk/network.
+    this.setGMDeliveryState(connected ? 'SENDING' : 'QUEUED // RECONNECTING', pending.state);
+    if (!connected) return;
+    try { this.send({ type: 'gm:broadcast', text: pending.text, clientMsgId: id }); }
+    catch { pending.state = 'uncertain'; this.renderGMPendingChat(); this.setGMDeliveryState('DELIVERY NOT CONFIRMED', 'error'); return; }
+    pending.timer = setTimeout(() => {
+      if (!this._gmLocalChatPending.has(id)) return;
+      pending.state = 'uncertain';
+      this.renderGMPendingChat();
+      this.requestChatResync();
+    }, 15000);
+  },
+
+  flushGMPendingChat() {
+    for (const [id, pending] of this._gmLocalChatPending) {
+      if (pending.state === 'failed') continue;
+      if (Date.now() - pending.at > 120000) pending.state = 'uncertain';
+      else this.sendGMPendingChat(id); // Same id: server deduplicates retries.
+    }
+    this.renderGMPendingChat();
+  },
+
+  renderGMPendingChat(forceLatest = false) {
+    const container = document.getElementById('gm-chat-messages');
+    if (!container) return;
+    if (!this._gmPendingRetryBound) {
+      this._gmPendingRetryBound = true;
+      container.addEventListener('click', event => {
+        const button = event.target.closest('[data-gm-local-chat-retry]');
+        if (!button) return;
+        event.preventDefault();
+        this.sendGMPendingChat(button.dataset.gmLocalChatRetry);
+      });
+    }
+    let outbox = container.querySelector('.gm-chat-local-outbox');
+    if (!this._gmLocalChatPending.size) { outbox?.remove(); return; }
+    if (!outbox) { outbox = document.createElement('div'); outbox.className = 'gm-chat-local-outbox'; container.appendChild(outbox); }
+    const entries = Array.from(this._gmLocalChatPending, ([id, pending]) => {
+      const status = pending.state === 'failed' ? 'NOT SENT' : pending.state === 'queued' ? 'QUEUED // RECONNECTING'
+        : pending.state === 'uncertain' ? 'DELIVERY NOT CONFIRMED' : pending.state === 'confirmed' ? 'CONFIRMED // SYNCING' : 'SENDING';
+      const retry = ['failed', 'uncertain'].includes(pending.state);
+      return {key:id,html:`<div class="gm-shadow-broker-entry gm-chat-local-pending" data-gm-local-chat-id="${id}">
+        ${Skeleton.shadowBrokerTransmissionHTML(pending.text)}
+        <div class="gm-chat-local-pending-status" role="status" data-delivery="${pending.state}">${status}${retry ? ` <button type="button" data-gm-local-chat-retry="${id}">RETRY</button>` : ''}</div></div>`};
+    });
+    DomPatch.patch(outbox, entries);
+    if (forceLatest) { container.scrollTop = container.scrollHeight; this.userScrolledUp = false; }
   },
 
   signalReliquaryAccessDenied(locked = false) {
