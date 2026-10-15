@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { Worker } = require('worker_threads');
 
 const root = process.env.ASOC_DATA_DIR ? path.resolve(process.env.ASOC_DATA_DIR) : __dirname;
 const journal = path.join(root, '.runtime-transaction.json');
@@ -18,10 +19,43 @@ const testAtomicDelayMs = process.env.NODE_ENV === 'test'
 let pending = null;
 let failed = false;
 let failureHandler = null;
+let worker = null;
+let workerSeq = 0;
+let workerStopped = false;
+const workerRequests = new Map();
 
 const TRANSIENT_FS_CODES = new Set(['EAGAIN', 'EBUSY', 'EINTR', 'ESTALE']);
 const UNSUPPORTED_DIRSYNC_CODES = new Set(['EINVAL', 'ENOTSUP', 'EOPNOTSUPP', 'EPERM']);
 let directorySyncWarningShown = false;
+
+// Legacy HTTP stores still expose synchronous writes. They must never race
+// an in-flight WAL/target replacement from the worker. Routine socket actions
+// use commitAsync and never wait here. A rare legacy writer waits for the
+// older commit, then keeps its existing synchronous durability contract.
+function waitForWorkerWrites() {
+  for (const request of workerRequests.values()) {
+    if (Atomics.load(request.barrier, 0) === 0) Atomics.wait(request.barrier, 0, 0, 10000);
+    if (Atomics.load(request.barrier, 0) !== 1) {
+      const error = new Error('Persistence worker did not complete before a synchronous write');
+      markFailed(error);
+      throw error;
+    }
+    request.visible = false;
+  }
+}
+function visibleValue(file) {
+  const target = path.resolve(file);
+  if (pending?.has(target)) return pending.get(target);
+  // Reads during a commit must see the latest serialized store, not an old
+  // disk copy that could overwrite a just-awarded score/profile/coin balance.
+  const requests = Array.from(workerRequests.values());
+  for (let i = requests.length - 1; i >= 0; i--) {
+    if (requests[i].visible === false) continue;
+    const entry = requests[i].writes.find(([name]) => name === target);
+    if (entry) return entry[1];
+  }
+  return undefined;
+}
 
 function sleepSync(ms) {
   if (!(ms > 0)) return;
@@ -61,6 +95,7 @@ function injectedFailure() {
 }
 
 function atomic(file, value) {
+  waitForWorkerWrites();
   // Deterministic storage-latency injection for performance regression tests.
   if (testAtomicDelayMs) sleepSync(testAtomicDelayMs);
   const target = path.resolve(file);
@@ -136,6 +171,54 @@ function notifyCommitted(writes) {
   }
 }
 
+function workerError(view) {
+  const error = new Error(view?.message || 'Persistence worker failed');
+  if (view?.code) error.code = view.code;
+  if (view?.name) error.name = view.name;
+  if (view?.stack) error.stack = view.stack;
+  return error;
+}
+function rejectWorkerRequests(error) {
+  for (const { reject } of workerRequests.values()) reject(error);
+  workerRequests.clear();
+}
+function ensureWorker() {
+  if (workerStopped) throw new Error('Persistence worker is stopped');
+  if (worker) return worker;
+  worker = new Worker(path.join(__dirname, 'durable-io-worker.js'), { workerData: {
+    root, journal, testFailureTrigger, testAtomicDelayMs,
+    testCrashAfterWal: process.env.NODE_ENV === 'test' && process.env.ASOC_TEST_WORKER_CRASH_AFTER_WAL === '1',
+    testCrashAfterFirstTarget: process.env.NODE_ENV === 'test' && process.env.ASOC_TEST_WORKER_CRASH_AFTER_FIRST_TARGET === '1'
+  }});
+  worker.on('message', message => {
+    const request = workerRequests.get(message?.id);
+    if (!request) return;
+    workerRequests.delete(message.id);
+    if (message.ok) request.resolve(); else request.reject(workerError(message.error));
+  });
+  worker.on('error', error => { rejectWorkerRequests(error); markFailed(error); });
+  worker.on('exit', code => {
+    const unacknowledged = workerRequests.size > 0;
+    const unexpected = !workerStopped || unacknowledged;
+    worker = null;
+    if (unexpected) {
+      const error = new Error(`Persistence worker exited with code ${code}; pending=${workerRequests.size}`);
+      rejectWorkerRequests(error);
+      markFailed(error);
+    }
+  });
+  return worker;
+}
+function commitInWorker(writes) {
+  return new Promise((resolve, reject) => {
+    const id = ++workerSeq;
+    const barrier = new Int32Array(new SharedArrayBuffer(4));
+    workerRequests.set(id, { resolve, reject, barrier, writes });
+    try { ensureWorker().postMessage({ type: 'commit', id, writes, barrier: barrier.buffer, forceWal: testForceTransactionWal }); }
+    catch (error) { workerRequests.delete(id); reject(error); }
+  });
+}
+
 // Returns the exact serialized string written (or queued), so a caller can
 // recognise its own pending write later without re-serializing.
 function writeJson(file, value) {
@@ -159,13 +242,13 @@ const storeFs = new Proxy(fs, {
   get(target, key) {
     if (key === 'readFileSync') {
       return (file, options) => {
-        const value = pending?.get(path.resolve(file));
+        const value = visibleValue(file);
         if (value !== undefined) return options ? value : Buffer.from(value);
         return fs.readFileSync(file, options);
       };
     }
     if (key === 'existsSync') {
-      return file => pending?.has(path.resolve(file)) || fs.existsSync(file);
+      return file => visibleValue(file) !== undefined || fs.existsSync(file);
     }
     return target[key];
   }
@@ -207,13 +290,25 @@ module.exports = {
       throw error;
     }
   },
+  async commitAsync() {
+    const writes = Array.from(pending || []);
+    pending = null;
+    if (!writes.length) return;
+    try {
+      await commitInWorker(writes);
+      notifyCommitted(writes);
+    } catch (error) {
+      markFailed(error);
+      throw error;
+    }
+  },
   abort() {
     pending = null;
   },
   // The queued (uncommitted) content for `file` in the open transaction, or
   // undefined when there is none.
   pendingValue(file) {
-    return pending ? pending.get(path.resolve(file)) : undefined;
+    return visibleValue(file);
   },
   onCommit(listener) {
     if (typeof listener === 'function') commitListeners.add(listener);
@@ -223,5 +318,16 @@ module.exports = {
   },
   onFailure(handler) {
     failureHandler = typeof handler === 'function' ? handler : null;
+  },
+  async closeWorker() {
+    workerStopped = true;
+    const active = worker;
+    worker = null;
+    if (workerRequests.size) {
+      const error = new Error('Persistence worker closed with commits awaiting acknowledgment');
+      rejectWorkerRequests(error);
+      markFailed(error);
+    }
+    if (active) await active.terminate();
   }
 };

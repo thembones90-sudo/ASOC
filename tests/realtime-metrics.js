@@ -3,7 +3,7 @@ const metrics=require('../realtime-metrics');
 assert.equal(metrics.isMeasured('chat:guess'),true);
 assert.equal(metrics.isMeasured('gm:judgeGuess'),true);
 assert.equal(metrics.isMeasured('password'),false);
-for(let i=1;i<=100;i++)metrics.record('chat:guess',{validationAndMutationMs:i,persistenceMs:i*2,totalServerMs:i*3,frameCount:2});
+for(let i=1;i<=100;i++)metrics.record('chat:guess',{queueMs:i/2,validationAndMutationMs:i,batchPreparationMs:i/4,persistenceMs:i*2,totalServerMs:i*3,queueToBroadcastMs:i*3,frameCount:2});
 const s=metrics.snapshot('chat:guess');
 assert.equal(s.samples,100);assert.equal(s.totalServerMs.p50,150);assert.equal(s.totalServerMs.p95,285);assert.equal(s.totalServerMs.p99,297);assert.equal(s.totalServerMs.worst,300);
 assert.equal(JSON.stringify(s).includes('message'),false);

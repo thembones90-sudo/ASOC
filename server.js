@@ -42,6 +42,7 @@ const { createLinkPreviewService } = require('./link-preview');
 const avatarStore = require('./avatar-store');
 const { createPlayerAuthThrottle } = require('./auth-throttle');
 const forgeAI = require('./forge-ai');
+const payloadDiagnostics = require('./ws-payload-diagnostics');
 const mudpits = require('./mudpits');
 const tombola = require('./tombola');
 const { createTombolaService } = require('./tombola-server');
@@ -537,6 +538,13 @@ const CURRENT_STORE_VERSION = 2;
 let recoveryStoreLocked = false;
 let persistenceFailed = false;
 let outbound = null;
+let runtimeActionExecuting = false;
+const runtimeQueue = [];
+let runtimeQueueActive = false;
+let roomRecoveryDirty = false;
+let runtimeDrainWaiters = [];
+let lastRuntimeBacklogWarning = 0;
+const RUNTIME_BATCH_MAX = Math.max(1, Math.min(64, Number(process.env.ASOC_RUNTIME_BATCH_MAX) || 32));
 function failPersistence(error = null) {
   if (!persistenceFailed) {
     persistenceFailed = true;
@@ -549,33 +557,83 @@ function failPersistence(error = null) {
 }
 durableIO.onFailure(error => failPersistence(error));
 
+function resolveRuntimeDrain() {
+  if (runtimeQueueActive || runtimeQueue.length) return;
+  const waiters = runtimeDrainWaiters; runtimeDrainWaiters = [];
+  waiters.forEach(resolve => resolve());
+}
+function drainRuntimeActions() {
+  if (!runtimeQueueActive && !runtimeQueue.length) return Promise.resolve();
+  return new Promise(resolve => runtimeDrainWaiters.push(resolve));
+}
+async function processRuntimeQueue() {
+  if (runtimeQueueActive) return;
+  runtimeQueueActive = true;
+  while (runtimeQueue.length && !persistenceFailed) {
+    // Admit actions that arrived in the same event-loop turn, then durably
+    // commit their final combined state once. This preserves strict mutation
+    // and frame order while avoiding one fsync sequence per chat burst.
+    await new Promise(resolve => setImmediate(resolve));
+    const batch = runtimeQueue.splice(0, RUNTIME_BATCH_MAX);
+    const timings = [];
+    outbound = [];
+    try {
+      durableIO.begin();
+      for (const { action, metricType, queuedAt } of batch) {
+        const measured = realtimeMetrics.isMeasured(metricType);
+        const started = measured ? process.hrtime.bigint() : 0n;
+        runtimeActionExecuting = true;
+        try { action(); } finally { runtimeActionExecuting = false; }
+        timings.push({ metricType, measured, started, queuedAt, actionDone: measured ? process.hrtime.bigint() : 0n });
+      }
+      // The batch commits its final authoritative state, so constructing and
+      // stringifying the entire recovery snapshot for every individual chat
+      // action is redundant CPU work on the main thread.
+      if (roomRecoveryDirty) { roomRecoveryDirty = false; persistActiveRooms(); }
+      if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
+      const frames = outbound; outbound = null;
+      const commitStarted = process.hrtime.bigint();
+      await durableIO.commitAsync();
+      const commitDone = process.hrtime.bigint();
+      for (const [ws, data] of frames) {
+        if (ws === null) data(); // HTTP acceptance shares the durable outbox.
+        else if (ws.readyState === 1) sendDurableFrame(ws, data);
+      }
+      const finished = process.hrtime.bigint();
+      for (const timing of timings) if (timing.measured) realtimeMetrics.record(timing.metricType, {
+        validationAndMutationMs: Number(timing.actionDone - timing.started) / 1e6,
+        queueMs: Number(timing.started - timing.queuedAt) / 1e6,
+        batchPreparationMs: Number(commitStarted - timing.actionDone) / 1e6,
+        persistenceMs: Number(commitDone - commitStarted) / 1e6,
+        totalServerMs: Number(finished - timing.started) / 1e6,
+        queueToBroadcastMs: Number(finished - timing.queuedAt) / 1e6,
+        frameCount: frames.length
+      });
+    } catch (error) {
+      runtimeActionExecuting = false; outbound = null; durableIO.abort();
+      console.error('[runtime] Authoritative action failed:', error?.stack || error?.message || error);
+      failPersistence(error);
+    }
+  }
+  runtimeQueueActive = false;
+  // An event can enqueue after the loop observes an empty queue but before
+  // this flag is cleared. Hand ownership to a fresh drain so that edge can
+  // never strand the final chat command indefinitely.
+  if (runtimeQueue.length && !persistenceFailed) void processRuntimeQueue();
+  else resolveRuntimeDrain();
+}
 function runtimeAction(action, metricType = '') {
   if (persistenceFailed || recoveryStoreLocked || shuttingDown) return;
-  if (outbound) return action();
-  const measured = realtimeMetrics.isMeasured(metricType);
-  const started = measured ? process.hrtime.bigint() : 0n;
-  outbound = [];
-  durableIO.begin();
-  try {
-    action();
-    const actionDone = measured ? process.hrtime.bigint() : 0n;
-    if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
-    durableIO.commit();
-    const commitDone = measured ? process.hrtime.bigint() : 0n;
-    const frames = outbound; outbound = null;
-    for (const [ws, data] of frames) if (ws.readyState === 1) sendDurableFrame(ws, data);
-    if (measured) realtimeMetrics.record(metricType, {
-      validationAndMutationMs: Number(actionDone - started) / 1e6,
-      persistenceMs: Number(commitDone - actionDone) / 1e6,
-      totalServerMs: Number(process.hrtime.bigint() - started) / 1e6,
-      frameCount: frames.length
-    });
-  } catch (error) {
-    outbound = null;
-    durableIO.abort();
-    console.error('[runtime] Authoritative action failed:', error?.stack || error?.message || error);
-    failPersistence(error);
+  // Only calls made synchronously by the action currently mutating state are
+  // nested. New socket/timer events arriving while its worker commit is in
+  // flight must queue behind it, never leak into the open outbound batch.
+  if (runtimeActionExecuting) return action();
+  runtimeQueue.push({ action, metricType, queuedAt: process.hrtime.bigint() });
+  if (runtimeQueue.length >= 256 && Date.now() - lastRuntimeBacklogWarning >= 30000) {
+    lastRuntimeBacklogWarning = Date.now();
+    console.warn('[performance] authoritative action queue backlog=' + runtimeQueue.length);
   }
+  void processRuntimeQueue();
 }
 
 function makeOfflinePlayerSocket() {
@@ -704,6 +762,7 @@ function persistActiveRooms() {
   if (recoveryStoreLocked) return false;
   if (persistenceFailed) throw Error('Persistence unavailable');
   if (!playerStore.storageHealthy() || !matchStore.storageHealthy()) throw Error('Critical storage unavailable');
+  if (runtimeActionExecuting) { roomRecoveryDirty = true; return true; }
   const started = process.hrtime.bigint();
   try {
     durableIO.writeJson(ACTIVE_ROOMS_FILE, {
@@ -1172,11 +1231,18 @@ function getPlayerAuth(token) {
 
 function sendJson(res, statusCode, data) {
   const body = JSON.stringify(data);
-  res.writeHead(statusCode, {
-    'Content-Type': 'application/json',
-    'Content-Length': Buffer.byteLength(body)
-  });
-  res.end(body);
+  const deliver = () => {
+    if (res.destroyed || res.writableEnded) return;
+    res.writeHead(statusCode, {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body)
+    });
+    res.end(body);
+  };
+  // An HTTP upload can enter the authoritative queue too. Its successful
+  // response must wait for the same durable commit as its WebSocket update.
+  if (runtimeActionExecuting && outbound) outbound.push([null, deliver]);
+  else deliver();
 }
 
 function readJsonBody(req, cb) {
@@ -1924,7 +1990,7 @@ function mirrorTributesToInfostud(room) {
     const who = tribute.senderName || tribute.playerName || 'LITTLE HERO';
     infostudInit()
       .then(() => infostud.addBuffer({ name: `${who} - ${stamp} - ${tribute.source || 'chat'}.${ext}`, type: image.type, parentId: reliquaryFolderId(), buffer: image.buffer, modifiedAt: at }))
-      .then(item => { tribute.infostudId = item.id; persistActiveRooms(); })
+      .then(item => runtimeAction(() => { tribute.infostudId = item.id; persistActiveRooms(); }))
       .catch(error => console.error('[infostud] Reliquary copy failed:', error.message))
       .finally(() => tributeMirrorPending.delete(tribute.id));
   }
@@ -5277,7 +5343,7 @@ function handleChatRemoteGif(ws, message) {
     cooldown.chatAt = now;
   }
 
-  appendChatRemoteGifMessage(
+  const gifMessage = appendChatRemoteGifMessage(
     room,
     actor.role === 'gm'
       ? { role: 'gm' }
@@ -5285,7 +5351,7 @@ function handleChatRemoteGif(ws, message) {
     gif
   );
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [gifMessage.id]);
 }
 
 const MAX_STICKER_BYTES = 1024 * 1024;
@@ -5336,7 +5402,7 @@ function handleChatSticker(ws, message) {
   entry.messageType = 'sticker';
   entry.source = actor.role === 'gm' ? 'shadowBroker' : 'chatSticker';
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [entry.id]);
 }
 
 async function handleChatImageUrl(ws, message) {
@@ -5366,7 +5432,7 @@ async function handleChatImageUrl(ws, message) {
 
   try {
     const remote = await fetchRemoteChatImage(message.url || '');
-    persistChatImage(room, imageActor, remote.buffer, remote.contentType, caption);
+    runtimeAction(() => persistChatImage(room, imageActor, remote.buffer, remote.contentType, caption));
   } catch (error) {
     console.error('[chat-image-url/ws] import failed:', error.message);
     sendToWs(ws, { type: 'error', message: error.message || 'Image address import failed' });
@@ -5438,7 +5504,7 @@ function persistChatVoice(room, actor, buffer, contentType, seconds) {
   const audioUrl = '/uploads/chat/' + filename;
   const message = appendChatVoiceMessage(room, actor, audioUrl, seconds);
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [message.id]);
   return { audioUrl, messageId: message.id };
 }
 
@@ -5610,7 +5676,7 @@ function handleChatPollCreate(ws, message) {
   );
   if (!result.success) return sendToWs(ws, { type: 'error', message: result.error });
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [result.message.id]);
   schedulePollExpiry(room, result.message);
 
   // A Shadow Broker poll is a room directive. Publishing one automatically
@@ -5701,7 +5767,7 @@ function handleChatPollVote(ws, message) {
     frameColor: actor.frameColor || '#9B5DE0'
   };
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [target.id]);
 }
 
 function handleChatPollClose(ws, message) {
@@ -5718,7 +5784,7 @@ function handleChatPollClose(ws, message) {
   if (target.poll.closedAt) return;
   target.poll.closedAt = Date.now();
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [target.id]);
 }
 
 const threefoldRooms = new Map();
@@ -7090,7 +7156,7 @@ function persistChatImage(room, actor, buffer, contentType, caption) {
   const imageUrl = '/uploads/chat/' + filename;
   const message = appendChatImageMessage(room, actor, imageUrl, caption);
   persistActiveRooms();
-  broadcastChatUpdate(room);
+  broadcastChatUpdate(room, [message.id]);
   return { imageUrl, messageId: message.id };
 }
 
@@ -7271,7 +7337,7 @@ function primeChatLinkPreview(room, message) {
   if (!urls.length) return;
 
   message.linkPreviews = [];
-  const { immediate, pending } = linkPreviewService.primeAll(urls, preview => {
+  const { immediate } = linkPreviewService.primeAll(urls, preview => runtimeAction(() => {
     // The message may have been deleted, or aged out of the history window,
     // while the fetch was in flight. A preview for a message nobody can see is
     // dropped rather than resurrected onto a different object.
@@ -7280,7 +7346,7 @@ function primeChatLinkPreview(room, message) {
     message.linkPreviewAt = Date.now();
     persistActiveRooms();
     broadcastChatUpdate(room, [message.id]);
-  });
+  }));
   for (const preview of immediate) upsertLinkPreview(message, preview);
   if (immediate.length) {
     message.linkPreviewAt = Date.now();
@@ -7288,12 +7354,9 @@ function primeChatLinkPreview(room, message) {
     // immediately-cached previews keeps the first render from flickering.
   }
 
-  Promise.allSettled(pending).then(() => {
-    if (!room?.chat?.messages?.includes(message)) return;
-    if (!message.linkPreviews?.length) return;
-    persistActiveRooms();
-    broadcastChatUpdate(room, [message.id]);
-  }).catch(() => {});
+  // Each resolved card above is already queued and durably delivered. A
+  // second all-settled save/broadcast would resend the same cards and perform
+  // another full room write for every posted URL.
 }
 
 function upsertLinkPreview(message, preview) {
@@ -8172,7 +8235,10 @@ function handleEmoteCommand(room, author, raw, targetPlayerId, name) {
   if (result.success) scheduleDennisCommandRetaliation(room, author, target, 'emote', name);
   if (!result.success || actorIsBroker || actorIsDennis || target?.id !== SHADOW_BROKER_TARGET_ID) return result;
   if (name === 'threaten') {
-    addShadowBrokerMessage(room, SKYNET_THREAT_REPLIES[crypto.randomInt(SKYNET_THREAT_REPLIES.length)], { editableByHost: false });
+    const reply = addShadowBrokerMessage(room, SKYNET_THREAT_REPLIES[crypto.randomInt(SKYNET_THREAT_REPLIES.length)], { editableByHost: false });
+    // The Broker's retort is a second visible line in the same tick, so the
+    // narrow delta must carry both it and the emote that provoked it.
+    if (reply.success) result.changedChatIds = [result.message.id, reply.message.id];
   }
   if (name === 'moon' && applyMoonToll(room, author)) result.tributeTriggered = true;
   return result;
@@ -12254,17 +12320,21 @@ function handleChatGuess(ws, message) {
     // Permanent channel contract: if clients can see a transmission, it has
     // already reached the recovery snapshot.
     persistActiveRooms();
-    // A plain post touches exactly one message, so ship only that one. A nudge
-    // or a triggered tribute can add a second message in the same tick, and a
-    // slash command can post, mutate and clear solved targets at once -- every
-    // one of those still takes the full snapshot.
-    const singleMessageOnly = dispatch === null
-      && !result.tributeTriggered
-      && nudge !== 'tribute'
-      && !dennisGroundSpit
-      && !spectralChange
-      && result.message?.id;
-    broadcastChatUpdate(room, singleMessageOnly ? [result.message.id] : null);
+    // A plain post and every slash command whose handler names exactly the
+    // messages it touched ship only those messages as a delta. Deltas always
+    // carry solvedTargets, so verdicts that clear them ride along. Events that
+    // can add or mutate messages the handler did not name (a triggered
+    // tribute, a nudge, Dennis spit, spectral adjudication) keep the full
+    // snapshot fallback.
+    const changedChatIds = Array.isArray(result.changedChatIds) && result.changedChatIds.length
+      ? result.changedChatIds
+      : (result.message?.id ? [result.message.id] : []);
+    const needsFullChatSnapshot = result.tributeTriggered
+      || nudge === 'tribute'
+      || dennisGroundSpit
+      || spectralChange
+      || !changedChatIds.length;
+    broadcastChatUpdate(room, needsFullChatSnapshot ? null : changedChatIds);
     if (dispatch === null && !room.lockdown) triggerC4Alert(room, result.message?.text, result.message?.id);
     if (dispatch === null && !room.lockdown) triggerB3Alert(room, result.message?.text, result.message?.id);
     if (result.tributeTriggered || result.poisonStateChanged || nudge === 'tribute') broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -12647,7 +12717,7 @@ function handleGmBroadcast(ws, message) {
     }
     const rollResult = addRollMessage(room, null, 'SHADOW BROKER', gmRange, { isGm: true });
     persistActiveRooms();
-    broadcastChatUpdate(room);
+    broadcastChatUpdate(room, [rollResult.message.id]);
     return;
   }
 
@@ -12675,9 +12745,13 @@ function handleGmBroadcast(ws, message) {
 
   const result = addShadowBrokerMessage(room, text, { editableByHost: true });
   if (result.success) {
-    maybeDennisGroundSpit(room, result.message?.text);
+    const spitMessage = maybeDennisGroundSpit(room, result.message?.text);
     persistActiveRooms();
-    broadcastChatUpdate(room);
+    // A transmission touches exactly the line it posted; a Dennis ground-spit
+    // reply is the one case that appends a second visible message in the same
+    // tick, and both must ride the delta.
+    if (spitMessage) broadcastChatUpdate(room, [result.message.id, spitMessage.id]);
+    else broadcastChatUpdate(room, [result.message.id]);
     triggerC4Alert(room, result.message?.text, result.message?.id);
     triggerB3Alert(room, result.message?.text, result.message?.id);
 
@@ -14882,9 +14956,21 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server, maxPayload: MAX_WS_PAYLOAD_BYTES });
 let shuttingDown = false;
 let lastSocketBufferWarning = 0;
+let lastLargePayloadWarning = 0;
 
 function sendDurableFrame(ws, data) {
   const bufferedBytes = Number(ws.bufferedAmount) || 0;
+  const payloadBytes = Buffer.isBuffer(data) ? data.length : Buffer.byteLength(String(data));
+  // Privacy-safe aggregate accounting: classifies the frame into a whitelisted
+  // category and records byte counts only -- never the payload -- so an
+  // oversized or queued backlog can be attributed after the fact.
+  payloadDiagnostics.observe(data, bufferedBytes);
+  if (payloadBytes >= 524288 && Date.now() - lastLargePayloadWarning >= 30000) {
+    lastLargePayloadWarning = Date.now();
+    const category = /^\{"type":"([a-zA-Z:-]+)"/.exec(String(data).slice(0, 80))?.[1] || '';
+    const safeCategory = ['state:public','chat:update','chat:delta','players:update','tribute:vault','timer:tick'].includes(category) ? category : 'other';
+    console.warn('[performance] oversized websocket frame category=' + safeCategory + ' bytes=' + payloadBytes + ' queued=' + bufferedBytes);
+  }
   if (bufferedBytes >= WS_BUFFER_CLOSE_BYTES) {
     if (Date.now() - lastSocketBufferWarning >= 30000) {
       lastSocketBufferWarning = Date.now();
@@ -15828,7 +15914,7 @@ server.listen(PORT, '0.0.0.0', () => {
 });
 
 const SHUTDOWN_GRACE_MS = Math.max(1000, Number(process.env.ASOC_SHUTDOWN_GRACE_MS) || 10000);
-function gracefulShutdown(signal) {
+async function gracefulShutdown(signal) {
   if (shuttingDown) {
     console.warn(`[shutdown] ${signal} received while shutdown is already in progress`);
     return;
@@ -15842,6 +15928,8 @@ function gracefulShutdown(signal) {
   }, SHUTDOWN_GRACE_MS);
   forceTimer.unref();
 
+  await drainRuntimeActions();
+
   try {
     persistActiveRooms();
     savePlayerAuthSessions();
@@ -15849,6 +15937,7 @@ function gracefulShutdown(signal) {
   } catch (error) {
     console.error('[shutdown] Persistence flush failed:', error);
   }
+  try { await durableIO.closeWorker(); } catch (error) { console.error('[shutdown] Persistence worker close failed:', error); }
 
   clearInterval(heartbeatInterval);
   for (const ws of wss.clients) {

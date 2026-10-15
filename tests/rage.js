@@ -263,10 +263,12 @@ class Client {
     throw new Error(`${this.name}: timed out waiting for ${label}`);
   }
   // Sends a rage action and returns the resulting state or error.
-  async act(message, label) {
+  async act(message, label, expectedState = () => true) {
     const from = this.mark();
     this.send(message);
-    return this.next(m => m.type === 'rage:state' || (m.type === 'error' && m.code === 'RAGE'), label, from);
+    // A timer broadcast can already be in flight when a queued action is
+    // sent. Wait for its expected result, not an unrelated earlier state.
+    return this.next(m => (m.type === 'rage:state' && expectedState(m.state)) || (m.type === 'error' && m.code === 'RAGE'), label, from);
   }
   async balance() {
     const from = this.mark();
@@ -417,7 +419,7 @@ async function runServer() {
     await ana.act({ type: 'rage:color', color: 'blood' }, 'c1');
     await bo.act({ type: 'rage:color', color: 'void' }, 'c2');
     await ana.act({ type: 'rage:start' }, 'start 2');
-    st = await bo.act({ type: 'rage:leave' }, 'forfeit');
+    st = await bo.act({ type: 'rage:leave' }, 'forfeit', state => state?.phase === 'ended');
     assert.equal(st.state.phase, 'ended');
     assert.match(st.state.winnerName, /^Ana the /);
     await sleep(300);
@@ -432,7 +434,7 @@ async function runServer() {
     await bo.act({ type: 'rage:color', color: 'frost' }, 'c3');
     await gm.act({ type: 'rage:color', color: 'bone' }, 'c4');
     await bo.act({ type: 'rage:start' }, 'start 1');
-    st = await bo.act({ type: 'rage:leave' }, 'bo forfeits to gm');
+    st = await bo.act({ type: 'rage:leave' }, 'bo forfeits to gm', state => state?.phase === 'ended');
     assert.equal(st.state.winnerId, '__GM__');
     await sleep(300);
     assert.equal(await bo.balance(), 0);
