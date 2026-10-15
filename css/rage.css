@@ -460,3 +460,95 @@ button.rage-term:hover .rage-term-cta { background: linear-gradient(180deg, #d01
 .rage-term input { width: 84px; height: 42px; font-size: 18px; border-radius: 10px; }
 .rage-note { margin-top: 2px; padding: 12px 16px; border: 1px dashed rgba(200, 40, 60, .3); border-radius: 10px; color: #b39ea8; font: 500 14px/1.45 var(--font-human, 'Segoe UI', system-ui, sans-serif); text-align: center; letter-spacing: 0; }
 @media (max-width: 760px) { :where(html:not(.asoc-mobile)) .rage-terms { grid-template-columns: 1fr; } }
+
+/* Cursed tournament table: the 11×11 coordinate system stays untouched. */
+.rage-board {
+  isolation: isolate;
+  border: 5px ridge #65565a;
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at center, #5a172330, transparent 57%),
+    repeating-linear-gradient(128deg, transparent 0 71px, #c7c1bb08 72px, transparent 73px 138px),
+    repeating-linear-gradient(38deg, #ffffff02 0 1px, transparent 1px 7px),
+    linear-gradient(145deg, #27252b, #101015 55%, #1d191f);
+  box-shadow: 0 18px 35px #0009, inset 0 0 0 2px #100e12, inset 0 0 40px #000b;
+}
+.rage-board::before {
+  content: ''; position: absolute; inset: 2%; border: 1px solid #9b757533;
+  border-radius: 5px; pointer-events: none;
+}
+.rage-sq {
+  display: grid; place-items: center; margin: 12%; border: 2px solid #61585f;
+  background: radial-gradient(ellipse at 50% 75%, #39333a, #0b0b10 70%);
+  box-shadow: 0 1px 0 #9c8a7b55, inset 0 3px 6px #000d;
+  font: normal clamp(9px, 1.3vw, 15px) Georgia, serif; color: #ddd0b5;
+}
+.rage-sq.is-start { border-color: var(--seat); box-shadow: inset 0 3px 5px #000c, 0 0 0 2px #07070b; }
+.rage-sq.is-home { border-radius: 25%; border-color: color-mix(in srgb, var(--seat) 70%, #84705f); color: var(--seat); }
+.rage-sq.is-yard { border-style: solid; border-color: color-mix(in srgb, var(--seat) 35%, #28232b); }
+.rage-corner {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 20%; aspect-ratio: .95; opacity: .7; overflow: visible; border-radius: 4px 4px 40% 40%;
+  background: linear-gradient(145deg, #33303a, #111015 60%);
+  border: 1px solid color-mix(in srgb, var(--seat) 45%, #3e343a);
+  box-shadow: inset 0 0 0 3px #0005, 0 5px 10px #0007;
+}
+.rage-crest-face { width: 57%; aspect-ratio: 1; border: 2px solid #786a67; border-radius: 50%; overflow: hidden; }
+.rage-crest-face img { display: block; }
+.rage-corner small { margin-top: 8%; color: var(--seat); font-size: clamp(7px, .9vw, 11px); letter-spacing: .14em; }
+.rage-corner.is-active { opacity: 1; border-color: var(--seat); box-shadow: inset 0 0 18px color-mix(in srgb, var(--seat) 12%, transparent), 0 4px 12px #0009; }
+.rage-sigil { width: 8%; border: 1px solid #936555; background: radial-gradient(circle, #60202c, #161015 72%); box-shadow: 0 0 13px #b71c3430; }
+.rage-sigil svg { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: #b1896a; stroke-width: 1.5; }
+.rage-sigil b { font-size: clamp(13px, 2vw, 25px); color: #cf9a7a; }
+.rage-piece span { border-radius: 0; background: none; box-shadow: none; filter: drop-shadow(0 3px 2px #000c); }
+.rage-piece svg { width: 100%; height: 115%; overflow: visible; transform: translateY(-13%); }
+.rage-pawn-body { fill: var(--seat); stroke: color-mix(in srgb, var(--seat) 45%, #100d13); stroke-width: 2; }
+.rage-pawn-metal { fill: color-mix(in srgb, var(--seat) 55%, #3a303a); stroke: #ece2cc88; stroke-width: 1; }
+.rage-pawn-light { fill: none; stroke: #ffefda9c; stroke-width: 2; stroke-linecap: round; }
+.rage-piece.is-movable span { animation: none; outline: none; }
+.rage-piece.is-movable { outline: 2px solid #f0e1be; outline-offset: 1px; box-shadow: 0 0 8px #fff2; }
+.rage-piece.is-movable.is-capture { outline-color: #ff5864; }
+.rage-piece:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.rage-piece.is-movable:hover span { transform: translateY(-10%); }
+.rage-piece.hop span { animation: rage-hop .14s ease-out; }
+.rage-piece.is-defeated span { animation: rage-defeat .28s ease-in forwards; }
+.rage-piece.is-sent-back { transition: left .5s ease-out, top .5s ease-out; }
+.rage-piece.is-sent-back span { animation: rage-return .55s ease-out; filter: drop-shadow(0 3px 2px #000c); }
+.rage-targets i { animation: none; opacity: .75; }
+.rage-effects { position: absolute; inset: 0; pointer-events: none; z-index: 4; overflow: hidden; border-radius: 8px; }
+.rage-kill { position: absolute; width: 9%; aspect-ratio: 1; transform: translate(-50%, -50%); }
+.rage-kill b { position: absolute; inset: 0; border: 3px solid #f85465; border-radius: 50%; background: radial-gradient(circle, #fff0ca, #ec263a80 30%, transparent 70%); animation: rage-impact .65s ease-out forwards; }
+.rage-kill i { position: absolute; left: 50%; top: 50%; width: 11%; height: 19%; background: linear-gradient(135deg, #ffd7bd, #d9223d 55%, #4c1222); clip-path: polygon(0 0, 100% 20%, 65% 100%, 15% 65%); animation: rage-shard .8s ease-out forwards; }
+@keyframes rage-impact { from { transform: scale(.35); opacity: 1; } to { transform: scale(1.9); opacity: 0; } }
+@keyframes rage-shard { from { transform: translate(-50%, -50%) rotate(0); opacity: 1; } to { transform: translate(var(--dx), var(--dy)) rotate(var(--spin)); opacity: 0; } }
+@keyframes rage-defeat { to { opacity: 0; transform: scale(.2) rotate(25deg); } }
+@keyframes rage-return { from { opacity: 0; transform: scale(.35); } to { opacity: 1; transform: scale(1); } }
+.rage-flash { align-items: end; padding-bottom: 19%; }
+.rage-sent { padding: 9px 16px; border-radius: 4px; box-shadow: 0 5px 20px #000a; }
+.rage-sent b { font-size: clamp(16px, 2vw, 25px); letter-spacing: .12em; text-shadow: none; }
+.rage-sent small { font-size: 11px; }
+.rage-table-label { color: #d2b7a2; letter-spacing: .2em; font-size: 12px; padding: 2px 0 12px; border-bottom: 1px solid #76605c66; }
+.rage-table-label small { display: block; color: #a19199; font-size: 9px; letter-spacing: .14em; margin-top: 6px; }
+.rage-dice-row { padding: 16px; border: 2px ridge #65565a; border-radius: 8px; background: radial-gradient(ellipse at 20% 30%, #48232a, #161016 75%); box-shadow: inset 0 2px 12px #0009; }
+.rage-die { width: 66px; height: 66px; background: repeating-linear-gradient(126deg, transparent 0 23px, #65514526 24px, transparent 25px 50px), linear-gradient(145deg, #f7e5c6, #b7a187); border: 2px solid #eed7b2; border-radius: 11px; }
+.rage-roll { animation: none; letter-spacing: .18em; box-shadow: 0 3px 10px #0008; }
+.rage-players li { border-radius: 5px; background: linear-gradient(110deg, #262029, #100d13); }
+.rage-players li.is-turn { border-left: 3px solid var(--seat); box-shadow: none; }
+@media (max-width: 760px) {
+  .rage-overlay { padding: 8px; }
+  .rage-window { max-height: calc(100dvh - 16px); }
+  .rage-head { flex-wrap: wrap; padding: 12px; }
+  .rage-title b { font-size: 16px; letter-spacing: .14em; }
+  .rage-title small { font-size: 8px; letter-spacing: .1em; }
+  .rage-body { padding: 12px; }
+  .rage-game { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .rage-board-wrap { width: 100%; }
+  .rage-side { gap: 10px; }
+  .rage-players { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rage-players li { min-width: 0; }
+  .rage-players li b { overflow-wrap: anywhere; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #rage-overlay *, #rage-overlay *::before, #rage-overlay *::after { animation: none !important; transition: none !important; }
+  .rage-flash.is-on .rage-sent { opacity: 1; transform: none; }
+}

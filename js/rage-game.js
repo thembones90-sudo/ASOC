@@ -47,6 +47,19 @@
     animating: 0,
     invited: new Set(),
     stakeDraft: 5,
+    motionTimers: new Set(),
+    reducedMotion() { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; },
+    later(fn, ms) {
+      const timer = setTimeout(() => { this.motionTimers.delete(timer); fn(); }, ms);
+      this.motionTimers.add(timer);
+      return timer;
+    },
+    clearMotion() {
+      this.motionTimers.forEach(clearTimeout);
+      this.motionTimers.clear();
+      clearInterval(this._dieSpin);
+      document.querySelectorAll('.rage-kill').forEach(el => el.remove());
+    },
 
     init() {
       if (this.initialized) return;
@@ -115,12 +128,14 @@
       this.renderDock();
     },
     hide() {
+      this.clearMotion();
       this.open = false;
       this.chat = false;
       if (document.getElementById('rage-overlay')) document.getElementById('rage-overlay').hidden = true;
       this.renderDock();
     },
     toChat() {
+      this.clearMotion();
       this.chat = true;
       document.getElementById('rage-overlay').hidden = true;
       this.renderDock();
@@ -174,16 +189,17 @@
     // ---------------- rendering ----------------
     render(force) {
       const body = document.getElementById('rage-body');
-      if (!body || !this.open) return;
+      if (!body || !this.open || this.chat) return;
       const s = this.state;
       const mode = !s ? 'create' : s.phase === 'lobby' ? 'lobby' : 'game';
       const key = `${mode}:${s?.id || ''}`;
       if (mode === 'game') {
-        if (force || body.dataset.key !== key) { body.innerHTML = this.gameShell(s); body.dataset.key = key; this.seen = null; this.positions = {}; }
+        if (force || body.dataset.key !== key) { this.clearMotion(); body.innerHTML = this.gameShell(s); body.dataset.key = key; this.seen = null; this.positions = {}; }
         return this.patchGame(s);
       }
       // Keep a half-typed stake through repaints.
       const stake = body.querySelector('#rage-stake');
+      this.clearMotion();
       if (stake) this.stakeDraft = stake.value;
       body.dataset.key = key;
       body.innerHTML = mode === 'create' ? this.createHTML() : this.lobbyHTML(s);
@@ -294,14 +310,14 @@
             if (home !== -1) { cls = 'rage-sq is-home'; style = `--seat:${this.seatHex(s, home)}`; }
             else if (yard !== -1) { cls = 'rage-sq is-yard'; style = `--seat:${this.seatHex(s, yard)}`; }
           }
-          if (cls) cells.push(`<i class="${cls}" style="grid-column:${x + 1};grid-row:${y + 1};${style}"></i>`);
+          if (cls) cells.push(`<i class="${cls}" aria-hidden="true" style="grid-column:${x + 1};grid-row:${y + 1};${style}">${cls.includes('is-start') ? '◆' : cls.includes('is-home') ? '⌂' : ''}</i>`);
         }
       }
-      // A faded owner face in each occupied corner.
-      const corners = [[0.5, 0.5], [9.5, 0.5], [9.5, 9.5], [0.5, 9.5]];
+      // Crests occupy unused courtyard space, never a playable socket.
+      const corners = [[2.3, 2.3], [7.7, 2.3], [7.7, 7.7], [2.3, 7.7]];
       const faces = s.players.map(p => {
         const [x, y] = corners[p.seat];
-        return `<span class="rage-corner" data-seat="${p.seat}" style="left:${pct(x)};top:${pct(y)};--seat:${hexOf(p.color)}">${this.face(p.id, p.name)}</span>`;
+        return `<span class="rage-corner" data-seat="${p.seat}" title="${esc(p.name)}" style="left:${pct(x)};top:${pct(y)};--seat:${hexOf(p.color)}"><span class="rage-crest-face">${this.face(p.id, p.name)}</span><small>${esc(COLORS[p.color]?.[1] || '')}</small></span>`;
       }).join('');
       return `
         <div class="rage-game">
@@ -309,13 +325,15 @@
             <div class="rage-board" id="rage-board">
               <div class="rage-grid">${cells.join('')}</div>
               ${faces}
-              <div class="rage-sigil" aria-hidden="true"><b>✠</b></div>
+              <div class="rage-sigil" aria-hidden="true"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"/><circle cx="50" cy="50" r="34"/><path d="M50 9 44 31 56 45 48 61 54 91 M14 46 35 50 45 43 M58 56 73 62 88 58"/></svg><b>✠</b></div>
               <div class="rage-targets" id="rage-targets"></div>
               <div class="rage-pieces" id="rage-pieces"></div>
+              <div class="rage-effects" id="rage-effects" aria-hidden="true"></div>
               <div class="rage-flash" id="rage-flash" aria-live="polite"></div>
             </div>
           </div>
           <aside class="rage-side">
+            <div class="rage-table-label">THE CURSED TABLE <small>FOUR HOME OR NOTHING</small></div>
             <div class="rage-turn" id="rage-turn"></div>
             <div class="rage-dice-row">
               <div class="rage-die" id="rage-die" aria-label="Die">${this.dieFaces(null)}</div>
@@ -426,6 +444,10 @@
       const movable = new Map((s.options || []).map(o => [o.piece, o]));
       const moves = new Map(newEvents.filter(e => e.kind === 'move').map(e => [`${e.by}:${e.piece}`, e]));
       const captured = newEvents.filter(e => e.kind === 'capture');
+      document.querySelectorAll('.rage-corner').forEach(el => {
+        const player = s.players.find(p => p.seat === Number(el.dataset.seat));
+        el.classList.toggle('is-active', player?.id === s.turnId && s.phase !== 'ended');
+      });
       s.players.forEach(p => {
         p.pieces.forEach((prog, i) => {
           const key = `${p.id}:${i}`;
@@ -436,13 +458,14 @@
             el.className = 'rage-piece';
             el.dataset.key = key;
             el.style.setProperty('--seat', hexOf(p.color));
-            el.innerHTML = '<span></span>';
+            el.innerHTML = '<span><svg viewBox="0 0 48 56" aria-hidden="true"><path class="rage-pawn-body" d="M16 18a11 11 0 1 1 16 0l-3 4 3 17 7 6v5H9v-5l7-6 3-17Z"/><path class="rage-pawn-metal" d="M15 21h18v5H15zM9 45h30v6H9z"/><path class="rage-pawn-light" d="M20 5q-6 4-4 10M19 29l-2 10"/></svg></span>';
             layer.appendChild(el);
             this.place(el, cellOf(p.seat, prog, i));
             this.positions[key] = prog;
           }
           el.classList.toggle('is-out', !!p.out);
           const mine = p.id === viewerId();
+          el.setAttribute('aria-label', `${p.name} · piece ${i + 1} · ${prog < 0 ? 'yard' : prog >= HOME_FIRST ? 'home' : 'track'}${mine && movable.has(i) ? ' · move' : ''}`);
           const option = mine ? movable.get(i) : null;
           el.classList.toggle('is-movable', !!option);
           el.classList.toggle('is-capture', !!option?.capture);
@@ -452,19 +475,32 @@
           const was = this.positions[key];
           if (was === prog) return;
           this.positions[key] = prog;
+          const motion = String(Number(el.dataset.motion || 0) + 1);
+          el.dataset.motion = motion;
+          el.classList.remove('is-defeated', 'is-sent-back', 'hop');
+          const later = (fn, ms) => this.later(() => { if (el.isConnected && el.dataset.motion === motion) fn(); }, ms);
           const ev = moves.get(key);
-          if (ev && ev.from >= 0 && prog > ev.from) {
+          if (this.reducedMotion()) {
+            this.place(el, cellOf(p.seat, prog, i));
+            const c = captured.find(x => x.victim === p.id && x.piece === i);
+            if (c) this.flash(c);
+          } else if (ev && ev.from >= 0 && prog > ev.from) {
             // Walk it square by square.
             const steps = [];
             for (let q = ev.from + 1; q <= prog; q += 1) steps.push(cellOf(p.seat, q, i));
-            steps.forEach((c, n) => setTimeout(() => { this.place(el, c); el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop'); }, n * HOP_MS));
+            steps.forEach((c, n) => later(() => { this.place(el, c); el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop'); }, n * HOP_MS));
           } else if (prog < 0 && was >= 0 && captured.some(c => c.victim === p.id && c.piece === i)) {
             const c = captured.find(x => x.victim === p.id && x.piece === i);
-            setTimeout(() => {
-              el.classList.add('is-sent-back');
+            later(() => {
+              this.killAt(el);
+              el.classList.add('is-defeated');
               this.flash(c);
-              this.place(el, cellOf(p.seat, -1, i));
-              setTimeout(() => el.classList.remove('is-sent-back'), 900);
+              later(() => {
+                el.classList.remove('is-defeated');
+                el.classList.add('is-sent-back');
+                this.place(el, cellOf(p.seat, -1, i));
+                later(() => el.classList.remove('is-sent-back'), 600);
+              }, 280);
             }, this.walkTime(moves, c.by));
           } else {
             this.place(el, cellOf(p.seat, prog, i));
@@ -487,25 +523,43 @@
 
     walkTime(moves, by) {
       const m = [...moves.values()].find(e => e.by === by);
-      return m && m.from >= 0 ? (m.to - m.from) * HOP_MS : 0;
+      return m ? (m.from >= 0 ? m.to - m.from : 1) * HOP_MS : 0;
     },
 
     place(el, [x, y]) { el.style.left = pct(x); el.style.top = pct(y); },
+
+    killAt(piece) {
+      const layer = document.getElementById('rage-effects');
+      if (!layer || this.reducedMotion()) return;
+      const fx = document.createElement('div');
+      fx.className = 'rage-kill';
+      fx.style.left = piece.style.left;
+      fx.style.top = piece.style.top;
+      fx.innerHTML = '<b></b>' + Array.from({ length: 10 }, (_, i) => {
+        const angle = i * Math.PI / 5;
+        return `<i style="--dx:${Math.cos(angle) * (30 + i % 3 * 9)}px;--dy:${Math.sin(angle) * (30 + i % 3 * 9)}px;--spin:${i * 67}deg"></i>`;
+      }).join('');
+      layer.appendChild(fx);
+      this.later(() => fx.remove(), 850);
+    },
 
     setDie(n) {
       const die = document.getElementById('rage-die');
       if (!die) return;
       die.innerHTML = this.dieFaces(n);
       die.classList.toggle('is-six', n === 6);
+      die.setAttribute('aria-label', n ? `Die: ${n}` : 'Die: not rolled');
     },
     rollDie(n) {
+      clearInterval(this._dieSpin);
+      if (this.reducedMotion()) return this.setDie(n);
       const die = document.getElementById('rage-die');
       if (!die) return;
       die.classList.remove('is-rolling');
       void die.offsetWidth;
       die.classList.add('is-rolling');
       let t = 0;
-      const spin = setInterval(() => { this.setDie(1 + Math.floor(Math.random() * 6)); if ((t += 1) > 6) { clearInterval(spin); this.setDie(n); die.classList.remove('is-rolling'); } }, 70);
+      this._dieSpin = setInterval(() => { this.setDie(1 + Math.floor(Math.random() * 6)); if ((t += 1) > 6) { clearInterval(this._dieSpin); this.setDie(n); die.classList.remove('is-rolling'); } }, 70);
     },
 
     flash(capture) {
@@ -513,13 +567,11 @@
       if (!el) return;
       const mine = capture.victim === viewerId();
       el.innerHTML = `<div class="rage-sent"><b>SENT BACK</b><small>${esc(this.nameOf(capture.by))} ate ${mine ? 'YOU' : esc(this.nameOf(capture.victim))}</small></div>`;
-      el.classList.remove('is-on');
+      el.classList.remove('is-on', 'is-long');
       void el.offsetWidth;
       el.classList.add('is-on');
-      document.getElementById('rage-board')?.classList.add('is-shaken');
-      setTimeout(() => document.getElementById('rage-board')?.classList.remove('is-shaken'), 450);
       clearTimeout(this._flashT);
-      this._flashT = setTimeout(() => el.classList.remove('is-on'), 1500);
+      this._flashT = this.later(() => el.classList.remove('is-on'), 1500);
     },
     winFlash(s) {
       const el = document.getElementById('rage-flash');
@@ -528,6 +580,8 @@
       el.classList.remove('is-on');
       void el.offsetWidth;
       el.classList.add('is-on', 'is-long');
+      clearTimeout(this._flashT);
+      this._flashT = this.later(() => el.classList.remove('is-on', 'is-long'), 3200);
     },
 
     renderDock() {
