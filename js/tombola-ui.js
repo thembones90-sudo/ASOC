@@ -9,6 +9,28 @@
     return result;
   };
   const gm = () => !!window.App && !window.PlayerApp;
+  let dismissedInvite = '';
+  function signupRemaining() { return Math.max(0, Math.ceil((Number(ui.state?.signupEndsAt || 0) - Date.now() - ui.clockOffset) / 1000)); }
+  function invite() {
+    let notice = document.getElementById('tombola-invite');
+    const eligible = !gm() && ui.state?.phase === 'LOBBY' && ui.state?.viewer?.canJoin && !ui.state?.requiredTribute && signupRemaining() > 0 && dismissedInvite !== ui.state.id;
+    if (!eligible) { notice?.remove(); return; }
+    if (!notice) {
+      notice = document.createElement('aside'); notice.id = 'tombola-invite'; notice.setAttribute('aria-label', 'FATEBREAKER signup invitation');
+      notice.innerHTML = '<div role="status"><small>THE SHADOW BROKER INVITES YOU</small><strong>FATEBREAKER</strong><p data-tombola-invite-time></p></div><div class="tombola-invite-actions"><button type="button" data-tombola-invite-join>JOIN FATEBREAKER</button><button type="button" data-tombola-invite-view>VIEW</button><button type="button" data-tombola-invite-dismiss aria-label="Dismiss FATEBREAKER invitation">×</button></div>';
+      notice.addEventListener('click', event => {
+        if (event.target.closest('[data-tombola-invite-dismiss]')) { dismissedInvite = ui.state?.id; notice.remove(); return; }
+        if (event.target.closest('[data-tombola-invite-view]')) { open(); return; }
+        if (event.target.closest('[data-tombola-invite-join]') && !ui.pending && ui.state?.viewer?.canJoin && signupRemaining() > 0) {
+          ui.pending = true; ui.error = ''; ui.open = true; send('tombola:join'); render();
+        }
+      });
+      document.body.append(notice);
+    }
+    const seconds = signupRemaining();
+    notice.querySelector('[data-tombola-invite-time]').textContent = ui.error || `${ui.state.participants?.length || 0}/10 PLAYERS // SIGNUP ${Math.floor(seconds / 60).toString().padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+    notice.querySelector('[data-tombola-invite-join]').disabled = ui.pending;
+  }
   function ensure() {
     let root = document.getElementById('tombola-overlay');
     if (root) return root;
@@ -41,6 +63,7 @@
     return root;
   }
   function render() {
+    invite();
     const required = !!ui.state?.requiredTribute;
     if (required) ui.open = true;
     let veil = document.getElementById('tombola-required-veil');
@@ -71,6 +94,7 @@
     root.classList.toggle('tombola-finale', terminal && ui.finale === s.id);
     root.innerHTML = `<div class="tombola-shell"><header class="tombola-heading"><div><small>SHADOW BROKER // SEALED FORTUNES</small><h2>FATEBREAKER</h2></div><button data-tombola-close aria-label="Close FATEBREAKER">×</button></header><div class="tombola-turn" role="status">${terminal ? 'THE ROUND IS OVER FOR EVERYONE' : cancelled ? 'ROUND CANCELLED' : s?.phase === 'PLAYING' ? `${s.viewer?.canPick ? 'YOUR TURN' : 'CURRENT TURN'} // ${esc(s.currentPlayerName)}` : 'LOBBY // THE FIELDS REMAIN SEALED'}</div>${terminal ? `<div class="tombola-blood-verdict" role="alert"><strong>BLOOD TRIBUTE REQUIRED</strong><b>${esc(s.tributePlayerName)}</b><p>BLOOD TRIBUTE HAS ENDED THE ROUND. THE BOARD IS SEALED. THE MARKED PLAYER MUST SUBMIT THEIR OFFERING.</p></div>` : ''}<div class="tombola-board" role="group" aria-label="36 numbered FATEBREAKER vaults">${tiles}${legendary}</div><div class="tombola-status" role="status">${esc(ui.error || (ui.pending ? 'THE LOCK IS TURNING…' : s?.phase === 'PLAYING' ? 'ONE FIELD PER TURN. NO WAGERS. NO MERCY.' : '17 BLESSINGS · THE GRAIL +50 · 17 CURSES · ONE BLOOD TRIBUTE'))}</div><div class="tombola-controls">${control}</div>${s?.participants?.length ? `<ol class="tombola-roster" aria-label="Turn order">${s.participants.map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('')}</ol>` : ''}${s?.history?.length ? `<details class="tombola-history"><summary>PREVIOUS ROUNDS // ${s.history.length}</summary>${s.history.slice().reverse().map(r => `<p>${esc(r.id)} · ${esc(r.phase)} · ${r.revealedCount} OPENED${r.tributePlayerName ? ` · BLOOD: ${esc(r.tributePlayerName)}` : ''}</p>`).join('')}</details>` : ''}</div>`;
     if (ui.pending) root.querySelectorAll('[data-tombola-action]').forEach(button => { button.disabled = true; });
+    if (!gm() && !s?.viewer?.canJoin) root.querySelector('[data-tombola-action="join"]')?.setAttribute('disabled', '');
     const banner = root.querySelector('.tombola-legendary-event');
     if (banner) setTimeout(() => banner.remove(), 1600); // Also expires when reduced motion suppresses animationend.
     if (required) {
@@ -94,7 +118,7 @@
     const join = root.querySelector('[data-tombola-action="join"]'); if (join) join.disabled = !seconds || !s.viewer.canJoin || ui.pending;
     const leave = root.querySelector('[data-tombola-action="leave"]'); if (leave) leave.disabled = !seconds || ui.pending;
   }
-  setInterval(updateSignupCountdown, 1000);
+  setInterval(() => { updateSignupCountdown(); invite(); }, 1000);
   function onMessage(message) {
     if (message.type === 'tombola:error') { ui.error = message.error || 'FATEBREAKER ACTION REFUSED'; ui.pending = false; render(); return; }
     if (message.type !== 'tombola:state') return;
