@@ -93,7 +93,7 @@
       text: el => 'DISCIPLINARY FOOTWORK // ' + (el.querySelector('.ass-kick-target b')?.textContent || '').trim() },
     { match: el => el.id === 'asoc-coffee-layer', key: 'coffee', name: 'COFFEE', icon: '☕', tint: '#d2a05a',
       role: () => 'neutral', heavy: false,
-      text: () => 'HOSTILITIES SUSPENDED // TAP THE CUP FOR A 30s BADGE' }
+      text: () => 'HOSTILITIES SUSPENDED // TAP THE CUP FOR A LOCAL 30s NAME BADGE' }
   ];
 
   // --------------------------------------------------------------------- feedback

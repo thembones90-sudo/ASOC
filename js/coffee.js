@@ -26,26 +26,26 @@
     } catch (_) { /* Browser autoplay policy may block audio. */ }
   }
   let badgeObserver = null;
+  const selfNames = '.pl-entry-me .pl-entry-name, #hero-hud-identity > span:last-child';
   function decorateSelf() {
-    const name = document.querySelector('.pl-entry-me .pl-entry-name');
-    if (!name) return false;
-    if (!name.querySelector('.asoc-coffee-name-badge')) {
+    const names = document.querySelectorAll(selfNames);
+    names.forEach(name => {
+      if (name.querySelector('.asoc-coffee-name-badge')) return;
       const badge = document.createElement('span');
       badge.className = 'asoc-coffee-name-badge';
       badge.textContent = '\u2615';
-      badge.title = 'Taking a coffee break';
+      badge.title = 'Coffee break // temporary 30-second indicator // visible only to you';
+      badge.setAttribute('aria-label', 'Coffee break active');
       name.append(badge);
-    }
-    return true;
+    });
+    return names.length > 0;
   }
   function markCup() {
     clearTimeout(badgeTimer);
     decorateSelf();
     if (!badgeObserver) {
       badgeObserver = new MutationObserver(() => {
-        if (document.querySelector('.pl-entry-me .pl-entry-name:not(:has(.asoc-coffee-name-badge))')) {
-          decorateSelf();
-        }
+        decorateSelf();
       });
       badgeObserver.observe(document.body, { childList: true, subtree: true });
     }
@@ -76,12 +76,13 @@
     cup.type = 'button';
     cup.className = 'asoc-coffee-cup';
     cup.textContent = '\u2615';
-    cup.title = 'Take a sip: earn a 30-second coffee badge';
+    cup.title = 'Take a sip: show a temporary coffee badge beside your name for 30 seconds (only you can see it)';
     cup.setAttribute('aria-label', 'Take a coffee break');
     cup.addEventListener('click', () => {
       markCup();
       cup.classList.add('asoc-coffee-sipped');
       cup.setAttribute('aria-label', 'Coffee claimed');
+      footer.textContent = 'COFFEE BADGE ACTIVE — 30 SECONDS // ONLY YOU';
     }, { once: true });
     cupArea.append(steam, cup);
     const title = document.createElement('div');
@@ -92,7 +93,7 @@
     sub.textContent = String(event.line || 'Even suffering deserves a coffee break.').slice(0, 180);
     const footer = document.createElement('div');
     footer.className = 'asoc-coffee-footer';
-    footer.textContent = '\u2615 BREWING PEACE \u2615';
+    footer.textContent = 'TAP THE CUP // 30-SECOND BADGE BESIDE YOUR NAME // ONLY YOU';
     panel.append(eyebrow, cupArea, title, sub, footer);
     layer.append(panel);
     document.body.append(layer);
