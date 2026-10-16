@@ -1357,7 +1357,7 @@ const PlayerApp = {
       if (message.type === 'mudpits:state') {
         let root=document.getElementById('player-mudpits-root');
         if (!root) { root=document.createElement('div'); root.id='player-mudpits-root'; document.body.append(root); }
-        window.MudPitsUI?.render(message.state, root, {gm:false});
+        window.MudPitsUI?.render(message.state, root, {gm:false,live:message.live});
       }
       return;
     }

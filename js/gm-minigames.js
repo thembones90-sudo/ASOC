@@ -116,7 +116,7 @@
         this.mudpitsState = message.state;
         let root=document.getElementById('gm-mudpits-root');
         if (!root) { root=document.createElement('div'); root.id='gm-mudpits-root'; document.body.append(root); }
-        window.MudPitsUI?.render(message.state, root, {gm:true});
+        window.MudPitsUI?.render(message.state, root, {gm:true,live:message.live});
       }
     },
     openChooser() {

@@ -345,13 +345,13 @@ function mudpitsView(room, ws) {
     now: Date.now()
   });
 }
-function sendMudpitsState(room, ws) {
-  if (room && ws) sendToWs(ws, { type: 'mudpits:state', state: mudpitsView(room, ws) });
+function sendMudpitsState(room, ws, live = false) {
+  if (room && ws) sendToWs(ws, { type: 'mudpits:state', live, state: mudpitsView(room, ws) });
 }
 function broadcastMudpits(room) {
   if (!room) return;
-  if (room.hostConnection) sendMudpitsState(room, room.hostConnection);
-  for (const socket of room.players?.keys?.() || []) sendMudpitsState(room, socket);
+  if (room.hostConnection) sendMudpitsState(room, room.hostConnection, true);
+  for (const socket of room.players?.keys?.() || []) sendMudpitsState(room, socket, true);
 }
 function settleMudpitsAward(room) {
   const duel = room?.mudpits;
