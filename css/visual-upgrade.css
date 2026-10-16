@@ -1,0 +1,205 @@
+/* =====================================================================
+   ASOC VISUAL UPGRADE -- one shared layer, loaded LAST on the GM console
+   and the player page. Pure CSS: no new scripts, no network assets, no
+   animation on anything that repaints constantly, and everything moving
+   switches off under prefers-reduced-motion.
+
+   What it does, in order:
+     1. Shared tokens (edges, glows, depth) so every plate lights the same.
+     2. Legibility: the micro-labels that were 6-8px and dim become readable.
+     3. Plates: consistent hover / press / focus behaviour on every command
+        button, with an edge-light that follows the cut-corner shape.
+     4. Panels: a top-edge highlight and inner depth on the main surfaces.
+     5. Chat: bubble depth, softer dividers, readable timestamps.
+     6. Surfaces: hairline scrollbars and a faint generated grain.
+     7. Entrances: overlays and dialogs rise in instead of popping.
+   ===================================================================== */
+
+:root {
+  --vu-edge: rgba(255, 255, 255, 0.075);
+  --vu-edge-strong: rgba(255, 255, 255, 0.16);
+  --vu-ink: #e9ecf5;
+  --vu-ink-soft: #b9bfcd;
+  --vu-gold: #f0c96b;
+  --vu-violet: #b27bff;
+  --vu-crimson: #ff4656;
+  --vu-teal: #4fe3cc;
+  --vu-lift: 0 10px 24px -10px rgba(0, 0, 0, 0.75);
+  --vu-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* generated grain: a tiny inline SVG noise tile, static, ~1KB */
+  --vu-grain: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- 2. LEGIBILITY ---------------------------------------------
+   Floor the smallest text and lift the dimmest greys. Sizes stay compact
+   (this is a dense command console) but nothing is below 9.5px any more. */
+html body :is(.timer-kicker, .womf-kicker):not(#vu) {
+  font-size: 9px !important;
+  letter-spacing: 0.2em !important;
+  color: #d7a86a !important;
+}
+html body .womf-kicker:not(#vu) { color: #e18aa0 !important; }
+html body .gm-chat-header :is(.gm-chat-tab, .gm-minigames-toggle):not(#vu):not(#vu2) {
+  font-size: 10px !important;
+  letter-spacing: 0.14em !important;
+}
+html body :is(.gm-chat-time, .chat-time):not(#vu) {
+  font-size: 10px !important;
+  color: #aab2c2 !important;
+}
+html body .gm-latest-readout-state:not(#vu) {
+  font-size: 10px !important;
+  color: #d8d1e2 !important;
+}
+html:not([data-asoc-light]) body #game-screen:not(#hud-a):not(#hud-b) .hero-stat-label.hero-stat-label:not(#vu) {
+  font-size: 10px !important;
+  letter-spacing: 0.14em;
+  color: #c7b3ee !important;
+}
+html body .signed-desktop-download-action:not(#vu) { font-size: 9.5px !important; }
+html body .signed-desktop-download strong:not(#vu):not(#vu2) { font-size: 9.5px !important; }
+html body .hero-utility-btn small:not(#vu):not(#vu2) { font-size: 9.5px !important; }
+html body :is(.gm-global-btn, .hero-utility-btn, .toolbar-btn) small:not(#vu) {
+  font-size: 9.5px !important;
+  letter-spacing: 0.14em;
+  color: color-mix(in srgb, currentColor 78%, #fff) !important;
+  opacity: 0.92;
+}
+html body .gm-battle-controls-heading:not(#vu),
+html body #battle-controls-panel > header:not(#vu),
+html body .battle-controls-title:not(#vu) {
+  font-size: 10.5px !important;
+}
+
+/* ---------- 3. PLATES ---------------------------------------------------
+   One behaviour for every command plate: lift on hover, press on click,
+   a crisp keyboard ring, and a soft edge-light. Transform + filter only,
+   so it composes with each plate's own artwork instead of fighting it. */
+html body :is(.gm-global-btn, .hero-utility-btn, .toolbar-btn, .gm-battle-five-btn) {
+  transition: transform 0.16s var(--vu-ease), filter 0.16s var(--vu-ease), box-shadow 0.2s var(--vu-ease), border-color 0.2s ease;
+  will-change: auto;
+}
+html body :is(.gm-global-btn, .hero-utility-btn, .toolbar-btn, .gm-battle-five-btn):not(:disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.14) saturate(1.08);
+}
+html body :is(.gm-global-btn, .hero-utility-btn, .toolbar-btn, .gm-battle-five-btn):not(:disabled):active {
+  transform: translateY(0) scale(0.985);
+  filter: brightness(0.94);
+  transition-duration: 0.06s;
+}
+html body :is(.gm-global-btn, .hero-utility-btn, .toolbar-btn, .gm-battle-five-btn):focus-visible {
+  outline: 2px solid var(--vu-teal);
+  outline-offset: 2px;
+}
+html body :is(.gm-global-btn, .hero-utility-btn, .toolbar-btn):disabled {
+  filter: saturate(0.55) brightness(0.85);
+}
+
+/* ---------- 4. PANELS ---------------------------------------------------
+   A one-pixel top highlight and an inset falloff give each main surface
+   physical depth without changing its colours or layout. */
+html body :is(#battle-controls-panel, .gm-module-chat, .gm-timer-module, .gm-womf-module) {
+  box-shadow:
+    inset 0 1px 0 var(--vu-edge-strong),
+    inset 0 0 0 1px var(--vu-edge),
+    inset 0 -24px 36px -28px rgba(0, 0, 0, 0.65),
+    var(--vu-lift);
+}
+
+/* ---------- 4b. LAYOUT REPAIRS -----------------------------------------
+   Header collisions found in review at the standard 1440-1600px desktop
+   sizes. Layout only: no colours or behaviour change.                     */
+
+/* GM battle layout: the BATTLE COMMS tab overflowed its fixed 100px column
+   and sat on top of the ONLINE pill. Let the tab size to its text. */
+body:is(.room-mode-battle, .room-mode-battle-armed, .room-mode-recount) #gm-panel:not(.maintenance-open) .gm-chat-header {
+  grid-template-columns: max-content minmax(0, 1fr) auto !important;
+  column-gap: 10px !important;
+}
+body:is(.room-mode-battle, .room-mode-battle-armed, .room-mode-recount) #gm-panel:not(.maintenance-open) .gm-chat-header .gm-chat-presence-wrap,
+body:is(.room-mode-battle, .room-mode-battle-armed, .room-mode-recount) #gm-panel:not(.maintenance-open) .gm-chat-header #gm-chat-presence {
+  justify-self: end;
+  grid-column: 3;
+}
+
+/* PLAYER chat header: the search box was squeezed to ~100px ("SEARCI") on
+   the narrow battle column. Give it a real minimum and clear the title. */
+@media (min-width: 900px) {
+  html:not(.asoc-mobile) body #game-screen #chat-panel > .chat-search-strip {
+    width: max(172px, 36%) !important;
+  }
+  html:not(.asoc-mobile) body #game-screen #chat-panel .chat-header .battle-comms-status {
+    visibility: hidden;
+  }
+}
+html body #chat-solved-count { font-size: 9px !important; }
+
+/* PLAYER profile row: the avatar sat on the first letter of the name. */
+html body #game-screen .hero-hud-identity .little-hero-avatar { margin-right: 8px; flex: none; vertical-align: middle; }
+
+/* ---------- 5. CHAT ----------------------------------------------------- */
+html body .chat-message:not(.grouped),
+html body .gm-chat-flow:not(.grouped) {
+  border-color: color-mix(in srgb, var(--little-hero-accent, #6f7885) 55%, transparent);
+}
+html body :is(.chat-message, .chat-broker-entry, .gm-shadow-broker-entry) {
+  box-shadow: inset 0 1px 0 var(--vu-edge), 0 6px 14px -10px rgba(0, 0, 0, 0.8);
+}
+html body :is(.chat-message, .gm-chat-flow) img {
+  border-radius: 6px;
+}
+html body :is(.chat-message, .chat-broker-entry, .gm-shadow-broker-entry):hover {
+  box-shadow: inset 0 1px 0 var(--vu-edge-strong), 0 10px 20px -12px rgba(0, 0, 0, 0.9);
+}
+
+/* ---------- 6. SURFACES -------------------------------------------------- */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(178, 123, 255, 0.45) rgba(8, 8, 12, 0.6);
+}
+html body *::-webkit-scrollbar { width: 9px; height: 9px; }
+html body *::-webkit-scrollbar-track { background: rgba(8, 8, 12, 0.55); }
+html body *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(178, 123, 255, 0.55), rgba(110, 70, 170, 0.5));
+  border: 2px solid rgba(8, 8, 12, 0.7);
+  border-radius: 6px;
+}
+html body *::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #c397ff, #8a5bd0); }
+
+/* Static grain over the whole app: breaks up flat gradients and bands.
+   Below every overlay (z-index 1), never intercepts the pointer. */
+html body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: var(--vu-grain);
+  background-size: 140px 140px;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+}
+
+/* ---------- 7. ENTRANCES ------------------------------------------------- */
+@keyframes vu-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+html body .forge-overlay.active > :first-child,
+html body dialog[open] > :first-child,
+html body .score-toast {
+  animation: vu-rise 0.28s var(--vu-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body :is(.gm-global-btn, .hero-utility-btn, .toolbar-btn, .gm-battle-five-btn) { transition: none; }
+  html body :is(.gm-global-btn, .hero-utility-btn, .toolbar-btn, .gm-battle-five-btn):not(:disabled):hover,
+  html body :is(.gm-global-btn, .hero-utility-btn, .toolbar-btn, .gm-battle-five-btn):not(:disabled):active { transform: none; }
+  html body .forge-overlay.active > :first-child,
+  html body dialog[open] > :first-child,
+  html body .score-toast { animation: none; }
+}
+
+/* Direct-message rail heading was 7px. */
+html body .dmx-rail-head > span:not(#vu):not(#vu2) { font-size: 9px !important; letter-spacing: 0.16em; }
