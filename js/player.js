@@ -109,6 +109,7 @@ const PlayerApp = {
     { name: 'order', insert: '/order', syntax: '/order', description: 'Shuffle connected-player turn order' },
     { name: 'stats', insert: '/stats', syntax: '/stats', description: 'Show your chat and score statistics' },
     { name: 'coffee', insert: '/coffee', syntax: '/coffee', description: 'Shadow Market unlock: 10 SC, only in Amusement Park' },
+    { name: 'beer', insert: '/beer', syntax: '/beer', description: 'Free beer offer: random bottle, can, or barrel in Amusement Park' },
     { name: 'fireworks', insert: '/fireworks ', syntax: '/fireworks [message]', description: 'Light up every screen with a fireworks show' },
     { name: 'goat', insert: '/goat @', syntax: '/goat @Name', description: 'Unleash random GOAT chaos on another player // awarded skill only' },
     { name: 'fatality', insert: '/fatality @', syntax: '/fatality @Name', description: '50/50 Pyroblast or Frost finisher // awarded skill only; casting at the GM has 90% SPELL REFLECT' },
@@ -1669,6 +1670,9 @@ const PlayerApp = {
       case 'coffee:break':
           window.AsocCoffee?.show(message);
           break;
+      case 'beer:offer':
+        window.AsocBeer?.show(message);
+        break;
         case 'whip:impact':
         window.AsocWhip?.onMessage?.(message, this.playerId, false);
         break;

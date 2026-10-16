@@ -83,6 +83,7 @@ const App = {
   bloodTributes: [],
   gmSlashCommands: [
     { name: 'coffee', insert: '/coffee', icon: '☕', label: 'COFFEE BREAK', description: '/coffee -- eight seconds of caffeinated peace' },
+    { name: 'beer', insert: '/beer', icon: '🍺', label: 'BEER OFFER', description: '/beer -- offer a random bottle, can, or barrel in Amusement Park' },
     { name: 'warsong', insert: '/warsong', icon: '⚑', label: 'WARSONG', description: 'Six-second room-wide Horde battle banner' },
     { name: 'lurk', insert: '/lurk', icon: '👁', label: 'LURK', description: 'Screens dim, two red eyes open in the dark, then fade into shadow and smoke' },
     { name: 'nudge', insert: '/nudge', icon: '≋', label: 'NUDGE', description: '/nudge -- shake every player chat like an old MSN nudge (ready check)' },
@@ -2853,6 +2854,9 @@ const App = {
       case 'coffee:break':
           window.AsocCoffee?.show(message);
           break;
+      case 'beer:offer':
+        window.AsocBeer?.show(message);
+        break;
         case 'whip:impact':
         window.AsocWhip?.onMessage?.(message, null, true);
         break;

@@ -7481,6 +7481,7 @@ setInterval(() => runtimeAction(() => tickDennisAI()), 15 * 1000).unref();
 // render them as system cards and resolve the /spit perspective locally from
 // actorId/targetId. The neutral `text` is the broker/recovery fallback line.
 const CHAT_SLASH_COMMANDS = [
+  { name: '/beer', help: '/beer -- free random bottle, can, or barrel for the room; Amusement Park only; 30s room cooldown' },
   { name: '/roll', help: '/roll [min] max -- random roll (default 1-100)' },
   { name: '/dice', help: '/dice 2d6 -- roll N dice with M faces, optional +K' },
   { name: '/flip', help: '/flip [heads|tails] -- coin flip' },
@@ -7543,6 +7544,7 @@ const CHAT_SLASH_COMMANDS = [
 // adding a player command can no longer leave the Shadow Broker's /commands
 // list stale or imply that the GM lacks that capability.
 const coffeeCooldowns = new WeakMap();
+const beerOffers = require('./beer-offers').createService({ broadcast: broadcastToRoom });
 const lurkLastAt = new WeakMap();
 const LURK_MS = 9400;
 const nudgeLastAt = new WeakMap();
@@ -8875,6 +8877,8 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
   if (!raw.startsWith('/')) return null;
   const author = { id: ws.playerId, name: ws.playerName };
 
+  if (/^\/beer\b/i.test(raw)) return beerOffers.offer(room, author, raw);
+
   if (/^\/coffee\b/i.test(raw)) {
     if (!/^\/coffee\s*$/i.test(raw)) return { success: false, error: 'COFFEE INVALID // USE /coffee' };
     if (room.roomMode !== ROOM_MODES.CASUAL) return { success: false, error: 'COFFEE FORBIDDEN // ONLY AVAILABLE IN AMUSEMENT PARK' };
@@ -8994,6 +8998,8 @@ function dispatchGmSlashCommand(room, ws, text) {
   const raw = String(text || '').trim();
   if (!raw.startsWith('/')) return null;
   const author = { id: null, name: brokerDisplayName(room) };
+
+  if (/^\/beer\b/i.test(raw)) return beerOffers.offer(room, author, raw);
 
   if (/^\/olympics\b/i.test(raw)) {
     if (!/^\/olympics\s*$/i.test(raw)) return { success: false, error: 'OLYMPICS INVALID // USE /olympics' };
