@@ -1,45 +1,47 @@
 'use strict';
-const assert = require('assert/strict');
-const { createAssociationProvider, normalizeWord, normalizeResponse } = require('../association-provider');
-const H = require('./lib/browser-harness');
-const secret = 'test-secret-never-return';
-const fixture = { code:200, response:[{text:'phase',items:[{item:'Shift',weight:90,pos:'noun'},{item:'SHIFT',weight:87,pos:'verb'},{item:'black hole',weight:99,pos:'noun'},{item:'phase',weight:100,pos:'noun'},{item:'Diagram',pos:'noun'}]}] };
-const rejectSafe = async (fn,status) => assert.rejects(fn,error=>error.status===status && !error.message.includes(secret));
+const assert=require('assert/strict');
+const {createAssociationProvider,normalizeWord,normalizeMode}=require('../association-provider');
+const datamuse=require('../datamuse-provider');
+const H=require('./lib/browser-harness');
+const fixture=[{word:'Shift',score:845,tags:['n','v','f:5']},{word:'SHIFT',score:800,tags:['adj']},{word:'black hole',score:999},{word:'phase',score:900},{word:'Diagram',tags:['u']}];
+const secret='never-expose-provider-internals';
+const rejectSafe=async(fn,status)=>assert.rejects(fn,e=>e.status===status&&!e.message.includes(secret));
 (async()=>{
- for (const value of [null,undefined,'','   ','two words','a'.repeat(61),'phase?']) assert.throws(()=>normalizeWord(value),e=>e.status===400);
- assert.equal(normalizeWord(' Phase '),'phase');
- const items=normalizeResponse(fixture,'phase');
- assert.deepEqual(items,[{word:'SHIFT',weight:90,partsOfSpeech:['noun','verb']},{word:'DIAGRAM',weight:null,partsOfSpeech:['noun']}]);
- for(const value of [null,{}, {code:200,response:[]},{code:200,response:[{text:'other',items:[]}]},{code:200,response:[{text:'phase',items:[{item:'SHIFT',weight:'99'}]}]}]) assert.throws(()=>normalizeResponse(value,'phase'),e=>e.status===502);
- await rejectSafe(()=>createAssociationProvider({getKey:()=>''}).fetch('phase'),503);
+ for(const value of [null,undefined,'','   ','two words','a'.repeat(61),'phase?'])assert.throws(()=>normalizeWord(value),e=>e.status===400);
+ assert.equal(normalizeWord(' Phase '),'phase');assert.equal(normalizeMode(),'associated');assert.throws(()=>normalizeMode('invalid'),e=>e.status===400);
+ for(const mode of ['associated','means_like']){
+  const url=datamuse.buildUrl('phase',mode);assert.equal(url.origin,'https://api.datamuse.com');assert.equal(url.pathname,'/words');assert.equal(url.searchParams.get(mode==='associated'?'rel_trg':'ml'),'phase');assert.equal(url.searchParams.get(mode==='associated'?'ml':'rel_trg'),null);assert.equal(url.searchParams.get('max'),'100');assert.equal(url.searchParams.get('md'),'p');assert.equal(url.searchParams.has('apikey'),false);
+ }
+ assert.deepEqual(datamuse.normalizeResponse(fixture,'phase'),[{word:'SHIFT',score:845,partsOfSpeech:['noun','verb','adjective']},{word:'DIAGRAM',score:null,partsOfSpeech:[]}]);
+ assert.deepEqual(datamuse.normalizeResponse([],'phase'),[]);
+ assert.deepEqual(datamuse.normalizeResponse([{word:'unknown',tags:['u','toString','__proto__']}],'phase')[0].partsOfSpeech,[]);
+ for(const data of [null,{},'bad',[null],[{word:'shift',score:'845'}],[{word:'shift',tags:'n'}],[{word:'shift',tags:[5]}]])assert.throws(()=>datamuse.normalizeResponse(data,'phase'));
  let calls=0,clock=0,release;
- const provider=createAssociationProvider({getKey:()=>secret,now:()=>clock,ttlMs:100,maxEntries:2,fetchImpl:async(url)=>{
-   calls++;const parsed=new URL(url);assert.equal(parsed.origin,'https://api.wordassociations.net');assert.equal(parsed.searchParams.get('type'),'stimulus');assert.equal(parsed.searchParams.get('apikey'),secret);
-   if(calls===1)await new Promise(r=>release=r);
-   return new Response(JSON.stringify({...fixture,response:[{...fixture.response[0],text:parsed.searchParams.get('text')}]}));
- }});
- const first=provider.fetch('PHASE'),duplicate=provider.fetch(' phase ');release();
- assert.deepEqual(await first,await duplicate);assert.equal(calls,1);
- assert.equal((await provider.fetch('phase')).cached,true);assert.equal(calls,1);
- await rejectSafe(()=>provider.fetch('other'),429);
- clock=2000;await provider.fetch('phase');assert.equal(calls,2,'expired cache refetches');
- clock=4000;await provider.fetch('shift');clock=6000;await provider.fetch('diagram');clock=8000;await provider.fetch('phase');assert.equal(calls,5,'cache bounded');
- for(const status of [401,403,429,500]) await rejectSafe(()=>createAssociationProvider({getKey:()=>secret,fetchImpl:async()=>new Response(secret,{status})}).fetch('phase'),status===429?429:status===500?502:503);
- for(const body of [secret,JSON.stringify({code:401,error:secret}),JSON.stringify({code:429}),JSON.stringify({code:200,response:'bad'})]) await assert.rejects(()=>createAssociationProvider({getKey:()=>secret,fetchImpl:async()=>new Response(body)}).fetch('phase'),e=>!e.message.includes(secret));
- await rejectSafe(()=>createAssociationProvider({getKey:()=>secret,fetchImpl:async()=>{throw Error(secret);}}).fetch('phase'),502);
- await assert.rejects(()=>createAssociationProvider({getKey:()=>secret,timeoutMs:10,fetchImpl:async(_,{signal})=>new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(Error(secret))))}).fetch('phase'),/timed out/);
- await rejectSafe(()=>createAssociationProvider({getKey:()=>secret,fetchImpl:async()=>new Response('x'.repeat(1024*1024+1))}).fetch('phase'),502);
- assert.deepEqual(normalizeResponse({code:200,response:[{text:'phase',items:[]}]},'phase'),[]);
- const server=await H.startServer({port:19846,env:{WORD_ASSOCIATIONS_API_KEY:''}});
- try {
+ const service=createAssociationProvider({now:()=>clock,ttlMs:100,maxEntries:2,fetchImpl:async(url)=>{calls++;assert.equal(new URL(url).searchParams.get('md'),'p');if(calls===1)await new Promise(r=>release=r);return new Response(JSON.stringify(fixture));}});
+ const first=service.fetch('PHASE'),duplicate=service.fetch(' phase ');release();assert.deepEqual(await first,await duplicate);assert.equal(calls,1);
+ assert.equal((await service.fetch('phase')).cached,true);assert.equal(calls,1);
+ await rejectSafe(()=>service.fetch('phase',{mode:'means_like'}),429);
+ clock=10;assert.equal((await service.fetch('phase')).cached,true);
+ clock=2000;assert.equal((await service.fetch('phase',{mode:'means_like'})).cached,false);assert.equal(calls,2,'mode has separate cache');
+ assert.equal((await service.fetch('phase',{mode:'means_like'})).cached,true);
+ clock=4000;await service.fetch('phase');assert.equal(calls,3,'expired cache refetches');
+ clock=6000;await service.fetch('shift');clock=8000;await service.fetch('phase',{mode:'means_like'});assert.equal(calls,5,'bounded cache evicts');
+ for(const status of [401,403,429,500])await rejectSafe(()=>createAssociationProvider({fetchImpl:async()=>new Response(secret,{status})}).fetch('phase'),status===429?429:status===500?502:503);
+ for(const body of [secret,'{}','null','[{"word":"shift","score":"bad"}]'])await rejectSafe(()=>createAssociationProvider({fetchImpl:async()=>new Response(body)}).fetch('phase'),502);
+ await rejectSafe(()=>createAssociationProvider({fetchImpl:async()=>{throw Error(secret);}}).fetch('phase'),502);
+ await assert.rejects(()=>createAssociationProvider({timeoutMs:10,fetchImpl:async(_,{signal})=>new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(Error(secret))))}).fetch('phase'),/timed out/);
+ await rejectSafe(()=>createAssociationProvider({fetchImpl:async()=>new Response('x'.repeat(1024*1024+1))}).fetch('phase'),502);
+ const empty=await createAssociationProvider({fetchImpl:async()=>new Response('[]')}).fetch('phase');assert.deepEqual(empty.items,[]);assert.equal(empty.provider,'datamuse');assert.equal(empty.mode,'associated');
+ const server=await H.startServer({port:19846});
+ try{
   const login=await server.api('POST','/api/auth/gm/login',{password:'browser-gm-pass'});
-  async function request(query,token=login.data.token,method='GET') { const res=await fetch(server.base+'/api/word-associations'+query,{method,headers:{'x-gm-token':token}});return {status:res.status,body:await res.json(),cache:res.headers.get('cache-control')}; }
+  const request=async(query,token=login.data.token,method='GET',endpoint='/api/associations')=>{const res=await fetch(server.base+endpoint+query,{method,headers:{'x-gm-token':token}});return {status:res.status,body:await res.json(),cache:res.headers.get('cache-control')};};
   assert.equal((await request('?word=phase','')).status,401);
   const player=await H.heroToken(server,'Association Hero');assert.equal((await request('?word=phase',player)).status,401);
-  for(const query of ['','?word=','?word=%20%20','?word=two%20words'])assert.equal((await request(query)).status,400);
-  const missing=await request('?word=phase');assert.equal(missing.status,503);assert.match(missing.body.error,/WORD_ASSOCIATIONS_API_KEY/);assert.equal(missing.cache,'no-store');
+  for(const query of ['','?word=','?word=%20%20','?word=two%20words','?word=phase&mode=bad'])assert.equal((await request(query)).status,400);
   assert.equal((await request('?word=phase',login.data.token,'POST')).status,405);
-  assert.equal((await fetch(server.base+'/association-provider.js')).status,404,'server implementation not public');
+  const alias=await request('?word=phase&mode=bad',login.data.token,'GET','/api/word-associations');assert.equal(alias.status,400);assert.equal(alias.cache,'no-store');
+  for(const file of ['association-provider.js','datamuse-provider.js'])assert.equal((await fetch(server.base+'/'+file)).status,404);
  }finally{await server.stop();}
- console.log('PASS association provider: input, real schema/POS/weight normalization, single-word rule, missing key, cache TTL/bounds/coalescing, rate limit, upstream auth/quota/network/timeout/malformed/size failures, secret-safe messages, GM-only route, player refusal');
+ console.log('PASS Datamuse provider: keyless queries, both modes, POS/score/unknown metadata, one-word rule, input/mode validation, cache TTL/bounds/coalescing/mode keys, rate limit, auth/quota/network/timeout/schema/size errors, secret-safe failures, GM route and player refusal');
 })().catch(e=>{console.error(e);process.exitCode=1;});

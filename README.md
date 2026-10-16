@@ -880,6 +880,6 @@ The screen is called **RECOUNT** — never "Results". Files: `recount-engine.js`
 
 ## Association Forge setup
 
-The GM creator's Association Forge uses the official Word Associations API through a server-only proxy. Set the secret `WORD_ASSOCIATIONS_API_KEY` on the server, never in browser configuration. See [Association Forge setup and verification](docs/ASSOCIATION-FORGE.md) for cache limits, assignment safety, tests and API assumptions.
+The GM creator's Association Forge uses the [Datamuse API](https://www.datamuse.com/api/) through a GM-only server proxy. No API key is currently required. ASSOCIATED and MEANS LIKE lookups are separate, cached research queries; only explicit GM assignments change the board. See [Association Forge setup and verification](docs/ASSOCIATION-FORGE.md) for cache limits, assignment safety, tests and future authentication/provider support.
 
 <!-- railway-deploy-sync: casual-battle-modes-2026-09-21 -->

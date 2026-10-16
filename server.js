@@ -14603,11 +14603,11 @@ function handleApiRequest(req, res) {
   }
 
 
-  if (url.pathname === '/api/word-associations') {
+  if (url.pathname === '/api/associations' || url.pathname === '/api/word-associations') {
     res.setHeader('Cache-Control', 'no-store');
     if (method !== 'GET') return sendJson(res, 405, { error: 'Use GET for association research.' });
-    associationProvider.fetch(url.searchParams.get('word')).then(result => sendJson(res, 200, result)).catch(error => {
-      // Never log/return upstream URLs, bodies or errors: the provider URL holds a secret.
+    associationProvider.fetch(url.searchParams.get('word'), { mode: url.searchParams.get('mode') ?? 'associated' }).then(result => sendJson(res, 200, result)).catch(error => {
+      // Never expose upstream URLs, bodies or errors; future providers may carry secrets.
       if (error?.status === 429) res.setHeader('Retry-After', '2');
       sendJson(res, error instanceof AssociationError ? error.status : 502, { error: error instanceof AssociationError ? error.message : 'Association service temporarily unavailable.' });
     });
