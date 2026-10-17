@@ -35,6 +35,7 @@ const dennisAI = require('./dennis-ai');
 const { poisonView } = require('./poison-privacy');
 const { blocksPlayerAction } = require('./lockdown');
 const spectralAdjudicator = require('./automation/spectral-adjudicator');
+const spectralSchedule = require('./automation/spectral-schedule');
 const olympics = require('./olympics');
 const { createChatUploadGuard } = require('./chat-upload-guard');
 const { advanceBattleTimer } = require('./battle-timer-tick');
@@ -2207,6 +2208,9 @@ function handleRitualJoin(ws) {
         : 'A CONNECTED LITTLE HERO IDENTITY IS REQUIRED'
     });
   }
+  // Settle the cutoff before counting this vote; a request arriving after
+  // 13:05 cannot rescue a scheduled summon whose five votes were not present.
+  if (room.spectralAdjudicator?.scheduleStatus === 'SUMMONING') advanceSpectralRitual(room);
   if (!room.ritual?.active) return sendToWs(ws, { type: 'error', code: 'RITUAL_JOIN_REJECTED', message: 'NO SUMMON RITUAL IS CURRENTLY ACTIVE' });
   const id = String(player.id);
   if (room.ritual.joinedPlayerIds.includes(id)) return; // already bound -- idempotent, no error needed
@@ -3393,6 +3397,12 @@ function handleTimerStart(ws) {
     return;
   }
 
+  startBattleClock(room);
+}
+
+// Trusted internal callers only: the GM handler validates its authority and
+// ritual gate above; Spectra validates the scheduled window and five real votes.
+function startBattleClock(room) {
   room.timer.phase = 'running';
   room._lastTimerTickAt = Date.now();
   room.roomMode = ROOM_MODES.BATTLE;
@@ -12445,14 +12455,18 @@ function handleSpectralControl(ws, message) {
     const mode = String(message.mode || '').toUpperCase();
     if (!spectralAdjudicator.MODES.includes(mode)) return sendToWs(ws, { type: 'error', message: 'Invalid adjudicator mode' });
     room.spectralAdjudicator.mode = mode;
+    room.spectralAdjudicator.scheduleDisabled = mode !== 'AUTONOMOUS';
+    room.spectralAdjudicator.scheduleArmed = mode === 'AUTONOMOUS';
   } else if (message.type === 'gm:spectral:pause') room.spectralAdjudicator.paused = true;
   else if (message.type === 'gm:spectral:resume') room.spectralAdjudicator.paused = false;
-  else if (message.type === 'gm:spectral:manual') { room.spectralAdjudicator.mode = 'MANUAL'; room.spectralAdjudicator.paused = false; }
+  else if (message.type === 'gm:spectral:manual') { room.spectralAdjudicator.mode = 'MANUAL'; room.spectralAdjudicator.paused = false; room.spectralAdjudicator.scheduleDisabled = true; room.spectralAdjudicator.scheduleArmed = false; }
   else if (message.type === 'gm:spectral:arm') {
+    room.spectralAdjudicator.scheduleDisabled = false;
     room.spectralAdjudicator.scheduleArmed = true;
     room.spectralAdjudicator.mode = 'AUTONOMOUS';
     room.spectralAdjudicator.paused = false;
   } else if (message.type === 'gm:spectral:disarm') {
+    room.spectralAdjudicator.scheduleDisabled = true;
     room.spectralAdjudicator.scheduleArmed = false;
     room.spectralAdjudicator.launchScheduledAt = null;
   }
@@ -12460,62 +12474,72 @@ function handleSpectralControl(ws, message) {
   sendSpectralState(room);
 }
 
-function belgradeClock(at = Date.now()) {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Belgrade', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
-  }).formatToParts(new Date(at)).map(part => [part.type, part.value]));
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour), minute: Number(parts.minute) };
+function announceSpectralSchedule(room, text, nudge = false) {
+  const message = addSpectralMessage(room, `@all ${text}`);
+  persistActiveRooms();
+  broadcastChatUpdate(room, [message.id]);
+  broadcastToRoom(room, { type: 'chat:mentionAll', messageId: message.id, timestamp: Date.now() });
+  if (nudge) broadcastToRoom(room, { type: 'nudge:shake', timestamp: Date.now(), durationMs: NUDGE_MS });
 }
 
-function advanceSpectralRitual(room) {
-  const state = room?.spectralAdjudicator;
-  if (!state?.scheduleArmed || !room.ritual?.active || room.roomMode !== ROOM_MODES.BATTLE_ARMED || !isRitualFulfilled(room)) return false;
-  if (!room.hostConnection || room.hostConnection.readyState !== 1 || room.hostConnection.gmAuthenticated !== true) return false;
-  if (state.launchScheduledAt) return false;
-  if (!room.ritual.lockedIn) handleRitualLockIn(room.hostConnection);
-  if (!room.ritual.lockedIn) return false;
-  state.launchScheduledAt = Date.now();
+function advanceSpectralRitual(room, at = Date.now()) {
+  room.spectralAdjudicator = spectralAdjudicator.normalizeState(room.spectralAdjudicator);
+  const state = room.spectralAdjudicator;
+  const action = spectralSchedule.decide(room, at, isMatchResolved(room));
+  if (!action) return false;
+  if (action === 'SUMMON' || action === 'SKIP') {
+    state.lastScheduledDate = spectralSchedule.clock(at).date;
+    state.scheduleBoardId = room.boardId;
+    state.launchScheduledAt = null;
+    state.scheduleStatus = action === 'SUMMON' ? 'SUMMONING' : 'SKIPPED';
+  }
+  if (action === 'SUMMON') {
+    if (!room.timer) resetTimer(room);
+    room.roomMode = ROOM_MODES.BATTLE_ARMED;
+    room.armed = true;
+    if (!room.ritual?.active) startRitual(room);
+    room.revision++;
+    announceSpectralSchedule(room, 'Adjudicator summons you for a game.', true);
+  } else if (action === 'START') {
+    // This path requires five distinct, connected voters: tribute and GM
+    // overrides never stand in for scheduled attendance. No delayed T-10.
+    state.scheduleStatus = 'STARTED';
+    state.launchScheduledAt = null;
+    room.ritual.lockedIn = true;
+    startBattleClock(room);
+    sendSpectralState(room);
+    return true;
+  } else if (action === 'CANCEL') {
+    state.scheduleStatus = 'CANCELLED';
+    state.launchScheduledAt = null;
+    endRitual(room);
+    room.roomMode = ROOM_MODES.CASUAL;
+    room.armed = false;
+    room.revision++;
+    announceSpectralSchedule(room, 'Adjudicator dismissed, not enough players.');
+  } else if (action === 'ABORT') state.scheduleStatus = 'CANCELLED';
   persistActiveRooms();
-  handleTimerLaunchCountdown(room.hostConnection);
-  setTimeout(() => runtimeAction(() => {
-    const live = rooms.get(room.code);
-    if (!live?.spectralAdjudicator?.scheduleArmed || live.roomMode !== ROOM_MODES.BATTLE_ARMED) return;
-    handleTimerStart(live.hostConnection);
-    live.spectralAdjudicator.launchScheduledAt = null;
-    persistActiveRooms();
-    sendSpectralState(live);
-  }), 10 * 1000).unref?.();
+  broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastPlayersUpdate(room);
+  broadcastRitualState(room);
   sendSpectralState(room);
   return true;
 }
 
 function tickSpectralSchedule(at = Date.now()) {
-  const clock = belgradeClock(at);
-  for (const room of rooms.values()) {
-    room.spectralAdjudicator = spectralAdjudicator.normalizeState(room.spectralAdjudicator);
-    const state = room.spectralAdjudicator;
-    if (!state.scheduleArmed) continue;
-    if (clock.hour === 12 && clock.minute === 55 && state.lastScheduledDate !== clock.date) {
-      state.lastScheduledDate = clock.date;
-      state.launchScheduledAt = null;
-      if (!isMatchResolved(room) && (!room.timer || room.timer.phase === 'ready')) {
-        room.roomMode = ROOM_MODES.BATTLE_ARMED;
-        room.armed = true;
-        startRitual(room);
-        room.revision++;
-        persistActiveRooms();
-        broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
-        broadcastPlayersUpdate(room);
-        broadcastRitualState(room);
-      } else persistActiveRooms();
-      sendSpectralState(room);
-    }
-    advanceSpectralRitual(room);
-  }
+  for (const room of rooms.values()) advanceSpectralRitual(room, at);
 }
 
-setInterval(() => runtimeAction(() => tickSpectralSchedule()), 15 * 1000).unref();
+// One-second boundary checks avoid the former 15-second polling delay and
+// ten-second launch delay. Persisted daily status prevents restart replays.
+setInterval(() => {
+  const at = Date.now();
+  // Do not enter the durable transaction queue for an idle scheduler tick.
+  const due = [...rooms.values()].some(room => spectralSchedule.decide({ ...room,
+    spectralAdjudicator: spectralAdjudicator.normalizeState(room.spectralAdjudicator)
+  }, at, isMatchResolved(room)));
+  if (due) runtimeAction(() => tickSpectralSchedule(at));
+}, 1000).unref();
 
 function handleChatEdit(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());

@@ -1,6 +1,44 @@
 'use strict';
 
+const { normalizeAnswer } = require('./answer-normalize');
+
 const TARGETS = Object.freeze(['A', 'B', 'C', 'D', 'FINAL']);
+
+function withoutEmoticons(raw) {
+  // Keep the D in a column marker, but not in a trailing smile such as :D.
+  return String(raw || '').replace(/[;:=8][\-'^]?[)(/\\DdPpOo]+(?=\s|$|[!?.,]|\p{Extended_Pictographic})/gu, ' ')
+    .replace(/(^|\s)[xX][dD]+(?=\s|$|[!?.,])/g, '$1 ');
+}
+
+function broadTarget(raw, solutions = {}) {
+  const words = normalizeAnswer(withoutEmoticons(raw)).split(' ').filter(Boolean);
+  const markers = words.flatMap((word, index) => /^[abcdk]$/.test(word) || word === 'final'
+    ? [{ target: word === 'k' || word === 'final' ? 'FINAL' : word.toUpperCase(), index }] : []);
+  if (!markers.length) return null;
+  const matches = [];
+  for (const [target, solution] of Object.entries(solutions)) {
+    if (!TARGETS.includes(target)) continue;
+    const phrase = normalizeAnswer(solution).split(' ').filter(Boolean);
+    if (!phrase.length) continue;
+    for (let start = 0; start <= words.length - phrase.length; start++) {
+      if (!phrase.every((word, offset) => word === words[start + offset])) continue;
+      // A letter inside the answer itself cannot also act as its column.
+      const outside = markers.filter(marker => marker.index < start || marker.index >= start + phrase.length);
+      if (!outside.length) continue;
+      matches.push({ target, answer: String(solution), outside });
+    }
+  }
+  if (!matches.length) return null;
+  const namedMatches = matches.filter(match => match.outside.some(marker => marker.target === match.target));
+  const candidates = namedMatches.length ? namedMatches : matches;
+  const markerTargets = new Set(candidates.flatMap(match => match.outside.map(marker => marker.target)));
+  const candidateTargets = [...new Set(namedMatches.map(match => match.target))];
+  if (markerTargets.size > 1 || candidateTargets.length > 1) {
+    return { target: candidateTargets[0] || [...markerTargets][0], answer: candidates[0].answer,
+      ambiguous: true, candidateTargets: [...markerTargets] };
+  }
+  return { target: [...markerTargets][0], answer: candidates[0].answer };
+}
 
 function explicitTarget(raw) {
   // Players naturally phrase guesses as questions ("property A?"). Terminal
@@ -38,9 +76,11 @@ function classifyMessage(message, context = {}) {
   const raw = message.text.trim();
   const coordinate = coordinateIntent(raw);
   if (coordinate) return { kind: 'COORDINATE', ...coordinate };
-  const explicit = explicitTarget(raw);
+  const explicit = explicitTarget(withoutEmoticons(raw));
   if (explicit) return { kind: 'ANSWER', ...explicit };
+  const broad = broadTarget(raw, context.solutions);
+  if (broad) return { kind: 'ANSWER', ...broad };
   return { kind: 'IGNORE', reason: 'NO_EXACT_GAME_GRAMMAR' };
 }
 
-module.exports = { TARGETS, explicitTarget, coordinateIntent, eligibleMessage, classifyMessage };
+module.exports = { TARGETS, explicitTarget, coordinateIntent, eligibleMessage, classifyMessage, broadTarget };

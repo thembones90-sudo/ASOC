@@ -9,6 +9,7 @@
     if (select) select.value = mode;
     const status = document.getElementById('spectral-status');
     if (status) status.textContent = `${state.scheduleArmed ? 'ARMED 12:55' : 'DISARMED'} // ${mode}${paused ? ' // PAUSED' : ''}`;
+    if (status) status.title = `Belgrade: summon 12:55; start 13:00 with 5 votes; cutoff 13:05.${state.scheduleStatus ? ' Daily status: ' + state.scheduleStatus : ''}`;
     const pending = document.getElementById('spectral-pending');
     if (pending) pending.textContent = `${(state.pending || []).length} PENDING`;
     root()?.classList.toggle('is-paused', paused);
