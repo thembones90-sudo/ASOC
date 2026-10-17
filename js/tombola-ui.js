@@ -147,7 +147,9 @@
       const last = reveals.find(f => !prior.fields?.some(p => p.field === f.field && p.revealed)); ui.lastReveal = ui.open && last ? `${ui.state.id}:${last.field}` : '';
     } else ui.lastReveal = '';
     if (ui.state?.phase === 'PLAYING' && prior?.phase !== 'PLAYING' && ui.state.viewer?.participant) ui.open = true;
-    if (ui.state?.phase === 'ENDED' && (prior?.id !== ui.state.id || prior?.phase !== 'ENDED')) {
+    // Restored terminal rounds are history, not live events. A finale may
+    // open only after this session observed PLAYING for the same round.
+    if (message.live === true && ui.state?.phase === 'ENDED' && prior?.id === ui.state.id && prior?.phase === 'PLAYING') {
       ui.finale = ui.state.id; ui.open = true;
     } else ui.finale = '';
     render();

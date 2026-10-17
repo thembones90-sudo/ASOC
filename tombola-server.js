@@ -9,7 +9,7 @@ function createTombolaService(deps) {
     if (!player || player.connected === false || player.id !== ws.playerId || player.isBot || player.isSynthetic) return null;
     return { id: String(player.id), name: player.name, isGm: false };
   }
-  function sendState(room, ws) {
+  function sendState(room, ws, live = false) {
     const who = actor(room, ws);
     if (!who) return;
     const state = game.view(room.tombola, who.id, who.isGm, room.tombolaHistory || []);
@@ -17,7 +17,7 @@ function createTombolaService(deps) {
     const due = requiredTribute(room, who);
     state.requiredTribute = due ? { pactId: due.id } : null;
     if (due) { state.viewer.canJoin = false; state.viewer.canPick = false; }
-    deps.sendToWs(ws, { type: 'tombola:state', state });
+    deps.sendToWs(ws, { type: 'tombola:state', live, state });
   }
   function requiredTribute(room, who) {
     if (who.isGm) return null;
@@ -27,8 +27,8 @@ function createTombolaService(deps) {
     for (const [socket, player] of room.players) if (String(player.id) === String(playerId) && socket.readyState === 1) sendState(room, socket);
   }
   function publish(room) {
-    if (room.hostConnection) sendState(room, room.hostConnection);
-    for (const socket of room.players.keys()) if (socket.readyState === 1) sendState(room, socket);
+    if (room.hostConnection) sendState(room, room.hostConnection, true);
+    for (const socket of room.players.keys()) if (socket.readyState === 1) sendState(room, socket, true);
   }
   function commit(room) { room.revision++; deps.persist(); publish(room); }
   function handle(ws, message) {
