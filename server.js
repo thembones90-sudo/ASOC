@@ -4870,6 +4870,10 @@ function applyVerdict(room, messageId, verdict, target = null, reveal = false) {
   if (room.roomMode !== ROOM_MODES.BATTLE || room.sessionState.matchResult || message.source || message.boardId !== room.boardId) {
     return { success: false, error: 'Historical transmission is outside the active game and cannot be judged' };
   }
+  if (verdict === 'correct' && SCORABLE_COLUMNS.includes(target) &&
+      ['success', 'failed'].includes(room.sessionState?.cellOutcomes?.[`${target}5`])) {
+    return { success: false, error: `Column ${target} has already been resolved on the board` };
+  }
   if (room.pendingReveals) {
     for (const [column, action] of Object.entries(room.pendingReveals)) {
       if (action.messageId === messageId && (verdict !== 'correct' || column !== target)) delete room.pendingReveals[column];
@@ -12423,6 +12427,10 @@ function processSpectralAdjudication(room, chatMessage) {
     roomMode: 'battle', boardId: room.boardId, mode: state.mode, solutions: spectralSolutions(room)
   });
   if (result.kind === 'IGNORE') return false;
+  // Closed columns are not new attempts, nor new GM-review queue entries.
+  if (SCORABLE_COLUMNS.includes(result.target) &&
+      (room.chat.solvedTargets?.[result.target] ||
+       ['success', 'failed'].includes(room.sessionState?.cellOutcomes?.[`${result.target}5`]))) return false;
   if (result.kind === 'COORDINATE') {
     if (!result.valid || room.sessionState?.cells?.[result.cell] === true) {
       addSpectralMessage(room, 'invalid field, are you clinically blind?');
@@ -12538,7 +12546,8 @@ setInterval(() => {
   const due = [...rooms.values()].some(room => spectralSchedule.decide({ ...room,
     spectralAdjudicator: spectralAdjudicator.normalizeState(room.spectralAdjudicator)
   }, at, isMatchResolved(room)));
-  if (due) runtimeAction(() => tickSpectralSchedule(at));
+  // Re-read the clock when the durable queue actually runs this action.
+  if (due) runtimeAction(() => tickSpectralSchedule());
 }, 1000).unref();
 
 function handleChatEdit(ws, message) {

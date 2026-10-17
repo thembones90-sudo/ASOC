@@ -30,6 +30,12 @@ eq(spectral.inspect(msg('A banana'),context).decision,'REJECT','clear wrong reje
 eq(spectral.inspect(msg('A spit'),context).decision,'ESCALATE','possible typo requires GM judgment');
 eq(spectral.inspect(msg('bug K'),context).target,'FINAL','final always targetable');
 const strictColumns={...context,solutions:{...context.solutions,A:'sail',D:'stone'}};
+for (const text of ['A banana 😂', 'banana A 🍺', '(A): banana!!! 😂']) {
+  eq(spectral.inspect(msg(text),strictColumns).decision,'REJECT',`decorated wrong guess: ${text}`);
+}
+for (const text of ['A saill 😂', 'A sail-ing 😂']) {
+  eq(spectral.inspect(msg(text),strictColumns).decision,spectral.inspect(msg(text.replace(' 😂','')),strictColumns).decision,`emoji cannot change judgment: ${text}`);
+}
 eq(spectral.inspect(msg('sail A'),strictColumns).decision,'ACCEPT','right answer and column accepted automatically');
 eq(spectral.inspect(msg('sail D'),strictColumns).decision,'REJECT','right word on wrong column is a mistake');
 eq(spectral.inspect(msg('D sail?'),strictColumns).decision,'REJECT','punctuated wrong-column answer is a mistake');

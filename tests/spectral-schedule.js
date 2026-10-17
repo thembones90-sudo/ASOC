@@ -63,6 +63,15 @@ assert.equal(room.chat.at(-1).text, '@all Adjudicator dismissed, not enough play
 assert.equal(tick(room, '13:05:01'), false, 'cancellation never repeats');
 room = fixture(); tick(room, '12:55:00'); vote(room, 4); tick(room, '13:00:00'); vote(room, 5);
 assert.equal(tick(room, '13:03:00'), true, 'fifth grace-period vote starts immediately');
+for (const time of ['13:05:00', '13:06:00', '14:00:00']) {
+  room = fixture(); tick(room, '12:55:00'); vote(room, 5);
+  room.spectralAdjudicator.paused = true;
+  assert.equal(tick(room, time), false, 'pause suppresses schedule actions');
+  room.spectralAdjudicator.paused = false;
+  assert.equal(tick(room, time), true);
+  assert.equal(room.spectralAdjudicator.scheduleStatus, 'CANCELLED', 'resuming after cutoff cannot start a late game');
+  assert.equal(room.roomMode, 'CASUAL');
+}
 room = fixture(); tick(room, '12:55:00'); vote(room, 5);
 [...room.players.keys()][0].readyState = 3;
 assert.equal(tick(room, '13:00:00'), false, 'disconnected voter does not count');
@@ -83,6 +92,22 @@ context.Date = { now: () => at('13:05:00') };
 context.handleRitualJoin(lateVoter);
 assert.equal(room.roomMode, 'CASUAL');
 assert.equal(room.ritual.joinedPlayerIds.includes('late-voter'), false, 'late fifth vote cannot bypass cutoff between scheduler ticks');
+// Exercise the actual interval callback with a durable queue held across cutoff.
+room = fixture(); tick(room, '12:55:00'); vote(room, 5);
+let now = at('13:04:59'), interval, queued, queuedDecision;
+const schedulerContext = {
+  rooms: new Map([['MASTER', room]]), spectralSchedule: S, spectralAdjudicator: A,
+  isMatchResolved: () => false, Date: { now: () => now },
+  runtimeAction: action => { queued = action; },
+  tickSpectralSchedule: (time = now) => { queuedDecision = S.decide(room, time); },
+  setInterval: callback => { interval = callback; return { unref() {} }; }
+};
+const intervalStart = source.indexOf('setInterval(() => {', source.indexOf('function tickSpectralSchedule('));
+const intervalEnd = source.indexOf('\nfunction handleChatEdit', intervalStart);
+vm.runInNewContext(source.slice(intervalStart, intervalEnd), schedulerContext);
+interval(); assert.equal(typeof queued, 'function');
+now = at('13:05:01'); queued();
+assert.equal(queuedDecision, 'CANCEL', 'queued scheduler action uses execution time, not stale pre-cutoff time');
 assert.equal(S.clock(Date.parse('2026-01-17T11:55:00Z')).minute, 775, 'winter Belgrade time');
 assert.equal(S.clock(Date.parse('2026-07-17T10:55:00Z')).minute, 775, 'summer Belgrade time');
 console.log('PASS Spectra schedule: 12:55 summon/nudge/@all once; no early start; 13:00 start; grace fifth vote; 13:05 dismissal; connected unique votes, no override bypass; restart dedupe, disabled modes, missed window, board safety, GM wire authority, DST');

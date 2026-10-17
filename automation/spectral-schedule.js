@@ -28,8 +28,8 @@ function decide(room, at, resolved = false) {
   }
   if (!pending) return null;
   if (state.scheduleBoardId !== room.boardId || resolved || room.roomMode !== 'BATTLE_ARMED' || !room.ritual?.active || room.timer?.phase !== 'ready') return 'ABORT';
-  if (time.minute >= 780 && votes(room) >= 5) return 'START';
   if (time.minute >= 785) return 'CANCEL';
+  if (time.minute >= 780 && votes(room) >= 5) return 'START';
   return null;
 }
 module.exports = { clock, votes, decide };

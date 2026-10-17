@@ -76,10 +76,15 @@ function classifyMessage(message, context = {}) {
   const raw = message.text.trim();
   const coordinate = coordinateIntent(raw);
   if (coordinate) return { kind: 'COORDINATE', ...coordinate };
-  const explicit = explicitTarget(withoutEmoticons(raw));
+  // Emoji are presentation, including on wrong guesses. Keep apostrophes and
+  // hyphens intact so adding an emoji cannot change the answer's boundaries.
+  const plain = withoutEmoticons(raw).replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D]/gu, ' ');
+  const explicit = explicitTarget(plain);
   if (explicit) return { kind: 'ANSWER', ...explicit };
   const broad = broadTarget(raw, context.solutions);
   if (broad) return { kind: 'ANSWER', ...broad };
+  const decorated = explicitTarget(normalizeAnswer(plain));
+  if (decorated) return { kind: 'ANSWER', ...decorated };
   return { kind: 'IGNORE', reason: 'NO_EXACT_GAME_GRAMMAR' };
 }
 
