@@ -50,7 +50,7 @@
     if (models[event.variant].includes(event.model)) {
       const vessel = document.createElement('img');
       vessel.className = 'asoc-beer-vessel'; vessel.alt = '';
-      vessel.src = `assets/ui/beer/${event.model}.svg?v=20261016-beer-1`;
+      vessel.src = `assets/ui/beer/${event.model}.png?v=20261020-beer-art-1`;
       vessel.addEventListener('error', () => { vessel.replaceWith(fallback); }, { once: true });
       const fallback = layer.querySelector('svg.asoc-beer-vessel');
       fallback.replaceWith(vessel);
