@@ -95,6 +95,7 @@ const base = path.join(__dirname, '..');
       for (const model of models) {
         await gm.evaluate(({ variant, model }) => AsocBeer.show({ id: 'art-' + model, variant, model, offeredBy: { name: 'Skynet Collection' } }), { variant, model });
         await gm.waitForFunction(() => { const img = document.querySelector('img.asoc-beer-vessel'); return img?.complete && img.naturalWidth > 0; });
+        assert.ok((await gm.locator('img.asoc-beer-vessel').getAttribute('src')).includes('/' + model + '.png?v='), 'model renders matching PNG');
         await gm.waitForTimeout(600);
         await gm.screenshot({ path: path.join(shots, `${model}.png`) });
         await gm.locator('[data-beer-refuse]').click();

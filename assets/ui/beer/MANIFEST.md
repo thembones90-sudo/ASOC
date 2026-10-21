@@ -1,28 +1,21 @@
-# ASOC Beer Vessel Models
+# ASOC Beer Artwork Models
 
-All assets are transparent, lightweight SVGs using the existing `320 × 280` stage viewBox. They contain no scripts, embedded raster images, external resources, CSS, or animation.
+The default /beer artwork consists of nine 1024 x 1024 transparent RGBA PNG assets. Legacy SVG files remain in the repository for compatibility; the existing built-in inline SVG remains the runtime fallback. Each model retains its event identity.
 
 ## Bottles
-
-- `bottle-voidwarden.svg` — tall black-violet glass, faceted eye label, silver-gold neck. Shadow Broker / occult premium model.
-- `bottle-reliquary.svg` — broad apothecary bottle, moss glass, gilded cage, luminous relic. Ancient monastery ale model.
-- `bottle-bloodcrown.svg` — narrow crimson glass, crown label, champagne-like profile. Regal sinister celebration model.
+- bottle-voidwarden.png: black-violet glass with occult eye
+- bottle-reliquary.png: green apothecary glass, amber beer, gold cage
+- bottle-bloodcrown.png: ruby glass, dark-iron crown
 
 ## Cans
-
-- `can-iron-ration.svg` — armored field-ration can with riveted iron label. Industrial military model.
-- `can-void-coil.svg` — slim black-violet can with luminous orbital bands and eye. Arcane-energy model.
-- `can-royal-stout.svg` — broad black-and-gold can with crown and coin seal. Premium tavern stout model.
+- can-iron-ration.png: armored military gunmetal
+- can-void-coil.png: slender obsidian violet-coil eye
+- can-royal-stout.png: broad black and gilded-crown stout
 
 ## Barrels
+- barrel-oathwood.png: warm oak, forged hoops, oath seal
+- barrel-iron-keg.png: red armored steel keg with brass tap
+- barrel-plague-cask.png: green alchemical wood barrel, emerald seal
 
-- `barrel-oathwood.svg` — warm oak raid cask with four staves, steel hoops, oath-star brand. Classic dark-fantasy tavern model.
-- `barrel-iron-keg.svg` — low armored steel keg, red hazard plate, crown-star seal and tap. ASOC industrial model.
-- `barrel-plague-cask.svg` — green alchemical cask with luminous radial valve and spores. Toxic apothecary model.
-
-## Integration notes
-
-- Place the selected asset directly in the current `.asoc-beer-stage`; all share the existing art coordinate system.
-- Keep the existing golden ring, rays, foam and particle layers above/below the SVG as they are now.
-- Suggested random pools are the three files with the matching `bottle-`, `can-`, or `barrel-` prefix.
-- Accessible announcement names may stay category-level, or use the model names above for added flavor.
+## Integration
+The renderer uses the server-selected event.model when it is in the allowlisted model pool, loading assets/ui/beer/<model>.png in the existing beer stage. If the PNG cannot load, the existing inline SVG fallback is used. The stage layout, timing, particles, button actions, cooldowns and effects are unchanged. Images use object-fit: contain to prevent stretching.

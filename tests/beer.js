@@ -3,6 +3,23 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { createService, VARIANTS, MODELS, COOLDOWN_MS } = require('../beer-offers');
+
+const expectedArt = [
+  'bottle-voidwarden', 'bottle-reliquary', 'bottle-bloodcrown',
+  'can-iron-ration', 'can-void-coil', 'can-royal-stout',
+  'barrel-oathwood', 'barrel-iron-keg', 'barrel-plague-cask'
+];
+assert.deepEqual(Object.values(MODELS).flat(), expectedArt, 'nine beer identities remain mapped');
+for (const model of expectedArt) {
+  const file = require('node:path').join(__dirname, '..', 'assets', 'ui', 'beer', model + '.png');
+  assert.ok(fs.existsSync(file), 'missing beer PNG: ' + model);
+  const bytes = fs.readFileSync(file);
+  assert.equal(bytes.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', model + ' PNG signature');
+  assert.equal(bytes.readUInt32BE(16), 1024, model + ' width');
+  assert.equal(bytes.readUInt32BE(20), 1024, model + ' height');
+  assert.equal(bytes[25], 6, model + ' RGBA');
+}
+
 const events = [];
 let time = 0, choice = 0;
 const beerOffers = createService({ broadcast: (room, event) => events.push({ room, event }), now: () => time, randomInt: max => { assert.equal(max, 3); return choice; }, randomUUID: () => `beer-${events.length}` });
