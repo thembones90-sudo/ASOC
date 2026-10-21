@@ -118,3 +118,15 @@
 .spectral-console strong { font-size: 10px; letter-spacing: .2px; line-height: 1.15; }
 .spectral-console span { display: block; margin-top: 0; overflow: hidden; text-overflow: ellipsis; font-size: 8px; letter-spacing: .3px; }
 .spectral-console select { padding: 0 2px 0 6px; letter-spacing: .3px; }
+
+/* Outside the clipped command tile: pending reviews must remain visible. */
+#spectral-review-toggle, #spectral-review-panel { position: fixed; z-index: 15000; color: #f3e7ff; font: 700 13px/1.5 monospace; border: 1px solid #c67aff; border-radius: 8px; background: #170e21; box-shadow: 0 8px 30px #000b; }
+#spectral-review-toggle { right: 20px; bottom: 22px; padding: 12px 18px; cursor: pointer; }
+#spectral-review-panel { right: 20px; bottom: 80px; width: min(440px, calc(100vw - 40px)); max-height: min(580px, calc(100dvh - 120px)); overflow: auto; padding: 16px; box-sizing: border-box; }
+#spectral-review-panel[hidden], #spectral-review-toggle[hidden] { display: none !important; }
+#spectral-review-panel header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#spectral-review-panel article { border-top: 1px solid #694582; padding: 12px 0; overflow-wrap: anywhere; }
+#spectral-review-panel blockquote { margin: 8px 0; padding: 8px; background: #08060c; white-space: pre-wrap; }
+#spectral-review-panel button, #spectral-review-panel select { color: #f3e7ff; border: 1px solid #9461b4; background: #2c173d; padding: 8px; margin: 4px; border-radius: 4px; cursor: pointer; }
+#spectral-review-panel button:disabled { opacity: .45; cursor: not-allowed; }
+#spectral-review-panel :focus-visible, #spectral-review-toggle:focus-visible { outline: 2px solid #ffc96a; outline-offset: 2px; }

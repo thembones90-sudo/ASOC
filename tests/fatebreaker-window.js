@@ -1,0 +1,67 @@
+'use strict';
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const fs = require('node:fs');
+const { chromium } = require('playwright');
+const game = require('../tombola');
+const root = path.join(__dirname, '..');
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const shots = path.join(root, '.scratch', 'fatebreaker-window'); fs.mkdirSync(shots, { recursive: true });
+  try {
+    for (const width of [1440, 390]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      const errors = []; page.on('pageerror', error => errors.push(error.message));
+      let now = Date.now(); await page.clock.install({ time: now }); await page.clock.pauseAt(now);
+      await page.setContent('<body style="background:#110a15;color:white"><label>Chat <input id="chat"></label></body>');
+      await page.evaluate(() => { window.PlayerApp = { send: m => { window.lastSent = m; return true; } }; });
+      await page.addStyleTag({ path: path.join(root, 'css/tombola.css') });
+      await page.addScriptTag({ path: path.join(root, 'js/tombola-ui.js') });
+      const r = game.create('window', now); for (const id of ['a', 'b']) game.join(r, { id, name: 'Hero ' + id }, now);
+      game.start(r, ['a', 'b'], now); r.turnOrder = ['a', 'b'];
+      const render = async () => page.evaluate(state => TombolaUI.onMessage({ type: 'tombola:state', live: true, state }), { ...game.view(r, 'a', false, [], now), serverNow: now });
+      await render();
+      assert.match(await page.locator('[data-tombola-turn-clock]').textContent(), /20s LEFT/);
+      await page.clock.runFor(5000);
+      assert.match(await page.locator('[data-tombola-turn-clock]').textContent(), /15s LEFT/);
+      now += 5000;
+      await page.getByRole('button', { name: 'Minimize FATEBREAKER' }).click();
+      assert.equal(await page.locator('#tombola-overlay').isVisible(), false);
+      await page.locator('#chat').fill('I can chat while the board is minimized');
+      assert.match(await page.locator('#tombola-restore').textContent(), /YOUR TURN/);
+      r.turnIndex = 1; r.turnEndsAt = now + 20000; r.turnNumber++;
+      await render();
+      assert.equal(await page.locator('#tombola-overlay').isVisible(), false, 'turn updates do not reopen minimized board');
+      await page.locator('#tombola-restore').click();
+      await page.locator('#tombola-overlay').waitFor({ state: 'visible' });
+      const before = await page.locator('#tombola-overlay').boundingBox();
+      const header = await page.locator('.tombola-heading h2').boundingBox();
+      await page.mouse.move(header.x + 15, header.y + 15); await page.mouse.down();
+      await page.mouse.move(header.x + 15 + (width > 500 ? -180 : 0), header.y + 110, { steps: 8 }); await page.mouse.up();
+      const moved = await page.locator('#tombola-overlay').boundingBox();
+      assert.ok(moved.y > before.y + 60, 'header drag moves board');
+      if (width > 500) assert.ok(moved.x < before.x - 100);
+      await render();
+      assert.equal((await page.locator('#tombola-overlay').boundingBox()).y, moved.y, 'position survives state updates');
+      await page.screenshot({ path: path.join(shots, `${width}-moved.png`) });
+      await page.setViewportSize({ width: 360, height: 700 });
+      await page.waitForTimeout(20);
+      const resized = await page.locator('#tombola-overlay').boundingBox();
+      assert.ok(resized.x >= 0 && resized.x + resized.width <= 361, 'resize keeps board reachable');
+      await page.getByRole('button', { name: 'Close FATEBREAKER' }).click();
+      await page.locator('#tombola-restore').click();
+      await page.getByRole('button', { name: 'LEAVE GAME', exact: true }).click();
+      assert.equal((await page.evaluate(() => window.lastSent)).type, 'tombola:leave');
+      game.leave(r, 'a', now); await render();
+      assert.equal(await page.getByRole('button', { name: 'LEAVE GAME', exact: true }).count(), 0, 'departed player cannot leave twice');
+      assert.match(await page.locator('.tombola-roster').textContent(), /LEFT GAME/);
+      assert.equal(game.current(r).id, 'b');
+      await page.evaluate(state => TombolaUI.onMessage({ type: 'tombola:state', state }), { ...game.view(r, 'a', false, [], now), serverNow: now, requiredTribute: { pactId: 'due' } });
+      assert.equal(await page.getByRole('button', { name: 'Minimize FATEBREAKER' }).isDisabled(), true);
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('#tombola-overlay').isVisible(), true, 'required offering remains unskippable');
+      assert.deepEqual(errors, []); await page.close();
+    }
+    console.log('PASS FATEBREAKER desktop/mobile: 20s countdown, minimize/restore, usable chat, no forced reopen on turn updates, drag, position persistence/resize clamp, mandatory tribute protected');
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

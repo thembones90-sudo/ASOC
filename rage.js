@@ -59,7 +59,8 @@ const rollDie = () => crypto.randomInt(1, 7);
 
 function cleanName(name) { return String(name || 'LITTLE HERO').slice(0, 40); }
 
-function createLobby(actor, { stake = 0 } = {}, now = Date.now()) {
+const pieceCount = s => s?.gameMode === 'SHORT' ? 2 : PIECES;
+function createLobby(actor, { stake = 0, gameMode = 'STANDARD' } = {}, now = Date.now()) {
   const amount = Math.max(0, Math.min(MAX_STAKE, Math.floor(Number(stake) || 0)));
   return {
     id: newId(),
@@ -68,6 +69,7 @@ function createLobby(actor, { stake = 0 } = {}, now = Date.now()) {
     ownerId: String(actor.id),
     ownerName: cleanName(actor.name),
     stake: amount,
+    gameMode: gameMode === 'SHORT' ? 'SHORT' : 'STANDARD',
     members: [{ id: String(actor.id), name: cleanName(actor.name), color: null }],
     players: {},
     order: [],
@@ -147,7 +149,7 @@ function start(s, actorId, onlineIds, now = Date.now()) {
   s.players = {};
   const nicknames = drawNicknames(seated.length);
   s.order = seated.map((m, i) => {
-    s.players[m.id] = { id: m.id, name: `${m.name} ${nicknames[i].toLowerCase()}`, baseName: m.name, nickname: nicknames[i], color: COLORS.includes(m.color) ? m.color : COLORS[i], seat: seats[i], pieces: Array(PIECES).fill(-1), out: false, finishedAt: 0, idleMisses: 0, lastMissedTurn: -1 };
+    s.players[m.id] = { id: m.id, name: `${m.name} ${nicknames[i].toLowerCase()}`, baseName: m.name, nickname: nicknames[i], color: COLORS.includes(m.color) ? m.color : COLORS[i], seat: seats[i], pieces: Array(pieceCount(s)).fill(-1), out: false, finishedAt: 0, idleMisses: 0, lastMissedTurn: -1 };
     return m.id;
   });
   s.members = seated;
@@ -202,7 +204,7 @@ function occupant(s, square) {
   for (const id of s.order) {
     const pl = s.players[id];
     if (pl.out) continue;
-    for (let i = 0; i < PIECES; i += 1) {
+    for (let i = 0; i < pl.pieces.length; i += 1) {
       if (onTrack(pl.pieces[i]) && absSquare(pl.seat, pl.pieces[i]) === square) return { id, piece: i };
     }
   }
@@ -216,7 +218,7 @@ function legalMoves(s, r) {
   pl.pieces.forEach((p, piece) => {
     let to;
     if (p === -1) { if (r !== 6) return; to = 0; }
-    else { to = p + r; if (to > HOME_LAST) return; }
+    else { to = p + r; if (to > HOME_FIRST + pieceCount(s) - 1) return; }
     if (pl.pieces.some((q, j) => j !== piece && q === to)) return;
     let capture = null;
     if (onTrack(to)) {
@@ -298,7 +300,7 @@ function applyMove(s, m, now) {
     s.options = [];
     s.deadline = 0;
     pushEvent(s, { kind: 'win', by: pl.id });
-    announce.push(`THY SHALL NOT RAGE // ${pl.name} BROUGHT ALL FOUR HOME AND WINS.`);
+    announce.push(`THY SHALL NOT RAGE // ${pl.name} BROUGHT ALL ${pieceCount(s) === 2 ? 'TWO' : 'FOUR'} HOME AND WINS.`);
     return { ok: true, announce };
   }
   if (s.roll === 6) {
@@ -422,6 +424,8 @@ function view(s, viewerId, now = Date.now(), onlineIds = new Set()) {
     ownerId: s.ownerId,
     ownerName: s.ownerName,
     stake: s.stake,
+    gameMode: s.gameMode || 'STANDARD',
+    piecesToWin: pieceCount(s),
     colors: COLORS.slice(),
     pot: s.pot,
     members: s.members.map(m => ({ ...m, online: onlineIds.has(m.id) })),
@@ -459,6 +463,7 @@ function view(s, viewerId, now = Date.now(), onlineIds = new Set()) {
 
 function normalizeState(raw) {
   if (!raw || typeof raw !== 'object' || !PHASES.has(raw.phase) || typeof raw.id !== 'string') return null;
+  raw.gameMode = raw.gameMode === 'SHORT' ? 'SHORT' : 'STANDARD';
   raw.turnNumber = Number.isInteger(raw.turnNumber) && raw.turnNumber > 0 ? raw.turnNumber : 1;
   raw.voteHistory = Array.isArray(raw.voteHistory) ? raw.voteHistory : [];
   raw.idlePenalties = raw.idlePenalties && typeof raw.idlePenalties === 'object' ? raw.idlePenalties : {};

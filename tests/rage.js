@@ -343,6 +343,20 @@ async function runServer() {
     bo = await connect('Bo');
     assert.equal(await ana.balance(), 10);
 
+    // Short is a server-owned table term, not a client-side win shortcut.
+    let short = await ana.act({ type: 'rage:create', gameMode: 'INVALID' }, 'invalid game mode');
+    assert.match(short.message, /STANDARD OR SHORT/);
+    short = await ana.act({ type: 'rage:create', stake: 0, gameMode: 'SHORT' }, 'short table');
+    assert.equal(short.state.gameMode, 'SHORT'); assert.equal(short.state.piecesToWin, 2);
+    await bo.act({ type: 'rage:join', gameMode: 'STANDARD' }, 'short join');
+    await ana.act({ type: 'rage:color', color: 'blood' }, 'short a color');
+    await bo.act({ type: 'rage:color', color: 'void' }, 'short b color');
+    short = await ana.act({ type: 'rage:start', gameMode: 'STANDARD' }, 'short start');
+    assert.equal(short.state.gameMode, 'SHORT', 'start packet cannot change fixed lobby mode');
+    assert.ok(short.state.players.every(p => p.pieces.length === 2));
+    await gm.act({ type: 'rage:cancel' }, 'close short');
+    assert.equal(await ana.balance(), 10);
+
     // FOR COINS: a stake Bo cannot cover is refused at the door.
     let st = await ana.act({ type: 'rage:create', stake: 5 }, 'create 5');
     assert.equal(st.state.stake, 5);

@@ -1,6 +1,9 @@
 'use strict';
 const assert = require('node:assert/strict');
 const WebSocket = require('ws');
+const { chromium } = require('playwright');
+const path = require('node:path');
+const fs = require('node:fs');
 const H = require('./lib/browser-harness');
 class Client {
   constructor() { this.messages = []; }
@@ -13,6 +16,7 @@ class Client {
         if (message.type === 'protocol:hello') return this.send({ type: 'protocol:hello', protocolVersion: 1 });
         if (message.type === 'protocol:ready') return resolve();
         this.messages.push(message);
+        if (this.onMessage) this.onMessage(message);
       });
     });
     return this;
@@ -31,12 +35,23 @@ class Client {
 (async () => {
   const server = await H.startServer({ port: 19859, env: { ASOC_COLUMN_REVEAL_DELAY_MS: '150' } });
   const clients = [];
+  let browser;
   try {
     const login = await server.api('POST', '/api/auth/gm/login', { password: 'browser-gm-pass' });
     const gm = await new Client().open(server.port); clients.push(gm);
     gm.send({ type: 'host:recover', gmToken: login.data.token });
     await gm.wait(m => m.type === 'host:recovered');
-    const columns = Object.fromEntries(Object.entries({ A: 'sail', B: 'moon', C: 'fire', D: 'stone' }).map(([key, solution]) => [key, { solution, clues: ['one', 'two', 'three', 'four'] }]));
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const pageErrors = []; page.on('pageerror', error => pageErrors.push(error.message));
+    await page.setContent('<body style="background:#09090b"><input id="typing" aria-label="chat"><div id="spectral-console"><select id="spectral-mode"><option>MANUAL</option><option>ASSISTED</option><option>AUTONOMOUS</option></select></div></body>');
+    await page.exposeFunction('sendSpectralWire', payload => gm.send(payload));
+    await page.evaluate(() => { window.App = { send: payload => window.sendSpectralWire(payload), registerGmModule: (name, api) => { window.spectralReview = api; } }; });
+    let uiUpdates = Promise.resolve();
+    gm.onMessage = message => { uiUpdates = uiUpdates.then(() => page.evaluate(frame => window.spectralReview?.onMessage(frame), message)); };
+    await page.addStyleTag({ path: path.join(H.ROOT, 'css/spectral-adjudicator.css') });
+    await page.addScriptTag({ path: path.join(H.ROOT, 'js/spectral-adjudicator.js') });
+    const columns = Object.fromEntries(Object.entries({ A: 'sail', B: 'wither', C: 'fire', D: 'stone' }).map(([key, solution]) => [key, { solution, clues: ['one', 'two', 'three', 'four'] }]));
     const response = await fetch(server.base + '/api/games', { method: 'POST', headers: { 'content-type': 'application/json', 'x-gm-token': login.data.token }, body: JSON.stringify({ title: 'Spectra Automatic Fixture', difficulty: 'GREEN', columns, finalSolution: 'splash' }) });
     assert.equal(response.status, 200);
     const saved = await response.json();
@@ -73,6 +88,35 @@ class Client {
     };
     await mode('MANUAL'); await guess('A SAIL', null);
     await mode('ASSISTED');
+    await page.locator('#typing').focus();
+    const variant = await guess('withered b', null);
+    const card = page.locator(`[data-message-id="${variant.id}"]`);
+    await card.waitFor({ state: 'visible' });
+    assert.match(await card.textContent(), /withered b/);
+    assert.match(await card.textContent(), /DERIVATIONAL/);
+    assert.equal(await page.locator('#typing').evaluate(el => el === document.activeElement), true, 'review alert does not steal chat focus');
+    const shots = path.join(H.ROOT, '.scratch', 'spectral-review'); fs.mkdirSync(shots, { recursive: true });
+    await page.screenshot({ path: path.join(shots, 'desktop.png') });
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.screenshot({ path: path.join(shots, 'mobile.png') });
+    assert.equal(await page.locator('#spectral-review-panel').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }), true);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.getByRole('button', { name: 'MINIMIZE' }).click();
+    await mode('ASSISTED'); await uiUpdates;
+    assert.equal(await page.locator('#spectral-review-panel').isVisible(), false, 'duplicate sync does not reopen minimized panel');
+    await page.locator('#spectral-review-toggle').click();
+    await card.getByRole('button', { name: 'REJECT', exact: true }).click();
+    await gm.wait(m => m.messages?.some(x => x.id === variant.id && x.verdict === 'wrong'));
+    await card.waitFor({ state: 'detached' });
+    gm.send({ type: 'gm:command', command: 'revealCell', payload: { cell: 'B1', reveal: true }, cmdId: 'spectra-clue-b' });
+    await gm.wait(m => m.type === 'state:public' && m.cells?.B1?.revealed === true);
+    const acceptedVariant = await guess('withered B?', null);
+    const acceptedCard = page.locator(`[data-message-id="${acceptedVariant.id}"]`);
+    await acceptedCard.waitFor({ state: 'visible' });
+    assert.equal(await acceptedCard.locator('select').inputValue(), 'B');
+    await acceptedCard.getByRole('button', { name: 'ACCEPT', exact: true }).click();
+    await gm.wait(m => m.messages?.some(x => x.id === acceptedVariant.id && x.verdict === 'correct' && x.target === 'B'));
+    await acceptedCard.waitFor({ state: 'detached' });
     const assisted = await guess('I saw a sail 😂', null);
     await gm.wait(m => m.type === 'spectral:state' && m.state.pending.some(p => p.messageId === assisted.id));
     await mode('AUTONOMOUS');
@@ -86,15 +130,15 @@ class Client {
     await guess('A sail 😂', null);
     await guess('A saill 😂', null);
     const failFrom = gm.messages.length;
-    gm.send({ type: 'gm:failColumn', column: 'B' });
-    await gm.wait(m => m.type === 'state:public' && m.cells?.B5?.outcome === 'failed', failFrom);
-    const late = await guess('B moon 😂', null);
-    const lateTypo = await guess('B mooon 😂', null);
+    gm.send({ type: 'gm:failColumn', column: 'C' });
+    await gm.wait(m => m.type === 'state:public' && m.cells?.C5?.outcome === 'failed', failFrom);
+    const late = await guess('C fire 😂', null);
+    const lateTypo = await guess('C fiire 😂', null);
     const pending = gm.messages.filter(m => m.type === 'spectral:state').at(-1).state.pending;
     assert.equal(pending.some(p => [late.id, lateTypo.id].includes(p.messageId)), false, 'closed columns never enter review queue');
-    assert.equal(gm.messages.some(m => m.type === 'score:event' && m.target === 'B'), false, 'failed column never earns solve credit');
+    assert.equal(gm.messages.some(m => m.type === 'score:event' && m.target === 'C'), false, 'failed column never earns solve credit');
     const manualFrom = gm.messages.length;
-    gm.send({ type: 'gm:judgeGuess', messageId: late.id, verdict: 'correct', target: 'B' });
+    gm.send({ type: 'gm:judgeGuess', messageId: late.id, verdict: 'correct', target: 'C' });
     await gm.wait(m => m.type === 'error' && /already been resolved/.test(m.message), manualFrom);
     await mode('ASSISTED');
     const finalReview = await guess('K splash', null);
@@ -104,6 +148,10 @@ class Client {
     assert.equal(final.target, 'FINAL');
     await gm.wait(m => m.type === 'score:finalReveal' && m.correctSolution === 'splash');
     assert.equal(gm.messages.filter(m => m.type === 'score:event' && m.target === 'A').length, 1);
-    console.log('PASS Spectra live battle: manual unchanged; assisted column/final queued; automatic exact column/final accepted and revealed without GM clicks; typo queued, wrong column rejected, one column score award');
-  } finally { clients.forEach(client => client.ws?.terminate()); await server.stop(); }
+    await uiUpdates;
+    assert.deepEqual(pageErrors, []);
+    await page.setViewportSize({ width: 390, height: 800 });
+    assert.equal(await page.locator('#spectral-review-panel').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }), true, 'review panel fits mobile viewport');
+    console.log('PASS Spectra live battle and browser GM review: WITHERED B visibly alerts; Accept/Reject apply real verdicts and clear pending; no focus stealing or duplicate reopening; mobile fits; manual/assisted/automatic, scoring and closed-column protections preserved');
+  } finally { clients.forEach(client => { client.onMessage = null; client.ws?.terminate(); }); await browser?.close(); await server.stop(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

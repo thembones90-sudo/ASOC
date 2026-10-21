@@ -31,12 +31,40 @@ function createTombolaService(deps) {
     for (const socket of room.players.keys()) if (socket.readyState === 1) sendState(room, socket, true);
   }
   function commit(room) { room.revision++; deps.persist(); publish(room); }
+  function tick(room, now = Date.now()) {
+    const state = room.tombola;
+    if (state?.phase !== 'PLAYING') return false;
+    // Grandfather live rounds created before turn clocks existed.
+    if (!Number.isFinite(state.turnEndsAt)) {
+      state.turnNumber ||= state.reveals.length + 1;
+      state.turnEndsAt = now + game.TURN_MS; commit(room); return true;
+    }
+    if (now < state.turnEndsAt) return false;
+    const player = game.current(state);
+    if (!player) throw new Error('FATEBREAKER expired turn has no current player');
+    const receipt = `${state.id}:${player.id}:timeout-${state.turnNumber}`;
+    const paid = deps.playerStore.deductShadowCoins(player, 1, receipt, { reason: 'FATEBREAKER missed 20-second turn -1 SC' });
+    if (!paid.ok) throw new Error('FATEBREAKER timeout ledger write failed: ' + (paid.error || 'storage unavailable'));
+    const result = game.expire(state, -Number(paid.deducted || 0), now);
+    if (!result.ok) throw new Error('FATEBREAKER timeout rejected after ledger validation');
+    deps.addDennisMessage(room, `@${player.name} — FATEBREAKER TURN MISSED // −1 SC // ${player.missedTurns}/2 MISSED TURNS${player.kicked ? ' // REMOVED FROM FATEBREAKER' : ''}.`);
+    if (state.endReason === 'ALL_PLAYERS_REMOVED') deps.addDennisMessage(room, 'FATEBREAKER CLOSED // ALL PLAYERS MISSED TWO TURNS.');
+    if (state.endReason === 'NO_PLAYERS_REMAIN') deps.addDennisMessage(room, 'FATEBREAKER CLOSED // NO ACTIVE PLAYERS REMAIN.');
+    deps.broadcastChatUpdate(room); deps.broadcastPlayersUpdate(room);
+    commit(room); return true;
+  }
   function handle(ws, message) {
     const room = deps.roomOf(ws);
     if (!room) return deps.sendToWs(ws, { type: 'tombola:error', error: 'JOIN THE MASTER ROOM FIRST' });
     const who = actor(room, ws);
     const fail = error => deps.sendToWs(ws, { type: 'tombola:error', error });
     if (!who) return fail('AUTHENTICATED ACTIVE PLAYER REQUIRED');
+    // Resolve an expired turn before considering a late selection, even if
+    // the periodic clock check has not run yet. Client timestamps are ignored.
+    const expiredPlayerId = room.tombola?.phase === 'PLAYING' && Number.isFinite(room.tombola.turnEndsAt) && Date.now() >= room.tombola.turnEndsAt
+      ? game.current(room.tombola)?.id : null;
+    tick(room);
+    if (message.type === 'tombola:pick' && expiredPlayerId === who.id) return fail('YOUR FATEBREAKER TURN HAS EXPIRED');
     if (message.type === 'tombola:sync') return sendState(room, ws);
     if (requiredTribute(room, who) && ['tombola:join', 'tombola:pick'].includes(message.type)) return fail('SUBMIT YOUR REQUIRED FATEBREAKER BLOOD TRIBUTE FIRST');
     if (['tombola:activate', 'tombola:create', 'tombola:start', 'tombola:skip', 'tombola:cancel'].includes(message.type) && !who.isGm) return fail('FATEBREAKER CONTROL BELONGS TO THE SHADOW BROKER');
@@ -53,14 +81,27 @@ function createTombolaService(deps) {
     const state = room.tombola;
     if (!state || message.roundId !== state.id) return fail('THIS FATEBREAKER ROUND IS NO LONGER CURRENT');
     let result;
+    if (message.type === 'tombola:toggle') {
+      if (!who.isGm) return fail('ONLY THE SHADOW BROKER MAY TOGGLE FATEBREAKER VISIBILITY');
+      state.visible = state.visible === false;
+      commit(room);
+      return;
+    }
     if (message.type === 'tombola:join') result = who.isGm ? { error: 'THE GM WATCHES FATEBREAKER' } : game.join(state, who);
-    else if (message.type === 'tombola:leave') result = game.leave(state, who.id);
+    else if (message.type === 'tombola:leave') {
+      result = game.leave(state, who.id);
+      if (result.playerLeft) {
+        deps.addDennisMessage(room, `@${who.name} — LEFT FATEBREAKER. ${state.phase === 'PLAYING' ? 'THE ROUND CONTINUES WITHOUT THEM.' : 'NO PLAYERS REMAIN // ROUND CLOSED.'}`);
+        deps.broadcastChatUpdate(room);
+      }
+    }
     else if (message.type === 'tombola:start') {
       const active = [...room.players.entries()].filter(([socket, p]) => socket.readyState === 1 && p.connected !== false && !p.isBot && !p.isSynthetic).map(([, p]) => String(p.id));
       result = game.start(state, active);
     } else if (message.type === 'tombola:skip') result = game.skip(state);
     else if (message.type === 'tombola:cancel') result = game.cancel(state);
     else if (message.type === 'tombola:pick') {
+      if (message.turnNumber !== undefined && message.turnNumber !== state.turnNumber) return fail('THIS FATEBREAKER TURN HAS ALREADY PASSED');
       const check = game.validatePick(state, who.id, message.field, message.roundId);
       if (!check.ok) return fail(check.error);
       const outcome = check.outcome;
@@ -100,6 +141,6 @@ function createTombolaService(deps) {
     if (!result?.ok) return fail(result?.error || 'FATEBREAKER ACTION REFUSED');
     commit(room);
   }
-  return { handle, sendState, sendPlayerState, publish };
+  return { handle, sendState, sendPlayerState, publish, tick };
 }
 module.exports = { createTombolaService };

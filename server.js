@@ -6459,8 +6459,10 @@ function handleRage(ws, message) {
       if (s && s.phase !== 'ended') return fail(s.phase === 'lobby' ? 'A LOBBY IS ALREADY OPEN // JOIN IT' : 'A GAME IS ALREADY RUNNING');
       const stake = Math.max(0, Math.min(rage.MAX_STAKE, Math.floor(Number(message.stake) || 0)));
       if (stake && ragePays(actor.id) && rageBalance(actor) < stake) return fail(`YOU NEED ${stake} SHADOW COINS FOR THAT STAKE`);
-      room.rage = rage.createLobby(actor, { stake }, now);
-      return rageCommit(room, [`THY SHALL NOT RAGE // ${actor.name} OPENED A TABLE ${stake ? `FOR ${stake} SHADOW COIN${stake === 1 ? '' : 'S'} A HEAD` : 'FOR FUN'}. JOIN FROM THE ARCADE.`]);
+      const gameMode = message.gameMode || 'STANDARD';
+      if (!['STANDARD', 'SHORT'].includes(gameMode)) return fail('SELECT STANDARD OR SHORT GAME MODE');
+      room.rage = rage.createLobby(actor, { stake, gameMode }, now);
+      return rageCommit(room, [`THY SHALL NOT RAGE // ${actor.name} OPENED A ${gameMode === 'SHORT' ? 'SHORT (TWO HOME)' : 'STANDARD (FOUR HOME)'} TABLE ${stake ? `FOR ${stake} SHADOW COIN${stake === 1 ? '' : 'S'} A HEAD` : 'FOR FUN'}. JOIN FROM THE ARCADE.`]);
     }
     case 'rage:join':
       if (s?.stake && ragePays(actor.id) && rageBalance(actor) < s.stake) return fail(`THIS TABLE COSTS ${s.stake} SHADOW COINS. YOU HAVE ${rageBalance(actor)}.`);
@@ -9808,6 +9810,14 @@ function getTombolaService() {
   });
   return tombolaService;
 }
+setInterval(() => {
+  const now = Date.now();
+  if (![...rooms.values()].some(room => room.tombola?.phase === 'PLAYING' &&
+      (!Number.isFinite(room.tombola.turnEndsAt) || room.tombola.turnEndsAt <= now))) return;
+  runtimeAction(() => {
+    for (const room of rooms.values()) getTombolaService().tick(room);
+  });
+}, 250).unref();
 function getChaosService() {
   if (!chaosService) {
     chaosService = createChaosService({
@@ -12443,7 +12453,8 @@ function processSpectralAdjudication(room, chatMessage) {
   if (result.decision === 'ESCALATE') {
     if (!state.pending.some(entry => entry.messageId === chatMessage.id)) state.pending.push({
       messageId: chatMessage.id, playerId: chatMessage.playerId, playerName: chatMessage.playerName,
-      target: result.target, answer: result.answer, createdAt: Date.now()
+      target: result.target, answer: result.answer, text: chatMessage.text,
+      reason: result.reason, createdAt: Date.now()
     });
     state.pending = state.pending.slice(-100);
     sendSpectralState(room);

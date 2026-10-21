@@ -9,19 +9,19 @@ const R = require('../rage');
 const H = require('./lib/browser-harness');
 const shots = path.join(__dirname, '..', '.scratch', 'rage-visuals');
 
-function fixture() {
+function fixture(kind = 'capture') {
   const ids = ['a', 'b', 'c', 'd'];
   const s = R.createLobby({ id: 'a', name: 'ALPHA' }, {}, Date.now());
   ids.slice(1).forEach(id => R.join(s, { id, name: id.toUpperCase() }));
   ids.forEach((id, i) => R.pickColor(s, id, R.COLORS[i]));
   R.start(s, 'a', new Set(ids), Date.now()); R.begin(s, Date.now());
-  s.players.a.pieces = [0, 5, -1, -1];
-  s.players.b.pieces = [38, -1, -1, -1]; // seat 1 + 38 = square 8
+  s.players.a.pieces = [0, kind === 'home' ? 37 : 5, -1, -1];
+  s.players.b.pieces = [kind === 'home' ? -1 : 38, -1, -1, -1]; // seat 1 + 38 = square 8
   R.roll(s, 'a', s.turnSeq, Date.now(), () => 3);
   const before = R.view(s, 'a');
   assert.equal(R.move(s, 'a', 1, s.turnSeq, Date.now()).ok, true);
   const after = R.view(s, 'a');
-  assert.ok(after.events.some(e => e.kind === 'capture'));
+  if (kind === 'capture') assert.ok(after.events.some(e => e.kind === 'capture'));
   return { before, after };
 }
 
@@ -57,6 +57,11 @@ function fixture() {
       assert.equal(await page.locator('.rage-sq.is-start').count(), 4);
       assert.equal(await page.locator('.rage-sq.is-home').count(), 16);
       assert.equal(await page.locator('.rage-corner.is-active').count(), 1);
+      assert.equal(await page.locator('.rage-court').count(), 4);
+      assert.equal(await page.locator('.rage-home-seals i').count(), 16);
+      assert.equal(await page.locator('.rage-pawn-visor').count(), 16);
+      assert.equal(await page.locator('linearGradient').evaluateAll(els => new Set(els.map(e => e.id)).size), 16, 'piece metal gradients have unique IDs');
+      assert.equal(await page.locator('.rage-altar-label').textContent(), 'THE BONES DECIDE');
       assert.match(await page.locator('[data-key="a:1"]').getAttribute('aria-label'), /move/);
       await page.evaluate(() => { PlayerApp.send = message => { window.lastRageCommand = message; }; });
       await page.locator('[data-key="a:1"]').click();
@@ -88,6 +93,20 @@ function fixture() {
       await load({ ...before, id: before.id + '-next' });
       assert.equal(await page.locator('.rage-kill').count(), 0, 'new game clears old capture');
       assert.equal(await page.evaluate(() => RageGame.motionTimers.size), 0);
+      // A real rules-engine move into the home lane gets one seal, without
+      // changing authoritative coordinates or replaying on duplicate packets.
+      const home = fixture('home');
+      await load(home.before); await load(home.after);
+      await page.locator('[data-key="a:1"].is-sealing').waitFor();
+      assert.equal(await page.locator('.rage-home-seals .is-filled').count(), 1);
+      assert.equal(await page.locator('[data-key="a:1"]').evaluate(el => el.style.left), '13.636%');
+      assert.equal(await page.locator('[data-key="a:1"]').evaluate(el => el.style.top), '50%');
+      await page.waitForFunction(() => !document.querySelector('.is-sealing'));
+      await load(home.after);
+      assert.equal(await page.locator('.is-sealing').count(), 0);
+      await page.evaluate(() => RageGame.rollDie(6));
+      await page.waitForFunction(() => document.querySelector('#rage-die').getAttribute('aria-label') === 'Die: 6' && !document.querySelector('#rage-die.is-rolling'));
+      assert.equal(await page.locator('#rage-die s.on').count(), 6);
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.evaluate(() => { RageGame.seen = null; RageGame.positions = {}; RageGame.render(true); });
       await load(before); await load(after);
@@ -95,6 +114,29 @@ function fixture() {
       assert.match(await page.locator('#rage-flash').textContent(), /SENT BACK/);
       assert.equal(await page.locator('[data-key="b:0"]').evaluate(el => el.style.top), '4.545%');
       assert.equal(await page.locator('.rage-sent').evaluate(el => getComputedStyle(el).animationName), 'none');
+      await load(null);
+      await page.locator('#rage-game-mode').selectOption('SHORT');
+      await page.locator('[data-rage="create-fun"]').click();
+      assert.deepEqual(await page.evaluate(() => window.lastRageCommand), { type: 'rage:create', stake: 0, gameMode: 'SHORT' });
+      await page.locator('#rage-stake').fill('3');
+      await page.locator('[data-rage="create-coins"]').click();
+      assert.deepEqual(await page.evaluate(() => window.lastRageCommand), { type: 'rage:create', stake: 3, gameMode: 'SHORT' });
+      const short = R.createLobby({ id: 'a', name: 'Alpha' }, { gameMode: 'SHORT' }, Date.now());
+      const ids = ['a', 'b', 'c', 'd'];
+      ids.slice(1).forEach(id => R.join(short, { id, name: id }));
+      ids.forEach((id, i) => R.pickColor(short, id, R.COLORS[i]));
+      await load(R.view(short, 'a'));
+      assert.match(await page.locator('.rage-lobby-terms').textContent(), /SHORT.*2 PIECES EACH/s);
+      R.start(short, 'a', new Set(ids), Date.now()); R.begin(short, Date.now());
+      await load(R.view(short, 'a'));
+      assert.equal(await page.locator('.rage-board.is-short').count(), 1);
+      assert.equal(await page.locator('.rage-piece').count(), 8);
+      assert.equal(await page.locator('.rage-sq.is-home').count(), 8);
+      assert.equal(await page.locator('.rage-sq.is-yard').count(), 8);
+      assert.equal(await page.locator('.rage-home-seals i').count(), 8);
+      assert.match(await page.locator('.rage-title small').textContent(), /TWO HOME/);
+      assert.match(await page.locator('#rage-players').textContent(), /0\/2 HOME/);
+      await page.screenshot({ path: path.join(shots, mobile ? 'mobile-short-table.png' : 'desktop-short-table.png') });
       await context.close();
     }
     // Also render inside the actual GM page to catch global style collisions.

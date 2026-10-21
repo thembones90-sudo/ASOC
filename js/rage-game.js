@@ -36,6 +36,8 @@
     return PATH[(seat * 10 + p) % TRACK];
   }
   const pct = v => `${((v + 0.5) * 100 / 11).toFixed(3)}%`;
+  const goal = s => s?.gameMode === 'SHORT' ? 2 : 4;
+  const goalLabel = s => goal(s) === 2 ? 'TWO HOME OR NOTHING' : 'FOUR HOME OR NOTHING';
 
   const Rage = {
     state: null,
@@ -47,6 +49,7 @@
     animating: 0,
     invited: new Set(),
     stakeDraft: 5,
+    gameModeDraft: 'STANDARD',
     motionTimers: new Set(),
     reducedMotion() { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; },
     later(fn, ms) {
@@ -168,6 +171,8 @@
 
     updateCards() {
       const s = this.state;
+      const subtitle = document.querySelector('.rage-title small');
+      if (subtitle) subtitle.textContent = `NE LJUTI SE ČOVEČE // ${goalLabel(s)}`;
       const label = !s ? (isGM() ? 'IDLE' : 'CREATE') : s.phase === 'lobby' ? `LOBBY ${s.members.length}/4` : s.phase === 'ended' ? 'RESULT' : 'LIVE';
       ['rage-status', 'gm-rage-status'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = label; });
     },
@@ -182,7 +187,7 @@
       toast.className = 'kaladont-invite rage-invite';
       toast.dataset.lobby = s.id;
       toast.setAttribute('role', 'status');
-      toast.innerHTML = `<div><b>THY SHALL NOT RAGE</b><small>${esc(s.ownerName)} opened a table · ${s.stake ? `STAKE ${s.stake} SC` : 'FOR FUN'}</small></div><button type="button" data-rage="invite-open">VIEW</button><button type="button" data-rage="invite-dismiss" class="is-dismiss">LATER</button>`;
+      toast.innerHTML = `<div><b>THY SHALL NOT RAGE</b><small>${esc(s.ownerName)} opened a table · ${goal(s) === 2 ? 'SHORT · TWO HOME' : 'STANDARD · FOUR HOME'} · ${s.stake ? `STAKE ${s.stake} SC` : 'FOR FUN'}</small></div><button type="button" data-rage="invite-open">VIEW</button><button type="button" data-rage="invite-dismiss" class="is-dismiss">LATER</button>`;
       document.body.appendChild(toast);
     },
 
@@ -191,6 +196,8 @@
       const body = document.getElementById('rage-body');
       if (!body || !this.open || this.chat) return;
       const s = this.state;
+      const subtitle = document.querySelector('.rage-title small');
+      if (subtitle) subtitle.textContent = `NE LJUTI SE ČOVEČE // ${goalLabel(s)}`;
       const mode = !s ? 'create' : s.phase === 'lobby' ? 'lobby' : 'game';
       const key = `${mode}:${s?.id || ''}`;
       if (mode === 'game') {
@@ -199,6 +206,8 @@
       }
       // Keep a half-typed stake through repaints.
       const stake = body.querySelector('#rage-stake');
+      const gameMode = body.querySelector('#rage-game-mode');
+      if (gameMode) this.gameModeDraft = gameMode.value;
       this.clearMotion();
       if (stake) this.stakeDraft = stake.value;
       body.dataset.key = key;
@@ -221,7 +230,7 @@
           <div class="rage-rules">
             <b>THE LAW OF THE TABLE</b>
             <ul>
-              <li><i aria-hidden="true">♟</i><span><em>2–4 players</em>, 4 pieces each. First to bring all four home wins.</span></li>
+              <li><i aria-hidden="true">♟</i><span><em>2–4 players</em>. Standard: 4 pieces home to win. Short: 2 pieces home to win.</span></li>
               <li><i aria-hidden="true">⚅</i><span>A <em>6</em> leaves the yard. With nothing on the board you get <em>3 tries</em> for it.</span></li>
               <li><i aria-hidden="true">↻</i><span>Every <em>6</em> rolls again.</span></li>
               <li><i aria-hidden="true">☠</i><span>Eating is a <em>must</em>: if you can send someone back, you have to.</span></li>
@@ -230,6 +239,7 @@
               <li><i aria-hidden="true">⚖</i><span>With at least <em>3 active players</em>, call a <em>30-second vote to kick</em>. A majority removes the target, but never charges the idle fine.</span></li>
             </ul>
           </div>
+          <label class="rage-mode-choice">GAME LENGTH <select id="rage-game-mode"><option value="STANDARD" ${this.gameModeDraft === 'STANDARD' ? 'selected' : ''}>STANDARD — 4 PIECES HOME</option><option value="SHORT" ${this.gameModeDraft === 'SHORT' ? 'selected' : ''}>SHORT — 2 PIECES HOME</option></select><small>Fixed when the table opens. Available for fun or for coins.</small></label>
           <div class="rage-terms">
             <button type="button" class="rage-term is-fun" data-rage="create-fun">
               <b>FOR FUN</b>
@@ -265,7 +275,7 @@
       if (isGM() && !you.owner) actions += `<button type="button" data-rage="gm-cancel">CLOSE TABLE</button>`;
       return `
         <div class="rage-lobby">
-          <div class="rage-lobby-terms ${s.stake ? 'is-coins' : ''}"><small>${esc(s.ownerName)}'S TABLE</small><b>${terms}</b>${s.stake ? '<span>Joining is agreeing. Stakes are taken when the game starts and returned if it is called off.</span>' : ''}</div>
+          <div class="rage-lobby-terms ${s.stake ? 'is-coins' : ''}"><small>${esc(s.ownerName)}'S TABLE // ${goal(s) === 2 ? 'SHORT' : 'STANDARD'}</small><b>${terms}</b><span>${goal(s)} PIECES EACH // ${goalLabel(s)}</span>${s.stake ? '<span>Joining is agreeing. Stakes are taken when the game starts and returned if it is called off.</span>' : ''}</div>
           <ul class="rage-seats">${seats}</ul>
           ${you.member ? this.pickerHTML(s) : ''}
           <div class="rage-actions">${actions}</div>
@@ -307,8 +317,8 @@
           } else {
             const home = HOMES.findIndex(h => h.some(c => c.join(',') === k));
             const yard = YARDS.findIndex(h => h.some(c => c.join(',') === k));
-            if (home !== -1) { cls = 'rage-sq is-home'; style = `--seat:${this.seatHex(s, home)}`; }
-            else if (yard !== -1) { cls = 'rage-sq is-yard'; style = `--seat:${this.seatHex(s, yard)}`; }
+            if (home !== -1 && HOMES[home].findIndex(c => c.join(',') === k) < goal(s)) { cls = 'rage-sq is-home'; style = `--seat:${this.seatHex(s, home)}`; }
+            else if (yard !== -1 && YARDS[yard].findIndex(c => c.join(',') === k) < goal(s)) { cls = 'rage-sq is-yard'; style = `--seat:${this.seatHex(s, yard)}`; }
           }
           if (cls) cells.push(`<i class="${cls}" aria-hidden="true" style="grid-column:${x + 1};grid-row:${y + 1};${style}">${cls.includes('is-start') ? '◆' : cls.includes('is-home') ? '⌂' : ''}</i>`);
         }
@@ -317,12 +327,12 @@
       const corners = [[2.3, 2.3], [7.7, 2.3], [7.7, 7.7], [2.3, 7.7]];
       const faces = s.players.map(p => {
         const [x, y] = corners[p.seat];
-        return `<span class="rage-corner" data-seat="${p.seat}" title="${esc(p.name)}" style="left:${pct(x)};top:${pct(y)};--seat:${hexOf(p.color)}"><span class="rage-crest-face">${this.face(p.id, p.name)}</span><small>${esc(COLORS[p.color]?.[1] || '')}</small></span>`;
+        return `<div class="rage-court" aria-hidden="true" style="left:${pct(x)};top:${pct(y)};--seat:${hexOf(p.color)}"><span>✦</span></div><span class="rage-corner" data-seat="${p.seat}" title="${esc(p.name)}" style="left:${pct(x)};top:${pct(y)};--seat:${hexOf(p.color)}"><span class="rage-crest-face">${this.face(p.id, p.name)}</span><small>${esc(COLORS[p.color]?.[1] || '')}</small></span>`;
       }).join('');
       return `
         <div class="rage-game">
           <div class="rage-board-wrap">
-            <div class="rage-board" id="rage-board">
+            <div class="rage-board${goal(s) === 2 ? ' is-short' : ''}" id="rage-board" aria-label="${goal(s) === 2 ? 'Short' : 'Standard'} board: ${goal(s)} pieces per player">
               <div class="rage-grid">${cells.join('')}</div>
               ${faces}
               <div class="rage-sigil" aria-hidden="true"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"/><circle cx="50" cy="50" r="34"/><path d="M50 9 44 31 56 45 48 61 54 91 M14 46 35 50 45 43 M58 56 73 62 88 58"/></svg><b>✠</b></div>
@@ -333,9 +343,10 @@
             </div>
           </div>
           <aside class="rage-side">
-            <div class="rage-table-label">THE CURSED TABLE <small>FOUR HOME OR NOTHING</small></div>
+            <div class="rage-table-label">${goal(s) === 2 ? 'THE SHORT TABLE' : 'THE CURSED TABLE'} <small>${goalLabel(s)}</small></div>
             <div class="rage-turn" id="rage-turn"></div>
             <div class="rage-dice-row">
+              <span class="rage-altar-label">THE BONES DECIDE</span>
               <div class="rage-die" id="rage-die" aria-label="Die">${this.dieFaces(null)}</div>
               <div class="rage-roll-box" id="rage-roll-box"></div>
             </div>
@@ -365,7 +376,7 @@
       const turnEl = document.getElementById('rage-turn');
       if (turnEl) {
         let line;
-        if (s.phase === 'ended') line = `<b class="is-win" style="--seat:${this.colorOf(s.winnerId)}">${s.winnerId === viewerId() ? 'YOU WIN' : `${esc(s.winnerName)} WINS`}</b><small>${s.reward?.amount ? (s.reward.house ? `THE HOUSE TAKES ${s.reward.amount} SC` : `POT PAID: +${s.reward.amount} SC`) : 'ALL FOUR HOME'}</small>`;
+        if (s.phase === 'ended') line = `<b class="is-win" style="--seat:${this.colorOf(s.winnerId)}">${s.winnerId === viewerId() ? 'YOU WIN' : `${esc(s.winnerName)} WINS`}</b><small>${s.reward?.amount ? (s.reward.house ? `THE HOUSE TAKES ${s.reward.amount} SC` : `POT PAID: +${s.reward.amount} SC`) : `ALL ${goal(s) === 2 ? 'TWO' : 'FOUR'} HOME`}</small>`;
         else if (you.yourTurn) line = `<b class="is-you">${s.phase === 'roll' ? 'YOUR ROLL' : s.mustCapture ? 'YOU MUST EAT' : 'PICK A PIECE'}</b><small>${s.phase === 'roll' && s.tries > 1 ? `${s.tries} TRIES FOR A 6` : s.phase === 'roll' && s.roll === 6 ? 'SIX! ROLL AGAIN' : s.phase === 'move' ? `YOU ROLLED ${s.roll}` : 'THROW THE DIE'}</small>`;
         else line = `<b style="--seat:${this.colorOf(s.turnId)}">${esc(s.turnName)}</b><small>${s.phase === 'roll' ? 'IS ROLLING' : `ROLLED ${s.roll} · CHOOSING`}</small>`;
         turnEl.innerHTML = `${line}${live ? `<span class="rage-clock" data-deadline="${s.deadline}"></span>` : ''}`;
@@ -385,12 +396,12 @@
           const yard = p.pieces.filter(x => x < 0).length;
           const wasIdleKicked = p.out && (p.outReason === 'idle' || s.events.some(e => e.kind === 'idleKick' && e.by === p.id));
           const wasVotedOut = p.out && (p.outReason === 'vote' || s.events.some(e => e.kind === 'voteKick' && e.by === p.id));
-          const status = p.out ? (wasIdleKicked ? 'IDLE EXPELLED' : wasVotedOut ? 'VOTED OUT' : 'FORFEITED') : `${home}/4 HOME · ${yard} IN YARD · IDLE ${p.idleMisses || 0}/2`;
+          const status = p.out ? (wasIdleKicked ? 'IDLE EXPELLED' : wasVotedOut ? 'VOTED OUT' : 'FORFEITED') : `${home}/${goal(s)} HOME · ${yard} IN YARD · IDLE ${p.idleMisses || 0}/2`;
           const eligible = canVote && !p.out && p.id !== viewerId() && p.id !== GM_ID
             && (s.vote ? s.vote.targetId === p.id : !(s.voteHistory || []).includes(p.id));
           const voted = !!s.vote?.votes?.includes(viewerId());
           const button = eligible ? `<button type="button" class="rage-vote-kick" data-rage="vote-kick" data-target="${esc(p.id)}" ${voted ? 'disabled' : ''}>${voted ? 'VOTE CAST' : s.vote ? 'CAST KICK VOTE' : 'VOTE TO KICK'}</button>` : '';
-          return `<li class="${p.id === s.turnId ? 'is-turn' : ''}${p.out ? ' is-out' : ''}" style="--seat:${hexOf(p.color)}"><span class="rage-face">${this.face(p.id, p.name)}</span><b>${esc(p.name)}${p.id === viewerId() ? ' <em>YOU</em>' : ''}</b><small>${status}${p.online ? '' : ' · OFFLINE'}</small>${button}</li>`;
+          return `<li class="${p.id === s.turnId ? 'is-turn' : ''}${p.out ? ' is-out' : ''}" style="--seat:${hexOf(p.color)}"><span class="rage-face">${this.face(p.id, p.name)}</span><b>${esc(p.name)}${p.id === viewerId() ? ' <em>YOU</em>' : ''}</b><small>${status}${p.online ? '' : ' · OFFLINE'}</small><span class="rage-home-seals" aria-hidden="true">${Array.from({ length: goal(s) }, (_, i) => `<i class="${i < home ? 'is-filled' : ''}"></i>`).join('')}</span>${button}</li>`;
         }).join('');
       }
       const voteBox = document.getElementById('rage-vote-status');
@@ -458,12 +469,14 @@
             el.className = 'rage-piece';
             el.dataset.key = key;
             el.style.setProperty('--seat', hexOf(p.color));
-            el.innerHTML = '<span><svg viewBox="0 0 48 56" aria-hidden="true"><path class="rage-pawn-body" d="M16 18a11 11 0 1 1 16 0l-3 4 3 17 7 6v5H9v-5l7-6 3-17Z"/><path class="rage-pawn-metal" d="M15 21h18v5H15zM9 45h30v6H9z"/><path class="rage-pawn-light" d="M20 5q-6 4-4 10M19 29l-2 10"/></svg></span>';
+            const metalId = `rage-metal-${p.seat}-${i}`;
+            el.innerHTML = `<span><svg viewBox="0 0 48 56" aria-hidden="true"><defs><linearGradient id="${metalId}" x1="0" x2="1"><stop offset="0" stop-color="#08080c"/><stop offset=".28" stop-color="currentColor"/><stop offset=".43" stop-color="#fff0d4"/><stop offset=".56" stop-color="currentColor"/><stop offset="1" stop-color="#141016"/></linearGradient></defs><ellipse class="rage-pawn-shadow" cx="24" cy="51" rx="18" ry="4"/><path class="rage-pawn-body" style="fill:url(#${metalId})" d="M15 17 14 8 19 3 24 6 29 3 34 8 33 17 29 22 31 37 36 42 39 47 39 51 9 51 9 47 12 42 17 37 19 22Z"/><path class="rage-pawn-metal" d="M15 19h18v5H15zM13 40h22v4H13zM9 47h30v4H9z"/><path class="rage-pawn-visor" d="m17 11 7 2 7-2-2 5H19Z"/><path class="rage-pawn-light" d="m21 27-2 10m5-9v8"/></svg></span>`;
             layer.appendChild(el);
             this.place(el, cellOf(p.seat, prog, i));
             this.positions[key] = prog;
           }
           el.classList.toggle('is-out', !!p.out);
+          el.classList.toggle('is-home', prog >= HOME_FIRST);
           const mine = p.id === viewerId();
           el.setAttribute('aria-label', `${p.name} · piece ${i + 1} · ${prog < 0 ? 'yard' : prog >= HOME_FIRST ? 'home' : 'track'}${mine && movable.has(i) ? ' · move' : ''}`);
           const option = mine ? movable.get(i) : null;
@@ -477,9 +490,15 @@
           this.positions[key] = prog;
           const motion = String(Number(el.dataset.motion || 0) + 1);
           el.dataset.motion = motion;
-          el.classList.remove('is-defeated', 'is-sent-back', 'hop');
+          el.classList.remove('is-defeated', 'is-sent-back', 'is-sealing', 'hop');
           const later = (fn, ms) => this.later(() => { if (el.isConnected && el.dataset.motion === motion) fn(); }, ms);
           const ev = moves.get(key);
+          if (ev && was < HOME_FIRST && prog >= HOME_FIRST && !this.reducedMotion()) {
+            later(() => {
+              el.classList.add('is-sealing');
+              later(() => el.classList.remove('is-sealing'), 800);
+            }, Math.max(0, prog - ev.from) * HOP_MS);
+          }
           if (this.reducedMotion()) {
             this.place(el, cellOf(p.seat, prog, i));
             const c = captured.find(x => x.victim === p.id && x.piece === i);
@@ -576,7 +595,7 @@
     winFlash(s) {
       const el = document.getElementById('rage-flash');
       if (!el) return;
-      el.innerHTML = `<div class="rage-sent is-win" style="--seat:${this.colorOf(s.winnerId)}"><b>${s.winnerId === viewerId() ? 'YOU WIN' : esc(s.winnerName)}</b><small>${s.winnerId === viewerId() ? 'ALL FOUR HOME' : 'BROUGHT ALL FOUR HOME'}</small></div>`;
+      el.innerHTML = `<div class="rage-sent is-win" style="--seat:${this.colorOf(s.winnerId)}"><b>${s.winnerId === viewerId() ? 'YOU WIN' : esc(s.winnerName)}</b><small>${s.winnerId === viewerId() ? 'ALL' : 'BROUGHT ALL'} ${goal(s) === 2 ? 'TWO' : 'FOUR'} HOME</small></div>`;
       el.classList.remove('is-on');
       void el.offsetWidth;
       el.classList.add('is-on', 'is-long');
@@ -618,11 +637,11 @@
       if (a === 'close') return this.hide();
       if (a === 'chat') return this.toChat();
       if (a === 'game') return this.fromChat();
-      if (a === 'create-fun') return this.send({ type: 'rage:create', stake: 0 });
+      if (a === 'create-fun') return this.send({ type: 'rage:create', stake: 0, gameMode: document.getElementById('rage-game-mode')?.value || this.gameModeDraft });
       if (a === 'create-coins') {
         const stake = Math.floor(Number(document.getElementById('rage-stake')?.value) || 0);
         if (stake < 1 || stake > 50) return alert('STAKE MUST BE 1–50 SHADOW COINS');
-        return this.send({ type: 'rage:create', stake });
+        return this.send({ type: 'rage:create', stake, gameMode: document.getElementById('rage-game-mode')?.value || this.gameModeDraft });
       }
       if (a === 'color') { this.colorDraft = btn.dataset.color; return this.render(false); }
       if (a === 'commit-color') { if (!this.colorDraft) return; btn.disabled = true; return this.send({ type: 'rage:color', color: this.colorDraft }); }
@@ -640,7 +659,7 @@
         btn.disabled = true;
         return this.send({ type: 'rage:vote-kick', targetId });
       }
-      if (a === 'new') return this.send({ type: 'rage:create', stake: this.state?.stake || 0 });
+      if (a === 'new') return this.send({ type: 'rage:create', stake: this.state?.stake || 0, gameMode: this.state?.gameMode || 'STANDARD' });
       if (a === 'roll') { btn.disabled = true; return this.send({ type: 'rage:roll', turnSeq: Number(btn.dataset.seq) }); }
       if (a === 'move') {
         document.querySelectorAll('#rage-pieces .is-movable').forEach(p => { p.disabled = true; p.classList.remove('is-movable'); });

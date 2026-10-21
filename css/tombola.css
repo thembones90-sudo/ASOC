@@ -48,3 +48,13 @@
 #tombola-overlay.tombola-summoned-board{z-index:200090}
 @keyframes tombola-summon-arrive{0%{opacity:0;filter:brightness(1.8)}100%{opacity:1;filter:brightness(1)}}
 @media(prefers-reduced-motion:reduce){#tombola-invite{animation:none}}
+
+/* Keep the shared roster readable at every width; names never collapse into a run-on line. */
+.tombola-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px 16px;margin:14px 0 0;padding:12px 16px;list-style-position:inside;border:1px solid #4f3b28;background:#100d0c}
+.tombola-roster li{min-width:0;padding:4px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tombola-heading{position:sticky;top:0;z-index:15;background:#0d0a0cf5;cursor:move;touch-action:none;user-select:none;padding:6px 0}
+.tombola-heading>div{flex:1;min-width:0}.tombola-heading button{cursor:pointer;flex-shrink:0}
+#tombola-restore{position:fixed;bottom:88px;right:18px;z-index:200091;max-width:calc(100vw - 36px);padding:12px 16px;border:1px solid #b58b4a;border-radius:7px;background:#21170df5;color:#f9dfa5;font:800 12px/1.4 monospace;cursor:pointer;box-shadow:0 6px 24px #000b}
+#tombola-restore[hidden]{display:none!important}#tombola-restore.is-your-turn{border-color:#8bffc0;color:#aaffcc}
+[data-tombola-turn-clock].is-urgent{color:#ff887c}.tombola-roster .is-kicked{color:#e58780;text-decoration:line-through}
+#tombola-restore:focus-visible,.tombola-heading button:focus-visible{outline:2px solid #ffe2a1;outline-offset:2px}

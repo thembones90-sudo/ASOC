@@ -105,6 +105,7 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     assert.equal(snapshot().tombola.signupEndsAt, lobby.signupEndsAt, 'restart preserves activation deadline');
     assert.deepEqual(snapshot().tombola.turnOrder, before.turnOrder);
     assert.equal(snapshot().tombola.turnIndex, before.turnIndex);
+    assert.equal(snapshot().tombola.turnEndsAt, before.turnEndsAt, 'restart never resets turn deadline');
     assert.equal(snapshot().tombola.tributePlayerId, null);
     const ended = await pick(field('BLOOD_TRIBUTE'), true);
     const debtorId = ended.tributePlayerId;
@@ -143,6 +144,29 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     mark = debtor.mark(); debtor.send({ type: 'blackMarket:tributeSubmit', pactId: `pact-${id}`, consent: true, imageData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=' });
     await debtor.next(m => m.type === 'tombola:state' && !m.state.requiredTribute, mark);
     mark = debtor.mark(); debtor.send({ type: 'tombola:join', roundId: fresh.id }); await debtor.next(m => m.type === 'tombola:state' && m.state.viewer.participant, mark);
+    const other = [a, b].find(c => c !== debtor);
+    mark = other.mark(); other.send({ type: 'tombola:join', roundId: fresh.id }); await other.next(m => m.type === 'tombola:state' && m.state.viewer.participant, mark);
+    mark = gm.mark(); gm.send({ type: 'tombola:start', roundId: fresh.id });
+    const timed = (await gm.next(m => m.type === 'tombola:state' && m.state.phase === 'PLAYING', mark)).state;
+    assert.equal(timed.turnDurationMs, 20000);
+    const timedPlayer = timed.currentPlayerId, walletBefore = profiles()[timedPlayer].shadowCoins;
+    await wait(Math.max(0, timed.turnEndsAt - Date.now()) + 600);
+    const expired = (await gm.next(m => m.type === 'tombola:state' && m.state.timeouts?.length === 1, mark)).state;
+    assert.equal(expired.participants.find(p => p.id === timedPlayer).missedTurns, 1);
+    assert.equal(profiles()[timedPlayer].shadowCoins, Math.max(0, walletBefore - 1));
+    assert.equal(profiles()[timedPlayer].shadowCoinLedger.filter(e => e.id === `${fresh.id}:${timedPlayer}:timeout-1`).length, 1);
+    assert.notEqual(expired.currentPlayerId, timedPlayer, 'real server interval advances expired turn without client action');
+    const departing = [a, b].find(c => c.id === timedPlayer);
+    const departureBalance = profiles()[timedPlayer].shadowCoins;
+    mark = gm.mark(); departing.send({ type: 'tombola:leave', roundId: fresh.id });
+    const afterLeave = (await gm.next(m => m.type === 'tombola:state' && m.state.participants.some(p => p.id === timedPlayer && p.left), mark)).state;
+    assert.equal(afterLeave.currentPlayerId, expired.currentPlayerId);
+    assert.equal(afterLeave.turnEndsAt, expired.turnEndsAt, 'waiting departure does not reset real server clock');
+    assert.equal(profiles()[timedPlayer].shadowCoins, departureBalance, 'no charge for voluntary departure');
+    const lastPlayer = [a, b].find(c => c.id === afterLeave.currentPlayerId);
+    mark = gm.mark(); lastPlayer.send({ type: 'tombola:leave', roundId: fresh.id });
+    const empty = (await gm.next(m => m.type === 'tombola:state' && m.state.endReason === 'NO_PLAYERS_REMAIN', mark)).state;
+    assert.equal(empty.phase, 'CANCELLED'); assert.equal(empty.turnEndsAt, null);
     console.log('PASS FATEBREAKER V2 sockets: GM-only controls, private outcomes, exact ledger/floor, +50 once, restart, immediate Blood termination/one debt, synchronized freeze/no further SC, submission/rejection/new round');
   } catch (error) { console.error(error); console.error(logs.slice(-1600)); process.exitCode = 1; }
   finally { for (const c of clients) c.close(); if (server?.exitCode === null) await new Promise(resolve => { server.once('exit', resolve); server.kill(); }); fs.rmSync(data, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }

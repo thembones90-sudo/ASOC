@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const ui = { state: null, open: false, pending: false, error: '', lastReveal: '', finale: '', clockOffset: 0 };
+  const ui = { state: null, open: false, minimized: false, position: null, pending: false, error: '', lastReveal: '', finale: '', clockOffset: 0 };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const app = () => window.App || window.PlayerApp;
   const send = (type, extra = {}) => {
@@ -49,6 +49,27 @@
     root = document.createElement('section'); root.id = 'tombola-overlay'; root.hidden = true;
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'FATEBREAKER');
     document.body.append(root);
+    const restore = document.createElement('button'); restore.id = 'tombola-restore'; restore.type = 'button'; restore.hidden = true;
+    restore.addEventListener('click', () => { ui.minimized = false; ui.open = true; render(); }); document.body.append(restore);
+    let drag = null;
+    const position = (x, y) => {
+      ui.position = { x: Math.max(0, Math.min(x, innerWidth - root.offsetWidth)), y: Math.max(0, Math.min(y, innerHeight - 80)) };
+      root.style.left = `${ui.position.x}px`; root.style.top = `${ui.position.y}px`; root.style.transform = 'none';
+      root.style.maxHeight = `${Math.max(80, innerHeight - ui.position.y - 12)}px`;
+    };
+    root.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || !e.target.closest('.tombola-heading') || e.target.closest('button, input, select')) return;
+      const rect = root.getBoundingClientRect(); drag = { x: e.clientX - rect.left, y: e.clientY - rect.top, id: e.pointerId };
+      root.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    root.addEventListener('pointermove', e => { if (drag?.id === e.pointerId) position(e.clientX - drag.x, e.clientY - drag.y); });
+    const endDrag = () => { drag = null; };
+    root.addEventListener('pointerup', endDrag); root.addEventListener('pointercancel', endDrag); root.addEventListener('lostpointercapture', endDrag);
+    window.addEventListener('resize', () => { if (ui.position) position(ui.position.x, ui.position.y); });
+    const minimize = () => {
+      if (ui.state?.requiredTribute) return;
+      ui.minimized = true; ui.open = false; root.hidden = true; updateRestore(); restore.focus();
+    };
     root.addEventListener('animationend', event => {
       if (event.target.matches('.tombola-legendary-event')) event.target.remove();
       if (event.target.matches('.tombola-field.is-new-reveal')) {
@@ -58,33 +79,50 @@
     });
     root.addEventListener('click', event => {
       const close = event.target.closest('[data-tombola-close]');
-      if (close) { if (!ui.state?.requiredTribute) { ui.open = false; root.hidden = true; } return; }
+      if (close || event.target.closest('[data-tombola-minimize]')) { minimize(); return; }
       if (event.target.closest('[data-tombola-pay]')) { window.BlackMarket?.open?.(); return; }
       const field = event.target.closest('[data-tombola-field]');
       if (field && ui.state?.viewer?.canPick && !ui.pending && !field.disabled) {
-        ui.pending = true; ui.error = ''; send('tombola:pick', { field: Number(field.dataset.tombolaField) }); render(); return;
+        ui.pending = true; ui.error = ''; send('tombola:pick', { field: Number(field.dataset.tombolaField), turnNumber: ui.state.turnNumber }); render(); return;
       }
       const action = event.target.closest('[data-tombola-action]')?.dataset.tombolaAction;
       if (!action || ui.pending) return;
       ui.pending = true; ui.error = ''; send(`tombola:${action}`); render();
     });
-    document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.open && !ui.state?.requiredTribute) { ui.open = false; root.hidden = true; } });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.open && !ui.state?.requiredTribute) minimize(); });
     document.addEventListener('focusin', event => {
       if (ui.state?.requiredTribute && !event.target.closest('#tombola-overlay, #black-market-overlay, #bm-demand-notice, #bm-tribute-consent')) root.querySelector('[data-tombola-pay]')?.focus();
     });
     return root;
   }
+  function turnRemaining() { return Math.max(0, Math.ceil((Number(ui.state?.turnEndsAt || 0) - Date.now() - ui.clockOffset) / 1000)); }
+  function updateRestore() {
+    const restore = document.getElementById('tombola-restore');
+    if (!restore) return;
+    restore.hidden = !ui.minimized || ui.open || !!ui.state?.requiredTribute || ui.state?.visible === false && !gm();
+    restore.textContent = `RESTORE FATEBREAKER${ui.state?.phase === 'PLAYING' ? ` // ${ui.state.viewer?.canPick ? 'YOUR TURN' : ui.state.currentPlayerName} // ${turnRemaining()}s` : ''}`;
+    restore.classList.toggle('is-your-turn', !!ui.state?.viewer?.canPick);
+  }
+  function updateTurnCountdown() {
+    updateRestore();
+    const root = document.getElementById('tombola-overlay');
+    if (ui.state?.phase !== 'PLAYING' || !root) return;
+    const timer = root.querySelector('[data-tombola-turn-clock]');
+    if (timer) { timer.textContent = ` // ${turnRemaining()}s LEFT`; timer.classList.toggle('is-urgent', turnRemaining() <= 5); }
+    if (!turnRemaining()) root.querySelectorAll('[data-tombola-field]').forEach(button => { button.disabled = true; });
+  }
   function render() {
     invite();
     const required = !!ui.state?.requiredTribute;
+    const sharedVisible = ui.state?.visible !== false;
     if (required) ui.open = true;
     let veil = document.getElementById('tombola-required-veil');
     if (required && !veil) { veil = document.createElement('div'); veil.id = 'tombola-required-veil'; document.body.append(veil); }
     if (!required) veil?.remove();
-    const root = ensure(); root.hidden = !ui.open;
+    const root = ensure(); root.hidden = !ui.open || (!sharedVisible && !required && !gm()); updateRestore();
     root.classList.toggle('tombola-summoned-board', !gm() && !required && ['LOBBY', 'PLAYING'].includes(ui.state?.phase));
     root.setAttribute('aria-modal', required ? 'true' : 'false');
-    if (!ui.open) return;
+    if (!ui.open || (!sharedVisible && !required && !gm())) return;
     const s = ui.state;
     const fields = s?.fields || Array.from({ length: 36 }, (_, i) => ({ field: i + 1, revealed: false }));
     const terminal = s?.phase === 'ENDED', cancelled = s?.phase === 'CANCELLED';
@@ -99,13 +137,27 @@
     }).join('');
     const grailReveal = fields.find(f => f.kind === 'GRAIL' && ui.lastReveal === `${s?.id}:${f.field}`);
     const legendary = grailReveal ? `<div class="tombola-legendary-event" role="status"><small>LEGENDARY FORTUNE</small><strong>THE GRAIL</strong><b>+50 SC</b><span>${esc(grailReveal.playerName)}</span></div>` : '';
+    const visibility = s?.active && gm() ? `<button data-tombola-action="toggle" aria-pressed="${sharedVisible}">${sharedVisible ? 'HIDE FATEBREAKER FOR EVERYONE' : 'SHOW FATEBREAKER FOR EVERYONE'}</button>` : '';
     const control = !s?.active ? gm() ? '<button data-tombola-action="create">OPEN A FATEBREAKER LOBBY</button>' : '<p>THE SHADOW BROKER HAS NOT OPENED A ROUND.</p>'
       : s.phase === 'LOBBY' ? gm() ? '<button data-tombola-action="start">START ROUND</button><button data-tombola-action="cancel">CANCEL LOBBY</button>'
         : s.viewer?.participant ? '<button data-tombola-action="leave">LEAVE LOBBY</button>' : '<button data-tombola-action="join">JOIN FATEBREAKER</button>'
-      : s.phase === 'PLAYING' ? gm() ? '<button data-tombola-action="cancel">CANCEL ROUND</button>' : ''
+      : s.phase === 'PLAYING' ? gm() ? '<button data-tombola-action="cancel">CANCEL ROUND</button>' : s.viewer?.canLeave ? '<button data-tombola-action="leave">LEAVE GAME</button>' : ''
       : gm() ? '<button data-tombola-action="create">OPEN A FRESH ROUND</button>' : '';
     root.classList.toggle('tombola-finale', terminal && ui.finale === s.id);
     root.innerHTML = `<div class="tombola-shell"><header class="tombola-heading"><div><small>SHADOW BROKER // SEALED FORTUNES</small><h2>FATEBREAKER</h2></div><button data-tombola-close aria-label="Close FATEBREAKER">×</button></header><div class="tombola-turn" role="status">${terminal ? 'THE ROUND IS OVER FOR EVERYONE' : cancelled ? 'ROUND CANCELLED' : s?.phase === 'PLAYING' ? `${s.viewer?.canPick ? 'YOUR TURN' : 'CURRENT TURN'} // ${esc(s.currentPlayerName)}` : 'LOBBY // THE FIELDS REMAIN SEALED'}</div>${terminal ? `<div class="tombola-blood-verdict" role="alert"><strong>BLOOD TRIBUTE REQUIRED</strong><b>${esc(s.tributePlayerName)}</b><p>BLOOD TRIBUTE HAS ENDED THE ROUND. THE BOARD IS SEALED. THE MARKED PLAYER MUST SUBMIT THEIR OFFERING.</p></div>` : ''}<div class="tombola-board" role="group" aria-label="36 numbered FATEBREAKER vaults">${tiles}${legendary}</div><div class="tombola-status" role="status">${esc(ui.error || (ui.pending ? 'THE LOCK IS TURNING…' : s?.phase === 'PLAYING' ? 'ONE FIELD PER TURN. NO WAGERS. NO MERCY.' : '17 BLESSINGS · THE GRAIL +50 · 17 CURSES · ONE BLOOD TRIBUTE'))}</div><div class="tombola-controls">${control}</div>${s?.participants?.length ? `<ol class="tombola-roster" aria-label="Turn order">${s.participants.map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('')}</ol>` : ''}${s?.history?.length ? `<details class="tombola-history"><summary>PREVIOUS ROUNDS // ${s.history.length}</summary>${s.history.slice().reverse().map(r => `<p>${esc(r.id)} · ${esc(r.phase)} · ${r.revealedCount} OPENED${r.tributePlayerName ? ` · BLOOD: ${esc(r.tributePlayerName)}` : ''}</p>`).join('')}</details>` : ''}</div>`;
+    if (gm() && s?.active && root.querySelector('.tombola-controls')) {
+      const toggle = document.createElement('button');
+      toggle.type = 'button'; toggle.dataset.tombolaAction = 'toggle'; toggle.setAttribute('aria-pressed', String(sharedVisible));
+      toggle.textContent = sharedVisible ? 'HIDE FATEBREAKER FOR EVERYONE' : 'SHOW FATEBREAKER FOR EVERYONE';
+      root.querySelector('.tombola-controls').prepend(toggle);
+    }
+    const heading = root.querySelector('.tombola-heading');
+    heading.title = 'Drag this header to move FATEBREAKER';
+    heading.querySelector('small').textContent = 'SHADOW BROKER // DRAG TO MOVE';
+    const minimizeButton = document.createElement('button'); minimizeButton.type = 'button'; minimizeButton.dataset.tombolaMinimize = '';
+    minimizeButton.textContent = '−'; minimizeButton.setAttribute('aria-label', 'Minimize FATEBREAKER'); minimizeButton.disabled = required;
+    minimizeButton.title = 'Minimize to chat — the turn timer keeps running';
+    heading.insertBefore(minimizeButton, heading.querySelector('[data-tombola-close]'));
     if (ui.pending) root.querySelectorAll('[data-tombola-action]').forEach(button => { button.disabled = true; });
     if (!gm() && !s?.viewer?.canJoin) root.querySelector('[data-tombola-action="join"]')?.setAttribute('disabled', '');
     const banner = root.querySelector('.tombola-legendary-event');
@@ -117,9 +169,16 @@
     updateSignupCountdown();
     if (s?.phase === 'PLAYING') {
       root.querySelector('.tombola-turn').append(` // CYCLE ${s.cycle}`);
+      const clock = document.createElement('span'); clock.dataset.tombolaTurnClock = ''; root.querySelector('.tombola-turn').append(clock);
       const roster = root.querySelector('.tombola-roster');
-      if (roster) roster.innerHTML = s.turnOrder.map(id => s.participants.find(p => p.id === id)).map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}</li>`).join('');
+      if (roster) roster.innerHTML = s.turnOrder.map(id => s.participants.find(p => p.id === id)).filter(Boolean).map(p => `<li${s.currentPlayerId === p.id ? ' class="is-active"' : ''}>${esc(p.name)}${p.missedTurns ? ` // ${p.missedTurns}/2 MISSES` : ''}</li>`).join('');
+      if (roster) for (const p of s.participants.filter(p => p.kicked)) { const item = document.createElement('li'); item.textContent = `${p.name} // REMOVED (2 MISSES)`; item.className = 'is-kicked'; roster.append(item); }
+      if (roster) for (const p of s.participants.filter(p => p.left)) { const item = document.createElement('li'); item.textContent = `${p.name} // LEFT GAME`; item.className = 'is-kicked'; roster.append(item); }
+      if (!ui.error && !ui.pending) root.querySelector('.tombola-status').textContent = '20 SECONDS PER TURN // MISSED TURN: −1 SC // 2 MISSES: REMOVED';
     }
+    if (s?.endReason === 'ALL_PLAYERS_REMOVED' && !ui.error) root.querySelector('.tombola-status').textContent = 'ROUND CLOSED // ALL PLAYERS MISSED TWO TURNS';
+    if (s?.endReason === 'NO_PLAYERS_REMAIN' && !ui.error) root.querySelector('.tombola-status').textContent = 'ROUND CLOSED // NO PLAYERS REMAIN';
+    updateTurnCountdown();
     ui.lastReveal = '';
   }
   function updateSignupCountdown() {
@@ -131,7 +190,7 @@
     const join = root.querySelector('[data-tombola-action="join"]'); if (join) join.disabled = !seconds || !s.viewer.canJoin || ui.pending;
     const leave = root.querySelector('[data-tombola-action="leave"]'); if (leave) leave.disabled = !seconds || ui.pending;
   }
-  setInterval(() => { updateSignupCountdown(); invite(); }, 1000);
+  setInterval(() => { updateSignupCountdown(); updateTurnCountdown(); invite(); }, 250);
   function onMessage(message) {
     if (message.type === 'tombola:error') { ui.error = message.error || 'FATEBREAKER ACTION REFUSED'; ui.pending = false; render(); return; }
     if (message.type !== 'tombola:state') return;
@@ -146,15 +205,17 @@
     if (ui.state?.id === prior?.id && reveals.length > (prior.fields?.filter(f => f.revealed).length || 0)) {
       const last = reveals.find(f => !prior.fields?.some(p => p.field === f.field && p.revealed)); ui.lastReveal = ui.open && last ? `${ui.state.id}:${last.field}` : '';
     } else ui.lastReveal = '';
-    if (ui.state?.phase === 'PLAYING' && prior?.phase !== 'PLAYING' && ui.state.viewer?.participant) ui.open = true;
-    // Restored terminal rounds are history, not live events. A finale may
-    // open only after this session observed PLAYING for the same round.
+    if (prior?.id !== ui.state?.id) { ui.minimized = false; ui.position = null; const root = ensure(); root.style.left = ''; root.style.top = ''; root.style.transform = ''; root.style.maxHeight = ''; }
+    if (ui.state?.phase === 'PLAYING' && prior?.phase !== 'PLAYING' && ui.state.viewer?.participant && !ui.minimized) ui.open = true;
+    // A hydrated ENDED state is historical data, not a new event. Only open the
+    // finale when the current session visibly transitions into ENDED; otherwise
+    // every app reset/reconnect resurrects the last finished game's modal.
     if (message.live === true && ui.state?.phase === 'ENDED' && prior?.id === ui.state.id && prior?.phase === 'PLAYING') {
-      ui.finale = ui.state.id; ui.open = true;
+      ui.finale = ui.state.id; if (!ui.minimized) ui.open = true;
     } else ui.finale = '';
     render();
   }
-  function open() { ui.open = true; ensure(); send('tombola:sync'); render(); }
+  function open() { ui.open = true; ui.minimized = false; ensure(); send('tombola:sync'); render(); }
   function activate() {
     if (!gm()) return open();
     if (ui.pending) return;
