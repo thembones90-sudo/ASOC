@@ -14493,7 +14493,8 @@ body.asoc-transition-to-battle #game-screen .player-battle-layout {
   font-weight: 800;
   text-shadow: 0 0 6px rgba(255, 196, 64, .55), 0 0 1px rgba(255, 214, 107, .9);
 }
-.gm-chat-message.wrong .gm-solution-hit { color: inherit; text-shadow: none; }
+/* Gold identifies a board solution for the GM, not a correct verdict.
+   Keep it visible even when that word was guessed for the wrong column. */
 .gm-deny-all-btn.is-armed {
   border-color: #f04e5c;
   background: rgba(120, 18, 28, .86);
