@@ -4,7 +4,7 @@ function createDragonRaidService({playerStore,coinAccount,triggerMegabonk,broadc
  const randint=typeof randomInt==='function'?randomInt:(a,b)=>require('crypto').randomInt(a,b);
  const HEART_ROLL_MS=30000;
  const clearTimers=r=>{if(!r)return;['_recruitTimer','_battleTimer','_bossTimer','_heartTimer','_victoryTimer','_heroTurnTimer'].forEach(k=>{if(r[k])clearTimeout(r[k]);r[k]=null})};
- const broadcast=(room,extra={})=>broadcastToRoom(room,{type:'dragon:update',raid:engine.publicView(room.dragonRaid),serverNow:Date.now(),...extra});
+ const broadcast=(room,extra={})=>broadcastToRoom(room,{type:'dragon:update',live:true,raid:engine.publicView(room.dragonRaid),serverNow:Date.now(),...extra});
  const statsFor=(p,killed)=>({raidsEntered:1,dragonKills:killed?1:0,deaths:+p.deaths||0,resurrectionsCast:+p.resurrectionsCast||0,timesResurrected:+p.timesResurrected||0,damageDealt:+p.damage||0});
  function persist(r,{killed=false,shares={}}={}){const entries=r.order.map(id=>{const p=r.participants[id];return{identity:coinAccount(p.id,p.name),coins:Math.max(0,Math.floor(+shares[id]||0)),heart:0,stats:statsFor(p,killed)}}).filter(x=>x.identity);return entries.length?playerStore.applyDragonRaidResults(entries,r.id+':outcome'):{ok:true}}
  function fail(room,reason){const r=room?.dragonRaid;if(!r||['ABORTED','COMPLETE'].includes(r.phase)||r.result?.outcome==='DEFEAT')return;clearTimers(r);r.phase='FAILED';r.activePlayerId=null;r.heroTurnEndsAt=null;r.result={outcome:'DEFEAT',reason:String(reason||'DRAGON_PREVAILS'),at:Date.now()};const saved=persist(r);if(!saved.ok)console.error('[dragon] defeat persistence failed:',saved.error);broadcast(room);broadcastPlayersUpdate(room)}

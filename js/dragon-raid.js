@@ -32,6 +32,8 @@
     myLastRoll: null,
     myHeartRoll: null,
     hiddenRaidId: null,
+    observedActiveRaidId: null,
+    terminalReportRaidId: null,
     ticker: null,
 
     init() {
@@ -176,14 +178,26 @@
       return this.isGM() ? window.App?.send?.(payload) : window.PlayerApp?.send?.(payload);
     },
 
-    onState(raid, serverNow) {
+    onState(raid, serverNow, { live = false } = {}) {
       if (!raid) {
         this.lastRaidViewKey = null;
         this.raid = null;
+        this.observedActiveRaidId = null;
+        this.terminalReportRaidId = null;
         this.cancelArm = null;
         this.syncSetup();
         this.render();
         return;
+      }
+      if (this.raid?.id !== raid.id) {
+        this.observedActiveRaidId = null;
+        this.terminalReportRaidId = null;
+      }
+      if (this.raidIsActive(raid)) {
+        this.observedActiveRaidId = raid.id;
+        this.terminalReportRaidId = null;
+      } else if (live && this.observedActiveRaidId === raid.id) {
+        this.terminalReportRaidId = raid.id;
       }
       if (this.cancelArm && this.cancelArm.raidId !== raid.id) this.cancelArm = null;
       const viewKey = JSON.stringify(raid);
@@ -201,7 +215,8 @@
       if (this.hiddenRaidId && this.hiddenRaidId !== raid.id) this.hiddenRaidId = null;
       if (this.isGM() && ['RECRUITING','HERO_TURN','BOSS_TURN','VICTORY','HEART'].includes(raid.phase)) this.hiddenRaidId = null;
       const overlay = document.getElementById('dragon-raid-overlay');
-      const shouldShow = this.hiddenRaidId !== raid.id;
+      const shouldShow = this.hiddenRaidId !== raid.id &&
+        (!DEAD_PHASES.includes(raid.phase) || this.terminalReportRaidId === raid.id);
       // Server time may update without combat state changing. The 250ms clock
       // ticker owns deadline displays, so identical snapshots need no rebuild.
       if (!sameView || !overlay || overlay.hidden === shouldShow) this.render();
@@ -210,7 +225,7 @@
     onMessage(message) {
       if (!message) return;
       if (message.type === 'dragon:update') {
-        this.onState(message.raid, message.serverNow);
+        this.onState(message.raid, message.serverNow, { live: message.live === true });
         if (message.heartTie) this.note = 'THE HEART REJECTS EQUALITY — TIED HEROES ROLL AGAIN';
         const combat = message.actionResult || message.bossResult || message.turnForfeited;
         if (combat) requestAnimationFrame(() => requestAnimationFrame(() => this.animateCombat(combat)));
@@ -1046,7 +1061,8 @@
     render() {
       const raid = this.raid;
       const existing = document.getElementById('dragon-raid-overlay');
-      if (!raid || this.hiddenRaidId === raid.id) {
+      if (!raid || this.hiddenRaidId === raid.id ||
+          (DEAD_PHASES.includes(raid.phase) && this.terminalReportRaidId !== raid.id)) {
         if (existing) existing.hidden = true;
         this.syncChatDock(existing, false);
         return;
