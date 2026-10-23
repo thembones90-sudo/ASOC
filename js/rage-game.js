@@ -385,7 +385,12 @@
       const rollBox = document.getElementById('rage-roll-box');
       if (rollBox) {
         const canRoll = you.yourTurn && s.phase === 'roll';
-        rollBox.innerHTML = canRoll ? `<button type="button" class="rage-roll" data-rage="roll" data-seq="${s.turnSeq}">ROLL</button>` : live && you.yourTurn ? '<span class="rage-hint">CLICK A GLOWING PIECE</span>' : '';
+        const captureOptions = you.yourTurn && s.phase === 'move' ? (s.options || []).filter(o => o.capture) : [];
+        rollBox.innerHTML = canRoll
+          ? `<button type="button" class="rage-roll" data-rage="roll" data-seq="${s.turnSeq}">ROLL</button>`
+          : captureOptions.length
+            ? `<div class="rage-capture-actions"><strong>YOU MUST EAT</strong>${captureOptions.map(o => `<button type="button" class="rage-capture-button" data-rage="move" data-piece="${o.piece}" data-seq="${s.turnSeq}">CAPTURE · PIECE ${o.piece + 1}</button>`).join('')}</div>`
+            : live && you.yourTurn ? '<span class="rage-hint">CLICK YOUR GLOWING PIECE OR DESTINATION</span>' : '';
       }
       const list = document.getElementById('rage-players');
       if (list) {
@@ -531,7 +536,7 @@
         const me = s.players.find(p => p.id === viewerId());
         targets.innerHTML = me ? (s.options || []).map(o => {
           const [x, y] = cellOf(me.seat, o.to, o.piece);
-          return `<i class="${o.capture ? 'is-capture' : ''}" data-target-piece="${o.piece}" style="left:${pct(x)};top:${pct(y)};--seat:${hexOf(me.color)}"></i>`;
+          return `<button type="button" class="rage-target ${o.capture ? 'is-capture' : ''}" data-rage="move" data-piece="${o.piece}" data-seq="${s.turnSeq}" data-target-piece="${o.piece}" aria-label="${o.capture ? 'Capture enemy' : 'Move to square'} with piece ${o.piece + 1}" style="left:${pct(x)};top:${pct(y)};--seat:${hexOf(me.color)}"></button>`;
         }).join('') : '';
       }
       const rolls = newEvents.filter(e => e.kind === 'roll');
@@ -662,7 +667,7 @@
       if (a === 'new') return this.send({ type: 'rage:create', stake: this.state?.stake || 0, gameMode: this.state?.gameMode || 'STANDARD' });
       if (a === 'roll') { btn.disabled = true; return this.send({ type: 'rage:roll', turnSeq: Number(btn.dataset.seq) }); }
       if (a === 'move') {
-        document.querySelectorAll('#rage-pieces .is-movable').forEach(p => { p.disabled = true; p.classList.remove('is-movable'); });
+        document.querySelectorAll('#rage-pieces .is-movable, #rage-targets .rage-target, .rage-capture-button').forEach(p => { p.disabled = true; p.classList.remove('is-movable'); });
         return this.send({ type: 'rage:move', piece: Number(btn.dataset.piece), turnSeq: Number(btn.dataset.seq) });
       }
       if (a === 'invite-open') { document.getElementById('rage-invite')?.remove(); return this.show(); }
