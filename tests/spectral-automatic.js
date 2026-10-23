@@ -153,14 +153,30 @@ class Client {
     const finalReview = await guess('K splash', null);
     await gm.wait(m => m.type === 'spectral:state' && m.state.pending.some(p => p.messageId === finalReview.id));
     await mode('AUTONOMOUS');
+    const finalFrom = gm.messages.length;
     const final = await guess('perhaps splash over here K 😂', 'correct');
     assert.equal(final.target, 'FINAL');
     await gm.wait(m => m.type === 'score:finalReveal' && m.correctSolution === 'splash');
+    await gm.wait(m => m.type === 'spectral:state' && m.state.pending.length === 0, finalFrom);
+    await uiUpdates;
+    assert.equal(await page.locator('#spectral-review-panel').isVisible(), false, 'finishing a game clears all outstanding review cards');
+    gm.send({ type: 'gm:gameWon' });
+    await gm.wait(m => m.type === 'state:public' && m.matchResult?.outcome === 'WON');
+    // A missed sync / stale tab must also recover when Reject is clicked.
+    await page.evaluate(entry => window.spectralReview.onMessage({ type: 'spectral:state', state: { mode: 'ASSISTED', pending: [entry] } }), { messageId: finalReview.id, playerName: 'Old player', text: 'stale final', target: 'FINAL' });
+    const staleFrom = gm.messages.length;
+    await page.locator(`[data-message-id="${finalReview.id}"]`).getByRole('button', { name: 'REJECT', exact: true }).click();
+    await gm.wait(m => m.type === 'spectral:state' && m.state.pending.length === 0, staleFrom);
+    await uiUpdates;
+    assert.equal(await page.locator('#spectral-review-panel').isVisible(), false, 'Reject recovers a stale completed-game panel');
+    const syncFrom = gm.messages.length;
+    gm.send({ type: 'gm:spectral:sync' });
+    await gm.wait(m => m.type === 'spectral:state' && m.state.pending.length === 0, syncFrom);
     assert.equal(gm.messages.filter(m => m.type === 'score:event' && m.target === 'A').length, 1);
     await uiUpdates;
     assert.deepEqual(pageErrors, []);
     await page.setViewportSize({ width: 390, height: 800 });
-    assert.equal(await page.locator('#spectral-review-panel').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }), true, 'review panel fits mobile viewport');
+    assert.equal(await page.locator('#spectral-review-panel').isVisible(), false, 'completed-game review stays closed on mobile');
     // Exercise both shipped chat renderers and the actual served artwork.
     gm.onMessage = null;
     const gmContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -168,6 +184,8 @@ class Client {
     const gmPage = await gmContext.newPage();
     await gmPage.goto(server.base + '/index.html');
     await gmPage.waitForFunction(() => window.App?.roomCode === 'MASTER' && window.App?.mode === 'multiplayer');
+    await gmPage.waitForSelector('#spectral-review-toggle', { state: 'attached' });
+    assert.equal(await gmPage.locator('#spectral-review-toggle').isVisible(), false, 'host reconnect does not restore completed reviews');
     const heroContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const heroPage = await H.openHeroPage(heroContext, server, await H.heroToken(server, 'Spectra Hero 0'));
     for (const [view, role] of [[gmPage, 'gm'], [heroPage, 'player']]) {

@@ -3630,6 +3630,7 @@ function declareGameLost(room, source = 'timer') {
     ledger: room.match
   });
   try { archiveCompletedMatch(room, fields); } catch (error) { console.error('[match] Loss archive failed:', error.message); }
+  sendSpectralState(room);
   room.revision++;
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -12403,6 +12404,18 @@ function spectralSolutions(room) {
 }
 
 function sendSpectralState(room) {
+  if (!room) return;
+  const state = room.spectralAdjudicator = spectralAdjudicator.normalizeState(room.spectralAdjudicator);
+  const pending = spectralAdjudicator.actionablePending(state.pending, {
+    active: room.roomMode === ROOM_MODES.BATTLE && !room.sessionState?.matchResult,
+    boardId: room.boardId, messages: room.chat?.messages,
+    closedTargets: [...SCORABLE_COLUMNS.filter(column => room.chat?.solvedTargets?.[column] || ['success', 'failed'].includes(room.sessionState?.cellOutcomes?.[`${column}5`])),
+      ...(room.chat?.solvedTargets?.FINAL || room.sessionState?.finalSolution ? ['FINAL'] : [])]
+  });
+  if (pending.length !== state.pending.length) {
+    state.pending = pending;
+    persistActiveRooms();
+  }
   if (room?.hostConnection?.readyState === 1) sendToWs(room.hostConnection, {
     type: 'spectral:state', state: spectralAdjudicator.publicState(room.spectralAdjudicator)
   });
@@ -12428,6 +12441,7 @@ function broadcastAutomatedVerdict(room, result, messageId, target) {
   if (result.celebration) broadcastToRoom(room, { type: 'board:solveCelebration', ...result.celebration, debtOwed: publicFinalDebt(room)?.owed || [] });
   if (target && SCORABLE_COLUMNS.includes(target) && room.chat.solvedTargets[target]?.messageId === messageId) scheduleSolvedColumnReveal(room, messageId, target);
   if (result.finalOutcome) broadcastToRoom(room, { type: 'score:finalReveal', ...result.finalOutcome, debtOwed: publicFinalDebt(room)?.owed || [] });
+  sendSpectralState(room);
 }
 
 function processSpectralAdjudication(room, chatMessage) {
@@ -12992,6 +13006,7 @@ function handleGmGameWon(ws) {
     ledger
   });
   try { archiveCompletedMatch(room, fields); } catch (error) { console.error('[match] Victory archive failed:', error.message); }
+  sendSpectralState(room);
   room.revision++;
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -13040,6 +13055,12 @@ function handleJudgeGuess(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Only host can judge guesses' });
     return;
   }
+
+  // A late click on an expired review card only dismisses stale work. Never
+  // bypass historical-game scoring locks to make the panel disappear.
+  const wasPending = room.spectralAdjudicator?.pending?.some(entry => entry.messageId === message.messageId);
+  sendSpectralState(room);
+  if (wasPending && !room.spectralAdjudicator.pending.some(entry => entry.messageId === message.messageId)) return;
 
   if (room.sessionState.matchResult) {
     sendToWs(ws, { type: 'error', message: `GAME ${room.sessionState.matchResult.outcome} // FINAL SOLUTION attempts locked` });

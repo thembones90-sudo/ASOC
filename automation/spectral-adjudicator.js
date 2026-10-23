@@ -26,6 +26,19 @@ function suffixRelated(answer, solution) {
   return ['ful', 'less', 'ness', 'ly', 'ing', 'ed', 'er', 'est', 's'].some(x => a === `${s}${x}` || s === `${a}${x}`);
 }
 
+// Review cards are work for the current live board, never historical verdicts.
+function actionablePending(pending, { active, boardId, messages, closedTargets = [] }) {
+  if (!active) return [];
+  const byId = new Map((messages || []).map(message => [message.id, message]));
+  const seen = new Set();
+  return (pending || []).filter(entry => {
+    const message = byId.get(entry?.messageId);
+    if (!message || seen.has(message.id) || message.source || message.deleted || message.verdict || message.boardId !== boardId || closedTargets.includes(entry.target)) return false;
+    seen.add(message.id);
+    return true;
+  });
+}
+
 function inspect(message, context = {}) {
   const result = classifyMessage(message, context);
   if (result.kind !== 'ANSWER') return result;
@@ -43,4 +56,4 @@ function inspect(message, context = {}) {
 }
 
 function publicState(value) { const s = normalizeState(value); return { name: NAME, mode: s.mode, paused: s.paused, scheduleArmed: s.scheduleArmed, nextRitualTime: '12:55 Europe/Belgrade', startTime: '13:00 Europe/Belgrade', signupDeadline: '13:05 Europe/Belgrade', scheduleStatus: s.scheduleStatus, pending: s.pending }; }
-module.exports = { NAME, AVATAR, FRAME, MODES, normalizeState, inspect, publicState };
+module.exports = { NAME, AVATAR, FRAME, MODES, normalizeState, inspect, publicState, actionablePending };
