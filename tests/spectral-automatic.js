@@ -88,6 +88,15 @@ class Client {
     };
     await mode('MANUAL'); await guess('A SAIL', null);
     await mode('ASSISTED');
+    const identityFrom = gm.messages.length;
+    await H.sleep(400);
+    players[0].send({ type: 'chat:guess', text: 'A1' });
+    const identityFrame = await gm.wait(m => m.messages?.some(x => x.source === 'spectralAdjudicator'), identityFrom);
+    const spectraMessage = identityFrame.messages.find(x => x.source === 'spectralAdjudicator');
+    assert.equal(spectraMessage.playerName, 'SPECTRA');
+    assert.equal(spectraMessage.avatarData, '/assets/profiles/spectra-warden.png?v=20261023');
+    assert.equal(spectraMessage.frameColor, '#9B5DE0');
+    await players[0].wait(m => m.messages?.some(x => x.id === spectraMessage.id && x.playerName === 'SPECTRA' && x.avatarData === spectraMessage.avatarData));
     await page.locator('#typing').focus();
     const variant = await guess('withered b', null);
     const card = page.locator(`[data-message-id="${variant.id}"]`);
@@ -152,6 +161,30 @@ class Client {
     assert.deepEqual(pageErrors, []);
     await page.setViewportSize({ width: 390, height: 800 });
     assert.equal(await page.locator('#spectral-review-panel').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }), true, 'review panel fits mobile viewport');
+    // Exercise both shipped chat renderers and the actual served artwork.
+    gm.onMessage = null;
+    const gmContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await gmContext.addInitScript(token => { sessionStorage.setItem('asoc_gm_token', token); localStorage.setItem('asoc_master_token', token); }, login.data.token);
+    const gmPage = await gmContext.newPage();
+    await gmPage.goto(server.base + '/index.html');
+    await gmPage.waitForFunction(() => window.App?.roomCode === 'MASTER' && window.App?.mode === 'multiplayer');
+    const heroContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const heroPage = await H.openHeroPage(heroContext, server, await H.heroToken(server, 'Spectra Hero 0'));
+    for (const [view, role] of [[gmPage, 'gm'], [heroPage, 'player']]) {
+      await view.evaluate(({ message, role }) => {
+        const app = role === 'gm' ? window.App : window.PlayerApp;
+        const fixture = document.createElement('div');
+        fixture.id = 'spectra-avatar-verification';
+        fixture.style.cssText = 'position:fixed;inset:20px auto auto 20px;width:650px;padding:20px;background:#15101d;z-index:2147483647';
+        fixture.innerHTML = role === 'gm' ? app.createGMChatMessageHTML(message) : app.createChatMessageHTML(message);
+        document.body.appendChild(fixture);
+        if (app.littleHeroAvatarHTML({ avatarData: 'https://example.com/unsafe.png' }).includes('<img')) throw Error('Avatar URL allowlist weakened');
+      }, { message: spectraMessage, role });
+      const bubble = view.locator('#spectra-avatar-verification');
+      assert.match(await bubble.textContent(), /SPECTRA/);
+      await bubble.locator('img[src*="spectra-warden.png"]').evaluate(img => img.decode());
+      await bubble.screenshot({ path: path.join(shots, `spectra-${role}.png`) });
+    }
     console.log('PASS Spectra live battle and browser GM review: WITHERED B visibly alerts; Accept/Reject apply real verdicts and clear pending; no focus stealing or duplicate reopening; mobile fits; manual/assisted/automatic, scoring and closed-column protections preserved');
   } finally { clients.forEach(client => { client.onMessage = null; client.ws?.terminate(); }); await browser?.close(); await server.stop(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

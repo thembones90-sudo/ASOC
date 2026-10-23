@@ -10436,7 +10436,8 @@ function createChatSerializer(room) {
     // retired "Dennis AI" display name. Canonicalize at the wire boundary so
     // existing history and newly produced messages render identically without
     // destructively rewriting the room archive.
-    const playerName = String(m.playerId || '') === dennisAI.DENNIS_ID || m.source === 'dennisAI'
+    const isSpectra = m.source === 'spectralAdjudicator';
+    const playerName = isSpectra ? spectralAdjudicator.NAME : String(m.playerId || '') === dennisAI.DENNIS_ID || m.source === 'dennisAI'
       ? dennisAI.DENNIS_NAME
       : m.playerName;
     const tribute = m.source === 'bloodTribute' ? tributeById.get(m.tributeId) : null;
@@ -10467,6 +10468,7 @@ function createChatSerializer(room) {
       playerId: m.playerId,
       playerName,
       text: m.text,
+      ...(isSpectra ? { avatarData: spectralAdjudicator.AVATAR, frameColor: spectralAdjudicator.FRAME } : {}),
       clientMsgId: m.source === 'shadowBroker' ? m.clientMsgId : undefined,
       timestamp: m.timestamp,
       editedAt: Number(m.editedAt) || null,
@@ -12468,7 +12470,7 @@ function processSpectralAdjudication(room, chatMessage) {
 
 function handleSpectralControl(ws, message) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
-  if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) return sendToWs(ws, { type: 'error', message: 'Only the Shadow Broker controls the Spectral Adjudicator' });
+  if (!room || ws !== room.hostConnection || ws.gmAuthenticated !== true) return sendToWs(ws, { type: 'error', message: 'Only the Shadow Broker controls SPECTRA' });
   room.spectralAdjudicator = spectralAdjudicator.normalizeState(room.spectralAdjudicator);
   if (message.type === 'gm:spectral:mode') {
     const mode = String(message.mode || '').toUpperCase();
@@ -12518,7 +12520,7 @@ function advanceSpectralRitual(room, at = Date.now()) {
     room.armed = true;
     if (!room.ritual?.active) startRitual(room);
     room.revision++;
-    announceSpectralSchedule(room, 'Adjudicator summons you for a game.', true);
+    announceSpectralSchedule(room, 'SPECTRA summons you for a game.', true);
   } else if (action === 'START') {
     // This path requires five distinct, connected voters: tribute and GM
     // overrides never stand in for scheduled attendance. No delayed T-10.
@@ -12535,7 +12537,7 @@ function advanceSpectralRitual(room, at = Date.now()) {
     room.roomMode = ROOM_MODES.CASUAL;
     room.armed = false;
     room.revision++;
-    announceSpectralSchedule(room, 'Adjudicator dismissed, not enough players.');
+    announceSpectralSchedule(room, 'SPECTRA dismissed, not enough players.');
   } else if (action === 'ABORT') state.scheduleStatus = 'CANCELLED';
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });

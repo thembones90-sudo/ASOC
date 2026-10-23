@@ -2,7 +2,9 @@
 
 const { classifyMessage } = require('./answer-classifier');
 const { normalizeAnswer, levenshtein } = require('./answer-normalize');
-const NAME = 'SPECTRAL ADJUDICATOR';
+const NAME = 'SPECTRA';
+const AVATAR = '/assets/profiles/spectra-warden.png?v=20261023';
+const FRAME = '#9B5DE0';
 const MODES = Object.freeze(['MANUAL', 'ASSISTED', 'AUTONOMOUS']);
 
 function normalizeState(value) {
@@ -41,4 +43,4 @@ function inspect(message, context = {}) {
 }
 
 function publicState(value) { const s = normalizeState(value); return { name: NAME, mode: s.mode, paused: s.paused, scheduleArmed: s.scheduleArmed, nextRitualTime: '12:55 Europe/Belgrade', startTime: '13:00 Europe/Belgrade', signupDeadline: '13:05 Europe/Belgrade', scheduleStatus: s.scheduleStatus, pending: s.pending }; }
-module.exports = { NAME, MODES, normalizeState, inspect, publicState };
+module.exports = { NAME, AVATAR, FRAME, MODES, normalizeState, inspect, publicState };
