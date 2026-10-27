@@ -1712,6 +1712,8 @@ const PlayerApp = {
       case 'dm:list':
       case 'dm:thread':
       case 'dm:message':
+      case 'dm:update':
+      case 'dm:purged':
       case 'dm:read':
       case 'dm:blocked':
       case 'dm:reported':

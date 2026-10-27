@@ -83,6 +83,11 @@
     const box = document.getElementById('gm-dm-messages');
     if (box) box.scrollTop = box.scrollHeight;
     const nextBox = el.querySelector('[data-gm-dm-input]');
+    window.DMChatControls?.sync(el, { host: true, thread: state.thread?.other?.id, closeMenus: () => {
+      state.attachmentOpen = state.emojiOpen = state.gifOpen = state.pollOpen = false; render();
+    }, react: (messageId, emoji) => {
+      if (state.thread?.id) send({ type: 'gm:privateReact', conversationId: state.thread.id, messageId, emoji });
+    } });
     if (draft && nextBox && draft.thread === state.thread?.other?.id) {
       nextBox.textContent = draft.value;
       if (draft.focused) { nextBox.focus(); const range=document.createRange();range.selectNodeContents(nextBox);range.collapse(false);const selection=getSelection();selection.removeAllRanges();selection.addRange(range); }
@@ -225,7 +230,7 @@
   });
   document.addEventListener('submit', e => {
     if(e.target.matches?.('[data-gm-dm-gif-search]')){e.preventDefault();return loadGifs(e.target.querySelector('input')?.value);}
-    if(e.target.matches?.('[data-gm-dm-poll-maker]')){e.preventDefault();const fd=new FormData(e.target),options=fd.getAll('option').map(String).map(x=>x.trim()).filter(Boolean);send({type:'gm:privateSend',toId:state.thread.other.id,text:'',messageType:'poll',poll:{question:String(fd.get('question')||''),options,allowMultiple:fd.get('multiple')==='on',durationSeconds:0}});state.pollOpen=false;return render();}
+    if(e.target.matches?.('[data-gm-dm-poll-maker]')){e.preventDefault();const fd=new FormData(e.target),options=fd.getAll('option').map(String).map(x=>x.trim()).filter(Boolean);send({type:'gm:privateSend',toId:state.thread.other.id,text:'',messageType:'poll',poll:{question:String(fd.get('question')||''),options,allowMultiple:fd.get('multiple')==='on',durationSeconds:Number(fd.get('duration')||0)}});state.pollOpen=false;return render();}
     const form = e.target.closest?.('[data-gm-dm-compose]');
     if (!form) return;
     e.preventDefault();

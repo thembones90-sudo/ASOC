@@ -286,6 +286,11 @@
         </div>
       </section>`;
     const box = document.getElementById('dmx-msgs');
+    window.DMChatControls?.sync(el, { host: false, thread: state.thread?.other?.id, closeMenus: () => {
+      state.attachmentOpen = state.emojiOpen = state.gifOpen = state.pollOpen = false; render();
+    }, react: (messageId, emoji) => {
+      if (state.thread?.id && !locked() && !state.thread.blocked) send({ type: 'dm:react', conversationId: state.thread.id, messageId, emoji });
+    } });
     if (box) box.scrollTop = box.scrollHeight;
     if (hadFocus) {
       const next = document.getElementById('dmx-input');
@@ -399,7 +404,7 @@
 
   document.addEventListener('submit', e => {
     if (e.target.matches?.('[data-dmx-gif-search]')) { e.preventDefault(); return loadGifs(e.target.querySelector('input')?.value); }
-    if(e.target.matches?.('[data-dmx-poll-maker]')){e.preventDefault();const fd=new FormData(e.target);const options=fd.getAll('option').map(String).map(x=>x.trim()).filter(Boolean);send({type:'dm:send',toId:state.thread.other.id,text:'',messageType:'poll',poll:{question:String(fd.get('question')||''),options,allowMultiple:fd.get('multiple')==='on',durationSeconds:0}});state.pollOpen=false;return render();}
+    if(e.target.matches?.('[data-dmx-poll-maker]')){e.preventDefault();const fd=new FormData(e.target);const options=fd.getAll('option').map(String).map(x=>x.trim()).filter(Boolean);send({type:'dm:send',toId:state.thread.other.id,text:'',messageType:'poll',poll:{question:String(fd.get('question')||''),options,allowMultiple:fd.get('multiple')==='on',durationSeconds:Number(fd.get('duration')||0)}});state.pollOpen=false;return render();}
     if (e.target.closest?.('[data-compose]')) { e.preventDefault(); submit(); }
   });
   document.addEventListener('change', e => {

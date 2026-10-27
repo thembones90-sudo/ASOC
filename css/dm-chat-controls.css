@@ -1,0 +1,34 @@
+/* Same public emoji catalog, in a viewport-bound portal instead of a bubble. */
+html body .dm-chat-picker{position:fixed;z-index:30000;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:5px;width:min(236px,calc(100vw - 16px));max-height:min(420px,calc(100dvh - 24px));overflow-y:auto;box-sizing:border-box;padding:12px;border:1px solid #8051a8;border-radius:12px;background:#120d1b;color:#eee;box-shadow:0 14px 45px #000b;font:700 12px system-ui}
+html body .dm-chat-picker :is(.gm-emoji-picker-head,.chat-emoji-picker-head){grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-bottom:8px;border-bottom:1px solid #443050;font-size:11px}
+html body .dm-chat-picker :is(.gm-emoji-edit-status,.chat-emoji-edit-status){margin-left:auto;color:#bba4d0}
+html body .dm-chat-picker :is(.gm-emoji-option,.chat-emoji-option){display:grid;place-items:center;min-width:0;width:100%;height:36px;padding:3px;border:1px solid transparent;border-radius:7px;background:transparent;color:#fff;font-size:22px;cursor:pointer}
+html body .dm-chat-picker button:hover,html body .dm-chat-picker button:focus-visible{background:#372343;outline:2px solid #9b5de0;outline-offset:-2px}
+html body .dm-chat-picker :is(.active-slot,.is-favorite){border-color:#cda75e;background:#30213b}
+html body .dm-chat-picker :is(.gm-emoji-divider,.chat-emoji-divider,.gm-emoji-section-label,.chat-emoji-section-label,.gm-commander-emoji-head){grid-column:1/-1;color:#c7addb;font-size:10px;letter-spacing:.1em}
+html body .dm-chat-picker :is(.gm-emoji-edit-toggle,.chat-emoji-edit-toggle,.dm-picker-close){padding:5px 8px;border:1px solid #715084;border-radius:5px;background:#291a35;color:#eee;cursor:pointer;font-size:10px}
+html body .dm-chat-picker img{width:26px;height:26px;object-fit:contain}
+/* Reactions are a footer, never another inline slice of the message text. */
+html body .gm-dm-msg{display:flex;flex-direction:column;align-items:stretch;gap:5px;position:relative;min-width:90px}
+html body .gm-dm-msg>span{align-self:flex-end}
+html body .gm-dm-reactions,html body .dmx-reactions{display:flex;flex-wrap:wrap;gap:5px;opacity:1;max-width:100%}
+html body .gm-dm-reactions:empty{display:none}
+html body .gm-dm-reactions>button,html body .dmx-reactions>button[data-dmx-react]{display:inline-flex;align-items:center;gap:4px;min-width:36px;min-height:28px;padding:3px 8px;border:1px solid #634379;border-radius:14px;background:#24152f;color:#eee;font-size:15px;cursor:pointer}
+html body .gm-dm-actions{position:absolute;right:5px;top:-29px;z-index:3;display:flex;padding:2px;border:1px solid #51365f;border-radius:7px;background:#17101f;opacity:0;pointer-events:none}
+html body .gm-dm-msg:hover .gm-dm-actions,html body .gm-dm-msg:focus-within .gm-dm-actions{opacity:1;pointer-events:auto}
+html body .gm-dm-actions button{min-width:28px;min-height:25px;padding:2px 5px;font-size:14px;cursor:pointer}
+html body :is(.gm-dm-attachment-menu,.dmx-attachment-menu){max-width:calc(100vw - 32px)}
+html body :is(.gm-dm-attachment-menu,.dmx-attachment-menu)>button{display:flex;align-items:center;gap:10px;width:100%;text-align:left}
+html body :is(.gm-dm-attachment-menu,.dmx-attachment-menu) svg{width:26px;height:26px;flex:0 0 26px}
+html body :is(.gm-dm-attachment-menu,.dmx-attachment-menu) :is(.gm-attachment-option-copy,.chat-attachment-option-copy){display:grid;gap:3px}
+html body :is(.gm-dm-attachment-menu,.dmx-attachment-menu) small{font-size:10px;color:#b9a4c5}
+html body :is(.gm-dm-poll-maker,.dmx-poll-maker) select{padding:7px;border:1px solid #604272;background:#130c1b;color:#eee}
+html body .dmx-public-composer{display:block}
+html body .dmx-public-composer .dm-shared-capsule{display:flex;align-items:center;gap:3px;width:100%;box-sizing:border-box;padding:4px 7px;border:1px solid #715282;border-radius:26px;background:linear-gradient(#1d2229,#0f1217)}
+html body .dm-shared-capsule :is([data-dmx-emoji],[data-dmx-voice],.dmx-attachment-wrap>button){display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:transparent;color:#b7b1c2;font-size:20px}
+html body .dm-shared-capsule .dmx-attachment-wrap{flex:0 0 36px}
+html body .dm-shared-capsule #dmx-input{flex:1;min-width:0;height:38px;min-height:38px;padding:8px;border:0;border-radius:0;background:transparent}
+html body .dm-shared-capsule #dmx-input{white-space:pre;overflow:auto;resize:none;font-size:14px;line-height:20px}
+html body :is(.dmx-poll,.gm-dm-poll){min-width:0;max-width:100%;box-sizing:border-box}
+html body .dm-shared-capsule .dmx-send[hidden]{display:none}
+@media(hover:none){html body .gm-dm-actions,html body .dmx-msg .dmx-message-actions{position:static;opacity:1;pointer-events:auto;align-self:flex-end}}
