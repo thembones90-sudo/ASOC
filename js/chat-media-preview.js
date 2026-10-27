@@ -182,8 +182,43 @@
       + '<output class="chat-media-zoom-level">100%</output>'
       + '<button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
       + '<button type="button" data-zoom="fit" aria-label="Fit to screen">FIT</button>'
-      + '<button type="button" data-zoom="actual" aria-label="Actual size">1:1</button>';
+      + '<button type="button" data-zoom="actual" aria-label="Actual size">1:1</button>'
+      + '<button type="button" data-zoom="download" aria-label="Download original image">DOWNLOAD</button>';
     stage.appendChild(bar);
+    const downloadButton = bar.querySelector('[data-zoom="download"]');
+    downloadButton?.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const source = img.currentSrc || img.src;
+      if (!source) return;
+      const typeExtension = type => ({ 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp', 'image/gif':'gif' })[type] || 'png';
+      downloadButton.disabled = true;
+      try {
+        const response = await fetch(source, { credentials: 'same-origin' });
+        if (!response.ok) throw new Error('Image download failed');
+        const blob = await response.blob();
+        if (!blob.type.startsWith('image/')) throw new Error('Not an image');
+        const ext = typeExtension(blob.type.split(';')[0]);
+        const fileName = 'asoc-image-' + Date.now() + '.' + ext;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (error) {
+        // Cross-origin GIF hosts may prohibit reads; offer the source as fallback.
+        const link = document.createElement('a');
+        link.href = source;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.click();
+      } finally {
+        downloadButton.disabled = false;
+      }
+    });
     const level = bar.querySelector('.chat-media-zoom-level');
 
     const st = { img, bar, scale: 1, x: 0, y: 0, onResize: null };
