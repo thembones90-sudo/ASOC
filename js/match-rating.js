@@ -3,6 +3,29 @@ const MatchRating = (() => {
   let state = null;
   let send = null;
   let isHost = false;
+  const dismissed = new Set();
+  let previousFocus = null;
+
+  function dismissalKey() {
+    return `${window.PlayerApp?.playerId || 'player'}:${state?.matchId || ''}`;
+  }
+
+  function wasDismissed() {
+    if (isHost || !state?.matchId) return false;
+    const key = dismissalKey();
+    if (dismissed.has(key)) return true;
+    try { return localStorage.getItem(`asoc_rating_dismissed:${window.PlayerApp?.playerId || 'player'}`) === state.matchId; } catch { return false; }
+  }
+
+  function dismiss() {
+    if (isHost || !overlay) return;
+    dismissed.add(dismissalKey());
+    if (state?.matchId) {
+      try { localStorage.setItem(`asoc_rating_dismissed:${window.PlayerApp?.playerId || 'player'}`, state.matchId); } catch {}
+    }
+    overlay.remove(); overlay = null;
+    previousFocus?.isConnected && previousFocus.focus?.({ preventScroll: true });
+  }
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -22,7 +45,9 @@ const MatchRating = (() => {
 
   function render() {
     if (!state || state.open !== true) { close(); return; }
+    if (wasDismissed()) { overlay?.remove(); overlay = null; return; }
     if (!overlay) {
+      previousFocus = document.activeElement;
       overlay = document.createElement('div');
       overlay.className = 'match-rating-overlay';
       document.body.appendChild(overlay);
@@ -62,6 +87,7 @@ const MatchRating = (() => {
         <div class="match-rating-scale-labels"><span>1 // MISERY</span><span>10 // GLORIOUS</span></div>
         <div class="match-rating-scores">${ratingButtons(selected)}</div>
         <div class="match-rating-status">${selected ? `RATING LOGGED // ${selected}/10` : 'SELECT ONE SCORE // 1–10'}</div>
+        <button type="button" class="match-rating-proceed match-rating-dismiss">RETURN TO MENU</button>
       </section>`;
 
     if (isHost) {
@@ -69,6 +95,7 @@ const MatchRating = (() => {
         if (typeof send === 'function') send({ type: 'gm:showRecount' });
       });
     } else {
+      overlay.querySelector('.match-rating-dismiss')?.addEventListener('click', dismiss);
       overlay.querySelectorAll('.match-rating-score').forEach(btn => {
         btn.addEventListener('click', () => {
           const rating = Number(btn.dataset.rating);
@@ -78,6 +105,13 @@ const MatchRating = (() => {
       });
     }
   }
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && overlay && !isHost) {
+      event.preventDefault();
+      dismiss();
+    }
+  });
 
   function open(nextState, options = {}) {
     state = { ...(nextState || {}), open: true };

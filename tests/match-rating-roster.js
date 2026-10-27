@@ -110,7 +110,42 @@ async function action(p, payload, predicate, label) {
     assert.ok(rendered.scores.includes('9/10') && rendered.scores.includes('6/10'));
     assert.equal(rendered.scores.filter(x=>x==='WAITING').length, 3);
     assert.ok(rendered.button.includes('PROCEED TO RECOUNT'));
+    // Real player flow: rating is optional to dismiss and remains dismissed
+    // through server updates/reload without changing the GM's rating phase.
+    const heroContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const heroPage = await H.openHeroPage(heroContext, s, await H.heroToken(s, voters[0].name));
+    await heroPage.getByRole('dialog', { name: 'Rate this game', exact: true }).waitFor();
+    await heroPage.locator('[data-rating="7"]').click();
+    await heroPage.waitForFunction(() => document.querySelector('.match-rating-status')?.textContent.includes('RATING LOGGED // 7/10'));
+    await host2.wait(m => m.type === 'match:ratingRoster' && m.roster.some(x => x.name === voters[0].name && x.rating === 7), 'real player vote retained');
+    await heroPage.getByRole('button', { name: 'RETURN TO MENU', exact: true }).click();
+    assert.equal(await heroPage.locator('.match-rating-overlay').count(), 0, 'player returns to underlying normal screen');
+    assert.equal(await heroPage.locator('#game-screen').isVisible(), true);
+    const voteUpdate = voters[1].player.inbox.length;
+    voters[1].player.send({ type: 'match:rate', rating: 8 });
+    await voters[1].player.wait(m => m.type === 'match:ratingAck' && m.myRating === 8, 'other player still rates', voteUpdate);
+    await heroPage.waitForTimeout(200);
+    assert.equal(await heroPage.evaluate(() => MatchRating.isOpen()), false, 'other votes cannot reopen dismissed panel');
+    await heroPage.reload({ waitUntil: 'domcontentloaded' });
+    await heroPage.waitForSelector('#game-screen.active');
+    await heroPage.waitForTimeout(200);
+    assert.equal(await heroPage.evaluate(() => MatchRating.isOpen()), false, 'dismissal survives reload while GM ratings remain open');
+    await action(host2, { type: 'gm:openRating' }, m => m.type === 'match:rating' && m.open === true, 'GM rating phase still open');
+    await heroPage.waitForTimeout(200);
+    assert.equal(await heroPage.evaluate(() => MatchRating.isOpen()), false, 'same-match server reopening does not trap player');
+    await heroPage.evaluate(() => MatchRating.update({ open: true, matchId: 'next-match', title: 'Next game', myRating: null }, { isHost: false }));
+    await heroPage.getByRole('dialog', { name: 'Rate this game', exact: true }).waitFor();
+    assert.equal(await heroPage.locator('.match-rating-status').textContent(), 'SELECT ONE SCORE // 1–10');
+    await heroPage.getByRole('button', { name: 'RETURN TO MENU', exact: true }).focus();
+    await heroPage.keyboard.press('Escape');
+    assert.equal(await heroPage.evaluate(() => MatchRating.isOpen()), false, 'Escape dismisses without requiring a rating');
+    await heroPage.evaluate(() => {
+      MatchRating.update({ open: true, matchId: 'next-match' }, { isHost: true });
+    });
+    assert.equal(await heroPage.locator('.match-rating-dismiss').count(), 0, 'GM controls unchanged by player dismissal');
+    await heroPage.getByRole('button', { name: 'PROCEED TO RECOUNT', exact: true }).waitFor();
     console.log('PASS GM-only rating roster: names/scores, three WAITING, live vote updates, no public leak, GM reconnect, browser DOM');
+    console.log('PASS player ratings dismissal: mobile return-to-menu, vote preserved, other players continue, updates/reload stay dismissed, next match opens, Escape skips, GM unaffected');
   } finally {
     await browser?.close();
     sockets.forEach(ws => { try { ws.terminate(); } catch {} });
