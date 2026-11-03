@@ -38,6 +38,7 @@ function createChatUploadGuard(options = {}) {
   };
   const history = new Map(); // actorKey -> [{ at, bytes }]
   let usedBytes = 0;
+  let pendingBytes = 0;
 
   function measure() {
     let total = 0;
@@ -98,13 +99,42 @@ function createChatUploadGuard(options = {}) {
   }
 
   function checkCapacity(incomingBytes) {
-    if (usedBytes + incomingBytes > limits.budgetBytes) {
+    if (usedBytes + pendingBytes + incomingBytes > limits.budgetBytes) {
       return { ok: false, error: 'Chat image storage is full. Uploads are paused until space is reclaimed.' };
     }
     if (freeDiskBytes() - incomingBytes < limits.minFreeBytes) {
       return { ok: false, error: 'Server storage is low. Uploads are paused to protect the game.' };
     }
     return { ok: true };
+  }
+
+  // Hold capacity across asynchronous writes, so concurrent uploads cannot
+  // each claim the same remaining disk budget.
+  async function claimCapacity(bytes) {
+    pendingBytes += bytes;
+    let released = false;
+    const release = () => { if (!released) { pendingBytes -= bytes; released = true; } };
+    try {
+      if (usedBytes + pendingBytes > limits.budgetBytes) throw new Error('Chat image storage is full. Uploads are paused until space is reclaimed.');
+      const stats = await fs.promises.statfs(dir);
+      if (Number(stats.bavail) * Number(stats.bsize) - pendingBytes < limits.minFreeBytes) throw new Error('Server storage is low. Uploads are paused to protect the game.');
+      return release;
+    } catch (error) { release(); error.code = 'UPLOAD_CAPACITY'; throw error; }
+  }
+
+  function sweepAsync(input = {}) {
+    const { Worker } = require('worker_threads');
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(path.join(__dirname, 'upload-sweep-worker.js'), { workerData: { dir, limits, input } });
+      let settled = false;
+      worker.once('message', result => {
+        settled = true;
+        if (result.ok) usedBytes = Math.max(0, usedBytes - Number(result.removedBytes || 0));
+        resolve(result);
+      });
+      worker.once('error', reject);
+      worker.once('exit', code => { if (!settled) reject(new Error('Upload sweeper exited: ' + code)); });
+    });
   }
 
   function recordStored(entry, bytes) {
@@ -133,6 +163,7 @@ function createChatUploadGuard(options = {}) {
     try { names = fs.readdirSync(dir); } catch (error) { return { ok: false, error: error.message, removed: [] }; }
     const markers = new Set(names.filter(name => name.endsWith('.tribute')).map(name => name.slice(0, -'.tribute'.length).toLowerCase()));
     const removed = [];
+    let removedBytes = 0;
     for (const name of names) {
       if (!UPLOAD_NAME.test(name)) continue;
       const key = name.toLowerCase();
@@ -141,10 +172,10 @@ function createChatUploadGuard(options = {}) {
       let stats;
       try { stats = fs.statSync(full); } catch { continue; }
       if (now - stats.mtimeMs < limits.graceMs) continue;
-      try { fs.unlinkSync(full); removed.push(name); } catch {}
+      try { fs.unlinkSync(full); removed.push(name); removedBytes += stats.size; } catch {}
     }
     measure();
-    return { ok: true, removed, usedBytes };
+    return { ok: true, removed, removedBytes, usedBytes };
   }
 
   return {
@@ -152,6 +183,8 @@ function createChatUploadGuard(options = {}) {
     checkActor,
     reserve,
     checkCapacity,
+    claimCapacity,
+    sweepAsync,
     recordStored,
     sweep,
     measure,

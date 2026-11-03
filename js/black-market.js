@@ -273,25 +273,25 @@
         if (act === 'tribute-accept') {
           const comment = await window.AsocDialog.prompt({
             title:'ACCEPT BLOOD TRIBUTE',
-            message:'Optional Shadow Broker comment. The Little Hero will see it.',
+            message:'Write the reason for your verdict. The Little Hero will see it.',
             placeholder:'e.g. Adequate. The Reliquary accepts your offering.',
             maxLength:800,
-            required:false,
+            required:true,
             confirmLabel:'ACCEPT'
           });
-          if (comment === null) return;
+          if (comment === null || !String(comment).trim()) return;
           return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:true, comment:String(comment || '').trim() });
         }
         if (act === 'tribute-reject') {
           const comment = await window.AsocDialog.prompt({
             title:'REJECT BLOOD TRIBUTE',
-            message:'Optional Shadow Broker comment. The Little Hero will see it.',
+            message:'Write the reason for your verdict. The Little Hero will see it.',
             placeholder:'e.g. Not enough. Try again.',
             maxLength:800,
-            required:false,
+            required:true,
             confirmLabel:'REJECT'
           });
-          if (comment === null) return;
+          if (comment === null || !String(comment).trim()) return;
           return this.send({ type:'blackMarket:tributeJudge', pactId, accepted:false, comment:String(comment || '').trim() });
         }
         if (act === 'heart-accept') {

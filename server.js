@@ -7,6 +7,7 @@ const dns = require('dns');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
+const { storeImage } = require('./upload-io');
 const path = require('path');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
@@ -1837,10 +1838,10 @@ function getBloodTributePublicState(room) {
   };
 }
 
-function getBloodTributeVaultState(room) {
+async function getBloodTributeVaultState(room) {
   const tributes = Array.isArray(room.bloodTributes) ? room.bloodTributes.filter(t => t.pendingReview !== true) : [];
   return {
-    tributes: tributes.slice().reverse().map(t => ({
+    tributes: await Promise.all(tributes.slice().reverse().map(async t => ({
       id: t.id,
       originalMessageId: t.originalMessageId || null,
       imageAssetId: t.imageAssetId || null,
@@ -1850,7 +1851,7 @@ function getBloodTributeVaultState(room) {
       senderAvatar: t.senderAvatar || '',
       // Vault media is delivered only inside the GM-authorized WebSocket
       // payload. Never hand the client a generally fetchable upload URL.
-      imageData: getTributeImageData(t),
+      imageData: await getTributeImageData(t),
       originalMessageTimestamp: Number(t.originalMessageTimestamp || t.submittedAt) || null,
       submittedAt: Number(t.markedAt || t.submittedAt) || null,
       publicUntil: Number(t.expiresAt || t.publicUntil) || null,
@@ -1859,18 +1860,18 @@ function getBloodTributeVaultState(room) {
       reliquary: t.reliquary === true,
       archivedAt: Number(t.archivedAt) || null,
       active: Number(t.expiresAt || t.publicUntil) > Date.now()
-    }))
+    })))
   };
 }
 
-function getTributeImageData(tribute) {
+async function getTributeImageData(tribute) {
   if (typeof tribute?.imageData === 'string' && tribute.imageData.startsWith('data:image/')) return tribute.imageData;
   const match = /^\/uploads\/chat\/([a-f0-9]{32}\.(?:png|jpg|webp|gif))$/i.exec(String(tribute?.imageUrlOrStoragePath || ''));
   if (!match) return '';
   try {
     const filePath = path.join(CHAT_UPLOAD_DIR, match[1]);
     const ext = path.extname(filePath).toLowerCase();
-    return `data:${mimeTypes[ext] || 'application/octet-stream'};base64,${fs.readFileSync(filePath).toString('base64')}`;
+    return `data:${mimeTypes[ext] || 'application/octet-stream'};base64,${(await fs.promises.readFile(filePath)).toString('base64')}`;
   } catch (_) { return ''; }
 }
 
@@ -1968,25 +1969,22 @@ function handleReliquaryAccess(ws, payload) {
 // tribute.infostudId marks it as copied, so each lands there exactly once
 // and deleting it from INFOSTUD or purging the vault never brings it back.
 const tributeMirrorPending = new Set();
-function tributeImageBytes(tribute) {
-  const data = /^data:(image\/[\w.+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(tribute?.imageData || ''));
-  if (data) return { type: data[1], buffer: Buffer.from(data[2], 'base64') };
-  const file = /^\/uploads\/chat\/([a-f0-9]{32}\.(png|jpg|webp|gif))$/i.exec(String(tribute?.imageUrlOrStoragePath || ''));
-  if (!file) return null;
-  try {
-    return { type: mimeTypes['.' + file[2].toLowerCase()] || 'application/octet-stream', buffer: fs.readFileSync(path.join(CHAT_UPLOAD_DIR, file[1])) };
-  } catch { return null; }
+async function tributeImageBytes(tribute) {
+  const image = await getTributeImageData(tribute);
+  const data = /^data:(image\/[\w.+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(image);
+  return data ? { type: data[1], buffer: Buffer.from(data[2], 'base64') } : null;
 }
+
 function reliquaryFolderId() {
   const existing = infostud.list().find(item => item.kind === 'folder' && !item.parentId && item.name.trim().toLowerCase() === 'reliquary');
   return (existing || infostud.createFolder({ name: 'Reliquary', parentId: null })).id;
 }
-function mirrorTributesToInfostud(room) {
+async function mirrorTributesToInfostud(room) {
   for (const tribute of Array.isArray(room?.bloodTributes) ? room.bloodTributes : []) {
     if (!tribute?.id || tribute.infostudId || tributeMirrorPending.has(tribute.id)) continue;
-    const image = tributeImageBytes(tribute);
-    if (!image || !image.buffer.length) continue;
     tributeMirrorPending.add(tribute.id);
+    const image = await tributeImageBytes(tribute);
+    if (!image || !image.buffer.length) { tributeMirrorPending.delete(tribute.id); continue; }
     const at = Number(tribute.originalMessageTimestamp || tribute.submittedAt || tribute.markedAt) || Date.now();
     let stamp;
     try {
@@ -2050,9 +2048,14 @@ function handleBloodTributeReviewDecision(ws, message) {
 }
 
 function sendTributeVaultToHost(room) {
-  mirrorTributesToInfostud(room);
-  if (!room?.hostConnection || room.hostConnection.gmAuthenticated !== true || !hasReliquaryAccess(room.hostConnection)) return;
-  sendToWs(room.hostConnection, { type: 'tribute:vault', ...getBloodTributeVaultState(room) });
+  afterDurable(() => mirrorTributesToInfostud(room));
+  const host = room?.hostConnection;
+  if (!host?.gmAuthenticated || !hasReliquaryAccess(host)) return;
+  const generation = room._vaultMediaGeneration = (room._vaultMediaGeneration || 0) + 1;
+  afterDurable(async () => {
+    const state = await getBloodTributeVaultState(room);
+    if (room.hostConnection === host && host.gmAuthenticated && hasReliquaryAccess(host) && room._vaultMediaGeneration === generation) sendToWs(host, { type: 'tribute:vault', ...state });
+  });
 }
 
 // ---------------------------------------------------------------------
@@ -2502,19 +2505,20 @@ function blackMarketTargets(room) {
   return [...targets.values()].sort((a,b) => Number(b.connected)-Number(a.connected) || a.name.localeCompare(b.name));
 }
 function sendBlackMarketGm(room) {
-  if (room?.hostConnection?.readyState === 1 && room.hostConnection.gmAuthenticated === true) {
+  const host = room?.hostConnection;
+  if (!host?.gmAuthenticated || host.readyState !== 1) return;
+  const generation = room._blackMarketMediaGeneration = (room._blackMarketMediaGeneration || 0) + 1;
+  afterDurable(async () => {
     const view = blackMarket.gmView(room.blackMarket);
-    // Binary tribute uploads are private from the instant they are written.
-    // Materialize them for the authenticated GM over the socket instead of
-    // exposing a reusable HTTP URL in the GM projection.
     for (const pact of view.pacts || []) {
       if (!pact.tributeImageUrl) continue;
-      pact.tributeImageData = getTributeImageData({ imageUrlOrStoragePath: pact.tributeImageUrl });
+      pact.tributeImageData = await getTributeImageData({ imageUrlOrStoragePath: pact.tributeImageUrl });
       pact.tributeImageUrl = '';
     }
-    sendToWs(room.hostConnection, { type: 'blackMarket:gmState', ...view, targets: blackMarketTargets(room) });
-  }
+    if (room.hostConnection === host && host.gmAuthenticated && room._blackMarketMediaGeneration === generation) sendToWs(host, { type: 'blackMarket:gmState', ...view, targets: blackMarketTargets(room) });
+  });
 }
+
 function syncBlackMarket(room, playerId) {
   sendBlackMarketPlayer(room, playerId);
   sendBlackMarketGm(room);
@@ -5453,7 +5457,7 @@ async function handleChatImageUrl(ws, message) {
 
   try {
     const remote = await fetchRemoteChatImage(message.url || '');
-    runtimeAction(() => persistChatImage(room, imageActor, remote.buffer, remote.contentType, caption));
+    await persistChatImage(room, imageActor, remote.buffer, remote.contentType, caption);
   } catch (error) {
     console.error('[chat-image-url/ws] import failed:', error.message);
     sendToWs(ws, { type: 'error', message: error.message || 'Image address import failed' });
@@ -7161,47 +7165,28 @@ function uploadFailureStatus(error) {
   return error?.code === 'UPLOAD_CAPACITY' ? 507 : 500;
 }
 
-function persistChatImage(room, actor, buffer, contentType, caption) {
-  const extByType = {
-    'image/png': 'png',
-    'image/jpeg': 'jpg',
-    'image/webp': 'webp',
-    'image/gif': 'gif'
-  };
-  const ext = extByType[contentType];
-  if (!ext) throw new Error('Unsupported image type');
-  const capacity = chatUploadGuard.checkCapacity(buffer.length);
-  if (!capacity.ok) throw Object.assign(new Error(capacity.error), { code: 'UPLOAD_CAPACITY' });
-  const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
-  const filePath = path.join(CHAT_UPLOAD_DIR, filename);
-  fs.writeFileSync(filePath, buffer, { flag: 'wx', mode: 0o600 });
-  chatUploadGuard.recordStored(actor.uploadSlot, buffer.length);
-  const imageUrl = '/uploads/chat/' + filename;
-  const message = appendChatImageMessage(room, actor, imageUrl, caption);
-  persistActiveRooms();
-  broadcastChatUpdate(room, [message.id]);
-  return { imageUrl, messageId: message.id };
+function durableResult(action) {
+  if (persistenceFailed || recoveryStoreLocked || shuttingDown) return Promise.reject(new Error('Storage is unavailable'));
+  return new Promise(resolve => runtimeAction(() => {
+    const result = action();
+    outbound.push([null, () => resolve(result)]);
+  }));
 }
-
-function persistBlackMarketTributeUpload(actor, buffer, contentType, pactId) {
-  const extByType = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
-  const ext = extByType[contentType];
-  if (!ext) throw new Error('Unsupported image type');
-  const capacity = chatUploadGuard.checkCapacity(buffer.length);
-  if (!capacity.ok) throw Object.assign(new Error(capacity.error), { code: 'UPLOAD_CAPACITY' });
-  const filename = crypto.randomBytes(16).toString('hex') + '.' + ext;
-  const filePath = path.join(CHAT_UPLOAD_DIR, filename);
-  fs.writeFileSync(filePath, buffer, { flag: 'wx', mode: 0o600 });
-  // Sidecar is checked by the HTTP serving path. The offering is never public
-  // chat media, even before the GM judges it or after a restart.
-  fs.writeFileSync(filePath + '.private', 'black-market-tribute', { flag: 'wx', mode: 0o600 });
-  chatUploadGuard.recordStored(actor.uploadSlot, buffer.length);
-  const imageUrl = '/uploads/chat/' + filename;
-  blackMarketUploadClaims.set(imageUrl, {
-    playerId: String(actor.playerId),
-    pactId: String(pactId),
-    createdAt: Date.now()
+function afterDurable(action) {
+  const run = () => { Promise.resolve().then(action).catch(error => console.error('[private-media]', error.message)); };
+  if (runtimeActionExecuting && outbound) outbound.push([null, run]); else run();
+}
+async function persistChatImage(room, actor, buffer, contentType, caption) {
+  const imageUrl = await storeImage(CHAT_UPLOAD_DIR, chatUploadGuard, buffer, contentType, actor.uploadSlot);
+  return durableResult(() => {
+    const message = appendChatImageMessage(room, actor, imageUrl, caption);
+    persistActiveRooms(); broadcastChatUpdate(room, [message.id]);
+    return { imageUrl, messageId: message.id };
   });
+}
+async function persistBlackMarketTributeUpload(actor, buffer, contentType, pactId) {
+  const imageUrl = await storeImage(CHAT_UPLOAD_DIR, chatUploadGuard, buffer, contentType, actor.uploadSlot, true);
+  blackMarketUploadClaims.set(imageUrl, { playerId: String(actor.playerId), pactId: String(pactId), createdAt: Date.now() });
   return { imageUrl };
 }
 
@@ -7849,15 +7834,28 @@ function handleGmPoisonCast(ws, message) {
   sendToWs(ws, { type: 'gm:poisonCastResult', ok: true, playerId: targetId, playerName });
 }
 
-function handlePoisonTributeSubmit(ws, message) {
+function handlePoisonTributeSubmit(ws, message, storedImageUrl = null) {
   const room = rooms.get(ws.roomCode?.toUpperCase());
   if (!room || !ws.playerId) return sendToWs(ws, { type: 'error', message: 'POISON TRIBUTE REQUIRES A LITTLE HERO' });
   const state = ensurePoisonState(room)[String(ws.playerId)];
   if (!state || state.status !== 'bleeding') return sendToWs(ws, { type: 'error', message: 'NO ACTIVE POISON REQUIRES TRIBUTE' });
   if (state.pendingTributeId) return sendToWs(ws, { type: 'error', message: 'POISON TRIBUTE ALREADY AWAITS JUDGMENT' });
   if (message.retentionAcknowledged !== true) return sendToWs(ws, { type: 'error', message: 'Tribute archive notice must be acknowledged' });
-  const imageData = sanitizeTributeImageData(message.imageData, BLACK_MARKET_TRIBUTE_MAX_BYTES);
-  if (!imageData) return sendToWs(ws, { type: 'error', message: 'Invalid tribute image or file too large' });
+  if (!storedImageUrl) {
+    const imageData = sanitizeTributeImageData(message.imageData, BLACK_MARKET_TRIBUTE_MAX_BYTES);
+    if (!imageData) return sendToWs(ws, { type: 'error', message: 'Invalid tribute image or file too large' });
+    const match = /^data:(image\/[a-z]+);base64,(.+)$/.exec(imageData);
+    const buffer = Buffer.from(match[2], 'base64');
+    if (!validChatImageBytes(buffer, match[1])) return sendToWs(ws, { type: 'error', message: 'Invalid tribute image' });
+    const poisonId = state.id;
+    storeImage(CHAT_UPLOAD_DIR, chatUploadGuard, buffer, match[1], null, true)
+      .then(url => runtimeAction(() => {
+        if (room.poison?.[String(ws.playerId)]?.id !== poisonId) return;
+        handlePoisonTributeSubmit(ws, { retentionAcknowledged: true }, url);
+      }))
+      .catch(() => sendToWs(ws, { type: 'error', message: 'Tribute image could not be stored. Try again.' }));
+    return;
+  }
 
   const now = Date.now();
   const tribute = {
@@ -7866,7 +7864,7 @@ function handlePoisonTributeSubmit(ws, message) {
     playerName: state.playerName,
     source: 'poison',
     poisonId: state.id,
-    imageData,
+    imageUrlOrStoragePath: storedImageUrl,
     submittedAt: now,
     publicUntil: 0,
     pendingJudgment: true
@@ -7877,35 +7875,23 @@ function handlePoisonTributeSubmit(ws, message) {
   room.revision++;
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
-  if (room.hostConnection?.readyState === 1) {
-    sendToWs(room.hostConnection, {
-      type: 'poison:tributeOffered',
-      tributeId: tribute.id,
-      playerId: state.playerId,
-      playerName: state.playerName,
-      imageData,
-      timestamp: now
-    });
-  }
+  sendPoisonTributeReview(room, tribute);
   sendToWs(ws, { type: 'poison:tributeAcceptedForReview', tributeId: tribute.id });
   sendTributeVaultToHost(room);
 }
 
+function sendPoisonTributeReview(room, tribute) {
+  const host = room.hostConnection;
+  afterDurable(async () => {
+    const imageData = await getTributeImageData(tribute);
+    if (room.hostConnection !== host || !host?.gmAuthenticated || host.readyState !== 1 || !tribute.pendingJudgment || !room.bloodTributes?.includes(tribute)) return;
+    sendToWs(host, { type: 'poison:tributeOffered', tributeId: tribute.id, playerId: tribute.playerId, playerName: tribute.playerName, imageData, timestamp: tribute.submittedAt });
+  });
+}
 function sendPendingPoisonTributesToHost(room) {
-  if (!room?.hostConnection || room.hostConnection.readyState !== 1) return;
   for (const state of Object.values(ensurePoisonState(room))) {
-    if (!state?.pendingTributeId) continue;
-    const tribute = (room.bloodTributes || []).find(item => item.id === state.pendingTributeId && item.source === 'poison' && item.pendingJudgment === true);
-    if (!tribute?.imageData) continue;
-    sendToWs(room.hostConnection, {
-      type: 'poison:tributeOffered',
-      tributeId: tribute.id,
-      playerId: state.playerId,
-      playerName: state.playerName,
-      imageData: tribute.imageData,
-      timestamp: tribute.submittedAt || Date.now(),
-      replayed: true
-    });
+    const tribute = (room.bloodTributes || []).find(item => item.id === state?.pendingTributeId && item.source === 'poison' && item.pendingJudgment === true);
+    if (tribute) sendPoisonTributeReview(room, tribute);
   }
 }
 
@@ -7925,6 +7911,7 @@ function handlePoisonTributeDecision(ws, message) {
     poisonCure(room, playerId, 'tribute');
   } else {
     state.pendingTributeId = null;
+    state.tributeAttempt = (state.tributeAttempt || 0) + 1;
     poisonBroadcastState(room, {
       type: 'poison:tributeRejected',
       playerId: state.playerId,
@@ -8915,26 +8902,21 @@ function dispatchPlayerSlashCommand(room, ws, text, message) {
     if (poison) {
       if (poison.status !== 'awaiting_roll' || poison.rollUsed === true) return { success: false, error: 'POISON SAVE ALREADY SPENT' };
       if (!/^\/roll\s*$/i.test(raw)) return { success: false, error: 'POISON SAVE IS FORCED // USE /roll' };
-      const result = addRollMessage(room, ws.playerId, ws.playerName, { min: 1, max: 100 }, { suppressTribute: true });
-      if (!result.success) return result;
-      const value = Number(result.message?.roll?.value) || 0;
+      const value = crypto.randomInt(1, 101);
       poison.rollUsed = true;
       poison.rollValue = value;
-      result.poisonStateChanged = true;
       if (value >= 50) {
         delete room.poison[String(ws.playerId)];
-        result.message.poisonSave = { cured: true, value };
-        result.message.text += ' // VENOM RESISTED // CURED';
         broadcastToRoom(room, { type: 'poison:cured', playerId: ws.playerId, playerName: ws.playerName, reason: 'roll', roll: value, timestamp: Date.now() });
       } else {
         poison.status = 'bleeding';
         poison.nextTickAt = Date.now() + 20000;
-        result.message.poisonSave = { cured: false, value, nextTickAt: poison.nextTickAt };
-        result.message.text += ' // SURVIVAL CHECK FAILED // BLOOD TRIBUTE REQUIRED';
         broadcastToRoom(room, { type: 'poison:failed', playerId: ws.playerId, playerName: ws.playerName, roll: value, nextTickAt: poison.nextTickAt, timestamp: Date.now() });
       }
       room.revision++;
-      return result;
+      persistActiveRooms();
+      broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+      return { success: true, private: true };
     }
     const chaosRoll = getChaosService().onRoll(room, ws, raw);
     if (chaosRoll) return chaosRoll;
@@ -10568,6 +10550,7 @@ function isRetiredRageAnnouncement(message) {
     && /^THY SHALL NOT RAGE\s*\/\//i.test(String(message.text || ''));
 }
 function isVisibleChatMessage(message) {
+  if (message?.poisonSave) return false; // legacy survival rolls were accidentally posted publicly
   return message?.source !== 'bloodTribute'
     && message?.messageType !== 'poison'
     && !message?.poison
@@ -14115,16 +14098,14 @@ function handleApiRequest(req, res) {
       res.setHeader('Retry-After', String(Math.max(1, Math.ceil(verdict.retryAfterMs / 1000))));
       return sendJson(res, 429, { error: verdict.error, code: 'UPLOAD_THROTTLED' });
     }
-    const capacity = chatUploadGuard.checkCapacity(BLACK_MARKET_TRIBUTE_MAX_BYTES);
-    if (!capacity.ok) return sendJson(res, 507, { error: capacity.error, code: 'UPLOAD_CAPACITY' });
     actor.uploadSlot = chatUploadGuard.reserve(actorKey);
 
-    return readChatImageBody(req, (err, body) => {
+    return readChatImageBody(req, async (err, body) => {
       if (err) return sendJson(res, err.code === 'TOO_LARGE' ? 413 : 400, { error: err.code === 'TOO_LARGE' ? 'Image exceeds 20 MB limit' : 'Image upload failed' });
       if (!body || body.length === 0) return sendJson(res, 400, { error: 'Empty image upload' });
       if (!validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Image file signature does not match its declared type' });
       try {
-        const stored = persistBlackMarketTributeUpload(actor, body, contentType, pactId);
+        const stored = await persistBlackMarketTributeUpload(actor, body, contentType, pactId);
         return sendJson(res, 201, { ok: true, pactId, ...stored });
       } catch (writeError) {
         console.error('[black-market-tribute] upload failed', writeError);
@@ -14142,20 +14123,24 @@ function handleApiRequest(req, res) {
     if (poison?.status !== 'bleeding' || poison.pendingTributeId) return sendJson(res, 409, { error: 'No poison tribute is currently owed' });
     const contentType = String(req.headers['content-type'] || '').split(';')[0].toLowerCase();
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(contentType)) return sendJson(res, 415, { error: 'PNG, JPG or WEBP only' });
-    const gate = chatUploadGuard.checkActor('poison:' + actor.playerId, Date.now(), { maxCount: 4, minGapMs: 1000, maxBytes: 40 * 1024 * 1024 });
+    const poisonUploadKey = `poison:${actor.playerId}:${poison.id}:${poison.tributeAttempt || 0}`;
+    const gate = chatUploadGuard.checkActor(poisonUploadKey, Date.now(), { maxCount: 4, minGapMs: 1000, maxBytes: 40 * 1024 * 1024 });
     if (!gate.ok) return sendJson(res, 429, { error: gate.error });
-    chatUploadGuard.reserve('poison:' + actor.playerId);
+    actor.uploadSlot = chatUploadGuard.reserve(poisonUploadKey);
     const poisonId = poison.id;
-    return readChatImageBody(req, (error, body) => {
+    return readChatImageBody(req, async (error, body) => {
       if (error) return sendJson(res, error.code === 'TOO_LARGE' ? 413 : 400, { error: error.code === 'TOO_LARGE' ? 'Image exceeds 20 MB limit' : 'Image upload failed' });
       if (!body?.length || !validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Invalid image file' });
-      runtimeAction(() => {
-        const ws = Array.from(room.players.keys()).find(socket => socket.playerId === actor.playerId && socket.readyState === 1);
-        const live = room.poison?.[String(actor.playerId)];
-        if (!ws || live?.id !== poisonId || live.pendingTributeId) return sendJson(res, 409, { error: 'Poison status changed. Reconnect and try again.' });
-        handlePoisonTributeSubmit(ws, { imageData: `data:${contentType};base64,${body.toString('base64')}`, retentionAcknowledged: true });
-        return sendJson(res, live.pendingTributeId ? 201 : 400, live.pendingTributeId ? { ok: true, tributeId: live.pendingTributeId } : { error: 'Offering was not accepted for review' });
-      });
+      try {
+        const imageUrl = await storeImage(CHAT_UPLOAD_DIR, chatUploadGuard, body, contentType, actor.uploadSlot, true);
+        runtimeAction(() => {
+          const ws = Array.from(room.players.keys()).find(socket => socket.playerId === actor.playerId && socket.readyState === 1);
+          const live = room.poison?.[String(actor.playerId)];
+          if (!ws || live?.id !== poisonId || live.pendingTributeId) return sendJson(res, 409, { error: 'Poison status changed. Reconnect and try again.' });
+          handlePoisonTributeSubmit(ws, { retentionAcknowledged: true }, imageUrl);
+          return sendJson(res, live.pendingTributeId ? 201 : 400, live.pendingTributeId ? { ok: true, tributeId: live.pendingTributeId } : { error: 'Offering was not accepted for review' });
+        });
+      } catch (error) { sendJson(res, uploadFailureStatus(error), { error: error.code === 'UPLOAD_CAPACITY' ? error.message : 'Tribute image could not be stored' }); }
     }, BLACK_MARKET_TRIBUTE_MAX_BYTES);
   }
 
@@ -14196,7 +14181,7 @@ function handleApiRequest(req, res) {
       const caption = sanitizeText(body?.caption || '').slice(0, captionLimit);
       try {
         const remote = await fetchRemoteChatImage(body?.url || '');
-        const stored = persistChatImage(room, actor, remote.buffer, remote.contentType, caption);
+        const stored = await persistChatImage(room, actor, remote.buffer, remote.contentType, caption);
         return sendJson(res, 201, { ok: true, ...stored });
       } catch (error) {
         console.error('[chat-image-url] import failed:', error.message);
@@ -14306,13 +14291,13 @@ function handleApiRequest(req, res) {
     const captionLimit = actor.role === 'gm' ? 500 : MAX_CHAT_LENGTH;
     const caption = sanitizeText(url.searchParams.get('caption') || '').slice(0, captionLimit);
 
-    return readChatImageBody(req, (err, body) => {
+    return readChatImageBody(req, async (err, body) => {
       if (err) return sendJson(res, err.code === 'TOO_LARGE' ? 413 : 400, { error: err.code === 'TOO_LARGE' ? 'Image exceeds 5 MB limit' : 'Image upload failed' });
       if (!body || body.length === 0) return sendJson(res, 400, { error: 'Empty image upload' });
       if (!validChatImageBytes(body, contentType)) return sendJson(res, 415, { error: 'Image file signature does not match its declared type' });
 
       try {
-        const stored = persistChatImage(room, actor, body, contentType, caption);
+        const stored = await persistChatImage(room, actor, body, contentType, caption);
         return sendJson(res, 201, { ok: true, ...stored });
       } catch (writeError) {
         console.error('[chat-image] upload failed', writeError);
@@ -15229,6 +15214,7 @@ wss.on('connection', (ws, req) => {
         case 'tombola:pick':
         case 'tombola:skip':
         case 'tombola:cancel':
+        case 'tombola:toggle':
         case 'tombola:sync': {
           getTombolaService().handle(ws, message);
           break;
@@ -15991,42 +15977,66 @@ setInterval(() => runtimeAction(() => pruneLongOfflineIdentities()), Math.min(OF
 // chat message has scrolled out of history. Skipped entirely while recovery
 // storage is locked or failed: never delete on a partial view of state.
 const CHAT_UPLOAD_SWEEP_INTERVAL_MS = Math.max(60 * 1000, Number(process.env.ASOC_CHAT_UPLOAD_SWEEP_INTERVAL_MS) || 60 * 60 * 1000);
-function chatUploadReferenceFiles() {
+async function chatUploadReferenceFiles() {
   const files = new Set([ACTIVE_ROOMS_FILE]);
   ['ASOC_DM_FILE', 'ASOC_PLAYERS_FILE', 'ASOC_MATCHES_FILE', 'ASOC_SESSION_FILE'].forEach(name => {
     if (process.env[name]) files.add(path.resolve(process.env[name]));
   });
   try {
-    for (const name of fs.readdirSync(ASOC_DATA_DIR)) {
+    for (const name of await fs.promises.readdir(ASOC_DATA_DIR)) {
       if (/\.json(?:\.bak)?$/i.test(name)) files.add(path.join(ASOC_DATA_DIR, name));
     }
   } catch {}
   return Array.from(files);
 }
-function sweepChatUploads() {
-  if (recoveryStoreLocked || persistenceFailed) return null;
-  const texts = Array.from(rooms.values(), room => JSON.stringify(serializeRoomForRecovery(room)));
-  // Live roster avatars (including in-memory test personas) are references
-  // too: the recovery snapshot no longer carries them.
-  rooms.forEach(room => room.players.forEach(player => { if (player?.avatarData) texts.push(player.avatarData); }));
-  const avatars = avatarFileGuard.sweep({ texts, files: chatUploadReferenceFiles() });
-  if (avatars.ok && avatars.removed.length) console.log(`[avatars] Removed ${avatars.removed.length} unreferenced avatar file(s)`);
-  const result = chatUploadGuard.sweep({ texts, files: chatUploadReferenceFiles() });
-  if (!result.ok) console.warn('[chat-uploads] Sweep skipped:', result.error);
-  else if (result.removed.length) console.log(`[chat-uploads] Removed ${result.removed.length} orphaned upload(s); ${(result.usedBytes / 1048576).toFixed(1)} MB in use`);
-  return result;
+let uploadSweepRunning = false;
+async function sweepChatUploads() {
+  if (recoveryStoreLocked || persistenceFailed || uploadSweepRunning) return null;
+  uploadSweepRunning = true;
+  try {
+    const texts = Array.from(rooms.values(), room => JSON.stringify(serializeRoomForRecovery(room)));
+    // Live roster avatars (including in-memory test personas) are references
+    // too: the recovery snapshot no longer carries them.
+    rooms.forEach(room => room.players.forEach(player => { if (player?.avatarData) texts.push(player.avatarData); }));
+    const files = await chatUploadReferenceFiles();
+    const avatars = await avatarFileGuard.sweepAsync({ texts, files });
+    if (avatars.ok && avatars.removed.length) console.log(`[avatars] Removed ${avatars.removed.length} unreferenced avatar file(s)`);
+    const result = await chatUploadGuard.sweepAsync({ texts, files });
+    if (!result.ok) console.warn('[chat-uploads] Sweep skipped:', result.error);
+    else if (result.removed.length) console.log(`[chat-uploads] Removed ${result.removed.length} orphaned upload(s); ${(result.usedBytes / 1048576).toFixed(1)} MB in use`);
+    return result;
+  } finally { uploadSweepRunning = false; }
 }
-setTimeout(() => { try { sweepChatUploads(); } catch (error) { console.error('[chat-uploads] Sweep failed:', error.message); } }, 30 * 1000).unref();
-setInterval(() => { try { sweepChatUploads(); } catch (error) { console.error('[chat-uploads] Sweep failed:', error.message); } }, CHAT_UPLOAD_SWEEP_INTERVAL_MS).unref();
+const runUploadSweep = () => sweepChatUploads().catch(error => console.error('[chat-uploads] Sweep failed:', error.message));
+setTimeout(runUploadSweep, 30 * 1000).unref();
+setInterval(runUploadSweep, CHAT_UPLOAD_SWEEP_INTERVAL_MS).unref();
 
-server.listen(PORT, '0.0.0.0', () => {
+async function migratePoisonTributeImages() {
+  for (const room of rooms.values()) {
+    for (const tribute of room.bloodTributes || []) {
+      if (tribute.source !== 'poison' || !tribute.imageData) continue;
+      const original = tribute.imageData;
+      const match = /^data:(image\/[a-z]+);base64,(.+)$/.exec(original);
+      if (!match) continue;
+      const imageUrl = await storeImage(CHAT_UPLOAD_DIR, chatUploadGuard, Buffer.from(match[2], 'base64'), match[1], null, true);
+      await durableResult(() => {
+        if (tribute.imageData !== original) return;
+        tribute.imageUrlOrStoragePath = imageUrl;
+        delete tribute.imageData;
+        persistActiveRooms();
+      });
+    }
+  }
+}
+// Files are durable before inline predecessors leave the recovery snapshot.
+migratePoisonTributeImages().then(() => server.listen(PORT, '0.0.0.0', () => {
   pruneAuthTokens();
   console.log(`ASOC Engine server running on http://0.0.0.0:${PORT}`);
   console.log(`Gamemaster: http://localhost:${PORT}`);
   console.log(`Player join: http://<LAN-IP>:${PORT}/join.html`);
   console.log(`[persistence] Durable data directory: ${ASOC_DATA_DIR}`);
   if (restoredRoomCount > 0) console.log(`[recovery] ${restoredRoomCount} room(s) available for reconnect`);
-});
+})).catch(error => { console.error('[poison-media] Recovery migration failed:', error.message); process.exit(1); });
 
 const SHUTDOWN_GRACE_MS = Math.max(1000, Number(process.env.ASOC_SHUTDOWN_GRACE_MS) || 10000);
 async function gracefulShutdown(signal) {

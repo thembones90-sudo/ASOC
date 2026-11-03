@@ -62,6 +62,14 @@ assert.match(announcer.announcementQueue[0].text, /Kaladont/);
 const announced = dennis.tick(announcer, nine + 60_001, zero);
 assert.equal(announced.message, 'Kaladont počinje, ajde gledajte svoj potez');
 assert.equal(announced.state.announcementQueue.length, 0);
+const exhausted = { ...restored, messagesToday: dennis.MAX_MESSAGES_PER_DAY, nextAmbientAt: nine + 999999 };
+const important = dennis.queueGameAnnouncement(exhausted, 'open', { game: 'Kaladont' }, nine + 90000, zero);
+const delivered = dennis.tick(important, nine + 90001, zero);
+assert.match(delivered.message, /Kaladont/, 'game announcement survives exhausted ambient budget');
+assert.equal(delivered.state.messagesToday, dennis.MAX_MESSAGES_PER_DAY);
+assert.equal(delivered.state.announcementQueue.length, 0);
+assert.equal(dennis.tick(delivered.state, nine + 90002, zero).message, null, 'ambient limit remains enforced');
+
 
 let disabledAnnouncer = dennis.setAnnouncerMode(restored, 'off', nine + 70_000, zero);
 disabledAnnouncer = dennis.queueGameAnnouncement(disabledAnnouncer, 'vote', { game: 'Kaladont' }, nine + 80_000, zero);

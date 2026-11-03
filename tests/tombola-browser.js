@@ -197,6 +197,14 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       let saved = JSON.parse(fs.readFileSync(path.join(server.dataDir, 'active-rooms.json'), 'utf8')).rooms[0].tombola;
       assert.equal(saved.phase, phase, 'minus preserves the live game');
       await gm.locator('#tombola-restore').click();
+      await gm.locator('[data-tombola-action="toggle"]').click();
+      await gm.waitForFunction(() => document.querySelector('[data-tombola-action="toggle"]')?.textContent.includes('SHOW FATEBREAKER'));
+      for (const page of [alpha, beta]) await page.locator('#tombola-overlay').waitFor({ state: 'hidden' });
+      await gm.locator('[data-tombola-action="toggle"]').click();
+      for (const page of [alpha, beta]) await page.locator('#tombola-overlay').waitFor({ state: 'visible' });
+      await gm.locator('[data-tombola-minimize]').click();
+
+      await gm.locator('#tombola-restore').click();
       await gm.locator('[data-tombola-close]').click();
       for (const page of [gm, alpha, beta]) await page.locator('#tombola-overlay').waitFor({ state: 'hidden' });
       saved = JSON.parse(fs.readFileSync(path.join(server.dataDir, 'active-rooms.json'), 'utf8')).rooms[0].tombola;

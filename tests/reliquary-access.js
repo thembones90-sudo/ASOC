@@ -17,7 +17,9 @@ const from=source.indexOf('function sendTributeVaultToHost(room) {');
 const to=source.indexOf('\n}',from)+2;
 assert.ok(from>0&&to>from);
 const sent=[];
+const jobs=[];
 const sendVault=vm.runInNewContext('('+source.slice(from,to)+')',{
+ afterDurable:action=>jobs.push(Promise.resolve().then(action)),
  mirrorTributesToInfostud:()=>{},hasReliquaryAccess,
  getBloodTributeVaultState:()=>({tributes:[{id:'fixture'}]}),
  sendToWs:(ws,payload)=>sent.push(payload)
@@ -26,7 +28,16 @@ for(const invalid of [undefined,NaN,0,Date.now()-1]){
  sendVault({hostConnection:{reliquaryUnlockedUntil:invalid}});
 }
 assert.equal(sent.length,0,'reconnecting locked GM must never receive image vault');
-sendVault({hostConnection:{gmAuthenticated:true,reliquaryUnlockedUntil:Date.now()+600000}});
-assert.equal(sent.length,1);
-assert.equal(sent[0].type,'tribute:vault');
-console.log('PASS Reliquary: missing/expired access denies reads/updates/purge; unlocked GM receives vault');
+(async()=>{
+ const room={hostConnection:{gmAuthenticated:true,reliquaryUnlockedUntil:Date.now()+600000}};
+ sendVault(room);
+ room.hostConnection.reliquaryUnlockedUntil=0;
+ await Promise.all(jobs.splice(0));
+ assert.equal(sent.length,0,'locking during async image loading must prevent delivery');
+ room.hostConnection.reliquaryUnlockedUntil=Date.now()+600000;
+ sendVault(room);
+ await Promise.all(jobs.splice(0));
+ assert.equal(sent.length,1);
+ assert.equal(sent[0].type,'tribute:vault');
+ console.log('PASS Reliquary: missing/expired access denies reads/updates/purge; async loading rechecks unlocked GM');
+})().catch(error=>{console.error(error);process.exitCode=1;});

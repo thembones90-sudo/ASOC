@@ -389,10 +389,12 @@ function tick(input, now = Date.now(), random = Math.random) {
     return { state, message: morningGreeting, morning: true, imageUrl: morningGreeting === 'Jutro 😩' ? DENNIS_MORNING_IMAGE : '', retaliations: [] };
   }
 
-  if (state.announcementQueue.length && state.messagesToday < MAX_MESSAGES_PER_DAY) {
+  if (state.announcementQueue.length) {
     const announcement = state.announcementQueue.shift();
     state.lastAnnouncementAt = now;
-    remember(state, announcement.text);
+    // Required game commentary has its own event cooldowns; ambient chatter
+    // must never consume its delivery allowance.
+    state.recentMessages = [...(state.recentMessages || []), announcement.text].slice(-5);
     scheduleAmbient(state, now, random);
     return { state, message: announcement.text, retaliations: [] };
   }
