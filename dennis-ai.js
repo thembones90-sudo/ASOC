@@ -25,26 +25,34 @@ const ANNOUNCEMENT_EVENT_COOLDOWN_MS = 60_000;
 const GAME_ANNOUNCEMENTS = Object.freeze({
   open: Object.freeze({
     announcer: [
-      'Kapije za {{game}} su otvorene. Uđite dobrovoljno, da vas kasnije ne vučemo.',
-      '{{game}} doziva nove žrtve. Ovo je poslednji trenutak da se pravite da niste videli.',
-      'Zbor je sazvan. {{game}} čeka svoje junake, ili ono što danas imamo umesto njih.',
-      'Otvara se {{game}}. Nada ulazi prva, dostojanstvo obično ne izađe.'
+      '{{game}} je otvoren, ajde ulazite da ne čekamo do sutra',
+      'Ko igra {{game}}? Javite se sad, nemoj posle nisam video',
+      'Ajde {{game}}, možda danas neko i pročita pravila xD',
+      'Otvoren {{game}}. Ja ne igram, dovoljno mi je što gledam',
+      'Evo vam {{game}}, taman sam mislio da će biti miran dan',
+      '{{game}}, prijave otvorene. Gde ste sad svi',
+      'Ajde prijavite se za {{game}}, ne mogu ponovo da vas skupljam',
+      '{{game}} čeka igrače. Huh? Pa klikni da se prijaviš'
     ],
     advice: [
-      'Kapije za {{game}} su otvorene. Pročitajte pravila pre ulaska; tragedija je bolja kada bar znate zašto gubite.',
-      '{{game}} prima igrače. Uđite sada i proverite pravila, jer panika tokom partije retko izgleda herojski.'
+      '{{game}} je otvoren. Pročitajte pravila sad, nemoj posle Dennis šta treba da radim',
+      'Ajde prijave za {{game}}. Pogledajte i pravila usput, nije ukras xD'
     ]
   }),
   start: Object.freeze({
     announcer: [
-      'Neka zazvone poslednja zvona. {{game}} je počeo, a razum je prvi napustio bojno polje.',
-      '{{game}} počinje. Sudbina vas posmatra i već deluje razočarano.',
-      'Pečat je slomljen. {{game}} je počeo. Od ovog trenutka svaka greška postaje istorijska sramota.',
-      'Bubnjevi odzvanjaju. {{game}} kreće, mada sam lično navijao za otkazivanje.'
+      '{{game}} počinje, ajde gledajte svoj potez',
+      'Krenuo {{game}}. Nemoj za dva minuta da pitate jel počelo',
+      'Ajde igrajte. Ja ne mogu ovaj posao više',
+      '{{game}} je počeo, srećno ili šta se već kaže',
+      'E počelo je. Sad će neko da ode po kafu',
+      'Kreće {{game}}, da vidimo ko će prvi da kaže da je namešteno',
+      'Svi tu? Dobro, počinjemo. AAAAAAAAA',
+      '{{game}} počinje. Možda bude normalna partija jednom xD'
     ],
     advice: [
-      '{{game}} je počeo. Pratite redosled i svoj potez; propast je neizbežna, ali ne mora biti administrativna.',
-      'Bitka počinje. Gledajte stanje igre, ne poruke od pre pet minuta. Haos ne mora baš potpuno da pobedi.'
+      '{{game}} je počeo. Gledajte ko je na potezu, ne mogu svakog posebno da zovem',
+      'E počelo je. Gledajte igru i tajmer, poruke od pre pet minuta mogu da sačekaju'
     ]
   }),
   turn: Object.freeze({

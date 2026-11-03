@@ -27,7 +27,7 @@ const H=require('./lib/browser-harness');
   await gm.locator('[data-tombola-action=start]:not([disabled])').waitFor();
   const snapshot=()=>JSON.parse(fs.readFileSync(path.join(server.dataDir,'active-rooms.json'),'utf8')).rooms[0].tombola;
   const initialLobby=snapshot();assert.equal(initialLobby.signupEndsAt-initialLobby.createdAt,120000);
-  for(const p of [a,b])await p.waitForFunction(()=>PlayerApp.chatMessages.some(m=>String(m.text).includes('FATEBREAKER LOBBY IS OPEN')));
+  for(const p of [a,b])await p.waitForFunction(()=>PlayerApp.chatMessages.some(m=>String(m.text).includes('Ajde FATEBREAKER, imate 2 minuta da se prijavite.')));
   for(const p of [a,b]){
    await p.locator('#tombola-invite').waitFor({state:'visible'});
    assert.equal(await p.locator('#tombola-invite').evaluate(n=>n.matches(':modal')),true,'summon is in browser top layer');
@@ -41,7 +41,7 @@ const H=require('./lib/browser-harness');
    await p.locator('#tombola-invite').screenshot({path:path.join(H.ROOT,'.scratch','fatebreaker-invite',p===a?'desktop.png':'mobile.png')});
   }
   assert.equal(await gm.locator('#tombola-invite').count(),0);
-  await gm.locator('[data-tombola-close]').click();
+  await gm.locator('[data-tombola-minimize]').click();
   await gm.locator('#gm-minigames-toggle').click();await gm.locator('[data-gm-minigame=tombola]').click();
   await gm.locator('[data-tombola-action=start]:not([disabled])').waitFor();
   assert.equal(snapshot().id,initialLobby.id,'reopening card preserves lobby');

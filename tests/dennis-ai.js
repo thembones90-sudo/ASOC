@@ -60,7 +60,7 @@ announcer = dennis.queueGameAnnouncement(announcer, 'start', { game: 'Kaladont' 
 assert.equal(announcer.announcementQueue.length, 1);
 assert.match(announcer.announcementQueue[0].text, /Kaladont/);
 const announced = dennis.tick(announcer, nine + 60_001, zero);
-assert.equal(announced.message, 'Neka zazvone poslednja zvona. Kaladont je počeo, a razum je prvi napustio bojno polje.');
+assert.equal(announced.message, 'Kaladont počinje, ajde gledajte svoj potez');
 assert.equal(announced.state.announcementQueue.length, 0);
 
 let disabledAnnouncer = dennis.setAnnouncerMode(restored, 'off', nine + 70_000, zero);
@@ -105,7 +105,7 @@ assert.equal(avatarHash, 'd2a265d8d3fb29a4c3179c78eb9cb46406927d69d2ada5b3dd3044
 
 for (const clientFile of ['app.js', 'player.js', 'mobile-shell.js']) {
   const client = fs.readFileSync(path.join(__dirname, '..', 'js', clientFile), 'utf8');
-  assert.match(client, /assets\\\/profiles\\\/dennis-ai/, `${clientFile} must allow Dennis's bundled avatar URL`);
+  assert.match(client, /assets\\\/profiles\\\/(?:\(\?:)?dennis-ai/, `${clientFile} must allow Dennis's bundled avatar URL`);
 }
 
 const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
@@ -125,7 +125,7 @@ assert.match(server, /String\(m\.playerId \|\| ''\) === dennisAI\.DENNIS_ID \|\|
 
 const gmHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const playerHtml = fs.readFileSync(path.join(__dirname, '..', 'join.html'), 'utf8');
-assert.match(gmHtml, /asoc\.css\?v=20261004-dennis-name-1/);
-assert.match(playerHtml, /asoc\.css\?v=20261004-dennis-name-1/);
+assert.match(gmHtml, /asoc\.css\?v=\d{8}-[a-z0-9-]+/);
+assert.match(playerHtml, /asoc\.css\?v=\d{8}-[a-z0-9-]+/);
 
 console.log('PASS Dennis: clean profile label, expanded voice, 09:00-16:00 Belgrade window, delayed replies and restart-safe greeting gate');

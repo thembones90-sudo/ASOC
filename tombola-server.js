@@ -104,7 +104,7 @@ function createTombolaService(deps) {
       if (room.tombola && ['LOBBY', 'PLAYING'].includes(room.tombola.phase)) return fail('A FATEBREAKER ROUND IS ALREADY OPEN');
       if (room.tombola) room.tombolaHistory = [...(room.tombolaHistory || []), game.summary(room.tombola)].slice(-20);
       room.tombola = game.create('tombola-' + crypto.randomBytes(12).toString('hex'));
-      deps.addDennisMessage(room, 'FATEBREAKER LOBBY IS OPEN // SIGNUP 02:00 // UP TO 10 PLAYERS. JOIN THROUGH THE SUMMON PROMPT OR FATEBREAKER IN MINI GAMES.');
+      deps.addDennisMessage(room, 'Ajde FATEBREAKER, imate 2 minuta da se prijavite. Najviše 10 ljudi, nemoj posle gde je moje mesto');
       commit(room); deps.broadcastChatUpdate(room); return;
     }
     const state = room.tombola;
