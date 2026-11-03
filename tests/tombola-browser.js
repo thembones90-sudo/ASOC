@@ -122,6 +122,8 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       }
     }
     await gm.locator('.tombola-blood-verdict').waitFor();
+    assert.equal(await gm.locator('.tombola-turn').textContent(), 'GAME OVER // BLOOD TRIBUTE');
+    assert.equal(await gm.locator('[data-tombola-turn-clock]').count(), 0, 'game over removes the turn timer');
     assert.equal(checkedMotions.size, 4, 'all four distinct animations verified');
     assert.equal(await alpha.locator('.is-grail').count(), 1);
     assert.match(await alpha.locator('.is-grail').textContent(), /THE GRAIL.*\+50/);
@@ -131,6 +133,7 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     for (const [name, page] of [['desktop', alpha], ['mobile', beta]]) {
       await page.locator('.tombola-blood-verdict').waitFor();
       assert.equal(await page.locator('[data-tombola-field]:not([disabled])').count(), 0);
+      assert.equal(await page.locator('.tombola-turn').textContent(), 'GAME OVER // BLOOD TRIBUTE');
       assert.equal(await page.locator('[data-tombola-field]:not(.is-closed)').count(), 4);
       assert.equal(await page.locator('[data-tombola-field].is-closed').count(), 32, 'Blood Tribute stops the round with unopened vaults intact');
       const required = await page.locator('#tombola-required-veil').count();

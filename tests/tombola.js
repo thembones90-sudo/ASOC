@@ -37,7 +37,7 @@ for (let size = 2; size <= 10; size++) for (const bloodPosition of [0, 17, 35]) 
   assert.equal(shuffles, (size - 1) * (1 + Math.floor(bloodPosition / size)));
   assert.equal(r.reveals.length, bloodPosition + 1);
   assert.equal(game.current(r), null);
-  assert.equal(game.normalize({ ...r, phase: 'PLAYING' }), null, 'V2 cannot recover blood as active');
+  assert.equal(game.normalize({ ...r, phase: 'PLAYING' }).phase, 'ENDED', 'recovery seals blood rounds instead of discarding their history');
   assert.equal(game.normalize({ ...r, reveals: r.reveals.slice(0, -1) }), null, 'V2 cannot end without blood');
 }
 const cancelledLobby = game.create('cancelled-lobby');
@@ -64,8 +64,16 @@ const savedLegacy = game.normalize(legacy);
 assert.equal(savedLegacy.economyVersion, 1);
 assert.deepEqual(savedLegacy.inventory, legacy.inventory, 'existing in-progress rewards never reroll');
 assert.ok(game.reveal(savedLegacy, 'a', 36, 0).ok);
-assert.equal(savedLegacy.phase, 'PLAYING', 'grandfather already-saved V1 all-fields rounds');
+assert.equal(savedLegacy.phase, 'ENDED', 'Blood Tribute ends legacy rounds immediately too');
+assert.equal(savedLegacy.turnEndsAt, null);
+assert.ok(game.validatePick(savedLegacy, 'b', 1, savedLegacy.id).error);
 assert.ok(game.normalize(savedLegacy));
+const recoveredBlood = game.normalize({ ...savedLegacy, phase: 'PLAYING', endOnBlood: false, tributePactId: null });
+assert.equal(recoveredBlood.phase, 'ENDED');
+assert.equal(recoveredBlood.endOnBlood, true);
+assert.equal(recoveredBlood.endReason, 'BLOOD_TRIBUTE');
+assert.deepEqual(recoveredBlood.reveals, savedLegacy.reveals, 'legacy recovery preserves already settled outcomes');
+assert.equal(recoveredBlood.turnEndsAt, null);
 const legacyLobby = game.normalize({ ...legacy, phase: 'LOBBY', startedAt: null });
 assert.ok(game.start(legacyLobby, ['a', 'b']).ok);
 assert.equal(legacyLobby.economyVersion, 2, 'unstarted legacy lobby upgrades when GM starts');
@@ -74,6 +82,25 @@ const net = game.inventory().reduce((sum, f) => sum + (f.kind === 'CURSE' ? -f.a
 assert.equal(net, 15); assert.equal(net / 2, 7.5);
 // Exercise the real service with a controlled server clock, not a two-minute sleep.
 const { createTombolaService } = require('../tombola-server');
+{
+  const debtor = { playerId: 'a', readyState: 1 }, other = { playerId: 'b', readyState: 1 };
+  const room = { tombola: { ...recoveredBlood, id: 'tombola-legacy-recovered', phase: 'PLAYING', endOnBlood: false, turnEndsAt: 1 },
+    blackMarket: { pacts: [] }, revision: 0, players: new Map([[debtor, { id: 'a', name: 'Alpha' }], [other, { id: 'b', name: 'Beta' }]]) };
+  let saves = 0, demands = 0;
+  const service = createTombolaService({ roomOf: () => room, persist: () => saves++, addDennisMessage() {}, broadcastChatUpdate() {}, syncBlackMarket() {},
+    sendToWs: (_socket, frame) => { if (frame.type === 'blackMarket:tributeDemanded') demands++; },
+    playerStore: { deductShadowCoins() { throw Error('No wallet write after Blood Tribute'); } },
+    blackMarket: { normalizeState: value => value, playerView: state => ({ pacts: state.pacts }), findPact: (state, id) => state.pacts.find(p => p.id === id),
+      createGmTributeDebt: (state, player) => { const pact = { id: 'temporary', playerId: player.id, state: 'APPROVED_PENDING_TRIBUTE' }; state.pacts.push(pact); return { pact }; } } });
+  assert.equal(service.tick(room, 999999), true, 'legacy live rounds seal before an overdue-turn penalty');
+  assert.equal(room.tombola.phase, 'ENDED'); assert.equal(room.tombola.turnEndsAt, null);
+  assert.equal(room.blackMarket.pacts.length, 1); assert.equal(demands, 1);
+  assert.equal(service.tick(room, 999999), false, 'recovery is idempotent');
+  assert.equal(room.blackMarket.pacts.length, 1); assert.equal(saves, 1);
+  room.tombola = game.normalize({ ...room.tombola, tributePactId: null });
+  assert.equal(service.tick(room), true, 'normalized ended rounds recover their missing tribute link');
+  assert.equal(room.blackMarket.pacts.length, 1, 'existing tribute is reused, never duplicated');
+}
 const realNow = Date.now;
 let now = 5000;
 try {

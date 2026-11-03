@@ -76,7 +76,9 @@ function reveal(state, playerId, field, actualAmount, now = Date.now(), randomIn
   const player = current(state), outcome = checked.outcome;
   state.reveals.push({ field, ...outcome, playerId, playerName: player.name, actualAmount, at: now });
   if (outcome.kind === 'BLOOD_TRIBUTE') state.tributePlayerId = playerId;
-  if ((outcome.kind === 'BLOOD_TRIBUTE' && state.endOnBlood) || state.reveals.length === 36) { state.phase = 'ENDED'; state.endedAt = now; state.turnEndsAt = null; }
+  if (outcome.kind === 'BLOOD_TRIBUTE' || state.reveals.length === 36) {
+    state.phase = 'ENDED'; state.endOnBlood = true; state.endReason = 'BLOOD_TRIBUTE'; state.endedAt = now; state.turnEndsAt = null;
+  }
   else advanceTurn(state, now, randomInt);
   return { ok: true, reveal: state.reveals.at(-1) };
 }
@@ -139,26 +141,29 @@ function normalize(raw) {
   const deckSignature = signature(deck);
   const economyVersion = deckSignature === signature(inventory()) ? 2 : [signature(legacyInventory()), signature(legacyInventory(false))].includes(deckSignature) ? 1 : 0;
   if (!economyVersion) return null;
-  const endOnBlood = economyVersion === 2 || !deck.some(f => f.kind === 'GRAIL');
+  const endOnBlood = true;
   const participants = Array.isArray(raw.participants) ? raw.participants.filter(p => p && typeof p.id === 'string' && typeof p.name === 'string').map(p => ({ id: p.id, name: p.name.slice(0, 80),
     missedTurns: Math.min(2, Math.max(0, Math.floor(Number(p.missedTurns) || 0))), kicked: p.kicked === true || Number(p.missedTurns) >= 2,
     ...(p.left === true ? { left: true, leftAt: Number(p.leftAt) || null } : {}) })) : [];
   if (participants.length > 10 || new Set(participants.map(p => p.id)).size !== participants.length || (raw.phase === 'PLAYING' && participants.length < 2)) return null;
   const reveals = Array.isArray(raw.reveals) ? raw.reveals.map(r => ({ ...r })) : [];
   if (reveals.length > 36 || new Set(reveals.map(r => r.field)).size !== reveals.length || reveals.some(r => !Number.isInteger(r.field) || r.field < 1 || r.field > 36 || r.kind !== deck[r.field - 1].kind || r.amount !== deck[r.field - 1].amount || !participants.some(p => p.id === r.playerId))) return null;
-  if (raw.phase === 'PLAYING' && (reveals.length === 36 || (endOnBlood && reveals.some(r => r.kind === 'BLOOD_TRIBUTE')))) return null;
+  const blood = reveals.find(r => r.kind === 'BLOOD_TRIBUTE');
+  // Preserve old rewards/history, but never resume turns after Blood Tribute.
+  const phase = raw.phase === 'PLAYING' && blood ? 'ENDED' : raw.phase;
+  if (phase === 'PLAYING' && reveals.length === 36) return null;
   if (economyVersion === 2 && raw.phase === 'ENDED' && (reveals.at(-1)?.kind !== 'BLOOD_TRIBUTE' || reveals.slice(0, -1).some(r => r.kind === 'BLOOD_TRIBUTE'))) return null;
   const turnOrder = raw.phase === 'CANCELLED' && !raw.startedAt ? participants.map(p => p.id) : Array.isArray(raw.turnOrder) ? raw.turnOrder.slice() : participants.map(p => p.id);
   const eligible = participants.filter(p => !p.kicked && !p.left);
   if (raw.phase !== 'LOBBY' && (turnOrder.length !== eligible.length || new Set(turnOrder).size !== eligible.length || turnOrder.some(id => !eligible.some(p => p.id === id)))) return null;
   const turnIndex = Math.max(0, Math.floor(Number(raw.turnIndex) || 0));
   if (raw.phase === 'PLAYING' && turnIndex >= turnOrder.length) return null;
-  return { id: raw.id, economyVersion, endOnBlood, visible: raw.visible !== false, phase: raw.phase, createdAt: Number(raw.createdAt) || 0, signupEndsAt: (Number(raw.createdAt) || 0) + SIGNUP_MS, startedAt: Number(raw.startedAt) || null, endedAt: Number(raw.endedAt) || null,
+  return { id: raw.id, economyVersion, endOnBlood, visible: raw.visible !== false, phase, createdAt: Number(raw.createdAt) || 0, signupEndsAt: (Number(raw.createdAt) || 0) + SIGNUP_MS, startedAt: Number(raw.startedAt) || null, endedAt: phase === 'ENDED' && blood ? (Number(raw.endedAt) || Number(blood.at) || Date.now()) : Number(raw.endedAt) || null,
     participants, inventory: deck.map(x => ({ kind: x.kind, amount: x.amount })), reveals,
     turnIndex, turnOrder, cycle: Math.max(1, Math.floor(Number(raw.cycle) || 1)),
     turnNumber: Math.max(1, Math.floor(Number(raw.turnNumber) || reveals.length + 1)),
-    turnEndsAt: raw.phase === 'PLAYING' ? (Number(raw.turnEndsAt) > 0 ? Number(raw.turnEndsAt) : Date.now() + TURN_MS) : null,
-    timeouts: Array.isArray(raw.timeouts) ? raw.timeouts.map(t => ({ ...t })) : [], endReason: raw.endReason || null,
+    turnEndsAt: phase === 'PLAYING' ? (Number(raw.turnEndsAt) > 0 ? Number(raw.turnEndsAt) : Date.now() + TURN_MS) : null,
+    timeouts: Array.isArray(raw.timeouts) ? raw.timeouts.map(t => ({ ...t })) : [], endReason: phase === 'ENDED' && blood ? 'BLOOD_TRIBUTE' : raw.endReason || null,
     tributePlayerId: reveals.find(r => r.kind === 'BLOOD_TRIBUTE')?.playerId || null, tributePactId: raw.tributePactId || null, cancelled: raw.phase === 'CANCELLED' };
 }
 module.exports = { TURN_MS, inventory, create, join, leave, start, current, validatePick, reveal, expire, skip, cancel, summary, view, normalize };

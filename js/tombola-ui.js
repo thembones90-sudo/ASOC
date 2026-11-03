@@ -82,7 +82,7 @@
       if (close || event.target.closest('[data-tombola-minimize]')) { minimize(); return; }
       if (event.target.closest('[data-tombola-pay]')) { window.BlackMarket?.open?.(); return; }
       const field = event.target.closest('[data-tombola-field]');
-      if (field && ui.state?.viewer?.canPick && !ui.pending && !field.disabled) {
+      if (field && ui.state?.phase === 'PLAYING' && ui.state?.viewer?.canPick && !ui.pending && !field.disabled) {
         ui.pending = true; ui.error = ''; send('tombola:pick', { field: Number(field.dataset.tombolaField), turnNumber: ui.state.turnNumber }); render(); return;
       }
       const action = event.target.closest('[data-tombola-action]')?.dataset.tombolaAction;
@@ -132,7 +132,7 @@
       const fresh = ui.lastReveal === `${s?.id}:${f.field}`;
       const fx = fresh ? '<span class="tombola-reveal-fx" aria-hidden="true"><i></i><i></i><i></i><i></i></span>' : '';
       const outcome = f.kind === 'GRAIL' ? '<b class="tombola-outcome tombola-grail"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M11 6h18l-2 12q-2 6-7 6t-7-6zM11 9H5q0 10 10 10M29 9h6q0 10-10 10M20 24v9M12 35h16"/></svg><span>THE GRAIL</span>+50<small>SC</small></b>' : f.kind === 'BLOOD_TRIBUTE' ? '<b class="tombola-outcome">BLOOD<br>TRIBUTE</b>' : `<b class="tombola-outcome">${amount}<small>SC</small></b>`;
-      const label = f.revealed ? f.kind === 'BLOOD_TRIBUTE' ? `Field ${f.field}: Blood Tribute. Due at the end of the round.` : `Field ${f.field}: ${f.kind}, ${amount} SC. Actual balance change ${f.actualAmount} SC.` : `Open field ${f.field}`;
+      const label = f.revealed ? f.kind === 'BLOOD_TRIBUTE' ? `Field ${f.field}: Blood Tribute. Game over. Board sealed.` : `Field ${f.field}: ${f.kind}, ${amount} SC. Actual balance change ${f.actualAmount} SC.` : `Open field ${f.field}`;
       return `<button type="button" class="tombola-field is-${kind}${fresh ? ' is-new-reveal' : ''}" data-tombola-field="${f.field}" aria-label="${esc(label)}" ${f.revealed || !s?.viewer?.canPick || ui.pending ? 'disabled' : ''}><span class="tombola-number">${f.field}</span>${fx}${f.revealed ? outcome : ''}</button>`;
     }).join('');
     const grailReveal = fields.find(f => f.kind === 'GRAIL' && ui.lastReveal === `${s?.id}:${f.field}`);
@@ -152,6 +152,11 @@
       root.querySelector('.tombola-controls').prepend(toggle);
     }
     const heading = root.querySelector('.tombola-heading');
+    if (terminal) {
+      root.querySelector('.tombola-turn').textContent = 'GAME OVER // BLOOD TRIBUTE';
+      root.querySelectorAll('[data-tombola-field]').forEach(button => { button.disabled = true; });
+      if (!ui.pending && !ui.error) root.querySelector('.tombola-status').textContent = 'GAME OVER // BOARD SEALED // NO MORE TURNS';
+    }
     heading.title = 'Drag this header to move FATEBREAKER';
     heading.querySelector('small').textContent = 'SHADOW BROKER // DRAG TO MOVE';
     const minimizeButton = document.createElement('button'); minimizeButton.type = 'button'; minimizeButton.dataset.tombolaMinimize = '';

@@ -31,8 +31,37 @@ function createTombolaService(deps) {
     for (const socket of room.players.keys()) if (socket.readyState === 1) sendState(room, socket, true);
   }
   function commit(room) { room.revision++; deps.persist(); publish(room); }
+  function settleBloodTribute(room) {
+    const state = room.tombola;
+    const blood = state?.reveals?.find(r => r.kind === 'BLOOD_TRIBUTE');
+    if (!blood || state.phase !== 'ENDED' || state.tributePactId) return false;
+    const debtor = state.participants.find(p => p.id === blood.playerId);
+    room.blackMarket = deps.blackMarket.normalizeState(room.blackMarket);
+    const pactId = `pact-${state.id}`;
+    let pact = deps.blackMarket.findPact(room.blackMarket, pactId);
+    if (!pact) {
+      const debt = deps.blackMarket.createGmTributeDebt(room.blackMarket, debtor, { reason: `ASOC FATEBREAKER // FIELD ${blood.field} // ${state.id}`, tributeLevel: 1 });
+      if (debt.error || !debt.pact) throw new Error('FATEBREAKER tribute creation failed');
+      pact = debt.pact; pact.id = pactId;
+    }
+    state.tributePactId = pact.id;
+    deps.addDennisMessage(room, `@${debtor.name} — BLOOD TRIBUTE REQUIRED. FIELD ${blood.field} HAS ENDED FATEBREAKER. THE BOARD IS SEALED. THE BLACK MARKET AWAITS.`);
+    deps.syncBlackMarket(room, debtor.id);
+    for (const [socket, player] of room.players) if (String(player.id) === debtor.id && socket.readyState === 1) deps.sendToWs(socket, { type: 'blackMarket:tributeDemanded', pact: deps.blackMarket.playerView(room.blackMarket, debtor.id).pacts.find(p => p.id === pact.id) });
+    deps.broadcastChatUpdate(room);
+    return true;
+  }
   function tick(room, now = Date.now()) {
     const state = room.tombola;
+    const blood = state?.reveals?.find(reveal => reveal.kind === 'BLOOD_TRIBUTE');
+    if (state?.phase === 'PLAYING' && blood) {
+      state.phase = 'ENDED'; state.endOnBlood = true; state.endReason = 'BLOOD_TRIBUTE';
+      state.endedAt ||= Number(blood.at) || now; state.turnEndsAt = null; state.tributePlayerId = blood.playerId;
+      settleBloodTribute(room); commit(room); return true;
+    }
+    // Recovery of legacy all-fields rounds seals the board and creates any
+    // missing obligation once, before timers can deduct another coin.
+    if (state?.phase === 'ENDED' && settleBloodTribute(room)) { commit(room); return true; }
     if (state?.phase !== 'PLAYING') return false;
     // Grandfather live rounds created before turn clocks existed.
     if (!Number.isFinite(state.turnEndsAt)) {
@@ -119,23 +148,7 @@ function createTombolaService(deps) {
       }
       result = game.reveal(state, who.id, message.field, actualAmount);
       if (!result.ok) throw new Error('FATEBREAKER reveal rejected after ledger validation');
-      if (state.phase === 'ENDED') {
-        const debtor = state.participants.find(p => p.id === state.tributePlayerId);
-        const bloodField = state.reveals.find(r => r.kind === 'BLOOD_TRIBUTE').field;
-        room.blackMarket = deps.blackMarket.normalizeState(room.blackMarket);
-        const pactId = `pact-${state.id}`;
-        let pact = deps.blackMarket.findPact(room.blackMarket, pactId);
-        if (!pact) {
-          const debt = deps.blackMarket.createGmTributeDebt(room.blackMarket, debtor, { reason: `ASOC FATEBREAKER // FIELD ${bloodField} // ${state.id}`, tributeLevel: 1 });
-          if (debt.error || !debt.pact) throw new Error('FATEBREAKER tribute creation failed');
-          pact = debt.pact; pact.id = pactId;
-        }
-        state.tributePactId = pact.id;
-        deps.addDennisMessage(room, `@${debtor.name} — BLOOD TRIBUTE REQUIRED. FIELD ${bloodField} HAS ENDED FATEBREAKER. THE BOARD IS SEALED. THE BLACK MARKET AWAITS.`);
-        deps.syncBlackMarket(room, debtor.id);
-        for (const [socket, player] of room.players) if (String(player.id) === debtor.id && socket.readyState === 1) deps.sendToWs(socket, { type: 'blackMarket:tributeDemanded', pact: deps.blackMarket.playerView(room.blackMarket, debtor.id).pacts.find(p => p.id === pact.id) });
-        deps.broadcastChatUpdate(room);
-      }
+      if (state.phase === 'ENDED') settleBloodTribute(room);
       deps.broadcastPlayersUpdate(room);
     } else return fail('UNKNOWN FATEBREAKER ACTION');
     if (!result?.ok) return fail(result?.error || 'FATEBREAKER ACTION REFUSED');
