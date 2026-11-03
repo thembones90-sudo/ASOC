@@ -14103,7 +14103,9 @@ function handleApiRequest(req, res) {
     }
     const pactId = String(pact.id);
 
-    const actorKey = 'black-market:' + actor.playerId;
+    // Each GM rejection authorizes a fresh replacement-upload allowance.
+    // Players cannot rotate this generation by syncing or marking a debt seen.
+    const actorKey = `black-market:${actor.playerId}:${pactId}:${pact.tributeAttempt || 0}`;
     const verdict = chatUploadGuard.checkActor(actorKey, Date.now(), {
       maxCount: 4,
       minGapMs: 1000,

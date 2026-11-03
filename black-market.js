@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const REQUEST_LIMIT = 1200;
 const TITLE_LIMIT = 120;
 const NOTE_LIMIT = 800;
+const GAME_LOSS_TRIBUTE_LEVEL = 10;
 const CATEGORIES = new Set(['DESIGN', 'WRITING', 'TECH', 'RESEARCH', 'CUSTOM']);
 const PACT_STATES = new Set([
   'SUBMITTED', 'COUNTEROFFERED', 'APPROVED_PENDING_TRIBUTE', 'DEBT_WAIVED',
@@ -18,6 +19,7 @@ function cleanText(value, max) {
 
 function normalizePact(raw) {
   const state = PACT_STATES.has(raw?.state) ? raw.state : 'SUBMITTED';
+  const gameLoss = raw?.tributeSource === 'GAME_LOSS' || String(raw?.id || '').startsWith('pact-tombola-');
   return {
     id: cleanText(raw?.id, 80) || ('pact-' + crypto.randomBytes(8).toString('hex')),
     playerId: cleanText(raw?.playerId, 120),
@@ -35,7 +37,9 @@ function normalizePact(raw) {
     tributeId: cleanText(raw?.tributeId, 120) || null,
     rejectionReason: cleanText(raw?.rejectionReason, NOTE_LIMIT),
     verdictComment: cleanText(raw?.verdictComment, NOTE_LIMIT),
-    tributeLevel: Math.max(1, Math.min(10, Math.round(Number(raw?.tributeLevel) || 1))),
+    tributeSource: gameLoss ? 'GAME_LOSS' : null,
+    tributeAttempt: Math.max(0, Math.floor(Number(raw?.tributeAttempt) || 0)),
+    tributeLevel: gameLoss ? GAME_LOSS_TRIBUTE_LEVEL : Math.max(1, Math.min(10, Math.round(Number(raw?.tributeLevel) || 1))),
     demandedAt: Number(raw?.demandedAt) || null,
     seenAt: Number(raw?.seenAt) || null,
     createdAt: Number(raw?.createdAt) || Date.now(),
@@ -54,7 +58,9 @@ function normalizeState(raw) {
       : [];
     const rememberedLevel = Math.max(0, Math.min(10, Math.round(Number(source.tributeLevel) || 0)));
     const latestPactLevel = pacts.find(p => p.tributeRequired)?.tributeLevel || 0;
-    byPlayer[String(playerId)] = { pacts, tributeLevel: rememberedLevel || latestPactLevel || 0 };
+    const latestDemand = pacts.filter(p => p.tributeRequired).sort((a, b) => (b.demandedAt || b.createdAt) - (a.demandedAt || a.createdAt))[0];
+    const gameDebt = pacts.some(p => p.tributeSource === 'GAME_LOSS' && ['APPROVED_PENDING_TRIBUTE', 'TRIBUTE_REJECTED', 'TRIBUTE_SUBMITTED'].includes(p.state));
+    byPlayer[String(playerId)] = { pacts, tributeLevel: gameDebt || latestDemand?.tributeSource === 'GAME_LOSS' ? GAME_LOSS_TRIBUTE_LEVEL : rememberedLevel || latestPactLevel || 0 };
   }
   return { byPlayer };
 }
@@ -129,7 +135,7 @@ function createGmTributeDebt(state, player, raw) {
   const bucket = ensurePlayer(state, player?.id);
   if (!bucket) return { error: 'LITTLE HERO NOT FOUND' };
   const reason = cleanText(raw?.reason, REQUEST_LIMIT);
-  const tributeLevel = Math.max(1, Math.min(10, Math.round(Number(raw?.tributeLevel) || 1)));
+  const tributeLevel = raw?.tributeSource === 'GAME_LOSS' ? GAME_LOSS_TRIBUTE_LEVEL : Math.max(1, Math.min(10, Math.round(Number(raw?.tributeLevel) || 1)));
   const now = Date.now();
   const pact = normalizePact({
     playerId: String(player.id),
@@ -140,6 +146,7 @@ function createGmTributeDebt(state, player, raw) {
     terms: 'Payment is due to the Reliquary.',
     state: 'APPROVED_PENDING_TRIBUTE',
     tributeRequired: true,
+    tributeSource: raw?.tributeSource,
     tributeLevel,
     demandedAt: now,
     updatedAt: now
@@ -252,12 +259,14 @@ function judgeTribute(state, pactId, accepted, reason, tributeId, verdictComment
     pact.tributeImageUrl = '';
     pact.rejectionReason = pact.verdictComment;
     pact.state = 'TRIBUTE_REJECTED';
+    pact.tributeAttempt = (pact.tributeAttempt || 0) + 1;
   }
   pact.updatedAt = Date.now();
   return { pact };
 }
 
 module.exports = {
+  GAME_LOSS_TRIBUTE_LEVEL,
   normalizeState,
   playerView,
   gmView,

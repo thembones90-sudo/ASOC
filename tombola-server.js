@@ -40,7 +40,7 @@ function createTombolaService(deps) {
     const pactId = `pact-${state.id}`;
     let pact = deps.blackMarket.findPact(room.blackMarket, pactId);
     if (!pact) {
-      const debt = deps.blackMarket.createGmTributeDebt(room.blackMarket, debtor, { reason: `ASOC FATEBREAKER // FIELD ${blood.field} // ${state.id}`, tributeLevel: 1 });
+      const debt = deps.blackMarket.createGmTributeDebt(room.blackMarket, debtor, { reason: `ASOC FATEBREAKER // FIELD ${blood.field} // ${state.id}`, tributeSource: 'GAME_LOSS', tributeLevel: 10 });
       if (debt.error || !debt.pact) throw new Error('FATEBREAKER tribute creation failed');
       pact = debt.pact; pact.id = pactId;
     }

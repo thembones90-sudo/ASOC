@@ -67,8 +67,8 @@
     root.addEventListener('pointerup', endDrag); root.addEventListener('pointercancel', endDrag); root.addEventListener('lostpointercapture', endDrag);
     window.addEventListener('resize', () => { if (ui.position) position(ui.position.x, ui.position.y); });
     const minimize = () => {
-      if (ui.state?.requiredTribute) return;
       ui.minimized = true; ui.open = false; root.hidden = true; updateRestore(); restore.focus();
+      document.getElementById('tombola-required-veil')?.remove();
     };
     root.addEventListener('animationend', event => {
       if (event.target.matches('.tombola-legendary-event')) event.target.remove();
@@ -89,9 +89,9 @@
       if (!action || ui.pending) return;
       ui.pending = true; ui.error = ''; send(`tombola:${action}`); render();
     });
-    document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.open && !ui.state?.requiredTribute) minimize(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.open && !event.target.closest('#black-market-overlay, #bm-demand-notice, #bm-tribute-consent')) minimize(); });
     document.addEventListener('focusin', event => {
-      if (ui.state?.requiredTribute && !event.target.closest('#tombola-overlay, #black-market-overlay, #bm-demand-notice, #bm-tribute-consent')) root.querySelector('[data-tombola-pay]')?.focus();
+      if (ui.open && ui.state?.requiredTribute && !event.target.closest('#tombola-overlay, #black-market-overlay, #bm-demand-notice, #bm-tribute-consent, #bm-tribute-input')) root.querySelector('[data-tombola-pay]')?.focus();
     });
     return root;
   }
@@ -99,7 +99,7 @@
   function updateRestore() {
     const restore = document.getElementById('tombola-restore');
     if (!restore) return;
-    restore.hidden = !ui.minimized || ui.open || !!ui.state?.requiredTribute || ui.state?.visible === false && !gm();
+    restore.hidden = !ui.minimized || ui.open || ui.state?.visible === false && !gm() && !ui.state?.requiredTribute;
     restore.textContent = `RESTORE FATEBREAKER${ui.state?.phase === 'PLAYING' ? ` // ${ui.state.viewer?.canPick ? 'YOUR TURN' : ui.state.currentPlayerName} // ${turnRemaining()}s` : ''}`;
     restore.classList.toggle('is-your-turn', !!ui.state?.viewer?.canPick);
   }
@@ -115,10 +115,10 @@
     invite();
     const required = !!ui.state?.requiredTribute;
     const sharedVisible = ui.state?.visible !== false;
-    if (required) ui.open = true;
+    if (required && !ui.minimized) ui.open = true;
     let veil = document.getElementById('tombola-required-veil');
-    if (required && !veil) { veil = document.createElement('div'); veil.id = 'tombola-required-veil'; document.body.append(veil); }
-    if (!required) veil?.remove();
+    if (required && !ui.minimized && !veil) { veil = document.createElement('div'); veil.id = 'tombola-required-veil'; document.body.append(veil); }
+    if (!required || ui.minimized) veil?.remove();
     const root = ensure(); root.hidden = !ui.open || (!sharedVisible && !required && !gm()); updateRestore();
     root.classList.toggle('tombola-summoned-board', !gm() && !required && ['LOBBY', 'PLAYING'].includes(ui.state?.phase));
     root.setAttribute('aria-modal', required ? 'true' : 'false');
@@ -160,7 +160,7 @@
     heading.title = 'Drag this header to move FATEBREAKER';
     heading.querySelector('small').textContent = 'SHADOW BROKER // DRAG TO MOVE';
     const minimizeButton = document.createElement('button'); minimizeButton.type = 'button'; minimizeButton.dataset.tombolaMinimize = '';
-    minimizeButton.textContent = '−'; minimizeButton.setAttribute('aria-label', 'Minimize FATEBREAKER'); minimizeButton.disabled = required;
+    minimizeButton.textContent = '−'; minimizeButton.setAttribute('aria-label', 'Minimize FATEBREAKER');
     minimizeButton.title = 'Minimize to chat — the turn timer keeps running';
     heading.insertBefore(minimizeButton, heading.querySelector('[data-tombola-close]'));
     if (ui.pending) root.querySelectorAll('[data-tombola-action]').forEach(button => { button.disabled = true; });
@@ -168,7 +168,6 @@
     const banner = root.querySelector('.tombola-legendary-event');
     if (banner) setTimeout(() => banner.remove(), 1600); // Also expires when reduced motion suppresses animationend.
     if (required) {
-      root.querySelector('[data-tombola-close]').disabled = true;
       root.querySelector('.tombola-controls').innerHTML = '<p>YOUR BLOOD TRIBUTE IS REQUIRED. SUBMIT IT TO CONTINUE.</p><button data-tombola-pay>SUBMIT BLOOD TRIBUTE</button>';
     }
     updateSignupCountdown();

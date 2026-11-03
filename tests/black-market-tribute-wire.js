@@ -159,7 +159,7 @@ async function run() {
 
     // 7. The GM judges it, which is the whole point of collecting it.
     mark = gm.mark();
-    gm.send({ type: 'blackMarket:tributeJudge', pactId, accepted: true });
+    gm.send({ type: 'blackMarket:tributeJudge', pactId, accepted: true, comment: 'Offering accepted.' });
     const judged = await gm.next(m => m.type === 'blackMarket:gmState' && pactOf(m, pactId)?.state === 'OWED', 'GM accepts the offering', mark);
     assert.equal(pactOf(judged, pactId).state, 'OWED', 'an accepted offering releases the debt');
     // The projection omits the field entirely once the pact is no longer awaiting

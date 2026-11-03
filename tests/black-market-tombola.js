@@ -127,6 +127,7 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     await debtor.next(m => m.type === 'blackMarket:tributeDemanded');
     const debts = () => snapshot().blackMarket.byPlayer[debtorId].pacts.filter(p => p.id === `pact-${id}`);
     assert.equal(debts().length, 1); assert.equal(debts()[0].state, 'APPROVED_PENDING_TRIBUTE');
+    assert.equal(debts()[0].tributeLevel, 10, 'FATEBREAKER loss always demands 10/10');
     assert.ok(JSON.stringify(debts()[0]).includes('ASOC FATEBREAKER'), 'debt uses official game name');
     mark = debtor.mark(); debtor.send({ type: 'tombola:create' }); await debtor.next(m => m.type === 'tombola:error', mark);
     mark = debtor.mark(); debtor.send({ type: 'tombola:sync' }); assert.ok((await debtor.next(m => m.type === 'tombola:state', mark)).state.requiredTribute);
@@ -140,6 +141,7 @@ const profiles = () => JSON.parse(fs.readFileSync(path.join(data, 'players.json'
     mark = debtor.mark(); gm.send({ type: 'blackMarket:tributeJudge', pactId: `pact-${id}`, accepted: false, comment: 'Test rejection requires a new offering' });
     await debtor.next(m => m.type === 'tombola:state' && m.state.requiredTribute, mark);
     assert.equal(debts()[0].state, 'TRIBUTE_REJECTED');
+    assert.equal(debts()[0].tributeAttempt, 1, 'GM rejection authorizes a replacement upload');
     mark = debtor.mark(); debtor.send({ type: 'tombola:join', roundId: fresh.id }); await debtor.next(m => m.type === 'tombola:error', mark);
     mark = debtor.mark(); debtor.send({ type: 'blackMarket:tributeSubmit', pactId: `pact-${id}`, consent: true, imageData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=' });
     await debtor.next(m => m.type === 'tombola:state' && !m.state.requiredTribute, mark);

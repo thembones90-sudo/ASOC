@@ -76,6 +76,8 @@
           if (!isGM && this._tributeAwaitingPactId) {
             const submitted = this.pacts.find(p => p.id === this._tributeAwaitingPactId && p.state === 'TRIBUTE_SUBMITTED');
             if (submitted) this.confirmTributeSubmission();
+            const rejected = this.pacts.find(p => p.id === this._tributeAwaitingPactId && p.state === 'TRIBUTE_REJECTED');
+            if (rejected) this.releaseTribute();
           }
           if (isGM) {
             const entry = document.getElementById('black-market-gm-button');
