@@ -178,6 +178,34 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       await page.locator('#chat-input').fill('Chat remains available after Tombola tribute submission');
       assert.deepEqual(page.pageErrors || [], []);
     }
+    // GM X cancels on the server; minus only minimizes locally.
+    await gm.locator('[data-tombola-close]').click();
+    await gm.locator('#tombola-overlay').waitFor({ state: 'hidden' });
+    for (const phase of ['LOBBY', 'PLAYING']) {
+      await gm.evaluate(() => TombolaUI.activate());
+      await gm.locator('[data-tombola-action="start"]').waitFor();
+      for (const page of [alpha, beta]) {
+        await page.locator('[data-tombola-invite-join]').click();
+        await page.locator('[data-tombola-action="leave"]').waitFor();
+      }
+      if (phase === 'PLAYING') {
+        await gm.locator('[data-tombola-action="start"]').click();
+        await gm.locator('[data-tombola-action="cancel"]').waitFor();
+      }
+      await gm.locator('[data-tombola-minimize]').click();
+      await gm.locator('#tombola-overlay').waitFor({ state: 'hidden' });
+      let saved = JSON.parse(fs.readFileSync(path.join(server.dataDir, 'active-rooms.json'), 'utf8')).rooms[0].tombola;
+      assert.equal(saved.phase, phase, 'minus preserves the live game');
+      await gm.locator('#tombola-restore').click();
+      await gm.locator('[data-tombola-close]').click();
+      for (const page of [gm, alpha, beta]) await page.locator('#tombola-overlay').waitFor({ state: 'hidden' });
+      saved = JSON.parse(fs.readFileSync(path.join(server.dataDir, 'active-rooms.json'), 'utf8')).rooms[0].tombola;
+      assert.equal(saved.phase, 'CANCELLED', 'GM X cancels on the server');
+      assert.equal(saved.visible, false, 'GM X removes the board for everyone');
+      assert.equal(saved.turnEndsAt, null, 'cancelled game has no turn deadline');
+      await alpha.reload(); await alpha.waitForFunction(() => !!window.TombolaUI);
+      assert.equal(await alpha.locator('#tombola-overlay').isVisible(), false, 'cancelled board stays closed after refresh');
+    }
     assert.deepEqual(errors, []);
     console.log('PASS FATEBREAKER V2 browser: 36 vaults, four reveals/reduced motion, shared legendary Grail +50 banner, immediate Blood ending with 32 closed fields, forced tribute/reconnect/upload');
   } catch (error) {

@@ -128,7 +128,12 @@ function createTombolaService(deps) {
       const active = [...room.players.entries()].filter(([socket, p]) => socket.readyState === 1 && p.connected !== false && !p.isBot && !p.isSynthetic).map(([, p]) => String(p.id));
       result = game.start(state, active);
     } else if (message.type === 'tombola:skip') result = game.skip(state);
-    else if (message.type === 'tombola:cancel') result = game.cancel(state);
+    else if (message.type === 'tombola:cancel') {
+      // The GM's X ends live signup/play and removes the shared board. An
+      // already-ended round keeps its verdict, ledger and tribute obligation.
+      result = message.close === true && !['LOBBY', 'PLAYING'].includes(state.phase) ? { ok: true } : game.cancel(state);
+      if (result.ok && message.close === true) state.visible = false;
+    }
     else if (message.type === 'tombola:pick') {
       if (message.turnNumber !== undefined && message.turnNumber !== state.turnNumber) return fail('THIS FATEBREAKER TURN HAS ALREADY PASSED');
       const check = game.validatePick(state, who.id, message.field, message.roundId);

@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const ui = { state: null, open: false, minimized: false, position: null, pending: false, error: '', lastReveal: '', finale: '', clockOffset: 0 };
+  const ui = { state: null, open: false, minimized: false, position: null, pending: false, closing: false, error: '', lastReveal: '', finale: '', clockOffset: 0 };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const app = () => window.App || window.PlayerApp;
   const send = (type, extra = {}) => {
@@ -79,6 +79,11 @@
     });
     root.addEventListener('click', event => {
       const close = event.target.closest('[data-tombola-close]');
+      if (close && gm() && ui.state?.active) {
+        if (ui.pending) return;
+        ui.closing = true; ui.pending = true; ui.error = '';
+        send('tombola:cancel', { close: true }); render(); return;
+      }
       if (close || event.target.closest('[data-tombola-minimize]')) { minimize(); return; }
       if (event.target.closest('[data-tombola-pay]')) { window.BlackMarket?.open?.(); return; }
       const field = event.target.closest('[data-tombola-field]');
@@ -158,6 +163,10 @@
       if (!ui.pending && !ui.error) root.querySelector('.tombola-status').textContent = 'GAME OVER // BOARD SEALED // NO MORE TURNS';
     }
     heading.title = 'Drag this header to move FATEBREAKER';
+    const closeButton = heading.querySelector('[data-tombola-close]');
+    closeButton.title = gm() ? 'End FATEBREAKER for everyone' : 'Close FATEBREAKER';
+    closeButton.setAttribute('aria-label', closeButton.title);
+    closeButton.disabled = ui.pending;
     heading.querySelector('small').textContent = 'SHADOW BROKER // DRAG TO MOVE';
     const minimizeButton = document.createElement('button'); minimizeButton.type = 'button'; minimizeButton.dataset.tombolaMinimize = '';
     minimizeButton.textContent = '−'; minimizeButton.setAttribute('aria-label', 'Minimize FATEBREAKER');
@@ -196,7 +205,7 @@
   }
   setInterval(() => { updateSignupCountdown(); updateTurnCountdown(); invite(); }, 250);
   function onMessage(message) {
-    if (message.type === 'tombola:error') { ui.error = message.error || 'FATEBREAKER ACTION REFUSED'; ui.pending = false; render(); return; }
+    if (message.type === 'tombola:error') { ui.error = message.error || 'FATEBREAKER ACTION REFUSED'; ui.pending = false; ui.closing = false; render(); return; }
     if (message.type !== 'tombola:state') return;
     const prior = ui.state;
     ui.clockOffset = Number.isFinite(message.state?.serverNow) ? message.state.serverNow - Date.now() : 0;
@@ -204,6 +213,8 @@
     const { serverNow: newClock, ...newView } = message.state || {};
     if (prior && !ui.pending && JSON.stringify(oldView) === JSON.stringify(newView)) { updateSignupCountdown(); return; }
     ui.state = message.state; ui.pending = false; ui.error = '';
+    if (ui.closing && ui.state?.visible === false) { ui.open = false; ui.minimized = false; }
+    ui.closing = false;
     ui.clockOffset = Number.isFinite(message.state?.serverNow) ? message.state.serverNow - Date.now() : 0;
     const reveals = ui.state?.fields?.filter(f => f.revealed) || [];
     if (ui.state?.id === prior?.id && reveals.length > (prior.fields?.filter(f => f.revealed).length || 0)) {
