@@ -352,22 +352,26 @@
     root = document.createElement('section');
     root.id = 'chaos-picker';
     root.hidden = true;
+    root.setAttribute('role', 'dialog');
+    root.setAttribute('aria-modal', 'false');
+    root.setAttribute('aria-labelledby', 'chaos-picker-title');
     root.innerHTML = `
       <div class="chaos-picker-head">
-        <i class="chaos-sigil is-large" aria-hidden="true"></i>
-        <div><b>CHAOS WAGER</b><small>PICK ONE OR MANY // SET THE STAKE</small></div>
-        <button type="button" class="chaos-picker-close" aria-label="Close">×</button>
+        <span class="chaos-picker-art" aria-hidden="true"></span>
+        <div class="chaos-picker-title"><span class="chaos-picker-eyebrow">SHADOW BROKER <i>GM CONTROL</i></span><b id="chaos-picker-title">CHAOS WAGER</b><small>Choose your players. Tempt their fate.</small></div>
+        <button type="button" class="chaos-picker-close" aria-label="Close CHAOS wager" title="Close CHAOS wager">×</button>
       </div>
       <div class="chaos-stake">
-        <label>ROLL TARGET<input type="number" data-chaos-target min="${MIN_TARGET}" max="${MAX_TARGET}" step="1" value="50" inputmode="numeric">
+        <label><span class="chaos-field-title">ROLL TARGET <small>2–100</small></span><span class="chaos-number-field"><input type="number" data-chaos-target min="${MIN_TARGET}" max="${MAX_TARGET}" step="1" value="50" inputmode="numeric" aria-label="Roll target"><span aria-hidden="true">+</span></span>
           <span class="chaos-presets" data-chaos-preset-for="target">${[25, 50, 75, 90, 99].map(v => `<button type="button" data-chaos-preset="${v}">${v}</button>`).join('')}</span></label>
-        <label>SHADOW COINS<input type="number" data-chaos-coins min="${MIN_COINS}" max="${MAX_COINS}" step="0.1" value="5" inputmode="decimal">
+        <label><span class="chaos-field-title">WIN PAYOUT <small>SHADOW COINS</small></span><span class="chaos-number-field"><input type="number" data-chaos-coins min="${MIN_COINS}" max="${MAX_COINS}" step="0.1" value="5" inputmode="decimal" aria-label="Shadow Coin payout"><span aria-hidden="true">SC</span></span>
           <span class="chaos-presets" data-chaos-preset-for="coins">${[1, 5, 10, 25, 50].map(v => `<button type="button" data-chaos-preset="${v}">${v}</button>`).join('')}</span></label>
       </div>
-      <div class="chaos-preview-wrap"><div data-chaos-gauge></div><div class="chaos-stake-note" data-chaos-preview></div></div>
-      <input class="chaos-picker-search" type="search" placeholder="SEARCH LITTLE HERO..." autocomplete="off">
+      <div class="chaos-preview-wrap"><div class="chaos-odds-heading"><span>THE ODDS</span><b data-chaos-chance></b></div><div data-chaos-gauge></div><div class="chaos-stake-note" data-chaos-preview role="status"></div></div>
+      <label class="chaos-search-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6"/></svg><input class="chaos-picker-search" type="search" placeholder="Find a Little Hero…" aria-label="Search CHAOS players" autocomplete="off"></label>
       <div class="chaos-target-list"></div>
       <div class="chaos-picker-foot">
+        <div class="chaos-selection-summary" data-chaos-selection aria-live="polite"></div>
         <div class="chaos-picker-tools"><button type="button" data-chaos-tool="online">SELECT ALL ONLINE</button><button type="button" data-chaos-tool="clear">CLEAR</button></div>
         <button type="button" class="chaos-cast-btn" data-chaos-cast disabled>SELECT A TARGET</button>
       </div>`;
@@ -398,9 +402,16 @@
   function positionPicker() {
     const root = pickerRoot();
     const rect = document.getElementById('chaos-gm-button')?.getBoundingClientRect?.();
-    const width = Math.min(430, window.innerWidth * 0.92);
-    root.style.left = (rect ? Math.min(window.innerWidth - width - 16, Math.max(16, rect.right + 12)) : Math.max(16, (window.innerWidth - width) / 2)) + 'px';
-    root.style.top = (rect ? Math.min(window.innerHeight - 260, Math.max(16, rect.top - 80)) : 70) + 'px';
+    // Fit the physical viewport even when the app applies body zoom.
+    const scale = root.getBoundingClientRect().width / root.offsetWidth || 1;
+    root.classList.toggle('is-compact', (innerHeight - 24) / scale < 640);
+    root.style.width = `${Math.min(480, (innerWidth - 24) / scale)}px`;
+    root.style.maxHeight = `${Math.min(850, (innerHeight - 24) / scale)}px`;
+    const box = root.getBoundingClientRect();
+    const left = rect ? Math.min(innerWidth - box.width - 12, Math.max(12, rect.right + 12)) : (innerWidth - box.width) / 2;
+    const top = rect ? Math.min(innerHeight - box.height - 12, Math.max(12, rect.top - 80)) : (innerHeight - box.height) / 2;
+    root.style.left = `${Math.max(12, left) / scale}px`;
+    root.style.top = `${Math.max(12, top) / scale}px`;
   }
 
   function openPicker() {
@@ -448,11 +459,11 @@
       const entry = busy(id);
       const picked = gmSelected.has(id);
       const tag = entry ? `<span class="chaos-tag">${entry.status === 'offered' ? 'OFFERED' : entry.status === 'rolling' ? 'ROLLING' : 'OWES TRIBUTE'}</span>` : '';
-      const note = entry ? 'ALREADY IN A WAGER // SKIPPED' : (target.online ? 'ONLINE' : 'OFFLINE');
       return `<button type="button" class="chaos-target${picked ? ' is-selected' : ''}${target.online ? '' : ' is-offline'}${entry ? ' is-busy' : ''}" data-chaos-id="${esc(id)}" aria-pressed="${picked}"${entry ? ' disabled' : ''}>
         <span class="chaos-check" aria-hidden="true">✓</span>
         <span class="chaos-avatar" data-initial="${esc(String(target.name || '?').trim().charAt(0).toUpperCase() || '?')}"><img src="${esc(target.avatarData || '')}" alt="" onerror="this.remove()"></span>
-        <span><b>${esc(target.name || 'LITTLE HERO')}${tag}</b><small>${picked ? 'SELECTED' : note}</small></span>
+        <span class="chaos-target-copy"><b title="${esc(target.name || 'LITTLE HERO')}">${esc(target.name || 'LITTLE HERO')}${tag}</b><small>${picked ? 'Selected for the offer' : entry ? 'Wager already active' : 'Available for an offer'}</small></span>
+        <span class="chaos-target-presence${target.online ? ' is-online' : ''}">${entry ? 'BUSY' : target.online ? 'ONLINE' : 'OFFLINE'}</span>
       </button>`;
     };
     const online = filtered.filter(t => t.online);
@@ -460,6 +471,7 @@
     list.innerHTML = (online.length ? `<div class="chaos-group">ONLINE · ${online.length}</div>${online.map(row).join('')}` : '')
       + (offline.length ? `<div class="chaos-group is-offline">OFFLINE · ${offline.length}</div>${offline.map(row).join('')}` : '');
     syncFoot();
+    if (gmOpen) positionPicker();
   }
 
   function syncFoot() {
@@ -472,12 +484,18 @@
     if (preview) {
       preview.classList.toggle('is-bad', !!s.error);
       const win = winChance(s.target);
-      preview.textContent = s.error ? s.error : `ROLL ${s.target}+ WINS ${coinText(s.coins)} (${win}% CHANCE) // 100 PAYS ${coinText(s.coins * 2)} // BELOW OWES A BLOOD TRIBUTE // 1 OWES A DARK ONE`;
+      preview.innerHTML = s.error ? esc(s.error) : `<span class="chaos-rule is-win"><small>ROLL ${s.target}+</small><b>+${coinText(s.coins)}</b></span><span class="chaos-rule is-perfect"><small>ROLL 100</small><b>+${coinText(s.coins * 2)}</b></span><span class="chaos-rule is-loss"><small>BELOW ${s.target}</small><b>Blood tribute</b></span><span class="chaos-rule is-dark"><small>ROLL 1</small><b>Dark tribute</b></span>`;
+      const chance = root.querySelector('[data-chaos-chance]');
+      if (chance) chance.textContent = s.error ? 'CHECK YOUR WAGER' : `${win}% WIN CHANCE`;
       const gauge = root.querySelector('[data-chaos-gauge]');
       if (gauge) gauge.innerHTML = s.error ? '' : rollGauge(s.target);
     }
+    root.querySelectorAll('[data-chaos-preset]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.chaosPreset) === (b.parentElement.dataset.chaosPresetFor === 'target' ? s.target : s.coins))));
     root.querySelectorAll('[data-chaos-preset-for="target"] [data-chaos-preset]').forEach(b => b.classList.toggle('is-on', Number(b.dataset.chaosPreset) === s.target));
     root.querySelectorAll('[data-chaos-preset-for="coins"] [data-chaos-preset]').forEach(b => b.classList.toggle('is-on', Number(b.dataset.chaosPreset) === s.coins));
+    const summary = root.querySelector('[data-chaos-selection]');
+    if (summary) summary.innerHTML = `<span><b>${n}</b> ${n === 1 ? 'player' : 'players'} selected</span><span>${s.error ? 'Check wager values' : `Up to <strong>${coinText(s.coins * 2 * n)}</strong> payout`}</span>`;
+    root.classList.toggle('is-arming', gmArmed);
     btn.classList.toggle('is-armed', gmArmed);
     btn.classList.toggle('is-casting', gmSending);
     if (gmSending) { btn.disabled = true; btn.textContent = 'SENDING OFFER...'; return; }
