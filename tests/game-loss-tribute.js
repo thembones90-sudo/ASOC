@@ -19,3 +19,23 @@ for (let attempt = 1; attempt <= 3; attempt++) {
 }
 assert.equal(bm.normalizeState(state).byPlayer.loser.pacts[0].tributeAttempt, 3, 'replacement generation persists across restart');
 console.log('PASS game-loss tribute: universal 10/10 policy, existing-debt migration, manual GM levels preserved, rejection retries persist and cannot be forged by player acknowledgment');
+
+const approved = bm.judgeTribute;
+assert.ok(bm.submitTribute(state, 'loser', loss.id, 'data:image/png;base64,test', true).pact);
+assert.ok(approved(state, loss.id, true, '', 'archived-tribute', 'Accepted').pact);
+assert.equal(loss.state, 'FULFILLED', 'picture approval completes the deal immediately');
+assert.ok(loss.fulfilledAt);
+assert.equal(loss.tributeImageData, '');
+assert.equal(loss.tributeId, 'archived-tribute');
+assert.match(bm.gmDecision(state, { pactId: loss.id, action: 'progress' }).error, /ALREADY COMPLETE/, 'old clients cannot reopen the completed deal');
+assert.ok(bm.submitTribute(state, 'loser', loss.id, 'data:image/png;base64,test', true).error);
+assert.ok(bm.createPetition(state, { id: 'loser', name: 'Loser' }, { request: 'A new request' }).pact, 'approved tribute never blocks a new deal');
+for (const oldState of ['OWED', 'IN_PROGRESS']) {
+ const migrated = bm.normalizeState({ byPlayer: { old: { pacts: [{ id: 'old-' + oldState, playerId: 'old', state: oldState, tributeRequired: true, tributeId: 'accepted-picture', updatedAt: 1234 }] } } });
+ const closed = migrated.byPlayer.old.pacts[0];
+ assert.equal(closed.state, 'FULFILLED'); assert.equal(closed.fulfilledAt, 1234); assert.equal(closed.tributeId, 'accepted-picture');
+ assert.equal(bm.normalizeState(migrated).byPlayer.old.pacts[0].updatedAt, closed.updatedAt, 'migration is stable across subsequent saves');
+}
+const favors = bm.normalizeState({ byPlayer: { favor: { pacts: [{ id: 'heart-favor', playerId: 'favor', paymentKind: 'HEART_OF_SHADOW', state: 'OWED', heartSpentAt: 1234 }] } } });
+assert.equal(favors.byPlayer.favor.pacts[0].state, 'OWED', 'Heart favor without an accepted picture retains its obligation');
+console.log('PASS tribute completion: direct fulfillment, historical receipt migration, no reopening/resubmission, new deals allowed, Heart favors preserved');

@@ -18,7 +18,11 @@ function cleanText(value, max) {
 }
 
 function normalizePact(raw) {
-  const state = PACT_STATES.has(raw?.state) ? raw.state : 'SUBMITTED';
+  const originalState = PACT_STATES.has(raw?.state) ? raw.state : 'SUBMITTED';
+  // Earlier releases left an approved picture in the favor-fulfillment flow.
+  // Its archived tribute receipt proves the payment was already accepted.
+  const approvedTribute = !!cleanText(raw?.tributeId, 120) && ['OWED', 'IN_PROGRESS'].includes(originalState);
+  const state = approvedTribute ? 'FULFILLED' : originalState;
   const gameLoss = raw?.tributeSource === 'GAME_LOSS' || String(raw?.id || '').startsWith('pact-tombola-');
   return {
     id: cleanText(raw?.id, 80) || ('pact-' + crypto.randomBytes(8).toString('hex')),
@@ -43,8 +47,8 @@ function normalizePact(raw) {
     demandedAt: Number(raw?.demandedAt) || null,
     seenAt: Number(raw?.seenAt) || null,
     createdAt: Number(raw?.createdAt) || Date.now(),
-    updatedAt: Number(raw?.updatedAt) || Date.now(),
-    fulfilledAt: Number(raw?.fulfilledAt) || null
+    updatedAt: approvedTribute ? Math.max(Date.now(), (Number(raw?.updatedAt) || 0) + 1) : Number(raw?.updatedAt) || Date.now(),
+    fulfilledAt: Number(raw?.fulfilledAt) || (approvedTribute ? Number(raw?.updatedAt) || Date.now() : null)
   };
 }
 
@@ -171,6 +175,7 @@ function markTributeSeen(state, playerId, pactId) {
 function gmDecision(state, raw) {
   const pact = findPact(state, raw?.pactId);
   if (!pact) return { error: 'PACT NOT FOUND' };
+  if (pact.state === 'FULFILLED') return { error: 'THIS PACT IS ALREADY COMPLETE' };
   const action = String(raw?.action || '');
   const now = Date.now();
   if (pact.paymentKind === 'HEART_OF_SHADOW' && pact.state === 'SUBMITTED' && !['heart-accept', 'deny'].includes(action)) {
@@ -253,7 +258,8 @@ function judgeTribute(state, pactId, accepted, reason, tributeId, verdictComment
     pact.tributeImageData = '';
     pact.tributeImageUrl = '';
     pact.rejectionReason = '';
-    pact.state = 'OWED';
+    pact.state = 'FULFILLED';
+    pact.fulfilledAt = Date.now();
   } else {
     pact.tributeImageData = '';
     pact.tributeImageUrl = '';

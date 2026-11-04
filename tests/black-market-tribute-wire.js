@@ -160,8 +160,14 @@ async function run() {
     // 7. The GM judges it, which is the whole point of collecting it.
     mark = gm.mark();
     gm.send({ type: 'blackMarket:tributeJudge', pactId, accepted: true, comment: 'Offering accepted.' });
-    const judged = await gm.next(m => m.type === 'blackMarket:gmState' && pactOf(m, pactId)?.state === 'OWED', 'GM accepts the offering', mark);
-    assert.equal(pactOf(judged, pactId).state, 'OWED', 'an accepted offering releases the debt');
+    const judged = await gm.next(m => m.type === 'blackMarket:gmState' && pactOf(m, pactId)?.state === 'FULFILLED', 'GM accepts the offering', mark);
+    assert.equal(pactOf(judged, pactId).state, 'FULFILLED', 'an accepted offering releases the debt');
+    assert.ok(pactOf(judged, pactId).fulfilledAt, 'approval records completion immediately');
+    const resolved = await player.next(m => m.type === 'blackMarket:state' && pactOf(m, pactId)?.state === 'FULFILLED', 'player sees completed deal');
+    assert.ok(pactOf(resolved, pactId).fulfilledAt);
+    const savedRoom = JSON.parse(fs.readFileSync(path.join(DATA, 'active-rooms.json'), 'utf8')).rooms.find(r => r.code === 'MASTER');
+    assert.equal(savedRoom.blackMarket.byPlayer[pactOf(judged, pactId).playerId].pacts.find(p => p.id === pactId).state, 'FULFILLED', 'completion is durable before notification');
+
     // The projection omits the field entirely once the pact is no longer awaiting
     // judgment, so "not the image" is the assertion; what matters is that the
     // image is no longer sitting on the pact it was judged from.
@@ -172,6 +178,13 @@ async function run() {
     player.send({ type: 'blackMarket:tributeSubmit', pactId, imageData: PNG_DATA_URL, consent: true });
     const tooLate = await player.next(m => m.type === 'blackMarket:error', 'late submission refusal', mark);
     assert.match(tooLate.message, /NOT OWED/, 'a resolved pact cannot be re-submitted');
+    mark = gm.mark();
+    gm.send({ type: 'blackMarket:gmDecision', pactId, action: 'progress' });
+    await gm.next(m => m.type === 'blackMarket:error' && /ALREADY COMPLETE/.test(m.message), 'stale fulfillment action is refused', mark);
+    mark = player.mark();
+    player.send({ type: 'blackMarket:petition', title: 'Next deal', category: 'CUSTOM', request: 'Another request after the completed tribute' });
+    await player.next(m => m.type === 'blackMarket:state' && m.pacts.some(p => p.id !== pactId && p.state === 'SUBMITTED'), 'completed tribute frees the player for another deal', mark);
+
 
     // 9. GM-imposed debt is a first-class wire command. This is the exact path
     // used by CALL A DEBT and must reach both the Broker ledger and the target.

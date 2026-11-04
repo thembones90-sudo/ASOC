@@ -36,7 +36,7 @@ class Client { constructor(name){this.name=name;this.msgs=[];} open(){return new
     assert.equal(uploaded.status,201);const privateUrl=uploaded.data.imageUrl;
     assert.equal((await request('GET',privateUrl)).status,404,'known private URL is not fetchable');
     mark=player.mark();player.send({type:'blackMarket:tributeSubmit',pactId,imageUrl:privateUrl,consent:true});await player.next(m=>m.type==='blackMarket:state'&&m.pacts?.find(p=>p.id===pactId)?.state==='TRIBUTE_SUBMITTED','submit',mark);
-    mark=gm.mark();gm.send({type:'blackMarket:tributeJudge',pactId,accepted:true,comment:'Accepted for boundary test'});await gm.next(m=>m.type==='blackMarket:gmState'&&m.pacts?.find(p=>p.id===pactId)?.state==='OWED','judge',mark);
+    mark=gm.mark();gm.send({type:'blackMarket:tributeJudge',pactId,accepted:true,comment:'Accepted for boundary test'});await gm.next(m=>m.type==='blackMarket:gmState'&&m.pacts?.find(p=>p.id===pactId)?.state==='FULFILLED','judge',mark);
 
     const attackStart=player.mark();
     for(const payload of [
