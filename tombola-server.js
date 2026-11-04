@@ -13,6 +13,7 @@ function createTombolaService(deps) {
     const who = actor(room, ws);
     if (!who) return;
     const state = game.view(room.tombola, who.id, who.isGm, room.tombolaHistory || []);
+    if (!['LOBBY', 'PLAYING'].includes(state.phase)) state.visible = false;
     state.serverNow = Date.now();
     const due = requiredTribute(room, who);
     state.requiredTribute = due ? { pactId: due.id } : null;

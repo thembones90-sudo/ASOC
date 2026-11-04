@@ -84,7 +84,7 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
     const checkedMotions = new Set();
     // Read the private test fixture on disk, never expose concealed outcomes through a browser API.
     const deck = JSON.parse(fs.readFileSync(path.join(server.dataDir, 'active-rooms.json'), 'utf8')).rooms[0].tombola.inventory;
-    const fieldsToOpen = ['BLESSING', 'CURSE', 'GRAIL', 'BLOOD_TRIBUTE'].map(kind => deck.findIndex(f => f.kind === kind) + 1);
+    const fieldsToOpen = ['BLESSING', 'CURSE', 'GRAIL'].map(kind => deck.findIndex(f => f.kind === kind) + 1);
     for (const [index, field] of fieldsToOpen.entries()) {
       await alpha.waitForFunction(() => document.querySelector('.tombola-turn')?.textContent.includes('CYCLE'));
       const actor = await alpha.locator('[data-tombola-field]:not([disabled])').count() ? alpha : beta;
@@ -121,66 +121,50 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
         assert.equal(await beta.locator('#bm-demand-notice').count(), 0);
       }
     }
-    await gm.locator('.tombola-blood-verdict').waitFor();
-    assert.equal(await gm.locator('.tombola-turn').textContent(), 'GAME OVER // BLOOD TRIBUTE');
-    assert.equal(await gm.locator('[data-tombola-turn-clock]').count(), 0, 'game over removes the turn timer');
-    assert.equal(checkedMotions.size, 4, 'all four distinct animations verified');
-    assert.equal(await alpha.locator('.is-grail').count(), 1);
-    assert.match(await alpha.locator('.is-grail').textContent(), /THE GRAIL.*\+50/);
-    // Re-sync/reopening must not replay historical reveal effects.
-    await gm.evaluate(() => window.TombolaUI.open());
-    assert.equal(await gm.locator('.is-new-reveal').count(), 0);
-    for (const [name, page] of [['desktop', alpha], ['mobile', beta]]) {
-      await page.locator('.tombola-blood-verdict').waitFor();
-      assert.equal(await page.locator('[data-tombola-field]:not([disabled])').count(), 0);
-      assert.equal(await page.locator('.tombola-turn').textContent(), 'GAME OVER // BLOOD TRIBUTE');
-      assert.equal(await page.locator('[data-tombola-field]:not(.is-closed)').count(), 4);
-      assert.equal(await page.locator('[data-tombola-field].is-closed').count(), 32, 'Blood Tribute stops the round with unopened vaults intact');
-      const required = await page.locator('#tombola-required-veil').count();
-      if (required) {
-        assert.ok(await page.locator('[data-tombola-close]').isEnabled(), 'finished board can be dismissed without cancelling tribute');
-        if (await page.locator('#bm-demand-notice').count()) await page.locator('[data-bm-pay-debt]').click();
-        else await page.locator('[data-tombola-pay]').click();
-        await page.locator('[data-bm-close]').waitFor();
-        assert.ok((await page.locator('#black-market-body').textContent()).includes('BLOOD TRIBUTE REQUIRED'));
-        await page.locator('[data-bm-close]').click();
-        await page.locator('[data-tombola-close]').click();
-        assert.equal(await page.locator('#tombola-overlay').isVisible(), false, 'finished board no longer traps the player');
-        assert.equal(await page.locator('#tombola-required-veil').count(), 0);
-        await page.locator('#chat-input').fill('Tribute remains owed, but chat is accessible');
-        await page.reload();
-        await page.locator('#tombola-required-veil').waitFor();
-        assert.ok(await page.locator('[data-tombola-close]').isEnabled(), 'refresh keeps debt but does not lock board controls');
-        await page.waitForFunction(() => window.BlackMarket?.pacts?.some(p => p.id.startsWith('pact-tombola-')));
-        await page.locator('[data-tombola-pay]').click();
-        assert.ok((await page.locator('#black-market-body').textContent()).includes('LEVEL 10 / 10'), 'game-loss tribute always demands the maximum level');
-        await page.locator('[data-act="offer-tribute"]').click();
-        const picker = page.waitForEvent('filechooser');
-        await page.locator('[data-bm-consent-open]').click();
-        await (await picker).setFiles({ name: 'tombola-test.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64') });
-        await page.locator('#tombola-required-veil').waitFor({ state: 'detached' });
-        const pactId = await page.evaluate(() => BlackMarket.pacts.find(p => p.id.startsWith('pact-tombola-')).id);
-        await gm.evaluate(pactId => App.send({ type: 'blackMarket:tributeJudge', pactId, accepted: false, comment: 'A replacement offering is required.' }), pactId);
-        await page.waitForFunction(id => BlackMarket.pacts.some(p => p.id === id && p.state === 'TRIBUTE_REJECTED'), pactId);
-        await page.locator('[data-bm-close]').click();
-        await page.locator('[data-tombola-close]').click();
-        assert.equal(await page.locator('#tombola-overlay').isVisible(), false, 'rejection never traps the player on the finished board');
-        await page.locator('#black-market-player-button').click();
-        await page.locator('[data-act="offer-tribute"]').click();
-        const replacement = page.waitForEvent('filechooser');
-        await page.locator('[data-bm-consent-open]').click();
-        await (await replacement).setFiles({ name: 'replacement.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64') });
-        await page.waitForFunction(id => BlackMarket.pacts.some(p => p.id === id && p.state === 'TRIBUTE_SUBMITTED'), pactId);
-        await page.locator('[data-bm-close]').click();
-      }
-      await page.screenshot({ path: path.join(shots, `${name}-finale.png`) });
-      if (await page.locator('#tombola-overlay').isVisible()) await page.locator('[data-tombola-close]').click();
-      await page.locator('#chat-input').fill('Chat remains available after Tombola tribute submission');
-      assert.deepEqual(page.pageErrors || [], []);
+    const bloodField = deck.findIndex(f => f.kind === 'BLOOD_TRIBUTE') + 1;
+    const debtor = await alpha.locator('[data-tombola-field]:not([disabled])').count() ? alpha : beta;
+    await debtor.locator(`[data-tombola-field="${bloodField}"]`).click();
+    for (const page of [gm, alpha, beta]) {
+      await page.locator('#tombola-overlay').waitFor({ state: 'hidden' });
+      assert.equal(await page.locator('#tombola-restore').isVisible(), false, 'ended game has no restore badge');
+      assert.equal(await page.locator('#tombola-required-veil').count(), 0, 'debt never forces an ended game over chat');
+      await page.evaluate(() => TombolaUI.open());
+      assert.equal(await page.locator('#tombola-overlay').isVisible(), false, 'manual open cannot resurrect an ended board');
+    }
+    assert.equal(checkedMotions.size, 3, 'active-round reward animations remain intact');
+    const ended = JSON.parse(fs.readFileSync(path.join(server.dataDir, 'active-rooms.json'), 'utf8')).rooms[0].tombola;
+    assert.equal(ended.phase, 'ENDED'); assert.equal(ended.reveals.length, 4, 'Blood still seals the round immediately');
+    await debtor.waitForFunction(() => BlackMarket.pacts.some(p => p.id.startsWith('pact-tombola-')));
+    const pactId = await debtor.evaluate(() => BlackMarket.pacts.find(p => p.id.startsWith('pact-tombola-')).id);
+    if (await debtor.locator('#bm-demand-notice').count()) await debtor.locator('[data-bm-pay-debt]').click();
+    else await debtor.evaluate(() => BlackMarket.open());
+    await debtor.locator('[data-bm-close]').click();
+    await debtor.locator('#chat-input').fill('Chat is clear while tribute remains owed');
+    await debtor.reload(); await debtor.locator('#game-screen.active').waitFor();
+    await debtor.waitForFunction(() => BlackMarket.pacts.some(p => p.id.startsWith('pact-tombola-')));
+    assert.equal(await debtor.locator('#tombola-overlay').isVisible(), false, 'refresh never reopens the ended board for its debtor');
+    assert.equal(await debtor.locator('#tombola-restore').isVisible(), false);
+    await debtor.evaluate(() => BlackMarket.open());
+    assert.match(await debtor.locator('#black-market-body').textContent(), /LEVEL 10 \/ 10/);
+    const upload = async name => {
+      await debtor.locator('[data-act="offer-tribute"]').click();
+      const picker = debtor.waitForEvent('filechooser'); await debtor.locator('[data-bm-consent-open]').click();
+      await (await picker).setFiles({name, mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=','base64')});
+      await debtor.waitForFunction(id=>BlackMarket.pacts.some(p=>p.id===id&&p.state==='TRIBUTE_SUBMITTED'),pactId);
+    };
+    await upload('first.png');
+    await gm.evaluate(id=>App.send({type:'blackMarket:tributeJudge',pactId:id,accepted:false,comment:'Replacement required'}),pactId);
+    await debtor.waitForFunction(id=>BlackMarket.pacts.some(p=>p.id===id&&p.state==='TRIBUTE_REJECTED'),pactId);
+    assert.equal(await debtor.locator('#tombola-overlay').isVisible(), false, 'rejection does not resurrect the ended board');
+    assert.equal(await debtor.locator('#tombola-restore').isVisible(), false);
+    await upload('replacement.png'); await debtor.locator('[data-bm-close]').click();
+    for (const page of [gm,alpha,beta]) {
+      await page.reload();
+      await page.waitForFunction(()=>window.App?.roomCode==='MASTER'||document.querySelector('#game-screen.active'));
+      assert.equal(await page.locator('#tombola-overlay').isVisible(),false,'all roles stay clear after refresh');
+      assert.equal(await page.locator('#tombola-restore').isVisible(),false);
     }
     // GM X cancels on the server; minus only minimizes locally.
-    await gm.locator('[data-tombola-close]').click();
-    await gm.locator('#tombola-overlay').waitFor({ state: 'hidden' });
     for (const phase of ['LOBBY', 'PLAYING']) {
       await gm.evaluate(() => TombolaUI.activate());
       await gm.locator('[data-tombola-action="start"]').waitFor();
@@ -218,7 +202,7 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       assert.equal(await alpha.locator('#tombola-overlay').isVisible(), false, 'cancelled board stays closed after refresh');
     }
     assert.deepEqual(errors, []);
-    console.log('PASS FATEBREAKER V2 browser: 36 vaults, four reveals/reduced motion, shared legendary Grail +50 banner, immediate Blood ending with 32 closed fields, forced tribute/reconnect/upload');
+    console.log('PASS FATEBREAKER browser: active reveals, immediate Blood ending, no ended board/badge/veil for any role, refresh/rejection stay clear, Black Market replacement, GM cancellation and restore');
   } catch (error) {
     for (let i = 0; i < pages.length; i++) {
       await pages[i].screenshot({ path: path.join(shots, `failure-${i}.png`) });

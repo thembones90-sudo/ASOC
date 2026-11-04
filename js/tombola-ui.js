@@ -104,7 +104,7 @@
   function updateRestore() {
     const restore = document.getElementById('tombola-restore');
     if (!restore) return;
-    restore.hidden = !ui.minimized || ui.open || ui.state?.visible === false && !gm() && !ui.state?.requiredTribute;
+    restore.hidden = !['LOBBY', 'PLAYING'].includes(ui.state?.phase) || !ui.minimized || ui.open || ui.state?.visible === false && !gm() && !ui.state?.requiredTribute;
     const status = ui.state?.phase === 'PLAYING' ? `${ui.state.viewer?.canPick ? 'YOUR TURN' : ui.state.currentPlayerName} · ${turnRemaining()}s` : ui.state?.phase === 'LOBBY' ? 'Signup is open' : ui.state?.requiredTribute ? 'Blood tribute required' : 'Round report';
     if (restore.dataset.status !== status) {
       restore.innerHTML = `<span class="tombola-dock-icon" aria-hidden="true">◇</span><span class="tombola-dock-copy"><b>FATEBREAKER</b><small>${esc(status)}</small></span><span class="tombola-dock-action">RESTORE ↗</span>`;
@@ -124,12 +124,19 @@
   }
   function render() {
     invite();
+    // Debts belong to Black Market. A historical round must never occupy chat,
+    // including when its debtor reconnects or their replacement is rejected.
+    if (!['LOBBY', 'PLAYING'].includes(ui.state?.phase)) {
+      ui.open = false; ui.minimized = false; ui.finale = '';
+      document.getElementById('tombola-required-veil')?.remove();
+      const root = ensure(); root.hidden = true; root.replaceChildren();
+      updateRestore(); return;
+    }
     const required = !!ui.state?.requiredTribute;
     const sharedVisible = ui.state?.visible !== false;
-    if (required && !ui.minimized) ui.open = true;
     let veil = document.getElementById('tombola-required-veil');
-    if (required && !ui.minimized && !veil) { veil = document.createElement('div'); veil.id = 'tombola-required-veil'; document.body.append(veil); }
-    if (!required || ui.minimized) veil?.remove();
+    if (required && ui.open && !ui.minimized && !veil) { veil = document.createElement('div'); veil.id = 'tombola-required-veil'; document.body.append(veil); }
+    if (!required || !ui.open || ui.minimized) veil?.remove();
     const root = ensure(); root.hidden = !ui.open || (!sharedVisible && !required && !gm()); updateRestore();
     root.classList.toggle('tombola-summoned-board', !gm() && !required && ['LOBBY', 'PLAYING'].includes(ui.state?.phase));
     root.setAttribute('aria-modal', required ? 'true' : 'false');
@@ -228,12 +235,8 @@
     } else ui.lastReveal = '';
     if (prior?.id !== ui.state?.id) { ui.minimized = false; ui.position = null; const root = ensure(); root.style.left = ''; root.style.top = ''; root.style.transform = ''; root.style.maxHeight = ''; }
     if (ui.state?.phase === 'PLAYING' && prior?.phase !== 'PLAYING' && ui.state.viewer?.participant && !ui.minimized) ui.open = true;
-    // A hydrated ENDED state is historical data, not a new event. Only open the
-    // finale when the current session visibly transitions into ENDED; otherwise
-    // every app reset/reconnect resurrects the last finished game's modal.
-    if (message.live === true && ui.state?.phase === 'ENDED' && prior?.id === ui.state.id && prior?.phase === 'PLAYING') {
-      ui.finale = ui.state.id; if (!ui.minimized) ui.open = true;
-    } else ui.finale = '';
+    ui.finale = '';
+    if (gm() && ui.state?.phase === 'LOBBY' && prior?.id !== ui.state.id) ui.open = true;
     render();
   }
   function open() { ui.open = true; ui.minimized = false; ensure(); send('tombola:sync'); render(); }
