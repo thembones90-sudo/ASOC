@@ -94,7 +94,7 @@ class Client {
     const told = await sissy.next(m => m.type === 'coinDrop:claimed', 'everyone told', from[0]);
     assert.equal(told.playerName, 'Cigan');
     assert.equal(told.amount, rc.amount);
-    await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /Cigan SNATCHED AN EPIC SHADOW COIN/.test(x.text)), 'chat line');
+    await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.playerName === 'Dennis' && x.source === 'dennisAI' && x.text.includes('Cigan') && x.text.includes(`+${rc.amount} SC`)), 'chat line');
     assert.equal(rc.balance, rc.amount, 'coins land in the balance');
 
     // 2b. Same moment: a public ROLL-OFF. Scripted dice 80 / 20 -> first roller wins.
@@ -107,7 +107,7 @@ class Client {
       cigan.send({ type: 'coinDrop:claim', id: sp.drop.id });
       const start = await gm.next(m => m.type === 'coinRoll:start', 'roll-off starts (GM watches too)', f[2]);
       await sissy.next(m => m.type === 'coinDrop:contested', 'coin contested', f[0]);
-      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /ROLL-OFF! .* GRABBED THE SAME/.test(x.text)), 'chat nudge', f[2]);
+      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.playerName === 'Dennis' && x.text.includes('isti novčić.')), 'chat nudge', f[2]);
       const order = start.roll.contenders.map(c => c.name);
       assert.deepEqual(order.slice().sort(), ['Cigan', 'Sissy']);
       assert.equal(start.roll.turnId, start.roll.contenders[0].id);
@@ -134,7 +134,7 @@ class Client {
     const r2 = await rollOff('uncommon', true);
     assert.equal(r2.res.winners.length, 2, 'both share a tied coin');
     assert.ok(Math.abs(r2.res.winners[0].amount - r2.res.winners[1].amount) <= 0.1 + 1e-9, 'split in half');
-    await gm.next(m => m.type === 'chat:update' && m.messages.some(x => /A TIE! THE UNCOMMON COIN IS SPLIT/.test(x.text)), 'tie announced');
+    await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.playerName === 'Dennis' && x.text.startsWith('Izjednačeno. Delite:')), 'tie announced');
 
     // 2c. Idle is punished: the first roller sits still -> FORFEIT; the other wins even with a 5.
     {
@@ -148,15 +148,15 @@ class Client {
       const [idle, active] = start.roll.contenders;
       const idleOut = await gm.next(m => m.type === 'coinRoll:rolled' && m.forfeit === true, 'idle forfeits', f[2], 6000);
       assert.equal(idleOut.playerId, idle.id);
-      assert.ok(idleOut.taunt && idleOut.taunt.includes(idle.name.toUpperCase()), 'the idle player is mocked by name');
-      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text === `💤 ${idleOut.taunt}`), 'taunt in chat', f[2]);
+      assert.ok(idleOut.taunt && idleOut.taunt.includes(idle.name), 'the idle player is mocked by name');
+      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.playerName === 'Dennis' && x.text === idleOut.taunt), 'taunt in chat', f[2]);
       await gm.next(m => m.type === 'coinRoll:turn' && m.roll.turnId === active.id, 'other turn', f[2]);
       ({ Sissy: sissy, Cigan: cigan })[active.name].send({ type: 'coinRoll:cast', id: start.roll.id });
       const res = await gm.next(m => m.type === 'coinRoll:result', 'result', f[2], 9000);
       assert.equal(res.winners.length, 1);
       assert.equal(res.winners[0].id, active.id, 'the idle player loses automatically');
       assert.equal(res.roll.contenders.find(c => c.id === active.id).roll, 5);
-      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.text.includes('IDLE (FORFEIT)')), 'forfeit announced');
+      await gm.next(m => m.type === 'chat:update' && m.messages.some(x => x.playerName === 'Dennis' && x.text.includes(`${active.name} bacio 5 i dobio`)), 'forfeit announced');
     }
     // 2d. Everyone idles: the coin is lost.
     {
@@ -169,6 +169,7 @@ class Client {
       const res = await gm.next(m => m.type === 'coinRoll:result', 'all idle', f[1], 12000);
       assert.equal(res.lost, true);
       assert.equal(res.winners.length, 0, 'nobody is paid');
+      await gm.next(m=>m.type==='chat:update'&&m.messages.some(x=>x.playerName==='Dennis'&&x.text.startsWith('Niko nije bacio.')), 'lost coin Dennis line', f[1]);
     }
 
     // 2e. Catching 10 coins unearths the relic.

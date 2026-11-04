@@ -145,6 +145,7 @@ const PROTOCOL_VERSION = 1;
 const transmogCatalog = require('./js/broker-transmog-catalog');
 const heroRoles = require('./hero-roles');
 const coinDrops = require('./coin-drops');
+const dennisCoinLines = require('./dennis-coin-lines');
 const dragonRaid = require('./dragon-raid');
 const { createDragonRaidService } = require('./dragon-raid-server');
 const { createChaosService } = require('./chaos-server');
@@ -9590,9 +9591,8 @@ function finishCoinDrop(drop, winners, extra = {}) {
   rooms.forEach(room => broadcastPlayersUpdate(room));
 }
 function coinChat(text) {
-  rooms.forEach(r => { addShadowBrokerMessage(r, text, { editableByHost: false }); broadcastChatUpdate(r); });
+  rooms.forEach(r => { addDennisMessage(r, text); broadcastChatUpdate(r); });
 }
-const aTier = label => `${/^[AEIOU]/.test(label) ? 'AN' : 'A'} ${label}`;
 
 function settleCoinClaims(drop) {
   const claimants = drop.claimants;
@@ -9603,7 +9603,7 @@ function settleCoinClaims(drop) {
     drop.claimedBy = { id: who.id, name: who.name };
     sendToWs(who.ws, { type: 'coinDrop:result', id: drop.id, ok: true, amount: drop.amount, tier: drop.tier, balance: award.balance });
     broadcastAllRooms({ type: 'coinDrop:claimed', id: drop.id, tier: drop.tier, label: drop.label, amount: drop.amount, playerId: who.id, playerName: who.name });
-    coinChat(`🪙 ${who.name} SNATCHED ${aTier(drop.label)} SHADOW COIN // +${drop.amount} SC`);
+    coinChat(dennisCoinLines.caught(drop.tier, who.name, drop.amount));
     return finishCoinDrop(drop, [{ ...who, amount: drop.amount }]);
   }
   startCoinRoll(drop, claimants);
@@ -9625,7 +9625,7 @@ function startCoinRoll(drop, claimants) {
   drop.claimedBy = { id: 'rolloff', name: 'ROLL-OFF' };
   broadcastAllRooms({ type: 'coinDrop:contested', id: drop.id, names: claimants.map(c => c.name) });
   const names = claimants.map(c => c.name);
-  coinChat(`⚔️ ROLL-OFF! ${names.slice(0, -1).join(', ')} AND ${names[names.length - 1]} GRABBED THE SAME ${drop.label} SHADOW COIN. HIGHEST ROLL TAKES IT.`);
+  coinChat(dennisCoinLines.rollStart(names));
   nextCoinRollTurn(roll, true);
 }
 function nextCoinRollTurn(roll, first = false) {
@@ -9639,22 +9639,7 @@ function nextCoinRollTurn(roll, first = false) {
   roll.timer = setTimeout(() => forfeitCoinRoll(roll, turnId), COIN_ROLL_TURN_MS);
 }
 // The Shadow Broker's verdict on a Little Hero who froze with a coin on the line.
-const COIN_IDLE_TAUNTS = Object.freeze([
-  '{name}, ARE YOU CLINICALLY BLIND?',
-  '{name} STARED AT THE ROLL BUTTON LIKE IT OWED THEM MONEY. IT DID NOT. FORFEIT.',
-  '{name} WAS GIVEN ONE JOB: CLICK. {name} CHOSE MEDITATION.',
-  'SOMEONE CHECK ON {name}. EITHER ASLEEP OR SPIRITUALLY ABSENT. EITHER WAY: FORFEIT.',
-  '{name} GRABBED THE COIN AND THEN FORGOT HOW HANDS WORK.',
-  'THE DICE WAITED 12 SECONDS FOR {name}. THE DICE HAVE MORE PATIENCE THAN {name} HAS REFLEXES.',
-  '{name} WENT AFK MID-DUEL. THE HOUSE CONFISCATES THEIR DIGNITY AND THEIR SHARE.',
-  'BREAKING: {name} LOSES A ROLL-OFF WITHOUT ROLLING. A TRUE PIONEER OF FAILURE.',
-  '{name} TREATED THE ROLL-OFF LIKE A GROUP PROJECT. NOBODY IS SURPRISED.',
-  'THE SHADOW BROKER HAS SEEN STATUES WITH FASTER REACTION TIMES THAN {name}.',
-  '{name} REACHED FOR THE COIN, THEN REACHED FOR A SNACK. GUESS WHICH ONE PAID OFF.',
-  'IDLE HANDS ARE THE DEVIL\'S WORKSHOP. {name}\'S ARE JUST UNEMPLOYED.',
-  '{name} FORFEITS. THE BUTTON WAS RIGHT THERE. IT GLOWED. IT PULSED. IT BEGGED.'
-]);
-const coinIdleTaunt = name => COIN_IDLE_TAUNTS[crypto.randomInt(COIN_IDLE_TAUNTS.length)].replaceAll('{name}', String(name || 'SOMEONE').toUpperCase());
+const coinIdleTaunt = name => dennisCoinLines.idle(name);
 
 function forfeitCoinRoll(roll, playerId) {
   if (activeCoinRoll !== roll || roll.order[roll.turn] !== playerId) return;
@@ -9662,7 +9647,7 @@ function forfeitCoinRoll(roll, playerId) {
   if (!c || c.roll !== null || c.forfeit) return;
   c.forfeit = true;
   c.taunt = coinIdleTaunt(c.name);
-  coinChat(`💤 ${c.taunt}`);
+  coinChat(c.taunt);
   broadcastAllRooms({ type: 'coinRoll:rolled', id: roll.id, playerId, name: c.name, value: null, forfeit: true, taunt: c.taunt, roll: coinRollPublic(roll) });
   setTimeout(() => nextCoinRollTurn(roll), 1200);
 }
@@ -9686,7 +9671,7 @@ function finishCoinRoll(roll) {
     // Everyone idled: nobody deserves it.
     activeCoinRoll = null;
     broadcastAllRooms({ type: 'coinRoll:result', id: roll.id, roll: coinRollPublic(roll), winners: [], split: false, lost: true, tier: drop.tier, label: drop.label, amount: drop.amount });
-    coinChat(`🎲 ROLL-OFF // ${all.map(c => c.name).join(' AND ')} ALL SAT IDLE // THE ${drop.label} SHADOW COIN IS LOST`);
+    coinChat(dennisCoinLines.rollLost());
     return finishCoinDrop(drop, [], { rollOff: all.map(c => ({ id: c.id, name: c.name, roll: null, forfeit: true })) });
   }
   // Split in tenths of a coin; any leftover tenth goes to the first roller.
@@ -9696,10 +9681,9 @@ function finishCoinRoll(roll) {
   paid.forEach(w => { if (w.amount > 0) awardCoinShare(drop, w, w.amount, winners.length > 1 ? ' (split)' : ' (roll-off)'); });
   activeCoinRoll = null;
   broadcastAllRooms({ type: 'coinRoll:result', id: roll.id, roll: coinRollPublic(roll), winners: paid, split: winners.length > 1, tier: drop.tier, label: drop.label, amount: drop.amount });
-  const rolls = all.map(c => `${c.name} ${c.forfeit ? 'IDLE (FORFEIT)' : c.roll}`).join(' VS ');
   coinChat(winners.length > 1
-    ? `🎲 ROLL-OFF // ${rolls} // A TIE! THE ${drop.label} COIN IS SPLIT: ${paid.map(w => `${w.name} +${w.amount} SC`).join(', ')}`
-    : `🎲 ROLL-OFF // ${rolls} // ${paid[0].name} TAKES THE ${drop.label} SHADOW COIN // +${paid[0].amount} SC`);
+    ? dennisCoinLines.rollTie(paid)
+    : dennisCoinLines.rollWinner(paid[0].name, top, paid[0].amount));
   finishCoinDrop(drop, paid, { rollOff: all.map(c => ({ id: c.id, name: c.name, roll: c.roll, forfeit: c.forfeit === true })) });
 }
 function handleCoinRollCast(ws, message) {
