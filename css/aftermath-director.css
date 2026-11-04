@@ -232,16 +232,61 @@
   .aftermath-director.scene-enter .aftermath-final-line,
   .aftermath-director.scene-enter .aftermath-scene-detail { animation: none !important; }
 }
-/* AFTERMATH TYPEWRITER RESTORE */
-.aftermath-director .aftermath-stage{width:min(72vw,1180px);max-height:min(90vh,980px)}
-.aftermath-director .aftermath-panel.aftermath-typewriter-panel{display:flex;flex-direction:column;justify-content:flex-start;min-height:clamp(360px,48vh,560px);padding:clamp(34px,4vw,62px);overflow:hidden;background:rgba(3,3,6,.97)}
-.aftermath-director .aftermath-story{width:100%;max-width:none;overflow:auto;padding-right:10px;text-align:left;font-family:Georgia,"Times New Roman",serif;font-size:clamp(20px,1.45vw,28px);line-height:1.6;color:#eeeaf1;scrollbar-width:thin}
-.aftermath-director .aftermath-sentence{position:relative;margin:0 0 .85em;opacity:.96;text-wrap:pretty}
-.aftermath-director .aftermath-sentence.is-typing::after{content:"▌";display:inline-block;margin-left:.08em;color:var(--aftermath-hot);animation:aftermath-caret .72s steps(1,end) infinite;text-shadow:0 0 10px rgba(var(--aftermath-accent-rgb),.75)}
-.aftermath-director .aftermath-sentence.is-complete{opacity:1}
-.aftermath-director .aftermath-final-solution{margin-top:auto;padding-top:18px;border-top:1px solid rgba(var(--aftermath-accent-rgb),.25);color:var(--aftermath-hot);font:900 clamp(12px,1vw,16px)/1.4 var(--font-system,monospace);letter-spacing:.18em;text-align:right;opacity:0;transform:translateY(5px);transition:opacity .35s ease,transform .35s ease;text-transform:uppercase}
-.aftermath-director .aftermath-final-solution.is-visible{opacity:.78;transform:none}
-.aftermath-director.is-complete .aftermath-final-solution{opacity:.78;transform:none}
+/* Broker reading room: restrained metal, warm ink and one final violet reveal. */
+.aftermath-overlay.aftermath-director{--aftermath-accent:#a983ce;--aftermath-accent-rgb:169,131,206;--aftermath-hot:#e0cbef;padding:24px;animation:none}
+.aftermath-director .aftermath-dim{background:radial-gradient(ellipse at 50% 40%,#21132b77,transparent 65%),#050508ed;backdrop-filter:blur(8px) brightness(.4)}
+.aftermath-director .aftermath-dim::before{opacity:.12}
+.aftermath-director .aftermath-grain{animation:none;opacity:.045}
+.aftermath-director .aftermath-stage{box-sizing:border-box;width:min(960px,100%);max-height:calc(100dvh - 48px);min-height:0;gap:22px;transform:none}
+.aftermath-director .aftermath-identity{flex:none;gap:18px;padding:0 6px;opacity:1;transform:none;animation:none;min-width:0}
+.aftermath-portrait{flex:none;width:64px;height:64px;border:1px solid #ad8ac16e;padding:4px;border-radius:50%;background:linear-gradient(145deg,#59515d,#19161e 45%,#08080c);box-shadow:0 0 0 4px #17101f,0 0 28px #8c4db72b}
+.aftermath-director .aftermath-avatar{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover;filter:none}
+.aftermath-director .aftermath-kicker{font:700 10px/1.5 var(--font-system,monospace);letter-spacing:.19em;color:#a497af;margin-bottom:7px}
+.aftermath-director .aftermath-title{font-size:clamp(25px,3vw,38px);line-height:1.1;letter-spacing:.2em;text-shadow:none;color:#e9ddf2}
+.aftermath-signal{margin-left:auto;flex:none;font:700 9px/1.4 var(--font-system,monospace);letter-spacing:.15em;color:#c1a3d5;border:1px solid #9073a53b;padding:7px 10px;border-radius:4px;background:#1f152a66}
+.aftermath-director .aftermath-panel.aftermath-typewriter-panel{display:flex;flex-direction:column;gap:24px;min-height:240px;max-height:100%;padding:32px 40px;clip-path:none;border:1px solid #8973955c;border-radius:14px;background:linear-gradient(135deg,#24202999,#121116 34%,#0c0c10);box-shadow:0 30px 90px #0009,inset 0 1px 0 #ffffff0d;opacity:1;transform:none;animation:none;overflow:hidden}
+.aftermath-director .aftermath-panel::before{height:1px;background:linear-gradient(90deg,transparent,#d8bde79c,transparent);box-shadow:none}
+.aftermath-director .aftermath-panel::after{display:none}
+.aftermath-reading-label{display:flex;justify-content:space-between;gap:12px;flex:none;color:#9c8aa8;font:700 9px/1.5 var(--font-system,monospace);letter-spacing:.17em;padding-bottom:16px;border-bottom:1px solid #bba6ce21}
+.aftermath-progress{color:#887e91;white-space:nowrap;letter-spacing:.09em}
+.aftermath-director .aftermath-story{box-sizing:border-box;width:100%;max-width:68ch;max-height:55dvh;min-height:50px;margin:0 auto;overflow-y:auto;overscroll-behavior:contain;padding:0 12px 4px 0;scrollbar-width:thin;scrollbar-color:#695379 #18131c;text-align:left;font:400 clamp(18px,1.55vw,22px)/1.7 Georgia,"Times New Roman",serif;letter-spacing:.004em;text-transform:none;white-space:normal;color:#e7e1d8;text-shadow:none;outline-offset:-2px}
+.aftermath-director .aftermath-sentence{position:relative;margin:0 0 1em;opacity:1;text-wrap:pretty;animation:aftermath-paragraph-in .23s ease both}
+.aftermath-director .aftermath-sentence:last-child{margin-bottom:0}
+.aftermath-director .aftermath-sentence.is-typing::after{content:"▏";color:#bca1ce;margin-left:1px;animation:aftermath-caret .8s steps(1,end) infinite}
+.aftermath-director .aftermath-closing{padding:4px 0 4px 20px;border-left:2px solid #a580c3;font-size:1.13em;line-height:1.55;color:#e5d1f1;overflow:hidden}
+.aftermath-director .aftermath-closing.is-complete::before{content:"";pointer-events:none;position:absolute;inset:0;background:linear-gradient(100deg,transparent 25%,#c994f115 50%,transparent 75%);transform:translateX(-100%);animation:aftermath-final-sweep .9s ease-out forwards}
+.aftermath-director .aftermath-final-solution{align-self:flex-end;flex:none;display:grid;gap:5px;min-width:150px;margin:0;padding:12px 20px;border:1px solid #a48ab943;border-radius:6px;background:linear-gradient(120deg,#33263888,#19151e);box-shadow:inset 0 1px 0 #ffffff0a;opacity:0;text-align:left;letter-spacing:.1em;transform:translateY(5px);transition:opacity .3s ease,transform .3s ease}
+.aftermath-director .aftermath-final-solution small{font:700 9px/1.4 var(--font-system,monospace);letter-spacing:.2em;color:#aa93bd}
+.aftermath-director .aftermath-final-solution strong{font:700 clamp(18px,2vw,25px)/1.2 var(--font-display,serif);color:#ebdbf6;overflow-wrap:anywhere;max-width:100%}
+.aftermath-director .aftermath-final-solution.is-visible{opacity:1;transform:none}
+.aftermath-director [hidden]{display:none!important}
+.aftermath-reader-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.aftermath-director .aftermath-controls{flex:none;justify-content:flex-end;align-items:center;gap:12px;min-height:44px}
+.aftermath-speed{display:flex;align-items:center;gap:10px;margin-right:auto;font:700 9px/1.4 var(--font-system,monospace);letter-spacing:.12em;color:#a397ac}
+.aftermath-speed select{min-height:40px;padding:8px 26px 8px 12px;border:1px solid #79608666;border-radius:6px;background:#161119;color:#e3d5ec;font:500 12px/1.2 Arial,sans-serif;color-scheme:dark}
+.aftermath-director .aftermath-btn{min-height:44px;min-width:0;padding:12px 18px;border-radius:6px;font:700 10px/1.4 var(--font-system,monospace);letter-spacing:.12em;border-color:#9c7eb255;background:#141017;color:#c5b1d2;box-shadow:none}
+.aftermath-director .aftermath-continue{background:linear-gradient(135deg,#604273,#382440);border-color:#b28cc5a6;color:#f7ecfc}
+.aftermath-director .aftermath-continue span{margin-left:14px}
+.aftermath-director :is(button,select,.aftermath-story):focus-visible{outline:2px solid #ddbae9;outline-offset:3px}
+.aftermath-wait{flex:none;text-align:center;color:#877b90;font:700 9px/1.5 var(--font-system,monospace);letter-spacing:.14em}
+@keyframes aftermath-paragraph-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes aftermath-final-sweep{to{transform:translateX(100%)}}
 @keyframes aftermath-caret{0%,49%{opacity:1}50%,100%{opacity:0}}
-@media(max-width:900px){:where(html:not(.asoc-mobile)) .aftermath-director .aftermath-stage{width:min(94vw,780px)}:where(html:not(.asoc-mobile)) .aftermath-director .aftermath-panel.aftermath-typewriter-panel{padding:34px 22px;min-height:360px}:where(html:not(.asoc-mobile)) .aftermath-director .aftermath-story{font-size:clamp(18px,3.8vw,23px)}}
-@media(prefers-reduced-motion:reduce){.aftermath-director .aftermath-sentence.is-typing::after{animation:none}}
+@media(max-width:600px){
+ .aftermath-overlay.aftermath-director{padding:14px}
+ .aftermath-director .aftermath-stage{max-height:calc(100dvh - 28px);gap:16px}
+ .aftermath-director .aftermath-identity{gap:12px;padding:0}
+ .aftermath-portrait{width:46px;height:46px;padding:3px}
+ .aftermath-director .aftermath-title{font-size:23px;letter-spacing:.13em}
+ .aftermath-director .aftermath-kicker{font-size:8px;letter-spacing:.1em}
+ .aftermath-signal{display:none}
+ .aftermath-director .aftermath-panel.aftermath-typewriter-panel{padding:22px 20px;gap:18px;min-height:160px;border-radius:10px}
+ .aftermath-director .aftermath-story{font-size:18px;max-height:52dvh;line-height:1.6}
+ .aftermath-reading-label{font-size:8px;letter-spacing:.08em}
+ .aftermath-director .aftermath-controls{flex-wrap:wrap;justify-content:stretch;gap:10px}
+ .aftermath-speed{flex:1 1 100%;justify-content:space-between}
+ .aftermath-director .aftermath-btn{flex:1;padding:12px}
+ .aftermath-director .aftermath-closing{padding-left:14px}
+}
+@media(max-height:500px){.aftermath-director .aftermath-stage{gap:10px}.aftermath-director .aftermath-panel.aftermath-typewriter-panel{padding:16px 24px;gap:12px;min-height:0}.aftermath-director .aftermath-story{max-height:38dvh}.aftermath-portrait{width:38px;height:38px}.aftermath-director .aftermath-title{font-size:23px}}
+@media(prefers-reduced-motion:reduce){.aftermath-overlay.aftermath-director,.aftermath-director *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

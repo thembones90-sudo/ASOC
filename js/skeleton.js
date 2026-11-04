@@ -774,179 +774,151 @@ const Skeleton = (() => {
     return { main, finalLine };
   }
 
-  function aftermathCharDelay(char, base) {
-    if (char === '\n') return 500;
-    if (char === ',') return 120;
-    if (char === ';' || char === ':') return 170;
-    if (char === '.' || char === '?' || char === '!') return 300;
-    return base;
+  function aftermathParagraphs(story) {
+    const clean = String(story || '').replace(/\[(?:SCENE(?::[^\]]+)?|FOCUS|FINAL)\]/gi, '\n\n').trim();
+    const { main, finalLine } = splitAftermathStory(clean);
+    const groups = [];
+    for (const block of main.split(/\n\s*\n/).filter(part => part.trim())) {
+      const sentences = block.match(/[^.!?]+[.!?]+(?:["'”’)]*)?|[^.!?]+$/g) || [block];
+      let paragraph = [], length = 0;
+      for (const raw of sentences) {
+        const sentence = raw.trim();
+        if (!sentence) continue;
+        if (paragraph.length && (paragraph.length >= 3 || length + sentence.length > 180)) {
+          groups.push({ text: paragraph.join(' '), final: false }); paragraph = []; length = 0;
+        }
+        paragraph.push(sentence); length += sentence.length + 1;
+      }
+      if (paragraph.length) groups.push({ text: paragraph.join(' '), final: false });
+    }
+    groups.push({ text: finalLine, final: true });
+    return groups;
+  }
+
+  function aftermathCharDelay(char, fast) {
+    if (char === ',') return fast ? 65 : 100;
+    if (char === ';' || char === ':') return fast ? 100 : 150;
+    if (char === '.' || char === '?' || char === '!') return fast ? 150 : 240;
+    return fast ? 18 : 28;
   }
 
   function playAftermath(result = {}, options = {}) {
     closeAftermath();
     document.querySelector('.victory-overlay')?.remove();
     document.querySelector('.defeat-overlay')?.remove();
-
     const isHost = options.isHost === true;
     const onContinue = typeof options.onContinue === 'function' ? options.onContinue : () => {};
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
     const outcome = String(result.outcome || 'COMPLETE').toUpperCase();
-    const cleanStory = String(result.story || '')
-      .replace(/\[(?:SCENE(?::[^\]]+)?|FOCUS|FINAL)\]/gi, '')
-      .trim();
-    const sentences = cleanStory.match(/[^.!?]+[.!?]+(?:["'”’)]*)?|[^.!?]+$/g)
-      ?.map(sentence => sentence.trim())
-      .filter(Boolean) || [];
-    if (!sentences.length) sentences.push('AFTERMATH DATA UNAVAILABLE.');
-
+    const paragraphs = aftermathParagraphs(result.story);
     const overlay = document.createElement('div');
     overlay.className = `aftermath-overlay aftermath-director aftermath-${outcome.toLowerCase()}`;
     overlay.innerHTML = `
-      <div class="aftermath-dim"></div>
-      <div class="aftermath-grain"></div>
-      <section class="aftermath-stage" role="dialog" aria-label="Aftermath">
+      <div class="aftermath-dim"></div><div class="aftermath-grain"></div>
+      <section class="aftermath-stage" role="dialog" aria-modal="true" aria-labelledby="aftermath-heading">
         <div class="aftermath-identity">
-          <img class="aftermath-avatar" src="assets/ui/shadow-broker.png" alt="">
-          <div>
-            <div class="aftermath-kicker">SHADOW BROKER // TRANSMISSION</div>
-            <h1 class="aftermath-title">AFTERMATH</h1>
-          </div>
+          <div class="aftermath-portrait"><img class="aftermath-avatar" src="assets/ui/shadow-broker.png" alt="Shadow Broker"></div>
+          <div><div class="aftermath-kicker">SHADOW BROKER // TRANSMISSION</div><h1 id="aftermath-heading" class="aftermath-title">AFTERMATH</h1></div>
+          <span class="aftermath-signal" aria-hidden="true">● LIVE</span>
         </div>
         <div class="aftermath-panel aftermath-typewriter-panel">
-          <div class="aftermath-story" aria-live="polite"></div>
-          <div class="aftermath-final-solution"></div>
+          <div class="aftermath-reading-label"><span>THE BROKER'S LAST WORD</span><span class="aftermath-progress"></span></div>
+          <div class="aftermath-story" tabindex="0" aria-label="Aftermath story"></div>
+          <div class="aftermath-final-solution" hidden><small>FINAL SOLUTION</small><strong></strong></div>
+          <div class="aftermath-reader-status" role="status" aria-live="polite"></div>
         </div>
-        ${isHost ? `
-          <div class="aftermath-controls">
-            <button type="button" class="aftermath-btn aftermath-complete">COMPLETE SEQUENCE</button>
-            <button type="button" class="aftermath-btn aftermath-continue" hidden>PROCEED TO RECOUNT</button>
-          </div>` : ''}
+        ${isHost ? `<div class="aftermath-controls">
+          <label class="aftermath-speed">READING PACE<select aria-label="Story reading pace"><option value="normal">Normal</option><option value="fast" selected>Fast</option></select></label>
+          <button type="button" class="aftermath-btn aftermath-complete">COMPLETE SEQUENCE</button>
+          <button type="button" class="aftermath-btn aftermath-continue" hidden>PROCEED TO RECOUNT <span aria-hidden="true">↗</span></button>
+        </div>` : '<div class="aftermath-wait">THE BROKER WILL PROCEED TO RECOUNT</div>'}
       </section>`;
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('is-visible'));
-
     const storyEl = overlay.querySelector('.aftermath-story');
     const finalSolutionEl = overlay.querySelector('.aftermath-final-solution');
-    if (finalSolutionEl && result.finalSolution) finalSolutionEl.textContent = `FINAL SOLUTION // ${result.finalSolution}`;
+    finalSolutionEl.querySelector('strong').textContent = result.finalSolution || '—';
     const completeBtn = overlay.querySelector('.aftermath-complete');
     const continueBtn = overlay.querySelector('.aftermath-continue');
-    let completed = false;
-    let advancing = false;
-    let sentenceIndex = 0;
-
+    const speed = overlay.querySelector('.aftermath-speed select');
+    const progress = overlay.querySelector('.aftermath-progress');
+    const status = overlay.querySelector('.aftermath-reader-status');
+    let fast = true, completed = false, advancing = false, paragraphIndex = 0, following = true;
+    speed?.addEventListener('change', () => { fast = speed.value === 'fast'; });
+    storyEl.addEventListener('scroll', () => { following = storyEl.scrollHeight - storyEl.scrollTop - storyEl.clientHeight < 44; }, { passive: true });
+    const follow = () => { if (following) storyEl.scrollTop = storyEl.scrollHeight; };
+    const schedule = (fn, ms) => {
+      const timer = setTimeout(() => {
+        aftermathTimers = aftermathTimers.filter(id => id !== timer);
+        if (overlay.isConnected) fn();
+      }, ms);
+      aftermathTimers.push(timer);
+    };
     const markComplete = () => {
       if (completed) return;
       completed = true;
       overlay.classList.add('is-complete');
-      finalSolutionEl?.classList.add('is-visible');
-      if (completeBtn) {
-        completeBtn.disabled = true;
-        completeBtn.hidden = true;
-      }
-      if (continueBtn) {
-        continueBtn.hidden = false;
-        requestAnimationFrame(() => continueBtn.classList.add('is-ready'));
-      }
+      finalSolutionEl.hidden = false;
+      finalSolutionEl.classList.add('is-visible');
+      progress.textContent = 'TRANSMISSION COMPLETE';
+      status.textContent = 'Story complete. Final solution: ' + (result.finalSolution || 'unavailable');
+      if (speed) speed.disabled = true;
+      if (completeBtn) completeBtn.hidden = true;
+      if (continueBtn) { continueBtn.hidden = false; requestAnimationFrame(() => continueBtn.classList.add('is-ready')); }
     };
-
-    const typeSentence = (line, text, done) => {
-      if (!line) { done?.(); return; }
-      const chars = Array.from(String(text));
+    const makeParagraph = entry => {
+      const line = document.createElement('p');
+      line.className = 'aftermath-sentence' + (entry.final ? ' aftermath-closing' : '');
+      storyEl.appendChild(line);
+      return line;
+    };
+    const revealNextParagraph = () => {
+      if (paragraphIndex >= paragraphs.length) { markComplete(); return; }
+      const entry = paragraphs[paragraphIndex++];
+      const line = makeParagraph(entry), chars = Array.from(entry.text);
       let index = 0;
-      line.classList.add('is-typing');
+      progress.textContent = `${String(paragraphIndex).padStart(2,'0')} / ${String(paragraphs.length).padStart(2,'0')}`;
+      line.classList.add('is-typing'); follow();
       const tick = () => {
-        if (!overlay.isConnected) return;
         if (index >= chars.length) {
-          line.classList.remove('is-typing');
-          line.classList.add('is-complete');
-          done?.();
+          line.classList.remove('is-typing'); line.classList.add('is-complete');
+          status.textContent = entry.text;
+          follow();
+          schedule(revealNextParagraph, entry.final ? 600 : paragraphs[paragraphIndex]?.final ? 700 : fast ? 300 : 500);
           return;
         }
-        const char = chars[index++];
-        line.textContent += char;
-        const delay = reducedMotion ? 0 : aftermathCharDelay(char, 28);
-        const timer = setTimeout(tick, delay);
-        aftermathTimers.push(timer);
+        const char = chars[index++]; line.textContent += char; follow();
+        schedule(tick, aftermathCharDelay(char, fast));
       };
       tick();
     };
-
-    const revealNextSentence = () => {
-      if (!overlay.isConnected) return;
-      if (sentenceIndex >= sentences.length) {
-        markComplete();
-        return;
-      }
-      const line = document.createElement('p');
-      line.className = 'aftermath-sentence';
-      storyEl.appendChild(line);
-      storyEl.scrollTop = storyEl.scrollHeight;
-      const sentence = sentences[sentenceIndex++];
-      typeSentence(line, sentence, () => {
-        storyEl.scrollTop = storyEl.scrollHeight;
-        if (sentenceIndex >= sentences.length) {
-          const timer = setTimeout(markComplete, reducedMotion ? 0 : 650);
-          aftermathTimers.push(timer);
-          return;
-        }
-        const timer = setTimeout(revealNextSentence, reducedMotion ? 0 : 700);
-        aftermathTimers.push(timer);
-      });
-    };
-
     const completeNow = () => {
       if (!overlay.isConnected || completed) return;
-      clearAftermathTimers();
-      storyEl.innerHTML = '';
-      for (const sentence of sentences) {
-        const line = document.createElement('p');
-        line.className = 'aftermath-sentence is-complete';
-        line.textContent = sentence;
-        storyEl.appendChild(line);
+      clearAftermathTimers(); storyEl.replaceChildren();
+      for (const entry of paragraphs) {
+        const line = makeParagraph(entry); line.textContent = entry.text; line.classList.add('is-complete');
       }
-      storyEl.scrollTop = storyEl.scrollHeight;
-      markComplete();
+      follow(); markComplete();
     };
     aftermathCompleteNow = completeNow;
-
     const advance = () => {
       if (advancing) return;
-      if (!completed) {
-        completeNow();
-        return;
-      }
+      if (!completed) { completeNow(); return; }
       advancing = true;
-      if (continueBtn) {
-        continueBtn.disabled = true;
-        continueBtn.textContent = 'TRANSMITTING...';
-      }
+      if (continueBtn) { continueBtn.disabled = true; continueBtn.textContent = 'TRANSMITTING...'; }
       onContinue();
     };
-
     completeBtn?.addEventListener('click', completeNow);
     continueBtn?.addEventListener('click', advance);
-
     if (isHost) {
-      aftermathKeyHandler = (event) => {
+      aftermathKeyHandler = event => {
         if (event.key !== 'Escape' || !overlay.isConnected) return;
-        event.preventDefault();
-        if (!completed) completeNow();
-        else advance();
+        event.preventDefault(); if (!completed) completeNow(); else advance();
       };
       document.addEventListener('keydown', aftermathKeyHandler);
     }
-
-    if (options.alreadyComplete === true) {
-      const timer = setTimeout(completeNow, 250);
-      aftermathTimers.push(timer);
-    } else if (reducedMotion) {
-      const timer = setTimeout(completeNow, 250);
-      aftermathTimers.push(timer);
-    } else {
-      const startTimer = setTimeout(revealNextSentence, 700);
-      aftermathTimers.push(startTimer);
-    }
-
+    if (options.alreadyComplete === true || reducedMotion) schedule(completeNow, 0);
+    else schedule(revealNextParagraph, 400);
     return overlay;
   }
 
