@@ -196,6 +196,9 @@ const shots = path.join(__dirname, '..', '.scratch', 'tombola-visuals');
       await gm.locator('#tombola-overlay').waitFor({ state: 'hidden' });
       let saved = JSON.parse(fs.readFileSync(path.join(server.dataDir, 'active-rooms.json'), 'utf8')).rooms[0].tombola;
       assert.equal(saved.phase, phase, 'minus preserves the live game');
+      assert.equal(await gm.locator('#tombola-restore b').textContent(), 'FATEBREAKER', 'minimized dock names the game');
+      if (phase === 'PLAYING') assert.match(await gm.locator('#tombola-restore small').textContent(), /\d+s/, 'dock retains the live turn timer');
+
       await gm.locator('#tombola-restore').click();
       await gm.locator('[data-tombola-action="toggle"]').click();
       await gm.waitForFunction(() => document.querySelector('[data-tombola-action="toggle"]')?.textContent.includes('SHOW FATEBREAKER'));

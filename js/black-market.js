@@ -178,7 +178,7 @@
         // sigils, a turning seal behind the title and blood along the rim.
         const shrine = '<i class="bm-drips" aria-hidden="true"></i><i class="bm-corner tl" aria-hidden="true"></i><i class="bm-corner tr" aria-hidden="true"></i><i class="bm-corner bl" aria-hidden="true"></i><i class="bm-corner br" aria-hidden="true"></i><i class="bm-sigil" aria-hidden="true"></i>';
         const runes = '<div class="bm-runeband" aria-hidden="true"></div>';
-        overlay.innerHTML = '<div class="black-market-void"></div><section class="black-market-room" role="dialog" aria-modal="true">' + shrine + '<header><div><small>' + (isGM ? 'SANCTUM OF DEBTS // SHADOW BROKER' : 'CHAMBER OF PETITIONS // SHADOW BROKER') + '</small><h2>BLACK MARKET</h2></div><button type="button" data-bm-close>×</button></header>' + runes + '<div id="black-market-body"></div>' + runes + '</section>';
+        overlay.innerHTML = '<div class="black-market-void"></div><section class="black-market-room" role="dialog" aria-modal="true">' + shrine + '<header><div><small>' + (isGM ? 'SANCTUM OF DEBTS // SHADOW BROKER' : 'CHAMBER OF PETITIONS // SHADOW BROKER') + '</small><h2>BLACK MARKET</h2></div><button type="button" data-bm-close aria-label="Close Black Market" title="Close Black Market">×</button></header>' + runes + '<div id="black-market-body"></div>' + runes + '</section>';
         overlay.querySelector('[data-bm-close]').addEventListener('click', () => overlay.remove());
         overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
         document.body.appendChild(overlay);
@@ -189,7 +189,10 @@
     render() {
       const body = document.getElementById('black-market-body');
       if (!body) return;
+      const detailKey = node => `${node.classList.contains('bm-closed-pact') ? 'history' : 'details'}:${node.closest('[data-pact]')?.dataset.pact || ''}`;
+      const expanded = new Set([...body.querySelectorAll('details[open]')].map(detailKey));
       body.innerHTML = isGM ? this.renderGm() : this.renderPlayer();
+      body.querySelectorAll('details').forEach(node => { if (expanded.has(detailKey(node))) node.open = true; });
       this.bindActions(body);
     },
     renderPlayer() {
@@ -229,7 +232,15 @@
       const legacyRejection = p.rejectionReason && !p.verdictComment ? '<em>' + this.esc(p.rejectionReason) + '</em>' : '';
       const isHeart = p.paymentKind === 'HEART_OF_SHADOW';
       const heartSeal = isHeart ? '<div class="bm-heart-seal"><i>♥</i><span>' + (p.heartSpentAt ? 'HEART CLAIMED // FAVOR OWED' : '1 HEART OFFERED // NOT YET CLAIMED') + '</span></div>' : '';
-      return '<article class="bm-pact is-' + this.esc(String(p.state || '').toLowerCase()) + (isHeart ? ' is-heart-pact' : '') + '" data-state="' + this.esc(p.state) + '" data-pact="' + this.esc(p.id) + '"><div class="bm-pact-sigil" aria-hidden="true"></div><div class="bm-pact-head"><div><small>' + this.esc(p.category) + (gm ? ' // ' + this.esc(p.playerName) : '') + '</small><b>' + this.esc(tributeComplete && p.title === 'BLOOD TRIBUTE REQUIRED' ? 'BLOOD TRIBUTE ACCEPTED' : p.title) + '</b></div><span>' + this.esc(tributeComplete ? 'TRIBUTE ACCEPTED // DEAL COMPLETE' : STATE_LABEL[p.state] || p.state) + '</span></div>' + heartSeal + level + tracking + '<p class="bm-pact-request">' + this.esc(p.request) + '</p>' + terms + verdict + legacyRejection + image + this.actions(p, gm) + '</article>';
+      const closed = ['FULFILLED', 'DENIED', 'BROKEN'].includes(p.state);
+      const title = tributeComplete && p.title === 'BLOOD TRIBUTE REQUIRED' ? 'BLOOD TRIBUTE ACCEPTED' : p.title;
+      const status = tributeComplete ? 'TRIBUTE ACCEPTED // DEAL COMPLETE' : STATE_LABEL[p.state] || p.state;
+      const head = '<div class="bm-pact-head"><div><small>' + this.esc(p.category) + ' // PRIVATE DEAL</small><b>' + this.esc(gm ? p.playerName : title) + '</b>' + (gm ? '<em>' + this.esc(title) + '</em>' : '') + '</div><span>' + this.esc(status) + '</span></div>';
+      const request = '<p class="bm-pact-request">' + this.esc(p.request) + '</p>';
+      const metadata = '<details class="bm-pact-details"><summary>DEAL DETAILS' + (tracking ? ' & DELIVERY' : '') + '</summary>' + request + terms + tracking + '</details>';
+      const attrs = ' class="bm-pact is-' + this.esc(String(p.state || '').toLowerCase()) + (isHeart ? ' is-heart-pact' : '') + (closed ? ' bm-closed-pact' : '') + '" data-state="' + this.esc(p.state) + '" data-pact="' + this.esc(p.id) + '"';
+      if (closed) return '<details' + attrs + '><summary>' + head + '</summary><div class="bm-history-body">' + heartSeal + level + verdict + legacyRejection + metadata + '</div></details>';
+      return '<article' + attrs + '>' + head + heartSeal + level + image + this.actions(p, gm) + verdict + legacyRejection + metadata + '</article>';
     },
     actions(p, gm) {
       if (gm) {

@@ -294,15 +294,20 @@
     root = document.createElement('section');
     root.id = 'poison-target-picker';
     root.hidden = true;
+    root.setAttribute('role', 'dialog');
+    root.setAttribute('aria-modal', 'false');
+    root.setAttribute('aria-labelledby', 'poison-picker-title');
     root.innerHTML = `
       <div class="poison-picker-head">
-        <img src="${ASSETS.command}" alt="">
-        <div><b>POISON TARGET</b><small>PICK ONE OR MANY // THEN CAST</small></div>
-        <button type="button" class="poison-picker-close" aria-label="Close">×</button>
+        <span class="poison-picker-art" aria-hidden="true"></span>
+        <div><span class="poison-picker-eyebrow">SHADOW BROKER <i>GM CONTROL</i></span><b id="poison-picker-title">TOXIN PROTOCOL</b><small>Choose who suffers. Choose who walks free.</small></div>
+        <button type="button" class="poison-picker-close" aria-label="Close Poison controls" title="Close Poison controls">×</button>
       </div>
-      <input class="poison-picker-search" type="search" placeholder="SEARCH LITTLE HERO..." autocomplete="off">
+      <div class="poison-picker-guide"><span><i></i> POISON <small>Cast or renew venom</small></span><span class="is-cure"><i></i> CURE <small>Release poisoned players</small></span></div>
+      <label class="poison-search-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6"/></svg><input class="poison-picker-search" type="search" placeholder="Find a Little Hero…" aria-label="Search poison targets" autocomplete="off"></label>
       <div class="poison-target-list"></div>
       <div class="poison-picker-foot">
+        <div class="poison-selection-summary" data-poison-selection aria-live="polite"></div>
         <div class="poison-picker-tools"><button type="button" data-poison-tool="online">SELECT ALL ONLINE</button><button type="button" data-poison-tool="clear">CLEAR</button></div>
         <button type="button" class="poison-cast-btn" data-poison-cast disabled>SELECT A TARGET</button>
         <button type="button" class="poison-cure-btn" data-poison-cure disabled>CURE SELECTED</button>
@@ -317,11 +322,15 @@
     const root = ensureGmPicker();
     const button = document.getElementById('poison-gm-button');
     const rect = button?.getBoundingClientRect?.();
-    const width = Math.min(420, window.innerWidth * 0.92);
-    const left = rect ? Math.min(window.innerWidth - width - 16, Math.max(16, rect.right + 12)) : Math.max(16, (window.innerWidth - width) / 2);
-    const top = rect ? Math.min(window.innerHeight - 220, Math.max(16, rect.top)) : 80;
-    root.style.left = left + 'px';
-    root.style.top = top + 'px';
+    const scale = root.getBoundingClientRect().width / root.offsetWidth || 1;
+    root.classList.toggle('is-compact', (innerHeight - 24) / scale < 600);
+    root.style.width = `${Math.min(480, (innerWidth - 24) / scale)}px`;
+    root.style.maxHeight = `${Math.min(760, (innerHeight - 24) / scale)}px`;
+    const box = root.getBoundingClientRect();
+    const left = rect ? Math.min(innerWidth - box.width - 12, Math.max(12, rect.right + 12)) : (innerWidth - box.width) / 2;
+    const top = rect ? Math.min(innerHeight - box.height - 12, Math.max(12, rect.top - 60)) : (innerHeight - box.height) / 2;
+    root.style.left = `${Math.max(12, left) / scale}px`;
+    root.style.top = `${Math.max(12, top) / scale}px`;
   }
 
   function openGmPicker() {
@@ -364,11 +373,11 @@
       const picked = gmSelected.has(id);
       const poisoned = !!states[id];
       const status = picked ? 'SELECTED' : (target.online ? 'ONLINE' : 'OFFLINE');
-      const note = poisoned ? 'ALREADY POISONED // CASTING RENEWS IT' : 'ACCOUNT TARGET';
+      const note = poisoned ? (states[id].pendingTribute ? 'Offering awaits your verdict' : 'Venom active · eligible for cure') : 'No active poison';
       return `<button type="button" class="poison-target-option${picked ? ' is-selected' : ''}${target.online ? '' : ' is-offline'}" data-poison-target-id="${esc(id)}" aria-pressed="${picked}">
         <span class="poison-check" aria-hidden="true">✓</span>
         <img src="${esc(avatar)}" alt="">
-        <span><b>${esc(target.name)}${poisoned ? '<i class="poison-tag">POISONED</i>' : ''}</b><small>${note}</small></span>
+        <span class="poison-target-copy"><b title="${esc(target.name)}">${esc(target.name)}${poisoned ? '<i class="poison-tag">POISONED</i>' : ''}</b><small>${note}</small></span>
         <strong class="${target.online ? 'online' : 'offline'}">${status}</strong>
       </button>`;
     };
@@ -377,6 +386,7 @@
     list.innerHTML = (online.length ? `<div class="poison-target-group">ONLINE // ${online.length}</div>${online.map(row).join('')}` : '')
       + (offline.length ? `<div class="poison-target-group is-offline">OFFLINE // ${offline.length}</div>${offline.map(row).join('')}` : '');
     syncGmFoot();
+    if (gmPickerOpen) positionGmPicker();
   }
 
   function resetGmSelection() {
@@ -390,6 +400,10 @@
   function syncGmFoot() {
     const cure = document.querySelector('#poison-target-picker [data-poison-cure]');
     const poisoned = [...gmSelected].filter(id => !!states[id]);
+    const root = document.getElementById('poison-target-picker');
+    const summary = root?.querySelector('[data-poison-selection]');
+    if (summary) summary.innerHTML = `<span><b>${gmSelected.size}</b> selected</span><span><strong>${poisoned.length}</strong> eligible for cure</span>`;
+    root?.classList.toggle('is-arming', gmCastArmed && !gmCasting);
     if (cure) {
       cure.disabled = gmCasting || poisoned.length === 0;
       cure.textContent = poisoned.length ? `CURE ${poisoned.length} SELECTED ${poisoned.length === 1 ? 'HERO' : 'HEROES'}` : 'CURE SELECTED';

@@ -105,7 +105,13 @@
     const restore = document.getElementById('tombola-restore');
     if (!restore) return;
     restore.hidden = !ui.minimized || ui.open || ui.state?.visible === false && !gm() && !ui.state?.requiredTribute;
-    restore.textContent = `RESTORE FATEBREAKER${ui.state?.phase === 'PLAYING' ? ` // ${ui.state.viewer?.canPick ? 'YOUR TURN' : ui.state.currentPlayerName} // ${turnRemaining()}s` : ''}`;
+    const status = ui.state?.phase === 'PLAYING' ? `${ui.state.viewer?.canPick ? 'YOUR TURN' : ui.state.currentPlayerName} · ${turnRemaining()}s` : ui.state?.phase === 'LOBBY' ? 'Signup is open' : ui.state?.requiredTribute ? 'Blood tribute required' : 'Round report';
+    if (restore.dataset.status !== status) {
+      restore.innerHTML = `<span class="tombola-dock-icon" aria-hidden="true">◇</span><span class="tombola-dock-copy"><b>FATEBREAKER</b><small>${esc(status)}</small></span><span class="tombola-dock-action">RESTORE ↗</span>`;
+      restore.dataset.status = status;
+    }
+    restore.setAttribute('aria-label', `Restore FATEBREAKER. ${status}`);
+    restore.classList.toggle('is-urgent', ui.state?.phase === 'PLAYING' && turnRemaining() <= 5);
     restore.classList.toggle('is-your-turn', !!ui.state?.viewer?.canPick);
   }
   function updateTurnCountdown() {

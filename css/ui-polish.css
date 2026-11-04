@@ -1,0 +1,177 @@
+/* Shared finishing layer. Game rules, room layouts and command-pill sizes stay intact. */
+html body :is(#poison-target-picker,#chaos-picker,#black-market-overlay) :is(button,input,select,textarea):focus-visible{outline:2px solid #e9cfaa;outline-offset:3px}
+html body :is(#poison-target-picker,#chaos-picker) :is(.poison-picker-close,.chaos-picker-close){display:grid;place-items:center;flex:none;width:32px;height:32px;border:1px solid #ad91b64d;border-radius:7px;background:#100c19b8;color:#f2e4f7;font:400 24px/1 Arial;cursor:pointer}
+/* POISON: the GM's toxicology desk. */
+html body #poison-target-picker{box-sizing:border-box;display:flex;flex-direction:column;width:min(480px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;border:1px solid #6b865b;border-radius:15px;clip-path:none;background:linear-gradient(145deg,#162017,#0c130f 60%,#111a13);color:#e8f2e5;box-shadow:0 24px 75px #000b,0 0 0 5px #070e0b88;overflow:hidden;font-family:Arial,sans-serif}
+html body #poison-target-picker[hidden]{display:none!important}
+html body #poison-target-picker::before{display:none}
+html body #poison-target-picker>*{flex-shrink:0}
+html body #poison-target-picker .poison-picker-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:111px;padding:20px;border-bottom:1px solid #8bb16a44;background:#111c11;overflow:hidden}
+html body #poison-target-picker .poison-picker-art{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,#111c12 4%,#111c12a8 55%,#111c1233),url('../assets/ui/gm-pill-poison.png') right center / auto 180px no-repeat;opacity:.82}
+html body #poison-target-picker .poison-picker-head>div,html body #poison-target-picker .poison-picker-close{position:relative;z-index:1}
+html body #poison-target-picker .poison-picker-close{align-self:flex-start;border-color:#9cc08b55;background:#0e180ebd;color:#d6e9cf}
+html body #poison-target-picker .poison-picker-head b{display:block;margin-top:8px;color:#edf6e6;font:900 25px/1.1 Arial;letter-spacing:.045em;text-shadow:0 2px 15px #000b}
+html body #poison-target-picker .poison-picker-head small{display:block;margin-top:5px;color:#b3c7aa;font:400 12px/1.4 Arial;letter-spacing:0}
+html body #poison-target-picker .poison-picker-eyebrow{display:flex;align-items:center;gap:9px;color:#c0d2b2;font:700 9px/1 Arial;letter-spacing:.15em}
+html body #poison-target-picker .poison-picker-eyebrow i{padding:4px 6px;border:1px solid #b6c38d4a;border-radius:3px;color:#d5dbac;font:700 8px/1 Arial;letter-spacing:.08em;font-style:normal}
+html body #poison-target-picker .poison-picker-guide{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 18px 0;padding:11px 0;border-bottom:1px solid #a0bc7d26}
+html body #poison-target-picker .poison-picker-guide>span{font:700 10px/1.2 Arial;letter-spacing:.1em;color:#c4ddaa}
+html body #poison-target-picker .poison-picker-guide i{display:inline-block;width:6px;height:6px;margin-right:4px;border-radius:50%;background:#a6c96c}
+html body #poison-target-picker .poison-picker-guide small{display:block;margin:5px 0 0 14px;font:400 10px/1.3 Arial;letter-spacing:0;color:#91a48b}
+html body #poison-target-picker .poison-picker-guide .is-cure{color:#b3ded2}
+html body #poison-target-picker .poison-picker-guide .is-cure i{background:#80baaa}
+html body #poison-target-picker .poison-search-wrap{display:flex;align-items:center;gap:10px;margin:14px 18px 10px;padding:0 12px;border:1px solid #71866668;border-radius:7px;background:#09100c}
+html body #poison-target-picker .poison-search-wrap:focus-within{border-color:#a7be8a}
+html body #poison-target-picker .poison-search-wrap svg{width:16px;height:16px;fill:none;stroke:#a1b497;stroke-width:1.7;flex:none}
+html body #poison-target-picker .poison-picker-search{box-sizing:border-box;min-width:0;flex:1;width:100%;margin:0;padding:11px 0;border:0;background:transparent;color:#f1f6e9;font:400 12px/1.2 Arial;letter-spacing:0;box-shadow:none}
+html body #poison-target-picker .poison-picker-search::placeholder{color:#879b81}
+html body #poison-target-picker .poison-target-list{flex:1 1 auto;min-height:110px;max-height:360px;display:grid;gap:6px;padding:0 18px 14px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#4e6a45 #0d150f}
+html body #poison-target-picker .poison-target-group{margin:4px 0 3px;color:#a9bd97;font:700 9px/1.3 Arial;letter-spacing:.15em}
+html body #poison-target-picker .poison-target-group::before{display:none}
+html body #poison-target-picker .poison-target-option{box-sizing:border-box;display:grid;grid-template-columns:17px 36px minmax(0,1fr) auto!important;align-items:center;gap:10px;min-height:64px;padding:9px 10px;border:1px solid #66835648;border-radius:8px;clip-path:none;background:linear-gradient(110deg,#1d2b1b99,#101912);text-align:left;box-shadow:none;color:#eef3e5}
+html body #poison-target-picker .poison-target-option:hover{border-color:#96ad78;background:#24331e}
+html body #poison-target-picker .poison-target-option.is-selected{border-color:#a3bb82;background:linear-gradient(100deg,#40532f80,#192718);box-shadow:inset 3px 0 #c6d5a0}
+html body #poison-target-picker .poison-check{display:grid;place-items:center;width:16px;height:16px;border:1px solid #718665;border-radius:4px;color:transparent;background:#0d150e;font:700 11px/1 Arial}
+html body #poison-target-picker .is-selected .poison-check{border-color:#d1dda9;background:#b6c98a;color:#21301c}
+html body #poison-target-picker .poison-target-option img{width:36px;height:36px;border:1px solid #9cb58277;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px #101910}
+html body #poison-target-picker .poison-target-copy{min-width:0}
+html body #poison-target-picker .poison-target-option b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e9f0df;font:700 13px/1.3 Arial;letter-spacing:0}
+html body #poison-target-picker .poison-target-option small{margin-top:4px;color:#9aab8f;font:400 10px/1.3 Arial;letter-spacing:0}
+html body #poison-target-picker .poison-tag{margin-left:6px;padding:2px 4px;border:1px solid #8b9b5777;border-radius:3px;color:#ccd997;font:700 7px/1 Arial;letter-spacing:.04em;font-style:normal}
+html body #poison-target-picker .poison-target-option>strong{padding:5px 6px;border:1px solid #78946d44;border-radius:4px;background:#24311d;color:#b9d9a6;font:700 8px/1 Arial;letter-spacing:.05em}
+html body #poison-target-picker .poison-target-option>strong.offline{background:#1c241c;color:#82917e}
+html body #poison-target-picker .poison-picker-foot{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 18px 15px;border-top:1px solid #77956155;background:linear-gradient(#1b291b,#101a13)}
+html body #poison-target-picker .poison-selection-summary{grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;padding-bottom:3px;color:#9fb28f;font:400 11px/1.4 Arial}
+html body #poison-target-picker .poison-selection-summary b{font-size:15px;color:#e8f1da}
+html body #poison-target-picker .poison-selection-summary strong{color:#add7c8}
+html body #poison-target-picker .poison-picker-tools{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;gap:8px}
+html body #poison-target-picker .poison-picker-tools button{min-height:29px;padding:7px 10px;border:1px solid #6e855b66;border-radius:6px;background:#192518;color:#b9caa5;font:700 9px/1 Arial;letter-spacing:.08em}
+html body #poison-target-picker :is(.poison-cast-btn,.poison-cure-btn){min-width:0;min-height:44px;margin:0;padding:10px 6px;border:1px solid #b1c885;border-radius:7px;background:linear-gradient(#596f38,#374a26);color:#f1f7e4;font:700 10px/1.3 Arial;letter-spacing:.05em;box-shadow:inset 0 1px #efffce33;white-space:normal}
+html body #poison-target-picker .poison-cure-btn{border-color:#83b6a7;background:linear-gradient(#315b50,#1c3b35);color:#dff6ed}
+html body #poison-target-picker :is(.poison-cast-btn,.poison-cure-btn):disabled{opacity:1;border-color:#52684d55;background:#202d21;color:#71816b;box-shadow:none}
+html body #poison-target-picker .poison-cast-btn.is-armed{animation:none;border-color:#e4bd81;background:linear-gradient(#81602d,#503a20);color:#ffebc6}
+html body #poison-target-picker.is-compact{overflow-y:auto}
+html body #poison-target-picker.is-compact .poison-picker-head{position:sticky;top:0;z-index:2;min-height:80px;padding:12px 16px}
+html body #poison-target-picker.is-compact .poison-picker-head small{display:none}
+html body #poison-target-picker.is-compact .poison-picker-guide{margin-top:9px;padding:8px 0}
+html body #poison-target-picker.is-compact .poison-target-list{flex:none;max-height:210px}
+html body #poison-target-picker.is-compact .poison-picker-foot{position:sticky;bottom:0;z-index:2}
+/* Black Market: priorities up front, receipts and old deals on demand. */
+html body #black-market-overlay .black-market-room{border-radius:16px;border-width:1px;border-color:#80505e;background:linear-gradient(145deg,#21131a,#120c11 65%);box-shadow:0 26px 85px #000b;max-height:calc(100dvh - 32px)}
+html body #black-market-overlay .black-market-room>header{padding:24px 28px 20px!important;border-bottom:1px solid #ac62764a}
+html body #black-market-overlay .black-market-room>header h2{font-size:32px!important;letter-spacing:.13em;text-shadow:none;margin-top:8px}
+html body #black-market-overlay [data-bm-close]{width:34px;height:34px;min-width:34px;padding:0;border:1px solid #9b627466;border-radius:7px;background:#301921;color:#f1d7df;font:400 25px/1 Arial;box-shadow:none}
+html body #black-market-overlay :is(.bm-sigil,.bm-drips,.bm-corner){display:none}
+html body #black-market-overlay .bm-runeband{height:19px;min-height:0;opacity:.35;animation:none;font-size:13px}
+html body #black-market-overlay .black-market-void{animation:none;opacity:.4}
+html body #black-market-overlay #black-market-body{padding:18px 28px 26px}
+html body #black-market-overlay .bm-intro{min-height:0;margin:0 0 18px;padding:12px 15px;border:1px solid #7444545c;border-radius:8px;background:#2a172044}
+html body #black-market-overlay .bm-intro::after,html body #black-market-overlay .bm-wax{display:none}
+html body #black-market-overlay .bm-intro b{font-size:11px;letter-spacing:.12em}
+html body #black-market-overlay .bm-intro p{margin:4px 0 0;font-size:12px;color:#b99ca6}
+html body #black-market-overlay h3{margin:22px 0 12px;font-size:11px;letter-spacing:.16em}
+html body #black-market-overlay .bm-demand-tribute{gap:12px;padding:16px;border:1px solid #78405266;border-radius:10px;background:#28141d77}
+html body #black-market-overlay .bm-demand-tribute label{font-size:9px;letter-spacing:.1em}
+html body #black-market-overlay .bm-demand-tribute :is(input,select){min-height:39px;padding:9px 10px;border:1px solid #8c506356;border-radius:6px;background:#160e15;font-size:12px}
+html body #black-market-overlay .bm-demand-tribute>button{padding:10px 14px;border:1px solid #b0657c;border-radius:6px;background:linear-gradient(#733049,#482032);font-size:10px;letter-spacing:.08em;box-shadow:none}
+html body #black-market-overlay .bm-ledger{gap:10px}
+html body #black-market-overlay .bm-pact{padding:17px 18px!important;border:1px solid #81506066;border-left:3px solid #a36b7d;border-radius:10px;background:linear-gradient(115deg,#301b2480,#170f17);box-shadow:none}
+html body #black-market-overlay .bm-pact-sigil{display:none}
+html body #black-market-overlay .bm-pact-head{display:flex;align-items:center;justify-content:space-between;gap:15px}
+html body #black-market-overlay .bm-pact-head small{font:700 8px/1.4 Arial;letter-spacing:.12em;color:#ac8796}
+html body #black-market-overlay .bm-pact-head b{margin-top:5px;color:#f2dfe7;font:700 19px/1.2 Arial;letter-spacing:0}
+html body #black-market-overlay .bm-pact-head em{display:block;margin-top:4px;color:#b89ca8;font:400 10px/1.3 Arial;letter-spacing:.04em;font-style:normal}
+html body #black-market-overlay .bm-pact-head>span{flex:none;max-width:42%!important;padding:6px 8px;border:1px solid #a37a884d;border-radius:5px;background:#37232b;color:#d5b9c6;font:700 9px/1.35 Arial;letter-spacing:.04em;text-align:center}
+html body #black-market-overlay .is-tribute_submitted .bm-pact-head>span{color:#ebd9a2;border-color:#b59a5d55;background:#3d321c66}
+html body #black-market-overlay .bm-tribute-level{width:min(330px,100%);margin:13px 0 0;padding:10px 12px;border:1px solid #89526555;border-radius:6px;background:#170d12;font:700 10px/1.2 Arial;letter-spacing:.1em}
+html body #black-market-overlay .bm-tribute-meter{gap:4px;height:5px;margin-top:8px}
+html body #black-market-overlay .bm-tribute-meter i{animation:none!important;box-shadow:none!important;filter:none!important}
+html body #black-market-overlay .bm-tribute-meter i.is-lit{background:#bc697e;border-color:#bc697e}
+html body #black-market-overlay .bm-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+html body #black-market-overlay .bm-actions button{min-height:35px;padding:10px 13px;border:1px solid #a65e7680;border-radius:6px;background:#422132;color:#efd7e2;font:700 10px/1.2 Arial;letter-spacing:.06em;box-shadow:none}
+html body #black-market-overlay [data-act="tribute-accept"]{border-color:#7eae99;background:#264f43;color:#d9f5e6}
+html body #black-market-overlay [data-act="tribute-reject"]{border-color:#b47984;background:#532731;color:#ffe1e5}
+html body #black-market-overlay .bm-tribute-image-link{margin:14px 0 0;max-width:360px}
+html body #black-market-overlay .bm-tribute-preview{max-height:230px;border-radius:7px;border-color:#8a5b6a66}
+html body #black-market-overlay .bm-pact-details{margin-top:12px;border-top:1px solid #92637533;padding-top:10px}
+html body #black-market-overlay .bm-pact-details>summary{cursor:pointer;color:#b897a7;font:700 9px/1.4 Arial;letter-spacing:.09em}
+html body #black-market-overlay .bm-pact-request{margin:12px 0 0!important;padding-top:0;border-top:0;color:#c7adb9!important;font-size:13px!important;overflow-wrap:anywhere}
+html body #black-market-overlay .bm-pact-request::before{font-size:8px;letter-spacing:.12em;margin-bottom:6px}
+html body #black-market-overlay .bm-terms{margin-top:13px}
+html body #black-market-overlay .bm-terms blockquote,html body #black-market-overlay .bm-verdict-comment blockquote{padding:11px 13px!important;border-radius:6px;font-size:13px!important;box-shadow:none}
+html body #black-market-overlay .bm-verdict-comment{margin-top:13px}
+html body #black-market-overlay :is(.bm-verdict-title,.bm-terms-title){font-size:9px;letter-spacing:.1em;margin-bottom:7px}
+html body #black-market-overlay .bm-delivery{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+html body #black-market-overlay .bm-delivery .bm-receipt{min-width:0;min-height:0;padding:7px 10px;border-radius:6px;box-shadow:none}
+html body #black-market-overlay .bm-closed-pact{padding:12px 16px!important;border-left-width:1px;background:#1b121a}
+html body #black-market-overlay .bm-closed-pact>summary{cursor:pointer;list-style:none}
+html body #black-market-overlay .bm-closed-pact>summary::-webkit-details-marker{display:none}
+html body #black-market-overlay .bm-closed-pact>summary::after{content:'+';float:right;color:#bb93a5;font:700 17px/1 Arial;margin-top:-28px}
+html body #black-market-overlay .bm-closed-pact[open]>summary::after{content:'−'}
+html body #black-market-overlay .bm-closed-pact .bm-pact-head{padding-right:22px}
+html body #black-market-overlay .bm-closed-pact .bm-pact-head b{font-size:14px;margin-top:3px}
+html body #black-market-overlay .bm-closed-pact .bm-pact-head em{font-size:9px}
+html body #black-market-overlay .is-fulfilled .bm-pact-head>span{color:#acd5bd;border-color:#5c8c6f66;background:#213d2c66}
+html body #black-market-overlay .bm-history-body{padding-top:5px}
+html body #black-market-overlay .bm-empty{padding:14px;font-size:10px;letter-spacing:.1em;border-radius:8px}
+/* One shared message toolbar, displayed only while the message is in use. */
+#asoc-message-toolbar{position:fixed;z-index:2147482000;display:flex;gap:2px;padding:4px;border:1px solid #856791;border-radius:9px;background:#20172bf5;box-shadow:0 6px 20px #0007;color:#e7d8f0}
+#asoc-message-toolbar[hidden]{display:none!important}
+#asoc-message-toolbar button{display:grid;place-items:center;min-width:29px;width:29px;height:28px;padding:5px;border:0;border-radius:5px;background:transparent;color:inherit;cursor:pointer}
+#asoc-message-toolbar button:hover,#asoc-message-toolbar button:focus-visible{background:#654373;color:#fff;outline:1px solid #d0a8e1;outline-offset:-1px}
+#asoc-message-toolbar button[data-action="delete"]:hover{background:#6c303d}
+#asoc-message-toolbar svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+html.asoc-ui-polish body :is(.gm-dm-actions,.dmx-message-actions){opacity:0!important;pointer-events:none;position:absolute!important}
+html.asoc-ui-polish body :is(.gm-dm-msg,.dmx-msg){display:flex;flex-direction:column;gap:5px;position:relative;min-width:85px}
+html.asoc-ui-polish body :is(.gm-dm-msg,.dmx-msg)>p{margin:0}
+html.asoc-ui-polish body :is(.gm-dm-reactions,.dmx-reactions){display:flex;flex-wrap:wrap;gap:5px;max-width:100%;margin-top:4px;align-self:flex-start}
+html.asoc-ui-polish body :is(.gm-dm-msg,.dmx-msg)>span{align-self:flex-end}
+html.asoc-ui-polish body :is(.gm-dm-reactions,.dmx-reactions)>button{padding:4px 8px;min-height:27px;border:1px solid #80608d66;border-radius:14px;background:#2a1b37;color:#e9dcf1}
+/* Compact game docks: status and urgency have a clear hierarchy. */
+html body #tombola-restore{display:flex;align-items:center;gap:11px;box-sizing:border-box;width:min(310px,calc(100vw - 32px));max-width:calc(100vw - 32px);min-height:63px;padding:10px 13px;right:16px;bottom:82px;border:1px solid #9e8458;border-radius:10px;background:linear-gradient(120deg,#2c2216,#19140e);color:#ead4aa;box-shadow:0 8px 25px #0008;text-align:left}
+html body #tombola-restore .tombola-dock-icon{font-size:31px;color:#d2b477}
+html body #tombola-restore .tombola-dock-copy{display:grid;gap:5px;min-width:0;flex:1}
+html body #tombola-restore b{font:700 11px/1.2 Arial;letter-spacing:.1em}
+html body #tombola-restore small{font:400 11px/1.3 Arial;color:#b8a383;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html body #tombola-restore .tombola-dock-action{flex:none;font:700 8px/1 Arial;letter-spacing:.06em;color:#dec795}
+html body #tombola-restore.is-your-turn{border-color:#84c9a2;background:linear-gradient(120deg,#1f392c,#121e17)}
+html body #tombola-restore.is-your-turn small{color:#b4ebc9}
+html body #tombola-restore.is-urgent{border-color:#edbe77}
+html body :is(.gm-kaladont-dock,.kaladont-restore.kaladont-dock){border-radius:10px;box-shadow:0 7px 24px #0007}
+body:has(:is(.gm-kaladont-dock,.kaladont-restore.kaladont-dock):not([hidden])) #tombola-restore{bottom:158px}
+@media(max-width:600px){html body #black-market-overlay{padding:8px}html body #black-market-overlay .black-market-room{width:100%;max-width:100%;max-height:calc(100dvh - 16px)}html body #black-market-overlay .black-market-room>header{padding:17px!important}html body #black-market-overlay .black-market-room>header h2{font-size:25px!important}html body #black-market-overlay #black-market-body{padding:12px 14px 18px}html body #black-market-overlay .bm-pact{padding:13px!important}html body #black-market-overlay .bm-pact-head{gap:9px}html body #black-market-overlay .bm-pact-head b{font-size:17px}html body #black-market-overlay .bm-pact-head>span{font-size:8px}html body #black-market-overlay .bm-demand-tribute{display:grid;grid-template-columns:1fr 1fr}html body #black-market-overlay .bm-demand-tribute label:first-child,html body #black-market-overlay .bm-demand-tribute label:nth-child(3),html body #black-market-overlay .bm-demand-tribute>button{grid-column:1/-1}html body #poison-target-picker .poison-picker-head{padding:16px}html body #poison-target-picker .poison-picker-head b{font-size:22px}html body #poison-target-picker .poison-target-option{gap:8px}html body #poison-target-picker .poison-tag{font-size:6px}html body #poison-target-picker .poison-target-option>strong{font-size:7px;padding:4px}html body #poison-target-picker .poison-picker-foot{padding:10px 14px 12px}}
+@media(prefers-reduced-motion:reduce){#poison-target-picker *,#black-market-overlay *,#tombola-restore{animation:none!important;transition:none!important}}
+
+html.asoc-ui-polish body :is(.gm-dm-msg,.dmx-msg) :is(.gm-dm-actions,.dmx-message-actions){opacity:0!important;pointer-events:none}
+html.asoc-ui-polish body :is(.gm-dm-msg,.dmx-msg) :is(.gm-dm-actions,.dmx-message-actions):focus-within{opacity:1!important;pointer-events:auto}
+
+html body :is([data-q-close],[data-dragon-action="setup-close"]){display:grid;place-items:center;min-width:34px;width:34px;height:34px;padding:0;border:1px solid #9a7a805c;border-radius:7px;background:#241820bd;color:#eadbd8;font:400 25px/1 Arial;box-shadow:none;cursor:pointer}
+html body :is([data-q-close],[data-dragon-action="setup-close"]):focus-visible{outline:2px solid #e9cfaa;outline-offset:3px}
+
+/* Retire the older clipped/neon overlays where the new panel takes over. */
+html.asoc-ui-polish body #poison-target-picker::after,html.asoc-ui-polish body #poison-target-picker .poison-target-option::before,html.asoc-ui-polish body #poison-target-picker .poison-picker-foot::before,html.asoc-ui-polish body #poison-target-picker .poison-picker-foot::after{display:none}
+html.asoc-ui-polish body #poison-target-picker :is(button,input,strong,.poison-check){clip-path:none!important}
+html.asoc-ui-polish body #poison-target-picker .poison-target-option.is-selected .poison-check{background:#b6c98a;border-color:#d1dda9;color:#21301c;box-shadow:none}
+html.asoc-ui-polish body #poison-target-picker .poison-target-option.is-selected img{box-shadow:0 0 0 3px #1a2918}
+html.asoc-ui-polish body #poison-target-picker .poison-target-option.is-selected strong{background:#35472b;color:#d7e6bf;box-shadow:none}
+html.asoc-ui-polish body #poison-target-picker .poison-check{box-shadow:none}
+html.asoc-ui-polish body .poison-cast-toast{max-width:calc(100vw - 32px);box-sizing:border-box;padding:10px 14px;border-radius:8px;border-color:#719565;background:#18251af5;color:#d1e5ba;font:700 11px/1.4 Arial;letter-spacing:.04em;box-shadow:0 7px 24px #0006;white-space:normal}
+html body #black-market-overlay .bm-pact{border-color:#81506066!important;background:linear-gradient(115deg,#301b2480,#170f17)!important}
+html body #black-market-overlay .bm-pact::before,html body #black-market-overlay .bm-pact::after{display:none}
+html body #black-market-overlay .bm-pact-head{padding-bottom:11px;border-bottom-color:#92637533}
+html body #black-market-overlay .bm-pact-head small{font-size:8px!important;letter-spacing:.12em!important}
+html body #black-market-overlay .bm-pact-head b{margin-top:5px!important;font-size:19px!important;letter-spacing:0!important;text-shadow:none}
+html body #black-market-overlay .bm-pact-head>span{padding:6px 8px!important;border:1px solid #a37a884d!important;background:#37232b!important;color:#d5b9c6!important;font-size:9px!important;letter-spacing:.04em!important;box-shadow:none}
+html body #black-market-overlay .is-tribute_submitted .bm-pact-head>span{color:#ebd9a2!important;border-color:#b59a5d55!important;background:#3d321c66!important}
+html body #black-market-overlay .is-fulfilled .bm-pact-head>span{color:#acd5bd!important;border-color:#5c8c6f66!important;background:#213d2c66!important}
+html body #black-market-overlay .bm-closed-pact{background:#1b121a!important}
+html body #black-market-overlay .bm-closed-pact .bm-pact-head{padding-bottom:0;border-bottom:0}
+html body #black-market-overlay .bm-closed-pact .bm-pact-head b{font-size:14px!important}
+
+html body #black-market-overlay .bm-intro{padding:12px 15px!important;border:1px solid #7444545c!important;background:#2a172044!important;box-shadow:none!important}
+html body #black-market-overlay .bm-intro b{font:700 11px/1.3 Arial!important;letter-spacing:.12em!important;color:#d5acb9!important;text-shadow:none!important}
+html body #black-market-overlay .bm-intro p{font:400 12px/1.4 Arial!important;color:#b99ca6!important}
+html body #black-market-overlay .bm-actions button{border-color:#a65e7680!important;background:#422132!important;color:#efd7e2!important}
+html body #black-market-overlay [data-act="tribute-accept"]{border-color:#7eae99!important;background:#264f43!important;color:#d9f5e6!important}
+html body #black-market-overlay [data-act="tribute-reject"]{border-color:#b47984!important;background:#532731!important;color:#ffe1e5!important}
+html body #black-market-overlay .bm-actions button:hover{box-shadow:none;border-color:#d49ab0!important}
