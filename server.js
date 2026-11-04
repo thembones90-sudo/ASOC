@@ -6768,6 +6768,16 @@ function handleIksArenaReset(ws) {
   broadcastPlayersUpdate(room);
 }
 
+function handleIksRefillHealth(ws, message) {
+  const room = hostRoomFor(ws);
+  if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can refill IKS OKS health' });
+  const player = typeof message.playerId === 'string' ? findPlayerById(room, message.playerId) : null;
+  if (!player || player.isSynthetic || player.isBot) return sendToWs(ws, { type:'error', message:'LITTLE HERO NOT FOUND' });
+  const result = iksArena.refill(player.id);
+  if (!result.ok) return sendToWs(ws, { type:'error', message:result.error });
+  broadcastPlayersUpdate(room);
+}
+
 function handleIksMaxHealth(ws, message) {
   const room = hostRoomFor(ws);
   if (!room) return sendToWs(ws, { type:'error', message:'Only the Shadow Broker can set IKS OKS health bars' });
@@ -15513,6 +15523,10 @@ wss.on('connection', (ws, req) => {
         }
         case 'threefold:cancel': {
           handleThreefoldCancel(ws, message);
+          break;
+        }
+        case 'gm:iksRefillHealth': {
+          handleIksRefillHealth(ws, message);
           break;
         }
         case 'gm:iksReset': {

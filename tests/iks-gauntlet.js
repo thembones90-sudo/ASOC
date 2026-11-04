@@ -150,6 +150,17 @@ function checkStore() {
     assert.equal(store.maxHealth(), 3, 'the setting survives a restart');
     assert.equal(hp('a'), 2, 'health survives a restart');
     assert.equal(store.isFighter('a'), true, 'the gauntlet survives a restart');
+    const gauntletBeforeRefill = JSON.parse(fs.readFileSync(path.join(dir,'iks-arena.json'),'utf8')).gauntlet;
+    const otherHealth = hp('c');
+    assert.equal(store.refill('a').ok,true);
+    assert.equal(hp('a'),3,'individual refill uses the configured maximum');
+    assert.equal(hp('c'),otherHealth,'individual refill leaves opponents unchanged');
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir,'iks-arena.json'),'utf8')).gauntlet,gauntletBeforeRefill,'refill preserves the gauntlet exactly');
+    store._forget(); assert.equal(hp('a'),3,'individual refill survives restart');
+    for (let i=0;i<3;i++) store.recordGame({x:broker,o:hero('c'),winnerId:'__GM__'});
+    assert.equal(store.isEliminated('c'),true);
+    store.refill('c'); assert.equal(store.isEliminated('c'),false,'individual refill revives fallen heroes');
+    assert.equal(store.refill('__GM__').ok,false);
     store.reset();
   } finally {
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
@@ -356,6 +367,17 @@ async function runServer() {
     assert.equal(coinsNow(winner), Math.round(expectedWinner * 10) / 10, 'IKS OKS win pays +0.2 Shadow Coin');
     assert.equal(coinsNow(loser), expectedLoser, 'IKS OKS loss costs 0.1 Shadow Coin (never below 0)');
     assert.equal(gm.arena.status, 'running');
+    const progressBeforeRefill = gm.arena.gamesPlayed;
+    mark=ana.mark(); ana.send({type:'gm:iksRefillHealth',playerId:loser.playerId});
+    await ana.waitFor(m=>m.type==='error','player refill denied',mark);
+    assert.equal(health(gm,loser),9,'players cannot refill themselves or anyone else');
+    mark=gm.mark(); gm.send({type:'gm:iksRefillHealth',playerId:'not-a-player'});
+    await gm.waitFor(m=>m.type==='error','unknown refill target denied',mark);
+    mark=gm.mark(); gm.send({type:'gm:iksRefillHealth',playerId:loser.playerId});
+    await gm.waitFor(m=>m.type==='players:update'&&m.players.some(p=>p.id===loser.playerId&&p.iksHealth===10),'individual refill broadcast',mark);
+    assert.equal(health(gm,winner),10);
+    assert.equal(gm.arena.status,'running'); assert.equal(gm.arena.gamesPlayed,progressBeforeRefill,'individual refill preserves progress');
+    assert.equal(coinsNow(loser),expectedLoser,'refill does not change coins');
     mark = cy.mark();
     cy.send({ type: 'iks:join' });
     await sleep(250);

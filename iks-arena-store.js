@@ -194,6 +194,15 @@ function reset() {
   save();
 }
 
+// Restore one hero without changing opponents, gauntlet progress or its result.
+function refill(playerId) {
+  const id = typeof playerId === 'string' ? playerId.trim() : '';
+  if (!id || id === '__GM__' || ['__proto__', 'constructor', 'prototype'].includes(id)) return { ok: false, error: 'VALID LITTLE HERO REQUIRED' };
+  load().health[id] = maxHealth();
+  save();
+  return { ok: true, health: healthOf(id) };
+}
+
 // Broker's HEALTH BARS: 1..10. Everyone is restored to full at the new
 // maximum. Refused while a gauntlet is open or running.
 function setMaxHealth(value) {
@@ -278,4 +287,4 @@ function publicState() {
 // Tests only.
 function _forget() { state = null; }
 
-module.exports = { MAX_HEALTH, MIN_HEALTH, GAUNTLET_GAMES, maxHealth, setMaxHealth, healthVisible, setHealthVisible, healthOf, isFighter, isEliminated, standingOf, start, join, decline, tick, reset, recordGame, publicState, _forget, JOIN_MS };
+module.exports = { MAX_HEALTH, MIN_HEALTH, GAUNTLET_GAMES, maxHealth, setMaxHealth, healthVisible, setHealthVisible, healthOf, isFighter, isEliminated, standingOf, start, join, decline, tick, reset, refill, recordGame, publicState, _forget, JOIN_MS };

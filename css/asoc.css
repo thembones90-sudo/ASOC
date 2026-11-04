@@ -22630,3 +22630,10 @@ body #black-market-gm-button.bm-has-pending small {
   .asoc-command-directory-summary { padding: 0 14px 10px; }
   .asoc-command-directory-row { grid-template-columns: 1fr; gap: 3px; padding: 9px 14px; }
 }
+
+/* Separate GM controls keep fallen opponents refillable. */
+.gm-iks-player-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:8px}
+.gm-iks-player-row>[data-gm-opponent]{min-width:0;width:100%}
+.gm-arcade-opponents .gm-iks-refill{display:block;padding:10px 12px;border-color:#997844;background:linear-gradient(#3b2a1c,#201811);color:#f7d59b;font-size:.65rem;font-weight:800;letter-spacing:.06em;white-space:nowrap}
+.gm-arcade-opponents .gm-iks-refill:hover{border-color:#f1c47c;background:#48311e}
+@media(max-width:480px){.gm-iks-player-row{grid-template-columns:minmax(0,1fr)}.gm-arcade-opponents .gm-iks-refill{min-height:40px}}

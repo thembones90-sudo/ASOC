@@ -58,6 +58,8 @@
       if (e.target.closest('[data-gm-kaladont-chat]')) return this.kaladontToChat();
       if (e.target.closest('#gm-kaladont-dock')) return this.kaladontFromChat();
       if (e.target.closest('[data-gm-minigame-close]')) { this.withdraw(); return this.close(); }
+      const refill = e.target.closest('[data-gm-iks-refill]');
+      if (refill) { refill.disabled=true; App.send({type:'gm:iksRefillHealth',playerId:refill.dataset.gmIksRefill}); setTimeout(()=>{if(refill.isConnected)refill.disabled=false;},1500); return; }
       const opponent = e.target.closest('[data-gm-opponent]');
       if (opponent) { if(opponent.disabled)return; this.chooserOpen=false; App.send({type:'threefold:challenge',opponentId:opponent.dataset.gmOpponent}); this.lastOpponentId=opponent.dataset.gmOpponent; this.status('CHALLENGE SENT','Waiting for the Little Hero.'); return; }
       const action = e.target.closest('[data-gm-threefold]')?.dataset.gmThreefold;
@@ -121,10 +123,10 @@
     },
     openChooser() {
       if (App.roomMode !== 'CASUAL') return;
-      const players=(App.currentPlayers||[]).filter(p=>p.connected!==false&&!p.isSynthetic);
+      const players=(App.currentPlayers||[]).filter(p=>!p.isSynthetic&&!p.isBot);
       this.chooserOpen=true;
       this.title('IKS OKS');
-      this.content(this.gauntletBar() + (players.length ? `<div class="gm-arcade-kicker">SELECT OPPONENT</div><div class="gm-arcade-opponents">${players.map(p=>`<button data-gm-opponent="${this.esc(p.id)}" ${p.iksEliminated?'disabled':''}><span>${this.face(p)}</span><b>${this.esc(p.name)}${p.iksHealthVisible===false?'':` <small>${Number(p.iksHealth ?? 10)}/${Number(p.iksMaxHealth ?? 10)}</small>`}</b><i>${p.iksEliminated?'FALLEN':'CHALLENGE'}</i></button>`).join('')}</div>`:'<div class="gm-arcade-status">NO LITTLE HEROES ONLINE</div>'));
+      this.content(this.gauntletBar() + (players.length ? `<div class="gm-arcade-kicker">SELECT OPPONENT</div><div class="gm-arcade-opponents">${players.map(p=>`<div class="gm-iks-player-row"><button data-gm-opponent="${this.esc(p.id)}" ${p.iksEliminated||p.connected===false?'disabled':''}><span>${this.face(p)}</span><b>${this.esc(p.name)}${p.iksHealthVisible===false?'':` <small>${Number(p.iksHealth ?? 10)}/${Number(p.iksMaxHealth ?? 10)}</small>`}</b><i>${p.iksEliminated?'FALLEN':p.connected===false?'OFFLINE':'CHALLENGE'}</i></button><button type="button" class="gm-iks-refill" data-gm-iks-refill="${this.esc(p.id)}" aria-label="Refill health for ${this.esc(p.name)}" title="Restore ${this.esc(p.name)} to ${Number(p.iksMaxHealth ?? 10)} health">REFILL HEALTH</button></div>`).join('')}</div>`:'<div class="gm-arcade-status">NO LITTLE HEROES ONLINE</div>'));
       this.show();
     },
     face(p) { const img=p?.avatarData?`<img src="${this.esc(p.avatarData)}" alt="">`:'◆'; return window.IksRing?IksRing.wrap(p,img):img; },
@@ -208,7 +210,7 @@
       if(el)el.textContent=!state?'IDLE':state.phase==='lobby'?`LOBBY ${state.members.length}`:state.phase==='ended'?'RESULT':'LIVE';
       if(this.kaladontOpen)this.renderKaladont();
     },
-    onArena() { const panel=document.getElementById('gm-minigames-panel'); if(this.chooserOpen&&panel&&!panel.hidden&&!this.game&&!this.challenge)this.openChooser(); },
+    onArena() { const panel=document.getElementById('gm-minigames-panel'); if(this.chooserOpen&&panel&&!panel.hidden&&(!this.game||this.game.complete)&&!this.challenge)this.openChooser(); },
     onChallenge(m) { this.challenge=m.challenge; if (!this.challenge) return; if (this.challenge.challengerId===GM_ID) return this.status('CHALLENGE SENT',`Waiting for ${this.esc(this.challenge.opponentName)}.`); this.lastOpponentId=this.challenge.challengerId; this.content(`<div class="gm-arcade-kicker">DUEL REQUEST</div><h3>${this.esc(this.challenge.challengerName)}</h3><div class="gm-arcade-actions"><button data-gm-threefold="accept">ACCEPT</button><button data-gm-threefold="decline">DECLINE</button></div>`); this.show(); },
     onDeclined(m) { this.challenge=null; this.status('CHALLENGE DECLINED',this.esc(m.byName||'Little Hero')); },
     onState(m) { this.challenge=null; this.game=m.game; if (!this.game) return; const meX=this.game.xId===GM_ID; this.lastOpponentId=meX?this.game.oId:this.game.xId; const myTurn=this.game.turnId===GM_ID&&!this.game.complete; const status=this.game.complete?(this.game.winnerId?(this.game.winnerId===GM_ID?'YOU WIN':`${this.esc(this.game.winnerName)} WINS`):'STALEMATE'):(myTurn?'YOUR MOVE':`${this.esc(this.game.turnName)} IS THINKING`); const winLine=Array.isArray(this.game.winningLine)&&this.game.winningLine.length===3?`<i class="threefold-win-line" data-line="${this.game.winningLine.join('-')}" aria-hidden="true"></i>`:''; this.content(`<div class="gm-arcade-versus"><span><b>X</b>${this.esc(this.game.xName)}</span><i>VS</i><span><b>O</b>${this.esc(this.game.oName)}</span></div><div class="gm-arcade-turn">${status}</div>${window.IksBoard?IksBoard.html(this.game,{cellAttr:'data-gm-cell',canPlay:myTurn,me:meX?'X':'O'}):`<div class="gm-arcade-board">${this.game.board.map((mark,i)=>`<button data-gm-cell="${i}" ${mark||this.game.complete||!myTurn?'disabled':''}>${mark||''}</button>`).join('')}${winLine}</div>`}${this.game.complete?'<button class="gm-arcade-rematch" data-gm-threefold="rematch">REMATCH</button>':''}`); this.show(); },
