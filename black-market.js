@@ -83,7 +83,7 @@ function publicPact(pact, host = false) {
     state: pact.state, tributeRequired: pact.tributeRequired,
     paymentKind: pact.paymentKind, heartSpentAt: pact.heartSpentAt,
     tributeId: pact.tributeId, rejectionReason: pact.rejectionReason, verdictComment: pact.verdictComment,
-    tributeLevel: pact.tributeLevel, demandedAt: pact.demandedAt, seenAt: pact.seenAt,
+    tributeAttempt: pact.tributeAttempt, tributeLevel: pact.tributeLevel, demandedAt: pact.demandedAt, seenAt: pact.seenAt,
     createdAt: pact.createdAt, updatedAt: pact.updatedAt, fulfilledAt: pact.fulfilledAt
   };
   if (host && pact.state === 'TRIBUTE_SUBMITTED') {

@@ -90,6 +90,7 @@
           }
           if (document.getElementById('black-market-overlay')) this.render();
           this.updateBadge();
+          if (!isGM) this.promptRejectedTribute();
           return;
         }
         if (!isGM && message?.type === 'blackMarket:tributeDemanded') {
@@ -335,15 +336,28 @@
         this.send({ type:'blackMarket:gmDecision', pactId, action:act, terms:'', tributeRequired:false });
       }));
     },
+    _rejectionPrompts: new Set(),
+    promptRejectedTribute() {
+      const notice = document.getElementById('bm-demand-notice');
+      if (notice?.dataset.rejectedPact && !this.pacts.some(p => p.id === notice.dataset.rejectedPact && p.state === 'TRIBUTE_REJECTED')) notice.remove();
+      if (document.getElementById('bm-demand-notice') || document.getElementById('bm-tribute-consent') || this._tributeBusy) return;
+      const pact = this.pacts.find(p => p.state === 'TRIBUTE_REJECTED' && !this._rejectionPrompts.has(`${p.id}:${p.tributeAttempt || p.updatedAt || 0}`));
+      if (!pact) return;
+      this._rejectionPrompts.add(`${pact.id}:${pact.tributeAttempt || pact.updatedAt || 0}`);
+      this.releaseTribute();
+      this.showDemandNotice(pact);
+    },
     showDemandNotice(pact) {
       document.getElementById('bm-demand-notice')?.remove();
       const veil = document.createElement('div');
       veil.id = 'bm-demand-notice';
       veil.className = 'bm-demand-notice';
-      const reason = this.esc(pact?.request || 'The Shadow Broker has called your debt.');
+      const rejected = pact?.state === 'TRIBUTE_REJECTED';
+      if (rejected) veil.dataset.rejectedPact = pact.id;
+      const reason = this.esc((rejected ? pact.verdictComment || pact.rejectionReason : pact?.request) || 'The Shadow Broker has called your debt.');
       const level = Math.max(1, Math.min(10, Number(pact?.tributeLevel) || 1));
-      veil.innerHTML = '<section class="bm-demand-notice-card" role="alertdialog" aria-modal="true"><small>BLACK MARKET // DEBT CALLED</small><h2>BLOOD TRIBUTE REQUIRED</h2><div class="bm-demand-level">LEVEL ' + level + ' / 10</div><p>' + reason + '</p><b>YOUR ACCOUNT HAS COME DUE.</b><button type="button" data-bm-pay-debt>ENTER THE BLACK MARKET</button></section>';
-      veil.querySelector('[data-bm-pay-debt]')?.addEventListener('click', () => { veil.remove(); this.open(); });
+      veil.innerHTML = '<section class="bm-demand-notice-card" role="alertdialog" aria-modal="true"><small>BLACK MARKET // DEBT CALLED</small><h2>' + (rejected ? 'PICTURE REJECTED // UPLOAD A NEW ONE' : 'BLOOD TRIBUTE REQUIRED') + '</h2><div class="bm-demand-level">LEVEL ' + level + ' / 10</div><p>' + reason + '</p><b>' + (rejected ? 'A NEW PICTURE IS REQUIRED UNTIL THE BROKER APPROVES IT.' : 'YOUR ACCOUNT HAS COME DUE.') + '</b><button type="button" data-bm-pay-debt>' + (rejected ? 'UPLOAD A NEW PICTURE' : 'ENTER THE BLACK MARKET') + '</button></section>';
+      veil.querySelector('[data-bm-pay-debt]')?.addEventListener('click', () => { veil.remove(); this.open(); if (rejected) this.offerTribute(pact.id, null); });
       document.body.appendChild(veil);
     },
 
