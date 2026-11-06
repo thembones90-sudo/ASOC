@@ -141,6 +141,7 @@ const RANDOM_MESSAGES = Object.freeze([
   'Ja ne mogu ponovo ovu decu',
   'OPET HELLO BEDA AAAAAAAAAAA',
   'Vreme je da igram KOTOR opet',
+  'Vreme da se provede narednih 16h igrajući wow forever',
   'Haha ja to nisam gledao, možda bih mogao jednom',
   'Haha ja to nisam igrao, možda bih mogao jednom',
   'Haha ja to nisam probao, možda bih mogao jednom',
