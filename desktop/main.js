@@ -7,6 +7,7 @@
 const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, safeStorage, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { attachRecovery } = require('./recovery');
 
 const DEFAULT_URL = 'https://asocengine.com';
 const urlArg = process.argv.find(arg => arg.startsWith('--url='));
@@ -317,6 +318,12 @@ function createTray() {
 function wireWindow(win) {
   const contents = win.webContents;
   const contentsId = contents.id;
+  attachRecovery(win, {
+    origin: ORIGIN, startUrl: START_URL.href, offlinePage: OFFLINE_PAGE,
+    onFailure: SMOKE_TEST ? (url, code, reason) => {
+      console.error(`[smoke] FAIL load ${url}: ${reason} (${code})`); app.exit(1);
+    } : null
+  });
   // Looking at the window or reloading its page settles the badge: a stale
   // count must never outlive the page that set it.
   win.on('focus', () => setAttention(win, contentsId, 0));
@@ -357,10 +364,6 @@ function wireWindow(win) {
   });
 }
 
-function showOffline(win, reason) {
-  win.loadFile(OFFLINE_PAGE, { query: { target: START_URL.href, reason: String(reason || '') } });
-}
-
 function createMainWindow() {
   const state = loadWindowState();
   mainWindow = new BrowserWindow({
@@ -382,17 +385,6 @@ function createMainWindow() {
   const contents = mainWindow.webContents;
   contents.setUserAgent(`${contents.getUserAgent()} ASOCDesktop/${app.getVersion()}`);
   wireWindow(mainWindow);
-
-  contents.on('did-fail-load', (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
-    // -3 is ERR_ABORTED: a navigation replaced by another, not a failure.
-    if (!isMainFrame || errorCode === -3 || !isAsocUrl(validatedUrl)) return;
-    if (SMOKE_TEST) {
-      console.error(`[smoke] FAIL load ${validatedUrl}: ${errorDescription} (${errorCode})`);
-      app.exit(1);
-      return;
-    }
-    showOffline(mainWindow, errorDescription);
-  });
 
   mainWindow.once('ready-to-show', () => { if (!SMOKE_TEST) mainWindow.show(); });
   mainWindow.on('close', event => {
@@ -425,7 +417,7 @@ function createMainWindow() {
     .finally(() => {
       const bootUrl = new URL(START_URL.href);
       bootUrl.searchParams.set('desktop_build', app.getVersion());
-      mainWindow?.loadURL(bootUrl.href);
+      mainWindow?.loadURL(bootUrl.href).catch(() => {});
     });
 }
 

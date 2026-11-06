@@ -40,7 +40,7 @@ Any target can be set with `--url=<origin>` or the `ASOC_DESKTOP_URL` environmen
 
 - **F5 / Ctrl+R** reloads, **Ctrl+Shift+R** reloads and clears the cache, **F11** goes fullscreen, **Alt+Home** returns home, and **Ctrl+Shift+I** opens DevTools. Press **Alt** to show the menu.
 - ASOC pages that open a new window (the Master Mirror) open in a new app window. Links to any other site open in the default browser.
-- If the server can't be reached, the app shows a SIGNAL LOST screen and retries every 10 seconds.
+- If the server can't be reached, the app shows a SIGNAL LOST screen and waits 10 seconds before each reconnect attempt. A pending attempt is allowed to finish; retries never interrupt it. The failed player/GM page is preserved.
 - Game audio plays without waiting for a click.
 - The window's size and position are remembered.
 - Only one copy of the app runs at a time. Launching it again brings the open window back, even from the tray.

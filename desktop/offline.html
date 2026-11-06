@@ -40,7 +40,7 @@
 <body>
   <div class="panel">
     <h1>SIGNAL LOST</h1>
-    <p>ASOC Engine can't reach the server. Check your internet connection.</p>
+    <p>The connection to ASOC Engine timed out or was interrupted. Your saved account and server progress are unchanged.</p>
     <p class="reason" id="reason"></p>
     <p id="countdown"></p>
     <button id="retry" type="button">RETRY NOW</button>
@@ -49,11 +49,26 @@
     const params = new URLSearchParams(location.search);
     const target = params.get('target') || 'https://asocengine.com';
     document.getElementById('reason').textContent = params.get('reason') || '';
-    const retry = () => { location.href = target; };
-    document.getElementById('retry').addEventListener('click', retry);
-    let seconds = 10;
+    const button = document.getElementById('retry');
     const countdown = document.getElementById('countdown');
-    setInterval(() => {
+    let seconds = 10;
+    let retrying = false;
+    let timer;
+    const retry = () => {
+      if (retrying) return;
+      retrying = true;
+      clearInterval(timer);
+      button.disabled = true;
+      button.textContent = 'RECONNECTING…';
+      countdown.textContent = 'Connecting… please wait.';
+      // Stop this page's timer BEFORE navigating. The old interval repeatedly
+      // replaced a slow pending navigation every second once it reached zero.
+      location.replace(target);
+    };
+    button.addEventListener('click', retry);
+    window.addEventListener('online', retry);
+    countdown.textContent = `Retrying in ${seconds}s…`;
+    timer = setInterval(() => {
       seconds -= 1;
       if (seconds <= 0) retry();
       else countdown.textContent = `Retrying in ${seconds}s…`;
