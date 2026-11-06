@@ -132,6 +132,8 @@ const GAME_ANNOUNCEMENTS = Object.freeze({
 // Keep these strings literal: this is the character's authored voice. The
 // rejected dehumanizing line is intentionally not part of the pool.
 const RANDOM_MESSAGES = Object.freeze([
+  'Kako mi se puši kurac',
+  'Sedeo bih na 3 dilda istovremeno da mogu',
   'xD',
   'Mmmm gotičarke',
   'Ne treba mi nova grafička',
