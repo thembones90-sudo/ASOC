@@ -2,8 +2,6 @@
   'use strict';
 
   let activeTimer = null;
-  let cooldownTimer = null;
-  let cooldownUntil = 0;
   const betrayalMarks = new Map();
 
   function clearExisting() {
@@ -11,37 +9,6 @@
     activeTimer = null;
     document.getElementById('backstab-effect-layer')?.remove();
     document.documentElement.classList.remove('backstab-impact');
-  }
-
-  function formatCooldown(ms) {
-    const mins = Math.max(1, Math.ceil(ms / 60000));
-    return `${mins}m`;
-  }
-
-  function renderCooldown() {
-    const remaining = cooldownUntil - Date.now();
-    let badge = document.getElementById('backstab-cooldown-badge');
-    if (remaining <= 0) {
-      badge?.remove();
-      if (cooldownTimer) clearInterval(cooldownTimer);
-      cooldownTimer = null;
-      cooldownUntil = 0;
-      return;
-    }
-    if (!badge) {
-      badge = document.createElement('div');
-      badge.id = 'backstab-cooldown-badge';
-      badge.className = 'backstab-cooldown-badge';
-      document.body.appendChild(badge);
-    }
-    badge.innerHTML = `<span class="backstab-cooldown-icon">🗡️</span><span><b>BACKSTAB</b><em>${formatCooldown(remaining)}</em></span>`;
-  }
-
-  function startCooldown(ms) {
-    cooldownUntil = Date.now() + Math.max(0, Number(ms) || 0);
-    renderCooldown();
-    if (cooldownTimer) clearInterval(cooldownTimer);
-    cooldownTimer = setInterval(renderCooldown, 15000);
   }
 
   function decorateRoster(root = document) {
@@ -111,7 +78,6 @@
     const failed = message.failed === true;
 
     markVictim(victimId);
-    if (isActor) startCooldown(message.cooldownMs);
 
     const layer = document.createElement('div');
     layer.id = 'backstab-effect-layer';

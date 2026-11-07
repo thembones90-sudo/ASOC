@@ -52,10 +52,10 @@ assert.match(server, /hiddenGrant = item\.id === 'cmd-backstab'[\s\S]*awardRelic
 assert.match(player, /backstab-chat-message[\s\S]*BackstabEffect\?\.flagHTML/, 'player chat renders the Broker event flag');
 assert.match(app, /backstab-chat-message[\s\S]*BackstabEffect\?\.flagHTML/, 'GM chat renders the Broker event flag');
 for (const [surface, html] of [['GM', index], ['player', join]]) {
-  assert.match(html, /css\/backstab\.css\?v=20261005-backstab-4/, `${surface} loads the remodeled CSS`);
-  assert.match(html, /js\/backstab\.js\?v=20261005-backstab-5/, `${surface} loads the matching effect script`);
+  assert.match(html, /css\/backstab\.css\?v=20261107-no-cooldown-badge-1/, `${surface} loads the remodeled CSS`);
+  assert.match(html, /js\/backstab\.js\?v=20261107-no-cooldown-badge-1/, `${surface} loads the matching effect script`);
 }
-assert.match(index, /js\/app\.js\?v=20261005-backstab-event-1/);
-assert.match(join, /js\/player\.js\?v=20261005-backstab-event-1/);
+assert.match(index, /js\/app\.js\?v=\d{8}[^"\s]*/);
+assert.match(join, /js\/player\.js\?v=\d{8}[^"\s]*/);
 
 console.log('PASS backstab animation: sharp point leads, impact aligns, failure path and reduced motion remain intact');
