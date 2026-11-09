@@ -827,11 +827,11 @@ const Skeleton = (() => {
           <div class="aftermath-final-solution" hidden><small>FINAL SOLUTION</small><strong></strong></div>
           <div class="aftermath-reader-status" role="status" aria-live="polite"></div>
         </div>
-        ${isHost ? `<div class="aftermath-controls">
+        <div class="aftermath-controls">
           <label class="aftermath-speed">READING PACE<select aria-label="Story reading pace"><option value="normal">Normal</option><option value="fast" selected>Fast</option></select></label>
           <button type="button" class="aftermath-btn aftermath-complete">COMPLETE SEQUENCE</button>
-          <button type="button" class="aftermath-btn aftermath-continue" hidden>PROCEED TO RECOUNT <span aria-hidden="true">↗</span></button>
-        </div>` : '<div class="aftermath-wait">THE BROKER WILL PROCEED TO RECOUNT</div>'}
+${isHost ? '<button type="button" class="aftermath-btn aftermath-continue" hidden>PROCEED TO RECOUNT <span aria-hidden="true">↗</span></button>' : '<span class="aftermath-wait">The Broker will proceed to Recount</span>'}
+        </div>
       </section>`;
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('is-visible'));
