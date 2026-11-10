@@ -16,6 +16,8 @@ function normalizeState(value) {
     launchScheduledAt: Number(state.launchScheduledAt) || null,
     scheduleStatus: ['SUMMONING', 'STARTED', 'CANCELLED', 'SKIPPED'].includes(state.scheduleStatus) ? state.scheduleStatus : null,
     scheduleBoardId: typeof state.scheduleBoardId === 'string' ? state.scheduleBoardId : null,
+    fieldBoardId: typeof state.fieldBoardId === 'string' ? state.fieldBoardId : null,
+    fieldOpenedAt: Number.isFinite(state.fieldOpenedAt) && state.fieldOpenedAt > 0 ? state.fieldOpenedAt : 0,
     pending: Array.isArray(state.pending) ? state.pending.slice(-100) : [],
     history: Array.isArray(state.history) ? state.history.slice(-100) : [] };
 }

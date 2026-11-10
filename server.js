@@ -36,6 +36,7 @@ const dennisAI = require('./dennis-ai');
 const { poisonView } = require('./poison-privacy');
 const { blocksPlayerAction } = require('./lockdown');
 const spectralAdjudicator = require('./automation/spectral-adjudicator');
+const fieldOpeningCooldown = require('./automation/field-opening-cooldown');
 const spectralSchedule = require('./automation/spectral-schedule');
 const olympics = require('./olympics');
 const { createChatUploadGuard } = require('./chat-upload-guard');
@@ -12458,8 +12459,17 @@ function processSpectralAdjudication(room, chatMessage) {
     if (!result.valid || room.sessionState?.cells?.[result.cell] === true) {
       addSpectralMessage(room, 'invalid field, are you clinically blind?');
     } else {
+      const remaining = fieldOpeningCooldown.remaining(state, room.boardId, Date.now());
+      if (remaining > 0) {
+        addDennisMessage(room, fieldOpeningCooldown.warning(chatMessage.playerName, remaining, crypto.randomInt(fieldOpeningCooldown.INSULTS.length)));
+        return true;
+      }
       const reveal = applyCommand(room, 'revealCell', { cell: result.cell, reveal: true });
-      if (reveal.success && reveal.changed) broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+      if (reveal.success && reveal.changed) {
+        state.fieldBoardId = room.boardId;
+        state.fieldOpenedAt = Date.now();
+        broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+      }
     }
     return true;
   }
