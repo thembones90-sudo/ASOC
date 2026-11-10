@@ -1701,7 +1701,8 @@ function getPublicState(room) {
     battleAnimationId: room.battleAnimationId === 'glitch-world' ? 'glitch-world' : 'default',
     armed: room.armed === true,
     gameId: game.id,
-    title: game.title,
+    // Library titles may be the final answer. Only game:loaded / GM APIs expose them.
+    title: game.theme || 'ASOC',
     theme: game.theme,
     difficulty: game.difficulty,
     brokerProfile: publicBrokerProfile(room),
@@ -3912,13 +3913,17 @@ function startMatchLedger(room) {
 // RECOUNT delivery. `live` is true ONLY for the moment the host presses SHOW
 // RESULTS (clients play the staged reveal); hydration for a late join /
 // reconnect is live:false so nobody ever replays it. recount:null closes it.
+function publicRecount(room, recount) {
+  return recount ? { ...recount, title: String(room.gameData?.theme || 'ASOC') } : null;
+}
+
 function broadcastRecount(room, recount, live) {
-  broadcastToRoom(room, { type: 'recount:update', recount: recount || null, live: live === true });
+  broadcastToRoom(room, { type: 'recount:update', recount: publicRecount(room, recount), live: live === true });
 }
 
 function sendRecountHydration(ws, room) {
   if (room.match && room.match.recount && room.match.resultsShownAt) {
-    sendToWs(ws, { type: 'recount:update', recount: room.match.recount, live: false });
+    sendToWs(ws, { type: 'recount:update', recount: publicRecount(room, room.match.recount), live: false });
   }
 }
 
@@ -4014,7 +4019,7 @@ function matchRatingState(room) {
   return {
     open: !!ledger.ratingOpenedAt && !ledger.resultsShownAt,
     matchId: String(room.boardId || ''),
-    title: String(room.gameData?.title || ''),
+    title: String(room.gameData?.theme || 'ASOC'),
     openedAt: Number(ledger.ratingOpenedAt || 0),
     votesCount: values.length,
     eligibleCount,
@@ -4087,6 +4092,7 @@ function archiveCompletedMatch(room, fields) {
     keyFn: (name, id) => id || playerStore.normalizeNameKey(name),
     now: Date.now()
   });
+  record.theme = String(room.gameData?.theme || 'ASOC');
   // Only matches whose RESULTS WERE SHOWN count as history: a REVEAL ALL /
   // test completion the host never showed must not skew career averages.
   const history = matchStore.listMatches().filter(match => match.matchId !== record.matchId && match.resultsShownAt);
@@ -4125,7 +4131,7 @@ function recountLedgerRows(limit = 30) {
     .slice(0, safeLimit)
     .map(match => ({
       matchId: String(match.matchId || ''),
-      title: String(match.title || match.recount?.title || 'UNTITLED OPERATION').slice(0, 120),
+      title: String(match.theme || 'ASOC').slice(0, 120),
       completedAt: Number(match.resultsShownAt || match.completedAt || 0),
       outcome: match.recount?.outcome === 'LOST' ? 'LOST' : (match.recount?.gameWon ? 'WON' : 'COMPLETE'),
       satisfaction: match.satisfaction ? {
