@@ -12396,11 +12396,15 @@ function spectralSolutions(room) {
   };
 }
 
+function unattendedSpectra(room) {
+  return room.code === MASTER_ROOM_CODE && getHolidayStore().load().plan.enabled === true;
+}
+
 function sendSpectralState(room) {
   if (!room) return;
   const state = room.spectralAdjudicator = spectralAdjudicator.normalizeState(room.spectralAdjudicator);
   const pending = spectralAdjudicator.actionablePending(state.pending, {
-    active: room.roomMode === ROOM_MODES.BATTLE && !room.sessionState?.matchResult,
+    active: !unattendedSpectra(room) && room.roomMode === ROOM_MODES.BATTLE && !room.sessionState?.matchResult,
     boardId: room.boardId, messages: room.chat?.messages,
     closedTargets: [...SCORABLE_COLUMNS.filter(column => room.chat?.solvedTargets?.[column] || ['success', 'failed'].includes(room.sessionState?.cellOutcomes?.[`${column}5`])),
       ...(room.chat?.solvedTargets?.FINAL || room.sessionState?.finalSolution ? ['FINAL'] : [])]
@@ -12443,7 +12447,7 @@ function processSpectralAdjudication(room, chatMessage) {
   const state = room.spectralAdjudicator;
   if (state.mode === 'MANUAL' || state.paused || room.roomMode !== ROOM_MODES.BATTLE || room.sessionState?.matchResult) return false;
   const result = spectralAdjudicator.inspect(chatMessage, {
-    roomMode: 'battle', boardId: room.boardId, mode: state.mode, solutions: spectralSolutions(room)
+    roomMode: 'battle', boardId: room.boardId, mode: state.mode, solutions: spectralSolutions(room), unattended: unattendedSpectra(room)
   });
   if (result.kind === 'IGNORE') return false;
   // Closed columns are not new attempts, nor new GM-review queue entries.
@@ -12457,6 +12461,13 @@ function processSpectralAdjudication(room, chatMessage) {
       const reveal = applyCommand(room, 'revealCell', { cell: result.cell, reveal: true });
       if (reveal.success && reveal.changed) broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
     }
+    return true;
+  }
+  if (result.decision === 'CLARIFY') {
+    addSpectralMessage(room, result.reason === 'AMBIGUOUS_TARGET'
+      ? `${chatMessage.playerName}, use exactly one target (A, B, C, D or K) with your answer. Try again.`
+      : `${chatMessage.playerName}, that target is unavailable. Try another field.`);
+    sendSpectralState(room);
     return true;
   }
   if (result.decision === 'ESCALATE') {
@@ -12602,7 +12613,7 @@ function handleHolidayControl(ws,message) {
     if(message.type==='gm:holiday:arm'){
       const report=getHolidayService().preview();if(report.errors.length)throw Error(report.errors.join('; '));
       if(room.wheel?.open)throw Error('Close the active WOMF wheel before activating Holiday mode');
-      store.enable(Date.now());broadcastToRoom(room,{type:'state:public',...getPublicState(room)});
+      store.enable(Date.now());sendSpectralState(room);broadcastToRoom(room,{type:'state:public',...getPublicState(room)});
     }
     if(message.type==='gm:holiday:disarm'){
       store.disable();broadcastToRoom(room,{type:'state:public',...getPublicState(room)});room.spectralAdjudicator={...room.spectralAdjudicator,scheduleArmed:false,scheduleDisabled:true};persistActiveRooms();sendSpectralState(room);

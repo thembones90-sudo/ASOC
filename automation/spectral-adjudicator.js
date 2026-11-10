@@ -42,16 +42,19 @@ function actionablePending(pending, { active, boardId, messages, closedTargets =
 function inspect(message, context = {}) {
   const result = classifyMessage(message, context);
   if (result.kind !== 'ANSWER') return result;
-  if (result.ambiguous) return { ...result, decision: 'ESCALATE', reason: 'AMBIGUOUS_TARGET' };
+  // Holiday mode never creates work for an absent GM. Ambiguous targets
+  // ask the player to clarify; uncertain matches are rejected, never guessed.
+  const review = reason => ({ ...result, decision: context.unattended === true ? 'REJECT' : 'ESCALATE', reason });
+  if (result.ambiguous) return { ...result, decision: context.unattended === true ? 'CLARIFY' : 'ESCALATE', reason: 'AMBIGUOUS_TARGET' };
   const solution = context.solutions && context.solutions[result.target];
-  if (!solution) return { ...result, decision: 'ESCALATE', reason: 'NO_SOLUTION' };
+  if (!solution) return { ...result, decision: context.unattended === true ? 'CLARIFY' : 'ESCALATE', reason: 'NO_SOLUTION' };
   // Automatic mode may award only an exact match for the explicitly named
   // target. Assisted/unknown modes and uncertain matches still consult the GM.
   if (normalizeAnswer(result.answer) === normalizeAnswer(solution)) return {
-    ...result, decision: context.mode === 'AUTONOMOUS' ? 'ACCEPT' : 'ESCALATE', reason: 'EXACT'
+    ...result, decision: (context.mode === 'AUTONOMOUS' || context.unattended === true) ? 'ACCEPT' : 'ESCALATE', reason: 'EXACT'
   };
-  if (suffixRelated(result.answer, solution)) return { ...result, decision: 'ESCALATE', reason: 'DERIVATIONAL' };
-  if (levenshtein(normalizeAnswer(result.answer), normalizeAnswer(solution), 1) <= 1) return { ...result, decision: 'ESCALATE', reason: 'POSSIBLE_TYPO' };
+  if (suffixRelated(result.answer, solution)) return review('DERIVATIONAL');
+  if (levenshtein(normalizeAnswer(result.answer), normalizeAnswer(solution), 1) <= 1) return review('POSSIBLE_TYPO');
   return { ...result, decision: 'REJECT', reason: 'CLEAR_MISMATCH' };
 }
 
