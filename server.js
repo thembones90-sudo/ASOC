@@ -38,6 +38,7 @@ const { blocksPlayerAction } = require('./lockdown');
 const spectralAdjudicator = require('./automation/spectral-adjudicator');
 const fieldOpeningCooldown = require('./automation/field-opening-cooldown');
 const spectralVoice = require('./automation/spectral-voice');
+const dennisLossTaunts = require('./automation/dennis-loss-taunts');
 const spectralSchedule = require('./automation/spectral-schedule');
 const olympics = require('./olympics');
 const { createChatUploadGuard } = require('./chat-upload-guard');
@@ -7486,6 +7487,19 @@ function addDennisMessage(room, text, imageUrl = '') {
   return message;
 }
 
+function addDennisLossTaunt(room) {
+  if (room.roomMode !== ROOM_MODES.CASUAL) return null;
+  const text = dennisLossTaunts.take(room.match, room.sessionState?.matchResult?.outcome, n => crypto.randomInt(n));
+  if (!text) return null;
+  const message = addDennisMessage(room, `@all ${text}`);
+  message.messageType = 'dennisLossTaunt';
+  message.boardId = room.boardId;
+  return message;
+}
+function broadcastDennisLossMention(room, message) {
+  if (message) broadcastToRoom(room, { type: 'chat:mentionAll', messageId: message.id, fromPlayerId: dennisAI.DENNIS_ID, fromName: dennisAI.DENNIS_NAME, timestamp: message.timestamp });
+}
+
 function tickDennisAI() {
   let dirty = false;
   rooms.forEach(room => {
@@ -12640,7 +12654,7 @@ function getHolidayService() {
     store:getHolidayStore(),room:()=>rooms.get(MASTER_ROOM_CODE),validateAssets:holidayAssets,
     loadBoard:(r,id)=>{r.roomMode=ROOM_MODES.CASUAL;handleSwitchGame(null,{gameId:id,keepMode:true},r);},
     finish:r=>handleGmFinishGame(null,r),openRating:r=>handleGmOpenRating(null,r),recount:r=>handleGmShowRecount(null,r),
-    returnToMenu:r=>{r.roomMode=ROOM_MODES.CASUAL;r.armed=false;endRitual(r);r.revision++;const speech=speakSpectra(r,'AMUSE',`${r.boardId}:amuse`);persistActiveRooms();if(speech)broadcastChatUpdate(r);broadcastToRoom(r,{type:'state:public',...getPublicState(r)});},
+    returnToMenu:r=>{r.roomMode=ROOM_MODES.CASUAL;r.armed=false;endRitual(r);r.revision++;const speech=speakSpectra(r,'AMUSE',`${r.boardId}:amuse`);const taunt=addDennisLossTaunt(r);persistActiveRooms();broadcastToRoom(r,{type:'state:public',...getPublicState(r)});if(speech||taunt)broadcastChatUpdate(r);broadcastDennisLossMention(r,taunt);},
     persist:persistActiveRooms,notify:()=>{sendHolidayState();const r=rooms.get(MASTER_ROOM_CODE);if(r)broadcastToRoom(r,{type:'state:public',...getPublicState(r)});}
   });
   return holidayServiceInstance;
@@ -13854,9 +13868,11 @@ function handleSetRoomMode(ws, message) {
 
   room.revision++;
   const dismissal = next === ROOM_MODES.CASUAL && room.match?.completedAt ? speakSpectra(room, 'AMUSE', `${room.boardId}:amuse`) : null;
+  const taunt = next === ROOM_MODES.CASUAL ? addDennisLossTaunt(room) : null;
   persistActiveRooms();
-  if (dismissal) broadcastChatUpdate(room);
+  if (dismissal || taunt) broadcastChatUpdate(room);
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
+  broadcastDennisLossMention(room, taunt);
   // Every client drops its RECOUNT on entering CASUAL; returning to a shown
   // RECOUNT must hand it back (non-live, never a replay).
   if (next === ROOM_MODES.RECOUNT && room.match?.recount) broadcastRecount(room, room.match.recount, false);
