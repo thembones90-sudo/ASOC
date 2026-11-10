@@ -37,6 +37,7 @@ const { poisonView } = require('./poison-privacy');
 const { blocksPlayerAction } = require('./lockdown');
 const spectralAdjudicator = require('./automation/spectral-adjudicator');
 const fieldOpeningCooldown = require('./automation/field-opening-cooldown');
+const spectralVoice = require('./automation/spectral-voice');
 const spectralSchedule = require('./automation/spectral-schedule');
 const olympics = require('./olympics');
 const { createChatUploadGuard } = require('./chat-upload-guard');
@@ -3425,7 +3426,9 @@ function startBattleClock(room) {
   room.armed = true;
   room.revision++;
   endRitual(room);
+  const speech = speakSpectra(room, 'START', `${room.boardId}:start`);
   persistActiveRooms();
+  if (speech) broadcastChatUpdate(room);
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastPlayersUpdate(room);
   broadcastToRoom(room, { type: 'battle:controlsOnline' });
@@ -3648,7 +3651,9 @@ function declareGameLost(room, source = 'timer') {
   try { archiveCompletedMatch(room, fields); } catch (error) { console.error('[match] Loss archive failed:', error.message); }
   sendSpectralState(room);
   room.revision++;
+  const speech = speakSpectra(room, 'DEFEAT', `${room.boardId}:defeat`);
   persistActiveRooms();
+  if (speech) broadcastChatUpdate(room);
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastPlayersUpdate(room);
   console.log(`[ROOM ${room.code}] GAME LOST -- ${source === 'gm-final' ? 'GM resolved FINAL RED' : source === 'solution-countdown' ? 'solution grace countdown expired' : 'authoritative timer expiry'}`);
@@ -3738,6 +3743,10 @@ setInterval(() => runtimeAction(() => {
       return;
     }
 
+    if (t.phase === 'borrowed' && t.borrowedRemaining > 0 && t.borrowedRemaining <= 30000 && speakSpectra(room, 'LOW_TIME', `${room.boardId}:low-time`)) {
+      persistActiveRooms();
+      broadcastChatUpdate(room);
+    }
     dirty.push(room);
   });
   dirty.forEach(room => room.revision++);
@@ -12419,6 +12428,16 @@ function sendSpectralState(room) {
   });
 }
 
+function takeSpectraLine(room, event, key, chatter = false) {
+  const state = room.spectralAdjudicator;
+  if (!state || state.mode === 'MANUAL' || state.paused) return null;
+  return spectralVoice.take(state, event, { key, chatter, now: Date.now(), random: n => crypto.randomInt(n) });
+}
+function speakSpectra(room, event, key, chatter = false) {
+  const text = takeSpectraLine(room, event, key, chatter);
+  return text ? addSpectralMessage(room, text) : null;
+}
+
 function addSpectralMessage(room, text) {
   const message = {
     id: generateMessageId(), playerId: null, playerName: spectralAdjudicator.NAME,
@@ -12457,7 +12476,8 @@ function processSpectralAdjudication(room, chatMessage) {
        ['success', 'failed'].includes(room.sessionState?.cellOutcomes?.[`${result.target}5`]))) return false;
   if (result.kind === 'COORDINATE') {
     if (!result.valid || room.sessionState?.cells?.[result.cell] === true) {
-      addSpectralMessage(room, 'invalid field, are you clinically blind?');
+      if (!result.valid) speakSpectra(room, 'INVALID', chatMessage.id);
+      else addSpectralMessage(room, `${result.cell} is already open. Choose an unopened field.`);
     } else {
       const remaining = fieldOpeningCooldown.remaining(state, room.boardId, Date.now());
       if (remaining > 0) {
@@ -12475,7 +12495,7 @@ function processSpectralAdjudication(room, chatMessage) {
   }
   if (result.decision === 'CLARIFY') {
     addSpectralMessage(room, result.reason === 'AMBIGUOUS_TARGET'
-      ? `${chatMessage.playerName}, use exactly one target (A, B, C, D or K) with your answer. Try again.`
+      ? `${chatMessage.playerName}, ${takeSpectraLine(room, 'AMBIGUOUS', chatMessage.id)} Use exactly one target: A, B, C, D or K.`
       : `${chatMessage.playerName}, that target is unavailable. Try another field.`);
     sendSpectralState(room);
     return true;
@@ -12492,7 +12512,18 @@ function processSpectralAdjudication(room, chatMessage) {
   }
   const verdict = result.decision === 'ACCEPT' ? 'correct' : 'wrong';
   const judged = applyVerdict(room, chatMessage.id, verdict, result.target, result.target === 'FINAL');
-  if (judged.success) broadcastAutomatedVerdict(room, judged, chatMessage.id, result.target);
+  if (judged.success) {
+    if (verdict === 'correct') speakSpectra(room, result.target === 'FINAL' ? 'FINAL' : 'COLUMN', result.target === 'FINAL' ? `${room.boardId}:victory` : chatMessage.id);
+    else {
+      const repeated = room.chat.messages.slice(-100).some(m => {
+        if (m.id === chatMessage.id || m.boardId !== room.boardId || m.playerId !== chatMessage.playerId || m.verdict !== 'wrong') return false;
+        const prior = spectralAdjudicator.inspect({ ...m, verdict: null }, { roomMode: 'battle', boardId: room.boardId, mode: state.mode, solutions: spectralSolutions(room) });
+        return prior.target === result.target && prior.answer?.toLowerCase() === result.answer?.toLowerCase();
+      });
+      speakSpectra(room, repeated ? 'REPEATED' : 'WRONG', chatMessage.id, true);
+    }
+    broadcastAutomatedVerdict(room, judged, chatMessage.id, result.target);
+  }
   if (judged.success && verdict === 'correct' && result.target === 'FINAL' && getHolidayService().allowed(room)) handleGmGameWon(null, room);
   return judged.success;
 }
@@ -12525,7 +12556,7 @@ function handleSpectralControl(ws, message) {
 }
 
 function announceSpectralSchedule(room, text, nudge = false) {
-  const message = addSpectralMessage(room, `@all ${text}`);
+  const message = addSpectralMessage(room, text.startsWith('@all ') ? text : `@all ${text}`);
   persistActiveRooms();
   broadcastChatUpdate(room, [message.id]);
   broadcastToRoom(room, { type: 'chat:mentionAll', messageId: message.id, timestamp: Date.now() });
@@ -12556,7 +12587,7 @@ function advanceSpectralRitual(room, at = Date.now()) {
     room.armed = true;
     if (!room.ritual?.active) startRitual(room);
     room.revision++;
-    announceSpectralSchedule(room, 'SPECTRA summons you for a game.', true);
+    announceSpectralSchedule(room, takeSpectraLine(room, 'SUMMON') || spectralVoice.LINES.SUMMON[0], true);
   } else if (action === 'START') {
     // This path requires five distinct, connected voters: tribute and GM
     // overrides never stand in for scheduled attendance. No delayed T-10.
@@ -12573,7 +12604,7 @@ function advanceSpectralRitual(room, at = Date.now()) {
     room.roomMode = ROOM_MODES.CASUAL;
     room.armed = false;
     room.revision++;
-    announceSpectralSchedule(room, 'SPECTRA dismissed, not enough players.');
+    announceSpectralSchedule(room, takeSpectraLine(room, 'CANCEL') || spectralVoice.LINES.CANCEL[0]);
   } else if (action === 'ABORT') state.scheduleStatus = 'CANCELLED';
   persistActiveRooms();
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
@@ -12609,7 +12640,7 @@ function getHolidayService() {
     store:getHolidayStore(),room:()=>rooms.get(MASTER_ROOM_CODE),validateAssets:holidayAssets,
     loadBoard:(r,id)=>{r.roomMode=ROOM_MODES.CASUAL;handleSwitchGame(null,{gameId:id,keepMode:true},r);},
     finish:r=>handleGmFinishGame(null,r),openRating:r=>handleGmOpenRating(null,r),recount:r=>handleGmShowRecount(null,r),
-    returnToMenu:r=>{r.roomMode=ROOM_MODES.CASUAL;r.armed=false;endRitual(r);r.revision++;persistActiveRooms();broadcastToRoom(r,{type:'state:public',...getPublicState(r)});},
+    returnToMenu:r=>{r.roomMode=ROOM_MODES.CASUAL;r.armed=false;endRitual(r);r.revision++;const speech=speakSpectra(r,'AMUSE',`${r.boardId}:amuse`);persistActiveRooms();if(speech)broadcastChatUpdate(r);broadcastToRoom(r,{type:'state:public',...getPublicState(r)});},
     persist:persistActiveRooms,notify:()=>{sendHolidayState();const r=rooms.get(MASTER_ROOM_CODE);if(r)broadcastToRoom(r,{type:'state:public',...getPublicState(r)});}
   });
   return holidayServiceInstance;
@@ -13088,7 +13119,9 @@ function handleGmGameWon(ws, internalRoom = null) {
   try { archiveCompletedMatch(room, fields); } catch (error) { console.error('[match] Victory archive failed:', error.message); }
   sendSpectralState(room);
   room.revision++;
+  const speech = speakSpectra(room, 'FINAL', `${room.boardId}:victory`);
   persistActiveRooms();
+  if (speech) broadcastChatUpdate(room);
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   broadcastPlayersUpdate(room);
 }
@@ -13820,7 +13853,9 @@ function handleSetRoomMode(ws, message) {
   if (ritualJustStarted) startRitual(room);
 
   room.revision++;
+  const dismissal = next === ROOM_MODES.CASUAL && room.match?.completedAt ? speakSpectra(room, 'AMUSE', `${room.boardId}:amuse`) : null;
   persistActiveRooms();
+  if (dismissal) broadcastChatUpdate(room);
   broadcastToRoom(room, { type: 'state:public', ...getPublicState(room) });
   // Every client drops its RECOUNT on entering CASUAL; returning to a shown
   // RECOUNT must hand it back (non-live, never a replay).

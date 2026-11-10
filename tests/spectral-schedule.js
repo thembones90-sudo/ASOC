@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const S = require('../automation/spectral-schedule');
 const A = require('../automation/spectral-adjudicator');
+const V = require('../automation/spectral-voice');
 const source = fs.readFileSync(require.resolve('../server'), 'utf8');
 const at = time => Date.parse(`2026-10-17T${time}+02:00`);
 function fixture() {
@@ -18,6 +19,7 @@ const frames = [], errors = [];
 let writes = 0;
 const context = {
   spectralScheduleAllowed:()=>true,
+  spectralVoice:V,takeSpectraLine:(room,event)=>V.LINES[event][0],speakSpectra:()=>null,
   getHolidayStore:()=>({mark(){}}),roomGameKey:room=>room.gameData?.id||room.gameId,
   spectralSchedule: S, spectralAdjudicator: A, ROOM_MODES: { CASUAL: 'CASUAL', BATTLE_ARMED: 'BATTLE_ARMED', BATTLE: 'BATTLE' }, NUDGE_MS: 900,
   rooms: new Map(), isMatchResolved: room => !!room.resolved,
@@ -42,7 +44,7 @@ let room = fixture();
 assert.equal(room.spectralAdjudicator.scheduleArmed, true, 'existing Automatic mode enables daily schedule without another ARM click');
 assert.equal(tick(room, '12:54:59'), false);
 assert.equal(tick(room, '12:55:00'), true);
-assert.equal(room.chat[0].text, '@all SPECTRA summons you for a game.');
+assert.equal(room.chat[0].text, V.LINES.SUMMON[0]);
 assert.equal(frames.filter(f => f.type === 'nudge:shake').length, 1);
 assert.equal(frames.filter(f => f.type === 'chat:mentionAll').length, 1);
 const idleWrites = writes;
@@ -61,7 +63,7 @@ assert.equal(tick(room, '13:04:59'), false);
 room.spectralAdjudicator = A.normalizeState(JSON.parse(JSON.stringify(room.spectralAdjudicator)));
 assert.equal(tick(room, '13:05:00'), true);
 assert.equal(room.roomMode, 'CASUAL'); assert.equal(room.ritual.active, false);
-assert.equal(room.chat.at(-1).text, '@all SPECTRA dismissed, not enough players.');
+assert.equal(room.chat.at(-1).text, V.LINES.CANCEL[0]);
 assert.equal(tick(room, '13:05:01'), false, 'cancellation never repeats');
 room = fixture(); tick(room, '12:55:00'); vote(room, 4); tick(room, '13:00:00'); vote(room, 5);
 assert.equal(tick(room, '13:03:00'), true, 'fifth grace-period vote starts immediately');
