@@ -17,6 +17,8 @@ function vote(room, count) {
 const frames = [], errors = [];
 let writes = 0;
 const context = {
+  spectralScheduleAllowed:()=>true,
+  getHolidayStore:()=>({mark(){}}),roomGameKey:room=>room.gameData?.id||room.gameId,
   spectralSchedule: S, spectralAdjudicator: A, ROOM_MODES: { CASUAL: 'CASUAL', BATTLE_ARMED: 'BATTLE_ARMED', BATTLE: 'BATTLE' }, NUDGE_MS: 900,
   rooms: new Map(), isMatchResolved: room => !!room.resolved,
   startRitual: room => { room.ritual = { active: true, joinedPlayerIds: [], requiredVotes: 5 }; },
@@ -96,6 +98,8 @@ assert.equal(room.ritual.joinedPlayerIds.includes('late-voter'), false, 'late fi
 room = fixture(); tick(room, '12:55:00'); vote(room, 5);
 let now = at('13:04:59'), interval, queued, queuedDecision;
 const schedulerContext = {
+  spectralScheduleAllowed:()=>true,
+  MASTER_ROOM_CODE:'MASTER',getHolidayStore:()=>({load:()=>({plan:{enabled:false}})}),
   rooms: new Map([['MASTER', room]]), spectralSchedule: S, spectralAdjudicator: A,
   isMatchResolved: () => false, Date: { now: () => now },
   runtimeAction: action => { queued = action; },

@@ -72,6 +72,7 @@ const Womf = {
     const el = document.getElementById(containerId);
     if (!el) return;
 
+    el.style.display = womfState?.paused ? 'none' : '';
     const charge = Math.max(0, Math.min(10, (womfState && womfState.charge) || 0));
     window.AsocAudio?.syncWomf?.(charge);
     const prevCharge = this._lastCharge[containerId] || 0;

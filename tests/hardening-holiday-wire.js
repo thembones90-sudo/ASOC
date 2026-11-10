@@ -1,0 +1,24 @@
+'use strict';
+const assert=require('assert/strict');const fs=require('fs');const os=require('os');const path=require('path');const WS=require('ws');const H=require('./lib/browser-harness');
+class Client{constructor(){this.messages=[];}async open(port){this.ws=new WS(`ws://127.0.0.1:${port}`);await new Promise((resolve,reject)=>{this.ws.on('error',reject);this.ws.on('message',raw=>{const m=JSON.parse(raw);if(m.type==='protocol:hello')return this.send({type:'protocol:hello',protocolVersion:1});if(m.type==='protocol:ready')return resolve();this.messages.push(m);});});return this;}send(m){this.ws.send(JSON.stringify(m));}async wait(test,from=0){for(let i=0;i<120;i++){const found=this.messages.slice(from).find(test);if(found)return found;await H.sleep(100);}throw Error('Timeout: '+test+' '+JSON.stringify(this.messages.slice(-2)).slice(0,500));}}
+(async()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'asoc-holiday-clock-'));const clockFile=path.join(dir,'now');const set=stamp=>fs.writeFileSync(clockFile,String(typeof stamp==='number'?stamp:Date.parse(stamp)));set('2026-11-10T10:00:00+01:00');
+ const server=await H.startServer({port:19863,env:{NODE_ENV:'test',NODE_OPTIONS:`--require "${path.join(__dirname,'lib/holiday-clock.js').replace(/\\/g,'/')}"`,ASOC_HOLIDAY_CLOCK_FILE:clockFile,ASOC_COIN_DROPS:'0'}});const clients=[];
+ try{
+  const gm=await new Client().open(server.port);clients.push(gm);const token=(await server.api('POST','/api/auth/gm/login',{password:'browser-gm-pass'})).data.token;gm.send({type:'host:recover',gmToken:token});await gm.wait(m=>m.type==='host:recovered');gm.send({type:'gm:holiday:state'});await gm.wait(m=>m.type==='holiday:state');
+  const response=await fetch(server.base+'/api/games',{method:'POST',headers:{'content-type':'application/json','x-gm-token':token},body:JSON.stringify({title:'Holiday live game',difficulty:'GREEN',background:'assets/backgrounds/_default.svg',story:'Evidence becomes a story. The truth survives.',finalSolution:'splash',columns:Object.fromEntries(['A','B','C','D'].map(c=>[c,{solution:'word'+c,clues:['one','two','three','four']}]))})});assert.equal(response.status,200);const id=(await response.json()).game.id;
+  let from=gm.messages.length;gm.send({type:'gm:holiday:save',slots:[{date:'2026-11-11',gameId:id}]});await gm.wait(m=>m.type==='holiday:state'&&m.plan.slots.length===1,from);from=gm.messages.length;gm.send({type:'gm:holiday:arm'});await gm.wait(m=>m.type==='holiday:state'&&m.plan.enabled,from);
+  const heroes=[];for(let i=0;i<5;i++){const name='Holiday wire '+i;const auth=await H.heroToken(server,name);const hero=await new Client().open(server.port);clients.push(hero);heroes.push(hero);hero.send({type:'room:join',authToken:auth,roomCode:'MASTER',name});await hero.wait(m=>m.type==='join:success');}
+  gm.ws.close();await H.sleep(300);const observer=heroes[0];
+  const state=()=>JSON.parse(fs.readFileSync(path.join(server.dataDir,'holiday-games.json'),'utf8'));
+  set('2026-11-11T12:50:00+01:00');for(let i=0;i<100&&state().plan.slots[0].stage!=='LOADED';i++)await H.sleep(100);assert.equal(state().plan.slots[0].stage,'LOADED');assert.equal(state().games[id]?.status,undefined,'loading does not count as play');
+  from=observer.messages.length;set('2026-11-11T12:55:00+01:00');await observer.wait(m=>m.type==='state:public'&&m.roomMode==='BATTLE_ARMED',from);heroes.forEach(h=>h.send({type:'ritual:join'}));await H.sleep(700);
+  from=observer.messages.length;set('2026-11-11T13:00:00+01:00');await observer.wait(m=>m.type==='state:public'&&m.roomMode==='BATTLE',from);assert.equal(state().games[id].status,'RUNNING');
+  from=observer.messages.length;observer.send({type:'chat:guess',text:'K splash'});await observer.wait(m=>m.type==='state:public'&&m.gameWon===true,from);for(let i=0;i<60&&state().games[id].status!=='COMPLETED';i++)await H.sleep(100);assert.equal(state().games[id].status,'COMPLETED');
+  for(const expected of ['RESULT','AFTERMATH','RATING','RECOUNT','DONE']){
+   for(let i=0;i<70&&state().plan.slots[0].stage!==expected;i++)await H.sleep(100);
+   assert.equal(state().plan.slots[0].stage,expected,'actual no-GM postgame '+expected);const slot=state().plan.slots[0];if(slot.nextAt)set(slot.nextAt+1);
+  }
+  await observer.wait(m=>m.type==='recount:update'&&m.recount);for(let i=0;i<30&&state().plan.enabled;i++)await H.sleep(100);assert.equal(state().plan.enabled,false);
+  assert.ok(!server.errors().includes('TypeError')&&!server.errors().includes('ReferenceError'),server.errors());console.log('PASS live no-GM holiday server: scheduled load, @all signup, five real votes, automatic start and correct final, durable completion, story, ratings, recount, casual return and automatic stop');
+ }catch(error){console.error(server.errors());throw error;}finally{for(const c of clients)c.ws.close();await server.stop();fs.rmSync(dir,{recursive:true,force:true});}
+})().catch(e=>{console.error(e);process.exitCode=1;});

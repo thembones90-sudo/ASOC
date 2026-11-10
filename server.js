@@ -1783,12 +1783,18 @@ function getPublicState(room) {
 // the public read-only projection of it.
 // ---------------------------------------------------------------------
 
+function holidayWomfPaused(room) {
+  return room.code === MASTER_ROOM_CODE && getHolidayStore().load().plan.enabled === true;
+}
+
 function addWomfCharge(room, amount) {
+  if (holidayWomfPaused(room)) return;
   if (!room.womf) room.womf = { charge: 0, failedColumns: {} };
   room.womf.charge = Math.min(10, room.womf.charge + amount);
 }
 
 function getWomfPublicState(room) {
+  if (holidayWomfPaused(room)) return { charge: 0, armed: false, paused: true };
   const charge = room.womf ? room.womf.charge : 0;
   return {
     charge,
@@ -2727,6 +2733,7 @@ function handleWheelOpen(ws, message) {
     sendToWs(ws, { type: 'error', message: 'Room not found' });
     return;
   }
+  if (holidayWomfPaused(room)) return sendToWs(ws, { type: 'error', message: 'WOMF is paused during Holiday mode' });
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can open the Wheel' });
     return;
@@ -2825,6 +2832,7 @@ function handleWheelRoll(ws) {
     sendToWs(ws, { type: 'error', message: 'Room not found' });
     return;
   }
+  if (holidayWomfPaused(room)) return sendToWs(ws, { type: 'error', message: 'WOMF is paused during Holiday mode' });
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can roll the Wheel' });
     return;
@@ -3408,6 +3416,7 @@ function handleTimerStart(ws) {
 // Trusted internal callers only: the GM handler validates its authority and
 // ritual gate above; Spectra validates the scheduled window and five real votes.
 function startBattleClock(room) {
+  getHolidayStore().mark(roomGameKey(room),'RUNNING',{matchId:room.boardId,lastPlayedAt:Date.now()});
   room.timer.phase = 'running';
   room._lastTimerTickAt = Date.now();
   room.roomMode = ROOM_MODES.BATTLE;
@@ -4104,6 +4113,7 @@ function archiveCompletedMatch(room, fields) {
     ratings: { ...(room.match?.ratings || {}) }
   };
   matchStore.upsertMatch(record);
+  if(record.completedAt)getHolidayStore().mark(roomGameKey(room),'COMPLETED',{matchId:room.boardId,lastPlayedAt:record.completedAt,outcome:record.outcome||'COMPLETE'});
   return record;
 }
 
@@ -4532,7 +4542,7 @@ function applyCommand(room, command, payload) {
       // side effects of the old verdict before applying the new one.
       if (existingOutcome && existingOutcome !== outcome) {
         if (existingOutcome === 'failed') {
-          if (room.womf?.failedColumns?.[column]) {
+          if (!holidayWomfPaused(room) && room.womf?.failedColumns?.[column]) {
             delete room.womf.failedColumns[column];
             room.womf.charge = Math.max(0, (Number(room.womf.charge) || 0) - 1);
           }
@@ -8661,7 +8671,7 @@ function handleGoatCommand(room, author, raw, { gm = false } = {}) {
   room.lastGoatEvent = event;
   let womfReduced = false;
   let albaniaUntil = 0;
-  if (event === 'sacrifice' && Number(room.womf?.charge) > 0) {
+  if (event === 'sacrifice' && !holidayWomfPaused(room) && Number(room.womf?.charge) > 0) {
     room.womf.charge = Math.max(0, Number(room.womf.charge) - 1);
     womfReduced = true;
     room.revision++;
@@ -12456,6 +12466,7 @@ function processSpectralAdjudication(room, chatMessage) {
   const verdict = result.decision === 'ACCEPT' ? 'correct' : 'wrong';
   const judged = applyVerdict(room, chatMessage.id, verdict, result.target, result.target === 'FINAL');
   if (judged.success) broadcastAutomatedVerdict(room, judged, chatMessage.id, result.target);
+  if (judged.success && verdict === 'correct' && result.target === 'FINAL' && getHolidayService().allowed(room)) handleGmGameWon(null, room);
   return judged.success;
 }
 
@@ -12494,7 +12505,14 @@ function announceSpectralSchedule(room, text, nudge = false) {
   if (nudge) broadcastToRoom(room, { type: 'nudge:shake', timestamp: Date.now(), durationMs: NUDGE_MS });
 }
 
+function spectralScheduleAllowed(room) {
+  const history=getHolidayStore();
+  if(room.code===MASTER_ROOM_CODE&&history.load().plan.enabled)return getHolidayService().allowed(room);
+  return !['COMPLETED','RUNNING','UNKNOWN'].includes(history.status(roomGameKey(room)));
+}
+
 function advanceSpectralRitual(room, at = Date.now()) {
+  if(!spectralScheduleAllowed(room))return false;
   room.spectralAdjudicator = spectralAdjudicator.normalizeState(room.spectralAdjudicator);
   const state = room.spectralAdjudicator;
   const action = spectralSchedule.decide(room, at, isMatchResolved(room));
@@ -12538,8 +12556,66 @@ function advanceSpectralRitual(room, at = Date.now()) {
   return true;
 }
 
+
+let holidayStoreInstance = null;
+let holidayServiceInstance = null;
+function getHolidayStore() {
+  if (!holidayStoreInstance) {
+    holidayStoreInstance = require('./holiday-store').createHolidayStore({readGame:gameStore.readGame,listGames:gameStore.listGameFiles,listMatches:matchStore.listMatches});
+    holidayStoreInstance.reconcile();
+    holidayStoreInstance.completeExisting();
+    for (const r of rooms.values()) if (r.timer && !['ready','stopped','expired'].includes(r.timer.phase) && !r.match?.completedAt) holidayStoreInstance.mark(roomGameKey(r),'RUNNING',{matchId:r.boardId,lastPlayedAt:Date.now()});
+  }
+  return holidayStoreInstance;
+}
+function holidayAssets(gameId) {
+  const game = gameStore.readGame(gameId);
+  if (!game) return ['Game is missing'];
+  return gameStore.listBackgrounds().some(bg=>bg.path===String(game.background||gameStore.DEFAULT_BACKGROUND).replace(/^\//,'')) ? [] : ['Background artwork is missing'];
+}
+function sendHolidayState() {
+  const r=rooms.get(MASTER_ROOM_CODE), host=r?.hostConnection;
+  if(host?.gmAuthenticated===true)sendToWs(host,{type:'holiday:state',...getHolidayStore().load(),catalog:getHolidayStore().catalog()});
+}
+function getHolidayService() {
+  if(!holidayServiceInstance)holidayServiceInstance=require('./holiday-server').createHolidayService({
+    store:getHolidayStore(),room:()=>rooms.get(MASTER_ROOM_CODE),validateAssets:holidayAssets,
+    loadBoard:(r,id)=>{r.roomMode=ROOM_MODES.CASUAL;handleSwitchGame(null,{gameId:id,keepMode:true},r);},
+    finish:r=>handleGmFinishGame(null,r),openRating:r=>handleGmOpenRating(null,r),recount:r=>handleGmShowRecount(null,r),
+    returnToMenu:r=>{r.roomMode=ROOM_MODES.CASUAL;r.armed=false;endRitual(r);r.revision++;persistActiveRooms();broadcastToRoom(r,{type:'state:public',...getPublicState(r)});},
+    persist:persistActiveRooms,notify:()=>{sendHolidayState();const r=rooms.get(MASTER_ROOM_CODE);if(r)broadcastToRoom(r,{type:'state:public',...getPublicState(r)});}
+  });
+  return holidayServiceInstance;
+}
+function handleHolidayControl(ws,message) {
+  const room=rooms.get(MASTER_ROOM_CODE);
+  if(!room||ws!==room.hostConnection||ws.gmAuthenticated!==true)return sendToWs(ws,{type:'error',message:'Only the Shadow Broker controls Holiday mode'});
+  try {
+    const store=getHolidayStore();store.reconcile();
+    if(message.type==='gm:holiday:save')store.configure(message.slots,Date.now());
+    if(message.type==='gm:holiday:arm'){
+      const report=getHolidayService().preview();if(report.errors.length)throw Error(report.errors.join('; '));
+      if(room.wheel?.open)throw Error('Close the active WOMF wheel before activating Holiday mode');
+      store.enable(Date.now());broadcastToRoom(room,{type:'state:public',...getPublicState(room)});
+    }
+    if(message.type==='gm:holiday:disarm'){
+      store.disable();broadcastToRoom(room,{type:'state:public',...getPublicState(room)});room.spectralAdjudicator={...room.spectralAdjudicator,scheduleArmed:false,scheduleDisabled:true};persistActiveRooms();sendSpectralState(room);
+    }
+    if(message.type==='gm:holiday:review')store.review(String(message.gameId||''));
+    if(message.type==='gm:holiday:check')sendToWs(ws,{type:'holiday:check',...getHolidayService().preview()});
+    sendHolidayState();
+  } catch(error){sendToWs(ws,{type:'holiday:error',message:error.message});}
+}
+setInterval(()=>{
+  try{const service=getHolidayService();if(service.due())runtimeAction(()=>service.tick());}
+  catch(error){console.error('[holiday] Automation stopped:',error.message);}
+},1000).unref();
+
 function tickSpectralSchedule(at = Date.now()) {
-  for (const room of rooms.values()) advanceSpectralRitual(room, at);
+  for (const room of rooms.values()) {
+    if(!spectralScheduleAllowed(room))continue;
+    advanceSpectralRitual(room, at);
+  }
 }
 
 // One-second boundary checks avoid the former 15-second polling delay and
@@ -12547,7 +12623,7 @@ function tickSpectralSchedule(at = Date.now()) {
 setInterval(() => {
   const at = Date.now();
   // Do not enter the durable transaction queue for an idle scheduler tick.
-  const due = [...rooms.values()].some(room => spectralSchedule.decide({ ...room,
+  const due = [...rooms.values()].some(room => spectralScheduleAllowed(room) && spectralSchedule.decide({ ...room,
     spectralAdjudicator: spectralAdjudicator.normalizeState(room.spectralAdjudicator)
   }, at, isMatchResolved(room)));
   // Re-read the clock when the durable queue actually runs this action.
@@ -12926,13 +13002,13 @@ function handleGmOmen(ws) {
 // sessionState.gameWon and broadcasts state:public: no score, clue, timer,
 // chat or WOMF change, and every client's sequence keys off that state
 // transition. Idempotent -- a game that is already won never re-triggers.
-function handleGmGameWon(ws) {
-  const room = rooms.get(ws.roomCode?.toUpperCase());
+function handleGmGameWon(ws, internalRoom = null) {
+  const room = internalRoom || rooms.get(ws?.roomCode?.toUpperCase());
   if (!room) {
     sendToWs(ws, { type: 'error', message: 'Room not found' });
     return;
   }
-  if (ws !== room.hostConnection) {
+  if (!internalRoom && ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can trigger GAME WON' });
     return;
   }
@@ -13173,14 +13249,14 @@ function handleDenyAll(ws) {
   sendToWs(ws, { type: 'gm:denyAll:ack', denied });
 }
 
-function handleSwitchGame(ws, message) {
-  const room = rooms.get(ws.roomCode?.toUpperCase());
+function handleSwitchGame(ws, message, internalRoom = null) {
+  const room = internalRoom || rooms.get(ws?.roomCode?.toUpperCase());
   if (!room) {
     sendToWs(ws, { type: 'error', message: 'Room not found' });
     return;
   }
 
-  if (ws !== room.hostConnection) {
+  if (!internalRoom && ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can switch games' });
     return;
   }
@@ -13385,6 +13461,7 @@ function handleWomfSubtract(ws) {
     sendToWs(ws, { type: 'error', message: 'Room not found' });
     return;
   }
+  if (holidayWomfPaused(room)) return sendToWs(ws, { type: 'error', message: 'WOMF is paused during Holiday mode' });
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can adjust WOMF' });
     return;
@@ -13406,6 +13483,7 @@ function handleWomfAdd(ws) {
     sendToWs(ws, { type: 'error', message: 'Room not found' });
     return;
   }
+  if (holidayWomfPaused(room)) return sendToWs(ws, { type: 'error', message: 'WOMF is paused during Holiday mode' });
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can adjust WOMF' });
     return;
@@ -13427,6 +13505,7 @@ function handleWomfReset(ws) {
     sendToWs(ws, { type: 'error', message: 'Room not found' });
     return;
   }
+  if (holidayWomfPaused(room)) return sendToWs(ws, { type: 'error', message: 'WOMF is paused during Holiday mode' });
   if (ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can adjust WOMF' });
     return;
@@ -13490,13 +13569,13 @@ function releasePendingResults(room) {
 // computed and archived at that moment, and it stays hidden until the host
 // presses SHOW RESULTS. This handler then stores the SAME payload with the
 // match (so reconnects/late joins receive it, never a regenerated one),
-function handleGmFinishGame(ws) {
-  const room = rooms.get(ws.roomCode?.toUpperCase());
+function handleGmFinishGame(ws, internalRoom = null) {
+  const room = internalRoom || rooms.get(ws?.roomCode?.toUpperCase());
   if (!room) {
     sendToWs(ws, { type: 'error', message: 'Room not found' });
     return;
   }
-  if (ws !== room.hostConnection) {
+  if (!internalRoom && ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can finish the game' });
     return;
   }
@@ -13543,10 +13622,10 @@ function handleGmFinishGame(ws) {
   broadcastToRoom(room, { type: 'match:aftermath', result: aftermathResult, live: true });
 }
 
-function handleGmOpenRating(ws) {
-  const room = rooms.get(ws.roomCode?.toUpperCase());
+function handleGmOpenRating(ws, internalRoom = null) {
+  const room = internalRoom || rooms.get(ws?.roomCode?.toUpperCase());
   if (!room) return sendToWs(ws, { type: 'error', message: 'Room not found' });
-  if (ws !== room.hostConnection) return sendToWs(ws, { type: 'error', message: 'Only host can open match rating' });
+  if (!internalRoom && ws !== room.hostConnection) return sendToWs(ws, { type: 'error', message: 'Only host can open match rating' });
   if (!room.match?.completedAt || !room.match?.aftermathStartedAt) {
     return sendToWs(ws, { type: 'error', message: 'AFTERMATH must complete before rating' });
   }
@@ -13589,13 +13668,13 @@ function handleMatchRating(ws, message) {
 }
 
 // releases any withheld Final points, and broadcasts it live exactly once.
-function handleGmShowRecount(ws) {
-  const room = rooms.get(ws.roomCode?.toUpperCase());
+function handleGmShowRecount(ws, internalRoom = null) {
+  const room = internalRoom || rooms.get(ws?.roomCode?.toUpperCase());
   if (!room) {
     sendToWs(ws, { type: 'error', message: 'Room not found' });
     return;
   }
-  if (ws !== room.hostConnection) {
+  if (!internalRoom && ws !== room.hostConnection) {
     sendToWs(ws, { type: 'error', message: 'Only host can show the RECOUNT' });
     return;
   }
@@ -14669,7 +14748,10 @@ function handleApiRequest(req, res) {
   }
 
   if (url.pathname === '/api/games' && method === 'GET') {
-    return sendJson(res, 200, { games: gameStore.listGameFiles() });
+    try {
+      const history=getHolidayStore();history.reconcile();
+      return sendJson(res, 200, { games: gameStore.listGameFiles().map(game=>({...game,playStatus:history.status(game.id),lastPlayedAt:history.record(game.id)?.lastPlayedAt||null})) });
+    } catch { return sendJson(res,503,{error:'Game history is unavailable. Automatic game selection is blocked.'}); }
   }
 
   if (url.pathname === '/api/games' && method === 'POST') {
@@ -15737,6 +15819,14 @@ wss.on('connection', (ws, req) => {
           handleJudgeGuess(ws, message);
           break;
         }
+        case 'gm:holiday:state':
+        case 'gm:holiday:save':
+        case 'gm:holiday:arm':
+        case 'gm:holiday:disarm':
+        case 'gm:holiday:review':
+        case 'gm:holiday:check':
+          handleHolidayControl(ws,message);
+          break;
         case 'gm:spectral:sync':
         case 'gm:spectral:mode':
         case 'gm:spectral:pause':
@@ -15934,6 +16024,8 @@ try {
 }
 const restoredRoomCount = restoreActiveRooms();
 ensureMasterRoom();
+// Complete the user-confirmed baseline before accepting any new uploads.
+getHolidayStore();
 for (const room of rooms.values()) {
   if (room.wheel?.phase === 'spinning') armWheelSettlement(room);
   for (const action of Object.values(room.pendingReveals || {})) armColumnReveal(room, action);

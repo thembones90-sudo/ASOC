@@ -58,3 +58,7 @@ direct-messages.json.*
 # Test scratch: per-suite data dirs, avatars and browser profiles. Lives beside
 # the repo on purpose so a test run never writes to the system drive.
 /.scratch/
+
+# Durable holiday schedule and completed-game ledger (runtime data).
+holiday-games.json
+holiday-games.json.*

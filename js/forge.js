@@ -241,6 +241,7 @@ const Forge = {
       </div>
       <div class="forge-toolbar">
         <button class="forge-btn primary" data-forge-new>NEW GAME</button>
+        <button class="forge-btn" type="button" onclick="window.HolidayUI?.open()">HOLIDAY MODE</button>
         <button class="forge-btn" data-forge-import-xlsx>IMPORT FROM EXCEL</button>
         <input type="file" id="forge-xlsx-input" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display: none;">
         <button class="forge-btn ghost" data-forge-close>CLOSE</button>
@@ -304,6 +305,7 @@ const Forge = {
               <span class="game-card-title">${this.escapeHtml(g.title)}</span>
               ${isSample ? '<span class="game-card-sample">SAMPLE</span>' : ''}
             </div>
+            <div class="game-play-status">${this.escapeHtml(g.playStatus || 'UNPLAYED')}${g.lastPlayedAt ? ' · ' + this.escapeHtml(new Date(g.lastPlayedAt).toLocaleDateString()) : ''}</div>
             <div class="game-card-theme">${g.theme ? this.escapeHtml(g.theme) : '—'}</div>
             <div class="game-list-solutions" aria-label="Column answers and final solution">
               ${['A','B','C','D'].map(key => `<span><b>${key}</b> ${this.escapeHtml(g.columnSolutions?.[key] || '—')}</span>`).join('')}

@@ -1,0 +1,30 @@
+'use strict';
+const assert=require('assert/strict');const fs=require('fs');const path=require('path');const {chromium}=require('playwright');const H=require('./lib/browser-harness');
+(async()=>{const server=await H.startServer({port:19861});let browser;try{
+ browser=await chromium.launch({headless:true});const login=await server.api('POST','/api/auth/gm/login',{password:'browser-gm-pass'});const context=await browser.newContext({viewport:{width:1440,height:1000}});
+ await context.addInitScript(t=>{sessionStorage.setItem('asoc_gm_token',t);localStorage.setItem('asoc_master_token',t);},login.data.token);
+ const gm=await context.newPage();const errors=[];gm.on('pageerror',e=>errors.push(e.message));await gm.goto(server.base+'/index.html');await gm.waitForFunction(()=>App.roomCode==='MASTER');
+ await gm.evaluate(()=>HolidayUI.open());await gm.locator('.holiday-panel').waitFor();
+ const baseline=JSON.parse(fs.readFileSync(path.join(server.dataDir,'holiday-games.json'),'utf8'));assert.ok(baseline.baselineCompletedAt);assert.equal(baseline.plan.enabled,false);assert.ok(Object.values(baseline.games).every(g=>g.status==='COMPLETED'),'all existing games baseline completed');
+ const newIds=await gm.evaluate(async token=>{const ids=[];for(let i=0;i<17;i++){
+  const response=await fetch('/api/games',{method:'POST',headers:{'content-type':'application/json','x-gm-token':token},body:JSON.stringify({title:'Holiday '+(i+1),difficulty:'GREEN',background:'assets/backgrounds/_default.svg',story:'The story is ready.',finalSolution:'final '+i,columns:Object.fromEntries(['A','B','C','D'].map(c=>[c,{clues:['one','two','three','four'],solution:c+i}]))})});const payload=await response.json();if(!response.ok)throw Error(JSON.stringify(payload));ids.push(payload.game.id);}return ids;},login.data.token);
+ await gm.evaluate(()=>HolidayUI.open());await gm.waitForFunction(()=>document.querySelector('.holiday-history')&&[...document.querySelectorAll('.holiday-history')].some(el=>el.textContent.includes('Holiday 17')));
+ await gm.locator('[data-holiday-build]').click();assert.equal(await gm.locator('[data-holiday-slot]').count(),17);
+ await gm.locator('[data-holiday-fill]').click();assert.equal(await gm.locator('[data-holiday-arm]').isDisabled(),true,'unsaved queue cannot activate');
+ await gm.locator('[data-holiday-save]').click();await gm.waitForFunction(()=>document.querySelector('#holiday-notice')?.textContent==='Schedule saved.');
+ await gm.locator('[data-holiday-check]').click();await gm.waitForFunction(()=>document.querySelector('#holiday-notice')?.textContent.startsWith('17 daily games validated'));
+ const assigned=await gm.locator('[data-holiday-slot]').evaluateAll(nodes=>nodes.map(n=>n.value));assert.equal(new Set(assigned).size,17);assert.deepEqual(assigned.slice().sort(),newIds.slice().sort());
+ await gm.evaluate(()=>App.send({type:'gm:womfAdd'}));await gm.waitForFunction(()=>App.womf.charge===1);
+ gm.once('dialog',dialog=>dialog.accept());await gm.locator('[data-holiday-arm]').click();await gm.waitForFunction(()=>document.querySelector('[data-holiday-arm]')?.textContent==='Disable Holiday mode');
+ let saved=JSON.parse(fs.readFileSync(path.join(server.dataDir,'holiday-games.json'),'utf8'));assert.equal(saved.plan.enabled,true);assert.equal(saved.plan.slots.length,17);await gm.waitForFunction(()=>App.womf.paused===true);assert.equal(await gm.locator('#womf-tracker-gm').evaluate(el=>el.style.display),'none');await gm.evaluate(()=>App.send({type:'gm:womfAdd'}));
+ const hero=await H.openHeroPage(await browser.newContext(),server,await H.heroToken(server,'Holiday intruder'));
+ await hero.evaluate(()=>{window.__holidayErrors=[];const original=PlayerApp.handleMessage.bind(PlayerApp);PlayerApp.handleMessage=m=>{if(m.type==='error')__holidayErrors.push(m.message);return original(m);};PlayerApp.send({type:'gm:holiday:disarm'});PlayerApp.send({type:'gm:holiday:state'});});
+ await hero.waitForFunction(()=>__holidayErrors.length>=2);saved=JSON.parse(fs.readFileSync(path.join(server.dataDir,'holiday-games.json'),'utf8'));assert.equal(saved.plan.enabled,true,'player cannot disarm or read GM queue');
+ const unauthed=await server.api('GET','/api/games');assert.equal(unauthed.status,401,'library history remains GM-only');
+ await gm.locator('[data-holiday-arm]').click();await gm.waitForFunction(()=>document.querySelector('[data-holiday-arm]')?.textContent==='Activate Holiday mode');
+ await gm.waitForFunction(()=>App.womf.charge===1&&!App.womf.paused);
+ await gm.reload();await gm.waitForFunction(()=>App.roomCode==='MASTER');await gm.evaluate(()=>HolidayUI.open());await gm.locator('.holiday-panel').waitFor();assert.equal(await gm.locator('[data-holiday-slot]').count(),17,'saved plan survives reload');
+ await gm.setViewportSize({width:390,height:844});const box=await gm.locator('.holiday-panel').boundingBox();assert.ok(box.x>=0&&box.x+box.width<=391);
+ fs.mkdirSync(path.join(__dirname,'..','.scratch','holiday-shots'),{recursive:true});await gm.screenshot({path:path.join(__dirname,'..','.scratch','holiday-shots','mobile.png')});
+ assert.deepEqual(errors,[]);console.log('PASS Holiday browser/server: baseline completion once, 17 new games stay unplayed, calendar/fill/save/check/arm/disarm, no unsaved activation, GM-only controls and private queue, persistent plan and mobile fit');
+ }finally{if(browser)await browser.close();await server.stop();}})().catch(e=>{console.error(e);process.exitCode=1;});
